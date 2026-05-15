@@ -140,6 +140,7 @@ const createDocument = useLiveMutation(async (db, formData) => {
     relatedStandardId: formData.relatedStandardId,
     periodicReviewMonths: formData.periodicReviewMonths,
     autoEffectiveOnApproval: formData.autoEffectiveOnApproval,
+    trainingConfig: formData.trainingConfig?.enabled ? formData.trainingConfig : null,
     workflowVersionId: formData.workflowVersionId,
     statusId: 'ACTIVE',
     docNumber: `${resolvedPrefix}-${String(documentCounter.currentValue).padStart(3, '0')}`,
