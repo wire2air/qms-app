@@ -100,6 +100,13 @@ declare module 'vue-router/auto-routes' {
       { companyCode: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/[companyCode]/my-training/[id]': RouteRecordInfo<
+      '/[companyCode]/my-training/[id]',
+      '/:companyCode/my-training/:id',
+      { companyCode: ParamValue<true>, id: ParamValue<true> },
+      { companyCode: ParamValue<false>, id: ParamValue<false> },
+      | never
+    >,
     '/[companyCode]/nonconformances/[[id]]': RouteRecordInfo<
       '/[companyCode]/nonconformances/[[id]]',
       '/:companyCode/nonconformances/:id?',
@@ -187,6 +194,34 @@ declare module 'vue-router/auto-routes' {
     '/[companyCode]/templates/[[id]]': RouteRecordInfo<
       '/[companyCode]/templates/[[id]]',
       '/:companyCode/templates/:id?',
+      { companyCode: ParamValue<true>, id?: ParamValueZeroOrOne<true> },
+      { companyCode: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/[companyCode]/training-instances/[[id]]': RouteRecordInfo<
+      '/[companyCode]/training-instances/[[id]]',
+      '/:companyCode/training-instances/:id?',
+      { companyCode: ParamValue<true>, id?: ParamValueZeroOrOne<true> },
+      { companyCode: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/[companyCode]/training-matrix': RouteRecordInfo<
+      '/[companyCode]/training-matrix',
+      '/:companyCode/training-matrix',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/training-verifications/[[id]]': RouteRecordInfo<
+      '/[companyCode]/training-verifications/[[id]]',
+      '/:companyCode/training-verifications/:id?',
+      { companyCode: ParamValue<true>, id?: ParamValueZeroOrOne<true> },
+      { companyCode: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/[companyCode]/trainings/[[id]]': RouteRecordInfo<
+      '/[companyCode]/trainings/[[id]]',
+      '/:companyCode/trainings/:id?',
       { companyCode: ParamValue<true>, id?: ParamValueZeroOrOne<true> },
       { companyCode: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
       | never
@@ -354,6 +389,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/[companyCode]/my-training/[id].vue': {
+      routes:
+        | '/[companyCode]/my-training/[id]'
+      views:
+        | never
+    }
     'src/pages/[companyCode]/nonconformances/[[id]].vue': {
       routes:
         | '/[companyCode]/nonconformances/[[id]]'
@@ -429,6 +470,30 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[companyCode]/templates/[[id]].vue': {
       routes:
         | '/[companyCode]/templates/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/training-instances/[[id]].vue': {
+      routes:
+        | '/[companyCode]/training-instances/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/training-matrix.vue': {
+      routes:
+        | '/[companyCode]/training-matrix'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/training-verifications/[[id]].vue': {
+      routes:
+        | '/[companyCode]/training-verifications/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/trainings/[[id]].vue': {
+      routes:
+        | '/[companyCode]/trainings/[[id]]'
       views:
         | never
     }

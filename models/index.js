@@ -81,6 +81,15 @@ import { NcRootCauseCategory } from './ncRootCauseCategory'
 import { NcRecord } from './ncRecord'
 import { RcaTemplate } from './rcaTemplate'
 import { RiskAssessmentTemplate } from './riskAssessmentTemplate'
+import { Training } from './training'
+import { TrainingInstance } from './trainingInstance'
+import { TrainingAssignee } from './trainingAssignee'
+import { TrainingRole } from './trainingRole'
+import { TrainingUser } from './trainingUser'
+import { TrainingExternalLink } from './trainingExternalLink'
+import { TrainingDocumentLink } from './trainingDocumentLink'
+import { TrainingMatrix } from './trainingMatrix'
+import { TrainingVerification } from './trainingVerification'
 
 export const db = {
   ApiKey,
@@ -166,4 +175,13 @@ export const db = {
   NcRecord,
   RcaTemplate,
   RiskAssessmentTemplate,
+  Training,
+  TrainingInstance,
+  TrainingAssignee,
+  TrainingRole,
+  TrainingUser,
+  TrainingExternalLink,
+  TrainingDocumentLink,
+  TrainingMatrix,
+  TrainingVerification,
 }

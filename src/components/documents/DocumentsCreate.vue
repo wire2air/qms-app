@@ -16,6 +16,19 @@ const saving = ref(false)
 const activeTab = ref('properties')
 const selectedTemplate = ref(null)
 
+const DEFAULT_TRAINING_CONFIG = {
+  enabled: false,
+  autoLaunch: true,
+  managerId: null,
+  requireManagerVerification: true,
+  completionDueDays: 7,
+  passingScore: 80,
+  maxAttempts: 1,
+  roleIds: [],
+  userIds: [],
+  assessment: [],
+}
+
 const DEFAULT_FORM = {
   title: '',
   documentTypeId: null,
@@ -31,6 +44,7 @@ const DEFAULT_FORM = {
   autoEffectiveOnApproval: true,
   relatedStandardId: null,
   prefix: null,
+  trainingConfig: { ...DEFAULT_TRAINING_CONFIG },
 }
 
 // Form data
@@ -302,7 +316,7 @@ function cancel() {
           />
 
           <!-- Training Assessment Tab -->
-          <DocumentsCreateTraining v-show="activeTab === 'training'" />
+          <DocumentsCreateTraining v-show="activeTab === 'training'" v-model="form.trainingConfig" />
         </div>
       </div>
     </div>

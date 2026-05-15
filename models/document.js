@@ -6,6 +6,7 @@ import { DateTime } from 'luxon'
   primaryKey: 'id',
   syncField: 'updatedAt',
   customIndex: 'docNumber',
+  schemaVersion: 2,
 })
 export class Document extends BaseModel {
   static paranoid = true // Enable soft deletes using deletedAt field
@@ -41,6 +42,7 @@ export class Document extends BaseModel {
   @Property({ type: String }) relatedStandardId = ''
   @Property({ type: Number, required: true }) periodicReviewMonths = 12
   @Property({ type: Boolean }) autoEffectiveOnApproval = true
+  @Property({ type: Object }) trainingConfig = null
   @Property({ type: DateTime, required: true, timestamp: true, autoUpdate: true })
   updatedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })

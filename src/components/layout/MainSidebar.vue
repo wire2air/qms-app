@@ -28,6 +28,7 @@ import {
   IconAlertCircle,
   IconSitemap,
   IconLayoutGrid,
+  IconSchool,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { logoutCurrentSession, currentSession, isAllowed, isAdmin } from '@/utils/currentSession'
@@ -102,6 +103,41 @@ const navItems = computed(() => {
       label: 'Nonconformances',
       icon: IconAlertCircle,
       to: getCompanyPath('/nonconformances'),
+    },
+    {
+      label: 'Training',
+      icon: IconSchool,
+      children: [
+        {
+          label: 'My Trainings',
+          icon: IconSchool,
+          to: getCompanyPath('/task-instances?taskKindId=TRAINING'),
+        },
+        {
+          label: 'Training Library',
+          permissions: ['trainings:read'],
+          icon: IconSchool,
+          to: getCompanyPath('/trainings'),
+        },
+        {
+          label: 'Training Instances',
+          permissions: ['trainingInstances:read'],
+          icon: IconSchool,
+          to: getCompanyPath('/training-instances'),
+        },
+        {
+          label: 'Training Verification',
+          permissions: ['trainingVerifications:read'],
+          icon: IconSchool,
+          to: getCompanyPath('/training-verifications'),
+        },
+        {
+          label: 'Training Matrix',
+          permissions: ['trainingMatrix:read'],
+          icon: IconSchool,
+          to: getCompanyPath('/training-matrix'),
+        },
+      ],
     },
     {}, // Divider
     {

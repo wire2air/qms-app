@@ -8,6 +8,10 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  nullLabel: {
+    type: String,
+    default: 'All',
+  },
 })
 
 const modelValue = defineModel({
@@ -29,7 +33,7 @@ function getArray() {
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="users" :required="required" :multiple="multiple">
+  <BaseSelectMenu v-model="modelValue" :items="users" :required="required" :multiple="multiple" :nullLabel="nullLabel">
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <!-- MULTIPLE MODE -->

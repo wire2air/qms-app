@@ -11,6 +11,7 @@ import {
   IconTruck,
   IconPackage,
   IconLayoutGrid,
+  IconSchool,
 } from '@tabler/icons-vue'
 
 /**
@@ -104,6 +105,21 @@ export const CATEGORY_METADATA = {
     icon: IconLayoutGrid,
     description: 'Manage access for Risk Assessment Templates',
   },
+  trainings: {
+    label: 'Training Library',
+    icon: IconSchool,
+    description: 'Manage access for Training Library',
+  },
+  trainingInstances: {
+    label: 'Training Instances',
+    icon: IconSchool,
+    description: 'Manage access for Training Instances',
+  },
+  trainingMatrix: {
+    label: 'Training Matrix',
+    icon: IconSchool,
+    description: 'Manage access for Training Matrix',
+  },
 }
 
 export const PERMISSION_SECTIONS = [
@@ -125,6 +141,10 @@ export const PERMISSION_SECTIONS = [
   {
     name: 'Configuration',
     categories: ['formTemplates', 'rcaTemplates', 'riskAssessmentTemplates', 'records', 'documents', 'document-templates', 'workflows'],
+  },
+  {
+    name: 'Training',
+    categories: ['trainings', 'trainingInstances', 'trainingMatrix'],
   },
 ]
 

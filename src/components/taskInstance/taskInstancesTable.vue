@@ -6,14 +6,16 @@ import { DateTime } from 'luxon'
 const props = defineProps({
   search: { type: String, default: '' },
   statusId: { type: String, default: null },
+  taskKindId: { type: String, default: null },
 })
 
 const taskInstances = useLiveQueryWithDeps(
-  [() => props.statusId, () => currentSession.value?.userId],
-  async (db, [statusId, userId]) => {
+  [() => props.statusId, () => props.taskKindId, () => currentSession.value?.userId],
+  async (db, [statusId, taskKindId, userId]) => {
     if (!userId) return []
     let results = await db.TaskInstance.where('assignedTo', userId).exec()
     if (statusId) results = results.filter((t) => t.statusId === statusId)
+    if (taskKindId) results = results.filter((t) => t.taskKindId === taskKindId)
     return results
   },
   { initial: [] },
@@ -61,10 +63,54 @@ const ncMap = useLiveQueryWithDeps(
   { initial: {} },
 )
 
+const trainingAssigneeMap = useLiveQueryWithDeps(
+  [
+    () =>
+      taskInstances.value.filter((i) => i.entityType === 'TrainingAssignee').map((i) => i.entityId),
+  ],
+  async (db, [assigneeIds]) => {
+    const ids = [...new Set(assigneeIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const assignees = await Promise.all(ids.map((id) => db.TrainingAssignee.findByPk(id)))
+    const instanceIds = [...new Set(assignees.filter(Boolean).map((a) => a.trainingInstanceId).filter(Boolean))]
+    const instances = await Promise.all(instanceIds.map((id) => db.TrainingInstance.findByPk(id)))
+    const instanceById = Object.fromEntries(instances.filter(Boolean).map((i) => [i.id, i]))
+    const map = {}
+    for (const a of assignees.filter(Boolean)) {
+      map[a.id] = { assignee: a, instance: instanceById[a.trainingInstanceId] }
+    }
+    return map
+  },
+  { initial: {} },
+)
+
+// For TRAINING_VERIFICATION tasks, entityId is the TrainingInstance itself
+const trainingInstanceMap = useLiveQueryWithDeps(
+  [
+    () =>
+      taskInstances.value.filter((i) => i.entityType === 'TrainingInstance').map((i) => i.entityId),
+  ],
+  async (db, [instanceIds]) => {
+    const ids = [...new Set(instanceIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const instances = await Promise.all(ids.map((id) => db.TrainingInstance.findByPk(id)))
+    return Object.fromEntries(instances.filter(Boolean).map((i) => [i.id, i]))
+  },
+  { initial: {} },
+)
+
 const filteredInstances = computed(() => {
   if (!props.search) return taskInstances.value
   const q = props.search.toLowerCase()
   return taskInstances.value.filter((instance) => {
+    if (instance.entityType === 'TrainingAssignee') {
+      const title = trainingAssigneeMap.value[instance.entityId]?.instance?.snapshot?.title
+      return title?.toLowerCase().includes(q)
+    }
+    if (instance.entityType === 'TrainingInstance') {
+      const title = trainingInstanceMap.value[instance.entityId]?.snapshot?.title
+      return title?.toLowerCase().includes(q)
+    }
     if (instance.entityType === 'Nonconformance') {
       const nc = ncMap.value[instance.entityId]
       if (!nc) return false
@@ -79,6 +125,8 @@ const filteredInstances = computed(() => {
 const EntityType = {
   DocumentVersion: 'Document',
   Nonconformance: 'Nonconformance',
+  TrainingAssignee: 'Training',
+  TrainingInstance: 'Training Verification',
 }
 
 const columns = [
@@ -103,6 +151,10 @@ const pagination = ref({
   total: null,
 })
 
+function getTrainingAssigneeEntry(instance) {
+  return trainingAssigneeMap.value[instance.entityId] || null
+}
+
 function getDocument(instance) {
   return documentMap.value[instance.entityId]?.doc || null
 }
@@ -121,6 +173,14 @@ function isDuePast(dueDate) {
 }
 
 function entityRoute(row) {
+  if (row.entityType === 'TrainingAssignee') {
+    const instanceId = trainingAssigneeMap.value[row.entityId]?.instance?.id
+    return instanceId ? getCompanyPath(`my-training/${instanceId}`) : null
+  }
+  if (row.entityType === 'TrainingInstance') {
+    // Manager's verification task — open the verification dashboard scoped to this instance
+    return getCompanyPath(`training-verifications/${row.entityId}`)
+  }
   if (row.entityType === 'Nonconformance') {
     return getCompanyPath(`nonconformances/${row.entityId}`)
   }
@@ -134,7 +194,7 @@ function entityRoute(row) {
 
 <template>
   <BaseTable
-    v-model:pagination="pagination"
+    :pagination="pagination"
     :rows="filteredInstances"
     :columns="columns"
     rowKey="id"
@@ -146,7 +206,20 @@ function entityRoute(row) {
         class="tw:flex tw:flex-col tw:group"
         :to="entityRoute(row) || undefined"
       >
-        <template v-if="row.entityType === 'Nonconformance'">
+        <template v-if="row.entityType === 'TrainingAssignee'">
+          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+            {{ getTrainingAssigneeEntry(row)?.instance?.snapshot?.title || '—' }}
+          </span>
+        </template>
+        <template v-else-if="row.entityType === 'TrainingInstance'">
+          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+            {{ trainingInstanceMap[row.entityId]?.snapshot?.title || '—' }}
+          </span>
+          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+            Verification · {{ row.entityId.slice(0, 8) }}
+          </span>
+        </template>
+        <template v-else-if="row.entityType === 'Nonconformance'">
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
             {{ getNc(row)?.title || '—' }}
           </span>
@@ -179,8 +252,9 @@ function entityRoute(row) {
 
     <!-- Type -->
     <template #body-cell-type="{ row }">
+      <span v-if="row.entityType === 'TrainingAssignee' || row.entityType === 'TrainingInstance'" class="tw:text-sm tw:text-secondary">—</span>
       <NcTypeBadgeById
-        v-if="row.entityType === 'Nonconformance' && getNc(row)?.typeId"
+        v-else-if="row.entityType === 'Nonconformance' && getNc(row)?.typeId"
         :typeId="getNc(row).typeId"
       />
       <DocumentTypeBadgeById
@@ -191,9 +265,13 @@ function entityRoute(row) {
       <span v-else class="tw:text-sm tw:text-secondary">—</span>
     </template>
 
-    <!-- Due Date -->
+    <!-- Due Date / Completed -->
     <template #body-cell-dueDate="{ row }">
+      <span v-if="row.completedAt" class="tw:text-sm tw:font-medium tw:text-green-600">
+        Completed {{ row.completedAt.formatDate('date') }}
+      </span>
       <span
+        v-else
         class="tw:text-sm tw:font-medium"
         :class="isDuePast(row.dueDate) ? 'tw:text-red-500' : 'tw:text-on-main'"
       >
@@ -203,7 +281,11 @@ function entityRoute(row) {
 
     <!-- Status -->
     <template #body-cell-status="{ row }">
-      <TaskInstanceStatusBadgeById :statusId="row.statusId" :module="row.entityType" />
+      <TrainingAssigneeStatusBadgeById
+        v-if="row.entityType === 'TrainingAssignee' && getTrainingAssigneeEntry(row)?.assignee"
+        :statusId="getTrainingAssigneeEntry(row).assignee.status"
+      />
+      <TaskInstanceStatusBadgeById v-else :statusId="row.statusId" :module="row.entityType" />
     </template>
 
     <!-- Created -->

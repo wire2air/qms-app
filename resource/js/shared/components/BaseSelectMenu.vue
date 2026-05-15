@@ -20,6 +20,10 @@ const props = defineProps({
     type: String,
     default: 'All',
   },
+  hideNullOption: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const selected = defineModel({
@@ -35,7 +39,7 @@ function getArray() {
   return Array.isArray(selected.value) ? selected.value : []
 }
 
-const showNullable = computed(() => !props.required && !props.multiple)
+const showNullable = computed(() => !props.required && !props.multiple && !props.hideNullOption)
 
 const isNullableSelected = computed(() => {
   if (props.multiple) return getArray().length === 0

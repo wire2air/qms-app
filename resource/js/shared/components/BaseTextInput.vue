@@ -61,19 +61,19 @@ const props = defineProps({
     default: false,
   },
   step: {
-    type: [Number, undefined],
+    type: [Number, String],
     default: undefined,
   },
   min: {
-    type: [Number, String, undefined],
+    type: [Number, String],
     default: undefined,
   },
   max: {
-    type: [Number, undefined],
+    type: [Number, String],
     default: undefined,
   },
   pattern: {
-    type: [String, undefined],
+    type: String,
     default: undefined,
   },
   inputClass: {

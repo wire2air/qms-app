@@ -45,6 +45,12 @@ export async function graphqlRequest(query, variables, { signal } = {}) {
   }
 
   if (!res.ok) {
+    if (res.status === 401) {
+      // Notify the app shell so it can redirect to the login screen
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('qms:auth-unauthorized'))
+      }
+    }
     throw new GraphQLError(`Request failed with status ${res.status}`, {
       status: res.status,
       errors: [],
