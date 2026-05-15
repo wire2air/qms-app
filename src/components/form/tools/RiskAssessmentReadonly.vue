@@ -29,6 +29,16 @@ const severityLabel = computed(() => {
   if (!id || !template.value) return null
   return (template.value.config?.severity ?? []).find((s) => s.id === id)?.label ?? null
 })
+
+const rpnScore = computed(() => props.values?.rpnScore ?? null)
+
+const enableDetectability = computed(() => template.value?.config?.enableDetectability ?? false)
+
+const detectabilityLabel = computed(() => {
+  const id = props.values?.detectabilityId
+  if (!id || !template.value) return null
+  return (template.value.config?.detectability ?? []).find((d) => d.id === id)?.label ?? null
+})
 </script>
 
 <template>
@@ -39,16 +49,25 @@ const severityLabel = computed(() => {
       :style="{ backgroundColor: riskLevel.bg + '33', borderColor: riskLevel.bg }"
     >
       <div
-        class="tw:text-sm tw:font-bold tw:px-3 tw:py-1 tw:rounded-md"
+        class="tw:text-sm tw:font-bold tw:px-3 tw:py-1 tw:rounded-md tw:shrink-0"
         :style="{ backgroundColor: riskLevel.bg, color: riskLevel.text }"
       >
         {{ riskLevel.label }}
       </div>
-      <div class="tw:flex tw:flex-col">
+      <div class="tw:flex tw:flex-col tw:flex-1 tw:min-w-0">
         <span v-if="likelihoodLabel && severityLabel" class="tw:text-xs tw:font-medium tw:text-on-main">
           {{ likelihoodLabel }} × {{ severityLabel }}
+          <template v-if="enableDetectability && detectabilityLabel"> × {{ detectabilityLabel }}</template>
+          <template v-if="rpnScore"> = RPN {{ rpnScore }}</template>
         </span>
         <span v-if="values.notes" class="tw:text-xs tw:text-secondary">{{ values.notes }}</span>
+      </div>
+      <div
+        v-if="rpnScore"
+        class="tw:flex tw:flex-col tw:items-center tw:shrink-0 tw:bg-white/60 tw:rounded-lg tw:px-3 tw:py-1.5"
+      >
+        <span class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">RPN</span>
+        <span class="tw:text-xl tw:font-bold tw:text-on-main tw:leading-none">{{ rpnScore }}</span>
       </div>
     </div>
     <span v-else class="tw:text-sm tw:text-secondary">—</span>

@@ -20,6 +20,12 @@ const likelihood = computed(() => template.value?.config?.likelihood ?? [])
 const severity = computed(() => template.value?.config?.severity ?? [])
 const riskLevels = computed(() => template.value?.config?.riskLevels ?? [])
 const cells = computed(() => template.value?.config?.cells ?? {})
+const detectability = computed(() => template.value?.config?.detectability ?? [])
+const enableDetectability = computed(() => template.value?.config?.enableDetectability ?? false)
+const selectedDetectabilityId = computed(() => props.modelValue?.detectabilityId ?? null)
+const selectedDetectability = computed(
+  () => detectability.value.find((d) => d.id === selectedDetectabilityId.value) ?? null,
+)
 
 function cellKey(likelihoodId, severityId) {
   return `${likelihoodId}:${severityId}`
@@ -39,16 +45,41 @@ const selectedRiskLevel = computed(
   () => riskLevels.value.find((r) => r.id === selectedRiskLevelId.value) ?? null,
 )
 
+function computeRpn(likelihoodId, severityId, detectabilityId) {
+  const l = likelihood.value.find((x) => x.id === likelihoodId)
+  const s = severity.value.find((x) => x.id === severityId)
+  const lScore = l?.score ?? l?.order ?? 1
+  const sScore = s?.score ?? s?.order ?? 1
+  if (enableDetectability.value && detectabilityId) {
+    const d = detectability.value.find((x) => x.id === detectabilityId)
+    const dScore = d?.score ?? d?.order ?? 1
+    return lScore * sScore * dScore
+  }
+  return lScore * sScore
+}
+
 function selectCell(likelihoodId, severityId) {
   if (props.readonly || props.disabled) return
   const key = cellKey(likelihoodId, severityId)
   const levelId = cells.value[key] ?? null
+  const rpnScore = computeRpn(likelihoodId, severityId, selectedDetectabilityId.value)
   emit('update:modelValue', {
     ...(props.modelValue ?? {}),
     _templateId: template.value?.id ?? null,
     likelihoodId,
     severityId,
     riskLevelId: levelId,
+    rpnScore,
+  })
+}
+
+function selectDetectability(detectabilityId) {
+  if (props.readonly || props.disabled) return
+  const rpnScore = computeRpn(selectedLikelihoodId.value, selectedSeverityId.value, detectabilityId)
+  emit('update:modelValue', {
+    ...(props.modelValue ?? {}),
+    detectabilityId,
+    rpnScore,
   })
 }
 
@@ -86,20 +117,30 @@ const notes = computed(() => props.modelValue?.notes ?? '')
         :style="{ backgroundColor: selectedRiskLevel.bg + '33', borderColor: selectedRiskLevel.bg }"
       >
         <div
-          class="tw:text-sm tw:font-bold tw:px-3 tw:py-1 tw:rounded-md"
+          class="tw:text-sm tw:font-bold tw:px-3 tw:py-1 tw:rounded-md tw:shrink-0"
           :style="{ backgroundColor: selectedRiskLevel.bg, color: selectedRiskLevel.text }"
         >
           {{ selectedRiskLevel.label }}
         </div>
-        <div class="tw:flex tw:flex-col">
+        <div class="tw:flex tw:flex-col tw:flex-1 tw:min-w-0">
           <span class="tw:text-xs tw:font-medium tw:text-on-main">
             {{ likelihood.find((l) => l.id === selectedLikelihoodId)?.label ?? '' }}
             ×
             {{ severity.find((s) => s.id === selectedSeverityId)?.label ?? '' }}
+            <template v-if="enableDetectability && selectedDetectability">
+              × {{ selectedDetectability.label }}
+            </template>
           </span>
           <span v-if="!readonly && !disabled" class="tw:text-[11px] tw:text-secondary">
             Click another cell to change selection
           </span>
+        </div>
+        <div
+          v-if="modelValue?.rpnScore"
+          class="tw:flex tw:flex-col tw:items-center tw:shrink-0 tw:bg-white/60 tw:rounded-lg tw:px-3 tw:py-1.5"
+        >
+          <span class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">RPN</span>
+          <span class="tw:text-xl tw:font-bold tw:text-on-main tw:leading-none">{{ modelValue.rpnScore }}</span>
         </div>
       </div>
       <div
@@ -123,6 +164,7 @@ const notes = computed(() => props.modelValue?.notes ?? '')
                 class="tw:text-[11px] tw:font-semibold tw:text-on-main tw:text-center tw:pb-1 tw:px-1 tw:min-w-[72px]"
               >
                 {{ col.label }}
+                <div class="tw:text-[10px] tw:font-normal tw:text-secondary">({{ col.score ?? col.order }})</div>
               </th>
             </tr>
           </thead>
@@ -130,6 +172,7 @@ const notes = computed(() => props.modelValue?.notes ?? '')
             <tr v-for="row in likelihood" :key="row.id">
               <td class="tw:text-[11px] tw:font-semibold tw:text-on-main tw:text-right tw:pr-2 tw:py-0.5 tw:whitespace-nowrap">
                 {{ row.label }}
+                <div class="tw:text-[10px] tw:font-normal tw:text-secondary">({{ row.score ?? row.order }})</div>
               </td>
               <td
                 v-for="col in severity"
@@ -155,6 +198,30 @@ const notes = computed(() => props.modelValue?.notes ?? '')
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Detectability selector (FMEA 3-factor) -->
+      <div v-if="enableDetectability" class="tw:flex tw:flex-col tw:gap-2">
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <label class="tw:text-xs tw:font-medium tw:text-secondary">Detectability</label>
+          <span class="tw:text-[10px] tw:text-secondary tw:bg-divider tw:rounded tw:px-1.5 tw:py-0.5">FMEA</span>
+        </div>
+        <p class="tw:text-[11px] tw:text-secondary tw:-mt-1">How easily can this failure be detected? Lower score = easier to detect.</p>
+        <div class="tw:flex tw:flex-wrap tw:gap-1.5">
+          <button
+            v-for="item in detectability"
+            :key="item.id"
+            class="tw:flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:px-3 tw:py-1.5 tw:text-xs tw:font-medium tw:transition-colors tw:cursor-pointer"
+            :class="selectedDetectabilityId === item.id
+              ? 'tw:border-primary tw:bg-primary/10 tw:text-primary'
+              : 'tw:border-divider tw:text-secondary tw:hover:border-primary/50'"
+            :disabled="readonly || disabled"
+            @click="selectDetectability(item.id)"
+          >
+            {{ item.label }}
+            <span class="tw:text-[10px] tw:opacity-60">({{ item.score ?? item.order }})</span>
+          </button>
+        </div>
       </div>
 
       <!-- Notes -->
