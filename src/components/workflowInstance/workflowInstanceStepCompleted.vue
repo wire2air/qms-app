@@ -1,6 +1,7 @@
 <script setup>
 const props = defineProps({
   instanceStepId: { type: String, required: true },
+  displayNumber: { type: String, default: null },
 })
 
 const instanceStep = useLiveQueryWithDeps(
@@ -48,7 +49,7 @@ const usersMap = useLiveQueryWithDeps(
     <div class="tw:flex tw:flex-wrap tw:items-start tw:justify-between tw:gap-2 tw:mb-3">
       <div class="tw:min-w-0 tw:flex-1">
         <h3 class="tw:font-bold tw:text-on-main tw:wrap-break-word">
-          Step {{ instanceStep?.stepNumber }}: {{ step?.name }}
+          Step {{ displayNumber ?? instanceStep?.stepNumber }}: {{ step?.name }}
         </h3>
         <p class="tw:text-xs tw:text-secondary">
           Rule: {{ step?.approvalRule }} &bull; Threshold met

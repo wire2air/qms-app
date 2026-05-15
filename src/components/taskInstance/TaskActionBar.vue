@@ -67,5 +67,16 @@ defineExpose({ taskInstance })
         :canActOnStep="canActOnStep"
       />
     </template>
+    <template v-else-if="entityType === 'Capa' && taskInstance.taskKindId === 'EFFECTIVENESS_CHECK'">
+      <TaskInstanceCapaEffectivenessActions :taskInstance="taskInstance" />
+    </template>
+    <template v-else-if="entityType === 'Capa'">
+      <TaskInstanceCapaActions
+        :taskInstanceId="taskInstance.id"
+        :instanceStep="instanceStep"
+        :workflowStep="workflowStep"
+        :canActOnStep="canActOnStep"
+      />
+    </template>
   </template>
 </template>

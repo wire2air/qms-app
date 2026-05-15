@@ -99,6 +99,17 @@ const trainingInstanceMap = useLiveQueryWithDeps(
   { initial: {} },
 )
 
+const capaMap = useLiveQueryWithDeps(
+  [() => taskInstances.value.filter((i) => i.entityType === 'Capa').map((i) => i.entityId)],
+  async (db, [capaIds]) => {
+    const ids = [...new Set(capaIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const capas = await Promise.all(ids.map((id) => db.Capa.findByPk(id)))
+    return Object.fromEntries(capas.filter(Boolean).map((c) => [c.id, c]))
+  },
+  { initial: {} },
+)
+
 const filteredInstances = computed(() => {
   if (!props.search) return taskInstances.value
   const q = props.search.toLowerCase()
@@ -116,6 +127,11 @@ const filteredInstances = computed(() => {
       if (!nc) return false
       return nc.title?.toLowerCase().includes(q) || nc.ncNumber?.toLowerCase().includes(q)
     }
+    if (instance.entityType === 'Capa') {
+      const capa = capaMap.value[instance.entityId]
+      if (!capa) return false
+      return capa.title?.toLowerCase().includes(q) || capa.capaNumber?.toLowerCase().includes(q)
+    }
     const doc = documentMap.value[instance.entityId]?.doc
     if (!doc) return false
     return doc.title?.toLowerCase().includes(q) || doc.docNumber?.toLowerCase().includes(q)
@@ -127,6 +143,7 @@ const EntityType = {
   Nonconformance: 'Nonconformance',
   TrainingAssignee: 'Training',
   TrainingInstance: 'Training Verification',
+  Capa: 'CAPA',
 }
 
 const columns = [
@@ -167,6 +184,10 @@ function getNc(instance) {
   return ncMap.value[instance.entityId] || null
 }
 
+function getCapa(instance) {
+  return capaMap.value[instance.entityId] || null
+}
+
 function isDuePast(dueDate) {
   if (!dueDate) return false
   return dueDate < DateTime.now()
@@ -183,6 +204,9 @@ function entityRoute(row) {
   }
   if (row.entityType === 'Nonconformance') {
     return getCompanyPath(`nonconformances/${row.entityId}`)
+  }
+  if (row.entityType === 'Capa') {
+    return getCompanyPath(`capas/${row.entityId}`)
   }
   if (row.entityType === 'DocumentVersion') {
     const doc = documentMap.value[row.entityId]?.doc
@@ -227,6 +251,14 @@ function entityRoute(row) {
             {{ getNc(row)?.ncNumber || '—' }}
           </span>
         </template>
+        <template v-else-if="row.entityType === 'Capa'">
+          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+            {{ getCapa(row)?.title || '—' }}
+          </span>
+          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+            {{ getCapa(row)?.capaNumber || '—' }}
+          </span>
+        </template>
         <template v-else>
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
             {{ getDocument(row)?.title || '—' }}
@@ -256,6 +288,10 @@ function entityRoute(row) {
       <NcTypeBadgeById
         v-else-if="row.entityType === 'Nonconformance' && getNc(row)?.typeId"
         :typeId="getNc(row).typeId"
+      />
+      <CapaTypeBadgeById
+        v-else-if="row.entityType === 'Capa' && getCapa(row)?.typeId"
+        :typeId="getCapa(row).typeId"
       />
       <DocumentTypeBadgeById
         v-else-if="getDocument(row)?.documentTypeId"

@@ -39,9 +39,17 @@ function getUserDisplayName(user) {
   return parts.length > 0 ? parts.join(' ') : user.email
 }
 
-const createStepUser = useLiveMutation(async (db, { stepId, userId }) => {
+const addStepUser = useLiveMutation(async (db, { stepId, userId }) => {
+  const existing = await db.WorkflowStepUser.where('stepId', stepId, { force: true })
+    .where('userId', userId)
+    .first()
+  if (existing) {
+    if (existing.deletedAt) await existing.restore()
+    return existing
+  }
   const su = db.WorkflowStepUser.create({ stepId, userId })
   await su.save()
+  return su
 })
 
 async function toggleUser(userId) {
@@ -50,7 +58,7 @@ async function toggleUser(userId) {
   if (existing) {
     await existing.delete()
   } else {
-    await createStepUser({ stepId: props.stepId, userId })
+    await addStepUser({ stepId: props.stepId, userId })
   }
 }
 

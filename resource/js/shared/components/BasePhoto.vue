@@ -1,5 +1,6 @@
 <script setup>
 import { IconCamera, IconUpload, IconX, IconPhoto } from '@tabler/icons-vue'
+import { uploadFile } from '@/utils/uploadService.js'
 
 const props = defineProps({
   mode: {
@@ -32,6 +33,10 @@ const props = defineProps({
     default: 'environment',
     validator: (value) => ['user', 'environment'].includes(value),
   },
+  fileType: {
+    type: String,
+    default: 'ASSET',
+  },
 })
 
 const emit = defineEmits(['error', 'capture', 'upload'])
@@ -44,6 +49,7 @@ const cameraDialogOpen = ref(false)
 const stream = ref(null)
 const previewUrl = ref(null)
 const cameraError = ref(null)
+const uploading = ref(false)
 
 const displayUrl = computed(() => {
   if (modelValue.value instanceof File) {
@@ -51,6 +57,10 @@ const displayUrl = computed(() => {
   }
   if (typeof modelValue.value === 'string' && modelValue.value) {
     return modelValue.value
+  }
+  // Uploaded asset object — produced by uploadFile() and persisted as-is.
+  if (modelValue.value && typeof modelValue.value === 'object' && modelValue.value.url) {
+    return modelValue.value.url
   }
   return previewUrl.value
 })
@@ -115,6 +125,22 @@ function closeCamera() {
   cameraError.value = null
 }
 
+// Persist the chosen file to the server and store the returned asset record.
+// Raw File objects can't be JSON-serialized (they stringify to "{}"), so we
+// always upload before writing modelValue.
+async function persistFile(file, eventName) {
+  uploading.value = true
+  try {
+    const asset = await uploadFile(file, props.fileType)
+    modelValue.value = asset
+    emit(eventName, asset)
+  } catch (error) {
+    emit('error', { type: 'upload', error, message: error?.message || 'Upload failed' })
+  } finally {
+    uploading.value = false
+  }
+}
+
 function capturePhoto() {
   if (!videoRef.value || !canvasRef.value) return
   const video = videoRef.value
@@ -124,21 +150,19 @@ function capturePhoto() {
   canvas.height = video.videoHeight
   context.drawImage(video, 0, 0, canvas.width, canvas.height)
   canvas.toBlob(
-    (blob) => {
-      if (blob) {
-        const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' })
-        previewUrl.value = URL.createObjectURL(blob)
-        modelValue.value = file
-        emit('capture', file)
-        closeCamera()
-      }
+    async (blob) => {
+      if (!blob) return
+      const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' })
+      previewUrl.value = URL.createObjectURL(blob)
+      closeCamera()
+      await persistFile(file, 'capture')
     },
     'image/jpeg',
     0.9,
   )
 }
 
-function handleFileUpload(event) {
+async function handleFileUpload(event) {
   const file = event.target.files?.[0]
   if (!file) return
   if (file.size > props.maxFileSize) {
@@ -153,8 +177,7 @@ function handleFileUpload(event) {
     return
   }
   previewUrl.value = URL.createObjectURL(file)
-  modelValue.value = file
-  emit('upload', file)
+  await persistFile(file, 'upload')
 }
 
 function triggerFileInput() {

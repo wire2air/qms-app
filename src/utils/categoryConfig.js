@@ -95,6 +95,11 @@ export const CATEGORY_METADATA = {
     icon: IconShield,
     description: 'Manage access for Nonconformances',
   },
+  capas: {
+    label: 'CAPAs',
+    icon: IconShield,
+    description: 'Manage access for CAPAs',
+  },
   rcaTemplates: {
     label: 'RCA Templates',
     icon: IconSitemap,
@@ -136,6 +141,7 @@ export const PERMISSION_SECTIONS = [
       'suppliers',
       'products',
       'nonconformances',
+      'capas',
     ],
   },
   {

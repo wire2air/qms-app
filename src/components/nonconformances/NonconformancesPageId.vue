@@ -1,6 +1,6 @@
 <script setup>
 import { IconAlertTriangle } from '@tabler/icons-vue'
-import { currentSession } from '@/utils/currentSession.js'
+import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
@@ -24,8 +24,13 @@ const breadcrumbs = computed(() => [
 
 // ─── Inline disposition auto-save ─────────────────────────────────────────────
 const isFirstLoad = ref(true)
+const canUpdate = computed(() => isAllowed(['nonconformances:update']))
 const isEditable = computed(
-  () => nc.value && nc.value.statusId !== 'CLOSED' && nc.value.statusId !== 'VOID',
+  () =>
+    nc.value &&
+    nc.value.statusId !== 'CLOSED' &&
+    nc.value.statusId !== 'VOID' &&
+    canUpdate.value,
 )
 
 const debouncedSave = useDebounceFn(async () => {
@@ -97,6 +102,16 @@ const workflowInstance = useLiveQueryWithDeps([() => props.id], async (db, [id])
   return results.find((i) => i.statusId === 'IN_PROGRESS') || results[0] || null
 })
 
+// Resolve the underlying Workflow id from the version so we can link to the
+// template (workflow-templates route is keyed by workflow id, not version id).
+const workflowVersion = useLiveQueryWithDeps(
+  [() => workflowInstance.value?.workflowVersionId ?? nc.value?.workflowVersionId],
+  async (db, [versionId]) => {
+    if (!versionId) return null
+    return db.WorkflowVersion.findByPk(versionId)
+  },
+)
+
 // ─── Inline-edit for cost fields ──────────────────────────────────────────────
 const editingCost = ref(false)
 const editingCredit = ref(false)
@@ -107,6 +122,22 @@ const editingDescription = ref(false)
 const editingSeverity = ref(false)
 const editingDetected = ref(false)
 const editingDueDate = ref(false)
+
+// ─── Linked CAPAs ─────────────────────────────────────────────────────────────
+const canCreateCapa = computed(() => isAllowed(['capas:create']))
+
+const linkedCapas = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [ncId]) => {
+    if (!ncId) return []
+    return db.Capa.where('[sourceType+sourceId]', ['NC', ncId]).exec()
+  },
+  { initial: [] },
+)
+
+function onCreateLinkedCapa() {
+  router.push({ path: getCompanyPath('/capas/create'), query: { ncId: props.id } })
+}
 
 // ─── Workflow steps are handled by NcWorkflowDetail component ────────────────
 </script>
@@ -396,6 +427,49 @@ const editingDueDate = ref(false)
                 </div>
               </template>
             </div>
+
+            <!-- Linked CAPAs -->
+            <div
+              v-if="nc.capaRequired === true"
+              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
+            >
+              <div
+                class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+              >
+                <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+                  Linked CAPAs
+                </div>
+                <BaseButton
+                  v-if="canCreateCapa"
+                  variant="outline"
+                  size="sm"
+                  @click="onCreateLinkedCapa"
+                >
+                  Create CAPA
+                </BaseButton>
+              </div>
+              <div v-if="linkedCapas.length" class="tw:flex tw:flex-col tw:gap-2">
+                <RouterLink
+                  v-for="linked in linkedCapas"
+                  :key="linked.id"
+                  :to="getCompanyPath(`/capas/${linked.id}`)"
+                  class="tw:flex tw:items-center tw:justify-between tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
+                >
+                  <div class="tw:flex tw:items-center tw:gap-3 tw:min-w-0">
+                    <span class="tw:text-xs tw:font-mono tw:text-secondary">
+                      {{ linked.capaNumber }}
+                    </span>
+                    <span class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">
+                      {{ linked.title }}
+                    </span>
+                  </div>
+                  <CapaStatusBadgeById :statusId="linked.statusId" />
+                </RouterLink>
+              </div>
+              <div v-else class="tw:text-sm tw:text-secondary tw:italic">
+                No CAPAs linked yet.
+              </div>
+            </div>
           </div>
 
           <!-- Right column -->
@@ -523,6 +597,20 @@ const editingDueDate = ref(false)
                   :to="getCompanyPath(`/workflow-instances/${workflowInstance.id}`)"
                 >
                   View workflow details →
+                </RouterLink>
+                <RouterLink
+                  v-if="workflowVersion?.workflowId"
+                  class="tw:mt-1 tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
+                  :to="
+                    getCompanyPath(
+                      `/workflow-templates/${workflowVersion.workflowId}?version=${encodeURIComponent(
+                        workflowVersion.versionLabel ||
+                          `${workflowVersion.versionMajor ?? 1}.${workflowVersion.versionMinor ?? 0}`,
+                      )}`,
+                    )
+                  "
+                >
+                  View workflow template →
                 </RouterLink>
               </div>
 

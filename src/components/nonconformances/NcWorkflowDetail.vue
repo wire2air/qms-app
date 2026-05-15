@@ -99,14 +99,17 @@ const currentlyAssignedUserIds = useLiveQueryWithDeps(
       'workflowInstanceStepId',
       id,
     ).exec()
-    return assignments.filter((a) => a.statusId === 'ASSIGNED').map((a) => a.userId)
+    // Mirror the backend's "active" semantics (statusId != 'REASSIGNED') so a
+    // PENDING reviewer isn't offered as a reassign candidate — otherwise the
+    // server rejects with "Cannot reassign to the same user".
+    return assignments.filter((a) => a.statusId !== 'REASSIGNED').map((a) => a.userId)
   },
   { initial: [] },
 )
 
-const reassignCandidatesExcludingAssigned = computed(() =>
-  reassignCandidates.value.filter((u) => !currentlyAssignedUserIds.value.includes(u.id)),
-)
+function isUserAlreadyAssigned(userId) {
+  return currentlyAssignedUserIds.value.includes(userId)
+}
 
 function openReassignDialog(instanceStepId) {
   reassignStepInstanceId.value = instanceStepId
@@ -180,30 +183,39 @@ async function handleSendBack() {
       </label>
       <div class="tw:flex tw:flex-col tw:gap-2">
         <label
-          v-for="user in reassignCandidatesExcludingAssigned"
+          v-for="user in reassignCandidates"
           :key="user.id"
-          class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer tw:rounded-lg tw:px-3 tw:py-2 tw:border tw:transition-colors"
-          :class="
-            reassignToUserId === user.id
-              ? 'tw:border-primary tw:bg-primary/5'
-              : 'tw:border-divider tw:hover:bg-main-hover'
-          "
+          class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:px-3 tw:py-2 tw:border tw:transition-colors"
+          :class="[
+            isUserAlreadyAssigned(user.id)
+              ? 'tw:border-divider tw:bg-main-hover/40 tw:opacity-70 tw:cursor-not-allowed'
+              : reassignToUserId === user.id
+                ? 'tw:border-primary tw:bg-primary/5 tw:cursor-pointer'
+                : 'tw:border-divider tw:hover:bg-main-hover tw:cursor-pointer',
+          ]"
         >
           <input
             v-model="reassignToUserId"
             type="radio"
             :value="user.id"
+            :disabled="isUserAlreadyAssigned(user.id)"
             class="tw:accent-primary"
           />
           <div class="tw:flex-1 tw:min-w-0">
             <div class="tw:text-sm tw:font-medium tw:text-on-main">
               {{ [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email }}
+              <span
+                v-if="isUserAlreadyAssigned(user.id)"
+                class="tw:text-[10px] tw:font-medium tw:text-secondary tw:ml-1"
+              >
+                (Currently assigned)
+              </span>
             </div>
             <div class="tw:text-xs tw:text-secondary tw:truncate">{{ user.email }}</div>
           </div>
         </label>
-        <p v-if="!reassignCandidatesExcludingAssigned.length" class="tw:text-sm tw:text-secondary">
-          No eligible users available for reassignment.
+        <p v-if="!reassignCandidates.length" class="tw:text-sm tw:text-secondary">
+          No users hold the role(s) required for this step.
         </p>
       </div>
     </div>

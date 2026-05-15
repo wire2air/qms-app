@@ -16,6 +16,7 @@ const props = defineProps({
   showAllowedOutcomes: { type: Boolean, default: false },
   showSendBackTargets: { type: Boolean, default: false },
   showFormSchema: { type: Boolean, default: false },
+  showAllowMultipleTasks: { type: Boolean, default: false },
   stepApproversTab: {
     type: String,
     default: 'both',
@@ -274,6 +275,15 @@ watch(
               <span class="tw:text-xs tw:font-semibold tw:text-on-main">Require E-signature</span>
             </label>
           </div>
+
+          <!-- CAPA-only: allow multiple parallel tasks on a root step -->
+          <label
+            v-if="showAllowMultipleTasks && !step.parentStepId"
+            class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer"
+          >
+            <BaseCheckbox v-model="step.allowMultipleTasks" :disabled="!canUpdate" />
+            <span class="tw:text-xs tw:font-semibold tw:text-on-main">Allow multiple tasks</span>
+          </label>
         </div>
       </div>
     </div>
@@ -393,9 +403,15 @@ watch(
       :stepApproversTab="stepApproversTab"
     />
 
-    <!-- Send-Back Targets -->
+    <!-- Send-Back Targets — root steps only. Child (sub-)steps can't
+         initiate a send-back, so no targets are configurable. -->
     <div
-      v-if="showSendBackTargets && isSendBackActive && siblingSteps.length > 0"
+      v-if="
+        showSendBackTargets &&
+        isSendBackActive &&
+        siblingSteps.length > 0 &&
+        !step.parentStepId
+      "
       class="tw:space-y-4"
     >
       <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">

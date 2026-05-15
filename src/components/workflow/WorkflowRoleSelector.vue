@@ -27,9 +27,17 @@ const filteredRoles = computed(() => {
   return roles.value.filter((r) => r.name.toLowerCase().includes(q))
 })
 
-const createStepRole = useLiveMutation(async (db, { stepId, roleId }) => {
+const addStepRole = useLiveMutation(async (db, { stepId, roleId }) => {
+  const existing = await db.WorkflowStepRole.where('stepId', stepId, { force: true })
+    .where('roleId', roleId)
+    .first()
+  if (existing) {
+    if (existing.deletedAt) await existing.restore()
+    return existing
+  }
   const sr = db.WorkflowStepRole.create({ stepId, roleId })
   await sr.save()
+  return sr
 })
 
 async function toggleRole(roleId) {
@@ -38,7 +46,7 @@ async function toggleRole(roleId) {
   if (existing) {
     await existing.delete()
   } else {
-    await createStepRole({ stepId: props.stepId, roleId })
+    await addStepRole({ stepId: props.stepId, roleId })
   }
 }
 

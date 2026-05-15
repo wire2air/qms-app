@@ -4,6 +4,10 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  showCardOnClick: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const user = useLiveQueryWithDeps(
@@ -17,5 +21,5 @@ const user = useLiveQueryWithDeps(
 </script>
 
 <template>
-  <UserAvatar v-if="user" :user="user" />
+  <UserAvatar v-if="user" :user="user" :showCardOnClick="showCardOnClick" />
 </template>

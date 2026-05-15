@@ -79,6 +79,15 @@ import { NcSource } from './ncSource'
 import { NcDispositionType } from './ncDispositionType'
 import { NcRootCauseCategory } from './ncRootCauseCategory'
 import { NcRecord } from './ncRecord'
+import { Capa } from './capa'
+import { CapaCounter } from './capaCounter'
+import { CapaStatus } from './capaStatus'
+import { CapaType } from './capaType'
+import { CapaSource } from './capaSource'
+import { CapaPriority } from './capaPriority'
+import { CapaRecord } from './capaRecord'
+import { CapaEffectivenessCheck } from './capaEffectivenessCheck'
+import { CapaEffectivenessCheckStatus } from './capaEffectivenessCheckStatus'
 import { RcaTemplate } from './rcaTemplate'
 import { RiskAssessmentTemplate } from './riskAssessmentTemplate'
 import { Training } from './training'
@@ -173,6 +182,15 @@ export const db = {
   NcDispositionType,
   NcRootCauseCategory,
   NcRecord,
+  Capa,
+  CapaCounter,
+  CapaStatus,
+  CapaType,
+  CapaSource,
+  CapaPriority,
+  CapaRecord,
+  CapaEffectivenessCheck,
+  CapaEffectivenessCheckStatus,
   RcaTemplate,
   RiskAssessmentTemplate,
   Training,

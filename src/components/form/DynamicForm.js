@@ -170,7 +170,7 @@ export default defineComponent({
         label: field.label,
         modelValue: scope.value,
         readonly: props.readonly || field.readonly,
-        disabled: props.disabled || field.disabled,
+        disabled: props.disabled || field.disabled ? true : undefined,
         [updateModelValueEvent]: (val) => {
           scope.value = val
           if (typeof field.props?.[updateModelValueEvent] === 'function') {

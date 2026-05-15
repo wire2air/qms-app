@@ -5,7 +5,7 @@ import { DateTime } from 'luxon'
 @ClientModel('workflowSteps', {
   primaryKey: 'id',
   syncField: 'updatedAt',
-  customIndex: 'workflowVersionId',
+  customIndex: 'workflowVersionId, parentStepId',
 })
 export class WorkflowStep extends BaseModel {
   static paranoid = true // Enable soft deletes using deletedAt field
@@ -29,6 +29,7 @@ export class WorkflowStep extends BaseModel {
   @Property({ type: Number }) slaDays = 10
   @Property({ type: Boolean }) requireComments = false
   @Property({ type: Boolean }) requireEsignature = false
+  @Property({ type: Boolean }) allowMultipleTasks = false
   @Property({ type: Array }) formSchema = /** @type {Array} */ ([])
   @Property({ type: String }) parentStepId = /** @type {String} */ (null)
   @Property({ type: String, required: true }) companyId = ''

@@ -4,6 +4,7 @@ import { currentSession } from '@/utils/currentSession.js'
 
 const props = defineProps({
   instanceStepId: { type: String, required: true },
+  displayNumber: { type: String, default: null },
 })
 
 const currentUserId = computed(() => currentSession.value?.id)
@@ -73,7 +74,7 @@ const usersMap = useLiveQueryWithDeps(
       <div class="tw:min-w-0 tw:flex-1">
         <h3 class="tw:font-bold tw:text-on-main tw:flex tw:flex-wrap tw:items-center tw:gap-2">
           <span class="tw:min-w-0 tw:wrap-break-word">
-            Step {{ instanceStep?.stepNumber }}: {{ step?.name }}
+            Step {{ displayNumber ?? instanceStep?.stepNumber }}: {{ step?.name }}
           </span>
           <WorkflowInstanceStepStatusBadgeById
             class="tw:shrink-0"

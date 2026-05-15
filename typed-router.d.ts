@@ -58,6 +58,13 @@ declare module 'vue-router/auto-routes' {
       { companyCode: ParamValue<false> },
       | never
     >,
+    '/[companyCode]/capas/[[id]]': RouteRecordInfo<
+      '/[companyCode]/capas/[[id]]',
+      '/:companyCode/capas/:id?',
+      { companyCode: ParamValue<true>, id?: ParamValueZeroOrOne<true> },
+      { companyCode: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
     '/[companyCode]/dashboard': RouteRecordInfo<
       '/[companyCode]/dashboard',
       '/:companyCode/dashboard',
@@ -350,6 +357,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[companyCode]/audit-logs.vue': {
       routes:
         | '/[companyCode]/audit-logs'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/capas/[[id]].vue': {
+      routes:
+        | '/[companyCode]/capas/[[id]]'
       views:
         | never
     }

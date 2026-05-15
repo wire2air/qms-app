@@ -52,7 +52,6 @@ export const syncBus = {
    * @param {{ modelName: string, modelId: string, action: string, type: string }} event
    */
   emit(event) {
-    console.debug('[syncBus] emit', event)
     listeners.get(event.modelName)?.forEach((e) => e.handler(event))
     wildcardListeners.forEach((e) => e.handler(event))
   },

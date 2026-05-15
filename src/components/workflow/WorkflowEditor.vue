@@ -8,19 +8,68 @@ const props = defineProps({
 })
 
 const toast = useToast()
+const route = useRoute()
+const router = useRouter()
 
 const selectedVersionId = ref(null)
 const selectedStepId = ref(null)
 const publishing = ref(false)
+
+function formatVersionLabel(v) {
+  if (!v) return ''
+  return v.versionLabel || `${v.versionMajor ?? 1}.${v.versionMinor ?? 0}`
+}
+
+function readVersionParam() {
+  const q = route.query.version
+  return typeof q === 'string' && q.length > 0 ? q : null
+}
+
+// Reflect manual version selection back into the URL using the version label
+// (e.g. ?version=1.0) so the link is bookmarkable and human-friendly.
+watch(selectedVersionId, (id) => {
+  const selected = versions.value?.find((v) => v.id === id) ?? null
+  const desired = selected ? formatVersionLabel(selected) : null
+  const current = readVersionParam()
+  if (desired === current) return
+  const query = { ...route.query }
+  if (desired) query.version = desired
+  else delete query.version
+  router.replace({ query })
+})
+
+// External URL changes (browser back/forward, paste a ?version=<label> link)
+// should flip the selection too.
+watch(
+  () => route.query.version,
+  () => {
+    const label = readVersionParam()
+    if (!label || !versions.value?.length) return
+    const match = versions.value.find((v) => formatVersionLabel(v) === label)
+    if (match && match.id !== selectedVersionId.value) {
+      selectedVersionId.value = match.id
+    }
+  },
+)
 
 // --- Live data ---
 const workflow = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
   db.Workflow.findByPk(id),
 )
 
-const showAllowedOutcomes = computed(() => workflow.value?.moduleId === 'NON_CONFORMANCE')
-const showSendBackTargets = computed(() => workflow.value?.moduleId === 'NON_CONFORMANCE')
-const showFormSchema = computed(() => workflow.value?.moduleId === 'NON_CONFORMANCE')
+const WORKFLOW_MODULES_WITH_STEP_CONFIG = ['NON_CONFORMANCE', 'CAPA']
+const showAllowedOutcomes = computed(() =>
+  WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
+)
+const showSendBackTargets = computed(() =>
+  WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
+)
+const showFormSchema = computed(() =>
+  WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
+)
+// CAPA workflows allow a root step to spawn parallel tasks for multiple
+// assignees — exposed as a per-step checkbox. Other modules don't expose it.
+const showAllowMultipleTasks = computed(() => workflow.value?.moduleId === 'CAPA')
 const showChildSteps = computed(() => workflow.value?.moduleId === 'CAPA')
 const stepApproversTab = computed(() => {
   if (workflow.value?.moduleId === 'NON_CONFORMANCE') return 'roles'
@@ -85,9 +134,20 @@ const stepsWithoutAssignees = computed(() => {
 watch(
   versions,
   (vs) => {
-    if (vs?.length > 0 && !selectedVersionId.value) {
-      selectedVersionId.value = vs.find((v) => v.statusId === 'DRAFT')?.id ?? vs[0].id
+    if (!vs?.length) return
+    // Prefer the version named by ?version=<label> from the URL.
+    const label = readVersionParam()
+    if (label) {
+      const match = vs.find((v) => formatVersionLabel(v) === label)
+      if (match) {
+        selectedVersionId.value = match.id
+        return
+      }
     }
+    // Respect an existing in-memory selection if it still belongs to this
+    // workflow's versions; otherwise default to the latest DRAFT or newest.
+    if (selectedVersionId.value && vs.some((v) => v.id === selectedVersionId.value)) return
+    selectedVersionId.value = vs.find((v) => v.statusId === 'DRAFT')?.id ?? vs[0].id
   },
   { immediate: true },
 )
@@ -199,6 +259,7 @@ const createDraftMutation = useLiveMutation(async (db, { workflowId, majorBump }
       slaDays: step.slaDays,
       requireComments: step.requireComments,
       requireEsignature: step.requireEsignature,
+      allowMultipleTasks: step.allowMultipleTasks ?? false,
       formSchema: JSON.parse(JSON.stringify(step.formSchema ?? [])),
     })
     await newStep.save()
@@ -465,6 +526,7 @@ watch(steps, () => {
               :showAllowedOutcomes="showAllowedOutcomes"
               :showSendBackTargets="showSendBackTargets"
               :showFormSchema="showFormSchema"
+              :showAllowMultipleTasks="showAllowMultipleTasks"
               :stepApproversTab="stepApproversTab"
               :selectedApprovalRule="selectedApprovalRule"
             />
