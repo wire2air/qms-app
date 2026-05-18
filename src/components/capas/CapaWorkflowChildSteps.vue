@@ -281,6 +281,8 @@ function getRowClass(child) {
         v-if="selectedChildId"
         :instanceStepId="selectedChildId"
         :capaId="capaId"
+        :autoApprove="true"
+        @done="dialogOpen = false"
       />
     </BaseDialog>
 

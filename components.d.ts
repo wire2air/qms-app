@@ -85,6 +85,7 @@ declare module 'vue' {
     CapaStatusBadge: typeof import('./src/components/badges/CapaStatusBadge.vue')['default']
     CapaStatusBadgeById: typeof import('./src/components/badges/CapaStatusBadgeById.vue')['default']
     CapaStatusSelectMenu: typeof import('./src/components/menus/CapaStatusSelectMenu.vue')['default']
+    CapaStepActionsMenu: typeof import('./src/components/capas/CapaStepActionsMenu.vue')['default']
     CapaTypeBadge: typeof import('./src/components/badges/CapaTypeBadge.vue')['default']
     CapaTypeBadgeById: typeof import('./src/components/badges/CapaTypeBadgeById.vue')['default']
     CapaTypeSelectMenu: typeof import('./src/components/menus/CapaTypeSelectMenu.vue')['default']

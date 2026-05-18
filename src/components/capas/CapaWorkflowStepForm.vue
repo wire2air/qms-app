@@ -5,11 +5,19 @@ import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue
 import { currentSession } from '@/utils/currentSession.js'
 import { db } from '@models/index'
 import { DateTime } from 'luxon'
+import { post } from '@/api'
 
 const props = defineProps({
   instanceStepId: { type: String, required: true },
   capaId: { type: String, required: true },
+  // When true (used in the child-step dialog), submitting the form also
+  // approves the reviewer's task and emits `done` so the parent dialog can
+  // close. The main-step usage leaves this false — that flow uses
+  // CapaStepActionsMenu for the approve action.
+  autoApprove: { type: Boolean, default: false },
 })
+
+const emit = defineEmits(['done'])
 
 const toast = useToast()
 const currentUserId = computed(() => currentSession.value?.userId)
@@ -106,7 +114,27 @@ async function persistRecord({ submit }) {
       })
       await record.save()
     }
+
+    // In dialog mode, submitting the form should also complete the reviewer's
+    // task. Only fire when the task is still actionable — otherwise just
+    // persist the form draft/submission as usual.
+    if (submit && props.autoApprove && currentUserTask.value.statusId === 'ASSIGNED') {
+      try {
+        await post(`/v1/services/taskInstances/${currentUserTask.value.id}/action`, {
+          action: 'COMPLETE_AND_ADVANCE',
+          outcomeId: 'COMPLETE_AND_ADVANCE',
+        })
+        toast.success('Step approved')
+        emit('done')
+        return
+      } catch (actionErr) {
+        toast.error(actionErr.message || 'Form saved but approval failed')
+        return
+      }
+    }
+
     toast.success(submit ? 'Form submitted' : 'Draft saved')
+    if (submit && props.autoApprove) emit('done')
   } catch (e) {
     toast.error(e.message || 'Failed to save form')
   } finally {

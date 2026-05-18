@@ -1,6 +1,4 @@
 <script setup>
-import { IconUserCheck, IconArrowBackUp } from '@tabler/icons-vue'
-
 const props = defineProps({
   instanceStepId: { type: String, required: true },
   capaId: { type: String, required: true },
@@ -68,21 +66,10 @@ const showChildSection = computed(
   () => hasChildren.value || !!stepDefinition.value?.allowChildSteps,
 )
 
-const canReassign = computed(() => {
-  const status = instanceStep.value?.statusId
-  return (
-    props.isOwner && (status === 'PENDING' || status === 'IN_PROGRESS' || status === 'SENT_BACK')
-  )
-})
-
 const activeAssigneeId = computed(() => {
   const active = assignments.value.find((a) => a.statusId === 'ASSIGNED')
   return active?.userId || null
 })
-
-const canSendBack = computed(
-  () => props.isOwner && instanceStep.value?.statusId === 'IN_PROGRESS' && props.hasSendBackTargets,
-)
 </script>
 
 <template>
@@ -99,23 +86,16 @@ const canSendBack = computed(
         </BaseBadge>
       </div>
       <div class="tw:flex tw:items-center tw:gap-2">
-        <button
-          v-if="canSendBack"
-          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-amber-600 tw:hover:text-amber-700 tw:cursor-pointer tw:font-medium"
-          @click="emit('sendBack')"
-        >
-          <IconArrowBackUp :size="14" />
-          Send back
-        </button>
-        <UserBadgeById v-if="canReassign && activeAssigneeId" :userId="activeAssigneeId" />
-        <button
-          v-if="canReassign"
-          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline tw:cursor-pointer tw:font-medium"
-          @click="emit('reassign', instanceStepId)"
-        >
-          <IconUserCheck :size="14" />
-          Reassign
-        </button>
+        <UserBadgeById v-if="activeAssigneeId" :userId="activeAssigneeId" />
+        <CapaStepActionsMenu
+          :instanceStepId="instanceStepId"
+          :capaId="capaId"
+          :isOwner="isOwner"
+          :hasSendBackTargets="hasSendBackTargets"
+          :requireEsignature="!!stepDefinition?.requireEsignature"
+          @reassign="(id) => emit('reassign', id)"
+          @sendBack="emit('sendBack')"
+        />
       </div>
     </div>
 

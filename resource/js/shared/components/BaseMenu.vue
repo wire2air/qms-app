@@ -28,11 +28,17 @@ defineProps({
           <button
             v-for="item in items"
             :key="item.name"
+            :disabled="item.disabled"
+            :title="item.title"
             :class="[
-              'tw:group tw:flex tw:w-full tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:transition-colors tw:duration-100 tw:hover:bg-main-hover tw:hover:text-on-main',
+              'tw:group tw:flex tw:w-full tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:transition-colors tw:duration-100',
+              item.disabled
+                ? 'tw:text-secondary tw:opacity-50 tw:cursor-not-allowed'
+                : 'tw:text-on-sidebar tw:hover:bg-main-hover tw:hover:text-on-main',
             ]"
             @click="
               () => {
+                if (item.disabled) return
                 item.click()
                 close()
               }
