@@ -90,7 +90,7 @@ const childInstanceSteps = useLiveQueryWithDeps(
       'parentInstanceStepId',
       parentInstanceStepId,
     ).exec()
-    return all.sort((a, b) => a.stepNumber - b.stepNumber)
+    return all.sort((a, b) => a.stepOrder - b.stepOrder)
   },
   { initial: [] },
 )

@@ -276,13 +276,17 @@ watch(
             </label>
           </div>
 
-          <!-- CAPA-only: opt this root step in to nested child sub-steps -->
+          <!-- CAPA-only: lets the CAPA owner add ad-hoc child steps from
+               within a running CAPA. Doesn't restrict template authoring —
+               sub-steps can still be added in the editor below regardless. -->
           <label
             v-if="showAllowChildSteps && !step.parentStepId"
             class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer"
           >
             <BaseCheckbox v-model="step.allowChildSteps" :disabled="!canUpdate" />
-            <span class="tw:text-xs tw:font-semibold tw:text-on-main">Allow child steps</span>
+            <span class="tw:text-xs tw:font-semibold tw:text-on-main">
+              Allow adding child steps at runtime
+            </span>
           </label>
         </div>
       </div>
