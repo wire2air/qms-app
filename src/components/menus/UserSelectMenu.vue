@@ -1,5 +1,5 @@
 <script setup>
-defineProps({
+const props = defineProps({
   required: {
     type: Boolean,
     default: false,
@@ -7,6 +7,10 @@ defineProps({
   multiple: {
     type: Boolean,
     default: false,
+  },
+  roleIdsFilter: {
+    type: Array,
+    default: null,
   },
 })
 
@@ -57,13 +61,26 @@ const rolesByUserId = computed(() => {
   return map
 })
 
+const filteredUsers = computed(() => {
+  if (!props.roleIdsFilter) return users.value
+  return users.value.filter((u) => {
+    const userRoleIds = roleIdsOnUsers.value[u.id] || []
+    return props.roleIdsFilter.every((rid) => userRoleIds.includes(rid))
+  })
+})
+
 function getArray() {
   return Array.isArray(modelValue.value) ? modelValue.value : []
 }
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="users" :required="required" :multiple="multiple">
+  <BaseSelectMenu
+    v-model="modelValue"
+    :items="filteredUsers"
+    :required="required"
+    :multiple="multiple"
+  >
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <!-- MULTIPLE MODE -->
