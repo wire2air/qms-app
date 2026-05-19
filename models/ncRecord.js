@@ -22,7 +22,6 @@ export class NcRecord extends BaseModel {
   @Property({ type: String, required: true }) ncId = ''
   @Property({ type: String, required: true }) workflowInstanceStepId = ''
   @Property({ type: String, required: true }) taskInstanceId = ''
-  @Property({ type: String, required: true }) stepId = ''
   @Property({ type: String, required: true }) userId = ''
   @Property({ type: Object }) payload = {}
   @Property({ type: DateTime }) submittedAt = /** @type {DateTime} */ (null)

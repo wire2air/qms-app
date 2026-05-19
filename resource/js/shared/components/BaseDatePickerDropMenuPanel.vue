@@ -185,7 +185,7 @@ const orderedQuarters = computed(() => {
 </script>
 
 <template>
-  <div ref="calendarContainer" class="tw:flex tw:gap-2">
+  <div ref="calendarContainer" class="tw:flex tw:gap-2 tw:p-2">
     <VDatePicker
       v-model="internalSelectedDate"
       mode="date"

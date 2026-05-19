@@ -10,49 +10,77 @@ import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
 
 const props = defineProps({
-  taskInstanceId: { type: String, required: true },
-  instanceStep: { type: Object, default: null },
-  workflowStep: { type: Object, default: null },
-  canActOnStep: { type: Boolean, default: false },
+  instanceStepId: { type: String, required: true },
+  capaId: { type: String, required: true },
+  isOwner: { type: Boolean, default: false },
+  hasSendBackTargets: { type: Boolean, default: false },
+  requireEsignature: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['done'])
+const emit = defineEmits(['reassign', 'sendBack', 'done'])
 const toast = useToast()
+const currentUserId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
 
-const capaRecord = useLiveQueryWithDeps(
-  [() => props.taskInstanceId],
-  async (db, [taskInstanceId]) => {
-    if (!taskInstanceId) return null
-    return db.CapaRecord.where('taskInstanceId', taskInstanceId).first()
-  },
-  { models: ['CapaRecord', 'TaskInstance', 'WorkflowInstance', 'WorkflowInstanceStep'] },
+// ─── Resolve the step + current user's task + supporting data ───────────────
+const instanceStep = useLiveQueryWithDeps([() => props.instanceStepId], async (db, [id]) =>
+  id ? db.WorkflowInstanceStep.findByPk(id) : null,
 )
 
+const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
+
+const currentUserTask = useLiveQueryWithDeps(
+  [() => props.instanceStepId, () => currentUserId.value],
+  async (db, [stepInstanceId, userId]) => {
+    if (!stepInstanceId || !userId) return null
+    const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
+      'WorkflowInstanceStep',
+      stepInstanceId,
+    ]).exec()
+    return (
+      tasks.find((t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId)) || null
+    )
+  },
+)
+
+const capaRecord = useLiveQueryWithDeps([() => currentUserTask.value?.id], async (db, [taskId]) => {
+  if (!taskId) return null
+  return db.CapaRecord.where('taskInstanceId', taskId).first()
+})
+
 const allowedOutcomes = useLiveQueryWithDeps(
-  [() => props.instanceStep?.stepId],
+  [() => instanceStep.value?.stepId],
   async (db, [stepId]) => {
     if (!stepId) return []
     return db.AllowedOutcomeOnStep.where('stepId', stepId).exec()
   },
-  { models: ['AllowedOutcomeOnStep', 'WorkflowStep'] },
+  { initial: [] },
 )
 
 const sendBackTargets = useLiveQueryWithDeps(
-  [() => props.instanceStep?.stepId],
+  [() => instanceStep.value?.stepId],
   async (db, [stepId]) => {
     if (!stepId) return []
     return db.StepSendBackTarget.where('stepId', stepId).exec()
   },
+  { initial: [] },
 )
 
-// CAPA-specific: if this step is a parent that has child stages, advance is
-// only allowed when every child instance step is APPROVED. Hierarchy lives on
-// the instance row — single indexed lookup, no WorkflowStep fetch.
+const sendBackSteps = useLiveQueryWithDeps(
+  [() => sendBackTargets.value.map((t) => t.targetStepId).join(',')],
+  async (db, [idsStr]) => {
+    if (!idsStr) return []
+    const ids = [...new Set(idsStr.split(','))]
+    const steps = await Promise.all(ids.map((id) => db.WorkflowStep.findByPk(id)))
+    return steps.filter(Boolean)
+  },
+  { initial: [] },
+)
+
 const childInstanceSteps = useLiveQueryWithDeps(
-  [() => props.instanceStep?.id],
-  async (db, [parentInstanceStepId]) => {
-    if (!parentInstanceStepId) return []
-    return db.WorkflowInstanceStep.where('parentInstanceStepId', parentInstanceStepId).exec()
+  [() => props.instanceStepId],
+  async (db, [parentId]) => {
+    if (!parentId) return []
+    return db.WorkflowInstanceStep.where('parentInstanceStepId', parentId).exec()
   },
   { initial: [] },
 )
@@ -63,57 +91,17 @@ const allChildrenApproved = computed(
 )
 const childrenBlock = computed(() => hasChildren.value && !allChildrenApproved.value)
 
-const OUTCOME_CONFIG = {
-  COMPLETE_AND_ADVANCE: {
-    label: 'Approve & Advance',
-    variant: 'primary',
-    icon: IconCheck,
-    needsComment: false,
-  },
-  SEND_BACK: {
-    label: 'Send Back',
-    variant: 'outline',
-    icon: IconArrowBackUp,
-    needsTarget: true,
-    needsComment: true,
-  },
-  REQUEST_INFO: {
-    label: 'Request Info',
-    variant: 'outline',
-    icon: IconInfoCircle,
-    needsComment: true,
-  },
-  REASSIGN: {
-    label: 'Reassign',
-    variant: 'outline',
-    icon: IconUserCheck,
-    needsUser: true,
-    needsComment: true,
-  },
-  CANCEL: {
-    label: 'Cancel',
-    variant: 'danger',
-    icon: IconBan,
-    needsComment: true,
-  },
-}
+const formRequired = computed(
+  () => Array.isArray(instanceStep.value?.formSchema) && instanceStep.value.formSchema.length > 0,
+)
+const formSaveRequired = computed(() => formRequired.value && !capaRecord.value?.submittedAt)
 
-const showConfirmDialog = ref(false)
-const showEsignDialog = ref(false)
-const pendingOutcomeId = ref(null)
-const comment = ref('')
-const sendBackTargetStepId = ref(null)
-const reassignToUserId = ref(null)
-const actionLoading = ref(false)
-
-const sendBackSteps = useLiveQueryWithDeps([() => sendBackTargets.value], async (db, [targets]) => {
-  if (!targets?.length) return []
-  const steps = await Promise.all(targets.map((t) => db.WorkflowStep.findByPk(t.targetStepId)))
-  return steps.filter(Boolean)
-})
-
+// Reassign candidates for the reviewer-side REASSIGN outcome — users holding
+// any of the step's eligible roles, minus the current user. Template-spawned
+// steps source roles from WorkflowStepRole; ad-hoc steps (no stepId) carry
+// them in the RoleOnWorkflowInstanceStep pivot.
 const stepRoles = useLiveQueryWithDeps(
-  [() => props.instanceStep?.stepId],
+  [() => instanceStep.value?.stepId],
   async (db, [stepId]) => {
     if (!stepId) return []
     return db.WorkflowStepRole.where('stepId', stepId).exec()
@@ -121,8 +109,25 @@ const stepRoles = useLiveQueryWithDeps(
   { initial: [] },
 )
 
+const instanceStepRoles = useLiveQueryWithDeps(
+  [() => props.instanceStepId],
+  async (db, [id]) => {
+    if (!id) return []
+    return db.RoleOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
+  },
+  { initial: [] },
+)
+
+const effectiveRoleIds = computed(() => {
+  const set = new Set([
+    ...stepRoles.value.map((r) => r.roleId),
+    ...instanceStepRoles.value.map((r) => r.roleId),
+  ])
+  return [...set]
+})
+
 const reassignCandidates = useLiveQueryWithDeps(
-  [() => stepRoles.value.map((r) => r.roleId).join(',')],
+  [() => effectiveRoleIds.value.join(',')],
   async (db, [roleIdsStr]) => {
     if (!roleIdsStr) return []
     const roleIds = roleIdsStr.split(',')
@@ -136,22 +141,20 @@ const reassignCandidates = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-const currentUserId = computed(() => currentSession.value?.id)
-
 const filteredReassignCandidates = computed(() =>
   reassignCandidates.value.filter((u) => u.id !== currentUserId.value),
 )
 
-const formRequired = computed(
-  () => Array.isArray(props.instanceStep?.formSchema) && props.instanceStep.formSchema.length > 0,
-)
-const formSaveRequired = computed(() => formRequired.value && !capaRecord.value?.submittedAt)
+// ─── Outcome configuration + gating ─────────────────────────────────────────
+const OUTCOME_CONFIG = {
+  COMPLETE_AND_ADVANCE: { label: 'Complete & Advance', icon: IconCheck },
+  SEND_BACK: { label: 'Send Back', icon: IconArrowBackUp, needsTarget: true, needsComment: true },
+  REQUEST_INFO: { label: 'Request Info', icon: IconInfoCircle, needsComment: true },
+  REASSIGN: { label: 'Reassign', icon: IconUserCheck, needsUser: true, needsComment: true },
+  CANCEL: { label: 'Cancel', icon: IconBan, needsComment: true },
+}
 
-const pendingConfig = computed(() =>
-  pendingOutcomeId.value ? (OUTCOME_CONFIG[pendingOutcomeId.value] ?? null) : null,
-)
-
-const confirmTitle = computed(() => pendingConfig.value?.label ?? 'Confirm')
+const canActOnStep = computed(() => ACTIONABLE_STATUSES.includes(currentUserTask.value?.statusId))
 
 function isOutcomeDisabled(outcomeId) {
   if (outcomeId === 'COMPLETE_AND_ADVANCE') {
@@ -168,8 +171,32 @@ function outcomeTitle(outcomeId) {
   return undefined
 }
 
+// Owner gating mirrors the inline buttons we're replacing.
+const REASSIGNABLE_STATUSES = ['PENDING', 'IN_PROGRESS', 'SENT_BACK']
+const isOwnerReassignable = computed(() =>
+  REASSIGNABLE_STATUSES.includes(instanceStep.value?.statusId),
+)
+const canOwnerSendBack = computed(
+  () => instanceStep.value?.statusId === 'IN_PROGRESS' && props.hasSendBackTargets,
+)
+
+// ─── Dialog state for reviewer outcomes ─────────────────────────────────────
+const showConfirmDialog = ref(false)
+const showEsignDialog = ref(false)
+const pendingOutcomeId = ref(null)
+const comment = ref('')
+const sendBackTargetStepId = ref(null)
+const reassignToUserId = ref(null)
+const actionLoading = ref(false)
+
+const pendingConfig = computed(() =>
+  pendingOutcomeId.value ? (OUTCOME_CONFIG[pendingOutcomeId.value] ?? null) : null,
+)
+const confirmTitle = computed(() => pendingConfig.value?.label ?? 'Confirm')
+
 function onOutcomeClick(outcomeId) {
-  if (!props.canActOnStep) return
+  if (!canActOnStep.value) return
+  if (isOutcomeDisabled(outcomeId)) return
   pendingOutcomeId.value = outcomeId
   comment.value = ''
   sendBackTargetStepId.value = null
@@ -178,7 +205,7 @@ function onOutcomeClick(outcomeId) {
   const config = OUTCOME_CONFIG[outcomeId]
   if (config?.needsComment || config?.needsTarget || config?.needsUser) {
     showConfirmDialog.value = true
-  } else if (props.workflowStep?.requireEsignature) {
+  } else if (props.requireEsignature) {
     showEsignDialog.value = true
   } else {
     submitAction({})
@@ -195,7 +222,7 @@ function onConfirmDialog() {
     return
   }
   showConfirmDialog.value = false
-  if (props.workflowStep?.requireEsignature) {
+  if (props.requireEsignature) {
     showEsignDialog.value = true
   } else {
     submitAction({})
@@ -207,6 +234,7 @@ function onEsignVerified({ method, provider, token }) {
 }
 
 async function submitAction({ method, provider, token } = {}) {
+  if (!currentUserTask.value) return
   actionLoading.value = true
   try {
     const body = {
@@ -220,7 +248,7 @@ async function submitAction({ method, provider, token } = {}) {
     if (sendBackTargetStepId.value) body.sendBackTargetStepId = sendBackTargetStepId.value
     if (reassignToUserId.value) body.reassignToUserId = reassignToUserId.value
 
-    await post(`/v1/services/taskInstances/${props.taskInstanceId}/action`, body)
+    await post(`/v1/services/taskInstances/${currentUserTask.value.id}/action`, body)
     toast.success(`${pendingConfig.value?.label ?? 'Action'} completed`)
     showEsignDialog.value = false
     emit('done')
@@ -230,24 +258,44 @@ async function submitAction({ method, provider, token } = {}) {
     actionLoading.value = false
   }
 }
+
+// ─── Menu items ─────────────────────────────────────────────────────────────
+const items = computed(() => {
+  const list = []
+  if (canActOnStep.value) {
+    for (const o of allowedOutcomes.value) {
+      const cfg = OUTCOME_CONFIG[o.outcomeId]
+      if (!cfg) continue
+      list.push({
+        name: cfg.label,
+        icon: cfg.icon,
+        disabled: isOutcomeDisabled(o.outcomeId),
+        title: outcomeTitle(o.outcomeId),
+        click: () => onOutcomeClick(o.outcomeId),
+      })
+    }
+  }
+  if (props.isOwner && isOwnerReassignable.value) {
+    list.push({
+      name: 'Reassign reviewer (owner)',
+      icon: IconUserCheck,
+      click: () => emit('reassign', props.instanceStepId),
+    })
+  }
+  if (props.isOwner && canOwnerSendBack.value) {
+    list.push({
+      name: 'Send step back (owner)',
+      icon: IconArrowBackUp,
+      click: () => emit('sendBack', props.instanceStepId),
+    })
+  }
+  return list
+})
 </script>
 
 <template>
-  <div class="tw:flex tw:items-center tw:gap-2">
-    <template v-for="allowed in allowedOutcomes" :key="allowed.id">
-      <div v-if="OUTCOME_CONFIG[allowed.outcomeId]" :title="outcomeTitle(allowed.outcomeId)">
-        <BaseButton
-          :variant="OUTCOME_CONFIG[allowed.outcomeId].variant"
-          :disabled="!canActOnStep || actionLoading || isOutcomeDisabled(allowed.outcomeId)"
-          @click="onOutcomeClick(allowed.outcomeId)"
-        >
-          <template #icon>
-            <component :is="OUTCOME_CONFIG[allowed.outcomeId].icon" :size="16" />
-          </template>
-          {{ OUTCOME_CONFIG[allowed.outcomeId].label }}
-        </BaseButton>
-      </div>
-    </template>
+  <template v-if="items.length">
+    <BaseMenu :items="items" />
 
     <BaseDialog v-model="showConfirmDialog" :title="confirmTitle" maxWidth="md" persistent>
       <div v-if="pendingConfig?.needsUser" class="tw:mb-4">
@@ -333,5 +381,5 @@ async function submitAction({ method, provider, token } = {}) {
     </BaseDialog>
 
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
-  </div>
+  </template>
 </template>

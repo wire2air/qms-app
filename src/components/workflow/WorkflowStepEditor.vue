@@ -16,7 +16,7 @@ const props = defineProps({
   showAllowedOutcomes: { type: Boolean, default: false },
   showSendBackTargets: { type: Boolean, default: false },
   showFormSchema: { type: Boolean, default: false },
-  showAllowMultipleTasks: { type: Boolean, default: false },
+  showAllowChildSteps: { type: Boolean, default: false },
   stepApproversTab: {
     type: String,
     default: 'both',
@@ -276,13 +276,17 @@ watch(
             </label>
           </div>
 
-          <!-- CAPA-only: allow multiple parallel tasks on a root step -->
+          <!-- CAPA-only: lets the CAPA owner add ad-hoc child steps from
+               within a running CAPA. Doesn't restrict template authoring —
+               sub-steps can still be added in the editor below regardless. -->
           <label
-            v-if="showAllowMultipleTasks && !step.parentStepId"
+            v-if="showAllowChildSteps && !step.parentStepId"
             class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer"
           >
-            <BaseCheckbox v-model="step.allowMultipleTasks" :disabled="!canUpdate" />
-            <span class="tw:text-xs tw:font-semibold tw:text-on-main">Allow multiple tasks</span>
+            <BaseCheckbox v-model="step.allowChildSteps" :disabled="!canUpdate" />
+            <span class="tw:text-xs tw:font-semibold tw:text-on-main">
+              Allow adding child steps at runtime
+            </span>
           </label>
         </div>
       </div>
@@ -407,10 +411,7 @@ watch(
          initiate a send-back, so no targets are configurable. -->
     <div
       v-if="
-        showSendBackTargets &&
-        isSendBackActive &&
-        siblingSteps.length > 0 &&
-        !step.parentStepId
+        showSendBackTargets && isSendBackActive && siblingSteps.length > 0 && !step.parentStepId
       "
       class="tw:space-y-4"
     >

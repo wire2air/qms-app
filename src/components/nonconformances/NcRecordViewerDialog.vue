@@ -29,13 +29,16 @@ const submitter = useLiveQueryWithDeps([() => ncRecord.value?.userId], async (db
   return db.User.findByPk(userId)
 })
 
-const workflowStep = useLiveQueryWithDeps([() => ncRecord.value?.stepId], async (db, [stepId]) => {
-  if (!stepId) return null
-  return db.WorkflowStep.findByPk(stepId)
-})
+const instanceStep = useLiveQueryWithDeps(
+  [() => ncRecord.value?.workflowInstanceStepId],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.WorkflowInstanceStep.findByPk(id)
+  },
+)
 
 const hasSchema = computed(
-  () => Array.isArray(workflowStep.value?.formSchema) && workflowStep.value.formSchema.length > 0,
+  () => Array.isArray(instanceStep.value?.formSchema) && instanceStep.value.formSchema.length > 0,
 )
 
 const formData = computed(() => ncRecord.value?.payload || {})
@@ -68,7 +71,7 @@ const submitterName = computed(() => {
 
       <DynamicForm
         v-if="hasSchema"
-        :fields="workflowStep.formSchema"
+        :fields="instanceStep.formSchema"
         :modelValue="formData"
         :readonly="true"
       />

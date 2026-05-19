@@ -60,6 +60,17 @@ const ncMap = useLiveQueryWithDeps(
   { initial: {} },
 )
 
+const capaMap = useLiveQueryWithDeps(
+  [() => instances.value.filter((i) => i.resourceType === 'Capa').map((i) => i.resourceId)],
+  async (db, [capaIds]) => {
+    const ids = [...new Set(capaIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const capas = await Promise.all(ids.map((id) => db.Capa.findByPk(id)))
+    return Object.fromEntries(capas.filter(Boolean).map((c) => [c.id, c]))
+  },
+  { initial: {} },
+)
+
 const moduleIdMap = useLiveQueryWithDeps(
   [() => instances.value.map((i) => i.workflowVersionId)],
   async (db, [wfVersionIds]) => {
@@ -91,22 +102,15 @@ const activeStepNameMap = useLiveQueryWithDeps(
   async (db, [instanceIds]) => {
     if (!instanceIds.length) return {}
     const allSteps = await Promise.all(
-      instanceIds.map((id) => db.WorkflowInstanceStep.where('workflowInstanceId', id).exec()),
+      instanceIds.map((id) =>
+        db.WorkflowInstanceStep.where('[workflowInstanceId+statusId]', [id, 'IN_PROGRESS']).exec(),
+      ),
     )
-    const activeByInstance = {}
-    const stepIds = new Set()
-    for (let i = 0; i < instanceIds.length; i++) {
-      const active = (allSteps[i] || []).find((s) => s.statusId === 'IN_PROGRESS')
-      if (active) {
-        activeByInstance[instanceIds[i]] = active.stepId
-        stepIds.add(active.stepId)
-      }
-    }
-    const steps = await Promise.all([...stepIds].map((id) => db.WorkflowStep.findByPk(id)))
-    const stepById = Object.fromEntries(steps.filter(Boolean).map((s) => [s.id, s]))
+    // `name` is denormalized onto the instance row — no WorkflowStep fetch needed.
     const map = {}
-    for (const [instanceId, stepId] of Object.entries(activeByInstance)) {
-      map[instanceId] = stepById[stepId]?.name || null
+    for (let i = 0; i < instanceIds.length; i++) {
+      const active = (allSteps[i] || [])[0]
+      if (active) map[instanceIds[i]] = active.name || null
     }
     return map
   },
@@ -127,6 +131,11 @@ const filteredInstances = computed(() => {
       const nc = ncMap.value[instance.resourceId]
       if (!nc) return false
       return nc.title?.toLowerCase().includes(q) || nc.ncNumber?.toLowerCase().includes(q)
+    }
+    if (instance.resourceType === 'Capa') {
+      const capa = capaMap.value[instance.resourceId]
+      if (!capa) return false
+      return capa.title?.toLowerCase().includes(q) || capa.capaNumber?.toLowerCase().includes(q)
     }
     const doc = documentMap.value[instance.resourceId]
     if (!doc) return false
@@ -159,6 +168,18 @@ function getDocument(instance) {
 function getNc(instance) {
   return ncMap.value[instance.resourceId] || null
 }
+
+function getCapa(instance) {
+  return capaMap.value[instance.resourceId] || null
+}
+
+function routeForInstance(instance) {
+  if (instance.resourceType === 'Capa') return getCompanyPath(`capas/${instance.resourceId}`)
+  if (instance.resourceType === 'Nonconformance') {
+    return getCompanyPath(`nonconformances/${instance.resourceId}`)
+  }
+  return getCompanyPath(`workflow-instances/${instance.id}`)
+}
 </script>
 
 <template>
@@ -170,16 +191,21 @@ function getNc(instance) {
   >
     <!-- Item Title -->
     <template #body-cell-title="{ row }">
-      <RouterLink
-        class="tw:flex tw:flex-col tw:group"
-        :to="getCompanyPath(`workflow-instances/${row.id}`)"
-      >
+      <RouterLink class="tw:flex tw:flex-col tw:group" :to="routeForInstance(row)">
         <template v-if="row.resourceType === 'Nonconformance'">
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
             {{ getNc(row)?.title || '—' }}
           </span>
           <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
             {{ getNc(row)?.ncNumber || row.id.slice(0, 8) }}
+          </span>
+        </template>
+        <template v-else-if="row.resourceType === 'Capa'">
+          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+            {{ getCapa(row)?.title || '—' }}
+          </span>
+          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+            {{ getCapa(row)?.capaNumber || row.id.slice(0, 8) }}
           </span>
         </template>
         <template v-else>
@@ -204,8 +230,12 @@ function getNc(instance) {
 
     <!-- Type -->
     <template #body-cell-type="{ row }">
+      <CapaTypeBadgeById
+        v-if="row.resourceType === 'Capa' && getCapa(row)?.typeId"
+        :typeId="getCapa(row).typeId"
+      />
       <DocumentTypeBadgeById
-        v-if="getDocument(row)?.documentTypeId"
+        v-else-if="getDocument(row)?.documentTypeId"
         :documentTypeId="getDocument(row).documentTypeId"
         :iconOnly="false"
       />

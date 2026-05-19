@@ -217,7 +217,11 @@ watch(
               "
               @click="toggleSelection(item.id, close)"
             >
-              <span class="tw:font-medium tw:text-start">{{ item.name }}</span>
+              <span class="tw:font-medium tw:text-start">
+                <slot name="item" :item="item">
+                  {{ item.name }}
+                </slot>
+              </span>
               <div
                 v-if="isSelected(item.id)"
                 class="tw:w-1.5 tw:h-1.5 tw:rounded-full tw:bg-primary tw:shrink-0"

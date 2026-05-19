@@ -185,6 +185,11 @@ const computedAs = computed(() => {
   return props.as
 })
 
+const computedDisabled = computed(() => {
+  // in native HTML the disabled false value is treated as true, so we need to return null instead of false to avoid that
+  return props.disabled || props.isLoading ? true : null
+})
+
 const buttonRef = ref()
 
 defineExpose({
@@ -197,7 +202,7 @@ defineExpose({
     :is="computedAs"
     ref="buttonRef"
     as="button"
-    :disabled="props.disabled || props.isLoading"
+    :disabled="computedDisabled"
     :class="classes"
     :type="type"
   >

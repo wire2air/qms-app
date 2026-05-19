@@ -133,7 +133,7 @@ const filteredReassignCandidates = computed(() =>
 // Whether the step has a form that must be submitted (not just drafted) first.
 // A draft NcRecord exists with submittedAt=null and must still block approval.
 const formRequired = computed(
-  () => Array.isArray(props.workflowStep?.formSchema) && props.workflowStep.formSchema.length > 0,
+  () => Array.isArray(props.instanceStep?.formSchema) && props.instanceStep.formSchema.length > 0,
 )
 const formSaveRequired = computed(() => formRequired.value && !ncRecord.value?.submittedAt)
 

@@ -67,9 +67,9 @@ const showSendBackTargets = computed(() =>
 const showFormSchema = computed(() =>
   WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
 )
-// CAPA workflows allow a root step to spawn parallel tasks for multiple
-// assignees — exposed as a per-step checkbox. Other modules don't expose it.
-const showAllowMultipleTasks = computed(() => workflow.value?.moduleId === 'CAPA')
+// CAPA workflows let a root step opt in to nested child steps — exposed as
+// a per-step checkbox. Other modules don't expose it.
+const showAllowChildSteps = computed(() => workflow.value?.moduleId === 'CAPA')
 const showChildSteps = computed(() => workflow.value?.moduleId === 'CAPA')
 const stepApproversTab = computed(() => {
   if (workflow.value?.moduleId === 'NON_CONFORMANCE') return 'roles'
@@ -259,7 +259,7 @@ const createDraftMutation = useLiveMutation(async (db, { workflowId, majorBump }
       slaDays: step.slaDays,
       requireComments: step.requireComments,
       requireEsignature: step.requireEsignature,
-      allowMultipleTasks: step.allowMultipleTasks ?? false,
+      allowChildSteps: step.allowChildSteps ?? false,
       formSchema: JSON.parse(JSON.stringify(step.formSchema ?? [])),
     })
     await newStep.save()
@@ -526,7 +526,7 @@ watch(steps, () => {
               :showAllowedOutcomes="showAllowedOutcomes"
               :showSendBackTargets="showSendBackTargets"
               :showFormSchema="showFormSchema"
-              :showAllowMultipleTasks="showAllowMultipleTasks"
+              :showAllowChildSteps="showAllowChildSteps"
               :stepApproversTab="stepApproversTab"
               :selectedApprovalRule="selectedApprovalRule"
             />

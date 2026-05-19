@@ -24,15 +24,11 @@ const workflowInstanceSteps = useLiveQueryWithDeps(
         latestByStepId.set(step.stepId, step)
       }
     }
-    const latest = [...latestByStepId.values()]
     // Only show root-level instance steps at this depth — children are rendered
-    // nested inside their parent stage by CapaWorkflowStep.
-    const stepIds = latest.map((s) => s.stepId)
-    if (stepIds.length === 0) return []
-    const defs = await Promise.all(stepIds.map((id) => db.WorkflowStep.findByPk(id)))
-    const isRoot = new Map(defs.filter(Boolean).map((d) => [d.id, !d.parentStepId]))
-    return latest
-      .filter((s) => isRoot.get(s.stepId))
+    // nested inside their parent stage by CapaWorkflowStep. Hierarchy lives on
+    // the instance row (parentInstanceStepId is NULL for roots).
+    return [...latestByStepId.values()]
+      .filter((s) => !s.parentInstanceStepId)
       .sort((a, b) => a.stepNumber - b.stepNumber)
   },
   { initial: [] },
@@ -73,6 +69,9 @@ const reassignInstanceStep = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
 )
 
+// Eligible reviewers for this step come from two sources unioned together:
+// template-side WorkflowStepRole (for template-spawned steps) and the
+// RoleOnWorkflowInstanceStep pivot (for ad-hoc steps added via addChildStep).
 const reassignStepRoles = useLiveQueryWithDeps(
   [() => reassignInstanceStep.value?.stepId],
   async (db, [stepId]) => {
@@ -82,8 +81,25 @@ const reassignStepRoles = useLiveQueryWithDeps(
   { initial: [] },
 )
 
+const reassignInstanceStepRoles = useLiveQueryWithDeps(
+  [() => reassignStepInstanceId.value],
+  async (db, [id]) => {
+    if (!id) return []
+    return db.RoleOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
+  },
+  { initial: [] },
+)
+
+const reassignEffectiveRoleIds = computed(() => {
+  const set = new Set([
+    ...reassignStepRoles.value.map((r) => r.roleId),
+    ...reassignInstanceStepRoles.value.map((r) => r.roleId),
+  ])
+  return [...set]
+})
+
 const reassignCandidates = useLiveQueryWithDeps(
-  [() => reassignStepRoles.value.map((r) => r.roleId).join(',')],
+  [() => reassignEffectiveRoleIds.value.join(',')],
   async (db, [roleIdsStr]) => {
     if (!roleIdsStr) return []
     const roleIds = roleIdsStr.split(',')

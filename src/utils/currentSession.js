@@ -167,6 +167,9 @@ export function isAllowed(neededPermissions) {
     return false
   }
 
+  // Owners bypass per-permission checks.
+  if (currentSession.value.isOwner) return true
+
   const userPermissions = permissions.value
 
   return neededPermissions.every((perm) => userPermissions.includes(perm))

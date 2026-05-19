@@ -1,6 +1,4 @@
 <script setup>
-import { IconUserCheck, IconArrowBackUp } from '@tabler/icons-vue'
-
 const props = defineProps({
   instanceStepId: { type: String, required: true },
   capaId: { type: String, required: true },
@@ -46,33 +44,32 @@ function getStatusLabel(statusId) {
 }
 
 // CAPA nested stages: whether this step has children (drives form vs. sub-step list).
+// Hierarchy lives on the instance row — count rows that point at us.
 const childStepCount = useLiveQueryWithDeps(
-  [() => stepDefinition.value?.id],
-  async (db, [parentId]) => {
-    if (!parentId) return 0
-    const children = await db.WorkflowStep.where('parentStepId', parentId).exec()
+  [() => props.instanceStepId],
+  async (db, [parentInstanceStepId]) => {
+    if (!parentInstanceStepId) return 0
+    const children = await db.WorkflowInstanceStep.where(
+      'parentInstanceStepId',
+      parentInstanceStepId,
+    ).exec()
     return children.length
   },
   { initial: 0 },
 )
 
 const hasChildren = computed(() => childStepCount.value > 0)
-
-const canReassign = computed(() => {
-  const status = instanceStep.value?.statusId
-  return (
-    props.isOwner && (status === 'PENDING' || status === 'IN_PROGRESS' || status === 'SENT_BACK')
-  )
-})
+// Render the child-step section whenever this stage already has children OR
+// is configured to accept them — the section hosts the "Add child step" button
+// even when the list is empty.
+const showChildSection = computed(
+  () => hasChildren.value || !!stepDefinition.value?.allowChildSteps,
+)
 
 const activeAssigneeId = computed(() => {
   const active = assignments.value.find((a) => a.statusId === 'ASSIGNED')
   return active?.userId || null
 })
-
-const canSendBack = computed(
-  () => props.isOwner && instanceStep.value?.statusId === 'IN_PROGRESS' && props.hasSendBackTargets,
-)
 </script>
 
 <template>
@@ -82,30 +79,23 @@ const canSendBack = computed(
     >
       <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
         <span class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-          {{ displayNumber ?? instanceStep.stepNumber }}. {{ stepDefinition?.name || 'Step' }}
+          {{ displayNumber ?? instanceStep.stepNumber }}. {{ instanceStep.name || 'Step' }}
         </span>
         <BaseBadge class="tw:text-[10px]" :class="getStepStatusClass(instanceStep.statusId)">
           {{ getStatusLabel(instanceStep.statusId) }}
         </BaseBadge>
       </div>
       <div class="tw:flex tw:items-center tw:gap-2">
-        <button
-          v-if="canSendBack"
-          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-amber-600 tw:hover:text-amber-700 tw:cursor-pointer tw:font-medium"
-          @click="emit('sendBack')"
-        >
-          <IconArrowBackUp :size="14" />
-          Send back
-        </button>
-        <UserBadgeById v-if="canReassign && activeAssigneeId" :userId="activeAssigneeId" />
-        <button
-          v-if="canReassign"
-          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline tw:cursor-pointer tw:font-medium"
-          @click="emit('reassign', instanceStepId)"
-        >
-          <IconUserCheck :size="14" />
-          Reassign
-        </button>
+        <UserBadgeById v-if="activeAssigneeId" :userId="activeAssigneeId" />
+        <CapaStepActionsMenu
+          :instanceStepId="instanceStepId"
+          :capaId="capaId"
+          :isOwner="isOwner"
+          :hasSendBackTargets="hasSendBackTargets"
+          :requireEsignature="!!stepDefinition?.requireEsignature"
+          @reassign="(id) => emit('reassign', id)"
+          @sendBack="emit('sendBack')"
+        />
       </div>
     </div>
 
@@ -115,12 +105,13 @@ const canSendBack = computed(
 
     <!-- Sub-tasks list (parent stages with nested children) -->
     <CapaWorkflowChildSteps
-      v-if="hasChildren && stepDefinition?.id && instanceStep.workflowInstanceId"
-      :parentStepId="stepDefinition.id"
+      v-if="showChildSection && instanceStep.workflowInstanceId"
+      :parentInstanceStepId="instanceStep.id"
       :parentStepNumber="displayNumber ?? instanceStep.stepNumber"
       :workflowInstanceId="instanceStep.workflowInstanceId"
       :capaId="capaId"
       :isOwner="isOwner"
+      :allowChildSteps="!!stepDefinition?.allowChildSteps"
       class="tw:mb-4"
       @reassign="(childInstanceStepId) => emit('reassign', childInstanceStepId)"
     />

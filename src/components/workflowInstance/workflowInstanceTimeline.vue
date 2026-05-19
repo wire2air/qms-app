@@ -15,7 +15,9 @@ const props = defineProps({
 // Build hierarchical step entries: each root step in stepOrder, immediately
 // followed by its children (also in stepOrder). Each entry carries a
 // displayNumber — "1", "1.1", "2", "2.1" — so child steps render with their
-// parent.child notation in the timeline header.
+// parent.child notation in the timeline header. All ordering + hierarchy is
+// resolved off the instance row (stepOrder + parentInstanceStepId) — no
+// WorkflowStep template fetch.
 const stepEntries = useLiveQueryWithDeps(
   [() => props.workflowInstanceId],
   async (db, [workflowInstanceId]) => {
@@ -26,38 +28,27 @@ const stepEntries = useLiveQueryWithDeps(
     ).exec()
     if (!instanceSteps.length) return []
 
-    const stepDefs = await Promise.all(
-      [...new Set(instanceSteps.map((s) => s.stepId))].map((id) => db.WorkflowStep.findByPk(id)),
-    )
-    const defById = new Map(stepDefs.filter(Boolean).map((d) => [d.id, d]))
-
-    // Collapse to the latest WorkflowInstanceStep per stepId — send-back can
-    // produce multiple rows per stepId.
-    const latestByStepId = new Map()
+    // Collapse to the latest re-instance per stepId (send-back churn).
+    // Ad-hoc steps (stepId === null) are unique per row.
+    const latestByKey = new Map()
     for (const s of instanceSteps) {
-      const existing = latestByStepId.get(s.stepId)
-      if (!existing || s.createdAt > existing.createdAt) latestByStepId.set(s.stepId, s)
+      const key = s.stepId ?? `adhoc:${s.id}`
+      const existing = latestByKey.get(key)
+      if (!existing || s.createdAt > existing.createdAt) latestByKey.set(key, s)
     }
-    const latest = [...latestByStepId.values()]
-
-    function stepOrderOf(is) {
-      return defById.get(is.stepId)?.stepOrder ?? 0
-    }
-    function parentOf(is) {
-      return defById.get(is.stepId)?.parentStepId ?? null
-    }
+    const latest = [...latestByKey.values()]
 
     const roots = latest
-      .filter((s) => !parentOf(s))
-      .sort((a, b) => stepOrderOf(a) - stepOrderOf(b))
+      .filter((s) => !s.parentInstanceStepId)
+      .sort((a, b) => (a.stepOrder ?? 0) - (b.stepOrder ?? 0))
 
     const entries = []
     roots.forEach((root, rootIdx) => {
       const rootNum = rootIdx + 1
       entries.push({ instanceStep: root, displayNumber: `${rootNum}` })
       const children = latest
-        .filter((s) => parentOf(s) === root.stepId)
-        .sort((a, b) => stepOrderOf(a) - stepOrderOf(b))
+        .filter((s) => s.parentInstanceStepId === root.id)
+        .sort((a, b) => (a.stepOrder ?? 0) - (b.stepOrder ?? 0))
       children.forEach((child, ci) => {
         entries.push({
           instanceStep: child,

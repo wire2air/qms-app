@@ -29,10 +29,7 @@ const instanceStep = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
 )
 
-const stepDefinition = useLiveQueryWithDeps(
-  [() => instanceStep.value?.stepId],
-  async (db, [stepId]) => (stepId ? db.WorkflowStep.findByPk(stepId) : null),
-)
+const formSchema = computed(() => instanceStep.value?.formSchema || [])
 
 // ─── Assignments + users ─────────────────────────────────────────────────────
 const assignments = useLiveQueryWithDeps(
@@ -138,7 +135,6 @@ async function persistRecord({ submit }) {
         ncId: props.ncId,
         workflowInstanceStepId: props.instanceStepId,
         taskInstanceId: currentUserTask.value.id,
-        stepId: instanceStep.value.stepId,
         payload,
         submittedAt,
       })
@@ -223,7 +219,7 @@ const canSendBack = computed(
         <span
           class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
         >
-          {{ instanceStep.stepNumber }}. {{ stepDefinition?.name || 'Step' }}
+          {{ instanceStep.stepNumber }}. {{ instanceStep.name || 'Step' }}
         </span>
         <BaseBadge class="tw:text-[10px]" :class="getStepStatusClass(instanceStep.statusId)">
           {{ getStatusLabel(instanceStep.statusId) }}
@@ -281,10 +277,10 @@ const canSendBack = computed(
     </div>
 
     <!-- Step form -->
-    <template v-if="stepDefinition?.formSchema?.length">
+    <template v-if="formSchema.length">
       <!-- Editable: current user has an ASSIGNED task on this step -->
       <template v-if="isEditable">
-        <DynamicForm v-model="formData" :fields="stepDefinition.formSchema" />
+        <DynamicForm v-model="formData" :fields="formSchema" />
         <div class="tw:mt-4 tw:flex tw:justify-end tw:gap-2">
           <BaseButton variant="outline" :disabled="saving" @click="saveDraft">
             <template #icon><IconDeviceFloppy :size="16" /></template>
@@ -308,7 +304,7 @@ const canSendBack = computed(
             {{ getUserName(record.userId) }}
           </div>
           <FormSchemaReadonlyView
-            :fields="stepDefinition.formSchema"
+            :fields="formSchema"
             :values="record.payload || {}"
           />
         </div>
@@ -318,14 +314,14 @@ const canSendBack = computed(
             Your draft (not submitted)
           </div>
           <FormSchemaReadonlyView
-            :fields="stepDefinition.formSchema"
+            :fields="formSchema"
             :values="currentUserRecord.payload || {}"
           />
         </div>
 
         <DynamicForm
           v-if="!submittedRecords.length && !currentUserRecord"
-          :fields="stepDefinition.formSchema"
+          :fields="formSchema"
           :readonly="true"
           disabled
           :values="{}"

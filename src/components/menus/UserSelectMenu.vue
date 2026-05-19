@@ -17,6 +17,12 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // OR-filter: only show users holding at least one of these role ids.
+  // Null/empty = no filter.
+  roleIdsFilter: {
+    type: Array,
+    default: null,
+  },
 })
 
 const modelValue = defineModel({
@@ -34,13 +40,64 @@ const users = useLiveQuery(
   { initial: [] },
 )
 
+const roleById = useLiveQuery(
+  async (db) => {
+    const roles = await db.Role.where().exec()
+    return Object.fromEntries(roles.map((r) => [r.id, r]))
+  },
+  { initial: {} },
+)
+
+const roleIdsOnUsers = useLiveQuery(
+  async (db) => {
+    const rou = await db.RoleOnUser.where().exec()
+    const map = {}
+    rou.forEach((r) => {
+      if (!map[r.userId]) map[r.userId] = []
+      map[r.userId].push(r.roleId)
+    })
+    return map
+  },
+  { initial: {} },
+)
+
+const rolesByUserId = computed(() => {
+  const map = {}
+  for (const [userId, roleIds] of Object.entries(roleIdsOnUsers.value)) {
+    map[userId] = roleIds
+      .map((id) => roleById.value[id])
+      .filter(Boolean)
+      .map((r) => r.name)
+      .sort((a, b) => a.localeCompare(b))
+      .join(', ')
+  }
+  return map
+})
+
+// OR semantics — a user is eligible when they hold AT LEAST one of the
+// filter's roles. Null or empty array = no filter (show all users).
+const filteredUsers = computed(() => {
+  const filter = props.roleIdsFilter
+  if (!filter || filter.length === 0) return users.value
+  return users.value.filter((u) => {
+    const userRoleIds = roleIdsOnUsers.value[u.id] || []
+    return filter.some((rid) => userRoleIds.includes(rid))
+  })
+})
+
 function getArray() {
   return Array.isArray(modelValue.value) ? modelValue.value : []
 }
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="users" :required="required" :multiple="multiple" :nullLabel="nullLabel">
+  <BaseSelectMenu
+    v-model="modelValue"
+    :items="filteredUsers"
+    :required="required"
+    :multiple="multiple"
+    :nullLabel="nullLabel"
+  >
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <!-- MULTIPLE MODE -->
@@ -69,6 +126,15 @@ function getArray() {
           <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select User </span>
         </template>
       </slot>
+    </template>
+
+    <template #item="{ item }">
+      <div class="tw:flex tw:flex-col">
+        <span>{{ item.name }}</span>
+        <span v-if="rolesByUserId[item.id]" class="tw:text-xs tw:text-placeholder">
+          {{ rolesByUserId[item.id] }}
+        </span>
+      </div>
     </template>
   </BaseSelectMenu>
 </template>
