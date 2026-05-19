@@ -60,7 +60,10 @@ async function toggleRole(roleId) {
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 const userSearch = ref('')
-const users = useLiveQuery((db) => db.User.where().exec(), { initial: [] })
+const users = useLiveQuery(
+  async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
+  { initial: [] },
+)
 
 const trainingUsers = useLiveQueryWithDeps(
   [() => props.trainingId],

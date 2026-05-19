@@ -14,7 +14,10 @@ const props = defineProps({
 
 const isUpdating = ref(false)
 
-const allUsers = useLiveQuery(async (db) => db.User.where().exec(), { initial: [] })
+const allUsers = useLiveQuery(
+  async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
+  { initial: [] },
+)
 
 const collaboratorRecords = useLiveQueryWithDeps(
   [() => props.documentId],

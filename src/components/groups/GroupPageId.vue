@@ -16,7 +16,10 @@ const canUpdate = computed(() => isAllowed(['teams:update']))
 // ─── Live queries ─────────────────────────────────────────────────────────────
 
 const group = useLiveQueryWithDeps([() => props.id], async (db, [id]) => db.Team.findByPk(id))
-const users = useLiveQuery((db) => db.User.where().exec(), { initial: [] })
+const users = useLiveQuery(
+  async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
+  { initial: [] },
+)
 const userMapById = computed(() => {
   const map = new Map()
   users.value.forEach((u) => map.set(u.id, u))

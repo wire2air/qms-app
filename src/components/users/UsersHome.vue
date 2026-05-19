@@ -7,22 +7,31 @@ const showCreateDialog = ref(false)
 const canCreateUser = computed(() => isAllowed(['users:create']))
 
 // Filters
-const filters = ref({ search: '' })
+const filters = ref({ search: '', userStatusId: null, roleId: null })
 
-// Live query for users
-const users = useLiveQueryWithDeps([() => filters.value.search], async (db, [search]) => {
-  let results = await db.User.where().exec()
-  if (search) {
-    const q = search.toLowerCase()
-    results = results.filter(
-      (u) =>
-        u.firstName.toLowerCase().includes(q) ||
-        u.lastName.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q),
-    )
-  }
-  return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
-})
+// Live query for users — applies search, status, and role filters
+const users = useLiveQueryWithDeps(
+  [() => filters.value.search, () => filters.value.userStatusId, () => filters.value.roleId],
+  async (db, [search, userStatusId, roleId]) => {
+    let results = await db.User.where().exec()
+    if (userStatusId) results = results.filter((u) => u.userStatusId === userStatusId)
+    if (roleId) {
+      const assignments = await db.RoleOnUser.where().exec()
+      const idsForRole = new Set(assignments.filter((a) => a.roleId === roleId).map((a) => a.userId))
+      results = results.filter((u) => idsForRole.has(u.id))
+    }
+    if (search) {
+      const q = search.toLowerCase()
+      results = results.filter(
+        (u) =>
+          u.firstName?.toLowerCase().includes(q) ||
+          u.lastName?.toLowerCase().includes(q) ||
+          u.email?.toLowerCase().includes(q),
+      )
+    }
+    return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+  },
+)
 
 const loading = computed(() => users.value === undefined)
 </script>

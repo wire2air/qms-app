@@ -135,6 +135,13 @@ const editingDescription = ref(false)
 
     <SafeTeleport to="#main-header-actions">
       <div class="tw:flex tw:items-center tw:gap-2">
+        <AskAiButton
+          v-if="capa?.id"
+          entityType="Capa"
+          :entityId="capa.id"
+          :entityTitle="capa.title"
+          :entityNumber="capa.capaNumber"
+        />
         <TaskActionBar v-if="capa?.id" entityType="Capa" :entityId="capa.id" />
         <BaseButton
           v-if="capa?.statusId === 'DRAFT'"

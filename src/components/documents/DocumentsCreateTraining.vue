@@ -168,9 +168,22 @@ const hasAssessment = computed({
         <aside class="tw:flex tw:flex-col tw:gap-5">
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:space-y-4">
             <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Training Manager</p>
-              <UserSelectMenu v-model="config.managerId" nullLabel="No manager" />
-              <p class="tw:text-[11px] tw:text-secondary tw:mt-1">Receives completion notifications and verifies competency.</p>
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+                Training Manager
+                <span class="tw:text-red-600 tw:font-normal">*</span>
+              </p>
+              <UserSelectMenu v-model="config.managerId" nullLabel="Select a manager" />
+              <p
+                class="tw:text-[11px] tw:mt-1"
+                :class="config.enabled && !config.managerId ? 'tw:text-red-600 tw:font-medium' : 'tw:text-secondary'"
+              >
+                <template v-if="config.enabled && !config.managerId">
+                  Required — receives completion notifications and verifies competency.
+                </template>
+                <template v-else>
+                  Receives completion notifications and verifies competency.
+                </template>
+              </p>
             </div>
             <div>
               <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Due (days after effective)</p>
@@ -189,7 +202,10 @@ const hasAssessment = computed({
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:space-y-4">
             <div class="tw:flex tw:items-start tw:justify-between">
               <div>
-                <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">Manager Verification Required</label>
+                <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">
+                  Manager Verification Required
+                  <span class="tw:text-xs tw:font-normal tw:text-secondary">(For compliance)</span>
+                </label>
                 <p class="tw:text-[11px] tw:text-secondary">If off, the training closes automatically on completion.</p>
               </div>
               <BaseSwitch v-model="config.requireManagerVerification" />

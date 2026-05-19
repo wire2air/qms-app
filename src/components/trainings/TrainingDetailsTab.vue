@@ -67,5 +67,22 @@ const props = defineProps({
       <UserBadgeById v-else-if="training.managerId" :userId="training.managerId" />
       <span v-else class="tw:text-sm tw:text-secondary">—</span>
     </div>
+
+    <div class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:p-3 tw:rounded-lg tw:border tw:border-divider">
+      <div>
+        <p class="tw:text-sm tw:font-medium tw:text-on-sidebar">
+          Manager Verification Required
+          <span class="tw:text-xs tw:font-normal tw:text-secondary">(For compliance)</span>
+        </p>
+        <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
+          When on, completed trainees enter Pending Verification and need manager sign-off before the
+          instance closes. When off, the training closes automatically on completion.
+        </p>
+      </div>
+      <BaseSwitch v-if="editable" v-model="props.training.requireManagerVerification" />
+      <span v-else class="tw:text-sm tw:font-medium" :class="training.requireManagerVerification === false ? 'tw:text-secondary' : 'tw:text-green-600'">
+        {{ training.requireManagerVerification === false ? 'No' : 'Yes' }}
+      </span>
+    </div>
   </div>
 </template>

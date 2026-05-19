@@ -21,6 +21,7 @@ const user = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
 const loading = computed(() => user.value === undefined)
 
 const showAvatarDialog = ref(false)
+const showAuditLog = ref(false)
 const uploadingAvatar = ref(false)
 const sendingInvite = ref(false)
 const showRoleSelect = ref(false)
@@ -414,6 +415,7 @@ async function handleAvatarDelete() {
           </div>
           <button
             class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-1.5 tw:bg-main-hover tw:rounded-full tw:text-secondary tw:cursor-pointer tw:hover:bg-divider tw:transition-colors"
+            @click="showAuditLog = true"
           >
             <IconHistory :size="14" />
             <span class="tw:text-xs tw:font-medium">View Audit Logs</span>
@@ -430,6 +432,13 @@ async function handleAvatarDelete() {
       :aspectRatio="1"
       @save="handleAvatarSave"
       @delete="handleAvatarDelete"
+    />
+
+    <!-- Audit Log Dialog — shows actions performed BY this user -->
+    <AuditLogDialog
+      v-model="showAuditLog"
+      :performedBy="props.id"
+      :title="`Audit Log — ${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Audit Log'"
     />
   </div>
 </template>

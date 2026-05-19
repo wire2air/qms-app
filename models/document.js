@@ -6,7 +6,7 @@ import { DateTime } from 'luxon'
   primaryKey: 'id',
   syncField: 'updatedAt',
   customIndex: 'docNumber',
-  schemaVersion: 2,
+  schemaVersion: 3,
 })
 export class Document extends BaseModel {
   static paranoid = true // Enable soft deletes using deletedAt field
@@ -42,6 +42,15 @@ export class Document extends BaseModel {
   @Property({ type: String }) relatedStandardId = ''
   @Property({ type: Number, required: true }) periodicReviewMonths = 12
   @Property({ type: Boolean }) autoEffectiveOnApproval = true
+  // Periodic review (ISO 9001 / 13485 — confirm doc still valid every N months).
+  // FK columns default to null, NOT empty string — GraphQL rejects '' for
+  // nullable UUID inputs ("Invalid UUID, expected 32 hexadecimal characters").
+  @Property({ type: DateTime }) lastReviewedAt = null
+  @Property({ type: String }) lastReviewedBy = /** @type {String|null} */ (null)
+  // Whole-document obsoletion (regulatory withdrawal, scope removed, etc.).
+  @Property({ type: DateTime }) obsoletedAt = null
+  @Property({ type: String }) obsoletedBy = /** @type {String|null} */ (null)
+  @Property({ type: String }) obsoletionReason = /** @type {String|null} */ (null)
   @Property({ type: Object }) trainingConfig = null
   @Property({ type: DateTime, required: true, timestamp: true, autoUpdate: true })
   updatedAt = /** @type {DateTime} */ (null)

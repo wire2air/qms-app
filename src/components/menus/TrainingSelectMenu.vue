@@ -6,8 +6,13 @@ defineProps({
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
+// Only ACTIVE, non-doc-driven trainings show in the picker. Doc-driven trainings
+// are launched by the document effective trigger, not via direct selection.
 const trainings = useLiveQuery(
-  async (db) => db.Training.where().exec().then((all) => all.filter((t) => t.status === 'ACTIVE')),
+  async (db) =>
+    db.Training.where()
+      .exec()
+      .then((all) => all.filter((t) => t.status === 'ACTIVE' && !t.sourceDocumentId)),
   { initial: [] },
 )
 

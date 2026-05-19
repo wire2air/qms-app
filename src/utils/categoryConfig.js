@@ -12,6 +12,7 @@ import {
   IconPackage,
   IconLayoutGrid,
   IconSchool,
+  IconSparkles,
 } from '@tabler/icons-vue'
 
 /**
@@ -125,6 +126,11 @@ export const CATEGORY_METADATA = {
     icon: IconSchool,
     description: 'Manage access for Training Matrix',
   },
+  ai: {
+    label: 'AI Assistant',
+    icon: IconSparkles,
+    description: 'AI sidecar: view usage, manage configuration, audit activity',
+  },
 }
 
 export const PERMISSION_SECTIONS = [
@@ -151,6 +157,10 @@ export const PERMISSION_SECTIONS = [
   {
     name: 'Training',
     categories: ['trainings', 'trainingInstances', 'trainingMatrix'],
+  },
+  {
+    name: 'AI',
+    categories: ['ai'],
   },
 ]
 

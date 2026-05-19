@@ -77,6 +77,13 @@ const showDeleteConfirm = ref(false)
 
 async function handlePublish() {
   if (!training.value) return
+  if (!training.value.managerId) {
+    toast.notify({
+      type: 'negative',
+      message: 'A Training Manager is required before publishing. Set one on the Details tab.',
+    })
+    return
+  }
   actionLoading.value = true
   try {
     training.value.status = 'ACTIVE'
@@ -158,7 +165,12 @@ const activeTab = ref('details')
 
         <!-- DRAFT actions -->
         <template v-if="canManage && training.status === 'DRAFT'">
-          <BaseButton variant="primary" @click="showPublishConfirm = true">
+          <BaseButton
+            variant="primary"
+            :disabled="!training.managerId"
+            :title="training.managerId ? '' : 'A Training Manager is required before publishing'"
+            @click="showPublishConfirm = true"
+          >
             <IconCircleCheck :size="16" class="tw:mr-1" /> Publish
           </BaseButton>
           <BaseButton variant="secondary" :loading="actionLoading" @click="showDeleteConfirm = true">

@@ -1,5 +1,5 @@
 <script setup>
-defineProps({
+const props = defineProps({
   required: {
     type: Boolean,
     default: false,
@@ -12,6 +12,11 @@ defineProps({
     type: String,
     default: 'All',
   },
+  // Set true on admin screens that need to show inactive/invited users too
+  includeInactive: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const modelValue = defineModel({
@@ -22,7 +27,9 @@ const modelValue = defineModel({
 const users = useLiveQuery(
   async (db) => {
     const users = await db.User.where().exec()
-    return users.map((user) => ({ id: user.id, name: `${user.firstName} ${user.lastName}` }))
+    return users
+      .filter((u) => props.includeInactive || u.userStatusId === 'ACTIVE')
+      .map((user) => ({ id: user.id, name: `${user.firstName} ${user.lastName}` }))
   },
   { initial: [] },
 )

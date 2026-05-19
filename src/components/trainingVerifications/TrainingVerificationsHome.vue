@@ -11,13 +11,13 @@ const props = defineProps({
 const userId = computed(() => currentSession.value?.userId)
 const search = ref('')
 
-// Trainings I manage
+// Trainings I manage, plus trainings with no manager set (fallback to launcher)
 const myTrainings = useLiveQueryWithDeps(
   [() => userId.value],
   async (db, [uid]) => {
     if (!uid) return []
     const all = await db.Training.where().exec()
-    return all.filter((t) => t.managerId === uid)
+    return all.filter((t) => t.managerId === uid || !t.managerId)
   },
   { initial: [] },
 )

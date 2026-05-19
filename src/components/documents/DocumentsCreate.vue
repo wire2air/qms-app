@@ -5,9 +5,12 @@ import {
   IconHistory,
   IconArticle,
   IconSchool,
+  IconSparkles,
+  IconFileUpload,
 } from '@tabler/icons-vue'
 import { required, minValue, helpers } from '@vuelidate/validators'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { db } from '@models/index'
 
 const router = useRouter()
 const toast = useToast()
@@ -36,7 +39,13 @@ const DEFAULT_FORM = {
   departmentId: null,
   effectiveDate: null,
   sections: [],
-  changeNotes: '',
+  // Change control — optional on v1.0, required on every revision after.
+  // The Change Control tab binds to these fields via v-model.
+  changeSummary: '',
+  changeReason: '',
+  changeType: null, // ADMINISTRATIVE | MINOR | MAJOR
+  regulatoryImpact: false,
+  regulatoryImpactNotes: '',
   siteId: null,
   tags: [],
   approverIds: [],
@@ -101,6 +110,15 @@ const rules = computed(() => ({
     required: helpers.withMessage('Periodic review period is required', required),
     minValue: helpers.withMessage('Must be at least 1 month', minValue(1)),
   },
+  // Conditional: when the author flags regulatory impact, the notes field
+  // is required. Mirrors the DB CHECK constraint so the message lands in
+  // the UI before the save round-trip.
+  regulatoryImpactNotes: {
+    requiredWhenImpact: helpers.withMessage(
+      'Notes are required when regulatory impact is flagged',
+      (value) => !form.value.regulatoryImpact || (value && value.trim().length > 0),
+    ),
+  },
 }))
 
 // Setup validator
@@ -140,7 +158,6 @@ const createDocument = useLiveMutation(async (db, formData) => {
     relatedStandardId: formData.relatedStandardId,
     periodicReviewMonths: formData.periodicReviewMonths,
     autoEffectiveOnApproval: formData.autoEffectiveOnApproval,
-    trainingConfig: formData.trainingConfig?.enabled ? formData.trainingConfig : null,
     workflowVersionId: formData.workflowVersionId,
     statusId: 'ACTIVE',
     docNumber: `${resolvedPrefix}-${String(documentCounter.currentValue).padStart(3, '0')}`,
@@ -153,8 +170,19 @@ const createDocument = useLiveMutation(async (db, formData) => {
     versionMajor: 1,
     versionMinor: 0,
     statusId: 'DRAFT',
+    // Change control — optional on v1.0 but captured if provided. The
+    // DB CHECK constraint enforces required-ness only on v > 1.0.
     changeSummary: formData.changeSummary || '',
+    changeReason: formData.changeReason || null,
+    changeType: formData.changeType || null,
+    regulatoryImpact: !!formData.regulatoryImpact,
+    regulatoryImpactNotes: formData.regulatoryImpact
+      ? formData.regulatoryImpactNotes || null
+      : null,
     effectiveDate: formData.effectiveDate,
+    // trainingConfig now lives on the version (per-revision); each new version
+    // can have its own roles/users/questions.
+    trainingConfig: formData.trainingConfig?.enabled ? formData.trainingConfig : null,
   })
   await version.save()
 
@@ -182,8 +210,12 @@ async function saveDraft() {
 
   if (!isValid) {
     toast.warning('Please fix the validation errors before saving')
-    // Switch to properties tab if validation fails
-    activeTab.value = 'properties'
+    // Route to the tab that owns the first error so the user sees it.
+    if (validator.value.regulatoryImpactNotes?.$error) {
+      activeTab.value = 'changeControl'
+    } else {
+      activeTab.value = 'properties'
+    }
     return
   }
 
@@ -228,6 +260,61 @@ function cancel() {
   form.value = { ...DEFAULT_FORM } // Clear form on cancel
   router.push(getCompanyPath('/documents'))
 }
+
+// ─── AI draft integration ──────────────────────────────────────────────────
+const showDraftDialog = ref(false)
+
+// Look up the department's display name once when needed — the AI task wants
+// a human-readable string (not the UUID) so its language matches the team.
+const aiDepartmentName = ref(null)
+watch(
+  () => form.value.departmentId,
+  async (deptId) => {
+    if (!deptId) {
+      aiDepartmentName.value = null
+      return
+    }
+    const dept = await db.Department.findByPk(deptId)
+    aiDepartmentName.value = dept?.name ?? null
+  },
+  { immediate: true },
+)
+
+function handleAiDraft(draft) {
+  // Map the AI's structured output onto the form. The user reviews + edits
+  // in the existing tabs before saving — nothing persists here.
+  form.value.title = draft.title
+  form.value.sections = draft.sections.map((s, idx) => ({
+    title: s.title,
+    content: s.content,
+    sectionType: 'text',
+    order: s.order ?? idx + 1,
+    attachments: null,
+  }))
+  // Jump to the Content tab so the user immediately sees what landed.
+  activeTab.value = 'content'
+  toast.success('AI draft applied — review each section before saving.')
+}
+
+// ─── PDF import integration ──────────────────────────────────────────────
+// Same emit contract as the AI draft dialog — { title, description,
+// sections: [{ title, content, sectionType, order }] }. Section content
+// arrives as sanitized HTML (markdown was rendered in the dialog) so the
+// TipTap editor accepts it directly. Image URLs are pre-uploaded by the
+// dialog before this fires.
+const showImportDialog = ref(false)
+function handlePdfImport(draft) {
+  form.value.title = draft.title
+  form.value.sections = draft.sections.map((s, idx) => ({
+    title: s.title,
+    content: s.content,
+    sectionType: 'text',
+    order: s.order ?? idx + 1,
+    attachments: null,
+  }))
+  activeTab.value = 'content'
+  toast.success('PDF imported — review each section before saving.')
+}
 </script>
 
 <template>
@@ -244,9 +331,29 @@ function cancel() {
       <div class="tw:max-w-4xl tw:mx-auto tw:px-6 tw:py-8">
         <!-- Header -->
         <div class="tw:mb-8">
-          <h1 class="tw:text-3xl tw:font-extrabold tw:text-on-sidebar tw:mb-6">
-            Create New Document
-          </h1>
+          <div class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:mb-6">
+            <h1 class="tw:text-3xl tw:font-extrabold tw:text-on-sidebar">
+              Create New Document
+            </h1>
+            <div class="tw:flex tw:items-center tw:gap-2">
+              <button
+                class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-divider tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-sidebar tw:transition-colors tw:font-medium tw:px-3 tw:py-1.5 tw:text-sm"
+                title="Import an existing PDF (SOP, work instruction, etc.) — extracts text + images and structures the content"
+                @click="showImportDialog = true"
+              >
+                <IconFileUpload :size="15" />
+                Import PDF
+              </button>
+              <button
+                class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-3 tw:py-1.5 tw:text-sm"
+                title="Use AI to draft an initial outline you can edit"
+                @click="showDraftDialog = true"
+              >
+                <IconSparkles :size="15" />
+                Draft with AI
+              </button>
+            </div>
+          </div>
 
           <!-- Tabs Navigation -->
           <div class="tw:flex tw:border-b tw:border-divider">
@@ -307,7 +414,10 @@ function cancel() {
           />
 
           <!-- Change Control Tab -->
-          <DocumentsCreateChangeControl v-show="activeTab === 'changeControl'" />
+          <DocumentsCreateChangeControl
+            v-show="activeTab === 'changeControl'"
+            :form="form"
+          />
 
           <!-- Content Tab -->
           <DocumentsCreateContent
@@ -339,5 +449,16 @@ function cancel() {
         </div>
       </div>
     </div>
+
+    <!-- AI draft dialog (Phase 4) -->
+    <DocumentDraftDialog
+      v-model="showDraftDialog"
+      :initialDocumentTypeId="form.documentTypeId"
+      :initialDepartmentName="aiDepartmentName"
+      @apply="handleAiDraft"
+    />
+
+    <!-- PDF import dialog — extract text + images and structure with AI -->
+    <DocumentImportPdfDialog v-model="showImportDialog" @apply="handlePdfImport" />
   </div>
 </template>

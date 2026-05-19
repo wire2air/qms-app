@@ -84,6 +84,7 @@ declare global {
   const onUnmounted: typeof import('vue').onUnmounted
   const onUpdated: typeof import('vue').onUpdated
   const onWatcherCleanup: typeof import('vue').onWatcherCleanup
+  const parsePdfAndExtractImages: typeof import('./src/composables/usePdfImport.js').parsePdfAndExtractImages
   const pausableWatch: typeof import('@vueuse/core').pausableWatch
   const provide: typeof import('vue').provide
   const provideApiKeys: typeof import('./src/composables/useApiKeys.js').provideApiKeys
@@ -154,6 +155,7 @@ declare global {
   const until: typeof import('@vueuse/core').until
   const uploadFile: typeof import('./src/composables/useFileUpload.js').uploadFile
   const useActiveElement: typeof import('@vueuse/core').useActiveElement
+  const useAiUsage: typeof import('./src/composables/useAiUsage.js').useAiUsage
   const useAnimate: typeof import('@vueuse/core').useAnimate
   const useApiKeys: typeof import('./src/composables/useApiKeys.js').useApiKeys
   const useArrayDifference: typeof import('@vueuse/core').useArrayDifference
@@ -180,6 +182,9 @@ declare global {
   const useBroadcastChannel: typeof import('@vueuse/core').useBroadcastChannel
   const useBrowserLocation: typeof import('@vueuse/core').useBrowserLocation
   const useCached: typeof import('@vueuse/core').useCached
+  const useChatPanel: typeof import('./src/composables/useChatPanel.js').useChatPanel
+  const useChatStream: typeof import('./src/composables/useChatStream.js').useChatStream
+  const useChatThreads: typeof import('./src/composables/useChatThreads.js').useChatThreads
   const useClipboard: typeof import('@vueuse/core').useClipboard
   const useClipboardItems: typeof import('@vueuse/core').useClipboardItems
   const useCloned: typeof import('@vueuse/core').useCloned
@@ -304,6 +309,7 @@ declare global {
   const useScrollLock: typeof import('@vueuse/core').useScrollLock
   const useSessionStorage: typeof import('@vueuse/core').useSessionStorage
   const useShare: typeof import('@vueuse/core').useShare
+  const useSimilarRecords: typeof import('./src/composables/useSimilarRecords.js').useSimilarRecords
   const useSites: typeof import('./src/composables/useSites.js').useSites
   const useSlots: typeof import('vue').useSlots
   const useSorted: typeof import('@vueuse/core').useSorted

@@ -103,5 +103,8 @@ onMounted(async () => {
         </div>
       </div>
     </main>
+
+    <!-- AI sidecar — global slide-out chat (see backend/ai/README.md, AI_PLAN.md §6) -->
+    <ChatPanel />
   </div>
 </template>

@@ -44,9 +44,23 @@ declare module 'vue-router/auto-routes' {
       { companyCode: ParamValue<false>, companyId?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/[companyCode]/ai-usage': RouteRecordInfo<
+      '/[companyCode]/ai-usage',
+      '/:companyCode/ai-usage',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
     '/[companyCode]/api-keys': RouteRecordInfo<
       '/[companyCode]/api-keys',
       '/:companyCode/api-keys',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/api-tokens': RouteRecordInfo<
+      '/[companyCode]/api-tokens',
+      '/:companyCode/api-tokens',
       { companyCode: ParamValue<true> },
       { companyCode: ParamValue<false> },
       | never
@@ -93,6 +107,13 @@ declare module 'vue-router/auto-routes' {
       { companyCode: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/[companyCode]/documents/print': RouteRecordInfo<
+      '/[companyCode]/documents/print',
+      '/:companyCode/documents/print',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
     '/[companyCode]/form-templates': RouteRecordInfo<
       '/[companyCode]/form-templates',
       '/:companyCode/form-templates',
@@ -133,6 +154,13 @@ declare module 'vue-router/auto-routes' {
       '/:companyCode/option-sets/:id?',
       { companyCode: ParamValue<true>, id?: ParamValueZeroOrOne<true> },
       { companyCode: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/[companyCode]/print': RouteRecordInfo<
+      '/[companyCode]/print',
+      '/:companyCode/print',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
       | never
     >,
     '/[companyCode]/products': RouteRecordInfo<
@@ -348,9 +376,21 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/[companyCode]/ai-usage.vue': {
+      routes:
+        | '/[companyCode]/ai-usage'
+      views:
+        | never
+    }
     'src/pages/[companyCode]/api-keys.vue': {
       routes:
         | '/[companyCode]/api-keys'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/api-tokens.vue': {
+      routes:
+        | '/[companyCode]/api-tokens'
       views:
         | never
     }
@@ -390,6 +430,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/[companyCode]/documents/print.vue': {
+      routes:
+        | '/[companyCode]/documents/print'
+      views:
+        | never
+    }
     'src/pages/[companyCode]/form-templates.vue': {
       routes:
         | '/[companyCode]/form-templates'
@@ -423,6 +469,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[companyCode]/option-sets/[[id]].vue': {
       routes:
         | '/[companyCode]/option-sets/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/print.vue': {
+      routes:
+        | '/[companyCode]/print'
       views:
         | never
     }

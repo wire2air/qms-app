@@ -99,9 +99,17 @@ import { TrainingExternalLink } from './trainingExternalLink'
 import { TrainingDocumentLink } from './trainingDocumentLink'
 import { TrainingMatrix } from './trainingMatrix'
 import { TrainingVerification } from './trainingVerification'
+// AI sidecar (see backend/ai/README.md, AI_PLAN.md §11). All AI models are
+// grouped here. Existing models stay AI-agnostic.
+import { AiPat } from './aiPat'
+import { AiChatThread } from './aiChatThread'
+import { AiChatMessage } from './aiChatMessage'
 
 export const db = {
   ApiKey,
+  AiPat,
+  AiChatThread,
+  AiChatMessage,
   Workflow,
   WorkflowInstance,
   WorkflowInstanceStatus,

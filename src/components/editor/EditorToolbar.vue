@@ -11,6 +11,8 @@ import {
   IconPhoto,
   IconTable,
   IconHighlight,
+  IconH3,
+  IconH4,
 } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -30,6 +32,11 @@ const toolbarItems = [
   { icon: IconBold, action: 'bold', label: 'Bold' },
   { icon: IconItalic, action: 'italic', label: 'Italic' },
   { icon: IconStrikethrough, action: 'strike', label: 'Strikethrough' },
+  { divider: true },
+  // Heading 3 / 4 — render as "N.1" / "N.1.1" under the parent section
+  // number. Used for QMS sub-sections (the most common structure rule).
+  { icon: IconH3, action: 'heading', level: 3, label: 'Sub-section (N.1)', custom: true },
+  { icon: IconH4, action: 'heading', level: 4, label: 'Sub-sub-section (N.1.1)', custom: true },
   { divider: true },
   { icon: IconList, action: 'bulletList', label: 'Bullet List' },
   { icon: IconListNumbers, action: 'orderedList', label: 'Numbered List' },
@@ -63,6 +70,11 @@ function executeCommand(item) {
     return
   }
 
+  if (item.custom && item.action === 'heading') {
+    props.editor.chain().focus().toggleHeading({ level: item.level }).run()
+    return
+  }
+
   const command = `toggle${item.action.charAt(0).toUpperCase() + item.action.slice(1)}`
   props.editor.chain().focus()[command]().run()
 }
@@ -92,9 +104,11 @@ function openImageFilePicker() {
   input.click()
 }
 
-function isActive(action) {
+function isActive(item) {
   if (!props.editor) return false
-  return props.editor.isActive(action)
+  if (typeof item === 'string') return props.editor.isActive(item)
+  if (item.action === 'heading') return props.editor.isActive('heading', { level: item.level })
+  return props.editor.isActive(item.action)
 }
 </script>
 
@@ -110,7 +124,7 @@ function isActive(action) {
         :disabled="item.action === 'image' && imageUploading"
         class="tw:min-w-8 tw:min-h-8 tw:rounded tw:transition-colors tw:border-0 tw:cursor-pointer tw:flex tw:items-center tw:justify-center tw:p-1"
         :class="
-          isActive(item.action)
+          isActive(item)
             ? 'tw:bg-primary tw:text-white'
             : 'tw:text-secondary tw:bg-transparent tw:hover:bg-main-hover tw:hover:text-on-main'
         "

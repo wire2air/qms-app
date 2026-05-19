@@ -15,6 +15,7 @@ export const userSuggestion = {
     const q = query.toLowerCase()
     const all = await db.User.where().exec()
     const matched = all.filter((user) => {
+      if (user.userStatusId !== 'ACTIVE') return false
       const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.toLowerCase()
       return fullName.includes(q) || user.email?.toLowerCase().includes(q)
     })

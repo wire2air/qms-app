@@ -9,6 +9,8 @@ import {
   IconLinkOff,
   IconX,
   IconCheck,
+  IconH3,
+  IconH4,
 } from '@tabler/icons-vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { BubbleMenu } from '@tiptap/vue-3/menus'
@@ -45,6 +47,13 @@ const props = defineProps({
     default: 'html', // 'html', 'json', or 'text'
     validator: (value) => ['html', 'json', 'text'].includes(value),
   },
+  // When set, h3 headings render as "N.1 …" and h4 as "N.1.1 …" via CSS
+  // counters scoped to this editor. N is the parent section's number (1-based).
+  // Leave null to disable numbering — H1/H2 are never auto-numbered.
+  sectionNumber: {
+    type: [Number, null],
+    default: null,
+  },
 })
 
 const modelValue = defineModel({ type: [String, Object], default: '' })
@@ -54,6 +63,11 @@ const menuItems = [
   { icon: IconItalic, action: 'italic', label: 'Italic' },
   { icon: IconStrikethrough, action: 'strike', label: 'Strikethrough' },
   { icon: IconHighlight, action: 'highlight', label: 'Highlight' },
+  { divider: true },
+  // Heading 3 / 4 — promote the selection to a QMS sub-section (N.1) or
+  // sub-sub-section (N.1.1). The numbering is added by CSS counters.
+  { icon: IconH3, action: 'heading', level: 3, label: 'Sub-section (N.1)' },
+  { icon: IconH4, action: 'heading', level: 4, label: 'Sub-sub-section (N.1.1)' },
   { divider: true },
   { icon: IconCode, action: 'code', label: 'Code' },
 ]
@@ -214,7 +228,7 @@ const editor = useEditor({
   extensions: [
     StarterKit.configure({
       heading: {
-        levels: [1, 2, 3],
+        levels: [1, 2, 3, 4],
       },
       link: false, // We'll use the Link extension separately to customize it
     }),
@@ -269,8 +283,19 @@ const SETCONTENT_COOLDOWN_MS = 2500
 function executeCommand(item) {
   if (!editor.value) return
 
+  if (item.action === 'heading') {
+    editor.value.chain().focus().toggleHeading({ level: item.level }).run()
+    return
+  }
+
   const command = `toggle${item.action.charAt(0).toUpperCase() + item.action.slice(1)}`
   editor.value.chain().focus()[command]().run()
+}
+
+function isItemActive(item) {
+  if (!editor.value) return false
+  if (item.action === 'heading') return editor.value.isActive('heading', { level: item.level })
+  return editor.value.isActive(item.action)
 }
 
 function toggleLinkInput() {
@@ -436,7 +461,11 @@ defineExpose({
 </script>
 
 <template>
-  <div class="tiptap-editor-wrapper">
+  <div
+    class="tiptap-editor-wrapper"
+    :class="{ 'numbered-headings': sectionNumber != null }"
+    :style="sectionNumber != null ? { '--section-number': sectionNumber } : undefined"
+  >
     <!-- Editor Toolbar -->
     <EditorToolbar
       v-if="editor && editable"
@@ -515,7 +544,7 @@ defineExpose({
               v-else
               class="tw:flex tw:items-center tw:justify-center tw:size-8 tw:rounded tw:transition-colors tw:border-0 tw:cursor-pointer"
               :class="
-                editor.isActive(item.action)
+                isItemActive(item)
                   ? 'tw:bg-primary tw:text-white'
                   : 'tw:text-secondary tw:bg-transparent tw:hover:bg-sidebar tw:hover:text-on-sidebar'
               "
@@ -612,6 +641,12 @@ defineExpose({
 
   h3 {
     font-size: 1.25em;
+    font-weight: bold;
+    line-height: 1.4;
+  }
+
+  h4 {
+    font-size: 1.1em;
     font-weight: bold;
     line-height: 1.4;
   }
@@ -754,6 +789,44 @@ defineExpose({
 
   .mention-chip:hover {
     opacity: 0.8;
+  }
+}
+
+/* QMS hierarchical numbering — when the parent passes `sectionNumber`,
+ * the wrapper sets the --section-number CSS variable and adds the
+ * .numbered-headings class. CSS counters then auto-prefix:
+ *   h3 → "N.1 Title", "N.2 Title", …
+ *   h4 → "N.1.1 Title", "N.1.2 Title", …
+ * Counters scope to this editor instance; insertions/deletions reflow
+ * automatically. H1/H2 are intentionally not numbered — sections own
+ * the top-level number, and h1/h2 are unusual inside a section body.
+ *
+ * The section number is converted into a CSS counter via counter-reset
+ * because the `content` property accepts counter() but rejects bare
+ * integer tokens — using var(--section-number) directly inside content
+ * silently fails. */
+.numbered-headings .tiptap-editor-content :deep(.ProseMirror) {
+  counter-reset: section-num var(--section-number, 0) subsection 0;
+
+  h3 {
+    counter-increment: subsection;
+    counter-reset: subsubsection 0;
+  }
+
+  h3::before {
+    content: counter(section-num) '.' counter(subsection) '   ';
+    color: inherit;
+    white-space: pre;
+  }
+
+  h4 {
+    counter-increment: subsubsection;
+  }
+
+  h4::before {
+    content: counter(section-num) '.' counter(subsection) '.' counter(subsubsection) '   ';
+    color: inherit;
+    white-space: pre;
   }
 }
 </style>

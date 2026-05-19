@@ -19,10 +19,11 @@ import {
   IconShield,
   IconUsersGroup,
   IconKey,
+  IconRobot,
   IconShieldHalf,
+  IconChartBar,
   IconUserCircle,
   IconLogout,
-  IconChartBar,
   IconChevronDown,
   IconChevronRight,
   IconAlertCircle,
@@ -248,6 +249,20 @@ const navItems = computed(() => {
           icon: IconKey,
           to: getCompanyPath('/api-keys'),
         },
+        {
+          // AI sidecar — see backend/ai/README.md, AI_PLAN.md §6.5.
+          // Always visible; backend 404s if AI_MODULE_ENABLED is off.
+          label: 'API Tokens',
+          icon: IconRobot,
+          to: getCompanyPath('/api-tokens'),
+        },
+        {
+          // AI usage dashboard. Visible to all users; admins/ai:audit see
+          // company-wide data, regular users see only their own calls.
+          label: 'AI Usage',
+          icon: IconChartBar,
+          to: getCompanyPath('/ai-usage'),
+        },
       ].filter((item) => {
         // If no permissions specified, always show
         if (!item.permissions || item.permissions.length === 0) return true
@@ -308,10 +323,11 @@ const navItems = computed(() => {
 
         <!-- Nav Links -->
         <nav class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:overflow-auto">
-          <template v-for="item in navItems" :key="item.label">
+          <template v-for="item in navItems">
             <!-- Parent item with children -->
             <template v-if="item.children">
               <button
+                :key="`${item.label}-btn`"
                 class="tw:flex tw:items-center tw:gap-3 tw:w-full tw:px-3 tw:py-2 tw:rounded-lg tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:bg-transparent tw:border-0 tw:cursor-pointer"
                 @click="toggleGroup(item.label)"
               >
@@ -326,6 +342,7 @@ const navItems = computed(() => {
               </button>
               <div
                 v-if="isGroupExpanded(item.label)"
+                :key="`${item.label}-children`"
                 class="tw:ml-3 tw:flex tw:flex-col tw:gap-0.5"
               >
                 <RouterLink
@@ -344,6 +361,7 @@ const navItems = computed(() => {
             <!-- Single item without children -->
             <RouterLink
               v-else-if="item.to"
+              :key="item.label"
               :to="item.to"
               class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:px-3 tw:py-2 tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:no-underline"
               :class="isActive(item.to) ? 'tw:bg-main-selected tw:text-primary!' : ''"
@@ -353,7 +371,7 @@ const navItems = computed(() => {
             </RouterLink>
 
             <!-- Divider -->
-            <hr v-else class="tw:border-t tw:border-divider tw:my-2" />
+            <hr v-else :key="item.label" class="tw:border-t tw:border-divider tw:my-2" />
           </template>
         </nav>
       </div>

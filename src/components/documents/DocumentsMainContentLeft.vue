@@ -61,10 +61,13 @@ const versionLabel = computed(() => {
         :class="dense ? 'tw:p-4' : 'tw:p-8'"
       >
         <div
-          class="tw:flex tw:items-start tw:justify-between"
+          class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:flex-wrap"
           :class="dense ? 'tw:mb-2' : 'tw:mb-4'"
         >
-          <DocumentVersionStatusBadgeById :statusId="currentVersion?.statusId" />
+          <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+            <DocumentVersionStatusBadgeById :statusId="currentVersion?.statusId" />
+            <DocumentPeriodicReviewBadge :document="document" :canEdit="canEdit" />
+          </div>
 
           <span class="tw:text-secondary tw:text-sm tw:font-mono">
             {{ document.docNumber }} v{{ versionLabel }}
