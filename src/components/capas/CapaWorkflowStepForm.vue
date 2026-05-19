@@ -108,7 +108,6 @@ async function persistRecord({ submit }) {
         capaId: props.capaId,
         workflowInstanceStepId: props.instanceStepId,
         taskInstanceId: currentUserTask.value.id,
-        stepId: instanceStep.value.stepId,
         payload,
         submittedAt,
       })
