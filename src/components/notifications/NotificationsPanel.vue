@@ -33,7 +33,7 @@ function handleViewAll() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col">
+  <div class="tw:flex tw:flex-col tw:max-h-[inherit]">
     <!-- Header -->
     <div
       class="tw:flex tw:items-center tw:justify-between tw:px-4 tw:py-3 tw:border-b tw:border-divider"
