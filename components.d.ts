@@ -63,6 +63,7 @@ declare module 'vue' {
     BaseToast: typeof import('./resource/js/shared/components/BaseToast.vue')['default']
     BaseToastContainer: typeof import('./resource/js/shared/components/BaseToastContainer.vue')['default']
     BaseUploader: typeof import('./src/components/common/BaseUploader.vue')['default']
+    CapaAddChildStepDialog: typeof import('./src/components/capas/CapaAddChildStepDialog.vue')['default']
     CapaEffectivenessCheckCard: typeof import('./src/components/capas/CapaEffectivenessCheckCard.vue')['default']
     CapaEffectivenessCheckCompleteDialog: typeof import('./src/components/capas/CapaEffectivenessCheckCompleteDialog.vue')['default']
     CapaEffectivenessCheckRenewDialog: typeof import('./src/components/capas/CapaEffectivenessCheckRenewDialog.vue')['default']

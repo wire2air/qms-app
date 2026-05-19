@@ -89,7 +89,7 @@ const showBackButton = computed(() => {
       leaveFromClass="tw:translate-y-0"
       leaveToClass="tw:translate-y-full"
     >
-      <div v-if="modelValue" class="tw:fixed tw:inset-0 tw:z-50 tw:flex tw:flex-col tw:bg-main">
+      <div v-if="modelValue" class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-9999">
         <div class="tw:flex tw:flex-col tw:h-full tw:flex-nowrap">
           <!-- Header -->
           <div

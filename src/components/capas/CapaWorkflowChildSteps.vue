@@ -8,7 +8,6 @@ import {
   IconPlus,
 } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
-import { post } from '@/api'
 
 const props = defineProps({
   parentInstanceStepId: { type: String, required: true },
@@ -20,7 +19,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['reassign'])
-const toast = useToast()
 
 const canAddChild = computed(() => props.isOwner && props.allowChildSteps)
 
@@ -43,36 +41,12 @@ function openChild(child) {
 }
 
 // ─── Add child step dialog ───────────────────────────────────────────────────
+// Form state + submit logic live in <CapaAddChildStepDialog>; this component
+// just owns the open/close ref.
 const addDialogOpen = ref(false)
-const addingChild = ref(false)
-const newChild = ref({ name: '', description: '', slaDays: null, assigneeUserId: null })
 
 function openAddDialog() {
-  newChild.value = { name: '', description: '', slaDays: null, assigneeUserId: null }
   addDialogOpen.value = true
-}
-
-async function handleAddChild() {
-  if (!newChild.value.name || !newChild.value.assigneeUserId) {
-    toast.warning('Step name and assignee are required')
-    return
-  }
-  addingChild.value = true
-  try {
-    await post(`/v1/services/capas/${props.capaId}/addChildStep`, {
-      parentInstanceStepId: props.parentInstanceStepId,
-      name: newChild.value.name,
-      description: newChild.value.description || null,
-      slaDays: newChild.value.slaDays || null,
-      assigneeUserId: newChild.value.assigneeUserId,
-    })
-    addDialogOpen.value = false
-    toast.success('Child step added')
-  } catch (e) {
-    toast.error(e.message || 'Failed to add child step')
-  } finally {
-    addingChild.value = false
-  }
 }
 
 const REASSIGNABLE_STATUSES = ['PENDING', 'IN_PROGRESS', 'SENT_BACK']
@@ -286,53 +260,10 @@ function getRowClass(child) {
       />
     </BaseDialog>
 
-    <BaseDialog v-model="addDialogOpen" title="Add Child Step" maxWidth="md">
-      <div class="tw:flex tw:flex-col tw:gap-4">
-        <div>
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-            Step name <span class="tw:text-red-500">*</span>
-          </label>
-          <BaseTextInput v-model="newChild.name" placeholder="e.g. Recalibrate sensor" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-            Description
-          </label>
-          <BaseTextarea
-            v-model="newChild.description"
-            placeholder="Optional details for the assignee"
-            rows="3"
-          />
-        </div>
-        <div>
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-            SLA (days)
-          </label>
-          <BaseTextInput
-            v-model.number="newChild.slaDays"
-            type="number"
-            :min="1"
-            placeholder="e.g. 5"
-            inputClass="tw:w-32"
-          />
-        </div>
-        <div>
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-            Assignee <span class="tw:text-red-500">*</span>
-          </label>
-          <UserSelectMenu v-model="newChild.assigneeUserId" :required="true" />
-        </div>
-      </div>
-      <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="addingChild" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :disabled="!newChild.name || !newChild.assigneeUserId || addingChild"
-          @click="handleAddChild"
-        >
-          {{ addingChild ? 'Adding…' : 'Add step' }}
-        </BaseButton>
-      </template>
-    </BaseDialog>
+    <CapaAddChildStepDialog
+      v-model="addDialogOpen"
+      :capaId="capaId"
+      :parentInstanceStepId="parentInstanceStepId"
+    />
   </div>
 </template>
