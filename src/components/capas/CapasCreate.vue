@@ -37,9 +37,6 @@ const form = ref({
   // table (e.g. source_type='NC' → source_id = a Nonconformance id).
   sourceId: presetNcId.value || null,
   rootCauseCategoryId: null,
-  rootCause: '',
-  correctiveAction: '',
-  preventiveAction: '',
   workflowVersionId: null,
 })
 
@@ -53,7 +50,6 @@ watch(sourceNc, (nc) => {
   if (!form.value.rootCauseCategoryId && nc.rootCauseCategoryId) {
     form.value.rootCauseCategoryId = nc.rootCauseCategoryId
   }
-  if (!form.value.rootCause && nc.rootCause) form.value.rootCause = nc.rootCause
 })
 
 watch(
@@ -237,42 +233,6 @@ async function handleReviewersConfirmed(reviewers) {
                 Owner <span class="tw:text-red-500">*</span>
               </label>
               <UserSelectMenu v-model="form.ownerId" required />
-            </div>
-          </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-          >
-            Actions
-            <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Root cause</label>
-              <BaseTextarea
-                v-model="form.rootCause"
-                placeholder="What caused this?"
-                :rows="3"
-              />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Corrective action</label>
-              <BaseTextarea
-                v-model="form.correctiveAction"
-                placeholder="How will the existing problem be eliminated?"
-                :rows="3"
-              />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Preventive action</label>
-              <BaseTextarea
-                v-model="form.preventiveAction"
-                placeholder="How will recurrence be prevented?"
-                :rows="3"
-              />
             </div>
           </div>
         </div>

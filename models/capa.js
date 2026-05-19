@@ -40,10 +40,6 @@ export class Capa extends BaseModel {
   @Property({ type: DateTime }) completedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) closedAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) rootCauseCategoryId = null
-  @Property({ type: String }) rootCause = ''
-  @Property({ type: String }) correctiveAction = ''
-  @Property({ type: String }) preventiveAction = ''
-  @Property({ type: String }) effectivenessVerification = ''
   @Property({ type: DateTime }) verifiedAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) verifiedBy = /** @type {String} */ (null)
   @Property({ type: Object }) effectivenessCheck = /** @type {Object} */ ({})
