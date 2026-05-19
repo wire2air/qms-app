@@ -213,11 +213,12 @@ export default defineComponent({
             inline: field.inline,
           })
 
+        case 'text':
         case 'input':
         case 'password':
           return h(BaseTextInput, {
             ...inputFieldProps,
-            type: field.type,
+            type: field.type === 'input' || field.type === 'text' ? 'text' : field.type,
           })
 
         case 'textarea':
@@ -234,6 +235,19 @@ export default defineComponent({
 
         case 'textEditor':
           return h(TiptapEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly })
+
+        case 'date': {
+          const isDisabled = props.disabled || field.disabled
+          const dtValue = scope.value ? DateTime.fromISO(scope.value) : null
+          return h(BaseDatePicker, {
+            ...inputFieldProps,
+            modelValue: dtValue,
+            disabled: isDisabled,
+            'onUpdate:modelValue': (dt) => {
+              scope.value = DateTime.isDateTime(dt) ? dt.toISO() : null
+            },
+          })
+        }
 
         case 'datetime': {
           const isDisabled = props.disabled || field.disabled

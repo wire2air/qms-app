@@ -148,9 +148,7 @@ async function handleSubmit() {
         >
           <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
             <IconForms :size="18" class="tw:opacity-50 tw:shrink-0" />
-            <span class="tw:text-sm">
-              No form. The assignee just confirms the step.
-            </span>
+            <span class="tw:text-sm"> No form. The assignee just confirms the step. </span>
           </div>
           <div class="tw:flex tw:flex-wrap tw:gap-2">
             <BaseButton variant="outline" size="sm" @click="openBuilderBlank">
@@ -177,7 +175,7 @@ async function handleSubmit() {
                 <template #icon><IconPencil :size="14" /></template>
                 Edit
               </BaseButton>
-              <BaseButton variant="ghost" size="sm" @click="clearSchema">
+              <BaseButton variant="transparent" size="sm" @click="clearSchema">
                 <template #icon><IconTrash :size="14" /></template>
                 Remove
               </BaseButton>
@@ -194,9 +192,7 @@ async function handleSubmit() {
       <BaseButton variant="outline" :disabled="submitting" @click="close">Cancel</BaseButton>
       <BaseButton
         variant="primary"
-        :disabled="
-          !form.name || !form.assigneeUserId || !form.roleIds?.length || submitting
-        "
+        :disabled="!form.name || !form.assigneeUserId || !form.roleIds?.length || submitting"
         @click="handleSubmit"
       >
         {{ submitting ? 'Adding…' : 'Add step' }}
