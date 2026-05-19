@@ -42,13 +42,10 @@ const currentUserTask = useLiveQueryWithDeps(
   },
 )
 
-const capaRecord = useLiveQueryWithDeps(
-  [() => currentUserTask.value?.id],
-  async (db, [taskId]) => {
-    if (!taskId) return null
-    return db.CapaRecord.where('taskInstanceId', taskId).first()
-  },
-)
+const capaRecord = useLiveQueryWithDeps([() => currentUserTask.value?.id], async (db, [taskId]) => {
+  if (!taskId) return null
+  return db.CapaRecord.where('taskInstanceId', taskId).first()
+})
 
 const allowedOutcomes = useLiveQueryWithDeps(
   [() => instanceStep.value?.stepId],
@@ -131,16 +128,14 @@ const filteredReassignCandidates = computed(() =>
 
 // ─── Outcome configuration + gating ─────────────────────────────────────────
 const OUTCOME_CONFIG = {
-  COMPLETE_AND_ADVANCE: { label: 'Approve & Advance', icon: IconCheck },
+  COMPLETE_AND_ADVANCE: { label: 'Complete & Advance', icon: IconCheck },
   SEND_BACK: { label: 'Send Back', icon: IconArrowBackUp, needsTarget: true, needsComment: true },
   REQUEST_INFO: { label: 'Request Info', icon: IconInfoCircle, needsComment: true },
   REASSIGN: { label: 'Reassign', icon: IconUserCheck, needsUser: true, needsComment: true },
   CANCEL: { label: 'Cancel', icon: IconBan, needsComment: true },
 }
 
-const canActOnStep = computed(() =>
-  ACTIONABLE_STATUSES.includes(currentUserTask.value?.statusId),
-)
+const canActOnStep = computed(() => ACTIONABLE_STATUSES.includes(currentUserTask.value?.statusId))
 
 function isOutcomeDisabled(outcomeId) {
   if (outcomeId === 'COMPLETE_AND_ADVANCE') {

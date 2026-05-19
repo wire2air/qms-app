@@ -411,10 +411,7 @@ watch(
          initiate a send-back, so no targets are configurable. -->
     <div
       v-if="
-        showSendBackTargets &&
-        isSendBackActive &&
-        siblingSteps.length > 0 &&
-        !step.parentStepId
+        showSendBackTargets && isSendBackActive && siblingSteps.length > 0 && !step.parentStepId
       "
       class="tw:space-y-4"
     >
