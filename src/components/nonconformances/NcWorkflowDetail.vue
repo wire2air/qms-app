@@ -67,6 +67,10 @@ const reassignInstanceStep = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
 )
 
+// Eligible reviewers for this step come from two sources unioned together:
+// template-side WorkflowStepRole (for template-spawned steps) and the
+// RoleOnWorkflowInstanceStep pivot (for any ad-hoc instance step that has
+// roles attached directly).
 const reassignStepRoles = useLiveQueryWithDeps(
   [() => reassignInstanceStep.value?.stepId],
   async (db, [stepId]) => {
@@ -76,8 +80,25 @@ const reassignStepRoles = useLiveQueryWithDeps(
   { initial: [] },
 )
 
+const reassignInstanceStepRoles = useLiveQueryWithDeps(
+  [() => reassignStepInstanceId.value],
+  async (db, [id]) => {
+    if (!id) return []
+    return db.RoleOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
+  },
+  { initial: [] },
+)
+
+const reassignEffectiveRoleIds = computed(() => {
+  const set = new Set([
+    ...reassignStepRoles.value.map((r) => r.roleId),
+    ...reassignInstanceStepRoles.value.map((r) => r.roleId),
+  ])
+  return [...set]
+})
+
 const reassignCandidates = useLiveQueryWithDeps(
-  [() => reassignStepRoles.value.map((r) => r.roleId).join(',')],
+  [() => reassignEffectiveRoleIds.value.join(',')],
   async (db, [roleIdsStr]) => {
     if (!roleIdsStr) return []
     const roleIds = roleIdsStr.split(',')

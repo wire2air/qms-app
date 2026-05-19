@@ -18,6 +18,7 @@ const empty = () => ({
   name: '',
   description: '',
   slaDays: null,
+  roleIds: [],
   assigneeUserId: null,
   formSchema: [],
 })
@@ -59,8 +60,8 @@ function clearSchema() {
 }
 
 async function handleSubmit() {
-  if (!form.value.name || !form.value.assigneeUserId) {
-    toast.warning('Step name and assignee are required')
+  if (!form.value.name || !form.value.assigneeUserId || !form.value.roleIds?.length) {
+    toast.warning('Step name, at least one role, and an assignee are required')
     return
   }
   submitting.value = true
@@ -72,6 +73,7 @@ async function handleSubmit() {
       slaDays: form.value.slaDays || null,
       assigneeUserId: form.value.assigneeUserId,
       formSchema: form.value.formSchema || [],
+      roleIds: form.value.roleIds,
     })
     isOpen.value = false
     toast.success('Child step added')
@@ -117,9 +119,22 @@ async function handleSubmit() {
       </div>
       <div>
         <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
+          Eligible roles <span class="tw:text-red-500">*</span>
+        </label>
+        <RoleSelectMenu v-model="form.roleIds" multiple :required="true" />
+        <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
+          Defines who can be assigned now and who can be reassigned later.
+        </p>
+      </div>
+      <div>
+        <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
           Assignee <span class="tw:text-red-500">*</span>
         </label>
-        <UserSelectMenu v-model="form.assigneeUserId" :required="true" />
+        <UserSelectMenu
+          v-model="form.assigneeUserId"
+          :required="true"
+          :roleIdsFilter="form.roleIds"
+        />
       </div>
 
       <!-- Form schema -->
@@ -179,7 +194,9 @@ async function handleSubmit() {
       <BaseButton variant="outline" :disabled="submitting" @click="close">Cancel</BaseButton>
       <BaseButton
         variant="primary"
-        :disabled="!form.name || !form.assigneeUserId || submitting"
+        :disabled="
+          !form.name || !form.assigneeUserId || !form.roleIds?.length || submitting
+        "
         @click="handleSubmit"
       >
         {{ submitting ? 'Adding…' : 'Add step' }}

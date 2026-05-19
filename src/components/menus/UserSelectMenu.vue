@@ -61,11 +61,14 @@ const rolesByUserId = computed(() => {
   return map
 })
 
+// OR semantics — a user is eligible when they hold AT LEAST one of the
+// filter's roles. Null or empty array = no filter (show all users).
 const filteredUsers = computed(() => {
-  if (!props.roleIdsFilter) return users.value
+  const filter = props.roleIdsFilter
+  if (!filter || filter.length === 0) return users.value
   return users.value.filter((u) => {
     const userRoleIds = roleIdsOnUsers.value[u.id] || []
-    return props.roleIdsFilter.every((rid) => userRoleIds.includes(rid))
+    return filter.some((rid) => userRoleIds.includes(rid))
   })
 })
 

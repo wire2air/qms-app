@@ -97,7 +97,9 @@ const formRequired = computed(
 const formSaveRequired = computed(() => formRequired.value && !capaRecord.value?.submittedAt)
 
 // Reassign candidates for the reviewer-side REASSIGN outcome — users holding
-// any of the step's roles, minus the current user.
+// any of the step's eligible roles, minus the current user. Template-spawned
+// steps source roles from WorkflowStepRole; ad-hoc steps (no stepId) carry
+// them in the RoleOnWorkflowInstanceStep pivot.
 const stepRoles = useLiveQueryWithDeps(
   [() => instanceStep.value?.stepId],
   async (db, [stepId]) => {
@@ -107,8 +109,25 @@ const stepRoles = useLiveQueryWithDeps(
   { initial: [] },
 )
 
+const instanceStepRoles = useLiveQueryWithDeps(
+  [() => props.instanceStepId],
+  async (db, [id]) => {
+    if (!id) return []
+    return db.RoleOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
+  },
+  { initial: [] },
+)
+
+const effectiveRoleIds = computed(() => {
+  const set = new Set([
+    ...stepRoles.value.map((r) => r.roleId),
+    ...instanceStepRoles.value.map((r) => r.roleId),
+  ])
+  return [...set]
+})
+
 const reassignCandidates = useLiveQueryWithDeps(
-  [() => stepRoles.value.map((r) => r.roleId).join(',')],
+  [() => effectiveRoleIds.value.join(',')],
   async (db, [roleIdsStr]) => {
     if (!roleIdsStr) return []
     const roleIds = roleIdsStr.split(',')

@@ -51,6 +51,7 @@ import { RelatedStandard } from './relatedStandard'
 import { RiskLevel } from './riskLevel'
 import { Role } from './role'
 import { RoleOnUser } from './roleOnUser'
+import { RoleOnWorkflowInstanceStep } from './roleOnWorkflowInstanceStep'
 import { RoleStatus } from './roleStatus'
 import { Site } from './site'
 import { SiteOnTemplate } from './siteOnTemplate'
@@ -145,6 +146,7 @@ export const db = {
   RiskLevel,
   Role,
   RoleOnUser,
+  RoleOnWorkflowInstanceStep,
   RoleStatus,
   Site,
   SiteOnTemplate,
