@@ -8,9 +8,8 @@ import {
   IconCheck,
   IconFile,
 } from '@tabler/icons-vue'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
-import { parsePdfAndExtractImages } from '@/composables/usePdfImport.js'
+import { markdownToHtml } from '@/utils/markdown.js'
+import { parsePdfAndExtractImages, PdfImportLimitError } from '@/composables/usePdfImport.js'
 
 /**
  * Import PDF dialog. Pipeline:
@@ -83,9 +82,20 @@ async function runImport() {
       }
     })
   } catch (e) {
-    error.value = {
-      stage: 'parsing',
-      message: e?.message || 'Failed to parse PDF. The file may be corrupted or password-protected.',
+    if (e instanceof PdfImportLimitError) {
+      // Hard-cap rejection — surface the limit clearly. The composable's
+      // message already contains the actual size / page count and the cap.
+      error.value = {
+        stage: 'parsing',
+        code: e.code,
+        message: e.message,
+      }
+    } else {
+      error.value = {
+        stage: 'parsing',
+        message:
+          e?.message || 'Failed to parse PDF. The file may be corrupted or password-protected.',
+      }
     }
     phase.value = 'error'
     return
@@ -178,15 +188,12 @@ function regenerate() {
   })()
 }
 
-// Markdown → HTML for the editor + preview rendering. Same sanitizer
-// config as the AI draft dialog so behavior matches across both flows.
-function markdownToHtml(md) {
-  if (!md) return ''
-  const html = marked.parse(md, { breaks: false, gfm: true })
-  return DOMPurify.sanitize(html, {
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'target', 'rel', 'class', 'colspan', 'rowspan', 'align'],
-    FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'form'],
-  })
+// PDF imports carry embedded images (uploaded as data:/cloud URLs in the
+// previous step), so the section content sanitizer must allow img src/alt.
+// Chat and the AI draft dialog use the same shared sanitizer with images
+// disallowed.
+function renderSectionMd(md) {
+  return markdownToHtml(md, { allowImages: true })
 }
 
 function applyDraft() {
@@ -196,7 +203,7 @@ function applyDraft() {
     description: result.value.description,
     sections: result.value.sections.map((s, idx) => ({
       title: s.title,
-      content: markdownToHtml(s.content),
+      content: renderSectionMd(s.content),
       sectionType: 'text',
       order: idx + 1,
     })),
@@ -239,7 +246,11 @@ const parseProgressPct = computed(() => {
               extracted.pageCount === 1 ? '' : 's'
             }}, {{ extracted.imageCount }} image{{ extracted.imageCount === 1 ? '' : 's' }}
             <span
-              v-if="extracted.headerLinesStripped || extracted.recurringImagesSkipped"
+              v-if="
+                extracted.headerLinesStripped ||
+                extracted.recurringImagesSkipped ||
+                extracted.skippedDueToLimit
+              "
               class="tw:ml-1 tw:text-amber-700"
             >
               · auto-stripped
@@ -255,6 +266,20 @@ const parseProgressPct = computed(() => {
                 {{ extracted.recurringImagesSkipped }} repeating image{{
                   extracted.recurringImagesSkipped === 1 ? '' : 's'
                 }}
+              </template>
+              <template
+                v-if="
+                  (extracted.headerLinesStripped || extracted.recurringImagesSkipped) &&
+                  extracted.skippedDueToLimit
+                "
+              >
+                +
+              </template>
+              <template v-if="extracted.skippedDueToLimit">
+                {{ extracted.skippedDueToLimit }} image{{
+                  extracted.skippedDueToLimit === 1 ? '' : 's'
+                }}
+                skipped (over-cap)
               </template>
             </span>
           </div>
@@ -311,7 +336,10 @@ const parseProgressPct = computed(() => {
             Page {{ progress.current }} of {{ progress.total }} · uploading images as found
           </div>
         </div>
-        <div v-if="progress.total" class="tw:w-full tw:max-w-md tw:bg-main-hover tw:rounded-full tw:h-1.5 tw:overflow-hidden">
+        <div
+          v-if="progress.total"
+          class="tw:w-full tw:max-w-md tw:bg-main-hover tw:rounded-full tw:h-1.5 tw:overflow-hidden"
+        >
           <div
             class="tw:h-full tw:bg-primary tw:transition-all"
             :style="{ width: `${parseProgressPct}%` }"
@@ -399,7 +427,7 @@ const parseProgressPct = computed(() => {
               </div>
               <div
                 class="chat-md tw:text-xs tw:text-secondary tw:leading-relaxed tw:max-h-40 tw:overflow-y-auto"
-                v-html="markdownToHtml(section.content)"
+                v-html="renderSectionMd(section.content)"
               />
             </div>
           </div>

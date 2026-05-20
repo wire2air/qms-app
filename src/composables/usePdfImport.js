@@ -43,6 +43,23 @@ const MIN_PAGES_FOR_DETECTION = 3
 // fine — covered by the threshold).
 const MIN_LINE_LENGTH = 3
 
+// Input bounds. Hard caps reject; soft caps truncate + report.
+// Sized generously above typical SOP shape (5–30 pages, a few MB,
+// dozens of images) — bump if a real document hits one of these.
+const MAX_FILE_BYTES = 20 * 1024 * 1024 // 20 MB hard cap
+const MAX_PAGES = 300 // hard cap
+const MAX_IMAGES = 100 // soft cap — extras counted as skippedDueToLimit
+
+const MB = 1024 * 1024
+
+export class PdfImportLimitError extends Error {
+  constructor(code, message) {
+    super(message)
+    this.name = 'PdfImportLimitError'
+    this.code = code // 'FILE_TOO_LARGE' | 'TOO_MANY_PAGES'
+  }
+}
+
 let pdfjsPromise = null
 
 async function loadPdfJs() {
@@ -60,6 +77,11 @@ async function loadPdfJs() {
 /**
  * Parse a PDF, upload its unique images, and return an extracted text stream.
  *
+ * Bounds (see module constants above): rejects files >MAX_FILE_BYTES or
+ * documents with >MAX_PAGES (throws PdfImportLimitError). Image upload count
+ * is soft-capped at MAX_IMAGES and the excess is reported as
+ * `skippedDueToLimit` so the dialog can surface "+ N images skipped".
+ *
  * @param {File} file
  * @param {(stage: { phase: string, current?: number, total?: number, message?: string }) => void} [onProgress]
  * @returns {Promise<{
@@ -69,12 +91,22 @@ async function loadPdfJs() {
  *   filename: string,
  *   headerLinesStripped: number,
  *   recurringImagesSkipped: number,
+ *   skippedDueToLimit: number,
  * }>}
+ * @throws {PdfImportLimitError} on FILE_TOO_LARGE or TOO_MANY_PAGES
  */
 export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
   if (!file) throw new Error('No file provided')
   if (!file.type?.includes('pdf') && !file.name?.toLowerCase().endsWith('.pdf')) {
     throw new Error('File does not appear to be a PDF')
+  }
+
+  // Reject before the browser allocates an ArrayBuffer for an over-cap file.
+  if (file.size > MAX_FILE_BYTES) {
+    throw new PdfImportLimitError(
+      'FILE_TOO_LARGE',
+      `PDF is ${(file.size / MB).toFixed(1)} MB; maximum is ${MAX_FILE_BYTES / MB} MB. Please split it or compress images.`,
+    )
   }
 
   onProgress({ phase: 'loading', message: 'Loading PDF…' })
@@ -83,6 +115,19 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
   const buf = await file.arrayBuffer()
   const doc = await pdfjs.getDocument({ data: buf }).promise
   const pageCount = doc.numPages
+
+  // Reject before we burn CPU/memory on per-page parsing of an over-cap doc.
+  if (pageCount > MAX_PAGES) {
+    try {
+      doc.destroy?.()
+    } catch {
+      // best-effort cleanup
+    }
+    throw new PdfImportLimitError(
+      'TOO_MANY_PAGES',
+      `PDF has ${pageCount} pages; maximum is ${MAX_PAGES}. Please split it.`,
+    )
+  }
 
   // ── Phase 1: scan all pages, buffer text lines + image candidates ───
   const pagesRaw = []
@@ -119,13 +164,19 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
   let imageCount = 0
   let headerLinesStripped = 0
   let recurringImagesSkipped = 0
+  let skippedDueToLimit = 0
 
-  // For upload progress: count the total uniques to upload up front.
+  // For upload progress: count the total uniques to upload up front, capped
+  // at MAX_IMAGES. Anything past the cap is reported as skippedDueToLimit.
   let totalUniqueImages = 0
   for (const p of pagesRaw) {
     for (const cand of p.imageCandidates) {
       if (!isRepeatingImage(cand, repeatingHashes)) totalUniqueImages += 1
     }
+  }
+  if (totalUniqueImages > MAX_IMAGES) {
+    skippedDueToLimit = totalUniqueImages - MAX_IMAGES
+    totalUniqueImages = MAX_IMAGES
   }
   let uploadIdx = 0
 
@@ -149,6 +200,11 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
     for (const cand of p.imageCandidates) {
       if (isRepeatingImage(cand, repeatingHashes)) {
         recurringImagesSkipped += 1
+        continue
+      }
+      // Soft image cap: stop uploading once we've hit MAX_IMAGES uniques.
+      // Already counted into skippedDueToLimit above.
+      if (imageCount >= MAX_IMAGES) {
         continue
       }
       uploadIdx += 1
@@ -185,6 +241,7 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
     filename: file.name,
     headerLinesStripped,
     recurringImagesSkipped,
+    skippedDueToLimit,
   }
 }
 

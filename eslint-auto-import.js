@@ -11,6 +11,7 @@ export default {
     "InjectionKey": true,
     "MaybeRef": true,
     "MaybeRefOrGetter": true,
+    "PdfImportLimitError": true,
     "PropType": true,
     "Ref": true,
     "ShallowRef": true,
