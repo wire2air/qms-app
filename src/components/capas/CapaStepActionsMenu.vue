@@ -15,6 +15,11 @@ const props = defineProps({
   isOwner: { type: Boolean, default: false },
   hasSendBackTargets: { type: Boolean, default: false },
   requireEsignature: { type: Boolean, default: false },
+  // Child sub-step rendering. Filters SEND_BACK out of the menu (children
+  // don't initiate workflow send-back) and unlocks the ad-hoc fallback that
+  // assumes COMPLETE_AND_ADVANCE is always allowed when no template
+  // AllowedOutcomeOnStep rows exist.
+  isChild: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['reassign', 'sendBack', 'done'])
@@ -259,11 +264,43 @@ async function submitAction({ method, provider, token } = {}) {
   }
 }
 
+// Ad-hoc child steps (stepId === null) have no AllowedOutcomeOnStep rows.
+// Fall back to "COMPLETE_AND_ADVANCE only" so the reviewer always has a way
+// to approve. Filter SEND_BACK out for child rows (they don't initiate
+// workflow send-back).
+const effectiveAllowedOutcomes = computed(() => {
+  const isAdHoc = instanceStep.value && !instanceStep.value.stepId
+  let list = allowedOutcomes.value
+  if (isAdHoc && list.length === 0) {
+    list = [{ outcomeId: 'COMPLETE_AND_ADVANCE' }]
+  }
+  if (props.isChild) {
+    list = list.filter((o) => o.outcomeId !== 'SEND_BACK')
+  }
+  return list
+})
+
+// ─── Standalone "Complete & Advance" button (rendered beside the menu) ──────
+// Surfaced as its own button because it's the most-used reviewer action.
+// The menu skips this outcome so it doesn't appear twice.
+const hasApproveAction = computed(
+  () =>
+    canActOnStep.value &&
+    effectiveAllowedOutcomes.value.some((o) => o.outcomeId === 'COMPLETE_AND_ADVANCE'),
+)
+
+const approveDisabled = computed(
+  () => isOutcomeDisabled('COMPLETE_AND_ADVANCE') || actionLoading.value,
+)
+
+const approveTitle = computed(() => outcomeTitle('COMPLETE_AND_ADVANCE'))
+
 // ─── Menu items ─────────────────────────────────────────────────────────────
 const items = computed(() => {
   const list = []
   if (canActOnStep.value) {
-    for (const o of allowedOutcomes.value) {
+    for (const o of effectiveAllowedOutcomes.value) {
+      if (o.outcomeId === 'COMPLETE_AND_ADVANCE') continue // rendered as a standalone button
       const cfg = OUTCOME_CONFIG[o.outcomeId]
       if (!cfg) continue
       list.push({
@@ -294,8 +331,20 @@ const items = computed(() => {
 </script>
 
 <template>
-  <template v-if="items.length">
-    <BaseMenu :items="items" />
+  <template v-if="hasApproveAction || items.length">
+    <BaseButton
+      v-if="hasApproveAction"
+      variant="primary"
+      size="sm"
+      :disabled="approveDisabled"
+      :title="approveTitle"
+      @click="onOutcomeClick('COMPLETE_AND_ADVANCE')"
+    >
+      <template #icon><IconCheck :size="14" /></template>
+      Complete & Advance
+    </BaseButton>
+
+    <BaseMenu v-if="items.length" :items="items" />
 
     <BaseDialog v-model="showConfirmDialog" :title="confirmTitle" maxWidth="md" persistent>
       <div v-if="pendingConfig?.needsUser" class="tw:mb-4">
