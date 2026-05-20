@@ -119,7 +119,7 @@ async function saveAnswers() {
 const saveAnswersDebounced = useDebounceFn(saveAnswers, 1000)
 
 async function flushPendingSaves() {
-  saveAnswersDebounced.flush()
+  saveAnswersDebounced()
   // Poll the in-flight tracker. Typical saves resolve in < 200 ms, so this
   // rarely loops more than a couple of times.
   while (pendingSaves.value > 0) {
@@ -130,7 +130,7 @@ async function flushPendingSaves() {
 // Fire any pending debounce on unmount — the request goes out even though
 // we can't await its completion from a lifecycle hook.
 onBeforeUnmount(() => {
-  saveAnswersDebounced.flush()
+  saveAnswersDebounced()
 })
 
 // Warn before tab close / hard navigation when a save is pending.
