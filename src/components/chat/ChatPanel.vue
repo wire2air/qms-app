@@ -238,7 +238,7 @@ watch(
                 <IconAlertTriangle :size="16" class="tw:mt-0.5 tw:flex-none" />
                 <div class="tw:flex-1 tw:min-w-0">
                   <div class="tw:font-semibold">{{ chat.error.value.code || 'Error' }}</div>
-                  <div class="tw:text-xs tw:mt-0.5 tw:break-words">
+                  <div class="tw:text-xs tw:mt-0.5 tw:wrap-break-word">
                     {{ chat.error.value.message }}
                   </div>
                 </div>
