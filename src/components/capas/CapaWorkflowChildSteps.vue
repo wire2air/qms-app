@@ -1,6 +1,5 @@
 <script setup>
 import {
-  IconUserCheck,
   IconCheck,
   IconLoader2,
   IconAlertTriangle,
@@ -49,10 +48,6 @@ function openAddDialog() {
   addDialogOpen.value = true
 }
 
-const REASSIGNABLE_STATUSES = ['PENDING', 'IN_PROGRESS', 'SENT_BACK']
-function canReassignChild(child) {
-  return props.isOwner && REASSIGNABLE_STATUSES.includes(child.statusId)
-}
 
 // All children (template-spawned or ad-hoc) carry parentInstanceStepId pointing
 // at this parent's instance row. One indexed lookup, no WorkflowStep fetch.
@@ -227,26 +222,24 @@ function getRowClass(child) {
       </div>
 
       <!-- Right cluster -->
-      <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
+      <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0" @click.stop>
         <UserAvatarById
           v-if="activeAssigneeIdFor(child.id)"
           :userId="activeAssigneeIdFor(child.id)"
           :showCardOnClick="true"
           class="tw:size-7"
-          @click.stop
         />
         <span v-else class="tw:text-xs tw:text-secondary">—</span>
         <BaseBadge class="tw:text-[10px]" :class="getBadgeClass(child)">
           {{ getStatusLabel(child) }}
         </BaseBadge>
-        <button
-          v-if="canReassignChild(child)"
-          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline tw:cursor-pointer tw:font-medium"
-          @click.stop="emit('reassign', child.id)"
-        >
-          <IconUserCheck :size="14" />
-          Reassign
-        </button>
+        <CapaStepActionsMenu
+          :instanceStepId="child.id"
+          :capaId="capaId"
+          :isOwner="isOwner"
+          :isChild="true"
+          @reassign="(id) => emit('reassign', id)"
+        />
       </div>
     </div>
 
@@ -255,8 +248,6 @@ function getRowClass(child) {
         v-if="selectedChildId"
         :instanceStepId="selectedChildId"
         :capaId="capaId"
-        :autoApprove="true"
-        @done="dialogOpen = false"
       />
     </BaseDialog>
 
