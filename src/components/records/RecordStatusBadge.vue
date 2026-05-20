@@ -3,7 +3,7 @@ import { IconEdit, IconCircleCheck, IconTrash } from '@tabler/icons-vue'
 
 const props = defineProps({
   status: {
-    type: Object,
+    type: [Object, Function],
     required: true,
   },
 })
