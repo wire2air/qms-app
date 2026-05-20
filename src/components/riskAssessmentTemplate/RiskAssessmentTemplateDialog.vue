@@ -12,18 +12,29 @@ const open = defineModel({ type: Boolean, default: false })
 function DEFAULT_CONFIG() {
   return {
     likelihood: [
-      { id: crypto.randomUUID(), label: 'Very Likely', order: 5 },
-      { id: crypto.randomUUID(), label: 'Likely', order: 4 },
-      { id: crypto.randomUUID(), label: 'Possible', order: 3 },
-      { id: crypto.randomUUID(), label: 'Unlikely', order: 2 },
-      { id: crypto.randomUUID(), label: 'Very Unlikely', order: 1 },
+      { id: crypto.randomUUID(), label: 'Very Likely', order: 5, score: 5 },
+      { id: crypto.randomUUID(), label: 'Likely', order: 4, score: 4 },
+      { id: crypto.randomUUID(), label: 'Possible', order: 3, score: 3 },
+      { id: crypto.randomUUID(), label: 'Unlikely', order: 2, score: 2 },
+      { id: crypto.randomUUID(), label: 'Very Unlikely', order: 1, score: 1 },
     ],
     severity: [
-      { id: crypto.randomUUID(), label: 'Negligible', order: 1 },
-      { id: crypto.randomUUID(), label: 'Minor', order: 2 },
-      { id: crypto.randomUUID(), label: 'Moderate', order: 3 },
-      { id: crypto.randomUUID(), label: 'Significant', order: 4 },
-      { id: crypto.randomUUID(), label: 'Severe', order: 5 },
+      { id: crypto.randomUUID(), label: 'Negligible', order: 1, score: 1 },
+      { id: crypto.randomUUID(), label: 'Minor', order: 2, score: 2 },
+      { id: crypto.randomUUID(), label: 'Moderate', order: 3, score: 3 },
+      { id: crypto.randomUUID(), label: 'Significant', order: 4, score: 4 },
+      { id: crypto.randomUUID(), label: 'Severe', order: 5, score: 5 },
+    ],
+    enableDetectability: false,
+    detectability: [
+      { id: crypto.randomUUID(), label: 'Almost Impossible', order: 10, score: 10 },
+      { id: crypto.randomUUID(), label: 'Remote', order: 9, score: 9 },
+      { id: crypto.randomUUID(), label: 'Very Low', order: 8, score: 8 },
+      { id: crypto.randomUUID(), label: 'Low', order: 7, score: 7 },
+      { id: crypto.randomUUID(), label: 'Moderate', order: 6, score: 6 },
+      { id: crypto.randomUUID(), label: 'High', order: 5, score: 5 },
+      { id: crypto.randomUUID(), label: 'Very High', order: 4, score: 4 },
+      { id: crypto.randomUUID(), label: 'Almost Certain', order: 1, score: 1 },
     ],
     riskLevels: [
       { id: 'low', label: 'Low', bg: '#dcfce7', text: '#166534' },
@@ -100,10 +111,20 @@ watch(
   { immediate: true },
 )
 
+// ─── Detectability ───────────────────────────────────────────────────────────
+function addDetectability() {
+  const order = (form.config.detectability.at(-1)?.order ?? 0) + 1
+  form.config.detectability.push({ id: crypto.randomUUID(), label: 'New Level', order, score: 1 })
+}
+
+function removeDetectability(id) {
+  form.config.detectability = form.config.detectability.filter((d) => d.id !== id)
+}
+
 // ─── Likelihood rows ─────────────────────────────────────────────────────────
 function addLikelihood() {
   const order = (form.config.likelihood.at(-1)?.order ?? 0) + 1
-  const row = { id: crypto.randomUUID(), label: 'New Level', order }
+  const row = { id: crypto.randomUUID(), label: 'New Level', order, score: 1 }
   form.config.likelihood.push(row)
   // init cells for the new row
   for (const s of form.config.severity) {
@@ -121,7 +142,7 @@ function removeLikelihood(id) {
 // ─── Severity columns ─────────────────────────────────────────────────────────
 function addSeverity() {
   const order = (form.config.severity.at(-1)?.order ?? 0) + 1
-  const col = { id: crypto.randomUUID(), label: 'New Severity', order }
+  const col = { id: crypto.randomUUID(), label: 'New Severity', order, score: 1 }
   form.config.severity.push(col)
   for (const l of form.config.likelihood) {
     form.config.cells[`${l.id}:${col.id}`] = form.config.riskLevels[0]?.id ?? ''
@@ -307,9 +328,19 @@ async function onSubmit() {
             <BaseTextInput
               :modelValue="row.label"
               size="sm"
-              class="tw:w-32"
+              class="tw:w-28"
               placeholder="Label"
               @update:modelValue="(v) => (row.label = v)"
+            />
+            <BaseTextInput
+              :modelValue="row.score ?? row.order"
+              type="number"
+              size="sm"
+              class="tw:w-14"
+              placeholder="Score"
+              :min="1"
+              :max="10"
+              @update:modelValue="(v) => (row.score = Number(v))"
             />
             <button
               class="tw:text-gray-300 tw:hover:text-red-500 tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:shrink-0"
@@ -341,6 +372,16 @@ async function onSubmit() {
                 class="tw:w-20 tw:text-center"
                 placeholder="Label"
                 @update:modelValue="(v) => (col.label = v)"
+              />
+              <BaseTextInput
+                :modelValue="col.score ?? col.order"
+                type="number"
+                size="sm"
+                class="tw:w-14 tw:text-center"
+                placeholder="Score"
+                :min="1"
+                :max="10"
+                @update:modelValue="(v) => (col.score = Number(v))"
               />
             </div>
             <button
@@ -381,6 +422,64 @@ async function onSubmit() {
       <p class="tw:text-xs tw:text-secondary tw:-mt-3">
         Click any cell to cycle through risk levels. Rows = Likelihood (top is highest), Columns = Severity (right is highest).
       </p>
+
+      <!-- Detectability (FMEA 3-factor RPN) -->
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:border-t tw:border-divider tw:pt-4">
+        <div class="tw:flex tw:items-center tw:justify-between">
+          <div class="tw:flex tw:flex-col tw:gap-0.5">
+            <div class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+              Detectability (FMEA 3-factor RPN)
+            </div>
+            <p class="tw:text-xs tw:text-secondary">
+              When enabled, RPN = Likelihood × Severity × Detectability. Lower score = easier to detect.
+            </p>
+          </div>
+          <BaseSwitch v-model="form.config.enableDetectability" />
+        </div>
+
+        <template v-if="form.config.enableDetectability">
+          <div class="tw:flex tw:flex-col tw:gap-2">
+            <div class="tw:flex tw:items-center tw:justify-between">
+              <div class="tw:text-xs tw:text-secondary">Detection levels (score 10 = hardest to detect, 1 = easiest)</div>
+              <button
+                class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                @click="addDetectability"
+              >
+                <IconPlus :size="12" /> Add
+              </button>
+            </div>
+            <div
+              v-for="item in form.config.detectability"
+              :key="item.id"
+              class="tw:flex tw:items-center tw:gap-1.5 tw:h-9"
+            >
+              <BaseTextInput
+                :modelValue="item.label"
+                size="sm"
+                class="tw:w-40"
+                placeholder="Label"
+                @update:modelValue="(v) => (item.label = v)"
+              />
+              <BaseTextInput
+                :modelValue="item.score ?? item.order"
+                type="number"
+                size="sm"
+                class="tw:w-14"
+                placeholder="Score"
+                :min="1"
+                :max="10"
+                @update:modelValue="(v) => (item.score = Number(v))"
+              />
+              <button
+                class="tw:text-gray-300 tw:hover:text-red-500 tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:shrink-0"
+                @click="removeDetectability(item.id)"
+              >
+                <IconX :size="13" />
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
 
     <template #footer>

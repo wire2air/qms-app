@@ -1,12 +1,21 @@
 <script setup>
-import { IconSettings } from '@tabler/icons-vue'
+import { IconSettings, IconAdjustments, IconPrinter, IconInfoCircle } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany.js'
 
 const company = useLiveQueryWithDeps(
   [() => currentCompany.value?.id],
   async (db, [id]) => {
     if (!id) return null
-    return db.Company.findByPk(id)
+    const c = await db.Company.findByPk(id)
+    // Pre-create nested settings buckets so child v-model bindings have a
+    // path to write to from first render. syncEngine wraps the model in a
+    // shallowRef, which doesn't propagate nested mutations to templates —
+    // initialising here keeps templates from rendering against undefined.
+    if (c) {
+      if (c.settings == null) c.settings = {}
+      if (c.settings.printSettings == null) c.settings.printSettings = {}
+    }
+    return c
   },
   { models: ['Company'] },
 )
@@ -34,6 +43,13 @@ function mirrorToCurrentCompany(c) {
   currentCompany.value.companyDarkIconUrl = c.companyDarkIconUrl
   currentCompany.value.settings = c.settings
 }
+
+const tabs = [
+  { id: 'general', label: 'General', icon: IconInfoCircle },
+  { id: 'defaults', label: 'Defaults', icon: IconAdjustments },
+  { id: 'print', label: 'Print', icon: IconPrinter },
+]
+const activeTab = ref('general')
 </script>
 
 <template>
@@ -55,24 +71,51 @@ function mirrorToCurrentCompany(c) {
       Company not found.
     </div>
 
-    <div v-else class="tw:flex tw:flex-col tw:gap-8 tw:max-w-6xl">
+    <div v-else class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
       <div class="tw:flex tw:flex-col tw:gap-1">
         <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Company Settings</div>
         <div class="tw:text-sm tw:text-secondary">
-          Manage organization profile, branding, and regional preferences.
+          Manage organization profile, branding, regional preferences, defaults, and print
+          customization.
         </div>
       </div>
 
-      <CompanyInfoCard />
+      <!-- Tabs -->
+      <div class="tw:flex tw:border-b tw:border-divider">
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          class="tw:px-5 tw:py-2.5 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors"
+          :class="activeTab === tab.id
+            ? 'tw:border-primary tw:text-primary'
+            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'"
+          @click="activeTab = tab.id"
+        >
+          <component :is="tab.icon" :size="16" /> {{ tab.label }}
+        </button>
+      </div>
 
-      <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-8">
-        <div class="tw:lg:col-span-2 tw:flex tw:flex-col tw:gap-8">
-          <CompanyBrandingCard />
-          <CompanyRegionalCard />
-          <CompanyDefaultsCard />
+      <!-- Tab: General -->
+      <div v-if="activeTab === 'general'" class="tw:flex tw:flex-col tw:gap-8">
+        <CompanyInfoCard />
+
+        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-8">
+          <div class="tw:lg:col-span-2 tw:flex tw:flex-col tw:gap-8">
+            <CompanyBrandingCard />
+            <CompanyRegionalCard />
+          </div>
+          <CompanyMetadataCard />
         </div>
+      </div>
 
-        <CompanyMetadataCard />
+      <!-- Tab: Defaults -->
+      <div v-else-if="activeTab === 'defaults'">
+        <CompanyDefaultsCard />
+      </div>
+
+      <!-- Tab: Print -->
+      <div v-else-if="activeTab === 'print'">
+        <CompanyPrintCard />
       </div>
     </div>
   </div>

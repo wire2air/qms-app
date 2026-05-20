@@ -167,6 +167,11 @@ async function handleReviewersConfirmed(reviewers) {
                 :rows="4"
               />
             </div>
+            <SimilarRecordsPanel
+              entityType="Capa"
+              :searchInTypes="['Capa']"
+              :getText="() => `${form.title} ${form.description || ''} ${form.rootCause || ''}`"
+            />
           </div>
         </div>
 

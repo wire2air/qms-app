@@ -1,5 +1,5 @@
 <script setup>
-import { IconUsersGroup, IconMenu2, IconRefresh } from '@tabler/icons-vue'
+import { IconUsersGroup, IconMenu2, IconRefresh, IconSparkles } from '@tabler/icons-vue'
 import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
 import {
   isImpersonating,
@@ -8,8 +8,10 @@ import {
   currentSession,
 } from '@/utils/currentSession'
 import { deleteAllSyncDatabases } from '@/utils/initSyncEngine.js'
+import { useChatPanel } from '@/composables/useChatPanel'
 
 const drawer = useCompanyLocalStorage('sidebar-drawer', true)
+const chatPanel = useChatPanel()
 
 const impersonatedName = computed(() => {
   if (!currentSession.value) return ''
@@ -69,6 +71,13 @@ async function resetSync() {
 
       <div class="tw:flex tw:items-center tw:gap-4">
         <div id="main-header-actions" />
+        <button
+          class="tw:p-2 tw:rounded-full tw:text-primary tw:hover:bg-main-hover tw:transition-colors"
+          title="AI Assistant (⌘K)"
+          @click="chatPanel.toggle()"
+        >
+          <IconSparkles :size="20" />
+        </button>
         <NotificationsBell />
         <button
           v-if="showHardReset"

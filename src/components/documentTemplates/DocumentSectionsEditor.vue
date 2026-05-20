@@ -94,7 +94,7 @@ function moveSectionDown(index) {
                 </select>
               </div>
               <div v-if="section.sectionType === 'text'">
-                <TiptapEditor v-model="section.content" />
+                <TiptapEditor v-model="section.content" :sectionNumber="sectionIndex + 1" />
               </div>
               <div v-else-if="section.sectionType === 'attachment'">
                 <BaseUploader v-model="section.attachments" :hideHeader="true" />

@@ -8,7 +8,10 @@ const props = defineProps({
 
 const search = ref('')
 
-const users = useLiveQuery((db) => db.User.where().exec(), { initial: [] })
+const users = useLiveQuery(
+  async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
+  { initial: [] },
+)
 
 const stepUsers = useLiveQueryWithDeps(
   [() => props.stepId],

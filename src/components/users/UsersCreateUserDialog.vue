@@ -1,22 +1,28 @@
 <script setup>
 import { required, email, helpers } from '@vuelidate/validators'
 import { useValidator } from '@shared/composables/validator.js'
+// Action RPC (not entity CRUD — POST /v1/services/users/:id/invite) — see CLAUDE.md rule #4 exception.
+import { post } from '@/api'
 
 const open = defineModel({
   type: Boolean,
   default: false,
 })
 
+const toast = useToast()
+
 // Create user mutation
 const createUser = useLiveMutation(async (db, data) => {
-  const { roleIds, ...userData } = data
-  const u = db.User.create(userData)
+  const { roleIds, inviteSent, ...userData } = data
+  // userStatusId is finalised below — start as INACTIVE; the invite endpoint flips
+  // it to INVITED on the backend when we trigger the email.
+  const u = db.User.create({ ...userData, userStatusId: 'INACTIVE', inviteSent: false })
   await u.save()
   for (const roleId of roleIds) {
     const roleOnUser = db.RoleOnUser.create({ userId: u.id, roleId })
     await roleOnUser.save()
   }
-  return u
+  return { user: u, inviteSent }
 })
 
 const form = ref({
@@ -65,7 +71,17 @@ async function onSubmit() {
 
   isSubmitting.value = true
   try {
-    await createUser(form.value)
+    const { user, inviteSent } = await createUser(form.value)
+    if (inviteSent && user?.id) {
+      try {
+        await post(`/v1/services/users/${user.id}/invite`, {})
+      } catch (err) {
+        toast?.notify?.({
+          type: 'negative',
+          message: err?.message || 'User created but invitation email failed',
+        })
+      }
+    }
     open.value = false
   } finally {
     isSubmitting.value = false

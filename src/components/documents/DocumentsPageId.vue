@@ -13,6 +13,11 @@ import {
   IconMessage,
   IconTrash,
   IconArchive,
+  IconHistory,
+  IconSparkles,
+  IconGitCompare,
+  IconPrinter,
+  IconClipboardList,
 } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -46,6 +51,77 @@ const latestVersion = useLiveQueryWithDeps([() => props.id], async (db, [documen
 
 const selectedVersion = ref(null)
 const showMessages = ref(false)
+const showAuditLog = ref(false)
+const showRevisionHistory = ref(false)
+
+// ─── AI: summary + diff dialogs (Phase 4) ─────────────────────────────────
+const showAiSummary = ref(false)
+const showAiDiff = ref(false)
+// Diff requires a predecessor version; pick the one immediately older than
+// the currently-selected version by createdAt.
+const aiDiffFromVersion = computed(() => {
+  if (!selectedVersion.value || !versions.value?.length) return null
+  const sorted = [...versions.value].sort(
+    (a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0),
+  )
+  const idx = sorted.findIndex((v) => v.id === selectedVersion.value.id)
+  return idx > 0 ? sorted[idx - 1] : null
+})
+const canShowAiDiff = computed(
+  () => !!selectedVersion.value && !!aiDiffFromVersion.value,
+)
+// Lookup-style helper (the existing `versionLabel` computed already derives
+// the label for the currently-selected version; this one accepts any version
+// — used for the diff dialog's "from" version, which isn't selectedVersion).
+function versionLabelFor(v) {
+  if (!v) return ''
+  return v.versionLabel || `${v.versionMajor ?? '?'}.${v.versionMinor ?? '?'}`
+}
+
+function openPrintView() {
+  if (!document.value?.id) return
+  // Centralised print: /<companyCode>/print?module=Document&id=...&versionId=...
+  // The print module registry (components/print/modules/index.js) dispatches
+  // to DocumentPrint.vue, which wraps PrintLayout for shared chrome.
+  const params = new URLSearchParams({ module: 'Document', id: document.value.id })
+  if (selectedVersion.value?.id) params.set('versionId', selectedVersion.value.id)
+  const url = getCompanyPath(`/print?${params.toString()}`)
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+// Resolve all related entity IDs for the audit dialog so the unified history
+// includes the Document row, its Versions, their Sections, and any Links.
+const auditRelatedSections = useLiveQueryWithDeps(
+  [() => versions.value?.map((v) => v.id).join(',') ?? ''],
+  async (db) => {
+    const ids = versions.value?.map((v) => v.id) ?? []
+    if (!ids.length) return []
+    const sections = await Promise.all(
+      ids.map((id) => db.DocumentSection.where('documentVersionId', id).exec()),
+    )
+    return sections.flat().map((s) => s.id)
+  },
+  { initial: [] },
+)
+
+const auditRelatedLinks = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return []
+    const links = await db.DocumentLink.where().exec()
+    return links
+      .filter((l) => l.documentId === id || l.relatedDocumentId === id)
+      .map((l) => l.id)
+  },
+  { initial: [] },
+)
+
+const auditIncludeEntities = computed(() => [
+  { entityType: 'Documents', entityIds: [props.id] },
+  { entityType: 'DocumentVersions', entityIds: versions.value?.map((v) => v.id) ?? [] },
+  { entityType: 'DocumentSections', entityIds: auditRelatedSections.value ?? [] },
+  { entityType: 'DocumentLinks', entityIds: auditRelatedLinks.value ?? [] },
+])
 
 // Find an open task on any version of this document for the current user.
 // Used to auto-select the version with the active task on first load.
@@ -147,8 +223,14 @@ function handleReports() {
   toast.notify({ type: 'info', message: 'Reports functionality coming soon' })
 }
 
-async function handleDeleteDocument() {
-  await document.value.delete()
+// Archive opens the obsoletion dialog — DB CHECK rejects an obsoleted doc
+// without a reason, so the dialog is mandatory. After the dialog stamps +
+// soft-deletes the document, we navigate back to the list.
+const showObsoletionDialog = ref(false)
+function handleDeleteDocument() {
+  showObsoletionDialog.value = true
+}
+function handleArchived() {
   router.push(getCompanyPath('/documents'))
 }
 
@@ -191,17 +273,63 @@ const moreActionsItems = computed(() => {
   return items
 })
 
-async function createNewVersion() {
+// New-revision flow: open the change-control dialog first, then create
+// the DocumentVersion with the captured fields. The DB CHECK constraint
+// rejects v>1.0 without a change_reason, so the dialog is mandatory here.
+const showNewVersionDialog = ref(false)
+
+// Pre-loaded so the dialog can show baseline sections as a multi-select.
+// Live-queried because the user may be looking at v1 sections elsewhere
+// while requesting a v2 draft.
+const baselineSections = useLiveQueryWithDeps(
+  [() => latestVersion.value?.id],
+  async (db, [versionId]) => {
+    if (!versionId) return []
+    return db.DocumentSection.where('documentVersionId', versionId).orderBy('order', 'asc').exec()
+  },
+  { initial: [] },
+)
+
+const nextVersionLabel = computed(() => {
+  const major = (latestVersion.value?.versionMajor ?? 0) + 1
+  return `v${major}.0`
+})
+const fromVersionLabel = computed(() => {
+  if (!latestVersion.value) return ''
+  return `v${latestVersion.value.versionMajor ?? 1}.${latestVersion.value.versionMinor ?? 0}`
+})
+
+function openNewVersionDialog() {
+  showNewVersionDialog.value = true
+}
+
+async function handleNewVersionConfirm(changeControl) {
   const create = useLiveMutation(async (db) => {
     const latestVersionSections = latestVersion.value?.id
       ? await db.DocumentSection.where('documentVersionId', latestVersion.value.id).exec()
       : []
+
+    // Clone training_config from the previous version so the manager has a starting
+    // point — they can then edit roles, users, or quiz questions for this revision
+    // before the new version becomes effective.
+    const clonedTrainingConfig = latestVersion.value?.trainingConfig
+      ? JSON.parse(JSON.stringify(latestVersion.value.trainingConfig))
+      : null
 
     const version = db.DocumentVersion.create({
       documentId: props.id,
       versionMajor: latestVersion.value ? latestVersion.value.versionMajor + 1 : 1,
       versionMinor: 0,
       statusId: 'DRAFT',
+      trainingConfig: clonedTrainingConfig,
+      // Change control captured by NewVersionDialog. DB CHECK enforces
+      // changeReason !== null for any version after v1.0.
+      changeReason: changeControl.changeReason,
+      changeType: changeControl.changeType,
+      changeSummary: changeControl.changeSummary || '',
+      regulatoryImpact: changeControl.regulatoryImpact,
+      regulatoryImpactNotes: changeControl.regulatoryImpactNotes || null,
+      affectedSectionIds: changeControl.affectedSectionIds || [],
     })
 
     await version.save()
@@ -247,13 +375,38 @@ async function createNewVersion() {
           class="tw:max-w-360 tw:mx-auto tw:px-6 tw:py-4 tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-4"
         >
           <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-3">
+            <AskAiButton
+              v-if="document?.id"
+              entityType="Document"
+              :entityId="document.id"
+              :entityTitle="document.title"
+              :entityNumber="document.docNumber"
+            />
+            <button
+              v-if="selectedVersion?.id"
+              class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
+              title="AI-generated summary of this version"
+              @click="showAiSummary = true"
+            >
+              <IconSparkles :size="13" />
+              Summarize
+            </button>
+            <button
+              v-if="canShowAiDiff"
+              class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
+              :title="`Explain what changed since v${versionLabelFor(aiDiffFromVersion)}`"
+              @click="showAiDiff = true"
+            >
+              <IconGitCompare :size="13" />
+              What changed
+            </button>
             <TaskActionBar
               v-if="selectedVersion?.id"
               entityType="DocumentVersion"
               :entityId="selectedVersion.id"
             />
 
-            <BaseButton v-if="canCreate" @click="createNewVersion">
+            <BaseButton v-if="canCreate" @click="openNewVersionDialog">
               <IconNotes :size="20" class="tw:mr-1" />
               Create New Draft
             </BaseButton>
@@ -348,6 +501,21 @@ async function createNewVersion() {
               Reports
             </BaseButton>
 
+            <BaseButton variant="secondary" @click="openPrintView">
+              <IconPrinter :size="20" class="tw:mr-1" />
+              Print
+            </BaseButton>
+
+            <BaseButton variant="secondary" @click="showRevisionHistory = true">
+              <IconHistory :size="20" class="tw:mr-1" />
+              Revision History
+            </BaseButton>
+
+            <BaseButton variant="secondary" @click="showAuditLog = true">
+              <IconClipboardList :size="20" class="tw:mr-1" />
+              Audit Log
+            </BaseButton>
+
             <BaseButton variant="secondary" @click="handleExport">
               <IconFileDescription :size="20" class="tw:mr-1" />
               Export
@@ -389,6 +557,50 @@ async function createNewVersion() {
         v-model="showPreviewDialog"
         :documentId="props.id"
         :versionId="selectedVersion?.id"
+      />
+
+      <!-- Audit Log Dialog — covers the Document plus its Versions, Sections, and Links -->
+      <AuditLogDialog
+        v-model="showAuditLog"
+        :includeEntities="auditIncludeEntities"
+        :title="`Audit Log — ${document?.title ?? 'Document'}`"
+      />
+
+      <!-- Revision History — version-by-version change control + approval chain -->
+      <DocumentRevisionHistoryDialog
+        v-model="showRevisionHistory"
+        :documentId="props.id"
+        :documentTitle="document?.title ?? ''"
+      />
+
+      <!-- Obsoletion (archive with required reason) -->
+      <DocumentObsoletionDialog
+        v-model="showObsoletionDialog"
+        :document="document"
+        :documentTitle="document?.title ?? ''"
+        :documentNumber="document?.docNumber ?? ''"
+        @archived="handleArchived"
+      />
+
+      <!-- AI generation dialogs (Phase 4) -->
+      <DocumentSummaryDialog
+        v-model="showAiSummary"
+        :versionId="selectedVersion?.id"
+        :documentTitle="`${document?.title ?? 'Document'} v${versionLabelFor(selectedVersion)}`"
+      />
+      <DocumentDiffSummaryDialog
+        v-model="showAiDiff"
+        :fromVersionId="aiDiffFromVersion?.id"
+        :toVersionId="selectedVersion?.id"
+        :fromLabel="versionLabelFor(aiDiffFromVersion)"
+        :toLabel="versionLabelFor(selectedVersion)"
+      />
+      <DocumentsNewVersionDialog
+        v-model="showNewVersionDialog"
+        :baselineSections="baselineSections"
+        :nextVersionLabel="nextVersionLabel"
+        :fromVersionLabel="fromVersionLabel"
+        @confirm="handleNewVersionConfirm"
       />
     </div>
   </div>

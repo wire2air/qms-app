@@ -1,5 +1,5 @@
 <script setup>
-defineProps({
+const props = defineProps({
   required: {
     type: Boolean,
     default: false,
@@ -8,6 +8,10 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  excludeIds: {
+    type: Array,
+    default: () => [],
+  },
 })
 
 const modelValue = defineModel({
@@ -15,8 +19,14 @@ const modelValue = defineModel({
   default: null,
 })
 
-const roles = useLiveQuery(async (db) => db.Role.where('statusId', 'ACTIVE').exec(), {
+const allRoles = useLiveQuery(async (db) => db.Role.where('statusId', 'ACTIVE').exec(), {
   initial: [],
+})
+
+const roles = computed(() => {
+  if (!props.excludeIds?.length) return allRoles.value
+  const excluded = new Set(props.excludeIds)
+  return allRoles.value.filter((r) => !excluded.has(r.id))
 })
 
 function getArray() {

@@ -185,6 +185,7 @@ const debouncedSaveComment = useDebounceFn(async () => {
         :key="`${section.id}-${canUpdateSection ? 'editable' : 'readonly'}`"
         v-model="section.content"
         :editable="canUpdateSection"
+        :sectionNumber="index + 1"
         class="tw:border-0! tw:min-h-fit!"
       />
 

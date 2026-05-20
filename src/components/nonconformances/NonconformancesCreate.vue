@@ -120,6 +120,11 @@ async function handleReviewersConfirmed(reviewers) {
                 :rows="4"
               />
             </div>
+            <SimilarRecordsPanel
+              entityType="Nonconformance"
+              :searchInTypes="['Nonconformance']"
+              :getText="() => `${form.title} ${form.description || ''}`"
+            />
           </div>
         </div>
 

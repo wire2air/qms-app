@@ -57,7 +57,10 @@ const rolesOnUsers = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-const allUsers = useLiveQuery(async (db) => db.User.where().exec(), { initial: [] })
+const allUsers = useLiveQuery(
+  async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
+  { initial: [] },
+)
 
 const usersById = computed(() => {
   const map = {}

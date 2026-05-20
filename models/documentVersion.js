@@ -6,6 +6,7 @@ import { DateTime } from 'luxon'
   primaryKey: 'id',
   syncField: 'updatedAt',
   customIndex: 'documentId, [documentId+statusId], versionMajor, versionMinor, workflowInstanceId',
+  schemaVersion: 3,
 })
 export class DocumentVersion extends BaseModel {
   static paranoid = true // Enable soft deletes using deletedAt field
@@ -31,6 +32,12 @@ export class DocumentVersion extends BaseModel {
   @Property({ type: Number }) versionMinor = 0
   @Property({ type: String }) versionLabel = ''
   @Property({ type: String }) changeSummary = ''
+  @Property({ type: String }) changeReason = ''
+  @Property({ type: String }) changeType = '' // ADMINISTRATIVE | MINOR | MAJOR
+  @Property({ type: Boolean }) regulatoryImpact = false
+  @Property({ type: String }) regulatoryImpactNotes = ''
+  @Property({ type: Array }) affectedSectionIds = /** @type {Array} */ ([]) // section ids the author marked as changed
+  @Property({ type: Object }) trainingConfig = null
   @Property({ type: String, required: true }) createdBy = ''
   @Property({ type: DateTime }) lockedAt = null
   @Property({ type: DateTime }) approvedAt = null

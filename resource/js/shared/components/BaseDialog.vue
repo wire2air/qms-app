@@ -10,7 +10,7 @@ defineProps({
   maxWidth: {
     type: String,
     default: 'md',
-    validator: (v) => ['sm', 'md', 'lg', 'xl', '2xl', 'full'].includes(v),
+    validator: (v) => ['sm', 'md', 'lg', 'xl', '2xl', '3xl', 'full'].includes(v),
   },
   persistent: {
     type: Boolean,
@@ -33,6 +33,7 @@ const maxWidthClass = {
   lg: 'tw:max-w-lg',
   xl: 'tw:max-w-xl',
   '2xl': 'tw:max-w-2xl',
+  '3xl': 'tw:max-w-3xl',
   full: 'tw:max-w-full',
 }
 </script>

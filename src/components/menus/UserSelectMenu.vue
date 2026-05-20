@@ -8,6 +8,17 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  nullLabel: {
+    type: String,
+    default: 'All',
+  },
+  // Set true on admin screens that need to show inactive/invited users too
+  includeInactive: {
+    type: Boolean,
+    default: false,
+  },
+  // OR-filter: only show users holding at least one of these role ids.
+  // Null/empty = no filter.
   roleIdsFilter: {
     type: Array,
     default: null,
@@ -22,7 +33,9 @@ const modelValue = defineModel({
 const users = useLiveQuery(
   async (db) => {
     const users = await db.User.where().exec()
-    return users.map((user) => ({ id: user.id, name: `${user.firstName} ${user.lastName}` }))
+    return users
+      .filter((u) => props.includeInactive || u.userStatusId === 'ACTIVE')
+      .map((user) => ({ id: user.id, name: `${user.firstName} ${user.lastName}` }))
   },
   { initial: [] },
 )
@@ -83,6 +96,7 @@ function getArray() {
     :items="filteredUsers"
     :required="required"
     :multiple="multiple"
+    :nullLabel="nullLabel"
   >
     <template #button="scope">
       <slot name="button" v-bind="scope">

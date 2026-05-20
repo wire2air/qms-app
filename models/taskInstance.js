@@ -4,8 +4,10 @@ import { DateTime } from 'luxon'
 
 @ClientModel('taskInstances', {
   primaryKey: 'id',
+  loadStrategy: 'instant',
   syncField: 'updatedAt',
   customIndex: '[entityType+entityId], [sourceType+sourceId], assignedTo',
+  schemaVersion: 2,
 })
 export class TaskInstance extends BaseModel {
   static paranoid = true // Enable soft deletes using deletedAt field
@@ -26,6 +28,7 @@ export class TaskInstance extends BaseModel {
   @Property({ type: String }) statusId = 'ASSIGNED'
   @Property({ type: String, required: true }) priorityId = ''
   @Property({ type: DateTime, required: true }) dueDate = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) completedAt = null
   @Property({ type: String, required: true }) entityType = ''
   @Property({ type: String, required: true }) entityId = ''
   @Property({ type: String, required: true }) sourceType = ''

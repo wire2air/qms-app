@@ -112,13 +112,18 @@ registerNotifyHandler(({ type, message, fields }) => {
 // 2. Multi-tenant — active company is stored in the Redis session, no header needed
 
 // 3. Auth events — redirect on session expiry (but not if already on an auth page)
-eventBus.on('auth:session-expired', () => {
+function handleSessionExpired() {
   disconnectSocket()
   const path = window.location.pathname
-  console.warn(path)
   if (isPublicRoute(path)) return
   window.location.href = '/signin'
-})
+}
+
+eventBus.on('auth:session-expired', handleSessionExpired)
+
+// syncEngine GraphQL client uses raw fetch (bypasses the axios interceptor),
+// so it dispatches this window event on 401s
+window.addEventListener('qms:auth-unauthorized', handleSessionExpired)
 
 // 5. Socket.io — connect after app mounts (session must be hydrated first)
 //    The socket auto-authenticates via the same httpOnly session cookie.

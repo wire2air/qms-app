@@ -108,98 +108,90 @@ watch(
           Properties
           <IconSettings class="tw:size-4" />
         </h4>
-        <div class="tw:space-y-4">
-          <div>
-            <label class="ds-label"> Document ID </label>
-            <p class="tw:text-sm tw:font-semibold tw:text-on-sidebar">
-              {{ document.docNumber }}
-            </p>
-          </div>
-
-          <div class="tw:flex tw:flex-col">
-            <label class="ds-label tw:mb-2"> Owner </label>
-            <UserBadgeById :userId="document.userId" />
-          </div>
-
-          <div class="tw:grid tw:grid-cols-2 tw:gap-4">
+        <div class="tw:space-y-3">
+          <!-- ID + Owner -->
+          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
             <div>
-              <label class="ds-label"> Type </label>
+              <label class="ds-label">Document ID</label>
+              <p class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mt-1">
+                {{ document.docNumber }}
+              </p>
+            </div>
+            <div>
+              <label class="ds-label">Owner</label>
+              <div class="tw:mt-1"><UserBadgeById :userId="document.userId" /></div>
+            </div>
+          </div>
+
+          <!-- Type + Status -->
+          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <div>
+              <label class="ds-label">Type</label>
               <div class="tw:mt-1">
                 <DocumentTypeSelectMenu v-if="canEdit" v-model="document.documentTypeId" required />
-                <DocumentTypeBadgeById
-                  v-else
-                  :documentTypeId="document.documentTypeId"
-                  :iconOnly="false"
-                />
+                <DocumentTypeBadgeById v-else :documentTypeId="document.documentTypeId" :iconOnly="false" />
               </div>
             </div>
-
-            <div class="tw:flex tw:flex-col tw:w-fit">
-              <label class="ds-label"> Status </label>
-
-              <DocumentVersionStatusBadgeById :statusId="currentVersion.statusId" />
+            <div>
+              <label class="ds-label">Status</label>
+              <div class="tw:mt-1">
+                <DocumentVersionStatusBadgeById :statusId="currentVersion.statusId" />
+              </div>
             </div>
           </div>
 
+          <!-- Department + Related Standard -->
+          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <div>
+              <label class="ds-label">Department</label>
+              <div class="tw:mt-1">
+                <DepartmentSelectMenu v-if="canEdit" v-model="document.departmentId" required />
+                <DepartmentBadgeById v-else-if="document.departmentId" :departmentId="document.departmentId" />
+                <span v-else class="tw:text-sm tw:text-secondary">—</span>
+              </div>
+            </div>
+            <div>
+              <label class="ds-label">Related Standard</label>
+              <div class="tw:mt-1">
+                <RelatedStandardSelectMenu v-if="canEdit" v-model="document.relatedStandardId" />
+                <RelatedStandardBadgeById v-else-if="document.relatedStandardId" :relatedStandardId="document.relatedStandardId" />
+                <span v-else class="tw:text-sm tw:text-secondary">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Periodic Review + Auto-Effective -->
+          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <div>
+              <label class="ds-label">Periodic Review</label>
+              <div v-if="canEdit" class="tw:flex tw:items-center tw:gap-1.5 tw:mt-1">
+                <input
+                  v-model.number="document.periodicReviewMonths"
+                  type="number"
+                  min="1"
+                  class="tw:w-16 tw:rounded-md tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:py-1 tw:text-sm tw:text-on-sidebar tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
+                />
+                <span class="tw:text-xs tw:text-secondary">months</span>
+              </div>
+              <p v-else class="tw:text-sm tw:font-medium tw:mt-1">{{ document.periodicReviewMonths }} months</p>
+            </div>
+            <div>
+              <label class="ds-label">Auto-Effective</label>
+              <div class="tw:mt-1">
+                <BaseSwitch v-model="document.autoEffectiveOnApproval" :disabled="!canEdit" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Effective Date (own row — date picker needs width) -->
           <div>
-            <label class="ds-label"> Department </label>
+            <label class="ds-label">Effective Date</label>
             <div class="tw:mt-1">
-              <DepartmentSelectMenu v-if="canEdit" v-model="document.departmentId" required />
-              <DepartmentBadgeById
-                v-else-if="document.departmentId"
-                :departmentId="document.departmentId"
-              />
-              <span v-else class="tw:text-sm tw:text-secondary">—</span>
+              <BaseDatePicker v-if="canEdit" v-model="currentVersion.effectiveDate" :required="false" />
+              <p v-else class="tw:text-sm tw:font-medium">
+                {{ currentVersion.effectiveDate ? currentVersion.effectiveDate.formatDate('date') : '—' }}
+              </p>
             </div>
-          </div>
-
-          <div>
-            <label class="ds-label"> Related Standard </label>
-            <div class="tw:mt-1">
-              <RelatedStandardSelectMenu v-if="canEdit" v-model="document.relatedStandardId" />
-              <RelatedStandardBadgeById
-                v-else-if="document.relatedStandardId"
-                :relatedStandardId="document.relatedStandardId"
-              />
-              <span v-else class="tw:text-sm tw:text-secondary">—</span>
-            </div>
-          </div>
-
-          <div>
-            <label class="ds-label"> Periodic Review </label>
-            <div v-if="canEdit" class="tw:flex tw:items-center tw:gap-2 tw:mt-1">
-              <input
-                v-model.number="document.periodicReviewMonths"
-                type="number"
-                min="1"
-                class="tw:w-20 tw:rounded-md tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:py-1 tw:text-sm tw:text-on-sidebar tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
-              />
-              <span class="tw:text-sm tw:text-secondary">months</span>
-            </div>
-            <p v-else class="tw:text-sm tw:font-medium">
-              {{ document.periodicReviewMonths }} months
-            </p>
-          </div>
-
-          <div>
-            <label class="ds-label"> Auto-Effective </label>
-            <p class="tw:text-sm tw:font-medium">
-              <BaseSwitch v-model="document.autoEffectiveOnApproval" :disabled="!canEdit" />
-            </p>
-          </div>
-
-          <div>
-            <label class="ds-label"> Effective Date </label>
-            <BaseDatePicker
-              v-if="canEdit"
-              v-model="currentVersion.effectiveDate"
-              :required="false"
-            />
-            <p v-else class="tw:text-sm tw:font-medium">
-              {{
-                currentVersion.effectiveDate ? currentVersion.effectiveDate.formatDate('date') : '—'
-              }}
-            </p>
           </div>
 
           <!-- Collaborators Section -->

@@ -91,9 +91,26 @@ import { CapaEffectivenessCheck } from './capaEffectivenessCheck'
 import { CapaEffectivenessCheckStatus } from './capaEffectivenessCheckStatus'
 import { RcaTemplate } from './rcaTemplate'
 import { RiskAssessmentTemplate } from './riskAssessmentTemplate'
+import { Training } from './training'
+import { TrainingInstance } from './trainingInstance'
+import { TrainingAssignee } from './trainingAssignee'
+import { TrainingRole } from './trainingRole'
+import { TrainingUser } from './trainingUser'
+import { TrainingExternalLink } from './trainingExternalLink'
+import { TrainingDocumentLink } from './trainingDocumentLink'
+import { TrainingMatrix } from './trainingMatrix'
+import { TrainingVerification } from './trainingVerification'
+// AI sidecar (see backend/ai/README.md, AI_PLAN.md §11). All AI models are
+// grouped here. Existing models stay AI-agnostic.
+import { AiPat } from './aiPat'
+import { AiChatThread } from './aiChatThread'
+import { AiChatMessage } from './aiChatMessage'
 
 export const db = {
   ApiKey,
+  AiPat,
+  AiChatThread,
+  AiChatMessage,
   Workflow,
   WorkflowInstance,
   WorkflowInstanceStatus,
@@ -186,4 +203,13 @@ export const db = {
   CapaEffectivenessCheckStatus,
   RcaTemplate,
   RiskAssessmentTemplate,
+  Training,
+  TrainingInstance,
+  TrainingAssignee,
+  TrainingRole,
+  TrainingUser,
+  TrainingExternalLink,
+  TrainingDocumentLink,
+  TrainingMatrix,
+  TrainingVerification,
 }

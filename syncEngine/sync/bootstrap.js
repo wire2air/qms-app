@@ -11,6 +11,7 @@ import { MetaCache } from '../core/MetaCache.js'
 import { graphqlRequest } from '../network/graphqlClient.js'
 import { syncMetaStore } from '../persistence/syncMetaStore.js'
 import { syncBus } from '../core/syncBus.js'
+import pluralize from 'pluralize-esm'
 
 const PAGE_SIZE = 100
 
@@ -74,7 +75,7 @@ async function bootstrapModel(meta, signal) {
     }
 
     const data = await graphqlRequest(meta.fetchAll, variables, { signal })
-    const collection = data[meta.tableName]
+    const collection = data[pluralize(meta.tableName)]
     const nodes = collection?.nodes ?? []
     const pageInfo = collection?.pageInfo ?? {}
 
