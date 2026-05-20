@@ -1,6 +1,7 @@
 <script setup>
 import { IconCheck } from '@tabler/icons-vue'
 import { currentSession } from '@/utils/currentSession.js'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 
 const props = defineProps({
@@ -10,9 +11,8 @@ const props = defineProps({
 const emit = defineEmits(['verified'])
 const toast = useToast()
 
-const training = useLiveQueryWithDeps(
-  [() => props.instance?.trainingId],
-  async (db, [id]) => (id ? db.Training.findByPk(id) : null),
+const training = useLiveQueryWithDeps([() => props.instance?.trainingId], async (db, [id]) =>
+  id ? db.Training.findByPk(id) : null,
 )
 
 // All assignees of this instance that are still pending verification
@@ -89,7 +89,10 @@ function openSignDialog() {
       !form.value.canPerformIndependently ||
       !form.value.practicalObservationCompleted
     ) {
-      toast.notify({ type: 'negative', message: 'Confirm all three competency criteria or select Reject' })
+      toast.notify({
+        type: 'negative',
+        message: 'Confirm all three competency criteria or select Reject',
+      })
       return
     }
   }
@@ -131,11 +134,16 @@ async function onEsignVerified(esign) {
   <div v-else-if="!isManager" class="tw:p-8 tw:text-center tw:text-secondary">
     Only the training manager can verify assignees for this training.
   </div>
-  <div v-else class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:flex tw:flex-col tw:gap-5">
+  <div
+    v-else
+    class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:flex tw:flex-col tw:gap-5"
+  >
     <!-- Header -->
     <div class="tw:flex tw:items-start tw:justify-between">
       <div>
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">{{ instance.snapshot?.title || '—' }}</h2>
+        <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">
+          {{ instance.snapshot?.title || '—' }}
+        </h2>
         <p class="tw:text-sm tw:text-secondary">
           Launched {{ instance.createdAt?.formatDate('date') }} · Passing score
           {{ instance.snapshot?.passingScore ?? 70 }}%
@@ -146,7 +154,9 @@ async function onEsignVerified(esign) {
 
     <!-- Assignee selection -->
     <div class="tw:border tw:border-divider tw:rounded-lg">
-      <div class="tw:flex tw:items-center tw:justify-between tw:px-4 tw:py-2 tw:border-b tw:border-divider tw:bg-gray-50">
+      <div
+        class="tw:flex tw:items-center tw:justify-between tw:px-4 tw:py-2 tw:border-b tw:border-divider tw:bg-gray-50"
+      >
         <span class="tw:text-sm tw:font-semibold tw:text-on-sidebar">
           Employees ({{ selectedAssigneeIds.length }}/{{ pendingAssignees.length }} selected)
         </span>
@@ -155,7 +165,9 @@ async function onEsignVerified(esign) {
           class="tw:text-xs tw:text-primary tw:hover:underline"
           @click="toggleAll"
         >
-          {{ selectedAssigneeIds.length === pendingAssignees.length ? 'Deselect all' : 'Select all' }}
+          {{
+            selectedAssigneeIds.length === pendingAssignees.length ? 'Deselect all' : 'Select all'
+          }}
         </button>
       </div>
       <div class="tw:divide-y tw:divide-divider">
@@ -181,18 +193,35 @@ async function onEsignVerified(esign) {
 
     <!-- Competency criteria -->
     <div class="tw:border tw:border-divider tw:rounded-lg tw:p-4">
-      <p class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mb-3">Manager Competency Verification</p>
+      <p class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mb-3">
+        Manager Competency Verification
+      </p>
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
         <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">
-          <input v-model="form.demonstratedUnderstanding" type="checkbox" :disabled="form.retrainingRequired" class="tw:mt-0.5" />
+          <input
+            v-model="form.demonstratedUnderstanding"
+            type="checkbox"
+            :disabled="form.retrainingRequired"
+            class="tw:mt-0.5"
+          />
           <span class="tw:text-sm">Employee demonstrated understanding</span>
         </label>
         <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">
-          <input v-model="form.canPerformIndependently" type="checkbox" :disabled="form.retrainingRequired" class="tw:mt-0.5" />
+          <input
+            v-model="form.canPerformIndependently"
+            type="checkbox"
+            :disabled="form.retrainingRequired"
+            class="tw:mt-0.5"
+          />
           <span class="tw:text-sm">Can perform task independently</span>
         </label>
         <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">
-          <input v-model="form.practicalObservationCompleted" type="checkbox" :disabled="form.retrainingRequired" class="tw:mt-0.5" />
+          <input
+            v-model="form.practicalObservationCompleted"
+            type="checkbox"
+            :disabled="form.retrainingRequired"
+            class="tw:mt-0.5"
+          />
           <span class="tw:text-sm">Practical observation completed</span>
         </label>
       </div>
@@ -203,9 +232,12 @@ async function onEsignVerified(esign) {
       <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">
         <input v-model="form.retrainingRequired" type="checkbox" class="tw:mt-0.5" />
         <div>
-          <span class="tw:text-sm tw:font-semibold tw:text-amber-800">Reject — Retraining required</span>
+          <span class="tw:text-sm tw:font-semibold tw:text-amber-800"
+            >Reject — Retraining required</span
+          >
           <p class="tw:text-xs tw:text-amber-700 tw:mt-0.5">
-            Mark the selected employees as not yet competent. A new training instance will be launched for them.
+            Mark the selected employees as not yet competent. A new training instance will be
+            launched for them.
           </p>
         </div>
       </label>
@@ -214,15 +246,21 @@ async function onEsignVerified(esign) {
     <!-- Notes -->
     <div>
       <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Manager Notes</p>
-      <BaseTextarea v-model="form.notes" :rows="3" placeholder="Add any observations or feedback..." />
+      <BaseTextarea
+        v-model="form.notes"
+        :rows="3"
+        placeholder="Add any observations or feedback..."
+      />
     </div>
 
     <!-- Actions -->
     <div class="tw:flex tw:items-center tw:justify-between tw:pt-3 tw:border-t tw:border-divider">
       <p class="tw:text-xs tw:text-secondary">
-        {{ form.retrainingRequired
-          ? 'A new training instance will be launched for the selected employees.'
-          : 'Selected employees will be marked Verified upon approval.' }}
+        {{
+          form.retrainingRequired
+            ? 'A new training instance will be launched for the selected employees.'
+            : 'Selected employees will be marked Verified upon approval.'
+        }}
       </p>
       <BaseButton
         v-if="!form.retrainingRequired"

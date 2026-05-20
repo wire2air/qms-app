@@ -1,5 +1,6 @@
 <script setup>
 import { IconRobot, IconBan } from '@tabler/icons-vue'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { del } from '@/api'
 import { useToast } from '@shared/composables/useToast.js'
 

@@ -1,6 +1,7 @@
 <script setup>
 import { required, email, helpers } from '@vuelidate/validators'
 import { useValidator } from '@shared/composables/validator.js'
+// Action RPC (not entity CRUD — POST /v1/services/users/:id/invite) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 
 const open = defineModel({
@@ -75,7 +76,10 @@ async function onSubmit() {
       try {
         await post(`/v1/services/users/${user.id}/invite`, {})
       } catch (err) {
-        toast?.notify?.({ type: 'negative', message: err?.message || 'User created but invitation email failed' })
+        toast?.notify?.({
+          type: 'negative',
+          message: err?.message || 'User created but invitation email failed',
+        })
       }
     }
     open.value = false
