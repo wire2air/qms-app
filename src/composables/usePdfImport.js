@@ -97,9 +97,10 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
 
     const page = await doc.getPage(pageNum)
     const lines = await extractLines(page)
-    const imageCandidates = await collectImageCandidates(page, doc, pdfjs)
+    const { candidates: imageCandidates, droppedCount: collectionDrops } =
+      await collectImageCandidates(page, doc, pdfjs)
 
-    pagesRaw.push({ pageNum, lines, imageCandidates })
+    pagesRaw.push({ pageNum, lines, imageCandidates, collectionDrops })
   }
 
   // ── Phase 2: detect repeating lines + image hashes ──────────────────
@@ -119,6 +120,12 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
   let imageCount = 0
   let headerLinesStripped = 0
   let recurringImagesSkipped = 0
+  // Total images we KNOW we lost (vs. silently never extracted). Split
+  // between resolution failures inside collectImageCandidates and
+  // upload failures here in Phase 3. Surfaced to the user so they can
+  // tell from the import preview that the source had embedded visuals
+  // we couldn't carry through.
+  let imagesDropped = 0
 
   // For upload progress: count the total uniques to upload up front.
   let totalUniqueImages = 0
@@ -128,6 +135,11 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
     }
   }
   let uploadIdx = 0
+
+  // Placeholder marker the AI is instructed to preserve verbatim.
+  // Renders as a plain paragraph in the final markdown so the reviewer
+  // sees exactly where a visual was missing in the source PDF.
+  const DROPPED_IMAGE_MARKER = '[IMAGE: could not extract — see original PDF]'
 
   for (const p of pagesRaw) {
     const isFirstPage = p.pageNum === 1
@@ -146,6 +158,10 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
     const pageText = keptLines.join('\n').trim()
 
     const imageRefs = []
+    // Start the page's drop tally with anything that failed during the
+    // resolve / hash phase of collectImageCandidates. Recurring images
+    // (logos, headers) are intentionally stripped and don't count.
+    let droppedOnPage = p.collectionDrops ?? 0
     for (const cand of p.imageCandidates) {
       if (isRepeatingImage(cand, repeatingHashes)) {
         recurringImagesSkipped += 1
@@ -163,9 +179,14 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
         if (url) {
           imageCount += 1
           imageRefs.push(url)
+        } else {
+          // uploadBitmapAsPng returned null — couldn't convert the image
+          // (unknown kind, bad bitmap, etc.). User-visible drop.
+          droppedOnPage += 1
         }
       } catch {
         // One bad image must not abort the import.
+        droppedOnPage += 1
       }
     }
 
@@ -173,6 +194,10 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
     for (const url of imageRefs) {
       block += `\n\n![Page ${p.pageNum} image](${url})`
     }
+    for (let k = 0; k < droppedOnPage; k++) {
+      block += `\n\n${DROPPED_IMAGE_MARKER}`
+    }
+    imagesDropped += droppedOnPage
     pageBlocks.push(block)
   }
 
@@ -182,6 +207,7 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
     text: pageBlocks.join('\n\n'),
     pageCount,
     imageCount,
+    imagesDropped,
     filename: file.name,
     headerLinesStripped,
     recurringImagesSkipped,
@@ -216,6 +242,11 @@ async function extractLines(page) {
  * Walk the page's operator list, collect image XObject references, hash
  * each candidate, and return them in painting order. We don't upload
  * anything here — that happens in Phase 3 after duplicate detection.
+ *
+ * Returns { candidates, droppedCount }. droppedCount tracks images
+ * pdfjs saw on the page that we couldn't carry through (inline images
+ * with object args, resolve failures, hash failures, etc.) so the
+ * caller can surface a placeholder marker to the user.
  */
 async function collectImageCandidates(page, doc, pdfjs) {
   const ops = await page.getOperatorList()
@@ -230,23 +261,38 @@ async function collectImageCandidates(page, doc, pdfjs) {
   )
   const seen = new Set()
   const out = []
+  let droppedCount = 0
 
   for (let i = 0; i < ops.fnArray.length; i++) {
     if (!IMAGE_OPS.has(ops.fnArray[i])) continue
     const imgName = ops.argsArray[i]?.[0]
-    if (!imgName || seen.has(imgName)) continue
+    if (!imgName || typeof imgName !== 'string') {
+      // Inline-image ops put the image data object in args[0] rather
+      // than an XObject name. Our resolution path expects a string,
+      // so we can't carry these through — count as a known drop.
+      droppedCount += 1
+      continue
+    }
+    if (seen.has(imgName)) continue
     seen.add(imgName)
     try {
       const obj = await resolveImageObject(page, doc, imgName)
-      if (!obj) continue
+      if (!obj) {
+        droppedCount += 1
+        continue
+      }
       const hash = await computeImageHash(obj, imgName)
-      if (!hash) continue
+      if (!hash) {
+        droppedCount += 1
+        continue
+      }
       out.push({ imgName, obj, hash })
     } catch {
-      // Skip individual resolution failures.
+      // Skip individual resolution failures but still record the drop.
+      droppedCount += 1
     }
   }
-  return out
+  return { candidates: out, droppedCount }
 }
 
 /**

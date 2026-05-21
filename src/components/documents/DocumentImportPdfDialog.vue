@@ -431,6 +431,14 @@ const parseProgressPct = computed(() => {
                 }}
               </template>
             </span>
+            <span
+              v-if="extracted.imagesDropped"
+              class="tw:ml-2 tw:text-red-700 tw:font-semibold"
+            >
+              · {{ extracted.imagesDropped }} image{{
+                extracted.imagesDropped === 1 ? '' : 's'
+              }} couldn't be extracted
+            </span>
           </div>
         </div>
       </div>
@@ -614,6 +622,36 @@ const parseProgressPct = computed(() => {
           referenced inline.
         </div>
 
+        <!-- Loud warning + bail-out CTA when pdfjs couldn't extract some
+             of the source visuals. The structured output will show
+             "[IMAGE: could not extract — see original PDF]" markers
+             where they were lost, but if too many are gone the user
+             may prefer to ditch the structured import and attach the
+             original PDF instead. -->
+        <div
+          v-if="extracted?.imagesDropped"
+          class="tw:p-3 tw:rounded-lg tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-900 tw:flex tw:flex-col tw:gap-2"
+        >
+          <div class="tw:flex tw:items-start tw:gap-2">
+            <IconAlertTriangle :size="16" class="tw:mt-0.5 tw:flex-none" />
+            <div class="tw:text-xs">
+              <strong>
+                {{ extracted.imagesDropped }} image{{
+                  extracted.imagesDropped === 1 ? '' : 's'
+                }} couldn't be extracted
+              </strong>
+              from the PDF (look for
+              <code class="tw:text-[10px] tw:bg-red-100 tw:px-1 tw:rounded">[IMAGE: …]</code>
+              placeholders in the sections below). If the missing visuals matter, skip the
+              structured import and attach the original PDF as-is.
+            </div>
+          </div>
+          <BaseButton variant="outline" size="sm" :disabled="applying" @click="runAttachOnly">
+            <template #icon><IconPaperclip :size="14" /></template>
+            Import as attachment instead
+          </BaseButton>
+        </div>
+
         <div class="tw:flex tw:flex-col tw:gap-1">
           <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
             Title
@@ -740,6 +778,10 @@ const parseProgressPct = computed(() => {
         <BaseButton variant="outline" :disabled="applying" @click="regenerate">
           <IconRefresh :size="14" class="tw:mr-1" />
           {{ phase === 'summaryResult' ? 'Re-summarise' : 'Re-structure' }}
+        </BaseButton>
+        <BaseButton variant="outline" :disabled="applying" @click="runAttachOnly">
+          <IconPaperclip :size="14" class="tw:mr-1" />
+          Attach PDF instead
         </BaseButton>
         <BaseButton variant="outline" :disabled="applying" @click="discard">Discard</BaseButton>
         <BaseButton :disabled="applying" @click="applyDraft">
