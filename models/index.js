@@ -106,6 +106,7 @@ import { ChangeRequestStatus } from './changeRequestStatus'
 import { ChangeRequestPriority } from './changeRequestPriority'
 import { ChangeType } from './changeType'
 import { ChangeRequestLink } from './changeRequestLink'
+import { CrRecord } from './crRecord'
 // AI sidecar (see backend/ai/README.md, AI_PLAN.md §11). All AI models are
 // grouped here. Existing models stay AI-agnostic.
 import { AiPat } from './aiPat'
@@ -224,4 +225,5 @@ export const db = {
   ChangeRequestPriority,
   ChangeType,
   ChangeRequestLink,
+  CrRecord,
 }

@@ -215,9 +215,28 @@ const showEsignDialog = ref(false)
 const completing = ref(false)
 const completeComment = ref('')
 
+// Mount the step form for ACTION steps that have a schema. APPROVAL
+// steps never mount it (comment-only). The form exposes submit() so
+// "Mark Complete" can persist + autoApprove in one round trip.
+const stepFormRef = ref(null)
+const hasStepForm = computed(
+  () => !isApprovalStep.value && (instanceStep.value?.formSchema?.length ?? 0) > 0,
+)
+
 function onCompleteClick() {
   if (!canActOnStep.value || childrenBlock.value || completing.value) return
   completeComment.value = ''
+  // ACTION step with a form: the form fields ARE the capture, so skip
+  // the "any comment?" dialog. Esign still routes through its own
+  // dialog when required.
+  if (hasStepForm.value) {
+    if (requireEsignature.value) {
+      showEsignDialog.value = true
+    } else {
+      submitComplete()
+    }
+    return
+  }
   showCompleteDialog.value = true
 }
 
@@ -239,6 +258,15 @@ async function submitComplete(esign = null) {
   if (!currentUserTask.value || completing.value) return
   completing.value = true
   try {
+    // ACTION step with a form: delegate to the form's submit() so the
+    // CrRecord persists first, then it auto-approves the task in the
+    // same round trip. We pass esign through so Sign & Complete flows
+    // still work when the step requires Part-11 sign-off.
+    if (hasStepForm.value && stepFormRef.value?.submit) {
+      await stepFormRef.value.submit(esign ?? undefined)
+      return
+    }
+    // Comment-only flow (APPROVAL steps and form-less ACTION steps).
     const body = {
       action: 'COMPLETE_AND_ADVANCE',
       outcomeId: 'COMPLETE_AND_ADVANCE',
@@ -248,9 +276,9 @@ async function submitComplete(esign = null) {
     if (esign?.token) body.token = esign.token
     if (esign?.provider) body.provider = esign.provider
     await post(`/v1/services/taskInstances/${currentUserTask.value.id}/action`, body)
-    toast.success('Step marked complete')
+    toast.success(isApprovalStep.value ? 'Step approved' : 'Step marked complete')
   } catch (e) {
-    toast.error(e?.message || 'Failed to mark complete')
+    toast.error(e?.message || 'Failed to complete step')
   } finally {
     completing.value = false
   }
@@ -341,11 +369,24 @@ function getStatusLabel(statusId) {
       v-html="instanceStep.description"
     />
 
-    <!-- Assignee call-to-action: CR steps don't have a per-user form,
-         so the Mark Complete dialog (comment + optional e-sign) is the
-         single approve action. Surface this directly inside the step
-         body so it reads as the approval gate, not a hidden header
-         link. -->
+    <!-- Per-user step form (ACTION + non-empty formSchema only).
+         APPROVAL steps and form-less ACTION steps fall through to the
+         comment-only inline CTA below. The form exposes submit() via
+         ref so the Mark Complete CTA can drive save + autoApprove in
+         one click. -->
+    <div v-if="hasStepForm" class="tw:mb-3">
+      <ChangeRequestWorkflowStepForm
+        ref="stepFormRef"
+        :instanceStepId="instanceStepId"
+        :crId="crId"
+        :autoApprove="true"
+        :hideSubmit="true"
+      />
+    </div>
+
+    <!-- Assignee call-to-action: form-less ACTION + every APPROVAL step
+         falls through here. Mark Complete dialog (comment + optional
+         e-sign) is the single advance action. -->
     <div
       v-if="canActOnStep"
       class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:px-4 tw:py-3 tw:rounded-lg tw:border tw:border-primary/20 tw:bg-primary/5 tw:mb-3"
