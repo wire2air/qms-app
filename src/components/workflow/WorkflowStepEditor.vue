@@ -185,8 +185,67 @@ watch(
 
         <!-- Right Column -->
         <div class="tw:space-y-6">
-          <!-- Rule -->
-          <div v-if="selectedApprovalRule === null">
+          <!-- Step Type — gates which downstream controls render -->
+          <div>
+            <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-3">
+              Step Type
+            </label>
+            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+              <label
+                class="tw:relative tw:flex tw:flex-col tw:p-4 tw:border tw:rounded-xl tw:cursor-pointer tw:transition-all"
+                :class="
+                  step.stepType === 'ACTION'
+                    ? 'tw:border-primary tw:bg-primary/5 tw:ring-1 tw:ring-primary/20'
+                    : 'tw:border-divider tw:hover:bg-main-hover'
+                "
+              >
+                <input
+                  v-model="step.stepType"
+                  type="radio"
+                  value="ACTION"
+                  class="tw:sr-only"
+                  :disabled="!canUpdate"
+                />
+                <span
+                  class="tw:text-xs tw:font-bold tw:mb-1"
+                  :class="step.stepType === 'ACTION' ? 'tw:text-primary' : 'tw:text-on-main'"
+                >
+                  ACTION
+                </span>
+                <span class="tw:text-[10px] tw:leading-tight tw:text-secondary">
+                  Work step. Form fields, optional sub-tasks. Assignee clicks Mark Complete.
+                </span>
+              </label>
+              <label
+                class="tw:relative tw:flex tw:flex-col tw:p-4 tw:border tw:rounded-xl tw:cursor-pointer tw:transition-all"
+                :class="
+                  step.stepType === 'APPROVAL'
+                    ? 'tw:border-primary tw:bg-primary/5 tw:ring-1 tw:ring-primary/20'
+                    : 'tw:border-divider tw:hover:bg-main-hover'
+                "
+              >
+                <input
+                  v-model="step.stepType"
+                  type="radio"
+                  value="APPROVAL"
+                  class="tw:sr-only"
+                  :disabled="!canUpdate"
+                />
+                <span
+                  class="tw:text-xs tw:font-bold tw:mb-1"
+                  :class="step.stepType === 'APPROVAL' ? 'tw:text-primary' : 'tw:text-on-main'"
+                >
+                  APPROVAL
+                </span>
+                <span class="tw:text-[10px] tw:leading-tight tw:text-secondary">
+                  Gate step. ALL or ANY approvers must sign. Comment-only — no form.
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Rule — only meaningful for APPROVAL steps. -->
+          <div v-if="step.stepType === 'APPROVAL' && selectedApprovalRule === null">
             <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-3">
               Rule
             </label>
@@ -276,11 +335,11 @@ watch(
             </label>
           </div>
 
-          <!-- CAPA-only: lets the CAPA owner add ad-hoc child steps from
-               within a running CAPA. Doesn't restrict template authoring —
-               sub-steps can still be added in the editor below regardless. -->
+          <!-- ACTION-only: lets the resource owner add ad-hoc child steps
+               from within a running record. Hidden for APPROVAL steps —
+               approval gates don't fan out into sub-tasks. -->
           <label
-            v-if="showAllowChildSteps && !step.parentStepId"
+            v-if="showAllowChildSteps && step.stepType === 'ACTION' && !step.parentStepId"
             class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer"
           >
             <BaseCheckbox v-model="step.allowChildSteps" :disabled="!canUpdate" />
@@ -330,8 +389,14 @@ watch(
       </div>
     </div>
 
-    <!-- Form Schema -->
-    <WorkflowStepFormSchema v-if="showFormSchema" :stepId="stepId" :canUpdate="canUpdate" />
+    <!-- Form Schema — APPROVAL steps are comment-only, so the form
+         builder is hidden when the type is APPROVAL even if the
+         parent flagged showFormSchema. -->
+    <WorkflowStepFormSchema
+      v-if="showFormSchema && step.stepType === 'ACTION'"
+      :stepId="stepId"
+      :canUpdate="canUpdate"
+    />
 
     <!-- Step Assignee -->
     <div class="tw:space-y-4">
