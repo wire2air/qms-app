@@ -26,6 +26,8 @@ const instanceStep = useLiveQueryWithDeps([() => props.instanceStepId], async (d
   id ? db.WorkflowInstanceStep.findByPk(id) : null,
 )
 
+const isApprovalStep = computed(() => instanceStep.value?.stepType === 'APPROVAL')
+
 const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
 
 const currentUserTask = useLiveQueryWithDeps(
@@ -55,18 +57,27 @@ const allowedOutcomes = useLiveQueryWithDeps(
 
 const canActOnStep = computed(() => ACTIONABLE_STATUSES.includes(currentUserTask.value?.statusId))
 
-const OUTCOME_CONFIG = {
-  COMPLETE_AND_ADVANCE: { label: 'Mark Complete', icon: IconArrowBackUp },
-  SEND_BACK: {
-    label: 'Send Back',
-    icon: IconArrowBackUp,
-    needsComment: true,
-    commentRequired: true,
-  },
-  REQUEST_INFO: { label: 'Request Info' },
-  REASSIGN: { label: 'Reassign' },
-  CANCEL: { label: 'Cancel' },
+// Per-stepType outcome flavoring: APPROVAL steps read as approve / reject;
+// ACTION steps keep the CAPA-style "Send Back" wording so reviewers used to
+// the existing NC / CAPA UX don't see a relabeling on those modules.
+function buildOutcomeConfig(approvalFlavor) {
+  return {
+    COMPLETE_AND_ADVANCE: {
+      label: approvalFlavor ? 'Approve' : 'Mark Complete',
+      icon: IconArrowBackUp,
+    },
+    SEND_BACK: {
+      label: approvalFlavor ? 'Reject' : 'Send Back',
+      icon: IconArrowBackUp,
+      needsComment: true,
+      commentRequired: true,
+    },
+    REQUEST_INFO: { label: 'Request Info' },
+    REASSIGN: { label: 'Reassign' },
+    CANCEL: { label: 'Cancel' },
+  }
 }
+const OUTCOME_CONFIG = computed(() => buildOutcomeConfig(isApprovalStep.value))
 
 // Mirror NC + CAPA: REASSIGN / CANCEL / REQUEST_INFO live as owner
 // inline buttons in the step header. The menu only renders SEND_BACK
@@ -79,15 +90,16 @@ const comment = ref('')
 const actionLoading = ref(false)
 
 const pendingConfig = computed(() =>
-  pendingOutcomeId.value ? OUTCOME_CONFIG[pendingOutcomeId.value] ?? null : null,
+  pendingOutcomeId.value ? OUTCOME_CONFIG.value[pendingOutcomeId.value] ?? null : null,
 )
+const isRejectAction = computed(() => pendingOutcomeId.value === 'SEND_BACK')
 const confirmTitle = computed(() => pendingConfig.value?.label ?? 'Confirm')
 
 function onOutcomeClick(outcomeId) {
   if (!canActOnStep.value) return
   pendingOutcomeId.value = outcomeId
   comment.value = ''
-  if (OUTCOME_CONFIG[outcomeId]?.needsComment) {
+  if (OUTCOME_CONFIG.value[outcomeId]?.needsComment) {
     showConfirmDialog.value = true
   } else {
     submitAction()
@@ -112,7 +124,11 @@ async function submitAction() {
         workflowInstanceStepId: props.instanceStepId,
         comment: comment.value,
       })
-      toast.success('Task sent back — the CR owner has been notified')
+      toast.success(
+        isApprovalStep.value
+          ? 'Approval rejected — the CR owner has been notified'
+          : 'Task sent back — the CR owner has been notified',
+      )
       emit('done')
       return
     }
@@ -138,7 +154,7 @@ const items = computed(() => {
   for (const o of allowedOutcomes.value) {
     if (props.hideOutcomes.includes(o.outcomeId)) continue
     if (ALWAYS_HIDDEN_OUTCOMES.has(o.outcomeId)) continue
-    const cfg = OUTCOME_CONFIG[o.outcomeId]
+    const cfg = OUTCOME_CONFIG.value[o.outcomeId]
     if (!cfg) continue
     list.push({
       name: cfg.label,
@@ -157,7 +173,13 @@ const items = computed(() => {
     <BaseDialog v-model="showConfirmDialog" :title="confirmTitle" maxWidth="md" persistent>
       <div>
         <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          {{ pendingOutcomeId === 'SEND_BACK' ? 'Reason for sending back' : 'Comment' }}
+          {{
+            isRejectAction
+              ? isApprovalStep
+                ? 'Reason for rejection'
+                : 'Reason for sending back'
+              : 'Comment'
+          }}
           <span v-if="pendingConfig?.commentRequired" class="tw:text-red-500">*</span>
         </label>
         <textarea
@@ -165,8 +187,10 @@ const items = computed(() => {
           rows="3"
           class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:text-on-main tw:text-sm tw:p-3 tw:resize-none tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
           :placeholder="
-            pendingOutcomeId === 'SEND_BACK'
-              ? 'Why are you sending this back to the owner?'
+            isRejectAction
+              ? isApprovalStep
+                ? 'Why are you rejecting this change?'
+                : 'Why are you sending this back to the owner?'
               : 'Add a comment…'
           "
         />

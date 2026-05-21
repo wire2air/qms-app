@@ -189,6 +189,27 @@ const requireEsignature = computed(
     !!(instanceStep.value?.requireEsignature ?? stepDefinition.value?.requireEsignature),
 )
 
+// APPROVAL-typed steps use approve / reject phrasing instead of the
+// CAPA-style "Mark Complete" / "Send Back". Approval-step UX is gated
+// on the denormalized stepType on the WorkflowInstanceStep row so the
+// renderer doesn't need to wait on the template join.
+const isApprovalStep = computed(() => instanceStep.value?.stepType === 'APPROVAL')
+const primaryActionLabel = computed(() => {
+  if (isApprovalStep.value) {
+    return requireEsignature.value ? 'Sign & Approve' : 'Approve'
+  }
+  return requireEsignature.value ? 'Sign & Complete' : 'Mark Complete'
+})
+const primaryActionInProgressLabel = computed(() =>
+  isApprovalStep.value ? 'Approving…' : 'Completing…',
+)
+const ctaCopy = computed(() => {
+  if (isApprovalStep.value) {
+    return `Review the analysis and ${requireEsignature.value ? 'sign off to approve' : 'approve'} to advance.`
+  }
+  return `Add your ${requireEsignature.value ? 'sign-off' : 'notes'} and complete to advance.`
+})
+
 const showCompleteDialog = ref(false)
 const showEsignDialog = ref(false)
 const completing = ref(false)
@@ -276,7 +297,7 @@ function getStatusLabel(statusId) {
           @click="onCompleteClick"
         >
           <IconCheck :size="14" />
-          {{ completing ? 'Completing…' : 'Mark Complete' }}
+          {{ completing ? primaryActionInProgressLabel : primaryActionLabel }}
         </button>
         <button
           v-if="canReopen"
@@ -331,9 +352,7 @@ function getStatusLabel(statusId) {
     >
       <div class="tw:text-sm tw:text-on-main">
         <span class="tw:font-semibold">You're the assignee on this step.</span>
-        <span class="tw:text-secondary tw:ml-1">
-          Add your {{ requireEsignature ? 'sign-off' : 'notes' }} and complete to advance.
-        </span>
+        <span class="tw:text-secondary tw:ml-1">{{ ctaCopy }}</span>
       </div>
       <BaseButton
         variant="primary"
@@ -343,13 +362,7 @@ function getStatusLabel(statusId) {
         @click="onCompleteClick"
       >
         <template #icon><IconCheck :size="14" /></template>
-        {{
-          completing
-            ? 'Completing…'
-            : requireEsignature
-              ? 'Sign &amp; Complete'
-              : 'Mark Complete'
-        }}
+        {{ completing ? primaryActionInProgressLabel : primaryActionLabel }}
       </BaseButton>
     </div>
 
@@ -365,29 +378,37 @@ function getStatusLabel(statusId) {
       @reassign="(childId) => emit('reassign', childId)"
     />
 
-    <!-- Mark Complete dialog (optional comment) -->
-    <BaseDialog v-model="showCompleteDialog" title="Mark Step Complete" maxWidth="md">
+    <!-- Approve / Mark Complete dialog (optional comment) -->
+    <BaseDialog
+      v-model="showCompleteDialog"
+      :title="isApprovalStep ? 'Approve Step' : 'Mark Step Complete'"
+      maxWidth="md"
+    >
       <div>
         <p class="tw:text-sm tw:text-on-main tw:mb-3">
-          Confirm completion of <strong>{{ instanceStep.name }}</strong
-          >.
+          {{ isApprovalStep ? 'Confirm approval of' : 'Confirm completion of' }}
+          <strong>{{ instanceStep.name }}</strong>.
           <span v-if="requireEsignature">
             This step requires an e-signature; you'll be prompted on the next screen.
           </span>
         </p>
         <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1">
-          Comment (optional)
+          {{ isApprovalStep ? 'Approval comment (optional)' : 'Comment (optional)' }}
         </label>
         <BaseTextarea
           v-model="completeComment"
           :rows="3"
-          placeholder="Notes about how you completed this step…"
+          :placeholder="
+            isApprovalStep
+              ? 'Why are you approving this change?'
+              : 'Notes about how you completed this step…'
+          "
         />
       </div>
       <template #footer="{ close }">
         <BaseButton variant="outline" :disabled="completing" @click="close">Cancel</BaseButton>
         <BaseButton variant="primary" :loading="completing" @click="handleCompleteSubmit">
-          {{ requireEsignature ? 'Sign & Complete' : 'Mark Complete' }}
+          {{ primaryActionLabel }}
         </BaseButton>
       </template>
     </BaseDialog>
