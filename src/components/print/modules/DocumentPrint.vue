@@ -8,9 +8,17 @@
  * Auto-fires window.print() ~600ms after the layout has the data it needs.
  */
 
+import { buildCombinedDocumentPdf } from '@/composables/useDocumentCombinedPdf.js'
+
 const props = defineProps({
   id: { type: String, default: null },
   versionId: { type: String, default: null },
+  // '1' → skip browser print dialog, generate a single combined PDF
+  // that includes the main body plus every attachment from the
+  // document version's sections (PDFs + images merged inline; other
+  // formats listed in a reference appendix). Anything falsy → existing
+  // window.print() behaviour.
+  attachments: { type: String, default: null },
 })
 
 const document = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
@@ -167,22 +175,100 @@ const ready = computed(
   () => !!document.value && !!version.value && Array.isArray(sections.value),
 )
 
+// Combined-PDF state. Only used when ?attachments=1 is in the URL.
+const wantCombined = computed(() => props.attachments === '1')
+const combining = ref(false)
+const combineMessage = ref('')
+const combineError = ref(null)
+const combinedUrl = ref(null)
+
+// Flat list of every attachment across every section, in section order.
+// Used by the combined-PDF generator and surfaced in the on-screen
+// "preparing your download" panel so the user can see what's queued.
+const allAttachments = computed(() => {
+  const out = []
+  for (const s of sections.value ?? []) {
+    const list = Array.isArray(s.attachments) ? s.attachments : []
+    for (const a of list) {
+      if (a?.url) out.push(a)
+    }
+  }
+  return out
+})
+
+async function generateCombinedPdf() {
+  if (combining.value) return
+  combining.value = true
+  combineMessage.value = 'Preparing main document…'
+  combineError.value = null
+  try {
+    // Wait one tick after `ready` flips so v-html section bodies have
+    // actually been mounted before we snapshot the DOM.
+    await nextTick()
+    const root = window.document.querySelector('.doc-print-body')
+    if (!root) throw new Error('Print body not mounted yet')
+    const bytes = await buildCombinedDocumentPdf(root, allAttachments.value, (stage) => {
+      combineMessage.value = stage.message
+    })
+    const blob = new Blob([bytes], { type: 'application/pdf' })
+    combinedUrl.value = URL.createObjectURL(blob)
+    // Auto-open in the same tab so it replaces the loading screen with
+    // the rendered PDF. The user can then save it or trigger their own
+    // browser print on the combined output.
+    window.location.replace(combinedUrl.value)
+  } catch (err) {
+    combineError.value = err?.message ?? 'Failed to build combined PDF'
+  } finally {
+    combining.value = false
+  }
+}
+
 onMounted(() => {
-  // Give the layout one render with data, then open the browser print dialog.
-  // User can re-trigger via the toolbar "Print" button.
-  const tryPrint = (attempts = 0) => {
+  // Give the layout one render with data, then either auto-print
+  // (browser dialog, existing behaviour) or build the combined PDF.
+  const tryStart = (attempts = 0) => {
     if (ready.value) {
-      setTimeout(() => window.print(), 200)
+      if (wantCombined.value) {
+        setTimeout(() => generateCombinedPdf(), 400)
+      } else {
+        setTimeout(() => window.print(), 200)
+      }
       return
     }
-    if (attempts < 20) setTimeout(() => tryPrint(attempts + 1), 200)
+    if (attempts < 20) setTimeout(() => tryStart(attempts + 1), 200)
   }
-  tryPrint()
+  tryStart()
 })
 </script>
 
 <template>
-  <PrintLayout
+  <div class="tw:contents">
+    <!-- Combined-PDF overlay: shown only when ?attachments=1 is set. The
+         PrintLayout itself still renders behind it so buildCombinedDocumentPdf
+         has a real DOM to snapshot via jsPDF.html(). On success we redirect
+         the tab to the generated PDF blob URL — this overlay is the "we're
+         working on it" experience while jsPDF + pdf-lib churn. -->
+    <div
+      v-if="wantCombined && (combining || combineError)"
+      class="tw:fixed tw:inset-0 tw:z-50 tw:bg-main/95 tw:flex tw:items-center tw:justify-center tw:p-8 tw:print:hidden"
+    >
+      <div class="tw:max-w-md tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:p-6 tw:flex tw:flex-col tw:gap-3">
+        <div class="tw:text-base tw:font-semibold tw:text-on-main">
+          Combining document + attachments
+        </div>
+        <div v-if="combining" class="tw:text-sm tw:text-secondary">
+          {{ combineMessage || 'Working…' }}
+        </div>
+        <div v-if="combineError" class="tw:text-sm tw:text-red-700">
+          {{ combineError }}
+        </div>
+        <div v-if="!combining && !combineError" class="tw:text-sm tw:text-secondary">
+          Done. Opening combined PDF…
+        </div>
+      </div>
+    </div>
+
+    <PrintLayout
     :status="version?.statusId"
     :identifier="identifier"
     :effectiveDate="version?.effectiveDate"
@@ -264,7 +350,8 @@ onMounted(() => {
         </table>
       </section>
     </div>
-  </PrintLayout>
+    </PrintLayout>
+  </div>
 </template>
 
 <style>

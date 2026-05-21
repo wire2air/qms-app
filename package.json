@@ -52,6 +52,7 @@
     "jszip": "^3.10.1",
     "luxon": "^3.7.2",
     "marked": "^18.0.3",
+    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.7.284",
     "pluralize": "^8.0.0",
     "pluralize-esm": "^9.0.5",
