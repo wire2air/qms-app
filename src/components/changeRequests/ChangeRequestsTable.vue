@@ -2,7 +2,7 @@
 import { IconEdit, IconExternalLink } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
-const props = defineProps({
+defineProps({
   rows: { type: Array, required: true },
   canUpdate: { type: Boolean, default: false },
 })

@@ -15,6 +15,7 @@ import {
 } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
+import DynamicForm from '@/components/form/DynamicForm.js'
 
 const props = defineProps({
   instanceStepId: { type: String, required: true },
@@ -92,11 +93,14 @@ async function handleReopen() {
   if (!reopenReason.value.trim() || reopening.value) return
   reopening.value = true
   try {
-    // P2 followup — CR reopen endpoint isn't shipped yet; for now we
-    // surface a TODO toast. Owner can reassign or cancel a step
-    // instead until the endpoint lands.
-    toast.info('Reopen on Change Requests will land in the next update — use Reassign for now.')
+    await post(`/v1/services/changeRequests/${props.crId}/reopenStep`, {
+      workflowInstanceStepId: props.instanceStepId,
+      reason: reopenReason.value.trim(),
+    })
+    toast.success('Step reopened')
     showReopenDialog.value = false
+  } catch (e) {
+    toast.error(e?.message || 'Failed to reopen step')
   } finally {
     reopening.value = false
   }
@@ -317,6 +321,23 @@ function getStatusLabel(statusId) {
       v-html="instanceStep.description"
     />
 
+    <!-- Step form preview (read-only). CR v2 doesn't persist per-user
+         form responses yet — this just surfaces what the assignee will
+         see / be asked. Mark Complete still works on a comment alone. -->
+    <div
+      v-if="instanceStep.formSchema?.length"
+      class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-main-hover/30 tw:mb-3"
+    >
+      <div
+        class="tw:text-[10px] tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:mb-2"
+      >
+        Step form ({{ instanceStep.formSchema.length }} field{{
+          instanceStep.formSchema.length === 1 ? '' : 's'
+        }})
+      </div>
+      <DynamicForm :fields="instanceStep.formSchema" :modelValue="{}" readonly />
+    </div>
+
     <!-- Child sub-tasks list when this stage allows them -->
     <ChangeRequestWorkflowChildSteps
       v-if="showChildSection && instanceStep.workflowInstanceId"
@@ -380,13 +401,32 @@ function getStatusLabel(statusId) {
       </template>
     </BaseDialog>
 
-    <!-- Reopen placeholder (P2 endpoint pending) -->
+    <!-- Reopen Step dialog -->
     <BaseDialog v-model="showReopenDialog" title="Reopen Step" maxWidth="md">
-      <p class="tw:text-sm tw:text-on-main">
-        Reopen is coming in the next update. For now, use Reassign or Cancel + new step.
-      </p>
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <p class="tw:text-sm tw:text-on-main">
+          Reopens <strong>{{ instanceStep.name }}</strong> and creates a fresh task for the
+          original assignee.
+        </p>
+        <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1">
+          Reason <span class="tw:text-red-500">*</span>
+        </label>
+        <BaseTextarea
+          v-model="reopenReason"
+          :rows="3"
+          placeholder="Why is this step being reopened?"
+        />
+      </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" @click="close">OK</BaseButton>
+        <BaseButton variant="outline" :disabled="reopening" @click="close">Cancel</BaseButton>
+        <BaseButton
+          variant="primary"
+          :loading="reopening"
+          :disabled="!reopenReason.trim() || reopening"
+          @click="handleReopen"
+        >
+          Reopen Step
+        </BaseButton>
       </template>
     </BaseDialog>
   </div>
