@@ -188,7 +188,11 @@ async function runAiStage() {
     usage.value = json.usage
     phase.value = isSummary ? 'summaryResult' : 'result'
   } catch (e) {
-    const aborted = e?.name === 'AbortError'
+    // When abort(reason) fires, modern browsers reject the fetch with the
+    // reason value directly — so `e` may be a plain string, not an
+    // AbortError-shaped DOMException. Trust signal.aborted as the
+    // authoritative "was this an abort?" signal.
+    const aborted = controller.signal.aborted || e?.name === 'AbortError'
     const reason = controller.signal.reason
     error.value = {
       stage: isSummary ? 'summarizing' : 'structuring',
