@@ -97,17 +97,16 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
 
     const page = await doc.getPage(pageNum)
     const lines = await extractLines(page)
-    // We intentionally ignore the collection-time drop count from
-    // collectImageCandidates. Those drops are "pdfjs didn't surface
-    // this to us cleanly" — we don't know whether they were real
-    // visuals or just pdfjs internal artefacts (Form-XObject internals,
-    // unloaded common objects, etc.). Counting them inflates the
-    // user-visible "couldn't extract" number with noise. Only Phase-3
-    // upload failures — where we had a candidate and an upload
-    // attempt — count toward the user-facing imagesDropped tally.
-    const { candidates: imageCandidates } = await collectImageCandidates(page, doc, pdfjs)
+    // collectionDrops are images pdfjs saw on the page that we
+    // couldn't carry through (hash failure, XObject resolution
+    // failure, etc.). After the inline-image fix, per-page logos
+    // become real hashable candidates and go through repetition
+    // detection — so collection drops here are genuinely "we tried
+    // and couldn't get this visual", worth a placeholder marker.
+    const { candidates: imageCandidates, droppedCount: collectionDrops } =
+      await collectImageCandidates(page, doc, pdfjs)
 
-    pagesRaw.push({ pageNum, lines, imageCandidates })
+    pagesRaw.push({ pageNum, lines, imageCandidates, collectionDrops })
   }
 
   // ── Phase 2: detect repeating lines + image hashes ──────────────────
@@ -170,9 +169,11 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
     const pageText = keptLines.join('\n').trim()
 
     const imageRefs = []
-    // Only count upload-time failures here. Collection-time drops are
-    // ignored on purpose (see comment in Phase 1 above).
-    let droppedOnPage = 0
+    // Start with collection-time drops (resolveImageObject / hash
+    // failures from Phase 1) and add Phase-3 upload failures on top.
+    // Both surface as the same kind of "we lost something here"
+    // placeholder for the reviewer.
+    let droppedOnPage = p.collectionDrops ?? 0
     for (const cand of p.imageCandidates) {
       if (isRepeatingImage(cand, repeatingHashes)) {
         recurringImagesSkipped += 1
