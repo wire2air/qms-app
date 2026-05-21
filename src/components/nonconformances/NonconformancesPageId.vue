@@ -354,6 +354,7 @@ const auditIncludeEntities = computed(() => [
 
 // ─── Linked CAPAs ─────────────────────────────────────────────────────────────
 const canCreateCapa = computed(() => isAllowed(['capas:create']))
+const canCreateChangeRequest = computed(() => isAllowed(['changeRequests:create']))
 
 const linkedCapas = useLiveQueryWithDeps(
   [() => props.id],
@@ -366,6 +367,13 @@ const linkedCapas = useLiveQueryWithDeps(
 
 function onCreateLinkedCapa() {
   router.push({ path: getCompanyPath('/capas/create'), query: { ncId: props.id } })
+}
+
+function onCreateLinkedChangeRequest() {
+  router.push({
+    path: getCompanyPath('/change-requests/create'),
+    query: { source: 'NC', sourceId: props.id },
+  })
 }
 
 // ─── Workflow steps are handled by NcWorkflowDetail component ────────────────
@@ -725,14 +733,24 @@ function onCreateLinkedCapa() {
                 <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
                   Linked CAPAs
                 </div>
-                <BaseButton
-                  v-if="canCreateCapa"
-                  variant="outline"
-                  size="sm"
-                  @click="onCreateLinkedCapa"
-                >
-                  Create CAPA
-                </BaseButton>
+                <div class="tw:flex tw:gap-2">
+                  <BaseButton
+                    v-if="canCreateChangeRequest"
+                    variant="outline"
+                    size="sm"
+                    @click="onCreateLinkedChangeRequest"
+                  >
+                    Create Change Request
+                  </BaseButton>
+                  <BaseButton
+                    v-if="canCreateCapa"
+                    variant="outline"
+                    size="sm"
+                    @click="onCreateLinkedCapa"
+                  >
+                    Create CAPA
+                  </BaseButton>
+                </div>
               </div>
               <div v-if="linkedCapas.length" class="tw:flex tw:flex-col tw:gap-2">
                 <RouterLink

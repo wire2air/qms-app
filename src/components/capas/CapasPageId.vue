@@ -1,6 +1,6 @@
 <script setup>
 import { IconPrinter, IconClipboardList } from '@tabler/icons-vue'
-import { currentSession } from '@/utils/currentSession.js'
+import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
@@ -352,6 +352,15 @@ const sourceNc = useLiveQueryWithDeps(
 
 const editingTitle = ref(false)
 const editingDescription = ref(false)
+
+// Cross-module shortcut: spawn a Change Request seeded from this CAPA.
+const canCreateChangeRequest = computed(() => isAllowed(['changeRequests:create']))
+function onCreateLinkedChangeRequest() {
+  router.push({
+    path: getCompanyPath('/change-requests/create'),
+    query: { source: 'CAPA', sourceId: props.id },
+  })
+}
 </script>
 
 <template>
@@ -408,6 +417,13 @@ const editingDescription = ref(false)
           @click="openCloseDialog"
         >
           Close CAPA
+        </BaseButton>
+        <BaseButton
+          v-if="canCreateChangeRequest && capa?.id && !['DRAFT'].includes(capa?.statusId)"
+          variant="outline"
+          @click="onCreateLinkedChangeRequest"
+        >
+          Create Change Request
         </BaseButton>
       </div>
     </SafeTeleport>

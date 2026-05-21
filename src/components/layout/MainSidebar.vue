@@ -30,6 +30,7 @@ import {
   IconSitemap,
   IconLayoutGrid,
   IconSchool,
+  IconReplace,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { logoutCurrentSession, currentSession, isAllowed, isAdmin } from '@/utils/currentSession'
@@ -111,6 +112,12 @@ const navItems = computed(() => {
       permissions: ['capas:read'],
       icon: IconShield,
       to: getCompanyPath('/capas'),
+    },
+    {
+      label: 'Change Requests',
+      permissions: ['changeRequests:read'],
+      icon: IconReplace,
+      to: getCompanyPath('/change-requests'),
     },
     {
       label: 'Training',

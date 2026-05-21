@@ -110,6 +110,22 @@ const capaMap = useLiveQueryWithDeps(
   { initial: {} },
 )
 
+const changeRequestMap = useLiveQueryWithDeps(
+  [
+    () =>
+      taskInstances.value
+        .filter((i) => i.entityType === 'ChangeRequest')
+        .map((i) => i.entityId),
+  ],
+  async (db, [crIds]) => {
+    const ids = [...new Set(crIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const crs = await Promise.all(ids.map((id) => db.ChangeRequest.findByPk(id)))
+    return Object.fromEntries(crs.filter(Boolean).map((c) => [c.id, c]))
+  },
+  { initial: {} },
+)
+
 const filteredInstances = computed(() => {
   if (!props.search) return taskInstances.value
   const q = props.search.toLowerCase()
@@ -132,6 +148,11 @@ const filteredInstances = computed(() => {
       if (!capa) return false
       return capa.title?.toLowerCase().includes(q) || capa.capaNumber?.toLowerCase().includes(q)
     }
+    if (instance.entityType === 'ChangeRequest') {
+      const cr = changeRequestMap.value[instance.entityId]
+      if (!cr) return false
+      return cr.title?.toLowerCase().includes(q) || cr.crNumber?.toLowerCase().includes(q)
+    }
     const doc = documentMap.value[instance.entityId]?.doc
     if (!doc) return false
     return doc.title?.toLowerCase().includes(q) || doc.docNumber?.toLowerCase().includes(q)
@@ -141,6 +162,7 @@ const filteredInstances = computed(() => {
 const EntityType = {
   DocumentVersion: 'Document',
   Nonconformance: 'Nonconformance',
+  ChangeRequest: 'Change Request',
   TrainingAssignee: 'Training',
   TrainingInstance: 'Training Verification',
   Capa: 'CAPA',
@@ -186,6 +208,10 @@ function getNc(instance) {
 
 function getCapa(instance) {
   return capaMap.value[instance.entityId] || null
+}
+
+function getChangeRequest(instance) {
+  return changeRequestMap.value[instance.entityId] || null
 }
 
 function isDuePast(dueDate) {
@@ -249,6 +275,9 @@ function entityRoute(row) {
   }
   if (row.entityType === 'Capa') {
     return getCompanyPath(`capas/${row.entityId}`)
+  }
+  if (row.entityType === 'ChangeRequest') {
+    return getCompanyPath(`change-requests/${row.entityId}`)
   }
   if (row.entityType === 'DocumentVersion') {
     const doc = documentMap.value[row.entityId]?.doc
@@ -319,6 +348,14 @@ function entityRoute(row) {
               Information request
             </span>
           </div>
+        </template>
+        <template v-else-if="row.entityType === 'ChangeRequest'">
+          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+            {{ getChangeRequest(row)?.title || '—' }}
+          </span>
+          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+            {{ getChangeRequest(row)?.crNumber || '—' }}
+          </span>
         </template>
         <template v-else>
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">

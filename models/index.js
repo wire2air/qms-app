@@ -101,6 +101,11 @@ import { TrainingDocumentLink } from './trainingDocumentLink'
 import { TrainingMatrix } from './trainingMatrix'
 import { TrainingVerification } from './trainingVerification'
 import { InformationRequest } from './informationRequest'
+import { ChangeRequest } from './changeRequest'
+import { ChangeRequestStatus } from './changeRequestStatus'
+import { ChangeRequestPriority } from './changeRequestPriority'
+import { ChangeType } from './changeType'
+import { ChangeRequestLink } from './changeRequestLink'
 // AI sidecar (see backend/ai/README.md, AI_PLAN.md §11). All AI models are
 // grouped here. Existing models stay AI-agnostic.
 import { AiPat } from './aiPat'
@@ -214,4 +219,9 @@ export const db = {
   TrainingMatrix,
   TrainingVerification,
   InformationRequest,
+  ChangeRequest,
+  ChangeRequestStatus,
+  ChangeRequestPriority,
+  ChangeType,
+  ChangeRequestLink,
 }
