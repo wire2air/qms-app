@@ -88,7 +88,7 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
         <h3 class="tw:text-sm tw:font-bold tw:text-on-main">Approval Workflow Plan</h3>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
           Assign a reviewer to each approval step. The workflow launches
-          with these assignments when you click <strong>Open Change Request</strong>.
+          with these assignments when you click <strong>Submit for Approval</strong>.
         </p>
       </div>
       <span v-if="saving" class="tw:text-xs tw:text-secondary">Saving…</span>

@@ -281,7 +281,7 @@ const editingJustification = ref(false)
           :disabled="opening"
           @click="openOpenDialog"
         >
-          Open Change Request
+          Submit for Approval
         </BaseButton>
         <BaseButton
           v-if="isOwner && canClose"
@@ -562,16 +562,16 @@ const editingJustification = ref(false)
       description="This Change Request could not be found."
     />
 
-    <!-- Open CR dialog -->
-    <BaseDialog v-model="showOpenDialog" title="Open Change Request" maxWidth="md">
+    <!-- Submit-for-Approval dialog -->
+    <BaseDialog v-model="showOpenDialog" title="Submit for Approval" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
         <p class="tw:text-sm tw:text-on-main">
-          Opening this Change Request starts the assigned workflow and makes it a
+          Submitting starts the approval workflow and makes this Change Request a
           <strong>permanent audit record</strong>.
         </p>
         <ul class="tw:text-sm tw:text-secondary tw:list-disc tw:pl-5 tw:space-y-1">
           <li>Reviewers in each approval step receive a task in their inbox.</li>
-          <li>After approval, you'll add implementation sub-tasks for each affected area.</li>
+          <li>Once approved, you'll add implementation sub-tasks for each affected area.</li>
           <li>It can no longer be deleted — only closed or cancelled with a recorded reason.</li>
         </ul>
         <p
@@ -589,7 +589,7 @@ const editingJustification = ref(false)
           :disabled="opening"
           @click="handleOpenCr"
         >
-          Open Change Request
+          Submit for Approval
         </BaseButton>
       </template>
     </BaseDialog>
