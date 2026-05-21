@@ -77,8 +77,16 @@ const showChildSection = computed(
 )
 
 // ─── Reopen ──────────────────────────────────────────────────────────────────
+// APPROVAL-typed steps are mandatory gates — once an approver has signed
+// the change off, the owner can't reopen the approval and re-collect
+// signatures behind the scenes. To redo an approval, cancel the CR and
+// raise a new one. ACTION steps stay reopenable.
 const canReopen = computed(
-  () => props.isOwner && instanceStep.value?.statusId === 'APPROVED' && !crIsTerminal.value,
+  () =>
+    props.isOwner &&
+    instanceStep.value?.statusId === 'APPROVED' &&
+    !crIsTerminal.value &&
+    instanceStep.value?.stepType !== 'APPROVAL',
 )
 const showReopenDialog = ref(false)
 const reopenReason = ref('')
@@ -107,9 +115,15 @@ async function handleReopen() {
 }
 
 // ─── Owner Cancel step ───────────────────────────────────────────────────────
+// APPROVAL-typed steps can't be cancelled either — they're the mandatory
+// gate. The right way to abandon an approval mid-flight is Cancel CR
+// (which terminates the workflow as a whole) or Reject from an approver.
 const REASSIGNABLE = ['PENDING', 'IN_PROGRESS', 'SENT_BACK']
 const canCancelStep = computed(
-  () => props.isOwner && REASSIGNABLE.includes(instanceStep.value?.statusId),
+  () =>
+    props.isOwner &&
+    REASSIGNABLE.includes(instanceStep.value?.statusId) &&
+    instanceStep.value?.stepType !== 'APPROVAL',
 )
 const showCancelDialog = ref(false)
 const cancelReason = ref('')
