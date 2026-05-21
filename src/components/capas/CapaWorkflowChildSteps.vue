@@ -12,8 +12,6 @@ const props = defineProps({
 
 const emit = defineEmits(['reassign'])
 
-const canAddChild = computed(() => props.isOwner && props.allowChildSteps)
-
 // All children (template-spawned or ad-hoc) point at this parent via
 // parentInstanceStepId. One indexed lookup, no template fetch needed.
 const childInstanceSteps = useLiveQueryWithDeps(
@@ -27,6 +25,22 @@ const childInstanceSteps = useLiveQueryWithDeps(
     return all.sort((a, b) => a.stepOrder - b.stepOrder)
   },
   { initial: [] },
+)
+
+// Hide Add Tasks once the parent step is terminal — by the time the
+// owner has approved/cancelled the stage there's no work left to fan
+// out, and exposing the button would let new tasks get spawned that
+// the workflow can never complete.
+const parentInstanceStep = useLiveQueryWithDeps(
+  [() => props.parentInstanceStepId],
+  async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+)
+const PARENT_TERMINAL_STATUSES = ['APPROVED', 'REJECTED', 'CANCELLED', 'SKIPPED']
+const isParentTerminal = computed(() =>
+  PARENT_TERMINAL_STATUSES.includes(parentInstanceStep.value?.statusId),
+)
+const canAddChild = computed(
+  () => props.isOwner && props.allowChildSteps && !isParentTerminal.value,
 )
 
 function childDisplayNumber(child) {

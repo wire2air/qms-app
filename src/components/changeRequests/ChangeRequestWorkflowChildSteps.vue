@@ -31,7 +31,24 @@ const childSteps = useLiveQueryWithDeps(
   { initial: [] },
 )
 
+// Once the parent step is terminal (Mark Complete signed off,
+// Cancelled, etc.) adding new sub-tasks is contradictory — the
+// parent's bookkeeping says no more work is happening here. Gate the
+// Add Sub-task button on the parent still being active.
+const parentInstanceStep = useLiveQueryWithDeps(
+  [() => props.parentInstanceStepId],
+  async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+)
+const PARENT_TERMINAL_STATUSES = ['APPROVED', 'REJECTED', 'CANCELLED', 'SKIPPED']
+const isParentTerminal = computed(() =>
+  PARENT_TERMINAL_STATUSES.includes(parentInstanceStep.value?.statusId),
+)
+const canAddSubTask = computed(
+  () => props.allowChildSteps && props.isOwner && !isParentTerminal.value,
+)
+
 function openAdd() {
+  if (!canAddSubTask.value) return
   showAddDialog.value = true
 }
 </script>
@@ -49,7 +66,7 @@ function openAdd() {
         </span>
       </div>
       <BaseButton
-        v-if="allowChildSteps && isOwner"
+        v-if="canAddSubTask"
         variant="outline"
         size="sm"
         @click="openAdd"
