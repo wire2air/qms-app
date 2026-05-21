@@ -1,5 +1,5 @@
 <script setup>
-import { IconAlertTriangle } from '@tabler/icons-vue'
+import { IconAlertTriangle, IconPrinter, IconClipboardList } from '@tabler/icons-vue'
 import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
@@ -25,12 +25,17 @@ const breadcrumbs = computed(() => [
 // ─── Inline disposition auto-save ─────────────────────────────────────────────
 const isFirstLoad = ref(true)
 const canUpdate = computed(() => isAllowed(['nonconformances:update']))
+// Page-level fields (title, description, disposition, containment, etc.)
+// are owner-controlled. Anyone else with NC module access can READ the
+// record (default module behavior) but must not edit it — workflow-step
+// forms have their own editability gate inside NcWorkflowStep.
 const isEditable = computed(
   () =>
     nc.value &&
     nc.value.statusId !== 'CLOSED' &&
     nc.value.statusId !== 'VOID' &&
-    canUpdate.value,
+    canUpdate.value &&
+    isOwner.value,
 )
 
 const debouncedSave = useDebounceFn(async () => {
@@ -57,12 +62,143 @@ const saveError = ref(null)
 const showCloseDialog = ref(false)
 const closing = ref(false)
 
+// ─── NC-level Mark Complete (the proper closure path) ────────────────────────
+// Reviewer per-step Mark Complete advances the workflow; THIS button is
+// what the owner clicks once every step is done. Validates closure
+// invariants (per ISO 9001:2015 §8.7 / ISO 13485:2016 §8.3 / 21 CFR
+// 820.90): all steps done → disposition picked → notes recorded → linked
+// CAPA when capaRequired → cost when disposition tracks it. CFR-11
+// e-sign on submit.
+const showMarkCompleteDialog = ref(false)
+const showMarkCompleteEsign = ref(false)
+const completing = ref(false)
+const completeComments = ref('')
+
+// Count workflow steps still open (NOT in APPROVED/SKIPPED/CANCELLED).
+const incompleteStepCount = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [ncId]) => {
+    if (!ncId) return 0
+    const instances = await db.WorkflowInstance.where('[resourceType+resourceId]', [
+      'Nonconformance',
+      ncId,
+    ]).exec()
+    if (!instances.length) return 0
+    const stepLists = await Promise.all(
+      instances.map((i) => db.WorkflowInstanceStep.where('workflowInstanceId', i.id).exec()),
+    )
+    const allSteps = stepLists.flat()
+    return allSteps.filter(
+      (s) => !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId),
+    ).length
+  },
+  { initial: 0 },
+)
+
+const linkedCapaCount = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [ncId]) => {
+    if (!ncId) return 0
+    const rows = await db.Capa.where('[sourceType+sourceId]', ['NC', ncId]).exec()
+    return rows.length
+  },
+  { initial: 0 },
+)
+
+const ncDispositionType = useLiveQueryWithDeps(
+  [() => nc.value?.dispositionTypeId],
+  async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
+)
+
+const markCompleteBlockedReason = computed(() => {
+  if (!nc.value) return null
+  if (nc.value.statusId === 'DRAFT') return 'Submit the NC for review first.'
+  if (incompleteStepCount.value > 0) {
+    return `${incompleteStepCount.value} workflow step${
+      incompleteStepCount.value === 1 ? '' : 's'
+    } still open. Complete or skip them first.`
+  }
+  if (!nc.value.dispositionTypeId) return 'Pick a Disposition before marking complete.'
+  if (!nc.value.dispositionNotes?.trim()) {
+    return 'Disposition notes are required before marking complete.'
+  }
+  if (nc.value.capaRequired === true && linkedCapaCount.value === 0) {
+    return 'CAPA required is set to Yes — create at least one linked CAPA first.'
+  }
+  if (ncDispositionType.value?.tracksCost && nc.value.costOfNc == null) {
+    return `Cost of NC is required for the “${ncDispositionType.value.name}” disposition.`
+  }
+  return null
+})
+
+const canMarkComplete = computed(() => !markCompleteBlockedReason.value)
+
+function openMarkCompleteDialog() {
+  if (!canMarkComplete.value) return
+  saveError.value = null
+  completeComments.value = ''
+  showMarkCompleteDialog.value = true
+}
+
+// Two-step click: dialog confirms reason+comments, then esign auth.
+function handleMarkCompleteClick() {
+  if (!canMarkComplete.value) return
+  showMarkCompleteEsign.value = true
+}
+
+async function onMarkCompleteEsignVerified({ method, provider, token }) {
+  showMarkCompleteEsign.value = false
+  completing.value = true
+  saveError.value = null
+  try {
+    await post(`/v1/services/nonconformances/${props.id}/markComplete`, {
+      comments: completeComments.value.trim() || null,
+      method,
+      provider: provider || null,
+      token,
+    })
+    showMarkCompleteDialog.value = false
+    // NC stays open — Mark Complete is a flag, not a close. Owner can
+    // close the NC manually later (after CAPA closes, or any other
+    // company-specific manual check passes).
+  } catch (e) {
+    saveError.value = e.message || 'Failed to mark complete'
+    // Re-open the action dialog so the user sees the error and retries.
+    showMarkCompleteDialog.value = true
+  } finally {
+    completing.value = false
+  }
+}
+
 const isOwner = computed(
   () => nc.value?.ownerId && nc.value.ownerId === currentSession.value?.userId,
 )
 
+// Close-NC gates — mirror the backend's closeNc invariants so the owner
+// sees what's missing BEFORE submitting. DRAFT skips them (you can void
+// a draft without filling anything in).
+const closeBlockedReason = computed(() => {
+  if (!nc.value) return null
+  if (nc.value.statusId === 'DRAFT') return null
+  if (!nc.value.dispositionTypeId) return 'Disposition is required before closing.'
+  if (!nc.value.dispositionNotes?.trim()) {
+    return 'Disposition notes are required before closing.'
+  }
+  if (nc.value.capaRequired === null || nc.value.capaRequired === undefined) {
+    return 'CAPA required (Yes / No) must be set before closing.'
+  }
+  if (nc.value.capaRequired === true && linkedCapaCount.value === 0) {
+    return 'CAPA required is set to Yes — link at least one CAPA before closing.'
+  }
+  return null
+})
+
 async function handleCloseNc() {
   if (!nc.value) return
+  if (closeBlockedReason.value) {
+    saveError.value = closeBlockedReason.value
+    return
+  }
   closing.value = true
   saveError.value = null
   try {
@@ -76,15 +212,51 @@ async function handleCloseNc() {
   }
 }
 
+// ─── Open NC (DRAFT → UNDER_REVIEW, kicks off workflow) ──────────────────────
+// "Open" matches the industry term (Greenlight Guru / ISO 13485 §10.2).
+// Confirmation dialog sets expectations: once opened, the NC becomes a
+// permanent audit record — most fields stay editable but it can't be
+// deleted, only voided/cancelled with reason.
+const showOpenDialog = ref(false)
+
+function openOpenDialog() {
+  saveError.value = null
+  showOpenDialog.value = true
+}
+
 async function handleSubmitForReview() {
   if (!nc.value) return
   saving.value = true
+  saveError.value = null
   try {
     await post(`/v1/services/nonconformances/${props.id}/submitForReview`, {})
+    showOpenDialog.value = false
   } catch (e) {
-    saveError.value = e.message || 'Failed to submit for review'
+    saveError.value = e.message || 'Failed to open NC'
   } finally {
     saving.value = false
+  }
+}
+
+// ─── Delete draft NC (DRAFT-only) ─────────────────────────────────────────────
+// Soft-delete via the syncEngine — paranoid mode sets deletedAt. Drafts
+// have no workflow / records attached yet so there's nothing to cascade.
+// Refused for any non-DRAFT status by the disabled gate below.
+const showDeleteDialog = ref(false)
+const deleting = ref(false)
+
+async function handleDeleteDraft() {
+  if (!nc.value || nc.value.statusId !== 'DRAFT' || deleting.value) return
+  deleting.value = true
+  saveError.value = null
+  try {
+    await nc.value.delete()
+    showDeleteDialog.value = false
+    router.push(getCompanyPath('/nonconformances'))
+  } catch (e) {
+    saveError.value = e.message || 'Failed to delete draft'
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -116,12 +288,69 @@ const workflowVersion = useLiveQueryWithDeps(
 const editingCost = ref(false)
 const editingCredit = ref(false)
 
+// Look up the selected disposition type so we can decide whether to show
+// the Cost of NC field (cost capture is disposition-driven — Scrap /
+// Rework / Return-to-Supplier / Regrade track cost; Use-As-Is /
+// Quarantine don't). Mirrors ISO/TR 10014:2021 COPQ practice across
+// modern QMS products.
+const selectedDispositionType = useLiveQueryWithDeps(
+  [() => nc.value?.dispositionTypeId],
+  async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
+)
+const dispositionTracksCost = computed(
+  () => !!selectedDispositionType.value?.tracksCost,
+)
+
 // ─── Inline-edit for overview fields ──────────────────────────────────────────
 const editingTitle = ref(false)
 const editingDescription = ref(false)
 const editingSeverity = ref(false)
 const editingDetected = ref(false)
 const editingDueDate = ref(false)
+
+// ─── Print + Audit Log (parity with CAPA page) ───────────────────────────────
+const showAuditLog = ref(false)
+
+function openPrintView() {
+  if (!nc.value?.id) return
+  const params = new URLSearchParams({ module: 'Nonconformance', id: nc.value.id })
+  const url = getCompanyPath(`/print?${params.toString()}`)
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+// Roll up the NC + its workflow instance + steps so the audit dialog
+// shows the full timeline (not just the NC row's own log).
+const allNcWorkflowInstanceIds = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [ncId]) => {
+    if (!ncId) return []
+    const rows = await db.WorkflowInstance.where('[resourceType+resourceId]', [
+      'Nonconformance',
+      ncId,
+    ]).exec()
+    return rows.map((r) => r.id)
+  },
+  { initial: [] },
+)
+
+const allNcWorkflowInstanceStepIds = useLiveQueryWithDeps(
+  [() => allNcWorkflowInstanceIds.value.join(',')],
+  async (db, [idsStr]) => {
+    if (!idsStr) return []
+    const instanceIds = idsStr.split(',')
+    const lists = await Promise.all(
+      instanceIds.map((id) => db.WorkflowInstanceStep.where('workflowInstanceId', id).exec()),
+    )
+    return lists.flat().map((s) => s.id)
+  },
+  { initial: [] },
+)
+
+const auditIncludeEntities = computed(() => [
+  { entityType: 'Nonconformances', entityIds: [props.id] },
+  { entityType: 'WorkflowInstances', entityIds: allNcWorkflowInstanceIds.value },
+  { entityType: 'WorkflowInstanceSteps', entityIds: allNcWorkflowInstanceStepIds.value },
+])
 
 // ─── Linked CAPAs ─────────────────────────────────────────────────────────────
 const canCreateCapa = computed(() => isAllowed(['capas:create']))
@@ -150,6 +379,52 @@ function onCreateLinkedCapa() {
 
     <SafeTeleport to="#main-header-actions">
       <div class="tw:flex tw:items-center tw:gap-2">
+        <!-- Action buttons (left): lifecycle transitions for the NC. -->
+        <BaseButton
+          v-if="isOwner && nc?.statusId === 'DRAFT'"
+          variant="primary"
+          :disabled="saving"
+          @click="openOpenDialog"
+          >Open NC</BaseButton
+        >
+        <BaseButton
+          v-if="
+            isOwner &&
+            nc &&
+            !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId) &&
+            !nc.markedCompleteAt
+          "
+          variant="primary"
+          :disabled="!canMarkComplete || completing"
+          :title="markCompleteBlockedReason || undefined"
+          @click="openMarkCompleteDialog"
+        >
+          {{ completing ? 'Marking…' : 'Mark Complete' }}
+        </BaseButton>
+        <BaseButton
+          v-if="isOwner && !['DRAFT', 'CLOSED'].includes(nc?.statusId)"
+          variant="danger"
+          :disabled="closing"
+          @click="showCloseDialog = true"
+          >Close NC</BaseButton
+        >
+        <BaseButton
+          v-if="isOwner && nc?.statusId === 'DRAFT'"
+          variant="outline"
+          :disabled="deleting"
+          @click="showDeleteDialog = true"
+          >Delete</BaseButton
+        >
+
+        <!-- Utility buttons (right): always rightmost, parity with CAPA. -->
+        <BaseButton v-if="nc?.id" variant="secondary" @click="openPrintView">
+          <IconPrinter :size="20" class="tw:mr-1" />
+          Print
+        </BaseButton>
+        <BaseButton v-if="nc?.id" variant="secondary" @click="showAuditLog = true">
+          <IconClipboardList :size="20" class="tw:mr-1" />
+          Audit Log
+        </BaseButton>
         <AskAiButton
           v-if="nc?.id"
           entityType="Nonconformance"
@@ -157,21 +432,6 @@ function onCreateLinkedCapa() {
           :entityTitle="nc.title"
           :entityNumber="nc.ncNumber"
         />
-        <TaskActionBar v-if="nc?.id" entityType="Nonconformance" :entityId="nc.id" />
-        <BaseButton
-          v-if="nc?.statusId === 'DRAFT'"
-          variant="primary"
-          :disabled="saving"
-          @click="handleSubmitForReview"
-          >Submit for review</BaseButton
-        >
-        <BaseButton
-          v-if="isOwner && nc?.statusId !== 'CLOSED'"
-          variant="danger"
-          :disabled="closing"
-          @click="showCloseDialog = true"
-          >Close NC</BaseButton
-        >
       </div>
     </SafeTeleport>
 
@@ -278,7 +538,17 @@ function onCreateLinkedCapa() {
               </div>
             </div>
 
+            <!-- Workflow steps. In DRAFT (no instance yet) we render the
+                 template-step preview so the owner can plan assignments;
+                 picks are saved to nc.pendingReviewers and consumed by
+                 submitNcForReview when the owner clicks Open NC. -->
+            <NcWorkflowDraftPreview
+              v-if="!workflowInstance && nc?.statusId === 'DRAFT'"
+              :ncId="id"
+              :isOwner="isOwner"
+            />
             <NcWorkflowDetail
+              v-else
               :ncId="id"
               :workflowInstanceId="workflowInstance?.id"
               :isOwner="isOwner"
@@ -317,8 +587,13 @@ function onCreateLinkedCapa() {
                       >
                     </div>
                   </div>
-                  <div class="tw:flex tw:flex-col tw:gap-1">
-                    <div class="tw:text-xs tw:text-secondary">Cost of NC</div>
+                  <!-- Cost of NC — disposition-driven. Shows + becomes
+                       required only when the picked disposition has
+                       tracks_cost=true (Scrap / Rework / RTS / Regrade). -->
+                  <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
+                    <div class="tw:text-xs tw:text-secondary">
+                      Cost of NC <span class="tw:text-red-500">*</span>
+                    </div>
                     <BaseTextInput
                       v-if="editingCost"
                       v-model="nc.costOfNc"
@@ -342,7 +617,11 @@ function onCreateLinkedCapa() {
                       }}
                     </span>
                   </div>
-                  <div class="tw:flex tw:flex-col tw:gap-1">
+                  <!-- Credit from Supplier — offsetting recovery when the
+                       supplier reimburses the NC cost. Shown alongside
+                       Cost of NC so reporting can compute net COPQ
+                       (cost − credit). Optional. -->
+                  <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
                     <div class="tw:text-xs tw:text-secondary">Credit from Supplier</div>
                     <BaseTextInput
                       v-if="editingCredit"
@@ -399,7 +678,7 @@ function onCreateLinkedCapa() {
                       }}
                     </span>
                   </div>
-                  <div class="tw:flex tw:flex-col tw:gap-1">
+                  <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
                     <div class="tw:text-xs tw:text-secondary">Cost of NC</div>
                     <span class="tw:text-sm tw:font-medium">
                       {{
@@ -412,7 +691,7 @@ function onCreateLinkedCapa() {
                       }}
                     </span>
                   </div>
-                  <div class="tw:flex tw:flex-col tw:gap-1">
+                  <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
                     <div class="tw:text-xs tw:text-secondary">Credit from Supplier</div>
                     <span class="tw:text-sm tw:font-medium">
                       {{
@@ -497,7 +776,16 @@ function onCreateLinkedCapa() {
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
                   <span class="tw:text-xs tw:text-secondary">Status</span>
-                  <NcStatusBadgeById :statusId="nc.statusId" />
+                  <div class="tw:flex tw:items-center tw:gap-1.5">
+                    <NcStatusBadgeById :statusId="nc.statusId" />
+                    <BaseBadge
+                      v-if="nc.markedCompleteAt"
+                      class="tw:text-[10px] tw:bg-emerald-100 tw:text-emerald-700"
+                      title="Marked complete by owner — pending final close"
+                    >
+                      Completed
+                    </BaseBadge>
+                  </div>
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
                   <span class="tw:text-xs tw:text-secondary">Severity</span>
@@ -645,6 +933,12 @@ function onCreateLinkedCapa() {
         Are you sure you want to close this nonconformance?
       </p>
       <p
+        v-if="closeBlockedReason"
+        class="tw:text-sm tw:text-red-700 tw:bg-red-50 tw:border tw:border-red-200 tw:rounded-md tw:p-3 tw:mb-4"
+      >
+        {{ closeBlockedReason }}
+      </p>
+      <p
         v-if="workflowInstance?.statusId === 'IN_PROGRESS'"
         class="tw:text-sm tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded-md tw:p-3 tw:mb-4"
       >
@@ -658,8 +952,139 @@ function onCreateLinkedCapa() {
       </div>
       <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
         <BaseButton variant="outline" @click="showCloseDialog = false">Cancel</BaseButton>
-        <BaseButton variant="danger" :disabled="closing" @click="handleCloseNc">
+        <BaseButton
+          variant="danger"
+          :disabled="closing || !!closeBlockedReason"
+          :title="closeBlockedReason || undefined"
+          @click="handleCloseNc"
+        >
           {{ closing ? 'Closing…' : 'Close NC' }}
+        </BaseButton>
+      </div>
+    </BaseDialog>
+
+    <!-- ─── NC-level Mark Complete dialog ──────────────────────────────── -->
+    <!-- Shows all closure invariants visually; the button at the page
+         header is already disabled when any check fails, so this dialog
+         is the confirmation + comments collection step before esign. -->
+    <BaseDialog v-model="showMarkCompleteDialog" title="Mark Complete" maxWidth="lg">
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+        <div
+          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:border tw:bg-green-50 tw:border-green-200"
+        >
+          <div class="tw:shrink-0 tw:mt-0.5 tw:text-green-600 tw:font-bold">✓</div>
+          <div class="tw:text-sm tw:text-green-800">
+            All gates are satisfied — every workflow step is complete, the
+            disposition is recorded with notes
+            <template v-if="nc?.capaRequired === true">, a CAPA is linked</template>
+            <template v-if="ncDispositionType?.tracksCost">, and Cost of NC is entered</template>.
+            Marking complete flags the NC as ready — you can close it
+            separately when any remaining checks (e.g. CAPA closure) are done.
+          </div>
+        </div>
+
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+            Completion Notes (optional)
+          </p>
+          <BaseTextarea
+            v-model="completeComments"
+            :rows="3"
+            placeholder="Summary of the corrective handling — verification of disposition, evidence references, …"
+          />
+        </div>
+
+        <div
+          class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800"
+        >
+          <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
+          <div>
+            CFR 21 Part 11 — Marking this NC complete is an attested
+            regulated action and requires an e-signature. You'll confirm
+            your identity on the next step.
+          </div>
+        </div>
+
+        <p v-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</p>
+      </div>
+      <template #footer="{ close }">
+        <BaseButton variant="outline" :disabled="completing" @click="close">Cancel</BaseButton>
+        <BaseButton
+          variant="primary"
+          :loading="completing"
+          :disabled="completing"
+          @click="handleMarkCompleteClick"
+        >
+          Sign &amp; Mark Complete
+        </BaseButton>
+      </template>
+    </BaseDialog>
+
+    <WorkflowInstanceEsignAuthDialog
+      v-model="showMarkCompleteEsign"
+      @verified="onMarkCompleteEsignVerified"
+    />
+
+    <!-- Open NC confirmation — explains the audit implications before
+         the Draft → Under Review transition. Reviewer picks come from
+         pendingReviewers (parked at create time) and are applied
+         server-side on submit. -->
+    <BaseDialog v-model="showOpenDialog" title="Open Nonconformance" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <p class="tw:text-sm tw:text-on-main">
+          Opening this NC starts the assigned workflow and makes it a
+          <strong>permanent audit record</strong>.
+        </p>
+        <ul class="tw:text-sm tw:text-secondary tw:list-disc tw:pl-5 tw:space-y-1">
+          <li>Most fields stay editable until the NC is closed.</li>
+          <li>It can no longer be deleted — only closed or cancelled with a recorded reason.</li>
+          <li>The workflow's first step becomes active and the assignee gets a task.</li>
+        </ul>
+        <div
+          v-if="saveError"
+          class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm"
+        >
+          {{ saveError }}
+        </div>
+      </div>
+      <template #footer="{ close }">
+        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
+        <BaseButton
+          variant="primary"
+          :loading="saving"
+          :disabled="saving"
+          @click="handleSubmitForReview"
+        >
+          Open NC
+        </BaseButton>
+      </template>
+    </BaseDialog>
+
+    <!-- Audit Log dialog — NC + its workflow instance / steps in one timeline. -->
+    <AuditLogDialog
+      v-model="showAuditLog"
+      :includeEntities="auditIncludeEntities"
+      :title="`Audit Log — ${nc?.ncNumber ?? 'NC'}`"
+    />
+
+    <!-- Delete draft NC -->
+    <BaseDialog v-model="showDeleteDialog" title="Delete Draft NC" maxWidth="md">
+      <p class="tw:text-sm tw:text-on-main tw:mb-3">
+        Delete this draft nonconformance? This permanently removes the
+        record. Drafts have no audit history yet, so this is safe.
+      </p>
+      <div
+        v-if="saveError"
+        class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm tw:mb-3"
+      >
+        {{ saveError }}
+      </div>
+      <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
+        <BaseButton variant="outline" :disabled="deleting" @click="showDeleteDialog = false">
+          Cancel
+        </BaseButton>
+        <BaseButton variant="danger" :disabled="deleting" @click="handleDeleteDraft">
+          {{ deleting ? 'Deleting…' : 'Delete' }}
         </BaseButton>
       </div>
     </BaseDialog>

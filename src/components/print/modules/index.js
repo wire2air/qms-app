@@ -16,8 +16,8 @@
  */
 export const printModules = {
   Document: () => import('./DocumentPrint.vue'),
+  Capa: () => import('./CapaPrint.vue'),
   // Future:
-  // Capa: () => import('./CapaPrint.vue'),
   // Nonconformance: () => import('./NonconformancePrint.vue'),
 }
 

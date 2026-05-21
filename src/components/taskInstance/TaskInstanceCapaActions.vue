@@ -19,6 +19,15 @@ const props = defineProps({
 const emit = defineEmits(['done'])
 const toast = useToast()
 
+// Effective compliance flags: ad-hoc child steps (no template) carry their
+// own `requireEsignature` / `requireComments` on the instance row; template-
+// spawned steps leave those NULL and inherit from the WorkflowStep. Read
+// the instance value first, fall back to the template.
+const requireEsignature = computed(
+  () =>
+    props.instanceStep?.requireEsignature ?? props.workflowStep?.requireEsignature ?? false,
+)
+
 const capaRecord = useLiveQueryWithDeps(
   [() => props.taskInstanceId],
   async (db, [taskInstanceId]) => {
@@ -178,7 +187,7 @@ function onOutcomeClick(outcomeId) {
   const config = OUTCOME_CONFIG[outcomeId]
   if (config?.needsComment || config?.needsTarget || config?.needsUser) {
     showConfirmDialog.value = true
-  } else if (props.workflowStep?.requireEsignature) {
+  } else if (requireEsignature.value) {
     showEsignDialog.value = true
   } else {
     submitAction({})
@@ -195,7 +204,7 @@ function onConfirmDialog() {
     return
   }
   showConfirmDialog.value = false
-  if (props.workflowStep?.requireEsignature) {
+  if (requireEsignature.value) {
     showEsignDialog.value = true
   } else {
     submitAction({})

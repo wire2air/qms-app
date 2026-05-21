@@ -52,6 +52,21 @@ function setCorrect(q, optId) {
   }
 }
 
+// Per-question incompleteness hint — drives the red border + tooltip so the
+// user can see which card is blocking auto-save (the parent toast tells
+// them what's wrong; this points at where).
+function questionError(q) {
+  if (!q.text?.trim()) return 'Question text required'
+  if (!Array.isArray(q.options) || q.options.length < 2) return 'Needs at least 2 options'
+  for (let j = 0; j < q.options.length; j++) {
+    if (!q.options[j].text?.trim()) return `Option ${j + 1} text required`
+  }
+  const correct = q.options.filter((o) => o.isCorrect).length
+  if (q.type === 'single' && correct !== 1) return 'Select exactly one correct answer'
+  if (q.type === 'multiple' && correct < 1) return 'Select at least one correct answer'
+  return null
+}
+
 const hasAssessment = computed({
   get: () => (config.value.assessment?.length ?? 0) > 0,
   set: (v) => {
@@ -113,7 +128,8 @@ const hasAssessment = computed({
               <div
                 v-for="(q, qIdx) in config.assessment"
                 :key="q.id"
-                class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:flex tw:flex-col tw:gap-3"
+                class="tw:rounded-lg tw:p-3 tw:flex tw:flex-col tw:gap-3 tw:border"
+                :class="questionError(q) ? 'tw:border-red-300 tw:bg-red-50/30' : 'tw:border-divider'"
               >
                 <div class="tw:flex tw:items-start tw:gap-2">
                   <span class="tw:w-6 tw:h-6 tw:rounded-full tw:bg-gray-100 tw:text-gray-600 tw:text-xs tw:font-bold tw:flex tw:items-center tw:justify-center tw:shrink-0 tw:mt-1">{{ qIdx + 1 }}</span>
@@ -122,6 +138,13 @@ const hasAssessment = computed({
                     <IconTrash :size="16" />
                   </button>
                 </div>
+                <p
+                  v-if="questionError(q)"
+                  class="tw:text-xs tw:text-red-600 tw:ml-8 tw:flex tw:items-center tw:gap-1"
+                >
+                  <IconAlertCircle :size="12" />
+                  {{ questionError(q) }}
+                </p>
                 <div class="tw:flex tw:items-center tw:gap-2 tw:ml-8">
                   <button
                     class="tw:px-2 tw:py-1 tw:text-xs tw:rounded tw:transition-colors"

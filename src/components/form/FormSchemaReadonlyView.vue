@@ -310,7 +310,7 @@ function getChecklistColumnLabel(col) {
           class="tw:text-sm tw:text-on-main tw:leading-relaxed"
           v-html="getFieldValue(field)"
         />
-        <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        <span v-else class="tw:text-xs tw:text-secondary tw:italic">Not provided</span>
       </div>
 
       <!-- Textarea field (full-width) -->

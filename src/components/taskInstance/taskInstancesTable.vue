@@ -193,6 +193,41 @@ function isDuePast(dueDate) {
   return dueDate < DateTime.now()
 }
 
+// ── RFI dialog (handled inline; no navigation to the host entity) ────────────
+// Active RFI tasks render as a clickable div (entityRoute returns null);
+// clicking opens the dialog in the right mode based on the user's role
+// and the RFI state. Completed RFI tasks are inert — clicking does nothing.
+const showRfiDialog = ref(false)
+const activeRfiId = ref(null)
+const activeRfiMode = ref('view')
+const activeRfiEntityType = ref(null)
+const activeRfiEntityId = ref(null)
+
+async function onRfiTaskClick(row) {
+  if (row.sourceType !== 'InformationRequest') return
+  // ANY RFI task is clickable — active to act, completed to re-read the
+  // thread (question + response). Mode is derived from the RFI's current
+  // state vs. the current user; respond/acknowledge are only offered to
+  // the active party.
+  const { db } = await import('@models/index')
+  const rfi = await db.InformationRequest.findByPk(row.sourceId)
+  if (!rfi) return
+  activeRfiId.value = rfi.id
+  activeRfiEntityType.value = rfi.entityType
+  activeRfiEntityId.value = rfi.entityId
+  if (rfi.statusId === 'OPEN' && rfi.recipientId === currentSession.value?.userId) {
+    activeRfiMode.value = 'respond'
+  } else if (
+    rfi.statusId === 'RESPONDED' &&
+    rfi.requesterId === currentSession.value?.userId
+  ) {
+    activeRfiMode.value = 'view' // shows Acknowledge button in this mode
+  } else {
+    activeRfiMode.value = 'view' // read-only thread
+  }
+  showRfiDialog.value = true
+}
+
 function entityRoute(row) {
   if (row.entityType === 'TrainingAssignee') {
     const instanceId = trainingAssigneeMap.value[row.entityId]?.instance?.id
@@ -201,6 +236,13 @@ function entityRoute(row) {
   if (row.entityType === 'TrainingInstance') {
     // Manager's verification task — open the verification dashboard scoped to this instance
     return getCompanyPath(`training-verifications/${row.entityId}`)
+  }
+  // RFI tasks: handled in-place via the dialog mounted at the bottom
+  // of this table, no navigation. Returning null makes the row render
+  // a plain <div> instead of a RouterLink — the click handler below
+  // opens the dialog for active RFI tasks (no-op for completed ones).
+  if (row.sourceType === 'InformationRequest') {
+    return null
   }
   if (row.entityType === 'Nonconformance') {
     return getCompanyPath(`nonconformances/${row.entityId}`)
@@ -217,6 +259,7 @@ function entityRoute(row) {
 </script>
 
 <template>
+  <div class="tw:contents">
   <BaseTable
     :pagination="pagination"
     :rows="filteredInstances"
@@ -228,7 +271,9 @@ function entityRoute(row) {
       <component
         :is="entityRoute(row) ? 'RouterLink' : 'div'"
         class="tw:flex tw:flex-col tw:group"
+        :class="row.sourceType === 'InformationRequest' ? 'tw:cursor-pointer' : ''"
         :to="entityRoute(row) || undefined"
+        @click="onRfiTaskClick(row)"
       >
         <template v-if="row.entityType === 'TrainingAssignee'">
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
@@ -247,17 +292,33 @@ function entityRoute(row) {
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
             {{ getNc(row)?.title || '—' }}
           </span>
-          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-            {{ getNc(row)?.ncNumber || '—' }}
-          </span>
+          <div class="tw:flex tw:items-center tw:gap-1.5">
+            <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+              {{ getNc(row)?.ncNumber || '—' }}
+            </span>
+            <span
+              v-if="row.sourceType === 'InformationRequest'"
+              class="tw:text-[10px] tw:bg-blue-100 tw:text-blue-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-medium"
+            >
+              Information request
+            </span>
+          </div>
         </template>
         <template v-else-if="row.entityType === 'Capa'">
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
             {{ getCapa(row)?.title || '—' }}
           </span>
-          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-            {{ getCapa(row)?.capaNumber || '—' }}
-          </span>
+          <div class="tw:flex tw:items-center tw:gap-1.5">
+            <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+              {{ getCapa(row)?.capaNumber || '—' }}
+            </span>
+            <span
+              v-if="row.sourceType === 'InformationRequest'"
+              class="tw:text-[10px] tw:bg-blue-100 tw:text-blue-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-medium"
+            >
+              Information request
+            </span>
+          </div>
         </template>
         <template v-else>
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
@@ -329,4 +390,16 @@ function entityRoute(row) {
       <span class="tw:text-sm tw:text-secondary">{{ row.createdAt?.formatDate('date') }}</span>
     </template>
   </BaseTable>
+
+  <!-- RFI dialog — opens inline when an Information Request task row is
+       clicked. Mounted once at the table level, parameterized per click. -->
+  <InformationRequestDialog
+    v-if="activeRfiEntityType && activeRfiEntityId"
+    v-model="showRfiDialog"
+    :mode="activeRfiMode"
+    :entityType="activeRfiEntityType"
+    :entityId="activeRfiEntityId"
+    :rfiId="activeRfiId"
+  />
+  </div>
 </template>

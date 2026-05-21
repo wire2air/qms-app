@@ -196,6 +196,7 @@ const createDocument = useLiveMutation(async (db, formData) => {
         content: section.content || null,
         attachments: section.attachments || null,
         order: section.order ?? index,
+        isAddOn: section.isAddOn ?? false,
       })
       await docSection.save()
     }
@@ -283,13 +284,17 @@ watch(
 function handleAiDraft(draft) {
   // Map the AI's structured output onto the form. The user reviews + edits
   // in the existing tabs before saving — nothing persists here.
+  // `id` is required by DocumentSectionsEditor's v-for key and removeSection
+  // filter; without it, deleting one section filters out all id-less rows.
   form.value.title = draft.title
   form.value.sections = draft.sections.map((s, idx) => ({
+    id: crypto.randomUUID(),
     title: s.title,
     content: s.content,
     sectionType: 'text',
     order: s.order ?? idx + 1,
     attachments: null,
+    isAddOn: true,
   }))
   // Jump to the Content tab so the user immediately sees what landed.
   activeTab.value = 'content'
@@ -306,11 +311,13 @@ const showImportDialog = ref(false)
 function handlePdfImport(draft) {
   form.value.title = draft.title
   form.value.sections = draft.sections.map((s, idx) => ({
+    id: crypto.randomUUID(),
     title: s.title,
     content: s.content,
     sectionType: 'text',
     order: s.order ?? idx + 1,
     attachments: null,
+    isAddOn: true,
   }))
   activeTab.value = 'content'
   toast.success('PDF imported — review each section before saving.')

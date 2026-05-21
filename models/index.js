@@ -100,6 +100,7 @@ import { TrainingExternalLink } from './trainingExternalLink'
 import { TrainingDocumentLink } from './trainingDocumentLink'
 import { TrainingMatrix } from './trainingMatrix'
 import { TrainingVerification } from './trainingVerification'
+import { InformationRequest } from './informationRequest'
 // AI sidecar (see backend/ai/README.md, AI_PLAN.md §11). All AI models are
 // grouped here. Existing models stay AI-agnostic.
 import { AiPat } from './aiPat'
@@ -212,4 +213,5 @@ export const db = {
   TrainingDocumentLink,
   TrainingMatrix,
   TrainingVerification,
+  InformationRequest,
 }

@@ -39,11 +39,19 @@ export class Capa extends BaseModel {
   @Property({ type: DateTime }) dueDate = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) completedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) closedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) cancelledAt = /** @type {DateTime} */ (null)
+  @Property({ type: String }) cancelReason = /** @type {String} */ (null)
+  // Planning preference (days from close). Used as the default preset in
+  // the Close dialog's effectiveness-check picker. Industry default: 90.
+  @Property({ type: Number }) ecIntervalDays = 90
   @Property({ type: String }) rootCauseCategoryId = null
   @Property({ type: DateTime }) verifiedAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) verifiedBy = /** @type {String} */ (null)
   @Property({ type: Object }) effectivenessCheck = /** @type {Object} */ ({})
   @Property({ type: Object }) scheduledCycle = /** @type {Object} */ (null)
+  // Reviewer map { workflowStepId: [userId, …] } held on the row from
+  // create-time until submitCapaForReview consumes it to seed the workflow.
+  @Property({ type: Object }) pendingReviewers = /** @type {Object} */ ({})
   @Property({ type: String, required: true }) createdBy = ''
   @Property({ type: String, required: true }) updatedBy = ''
   @Property({ type: DateTime, required: true, timestamp: true })

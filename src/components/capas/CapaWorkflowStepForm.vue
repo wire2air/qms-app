@@ -15,6 +15,11 @@ const props = defineProps({
   // close. The main-step usage leaves this false — that flow uses
   // CapaStepActionsMenu for the approve action.
   autoApprove: { type: Boolean, default: false },
+  // When true, the form hides its own "Submit" button — the parent
+  // component is providing an external "Complete & Advance" action and
+  // calls submit() via the exposed ref. "Save draft" is still rendered so
+  // assignees can persist mid-work without completing.
+  hideSubmit: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['done'])
@@ -87,7 +92,7 @@ watch(capa, (capaRecord) => {
   }
 })
 
-async function persistRecord({ submit }) {
+async function persistRecord({ submit, esign }) {
   if (saving.value) return
   if (!currentUserTask.value) {
     toast.error('No task assigned to you for this step')
@@ -114,15 +119,20 @@ async function persistRecord({ submit }) {
       await record.save()
     }
 
-    // In dialog mode, submitting the form should also complete the reviewer's
-    // task. Only fire when the task is still actionable — otherwise just
-    // persist the form draft/submission as usual.
+    // When the parent renders an external "Complete & Advance" button it
+    // sets autoApprove=true. Submitting the form then also approves the
+    // reviewer's task in one round trip. Esign credentials, when needed,
+    // are passed through from the parent's esign dialog.
     if (submit && props.autoApprove && currentUserTask.value.statusId === 'ASSIGNED') {
       try {
-        await post(`/v1/services/taskInstances/${currentUserTask.value.id}/action`, {
+        const body = {
           action: 'COMPLETE_AND_ADVANCE',
           outcomeId: 'COMPLETE_AND_ADVANCE',
-        })
+        }
+        if (esign?.method) body.method = esign.method
+        if (esign?.token) body.token = esign.token
+        if (esign?.provider) body.provider = esign.provider
+        await post(`/v1/services/taskInstances/${currentUserTask.value.id}/action`, body)
         toast.success('Step approved')
         emit('done')
         return
@@ -145,8 +155,8 @@ function saveDraft() {
   return persistRecord({ submit: false })
 }
 
-function submitForm() {
-  return persistRecord({ submit: true })
+function submitForm(esign) {
+  return persistRecord({ submit: true, esign })
 }
 
 const usersMap = useLiveQueryWithDeps(
@@ -165,6 +175,12 @@ function getUserName(userId) {
   if (!u) return '—'
   return [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email
 }
+
+// Exposed so parents that render their own "Complete & Advance" button
+// (e.g. CapaWorkflowChildStep) can trigger save + submit + approve in one
+// shot — paired with `hideSubmit` to suppress the in-form Submit button.
+// Must be the last statement in <script setup> per vue/define-macros-order.
+defineExpose({ submit: submitForm, saving })
 </script>
 
 <template>
@@ -176,7 +192,7 @@ function getUserName(userId) {
           <template #icon><IconDeviceFloppy :size="16" /></template>
           {{ saving ? 'Saving…' : 'Save draft' }}
         </BaseButton>
-        <BaseButton variant="primary" :disabled="saving" @click="submitForm">
+        <BaseButton v-if="!hideSubmit" variant="primary" :disabled="saving" @click="submitForm">
           <template #icon><IconSend :size="16" /></template>
           Submit
         </BaseButton>
@@ -184,7 +200,6 @@ function getUserName(userId) {
     </template>
 
     <template v-else>
-      <div class="tw:text-[11px] tw:text-secondary tw:font-medium tw:mb-2">Form data</div>
       <div v-for="record in submittedRecords" :key="record.id" class="tw:mb-3">
         <div
           v-if="submittedRecords.length > 1"

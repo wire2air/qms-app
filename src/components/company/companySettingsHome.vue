@@ -1,5 +1,11 @@
 <script setup>
-import { IconSettings, IconAdjustments, IconPrinter, IconInfoCircle } from '@tabler/icons-vue'
+import {
+  IconSettings,
+  IconAdjustments,
+  IconPrinter,
+  IconInfoCircle,
+  IconList,
+} from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany.js'
 
 const company = useLiveQueryWithDeps(
@@ -48,8 +54,20 @@ const tabs = [
   { id: 'general', label: 'General', icon: IconInfoCircle },
   { id: 'defaults', label: 'Defaults', icon: IconAdjustments },
   { id: 'print', label: 'Print', icon: IconPrinter },
+  { id: 'lookups', label: 'Lookups', icon: IconList },
 ]
-const activeTab = ref('general')
+// Honor ?tab=<id> so deep-links from the sidebar (e.g. NC Dispositions
+// going to /settings?tab=lookups) land directly on the right pane.
+const route = useRoute()
+const validTabIds = new Set(tabs.map((t) => t.id))
+const initialTab = validTabIds.has(route.query.tab) ? route.query.tab : 'general'
+const activeTab = ref(initialTab)
+watch(
+  () => route.query.tab,
+  (v) => {
+    if (v && validTabIds.has(v)) activeTab.value = v
+  },
+)
 </script>
 
 <template>
@@ -116,6 +134,11 @@ const activeTab = ref('general')
       <!-- Tab: Print -->
       <div v-else-if="activeTab === 'print'">
         <CompanyPrintCard />
+      </div>
+
+      <!-- Tab: Lookups — shared master data (NC dispositions, etc.) -->
+      <div v-else-if="activeTab === 'lookups'" class="tw:flex tw:flex-col tw:gap-8">
+        <NcDispositionTypesCard />
       </div>
     </div>
   </div>

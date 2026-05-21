@@ -120,10 +120,13 @@ const currentlyAssignedUserIds = useLiveQueryWithDeps(
       'workflowInstanceStepId',
       id,
     ).exec()
-    // Mirror the backend's "active" semantics (statusId != 'REASSIGNED') so a
-    // PENDING reviewer isn't offered as a reassign candidate — otherwise the
-    // server rejects with "Cannot reassign to the same user".
-    return assignments.filter((a) => a.statusId !== 'REASSIGNED').map((a) => a.userId)
+    // Mirror the backend's "active" semantics — only ACTIVE assignments
+    // block a reassign. REJECTED / CANCELLED / REASSIGNED are terminal
+    // history records and must NOT disable a user in the picker, so the
+    // owner can put a rejecter back on the step (e.g. they want to give
+    // them another shot, or the rejection was a mistake).
+    const TERMINAL = new Set(['REASSIGNED', 'REJECTED', 'CANCELLED'])
+    return assignments.filter((a) => !TERMINAL.has(a.statusId)).map((a) => a.userId)
   },
   { initial: [] },
 )
@@ -197,7 +200,7 @@ async function handleSendBack() {
   </template>
 
   <!-- Reassign dialog -->
-  <BaseDialog v-model="showReassignDialog" title="Reassign Step Reviewer" maxWidth="md">
+  <BaseDialog v-model="showReassignDialog" title="Reassign Task" maxWidth="md">
     <div class="tw:mb-4">
       <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-2">
         Select new reviewer <span class="tw:text-red-500">*</span>

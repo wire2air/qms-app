@@ -3,6 +3,7 @@ import { IconForms, IconPlus, IconCopy, IconPencil, IconTrash } from '@tabler/ic
 import { post } from '@/api'
 import WorkflowStepFormBuilderPanel from '@/components/workflow/WorkflowStepFormBuilderPanel.vue'
 import DynamicForm from '@/components/form/DynamicForm.js'
+import { db } from '@models/index'
 
 const props = defineProps({
   capaId: { type: String, required: true },
@@ -18,20 +19,70 @@ const empty = () => ({
   name: '',
   description: '',
   slaDays: null,
-  roleIds: [],
   assigneeUserId: null,
   formSchema: [],
+  requireComments: false,
+  requireEsignature: false,
 })
 const form = ref(empty())
 const submitting = ref(false)
+
+// Resolve the parent's eligible role IDs. Two pivots can carry them:
+//   - Template-spawned parent (instanceStep.stepId set): roles live on
+//     `WorkflowStepRole` keyed by stepId.
+//   - Ad-hoc parent (stepId null, itself added via addChildStep earlier):
+//     roles live on `RoleOnWorkflowInstanceStep` keyed by the instance
+//     step's id.
+// Read both; whichever returns rows is the source. The dialog forwards
+// these ids as `roleIds` in the addChildStep payload (backend schema
+// requires min 1).
+const parentInstanceStep = useLiveQueryWithDeps(
+  [() => props.parentInstanceStepId],
+  async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+)
+const parentTemplateRoles = useLiveQueryWithDeps(
+  [() => parentInstanceStep.value?.stepId],
+  async (db, [stepId]) => {
+    if (!stepId) return []
+    return db.WorkflowStepRole.where('stepId', stepId).exec()
+  },
+  { initial: [] },
+)
+const parentAdHocRoles = useLiveQueryWithDeps(
+  [() => props.parentInstanceStepId],
+  async (db, [id]) => {
+    if (!id) return []
+    return db.RoleOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
+  },
+  { initial: [] },
+)
+const inheritedRoleIds = computed(() => {
+  const ids = new Set()
+  for (const r of parentTemplateRoles.value) ids.add(r.roleId)
+  for (const r of parentAdHocRoles.value) ids.add(r.roleId)
+  return [...ids]
+})
 
 // `WorkflowStepFormBuilderPanel` honors `startAtSelect` only on open. We pass
 // the desired entry mode via this flag and flip it before opening the panel.
 const builderOpen = ref(false)
 const builderStartAtSelect = ref(false)
 
-watch(isOpen, (open) => {
-  if (open) form.value = empty()
+// Pre-select the seeded "Task / Action" form template (rich text + file
+// upload) when the dialog opens. User can still clear it and pick a
+// different template — or start blank — via the form picker below.
+// Lookup is best-effort; if the template hasn't been seeded yet (older
+// tenants that pre-date the bootstrap), the dialog opens with empty
+// schema and the existing flow takes over. Full scan + JS find because
+// `code` isn't a SyncEngine IDB index on FormTemplate.
+watch(isOpen, async (open) => {
+  if (!open) return
+  form.value = empty()
+  const allFormTemplates = await db.FormTemplate.where().exec()
+  const taskTemplate = allFormTemplates.find((t) => t.code === 'TASK')
+  if (taskTemplate?.schema && Array.isArray(taskTemplate.schema)) {
+    form.value.formSchema = JSON.parse(JSON.stringify(taskTemplate.schema))
+  }
 })
 
 const hasFormSchema = computed(() => (form.value.formSchema?.length ?? 0) > 0)
@@ -60,8 +111,8 @@ function clearSchema() {
 }
 
 async function handleSubmit() {
-  if (!form.value.name || !form.value.assigneeUserId || !form.value.roleIds?.length) {
-    toast.warning('Step name, at least one role, and an assignee are required')
+  if (!form.value.name || !form.value.assigneeUserId) {
+    toast.warning('Step name and assignee are required')
     return
   }
   submitting.value = true
@@ -73,13 +124,15 @@ async function handleSubmit() {
       slaDays: form.value.slaDays || null,
       assigneeUserId: form.value.assigneeUserId,
       formSchema: form.value.formSchema || [],
-      roleIds: form.value.roleIds,
+      roleIds: inheritedRoleIds.value,
+      requireComments: !!form.value.requireComments,
+      requireEsignature: !!form.value.requireEsignature,
     })
     isOpen.value = false
-    toast.success('Child step added')
+    toast.success('Task added')
     emit('added')
   } catch (e) {
-    toast.error(e.message || 'Failed to add child step')
+    toast.error(e.message || 'Failed to add task')
   } finally {
     submitting.value = false
   }
@@ -87,7 +140,8 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <BaseDialog v-model="isOpen" title="Add Child Step" maxWidth="md">
+  <div class="tw:contents">
+  <BaseDialog v-model="isOpen" title="Add Tasks" maxWidth="2xl">
     <div class="tw:flex tw:flex-col tw:gap-4">
       <div>
         <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
@@ -97,34 +151,41 @@ async function handleSubmit() {
       </div>
       <div>
         <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-          Description
+          Instructions
         </label>
-        <BaseTextarea
-          v-model="form.description"
-          placeholder="Optional details for the assignee"
-          rows="3"
-        />
+        <div class="dialog-description-editor">
+          <TiptapEditor
+            v-model="form.description"
+            placeholder="What does the assignee need to do?"
+          />
+        </div>
       </div>
       <div>
         <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-          SLA (days)
+          SLA: Due in (days)
         </label>
-        <BaseTextInput
-          v-model.number="form.slaDays"
-          type="number"
-          :min="1"
-          placeholder="e.g. 5"
-          inputClass="tw:w-32"
-        />
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <BaseTextInput
+            v-model.number="form.slaDays"
+            type="number"
+            :min="1"
+            placeholder="e.g. 5"
+            inputClass="tw:w-24"
+          />
+          <span class="tw:text-xs tw:font-medium tw:text-secondary">
+            Business days from activation
+          </span>
+        </div>
       </div>
-      <div>
-        <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-          Eligible roles <span class="tw:text-red-500">*</span>
+      <div class="tw:flex tw:justify-between tw:gap-6">
+        <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
+          <BaseSwitch v-model="form.requireComments" />
+          <span class="tw:text-xs tw:font-semibold tw:text-on-main">Require Comments</span>
         </label>
-        <RoleSelectMenu v-model="form.roleIds" multiple :required="true" />
-        <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-          Defines who can be assigned now and who can be reassigned later.
-        </p>
+        <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
+          <BaseSwitch v-model="form.requireEsignature" />
+          <span class="tw:text-xs tw:font-semibold tw:text-on-main">Require E-signature</span>
+        </label>
       </div>
       <div>
         <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
@@ -133,7 +194,7 @@ async function handleSubmit() {
         <UserSelectMenu
           v-model="form.assigneeUserId"
           :required="true"
-          :roleIdsFilter="form.roleIds"
+          :roleIdsFilter="inheritedRoleIds"
         />
       </div>
 
@@ -192,10 +253,10 @@ async function handleSubmit() {
       <BaseButton variant="outline" :disabled="submitting" @click="close">Cancel</BaseButton>
       <BaseButton
         variant="primary"
-        :disabled="!form.name || !form.assigneeUserId || !form.roleIds?.length || submitting"
+        :disabled="!form.name || !form.assigneeUserId || submitting"
         @click="handleSubmit"
       >
-        {{ submitting ? 'Adding…' : 'Add step' }}
+        {{ submitting ? 'Adding…' : 'Add task' }}
       </BaseButton>
     </template>
   </BaseDialog>
@@ -206,4 +267,15 @@ async function handleSubmit() {
     :startAtSelect="builderStartAtSelect"
     @save="handleSchemaSave"
   />
+  </div>
 </template>
+
+<style scoped>
+/* TiptapEditor's content grows to fill its parent via flex-grow. Cap the
+   inner ProseMirror surface so the dialog's description field stays
+   compact — long content scrolls within the editor. */
+.dialog-description-editor :deep(.tiptap-editor-content) {
+  max-height: 8rem;
+  overflow-y: auto;
+}
+</style>

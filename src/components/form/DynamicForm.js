@@ -222,7 +222,18 @@ export default defineComponent({
           })
 
         case 'textarea':
-          return h(TiptapEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly })
+          // TiptapEditor doesn't accept a `label` prop, so wrap with an
+          // explicit label row. Same reason datetime/colorPicker/slider do.
+          return h('div', { class: 'tw:flex tw:flex-col' }, [
+            field.label
+              ? h(
+                  'div',
+                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
+                  field.label,
+                )
+              : null,
+            h(TiptapEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly }),
+          ])
 
         case 'number':
           return h(BaseTextInput, {
@@ -234,19 +245,38 @@ export default defineComponent({
           })
 
         case 'textEditor':
-          return h(TiptapEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly })
+          return h('div', { class: 'tw:flex tw:flex-col' }, [
+            field.label
+              ? h(
+                  'div',
+                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
+                  field.label,
+                )
+              : null,
+            h(TiptapEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly }),
+          ])
 
         case 'date': {
           const isDisabled = props.disabled || field.disabled
           const dtValue = scope.value ? DateTime.fromISO(scope.value) : null
-          return h(BaseDatePicker, {
-            ...inputFieldProps,
-            modelValue: dtValue,
-            disabled: isDisabled,
-            'onUpdate:modelValue': (dt) => {
-              scope.value = DateTime.isDateTime(dt) ? dt.toISO() : null
-            },
-          })
+          // BaseDatePicker doesn't take a `label` prop either.
+          return h('div', { class: 'tw:flex tw:flex-col' }, [
+            field.label
+              ? h(
+                  'div',
+                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
+                  field.label,
+                )
+              : null,
+            h(BaseDatePicker, {
+              ...inputFieldProps,
+              modelValue: dtValue,
+              disabled: isDisabled,
+              'onUpdate:modelValue': (dt) => {
+                scope.value = DateTime.isDateTime(dt) ? dt.toISO() : null
+              },
+            }),
+          ])
         }
 
         case 'datetime': {
@@ -256,27 +286,47 @@ export default defineComponent({
             scope.value = DateTime.isDateTime(dt) ? dt.toISO() : null
           }
           const mode = field.mode || 'datetime'
+          // BaseDatePicker / BaseDateTimePicker / BaseTimePicker don't take a
+          // label prop, so wrap them in a div with a label row — mirrors the
+          // colorPicker / slider cases above. Without this, datetime fields
+          // render value-only with no label header.
+          const labelEl = field.label
+            ? h(
+                'div',
+                { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
+                field.label,
+              )
+            : null
           if (mode === 'date') {
-            return h(BaseDatePicker, {
+            return h('div', { class: 'tw:flex tw:flex-col' }, [
+              labelEl,
+              h(BaseDatePicker, {
+                modelValue: dtValue,
+                disabled: isDisabled,
+                'onUpdate:modelValue': onUpdate,
+              }),
+            ])
+          }
+          if (mode === 'time') {
+            return h('div', { class: 'tw:flex tw:flex-col' }, [
+              labelEl,
+              h(BaseTimePicker, {
+                timeInMins: scope.value ?? 0,
+                disabled: isDisabled,
+                'onUpdate:timeInMins': (val) => {
+                  scope.value = val
+                },
+              }),
+            ])
+          }
+          return h('div', { class: 'tw:flex tw:flex-col' }, [
+            labelEl,
+            h(BaseDateTimePicker, {
               modelValue: dtValue,
               disabled: isDisabled,
               'onUpdate:modelValue': onUpdate,
-            })
-          }
-          if (mode === 'time') {
-            return h(BaseTimePicker, {
-              timeInMins: scope.value ?? 0,
-              disabled: isDisabled,
-              'onUpdate:timeInMins': (val) => {
-                scope.value = val
-              },
-            })
-          }
-          return h(BaseDateTimePicker, {
-            modelValue: dtValue,
-            disabled: isDisabled,
-            'onUpdate:modelValue': onUpdate,
-          })
+            }),
+          ])
         }
 
         case 'colorPicker':

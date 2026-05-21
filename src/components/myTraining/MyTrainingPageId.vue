@@ -442,7 +442,6 @@ const isLockedOut = computed(() => {
         :attemptCount="effectiveAssignee?.attemptCount ?? 0"
         :maxAttempts="maxAttempts"
         :readonly="true"
-        :showCorrect="true"
         @update:answers="answers = $event"
       />
     </div>

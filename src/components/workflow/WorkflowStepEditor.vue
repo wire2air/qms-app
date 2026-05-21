@@ -172,13 +172,13 @@ watch(
           </div>
           <div>
             <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-              Description
+              Instructions
             </label>
             <BaseTextarea
               v-model="step.description"
-              placeholder="Describe what happens at this step..."
+              placeholder="What does the assignee need to do?"
               :disabled="!canUpdate"
-              rows="6"
+              rows="3"
             />
           </div>
         </div>
@@ -267,11 +267,11 @@ watch(
           <!-- Compliance Controls -->
           <div class="tw:flex tw:justify-between">
             <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
-              <BaseCheckbox v-model="step.requireComments" :disabled="!canUpdate" />
+              <BaseSwitch v-model="step.requireComments" :disabled="!canUpdate" />
               <span class="tw:text-xs tw:font-semibold tw:text-on-main">Require Comments</span>
             </label>
             <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
-              <BaseCheckbox v-model="step.requireEsignature" :disabled="!canUpdate" />
+              <BaseSwitch v-model="step.requireEsignature" :disabled="!canUpdate" />
               <span class="tw:text-xs tw:font-semibold tw:text-on-main">Require E-signature</span>
             </label>
           </div>

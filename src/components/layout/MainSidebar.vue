@@ -217,6 +217,12 @@ const navItems = computed(() => {
           to: getCompanyPath('/option-sets'),
         },
         {
+          label: 'NC Dispositions',
+          permissions: ['ncDispositionTypes:manage'],
+          icon: IconList,
+          to: getCompanyPath('/settings?tab=lookups'),
+        },
+        {
           label: 'Sites',
           icon: IconBuilding,
           to: getCompanyPath('/sites'),
