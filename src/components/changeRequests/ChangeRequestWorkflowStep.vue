@@ -12,6 +12,7 @@ import {
   IconRefreshAlert,
   IconUserCheck,
   IconBan,
+  IconX,
 } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
@@ -223,6 +224,38 @@ const hasStepForm = computed(
   () => !isApprovalStep.value && (instanceStep.value?.formSchema?.length ?? 0) > 0,
 )
 
+// ─── Inline Reject (APPROVAL steps only) ─────────────────────────────────────
+// Surface Reject as a primary header button next to Approve so the gate
+// outcome is one click away. For ACTION steps the "Send Back" verb is
+// still available through the three-dot actions menu since rejecting
+// work-step output is a less common path.
+const showRejectDialog = ref(false)
+const rejectReason = ref('')
+const rejecting = ref(false)
+
+function openRejectDialog() {
+  if (!canActOnStep.value || rejecting.value) return
+  rejectReason.value = ''
+  showRejectDialog.value = true
+}
+
+async function handleRejectSubmit() {
+  if (!rejectReason.value.trim() || rejecting.value) return
+  rejecting.value = true
+  try {
+    await post(`/v1/services/changeRequests/${props.crId}/rejectStepTask`, {
+      workflowInstanceStepId: props.instanceStepId,
+      comment: rejectReason.value.trim(),
+    })
+    toast.success('Approval rejected — the CR owner has been notified')
+    showRejectDialog.value = false
+  } catch (e) {
+    toast.error(e?.message || 'Failed to reject')
+  } finally {
+    rejecting.value = false
+  }
+}
+
 function onCompleteClick() {
   if (!canActOnStep.value || childrenBlock.value || completing.value) return
   completeComment.value = ''
@@ -328,6 +361,15 @@ function getStatusLabel(statusId) {
           {{ completing ? primaryActionInProgressLabel : primaryActionLabel }}
         </button>
         <button
+          v-if="isApprovalStep && canActOnStep"
+          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-red-600 tw:hover:underline tw:cursor-pointer tw:font-medium tw:disabled:opacity-50"
+          :disabled="rejecting"
+          @click="openRejectDialog"
+        >
+          <IconX :size="14" />
+          {{ rejecting ? 'Rejecting…' : 'Reject' }}
+        </button>
+        <button
           v-if="canReopen"
           class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-amber-700 tw:hover:underline tw:cursor-pointer tw:font-medium"
           @click="openReopenDialog"
@@ -357,7 +399,11 @@ function getStatusLabel(statusId) {
           :crId="crId"
           :isOwner="isOwner"
           :requireEsignature="requireEsignature"
-          :hideOutcomes="['COMPLETE_AND_ADVANCE']"
+          :hideOutcomes="
+            isApprovalStep
+              ? ['COMPLETE_AND_ADVANCE', 'SEND_BACK']
+              : ['COMPLETE_AND_ADVANCE']
+          "
         />
       </div>
     </div>
@@ -474,6 +520,40 @@ function getStatusLabel(statusId) {
         <BaseButton variant="secondary" :disabled="cancelling" @click="close">Cancel</BaseButton>
         <BaseButton variant="danger" :loading="cancelling" @click="handleCancelStep">
           Cancel Step
+        </BaseButton>
+      </template>
+    </BaseDialog>
+
+    <!-- Reject dialog (APPROVAL steps; reuses rejectStepTask endpoint) -->
+    <BaseDialog v-model="showRejectDialog" title="Reject Step" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <div
+          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-red-50 tw:border tw:border-red-200"
+        >
+          <div class="tw:text-red-600 tw:shrink-0 tw:mt-0.5">⨯</div>
+          <div class="tw:text-sm tw:text-red-800">
+            Rejecting <strong>{{ instanceStep.name }}</strong> sends the CR back to the owner
+            with your feedback. The CR drops to DRAFT and the owner can revise and resubmit.
+          </div>
+        </div>
+        <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1">
+          Reason for rejection <span class="tw:text-red-500">*</span>
+        </label>
+        <BaseTextarea
+          v-model="rejectReason"
+          :rows="3"
+          placeholder="Why are you rejecting this change?"
+        />
+      </div>
+      <template #footer="{ close }">
+        <BaseButton variant="outline" :disabled="rejecting" @click="close">Cancel</BaseButton>
+        <BaseButton
+          variant="danger"
+          :loading="rejecting"
+          :disabled="!rejectReason.trim() || rejecting"
+          @click="handleRejectSubmit"
+        >
+          Reject
         </BaseButton>
       </template>
     </BaseDialog>
