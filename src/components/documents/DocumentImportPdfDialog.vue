@@ -351,21 +351,66 @@ async function applyDraft() {
       return
     }
 
-    // Structured (existing behaviour)
+    // Structured path. Two safety nets compared to before:
+    //   - Strip the dropped-image placeholder blockquotes from each
+    //     section's body on the way to the form. They served their
+    //     purpose in the preview ("this is what's missing"); the
+    //     reviewer has already decided to accept the result, so leaving
+    //     them in the controlled document would be ugly clutter.
+    //   - Always append the original PDF as a final attachment-type
+    //     section so the binary lands alongside the parsed sections.
+    //     If the PDF upload itself fails we still apply the structured
+    //     sections — surfacing a toast so the user knows the binary
+    //     didn't make it.
+    let originalAsset = null
+    try {
+      const upload = await uploadFile(selectedFile.value, 'ASSET')
+      if (upload.success && upload.asset) originalAsset = upload.asset
+      else toast.warning('Original PDF couldn\'t be attached — sections imported without it.')
+    } catch (e) {
+      toast.warning(`Original PDF couldn't be attached (${e?.message ?? 'upload failed'}).`)
+    }
+
+    const textSections = result.value.sections.map((s, idx) => ({
+      title: s.title,
+      content: stripDroppedImagePlaceholders(markdownToHtml(s.content)),
+      sectionType: 'text',
+      attachments: null,
+      order: idx + 1,
+    }))
+    const sections = originalAsset
+      ? [
+          ...textSections,
+          {
+            title: 'Original PDF',
+            content: null,
+            sectionType: 'attachment',
+            attachments: [originalAsset],
+            order: textSections.length + 1,
+          },
+        ]
+      : textSections
+
     emit('apply', {
       title: result.value.title,
       description: result.value.description,
-      sections: result.value.sections.map((s, idx) => ({
-        title: s.title,
-        content: markdownToHtml(s.content),
-        sectionType: 'text',
-        order: idx + 1,
-      })),
+      sections,
     })
     show.value = false
   } finally {
     applying.value = false
   }
+}
+
+// Pull out the <blockquote>… ⚠️ Image not extracted from PDF …
+// </blockquote> markers the extractor inserted and the AI was told to
+// preserve. Idempotent on content with no markers.
+function stripDroppedImagePlaceholders(html) {
+  if (!html) return html
+  return html.replace(
+    /<blockquote\b[^>]*>[\s\S]*?Image not extracted from PDF[\s\S]*?<\/blockquote>\s*/gi,
+    '',
+  )
 }
 
 // Sanitiser for the AI-generated summary HTML. Same allow-list as the
@@ -670,26 +715,51 @@ const parseProgressPct = computed(() => {
           <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
             Sections ({{ result.sections.length }})
           </div>
-          <div class="tw:flex tw:flex-col tw:gap-2 tw:max-h-[55vh] tw:overflow-y-auto">
+          <!-- Preview should read like the document form, not a chat
+               transcript. Larger text, full on-main colour, generous
+               max-height per section so the reviewer sees a faithful
+               approximation of what TipTap will render after Apply. -->
+          <div class="tw:flex tw:flex-col tw:gap-3 tw:max-h-[60vh] tw:overflow-y-auto">
             <div
               v-for="(section, i) in result.sections"
               :key="i"
-              class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-sidebar"
+              class="tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:bg-white"
             >
-              <div class="tw:flex tw:items-center tw:gap-2 tw:mb-1">
+              <div class="tw:flex tw:items-center tw:gap-2 tw:mb-3 tw:pb-2 tw:border-b tw:border-divider">
                 <span
                   class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-primary/10 tw:text-primary tw:font-mono"
                 >
                   {{ i + 1 }}
                 </span>
-                <div class="tw:text-sm tw:font-semibold tw:text-on-main">
+                <div class="tw:text-base tw:font-semibold tw:text-on-main">
                   {{ section.title }}
                 </div>
               </div>
               <div
-                class="chat-md tw:text-xs tw:text-secondary tw:leading-relaxed tw:max-h-40 tw:overflow-y-auto"
+                class="chat-md tw:text-sm tw:text-on-main tw:leading-relaxed"
                 v-html="markdownToHtml(section.content)"
               />
+            </div>
+            <!-- Final attachment section preview — never persisted
+                 separately, always added on Apply so the binary lands
+                 alongside the parsed sections. Shown here so the
+                 reviewer knows what they're getting. -->
+            <div
+              class="tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:bg-white tw:flex tw:items-center tw:gap-3"
+            >
+              <span
+                class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-primary/10 tw:text-primary tw:font-mono"
+              >
+                {{ result.sections.length + 1 }}
+              </span>
+              <IconPaperclip :size="18" class="tw:text-secondary tw:flex-none" />
+              <div class="tw:flex tw:flex-col tw:gap-0.5 tw:min-w-0">
+                <div class="tw:text-base tw:font-semibold tw:text-on-main">Original PDF</div>
+                <div class="tw:text-xs tw:text-secondary tw:truncate">
+                  {{ selectedFile?.name }} ({{ fileSizeLabel }}) — always attached so the binary
+                  is never lost
+                </div>
+              </div>
             </div>
           </div>
         </div>

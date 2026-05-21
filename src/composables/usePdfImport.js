@@ -97,10 +97,17 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
 
     const page = await doc.getPage(pageNum)
     const lines = await extractLines(page)
-    const { candidates: imageCandidates, droppedCount: collectionDrops } =
-      await collectImageCandidates(page, doc, pdfjs)
+    // We intentionally ignore the collection-time drop count from
+    // collectImageCandidates. Those drops are "pdfjs didn't surface
+    // this to us cleanly" — we don't know whether they were real
+    // visuals or just pdfjs internal artefacts (Form-XObject internals,
+    // unloaded common objects, etc.). Counting them inflates the
+    // user-visible "couldn't extract" number with noise. Only Phase-3
+    // upload failures — where we had a candidate and an upload
+    // attempt — count toward the user-facing imagesDropped tally.
+    const { candidates: imageCandidates } = await collectImageCandidates(page, doc, pdfjs)
 
-    pagesRaw.push({ pageNum, lines, imageCandidates, collectionDrops })
+    pagesRaw.push({ pageNum, lines, imageCandidates })
   }
 
   // ── Phase 2: detect repeating lines + image hashes ──────────────────
@@ -163,10 +170,9 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
     const pageText = keptLines.join('\n').trim()
 
     const imageRefs = []
-    // Start the page's drop tally with anything that failed during the
-    // resolve / hash phase of collectImageCandidates. Recurring images
-    // (logos, headers) are intentionally stripped and don't count.
-    let droppedOnPage = p.collectionDrops ?? 0
+    // Only count upload-time failures here. Collection-time drops are
+    // ignored on purpose (see comment in Phase 1 above).
+    let droppedOnPage = 0
     for (const cand of p.imageCandidates) {
       if (isRepeatingImage(cand, repeatingHashes)) {
         recurringImagesSkipped += 1
