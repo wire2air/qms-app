@@ -330,6 +330,7 @@ async function applyDraft() {
       emit('apply', {
         title: result.value.title,
         description: result.value.description,
+        documentTypeId: result.value.documentTypeId ?? null,
         sections: [
           {
             title: 'Summary',
@@ -394,6 +395,7 @@ async function applyDraft() {
     emit('apply', {
       title: result.value.title,
       description: result.value.description,
+      documentTypeId: result.value.documentTypeId ?? null,
       sections,
     })
     show.value = false

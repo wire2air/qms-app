@@ -287,6 +287,10 @@ function handleAiDraft(draft) {
   // `id` is required by DocumentSectionsEditor's v-for key and removeSection
   // filter; without it, deleting one section filters out all id-less rows.
   form.value.title = draft.title
+  // AI picks the document type from the seeded list (SOP, POLICY, …) so
+  // the type dropdown is pre-selected. Site + Department defaults stay
+  // whatever the user already had (we don't overwrite explicit picks).
+  if (draft.documentTypeId) form.value.documentTypeId = draft.documentTypeId
   form.value.sections = draft.sections.map((s, idx) => ({
     id: crypto.randomUUID(),
     title: s.title,
@@ -310,6 +314,10 @@ function handleAiDraft(draft) {
 const showImportDialog = ref(false)
 function handlePdfImport(draft) {
   form.value.title = draft.title
+  // AI picks the document type from the seeded list. Site + Department
+  // defaults stay whatever the user already had — only the type changes
+  // when the dialog tells us its best match.
+  if (draft.documentTypeId) form.value.documentTypeId = draft.documentTypeId
   form.value.sections = draft.sections.map((s, idx) => ({
     id: crypto.randomUUID(),
     title: s.title,

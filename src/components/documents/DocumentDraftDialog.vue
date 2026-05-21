@@ -118,6 +118,7 @@ function applyDraft() {
   emit('apply', {
     title: result.value.title,
     description: result.value.description,
+    documentTypeId: result.value.documentTypeId ?? null,
     sections: result.value.sections.map((s, idx) => ({
       title: s.title,
       content: markdownToHtml(s.content),
