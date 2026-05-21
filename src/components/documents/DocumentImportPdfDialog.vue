@@ -45,6 +45,13 @@ const SUMMARIZE_ENDPOINT = '/api/v1/services/ai/tasks/document.summarize_pdf/run
 // before the AI request would be rejected.
 const SUMMARY_THRESHOLD_CHARS = 100_000
 
+// Hard cap on how long we wait for the AI service to come back before
+// surfacing a clear error to the user. Real-world structured imports
+// usually finish in 15-45s; anything past two minutes is almost always
+// a stalled provider call rather than a slow one. Abort + render a
+// "took too long" error so the dialog never spins indefinitely.
+const AI_REQUEST_TIMEOUT_MS = 120_000
+
 // Phases: pick → parsing → structuring | summarizing → result | summaryResult → error
 const phase = ref('pick')
 const error = ref(null)
@@ -128,6 +135,17 @@ async function runImport() {
   await runAiStage()
 }
 
+// Live AbortController for the active AI request so the user can
+// cancel a slow / stalled stage from the dialog footer. Cleared once
+// the request resolves (success or error) so a subsequent cancel is a
+// no-op rather than a stale signal.
+const aiAbortController = ref(null)
+function cancelAiRequest() {
+  if (aiAbortController.value) {
+    aiAbortController.value.abort('user-cancelled')
+  }
+}
+
 async function runAiStage() {
   if (!extracted.value) return
   const isSummary = mode.value === 'summary'
@@ -137,11 +155,20 @@ async function runAiStage() {
     total: 0,
     message: isSummary ? 'Summarising with AI…' : 'Structuring with AI…',
   }
+
+  const controller = new AbortController()
+  aiAbortController.value = controller
+  const timeoutId = setTimeout(
+    () => controller.abort('timeout'),
+    AI_REQUEST_TIMEOUT_MS,
+  )
+
   try {
     const res = await fetch(isSummary ? SUMMARIZE_ENDPOINT : STRUCTURED_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
+      signal: controller.signal,
       body: JSON.stringify({
         extractedText: extracted.value.text,
         filenameHint: extracted.value.filename,
@@ -161,11 +188,20 @@ async function runAiStage() {
     usage.value = json.usage
     phase.value = isSummary ? 'summaryResult' : 'result'
   } catch (e) {
+    const aborted = e?.name === 'AbortError'
+    const reason = controller.signal.reason
     error.value = {
       stage: isSummary ? 'summarizing' : 'structuring',
-      message: e?.message ?? 'Network error.',
+      message: aborted
+        ? reason === 'user-cancelled'
+          ? 'Cancelled.'
+          : `The AI service didn't respond within ${Math.round(AI_REQUEST_TIMEOUT_MS / 1000)}s. Check the api / worker logs and try again — large PDFs can stall the provider; smaller ones should come back in 15–45s.`
+        : (e?.message ?? 'Network error.'),
     }
     phase.value = 'error'
+  } finally {
+    clearTimeout(timeoutId)
+    aiAbortController.value = null
   }
 }
 
@@ -546,10 +582,12 @@ const parseProgressPct = computed(() => {
           Import
         </BaseButton>
       </template>
-      <template
-        v-else-if="phase === 'parsing' || phase === 'structuring' || phase === 'summarizing'"
-      >
+      <template v-else-if="phase === 'parsing'">
         <BaseButton variant="outline" disabled>Cancel</BaseButton>
+        <BaseButton disabled>Working…</BaseButton>
+      </template>
+      <template v-else-if="phase === 'structuring' || phase === 'summarizing'">
+        <BaseButton variant="outline" @click="cancelAiRequest">Cancel</BaseButton>
         <BaseButton disabled>Working…</BaseButton>
       </template>
       <template v-else-if="phase === 'error'">
