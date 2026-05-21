@@ -308,22 +308,24 @@ async function handleSubmit() {
             <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
               Reason for Change
             </label>
-            <BaseTextarea
-              v-model="form.reasonForChange"
-              :rows="3"
-              placeholder="What's driving this change? (audit finding, regulatory update, NC, supplier change, etc.)"
-            />
+            <div class="create-cr-editor">
+              <TiptapEditor
+                v-model="form.reasonForChange"
+                placeholder="What's driving this change? (audit finding, regulatory update, NC, supplier change, etc.)"
+              />
+            </div>
           </div>
 
           <div class="tw:flex tw:flex-col tw:gap-1">
             <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
               Business Justification
             </label>
-            <BaseTextarea
-              v-model="form.businessJustification"
-              :rows="3"
-              placeholder="Why is this change worth the effort? Cost / quality / compliance impact."
-            />
+            <div class="create-cr-editor">
+              <TiptapEditor
+                v-model="form.businessJustification"
+                placeholder="Why is this change worth the effort? Cost / quality / compliance impact."
+              />
+            </div>
           </div>
 
           <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
@@ -342,3 +344,10 @@ async function handleSubmit() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.create-cr-editor :deep(.tiptap-editor-content) {
+  max-height: 10rem;
+  overflow-y: auto;
+}
+</style>
