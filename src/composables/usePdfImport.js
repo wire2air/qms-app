@@ -137,9 +137,14 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
   let uploadIdx = 0
 
   // Placeholder marker the AI is instructed to preserve verbatim.
-  // Renders as a plain paragraph in the final markdown so the reviewer
-  // sees exactly where a visual was missing in the source PDF.
-  const DROPPED_IMAGE_MARKER = '[IMAGE: could not extract — see original PDF]'
+  // Uses a markdown blockquote with a warning emoji and bold text so it
+  // renders as a visually distinct callout in the section preview and
+  // in the final TipTap editor — not just a forgettable paragraph the
+  // reviewer scrolls past. The "[IMAGE NOT EXTRACTED" text inside is
+  // never matched by marked's reference-link parser (no closing
+  // bracket-and-link pattern) so it survives markdown round-tripping.
+  const DROPPED_IMAGE_MARKER =
+    '> ⚠️ **Image not extracted from PDF.** Review the original document for visual content at this location.'
 
   for (const p of pagesRaw) {
     const isFirstPage = p.pageNum === 1
@@ -239,14 +244,17 @@ async function extractLines(page) {
 }
 
 /**
- * Walk the page's operator list, collect image XObject references, hash
- * each candidate, and return them in painting order. We don't upload
- * anything here — that happens in Phase 3 after duplicate detection.
+ * Walk the page's operator list, collect image candidates (XObject AND
+ * inline), hash each, and return them in painting order. We don't
+ * upload anything here — that happens in Phase 3 after duplicate
+ * detection runs across pages.
  *
- * Returns { candidates, droppedCount }. droppedCount tracks images
- * pdfjs saw on the page that we couldn't carry through (inline images
- * with object args, resolve failures, hash failures, etc.) so the
- * caller can surface a placeholder marker to the user.
+ * Returns { candidates, droppedCount }. droppedCount tracks images we
+ * KNOW we can't carry through (hash failures, resolve exceptions) so
+ * the caller can place a visible "[IMAGE: missing]" marker in the
+ * page text. Recurring images (logos / headers) are NOT in this
+ * count — repetition detection runs after this step and strips them
+ * intentionally via a separate counter.
  */
 async function collectImageCandidates(page, doc, pdfjs) {
   const ops = await page.getOperatorList()
@@ -259,36 +267,56 @@ async function collectImageCandidates(page, doc, pdfjs) {
       OPS.paintInlineImageXObjectGroup,
     ].filter((v) => v != null),
   )
-  const seen = new Set()
+  const seenNames = new Set()
   const out = []
   let droppedCount = 0
 
   for (let i = 0; i < ops.fnArray.length; i++) {
     if (!IMAGE_OPS.has(ops.fnArray[i])) continue
-    const imgName = ops.argsArray[i]?.[0]
-    if (!imgName || typeof imgName !== 'string') {
-      // Inline-image ops put the image data object in args[0] rather
-      // than an XObject name. Our resolution path expects a string,
-      // so we can't carry these through — count as a known drop.
+    const arg = ops.argsArray[i]?.[0]
+    if (!arg) {
       droppedCount += 1
       continue
     }
-    if (seen.has(imgName)) continue
-    seen.add(imgName)
-    try {
-      const obj = await resolveImageObject(page, doc, imgName)
-      if (!obj) {
+
+    if (typeof arg === 'string') {
+      // Named XObject — resolve through the objs cache. Same-name
+      // dedup is per-page so a logo painted twice on one page only
+      // gets counted once for repetition.
+      if (seenNames.has(arg)) continue
+      seenNames.add(arg)
+      try {
+        const obj = await resolveImageObject(page, doc, arg)
+        if (!obj) {
+          droppedCount += 1
+          continue
+        }
+        const hash = await computeImageHash(obj, arg)
+        if (!hash) {
+          droppedCount += 1
+          continue
+        }
+        out.push({ imgName: arg, obj, hash })
+      } catch {
         droppedCount += 1
-        continue
       }
-      const hash = await computeImageHash(obj, imgName)
-      if (!hash) {
+    } else if (typeof arg === 'object') {
+      // Inline-image op — args[0] IS the image data (no objs lookup
+      // needed). Word/PowerPoint exports tend to drop per-page logos
+      // and footer stamps here. Hashing them properly lets the
+      // repetition detector recognise + strip them as recurring, so
+      // they don't pollute the dropped-image count.
+      try {
+        const hash = await computeImageHash(arg, null)
+        if (!hash) {
+          droppedCount += 1
+          continue
+        }
+        out.push({ imgName: null, obj: arg, hash })
+      } catch {
         droppedCount += 1
-        continue
       }
-      out.push({ imgName, obj, hash })
-    } catch {
-      // Skip individual resolution failures but still record the drop.
+    } else {
       droppedCount += 1
     }
   }

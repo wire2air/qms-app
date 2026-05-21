@@ -792,3 +792,32 @@ const parseProgressPct = computed(() => {
     </template>
   </BaseDialog>
 </template>
+
+<style>
+/* v-html bypasses Vue's scoped CSS, so apply globally but namespaced to
+   the preview's chat-md container (and the result-section blocks where
+   the rendered markdown lands). Images come back from the AI as
+   ![alt](url) markdown; without explicit constraints they render at
+   their native resolution and either overflow or are completely
+   invisible in the tight section-preview boxes. Blockquote styling
+   makes the "Image not extracted" placeholder stand out. */
+.chat-md img {
+  max-width: 100%;
+  max-height: 12rem;
+  display: block;
+  margin: 0.5rem 0;
+  border: 1px solid var(--color-divider, #e5e7eb);
+  border-radius: 0.375rem;
+}
+.chat-md blockquote {
+  border-left: 3px solid #f59e0b;
+  background: #fffbeb;
+  color: #78350f;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0;
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+.chat-md blockquote p {
+  margin: 0;
+}
+</style>
