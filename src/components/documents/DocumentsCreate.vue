@@ -302,21 +302,21 @@ function handleAiDraft(draft) {
 }
 
 // ─── PDF import integration ──────────────────────────────────────────────
-// Same emit contract as the AI draft dialog — { title, description,
-// sections: [{ title, content, sectionType, order }] }. Section content
-// arrives as sanitized HTML (markdown was rendered in the dialog) so the
-// TipTap editor accepts it directly. Image URLs are pre-uploaded by the
-// dialog before this fires.
+// Emit contract: { title, description, sections: [{ title, content,
+// sectionType, attachments, order }] }. sectionType is now meaningful —
+// the structured path emits all 'text' sections; the summarise path
+// emits one 'text' summary section plus one 'attachment' section
+// carrying the uploaded original PDF in `attachments`. Honour both.
 const showImportDialog = ref(false)
 function handlePdfImport(draft) {
   form.value.title = draft.title
   form.value.sections = draft.sections.map((s, idx) => ({
     id: crypto.randomUUID(),
     title: s.title,
-    content: s.content,
-    sectionType: 'text',
+    content: s.content ?? null,
+    sectionType: s.sectionType ?? 'text',
     order: s.order ?? idx + 1,
-    attachments: null,
+    attachments: s.attachments ?? null,
     isAddOn: true,
   }))
   activeTab.value = 'content'
