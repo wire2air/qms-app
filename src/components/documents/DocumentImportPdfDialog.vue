@@ -40,10 +40,12 @@ const SUMMARIZE_ENDPOINT = '/api/v1/services/ai/tasks/document.summarize_pdf/run
 
 // PDFs whose extracted text exceeds this size auto-route through the
 // summarise path: AI returns a single rich-text summary + the original
-// PDF is attached as a separate section. Threshold sits comfortably
-// below the 120K-char input cap on the structured importer so we route
-// before the AI request would be rejected.
-const SUMMARY_THRESHOLD_CHARS = 100_000
+// PDF is attached as a separate section. 40K chars is roughly a
+// 20-30 page text-heavy SOP — past that, the structured importer's
+// 6000-token output cap leaves the model truncating mid-tool-use on
+// dense documents (e.g. quality manuals, regulatory packs), which
+// surfaces as a 120s timeout in the dialog.
+const SUMMARY_THRESHOLD_CHARS = 40_000
 
 // Hard cap on how long we wait for the AI service to come back before
 // surfacing a clear error to the user. Real-world structured imports
