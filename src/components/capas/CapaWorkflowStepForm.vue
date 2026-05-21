@@ -25,7 +25,10 @@ const props = defineProps({
 const emit = defineEmits(['done'])
 
 const toast = useToast()
-const currentUserId = computed(() => currentSession.value?.userId)
+// Match the parent CapaWorkflowStep: prefer .id (set via activeCompany.userId
+// on the frontend) and fall back to .userId so the form's editability check
+// resolves to the same user the parent shows as the active assignee.
+const currentUserId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
 
 const capa = useLiveQueryWithDeps([() => props.capaId], async (db, [id]) =>
   id ? db.Capa.findByPk(id) : null,
