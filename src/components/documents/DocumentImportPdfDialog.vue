@@ -7,10 +7,12 @@ import {
   IconRefresh,
   IconCheck,
   IconFile,
+  IconPaperclip,
 } from '@tabler/icons-vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { parsePdfAndExtractImages } from '@/composables/usePdfImport.js'
+import { uploadFile } from '@/composables/useFileUpload.js'
 
 /**
  * Import PDF dialog. Pipeline:
@@ -33,17 +35,29 @@ const emit = defineEmits(['apply'])
 
 const show = defineModel({ type: Boolean, default: false })
 
-const ENDPOINT = '/api/v1/services/ai/tasks/document.import_from_pdf/run'
+const STRUCTURED_ENDPOINT = '/api/v1/services/ai/tasks/document.import_from_pdf/run'
+const SUMMARIZE_ENDPOINT = '/api/v1/services/ai/tasks/document.summarize_pdf/run'
 
-// Phases: pick → parsing → structuring → result → error
+// PDFs whose extracted text exceeds this size auto-route through the
+// summarise path: AI returns a single rich-text summary + the original
+// PDF is attached as a separate section. Threshold sits comfortably
+// below the 120K-char input cap on the structured importer so we route
+// before the AI request would be rejected.
+const SUMMARY_THRESHOLD_CHARS = 100_000
+
+// Phases: pick → parsing → structuring | summarizing → result | summaryResult → error
 const phase = ref('pick')
 const error = ref(null)
 const progress = ref({ current: 0, total: 0, message: '' })
 
 const selectedFile = ref(null)
 const extracted = ref(null) // { text, pageCount, imageCount, filename }
-const result = ref(null) // { title, description, sections: [...] }
+const result = ref(null) // structured: { title, description, sections: [...] }
+                        // summary:    { title, description, summary: '<html>' }
 const usage = ref(null)
+// 'structured' (existing behaviour) | 'summary' (large-PDF path).
+// Decided automatically after parsing based on extracted text size.
+const mode = ref(null)
 
 watch(show, (open) => {
   if (open) {
@@ -54,6 +68,7 @@ watch(show, (open) => {
     extracted.value = null
     result.value = null
     usage.value = null
+    mode.value = null
   }
 })
 
@@ -104,11 +119,26 @@ async function runImport() {
     return
   }
 
-  // ── Stage 2: AI structuring ─────────────────────────────────────────
-  phase.value = 'structuring'
-  progress.value = { current: 0, total: 0, message: 'Structuring with AI…' }
+  // ── Stage 2: AI structuring OR summarising ─────────────────────────
+  // Auto-route on extracted text size. Small/medium PDFs → structured
+  // import (existing behaviour). Large PDFs → single summary + PDF
+  // attached as a separate section; the AI never tries to invent
+  // section boundaries that don't really exist in a 100+ page manual.
+  mode.value = extracted.value.text.length > SUMMARY_THRESHOLD_CHARS ? 'summary' : 'structured'
+  await runAiStage()
+}
+
+async function runAiStage() {
+  if (!extracted.value) return
+  const isSummary = mode.value === 'summary'
+  phase.value = isSummary ? 'summarizing' : 'structuring'
+  progress.value = {
+    current: 0,
+    total: 0,
+    message: isSummary ? 'Summarising with AI…' : 'Structuring with AI…',
+  }
   try {
-    const res = await fetch(ENDPOINT, {
+    const res = await fetch(isSummary ? SUMMARIZE_ENDPOINT : STRUCTURED_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -120,7 +150,7 @@ async function runImport() {
     const json = await res.json().catch(() => null)
     if (!res.ok) {
       error.value = {
-        stage: 'structuring',
+        stage: isSummary ? 'summarizing' : 'structuring',
         message: json?.error?.message ?? `Request failed (${res.status}).`,
         code: json?.error?.code ?? `HTTP_${res.status}`,
       }
@@ -129,9 +159,12 @@ async function runImport() {
     }
     result.value = json.result
     usage.value = json.usage
-    phase.value = 'result'
+    phase.value = isSummary ? 'summaryResult' : 'result'
   } catch (e) {
-    error.value = { stage: 'structuring', message: e?.message ?? 'Network error.' }
+    error.value = {
+      stage: isSummary ? 'summarizing' : 'structuring',
+      message: e?.message ?? 'Network error.',
+    }
     phase.value = 'error'
   }
 }
@@ -142,40 +175,11 @@ function regenerate() {
     runImport()
     return
   }
-  // Re-run only the structuring stage (parse + upload already done; don't
-  // re-upload images).
+  // Re-run only the AI stage; parse + image upload already done.
   result.value = null
   usage.value = null
   error.value = null
-  phase.value = 'structuring'
-  ;(async () => {
-    try {
-      const res = await fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          extractedText: extracted.value.text,
-          filenameHint: extracted.value.filename,
-        }),
-      })
-      const json = await res.json().catch(() => null)
-      if (!res.ok) {
-        error.value = {
-          stage: 'structuring',
-          message: json?.error?.message ?? `Request failed (${res.status}).`,
-        }
-        phase.value = 'error'
-        return
-      }
-      result.value = json.result
-      usage.value = json.usage
-      phase.value = 'result'
-    } catch (e) {
-      error.value = { stage: 'structuring', message: e?.message ?? 'Network error.' }
-      phase.value = 'error'
-    }
-  })()
+  runAiStage()
 }
 
 // Markdown → HTML for the editor + preview rendering. Same sanitizer
@@ -189,19 +193,75 @@ function markdownToHtml(md) {
   })
 }
 
-function applyDraft() {
-  if (!result.value) return
-  emit('apply', {
-    title: result.value.title,
-    description: result.value.description,
-    sections: result.value.sections.map((s, idx) => ({
-      title: s.title,
-      content: markdownToHtml(s.content),
-      sectionType: 'text',
-      order: idx + 1,
-    })),
+const applying = ref(false)
+
+async function applyDraft() {
+  if (!result.value || applying.value) return
+  applying.value = true
+  try {
+    if (mode.value === 'summary') {
+      // Upload the original PDF as an ASSET so we can attach it to the
+      // second section. The AI already saw the extracted text — what we
+      // ship to the controlled record is the binary, exactly as the user
+      // uploaded it.
+      const upload = await uploadFile(selectedFile.value, 'ASSET')
+      if (!upload.success || !upload.asset) {
+        error.value = {
+          stage: 'apply',
+          message: upload.error ?? 'Failed to upload the original PDF.',
+        }
+        phase.value = 'error'
+        return
+      }
+      emit('apply', {
+        title: result.value.title,
+        description: result.value.description,
+        sections: [
+          {
+            title: 'Summary',
+            content: sanitizeHtml(result.value.summary),
+            sectionType: 'text',
+            attachments: null,
+            order: 1,
+          },
+          {
+            title: 'Original PDF',
+            content: null,
+            sectionType: 'attachment',
+            attachments: [upload.asset],
+            order: 2,
+          },
+        ],
+      })
+      show.value = false
+      return
+    }
+
+    // Structured (existing behaviour)
+    emit('apply', {
+      title: result.value.title,
+      description: result.value.description,
+      sections: result.value.sections.map((s, idx) => ({
+        title: s.title,
+        content: markdownToHtml(s.content),
+        sectionType: 'text',
+        order: idx + 1,
+      })),
+    })
+    show.value = false
+  } finally {
+    applying.value = false
+  }
+}
+
+// Sanitiser for the AI-generated summary HTML. Same allow-list as the
+// markdown path, minus markdown parsing — the summary is already HTML.
+function sanitizeHtml(html) {
+  if (!html) return ''
+  return DOMPurify.sanitize(html, {
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'target', 'rel', 'class'],
+    FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'form'],
   })
-  show.value = false
 }
 
 function discard() {
@@ -333,6 +393,20 @@ const parseProgressPct = computed(() => {
       </div>
     </template>
 
+    <!-- Phase: AI summarising (large-PDF path) -->
+    <template v-else-if="phase === 'summarizing'">
+      <div class="tw:flex tw:flex-col tw:items-center tw:gap-4 tw:py-10">
+        <IconSparkles :size="40" class="tw:text-primary tw:animate-pulse" />
+        <div class="tw:text-center">
+          <div class="tw:text-sm tw:font-semibold tw:text-on-main">Summarising with AI…</div>
+          <div class="tw:text-xs tw:text-secondary tw:mt-1">
+            This PDF is too large to break into editable sections, so we'll generate a single
+            summary and attach the original PDF.
+          </div>
+        </div>
+      </div>
+    </template>
+
     <!-- Phase: error -->
     <template v-else-if="phase === 'error'">
       <div class="tw:flex tw:flex-col tw:gap-4">
@@ -412,6 +486,58 @@ const parseProgressPct = computed(() => {
       </div>
     </template>
 
+    <!-- Phase: summary preview (large-PDF path) -->
+    <template v-else-if="phase === 'summaryResult' && result">
+      <div class="tw:flex tw:flex-col tw:gap-4">
+        <div
+          class="tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200 tw:text-amber-900 tw:text-xs"
+        >
+          This PDF was too large to break into editable sections. The document will be created
+          with a Summary section (rich text, editable) and an Original PDF section (attachment).
+          Review the summary before saving.
+        </div>
+
+        <div class="tw:flex tw:flex-col tw:gap-1">
+          <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
+            Title
+          </div>
+          <div class="tw:text-lg tw:font-bold tw:text-on-main">{{ result.title }}</div>
+        </div>
+
+        <div class="tw:flex tw:flex-col tw:gap-1">
+          <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
+            Description
+          </div>
+          <div class="tw:text-sm tw:text-on-main tw:leading-relaxed">{{ result.description }}</div>
+        </div>
+
+        <div class="tw:flex tw:flex-col tw:gap-1">
+          <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
+            Summary
+          </div>
+          <div
+            class="chat-md tw:text-sm tw:text-on-main tw:leading-relaxed tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-sidebar tw:max-h-[50vh] tw:overflow-y-auto"
+            v-html="sanitizeHtml(result.summary)"
+          />
+        </div>
+
+        <div
+          class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary tw:border tw:border-dashed tw:border-divider tw:rounded-lg tw:p-3"
+        >
+          <IconPaperclip :size="16" class="tw:flex-none" />
+          <div>
+            <strong class="tw:text-on-main">{{ selectedFile?.name }}</strong> will be attached as a
+            separate "Original PDF" section on Apply.
+          </div>
+        </div>
+
+        <div v-if="usage" class="tw:text-xs tw:text-secondary">
+          Source: {{ extracted?.pageCount }} pages · Tokens used: {{ usage.inputTokens }} in /
+          {{ usage.outputTokens }} out
+        </div>
+      </div>
+    </template>
+
     <template #footer>
       <template v-if="phase === 'pick'">
         <BaseButton variant="outline" @click="discard">Cancel</BaseButton>
@@ -420,7 +546,9 @@ const parseProgressPct = computed(() => {
           Import
         </BaseButton>
       </template>
-      <template v-else-if="phase === 'parsing' || phase === 'structuring'">
+      <template
+        v-else-if="phase === 'parsing' || phase === 'structuring' || phase === 'summarizing'"
+      >
         <BaseButton variant="outline" disabled>Cancel</BaseButton>
         <BaseButton disabled>Working…</BaseButton>
       </template>
@@ -431,15 +559,15 @@ const parseProgressPct = computed(() => {
           Try again
         </BaseButton>
       </template>
-      <template v-else-if="phase === 'result'">
-        <BaseButton variant="outline" @click="regenerate">
+      <template v-else-if="phase === 'result' || phase === 'summaryResult'">
+        <BaseButton variant="outline" :disabled="applying" @click="regenerate">
           <IconRefresh :size="14" class="tw:mr-1" />
-          Re-structure
+          {{ phase === 'summaryResult' ? 'Re-summarise' : 'Re-structure' }}
         </BaseButton>
-        <BaseButton variant="outline" @click="discard">Discard</BaseButton>
-        <BaseButton @click="applyDraft">
+        <BaseButton variant="outline" :disabled="applying" @click="discard">Discard</BaseButton>
+        <BaseButton :disabled="applying" @click="applyDraft">
           <IconCheck :size="14" class="tw:mr-1" />
-          Apply to Form
+          {{ applying ? 'Uploading…' : 'Apply to Form' }}
         </BaseButton>
       </template>
     </template>
