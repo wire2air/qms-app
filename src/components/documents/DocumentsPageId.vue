@@ -78,27 +78,13 @@ function versionLabelFor(v) {
   return v.versionLabel || `${v.versionMajor ?? '?'}.${v.versionMinor ?? '?'}`
 }
 
-// Print flow has two modes:
-//   - Document only (default): open the print route, browser handles it
-//     same as today with window.print().
-//   - With attachments: same route + ?attachments=1 — DocumentPrint
-//     skips the browser print dialog and generates a single combined
-//     PDF (main body + each attached PDF/image inline + a reference
-//     page for non-PDF/non-image attachments).
-// Shown via a small confirm dialog so the user picks each time. The
-// answer is intentionally not remembered — controlled documents print
-// with attachments only when the reviewer explicitly wants the binder.
-const showPrintDialog = ref(false)
 function openPrintView() {
   if (!document.value?.id) return
-  showPrintDialog.value = true
-}
-function performPrint({ withAttachments }) {
-  showPrintDialog.value = false
-  if (!document.value?.id) return
+  // Centralised print: /<companyCode>/print?module=Document&id=...&versionId=...
+  // The print module registry (components/print/modules/index.js) dispatches
+  // to DocumentPrint.vue, which wraps PrintLayout for shared chrome.
   const params = new URLSearchParams({ module: 'Document', id: document.value.id })
   if (selectedVersion.value?.id) params.set('versionId', selectedVersion.value.id)
-  if (withAttachments) params.set('attachments', '1')
   const url = getCompanyPath(`/print?${params.toString()}`)
   window.open(url, '_blank', 'noopener,noreferrer')
 }
@@ -628,26 +614,6 @@ async function handleNewVersionConfirm(changeControl) {
         :fromVersionLabel="fromVersionLabel"
         @confirm="handleNewVersionConfirm"
       />
-
-      <BaseDialog v-model="showPrintDialog" title="Print Document" maxWidth="md">
-        <div class="tw:flex tw:flex-col tw:gap-3">
-          <p class="tw:text-sm tw:text-on-main">
-            Print this document on its own, or generate a single combined PDF that includes
-            every attachment in section order. PDF and image attachments are merged inline;
-            Excel / Word and other formats are listed by name in a reference appendix at the
-            end so the audit trail still cites them.
-          </p>
-        </div>
-        <template #footer="{ close }">
-          <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-          <BaseButton variant="outline" @click="performPrint({ withAttachments: false })">
-            Print document only
-          </BaseButton>
-          <BaseButton variant="primary" @click="performPrint({ withAttachments: true })">
-            Print with attachments
-          </BaseButton>
-        </template>
-      </BaseDialog>
     </div>
   </div>
 </template>
