@@ -54,19 +54,34 @@ const SUMMARY_THRESHOLD_CHARS = 40_000
 // "took too long" error so the dialog never spins indefinitely.
 const AI_REQUEST_TIMEOUT_MS = 120_000
 
-// Phases: pick → parsing → structuring | summarizing → result | summaryResult → error
+// Phases:
+//   pick           — file picker + mode chooser (after file selected)
+//   uploading      — uploading the original PDF as ASSET (attachment-only path)
+//   parsing        — pdfjs extracting text + images (best-effort path)
+//   structuring    — AI breaking small PDF into sections (best-effort path)
+//   summarizing    — AI summarising large PDF (best-effort path)
+//   result         — structured preview ready to apply
+//   summaryResult  — summary preview ready to apply
+//   error          — recoverable error; retry possible
 const phase = ref('pick')
 const error = ref(null)
 const progress = ref({ current: 0, total: 0, message: '' })
+
+const toast = useToast()
 
 const selectedFile = ref(null)
 const extracted = ref(null) // { text, pageCount, imageCount, filename }
 const result = ref(null) // structured: { title, description, sections: [...] }
                         // summary:    { title, description, summary: '<html>' }
 const usage = ref(null)
-// 'structured' (existing behaviour) | 'summary' (large-PDF path).
-// Decided automatically after parsing based on extracted text size.
+// 'attachment'  — user chose to attach the PDF without AI parsing
+// 'structured'  — small PDF, AI structures into sections
+// 'summary'     — large PDF, AI summarises and attaches PDF as a section
 const mode = ref(null)
+// Shared "we're writing somewhere right now" lock used by attach-only's
+// upload step and applyDraft's PDF upload step. Declared up-front so
+// runAttachOnly can read it without TDZ pitfalls.
+const applying = ref(false)
 
 watch(show, (open) => {
   if (open) {
@@ -92,6 +107,55 @@ function pickFile() {
   input.click()
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Mode 1: attach-only. Skip pdfjs and AI entirely — upload the PDF as an
+// ASSET and emit a single attachment-type section carrying it. Fast,
+// reliable, never drops images, never times out on the AI. Recommended
+// for documents where the binary IS the canonical record (regulatory
+// packs, supplier specs, signed-and-scanned procedures).
+// ──────────────────────────────────────────────────────────────────────
+async function runAttachOnly() {
+  if (!selectedFile.value || applying.value) return
+  error.value = null
+  mode.value = 'attachment'
+  phase.value = 'uploading'
+  applying.value = true
+  try {
+    const upload = await uploadFile(selectedFile.value, 'ASSET')
+    if (!upload.success || !upload.asset) {
+      error.value = {
+        stage: 'uploading',
+        message: upload.error ?? 'Failed to upload the PDF.',
+      }
+      phase.value = 'error'
+      return
+    }
+    const titleGuess = selectedFile.value.name.replace(/\.pdf$/i, '')
+    emit('apply', {
+      title: titleGuess,
+      description: '',
+      sections: [
+        {
+          title: 'Original PDF',
+          content: null,
+          sectionType: 'attachment',
+          attachments: [upload.asset],
+          order: 1,
+        },
+      ],
+    })
+    show.value = false
+  } finally {
+    applying.value = false
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Mode 2: best-effort parsing. Try to break the doc into editable
+// sections (or summarise if it's too big). If anything along that path
+// fails — pdfjs error, AI timeout, validation failure — silently fall
+// back to attach-only so the user still gets the PDF into the form.
+// ──────────────────────────────────────────────────────────────────────
 async function runImport() {
   if (!selectedFile.value) return
   error.value = null
@@ -107,24 +171,19 @@ async function runImport() {
       }
     })
   } catch (e) {
-    error.value = {
-      stage: 'parsing',
-      message: e?.message || 'Failed to parse PDF. The file may be corrupted or password-protected.',
-    }
-    phase.value = 'error'
+    await fallbackToAttach(
+      `Couldn't parse the PDF (${e?.message ?? 'unknown error'}). Attaching as-is.`,
+    )
     return
   }
 
   // Sanity: if extraction produced almost no text, it's likely a scanned
-  // PDF without an OCR layer. Surface a clear error so the user knows
-  // what's happening rather than letting the AI guess at empty input.
+  // PDF without an OCR layer. Skip the AI step and degrade to attach-only
+  // — the binary is still useful even if text extraction was empty.
   if (!extracted.value?.text || extracted.value.text.length < 50) {
-    error.value = {
-      stage: 'parsing',
-      message:
-        'Extracted very little text from the PDF. This is usually a scanned document without an OCR text layer. Run it through an OCR tool first and try again.',
-    }
-    phase.value = 'error'
+    await fallbackToAttach(
+      "PDF didn't have an OCR text layer (likely a scanned doc). Attaching as-is.",
+    )
     return
   }
 
@@ -178,12 +237,14 @@ async function runAiStage() {
     })
     const json = await res.json().catch(() => null)
     if (!res.ok) {
-      error.value = {
-        stage: isSummary ? 'summarizing' : 'structuring',
-        message: json?.error?.message ?? `Request failed (${res.status}).`,
-        code: json?.error?.code ?? `HTTP_${res.status}`,
-      }
-      phase.value = 'error'
+      // Server told us the request failed (413, 400, 503, 5xx, etc.).
+      // Degrade to attach-only — the user picked best-effort knowing it
+      // might not finish; getting the binary into the form is the
+      // baseline guarantee.
+      const detail = json?.error?.message ?? `Request failed (${res.status}).`
+      clearTimeout(timeoutId)
+      aiAbortController.value = null
+      await fallbackToAttach(`AI didn't accept the request (${detail}). Attaching as-is.`)
       return
     }
     result.value = json.result
@@ -196,19 +257,32 @@ async function runAiStage() {
     // authoritative "was this an abort?" signal.
     const aborted = controller.signal.aborted || e?.name === 'AbortError'
     const reason = controller.signal.reason
-    error.value = {
-      stage: isSummary ? 'summarizing' : 'structuring',
-      message: aborted
-        ? reason === 'user-cancelled'
-          ? 'Cancelled.'
-          : `The AI service didn't respond within ${Math.round(AI_REQUEST_TIMEOUT_MS / 1000)}s. Check the api / worker logs and try again — large PDFs can stall the provider; smaller ones should come back in 15–45s.`
-        : (e?.message ?? 'Network error.'),
+    if (aborted && reason === 'user-cancelled') {
+      // User explicitly bailed — show the error phase so they can choose
+      // what to do next, don't silently restart with attach-only.
+      error.value = { stage: isSummary ? 'summarizing' : 'structuring', message: 'Cancelled.' }
+      phase.value = 'error'
+    } else {
+      const detail = aborted
+        ? `AI didn't respond within ${Math.round(AI_REQUEST_TIMEOUT_MS / 1000)}s`
+        : (e?.message ?? 'network error')
+      clearTimeout(timeoutId)
+      aiAbortController.value = null
+      await fallbackToAttach(`${detail}. Attaching the PDF as-is instead.`)
+      return
     }
-    phase.value = 'error'
   } finally {
     clearTimeout(timeoutId)
     aiAbortController.value = null
   }
+}
+
+// Shared fallback path — toast the reason, then run the attach-only
+// upload + apply flow so the user still walks away with the PDF in
+// the form. Re-uses runAttachOnly for the actual upload work.
+async function fallbackToAttach(message) {
+  toast.info(message)
+  await runAttachOnly()
 }
 
 function regenerate() {
@@ -234,8 +308,6 @@ function markdownToHtml(md) {
     FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'form'],
   })
 }
-
-const applying = ref(false)
 
 async function applyDraft() {
   if (!result.value || applying.value) return
@@ -364,32 +436,82 @@ const parseProgressPct = computed(() => {
       </div>
     </template>
 
-    <!-- Phase: file picker -->
+    <!-- Phase: file picker + mode chooser -->
     <template v-if="phase === 'pick'">
       <div class="tw:flex tw:flex-col tw:gap-4">
-        <div class="tw:text-sm tw:text-secondary tw:leading-relaxed">
-          Upload an SOP, work instruction, or policy PDF. We'll extract text + images, then use AI
-          to structure it into editable sections. You'll review before saving — nothing is created
-          automatically.
-        </div>
-
         <div
-          class="tw:rounded-xl tw:border-2 tw:border-dashed tw:border-divider tw:bg-sidebar tw:p-8 tw:flex tw:flex-col tw:items-center tw:justify-center tw:gap-3 tw:cursor-pointer tw:hover:border-primary/40 tw:transition-colors"
+          class="tw:rounded-xl tw:border-2 tw:border-dashed tw:border-divider tw:bg-sidebar tw:p-6 tw:flex tw:flex-col tw:items-center tw:justify-center tw:gap-3 tw:cursor-pointer tw:hover:border-primary/40 tw:transition-colors"
           @click="pickFile"
         >
-          <IconFile :size="40" class="tw:text-secondary" />
+          <IconFile :size="32" class="tw:text-secondary" />
           <div class="tw:text-center">
             <div class="tw:text-sm tw:font-semibold tw:text-on-main">
               {{ selectedFile ? selectedFile.name : 'Pick a PDF to import' }}
             </div>
             <div v-if="selectedFile" class="tw:text-xs tw:text-secondary tw:mt-0.5">
-              {{ fileSizeLabel }}
+              {{ fileSizeLabel }} · click to change
             </div>
             <div v-else class="tw:text-xs tw:text-secondary tw:mt-0.5">
-              Max 100 MB · text-based PDFs work best (scanned PDFs need OCR first)
+              Max 100 MB · text-based PDFs parse best (scanned PDFs need OCR first)
             </div>
           </div>
         </div>
+
+        <!-- Mode chooser: only after a file is selected. Two big cards so
+             the choice is explicit; attach-only is the recommended
+             default because it's always reliable. -->
+        <template v-if="selectedFile">
+          <div
+            class="tw:text-[11px] tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide tw:mt-1"
+          >
+            How would you like to import it?
+          </div>
+          <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+            <!-- Option 1 (recommended): Attach as-is -->
+            <button
+              class="tw:text-left tw:p-4 tw:rounded-xl tw:border-2 tw:border-primary tw:bg-primary/5 tw:hover:bg-primary/10 tw:transition-colors tw:flex tw:flex-col tw:gap-2 tw:cursor-pointer"
+              @click="runAttachOnly"
+            >
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <IconPaperclip :size="18" class="tw:text-primary" />
+                <div class="tw:text-sm tw:font-bold tw:text-on-main">
+                  Import as attachment
+                </div>
+                <span
+                  class="tw:text-[10px] tw:px-1.5 tw:py-0.5 tw:rounded tw:bg-primary tw:text-white tw:font-semibold"
+                >
+                  Recommended
+                </span>
+              </div>
+              <div class="tw:text-xs tw:text-secondary tw:leading-relaxed">
+                Upload the PDF and attach it to a single "Original PDF" section. Fast, always
+                works, preserves every page and image exactly as in the source. Use when the
+                PDF itself is the canonical record.
+              </div>
+            </button>
+
+            <!-- Option 2: Best-effort parse -->
+            <button
+              class="tw:text-left tw:p-4 tw:rounded-xl tw:border tw:border-divider tw:hover:border-primary/40 tw:hover:bg-main-hover tw:transition-colors tw:flex tw:flex-col tw:gap-2 tw:cursor-pointer"
+              @click="runImport"
+            >
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <IconSparkles :size="18" class="tw:text-primary" />
+                <div class="tw:text-sm tw:font-bold tw:text-on-main">
+                  Parse with AI (best effort)
+                </div>
+              </div>
+              <div class="tw:text-xs tw:text-secondary tw:leading-relaxed">
+                Extract text + images and use AI to structure the document into editable
+                sections (or a summary for large docs).
+                <span class="tw:text-amber-700">
+                  May miss embedded images on complex layouts. If parsing fails or the PDF is
+                  too large, we'll fall back to attaching it as-is.
+                </span>
+              </div>
+            </button>
+          </div>
+        </template>
 
         <div
           v-if="error"
@@ -397,6 +519,19 @@ const parseProgressPct = computed(() => {
         >
           <IconAlertTriangle :size="16" class="tw:mt-0.5 tw:flex-none" />
           <div>{{ error.message }}</div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Phase: uploading (attach-only) -->
+    <template v-else-if="phase === 'uploading'">
+      <div class="tw:flex tw:flex-col tw:items-center tw:gap-4 tw:py-10">
+        <IconLoader2 :size="40" class="tw:text-primary tw:animate-spin" />
+        <div class="tw:text-center">
+          <div class="tw:text-sm tw:font-semibold tw:text-on-main">Uploading PDF…</div>
+          <div class="tw:text-xs tw:text-secondary tw:mt-1">
+            {{ selectedFile?.name }} ({{ fileSizeLabel }})
+          </div>
         </div>
       </div>
     </template>
@@ -582,13 +717,11 @@ const parseProgressPct = computed(() => {
 
     <template #footer>
       <template v-if="phase === 'pick'">
+        <!-- No primary action here — the two mode cards in the body
+             are the action. Footer just provides an exit. -->
         <BaseButton variant="outline" @click="discard">Cancel</BaseButton>
-        <BaseButton :disabled="!selectedFile" @click="runImport">
-          <IconSparkles :size="14" class="tw:mr-1" />
-          Import
-        </BaseButton>
       </template>
-      <template v-else-if="phase === 'parsing'">
+      <template v-else-if="phase === 'parsing' || phase === 'uploading'">
         <BaseButton variant="outline" disabled>Cancel</BaseButton>
         <BaseButton disabled>Working…</BaseButton>
       </template>
