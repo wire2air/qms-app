@@ -125,6 +125,7 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
             v-if="isOwner"
             :modelValue="currentAssignee(step.id)"
             :roleIdsFilter="rolesForStep(step.id)"
+            :required="true"
             @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
           />
           <div v-else class="tw:flex tw:items-center tw:gap-2">
