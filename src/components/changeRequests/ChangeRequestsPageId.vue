@@ -262,8 +262,6 @@ const sourceCapa = useLiveQueryWithDeps(
 // ─── Editing toggles for inline fields ───────────────────────────────────────
 const editingTitle = ref(false)
 const editingDescription = ref(false)
-const editingReason = ref(false)
-const editingJustification = ref(false)
 </script>
 
 <template>
@@ -458,43 +456,35 @@ const editingJustification = ref(false)
                 <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">
                   Reason for Change
                 </div>
-                <BaseTextarea
-                  v-if="editingReason && isEditable"
-                  v-model="cr.reasonForChange"
-                  placeholder="What's driving this change?"
-                  autofocus
-                  :rows="3"
-                  @blur="editingReason = false"
+                <div v-if="isEditable" class="cr-detail-editor">
+                  <TiptapEditor
+                    v-model="cr.reasonForChange"
+                    placeholder="What's driving this change?"
+                  />
+                </div>
+                <div
+                  v-else-if="cr.reasonForChange"
+                  class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:prose tw:max-w-none"
+                  v-html="cr.reasonForChange"
                 />
-                <p
-                  v-else
-                  class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:whitespace-pre-wrap"
-                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                  @click="isEditable && (editingReason = true)"
-                >
-                  {{ cr.reasonForChange || (isEditable ? 'Add reason…' : '—') }}
-                </p>
+                <p v-else class="tw:text-sm tw:text-secondary">—</p>
               </div>
               <div>
                 <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">
                   Business Justification
                 </div>
-                <BaseTextarea
-                  v-if="editingJustification && isEditable"
-                  v-model="cr.businessJustification"
-                  placeholder="Cost / quality / compliance impact"
-                  autofocus
-                  :rows="3"
-                  @blur="editingJustification = false"
+                <div v-if="isEditable" class="cr-detail-editor">
+                  <TiptapEditor
+                    v-model="cr.businessJustification"
+                    placeholder="Cost / quality / compliance impact"
+                  />
+                </div>
+                <div
+                  v-else-if="cr.businessJustification"
+                  class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:prose tw:max-w-none"
+                  v-html="cr.businessJustification"
                 />
-                <p
-                  v-else
-                  class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:whitespace-pre-wrap"
-                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                  @click="isEditable && (editingJustification = true)"
-                >
-                  {{ cr.businessJustification || (isEditable ? 'Add justification…' : '—') }}
-                </p>
+                <p v-else class="tw:text-sm tw:text-secondary">—</p>
               </div>
             </div>
 
@@ -699,3 +689,10 @@ const editingJustification = ref(false)
     />
   </div>
 </template>
+
+<style scoped>
+.cr-detail-editor :deep(.tiptap-editor-content) {
+  max-height: 12rem;
+  overflow-y: auto;
+}
+</style>
