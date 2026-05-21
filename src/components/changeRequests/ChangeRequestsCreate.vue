@@ -225,7 +225,13 @@ async function handleSubmit() {
                 v-model="form.classification"
                 :items="CLASSIFICATIONS"
                 nullLabel="— Select classification —"
-              />
+              >
+                <template #button="{ selected: id }">
+                  <BaseBadge selectable>
+                    {{ CLASSIFICATIONS.find((c) => c.id === id)?.name || id }}
+                  </BaseBadge>
+                </template>
+              </BaseSelectMenu>
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
@@ -242,7 +248,16 @@ async function handleSubmit() {
                 :items="workflowVersionOptions"
                 :required="true"
                 nullLabel="— Select workflow —"
-              />
+              >
+                <template #button="{ selected: id }">
+                  <BaseBadge v-if="id" selectable>
+                    {{ workflowVersionOptions.find((o) => o.id === id)?.name || id }}
+                  </BaseBadge>
+                  <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
+                    Select workflow
+                  </span>
+                </template>
+              </BaseSelectMenu>
             </div>
           </div>
 
