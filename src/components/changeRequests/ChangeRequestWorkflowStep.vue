@@ -15,7 +15,6 @@ import {
 } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
-import DynamicForm from '@/components/form/DynamicForm.js'
 
 const props = defineProps({
   instanceStepId: { type: String, required: true },
@@ -321,21 +320,37 @@ function getStatusLabel(statusId) {
       v-html="instanceStep.description"
     />
 
-    <!-- Step form preview (read-only). CR v2 doesn't persist per-user
-         form responses yet — this just surfaces what the assignee will
-         see / be asked. Mark Complete still works on a comment alone. -->
+    <!-- Assignee call-to-action: CR steps don't have a per-user form,
+         so the Mark Complete dialog (comment + optional e-sign) is the
+         single approve action. Surface this directly inside the step
+         body so it reads as the approval gate, not a hidden header
+         link. -->
     <div
-      v-if="instanceStep.formSchema?.length"
-      class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-main-hover/30 tw:mb-3"
+      v-if="canActOnStep"
+      class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:px-4 tw:py-3 tw:rounded-lg tw:border tw:border-primary/20 tw:bg-primary/5 tw:mb-3"
     >
-      <div
-        class="tw:text-[10px] tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:mb-2"
-      >
-        Step form ({{ instanceStep.formSchema.length }} field{{
-          instanceStep.formSchema.length === 1 ? '' : 's'
-        }})
+      <div class="tw:text-sm tw:text-on-main">
+        <span class="tw:font-semibold">You're the assignee on this step.</span>
+        <span class="tw:text-secondary tw:ml-1">
+          Add your {{ requireEsignature ? 'sign-off' : 'notes' }} and complete to advance.
+        </span>
       </div>
-      <DynamicForm :fields="instanceStep.formSchema" :modelValue="{}" readonly />
+      <BaseButton
+        variant="primary"
+        size="sm"
+        :disabled="completing || childrenBlock"
+        :title="childrenBlock ? 'All sub-tasks must be completed first' : undefined"
+        @click="onCompleteClick"
+      >
+        <template #icon><IconCheck :size="14" /></template>
+        {{
+          completing
+            ? 'Completing…'
+            : requireEsignature
+              ? 'Sign &amp; Complete'
+              : 'Mark Complete'
+        }}
+      </BaseButton>
     </div>
 
     <!-- Child sub-tasks list when this stage allows them -->
