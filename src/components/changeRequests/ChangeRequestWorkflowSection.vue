@@ -1,16 +1,23 @@
 <script setup>
 /**
- * Live workflow display for a CR. Shows the workflow instance's steps
- * with their status, current assignee, and progress. Action buttons
- * (reassign, send back, etc.) are deferred to a P2 — for now, reviewers
- * action their tasks via the My Tasks inbox, which routes back here.
+ * Live workflow detail for a Change Request. Renders each step as a
+ * full ChangeRequestWorkflowStep card with inline action buttons
+ * (Mark Complete, Reopen, Reassign, Cancel) and child sub-tasks for
+ * the Implementation stage.
+ *
+ * Reassign is owned by this section (owner clicks on a step → emits
+ * to parent which mounts the shared picker dialog). Same pattern as
+ * CapaWorkflowDetail.
  */
-import { IconCheck, IconClock, IconLoader2, IconBan, IconArrowBackUp } from '@tabler/icons-vue'
+import { post } from '@/api'
 
 const props = defineProps({
   crId: { type: String, required: true },
   workflowInstanceId: { type: String, default: null },
+  isOwner: { type: Boolean, default: false },
 })
+
+const toast = useToast()
 
 const steps = useLiveQueryWithDeps(
   [() => props.workflowInstanceId],
@@ -19,8 +26,8 @@ const steps = useLiveQueryWithDeps(
     const all = await db.WorkflowInstanceStep.where('workflowInstanceId', id)
       .orderBy('stepNumber', 'asc')
       .exec()
-    // Latest per stepId (handle send-back churn) + only roots; child
-    // sub-tasks render nested below their parent.
+    // Collapse to latest instance per stepId (send-back churn) +
+    // only roots — children render nested inside their parent.
     const latestByStepId = new Map()
     for (const s of all) {
       const existing = latestByStepId.get(s.stepId)
@@ -35,103 +42,174 @@ const steps = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-function statusClass(statusId) {
-  return {
-    'tw:bg-blue-100 tw:text-blue-700': statusId === 'IN_PROGRESS',
-    'tw:bg-gray-100 tw:text-gray-600': statusId === 'PENDING',
-    'tw:bg-green-100 tw:text-green-700': statusId === 'APPROVED',
-    'tw:bg-red-100 tw:text-red-700':
-      statusId === 'CANCELLED' || statusId === 'REJECTED',
-    'tw:bg-orange-100 tw:text-orange-700': statusId === 'SENT_BACK',
-  }
+// ─── Reassign dialog (owner) ─────────────────────────────────────────────────
+const showReassignDialog = ref(false)
+const reassignStepInstanceId = ref(null)
+const reassignToUserId = ref(null)
+const reassigning = ref(false)
+
+const reassignInstanceStep = useLiveQueryWithDeps(
+  [() => reassignStepInstanceId.value],
+  async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+)
+
+const reassignTemplateRoles = useLiveQueryWithDeps(
+  [() => reassignInstanceStep.value?.stepId],
+  async (db, [stepId]) => {
+    if (!stepId) return []
+    return db.WorkflowStepRole.where('stepId', stepId).exec()
+  },
+  { initial: [] },
+)
+const reassignAdHocRoles = useLiveQueryWithDeps(
+  [() => reassignStepInstanceId.value],
+  async (db, [id]) => {
+    if (!id) return []
+    return db.RoleOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
+  },
+  { initial: [] },
+)
+const reassignEffectiveRoleIds = computed(() => {
+  const set = new Set([
+    ...reassignTemplateRoles.value.map((r) => r.roleId),
+    ...reassignAdHocRoles.value.map((r) => r.roleId),
+  ])
+  return [...set]
+})
+
+const reassignCandidates = useLiveQueryWithDeps(
+  [() => reassignEffectiveRoleIds.value.join(',')],
+  async (db, [roleIdsStr]) => {
+    if (!roleIdsStr) return []
+    const roleIds = roleIdsStr.split(',')
+    const rolesOnUsers = await Promise.all(
+      roleIds.map((id) => db.RoleOnUser.where('roleId', id).exec()),
+    )
+    const userIds = [...new Set(rolesOnUsers.flat().map((r) => r.userId))]
+    const users = await Promise.all(userIds.map((id) => db.User.findByPk(id)))
+    return users.filter(Boolean)
+  },
+  { initial: [] },
+)
+
+const currentlyAssignedUserIds = useLiveQueryWithDeps(
+  [() => reassignStepInstanceId.value],
+  async (db, [id]) => {
+    if (!id) return []
+    const assignments = await db.UserOnWorkflowInstanceStep.where(
+      'workflowInstanceStepId',
+      id,
+    ).exec()
+    // Only ACTIVE assignments block a reassign. REJECTED / CANCELLED /
+    // REASSIGNED are terminal history.
+    const TERMINAL = new Set(['REASSIGNED', 'REJECTED', 'CANCELLED'])
+    return assignments.filter((a) => !TERMINAL.has(a.statusId)).map((a) => a.userId)
+  },
+  { initial: [] },
+)
+
+function isUserAlreadyAssigned(userId) {
+  return currentlyAssignedUserIds.value.includes(userId)
 }
 
-function statusLabel(statusId) {
-  if (!statusId) return '—'
-  if (statusId === 'APPROVED') return 'Completed'
-  return statusId.replace('_', ' ')
+function openReassignDialog(instanceStepId) {
+  reassignStepInstanceId.value = instanceStepId
+  reassignToUserId.value = null
+  showReassignDialog.value = true
+}
+
+async function handleReassign() {
+  if (!reassignStepInstanceId.value || !reassignToUserId.value) return
+  reassigning.value = true
+  try {
+    await post(`/v1/services/changeRequests/${props.crId}/reassignStepReviewer`, {
+      workflowInstanceStepId: reassignStepInstanceId.value,
+      toUserId: reassignToUserId.value,
+    })
+    showReassignDialog.value = false
+    toast.success('Reviewer reassigned')
+  } catch (e) {
+    toast.error(e.message || 'Failed to reassign reviewer')
+  } finally {
+    reassigning.value = false
+  }
 }
 </script>
 
 <template>
-  <div
-    v-if="workflowInstanceId"
-    class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-  >
+  <div class="tw:contents">
+    <template v-if="steps.length">
+      <ChangeRequestWorkflowStep
+        v-for="(step, idx) in steps"
+        :key="step.id"
+        :instanceStepId="step.id"
+        :crId="crId"
+        :isOwner="isOwner"
+        :displayNumber="String(idx + 1)"
+        @reassign="openReassignDialog"
+      />
+    </template>
     <div
-      class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+      v-else-if="workflowInstanceId"
+      class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:text-sm tw:text-secondary tw:italic"
     >
-      <h3 class="tw:text-sm tw:font-bold tw:text-on-main">Workflow Progress</h3>
-      <span class="tw:text-xs tw:text-secondary">
-        {{ steps.length }} step{{ steps.length === 1 ? '' : 's' }}
-      </span>
-    </div>
-
-    <div v-if="!steps.length" class="tw:text-sm tw:text-secondary tw:italic">
       No workflow steps to show yet.
     </div>
 
-    <div v-else class="tw:flex tw:flex-col tw:gap-3">
-      <div
-        v-for="step in steps"
-        :key="step.id"
-        class="tw:flex tw:items-start tw:gap-3 tw:px-4 tw:py-3 tw:rounded-lg tw:border tw:border-divider"
-      >
-        <div class="tw:shrink-0 tw:mt-0.5">
-          <div
-            v-if="step.statusId === 'APPROVED'"
-            class="tw:size-7 tw:rounded-full tw:bg-green-500 tw:flex tw:items-center tw:justify-center"
+    <!-- Reassign dialog -->
+    <BaseDialog v-model="showReassignDialog" title="Reassign Task" maxWidth="md">
+      <div class="tw:mb-4">
+        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-2">
+          Select new reviewer <span class="tw:text-red-500">*</span>
+        </label>
+        <div class="tw:flex tw:flex-col tw:gap-2">
+          <label
+            v-for="user in reassignCandidates"
+            :key="user.id"
+            class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:px-3 tw:py-2 tw:border tw:transition-colors"
+            :class="[
+              isUserAlreadyAssigned(user.id)
+                ? 'tw:border-divider tw:bg-main-hover/40 tw:opacity-70 tw:cursor-not-allowed'
+                : reassignToUserId === user.id
+                  ? 'tw:border-primary tw:bg-primary/5 tw:cursor-pointer'
+                  : 'tw:border-divider tw:hover:bg-main-hover tw:cursor-pointer',
+            ]"
           >
-            <IconCheck :size="14" class="tw:text-white" stroke-width="3" />
-          </div>
-          <div
-            v-else-if="step.statusId === 'IN_PROGRESS'"
-            class="tw:size-7 tw:rounded-full tw:border-2 tw:border-blue-400 tw:flex tw:items-center tw:justify-center"
-          >
-            <IconLoader2 :size="14" class="tw:text-blue-600 tw:animate-spin" />
-          </div>
-          <div
-            v-else-if="step.statusId === 'SENT_BACK'"
-            class="tw:size-7 tw:rounded-full tw:border-2 tw:border-amber-400 tw:flex tw:items-center tw:justify-center"
-          >
-            <IconArrowBackUp :size="14" class="tw:text-amber-600" />
-          </div>
-          <div
-            v-else-if="step.statusId === 'CANCELLED'"
-            class="tw:size-7 tw:rounded-full tw:bg-red-100 tw:flex tw:items-center tw:justify-center"
-          >
-            <IconBan :size="14" class="tw:text-red-600" />
-          </div>
-          <div
-            v-else
-            class="tw:size-7 tw:rounded-full tw:border-2 tw:border-gray-300 tw:bg-white tw:flex tw:items-center tw:justify-center"
-          >
-            <IconClock :size="14" class="tw:text-gray-400" />
-          </div>
+            <input
+              v-model="reassignToUserId"
+              type="radio"
+              :value="user.id"
+              :disabled="isUserAlreadyAssigned(user.id)"
+              class="tw:accent-primary"
+            />
+            <div class="tw:flex-1 tw:min-w-0">
+              <div class="tw:text-sm tw:font-medium tw:text-on-main">
+                {{ [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email }}
+                <span
+                  v-if="isUserAlreadyAssigned(user.id)"
+                  class="tw:text-[10px] tw:font-medium tw:text-secondary tw:ml-1"
+                >
+                  (Currently assigned)
+                </span>
+              </div>
+              <div class="tw:text-xs tw:text-secondary tw:truncate">{{ user.email }}</div>
+            </div>
+          </label>
+          <p v-if="!reassignCandidates.length" class="tw:text-sm tw:text-secondary">
+            No users hold the role(s) required for this step.
+          </p>
         </div>
-
-        <div class="tw:flex-1 tw:min-w-0">
-          <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-            <span class="tw:text-sm tw:font-semibold tw:text-on-main">
-              {{ step.stepNumber }}. {{ step.name || 'Step' }}
-            </span>
-            <BaseBadge class="tw:text-[10px]" :class="statusClass(step.statusId)">
-              {{ statusLabel(step.statusId) }}
-            </BaseBadge>
-          </div>
-          <div
-            v-if="step.description"
-            class="tw:text-xs tw:text-secondary tw:mt-1 tw:line-clamp-2"
-          >
-            {{ step.description }}
-          </div>
-        </div>
-
-        <ChangeRequestWorkflowStepAssignees
-          :instanceStepId="step.id"
-          class="tw:shrink-0"
-        />
       </div>
-    </div>
+      <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
+        <BaseButton variant="outline" @click="showReassignDialog = false">Cancel</BaseButton>
+        <BaseButton
+          variant="primary"
+          :disabled="!reassignToUserId || reassigning"
+          @click="handleReassign"
+        >
+          {{ reassigning ? 'Reassigning…' : 'Reassign' }}
+        </BaseButton>
+      </div>
+    </BaseDialog>
   </div>
 </template>

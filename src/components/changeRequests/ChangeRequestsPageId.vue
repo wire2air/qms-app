@@ -508,6 +508,7 @@ const editingJustification = ref(false)
               v-else-if="workflowInstance"
               :crId="id"
               :workflowInstanceId="workflowInstance.id"
+              :isOwner="isOwner"
             />
           </div>
 
