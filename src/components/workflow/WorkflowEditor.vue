@@ -57,7 +57,14 @@ const workflow = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
   db.Workflow.findByPk(id),
 )
 
-const WORKFLOW_MODULES_WITH_STEP_CONFIG = ['NON_CONFORMANCE', 'CAPA']
+// CC mirrors CAPA's authoring capabilities — full step config (outcomes,
+// send-back targets, form schema), opt-in child steps per root step, and
+// nested child-step rendering. Step type (ACTION / APPROVAL) is a
+// per-step toggle now, so we leave the approvalRule unforced for CC and
+// Document workflows and let the author pick ALL vs ANY on each APPROVAL
+// step. NC + CAPA keep their forced rule for backwards compat.
+const WORKFLOW_MODULES_WITH_STEP_CONFIG = ['NON_CONFORMANCE', 'CAPA', 'CHANGE_CONTROL']
+const MODULES_WITH_CHILD_STEPS = ['CAPA', 'CHANGE_CONTROL']
 const showAllowedOutcomes = computed(() =>
   WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
 )
@@ -67,19 +74,23 @@ const showSendBackTargets = computed(() =>
 const showFormSchema = computed(() =>
   WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
 )
-// CAPA workflows let a root step opt in to nested child steps — exposed as
-// a per-step checkbox. Other modules don't expose it.
-const showAllowChildSteps = computed(() => workflow.value?.moduleId === 'CAPA')
-const showChildSteps = computed(() => workflow.value?.moduleId === 'CAPA')
+const showAllowChildSteps = computed(() =>
+  MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId),
+)
+const showChildSteps = computed(() =>
+  MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId),
+)
 const stepApproversTab = computed(() => {
   if (workflow.value?.moduleId === 'NON_CONFORMANCE') return 'roles'
   if (workflow.value?.moduleId === 'CAPA') return 'roles'
+  if (workflow.value?.moduleId === 'CHANGE_CONTROL') return 'roles'
   return 'both'
 })
 const selectedApprovalRule = computed(() => {
   if (!workflow.value) return null
   if (workflow.value.moduleId === 'NON_CONFORMANCE') return 'ANY'
   if (workflow.value.moduleId === 'CAPA') return 'ALL'
+  // Document and Change Control let the author pick per APPROVAL step.
   return null
 })
 
