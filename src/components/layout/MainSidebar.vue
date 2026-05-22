@@ -31,6 +31,7 @@ import {
   IconLayoutGrid,
   IconSchool,
   IconReplace,
+  IconClipboardList,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { logoutCurrentSession, currentSession, isAllowed, isAdmin } from '@/utils/currentSession'
@@ -118,6 +119,16 @@ const navItems = computed(() => {
       permissions: ['changeRequests:read'],
       icon: IconReplace,
       to: getCompanyPath('/change-requests'),
+    },
+    {
+      label: 'Inspections & Logs',
+      icon: IconClipboardList,
+      // Single broadly-granted gate. The landing page itself shows /
+      // hides individual cards based on finer-grained permissions
+      // (inspections:assign for plans, fieldRecords:review for the
+      // review queue, etc.).
+      permissions: ['fieldRecords:create'],
+      to: getCompanyPath('/inspections-logs'),
     },
     {
       label: 'Training',

@@ -135,6 +135,34 @@ declare module 'vue-router/auto-routes' {
       { companyCode: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/[companyCode]/inspections-logs/': RouteRecordInfo<
+      '/[companyCode]/inspections-logs/',
+      '/:companyCode/inspections-logs',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/inspections-logs/form-assignments/': RouteRecordInfo<
+      '/[companyCode]/inspections-logs/form-assignments/',
+      '/:companyCode/inspections-logs/form-assignments',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/inspections-logs/form-assignments/[id]': RouteRecordInfo<
+      '/[companyCode]/inspections-logs/form-assignments/[id]',
+      '/:companyCode/inspections-logs/form-assignments/:id',
+      { companyCode: ParamValue<true>, id: ParamValue<true> },
+      { companyCode: ParamValue<false>, id: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/inspections-logs/form-assignments/create': RouteRecordInfo<
+      '/[companyCode]/inspections-logs/form-assignments/create',
+      '/:companyCode/inspections-logs/form-assignments/create',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
     '/[companyCode]/my-training/[id]': RouteRecordInfo<
       '/[companyCode]/my-training/[id]',
       '/:companyCode/my-training/:id',
@@ -458,6 +486,30 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[companyCode]/groups/[[id]].vue': {
       routes:
         | '/[companyCode]/groups/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/inspections-logs/index.vue': {
+      routes:
+        | '/[companyCode]/inspections-logs/'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/inspections-logs/form-assignments/index.vue': {
+      routes:
+        | '/[companyCode]/inspections-logs/form-assignments/'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/inspections-logs/form-assignments/[id].vue': {
+      routes:
+        | '/[companyCode]/inspections-logs/form-assignments/[id]'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/inspections-logs/form-assignments/create.vue': {
+      routes:
+        | '/[companyCode]/inspections-logs/form-assignments/create'
       views:
         | never
     }
