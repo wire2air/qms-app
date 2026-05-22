@@ -1,6 +1,6 @@
 <script setup>
 import { isAllowed } from '@/utils/currentSession'
-import { post as apiPost } from '@/api'
+import { patch as apiPatch } from '@/api'
 
 /**
  * Admin editor for a FormTemplate's Inspections & Logs config. All
@@ -49,7 +49,7 @@ async function save() {
   if (!props.template?.id || !canEdit.value) return
   isSaving.value = true
   try {
-    await apiPost(`/v1/services/formTemplates/${props.template.id}/classification`, {
+    await apiPatch(`/v1/services/formTemplates/${props.template.id}/classification`, {
       recordClassification: draft.value.recordClassification,
       editWindow: draft.value.editWindow,
       review: draft.value.review,
