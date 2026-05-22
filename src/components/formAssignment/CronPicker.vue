@@ -11,7 +11,9 @@
  * validates the syntax on submit and reports any errors).
  */
 
-const props = defineProps({
+// `timezone` is referenced in the template; no need to bind to a
+// `const props` since the script doesn't read it.
+defineProps({
   timezone: { type: String, default: 'UTC' },
 })
 

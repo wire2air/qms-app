@@ -264,11 +264,17 @@ function back() {
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
           >
             <option value="" disabled>Pick a form template…</option>
-            <option v-for="t in $db.FormTemplate ? [] : []" :key="t.id" :value="t.id">
-              {{ t.title }}
+            <option v-for="t in inspectionTemplates" :key="t.id" :value="t.id">
+              {{ t.title }} ({{ t.config?.recordClassification }})
             </option>
           </select>
-          <FormTemplateInlineSelect v-model="form.formTemplateId" />
+          <p
+            v-if="inspectionTemplates.length === 0"
+            class="tw:text-[11px] tw:text-red-600 tw:italic tw:mt-1"
+          >
+            No form templates classified as OPERATIONAL_LOG or CONTROLLED_RECORD yet. Open a form
+            template's detail page and set its classification in the Inspections &amp; Logs panel.
+          </p>
         </div>
       </div>
 
