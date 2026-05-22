@@ -131,6 +131,7 @@ declare module 'vue' {
     ChangeRequestWorkflowSection: typeof import('./src/components/changeRequests/ChangeRequestWorkflowSection.vue')['default']
     ChangeRequestWorkflowStep: typeof import('./src/components/changeRequests/ChangeRequestWorkflowStep.vue')['default']
     ChangeRequestWorkflowStepAssignees: typeof import('./src/components/changeRequests/ChangeRequestWorkflowStepAssignees.vue')['default']
+    ChangeRequestWorkflowStepForm: typeof import('./src/components/changeRequests/ChangeRequestWorkflowStepForm.vue')['default']
     ChangeTypeBadge: typeof import('./src/components/badges/ChangeTypeBadge.vue')['default']
     ChangeTypeBadgeById: typeof import('./src/components/badges/ChangeTypeBadgeById.vue')['default']
     ChangeTypeSelectMenu: typeof import('./src/components/menus/ChangeTypeSelectMenu.vue')['default']

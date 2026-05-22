@@ -10,6 +10,7 @@ declare global {
   const FIELD_TYPES: typeof import('./src/composables/useFormBuilder.js').FIELD_TYPES
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
+  const buildCombinedDocumentPdf: typeof import('./src/composables/useDocumentCombinedPdf.js').buildCombinedDocumentPdf
   const computed: typeof import('vue').computed
   const computedAsync: typeof import('@vueuse/core').computedAsync
   const computedEager: typeof import('@vueuse/core').computedEager
