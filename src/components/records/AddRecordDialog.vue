@@ -7,11 +7,36 @@ import {
   IconChevronRight,
   IconCircleCheck,
   IconFileText,
+  IconShieldLock,
 } from '@tabler/icons-vue'
+import { post } from '@/api'
 
 const emit = defineEmits(['created', 'close'])
 const model = defineModel({ type: Boolean, default: false })
 const toast = useToast()
+
+// E-sig dialog state for Inspections & Logs submissions. Pending data
+// holds the form payload so we can replay it after the user signs.
+const showEsignDialog = ref(false)
+const pendingEsignPayload = ref(null)
+
+/**
+ * Translate the workflowInstanceEsignAuthDialog's `verified` emit shape
+ * (which uses `{ method, provider, token }` and sends the password as
+ * `token`) into the flat `{ strategy, code, token, password }` esign
+ * sub-object that the backend signatureService expects.
+ */
+function buildEsignFromVerified(v) {
+  if (!v) return null
+  if (v.method === 'PASSWORD') return { password: v.token }
+  if (v.method === 'OAUTH' && v.provider === 'MICROSOFT') {
+    return { strategy: 'microsoft', token: v.token }
+  }
+  if (v.method === 'OAUTH' && v.provider === 'GOOGLE') {
+    return { strategy: 'google', code: v.token, token: v.token }
+  }
+  return v
+}
 
 // Dialog state
 const step = ref('select') // 'select' | 'form' | 'success'
@@ -68,15 +93,112 @@ const createRecord = useLiveMutation(async (db, { templateId, payload }) => {
   return record
 })
 
+/**
+ * Read the Inspections & Logs classification from the selected
+ * template's config (UTILITY / OPERATIONAL_LOG / CONTROLLED_RECORD).
+ * Defaults to UTILITY so templates that haven't been classified keep
+ * the existing legacy behaviour.
+ */
+const classification = computed(() => {
+  const cls = selectedTemplate.value?.config?.recordClassification
+  if (cls === 'OPERATIONAL_LOG' || cls === 'CONTROLLED_RECORD') return cls
+  return 'UTILITY'
+})
+
+const isInspectionRecord = computed(() => classification.value !== 'UTILITY')
+
+/**
+ * Does this template require a signature at submission?
+ *  - CONTROLLED_RECORD: always
+ *  - OPERATIONAL_LOG: only if config.signature.requiredAtSubmission = true
+ *  - UTILITY: never (and we route through the legacy path anyway)
+ */
+const requiresSignatureAtSubmit = computed(() => {
+  if (classification.value === 'CONTROLLED_RECORD') return true
+  if (classification.value === 'OPERATIONAL_LOG') {
+    return Boolean(selectedTemplate.value?.config?.signature?.requiredAtSubmission)
+  }
+  return false
+})
+
+const editWindow = computed(() => selectedTemplate.value?.config?.editWindow ?? null)
+
+/**
+ * INSPECTIONS & LOGS submission path. Calls POST /v1/services/fieldRecords
+ * with the proper payload. The backend enforces:
+ *   - CONTROLLED_RECORD or opted-in OPERATIONAL_LOG → requires esign
+ *   - Edit window computation (TIME_WINDOW / UNTIL_NEXT_ENTRY / UNTIL_REVIEW)
+ *   - Snapshot the form schema onto the new field_record row
+ *   - Write the INITIAL_SUBMIT revision in the same transaction
+ */
+async function submitFieldRecord(payload, esign) {
+  const body = {
+    formTemplateId: selectedTemplate.value.id,
+    payload,
+    submittedVia: 'MAIN_QMS',
+  }
+  if (esign) body.esign = esign
+
+  const res = await post('/v1/services/fieldRecords', body)
+  return res?.record ?? res
+}
+
 async function handleSubmit(data) {
+  // UTILITY templates keep the legacy SyncEngine path — they write to
+  // the `records` table and have no classification gating.
+  if (!isInspectionRecord.value) {
+    submitting.value = true
+    try {
+      const record = await createRecord({
+        templateId: selectedTemplate.value.id,
+        payload: data,
+      })
+      createdRecord.value = record
+      step.value = 'success'
+      emit('created', record)
+    } catch (err) {
+      toast.error(err.message || 'Failed to create record')
+    } finally {
+      submitting.value = false
+    }
+    return
+  }
+
+  // Inspections & Logs path. If a signature is required, hold the
+  // payload, pop the e-sig dialog, replay after `verified` fires.
+  if (requiresSignatureAtSubmit.value) {
+    pendingEsignPayload.value = data
+    showEsignDialog.value = true
+    return
+  }
+
+  // OPERATIONAL_LOG without esign requirement → submit straight away.
   submitting.value = true
   try {
-    const record = await createRecord({ templateId: selectedTemplate.value.id, payload: data })
+    const record = await submitFieldRecord(data, null)
     createdRecord.value = record
     step.value = 'success'
     emit('created', record)
   } catch (err) {
-    toast.error(err.message || 'Failed to create record')
+    toast.error(err?.message || 'Failed to submit record')
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function onEsignVerified(verified) {
+  const esign = buildEsignFromVerified(verified)
+  showEsignDialog.value = false
+  if (!pendingEsignPayload.value) return
+  submitting.value = true
+  try {
+    const record = await submitFieldRecord(pendingEsignPayload.value, esign)
+    createdRecord.value = record
+    pendingEsignPayload.value = null
+    step.value = 'success'
+    emit('created', record)
+  } catch (err) {
+    toast.error(err?.message || 'Submission failed after signature')
   } finally {
     submitting.value = false
   }
@@ -193,6 +315,27 @@ const templateSchema = computed(() => {
                 class="tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:mx-auto"
                 style="max-width: 800px"
               >
+                <!-- Inspections & Logs banner: only shows for non-UTILITY templates -->
+                <div
+                  v-if="isInspectionRecord"
+                  class="tw:px-4 tw:py-2.5 tw:border-b tw:border-divider tw:bg-amber-50 tw:text-amber-900 tw:flex tw:items-start tw:gap-2"
+                >
+                  <IconShieldLock :size="18" class="tw:mt-0.5 tw:shrink-0" />
+                  <div class="tw:text-xs tw:leading-relaxed">
+                    <div class="tw:font-bold tw:uppercase tw:tracking-wide">
+                      {{ classification.replace('_', ' ') }}
+                    </div>
+                    <div>
+                      This is a regulated record. Once submitted, the record is preserved
+                      immutably; edits only allowed during the configured window
+                      <span v-if="editWindow?.mode">({{ editWindow.mode }})</span>.
+                      <span v-if="requiresSignatureAtSubmit">
+                        E-signature required on submit.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="tw:p-4">
                   <DynamicForm
                     v-model="formData"
@@ -217,13 +360,21 @@ const templateSchema = computed(() => {
                             v-if="submitting"
                             class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:mr-2"
                           ></span>
-                          Save Record
+                          {{ requiresSignatureAtSubmit ? 'Sign &amp; Submit' : 'Save Record' }}
                         </button>
                       </div>
                     </template>
                   </DynamicForm>
                 </div>
               </div>
+
+              <!-- E-sig prompt — reused from the workflow approver flow.
+                   `@verified` fires with { method, provider, token }; we
+                   translate to the backend's esign shape in buildEsignFromVerified. -->
+              <WorkflowInstanceEsignAuthDialog
+                v-model="showEsignDialog"
+                @verified="onEsignVerified"
+              />
             </div>
           </div>
 
