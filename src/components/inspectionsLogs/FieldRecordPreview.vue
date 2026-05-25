@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-vue'
 import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { refetchSyncRecord } from '@/utils/syncEngineRefresh.js'
 import { post } from '@/api'
 
 /**
@@ -156,6 +157,13 @@ async function submitReview({ comment, esign }) {
       comment,
       esign,
     })
+    // REST endpoint doesn't go through SyncEngine, so the natural
+    // socket.io push may not arrive before the user expects the UI to
+    // update. Force a refetch + IDB write so the live query in this
+    // panel reflects the new state immediately. The new
+    // REVIEW_OUTCOME revision will be auto-fetched by findByPk the
+    // first time the currentRevision live query asks for it.
+    await refetchSyncRecord('FieldRecord', record.value.id)
     toast.success(`Record ${pendingOutcome.value.toLowerCase().replace('_', ' ')}`)
     pendingOutcome.value = null
     emit('changed')
