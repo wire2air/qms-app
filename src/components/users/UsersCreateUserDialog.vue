@@ -34,6 +34,8 @@ const form = ref({
   inviteSent: false,
   siteId: null,
   departmentId: null,
+  timezone: 'UTC',
+  languageId: 'en-US',
 })
 
 const rules = computed(() => ({
