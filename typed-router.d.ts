@@ -163,6 +163,20 @@ declare module 'vue-router/auto-routes' {
       { companyCode: ParamValue<false> },
       | never
     >,
+    '/[companyCode]/inspections-logs/queue': RouteRecordInfo<
+      '/[companyCode]/inspections-logs/queue',
+      '/:companyCode/inspections-logs/queue',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/inspections-logs/records': RouteRecordInfo<
+      '/[companyCode]/inspections-logs/records',
+      '/:companyCode/inspections-logs/records',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
     '/[companyCode]/my-training/[id]': RouteRecordInfo<
       '/[companyCode]/my-training/[id]',
       '/:companyCode/my-training/:id',
@@ -510,6 +524,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[companyCode]/inspections-logs/form-assignments/create.vue': {
       routes:
         | '/[companyCode]/inspections-logs/form-assignments/create'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/inspections-logs/queue.vue': {
+      routes:
+        | '/[companyCode]/inspections-logs/queue'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/inspections-logs/records.vue': {
+      routes:
+        | '/[companyCode]/inspections-logs/records'
       views:
         | never
     }

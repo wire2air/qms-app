@@ -185,30 +185,26 @@ function go(path) {
           </div>
           <div class="tw:text-sm tw:text-secondary">
             Inspection assignments due to you now or overdue. Click an instance to fill the form.
-            <span class="tw:text-xs tw:text-secondary tw:italic tw:block tw:mt-1">
-              (Page lands in a follow-up commit.)
-            </span>
           </div>
         </button>
 
         <button
-          v-if="canReview"
           type="button"
           class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-          @click="go('/inspections-logs/review-queue')"
+          @click="go('/inspections-logs/records')"
         >
           <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
             <div
               class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-purple-50 tw:text-purple-600 tw:flex tw:items-center tw:justify-center"
             >
-              <IconChecklist :size="22" />
+              <IconListCheck :size="22" />
             </div>
-            <div class="tw:font-semibold tw:text-on-main">Review Queue</div>
+            <div class="tw:font-semibold tw:text-on-main">Field Records</div>
           </div>
           <div class="tw:text-sm tw:text-secondary">
-            Records waiting on reviewer approval (for templates with review required).
-            <span class="tw:text-xs tw:text-secondary tw:italic tw:block tw:mt-1">
-              (Page lands in a follow-up commit.)
+            Records submitted on OPERATIONAL_LOG and CONTROLLED_RECORD form templates.
+            <span v-if="canReview" class="tw:text-xs tw:text-secondary tw:italic tw:block tw:mt-1">
+              Filter by status to find records awaiting review.
             </span>
           </div>
         </button>
