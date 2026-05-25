@@ -221,7 +221,11 @@ function close() {
         >
           <div>
             <div class="tw:font-bold tw:uppercase tw:text-secondary">Submitted by</div>
-            <div class="tw:text-on-main tw:truncate">{{ record?.submittedByUserId ?? '—' }}</div>
+            <UserBadgeById
+              v-if="record?.submittedByUserId"
+              :userId="record.submittedByUserId"
+            />
+            <span v-else class="tw:text-secondary">—</span>
           </div>
           <div>
             <div class="tw:font-bold tw:uppercase tw:text-secondary">Submitted at</div>
@@ -279,6 +283,13 @@ function close() {
         >
           <h3 class="tw:text-sm tw:font-bold tw:text-purple-900 tw:mb-1">Void reason</h3>
           <p class="tw:text-sm tw:text-purple-900">{{ record.voidReason }}</p>
+          <div
+            v-if="record?.voidedByUserId"
+            class="tw:flex tw:items-center tw:gap-2 tw:mt-2 tw:text-xs tw:text-purple-700"
+          >
+            Voided by <UserBadgeById :userId="record.voidedByUserId" />
+            <span v-if="record?.voidedAt">on {{ fmtDate(record.voidedAt) }}</span>
+          </div>
         </div>
       </div>
     </div>
