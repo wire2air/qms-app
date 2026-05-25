@@ -17,7 +17,8 @@ import { DateTime } from 'luxon'
  */
 const router = useRouter()
 
-const userId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
+// .id first, then .userId — matches CAPA / Change Request / NC pages.
+const userId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
 
 const STATUS_FILTERS = [
   { id: 'open', label: 'Due / Overdue', match: ['DUE', 'OVERDUE'] },

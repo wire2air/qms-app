@@ -28,7 +28,8 @@ const allRecords = useLiveQuery((db) => db.FieldRecord.where().exec(), { initial
 
 const stats = computed(() => {
   const now = DateTime.now()
-  const userId = currentSession.value?.userId
+  // .id first, then .userId — see comment in MyQueueHome.
+  const userId = currentSession.value?.id ?? currentSession.value?.userId
   const startOfWeek = now.startOf('week')
 
   const myDue = allInstances.value.filter(

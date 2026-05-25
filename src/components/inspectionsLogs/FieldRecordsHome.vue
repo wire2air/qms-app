@@ -12,7 +12,11 @@ import { DateTime } from 'luxon'
  * filter to see everyone's records. The Sync engine already enforces
  * the RLS visibility on the wire — this filter is just for UI ergonomics.
  */
-const userId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
+// Match the convention used across CAPA / Change Request / NC pages:
+// .id is the user-on-company id set when the active company is picked;
+// .userId is the older legacy field. Order matters — reversing it left
+// these pages empty for new records.
+const userId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
 const canReadAll = computed(() => isAllowed(['fieldRecords:read_all']))
 
 const scope = ref('mine') // 'mine' | 'all'
