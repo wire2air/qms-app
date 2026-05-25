@@ -86,7 +86,9 @@ const steps = computed(() => {
   }
 
   return allWorkflowSteps.value.map((step) => {
-    step.reviewers = (stepUserIdMap[step.id] ?? []).map((userId) => usersById.value[userId])
+    step.reviewers = (stepUserIdMap[step.id] ?? [])
+      .map((userId) => usersById.value[userId])
+      .filter(Boolean)
     return step
   })
 })
