@@ -1,9 +1,25 @@
 <script setup>
+import { IconPlus } from '@tabler/icons-vue'
+import { isAllowed } from '@/utils/currentSession.js'
+
 /**
  * Dedicated /inspections-logs/records page — wraps FieldRecordsList
  * with the standard page header. The list itself is reused by the
  * legacy /records page as a second section.
+ *
+ * Owns the "Submit a log" button + AddRecordDialog mount. This is the
+ * entry point that floor users hit today on desktop, and the same UX
+ * pattern that the mobile portal will reuse when it lands.
  */
+const showAddDialog = ref(false)
+const toast = useToast()
+
+const canSubmit = computed(() => isAllowed(['fieldRecords:create']))
+
+function onCreated() {
+  showAddDialog.value = false
+  toast.success('Record submitted')
+}
 </script>
 
 <template>
@@ -14,15 +30,30 @@
       </div>
     </SafeTeleport>
 
+    <SafeTeleport to="#main-header-actions">
+      <BaseButton v-if="canSubmit" variant="primary" @click="showAddDialog = true">
+        <IconPlus :size="16" />
+        Submit a log
+      </BaseButton>
+    </SafeTeleport>
+
     <div class="tw:flex tw:flex-col tw:gap-1">
       <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Field Records</div>
       <div class="tw:text-sm tw:text-secondary">
-        Submitted records on OPERATIONAL_LOG and CONTROLLED_RECORD form templates. Distinct from
-        the legacy /records page which shows UTILITY records — but the legacy page now also
-        shows these for a unified view.
+        Submitted records on OPERATIONAL_LOG and CONTROLLED_RECORD form templates. The "Submit a
+        log" button picks from inspection-eligible templates only (legacy UTILITY templates flow
+        to the standalone /records page).
       </div>
     </div>
 
     <FieldRecordsList />
+
+    <!-- Filtered to inspection-eligible templates so the submit flow
+         from this page never accidentally creates a legacy record. -->
+    <AddRecordDialog
+      v-model="showAddDialog"
+      classificationFilter="inspections"
+      @created="onCreated"
+    />
   </div>
 </template>

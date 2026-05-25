@@ -19,6 +19,17 @@ defineProps({
   compact: { type: Boolean, default: false },
 })
 
+// State for the inline preview overlay. Clicking a row sets this; the
+// FieldRecordPreview component handles its own dismissal + emits
+// `changed` after a successful review action so we can refresh.
+const selectedRecordId = ref(null)
+function openRecord(id) {
+  selectedRecordId.value = id
+}
+function closeRecord() {
+  selectedRecordId.value = null
+}
+
 const userId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
 const canReadAll = computed(() => isAllowed(['fieldRecords:read_all']))
 
@@ -151,7 +162,8 @@ function lockCountdown(dt) {
           <tr
             v-for="row in records"
             :key="row.id"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+            class="tw:border-t tw:border-divider tw:hover:bg-main-hover tw:cursor-pointer"
+            @click="openRecord(row.id)"
           >
             <td class="tw:px-3 tw:py-2">
               <div class="tw:font-medium tw:text-on-main">{{ templateTitle(row) }}</div>
@@ -207,5 +219,16 @@ function lockCountdown(dt) {
         </tbody>
       </table>
     </div>
+
+    <!-- Detail panel — mounted into body so it overlays everything;
+         live queries inside auto-refresh when the row is updated. -->
+    <Teleport to="body">
+      <FieldRecordPreview
+        v-if="selectedRecordId"
+        :recordId="selectedRecordId"
+        @close="closeRecord"
+        @changed="closeRecord"
+      />
+    </Teleport>
   </div>
 </template>

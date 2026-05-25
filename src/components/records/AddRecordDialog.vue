@@ -11,6 +11,21 @@ import {
 } from '@tabler/icons-vue'
 import { post } from '@/api'
 
+const props = defineProps({
+  /**
+   * Restrict the template-picker list:
+   *   - 'all'        — every active template (default)
+   *   - 'inspections' — only OPERATIONAL_LOG + CONTROLLED_RECORD
+   *                    (used by /inspections-logs/records entry point)
+   *   - 'utility'    — only UTILITY (or unclassified)
+   */
+  classificationFilter: {
+    type: String,
+    default: 'all',
+    validator: (v) => ['all', 'inspections', 'utility'].includes(v),
+  },
+})
+
 const emit = defineEmits(['created', 'close'])
 const model = defineModel({ type: Boolean, default: false })
 const toast = useToast()
@@ -54,12 +69,26 @@ const templates = useLiveQuery(async (db) => db.FormTemplate.where('statusId', '
   initial: [],
 })
 
+function templateMatchesFilter(t) {
+  const cls = t.config?.recordClassification
+  if (props.classificationFilter === 'inspections') {
+    return cls === 'OPERATIONAL_LOG' || cls === 'CONTROLLED_RECORD'
+  }
+  if (props.classificationFilter === 'utility') {
+    return !cls || cls === 'UTILITY'
+  }
+  return true
+}
+
 const filteredTemplates = computed(() => {
-  if (!templateSearch.value) return templates.value
-  const search = templateSearch.value.toLowerCase()
-  return templates.value.filter(
-    (t) => t.title.toLowerCase().includes(search) || t.code.toLowerCase().includes(search),
-  )
+  let list = templates.value.filter(templateMatchesFilter)
+  if (templateSearch.value) {
+    const search = templateSearch.value.toLowerCase()
+    list = list.filter(
+      (t) => t.title.toLowerCase().includes(search) || t.code.toLowerCase().includes(search),
+    )
+  }
+  return list
 })
 
 function selectTemplate(template) {
