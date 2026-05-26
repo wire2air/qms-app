@@ -2,7 +2,7 @@ import { currentSession } from '@/utils/currentSession'
 import { BaseModel, ClientModel, Property } from '@syncEngine/index'
 import { DateTime } from 'luxon'
 
-@ClientModel('records', { primaryKey: 'id', syncField: 'updatedAt' })
+@ClientModel('records', { primaryKey: 'id', syncField: 'updatedAt, templateId' })
 export class Record extends BaseModel {
   static paranoid = true // Enable soft deletes using deletedAt field
   constructor(...args) {
