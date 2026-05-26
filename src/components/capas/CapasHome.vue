@@ -13,8 +13,8 @@ const canDelete = computed(() => isAllowed(['capas:delete']))
 const filters = ref({ search: '', statusId: null, priorityId: null, typeId: null })
 const activeFilter = ref('all_open')
 
-const CLOSED_STATUSES = ['CLOSED']
-const OPEN_STATUSES = ['DRAFT', 'UNDER_REVIEW', 'IN_PROGRESS', 'VERIFIED']
+const CLOSED_STATUSES = ['CLOSED', 'CANCELLED']
+const OPEN_STATUSES = ['DRAFT', 'PENDING']
 
 function applyFilters(results, search, statusId, priorityId, typeId) {
   if (search) {
