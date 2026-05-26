@@ -17,6 +17,8 @@
   "dependencies": {
     "@azure/msal-browser": "^5.4.0",
     "@floating-ui/dom": "^1.7.6",
+    "@grafana/faro-web-sdk": "^2.7.0",
+    "@grafana/faro-web-tracing": "^2.7.0",
     "@headlessui/vue": "^1.7.23",
     "@iconify/vue": "^5.0.0",
     "@popperjs/core": "^2.11.8",

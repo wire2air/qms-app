@@ -13,6 +13,7 @@ import { useToast } from '@shared/composables/useToast.js'
 import App from './App.vue'
 import router from './router'
 import messages from './i18n'
+import { initFaro, installVueErrorHandler } from './observability'
 
 // API layer — centralised Axios setup
 import { registerNotifyHandler, eventBus } from './api'
@@ -40,6 +41,9 @@ if (!import.meta.env.DEV) {
   console.debug = () => {} // Disable console.debug in production
 }
 
+// Initialize Faro RUM before creating the app so any error during boot is captured.
+initFaro()
+
 // Create i18n instance
 const i18n = createI18n({
   locale: 'en-US',
@@ -50,6 +54,9 @@ const i18n = createI18n({
 
 // Create Vue app
 const app = createApp(App)
+
+// Faro captures Vue component errors via app.config.errorHandler.
+installVueErrorHandler(app)
 
 // Use Quasar
 app.use(Quasar, {
