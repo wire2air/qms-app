@@ -44,7 +44,6 @@ export function installVueErrorHandler(app) {
   app.config.errorHandler = (err, instance, info) => {
     faroInstance.api.pushError(err, { context: { vueInfo: info || '' } })
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.error(err)
     }
   }
