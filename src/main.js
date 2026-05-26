@@ -44,6 +44,14 @@ if (!import.meta.env.DEV) {
 // Initialize Faro RUM before creating the app so any error during boot is captured.
 initFaro()
 
+// Expose the syncEngine db handle on `window.__qabilityDb` in non-prod for
+// e2e tests (frontend/app/tests/e2e). Gated so production bundles stay clean.
+if (import.meta.env.MODE !== 'production') {
+  import('@models/index.js').then(({ db }) => {
+    window.__qabilityDb = db
+  })
+}
+
 // Create i18n instance
 const i18n = createI18n({
   locale: 'en-US',

@@ -121,7 +121,7 @@ function navigateToDetail(row) {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" @click="navigateToCreate">
+      <BaseButton v-if="canCreate" data-testid="document-create" @click="navigateToCreate">
         <IconPlus :size="16" class="tw:mr-1" />
         Create Document
       </BaseButton>

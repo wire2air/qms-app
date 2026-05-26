@@ -81,7 +81,7 @@ function decrementReviewMonths() {
     </div>
 
     <!-- Document Title -->
-    <div class="tw:space-y-2">
+    <div class="tw:space-y-2" data-testid="document-title">
       <BaseTextInput
         v-model="form.title"
         name="title"

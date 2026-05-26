@@ -440,7 +440,12 @@ function handlePdfImport(draft) {
         <div class="tw:flex tw:items-center tw:gap-4 tw:text-secondary tw:text-sm"></div>
         <div class="tw:flex tw:items-center tw:gap-4">
           <BaseButton variant="danger" :isLoading="saving" @click="cancel"> Cancel </BaseButton>
-          <BaseButton variant="secondary" :isLoading="saving" @click="saveDraft">
+          <BaseButton
+            data-testid="document-save"
+            variant="secondary"
+            :isLoading="saving"
+            @click="saveDraft"
+          >
             Save Draft
           </BaseButton>
           <BaseButton v-if="activeTab !== 'training'" :isLoading="saving" @click="continueToNext">
