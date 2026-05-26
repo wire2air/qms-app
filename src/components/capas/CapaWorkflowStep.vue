@@ -111,7 +111,7 @@ const activeAssigneeId = computed(() => {
       :workflowInstanceId="instanceStep.workflowInstanceId"
       :capaId="capaId"
       :isOwner="isOwner"
-      :allowChildSteps="!!stepDefinition?.allowChildSteps"
+      :allowChildSteps="!!stepDefinition?.allowChildSteps && instanceStep.statusId !== 'APPROVED'"
       class="tw:mb-4"
       @reassign="(childInstanceStepId) => emit('reassign', childInstanceStepId)"
     />
