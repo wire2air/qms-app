@@ -45,25 +45,15 @@ const saving = ref(false)
 const saveError = ref(null)
 
 const showCloseDialog = ref(false)
-const closing = ref(false)
 
 const isOwner = computed(
   () => capa.value?.ownerId && capa.value.ownerId === currentSession.value?.userId,
 )
 
-async function handleCloseCapa() {
-  if (!capa.value) return
-  closing.value = true
-  saveError.value = null
-  try {
-    await post(`/v1/services/capas/${props.id}/close`, {})
-    showCloseDialog.value = false
-    router.push(getCompanyPath('/capas'))
-  } catch (e) {
-    saveError.value = e.message || 'Failed to close CAPA'
-  } finally {
-    closing.value = false
-  }
+function handleCapaClosed() {
+  // CapaCloseDialog has already POSTed /close and emits this on success.
+  // Bounce back to the list so the user sees the now-closed CAPA in context.
+  router.push(getCompanyPath('/capas'))
 }
 
 async function handleSubmitForReview() {
@@ -146,6 +136,7 @@ const editingDescription = ref(false)
         <BaseButton
           v-if="capa?.statusId === 'DRAFT'"
           variant="primary"
+          data-testid="capa-submit-for-review"
           :disabled="saving"
           @click="handleSubmitForReview"
         >
@@ -154,7 +145,7 @@ const editingDescription = ref(false)
         <BaseButton
           v-if="isOwner && capa?.statusId !== 'CLOSED'"
           variant="danger"
-          :disabled="closing"
+          data-testid="capa-close-button"
           @click="showCloseDialog = true"
         >
           Close CAPA
@@ -277,7 +268,7 @@ const editingDescription = ref(false)
                 <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">Number</div>
                 <div class="tw:text-sm tw:font-mono tw:text-on-main">{{ capa.capaNumber }}</div>
               </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:flex tw:flex-col tw:gap-1" data-testid="capa-status-badge">
                 <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">Status</div>
                 <CapaStatusBadgeById :statusId="capa.statusId" />
               </div>
@@ -350,13 +341,10 @@ const editingDescription = ref(false)
       />
     </div>
 
-    <ConfirmDialog
+    <CapaCloseDialog
       v-model="showCloseDialog"
-      title="Close CAPA?"
-      message="Are you sure you want to close this CAPA? This will cancel any in-progress workflow."
-      confirmLabel="Close CAPA"
-      variant="danger"
-      @confirm="handleCloseCapa"
+      :capaId="props.id"
+      @closed="handleCapaClosed"
     />
   </div>
 </template>

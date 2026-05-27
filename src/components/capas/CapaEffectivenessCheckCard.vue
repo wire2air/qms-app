@@ -56,7 +56,10 @@ function openRenew() {
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+  <div
+    class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
+    data-testid="capa-ec-card"
+  >
     <div
       class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
     >

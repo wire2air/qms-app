@@ -125,7 +125,14 @@ async function handleReviewersConfirmed(reviewers) {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="primary" :disabled="saving" @click="handleSubmit">Submit</BaseButton>
+      <BaseButton
+        variant="primary"
+        data-testid="capa-save"
+        :disabled="saving"
+        @click="handleSubmit"
+      >
+        Submit
+      </BaseButton>
     </SafeTeleport>
 
     <div class="tw:overflow-y-auto tw:flex-1">
@@ -153,7 +160,7 @@ async function handleReviewersConfirmed(reviewers) {
             Basic information
           </div>
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
+            <div class="tw:flex tw:flex-col tw:gap-1" data-testid="capa-title">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">
                 Title <span class="tw:text-red-500">*</span>
               </label>
@@ -183,25 +190,25 @@ async function handleReviewersConfirmed(reviewers) {
             Classification
           </div>
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
+            <div class="tw:flex tw:flex-col tw:gap-1" data-testid="capa-site-select">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">
                 Site <span class="tw:text-red-500">*</span>
               </label>
               <SiteSelectMenu v-model="form.siteId" required />
             </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
+            <div class="tw:flex tw:flex-col tw:gap-1" data-testid="capa-department-select">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">
                 Department <span class="tw:text-red-500">*</span>
               </label>
               <DepartmentSelectMenu v-model="form.departmentId" :siteId="form.siteId" required />
             </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
+            <div class="tw:flex tw:flex-col tw:gap-1" data-testid="capa-type-select">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">
                 CAPA Type <span class="tw:text-red-500">*</span>
               </label>
               <CapaTypeSelectMenu v-model="form.typeId" required />
             </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
+            <div class="tw:flex tw:flex-col tw:gap-1" data-testid="capa-source-select">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">
                 Source <span class="tw:text-red-500">*</span>
               </label>
@@ -215,6 +222,7 @@ async function handleReviewersConfirmed(reviewers) {
                 <BaseButton
                   v-for="p in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']"
                   :key="p"
+                  :data-testid="`capa-priority-${p.toLowerCase()}`"
                   class="tw:flex-1 tw:justify-center"
                   :variant="form.priorityId === p ? 'primary' : 'outline'"
                   @click="form.priorityId = p"

@@ -161,6 +161,7 @@ function onCreateLinkedCapa() {
         <BaseButton
           v-if="nc?.statusId === 'DRAFT'"
           variant="primary"
+          data-testid="nc-submit-for-review"
           :disabled="saving"
           @click="handleSubmitForReview"
           >Submit for review</BaseButton
@@ -495,7 +496,10 @@ function onCreateLinkedCapa() {
                     nc.ncNumber || '—'
                   }}</span>
                 </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
+                <div
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider"
+                  data-testid="nc-status-badge"
+                >
                   <span class="tw:text-xs tw:text-secondary">Status</span>
                   <NcStatusBadgeById :statusId="nc.statusId" />
                 </div>

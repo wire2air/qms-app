@@ -98,7 +98,14 @@ function onCreateCapa() {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" variant="primary" @click="onCreateCapa">Create CAPA</BaseButton>
+      <BaseButton
+        v-if="canCreate"
+        variant="primary"
+        data-testid="capa-create-button"
+        @click="onCreateCapa"
+      >
+        Create CAPA
+      </BaseButton>
     </SafeTeleport>
 
     <!-- Page Header -->

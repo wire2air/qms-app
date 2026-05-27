@@ -98,7 +98,14 @@ function onRaiseNc() {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" variant="primary" @click="onRaiseNc">Raise NC</BaseButton>
+      <BaseButton
+        v-if="canCreate"
+        variant="primary"
+        data-testid="nc-create-button"
+        @click="onRaiseNc"
+      >
+        Raise NC
+      </BaseButton>
     </SafeTeleport>
 
     <!-- Page Header -->

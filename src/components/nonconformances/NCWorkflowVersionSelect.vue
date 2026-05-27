@@ -68,6 +68,7 @@ defineExpose({ submit })
         v-for="(step, index) in steps"
         :key="step.id"
         v-model="selections[step.id]"
+        :data-testid="`nc-reviewer-select-${index}`"
         :step="step"
         :stepIndex="index"
         :required="index === 0"
@@ -77,7 +78,12 @@ defineExpose({ submit })
     <template #footer="{ close }">
       <div class="tw:flex tw:justify-end tw:gap-2">
         <BaseButton variant="outline" @click="handleCancel(close)">Cancel</BaseButton>
-        <BaseButton variant="primary" :disabled="!firstStepHasUser" @click="handleConfirm">
+        <BaseButton
+          variant="primary"
+          data-testid="nc-reviewer-confirm"
+          :disabled="!firstStepHasUser"
+          @click="handleConfirm"
+        >
           Confirm
         </BaseButton>
       </div>

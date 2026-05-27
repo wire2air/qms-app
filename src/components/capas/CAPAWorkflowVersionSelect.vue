@@ -102,7 +102,12 @@ defineExpose({ submit })
     <template #footer="{ close }">
       <div class="tw:flex tw:justify-end tw:gap-2">
         <BaseButton variant="outline" @click="handleCancel(close)">Cancel</BaseButton>
-        <BaseButton variant="primary" :disabled="!firstStepHasUser" @click="handleConfirm">
+        <BaseButton
+          variant="primary"
+          data-testid="capa-reviewer-confirm"
+          :disabled="!firstStepHasUser"
+          @click="handleConfirm"
+        >
           Confirm
         </BaseButton>
       </div>
