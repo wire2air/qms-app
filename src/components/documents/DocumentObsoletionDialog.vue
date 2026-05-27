@@ -112,6 +112,7 @@ function cancel() {
         </label>
         <BaseTextarea
           v-model="reason"
+          data-testid="document-obsoletion-reason"
           :rows="4"
           placeholder="e.g. Superseded by SOP-NEW-104. Calibration procedure no longer applies — ISO 17025 clause 6.4.7 changed."
         />
@@ -128,7 +129,12 @@ function cancel() {
 
     <template #footer>
       <BaseButton variant="outline" :disabled="saving" @click="cancel">Cancel</BaseButton>
-      <BaseButton variant="danger" :disabled="saving" @click="confirm">
+      <BaseButton
+        variant="danger"
+        data-testid="document-obsoletion-confirm"
+        :disabled="saving"
+        @click="confirm"
+      >
         {{ saving ? 'Archiving…' : 'Archive Document' }}
       </BaseButton>
     </template>

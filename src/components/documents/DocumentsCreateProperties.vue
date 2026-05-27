@@ -75,7 +75,7 @@ function decrementReviewMonths() {
     </div>
 
     <!-- Document Type -->
-    <div class="tw:space-y-2">
+    <div class="tw:space-y-2" data-testid="document-type-select">
       <label class="tw:text-sm tw:font-medium tw:text-secondary">Document Type *</label>
       <DocumentTypeSelectMenu v-model="form.documentTypeId" :required="true" />
     </div>
@@ -98,7 +98,7 @@ function decrementReviewMonths() {
     </div>
 
     <!-- Document Prefix -->
-    <div class="tw:space-y-2">
+    <div class="tw:space-y-2" data-testid="document-prefix">
       <BaseTextInput
         v-model="prefix"
         name="prefix"
@@ -119,13 +119,13 @@ function decrementReviewMonths() {
     </div>
 
     <!-- Site -->
-    <div class="tw:space-y-2">
+    <div class="tw:space-y-2" data-testid="document-site-select">
       <label class="tw:text-sm tw:font-medium tw:text-secondary">Site *</label>
       <SiteSelectMenu v-model="form.siteId" :required="true" />
     </div>
 
     <!-- Department -->
-    <div class="tw:space-y-2">
+    <div class="tw:space-y-2" data-testid="document-department-select">
       <label class="tw:text-sm tw:font-medium tw:text-secondary">Department *</label>
       <DepartmentSelectMenu v-model="form.departmentId" :required="true" />
     </div>
@@ -146,6 +146,7 @@ function decrementReviewMonths() {
           <input
             v-model.number="form.periodicReviewMonths"
             name="periodicReviewMonths"
+            data-testid="document-periodic-review"
             class="tw:w-16 tw:text-center tw:bg-transparent tw:border-none tw:focus:ring-0 tw:text-sm tw:font-bold tw:outline-none"
             type="number"
             min="1"

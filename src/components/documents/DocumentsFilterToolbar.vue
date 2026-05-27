@@ -11,7 +11,7 @@ const filters = defineModel('filters', {
   <div class="tw:bg-main-hover tw:mb-2 tw:rounded-xl">
     <div class="tw:flex tw:items-center tw:p-2 tw:gap-2 tw:flex-wrap">
       <!-- Search -->
-      <div class="tw:w-full tw:md:w-1/4">
+      <div class="tw:w-full tw:md:w-1/4" data-testid="document-search">
         <BaseTextInput v-model="filters.search" placeholder="Search documents..." clearBtn>
           <template #icon>
             <IconSearch class="tw:size-4 tw:text-secondary" />

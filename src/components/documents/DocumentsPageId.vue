@@ -533,7 +533,7 @@ async function handleNewVersionConfirm(changeControl) {
               :items="moreActionsItems"
             >
               <template #trigger>
-                <BaseButton variant="outline">
+                <BaseButton variant="outline" data-testid="document-actions-menu">
                   More Actions
                   <IconChevronDown :size="16" class="tw:ml-1" />
                 </BaseButton>
