@@ -159,7 +159,7 @@ watch(
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6">
         <!-- Left Column -->
         <div class="tw:space-y-4">
-          <div>
+          <div data-testid="workflow-step-name">
             <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
               Step Name
             </label>

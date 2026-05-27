@@ -177,7 +177,12 @@ defineExpose({ addStep })
     <div class="tw:flex-1 tw:overflow-y-auto tw:p-4 tw:space-y-3">
       <!-- Nested mode -->
       <template v-if="showChildSteps">
-        <div v-for="(step, index) in rootSteps" :key="step.id ?? index" class="tw:space-y-2">
+        <div
+          v-for="(step, index) in rootSteps"
+          :key="step.id ?? index"
+          class="tw:space-y-2"
+          data-testid="workflow-step-card"
+        >
           <WorkflowStepCard
             :step="step"
             :index="index"
@@ -229,6 +234,7 @@ defineExpose({ addStep })
         <WorkflowStepCard
           v-for="(step, index) in steps"
           :key="step.id ?? index"
+          data-testid="workflow-step-card"
           :step="step"
           :index="index"
           :isSelected="step.id === stepId"

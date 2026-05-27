@@ -34,7 +34,11 @@ function handleWorkflowCreated(workflow) {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateWorkflow" @click="showCreateDialog = true">
+      <BaseButton
+        v-if="canCreateWorkflow"
+        data-testid="workflow-create-button"
+        @click="showCreateDialog = true"
+      >
         Create Workflow
       </BaseButton>
     </SafeTeleport>

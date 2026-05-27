@@ -115,18 +115,20 @@ function resetForm() {
 
       <div class="tw:flex tw:flex-col tw:gap-4">
         <!-- Name -->
-        <BaseTextInput
-          v-model="form.name"
-          name="name"
-          label="Workflow Name"
-          placeholder="e.g. Global SOP Multi-Stage Workflow"
-          autofocus
-          required
-        />
+        <div data-testid="workflow-name">
+          <BaseTextInput
+            v-model="form.name"
+            name="name"
+            label="Workflow Name"
+            placeholder="e.g. Global SOP Multi-Stage Workflow"
+            autofocus
+            required
+          />
+        </div>
 
         <div class="tw:grid tw:grid-cols-2 tw:gap-4">
           <!-- Module -->
-          <div>
+          <div data-testid="workflow-module-select">
             <label class="tw:block tw:text-xs tw:font-semibold tw:text-secondary tw:mb-1.5">
               Module <span class="tw:text-bad">*</span>
             </label>
@@ -135,17 +137,24 @@ function resetForm() {
         </div>
 
         <!-- Description -->
-        <BaseTextarea
-          v-model="form.description"
-          label="Description"
-          placeholder="Describe the purpose of this workflow"
-        />
+        <div data-testid="workflow-description">
+          <BaseTextarea
+            v-model="form.description"
+            label="Description"
+            placeholder="Describe the purpose of this workflow"
+          />
+        </div>
       </div>
     </div>
 
     <template #footer="{ close }">
       <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-      <BaseButton :isLoading="loading" :disabled="!isFormValid" @click="handleSubmit">
+      <BaseButton
+        data-testid="workflow-create-submit"
+        :isLoading="loading"
+        :disabled="!isFormValid"
+        @click="handleSubmit"
+      >
         Create Workflow
       </BaseButton>
     </template>
