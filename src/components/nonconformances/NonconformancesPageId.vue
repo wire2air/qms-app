@@ -778,6 +778,14 @@ function onCreateLinkedChangeRequest() {
 
           <!-- Right column -->
           <div class="tw:flex tw:flex-col tw:gap-3">
+            <!-- Shared with — explicit per-user grants (typically supplier
+                 users) outside the normal permission scope. -->
+            <SharedWithPanel
+              entityType="Nonconformance"
+              :entityId="id"
+              :canShare="isOwner || canUpdate"
+            />
+
             <!-- Overview side card -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
               <div

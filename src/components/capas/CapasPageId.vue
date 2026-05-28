@@ -540,6 +540,14 @@ function onCreateLinkedChangeRequest() {
 
             <!-- Effectiveness Check (post-closure follow-up) -->
             <CapaEffectivenessCheckCard :capaId="id" :isOwner="isOwner" />
+
+            <!-- Shared with — explicit per-user grants (typically supplier
+                 users) outside the normal permission scope. -->
+            <SharedWithPanel
+              entityType="Capa"
+              :entityId="id"
+              :canShare="isOwner || isAllowed(['capas:update'])"
+            />
           </div>
 
           <!-- Right column -->

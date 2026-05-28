@@ -562,6 +562,10 @@ async function handleNewVersionConfirm(changeControl) {
         :reviewMode="hasActiveTaskOnSelected"
       />
 
+      <!-- Shared with — explicit per-user grants outside the normal
+           permission scope (typically supplier users). -->
+      <SharedWithPanel entityType="Document" :entityId="props.id" :canShare="canEdit" />
+
       <!-- Messages Drawer -->
       <DocumentsMessages v-model="showMessages" :documentId="props.id" />
 
