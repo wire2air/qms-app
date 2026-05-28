@@ -18,6 +18,7 @@ import {
   IconCircleDot,
 } from '@tabler/icons-vue'
 import { upload } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { currentSession } from '@/utils/currentSession.js'
 
 defineOptions({ name: 'SupplierDocumentRequestsPage' })
 const pageInfo = usePageInfo()
@@ -112,12 +113,21 @@ async function pickAndUpload(item) {
   <div class="tw:p-5 tw:max-w-5xl tw:mx-auto tw:flex tw:flex-col tw:gap-5">
     <div class="tw:flex tw:items-center tw:gap-3">
       <IconClipboardList :size="28" class="tw:text-primary tw:shrink-0" />
-      <div>
+      <div class="tw:flex-1">
         <h1 class="tw:text-2xl tw:font-bold tw:text-on-main">Document Requests</h1>
         <p class="tw:text-sm tw:text-secondary">
           Every document the client has asked you for. Upload each one — you can replace an
           already-sent file at any time until the request is closed.
         </p>
+      </div>
+      <!-- Diagnostic counters — handy until the sync pipeline is stable.
+           Strip these once we're confident new requests reliably surface. -->
+      <div class="tw:text-right tw:text-xs tw:text-secondary tw:font-mono">
+        <div>{{ requests.length }} request{{ requests.length === 1 ? '' : 's' }}</div>
+        <div>{{ items.length }} item{{ items.length === 1 ? '' : 's' }} in IDB</div>
+        <div v-if="currentSession?.supplierId" class="tw:text-[10px]">
+          supplier: {{ currentSession.supplierId.slice(0, 8) }}…
+        </div>
       </div>
     </div>
 
