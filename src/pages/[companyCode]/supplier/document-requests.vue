@@ -17,7 +17,7 @@ import {
   IconClipboardList,
   IconCircleDot,
 } from '@tabler/icons-vue'
-import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { upload } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 
 defineOptions({ name: 'SupplierDocumentRequestsPage' })
 const pageInfo = usePageInfo()
@@ -94,7 +94,7 @@ async function pickAndUpload(item) {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      await post(`/v1/services/assetRequestItems/${item.id}/upload`, fd)
+      await upload(`/v1/services/assetRequestItems/${item.id}/upload`, fd)
       toast.success(item.statusId === 'RECEIVED' ? 'File replaced' : 'Uploaded')
     } catch (err) {
       toast.error(err?.message || 'Upload failed')
