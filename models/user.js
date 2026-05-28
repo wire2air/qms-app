@@ -34,6 +34,10 @@ export class User extends BaseModel {
   @Property({ type: String }) color = '#2563eb'
   @Property({ type: String }) avatar = ''
   @Property({ type: Boolean }) isOwner = false
+  // INTERNAL — staff. EXTERNAL_SUPPLIER — supplier user (scoped + lands
+  // on /supplier dashboard at login). Drives sidebar + routing.
+  @Property({ type: String }) kind = 'INTERNAL'
+  @Property({ type: String }) supplierId = ''
   @Property({ type: String }) siteId = ''
   @Property({ type: String }) departmentId = ''
   @Property({ type: DateTime }) deletedAt = null
