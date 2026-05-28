@@ -16,6 +16,7 @@ import { WorkflowVersion } from './workflowVersion'
 import { WorkflowVersionStatus } from './workflowVersionStatus'
 import { Asset } from './asset'
 import { AssetRequest } from './assetRequest'
+import { AssetRequestItem } from './assetRequestItem'
 import { AssetRequestOnContact } from './assetRequestOnContact'
 import { AssetRequestStatus } from './assetRequestStatus'
 import { AssetRequestType } from './assetRequestType'
@@ -149,6 +150,7 @@ export const db = {
   WorkflowVersionStatus,
   Asset,
   AssetRequest,
+  AssetRequestItem,
   AssetRequestOnContact,
   AssetRequestStatus,
   AssetRequestType,
