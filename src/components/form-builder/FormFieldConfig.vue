@@ -178,6 +178,25 @@ function updateRowColClass(value) {
             </p>
           </div>
         </template>
+
+        <!-- Instructions Settings — full TipTap editor on field.html.
+             The mention `#` shortcut is enabled, so authors can link
+             SOPs / work-instructions inline; the same editor is used
+             by the document body field, so behaviour matches across
+             the app. -->
+        <template v-if="field.type === 'instructions'">
+          <div class="tw:flex tw:flex-col tw:gap-2">
+            <label class="tw:text-sm tw:font-medium tw:text-on-main">Content</label>
+            <p class="tw:text-xs tw:text-secondary">
+              Tip: type
+              <span class="tw:font-mono tw:bg-main tw:rounded tw:px-1">#</span>
+              to mention a document and create a clickable link.
+            </p>
+            <div class="tw:border tw:border-divider tw:rounded-md tw:overflow-hidden">
+              <TiptapEditor v-model="field.html" />
+            </div>
+          </div>
+        </template>
       </div>
 
       <!-- Styling -->

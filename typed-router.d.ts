@@ -121,6 +121,13 @@ declare module 'vue-router/auto-routes' {
       { companyCode: ParamValue<false> },
       | never
     >,
+    '/[companyCode]/equipment/': RouteRecordInfo<
+      '/[companyCode]/equipment/',
+      '/:companyCode/equipment',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
     '/[companyCode]/form-templates': RouteRecordInfo<
       '/[companyCode]/form-templates',
       '/:companyCode/form-templates',
@@ -138,6 +145,13 @@ declare module 'vue-router/auto-routes' {
     '/[companyCode]/inspections-logs/': RouteRecordInfo<
       '/[companyCode]/inspections-logs/',
       '/:companyCode/inspections-logs',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/inspections-logs/fill': RouteRecordInfo<
+      '/[companyCode]/inspections-logs/fill',
+      '/:companyCode/inspections-logs/fill',
       { companyCode: ParamValue<true> },
       { companyCode: ParamValue<false> },
       | never
@@ -163,6 +177,13 @@ declare module 'vue-router/auto-routes' {
       { companyCode: ParamValue<false> },
       | never
     >,
+    '/[companyCode]/inspections-logs/log-books/[id]': RouteRecordInfo<
+      '/[companyCode]/inspections-logs/log-books/[id]',
+      '/:companyCode/inspections-logs/log-books/:id',
+      { companyCode: ParamValue<true>, id: ParamValue<true> },
+      { companyCode: ParamValue<false>, id: ParamValue<false> },
+      | never
+    >,
     '/[companyCode]/inspections-logs/queue': RouteRecordInfo<
       '/[companyCode]/inspections-logs/queue',
       '/:companyCode/inspections-logs/queue',
@@ -173,6 +194,20 @@ declare module 'vue-router/auto-routes' {
     '/[companyCode]/inspections-logs/records': RouteRecordInfo<
       '/[companyCode]/inspections-logs/records',
       '/:companyCode/inspections-logs/records',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/inspections-logs/templates': RouteRecordInfo<
+      '/[companyCode]/inspections-logs/templates',
+      '/:companyCode/inspections-logs/templates',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/logging': RouteRecordInfo<
+      '/[companyCode]/logging',
+      '/:companyCode/logging',
       { companyCode: ParamValue<true> },
       { companyCode: ParamValue<false> },
       | never
@@ -491,6 +526,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/[companyCode]/equipment/index.vue': {
+      routes:
+        | '/[companyCode]/equipment/'
+      views:
+        | never
+    }
     'src/pages/[companyCode]/form-templates.vue': {
       routes:
         | '/[companyCode]/form-templates'
@@ -506,6 +547,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[companyCode]/inspections-logs/index.vue': {
       routes:
         | '/[companyCode]/inspections-logs/'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/inspections-logs/fill.vue': {
+      routes:
+        | '/[companyCode]/inspections-logs/fill'
       views:
         | never
     }
@@ -527,6 +574,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/[companyCode]/inspections-logs/log-books/[id].vue': {
+      routes:
+        | '/[companyCode]/inspections-logs/log-books/[id]'
+      views:
+        | never
+    }
     'src/pages/[companyCode]/inspections-logs/queue.vue': {
       routes:
         | '/[companyCode]/inspections-logs/queue'
@@ -536,6 +589,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[companyCode]/inspections-logs/records.vue': {
       routes:
         | '/[companyCode]/inspections-logs/records'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/inspections-logs/templates.vue': {
+      routes:
+        | '/[companyCode]/inspections-logs/templates'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/logging.vue': {
+      routes:
+        | '/[companyCode]/logging'
       views:
         | never
     }

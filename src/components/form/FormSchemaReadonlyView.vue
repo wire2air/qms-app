@@ -141,6 +141,10 @@ function isSeparatorField(field) {
   return field.type === 'separator'
 }
 
+function isInstructionsField(field) {
+  return field.type === 'instructions'
+}
+
 function isColorPickerField(field) {
   return field.type === 'colorPicker'
 }
@@ -180,6 +184,7 @@ function isRenderableField(field) {
     !isChecklistField(field) &&
     !isPhotoField(field) &&
     !isSeparatorField(field) &&
+    !isInstructionsField(field) &&
     !isColorPickerField(field)
   )
 }
@@ -196,6 +201,8 @@ function getVisibleFields(fields) {
     } else if (isLayoutContainer(field)) {
       if (field.children?.length) result.push(field)
     } else if (isSeparatorField(field)) {
+      result.push(field)
+    } else if (isInstructionsField(field)) {
       result.push(field)
     } else if (field.name) {
       result.push(field)
@@ -408,6 +415,15 @@ function getChecklistColumnLabel(col) {
       <hr
         v-else-if="isSeparatorField(field)"
         class="tw:col-span-3 tw:border-0 tw:border-t tw:border-divider tw:my-1"
+      />
+
+      <!-- Instructions — display-only rich HTML callout (full-width). -->
+      <div
+        v-else-if="isInstructionsField(field)"
+        class="tw:col-span-3 tw:rounded-lg tw:border tw:border-blue-200 tw:bg-blue-50 tw:px-4 tw:py-3 tw:text-sm tw:text-on-main tw:prose tw:prose-sm tw:max-w-none"
+        :class="field.class"
+        :style="field.style"
+        v-html="field.html || ''"
       />
 
       <!-- Color picker — swatch + hex value (grid cell) -->

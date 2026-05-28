@@ -13,6 +13,8 @@ import {
   IconLayoutGrid,
   IconSchool,
   IconSparkles,
+  IconClipboardList,
+  IconTool,
 } from '@tabler/icons-vue'
 
 /**
@@ -87,9 +89,14 @@ export const CATEGORY_METADATA = {
     description: 'Manage access for Suppliers',
   },
   products: {
-    label: 'Products',
+    // UI label is "Item Master" — industry-aligned (covers raw +
+    // WIP + finished goods). Category key stays `products` to match
+    // seeded permission rows (`products:create`, etc.). 2026-05-26
+    // decision: UI labels only, no DB rename.
+    label: 'Item Master',
     icon: IconPackage,
-    description: 'Manage access for Products',
+    description:
+      'Manage access for the Item Master (raw materials, components, finished goods).',
   },
   nonconformances: {
     label: 'Nonconformances',
@@ -131,6 +138,27 @@ export const CATEGORY_METADATA = {
     icon: IconSparkles,
     description: 'AI sidecar: view usage, manage configuration, audit activity',
   },
+  // Inspections & Logs module — Phase 1 + Phase 2 + Round 0 + Round 0.5.
+  fieldRecords: {
+    label: 'Log Entries',
+    icon: IconClipboardList,
+    description: 'Submit, read, edit, review, amend, void, and classify log entries.',
+  },
+  inspections: {
+    label: 'Inspection Assignments',
+    icon: IconClipboardList,
+    description: 'Plan who fills which log book on what schedule; skip on behalf of others.',
+  },
+  logBooks: {
+    label: 'Log Books',
+    icon: IconClipboardList,
+    description: 'Create and edit log book templates + manage log book categories.',
+  },
+  equipment: {
+    label: 'Equipment',
+    icon: IconTool,
+    description: 'Manage the equipment catalog (instruments, machines, sensors).',
+  },
 }
 
 export const PERMISSION_SECTIONS = [
@@ -157,6 +185,15 @@ export const PERMISSION_SECTIONS = [
   {
     name: 'Training',
     categories: ['trainings', 'trainingInstances', 'trainingMatrix'],
+  },
+  {
+    // I&L Round 0 sections — Log Entries / Log Books / Equipment /
+    // Inspection Assignments. Permissions on each category come from
+    // the seeded permission rows: `fieldRecords:create`,
+    // `logBooks:update`, `equipment:create`, etc. Without this section
+    // the rows exist in PG but the Roles UI hides them.
+    name: 'Inspections & Logs',
+    categories: ['fieldRecords', 'logBooks', 'inspections', 'equipment'],
   },
   {
     name: 'AI',

@@ -10,7 +10,7 @@ import { DateTime } from 'luxon'
 @ClientModel('formAssignments', {
   primaryKey: 'id',
   syncField: 'updatedAt',
-  customIndex: 'formTemplateId, active',
+  customIndex: 'logBookId, active',
 })
 export class FormAssignment extends BaseModel {
   static paranoid = true
@@ -23,22 +23,15 @@ export class FormAssignment extends BaseModel {
 
   @Property({ type: String, uuid: true, required: true }) id = ''
   @Property({ type: String, required: true }) companyId = ''
-  @Property({ type: String, required: true }) formTemplateId = ''
-  @Property({ type: String, required: true }) name = ''
-  @Property({ type: String }) description = ''
+  @Property({ type: String, required: true }) logBookId = ''
 
   // Exactly one of these is set — see backend CHECK constraint.
   @Property({ type: Array }) assignedUserIds = /** @type {Array<string>} */ ([])
   @Property({ type: String }) assignedRoleId = ''
 
-  @Property({ type: String }) siteId = ''
-
   // { type, cron, timezone, occurrencesPerPeriod, startOffsetMinutes, windowMinutes }
   @Property({ type: Object }) schedule = {}
   @Property({ type: Number }) graceMinutes = 60
-
-  @Property({ type: DateTime }) effectiveAt = /** @type {DateTime} */ (null)
-  @Property({ type: DateTime }) effectiveUntil = /** @type {DateTime} */ (null)
 
   @Property({ type: Boolean }) active = true
 

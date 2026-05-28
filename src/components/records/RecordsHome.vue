@@ -1,7 +1,6 @@
 <script setup>
 import { IconFolderOpen, IconPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
-import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const toast = useToast()
 const showAddDialog = ref(false)
@@ -88,20 +87,6 @@ function onRecordCreated() {
     <div>
       <RecordsTable :rows="records" :loading="loading" @delete="onDeleteRecord" />
     </div>
-
-    <!-- Inspections & Logs records (new field_records table) -->
-    <div class="tw:flex tw:items-center tw:justify-between tw:mt-6">
-      <h3 class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:uppercase tw:tracking-wide">
-        Inspections &amp; Logs Records
-      </h3>
-      <RouterLink
-        :to="getCompanyPath('/inspections-logs/records')"
-        class="tw:text-xs tw:text-primary tw:hover:underline"
-      >
-        Open the dedicated page →
-      </RouterLink>
-    </div>
-    <FieldRecordsList :compact="true" />
 
     <!-- Add Record Dialog -->
     <AddRecordDialog v-model="showAddDialog" @created="onRecordCreated" />

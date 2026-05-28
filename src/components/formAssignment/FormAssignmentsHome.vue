@@ -2,30 +2,34 @@
 import { IconPlus, IconClipboardList, IconPower, IconEdit } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { humanizeCron } from '@/utils/cronHumanize.js'
 
 /**
- * Form Assignment plans list. SyncEngine live query; admin can toggle
+ * Log Book Assignments list. SyncEngine live query; admin can toggle
  * active/inactive inline (a server-side PATCH) and routes into the
  * create / edit pages for everything else.
  *
- * Filters: by form template, active state. No search on name yet — the
- * table is short enough that filters are sufficient.
+ * Filters: by log book (form template), active state. No search on
+ * name yet — the table is short enough that filters are sufficient.
  */
 const router = useRouter()
 
 const canAssign = computed(() => isAllowed(['inspections:assign']))
 
 const filters = ref({
-  formTemplateId: null,
+  logBookId: null,
   active: 'all', // 'all' | 'active' | 'inactive'
 })
 
-const formTemplates = useLiveQuery((db) => db.FormTemplate.where().exec(), { initial: [] })
+// Round 0: query log_books directly. Variable names preserved at the
+// template binding level (logBookId, logBookById) so reading the view
+// stays consistent with the rest of the I&L module.
+const logBooks = useLiveQuery((db) => db.LogBook.where().exec(), { initial: [] })
 const assignments = useLiveQueryWithDeps(
-  [() => filters.value.formTemplateId, () => filters.value.active],
-  async (db, [formTemplateId, active]) => {
+  [() => filters.value.logBookId, () => filters.value.active],
+  async (db, [logBookId, active]) => {
     let rows = await db.FormAssignment.where().exec()
-    if (formTemplateId) rows = rows.filter((r) => r.formTemplateId === formTemplateId)
+    if (logBookId) rows = rows.filter((r) => r.logBookId === logBookId)
     if (active === 'active') rows = rows.filter((r) => r.active === true)
     if (active === 'inactive') rows = rows.filter((r) => r.active === false)
     return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
@@ -33,33 +37,20 @@ const assignments = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-const templateById = computed(() => {
+const logBookById = computed(() => {
   const map = new Map()
-  for (const t of formTemplates.value) map.set(t.id, t)
+  for (const lb of logBooks.value) map.set(lb.id, lb)
   return map
 })
 
 function templateLabel(id) {
-  return templateById.value.get(id)?.title ?? id
+  return logBookById.value.get(id)?.title ?? id
 }
 
 function scheduleSummary(plan) {
   if (!plan.schedule || typeof plan.schedule !== 'object') return '—'
   if (plan.schedule.type === 'AD_HOC') return 'Ad-hoc (no schedule)'
-  const tz = plan.schedule.timezone ? ` (${plan.schedule.timezone})` : ''
-  return `${plan.schedule.cron ?? '—'}${tz}`
-}
-
-function assigneeSummary(plan) {
-  if (plan.assignedRoleId) return `Role: ${plan.assignedRoleId}`
-  const count = Array.isArray(plan.assignedUserIds) ? plan.assignedUserIds.length : 0
-  return count === 1 ? '1 user' : count > 1 ? `${count} users` : '—'
-}
-
-function fmtDate(dt) {
-  if (!dt) return '—'
-  if (dt.toFormat) return dt.toFormat('LLL d, yyyy')
-  return new Date(dt).toLocaleDateString()
+  return humanizeCron(plan.schedule.cron)
 }
 
 function goCreate() {
@@ -74,22 +65,24 @@ function goEdit(id) {
   <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5">
     <SafeTeleport to="#main-header-title">
       <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Form Assignments</h2>
+        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
+          Log Book Assignments
+        </h2>
       </div>
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canAssign" variant="primary" @click="goCreate">
         <IconPlus :size="16" />
-        New Assignment Plan
+        New Assignment
       </BaseButton>
     </SafeTeleport>
 
     <!-- Page Header -->
     <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Form Assignments</div>
+      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Log Book Assignments</div>
       <div class="tw:text-sm tw:text-secondary">
-        Plan who fills which form, when (cron + timezone), and where (site). The scheduler
+        Plan who fills which log book, when (cron + timezone), and where (site). The scheduler
         materialises occurrences in a 24h look-ahead.
       </div>
     </div>
@@ -97,13 +90,13 @@ function goEdit(id) {
     <!-- Filters -->
     <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
       <div class="tw:flex tw:items-center tw:gap-2">
-        <span class="tw:text-xs tw:text-secondary">Form template</span>
+        <span class="tw:text-xs tw:text-secondary">Log book</span>
         <select
-          v-model="filters.formTemplateId"
+          v-model="filters.logBookId"
           class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
         >
           <option :value="null">All</option>
-          <option v-for="t in formTemplates" :key="t.id" :value="t.id">
+          <option v-for="t in logBooks" :key="t.id" :value="t.id">
             {{ t.title }}
           </option>
         </select>
@@ -127,7 +120,7 @@ function goEdit(id) {
       class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:gap-3 tw:py-16 tw:text-secondary"
     >
       <IconClipboardList :size="48" class="tw:opacity-60" />
-      <div class="tw:text-sm">No assignment plans yet.</div>
+      <div class="tw:text-sm">No log book assignments yet.</div>
       <BaseButton v-if="canAssign" variant="primary" @click="goCreate">
         <IconPlus :size="16" />
         Create the first one
@@ -139,12 +132,10 @@ function goEdit(id) {
       <table class="tw:w-full tw:text-sm">
         <thead class="tw:bg-main">
           <tr class="tw:text-left">
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Name</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Form</th>
+            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Log Book</th>
             <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Schedule</th>
             <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Assignees</th>
             <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Grace</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Effective</th>
             <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Status</th>
             <th class="tw:px-3 tw:py-2"></th>
           </tr>
@@ -155,22 +146,26 @@ function goEdit(id) {
             :key="row.id"
             class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
           >
-            <td class="tw:px-3 tw:py-2">
-              <div class="tw:font-medium tw:text-on-main">{{ row.name }}</div>
-              <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:truncate">
-                {{ row.description }}
+            <td class="tw:px-3 tw:py-2 tw:font-medium tw:text-on-main">
+              {{ templateLabel(row.logBookId) }}
+            </td>
+            <td class="tw:px-3 tw:py-2 tw:text-on-main">
+              <div>{{ scheduleSummary(row) }}</div>
+              <div
+                v-if="row.schedule?.type === 'RECURRING' && row.schedule?.timezone"
+                class="tw:text-xs tw:text-secondary"
+              >
+                {{ row.schedule.timezone }}
               </div>
             </td>
-            <td class="tw:px-3 tw:py-2 tw:text-on-main">{{ templateLabel(row.formTemplateId) }}</td>
-            <td class="tw:px-3 tw:py-2 tw:font-mono tw:text-xs tw:text-on-main">
-              {{ scheduleSummary(row) }}
+            <td class="tw:px-3 tw:py-2 tw:text-on-main">
+              <RoleBadgeById v-if="row.assignedRoleId" :roleId="row.assignedRoleId" />
+              <div v-else-if="row.assignedUserIds?.length" class="tw:flex tw:flex-wrap tw:gap-1">
+                <UserBadgeById v-for="uid in row.assignedUserIds" :key="uid" :userId="uid" />
+              </div>
+              <span v-else class="tw:text-secondary">—</span>
             </td>
-            <td class="tw:px-3 tw:py-2 tw:text-on-main">{{ assigneeSummary(row) }}</td>
             <td class="tw:px-3 tw:py-2 tw:text-on-main">{{ row.graceMinutes }} min</td>
-            <td class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary">
-              {{ fmtDate(row.effectiveAt) }}
-              <span v-if="row.effectiveUntil">→ {{ fmtDate(row.effectiveUntil) }}</span>
-            </td>
             <td class="tw:px-3 tw:py-2">
               <span
                 class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:rounded tw:px-2 tw:py-0.5"

@@ -32,6 +32,8 @@ import {
   IconSchool,
   IconReplace,
   IconClipboardList,
+  IconClipboardCheck,
+  IconTool,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { logoutCurrentSession, currentSession, isAllowed, isAdmin } from '@/utils/currentSession'
@@ -131,6 +133,15 @@ const navItems = computed(() => {
       to: getCompanyPath('/inspections-logs'),
     },
     {
+      // Floor-user logging entry — mobile-first dashboard (pick a log
+      // book → fill) + My Tasks. The route wrapped in the iOS/Android
+      // WebView later. Distinct from the admin "Inspections & Logs".
+      label: 'Logging',
+      icon: IconClipboardCheck,
+      permissions: ['fieldRecords:create'],
+      to: getCompanyPath('/logging'),
+    },
+    {
       label: 'Training',
       icon: IconSchool,
       children: [
@@ -206,10 +217,24 @@ const navItems = computed(() => {
           to: getCompanyPath('/document-templates'),
         },
         {
-          label: 'Products',
+          // Industry-aligned label: "Item Master" for the admin
+          // catalog page. Covers raw materials, components, WIP, and
+          // finished goods — matches ERP terminology. Underlying DB
+          // table stays `products` (UI-only relabel decision
+          // 2026-05-26); operational selectors use "Item".
+          label: 'Item Master',
           permissions: ['products:read'],
           icon: IconPackage,
           to: getCompanyPath('/products'),
+        },
+        {
+          label: 'Equipment',
+          // No `equipment:read` gate by design — RLS SELECT lets any
+          // in-tenant user see the catalog, since log book authors need
+          // to pick equipment without needing a separate permission.
+          // Visibility is via the menu link being available to all.
+          icon: IconTool,
+          to: getCompanyPath('/equipment'),
         },
         {
           label: 'Suppliers',

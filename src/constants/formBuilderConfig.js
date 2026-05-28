@@ -23,6 +23,7 @@ import {
   IconGrid3x3,
   IconSitemap,
   IconLayoutGrid,
+  IconInfoCircle,
 } from '@tabler/icons-vue'
 
 export const CATEGORY_LABELS = Object.freeze({
@@ -64,6 +65,10 @@ export const FIELD_TYPES = Object.freeze({
   column: { icon: IconLayoutRows, label: 'Column', category: 'layout' },
   repeater: { icon: IconRepeat, label: 'Repeater', category: 'layout' },
   separator: { icon: IconMinus, label: 'Separator', category: 'layout' },
+  // Display-only block — gives form authors a place to put rich
+  // instructions (links to SOPs via the # mention shortcut, headings,
+  // bold callouts, etc.). Not an input; doesn't produce a value.
+  instructions: { icon: IconInfoCircle, label: 'Instructions', category: 'layout' },
 
   // widgets
   inputTable: { icon: IconGrid3x3, label: 'Input Table', category: 'widget' },
@@ -220,6 +225,13 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
     type: 'separator',
     props: {},
   },
+  instructions: {
+    // Rich HTML produced by the TipTap editor in the properties panel.
+    // Rendered read-only via v-html in DynamicForm — same component the
+    // document body field uses (so the # mention picker and document
+    // links work out of the box).
+    html: '<p>Add instructions for the user filling this form…</p>',
+  },
   ...WIDGET_CONFIG,
   rca: {
     rcaTemplateId: null,
@@ -231,7 +243,7 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
 })
 
 export const PLACEHOLDER_TYPES = new Set(['input', 'textarea', 'number', 'password', 'select'])
-export const NO_HINT_TYPES = new Set(['separator', 'section', 'row', 'column'])
+export const NO_HINT_TYPES = new Set(['separator', 'section', 'row', 'column', 'instructions'])
 export const TYPE_SETTINGS_TYPES = new Set([
   'number',
   'slider',
@@ -247,11 +259,20 @@ export const TYPE_SETTINGS_TYPES = new Set([
   'datetime',
   'rca',
   'riskAssessment',
+  'instructions',
 ])
 export const NUMBER_TYPES = new Set(['number', 'slider'])
 export const OPTIONS_TYPES = new Set(['select', 'radio', 'optionGroup'])
-export const NO_LABEL_TYPES = new Set(['row', 'column'])
-export const NO_STATE_TYPES = new Set(['row', 'column', 'separator', 'section', 'rca', 'riskAssessment'])
+export const NO_LABEL_TYPES = new Set(['row', 'column', 'instructions'])
+export const NO_STATE_TYPES = new Set([
+  'row',
+  'column',
+  'separator',
+  'section',
+  'rca',
+  'riskAssessment',
+  'instructions',
+])
 
 export const DATETIME_MODE_OPTIONS = [
   { label: 'Date & Time', value: 'datetime' },

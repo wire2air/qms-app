@@ -611,6 +611,20 @@ export default defineComponent({
         return h('hr', { class: 'tw:border-divider tw:my-2', ...field.props })
       }
 
+      if (field.type === 'instructions') {
+        // Display-only rich HTML block. Authors edit the html via the
+        // properties panel's TipTap editor; runtime renders it via
+        // v-html inside an info-styled callout. No payload value.
+        return h('div', {
+          class: [
+            'instructions-field tw:mb-3 tw:rounded-lg tw:border tw:border-blue-200 tw:bg-blue-50 tw:px-4 tw:py-3 tw:text-sm tw:text-on-main tw:prose tw:prose-sm tw:max-w-none',
+            field.class,
+          ],
+          style: field.style,
+          innerHTML: field.html || '',
+        })
+      }
+
       if (field.type === 'section') {
         return createSectionField(field, ancestors, index)
       }

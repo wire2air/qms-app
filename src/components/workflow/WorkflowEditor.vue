@@ -1,5 +1,5 @@
 <script setup>
-import { IconHistory, IconLock, IconCheck } from '@tabler/icons-vue'
+import { IconHistory, IconLock, IconCheck, IconArchive, IconRestore, IconTrash } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
@@ -80,12 +80,15 @@ const showAllowChildSteps = computed(() =>
 const showChildSteps = computed(() =>
   MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId),
 )
-const stepApproversTab = computed(() => {
-  if (workflow.value?.moduleId === 'NON_CONFORMANCE') return 'roles'
-  if (workflow.value?.moduleId === 'CAPA') return 'roles'
-  if (workflow.value?.moduleId === 'CHANGE_CONTROL') return 'roles'
-  return 'both'
-})
+// Workflow templates assign approvers by ROLE only. The specific
+// reviewer (a named user) is chosen by the owner when the workflow is
+// attached to an entity and submitted (the reviewer-per-step picker
+// derives candidates from each step's roles), so binding a user into the
+// template adds nothing and diverges from the submit flow. Was
+// per-module 'both' for Document/Approval/Log Book; unified to 'roles'
+// 2026-05-27. (Reviewer resolution still honours any legacy
+// WorkflowStepUser rows, so existing templates keep working.)
+const stepApproversTab = computed(() => 'roles')
 const selectedApprovalRule = computed(() => {
   if (!workflow.value) return null
   if (workflow.value.moduleId === 'NON_CONFORMANCE') return 'ANY'
@@ -202,6 +205,60 @@ const canCreateDraft = computed(() => {
   const haveDraftVersion = versions.value.some((v) => v.statusId === 'DRAFT')
   return isAllowed(['workflows:update']) && !haveDraftVersion
 })
+
+// ─── Version / workflow lifecycle (keyed off the SELECTED version) ──
+// A DRAFT version is unpublished → hard-delete it (discard). If it's the
+// workflow's only version, the whole never-published workflow goes;
+// otherwise just that draft version is removed. A published version
+// can't be deleted — the workflow is archived/restored instead (it may
+// be attached to records / have in-flight instances).
+const isArchived = computed(() => workflow.value?.statusId === 'ARCHIVED')
+const isOnlyVersion = computed(() => (versions.value?.length ?? 0) <= 1)
+const canArchiveWorkflow = computed(() => isAllowed(['workflows:update']))
+const canDeleteWorkflow = computed(() => isAllowed(['workflows:delete']))
+const workflowStatusBusy = ref(false)
+
+async function setWorkflowStatus(statusId) {
+  if (!workflow.value || workflowStatusBusy.value) return
+  workflowStatusBusy.value = true
+  try {
+    workflow.value.statusId = statusId
+    await workflow.value.save()
+    toast.success(statusId === 'ARCHIVED' ? 'Workflow archived' : 'Workflow restored')
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update workflow')
+  } finally {
+    workflowStatusBusy.value = false
+  }
+}
+
+async function handleDeleteDraft() {
+  if (!selectedVersion.value || workflowStatusBusy.value) return
+  const onlyVersion = isOnlyVersion.value
+  const message = onlyVersion
+    ? `Delete workflow '${workflow.value?.name}'? It has never been published.`
+    : 'Discard this draft version? It has never been published and will be removed.'
+  if (!confirm(message)) return
+  workflowStatusBusy.value = true
+  try {
+    if (onlyVersion) {
+      // Draft is the workflow's only version → remove the whole workflow.
+      await workflow.value.delete()
+      toast.success('Workflow deleted')
+      router.push(getCompanyPath('/workflow-templates'))
+      return
+    }
+    // Published version(s) exist → discard just this draft version
+    // (soft-delete); the versions watcher reselects another version.
+    await selectedVersion.value.delete()
+    toast.success('Draft discarded')
+    selectedVersionId.value = null
+  } catch (err) {
+    toast.error(err?.message || 'Failed to delete draft')
+  } finally {
+    workflowStatusBusy.value = false
+  }
+}
 
 // --- Handlers ---
 
@@ -464,6 +521,39 @@ watch(steps, () => {
             @click="handleCreateDraft(false)"
           >
             Create New Draft
+          </BaseButton>
+
+          <!-- Lifecycle keyed off the selected version: a DRAFT is
+               discarded (the whole workflow if it's the only version);
+               a published version archives/restores the workflow (it may
+               be attached to records). -->
+          <BaseButton
+            v-if="isDraftVersion && canDeleteWorkflow"
+            variant="ghost"
+            class="tw:text-red-600"
+            :isLoading="workflowStatusBusy"
+            @click="handleDeleteDraft"
+          >
+            <IconTrash :size="16" />
+            {{ isOnlyVersion ? 'Delete' : 'Discard Draft' }}
+          </BaseButton>
+          <BaseButton
+            v-else-if="isArchived && canArchiveWorkflow"
+            variant="ghost"
+            :isLoading="workflowStatusBusy"
+            @click="setWorkflowStatus('ACTIVE')"
+          >
+            <IconRestore :size="16" />
+            Restore
+          </BaseButton>
+          <BaseButton
+            v-else-if="canArchiveWorkflow"
+            variant="ghost"
+            :isLoading="workflowStatusBusy"
+            @click="setWorkflowStatus('ARCHIVED')"
+          >
+            <IconArchive :size="16" />
+            Archive
           </BaseButton>
         </div>
       </SafeTeleport>

@@ -18,7 +18,7 @@ import { DateTime } from 'luxon'
 @ClientModel('fieldRecords', {
   primaryKey: 'id',
   syncField: 'updatedAt',
-  customIndex: 'formTemplateId, submittedByUserId, statusId',
+  customIndex: 'logBookId, submittedByUserId, statusId',
 })
 export class FieldRecord extends BaseModel {
   static paranoid = true
@@ -31,9 +31,9 @@ export class FieldRecord extends BaseModel {
 
   @Property({ type: String, uuid: true, required: true }) id = ''
   @Property({ type: String, required: true }) companyId = ''
-  @Property({ type: String, required: true }) formTemplateId = ''
-  @Property({ type: Number }) formTemplateVersion = 1
-  @Property({ type: Object }) formTemplateSchemaSnapshot = {}
+  @Property({ type: String, required: true }) logBookId = ''
+  @Property({ type: Number }) logBookVersion = 1
+  @Property({ type: Object }) logBookSchemaSnapshot = {}
   @Property({ type: String }) recordClassification = 'OPERATIONAL_LOG'
   @Property({ type: String }) recordNumber = ''
 

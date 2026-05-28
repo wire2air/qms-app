@@ -8,6 +8,7 @@ const props = defineProps({
 
 const SCHEME_MAP = {
   APPROVED: { class: 'tw:bg-green-100 tw:text-green-700' },
+  RESOLVED: { class: 'tw:bg-emerald-100 tw:text-emerald-700' },
   REJECTED: { class: 'tw:bg-red-100 tw:text-red-700' },
   CHANGES_REQUESTED: { class: 'tw:bg-orange-100 tw:text-orange-700' },
   PENDING: { class: 'tw:bg-amber-100 tw:text-amber-700' },

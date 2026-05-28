@@ -111,6 +111,13 @@ import { FieldRecord } from './fieldRecord'
 import { FieldRecordRevision } from './fieldRecordRevision'
 import { FieldRecordStatus } from './fieldRecordStatus'
 import { FormAssignment } from './formAssignment'
+import { LogBook } from './logBook'
+import { LogBookVersion } from './logBookVersion'
+import { LogBookType } from './logBookType'
+import { SiteOnLogBook } from './siteOnLogBook'
+import { LogBookDocumentLink } from './logBookDocumentLink'
+import { Equipment } from './equipment'
+import { FieldRecordFlag } from './fieldRecordFlag'
 import { AssignmentInstance } from './assignmentInstance'
 import { AssignmentInstanceStatus } from './assignmentInstanceStatus'
 // AI sidecar (see backend/ai/README.md, AI_PLAN.md §11). All AI models are
@@ -236,6 +243,13 @@ export const db = {
   FieldRecordRevision,
   FieldRecordStatus,
   FormAssignment,
+  LogBook,
+  LogBookVersion,
+  LogBookType,
+  SiteOnLogBook,
+  LogBookDocumentLink,
+  Equipment,
+  FieldRecordFlag,
   AssignmentInstance,
   AssignmentInstanceStatus,
 }
