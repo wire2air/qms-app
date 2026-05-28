@@ -2,6 +2,9 @@
 import { IconChevronRight, IconCheck, IconExternalLink } from '@tabler/icons-vue'
 import { currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+// `start` is a state-transition; `answers` PUT is a debounced auto-save
+// (no SyncEngine model owns it).
 import { post, put } from '@/api'
 
 const props = defineProps({
@@ -19,9 +22,10 @@ const myAssignee = useLiveQueryWithDeps(
   [() => props.id, () => currentSession.value?.userId],
   async (db, [instanceId, userId]) => {
     if (!userId) return null
-    const results = await db.TrainingAssignee
-      .where('[trainingInstanceId+userId]', [instanceId, userId])
-      .exec()
+    const results = await db.TrainingAssignee.where('[trainingInstanceId+userId]', [
+      instanceId,
+      userId,
+    ]).exec()
     return results[0] ?? null
   },
 )
@@ -54,8 +58,10 @@ const showDocDialog = ref(false)
 const allMaterialViewed = computed(() => {
   const docs = instance.value?.snapshot?.documentIds ?? []
   const links = instance.value?.snapshot?.externalLinks ?? []
-  return docs.every((id) => viewedDocIds.value.includes(id)) &&
+  return (
+    docs.every((id) => viewedDocIds.value.includes(id)) &&
     links.every((l) => viewedLinkUrls.value.includes(l.url))
+  )
 })
 
 const viewingVersionId = ref(null)
@@ -72,18 +78,30 @@ function markLinkViewed(url) {
 }
 
 const interactionsLoaded = ref(false)
-watch(myAssignee, (assignee) => {
-  if (interactionsLoaded.value || !assignee) return
-  interactionsLoaded.value = true
-  const saved = assignee.assessmentAnswers?.__interactions
-  if (saved?.docs) viewedDocIds.value = saved.docs
-  if (saved?.links) viewedLinkUrls.value = saved.links
-}, { immediate: true })
+watch(
+  myAssignee,
+  (assignee) => {
+    if (interactionsLoaded.value || !assignee) return
+    interactionsLoaded.value = true
+    const saved = assignee.assessmentAnswers?.__interactions
+    if (saved?.docs) viewedDocIds.value = saved.docs
+    if (saved?.links) viewedLinkUrls.value = saved.links
+  },
+  { immediate: true },
+)
 
 // ─── Answers ──────────────────────────────────────────────────────────────────
 const answers = ref({})
 
-const saveAnswersDebounced = useDebounceFn(async () => {
+// Tracks awaited PUTs in flight so navigation guards can wait them out and
+// `beforeunload` knows whether to prompt the user. Auto-save itself stays
+// silent on failure — UX-wise, a hiccup mid-typing shouldn't interrupt — but
+// data-wise we don't want to drop a pending save just because the user
+// happened to navigate within the 1s debounce window.
+const pendingSaves = ref(0)
+
+async function saveAnswers() {
+  pendingSaves.value++
   try {
     await put(`/v1/services/trainingInstances/${props.id}/answers`, {
       answers: {
@@ -91,10 +109,44 @@ const saveAnswersDebounced = useDebounceFn(async () => {
         __interactions: { docs: viewedDocIds.value, links: viewedLinkUrls.value },
       },
     })
-  } catch {
-    // silent — auto-save failure shouldn't disrupt UX
+  } catch (e) {
+    if (typeof console !== 'undefined') console.error('training auto-save failed:', e)
+  } finally {
+    pendingSaves.value--
   }
-}, 1000)
+}
+
+const saveAnswersDebounced = useDebounceFn(saveAnswers, 1000)
+
+async function flushPendingSaves() {
+  saveAnswersDebounced()
+  // Poll the in-flight tracker. Typical saves resolve in < 200 ms, so this
+  // rarely loops more than a couple of times.
+  while (pendingSaves.value > 0) {
+    await new Promise((r) => setTimeout(r, 50))
+  }
+}
+
+// Fire any pending debounce on unmount — the request goes out even though
+// we can't await its completion from a lifecycle hook.
+onBeforeUnmount(() => {
+  saveAnswersDebounced()
+})
+
+// Warn before tab close / hard navigation when a save is pending.
+useEventListener(window, 'beforeunload', (event) => {
+  if (pendingSaves.value === 0) return
+  event.preventDefault()
+  event.returnValue = ''
+})
+
+// In-app route navigation: flush + drain before allowing the route change so
+// the user's last answers reach the server.
+onBeforeRouteLeave(async () => {
+  if (pendingSaves.value === 0) return true
+  await flushPendingSaves()
+  return true
+})
 
 function shouldAutoSave() {
   const a = myAssignee.value
@@ -105,23 +157,35 @@ function shouldAutoSave() {
   return a.status === 'FAILED' && (a.attemptCount ?? 0) < max
 }
 
-watch(answers, () => {
-  if (shouldAutoSave()) saveAnswersDebounced()
-}, { deep: true })
+watch(
+  answers,
+  () => {
+    if (shouldAutoSave()) saveAnswersDebounced()
+  },
+  { deep: true },
+)
 
-watch([viewedDocIds, viewedLinkUrls], () => {
-  if (shouldAutoSave()) saveAnswersDebounced()
-}, { deep: true })
+watch(
+  [viewedDocIds, viewedLinkUrls],
+  () => {
+    if (shouldAutoSave()) saveAnswersDebounced()
+  },
+  { deep: true },
+)
 
 const answersLoaded = ref(false)
-watch(myAssignee, (assignee) => {
-  if (answersLoaded.value || !assignee) return
-  answersLoaded.value = true
-  if (assignee.assessmentAnswers) {
-    const { __interactions, ...rest } = assignee.assessmentAnswers
-    answers.value = rest
-  }
-}, { immediate: true })
+watch(
+  myAssignee,
+  (assignee) => {
+    if (answersLoaded.value || !assignee) return
+    answersLoaded.value = true
+    if (assignee.assessmentAnswers) {
+      const { __interactions, ...rest } = assignee.assessmentAnswers
+      answers.value = rest
+    }
+  },
+  { immediate: true },
+)
 
 // ─── Submit ───────────────────────────────────────────────────────────────────
 const submitting = ref(false)
@@ -147,13 +211,13 @@ function openSubmitSignDialog() {
 async function onEsignVerified(esign) {
   submitting.value = true
   try {
-    submitResult.value = await post(
-      `/v1/services/trainingInstances/${props.id}/submit`,
-      {
-        answers: hasAssessment.value ? answers.value : {},
-        signatureMethod: esign?.method ?? 'password',
-      },
-    )
+    // If the user submitted before the 1s debounce fired, flush + wait so the
+    // server has the latest answers row before /submit reads it.
+    await flushPendingSaves()
+    submitResult.value = await post(`/v1/services/trainingInstances/${props.id}/submit`, {
+      answers: hasAssessment.value ? answers.value : {},
+      signatureMethod: esign?.method ?? 'password',
+    })
     showEsignDialog.value = false
     step.value = 'result'
   } catch (err) {
@@ -200,16 +264,24 @@ const isLockedOut = computed(() => {
   <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-64">
     <BaseSpinner />
   </div>
-  <div v-else-if="!instance" class="tw:flex tw:items-center tw:justify-center tw:h-64 tw:text-secondary">
+  <div
+    v-else-if="!instance"
+    class="tw:flex tw:items-center tw:justify-center tw:h-64 tw:text-secondary"
+  >
     Training not found.
   </div>
-  <div v-else-if="!myAssignee" class="tw:flex tw:items-center tw:justify-center tw:h-64 tw:text-secondary">
+  <div
+    v-else-if="!myAssignee"
+    class="tw:flex tw:items-center tw:justify-center tw:h-64 tw:text-secondary"
+  >
     You are not assigned to this training.
   </div>
   <div v-else class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
     <SafeTeleport to="#main-header-title">
       <div class="tw:flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary">
-        <RouterLink :to="getCompanyPath('/tasks')" class="tw:hover:text-primary">My Tasks</RouterLink>
+        <RouterLink :to="getCompanyPath('/tasks')" class="tw:hover:text-primary"
+          >My Tasks</RouterLink
+        >
         <IconChevronRight :size="14" />
         <span class="tw:text-on-sidebar tw:font-medium">{{ instance.snapshot?.title }}</span>
       </div>
@@ -230,19 +302,23 @@ const isLockedOut = computed(() => {
 
     <!-- Stepper (Assessment step hidden when training has no questions) -->
     <div class="tw:flex tw:items-center tw:gap-2 tw:bg-gray-50 tw:rounded-lg tw:p-3">
-      <div
-        v-for="(s, idx) in stepperSteps"
-        :key="s.id"
-        class="tw:flex tw:items-center tw:gap-1"
-      >
+      <div v-for="(s, idx) in stepperSteps" :key="s.id" class="tw:flex tw:items-center tw:gap-1">
         <div
           class="tw:flex tw:items-center tw:gap-1.5 tw:px-3 tw:py-1 tw:rounded-full tw:text-sm tw:font-medium tw:transition-colors"
           :class="step === s.id ? 'tw:bg-primary tw:text-white' : 'tw:text-secondary'"
         >
-          <span v-if="step === s.id" class="tw:w-5 tw:h-5 tw:rounded-full tw:bg-white tw:text-primary tw:text-xs tw:flex tw:items-center tw:justify-center tw:font-bold">{{ idx + 1 }}</span>
+          <span
+            v-if="step === s.id"
+            class="tw:w-5 tw:h-5 tw:rounded-full tw:bg-white tw:text-primary tw:text-xs tw:flex tw:items-center tw:justify-center tw:font-bold"
+            >{{ idx + 1 }}</span
+          >
           {{ s.label }}
         </div>
-        <IconChevronRight v-if="idx < stepperSteps.length - 1" :size="14" class="tw:text-secondary" />
+        <IconChevronRight
+          v-if="idx < stepperSteps.length - 1"
+          :size="14"
+          class="tw:text-secondary"
+        />
       </div>
     </div>
 
@@ -255,17 +331,15 @@ const isLockedOut = computed(() => {
           :modelValue="instance.snapshot.instructions"
           :editable="false"
         />
-        <p v-else class="tw:text-sm tw:text-secondary tw:italic">No specific instructions provided.</p>
+        <p v-else class="tw:text-sm tw:text-secondary tw:italic">
+          No specific instructions provided.
+        </p>
       </div>
       <div v-if="instance.snapshot?.description" class="tw:text-sm tw:text-secondary">
         {{ instance.snapshot.description }}
       </div>
       <div class="tw:flex tw:justify-end">
-        <BaseButton
-          v-if="isLockedOut"
-          variant="primary"
-          @click="step = 'result-review'"
-        >
+        <BaseButton v-if="isLockedOut" variant="primary" @click="step = 'result-review'">
           View Results
         </BaseButton>
         <BaseButton
@@ -288,7 +362,9 @@ const isLockedOut = computed(() => {
         <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar tw:mb-3">Training Material</h2>
 
         <div v-if="instance.snapshot?.documentIds?.length" class="tw:mb-4">
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">Reference Documents</p>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">
+            Reference Documents
+          </p>
           <div class="tw:flex tw:flex-col tw:gap-1">
             <div
               v-for="docId in instance.snapshot.documentIds"
@@ -298,7 +374,9 @@ const isLockedOut = computed(() => {
             >
               <DocumentBadgeById :documentId="docId" />
               <div class="tw:flex tw:items-center tw:gap-1.5 tw:shrink-0">
-                <span v-if="!viewedDocIds.includes(docId)" class="tw:text-xs tw:text-secondary">Click to view</span>
+                <span v-if="!viewedDocIds.includes(docId)" class="tw:text-xs tw:text-secondary"
+                  >Click to view</span
+                >
                 <IconCheck v-else :size="16" class="tw:text-green-500" />
               </div>
             </div>
@@ -321,14 +399,21 @@ const isLockedOut = computed(() => {
                 {{ link.title || link.url }}
               </span>
               <div class="tw:flex tw:items-center tw:gap-1.5 tw:shrink-0">
-                <span v-if="!viewedLinkUrls.includes(link.url)" class="tw:text-xs tw:text-secondary">Click to open</span>
+                <span v-if="!viewedLinkUrls.includes(link.url)" class="tw:text-xs tw:text-secondary"
+                  >Click to open</span
+                >
                 <IconCheck v-else :size="16" class="tw:text-green-500" />
               </div>
             </a>
           </div>
         </div>
 
-        <p v-if="!instance.snapshot?.documentIds?.length && !instance.snapshot?.externalLinks?.length" class="tw:text-sm tw:text-secondary tw:italic">
+        <p
+          v-if="
+            !instance.snapshot?.documentIds?.length && !instance.snapshot?.externalLinks?.length
+          "
+          class="tw:text-sm tw:text-secondary tw:italic"
+        >
           No material linked to this training.
         </p>
       </div>
@@ -370,13 +455,20 @@ const isLockedOut = computed(() => {
         @update:answers="answers = $event"
       />
       <div v-if="isLockedOut" class="tw:text-sm tw:text-secondary tw:italic tw:text-center">
-        {{ effectiveAssignee?.status === 'COMPLETED'
-          ? 'You have already completed this training.'
-          : 'Maximum attempts reached. You can no longer submit this assessment.' }}
+        {{
+          effectiveAssignee?.status === 'COMPLETED'
+            ? 'You have already completed this training.'
+            : 'Maximum attempts reached. You can no longer submit this assessment.'
+        }}
       </div>
       <div v-else class="tw:flex tw:justify-between">
         <BaseButton variant="secondary" @click="step = 'material'">Back</BaseButton>
-        <BaseButton variant="primary" :loading="submitting" :disabled="isLockedOut" @click="openSubmitSignDialog">
+        <BaseButton
+          variant="primary"
+          :loading="submitting"
+          :disabled="isLockedOut"
+          @click="openSubmitSignDialog"
+        >
           Submit Assessment
         </BaseButton>
       </div>
@@ -384,10 +476,16 @@ const isLockedOut = computed(() => {
 
     <!-- Step: Result -->
     <div v-else-if="step === 'result'" class="tw:flex tw:justify-center">
-      <div class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-8 tw:max-w-sm tw:w-full tw:flex tw:flex-col tw:items-center tw:gap-4">
+      <div
+        class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-8 tw:max-w-sm tw:w-full tw:flex tw:flex-col tw:items-center tw:gap-4"
+      >
         <div
           class="tw:w-16 tw:h-16 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-2xl tw:font-black"
-          :class="submitResult?.passed ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-red-100 tw:text-red-700'"
+          :class="
+            submitResult?.passed
+              ? 'tw:bg-green-100 tw:text-green-700'
+              : 'tw:bg-red-100 tw:text-red-700'
+          "
         >
           {{ submitResult?.score }}%
         </div>
@@ -400,10 +498,12 @@ const isLockedOut = computed(() => {
               Congratulations! You completed this training.
             </template>
             <template v-else-if="canRetry">
-              Score below passing threshold of {{ instance.snapshot?.passingScore ?? 70 }}%. Please review the material and try again.
+              Score below passing threshold of {{ instance.snapshot?.passingScore ?? 70 }}%. Please
+              review the material and try again.
             </template>
             <template v-else>
-              Score below passing threshold of {{ instance.snapshot?.passingScore ?? 70 }}%. Maximum attempts reached.
+              Score below passing threshold of {{ instance.snapshot?.passingScore ?? 70 }}%. Maximum
+              attempts reached.
             </template>
           </p>
         </div>
@@ -415,10 +515,16 @@ const isLockedOut = computed(() => {
 
     <!-- Locked-out review (read-only past attempt) -->
     <div v-if="step === 'result-review'" class="tw:flex tw:flex-col tw:gap-4">
-      <div class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-6 tw:flex tw:items-center tw:gap-4">
+      <div
+        class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-6 tw:flex tw:items-center tw:gap-4"
+      >
         <div
           class="tw:w-14 tw:h-14 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-xl tw:font-black tw:shrink-0"
-          :class="effectiveAssignee?.status === 'COMPLETED' ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-red-100 tw:text-red-700'"
+          :class="
+            effectiveAssignee?.status === 'COMPLETED'
+              ? 'tw:bg-green-100 tw:text-green-700'
+              : 'tw:bg-red-100 tw:text-red-700'
+          "
         >
           {{ effectiveAssignee?.score ?? 0 }}%
         </div>
@@ -427,8 +533,8 @@ const isLockedOut = computed(() => {
             {{ effectiveAssignee?.status === 'COMPLETED' ? 'Passed' : 'Failed' }}
           </p>
           <p class="tw:text-sm tw:text-secondary">
-            Final attempt {{ effectiveAssignee?.attemptCount ?? 0 }} of {{ maxAttempts }} ·
-            Passing score {{ instance.snapshot?.passingScore ?? 70 }}%
+            Final attempt {{ effectiveAssignee?.attemptCount ?? 0 }} of {{ maxAttempts }} · Passing
+            score {{ instance.snapshot?.passingScore ?? 70 }}%
           </p>
           <p v-if="effectiveAssignee?.completedAt" class="tw:text-xs tw:text-secondary tw:mt-1">
             Completed {{ effectiveAssignee.completedAt.formatDate('date') }}
@@ -446,7 +552,11 @@ const isLockedOut = computed(() => {
       />
     </div>
 
-    <TrainingDocumentViewDialog v-model="showDocDialog" :documentId="viewingDocId" :versionId="viewingVersionId" />
+    <TrainingDocumentViewDialog
+      v-model="showDocDialog"
+      :documentId="viewingDocId"
+      :versionId="viewingVersionId"
+    />
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
   </div>
 </template>

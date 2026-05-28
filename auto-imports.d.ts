@@ -8,6 +8,7 @@ export {}
 declare global {
   const EffectScope: typeof import('vue').EffectScope
   const FIELD_TYPES: typeof import('./src/composables/useFormBuilder.js').FIELD_TYPES
+  const PdfImportLimitError: typeof import('./src/composables/usePdfImport.js').PdfImportLimitError
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
   const buildCombinedDocumentPdf: typeof import('./src/composables/useDocumentCombinedPdf.js').buildCombinedDocumentPdf
@@ -387,4 +388,7 @@ declare global {
   // @ts-ignore
   export type { Component, Slot, Slots, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, ShallowRef, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
+  // @ts-ignore
+  export type { PdfImportLimitError } from './src/composables/usePdfImport.js'
+  import('./src/composables/usePdfImport.js')
 }

@@ -1,6 +1,7 @@
 <script setup>
 import { post } from '@/api'
 import { DateTime } from 'luxon'
+import workflowInstanceEsignAuthDialog from '@/components/workflowInstance/workflowInstanceEsignAuthDialog.vue'
 
 const props = defineProps({
   capaId: { type: String, required: true },
@@ -13,15 +14,24 @@ const toast = useToast()
 const dueAt = ref(null)
 const comments = ref('')
 const saving = ref(false)
+const esignOpen = ref(false)
+const esignData = ref(null)
 
 watch(isOpen, (open) => {
   if (open) {
     dueAt.value = DateTime.now().plus({ days: 30 })
     comments.value = ''
+    esignData.value = null
   } else {
     dueAt.value = null
   }
 })
+
+function handleEsignVerified(data) {
+  esignData.value = data
+  esignOpen.value = false
+  handleSubmit()
+}
 
 async function handleSubmit() {
   if (!props.checkId) return
@@ -29,17 +39,28 @@ async function handleSubmit() {
     toast.notify({ type: 'negative', message: 'New due date is required' })
     return
   }
+  if (!esignData.value) {
+    esignOpen.value = true
+    return
+  }
   saving.value = true
   try {
     const response = await post(
       `/v1/services/capas/${props.capaId}/effectivenessChecks/${props.checkId}/renew`,
-      { dueAt: dueAt.value.toISO(), comments: comments.value || null },
+      {
+        dueAt: dueAt.value.toISO(),
+        comments: comments.value || null,
+        method: esignData.value.method,
+        token: esignData.value.token,
+        provider: esignData.value.provider || null,
+      },
     )
     toast.success('Effectiveness check renewed')
     isOpen.value = false
     emit('renewed', response.effectivenessCheck)
   } catch (e) {
     toast.notify({ type: 'negative', message: e.message || 'Failed to renew' })
+    esignData.value = null
   } finally {
     saving.value = false
   }
@@ -50,7 +71,7 @@ async function handleSubmit() {
   <BaseDialog v-model="isOpen" title="Renew Effectiveness Check" maxWidth="md">
     <div class="tw:flex tw:flex-col tw:gap-3">
       <p class="tw:text-sm tw:text-secondary">
-        Close out this check and schedule the next follow-up.
+        Close out this check and schedule the next follow-up. This requires e-signature verification.
       </p>
       <div class="tw:flex tw:flex-col tw:gap-1">
         <label class="tw:text-sm tw:font-medium tw:text-secondary">
@@ -79,4 +100,6 @@ async function handleSubmit() {
       </div>
     </template>
   </BaseDialog>
+
+  <workflowInstanceEsignAuthDialog v-model="esignOpen" @verified="handleEsignVerified" />
 </template>

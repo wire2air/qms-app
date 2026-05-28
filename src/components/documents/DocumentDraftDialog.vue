@@ -6,8 +6,7 @@ import {
   IconCheck,
   IconLoader2,
 } from '@tabler/icons-vue'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
+import { markdownToHtml } from '@/utils/markdown.js'
 
 /**
  * AI-driven document draft generator (Phase 4 of the AI plan).
@@ -90,27 +89,6 @@ async function generate() {
   } finally {
     loading.value = false
   }
-}
-
-/**
- * Convert the AI's markdown section body into TipTap-compatible HTML.
- *
- * The LLM produces markdown — it's far better at it than at HTML, and
- * tables / lists / headings render reliably. TipTap's editor stores HTML
- * (with the table / link / image extensions wired up in this project),
- * so we render markdown → HTML once at the apply step and from then on
- * everything downstream (TipTap, PDF export, audit views) sees HTML.
- *
- * DOMPurify sanitizes the output — the model is unlikely to inject
- * scripts but defence in depth never hurts.
- */
-function markdownToHtml(md) {
-  if (!md) return ''
-  const html = marked.parse(md, { breaks: false, gfm: true })
-  return DOMPurify.sanitize(html, {
-    ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class', 'colspan', 'rowspan', 'align'],
-    FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'form'],
-  })
 }
 
 function applyDraft() {
@@ -231,9 +209,7 @@ function regenerate() {
       <div class="tw:flex tw:flex-col tw:items-center tw:gap-4 tw:py-12">
         <IconLoader2 :size="48" class="tw:text-primary tw:animate-spin" />
         <div class="tw:text-center">
-          <div class="tw:text-sm tw:font-semibold tw:text-on-main">
-            Drafting your document…
-          </div>
+          <div class="tw:text-sm tw:font-semibold tw:text-on-main">Drafting your document…</div>
           <div class="tw:text-xs tw:text-secondary tw:mt-1">
             This usually takes 15–30 seconds. The AI is reading your topic and shaping sections.
           </div>

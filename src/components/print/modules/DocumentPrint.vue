@@ -1,4 +1,6 @@
 <script setup>
+import { sanitizeHtml } from '@/utils/markdown.js'
+
 /**
  * Document print module.
  *
@@ -6,12 +8,22 @@
  * passes audit entities to PrintLayout, renders title block + section list.
  *
  * Auto-fires window.print() ~600ms after the layout has the data it needs.
+ *
+ * Defense-in-depth: every v-html call site sanitizes its input via
+ * `sanitizeHtml`. DocumentSection.content arrives as HTML written by the
+ * AI-import / draft dialogs (already sanitized once) or by the TipTap editor;
+ * re-sanitizing here costs nothing and protects against future writers that
+ * skip the dialog path.
  */
 
 const props = defineProps({
   id: { type: String, default: null },
   versionId: { type: String, default: null },
 })
+
+function sanitizedSectionContent(section) {
+  return sanitizeHtml(section?.content ?? '', { allowImages: true })
+}
 
 const document = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
   if (!id) return null
@@ -163,9 +175,7 @@ const auditEntities = computed(() => {
   return out
 })
 
-const ready = computed(
-  () => !!document.value && !!version.value && Array.isArray(sections.value),
-)
+const ready = computed(() => !!document.value && !!version.value && Array.isArray(sections.value))
 
 onMounted(() => {
   // Give the layout one render with data, then open the browser print dialog.
@@ -219,30 +229,7 @@ onMounted(() => {
            — so re-ordering sections re-numbers automatically. -->
       <section v-for="s in sections" :key="s.id" class="doc-print-section">
         <h2>{{ s.title }}</h2>
-        <!-- Text sections render their HTML body; attachment sections
-             have content=null and a populated attachments array, so
-             the body was coming out blank on print. List each
-             attached file by name + type so the print copy still
-             cites what's there — the binary is in the QMS for the
-             reader to pull, but the audit trail is preserved on
-             paper. -->
-        <div v-if="s.content" class="doc-print-section-body" v-html="s.content" />
-        <ul
-          v-if="s.sectionType === 'attachment' && (s.attachments?.length ?? 0)"
-          class="doc-print-attachments"
-        >
-          <li v-for="a in s.attachments" :key="a.id || a.url">
-            <span class="doc-print-attachment-name">
-              {{ a.filename || a.originalFilename || 'Attachment' }}
-            </span>
-            <span v-if="a.mimeType" class="doc-print-attachment-meta">
-              · {{ a.mimeType }}
-            </span>
-            <span v-if="a.fileSize" class="doc-print-attachment-meta">
-              · {{ Math.round(a.fileSize / 1024) }} KB
-            </span>
-          </li>
-        </ul>
+        <div class="doc-print-section-body" v-html="sanitizedSectionContent(s)" />
       </section>
 
       <!-- Revision history appendix — last 5 revisions. Common ask in
@@ -336,7 +323,9 @@ onMounted(() => {
      subsection  — reset on .doc-print-section
      subsubsection — reset on h3 (so it restarts under each subsection)
 */
-.doc-print-body { counter-reset: section; }
+.doc-print-body {
+  counter-reset: section;
+}
 
 .doc-print-section {
   counter-increment: section;
@@ -355,7 +344,7 @@ onMounted(() => {
   color: var(--print-accent, #111827);
 }
 .doc-print-section > h2::before {
-  content: counter(section) ". ";
+  content: counter(section) '. ';
 }
 
 .doc-print-section-body {
@@ -371,7 +360,7 @@ onMounted(() => {
   color: var(--print-accent, #111827);
 }
 .doc-print-section-body h3::before {
-  content: counter(section) "." counter(subsection) " ";
+  content: counter(section) '.' counter(subsection) ' ';
 }
 .doc-print-section-body h4 {
   counter-increment: subsubsection;
@@ -380,9 +369,11 @@ onMounted(() => {
   margin: 0.9em 0 0.3em;
 }
 .doc-print-section-body h4::before {
-  content: counter(section) "." counter(subsection) "." counter(subsubsection) " ";
+  content: counter(section) '.' counter(subsection) '.' counter(subsubsection) ' ';
 }
-.doc-print-section-body p { margin: 0.5em 0; }
+.doc-print-section-body p {
+  margin: 0.5em 0;
+}
 /* h3/h4 styles handled above (with hierarchical CSS counters). h1/h2 inside
    a section body shouldn't really happen (we tell the AI to use ###/####) —
    but if they do, render them as faint sub-headings without auto-numbers. */
@@ -392,11 +383,14 @@ onMounted(() => {
   font-weight: 700;
   margin: 1em 0 0.4em;
 }
-.doc-print-section-body ul, .doc-print-section-body ol {
+.doc-print-section-body ul,
+.doc-print-section-body ol {
   margin: 0.5em 0;
   padding-left: 1.5em;
 }
-.doc-print-section-body li { margin: 0.2em 0; }
+.doc-print-section-body li {
+  margin: 0.2em 0;
+}
 .doc-print-section-body code {
   background: #f3f4f6;
   padding: 1px 4px;
@@ -418,14 +412,22 @@ onMounted(() => {
   width: 100%;
   font-size: 10px;
 }
-.doc-print-section-body th, .doc-print-section-body td {
+.doc-print-section-body th,
+.doc-print-section-body td {
   border: 1px solid #d1d5db;
   padding: 5px 8px;
   text-align: left;
 }
-.doc-print-section-body th { background: #f9fafb; font-weight: 600; }
-.doc-print-section-body strong { font-weight: 600; }
-.doc-print-section-body em { font-style: italic; }
+.doc-print-section-body th {
+  background: #f9fafb;
+  font-weight: 600;
+}
+.doc-print-section-body strong {
+  font-weight: 600;
+}
+.doc-print-section-body em {
+  font-style: italic;
+}
 .doc-print-section-body blockquote {
   border-left: 3px solid #d1d5db;
   padding-left: 10px;
@@ -451,7 +453,9 @@ onMounted(() => {
 }
 /* Hide the section counter on the appendix heading — this isn't numbered
    like a procedure section. */
-.doc-print-revisions h2::before { content: none; }
+.doc-print-revisions h2::before {
+  content: none;
+}
 .doc-print-revisions-note {
   font-size: 9.5px;
   color: #6b7280;
@@ -490,28 +494,5 @@ onMounted(() => {
 .doc-print-rev-reg {
   font-weight: 600;
   color: #b45309;
-}
-
-/* Attachment-type sections — printed as a plain bulleted list of the
-   files attached at this section, with mime-type + size for context.
-   The binary itself is held in the QMS; on paper we just cite it so
-   the audit chain is intact. */
-.doc-print-attachments {
-  margin: 0.5rem 0 0;
-  padding-left: 1.25rem;
-  list-style: disc;
-}
-.doc-print-attachments li {
-  margin: 0.1rem 0;
-  font-size: 0.95rem;
-}
-.doc-print-attachment-name {
-  font-weight: 600;
-  color: #111;
-}
-.doc-print-attachment-meta {
-  color: #6b7280;
-  font-size: 0.85rem;
-  margin-left: 0.25rem;
 }
 </style>

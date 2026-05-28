@@ -1,5 +1,6 @@
 <script setup>
-import { IconRobot, IconAlertTriangle, IconCopy } from '@tabler/icons-vue'
+import { IconRobot, IconAlertTriangle, IconCopy, IconEye, IconEyeOff } from '@tabler/icons-vue'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 import { useToast } from '@shared/composables/useToast.js'
 
@@ -15,6 +16,10 @@ const form = ref({
 const nameError = ref(null)
 const loading = ref(false)
 const createdToken = ref(null)
+// Token defaults to masked (type=password) on display. The eye-icon toggle
+// reveals on demand. Reset to masked whenever the dialog reopens so a second
+// token doesn't inherit the previous reveal state.
+const revealed = ref(false)
 
 async function handleSubmit() {
   nameError.value = null
@@ -52,12 +57,18 @@ function resetAndClose() {
   form.value = { name: '', expiresAt: null }
   createdToken.value = null
   nameError.value = null
+  revealed.value = false
   show.value = false
+}
+
+function handleDialogClose() {
+  createdToken.value = null
+  revealed.value = false
 }
 </script>
 
 <template>
-  <BaseDialog v-model="show" @close="createdToken = null">
+  <BaseDialog v-model="show" @close="handleDialogClose">
     <template #title>
       <div class="tw:flex tw:items-center tw:gap-3">
         <div
@@ -109,7 +120,20 @@ function resetAndClose() {
         </div>
 
         <div class="tw:flex tw:items-center tw:gap-2">
-          <BaseTextInput :modelValue="createdToken" readonly class="tw:flex-1 tw:font-mono" />
+          <BaseTextInput
+            :modelValue="createdToken"
+            readonly
+            :type="revealed ? 'text' : 'password'"
+            class="tw:flex-1 tw:font-mono"
+          />
+          <button
+            class="tw:rounded-lg tw:border tw:border-divider tw:p-2 tw:hover:bg-main-hover tw:transition-colors"
+            :title="revealed ? 'Hide' : 'Reveal'"
+            @click="revealed = !revealed"
+          >
+            <IconEye v-if="!revealed" :size="18" class="tw:text-secondary" />
+            <IconEyeOff v-else :size="18" class="tw:text-secondary" />
+          </button>
           <button
             class="tw:rounded-lg tw:border tw:border-divider tw:p-2 tw:hover:bg-main-hover tw:transition-colors"
             title="Copy to clipboard"
@@ -123,8 +147,7 @@ function resetAndClose() {
           Configure your MCP client to send this as the
           <code class="tw:font-mono tw:bg-main-hover tw:px-1 tw:rounded">Authorization</code> header
           when calling
-          <code class="tw:font-mono tw:bg-main-hover tw:px-1 tw:rounded">/v1/services/ai/mcp</code
-          >.
+          <code class="tw:font-mono tw:bg-main-hover tw:px-1 tw:rounded">/v1/services/ai/mcp</code>.
         </div>
       </div>
     </template>

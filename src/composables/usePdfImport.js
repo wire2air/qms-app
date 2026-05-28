@@ -43,6 +43,23 @@ const MIN_PAGES_FOR_DETECTION = 3
 // fine — covered by the threshold).
 const MIN_LINE_LENGTH = 3
 
+// Input bounds. Hard caps reject; soft caps truncate + report.
+// Sized generously above typical SOP shape (5–30 pages, a few MB,
+// dozens of images) — bump if a real document hits one of these.
+const MAX_FILE_BYTES = 20 * 1024 * 1024 // 20 MB hard cap
+const MAX_PAGES = 300 // hard cap
+const MAX_IMAGES = 100 // soft cap — extras counted as skippedDueToLimit
+
+const MB = 1024 * 1024
+
+export class PdfImportLimitError extends Error {
+  constructor(code, message) {
+    super(message)
+    this.name = 'PdfImportLimitError'
+    this.code = code // 'FILE_TOO_LARGE' | 'TOO_MANY_PAGES'
+  }
+}
+
 let pdfjsPromise = null
 
 async function loadPdfJs() {
@@ -60,6 +77,11 @@ async function loadPdfJs() {
 /**
  * Parse a PDF, upload its unique images, and return an extracted text stream.
  *
+ * Bounds (see module constants above): rejects files >MAX_FILE_BYTES or
+ * documents with >MAX_PAGES (throws PdfImportLimitError). Image upload count
+ * is soft-capped at MAX_IMAGES and the excess is reported as
+ * `skippedDueToLimit` so the dialog can surface "+ N images skipped".
+ *
  * @param {File} file
  * @param {(stage: { phase: string, current?: number, total?: number, message?: string }) => void} [onProgress]
  * @returns {Promise<{
@@ -69,12 +91,22 @@ async function loadPdfJs() {
  *   filename: string,
  *   headerLinesStripped: number,
  *   recurringImagesSkipped: number,
+ *   skippedDueToLimit: number,
  * }>}
+ * @throws {PdfImportLimitError} on FILE_TOO_LARGE or TOO_MANY_PAGES
  */
 export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
   if (!file) throw new Error('No file provided')
   if (!file.type?.includes('pdf') && !file.name?.toLowerCase().endsWith('.pdf')) {
     throw new Error('File does not appear to be a PDF')
+  }
+
+  // Reject before the browser allocates an ArrayBuffer for an over-cap file.
+  if (file.size > MAX_FILE_BYTES) {
+    throw new PdfImportLimitError(
+      'FILE_TOO_LARGE',
+      `PDF is ${(file.size / MB).toFixed(1)} MB; maximum is ${MAX_FILE_BYTES / MB} MB. Please split it or compress images.`,
+    )
   }
 
   onProgress({ phase: 'loading', message: 'Loading PDF…' })
@@ -83,6 +115,19 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
   const buf = await file.arrayBuffer()
   const doc = await pdfjs.getDocument({ data: buf }).promise
   const pageCount = doc.numPages
+
+  // Reject before we burn CPU/memory on per-page parsing of an over-cap doc.
+  if (pageCount > MAX_PAGES) {
+    try {
+      doc.destroy?.()
+    } catch {
+      // best-effort cleanup
+    }
+    throw new PdfImportLimitError(
+      'TOO_MANY_PAGES',
+      `PDF has ${pageCount} pages; maximum is ${MAX_PAGES}. Please split it.`,
+    )
+  }
 
   // ── Phase 1: scan all pages, buffer text lines + image candidates ───
   const pagesRaw = []
@@ -97,16 +142,9 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
 
     const page = await doc.getPage(pageNum)
     const lines = await extractLines(page)
-    // collectionDrops are images pdfjs saw on the page that we
-    // couldn't carry through (hash failure, XObject resolution
-    // failure, etc.). After the inline-image fix, per-page logos
-    // become real hashable candidates and go through repetition
-    // detection — so collection drops here are genuinely "we tried
-    // and couldn't get this visual", worth a placeholder marker.
-    const { candidates: imageCandidates, droppedCount: collectionDrops } =
-      await collectImageCandidates(page, doc, pdfjs)
+    const imageCandidates = await collectImageCandidates(page, doc, pdfjs)
 
-    pagesRaw.push({ pageNum, lines, imageCandidates, collectionDrops })
+    pagesRaw.push({ pageNum, lines, imageCandidates })
   }
 
   // ── Phase 2: detect repeating lines + image hashes ──────────────────
@@ -126,31 +164,21 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
   let imageCount = 0
   let headerLinesStripped = 0
   let recurringImagesSkipped = 0
-  // Total images we KNOW we lost (vs. silently never extracted). Split
-  // between resolution failures inside collectImageCandidates and
-  // upload failures here in Phase 3. Surfaced to the user so they can
-  // tell from the import preview that the source had embedded visuals
-  // we couldn't carry through.
-  let imagesDropped = 0
+  let skippedDueToLimit = 0
 
-  // For upload progress: count the total uniques to upload up front.
+  // For upload progress: count the total uniques to upload up front, capped
+  // at MAX_IMAGES. Anything past the cap is reported as skippedDueToLimit.
   let totalUniqueImages = 0
   for (const p of pagesRaw) {
     for (const cand of p.imageCandidates) {
       if (!isRepeatingImage(cand, repeatingHashes)) totalUniqueImages += 1
     }
   }
+  if (totalUniqueImages > MAX_IMAGES) {
+    skippedDueToLimit = totalUniqueImages - MAX_IMAGES
+    totalUniqueImages = MAX_IMAGES
+  }
   let uploadIdx = 0
-
-  // Placeholder marker the AI is instructed to preserve verbatim.
-  // Uses a markdown blockquote with a warning emoji and bold text so it
-  // renders as a visually distinct callout in the section preview and
-  // in the final TipTap editor — not just a forgettable paragraph the
-  // reviewer scrolls past. The "[IMAGE NOT EXTRACTED" text inside is
-  // never matched by marked's reference-link parser (no closing
-  // bracket-and-link pattern) so it survives markdown round-tripping.
-  const DROPPED_IMAGE_MARKER =
-    '> ⚠️ **Image not extracted from PDF.** Review the original document for visual content at this location.'
 
   for (const p of pagesRaw) {
     const isFirstPage = p.pageNum === 1
@@ -169,14 +197,14 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
     const pageText = keptLines.join('\n').trim()
 
     const imageRefs = []
-    // Start with collection-time drops (resolveImageObject / hash
-    // failures from Phase 1) and add Phase-3 upload failures on top.
-    // Both surface as the same kind of "we lost something here"
-    // placeholder for the reviewer.
-    let droppedOnPage = p.collectionDrops ?? 0
     for (const cand of p.imageCandidates) {
       if (isRepeatingImage(cand, repeatingHashes)) {
         recurringImagesSkipped += 1
+        continue
+      }
+      // Soft image cap: stop uploading once we've hit MAX_IMAGES uniques.
+      // Already counted into skippedDueToLimit above.
+      if (imageCount >= MAX_IMAGES) {
         continue
       }
       uploadIdx += 1
@@ -191,14 +219,9 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
         if (url) {
           imageCount += 1
           imageRefs.push(url)
-        } else {
-          // uploadBitmapAsPng returned null — couldn't convert the image
-          // (unknown kind, bad bitmap, etc.). User-visible drop.
-          droppedOnPage += 1
         }
       } catch {
         // One bad image must not abort the import.
-        droppedOnPage += 1
       }
     }
 
@@ -206,10 +229,6 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
     for (const url of imageRefs) {
       block += `\n\n![Page ${p.pageNum} image](${url})`
     }
-    for (let k = 0; k < droppedOnPage; k++) {
-      block += `\n\n${DROPPED_IMAGE_MARKER}`
-    }
-    imagesDropped += droppedOnPage
     pageBlocks.push(block)
   }
 
@@ -219,10 +238,10 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
     text: pageBlocks.join('\n\n'),
     pageCount,
     imageCount,
-    imagesDropped,
     filename: file.name,
     headerLinesStripped,
     recurringImagesSkipped,
+    skippedDueToLimit,
   }
 }
 
@@ -251,17 +270,9 @@ async function extractLines(page) {
 }
 
 /**
- * Walk the page's operator list, collect image candidates (XObject AND
- * inline), hash each, and return them in painting order. We don't
- * upload anything here — that happens in Phase 3 after duplicate
- * detection runs across pages.
- *
- * Returns { candidates, droppedCount }. droppedCount tracks images we
- * KNOW we can't carry through (hash failures, resolve exceptions) so
- * the caller can place a visible "[IMAGE: missing]" marker in the
- * page text. Recurring images (logos / headers) are NOT in this
- * count — repetition detection runs after this step and strips them
- * intentionally via a separate counter.
+ * Walk the page's operator list, collect image XObject references, hash
+ * each candidate, and return them in painting order. We don't upload
+ * anything here — that happens in Phase 3 after duplicate detection.
  */
 async function collectImageCandidates(page, doc, pdfjs) {
   const ops = await page.getOperatorList()
@@ -274,60 +285,25 @@ async function collectImageCandidates(page, doc, pdfjs) {
       OPS.paintInlineImageXObjectGroup,
     ].filter((v) => v != null),
   )
-  const seenNames = new Set()
+  const seen = new Set()
   const out = []
-  let droppedCount = 0
 
   for (let i = 0; i < ops.fnArray.length; i++) {
     if (!IMAGE_OPS.has(ops.fnArray[i])) continue
-    const arg = ops.argsArray[i]?.[0]
-    if (!arg) {
-      droppedCount += 1
-      continue
-    }
-
-    if (typeof arg === 'string') {
-      // Named XObject — resolve through the objs cache. Same-name
-      // dedup is per-page so a logo painted twice on one page only
-      // gets counted once for repetition.
-      if (seenNames.has(arg)) continue
-      seenNames.add(arg)
-      try {
-        const obj = await resolveImageObject(page, doc, arg)
-        if (!obj) {
-          droppedCount += 1
-          continue
-        }
-        const hash = await computeImageHash(obj, arg)
-        if (!hash) {
-          droppedCount += 1
-          continue
-        }
-        out.push({ imgName: arg, obj, hash })
-      } catch {
-        droppedCount += 1
-      }
-    } else if (typeof arg === 'object') {
-      // Inline-image op — args[0] IS the image data (no objs lookup
-      // needed). Word/PowerPoint exports tend to drop per-page logos
-      // and footer stamps here. Hashing them properly lets the
-      // repetition detector recognise + strip them as recurring, so
-      // they don't pollute the dropped-image count.
-      try {
-        const hash = await computeImageHash(arg, null)
-        if (!hash) {
-          droppedCount += 1
-          continue
-        }
-        out.push({ imgName: null, obj: arg, hash })
-      } catch {
-        droppedCount += 1
-      }
-    } else {
-      droppedCount += 1
+    const imgName = ops.argsArray[i]?.[0]
+    if (!imgName || seen.has(imgName)) continue
+    seen.add(imgName)
+    try {
+      const obj = await resolveImageObject(page, doc, imgName)
+      if (!obj) continue
+      const hash = await computeImageHash(obj, imgName)
+      if (!hash) continue
+      out.push({ imgName, obj, hash })
+    } catch {
+      // Skip individual resolution failures.
     }
   }
-  return { candidates: out, droppedCount }
+  return out
 }
 
 /**

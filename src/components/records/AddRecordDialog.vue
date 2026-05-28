@@ -132,6 +132,7 @@ const selectedTemplate = ref(null)
 
 // Form state
 const formData = ref({})
+const documentTypeId = ref(null)
 const submitting = ref(false)
 const createdRecord = ref(null)
 
@@ -201,6 +202,7 @@ const filteredTemplates = computed(() => {
 function selectTemplate(template) {
   selectedTemplate.value = template
   formData.value = {}
+  documentTypeId.value = template.documentTypeId || null
   step.value = 'form'
 }
 
@@ -216,11 +218,11 @@ watch(
   { immediate: true },
 )
 
-const createRecord = useLiveMutation(async (db, { templateId, payload }) => {
+const createRecord = useLiveMutation(async (db, { templateId, documentTypeId, payload }) => {
   const template = await db.FormTemplate.findByPk(templateId)
   if (!template) throw new Error('Template not found')
 
-  const { documentTypeId, code } = template
+  const { code } = template
 
   // Get or create counter scoped to this documentTypeId
   const allCounters = await db.RecordCounter.where().exec()
@@ -347,12 +349,17 @@ async function submitFieldRecord(payload, esign) {
 
 async function handleSubmit(data) {
   // UTILITY templates keep the legacy SyncEngine path — they write to
-  // the `records` table and have no classification gating.
+  // the `records` table and require a document type selection.
   if (!isInspectionRecord.value) {
+    if (!documentTypeId.value) {
+      toast.error('Document Type is required')
+      return
+    }
     submitting.value = true
     try {
       const record = await createRecord({
         templateId: selectedTemplate.value.id,
+        documentTypeId: documentTypeId.value,
         payload: data,
       })
       createdRecord.value = record
@@ -416,6 +423,7 @@ function goBackToSelect() {
   flagSeverity.value = 'WARN'
   flagNotes.value = ''
   flagPhotos.value = []
+  documentTypeId.value = null
 }
 
 function handleClose() {
@@ -591,7 +599,15 @@ const templateSchema = computed(() => {
                   </div>
                 </div>
 
-                <div class="tw:p-4">
+                <div class="tw:p-4 tw:flex tw:flex-col tw:gap-4">
+                  <!-- Document Type selector only applies to UTILITY records;
+                       inspection records derive the doctype from their log book. -->
+                  <div v-if="!isInspectionRecord">
+                    <label class="tw:text-sm tw:font-medium tw:text-on-main">
+                      Document Type <span class="tw:text-bad">*</span>
+                    </label>
+                    <DocumentTypeSelectMenu v-model="documentTypeId" required />
+                  </div>
                   <DynamicForm
                     v-model="formData"
                     :fields="templateSchema"

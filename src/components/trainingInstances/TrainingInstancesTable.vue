@@ -1,6 +1,7 @@
 <script setup>
 import { IconBan } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 import { DateTime } from 'luxon'
 

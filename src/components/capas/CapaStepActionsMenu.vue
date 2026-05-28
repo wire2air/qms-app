@@ -15,10 +15,11 @@ const props = defineProps({
   isOwner: { type: Boolean, default: false },
   hasSendBackTargets: { type: Boolean, default: false },
   requireEsignature: { type: Boolean, default: false },
-  // Outcomes the parent renders inline (e.g. COMPLETE_AND_ADVANCE on the
-  // step card header). The menu omits these from its dropdown so users
-  // don't see the same action in two places.
-  hideOutcomes: { type: Array, default: () => [] },
+  // Child sub-step rendering. Filters SEND_BACK out of the menu (children
+  // don't initiate workflow send-back) and unlocks the ad-hoc fallback that
+  // assumes COMPLETE_AND_ADVANCE is always allowed when no template
+  // AllowedOutcomeOnStep rows exist.
+  isChild: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['reassign', 'sendBack', 'done'])
@@ -150,23 +151,13 @@ const filteredReassignCandidates = computed(() =>
 )
 
 // ─── Outcome configuration + gating ─────────────────────────────────────────
-// SEND_BACK is now the assignee's "reject this task back to the owner"
-// action — no target-step picker, comment required, no e-sign. REASSIGN
-// and CANCEL are owner-only actions surfaced as inline buttons in the
-// step header (not in this menu). REQUEST_INFO is feature-flagged off
-// for now; if it's re-enabled it will route to the RFI dialog.
 const OUTCOME_CONFIG = {
-  COMPLETE_AND_ADVANCE: { label: 'Mark Complete', icon: IconCheck },
-  SEND_BACK: { label: 'Send Back', icon: IconArrowBackUp, needsComment: true, commentRequired: true },
+  COMPLETE_AND_ADVANCE: { label: 'Complete & Advance', icon: IconCheck },
+  SEND_BACK: { label: 'Send Back', icon: IconArrowBackUp, needsTarget: true, needsComment: true },
   REQUEST_INFO: { label: 'Request Info', icon: IconInfoCircle, needsComment: true },
   REASSIGN: { label: 'Reassign', icon: IconUserCheck, needsUser: true, needsComment: true },
   CANCEL: { label: 'Cancel', icon: IconBan, needsComment: true },
 }
-
-// Outcomes the parent / product has decided live elsewhere or are
-// disabled entirely. Centralized so this menu doesn't show them even
-// if the workflow template still declares them as AllowedOutcomeOnStep.
-const ALWAYS_HIDDEN_OUTCOMES = new Set(['REASSIGN', 'CANCEL', 'REQUEST_INFO'])
 
 const canActOnStep = computed(() => ACTIONABLE_STATUSES.includes(currentUserTask.value?.statusId))
 
@@ -184,6 +175,15 @@ function outcomeTitle(outcomeId) {
   if (childrenBlock.value) return 'All sub-tasks must be approved before advancing'
   return undefined
 }
+
+// Owner gating mirrors the inline buttons we're replacing.
+const REASSIGNABLE_STATUSES = ['PENDING', 'IN_PROGRESS', 'SENT_BACK']
+const isOwnerReassignable = computed(() =>
+  REASSIGNABLE_STATUSES.includes(instanceStep.value?.statusId),
+)
+const canOwnerSendBack = computed(
+  () => instanceStep.value?.statusId === 'IN_PROGRESS' && props.hasSendBackTargets,
+)
 
 // ─── Dialog state for reviewer outcomes ─────────────────────────────────────
 const showConfirmDialog = ref(false)
@@ -226,17 +226,7 @@ function onConfirmDialog() {
     toast.warning('Please select a user to reassign to')
     return
   }
-  if (pendingConfig.value?.commentRequired && !comment.value.trim()) {
-    toast.warning('A comment is required')
-    return
-  }
   showConfirmDialog.value = false
-  // SEND_BACK = reject task back to owner. No e-sign for a rejection —
-  // semantically it's the assignee bowing out, not an attested decision.
-  if (pendingOutcomeId.value === 'SEND_BACK') {
-    submitAction({})
-    return
-  }
   if (props.requireEsignature) {
     showEsignDialog.value = true
   } else {
@@ -252,21 +242,6 @@ async function submitAction({ method, provider, token } = {}) {
   if (!currentUserTask.value) return
   actionLoading.value = true
   try {
-    // SEND_BACK on CAPA uses a dedicated reject endpoint (mirrors NC):
-    // rejects the task, notifies CAPA owner via a new ACTION task.
-    // Works on both parent stages and child sub-tasks because the
-    // controller keys on workflow_instance_step_id, not hierarchy.
-    if (pendingOutcomeId.value === 'SEND_BACK') {
-      await post(`/v1/services/capas/${props.capaId}/rejectStepTask`, {
-        workflowInstanceStepId: props.instanceStepId,
-        comment: comment.value,
-      })
-      toast.success('Task sent back — the CAPA owner has been notified')
-      showEsignDialog.value = false
-      emit('done')
-      return
-    }
-
     const body = {
       action: pendingOutcomeId.value,
       outcomeId: pendingOutcomeId.value,
@@ -289,17 +264,43 @@ async function submitAction({ method, provider, token } = {}) {
   }
 }
 
+// Ad-hoc child steps (stepId === null) have no AllowedOutcomeOnStep rows.
+// Fall back to "COMPLETE_AND_ADVANCE only" so the reviewer always has a way
+// to approve. Filter SEND_BACK out for child rows (they don't initiate
+// workflow send-back).
+const effectiveAllowedOutcomes = computed(() => {
+  const isAdHoc = instanceStep.value && !instanceStep.value.stepId
+  let list = allowedOutcomes.value
+  if (isAdHoc && list.length === 0) {
+    list = [{ outcomeId: 'COMPLETE_AND_ADVANCE' }]
+  }
+  if (props.isChild) {
+    list = list.filter((o) => o.outcomeId !== 'SEND_BACK')
+  }
+  return list
+})
+
+// ─── Standalone "Complete & Advance" button (rendered beside the menu) ──────
+// Surfaced as its own button because it's the most-used reviewer action.
+// The menu skips this outcome so it doesn't appear twice.
+const hasApproveAction = computed(
+  () =>
+    canActOnStep.value &&
+    effectiveAllowedOutcomes.value.some((o) => o.outcomeId === 'COMPLETE_AND_ADVANCE'),
+)
+
+const approveDisabled = computed(
+  () => isOutcomeDisabled('COMPLETE_AND_ADVANCE') || actionLoading.value,
+)
+
+const approveTitle = computed(() => outcomeTitle('COMPLETE_AND_ADVANCE'))
+
 // ─── Menu items ─────────────────────────────────────────────────────────────
-// REASSIGN / CANCEL / REQUEST_INFO are filtered globally (ALWAYS_HIDDEN_OUTCOMES)
-// — owner inline buttons handle them in the step header. Owner-only menu
-// items (reassign / owner send-back) are also gone; they now live in the
-// step header too. Keeps each action in exactly one place.
 const items = computed(() => {
   const list = []
   if (canActOnStep.value) {
-    for (const o of allowedOutcomes.value) {
-      if (props.hideOutcomes.includes(o.outcomeId)) continue
-      if (ALWAYS_HIDDEN_OUTCOMES.has(o.outcomeId)) continue
+    for (const o of effectiveAllowedOutcomes.value) {
+      if (o.outcomeId === 'COMPLETE_AND_ADVANCE') continue // rendered as a standalone button
       const cfg = OUTCOME_CONFIG[o.outcomeId]
       if (!cfg) continue
       list.push({
@@ -311,13 +312,39 @@ const items = computed(() => {
       })
     }
   }
+  if (props.isOwner && isOwnerReassignable.value) {
+    list.push({
+      name: 'Reassign reviewer (owner)',
+      icon: IconUserCheck,
+      click: () => emit('reassign', props.instanceStepId),
+    })
+  }
+  if (props.isOwner && canOwnerSendBack.value) {
+    list.push({
+      name: 'Send step back (owner)',
+      icon: IconArrowBackUp,
+      click: () => emit('sendBack', props.instanceStepId),
+    })
+  }
   return list
 })
 </script>
 
 <template>
-  <div v-if="items.length" class="tw:contents">
-    <BaseMenu :items="items" />
+  <template v-if="hasApproveAction || items.length">
+    <BaseButton
+      v-if="hasApproveAction"
+      variant="primary"
+      size="sm"
+      :disabled="approveDisabled"
+      :title="approveTitle"
+      @click="onOutcomeClick('COMPLETE_AND_ADVANCE')"
+    >
+      <template #icon><IconCheck :size="14" /></template>
+      Complete & Advance
+    </BaseButton>
+
+    <BaseMenu v-if="items.length" :items="items" />
 
     <BaseDialog v-model="showConfirmDialog" :title="confirmTitle" maxWidth="md" persistent>
       <div v-if="pendingConfig?.needsUser" class="tw:mb-4">
@@ -380,18 +407,13 @@ const items = computed(() => {
 
       <div>
         <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          {{ pendingOutcomeId === 'SEND_BACK' ? 'Reason for sending back' : 'Comment' }}
-          <span v-if="pendingConfig?.commentRequired" class="tw:text-red-500">*</span>
+          Comment {{ pendingConfig?.needsComment ? '(optional)' : '' }}
         </label>
         <textarea
           v-model="comment"
           rows="3"
           class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:text-on-main tw:text-sm tw:p-3 tw:resize-none tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
-          :placeholder="
-            pendingOutcomeId === 'SEND_BACK'
-              ? 'Why are you sending this back to the owner?'
-              : 'Add a comment…'
-          "
+          placeholder="Add a comment…"
         />
       </div>
 
@@ -408,5 +430,5 @@ const items = computed(() => {
     </BaseDialog>
 
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
-  </div>
+  </template>
 </template>
