@@ -172,11 +172,13 @@ function viaLabel(s) {
           <BaseTextarea v-model="pendingNotes" :rows="2" placeholder="Why this is being shared" />
         </div>
       </div>
-      <template #actions>
-        <BaseButton variant="secondary" @click="showShareDialog = false">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="isSharing" @click="confirmShare">
-          Share
-        </BaseButton>
+      <template #footer>
+        <div class="tw:flex tw:justify-end tw:gap-2">
+          <BaseButton variant="secondary" @click="showShareDialog = false">Cancel</BaseButton>
+          <BaseButton variant="primary" :loading="isSharing" @click="confirmShare">
+            Share
+          </BaseButton>
+        </div>
       </template>
     </BaseDialog>
   </section>

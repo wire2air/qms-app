@@ -172,11 +172,13 @@ function statusLabel(u) {
           shared with them.
         </p>
       </div>
-      <template #actions>
-        <BaseButton variant="secondary" @click="showInvite = false">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="isInviting" @click="submitInvite">
-          Send invitation
-        </BaseButton>
+      <template #footer>
+        <div class="tw:flex tw:justify-end tw:gap-2">
+          <BaseButton variant="secondary" @click="showInvite = false">Cancel</BaseButton>
+          <BaseButton variant="primary" :loading="isInviting" @click="submitInvite">
+            Send invitation
+          </BaseButton>
+        </div>
       </template>
     </BaseDialog>
   </div>
