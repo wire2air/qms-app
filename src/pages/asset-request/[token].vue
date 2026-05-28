@@ -4,6 +4,7 @@ import {
   IconCircleCheck,
   IconClock,
   IconUpload,
+  IconRefresh,
   IconFileText,
   IconCircleMinus,
 } from '@tabler/icons-vue'
@@ -237,13 +238,29 @@ onMounted(() => {
                     </div>
                   </td>
                   <td class="tw:px-4 tw:py-3 tw:text-right">
-                    <span
+                    <div
                       v-if="effectiveStatus(item) === 'received'"
-                      class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:rounded tw:bg-green-100 tw:text-green-700 tw:px-2 tw:py-1"
+                      class="tw:inline-flex tw:items-center tw:gap-2 tw:justify-end"
                     >
-                      <IconCircleCheck :size="12" />
-                      Received
-                    </span>
+                      <span
+                        class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:rounded tw:bg-green-100 tw:text-green-700 tw:px-2 tw:py-1"
+                      >
+                        <IconCircleCheck :size="12" />
+                        Received
+                      </span>
+                      <label
+                        class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:border tw:border-divider tw:bg-sidebar tw:text-on-sidebar tw:text-xs tw:px-2 tw:py-1 tw:cursor-pointer tw:hover:bg-main"
+                      >
+                        <IconRefresh :size="12" />
+                        Replace
+                        <input
+                          type="file"
+                          class="tw:hidden"
+                          accept="image/*,application/pdf,.docx,.doc,.xlsx,.xls,.csv"
+                          @change="uploadForItem(item, $event)"
+                        />
+                      </label>
+                    </div>
                     <span
                       v-else-if="item.statusId === 'SKIPPED'"
                       class="tw:text-xs tw:text-secondary tw:italic"

@@ -36,7 +36,13 @@ import {
   IconTool,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
-import { logoutCurrentSession, currentSession, isAllowed, isAdmin } from '@/utils/currentSession'
+import {
+  logoutCurrentSession,
+  currentSession,
+  isAllowed,
+  isAdmin,
+  isSupplier,
+} from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
 
@@ -86,6 +92,44 @@ const logoUrl = computed(() => {
 
 // Navigation items
 const navItems = computed(() => {
+  // EXTERNAL_SUPPLIER users get a stripped-down menu — just the things
+  // they can actually act on. No admin/settings/training/audit. The
+  // dashboard at /[code]/supplier is their landing page.
+  if (isSupplier.value) {
+    return [
+      {
+        label: 'Dashboard',
+        icon: IconChartBar,
+        to: getCompanyPath('/supplier'),
+      },
+      {
+        label: 'Document Requests',
+        icon: IconInbox,
+        to: getCompanyPath('/supplier/document-requests'),
+      },
+      {
+        label: 'My Tasks',
+        icon: IconCheckbox,
+        to: getCompanyPath('/task-instances'),
+      },
+      {
+        label: 'Documents',
+        icon: IconFileText,
+        to: getCompanyPath('/documents'),
+      },
+      {
+        label: 'Nonconformances',
+        icon: IconAlertCircle,
+        to: getCompanyPath('/nonconformances'),
+      },
+      {
+        label: 'CAPAs',
+        icon: IconShield,
+        to: getCompanyPath('/capas'),
+      },
+    ]
+  }
+
   return [
     {
       label: 'Records',
@@ -364,9 +408,11 @@ const navItems = computed(() => {
           </div>
           <div class="tw:flex tw:flex-col">
             <div class="tw:text-on-sidebar tw:text-base tw:font-bold tw:leading-tight">
-              QMS Admin
+              {{ isSupplier ? 'Supplier Portal' : 'QMS Admin' }}
             </div>
-            <div class="tw:text-secondary tw:text-xs tw:font-medium">Quality Management</div>
+            <div class="tw:text-secondary tw:text-xs tw:font-medium">
+              {{ isSupplier ? 'Documents & Tasks' : 'Quality Management' }}
+            </div>
           </div>
         </div>
 

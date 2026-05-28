@@ -38,6 +38,13 @@ export const isSuperUser = computed(() => {
   return email.endsWith('@qms.com') || email.endsWith('@qms.com')
 })
 
+// EXTERNAL_SUPPLIER users get a stripped-down sidebar + a dedicated
+// /[code]/supplier dashboard. Mirrors the backend's `users.kind` column
+// and the per-company `kind` field on the session payload.
+export const isSupplier = computed(() => {
+  return currentSession.value?.kind === 'EXTERNAL_SUPPLIER'
+})
+
 export const isAdmin = computed(() => {
   const email = currentSession.value?.email
   if (!email) return false

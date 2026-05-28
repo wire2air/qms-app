@@ -368,7 +368,11 @@ async function handleNewVersionConfirm(changeControl) {
 </script>
 
 <template>
-  <div class="tw:min-h-screen tw:bg-main">
+  <!-- Issue #3 fix: drop the min-h-screen — it forced the inner column to
+       be at least 100vh tall, which interacted with the sticky toolbar and
+       could make the document body unreachable on shorter viewports. The
+       App.vue overflow-auto wrapper already owns the scroll. -->
+  <div class="tw:bg-main">
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
