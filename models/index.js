@@ -116,6 +116,7 @@ import { LogBookVersion } from './logBookVersion'
 import { LogBookType } from './logBookType'
 import { SiteOnLogBook } from './siteOnLogBook'
 import { LogBookDocumentLink } from './logBookDocumentLink'
+import { SharedWithUser } from './sharedWithUser'
 import { Equipment } from './equipment'
 import { FieldRecordFlag } from './fieldRecordFlag'
 import { AssignmentInstance } from './assignmentInstance'
@@ -248,6 +249,7 @@ export const db = {
   LogBookType,
   SiteOnLogBook,
   LogBookDocumentLink,
+  SharedWithUser,
   Equipment,
   FieldRecordFlag,
   AssignmentInstance,
