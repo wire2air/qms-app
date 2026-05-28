@@ -35,7 +35,7 @@ export class AssetRequestItem extends BaseModel {
   @Property({ type: String }) customTitle = ''
   @Property({ type: String }) customDescription = ''
   @Property({ type: String }) statusId = 'PENDING'
-  @Property({ type: String }) supplierDocumentId = null
+  @Property({ type: String }) assetId = null
   @Property({ type: String }) notes = ''
   @Property({ type: DateTime }) uploadedAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) uploadedBy = null

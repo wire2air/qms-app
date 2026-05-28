@@ -17,7 +17,6 @@ import {
   IconFileText,
   IconAlertTriangle,
   IconClipboardList,
-  IconUpload,
   IconShieldCheck,
   IconExternalLink,
 } from '@tabler/icons-vue'
@@ -224,16 +223,7 @@ function ncHref(n) {
       </ul>
     </section>
 
-    <!-- Asset Requests (placeholder — Phase C wires this) -->
-    <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-2">
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <IconUpload :size="18" class="tw:text-primary" />
-        <h2 class="tw:text-base tw:font-semibold tw:text-on-main">Asset Requests</h2>
-      </div>
-      <p class="tw:text-xs tw:text-secondary tw:italic tw:py-2">
-        Document requests from the client (certifications, licenses, insurance) — Phase C wires
-        this into the redesigned asset request flow.
-      </p>
-    </section>
+    <!-- Asset Requests — live, RLS-filtered to this supplier's requests -->
+    <SupplierAssetRequestsList />
   </div>
 </template>
