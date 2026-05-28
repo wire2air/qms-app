@@ -24,8 +24,15 @@ export class SupplierAsset extends BaseModel {
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) supplierId = ''
   @Property({ type: String, required: true }) assetId = ''
-  @Property({ type: String, required: true }) requestId = ''
+  // requestId is nullable: present when the row was created from an
+  // asset_request_items upload, null for ad-hoc admin attachments.
+  @Property({ type: String }) requestId = null
   @Property({ type: String, required: true }) documentType = ''
+  // Optional metadata used mainly for ad-hoc rows; request-flow rows
+  // fall back to the underlying Asset.originalFilename in the UI.
+  @Property({ type: String }) title = null
+  @Property({ type: String }) description = null
+  @Property({ type: String }) uploadedBy = null
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)
