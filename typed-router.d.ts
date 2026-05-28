@@ -296,6 +296,13 @@ declare module 'vue-router/auto-routes' {
       { companyCode: ParamValue<false> },
       | never
     >,
+    '/[companyCode]/supplier': RouteRecordInfo<
+      '/[companyCode]/supplier',
+      '/:companyCode/supplier',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
     '/[companyCode]/suppliers/[[id]]': RouteRecordInfo<
       '/[companyCode]/suppliers/[[id]]',
       '/:companyCode/suppliers/:id?',
@@ -673,6 +680,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[companyCode]/sites.vue': {
       routes:
         | '/[companyCode]/sites'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/supplier.vue': {
+      routes:
+        | '/[companyCode]/supplier'
       views:
         | never
     }
