@@ -25,6 +25,25 @@ const props = defineProps({
     type: Array,
     default: null,
   },
+  // Restrict to a kind. Default 'INTERNAL' so the generic picker no
+  // longer leaks supplier users into screens it never used to (workflow
+  // step assignees, admin users home, etc).
+  //   'INTERNAL'           — staff only (default)
+  //   'EXTERNAL_SUPPLIER'  — supplier users only
+  //   null                 — both kinds, e.g. for system-wide impersonate
+  //                          or future cross-kind tooling
+  kind: {
+    type: String,
+    default: 'INTERNAL',
+    validator: (v) => v === null || v === 'INTERNAL' || v === 'EXTERNAL_SUPPLIER',
+  },
+  // Restrict to users at a given supplier (paired with kind='EXTERNAL_SUPPLIER').
+  // Useful for picking a supplier reviewer at NC/CAPA submit time when
+  // entity.supplierId is set. Ignored when kind != 'EXTERNAL_SUPPLIER'.
+  supplierId: {
+    type: String,
+    default: null,
+  },
 })
 
 const modelValue = defineModel({
@@ -32,11 +51,16 @@ const modelValue = defineModel({
   default: null,
 })
 
-const users = useLiveQuery(
-  async (db) => {
-    const users = await db.User.where().exec()
-    return users
-      .filter((u) => props.includeInactive || u.userStatusId === 'ACTIVE')
+const users = useLiveQueryWithDeps(
+  [() => props.kind, () => props.supplierId, () => props.includeInactive],
+  async (db, [kind, supplierId, includeInactive]) => {
+    const all = await db.User.where().exec()
+    return all
+      .filter((u) => includeInactive || u.userStatusId === 'ACTIVE')
+      .filter((u) => (kind ? u.kind === kind : true))
+      .filter((u) =>
+        kind === 'EXTERNAL_SUPPLIER' && supplierId ? u.supplierId === supplierId : true,
+      )
       .map((user) => ({ id: user.id, name: `${user.firstName} ${user.lastName}` }))
   },
   { initial: [] },

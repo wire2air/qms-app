@@ -14,6 +14,10 @@ const users = useLiveQueryWithDeps(
   [() => filters.value.search, () => filters.value.userStatusId, () => filters.value.roleId],
   async (db, [search, userStatusId, roleId]) => {
     let results = await db.User.where().exec()
+    // Settings → Users is the internal-user admin page. Supplier users
+    // are managed from the Suppliers → Users tab (a different entity
+    // surface) so they shouldn't appear here.
+    results = results.filter((u) => u.kind !== 'EXTERNAL_SUPPLIER')
     if (userStatusId) results = results.filter((u) => u.userStatusId === userStatusId)
     if (roleId) {
       const assignments = await db.RoleOnUser.where().exec()
