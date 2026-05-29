@@ -357,12 +357,7 @@ function onCreateLinkedChangeRequest() {
           >Open NC</BaseButton
         >
         <BaseButton
-          v-if="
-            isOwner &&
-            nc &&
-            !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId) &&
-            !nc.markedCompleteAt
-          "
+          v-if="isOwner && nc && !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId)"
           variant="primary"
           :disabled="!canMarkComplete || completing"
           :title="markCompleteBlockedReason || undefined"
