@@ -91,11 +91,21 @@ function formatDisplayValue(field, rawVal) {
 
     case 'select':
     case 'radio':
-    case 'optionGroup':
+    case 'optionGroup': {
+      // Frozen labels (written at submit by freezeOptionLabels) win over
+      // any live OptionSet lookup so a sealed record's display doesn't
+      // shift if the admin later renames an option. Falls through to the
+      // FK/embedded lookup for legacy unfrozen records.
+      const frozen = props.values?._optionLabels?.[field.name]
       if (Array.isArray(rawVal)) {
+        if (Array.isArray(frozen) && frozen.length === rawVal.length) {
+          return frozen.map((v) => String(v)).join(', ') || '—'
+        }
         return rawVal.map((v) => resolveOptionLabel(field, v)).join(', ') || '—'
       }
+      if (frozen != null && !Array.isArray(frozen)) return String(frozen)
       return resolveOptionLabel(field, rawVal)
+    }
 
     case 'checkbox':
     case 'toggle':

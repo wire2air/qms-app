@@ -20,6 +20,8 @@ import { refetchSyncRecord } from '@/utils/syncEngineRefresh.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post, patch } from '@/api'
 import { DateTime } from 'luxon'
+import { freezeOptionLabels } from '@/utils/freezeFormPayloadLabels.js'
+import { db } from '@models/index'
 
 /**
  * Full-screen preview for a field record. Opens from the row click on
@@ -447,8 +449,12 @@ async function saveEdit() {
   if (!record.value?.id) return
   isSavingEdit.value = true
   try {
+    // Re-freeze labels against the *current* OptionSet so the edit
+    // records what the editor actually saw at this moment. See
+    // utils/freezeFormPayloadLabels.js.
+    const frozen = await freezeOptionLabels(db, schemaFields.value, editDraft.value)
     await patch(`/v1/services/fieldRecords/${record.value.id}`, {
-      payload: editDraft.value,
+      payload: frozen,
     })
     await refetchSyncRecord('FieldRecord', record.value.id)
     toast.success('Entry updated')
@@ -495,8 +501,13 @@ async function submitAmend(esign) {
   if (!record.value?.id || !pendingAmend.value) return
   isSavingAmend.value = true
   try {
+    // Re-freeze labels for the amended payload (the OptionSet may have
+    // drifted since the original submit — the amendment should carry
+    // labels as they read *now*).
+    const frozen = await freezeOptionLabels(db, schemaFields.value, pendingAmend.value.payload)
     await post(`/v1/services/fieldRecords/${record.value.id}/amend`, {
       ...pendingAmend.value,
+      payload: frozen,
       esign,
     })
     await refetchSyncRecord('FieldRecord', record.value.id)

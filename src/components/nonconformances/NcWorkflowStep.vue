@@ -13,6 +13,7 @@ import { currentSession } from '@/utils/currentSession.js'
 import { db } from '@models/index'
 import { DateTime } from 'luxon'
 import { post } from '@/api'
+import { freezeOptionLabels } from '@/utils/freezeFormPayloadLabels.js'
 
 const props = defineProps({
   instanceStepId: { type: String, required: true },
@@ -151,7 +152,13 @@ async function persistRecord({ submit, esign }) {
   saving.value = true
   try {
     // Strip context-only keys (prefixed with _nc_) before persisting
-    const { _parent_problem: _1, ...payload } = formData.value || {}
+    const { _parent_problem: _1, ...rawPayload } = formData.value || {}
+    // Freeze OptionSet labels onto the payload so the saved record
+    // displays the label that was current at submit time even if an
+    // admin later edits the underlying OptionSet (see
+    // utils/freezeFormPayloadLabels.js). Skipped if the form schema
+    // has no option-set-backed fields.
+    const payload = await freezeOptionLabels(db, formSchema.value, rawPayload)
     const existing = currentUserRecord.value
     const submittedAt = submit ? DateTime.now() : (existing?.submittedAt ?? null)
     if (existing) {

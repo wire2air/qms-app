@@ -15,6 +15,7 @@ import DynamicForm from '@/components/form/DynamicForm.js'
 import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue'
 import { currentSession } from '@/utils/currentSession.js'
 import { db } from '@models/index'
+import { freezeOptionLabels } from '@/utils/freezeFormPayloadLabels.js'
 import { DateTime } from 'luxon'
 import { post } from '@/api'
 
@@ -104,7 +105,9 @@ async function persistRecord({ submit, esign }) {
   if (!instanceStep.value) return
   saving.value = true
   try {
-    const { _parent_problem: _1, ...payload } = formData.value || {}
+    const { _parent_problem: _1, ...rawPayload } = formData.value || {}
+    // Freeze OptionSet labels on save (see freezeFormPayloadLabels util).
+    const payload = await freezeOptionLabels(db, formSchema.value, rawPayload)
     const existing = currentUserRecord.value
     const submittedAt = submit ? DateTime.now() : (existing?.submittedAt ?? null)
     if (existing) {

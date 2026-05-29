@@ -11,6 +11,8 @@ import {
 } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { freezeOptionLabels } from '@/utils/freezeFormPayloadLabels.js'
+import { db } from '@models/index'
 
 const props = defineProps({
   /**
@@ -333,9 +335,13 @@ async function submitFieldRecord(payload, esign) {
   // Round 0: I&L records reference log_books via logBookId, not the
   // old form_template_id. Selected row's _kind is always LOG_BOOK on
   // this submit path (the UTILITY branch never reaches here).
+  // Freeze OptionSet labels onto the payload so saved records stay
+  // readable as the admin originally meant them even if the source
+  // OptionSet is later edited. See utils/freezeFormPayloadLabels.js.
+  const frozen = await freezeOptionLabels(db, templateSchema.value, payload)
   const body = {
     logBookId: selectedTemplate.value.id,
-    payload,
+    payload: frozen,
     submittedVia: 'MAIN_QMS',
   }
   // Link the scheduled instance so the backend completes it + closes the
@@ -357,10 +363,11 @@ async function handleSubmit(data) {
     }
     submitting.value = true
     try {
+      const frozen = await freezeOptionLabels(db, templateSchema.value, data)
       const record = await createRecord({
         templateId: selectedTemplate.value.id,
         documentTypeId: documentTypeId.value,
-        payload: data,
+        payload: frozen,
       })
       createdRecord.value = record
       step.value = 'success'
