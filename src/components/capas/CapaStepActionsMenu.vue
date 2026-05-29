@@ -151,13 +151,25 @@ const filteredReassignCandidates = computed(() =>
 )
 
 // ─── Outcome configuration + gating ─────────────────────────────────────────
-const OUTCOME_CONFIG = {
-  COMPLETE_AND_ADVANCE: { label: 'Complete & Advance', icon: IconCheck },
-  SEND_BACK: { label: 'Send Back', icon: IconArrowBackUp, needsTarget: true, needsComment: true },
+// Per-stepType flavoring mirrors ChangeRequestStepActionsMenu: APPROVAL
+// steps read as "Approve" / "Reject", ACTION steps keep the
+// "Complete & Advance" / "Send Back" wording reviewers are used to.
+const isApprovalStep = computed(() => instanceStep.value?.stepType === 'APPROVAL')
+const OUTCOME_CONFIG = computed(() => ({
+  COMPLETE_AND_ADVANCE: {
+    label: isApprovalStep.value ? 'Approve' : 'Complete & Advance',
+    icon: IconCheck,
+  },
+  SEND_BACK: {
+    label: isApprovalStep.value ? 'Reject' : 'Send Back',
+    icon: IconArrowBackUp,
+    needsTarget: true,
+    needsComment: true,
+  },
   REQUEST_INFO: { label: 'Request Info', icon: IconInfoCircle, needsComment: true },
   REASSIGN: { label: 'Reassign', icon: IconUserCheck, needsUser: true, needsComment: true },
   CANCEL: { label: 'Cancel', icon: IconBan, needsComment: true },
-}
+}))
 
 const canActOnStep = computed(() => ACTIONABLE_STATUSES.includes(currentUserTask.value?.statusId))
 
@@ -195,7 +207,7 @@ const reassignToUserId = ref(null)
 const actionLoading = ref(false)
 
 const pendingConfig = computed(() =>
-  pendingOutcomeId.value ? (OUTCOME_CONFIG[pendingOutcomeId.value] ?? null) : null,
+  pendingOutcomeId.value ? (OUTCOME_CONFIG.value[pendingOutcomeId.value] ?? null) : null,
 )
 const confirmTitle = computed(() => pendingConfig.value?.label ?? 'Confirm')
 
@@ -207,7 +219,7 @@ function onOutcomeClick(outcomeId) {
   sendBackTargetStepId.value = null
   reassignToUserId.value = null
 
-  const config = OUTCOME_CONFIG[outcomeId]
+  const config = OUTCOME_CONFIG.value[outcomeId]
   if (config?.needsComment || config?.needsTarget || config?.needsUser) {
     showConfirmDialog.value = true
   } else if (props.requireEsignature) {
@@ -301,7 +313,7 @@ const items = computed(() => {
   if (canActOnStep.value) {
     for (const o of effectiveAllowedOutcomes.value) {
       if (o.outcomeId === 'COMPLETE_AND_ADVANCE') continue // rendered as a standalone button
-      const cfg = OUTCOME_CONFIG[o.outcomeId]
+      const cfg = OUTCOME_CONFIG.value[o.outcomeId]
       if (!cfg) continue
       list.push({
         name: cfg.label,

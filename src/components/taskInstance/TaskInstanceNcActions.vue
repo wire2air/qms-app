@@ -58,9 +58,13 @@ const sendBackTargets = useLiveQueryWithDeps(
 )
 
 // ── Outcome → UI config ──────────────────────────────────────────────────────
-const OUTCOME_CONFIG = {
+// Per-stepType flavoring mirrors CR + CAPA: APPROVAL steps relabel
+// COMPLETE_AND_ADVANCE / SEND_BACK as "Approve" / "Reject" so the
+// reviewer sees the right verb.
+const isApprovalStep = computed(() => props.instanceStep?.stepType === 'APPROVAL')
+const OUTCOME_CONFIG = computed(() => ({
   COMPLETE_AND_ADVANCE: {
-    label: 'Mark Complete',
+    label: isApprovalStep.value ? 'Approve' : 'Mark Complete',
     variant: 'primary',
     icon: IconCheck,
     needsComment: false,
@@ -70,7 +74,7 @@ const OUTCOME_CONFIG = {
   // lives on a separate owner action. Comment is required so the owner
   // has context to reassign.
   SEND_BACK: {
-    label: 'Send Back',
+    label: isApprovalStep.value ? 'Reject' : 'Send Back',
     variant: 'outline',
     icon: IconArrowBackUp,
     needsComment: true,
@@ -95,7 +99,7 @@ const OUTCOME_CONFIG = {
     icon: IconBan,
     needsComment: true,
   },
-}
+}))
 
 // ── State ────────────────────────────────────────────────────────────────────
 const showConfirmDialog = ref(false)
@@ -157,7 +161,7 @@ const formSaveRequired = computed(() => formRequired.value && !ncRecord.value?.s
 // on the per-step form being submitted (below).
 
 const pendingConfig = computed(() =>
-  pendingOutcomeId.value ? (OUTCOME_CONFIG[pendingOutcomeId.value] ?? null) : null,
+  pendingOutcomeId.value ? (OUTCOME_CONFIG.value[pendingOutcomeId.value] ?? null) : null,
 )
 
 const confirmTitle = computed(() => pendingConfig.value?.label ?? 'Confirm')
@@ -193,7 +197,7 @@ function onOutcomeClick(outcomeId) {
   sendBackTargetStepId.value = null
   reassignToUserId.value = null
 
-  const config = OUTCOME_CONFIG[outcomeId]
+  const config = OUTCOME_CONFIG.value[outcomeId]
   if (config?.needsComment || config?.needsTarget || config?.needsUser) {
     showConfirmDialog.value = true
   } else if (props.workflowStep?.requireEsignature) {

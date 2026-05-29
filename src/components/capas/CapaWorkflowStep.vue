@@ -25,6 +25,11 @@ const stepDefinition = useLiveQueryWithDeps(
   async (db, [stepId]) => (stepId ? db.WorkflowStep.findByPk(stepId) : null),
 )
 
+// APPROVAL steps relabel the action buttons — "Approve" / "Reject"
+// instead of "Mark Complete" / "Send Back" — matching CR's
+// ChangeRequestStepActionsMenu pattern.
+const isApprovalStep = computed(() => instanceStep.value?.stepType === 'APPROVAL')
+
 const assignments = useLiveQueryWithDeps(
   [() => props.instanceStepId],
   async (db, [id]) => {
@@ -290,7 +295,15 @@ async function submitCompleteAndAdvance(esign = null) {
           @click="onCompleteAndAdvanceClick"
         >
           <IconCheck :size="14" />
-          {{ completing ? 'Completing…' : 'Mark Complete' }}
+          {{
+            completing
+              ? isApprovalStep
+                ? 'Approving…'
+                : 'Completing…'
+              : isApprovalStep
+                ? 'Approve'
+                : 'Mark Complete'
+          }}
         </button>
         <button
           v-if="canReopen"

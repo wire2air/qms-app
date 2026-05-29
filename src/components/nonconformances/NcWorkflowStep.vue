@@ -415,7 +415,15 @@ async function handleCancelStep() {
           @click="onMarkCompleteClick"
         >
           <IconCheck :size="14" />
-          {{ completing || saving ? 'Completing…' : 'Mark Complete' }}
+          {{
+            completing || saving
+              ? isApprovalStep
+                ? 'Approving…'
+                : 'Completing…'
+              : isApprovalStep
+                ? 'Approve'
+                : 'Mark Complete'
+          }}
         </button>
         <button
           v-if="canReopen"
@@ -432,7 +440,7 @@ async function handleCancelStep() {
           @click="emit('sendBack')"
         >
           <IconArrowBackUp :size="14" />
-          Send back
+          {{ isApprovalStep ? 'Reject' : 'Send back' }}
         </button>
         <!-- Owner step-level actions. Always available to the owner on
              a live step, regardless of whether the owner also happens to
