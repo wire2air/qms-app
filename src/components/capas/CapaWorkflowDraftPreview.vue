@@ -59,6 +59,15 @@ function rolesForStep(stepId) {
   return stepRoles.value[stepId] || []
 }
 
+// Approval steps stay internal even on a supplier-facing CAPA — final
+// approval can't be delegated to the supplier; see submitCapaForReview.
+function isApprovalStep(step) {
+  return step?.stepType === 'APPROVAL'
+}
+function usesSupplierPickerFor(step) {
+  return !!capa.value?.isSupplierFacing && !isApprovalStep(step)
+}
+
 // For a supplier-facing CAPA, the picker pool is the supplier's users
 // (kind=EXTERNAL_SUPPLIER scoped to capa.supplierId). Surface that list
 // here so we can auto-default each step to the first candidate — common
@@ -107,23 +116,31 @@ async function handleAssigneeChange(stepId, userId) {
 
 const hasWorkflow = computed(() => !!capa.value?.workflowVersionId)
 
-// Auto-pick the first supplier user for each step on a supplier-facing
-// CAPA so the owner doesn't have to click N times when there's only one
-// candidate. Only fills empty slots; never overwrites an explicit pick.
+// Auto-pick a sensible default for each step on a supplier-facing CAPA:
+//   APPROVAL step → owner (final approval stays internal)
+//   other step    → first active supplier user (common case: one POC)
+// Only fills empty slots — never overwrites an explicit pick.
 watch(
-  [supplierUsers, templateSteps, () => capa.value?.isSupplierFacing, () => capa.value?.statusId],
-  ([users, steps, isSupplierFacing, statusId]) => {
+  [
+    supplierUsers,
+    templateSteps,
+    () => capa.value?.isSupplierFacing,
+    () => capa.value?.statusId,
+    () => capa.value?.ownerId,
+  ],
+  ([users, steps, isSupplierFacing, statusId, ownerId]) => {
     if (!capa.value || !isSupplierFacing || statusId !== 'DRAFT') return
-    if (!users.length || !steps.length) return
-    const firstUserId = users[0].id
+    if (!steps.length) return
+    const firstSupplierUserId = users.length ? users[0].id : null
     const next = { ...(capa.value.pendingReviewers || {}) }
     let changed = false
     for (const step of steps) {
       const existing = next[step.id]
-      if (!Array.isArray(existing) || existing.length === 0) {
-        next[step.id] = [firstUserId]
-        changed = true
-      }
+      if (Array.isArray(existing) && existing.length) continue
+      const defaultUserId = isApprovalStep(step) ? ownerId : firstSupplierUserId
+      if (!defaultUserId) continue
+      next[step.id] = [defaultUserId]
+      changed = true
     }
     if (changed) {
       capa.value.pendingReviewers = next
@@ -168,8 +185,17 @@ watch(
           {{ idx + 1 }}
         </span>
         <div class="tw:flex-1 tw:min-w-0">
-          <div class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
-            {{ step.name }}
+          <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+            <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+              {{ step.name }}
+            </span>
+            <span
+              v-if="capa.isSupplierFacing && isApprovalStep(step)"
+              class="tw:text-[10px] tw:rounded tw:bg-amber-100 tw:text-amber-800 tw:px-1.5 tw:py-0.5"
+              title="Approval steps stay internal even on supplier-facing records."
+            >
+              Approval · Internal only
+            </span>
           </div>
           <div
             v-if="step.description"
@@ -180,9 +206,10 @@ watch(
         </div>
         <div class="tw:w-72 tw:shrink-0">
           <!-- Supplier-facing CAPA: picker swaps to supplier users for
-               the CAPA's supplier, ignores the template's role pool. -->
+               the CAPA's supplier — EXCEPT APPROVAL steps, which stay
+               internal (final approval can't be delegated). -->
           <UserSelectMenu
-            v-if="isOwner && capa.isSupplierFacing"
+            v-if="isOwner && usesSupplierPickerFor(step)"
             :modelValue="currentAssignee(step.id)"
             kind="EXTERNAL_SUPPLIER"
             :supplierId="capa.supplierId"

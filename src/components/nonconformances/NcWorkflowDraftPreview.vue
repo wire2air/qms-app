@@ -59,6 +59,15 @@ function rolesForStep(stepId) {
   return stepRoles.value[stepId] || []
 }
 
+// Approval steps stay internal even on a supplier-facing NC — final
+// approval can't be delegated to the supplier; see submitNcForReview.
+function isApprovalStep(step) {
+  return step?.stepType === 'APPROVAL'
+}
+function usesSupplierPickerFor(step) {
+  return !!nc.value?.isSupplierFacing && !isApprovalStep(step)
+}
+
 // For a supplier-facing NC, the picker pool is the supplier's users.
 // Surface that list here so we can auto-default each step to the first
 // candidate (common case: a supplier has one POC user — saves a click).
@@ -105,25 +114,32 @@ async function handleAssigneeChange(stepId, userId) {
 
 const hasWorkflow = computed(() => !!nc.value?.workflowVersionId)
 
-// Auto-pick the first supplier user for each step on a supplier-facing
-// NC so the owner doesn't have to click N times when there's only one
-// candidate (the common case). Only fills empty slots — never
-// overwrites an explicit choice. Runs once steps + supplier users are
-// both ready, then on supplier change while still in DRAFT.
+// Auto-pick a sensible default for each step on a supplier-facing NC so
+// the owner doesn't have to click N times when the obvious choice
+// applies. Only fills empty slots; never overwrites an explicit pick.
+//   APPROVAL step → owner (final approval stays internal)
+//   other step    → first active supplier user (common case: one POC)
 watch(
-  [supplierUsers, templateSteps, () => nc.value?.isSupplierFacing, () => nc.value?.statusId],
-  ([users, steps, isSupplierFacing, statusId]) => {
+  [
+    supplierUsers,
+    templateSteps,
+    () => nc.value?.isSupplierFacing,
+    () => nc.value?.statusId,
+    () => nc.value?.ownerId,
+  ],
+  ([users, steps, isSupplierFacing, statusId, ownerId]) => {
     if (!nc.value || !isSupplierFacing || statusId !== 'DRAFT') return
-    if (!users.length || !steps.length) return
-    const firstUserId = users[0].id
+    if (!steps.length) return
+    const firstSupplierUserId = users.length ? users[0].id : null
     const next = { ...(nc.value.pendingReviewers || {}) }
     let changed = false
     for (const step of steps) {
       const existing = next[step.id]
-      if (!Array.isArray(existing) || existing.length === 0) {
-        next[step.id] = [firstUserId]
-        changed = true
-      }
+      if (Array.isArray(existing) && existing.length) continue
+      const defaultUserId = isApprovalStep(step) ? ownerId : firstSupplierUserId
+      if (!defaultUserId) continue
+      next[step.id] = [defaultUserId]
+      changed = true
     }
     if (changed) {
       nc.value.pendingReviewers = next
@@ -170,8 +186,17 @@ watch(
           {{ idx + 1 }}
         </span>
         <div class="tw:flex-1 tw:min-w-0">
-          <div class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
-            {{ step.name }}
+          <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+            <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+              {{ step.name }}
+            </span>
+            <span
+              v-if="nc.isSupplierFacing && isApprovalStep(step)"
+              class="tw:text-[10px] tw:rounded tw:bg-amber-100 tw:text-amber-800 tw:px-1.5 tw:py-0.5"
+              title="Approval steps stay internal even on supplier-facing records."
+            >
+              Approval · Internal only
+            </span>
           </div>
           <div
             v-if="step.description"
@@ -182,10 +207,12 @@ watch(
         </div>
         <div class="tw:w-72 tw:shrink-0">
           <!-- Supplier-facing NC: picker swaps to supplier users for the
-               NC's supplier, ignores the template's role pool. Backend
-               refuses submit otherwise (see submitNcForReview). -->
+               NC's supplier, ignores the template's role pool — EXCEPT
+               for APPROVAL steps, which stay on the internal role pool
+               (final approval can't be delegated to the supplier).
+               Backend refuses submit otherwise (see submitNcForReview). -->
           <UserSelectMenu
-            v-if="isOwner && nc.isSupplierFacing"
+            v-if="isOwner && usesSupplierPickerFor(step)"
             :modelValue="currentAssignee(step.id)"
             kind="EXTERNAL_SUPPLIER"
             :supplierId="nc.supplierId"
