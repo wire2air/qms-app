@@ -44,6 +44,15 @@ export class Nonconformance extends BaseModel {
   // supplierId) instead of the internal role pool. Immutable once
   // submitted; backend enforces.
   @Property({ type: Boolean }) isSupplierFacing = false
+  // Top-section classification (added 2026-05-29). Independent of the
+  // existing typeId — issue-type captures the discovery dimension
+  // (out-of-spec / receiving / missing standard), typeId stays the
+  // nature of the NC. priorityId mirrors CAPA's enum.
+  @Property({ type: String }) ncIssueTypeId = null
+  @Property({ type: String }) priorityId = null
+  @Property({ type: String }) poNumber = ''
+  @Property({ type: String }) orderNumber = ''
+  @Property({ type: String }) lotNumber = ''
   @Property({ type: String }) qtyAffected = null
   @Property({ type: String }) unitOfMeasure = ''
   @Property({ type: String }) costOfNc = null

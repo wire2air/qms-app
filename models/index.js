@@ -78,6 +78,7 @@ import { NcStatus } from './ncStatus'
 import { NcType } from './ncType'
 import { NcSeverity } from './ncSeverity'
 import { NcSource } from './ncSource'
+import { NcIssueType } from './ncIssueType'
 import { NcDispositionType } from './ncDispositionType'
 import { NcRootCauseCategory } from './ncRootCauseCategory'
 import { NcRecord } from './ncRecord'
@@ -212,6 +213,7 @@ export const db = {
   NcType,
   NcSeverity,
   NcSource,
+  NcIssueType,
   NcDispositionType,
   NcRootCauseCategory,
   NcRecord,

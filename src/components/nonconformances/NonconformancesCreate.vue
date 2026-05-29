@@ -28,6 +28,14 @@ const form = ref({
   // requires supplierId to be set when this is true, and refuses
   // changes once the NC leaves DRAFT.
   isSupplierFacing: false,
+  // Top-section classification / commercial-reference fields (added
+  // 2026-05-29). All optional — intake may not know any of these yet.
+  ncIssueTypeId: null,
+  priorityId: null,
+  dueDate: null,
+  poNumber: '',
+  orderNumber: '',
+  lotNumber: '',
   qtyAffected: null,
   unitOfMeasure: '',
   workflowVersionId: null,
@@ -175,6 +183,10 @@ async function handleReviewersConfirmed(reviewers) {
               <NcSourceSelectMenu v-model="form.sourceId" required />
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">Issue type</label>
+              <NcIssueTypeSelectMenu v-model="form.ncIssueTypeId" />
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">
                 Severity <span class="tw:text-red-500">*</span>
               </label>
@@ -191,10 +203,31 @@ async function handleReviewersConfirmed(reviewers) {
               </div>
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">Priority</label>
+              <div class="tw:flex tw:gap-2">
+                <BaseButton
+                  v-for="p in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']"
+                  :key="p"
+                  class="tw:flex-1 tw:justify-center"
+                  :variant="form.priorityId === p ? 'primary' : 'outline'"
+                  @click="form.priorityId = form.priorityId === p ? null : p"
+                >
+                  {{ p.charAt(0) + p.slice(1).toLowerCase() }}
+                </BaseButton>
+              </div>
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">
                 Detected date <span class="tw:text-red-500">*</span>
               </label>
               <BaseDatePicker v-model="form.detectedAt" />
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">
+                Due date
+                <span class="tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
+              </label>
+              <BaseDatePicker v-model="form.dueDate" />
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2 tw:md:col-span-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">
@@ -245,6 +278,18 @@ async function handleReviewersConfirmed(reviewers) {
             <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">Unit of measure</label>
               <BaseTextInput v-model="form.unitOfMeasure" placeholder="e.g. sheets, units…" />
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">PO #</label>
+              <BaseTextInput v-model="form.poNumber" placeholder="Purchase order number" />
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">Order #</label>
+              <BaseTextInput v-model="form.orderNumber" placeholder="Customer / sales order" />
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">Lot #</label>
+              <BaseTextInput v-model="form.lotNumber" placeholder="Material / production lot" />
             </div>
           </div>
         </div>

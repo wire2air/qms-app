@@ -515,6 +515,30 @@ function onCreateLinkedChangeRequest() {
                     {{ nc.detectedAt.formatDate('date') || '—' }}
                   </span>
                 </div>
+                <div v-if="nc.ncIssueTypeId" class="tw:flex tw:flex-col tw:gap-1">
+                  <div class="tw:text-xs tw:text-secondary">Issue type</div>
+                  <NcIssueTypeBadgeById :issueTypeId="nc.ncIssueTypeId" />
+                </div>
+                <div v-if="nc.priorityId" class="tw:flex tw:flex-col tw:gap-1">
+                  <div class="tw:text-xs tw:text-secondary">Priority</div>
+                  <span
+                    class="tw:inline-flex tw:items-center tw:text-xs tw:font-semibold tw:rounded tw:px-2 tw:py-0.5"
+                    :class="{
+                      'tw:bg-emerald-100 tw:text-emerald-700': nc.priorityId === 'LOW',
+                      'tw:bg-amber-100 tw:text-amber-700': nc.priorityId === 'MEDIUM',
+                      'tw:bg-orange-100 tw:text-orange-700': nc.priorityId === 'HIGH',
+                      'tw:bg-rose-100 tw:text-rose-700': nc.priorityId === 'CRITICAL',
+                    }"
+                  >
+                    {{ nc.priorityId.charAt(0) + nc.priorityId.slice(1).toLowerCase() }}
+                  </span>
+                </div>
+                <div v-if="nc.dueDate" class="tw:flex tw:flex-col tw:gap-1">
+                  <div class="tw:text-xs tw:text-secondary">Due</div>
+                  <span class="tw:text-sm tw:font-medium">
+                    {{ nc.dueDate.formatDate('date') || '—' }}
+                  </span>
+                </div>
                 <div v-if="nc.productId" class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Product</div>
                   <ProductBadgeById :productId="nc.productId" />
@@ -524,6 +548,18 @@ function onCreateLinkedChangeRequest() {
                   <span class="tw:text-sm tw:font-medium">
                     {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
                   </span>
+                </div>
+                <div v-if="nc.poNumber" class="tw:flex tw:flex-col tw:gap-1">
+                  <div class="tw:text-xs tw:text-secondary">PO #</div>
+                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.poNumber }}</span>
+                </div>
+                <div v-if="nc.orderNumber" class="tw:flex tw:flex-col tw:gap-1">
+                  <div class="tw:text-xs tw:text-secondary">Order #</div>
+                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.orderNumber }}</span>
+                </div>
+                <div v-if="nc.lotNumber" class="tw:flex tw:flex-col tw:gap-1">
+                  <div class="tw:text-xs tw:text-secondary">Lot #</div>
+                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.lotNumber }}</span>
                 </div>
               </div>
 
