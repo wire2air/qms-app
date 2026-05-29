@@ -326,6 +326,7 @@ declare module 'vue' {
     NcDispositionTypeSelectMenu: typeof import('./src/components/menus/NcDispositionTypeSelectMenu.vue')['default']
     NcIssueTypeBadge: typeof import('./src/components/badges/NcIssueTypeBadge.vue')['default']
     NcIssueTypeBadgeById: typeof import('./src/components/badges/NcIssueTypeBadgeById.vue')['default']
+    NcIssueTypesCard: typeof import('./src/components/company/ncIssueTypesCard.vue')['default']
     NcIssueTypeSelectMenu: typeof import('./src/components/menus/NcIssueTypeSelectMenu.vue')['default']
     NcRecordViewerDialog: typeof import('./src/components/nonconformances/NcRecordViewerDialog.vue')['default']
     NcRootCauseCategorySelectMenu: typeof import('./src/components/menus/NcRootCauseCategorySelectMenu.vue')['default']

@@ -139,6 +139,7 @@ watch(
       <!-- Tab: Lookups — shared master data (NC dispositions, etc.) -->
       <div v-else-if="activeTab === 'lookups'" class="tw:flex tw:flex-col tw:gap-8">
         <NcDispositionTypesCard />
+        <NcIssueTypesCard />
       </div>
     </div>
   </div>

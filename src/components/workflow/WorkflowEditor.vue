@@ -89,13 +89,14 @@ const showChildSteps = computed(() =>
 // 2026-05-27. (Reviewer resolution still honours any legacy
 // WorkflowStepUser rows, so existing templates keep working.)
 const stepApproversTab = computed(() => 'roles')
-const selectedApprovalRule = computed(() => {
-  if (!workflow.value) return null
-  if (workflow.value.moduleId === 'NON_CONFORMANCE') return 'ANY'
-  if (workflow.value.moduleId === 'CAPA') return 'ALL'
-  // Document and Change Control let the author pick per APPROVAL step.
-  return null
-})
+// Approval-rule on each step is per-template author choice for every
+// module — the step editor falls back to its per-step approvalRule
+// field (ANY / ALL) when this is null. NC and CAPA were force-pinned
+// here historically (ANY and ALL respectively) so the picker was
+// hidden; 2026-05-29 the user asked for ANY/ALL to be exposed across
+// all modules so the picker shows everywhere. Existing templates keep
+// whatever value was saved.
+const selectedApprovalRule = computed(() => null)
 
 const versions = useLiveQueryWithDeps(
   [() => props.id],
