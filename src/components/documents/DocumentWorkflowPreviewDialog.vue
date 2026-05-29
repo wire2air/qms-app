@@ -1,4 +1,5 @@
 <script setup>
+import { IconPlus } from '@tabler/icons-vue'
 import { useDocuments } from '@/composables/useDocuments.js'
 
 const props = defineProps({
@@ -222,7 +223,13 @@ async function confirm() {
               </span>
             </div>
 
-            <!-- Picker — multi-select scoped to role members -->
+            <!-- Picker — multi-select scoped to role members.
+                 The chips at "×" remove a single pick; the "+" chip at
+                 the end propagates the click to the menu's button so the
+                 dropdown opens for more picks (no stopPropagation on it,
+                 unlike "×"). When nothing's picked yet the whole button
+                 area shows the placeholder text — clicking anywhere
+                 opens the dropdown, no "+" needed. -->
             <BaseSelectMenu
               v-if="step.candidates.length"
               v-model="selections[step.id]"
@@ -233,7 +240,7 @@ async function confirm() {
               <template #button="scope">
                 <div
                   v-if="Array.isArray(selections[step.id]) && selections[step.id].length"
-                  class="tw:flex tw:flex-wrap tw:gap-1"
+                  class="tw:flex tw:flex-wrap tw:items-center tw:gap-1"
                 >
                   <span
                     v-for="uid in selections[step.id]"
@@ -247,6 +254,13 @@ async function confirm() {
                     >
                       &times;
                     </button>
+                  </span>
+                  <span
+                    v-if="selections[step.id].length < step.candidates.length"
+                    class="tw:text-xs tw:font-medium tw:bg-transparent tw:text-primary tw:border tw:border-dashed tw:border-primary/40 tw:hover:border-primary tw:hover:bg-primary/5 tw:px-2 tw:py-0.5 tw:rounded-full tw:flex tw:items-center tw:gap-1 tw:cursor-pointer tw:transition-colors"
+                  >
+                    <IconPlus :size="12" />
+                    Add reviewer
                   </span>
                 </div>
                 <span v-else class="tw:text-sm tw:text-placeholder">
