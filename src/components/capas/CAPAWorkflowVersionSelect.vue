@@ -1,4 +1,9 @@
 <script setup>
+const props = defineProps({
+  isSupplierFacing: { type: Boolean, default: false },
+  supplierId: { type: String, default: null },
+  ownerId: { type: String, default: null },
+})
 const emit = defineEmits(['submit'])
 const modelValue = defineModel({ type: String })
 const submitDialogOpen = ref(false)
@@ -96,6 +101,9 @@ defineExpose({ submit })
         :parentIndex="entry.parentIndex"
         :isChild="entry.isChild"
         :required="!entry.isChild && entry.step.id === firstRootStepId"
+        :isSupplierFacing="props.isSupplierFacing"
+        :supplierId="props.supplierId"
+        :ownerId="props.ownerId"
       />
     </div>
 

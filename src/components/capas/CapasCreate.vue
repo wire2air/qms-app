@@ -291,6 +291,9 @@ async function handleReviewersConfirmed(reviewers) {
           <CAPAWorkflowVersionSelect
             ref="capaWorkflowVersionSelectRef"
             v-model="form.workflowVersionId"
+            :isSupplierFacing="form.isSupplierFacing"
+            :supplierId="form.supplierId"
+            :ownerId="form.ownerId"
             @submit="handleReviewersConfirmed"
           />
         </div>

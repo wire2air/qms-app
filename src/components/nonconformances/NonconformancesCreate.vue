@@ -320,6 +320,9 @@ async function handleReviewersConfirmed(reviewers) {
           <NCWorkflowVersionSelect
             ref="ncWorkflowVersionSelectRef"
             v-model="form.workflowVersionId"
+            :isSupplierFacing="form.isSupplierFacing"
+            :supplierId="form.supplierId"
+            :ownerId="form.ownerId"
             @submit="handleReviewersConfirmed"
           />
         </div>

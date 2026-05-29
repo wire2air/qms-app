@@ -1,4 +1,14 @@
 <script setup>
+const props = defineProps({
+  // Supplier-facing routing — when true and a step is non-APPROVAL,
+  // the per-step reviewer candidates come from supplier users (kind=
+  // 'EXTERNAL_SUPPLIER' scoped to supplierId) instead of role-eligible
+  // internal users. Approval steps stay internal in both cases. Owner
+  // is the default approver on APPROVAL steps.
+  isSupplierFacing: { type: Boolean, default: false },
+  supplierId: { type: String, default: null },
+  ownerId: { type: String, default: null },
+})
 const emit = defineEmits(['submit'])
 const modelValue = defineModel({ type: String })
 const submitDialogOpen = ref(false)
@@ -71,6 +81,9 @@ defineExpose({ submit })
         :step="step"
         :stepIndex="index"
         :required="index === 0"
+        :isSupplierFacing="props.isSupplierFacing"
+        :supplierId="props.supplierId"
+        :ownerId="props.ownerId"
       />
     </div>
 
