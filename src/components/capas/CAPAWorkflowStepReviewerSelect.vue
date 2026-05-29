@@ -141,18 +141,21 @@ const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
 
     <!-- Picker — same UserSelectMenu the detail page uses, searchable
          dropdown. Pool determined by props (see NC equivalent). -->
+    <!-- :required="true" always — never show the "All" null option on
+         a reviewer picker. See NCWorkflowStepReviewerSelect for the
+         rationale. -->
     <UserSelectMenu
       v-if="usesSupplierPicker"
       v-model="modelValue"
       kind="EXTERNAL_SUPPLIER"
       :supplierId="supplierId"
-      :required="required"
+      :required="true"
     />
     <UserSelectMenu
       v-else
       v-model="modelValue"
       :roleIdsFilter="stepRoleIds"
-      :required="required"
+      :required="true"
     />
 
     <!-- Helpful empty-state hints. -->

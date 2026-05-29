@@ -149,18 +149,22 @@ const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
              to supplierId (no role filter; the workflow step says WHAT,
              the supplier chooses WHO)
            - everything else → kind=INTERNAL, gated by step's roles -->
+    <!-- :required="true" always — the picker is choosing a reviewer,
+         not filtering. The parent's `required` prop drives the form-
+         level "must pick before submit" rule on the first step; on the
+         picker itself we never want the "All" null option to appear. -->
     <UserSelectMenu
       v-if="usesSupplierPicker"
       v-model="modelValue"
       kind="EXTERNAL_SUPPLIER"
       :supplierId="supplierId"
-      :required="required"
+      :required="true"
     />
     <UserSelectMenu
       v-else
       v-model="modelValue"
       :roleIdsFilter="stepRoleIds"
-      :required="required"
+      :required="true"
     />
 
     <!-- Helpful empty-state hints. UserSelectMenu silently shows

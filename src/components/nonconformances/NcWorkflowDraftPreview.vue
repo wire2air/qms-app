@@ -116,9 +116,15 @@ const hasWorkflow = computed(() => !!nc.value?.workflowVersionId)
 
 // Auto-pick a sensible default for each step on a supplier-facing NC so
 // the owner doesn't have to click N times when the obvious choice
-// applies. Only fills empty slots; never overwrites an explicit pick.
+// applies. One-shot — once we've initialised the empty slots ONE TIME,
+// the watcher stops touching pendingReviewers. Otherwise it fights the
+// user: they remove an assignee, the syncBus refresh re-fires the
+// watcher, the empty slot gets refilled with the supplier user, the
+// picker flickers between cleared and the auto-default. After the
+// first fill the user owns the field; explicit clears stick.
 //   APPROVAL step → owner (final approval stays internal)
 //   other step    → first active supplier user (common case: one POC)
+const autoDefaultDone = ref(false)
 watch(
   [
     supplierUsers,
@@ -128,8 +134,13 @@ watch(
     () => nc.value?.ownerId,
   ],
   ([users, steps, isSupplierFacing, statusId, ownerId]) => {
+    if (autoDefaultDone.value) return
     if (!nc.value || !isSupplierFacing || statusId !== 'DRAFT') return
     if (!steps.length) return
+    // Wait for the supplier-users live query to resolve before we
+    // declare done — otherwise we'd flip the flag with an empty list
+    // and never get the auto-default.
+    if (isSupplierFacing && !users.length && nc.value.supplierId) return
     const firstSupplierUserId = users.length ? users[0].id : null
     const next = { ...(nc.value.pendingReviewers || {}) }
     let changed = false
@@ -141,6 +152,7 @@ watch(
       next[step.id] = [defaultUserId]
       changed = true
     }
+    autoDefaultDone.value = true
     if (changed) {
       nc.value.pendingReviewers = next
       nc.value.save().catch(() => {
@@ -254,17 +266,24 @@ watch(
                for APPROVAL steps, which stay on the internal role pool
                (final approval can't be delegated to the supplier).
                Backend refuses submit otherwise (see submitNcForReview). -->
+          <!-- :required="true" — reviewer picker should never expose
+               the "All" null option. The user can still clear the
+               selection via the badge's × affordance; once cleared,
+               the one-shot autoDefaultDone flag in this component
+               prevents the watcher from re-filling. -->
           <UserSelectMenu
             v-if="isOwner && usesSupplierPickerFor(step)"
             :modelValue="currentAssignee(step.id)"
             kind="EXTERNAL_SUPPLIER"
             :supplierId="nc.supplierId"
+            :required="true"
             @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
           />
           <UserSelectMenu
             v-else-if="isOwner"
             :modelValue="currentAssignee(step.id)"
             :roleIdsFilter="rolesForStep(step.id)"
+            :required="true"
             @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
           />
           <div v-else class="tw:flex tw:items-center tw:gap-2">

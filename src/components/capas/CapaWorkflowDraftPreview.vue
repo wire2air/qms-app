@@ -116,10 +116,11 @@ async function handleAssigneeChange(stepId, userId) {
 
 const hasWorkflow = computed(() => !!capa.value?.workflowVersionId)
 
-// Auto-pick a sensible default for each step on a supplier-facing CAPA:
+// Auto-pick a sensible default for each step on a supplier-facing CAPA.
+// One-shot — see NcWorkflowDraftPreview for the rationale.
 //   APPROVAL step → owner (final approval stays internal)
 //   other step    → first active supplier user (common case: one POC)
-// Only fills empty slots — never overwrites an explicit pick.
+const autoDefaultDone = ref(false)
 watch(
   [
     supplierUsers,
@@ -129,8 +130,10 @@ watch(
     () => capa.value?.ownerId,
   ],
   ([users, steps, isSupplierFacing, statusId, ownerId]) => {
+    if (autoDefaultDone.value) return
     if (!capa.value || !isSupplierFacing || statusId !== 'DRAFT') return
     if (!steps.length) return
+    if (isSupplierFacing && !users.length && capa.value.supplierId) return
     const firstSupplierUserId = users.length ? users[0].id : null
     const next = { ...(capa.value.pendingReviewers || {}) }
     let changed = false
@@ -142,6 +145,7 @@ watch(
       next[step.id] = [defaultUserId]
       changed = true
     }
+    autoDefaultDone.value = true
     if (changed) {
       capa.value.pendingReviewers = next
       capa.value.save().catch(() => {})
@@ -208,17 +212,21 @@ watch(
           <!-- Supplier-facing CAPA: picker swaps to supplier users for
                the CAPA's supplier — EXCEPT APPROVAL steps, which stay
                internal (final approval can't be delegated). -->
+          <!-- :required="true" — reviewer picker, never a filter; see
+               NcWorkflowDraftPreview comment for full rationale. -->
           <UserSelectMenu
             v-if="isOwner && usesSupplierPickerFor(step)"
             :modelValue="currentAssignee(step.id)"
             kind="EXTERNAL_SUPPLIER"
             :supplierId="capa.supplierId"
+            :required="true"
             @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
           />
           <UserSelectMenu
             v-else-if="isOwner"
             :modelValue="currentAssignee(step.id)"
             :roleIdsFilter="rolesForStep(step.id)"
+            :required="true"
             @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
           />
           <div v-else class="tw:flex tw:items-center tw:gap-2">
