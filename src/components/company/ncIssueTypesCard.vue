@@ -35,7 +35,7 @@ const deactivated = useLiveQuery(
 const showEditDialog = ref(false)
 const editing = ref(null)
 const form = ref({
-  id: '',
+  code: '',
   name: '',
   description: '',
   displayOrder: 1000,
@@ -45,7 +45,7 @@ const saving = ref(false)
 function openAdd() {
   editing.value = null
   form.value = {
-    id: '',
+    code: '',
     name: '',
     description: '',
     displayOrder: (issueTypes.value?.length ?? 0) * 100 + 100,
@@ -56,7 +56,7 @@ function openAdd() {
 function openEdit(row) {
   editing.value = row
   form.value = {
-    id: row.id,
+    code: row.code,
     name: row.name,
     description: row.description ?? '',
     displayOrder: row.displayOrder ?? 1000,
@@ -79,13 +79,13 @@ async function handleSave() {
       })
       toast.success('Issue type updated')
     } else {
-      if (!form.value.id.trim()) {
-        toast.warning('ID is required')
+      if (!form.value.code.trim()) {
+        toast.warning('Code is required')
         saving.value = false
         return
       }
       await post('/v1/services/ncIssueTypes', {
-        id: form.value.id.trim().toUpperCase(),
+        code: form.value.code.trim().toUpperCase(),
         name: form.value.name.trim(),
         description: form.value.description?.trim() || null,
         displayOrder: form.value.displayOrder,
@@ -164,7 +164,7 @@ const showDeactivated = ref(false)
             class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider"
           >
             <th class="tw:px-3 tw:py-2">Name</th>
-            <th class="tw:px-3 tw:py-2">ID</th>
+            <th class="tw:px-3 tw:py-2">Code</th>
             <th class="tw:px-3 tw:py-2 tw:text-center">Order</th>
             <th class="tw:px-3 tw:py-2 tw:text-right">Actions</th>
           </tr>
@@ -185,7 +185,7 @@ const showDeactivated = ref(false)
               <code
                 class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary"
               >
-                {{ row.id }}
+                {{ row.code }}
               </code>
             </td>
             <td class="tw:px-3 tw:py-3 tw:text-center tw:text-secondary">
@@ -238,7 +238,7 @@ const showDeactivated = ref(false)
               <span class="tw:font-medium tw:text-secondary tw:line-through">{{ row.name }}</span>
               <code
                 class="tw:text-[10px] tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary"
-                >{{ row.id }}</code
+                >{{ row.code }}</code
               >
             </div>
             <button
@@ -262,9 +262,9 @@ const showDeactivated = ref(false)
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
         <div v-if="!editing">
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            ID <span class="tw:text-red-500">*</span>
+            Code <span class="tw:text-red-500">*</span>
           </p>
-          <BaseTextInput v-model="form.id" placeholder="e.g. OUT_OF_SPEC" />
+          <BaseTextInput v-model="form.code" placeholder="e.g. OUT_OF_SPEC" />
           <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
             SCREAMING_SNAKE_CASE. Used as the stable identifier on every NC row that
             references this issue type. Cannot be changed later.
