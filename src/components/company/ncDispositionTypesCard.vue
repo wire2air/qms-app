@@ -44,9 +44,35 @@ const form = ref({
   tracksCost: false,
 })
 const saving = ref(false)
+// codeDirty: has the user manually edited the code? Until they do, we
+// keep code auto-derived from the name as they type. codeEditable
+// toggles the override input on/off.
+const codeDirty = ref(false)
+const codeEditable = ref(false)
+
+function slugify(text) {
+  return (text || '')
+    .toString()
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_')
+    .toUpperCase()
+}
+
+watch(
+  () => form.value.name,
+  (newName) => {
+    if (editing.value) return
+    if (codeDirty.value) return
+    form.value.code = slugify(newName)
+  },
+)
 
 function openAdd() {
   editing.value = null
+  codeDirty.value = false
+  codeEditable.value = false
   form.value = {
     code: '',
     name: '',
@@ -59,6 +85,8 @@ function openAdd() {
 
 function openEdit(row) {
   editing.value = row
+  codeDirty.value = true
+  codeEditable.value = false
   form.value = {
     code: row.code,
     name: row.name,
@@ -260,24 +288,39 @@ const showDeactivated = ref(false)
 
     <BaseDialog v-model="showEditDialog" :title="editing ? 'Edit Disposition' : 'Add Disposition'" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <div v-if="!editing">
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Code <span class="tw:text-red-500">*</span>
-          </p>
-          <BaseTextInput
-            v-model="form.code"
-            placeholder="e.g. DONATE_TO_TRAINING"
-          />
-          <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            SCREAMING_SNAKE_CASE. Used as the stable identifier on every NC row that
-            references this disposition. Cannot be changed later.
-          </p>
-        </div>
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
             Name <span class="tw:text-red-500">*</span>
           </p>
           <BaseTextInput v-model="form.name" placeholder="e.g. Donate to Training" />
+        </div>
+        <div v-if="!editing">
+          <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
+              Code <span class="tw:text-red-500">*</span>
+              <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
+                (auto-derived from name)
+              </span>
+            </p>
+            <button
+              type="button"
+              class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              @click="codeEditable = !codeEditable"
+            >
+              {{ codeEditable ? 'Lock' : 'Edit' }}
+            </button>
+          </div>
+          <BaseTextInput
+            v-model="form.code"
+            placeholder="DONATE_TO_TRAINING"
+            :disabled="!codeEditable"
+            @input="codeDirty = true"
+          />
+          <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
+            SCREAMING_SNAKE_CASE. Stable identifier saved on every NC row that uses this
+            disposition — cannot be changed later. We generate it from the name; click
+            <strong>Edit</strong> to override.
+          </p>
         </div>
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>

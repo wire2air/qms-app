@@ -41,9 +41,40 @@ const form = ref({
   displayOrder: 1000,
 })
 const saving = ref(false)
+// Has the user manually edited the code? While false, we keep the code
+// auto-derived from the name as they type. First manual keystroke locks
+// it so subsequent name edits don't blow away their override.
+const codeDirty = ref(false)
+const codeEditable = ref(false)
+
+// "Out of Spec" → "OUT_OF_SPEC". Strips punctuation, collapses runs of
+// underscores, uppercases. Matches the backend's
+// /^[A-Z][A-Z0-9_]*$/ slug regex.
+function slugify(text) {
+  return (text || '')
+    .toString()
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_')
+    .toUpperCase()
+}
+
+// Auto-derive code from name as the user types — but only on new rows
+// (editing existing rows preserves the saved code, which is immutable).
+watch(
+  () => form.value.name,
+  (newName) => {
+    if (editing.value) return
+    if (codeDirty.value) return
+    form.value.code = slugify(newName)
+  },
+)
 
 function openAdd() {
   editing.value = null
+  codeDirty.value = false
+  codeEditable.value = false
   form.value = {
     code: '',
     name: '',
@@ -55,6 +86,8 @@ function openAdd() {
 
 function openEdit(row) {
   editing.value = row
+  codeDirty.value = true // existing rows never auto-rewrite
+  codeEditable.value = false
   form.value = {
     code: row.code,
     name: row.name,
@@ -260,21 +293,39 @@ const showDeactivated = ref(false)
       maxWidth="md"
     >
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <div v-if="!editing">
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Code <span class="tw:text-red-500">*</span>
-          </p>
-          <BaseTextInput v-model="form.code" placeholder="e.g. OUT_OF_SPEC" />
-          <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            SCREAMING_SNAKE_CASE. Used as the stable identifier on every NC row that
-            references this issue type. Cannot be changed later.
-          </p>
-        </div>
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
             Name <span class="tw:text-red-500">*</span>
           </p>
           <BaseTextInput v-model="form.name" placeholder="e.g. Out of Spec" />
+        </div>
+        <div v-if="!editing">
+          <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
+              Code <span class="tw:text-red-500">*</span>
+              <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
+                (auto-derived from name)
+              </span>
+            </p>
+            <button
+              type="button"
+              class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              @click="codeEditable = !codeEditable"
+            >
+              {{ codeEditable ? 'Lock' : 'Edit' }}
+            </button>
+          </div>
+          <BaseTextInput
+            v-model="form.code"
+            placeholder="OUT_OF_SPEC"
+            :disabled="!codeEditable"
+            @input="codeDirty = true"
+          />
+          <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
+            SCREAMING_SNAKE_CASE. Stable identifier saved on every NC row that uses this
+            issue type — cannot be changed later. We generate it from the name; click
+            <strong>Edit</strong> to override.
+          </p>
         </div>
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
