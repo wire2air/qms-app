@@ -4,10 +4,14 @@ const props = defineProps({
   values: { type: Object, default: () => ({}) },
 })
 
-// The chosen template is recorded in the fill value, not the field definition
+// Prefer the embedded snapshot from the field definition (stamped
+// when the workflow author picked the template), fall back to looking
+// up the value-recorded _templateId. The embed path is the supplier-
+// safe path; the FK path is the legacy fallback.
 const template = useLiveQueryWithDeps(
-  [() => props.values?._templateId],
-  async (db, [id]) => {
+  [() => props.field?.rcaTemplate, () => props.values?._templateId],
+  async (db, [embedded, id]) => {
+    if (embedded?.config) return embedded
     if (!id) return null
     return db.RcaTemplate.findByPk(id)
   },

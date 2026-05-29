@@ -9,11 +9,14 @@ const props = defineProps({
 })
 
 // ─── Option set resolution ────────────────────────────────────────────────────
+// Only fetch the FK for fields that DON'T already carry an embedded
+// snapshot. Embedded fields are the supplier-safe path and skip the
+// IDB lookup entirely.
 const optionSetIds = computed(() => {
   const ids = new Set()
   function collect(fields) {
     for (const f of fields) {
-      if (f.optionSetId) ids.add(f.optionSetId)
+      if (f.optionSetId && !f.optionSet) ids.add(f.optionSetId)
       if (f.children) collect(f.children)
       if (f.template) collect(f.template)
     }
@@ -22,7 +25,7 @@ const optionSetIds = computed(() => {
   return [...ids]
 })
 
-const optionSets = useLiveQueryWithDeps(
+const fkOptionSets = useLiveQueryWithDeps(
   [() => optionSetIds.value.join(',')],
   async (db, [idsStr]) => {
     if (!idsStr) return {}
@@ -37,6 +40,11 @@ const optionSets = useLiveQueryWithDeps(
   { initial: {} },
 )
 
+function getEffectiveOptionSet(field) {
+  // Embedded snapshot wins; fall back to the FK lookup for legacy rows.
+  return field.optionSet ?? (field.optionSetId ? fkOptionSets.value[field.optionSetId] : null)
+}
+
 // ─── Value resolution helpers ─────────────────────────────────────────────────
 function getFieldValue(field) {
   if (!field.name) return null
@@ -46,9 +54,10 @@ function getFieldValue(field) {
 function resolveOptionLabel(field, val) {
   if (val == null) return '—'
 
-  // Check optionSet first
-  if (field.optionSetId && optionSets.value[field.optionSetId]) {
-    const options = optionSets.value[field.optionSetId].options || []
+  // Check optionSet first — embedded snapshot preferred over FK lookup.
+  const effectiveOptionSet = getEffectiveOptionSet(field)
+  if (effectiveOptionSet) {
+    const options = effectiveOptionSet.options || []
     for (const opt of options) {
       if (typeof opt === 'string' && opt === val) return opt
       if (opt.value === val || opt.id === val) return opt.label || opt.name || String(val)

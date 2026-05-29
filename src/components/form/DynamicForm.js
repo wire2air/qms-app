@@ -203,6 +203,7 @@ export default defineComponent({
             ...selectFieldProps,
             type: 'radio',
             optionSetId: field.optionSetId,
+            optionSet: field.optionSet,
           })
 
         case 'optionGroup':
@@ -210,6 +211,7 @@ export default defineComponent({
             ...selectFieldProps,
             type: field.groupType,
             optionSetId: field.optionSetId,
+            optionSet: field.optionSet,
             inline: field.inline,
           })
 
@@ -341,6 +343,7 @@ export default defineComponent({
           return h(OptionSetSelect, {
             ...selectFieldProps,
             optionSetId: field.optionSetId,
+            optionSet: field.optionSet,
           })
 
         case 'slider':

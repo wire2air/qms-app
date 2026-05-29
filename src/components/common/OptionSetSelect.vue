@@ -10,6 +10,13 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  // Embedded OptionSet snapshot — { id, name, options }. Preferred
+  // over the FK lookup so supplier users can render the form without
+  // option_sets RLS grants. See ConfigOptions for the embed source.
+  optionSet: {
+    type: Object,
+    default: null,
+  },
   multiple: {
     type: Boolean,
     default: false,
@@ -38,9 +45,10 @@ const props = defineProps({
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
-const optionSet = useLiveQueryWithDeps(
-  [() => props.optionSetId],
-  async (db, [optionSetId]) => {
+const fkOptionSet = useLiveQueryWithDeps(
+  [() => props.optionSetId, () => !!props.optionSet],
+  async (db, [optionSetId, hasEmbed]) => {
+    if (hasEmbed) return null
     if (!optionSetId) return null
     return db.OptionSet.findByPk(optionSetId)
   },
@@ -48,7 +56,8 @@ const optionSet = useLiveQueryWithDeps(
 )
 
 const computedItems = computed(() => {
-  const rawOptions = optionSet.value?.options ?? props.options ?? []
+  const rawOptions =
+    props.optionSet?.options ?? fkOptionSet.value?.options ?? props.options ?? []
   return rawOptions.map((opt) => {
     if (typeof opt === 'string') return { id: opt, name: opt }
     // Support both {label, value} (Quasar format) and {id, name} format
