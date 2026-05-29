@@ -58,17 +58,15 @@ watch(
 const saving = ref(false)
 const saveError = ref(null)
 
-// ─── Close NC (owner only) ────────────────────────────────────────────────────
-const showCloseDialog = ref(false)
-const closing = ref(false)
-
-// ─── NC-level Mark Complete (the proper closure path) ────────────────────────
+// ─── NC-level Approve and Close (the single terminal action) ────────────────
 // Reviewer per-step Mark Complete advances the workflow; THIS button is
 // what the owner clicks once every step is done. Validates closure
 // invariants (per ISO 9001:2015 §8.7 / ISO 13485:2016 §8.3 / 21 CFR
 // 820.90): all steps done → disposition picked → notes recorded → linked
 // CAPA when capaRequired → cost when disposition tracks it. CFR-11
-// e-sign on submit.
+// e-sign on submit. Backend flags complete + transitions statusId='CLOSED'
+// in one transaction — the old separate "Close NC" button was redundant
+// and got folded in here.
 const showMarkCompleteDialog = ref(false)
 const showMarkCompleteEsign = ref(false)
 const completing = ref(false)
@@ -158,11 +156,12 @@ async function onMarkCompleteEsignVerified({ method, provider, token }) {
       token,
     })
     showMarkCompleteDialog.value = false
-    // NC stays open — Mark Complete is a flag, not a close. Owner can
-    // close the NC manually later (after CAPA closes, or any other
-    // company-specific manual check passes).
+    // NC is now CLOSED — route back to the list. The detail page would
+    // continue to render (read-only) but landing back on the list matches
+    // the user's mental model of "this NC is done".
+    router.push(getCompanyPath('/nonconformances'))
   } catch (e) {
-    saveError.value = e.message || 'Failed to mark complete'
+    saveError.value = e.message || 'Failed to approve and close'
     // Re-open the action dialog so the user sees the error and retries.
     showMarkCompleteDialog.value = true
   } finally {
@@ -173,44 +172,6 @@ async function onMarkCompleteEsignVerified({ method, provider, token }) {
 const isOwner = computed(
   () => nc.value?.ownerId && nc.value.ownerId === currentSession.value?.userId,
 )
-
-// Close-NC gates — mirror the backend's closeNc invariants so the owner
-// sees what's missing BEFORE submitting. DRAFT skips them (you can void
-// a draft without filling anything in).
-const closeBlockedReason = computed(() => {
-  if (!nc.value) return null
-  if (nc.value.statusId === 'DRAFT') return null
-  if (!nc.value.dispositionTypeId) return 'Disposition is required before closing.'
-  if (!nc.value.dispositionNotes?.trim()) {
-    return 'Disposition notes are required before closing.'
-  }
-  if (nc.value.capaRequired === null || nc.value.capaRequired === undefined) {
-    return 'CAPA required (Yes / No) must be set before closing.'
-  }
-  if (nc.value.capaRequired === true && linkedCapaCount.value === 0) {
-    return 'CAPA required is set to Yes — link at least one CAPA before closing.'
-  }
-  return null
-})
-
-async function handleCloseNc() {
-  if (!nc.value) return
-  if (closeBlockedReason.value) {
-    saveError.value = closeBlockedReason.value
-    return
-  }
-  closing.value = true
-  saveError.value = null
-  try {
-    await post(`/v1/services/nonconformances/${props.id}/close`, {})
-    showCloseDialog.value = false
-    router.push(getCompanyPath('/nonconformances'))
-  } catch (e) {
-    saveError.value = e.message || 'Failed to close NC'
-  } finally {
-    closing.value = false
-  }
-}
 
 // ─── Open NC (DRAFT → UNDER_REVIEW, kicks off workflow) ──────────────────────
 // "Open" matches the industry term (Greenlight Guru / ISO 13485 §10.2).
@@ -407,15 +368,8 @@ function onCreateLinkedChangeRequest() {
           :title="markCompleteBlockedReason || undefined"
           @click="openMarkCompleteDialog"
         >
-          {{ completing ? 'Marking…' : 'Mark Complete' }}
+          {{ completing ? 'Closing…' : 'Approve and Close' }}
         </BaseButton>
-        <BaseButton
-          v-if="isOwner && !['DRAFT', 'CLOSED'].includes(nc?.statusId)"
-          variant="danger"
-          :disabled="closing"
-          @click="showCloseDialog = true"
-          >Close NC</BaseButton
-        >
         <BaseButton
           v-if="isOwner && nc?.statusId === 'DRAFT'"
           variant="outline"
@@ -1008,47 +962,11 @@ function onCreateLinkedChangeRequest() {
       description="This nonconformance could not be found."
     />
 
-    <!-- Close NC confirmation dialog -->
-    <BaseDialog v-model="showCloseDialog" title="Close Nonconformance" maxWidth="md">
-      <p class="tw:text-sm tw:text-secondary tw:mb-4">
-        Are you sure you want to close this nonconformance?
-      </p>
-      <p
-        v-if="closeBlockedReason"
-        class="tw:text-sm tw:text-red-700 tw:bg-red-50 tw:border tw:border-red-200 tw:rounded-md tw:p-3 tw:mb-4"
-      >
-        {{ closeBlockedReason }}
-      </p>
-      <p
-        v-if="workflowInstance?.statusId === 'IN_PROGRESS'"
-        class="tw:text-sm tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded-md tw:p-3 tw:mb-4"
-      >
-        This NC has an in-progress workflow. Closing will cancel the workflow and all pending tasks.
-      </p>
-      <div
-        v-if="saveError"
-        class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm tw:mb-3"
-      >
-        {{ saveError }}
-      </div>
-      <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
-        <BaseButton variant="outline" @click="showCloseDialog = false">Cancel</BaseButton>
-        <BaseButton
-          variant="danger"
-          :disabled="closing || !!closeBlockedReason"
-          :title="closeBlockedReason || undefined"
-          @click="handleCloseNc"
-        >
-          {{ closing ? 'Closing…' : 'Close NC' }}
-        </BaseButton>
-      </div>
-    </BaseDialog>
-
-    <!-- ─── NC-level Mark Complete dialog ──────────────────────────────── -->
+    <!-- ─── NC-level Approve and Close dialog ──────────────────────────── -->
     <!-- Shows all closure invariants visually; the button at the page
          header is already disabled when any check fails, so this dialog
          is the confirmation + comments collection step before esign. -->
-    <BaseDialog v-model="showMarkCompleteDialog" title="Mark Complete" maxWidth="lg">
+    <BaseDialog v-model="showMarkCompleteDialog" title="Approve and Close" maxWidth="lg">
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
         <div
           class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:border tw:bg-green-50 tw:border-green-200"
@@ -1059,8 +977,8 @@ function onCreateLinkedChangeRequest() {
             disposition is recorded with notes
             <template v-if="nc?.capaRequired === true">, a CAPA is linked</template>
             <template v-if="ncDispositionType?.tracksCost">, and Cost of NC is entered</template>.
-            Marking complete flags the NC as ready — you can close it
-            separately when any remaining checks (e.g. CAPA closure) are done.
+            Approving signs the closure and transitions the NC to
+            <strong>Closed</strong> — this is the final action.
           </div>
         </div>
 
@@ -1080,7 +998,7 @@ function onCreateLinkedChangeRequest() {
         >
           <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
           <div>
-            CFR 21 Part 11 — Marking this NC complete is an attested
+            CFR 21 Part 11 — Approving and closing this NC is an attested
             regulated action and requires an e-signature. You'll confirm
             your identity on the next step.
           </div>
@@ -1096,7 +1014,7 @@ function onCreateLinkedChangeRequest() {
           :disabled="completing"
           @click="handleMarkCompleteClick"
         >
-          Sign &amp; Mark Complete
+          Sign &amp; Close
         </BaseButton>
       </template>
     </BaseDialog>
