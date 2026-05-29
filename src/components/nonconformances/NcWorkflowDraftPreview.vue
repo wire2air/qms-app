@@ -59,6 +59,21 @@ function rolesForStep(stepId) {
   return stepRoles.value[stepId] || []
 }
 
+// For a supplier-facing NC, the picker pool is the supplier's users.
+// Surface that list here so we can auto-default each step to the first
+// candidate (common case: a supplier has one POC user — saves a click).
+const supplierUsers = useLiveQueryWithDeps(
+  [() => nc.value?.supplierId, () => nc.value?.isSupplierFacing],
+  async (db, [supplierId, isSupplierFacing]) => {
+    if (!isSupplierFacing || !supplierId) return []
+    const all = await db.User.where('supplierId', supplierId).exec()
+    return all.filter(
+      (u) => u.kind === 'EXTERNAL_SUPPLIER' && u.userStatusId === 'ACTIVE',
+    )
+  },
+  { initial: [] },
+)
+
 function currentAssignee(stepId) {
   const list = nc.value?.pendingReviewers?.[stepId]
   return Array.isArray(list) && list.length ? list[0] : null
@@ -89,6 +104,36 @@ async function handleAssigneeChange(stepId, userId) {
 }
 
 const hasWorkflow = computed(() => !!nc.value?.workflowVersionId)
+
+// Auto-pick the first supplier user for each step on a supplier-facing
+// NC so the owner doesn't have to click N times when there's only one
+// candidate (the common case). Only fills empty slots — never
+// overwrites an explicit choice. Runs once steps + supplier users are
+// both ready, then on supplier change while still in DRAFT.
+watch(
+  [supplierUsers, templateSteps, () => nc.value?.isSupplierFacing, () => nc.value?.statusId],
+  ([users, steps, isSupplierFacing, statusId]) => {
+    if (!nc.value || !isSupplierFacing || statusId !== 'DRAFT') return
+    if (!users.length || !steps.length) return
+    const firstUserId = users[0].id
+    const next = { ...(nc.value.pendingReviewers || {}) }
+    let changed = false
+    for (const step of steps) {
+      const existing = next[step.id]
+      if (!Array.isArray(existing) || existing.length === 0) {
+        next[step.id] = [firstUserId]
+        changed = true
+      }
+    }
+    if (changed) {
+      nc.value.pendingReviewers = next
+      nc.value.save().catch(() => {
+        // swallow — the user can still pick manually if this errors
+      })
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -136,8 +181,18 @@ const hasWorkflow = computed(() => !!nc.value?.workflowVersionId)
           </div>
         </div>
         <div class="tw:w-72 tw:shrink-0">
+          <!-- Supplier-facing NC: picker swaps to supplier users for the
+               NC's supplier, ignores the template's role pool. Backend
+               refuses submit otherwise (see submitNcForReview). -->
           <UserSelectMenu
-            v-if="isOwner"
+            v-if="isOwner && nc.isSupplierFacing"
+            :modelValue="currentAssignee(step.id)"
+            kind="EXTERNAL_SUPPLIER"
+            :supplierId="nc.supplierId"
+            @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
+          />
+          <UserSelectMenu
+            v-else-if="isOwner"
             :modelValue="currentAssignee(step.id)"
             :roleIdsFilter="rolesForStep(step.id)"
             @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"

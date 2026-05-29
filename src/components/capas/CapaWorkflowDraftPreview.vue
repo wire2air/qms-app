@@ -59,6 +59,22 @@ function rolesForStep(stepId) {
   return stepRoles.value[stepId] || []
 }
 
+// For a supplier-facing CAPA, the picker pool is the supplier's users
+// (kind=EXTERNAL_SUPPLIER scoped to capa.supplierId). Surface that list
+// here so we can auto-default each step to the first candidate — common
+// case: one supplier POC user, no manual click needed.
+const supplierUsers = useLiveQueryWithDeps(
+  [() => capa.value?.supplierId, () => capa.value?.isSupplierFacing],
+  async (db, [supplierId, isSupplierFacing]) => {
+    if (!isSupplierFacing || !supplierId) return []
+    const all = await db.User.where('supplierId', supplierId).exec()
+    return all.filter(
+      (u) => u.kind === 'EXTERNAL_SUPPLIER' && u.userStatusId === 'ACTIVE',
+    )
+  },
+  { initial: [] },
+)
+
 function currentAssignee(stepId) {
   const list = capa.value?.pendingReviewers?.[stepId]
   return Array.isArray(list) && list.length ? list[0] : null
@@ -90,6 +106,32 @@ async function handleAssigneeChange(stepId, userId) {
 }
 
 const hasWorkflow = computed(() => !!capa.value?.workflowVersionId)
+
+// Auto-pick the first supplier user for each step on a supplier-facing
+// CAPA so the owner doesn't have to click N times when there's only one
+// candidate. Only fills empty slots; never overwrites an explicit pick.
+watch(
+  [supplierUsers, templateSteps, () => capa.value?.isSupplierFacing, () => capa.value?.statusId],
+  ([users, steps, isSupplierFacing, statusId]) => {
+    if (!capa.value || !isSupplierFacing || statusId !== 'DRAFT') return
+    if (!users.length || !steps.length) return
+    const firstUserId = users[0].id
+    const next = { ...(capa.value.pendingReviewers || {}) }
+    let changed = false
+    for (const step of steps) {
+      const existing = next[step.id]
+      if (!Array.isArray(existing) || existing.length === 0) {
+        next[step.id] = [firstUserId]
+        changed = true
+      }
+    }
+    if (changed) {
+      capa.value.pendingReviewers = next
+      capa.value.save().catch(() => {})
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -137,8 +179,17 @@ const hasWorkflow = computed(() => !!capa.value?.workflowVersionId)
           </div>
         </div>
         <div class="tw:w-72 tw:shrink-0">
+          <!-- Supplier-facing CAPA: picker swaps to supplier users for
+               the CAPA's supplier, ignores the template's role pool. -->
           <UserSelectMenu
-            v-if="isOwner"
+            v-if="isOwner && capa.isSupplierFacing"
+            :modelValue="currentAssignee(step.id)"
+            kind="EXTERNAL_SUPPLIER"
+            :supplierId="capa.supplierId"
+            @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
+          />
+          <UserSelectMenu
+            v-else-if="isOwner"
             :modelValue="currentAssignee(step.id)"
             :roleIdsFilter="rolesForStep(step.id)"
             @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
