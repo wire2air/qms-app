@@ -1,6 +1,5 @@
 <script setup>
 import { IconTrash, IconPlus } from '@tabler/icons-vue'
-import { db } from '@models/index'
 import { GROUP_TYPE_OPTIONS } from '@/constants/formBuilderConfig'
 
 const field = defineModel('field', {
@@ -21,35 +20,23 @@ const groupTypeItems = computed(() =>
 watch(useCustomOptions, (val) => {
   if (val) {
     field.value.optionSetId = null
+    // Cleanup the embed in case this field was authored during the
+    // brief window when ConfigOptions was auto-snapshotting OptionSet
+    // content onto the field def. Going forward, OptionSet stays
+    // FK-only and resolves at render time.
     if (field.value.optionSet) delete field.value.optionSet
   } else {
     field.value.options = []
   }
 })
 
-// Embed an OptionSet snapshot onto the field whenever the admin picks
-// one. Pairs with the OptionSetSelect / OptionSetOptionGroup /
-// FormSchemaReadonlyView "prefer embedded over FK" reads — lets
-// supplier users render the form without optionSets:read RLS and
-// locks the option list at workflow-creation time so editing the
-// underlying OptionSet doesn't silently reshape in-flight forms.
-watch(
-  () => field.value?.optionSetId,
-  async (id) => {
-    if (!id) {
-      if (field.value?.optionSet) delete field.value.optionSet
-      return
-    }
-    const set = await db.OptionSet.findByPk(id)
-    if (!set) return
-    field.value.optionSet = {
-      id: set.id,
-      name: set.name,
-      options: set.options,
-    }
-  },
-  { immediate: true },
-)
+// Note: unlike RCA / Risk Assessment templates, OptionSet is NOT
+// embedded onto the field definition. It's tenant config (dropdown
+// values), admins expect edits to propagate to existing forms.
+// Supplier users can read option_sets via the relaxed RLS (no
+// permission gate, company scope only — see qms#... updates.sql).
+// Renderers still tolerate field.optionSet for any rows authored
+// during the embed-everything pass that's been since reverted.
 
 function addOption() {
   if (!field.value.options) {
