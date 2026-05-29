@@ -1,6 +1,6 @@
 <script setup>
-import { IconUserPlus, IconMail, IconUser } from '@tabler/icons-vue'
-import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { IconUserPlus, IconMail, IconUser, IconX } from '@tabler/icons-vue'
+import { post, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 
 /**
  * Users at this supplier — EXTERNAL_SUPPLIER kind. Distinct from
@@ -70,6 +70,28 @@ function statusLabel(u) {
   if (u.inviteSent) return { text: 'Invited', cls: 'tw:bg-amber-100 tw:text-amber-700' }
   return { text: 'Inactive', cls: 'tw:bg-gray-100 tw:text-gray-600' }
 }
+
+// "Invited but never accepted" is the only state where canceling makes
+// sense — the user hasn't logged in yet, so deleting unwinds the invite
+// cleanly. Once they're ACTIVE we treat the row as a real user and
+// expect a different lifecycle (deactivate / impersonate / etc.).
+function canCancelInvite(u) {
+  return props.canUpdate && u.userStatusId !== 'ACTIVE' && u.inviteSent
+}
+
+async function cancelInvite(u) {
+  if (!canCancelInvite(u)) return
+  const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email
+  if (!confirm(`Cancel the invitation for ${name}? They won't be able to use the link anymore.`)) {
+    return
+  }
+  try {
+    await del(`/v1/services/users/${u.id}`)
+    toast.success('Invitation cancelled')
+  } catch (err) {
+    toast.error(err?.message || 'Failed to cancel invitation')
+  }
+}
 </script>
 
 <template>
@@ -106,6 +128,7 @@ function statusLabel(u) {
             <th class="tw:text-left tw:px-3 tw:py-2">Email</th>
             <th class="tw:text-left tw:px-3 tw:py-2">Title</th>
             <th class="tw:text-left tw:px-3 tw:py-2">Status</th>
+            <th class="tw:text-right tw:px-3 tw:py-2 tw:w-8"></th>
           </tr>
         </thead>
         <tbody>
@@ -131,6 +154,17 @@ function statusLabel(u) {
               >
                 {{ statusLabel(u).text }}
               </span>
+            </td>
+            <td class="tw:px-3 tw:py-2 tw:text-right">
+              <button
+                v-if="canCancelInvite(u)"
+                type="button"
+                title="Cancel invitation"
+                class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-bad tw:hover:bg-red-50 tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                @click="cancelInvite(u)"
+              >
+                <IconX :size="14" />
+              </button>
             </td>
           </tr>
         </tbody>

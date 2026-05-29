@@ -161,7 +161,22 @@ watch(
       class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider"
     >
       <div>
-        <h3 class="tw:text-sm tw:font-bold tw:text-on-main">Workflow Plan</h3>
+        <h3 class="tw:text-sm tw:font-bold tw:text-on-main tw:flex tw:items-center tw:gap-2">
+          Workflow Plan
+          <span
+            v-if="nc.isSupplierFacing"
+            class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal"
+            :title="'Supplier-facing: non-approval steps pick from this NC’s supplier users.'"
+          >
+            Supplier-facing
+          </span>
+          <span
+            v-else
+            class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal"
+          >
+            Internal
+          </span>
+        </h3>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
           Assign a user to each step. The workflow launches with these assignments
           when you click <strong>Open NC</strong>.

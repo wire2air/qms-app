@@ -37,9 +37,11 @@ export class User extends BaseModel {
   // INTERNAL — staff. EXTERNAL_SUPPLIER — supplier user (scoped + lands
   // on /supplier dashboard at login). Drives sidebar + routing.
   @Property({ type: String }) kind = 'INTERNAL'
-  @Property({ type: String }) supplierId = ''
-  @Property({ type: String }) siteId = ''
-  @Property({ type: String }) departmentId = ''
+  // Nullable UUID FKs default to null, not '', so PostGraphile's UUID
+  // type validation doesn't reject "" → "Invalid UUID" on createUser.
+  @Property({ type: String }) supplierId = null
+  @Property({ type: String }) siteId = null
+  @Property({ type: String }) departmentId = null
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)
