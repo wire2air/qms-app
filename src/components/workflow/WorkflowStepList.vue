@@ -43,19 +43,11 @@ function selectStep(step) {
 
 const createStep = useLiveMutation(async (db, { versionId, order, settings, parentStepId }) => {
   const s = settings || {}
-  // Pre-fill formSchema from the seeded "Task / Action" template
-  // (rich text + file upload). Best-effort lookup — if the template
-  // isn't present (legacy tenants from before the bootstrap shipped)
-  // the step is created with an empty schema and the user can build
-  // / pick one via the existing form-builder panel.
-  // Full scan + JS find because `code` isn't a SyncEngine IDB index
-  // on FormTemplate; `.where('code', 'TASK')` throws NotFoundError.
-  const allFormTemplates = await db.FormTemplate.where().exec()
-  const taskTemplate = allFormTemplates.find((t) => t.code === 'TASK')
-  const initialSchema =
-    taskTemplate?.schema && Array.isArray(taskTemplate.schema)
-      ? JSON.parse(JSON.stringify(taskTemplate.schema))
-      : []
+  // formSchema starts empty. The previous auto-seed from the "TASK"
+  // FormTemplate (rich text + file upload) was silently adding a form
+  // to every new step — including APPROVAL steps that shouldn't have
+  // one at all. The Form tab on the step editor still lets authors
+  // explicitly pick or build a schema when they want one.
   const step = db.WorkflowStep.create({
     workflowVersionId: versionId,
     name: `Step ${order}`,
@@ -65,7 +57,7 @@ const createStep = useLiveMutation(async (db, { versionId, order, settings, pare
     slaDays: s.defaultSla ?? null,
     requireComments: s.defaultWorkflowRequireComment ?? false,
     requireEsignature: s.defaultWorkflowRequireSignature ?? false,
-    formSchema: initialSchema,
+    formSchema: [],
     ...(parentStepId ? { parentStepId } : {}),
   })
   await step.save()

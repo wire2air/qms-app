@@ -39,7 +39,13 @@ const instanceStep = useLiveQueryWithDeps([() => props.instanceStepId], async (d
   id ? db.WorkflowInstanceStep.findByPk(id) : null,
 )
 
-const formSchema = computed(() => instanceStep.value?.formSchema || [])
+// APPROVAL steps render no form — pure approve/reject. Suppress here
+// so any leftover schema from the old TASK-template auto-seed (now
+// gone from WorkflowStepList / WorkflowCreateDialog) doesn't show up.
+const isApprovalStep = computed(() => instanceStep.value?.stepType === 'APPROVAL')
+const formSchema = computed(() =>
+  isApprovalStep.value ? [] : instanceStep.value?.formSchema || [],
+)
 const hasForm = computed(() => formSchema.value.length > 0)
 
 const records = useLiveQueryWithDeps(

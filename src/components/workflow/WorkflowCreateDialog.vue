@@ -48,17 +48,10 @@ const createWorkflowAndVersion = useLiveMutation(async (db, { name, description,
   await version.save()
 
   const settings = currentCompany.value?.settings || {}
-  // Mirror WorkflowStepList.createStep: pre-fill the new step's
-  // formSchema from the seeded Task / Action template. Best-effort —
-  // empty schema if the template isn't present. Full scan + JS find
-  // because `code` isn't a SyncEngine IDB index on FormTemplate;
-  // using `.where('code', 'TASK')` would throw a NotFoundError.
-  const allFormTemplates = await db.FormTemplate.where().exec()
-  const taskTemplate = allFormTemplates.find((t) => t.code === 'TASK')
-  const initialSchema =
-    taskTemplate?.schema && Array.isArray(taskTemplate.schema)
-      ? JSON.parse(JSON.stringify(taskTemplate.schema))
-      : []
+  // formSchema starts empty — see WorkflowStepList.createStep for the
+  // rationale (the prior auto-seed silently added a form to every new
+  // step, including APPROVAL steps). Authors add a schema explicitly
+  // via the Form tab on the step editor.
   const step = db.WorkflowStep.create({
     workflowVersionId: version.id,
     name: 'Step 1',
@@ -68,7 +61,7 @@ const createWorkflowAndVersion = useLiveMutation(async (db, { name, description,
     slaDays: settings.defaultSla ?? null,
     requireComments: settings.defaultWorkflowRequireComment ?? false,
     requireEsignature: settings.defaultWorkflowRequireSignature ?? false,
-    formSchema: initialSchema,
+    formSchema: [],
   })
   await step.save()
 
