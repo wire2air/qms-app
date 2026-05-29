@@ -470,24 +470,17 @@ function onCreateLinkedChangeRequest() {
                      the DRAFT preview), so you can spot a mislabeled
                      supplier-facing NC at any lifecycle stage. -->
                 <span
-                  v-if="nc.isSupplierFacing === true"
+                  v-if="nc.isSupplierFacing"
                   class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
-                  title="Supplier-facing: non-approval workflow steps pick from this NC's supplier users."
+                  title="Supplier-facing: non-approval workflow steps draw from this NC's supplier users. Approval steps stay internal."
                 >
                   Supplier-facing
                 </span>
                 <span
-                  v-else-if="nc.isSupplierFacing === false"
+                  v-else
                   class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
                 >
                   Internal
-                </span>
-                <span
-                  v-else
-                  class="tw:text-[10px] tw:rounded tw:bg-red-100 tw:text-red-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
-                  :title="`isSupplierFacing is ${JSON.stringify(nc.isSupplierFacing)} — the column may be missing from the bootstrap fetch (PostGraphile schema not re-introspected after db:reset, or the FE Nonconformance model is stale)`"
-                >
-                  ⚠ unknown ({{ JSON.stringify(nc.isSupplierFacing) }})
                 </span>
               </div>
               <BaseTextInput
