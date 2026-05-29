@@ -38,6 +38,11 @@ const form = ref({
   sourceId: presetNcId.value || null,
   rootCauseCategoryId: null,
   workflowVersionId: null,
+  supplierId: null,
+  // When true, the workflow attached to this CAPA routes every step's
+  // assignee from supplier users (entity.supplierId) instead of the
+  // internal role pool. Requires supplierId. Immutable post-DRAFT.
+  isSupplierFacing: false,
 })
 
 // When the source NC loads, seed the title / site / department / department so
@@ -49,6 +54,14 @@ watch(sourceNc, (nc) => {
   if (!form.value.departmentId) form.value.departmentId = nc.departmentId
   if (!form.value.rootCauseCategoryId && nc.rootCauseCategoryId) {
     form.value.rootCauseCategoryId = nc.rootCauseCategoryId
+  }
+  // Inherit supplier + supplier-facing flag from the source NC so a
+  // supplier NC that spawns a CAPA defaults to the same routing.
+  if (!form.value.supplierId && nc.supplierId) {
+    form.value.supplierId = nc.supplierId
+  }
+  if (nc.isSupplierFacing) {
+    form.value.isSupplierFacing = true
   }
 })
 
@@ -86,6 +99,13 @@ function handleSubmit() {
   }
   if (!form.value.ownerId) {
     toast.notify({ type: 'negative', message: 'Owner is required' })
+    return
+  }
+  if (form.value.isSupplierFacing && !form.value.supplierId) {
+    toast.notify({
+      type: 'negative',
+      message: 'Pick a supplier before marking this CAPA as supplier-facing.',
+    })
     return
   }
   if (!form.value.initiatedAt) {
@@ -238,6 +258,25 @@ async function handleReviewersConfirmed(reviewers) {
                 Owner <span class="tw:text-red-500">*</span>
               </label>
               <UserSelectMenu v-model="form.ownerId" required />
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">
+                Supplier
+                <span v-if="form.isSupplierFacing" class="tw:text-red-500">*</span>
+              </label>
+              <SupplierSelectMenu v-model="form.supplierId" :required="form.isSupplierFacing" />
+              <label
+                class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
+              >
+                <BaseCheckbox v-model="form.isSupplierFacing" />
+                <div>
+                  <div class="tw:text-sm tw:text-on-main">Supplier-facing CAPA</div>
+                  <div class="tw:text-[11px] tw:text-secondary">
+                    Workflow steps will be reviewed by users from the selected supplier (you'll
+                    pick the specific reviewer per step at submit). Lockable once submitted.
+                  </div>
+                </div>
+              </label>
             </div>
           </div>
         </div>

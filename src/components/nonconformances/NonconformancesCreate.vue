@@ -21,6 +21,13 @@ const form = ref({
   ownerId: currentSession.value?.userId ?? null,
   productId: null,
   supplierId: null,
+  // When true, the workflow attached to this NC routes every step's
+  // assignee from supplier users (entity.supplierId) instead of the
+  // internal role pool. The internal creator stays as owner; supplier
+  // users get co-owner access via the workflow auto-share. Backend
+  // requires supplierId to be set when this is true, and refuses
+  // changes once the NC leaves DRAFT.
+  isSupplierFacing: false,
   qtyAffected: null,
   unitOfMeasure: '',
   workflowVersionId: null,
@@ -53,6 +60,13 @@ function handleSubmit() {
   }
   if (!form.value.ownerId) {
     toast.notify({ type: 'negative', message: 'Owner is required' })
+    return
+  }
+  if (form.value.isSupplierFacing && !form.value.supplierId) {
+    toast.notify({
+      type: 'negative',
+      message: 'Pick a supplier before marking this NC as supplier-facing.',
+    })
     return
   }
   if (!form.value.detectedAt) {
@@ -205,8 +219,24 @@ async function handleReviewersConfirmed(reviewers) {
               <ProductSelectMenu v-model="form.productId" :required="false" />
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Supplier</label>
-              <SupplierSelectMenu v-model="form.supplierId" :required="false" />
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">
+                Supplier
+                <span v-if="form.isSupplierFacing" class="tw:text-bad">*</span>
+              </label>
+              <SupplierSelectMenu v-model="form.supplierId" :required="form.isSupplierFacing" />
+              <label
+                class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
+              >
+                <BaseCheckbox v-model="form.isSupplierFacing" />
+                <div>
+                  <div class="tw:text-sm tw:text-on-main">Supplier-facing NC</div>
+                  <div class="tw:text-[11px] tw:text-secondary">
+                    Workflow steps will be reviewed by users from the selected supplier (you'll
+                    pick the specific reviewer per step when you open the NC). Lockable once
+                    opened.
+                  </div>
+                </div>
+              </label>
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">Qty affected</label>
