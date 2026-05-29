@@ -1,5 +1,4 @@
 <script setup>
-import { RadioGroup, RadioGroupOption } from '@headlessui/vue'
 
 const props = defineProps({
   step: { type: Object, required: true },
@@ -104,14 +103,11 @@ watch(
   { immediate: true },
 )
 
-function getUserInitials(user) {
-  return (user.firstName?.[0] ?? '') + (user.lastName?.[0] ?? '')
-}
-
-function getUserDisplayName(user) {
-  const parts = [user.firstName, user.lastName].filter(Boolean)
-  return parts.length > 0 ? parts.join(' ') : user.email
-}
+// Role-id list — passed to UserSelectMenu's roleIdsFilter so the
+// internal-path dropdown shows only users holding at least one of the
+// step's configured roles. Same filter the candidate-list query uses
+// for auto-default, just plumbed through to the picker.
+const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
 </script>
 
 <template>
@@ -147,80 +143,48 @@ function getUserDisplayName(user) {
       </span>
     </div>
 
-    <!-- Empty: supplier-facing but no active supplier users -->
+    <!-- Picker — same UserSelectMenu the detail page uses, with
+         searchable dropdown. The pool is determined by props:
+           - supplier-facing non-APPROVAL → kind=EXTERNAL_SUPPLIER scoped
+             to supplierId (no role filter; the workflow step says WHAT,
+             the supplier chooses WHO)
+           - everything else → kind=INTERNAL, gated by step's roles -->
+    <UserSelectMenu
+      v-if="usesSupplierPicker"
+      v-model="modelValue"
+      kind="EXTERNAL_SUPPLIER"
+      :supplierId="supplierId"
+      :required="required"
+    />
+    <UserSelectMenu
+      v-else
+      v-model="modelValue"
+      :roleIdsFilter="stepRoleIds"
+      :required="required"
+    />
+
+    <!-- Helpful empty-state hints. UserSelectMenu silently shows
+         "Select User" when there are no candidates; these lines tell
+         the admin WHY the picker is empty + what to do about it. -->
     <div
       v-if="usesSupplierPicker && !candidateUsers.length"
-      class="tw:text-sm tw:text-secondary tw:italic tw:px-1"
+      class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
     >
       No active users at this supplier yet. Invite a user under
       <strong>Suppliers → Users</strong> and have them accept before submitting this NC.
     </div>
-
-    <!-- Empty state when no roles configured (internal path) -->
     <div
       v-else-if="!usesSupplierPicker && !stepRoles.length"
-      class="tw:text-sm tw:text-secondary tw:italic tw:px-1"
+      class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
     >
       No roles configured for this step — no candidates available.
     </div>
-
-    <!-- Empty state when roles exist but no users assigned to them (internal path) -->
     <div
       v-else-if="!usesSupplierPicker && stepRoles.length && !candidateUsers.length"
-      class="tw:text-sm tw:text-secondary tw:italic tw:px-1"
+      class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
     >
       No internal users hold the role(s) configured for this step.
     </div>
-
-    <!-- Radio group of candidate users -->
-    <RadioGroup v-else v-model="modelValue">
-      <div class="tw:space-y-2">
-        <RadioGroupOption
-          v-for="user in candidateUsers"
-          :key="user.id"
-          :value="user.id"
-          v-slot="{ checked }"
-          as="template"
-        >
-          <div
-            class="tw:relative tw:flex tw:cursor-pointer tw:rounded-lg tw:px-4 tw:py-3 tw:border tw:transition-colors tw:select-none"
-            :class="
-              checked
-                ? 'tw:border-primary tw:bg-primary/5'
-                : 'tw:border-divider tw:hover:bg-main-hover'
-            "
-          >
-            <div class="tw:flex tw:items-center tw:gap-3 tw:w-full">
-              <!-- Avatar circle -->
-              <div
-                class="tw:w-8 tw:h-8 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-xs tw:font-bold tw:text-white tw:shrink-0"
-                :style="{ backgroundColor: user.color || '#2563eb' }"
-              >
-                {{ getUserInitials(user) || user.email?.[0]?.toUpperCase() }}
-              </div>
-
-              <!-- Name & email -->
-              <div class="tw:flex-1 tw:min-w-0">
-                <div class="tw:text-sm tw:font-medium tw:text-on-main">
-                  {{ getUserDisplayName(user) }}
-                </div>
-                <div class="tw:text-xs tw:text-secondary tw:truncate">{{ user.email }}</div>
-              </div>
-
-              <!-- Selected indicator -->
-              <div
-                class="tw:w-5 tw:h-5 tw:rounded-full tw:border-2 tw:shrink-0 tw:flex tw:items-center tw:justify-center tw:transition-colors"
-                :class="
-                  checked ? 'tw:border-primary tw:bg-primary' : 'tw:border-divider tw:bg-white'
-                "
-              >
-                <div v-show="checked" class="tw:w-2 tw:h-2 tw:rounded-full tw:bg-white" />
-              </div>
-            </div>
-          </div>
-        </RadioGroupOption>
-      </div>
-    </RadioGroup>
 
     <!-- Validation message -->
     <div
