@@ -147,7 +147,8 @@ const showDeactivated = ref(false)
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
           The disposition options reviewers pick when closing out a nonconformance.
           Toggle <strong>Tracks cost</strong> for dispositions that generate Cost of NC
-          (Scrap / Rework / Repair / Return-to-Supplier). Shared across all companies.
+          (Scrap / Rework / Repair / Return-to-Supplier). Scoped to this company —
+          changes only affect your tenant.
         </p>
       </div>
       <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">

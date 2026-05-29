@@ -140,7 +140,7 @@ const showDeactivated = ref(false)
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
           The classification options shown on the NC intake form
           (Out of Spec / Receiving / Missing Standard, plus any tenant
-          additions). Shared across all companies.
+          additions). Scoped to this company — changes only affect your tenant.
         </p>
       </div>
       <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
