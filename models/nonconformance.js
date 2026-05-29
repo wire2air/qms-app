@@ -39,6 +39,11 @@ export class Nonconformance extends BaseModel {
   @Property({ type: DateTime }) dueDate = /** @type {DateTime} */ (null)
   @Property({ type: String }) productId = null
   @Property({ type: String }) supplierId = null
+  // Supplier-facing flag. When true, the workflow attached to this NC
+  // resolves every step's assignee from supplier users (filtered to
+  // supplierId) instead of the internal role pool. Immutable once
+  // submitted; backend enforces.
+  @Property({ type: Boolean }) isSupplierFacing = false
   @Property({ type: String }) qtyAffected = null
   @Property({ type: String }) unitOfMeasure = ''
   @Property({ type: String }) costOfNc = null

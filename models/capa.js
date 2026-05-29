@@ -54,6 +54,12 @@ export class Capa extends BaseModel {
   @Property({ type: Object }) pendingReviewers = /** @type {Object} */ ({})
   @Property({ type: String, required: true }) createdBy = ''
   @Property({ type: String, required: true }) updatedBy = ''
+  @Property({ type: String }) supplierId = null
+  // Supplier-facing flag. When true, the workflow attached to this CAPA
+  // resolves every step's assignee from supplier users (filtered to
+  // supplierId) instead of the internal role pool. Immutable once
+  // submitted; backend enforces.
+  @Property({ type: Boolean }) isSupplierFacing = false
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true, autoUpdate: true })
