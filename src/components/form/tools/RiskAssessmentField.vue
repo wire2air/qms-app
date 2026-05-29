@@ -8,9 +8,12 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
+// Prefer embedded snapshot; fall back to FK lookup. See RcaField for
+// the rationale.
 const template = useLiveQueryWithDeps(
-  [() => props.field.riskAssessmentTemplateId],
-  async (db, [id]) => {
+  [() => props.field.riskAssessmentTemplate, () => props.field.riskAssessmentTemplateId],
+  async (db, [embedded, id]) => {
+    if (embedded?.config) return embedded
     if (!id) return null
     return db.RiskAssessmentTemplate.findByPk(id)
   },

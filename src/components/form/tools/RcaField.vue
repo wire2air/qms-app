@@ -21,9 +21,15 @@ const METHODS = [
   { key: 'whytree', label: 'Why Tree', component: WhyTreeAnalysis },
 ]
 
+// Prefer the embedded snapshot — that's what works for supplier users
+// (who can't SELECT rca_templates via RLS) and locks the template
+// version at workflow-creation time. Fall back to the FK lookup for
+// any not-yet-migrated rows. See bootstrapCompanyDefaults.js
+// rcaStepSchema for the embedded shape.
 const template = useLiveQueryWithDeps(
-  [() => props.field.rcaTemplateId],
-  async (db, [id]) => {
+  [() => props.field.rcaTemplate, () => props.field.rcaTemplateId],
+  async (db, [embedded, id]) => {
+    if (embedded?.config) return embedded
     if (!id) return null
     return db.RcaTemplate.findByPk(id)
   },

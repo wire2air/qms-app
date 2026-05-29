@@ -4,9 +4,19 @@ const props = defineProps({
   values: { type: Object, default: () => ({}) },
 })
 
+// Prefer the field-level embedded snapshot (saved on the workflow
+// step's formSchema). Fall back to looking up by id — first the
+// field's riskAssessmentTemplateId, then the value's _templateId
+// which is what gets stamped on the record at submit time.
 const template = useLiveQueryWithDeps(
-  [() => props.values?._templateId],
-  async (db, [id]) => {
+  [
+    () => props.field?.riskAssessmentTemplate,
+    () => props.field?.riskAssessmentTemplateId,
+    () => props.values?._templateId,
+  ],
+  async (db, [embedded, fieldId, valueId]) => {
+    if (embedded?.config) return embedded
+    const id = fieldId || valueId
     if (!id) return null
     return db.RiskAssessmentTemplate.findByPk(id)
   },
