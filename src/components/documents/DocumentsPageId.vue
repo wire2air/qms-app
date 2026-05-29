@@ -568,7 +568,9 @@ async function handleNewVersionConfirm(changeControl) {
 
       <!-- Shared with — explicit per-user grants outside the normal
            permission scope (typically supplier users). -->
-      <SharedWithPanel entityType="Document" :entityId="props.id" :canShare="canEdit" />
+      <!-- Read-only access panel — populated by workflow-step assignment
+           via autoShareSupplierUsers. See SharedWithPanel.vue header. -->
+      <SharedWithPanel entityType="Document" :entityId="props.id" />
 
       <!-- Messages Drawer -->
       <DocumentsMessages v-model="showMessages" :documentId="props.id" />

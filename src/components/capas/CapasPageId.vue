@@ -541,13 +541,11 @@ function onCreateLinkedChangeRequest() {
             <!-- Effectiveness Check (post-closure follow-up) -->
             <CapaEffectivenessCheckCard :capaId="id" :isOwner="isOwner" />
 
-            <!-- Shared with — explicit per-user grants (typically supplier
-                 users) outside the normal permission scope. -->
-            <SharedWithPanel
-              entityType="Capa"
-              :entityId="id"
-              :canShare="isOwner || isAllowed(['capas:update'])"
-            />
+            <!-- External access — read-only panel populated by workflow-
+                 step assignment (autoShareSupplierUsers). The product
+                 decision (2026-05-29) is that supplier visibility on CAPA
+                 is workflow-driven, not manual. See SharedWithPanel.vue. -->
+            <SharedWithPanel entityType="Capa" :entityId="id" />
           </div>
 
           <!-- Right column -->

@@ -778,13 +778,11 @@ function onCreateLinkedChangeRequest() {
 
           <!-- Right column -->
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <!-- Shared with — explicit per-user grants (typically supplier
-                 users) outside the normal permission scope. -->
-            <SharedWithPanel
-              entityType="Nonconformance"
-              :entityId="id"
-              :canShare="isOwner || canUpdate"
-            />
+            <!-- External access — read-only panel populated by workflow-
+                 step assignment (autoShareSupplierUsers). Product decision
+                 (2026-05-29): supplier visibility on NCs is workflow-
+                 driven, not manual. See SharedWithPanel.vue. -->
+            <SharedWithPanel entityType="Nonconformance" :entityId="id" />
 
             <!-- Overview side card -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
