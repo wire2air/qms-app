@@ -70,10 +70,13 @@ const allUsers = useLiveQuery(
 const usersById = computed(() => Object.fromEntries(allUsers.value.map((u) => [u.id, u])))
 
 // Per-step view-model: candidate pool, role label, ALL/ANY policy.
-// Picker pool = union of users in the step's roles (active only). The
-// submitter picks any number ≥ 1 from this list; runtime ALL/ANY decides
-// whether the step advances on first approval or only after every
-// picked reviewer approves.
+// Picker pool:
+//   - Step has roles → union of users in those roles (active only).
+//   - Step has no roles → every active internal user. Matches the
+//     no-friction template rule for small teams.
+// The submitter picks any number ≥ 1 from this list; runtime ALL/ANY
+// decides whether the step advances on first approval or only after
+// every picked reviewer approves.
 const steps = computed(() => {
   const rolesByStep = {}
   for (const sr of allStepRoles.value ?? []) {
@@ -83,13 +86,21 @@ const steps = computed(() => {
 
   return allWorkflowSteps.value.map((step) => {
     const stepRoleIds = rolesByStep[step.id] ?? []
-    const candidateIdSet = new Set()
-    for (const ru of rolesOnUsers.value) {
-      if (stepRoleIds.includes(ru.roleId)) candidateIdSet.add(ru.userId)
+
+    let candidateUsers
+    if (stepRoleIds.length === 0) {
+      // Role-less step → every active internal user. Documents don't
+      // run supplier-facing pickers, so kind=INTERNAL is implicit.
+      candidateUsers = allUsers.value.filter((u) => u.kind !== 'EXTERNAL_SUPPLIER')
+    } else {
+      const candidateIdSet = new Set()
+      for (const ru of rolesOnUsers.value) {
+        if (stepRoleIds.includes(ru.roleId)) candidateIdSet.add(ru.userId)
+      }
+      candidateUsers = [...candidateIdSet].map((id) => usersById.value[id]).filter(Boolean)
     }
-    const candidates = [...candidateIdSet]
-      .map((id) => usersById.value[id])
-      .filter(Boolean)
+
+    const candidates = candidateUsers
       .map((u) => ({
         id: u.id,
         name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email,
@@ -270,11 +281,19 @@ async function confirm() {
             </BaseSelectMenu>
 
             <p
+              v-else-if="step.roleNames.length"
+              class="tw:text-xs tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-2"
+            >
+              No active users hold the role(s) configured for this step.
+              Assign someone to the role before submitting, or pick a
+              different workflow.
+            </p>
+            <p
               v-else
               class="tw:text-xs tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-2"
             >
-              No active users in this step's role(s). Assign someone to the role
-              before submitting, or pick a different workflow.
+              No active internal users in your company yet — invite someone
+              before submitting.
             </p>
           </div>
         </div>

@@ -37,10 +37,15 @@ const stepRoles = useLiveQueryWithDeps(
   { initial: [] },
 )
 
+// Role-less step → all active internal users. Otherwise → union of users
+// in the configured roles. See NCWorkflowStepReviewerSelect for the rule.
 const internalCandidates = useLiveQueryWithDeps(
   [() => stepRoles.value.map((r) => r.roleId).join(',')],
   async (db, [roleIdsStr]) => {
-    if (!roleIdsStr) return []
+    if (!roleIdsStr) {
+      const all = await db.User.where().exec()
+      return all.filter((u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
+    }
     const roleIds = roleIdsStr.split(',')
     const rolesOnUsers = await Promise.all(
       roleIds.map((id) => db.RoleOnUser.where('roleId', id).exec()),
@@ -151,10 +156,13 @@ const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
       :supplierId="supplierId"
       :required="true"
     />
+    <!-- Internal picker: role-less step → no roleIdsFilter → all active
+         internal users. With roles → filter by their union. -->
     <UserSelectMenu
       v-else
       v-model="modelValue"
-      :roleIdsFilter="stepRoleIds"
+      kind="INTERNAL"
+      :roleIdsFilter="stepRoleIds.length ? stepRoleIds : null"
       :required="true"
     />
 
@@ -167,16 +175,16 @@ const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
       <strong>Suppliers → Users</strong> and have them accept before submitting this CAPA.
     </div>
     <div
-      v-else-if="!usesSupplierPicker && !stepRoles.length"
-      class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
-    >
-      No roles configured for this step — no candidates available.
-    </div>
-    <div
       v-else-if="!usesSupplierPicker && stepRoles.length && !candidateUsers.length"
       class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
     >
       No internal users hold the role(s) configured for this step.
+    </div>
+    <div
+      v-else-if="!usesSupplierPicker && !stepRoles.length && !candidateUsers.length"
+      class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
+    >
+      No active internal users in your company.
     </div>
 
     <div

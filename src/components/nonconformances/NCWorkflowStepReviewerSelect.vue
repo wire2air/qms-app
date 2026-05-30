@@ -35,10 +35,19 @@ const stepRoles = useLiveQueryWithDeps(
   { initial: [] },
 )
 
+// When the step has at least one role configured, candidates = users
+// holding any of those roles. When it has NO roles configured (the
+// optional-role mode for small teams), candidates = every active
+// internal user — no role filtering. The empty-role state used to
+// surface as an empty picker; now it's the "any user" mode.
 const internalCandidates = useLiveQueryWithDeps(
   [() => stepRoles.value.map((r) => r.roleId).join(',')],
   async (db, [roleIdsStr]) => {
-    if (!roleIdsStr) return []
+    if (!roleIdsStr) {
+      // No roles → all active internal users.
+      const all = await db.User.where().exec()
+      return all.filter((u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
+    }
     const roleIds = roleIdsStr.split(',')
     const rolesOnUsers = await Promise.all(
       roleIds.map((id) => db.RoleOnUser.where('roleId', id).exec()),
@@ -160,10 +169,14 @@ const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
       :supplierId="supplierId"
       :required="true"
     />
+    <!-- Internal picker: when the step has roles → constrain by them;
+         when role-less → show every active internal user. The empty
+         `roleIdsFilter` array signals "no filter" to UserSelectMenu. -->
     <UserSelectMenu
       v-else
       v-model="modelValue"
-      :roleIdsFilter="stepRoleIds"
+      kind="INTERNAL"
+      :roleIdsFilter="stepRoleIds.length ? stepRoleIds : null"
       :required="true"
     />
 
@@ -178,16 +191,16 @@ const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
       <strong>Suppliers → Users</strong> and have them accept before submitting this NC.
     </div>
     <div
-      v-else-if="!usesSupplierPicker && !stepRoles.length"
-      class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
-    >
-      No roles configured for this step — no candidates available.
-    </div>
-    <div
       v-else-if="!usesSupplierPicker && stepRoles.length && !candidateUsers.length"
       class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
     >
       No internal users hold the role(s) configured for this step.
+    </div>
+    <div
+      v-else-if="!usesSupplierPicker && !stepRoles.length && !candidateUsers.length"
+      class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
+    >
+      No active internal users in your company.
     </div>
 
     <!-- Validation message -->
