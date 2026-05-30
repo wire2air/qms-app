@@ -36,29 +36,6 @@ const workflowInstanceSteps = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-const currentStep = computed(() =>
-  workflowInstanceSteps.value.find((s) => s.statusId === 'IN_PROGRESS'),
-)
-
-const sendBackTargets = useLiveQueryWithDeps(
-  [() => currentStep.value?.stepId],
-  async (db, [stepId]) => {
-    if (!stepId) return []
-    return db.StepSendBackTarget.where('stepId', stepId).exec()
-  },
-  { initial: [] },
-)
-
-const sendBackTargetNames = useLiveQueryWithDeps(
-  [() => sendBackTargets.value.map((t) => t.targetStepId).join(',')],
-  async (db, [idsStr]) => {
-    if (!idsStr) return {}
-    const ids = [...new Set(idsStr.split(','))]
-    const steps = await Promise.all(ids.map((id) => db.WorkflowStep.findByPk(id)))
-    return Object.fromEntries(steps.filter(Boolean).map((s) => [s.id, s.name]))
-  },
-  { initial: {} },
-)
 
 // ─── Reassign dialog ─────────────────────────────────────────────────────────
 const showReassignDialog = ref(false)
@@ -161,31 +138,10 @@ async function handleReassign() {
   }
 }
 
-// ─── Send back dialog ────────────────────────────────────────────────────────
-const showSendBackDialog = ref(false)
-const sendBackTargetStepId = ref(null)
-const sendingBack = ref(false)
-
-function openSendBackDialog() {
-  sendBackTargetStepId.value = null
-  showSendBackDialog.value = true
-}
-
-async function handleSendBack() {
-  if (!sendBackTargetStepId.value) return
-  sendingBack.value = true
-  try {
-    await post(`/v1/services/capas/${props.capaId}/sendBack`, {
-      targetStepId: sendBackTargetStepId.value,
-    })
-    showSendBackDialog.value = false
-    toast.success('Step sent back successfully')
-  } catch (e) {
-    toast.error(e.message || 'Failed to send back step')
-  } finally {
-    sendingBack.value = false
-  }
-}
+// Send back is owned entirely by the reviewer's dropdown action now.
+// The engine auto-targets the entity owner (parent step) or the parent
+// step's assignee (child task), so this section no longer drives a
+// shared picker dialog.
 </script>
 
 <template>
@@ -198,10 +154,8 @@ async function handleSendBack() {
       :instanceStepId="step.id"
       :resourceId="capaId"
       :isOwner="isOwner"
-      :hasSendBackTargets="step.statusId === 'IN_PROGRESS' && sendBackTargets.length > 0"
       :displayNumber="String(idx + 1)"
       @reassign="openReassignDialog"
-      @sendBack="openSendBackDialog"
     >
       <!-- CAPA stages can have nested sub-tasks under each parent. The
            generic WorkflowStep hands us the parent step + definition via
@@ -283,47 +237,5 @@ async function handleSendBack() {
     </div>
   </BaseDialog>
 
-  <BaseDialog v-model="showSendBackDialog" title="Send Back Step" maxWidth="md">
-    <div class="tw:mb-4">
-      <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-2">
-        Select target step to send back to <span class="tw:text-red-500">*</span>
-      </label>
-      <div class="tw:flex tw:flex-col tw:gap-2">
-        <label
-          v-for="target in sendBackTargets"
-          :key="target.id"
-          class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer tw:rounded-lg tw:px-3 tw:py-2 tw:border tw:transition-colors"
-          :class="
-            sendBackTargetStepId === target.targetStepId
-              ? 'tw:border-primary tw:bg-primary/5'
-              : 'tw:border-divider tw:hover:bg-main-hover'
-          "
-        >
-          <input
-            v-model="sendBackTargetStepId"
-            type="radio"
-            :value="target.targetStepId"
-            class="tw:accent-primary"
-          />
-          <span class="tw:text-sm tw:font-medium tw:text-on-main">
-            {{ sendBackTargetNames[target.targetStepId] || target.targetStepId }}
-          </span>
-        </label>
-        <p v-if="!sendBackTargets.length" class="tw:text-sm tw:text-secondary">
-          No send-back targets configured for this step.
-        </p>
-      </div>
-    </div>
-    <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
-      <BaseButton variant="outline" @click="showSendBackDialog = false">Cancel</BaseButton>
-      <BaseButton
-        variant="primary"
-        :disabled="!sendBackTargetStepId || sendingBack"
-        @click="handleSendBack"
-      >
-        {{ sendingBack ? 'Sending…' : 'Send back' }}
-      </BaseButton>
-    </div>
-  </BaseDialog>
   </div>
 </template>

@@ -39,7 +39,6 @@ const ncRecord = useLiveQueryWithDeps(
   { models: ['NcRecord', 'TaskInstance', 'WorkflowInstance', 'WorkflowInstanceStep'] },
 )
 
-// Own allowedOutcomes and sendBackTargets queries
 const allowedOutcomes = useLiveQueryWithDeps(
   [() => props.instanceStep?.stepId],
   async (db, [stepId]) => {
@@ -47,14 +46,6 @@ const allowedOutcomes = useLiveQueryWithDeps(
     return db.AllowedOutcomeOnStep.where('stepId', stepId).exec()
   },
   { models: ['AllowedOutcomeOnStep', 'WorkflowStep'] },
-)
-
-const sendBackTargets = useLiveQueryWithDeps(
-  [() => props.instanceStep?.stepId],
-  async (db, [stepId]) => {
-    if (!stepId) return []
-    return db.StepSendBackTarget.where('stepId', stepId).exec()
-  },
 )
 
 // ── Outcome → UI config ──────────────────────────────────────────────────────
@@ -69,10 +60,9 @@ const OUTCOME_CONFIG = computed(() => ({
     icon: IconCheck,
     needsComment: false,
   },
-  // SEND_BACK = assignee rejects the task back to the NC owner with a
-  // reason. NOT the workflow's owner-driven "send back to step N" — that
-  // lives on a separate owner action. Comment is required so the owner
-  // has context to reassign.
+  // SEND_BACK = assignee rejects the task back. Target is auto-derived
+  // by the engine: parent step → entity owner; child task → parent
+  // step's assignee. Comment is required so the recipient has context.
   SEND_BACK: {
     label: isApprovalStep.value ? 'Reject' : 'Send Back',
     variant: 'outline',
@@ -106,16 +96,8 @@ const showConfirmDialog = ref(false)
 const showEsignDialog = ref(false)
 const pendingOutcomeId = ref(null)
 const comment = ref('')
-const sendBackTargetStepId = ref(null)
 const reassignToUserId = ref(null)
 const actionLoading = ref(false)
-
-// Resolve send-back targets to WorkflowStep names
-const sendBackSteps = useLiveQueryWithDeps([() => sendBackTargets.value], async (db, [targets]) => {
-  if (!targets?.length) return []
-  const steps = await Promise.all(targets.map((t) => db.WorkflowStep.findByPk(t.targetStepId)))
-  return steps.filter(Boolean)
-})
 
 // Candidate users for reassignment (step roles → RoleOnUser → User, excluding current user)
 const stepRoles = useLiveQueryWithDeps(
@@ -194,11 +176,10 @@ function onOutcomeClick(outcomeId) {
   }
   pendingOutcomeId.value = outcomeId
   comment.value = ''
-  sendBackTargetStepId.value = null
   reassignToUserId.value = null
 
   const config = OUTCOME_CONFIG.value[outcomeId]
-  if (config?.needsComment || config?.needsTarget || config?.needsUser) {
+  if (config?.needsComment || config?.needsUser) {
     showConfirmDialog.value = true
   } else if (props.workflowStep?.requireEsignature) {
     showEsignDialog.value = true
@@ -208,10 +189,6 @@ function onOutcomeClick(outcomeId) {
 }
 
 function onConfirmDialog() {
-  if (pendingConfig.value?.needsTarget && !sendBackTargetStepId.value) {
-    toast.warning('Please select a target step to send back to')
-    return
-  }
   if (pendingConfig.value?.needsUser && !reassignToUserId.value) {
     toast.warning('Please select a user to reassign to')
     return
@@ -264,7 +241,6 @@ async function submitAction({ method, provider, token } = {}) {
     if (token) body.token = token
     if (provider) body.provider = provider
     if (comment.value) body.comment = comment.value
-    if (sendBackTargetStepId.value) body.sendBackTargetStepId = sendBackTargetStepId.value
     if (reassignToUserId.value) body.reassignToUserId = reassignToUserId.value
 
     await post(`/v1/services/taskInstances/${props.taskInstanceId}/action`, body)
@@ -337,31 +313,6 @@ async function submitAction({ method, provider, token } = {}) {
           </label>
           <p v-if="!filteredReassignCandidates.length" class="tw:text-sm tw:text-secondary">
             No eligible users available for reassignment.
-          </p>
-        </div>
-      </div>
-
-      <!-- Send-back target picker -->
-      <div v-if="pendingConfig?.needsTarget" class="tw:mb-4">
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Send back to step <span class="tw:text-red-500">*</span>
-        </label>
-        <div class="tw:flex tw:flex-col tw:gap-2">
-          <label
-            v-for="step in sendBackSteps"
-            :key="step.id"
-            class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer"
-          >
-            <input
-              v-model="sendBackTargetStepId"
-              type="radio"
-              :value="step.id"
-              class="tw:accent-primary"
-            />
-            <span class="tw:text-sm tw:text-on-main">{{ step.name }}</span>
-          </label>
-          <p v-if="!sendBackSteps?.length" class="tw:text-sm tw:text-secondary">
-            No send-back targets configured for this step.
           </p>
         </div>
       </div>

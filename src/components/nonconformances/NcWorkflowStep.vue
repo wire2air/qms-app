@@ -19,10 +19,9 @@ const props = defineProps({
   instanceStepId: { type: String, required: true },
   ncId: { type: String, required: true },
   isOwner: { type: Boolean, default: false },
-  hasSendBackTargets: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['reassign', 'sendBack'])
+const emit = defineEmits(['reassign'])
 
 const toast = useToast()
 const currentUserId = computed(() => currentSession.value?.userId)
@@ -346,10 +345,6 @@ const canReassign = computed(() => {
   )
 })
 
-const canSendBack = computed(
-  () => props.isOwner && instanceStep.value?.statusId === 'IN_PROGRESS' && props.hasSendBackTargets,
-)
-
 // ─── Cancel step (NC owner) ──────────────────────────────────────────────────
 // Owner can terminate a step that's no longer relevant — cancels all
 // active assignments + their tasks. Distinct from a reviewer-side
@@ -433,14 +428,6 @@ async function handleCancelStep() {
         >
           <IconRefreshAlert :size="14" />
           Reopen
-        </button>
-        <button
-          v-if="canSendBack"
-          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-amber-600 tw:hover:text-amber-700 tw:cursor-pointer tw:font-medium"
-          @click="emit('sendBack')"
-        >
-          <IconArrowBackUp :size="14" />
-          {{ isApprovalStep ? 'Reject' : 'Send back' }}
         </button>
         <!-- Owner step-level actions. Always available to the owner on
              a live step, regardless of whether the owner also happens to

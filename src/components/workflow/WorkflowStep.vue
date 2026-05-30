@@ -5,18 +5,18 @@
  *
  * Renders:
  *   - Header: step number + name + status badge + active assignee badge
- *   - Inline action buttons: Mark Complete / Approve, Reopen, Send back
- *     (owner-driven), Reassign, Cancel
+ *   - Inline action buttons: Mark Complete / Approve, Reopen, Reassign,
+ *     Cancel
  *   - Dropdown (WorkflowStepActionsMenu): all the secondary outcomes
- *     (Request Info, the reviewer's Send Back, etc.)
+ *     including the reviewer's Send Back / Reject (target is computed
+ *     by the engine: parent step → entity owner; child task → parent
+ *     step's assignee — no per-template StepSendBackTarget config).
  *   - The step's form (WorkflowStepForm)
  *   - Optional #childSteps slot for the module-specific child-step list
  *     (CAPA's nested stages, CR's implementation sub-tasks)
  *
  * Module-specific URLs (reopenStep / cancelStep) are built from
- * `module.apiPath` so the call sites stay agnostic. Send back is
- * emitted to the parent — parents already own a shared dialog that
- * handles both the parent step and any children.
+ * `module.apiPath` so the call sites stay agnostic.
  *
  * Slots:
  *   #childSteps — rendered below the form. Used by CAPA for nested
@@ -24,7 +24,7 @@
  *   #beforeForm — content between the header and the form (e.g. CR's
  *     description / comment area).
  */
-import { IconCheck, IconRefreshAlert, IconUserCheck, IconBan, IconArrowBackUp } from '@tabler/icons-vue'
+import { IconCheck, IconRefreshAlert, IconUserCheck, IconBan } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
 import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
@@ -35,17 +35,12 @@ const props = defineProps({
   instanceStepId: { type: String, required: true },
   resourceId: { type: String, required: true },
   isOwner: { type: Boolean, default: false },
-  // Whether this step has at least one StepSendBackTarget configured.
-  // Drives the owner-side inline "Send back" affordance. Reviewer-side
-  // SEND_BACK in the dropdown is separately gated by the engine's
-  // AllowedOutcomeOnStep rows.
-  hasSendBackTargets: { type: Boolean, default: false },
   // Override the step number shown in the header (e.g. CAPA stages
   // sometimes display "2a" for ordered sub-stages).
   displayNumber: { type: String, default: null },
 })
 
-const emit = defineEmits(['reassign', 'sendBack'])
+const emit = defineEmits(['reassign'])
 const toast = useToast()
 const currentUserId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
 
@@ -216,15 +211,12 @@ async function handleReopen() {
   }
 }
 
-// ─── Owner-driven Send back (parent owns the picker dialog) ──────────────────
-const canSendBack = computed(
-  () =>
-    props.isOwner &&
-    instanceStep.value?.statusId === 'IN_PROGRESS' &&
-    props.hasSendBackTargets,
-)
-
 // ─── Reassign + Cancel (owner) ───────────────────────────────────────────────
+// Send back lives only in the reviewer-side dropdown now. The previous
+// owner-driven "send back to step N" inline button is gone — when a
+// reviewer sends a task back, the engine auto-targets the entity owner
+// (for a parent step) or the parent step's assignee (for a child task),
+// so there's no target picker the owner needs to drive.
 const REASSIGNABLE_STATUSES = ['PENDING', 'IN_PROGRESS', 'SENT_BACK']
 const canReassign = computed(
   () => props.isOwner && REASSIGNABLE_STATUSES.includes(instanceStep.value?.statusId),
@@ -319,14 +311,6 @@ function getStatusLabel(statusId) {
         >
           <IconRefreshAlert :size="14" />
           Reopen
-        </button>
-        <button
-          v-if="canSendBack"
-          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-amber-600 tw:hover:text-amber-700 tw:cursor-pointer tw:font-medium"
-          @click="emit('sendBack')"
-        >
-          <IconArrowBackUp :size="14" />
-          {{ isApprovalStep ? 'Reject' : 'Send back' }}
         </button>
         <button
           v-if="canReassign"

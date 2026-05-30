@@ -364,16 +364,10 @@ const createDraftMutation = useLiveMutation(async (db, { workflowId, majorBump }
       await newStep.save()
     }
 
-    const sendBacks = await db.StepSendBackTarget.where('stepId', oldStep.id).exec()
-    for (const sb of sendBacks) {
-      const newTargetId = idMap[sb.targetStepId]
-      if (!newTargetId) continue
-      const newSb = db.StepSendBackTarget.create({
-        stepId: newStep.id,
-        targetStepId: newTargetId,
-      })
-      await newSb.save()
-    }
+    // StepSendBackTarget rows are no longer carried forward — the engine
+    // computes send-back targets at runtime (parent step → entity owner;
+    // child task → parent step's assignee). Any legacy rows on the source
+    // version stay dead in place; the new version doesn't reference them.
   }
 
   return newVersion

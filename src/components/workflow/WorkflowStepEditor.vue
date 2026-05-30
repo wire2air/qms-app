@@ -116,27 +116,6 @@ const siblingSteps = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-const sendBackTargets = useLiveQueryWithDeps(
-  [() => props.stepId],
-  async (db, [stepId]) => {
-    if (!stepId) return []
-    return await db.StepSendBackTarget.where('stepId', stepId).exec()
-  },
-  { initial: [] },
-)
-
-const sendBackTargetIds = computed(() => new Set(sendBackTargets.value.map((t) => t.targetStepId)))
-
-const toggleSendBackTarget = useLiveMutation(async (db, targetStepId) => {
-  const existing = sendBackTargets.value.find((t) => t.targetStepId === targetStepId)
-  if (existing) {
-    await existing.delete()
-  } else {
-    const record = db.StepSendBackTarget.create({ stepId: props.stepId, targetStepId })
-    await record.save()
-  }
-})
-
 watch(
   () => props.selectedApprovalRule,
   (newRule) => {
@@ -472,42 +451,8 @@ watch(
       :stepApproversTab="stepApproversTab"
     />
 
-    <!-- Send-Back Targets — root steps only. Child (sub-)steps can't
-         initiate a send-back, so no targets are configurable. -->
-    <div
-      v-if="
-        showSendBackTargets && isSendBackActive && siblingSteps.length > 0 && !step.parentStepId
-      "
-      class="tw:space-y-4"
-    >
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
-        <IconCornerLeftUp :size="22" />
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-main">Send-Back Targets</h2>
-      </div>
-      <p class="tw:text-xs tw:text-secondary">
-        Which earlier steps this one can send back to. A send-back creates a new instance of the
-        target step.
-      </p>
-      <div class="tw:space-y-2">
-        <label
-          v-for="s in siblingSteps"
-          :key="s.id"
-          class="tw:flex tw:items-center tw:gap-3"
-          :class="canUpdate ? 'tw:cursor-pointer' : 'tw:cursor-default tw:opacity-60'"
-        >
-          <BaseCheckbox
-            :modelValue="sendBackTargetIds.has(s.id)"
-            :disabled="!canUpdate"
-            @update:modelValue="canUpdate && toggleSendBackTarget(s.id)"
-          />
-          <span
-            class="tw:inline-flex tw:items-center tw:justify-center tw:w-5 tw:h-5 tw:text-[10px] tw:font-bold tw:bg-main-hover tw:border tw:border-divider tw:rounded tw:text-secondary"
-          >
-            {{ s.stepOrder }}
-          </span>
-          <span class="tw:text-xs tw:font-medium tw:text-on-main">{{ s.name }}</span>
-        </label>
-      </div>
-    </div>
+    <!-- Send-back target picker removed: the engine now auto-targets the
+         entity owner (for a parent step) or the parent step's assignee
+         (for a child task). No per-template config needed. -->
   </div>
 </template>

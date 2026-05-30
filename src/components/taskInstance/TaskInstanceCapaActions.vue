@@ -46,14 +46,6 @@ const allowedOutcomes = useLiveQueryWithDeps(
   { models: ['AllowedOutcomeOnStep', 'WorkflowStep'] },
 )
 
-const sendBackTargets = useLiveQueryWithDeps(
-  [() => props.instanceStep?.stepId],
-  async (db, [stepId]) => {
-    if (!stepId) return []
-    return db.StepSendBackTarget.where('stepId', stepId).exec()
-  },
-)
-
 // CAPA-specific: if this step is a parent that has child stages, advance is
 // only allowed when every child instance step is APPROVED. Hierarchy lives on
 // the instance row — single indexed lookup, no WorkflowStep fetch.
@@ -80,10 +72,12 @@ const OUTCOME_CONFIG = {
     needsComment: false,
   },
   SEND_BACK: {
+    // Target is auto-derived by the engine: parent step → entity owner,
+    // child task → parent step's assignee. No picker needed; the comment
+    // is the only thing this dialog collects.
     label: 'Send Back',
     variant: 'outline',
     icon: IconArrowBackUp,
-    needsTarget: true,
     needsComment: true,
   },
   REQUEST_INFO: {
@@ -111,15 +105,8 @@ const showConfirmDialog = ref(false)
 const showEsignDialog = ref(false)
 const pendingOutcomeId = ref(null)
 const comment = ref('')
-const sendBackTargetStepId = ref(null)
 const reassignToUserId = ref(null)
 const actionLoading = ref(false)
-
-const sendBackSteps = useLiveQueryWithDeps([() => sendBackTargets.value], async (db, [targets]) => {
-  if (!targets?.length) return []
-  const steps = await Promise.all(targets.map((t) => db.WorkflowStep.findByPk(t.targetStepId)))
-  return steps.filter(Boolean)
-})
 
 const stepRoles = useLiveQueryWithDeps(
   [() => props.instanceStep?.stepId],
@@ -181,11 +168,10 @@ function onOutcomeClick(outcomeId) {
   if (!props.canActOnStep) return
   pendingOutcomeId.value = outcomeId
   comment.value = ''
-  sendBackTargetStepId.value = null
   reassignToUserId.value = null
 
   const config = OUTCOME_CONFIG[outcomeId]
-  if (config?.needsComment || config?.needsTarget || config?.needsUser) {
+  if (config?.needsComment || config?.needsUser) {
     showConfirmDialog.value = true
   } else if (requireEsignature.value) {
     showEsignDialog.value = true
@@ -195,10 +181,6 @@ function onOutcomeClick(outcomeId) {
 }
 
 function onConfirmDialog() {
-  if (pendingConfig.value?.needsTarget && !sendBackTargetStepId.value) {
-    toast.warning('Please select a target step to send back to')
-    return
-  }
   if (pendingConfig.value?.needsUser && !reassignToUserId.value) {
     toast.warning('Please select a user to reassign to')
     return
@@ -226,7 +208,6 @@ async function submitAction({ method, provider, token } = {}) {
     if (token) body.token = token
     if (provider) body.provider = provider
     if (comment.value) body.comment = comment.value
-    if (sendBackTargetStepId.value) body.sendBackTargetStepId = sendBackTargetStepId.value
     if (reassignToUserId.value) body.reassignToUserId = reassignToUserId.value
 
     await post(`/v1/services/taskInstances/${props.taskInstanceId}/action`, body)
@@ -289,30 +270,6 @@ async function submitAction({ method, provider, token } = {}) {
           </label>
           <p v-if="!filteredReassignCandidates.length" class="tw:text-sm tw:text-secondary">
             No eligible users available for reassignment.
-          </p>
-        </div>
-      </div>
-
-      <div v-if="pendingConfig?.needsTarget" class="tw:mb-4">
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Send back to step <span class="tw:text-red-500">*</span>
-        </label>
-        <div class="tw:flex tw:flex-col tw:gap-2">
-          <label
-            v-for="step in sendBackSteps"
-            :key="step.id"
-            class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer"
-          >
-            <input
-              v-model="sendBackTargetStepId"
-              type="radio"
-              :value="step.id"
-              class="tw:accent-primary"
-            />
-            <span class="tw:text-sm tw:text-on-main">{{ step.name }}</span>
-          </label>
-          <p v-if="!sendBackSteps?.length" class="tw:text-sm tw:text-secondary">
-            No send-back targets configured for this step.
           </p>
         </div>
       </div>
