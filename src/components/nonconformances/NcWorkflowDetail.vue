@@ -1,5 +1,7 @@
 <script setup>
 import { post } from '@/api'
+import WorkflowStep from '@/components/workflow/WorkflowStep.vue'
+import { NC_MODULE } from '@/components/workflow/workflowModule.js'
 
 const props = defineProps({
   ncId: { type: String, required: true },
@@ -142,12 +144,14 @@ async function handleReassign() {
 <template>
   <div class="tw:contents">
     <template v-if="workflowInstanceSteps.length">
-      <NcWorkflowStep
-        v-for="step in workflowInstanceSteps"
+      <WorkflowStep
+        v-for="(step, idx) in workflowInstanceSteps"
         :key="step.id"
+        :module="NC_MODULE"
         :instanceStepId="step.id"
-        :ncId="ncId"
+        :resourceId="ncId"
         :isOwner="isOwner"
+        :displayNumber="String(idx + 1)"
         @reassign="openReassignDialog"
       />
     </template>

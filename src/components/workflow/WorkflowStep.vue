@@ -103,7 +103,14 @@ const childrenBlock = computed(
 )
 
 // ─── Current user's task ─────────────────────────────────────────────────────
-const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
+// Filter to APPROVAL tasks only — protects against the owner=assignee
+// post-rejection edge case: when the owner rejects their own approval
+// task, rejectStepTask creates a new ACTION task on the same step
+// (owner-notification, not a reviewer task). Without the kind filter,
+// the form would re-enable on that ACTION task. PENDING is included
+// alongside ASSIGNED + FORM_SUBMITTED for the same reason — the owner
+// task can land in PENDING before it's activated.
+const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED', 'PENDING']
 
 const currentUserTask = useLiveQueryWithDeps(
   [() => props.instanceStepId, () => currentUserId.value],
@@ -114,8 +121,12 @@ const currentUserTask = useLiveQueryWithDeps(
       stepInstanceId,
     ]).exec()
     return (
-      tasks.find((t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId)) ||
-      null
+      tasks.find(
+        (t) =>
+          t.assignedTo === userId &&
+          t.taskKindId === 'APPROVAL' &&
+          ACTIONABLE_STATUSES.includes(t.statusId),
+      ) || null
     )
   },
 )

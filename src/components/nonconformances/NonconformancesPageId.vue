@@ -28,7 +28,7 @@ const canUpdate = computed(() => isAllowed(['nonconformances:update']))
 // Page-level fields (title, description, disposition, containment, etc.)
 // are owner-controlled. Anyone else with NC module access can READ the
 // record (default module behavior) but must not edit it — workflow-step
-// forms have their own editability gate inside NcWorkflowStep.
+// forms have their own editability gate inside WorkflowStepForm.
 const isEditable = computed(
   () =>
     nc.value &&
