@@ -610,6 +610,7 @@ declare module 'vue' {
     WorkflowStepAssigneesDialog: typeof import('./src/components/workflow/WorkflowStepAssigneesDialog.vue')['default']
     WorkflowStepCard: typeof import('./src/components/workflow/WorkflowStepCard.vue')['default']
     WorkflowStepEditor: typeof import('./src/components/workflow/WorkflowStepEditor.vue')['default']
+    WorkflowStepForm: typeof import('./src/components/workflow/WorkflowStepForm.vue')['default']
     WorkflowStepFormBuilderPanel: typeof import('./src/components/workflow/WorkflowStepFormBuilderPanel.vue')['default']
     WorkflowStepFormSchema: typeof import('./src/components/workflow/WorkflowStepFormSchema.vue')['default']
     WorkflowStepList: typeof import('./src/components/workflow/WorkflowStepList.vue')['default']

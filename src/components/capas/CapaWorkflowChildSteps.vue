@@ -8,6 +8,7 @@ import {
 } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
+import WorkflowStepForm from '@/components/workflow/WorkflowStepForm.vue'
 import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 
 const props = defineProps({
@@ -246,10 +247,11 @@ function getRowClass(child) {
     </div>
 
     <BaseDialog v-model="dialogOpen" :title="dialogTitle" maxWidth="2xl">
-      <CapaWorkflowStepForm
+      <WorkflowStepForm
         v-if="selectedChildId"
+        :module="CAPA_MODULE"
         :instanceStepId="selectedChildId"
-        :capaId="capaId"
+        :resourceId="capaId"
       />
     </BaseDialog>
 

@@ -10,7 +10,7 @@ import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue
  * check appendix.
  *
  * Form payloads are rendered via FormSchemaReadonlyView (the same
- * readonly renderer used by NcWorkflowStep / CapaWorkflowStepForm
+ * readonly renderer used by NcWorkflowStep / WorkflowStepForm
  * readonly mode / DocumentVersionSection). It pulls labels from the
  * schema, renders rich-text fields with v-html, resolves option-set
  * labels — keeping the print view consistent with the in-app view.

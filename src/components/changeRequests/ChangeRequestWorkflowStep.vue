@@ -17,6 +17,7 @@ import {
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
 import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
+import WorkflowStepForm from '@/components/workflow/WorkflowStepForm.vue'
 import { CR_MODULE } from '@/components/workflow/workflowModule.js'
 
 const props = defineProps({
@@ -438,10 +439,11 @@ function getStatusLabel(statusId) {
          ref so the Mark Complete CTA can drive save + autoApprove in
          one click. -->
     <div v-if="hasStepForm" class="tw:mb-3">
-      <ChangeRequestWorkflowStepForm
+      <WorkflowStepForm
         ref="stepFormRef"
+        :module="CR_MODULE"
         :instanceStepId="instanceStepId"
-        :crId="crId"
+        :resourceId="crId"
         :autoApprove="true"
         :hideSubmit="true"
       />

@@ -14,6 +14,7 @@ import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
 import { DateTime } from 'luxon'
 import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
+import WorkflowStepForm from '@/components/workflow/WorkflowStepForm.vue'
 import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 
 /**
@@ -458,10 +459,11 @@ async function performComplete(esign = null) {
           v-html="instanceStep.description"
         />
       </div>
-      <CapaWorkflowStepForm
+      <WorkflowStepForm
         ref="formRef"
+        :module="CAPA_MODULE"
         :instanceStepId="instanceStepId"
-        :capaId="capaId"
+        :resourceId="capaId"
         :autoApprove="true"
         :hideSubmit="true"
       />

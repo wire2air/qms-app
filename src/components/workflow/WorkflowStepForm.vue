@@ -1,14 +1,23 @@
 <script setup>
 /**
- * Per-user form responses for an ACTION-typed CR workflow step.
- * Mirrors CapaWorkflowStepForm — different entity binding (CrRecord
- * instead of CapaRecord, change_request_id instead of capa_id) and a
- * different parent-context value injected for prompt-aware fields
- * (the CR description rather than the CAPA problem statement).
+ * Generic per-user form responses for a workflow step. Replaces
+ * CapaWorkflowStepForm + ChangeRequestWorkflowStepForm (and is built
+ * to slot in for NC's currently-inline form when phase 3 lands).
  *
- * APPROVAL-typed steps never mount this component — those gates are
- * comment-only, handled by ChangeRequestWorkflowStep + the actions
- * menu directly.
+ * Module-specific bits — record model name, resource FK column,
+ * resource lookup, context-field injection — come from the `module`
+ * descriptor (see workflowModule.js). The remainder is identical
+ * across modules: APPROVAL steps suppress the form entirely; assignees
+ * see DynamicForm in edit mode with Save draft / Submit buttons;
+ * everyone else sees FormSchemaReadonlyView grouped per-submitter.
+ *
+ * Two contracts the parent step card relies on:
+ *   - `defineExpose({ submit, saving })` — lets the step card drive
+ *     save + submit + approve in one shot when it renders its own
+ *     Complete & Advance button (paired with `hideSubmit`).
+ *   - `autoApprove` — when true, a successful submit also POSTs the
+ *     COMPLETE_AND_ADVANCE outcome to /taskInstances/:id/action and
+ *     emits `done` so the parent can close (used in child-step dialogs).
  */
 import { IconDeviceFloppy, IconSend } from '@tabler/icons-vue'
 import DynamicForm from '@/components/form/DynamicForm.js'
@@ -20,9 +29,17 @@ import { DateTime } from 'luxon'
 import { post } from '@/api'
 
 const props = defineProps({
+  module: { type: Object, required: true },
   instanceStepId: { type: String, required: true },
-  crId: { type: String, required: true },
+  resourceId: { type: String, required: true },
+  // When true (child-step dialog usage), submit also fires the approve
+  // action and emits `done`. The main step-card usage leaves this false
+  // and lets WorkflowStepActionsMenu drive the approve action instead.
   autoApprove: { type: Boolean, default: false },
+  // When true, the form hides its own Submit button. The parent renders
+  // an external Complete & Advance button and calls submit() via the
+  // exposed ref. Save draft stays so the assignee can still persist
+  // mid-work without completing.
   hideSubmit: { type: Boolean, default: false },
 })
 
@@ -31,8 +48,8 @@ const emit = defineEmits(['done'])
 const toast = useToast()
 const currentUserId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
 
-const cr = useLiveQueryWithDeps([() => props.crId], async (db, [id]) =>
-  id ? db.ChangeRequest.findByPk(id) : null,
+const resource = useLiveQueryWithDeps([() => props.resourceId], async (db, [id]) =>
+  id ? db[props.module.resourceModel.modelName].findByPk(id) : null,
 )
 
 const instanceStep = useLiveQueryWithDeps([() => props.instanceStepId], async (db, [id]) =>
@@ -40,8 +57,8 @@ const instanceStep = useLiveQueryWithDeps([() => props.instanceStepId], async (d
 )
 
 // APPROVAL steps render no form — pure approve/reject. Suppress here
-// so any leftover schema from the old TASK-template auto-seed (now
-// gone from WorkflowStepList / WorkflowCreateDialog) doesn't show up.
+// so any leftover schema from the old TASK-template auto-seed doesn't
+// surface at runtime.
 const isApprovalStep = computed(() => instanceStep.value?.stepType === 'APPROVAL')
 const formSchema = computed(() =>
   isApprovalStep.value ? [] : instanceStep.value?.formSchema || [],
@@ -49,11 +66,13 @@ const formSchema = computed(() =>
 const hasForm = computed(() => formSchema.value.length > 0)
 
 const records = useLiveQueryWithDeps(
-  [() => props.instanceStepId, () => props.crId],
-  async (db, [stepInstanceId, crId]) => {
-    if (!stepInstanceId || !crId) return []
-    const all = await db.CrRecord.where('workflowInstanceStepId', stepInstanceId).exec()
-    return all.filter((r) => r.changeRequestId === crId)
+  [() => props.instanceStepId, () => props.resourceId],
+  async (db, [stepInstanceId, resourceId]) => {
+    if (!stepInstanceId || !resourceId) return []
+    const all = await db[props.module.recordModelName]
+      .where('workflowInstanceStepId', stepInstanceId)
+      .exec()
+    return all.filter((r) => r[props.module.recordResourceFk] === resourceId)
   },
   { initial: [] },
 )
@@ -82,13 +101,18 @@ const formData = ref({})
 const saving = ref(false)
 let formSeeded = false
 
+// Seed form data once: prefer the user's existing record payload (so
+// a draft can be edited), and overlay module-specific context fields
+// (e.g. _parent_problem from the resource description). The watch fires
+// again whenever `resource` changes so the context fields refresh, but
+// we only seed the user payload once to avoid clobbering mid-edit input.
 watch(
-  [currentUserRecord, cr],
-  ([record, crRecord]) => {
+  [currentUserRecord, resource],
+  ([record, resourceRow]) => {
     if (record && !formSeeded) {
       formData.value = {
         ...(record.payload || {}),
-        _parent_problem: crRecord?.description ?? '',
+        ...props.module.getStepFormContextFields(resourceRow),
       }
       formSeeded = true
     }
@@ -96,9 +120,9 @@ watch(
   { immediate: true },
 )
 
-watch(cr, (crRecord) => {
+watch(resource, (resourceRow) => {
   if (formSeeded) {
-    formData.value._parent_problem = crRecord?.description ?? ''
+    Object.assign(formData.value, props.module.getStepFormContextFields(resourceRow))
   }
 })
 
@@ -111,8 +135,18 @@ async function persistRecord({ submit, esign }) {
   if (!instanceStep.value) return
   saving.value = true
   try {
-    const { _parent_problem: _1, ...rawPayload } = formData.value || {}
-    // Freeze OptionSet labels on save (see freezeFormPayloadLabels util).
+    // Strip every key the module marks as context-only (prefixed with
+    // _ by convention, e.g. _parent_problem). Anything not in the
+    // context map is part of the persisted payload.
+    const contextKeys = new Set(
+      Object.keys(props.module.getStepFormContextFields(resource.value) ?? {}),
+    )
+    const rawPayload = Object.fromEntries(
+      Object.entries(formData.value || {}).filter(([k]) => !contextKeys.has(k)),
+    )
+    // Freeze OptionSet labels onto the payload so saved records stay
+    // readable as the admin originally meant them even if the source
+    // OptionSet is later edited. See utils/freezeFormPayloadLabels.js.
     const payload = await freezeOptionLabels(db, formSchema.value, rawPayload)
     const existing = currentUserRecord.value
     const submittedAt = submit ? DateTime.now() : (existing?.submittedAt ?? null)
@@ -121,8 +155,8 @@ async function persistRecord({ submit, esign }) {
       if (submit) existing.submittedAt = submittedAt
       await existing.save()
     } else {
-      const record = db.CrRecord.create({
-        changeRequestId: props.crId,
+      const record = db[props.module.recordModelName].create({
+        [props.module.recordResourceFk]: props.resourceId,
         workflowInstanceStepId: props.instanceStepId,
         taskInstanceId: currentUserTask.value.id,
         payload,
@@ -131,6 +165,10 @@ async function persistRecord({ submit, esign }) {
       await record.save()
     }
 
+    // When the parent renders an external Complete & Advance button it
+    // sets autoApprove=true. Submitting the form then also approves the
+    // reviewer's task in one round trip. Esign credentials, when needed,
+    // are passed through from the parent's esign dialog.
     if (submit && props.autoApprove && currentUserTask.value.statusId === 'ASSIGNED') {
       try {
         const body = {
@@ -141,11 +179,16 @@ async function persistRecord({ submit, esign }) {
         if (esign?.token) body.token = esign.token
         if (esign?.provider) body.provider = esign.provider
         await post(`/v1/services/taskInstances/${currentUserTask.value.id}/action`, body)
-        toast.success('Step completed')
+        toast.success(isApprovalStep.value ? 'Step approved' : 'Step completed')
         emit('done')
         return
       } catch (actionErr) {
-        toast.error(actionErr.message || 'Form saved but completion failed')
+        toast.error(
+          actionErr.message ||
+            (isApprovalStep.value
+              ? 'Form saved but approval failed'
+              : 'Form saved but completion failed'),
+        )
         return
       }
     }
@@ -184,6 +227,9 @@ function getUserName(userId) {
   return [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email
 }
 
+// Exposed so parents that render their own Complete & Advance button
+// can trigger save + submit + approve in one shot — paired with
+// `hideSubmit` to suppress the in-form Submit button.
 defineExpose({ submit: submitForm, saving })
 </script>
 

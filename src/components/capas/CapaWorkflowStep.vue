@@ -3,6 +3,7 @@ import { IconCheck, IconRefreshAlert, IconUserCheck, IconBan } from '@tabler/ico
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
 import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
+import WorkflowStepForm from '@/components/workflow/WorkflowStepForm.vue'
 import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 
 const props = defineProps({
@@ -345,10 +346,11 @@ async function submitCompleteAndAdvance(esign = null) {
     </div>
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
 
-    <CapaWorkflowStepForm
+    <WorkflowStepForm
       ref="formRef"
+      :module="CAPA_MODULE"
       :instanceStepId="instanceStepId"
-      :capaId="capaId"
+      :resourceId="capaId"
       :autoApprove="true"
       :hideSubmit="true"
     />

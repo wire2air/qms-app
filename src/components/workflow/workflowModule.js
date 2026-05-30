@@ -28,6 +28,11 @@
  * @property {string} apiPath                     — module path under /v1/services/<apiPath>/:id/...
  * @property {string} resourceIdParam             — name of the resource-id prop passed by parents
  * @property {string} recordModelName             — SyncEngine model name for per-step records
+ * @property {string} recordResourceFk            — column name on the *Record row that points
+ *   back at the parent resource (e.g. 'capaId' on CapaRecord,
+ *   'changeRequestId' on CrRecord). Used both as the filter field in
+ *   the records list query and as the FK column when creating a new
+ *   record.
  * @property {Object} resourceModel               — SyncEngine model name + display fields
  * @property {string} resourceModel.modelName     — e.g. 'Nonconformance'
  * @property {(resource:Object) => Object} getStepFormContextFields
@@ -42,6 +47,7 @@ export const NC_MODULE = {
   apiPath: 'nonconformances',
   resourceIdParam: 'ncId',
   recordModelName: 'NcRecord',
+  recordResourceFk: 'ncId',
   resourceModel: { modelName: 'Nonconformance' },
   getStepFormContextFields(resource) {
     return { _parent_problem: resource?.description ?? '' }
@@ -55,6 +61,7 @@ export const CAPA_MODULE = {
   apiPath: 'capas',
   resourceIdParam: 'capaId',
   recordModelName: 'CapaRecord',
+  recordResourceFk: 'capaId',
   resourceModel: { modelName: 'Capa' },
   getStepFormContextFields(resource) {
     // CAPA inherits the source NC's problem statement when present; the
@@ -71,6 +78,7 @@ export const CR_MODULE = {
   apiPath: 'changeRequests',
   resourceIdParam: 'crId',
   recordModelName: 'CrRecord',
+  recordResourceFk: 'changeRequestId',
   resourceModel: { modelName: 'ChangeRequest' },
   getStepFormContextFields(resource) {
     return { _parent_problem: resource?.reasonForChange ?? resource?.description ?? '' }
