@@ -138,14 +138,6 @@ const stepRoles = useLiveQueryWithDeps(
   },
 )
 
-const stepsWithoutAssignees = computed(() => {
-  return steps.value.filter((step) => {
-    const hasUsers = stepUsers.value.some((su) => su.stepId === step.id)
-    const hasRoles = stepRoles.value.some((sr) => sr.stepId === step.id)
-    return !hasUsers && !hasRoles
-  })
-})
-
 watch(
   versions,
   (vs) => {
@@ -269,11 +261,9 @@ const handlePublish = useLiveMutation(async () => {
     return
   }
 
-  // Validate each step has at least one role or reviewer
-  if (stepsWithoutAssignees.value?.length > 0) {
-    toast.warning('Please assign at least one user or role to each step before publishing.')
-    return
-  }
+  // Role assignment is OPTIONAL — a step without any role just means the
+  // submit-time picker will show all active users. So publishing a draft
+  // with role-less steps is allowed; no gate here.
 
   publishing.value = true
   try {

@@ -433,13 +433,19 @@ watch(
         </div>
       </div>
 
-      <!-- Approver Error -->
+      <!-- Approver hint — role assignment is OPTIONAL at the template
+           level. When a step has no roles, the submit-time picker
+           shows every active user instead of filtering by role pool
+           (matches the no-friction rule small teams want; bigger
+           teams keep using roles to constrain who's eligible). -->
       <div
         v-if="roleIds.length === 0 && reviewerIds.length === 0"
-        class="tw:flex tw:items-center tw:gap-2 tw:text-bad tw:px-1"
+        class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:px-1"
       >
-        <IconAlertCircle :size="14" class="tw:text-bad" />
-        <span class="ds-label-sm"> At least one approver must be selected for this step </span>
+        <IconAlertCircle :size="14" class="tw:text-secondary" />
+        <span class="ds-label-sm">
+          No roles assigned — the submitter will be able to pick any active user for this step.
+        </span>
       </div>
     </div>
 
