@@ -1,15 +1,19 @@
 <script setup>
 /**
  * Live workflow detail for a Change Request. Renders each step as a
- * full ChangeRequestWorkflowStep card with inline action buttons
- * (Mark Complete, Reopen, Reassign, Cancel) and child sub-tasks for
- * the Implementation stage.
+ * generic WorkflowStep (module=CR_MODULE) — same component CAPA uses.
+ * Inline action buttons (Mark Complete, Reopen, Reassign, Cancel) and
+ * the secondary dropdown come from the generic component; CR-specific
+ * child sub-tasks for the Implementation stage go through the
+ * #childSteps slot.
  *
  * Reassign is owned by this section (owner clicks on a step → emits
  * to parent which mounts the shared picker dialog). Same pattern as
  * CapaWorkflowDetail.
  */
 import { post } from '@/api'
+import WorkflowStep from '@/components/workflow/WorkflowStep.vue'
+import { CR_MODULE } from '@/components/workflow/workflowModule.js'
 
 const props = defineProps({
   crId: { type: String, required: true },
@@ -139,15 +143,32 @@ async function handleReassign() {
 <template>
   <div class="tw:contents">
     <template v-if="steps.length">
-      <ChangeRequestWorkflowStep
+      <WorkflowStep
         v-for="(step, idx) in steps"
         :key="step.id"
+        :module="CR_MODULE"
         :instanceStepId="step.id"
-        :crId="crId"
+        :resourceId="crId"
         :isOwner="isOwner"
         :displayNumber="String(idx + 1)"
         @reassign="openReassignDialog"
-      />
+      >
+        <template
+          #childSteps="{ instanceStep: parentStep, stepDefinition: parentDef, displayNumber: parentNum }"
+        >
+          <ChangeRequestWorkflowChildSteps
+            v-if="parentStep && parentDef?.allowChildSteps && parentStep.workflowInstanceId"
+            :parentInstanceStepId="parentStep.id"
+            :parentStepNumber="parentNum"
+            :workflowInstanceId="parentStep.workflowInstanceId"
+            :crId="crId"
+            :isOwner="isOwner"
+            :allowChildSteps="!!parentDef?.allowChildSteps"
+            class="tw:mt-4 tw:mb-4"
+            @reassign="(childId) => openReassignDialog(childId)"
+          />
+        </template>
+      </WorkflowStep>
     </template>
     <div
       v-else-if="workflowInstanceId"

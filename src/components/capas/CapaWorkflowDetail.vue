@@ -1,5 +1,7 @@
 <script setup>
 import { post } from '@/api'
+import WorkflowStep from '@/components/workflow/WorkflowStep.vue'
+import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 
 const props = defineProps({
   capaId: { type: String, required: true },
@@ -189,17 +191,41 @@ async function handleSendBack() {
 <template>
   <div class="tw:contents">
   <template v-if="workflowInstanceSteps.length">
-    <CapaWorkflowStep
+    <WorkflowStep
       v-for="(step, idx) in workflowInstanceSteps"
       :key="step.id"
+      :module="CAPA_MODULE"
       :instanceStepId="step.id"
-      :capaId="capaId"
+      :resourceId="capaId"
       :isOwner="isOwner"
       :hasSendBackTargets="step.statusId === 'IN_PROGRESS' && sendBackTargets.length > 0"
       :displayNumber="String(idx + 1)"
       @reassign="openReassignDialog"
       @sendBack="openSendBackDialog"
-    />
+    >
+      <!-- CAPA stages can have nested sub-tasks under each parent. The
+           generic WorkflowStep hands us the parent step + definition via
+           a scoped slot so we don't need to re-fetch them. -->
+      <template
+        #childSteps="{ instanceStep: parentStep, stepDefinition: parentDef, displayNumber: parentNum }"
+      >
+        <CapaWorkflowChildSteps
+          v-if="
+            parentStep &&
+            (parentDef?.allowChildSteps ||
+              parentStep.workflowInstanceId)
+          "
+          :parentInstanceStepId="parentStep.id"
+          :parentStepNumber="parentNum"
+          :workflowInstanceId="parentStep.workflowInstanceId"
+          :capaId="capaId"
+          :isOwner="isOwner"
+          :allowChildSteps="!!parentDef?.allowChildSteps && parentStep.statusId !== 'APPROVED'"
+          class="tw:mt-4 tw:mb-4"
+          @reassign="(childInstanceStepId) => openReassignDialog(childInstanceStepId)"
+        />
+      </template>
+    </WorkflowStep>
   </template>
 
   <BaseDialog v-model="showReassignDialog" title="Reassign Task" maxWidth="md">
