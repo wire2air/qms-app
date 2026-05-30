@@ -442,9 +442,33 @@ function onCreateLinkedChangeRequest() {
             <!-- CAPA Details -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
               <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+                class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                CAPA Details
+                <div
+                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+                >
+                  CAPA Details
+                </div>
+                <!-- At-a-glance indicator of which assignee pool the
+                     workflow draws from. Mirrors the NC chip — a CAPA
+                     spawned from a supplier NC inherits both
+                     isSupplierFacing and supplierId from the source
+                     (see CapasCreate watch on sourceNc), so this stays
+                     in sync with how the workflow actually routes its
+                     non-APPROVAL steps. -->
+                <span
+                  v-if="capa.isSupplierFacing"
+                  class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+                  title="Supplier-facing: non-approval workflow steps draw from this CAPA's supplier users. Approval steps stay internal."
+                >
+                  Supplier-facing
+                </span>
+                <span
+                  v-else
+                  class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+                >
+                  Internal
+                </span>
               </div>
 
               <BaseTextInput
@@ -575,6 +599,12 @@ function onCreateLinkedChangeRequest() {
                   Department
                 </div>
                 <DepartmentBadgeById :departmentId="capa.departmentId" />
+              </div>
+              <div v-if="capa.supplierId" class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">
+                  Supplier
+                </div>
+                <SupplierBadgeById :supplierId="capa.supplierId" />
               </div>
               <div v-if="capa.verifiedAt" class="tw:flex tw:flex-col tw:gap-1">
                 <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">
