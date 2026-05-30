@@ -1,18 +1,27 @@
 <script setup>
 /**
- * Reviewer-side outcome menu for a Change Request workflow step.
- * Mirrors CapaStepActionsMenu — REASSIGN, CANCEL, REQUEST_INFO are
- * filtered out (handled by the owner's inline buttons or hidden).
- * The remaining surface is SEND_BACK (reject task back to owner with
- * required comment, no e-sign).
+ * Generic reviewer-side outcome menu for any module's workflow step
+ * (NC / CAPA / CR). Replaces CapaStepActionsMenu +
+ * ChangeRequestStepActionsMenu + TaskInstanceNcActions. Behaviour
+ * differences across modules are captured by the `module` descriptor
+ * prop (see src/components/workflow/workflowModule.js).
+ *
+ * Rendered outcomes are filtered to the step's AllowedOutcomeOnStep
+ * rows, minus REASSIGN / CANCEL / REQUEST_INFO (those live as the
+ * owner's inline buttons on the step header) and minus anything in
+ * `hideOutcomes` (parent decides what's already rendered elsewhere).
+ *
+ * COMPLETE_AND_ADVANCE and SEND_BACK auto-relabel as "Approve" /
+ * "Reject" when stepType === 'APPROVAL'.
  */
 import { IconArrowBackUp } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
 
 const props = defineProps({
+  module: { type: Object, required: true },
   instanceStepId: { type: String, required: true },
-  crId: { type: String, required: true },
+  resourceId: { type: String, required: true },
   isOwner: { type: Boolean, default: false },
   requireEsignature: { type: Boolean, default: false },
   hideOutcomes: { type: Array, default: () => [] },
@@ -57,31 +66,24 @@ const allowedOutcomes = useLiveQueryWithDeps(
 
 const canActOnStep = computed(() => ACTIONABLE_STATUSES.includes(currentUserTask.value?.statusId))
 
-// Per-stepType outcome flavoring: APPROVAL steps read as approve / reject;
-// ACTION steps keep the CAPA-style "Send Back" wording so reviewers used to
-// the existing NC / CAPA UX don't see a relabeling on those modules.
-function buildOutcomeConfig(approvalFlavor) {
-  return {
-    COMPLETE_AND_ADVANCE: {
-      label: approvalFlavor ? 'Approve' : 'Mark Complete',
-      icon: IconArrowBackUp,
-    },
-    SEND_BACK: {
-      label: approvalFlavor ? 'Reject' : 'Send Back',
-      icon: IconArrowBackUp,
-      needsComment: true,
-      commentRequired: true,
-    },
-    REQUEST_INFO: { label: 'Request Info' },
-    REASSIGN: { label: 'Reassign' },
-    CANCEL: { label: 'Cancel' },
-  }
-}
-const OUTCOME_CONFIG = computed(() => buildOutcomeConfig(isApprovalStep.value))
+const OUTCOME_CONFIG = computed(() => ({
+  COMPLETE_AND_ADVANCE: {
+    label: isApprovalStep.value ? 'Approve' : 'Mark Complete',
+    icon: IconArrowBackUp,
+  },
+  SEND_BACK: {
+    label: isApprovalStep.value ? 'Reject' : 'Send Back',
+    icon: IconArrowBackUp,
+    needsComment: true,
+    commentRequired: true,
+  },
+  REQUEST_INFO: { label: 'Request Info' },
+  REASSIGN: { label: 'Reassign' },
+  CANCEL: { label: 'Cancel' },
+}))
 
-// Mirror NC + CAPA: REASSIGN / CANCEL / REQUEST_INFO live as owner
-// inline buttons in the step header. The menu only renders SEND_BACK
-// (reject task back to owner).
+// Owner's inline header buttons own these; hide here so they don't
+// duplicate in the dropdown.
 const ALWAYS_HIDDEN_OUTCOMES = new Set(['REASSIGN', 'CANCEL', 'REQUEST_INFO'])
 
 const showConfirmDialog = ref(false)
@@ -120,19 +122,27 @@ async function submitAction() {
   actionLoading.value = true
   try {
     if (pendingOutcomeId.value === 'SEND_BACK') {
-      await post(`/v1/services/changeRequests/${props.crId}/rejectStepTask`, {
-        workflowInstanceStepId: props.instanceStepId,
-        comment: comment.value,
-      })
+      // Module-specific endpoint — rejects the task back to the owner.
+      // Each module wires this to its own controller (NC's rejectStepTask
+      // also flips the user-on-WIS row to REJECTED and may PEND the step;
+      // see the per-module backend implementation).
+      await post(
+        `/v1/services/${props.module.apiPath}/${props.resourceId}/rejectStepTask`,
+        {
+          workflowInstanceStepId: props.instanceStepId,
+          comment: comment.value,
+        },
+      )
       toast.success(
         isApprovalStep.value
-          ? 'Approval rejected — the CR owner has been notified'
-          : 'Task sent back — the CR owner has been notified',
+          ? 'Approval rejected — the owner has been notified'
+          : 'Task sent back — the owner has been notified',
       )
       emit('done')
       return
     }
-    // Other outcomes go through the generic task-action endpoint
+    // Other outcomes (COMPLETE_AND_ADVANCE, etc.) go through the generic
+    // task-action endpoint — module-agnostic, lives on taskInstances.
     const body = {
       action: pendingOutcomeId.value,
       outcomeId: pendingOutcomeId.value,
@@ -142,7 +152,7 @@ async function submitAction() {
     toast.success(`${pendingConfig.value?.label ?? 'Action'} completed`)
     emit('done')
   } catch {
-    // Dialog stays open so the user doesn't lose input
+    // Dialog stays open so the user doesn't lose input.
   } finally {
     actionLoading.value = false
   }
@@ -189,7 +199,7 @@ const items = computed(() => {
           :placeholder="
             isRejectAction
               ? isApprovalStep
-                ? 'Why are you rejecting this change?'
+                ? 'Why are you rejecting?'
                 : 'Why are you sending this back to the owner?'
               : 'Add a comment…'
           "

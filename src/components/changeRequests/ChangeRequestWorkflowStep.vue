@@ -16,6 +16,8 @@ import {
 } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
+import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
+import { CR_MODULE } from '@/components/workflow/workflowModule.js'
 
 const props = defineProps({
   instanceStepId: { type: String, required: true },
@@ -408,9 +410,10 @@ function getStatusLabel(statusId) {
           <IconBan :size="14" />
           {{ cancelling ? 'Cancelling…' : 'Cancel' }}
         </button>
-        <ChangeRequestStepActionsMenu
+        <WorkflowStepActionsMenu
+          :module="CR_MODULE"
           :instanceStepId="instanceStepId"
-          :crId="crId"
+          :resourceId="crId"
           :isOwner="isOwner"
           :requireEsignature="requireEsignature"
           :hideOutcomes="

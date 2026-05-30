@@ -13,6 +13,8 @@ import {
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
 import { DateTime } from 'luxon'
+import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
+import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 
 /**
  * Single ad-hoc / template-spawned child task card under a parent CAPA stage.
@@ -428,9 +430,10 @@ async function performComplete(esign = null) {
              at the menu level), so this is effectively the "reject task
              back to owner" entry point for child sub-tasks. -->
         <div @click.stop>
-          <CapaStepActionsMenu
+          <WorkflowStepActionsMenu
+            :module="CAPA_MODULE"
             :instanceStepId="instanceStepId"
-            :capaId="capaId"
+            :resourceId="capaId"
             :isOwner="isOwner"
             :requireEsignature="requireEsignature"
             :hideOutcomes="['COMPLETE_AND_ADVANCE']"

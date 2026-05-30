@@ -7,6 +7,8 @@ import {
   IconPlus,
 } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
+import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
+import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 
 const props = defineProps({
   parentInstanceStepId: { type: String, required: true },
@@ -233,11 +235,11 @@ function getRowClass(child) {
         <BaseBadge class="tw:text-[10px]" :class="getBadgeClass(child)">
           {{ getStatusLabel(child) }}
         </BaseBadge>
-        <CapaStepActionsMenu
+        <WorkflowStepActionsMenu
+          :module="CAPA_MODULE"
           :instanceStepId="child.id"
-          :capaId="capaId"
+          :resourceId="capaId"
           :isOwner="isOwner"
-          :isChild="true"
           @reassign="(id) => emit('reassign', id)"
         />
       </div>

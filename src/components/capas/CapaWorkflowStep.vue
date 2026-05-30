@@ -2,6 +2,8 @@
 import { IconCheck, IconRefreshAlert, IconUserCheck, IconBan } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
+import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
+import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 
 const props = defineProps({
   instanceStepId: { type: String, required: true },
@@ -170,7 +172,7 @@ const canReassignStep = computed(
 )
 
 // ─── Inline "Complete & Advance" action ──────────────────────────────────────
-// The dropdown menu (CapaStepActionsMenu) hides this outcome so we surface
+// The dropdown menu (WorkflowStepActionsMenu) hides this outcome so we surface
 // it as a primary inline button on the parent step's header. The gating
 // mirrors what the menu used: form must be submitted, every child task
 // must be APPROVED before the user can advance.
@@ -331,11 +333,11 @@ async function submitCompleteAndAdvance(esign = null) {
           <IconBan :size="14" />
           {{ cancelling ? 'Cancelling…' : 'Cancel' }}
         </button>
-        <CapaStepActionsMenu
+        <WorkflowStepActionsMenu
+          :module="CAPA_MODULE"
           :instanceStepId="instanceStepId"
-          :capaId="capaId"
+          :resourceId="capaId"
           :isOwner="isOwner"
-          :hasSendBackTargets="hasSendBackTargets"
           :requireEsignature="requireEsignature"
           :hideOutcomes="['COMPLETE_AND_ADVANCE']"
         />

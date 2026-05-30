@@ -17,6 +17,8 @@ import {
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
 import { DateTime } from 'luxon'
+import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
+import { CR_MODULE } from '@/components/workflow/workflowModule.js'
 
 const props = defineProps({
   instanceStepId: { type: String, required: true },
@@ -277,9 +279,10 @@ function getStatusLabel(statusId) {
           {{ cancelling ? 'Cancelling…' : 'Cancel' }}
         </button>
         <div @click.stop>
-          <ChangeRequestStepActionsMenu
+          <WorkflowStepActionsMenu
+            :module="CR_MODULE"
             :instanceStepId="instanceStepId"
-            :crId="crId"
+            :resourceId="crId"
             :isOwner="isOwner"
             :requireEsignature="requireEsignature"
             :hideOutcomes="['COMPLETE_AND_ADVANCE']"
