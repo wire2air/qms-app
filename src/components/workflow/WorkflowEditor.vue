@@ -68,9 +68,6 @@ const MODULES_WITH_CHILD_STEPS = ['CAPA', 'CHANGE_CONTROL']
 const showAllowedOutcomes = computed(() =>
   WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
 )
-const showSendBackTargets = computed(() =>
-  WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
-)
 const showFormSchema = computed(() =>
   WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
 )
@@ -120,22 +117,6 @@ const steps = useLiveQueryWithDeps(
     return db.WorkflowStep.where('workflowVersionId', versionId).exec()
   },
   { initial: [] },
-)
-
-const stepUsers = useLiveQueryWithDeps(
-  [() => steps.value.map((s) => s.id)],
-  async (db, [stepIds]) => {
-    if (!stepIds || stepIds.length === 0) return []
-    return db.WorkflowStepUser.where('stepId', stepIds).exec()
-  },
-)
-
-const stepRoles = useLiveQueryWithDeps(
-  [() => steps.value.map((s) => s.id)],
-  async (db, [stepIds]) => {
-    if (!stepIds || stepIds.length === 0) return []
-    return db.WorkflowStepRole.where('stepId', stepIds).exec()
-  },
 )
 
 watch(
@@ -610,7 +591,6 @@ watch(steps, () => {
               :stepId="selectedStepId"
               :canUpdate="canUpdate"
               :showAllowedOutcomes="showAllowedOutcomes"
-              :showSendBackTargets="showSendBackTargets"
               :showFormSchema="showFormSchema"
               :showAllowChildSteps="showAllowChildSteps"
               :stepApproversTab="stepApproversTab"

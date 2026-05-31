@@ -14,7 +14,6 @@ const props = defineProps({
   stepId: { type: String, required: true },
   canUpdate: { type: Boolean, default: false },
   showAllowedOutcomes: { type: Boolean, default: false },
-  showSendBackTargets: { type: Boolean, default: false },
   showFormSchema: { type: Boolean, default: false },
   showAllowChildSteps: { type: Boolean, default: false },
   stepApproversTab: {
@@ -92,7 +91,6 @@ const allowedOutcomes = useLiveQueryWithDeps(
 )
 
 const allowedOutcomeIds = computed(() => new Set(allowedOutcomes.value.map((o) => o.outcomeId)))
-const isSendBackActive = computed(() => allowedOutcomeIds.value.has('SEND_BACK'))
 
 const toggleOutcome = useLiveMutation(async (db, outcomeId) => {
   const existing = allowedOutcomes.value.find((o) => o.outcomeId === outcomeId)
@@ -103,18 +101,6 @@ const toggleOutcome = useLiveMutation(async (db, outcomeId) => {
     await record.save()
   }
 })
-
-// ─── Send-Back Targets ────────────────────────────────────────────────────────
-
-const siblingSteps = useLiveQueryWithDeps(
-  [() => step.value?.workflowVersionId, () => step.value?.stepOrder],
-  async (db, [versionId, stepOrder]) => {
-    if (!versionId) return []
-    const all = await db.WorkflowStep.where('workflowVersionId', versionId).exec()
-    return all.filter((s) => s.stepOrder < stepOrder).sort((a, b) => a.stepOrder - b.stepOrder)
-  },
-  { initial: [] },
-)
 
 watch(
   () => props.selectedApprovalRule,
