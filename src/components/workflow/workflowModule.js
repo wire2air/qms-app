@@ -24,6 +24,9 @@
 /**
  * @typedef {Object} WorkflowModule
  * @property {string} key                         — short identifier ('NC' / 'CAPA' / 'CR')
+ * @property {string} displayName                 — user-facing label ('NC' / 'CAPA' /
+ *   'Change Request'). Used in submit-picker empty-state hints
+ *   ('... before submitting this <displayName>').
  * @property {string} resourceType                — workflow_instances.resource_type value
  * @property {string} apiPath                     — module path under /v1/services/<apiPath>/:id/...
  * @property {string} resourceIdParam             — name of the resource-id prop passed by parents
@@ -35,6 +38,8 @@
  *   record.
  * @property {Object} resourceModel               — SyncEngine model name + display fields
  * @property {string} resourceModel.modelName     — e.g. 'Nonconformance'
+ * @property {string} workflowVersionModuleId     — value passed to <WorkflowVersionSelect moduleId>
+ *   to filter the dropdown to workflows authored for this module.
  * @property {(resource:Object) => Object} getStepFormContextFields
  *   — non-persisted fields the form needs (e.g. _parent_problem from the
  *   resource's description). Stripped before save.
@@ -43,12 +48,14 @@
 /** @type {WorkflowModule} */
 export const NC_MODULE = {
   key: 'NC',
+  displayName: 'NC',
   resourceType: 'Nonconformance',
   apiPath: 'nonconformances',
   resourceIdParam: 'ncId',
   recordModelName: 'NcRecord',
   recordResourceFk: 'ncId',
   resourceModel: { modelName: 'Nonconformance' },
+  workflowVersionModuleId: 'NON_CONFORMANCE',
   getStepFormContextFields(resource) {
     return { _parent_problem: resource?.description ?? '' }
   },
@@ -57,12 +64,14 @@ export const NC_MODULE = {
 /** @type {WorkflowModule} */
 export const CAPA_MODULE = {
   key: 'CAPA',
+  displayName: 'CAPA',
   resourceType: 'Capa',
   apiPath: 'capas',
   resourceIdParam: 'capaId',
   recordModelName: 'CapaRecord',
   recordResourceFk: 'capaId',
   resourceModel: { modelName: 'Capa' },
+  workflowVersionModuleId: 'CAPA',
   getStepFormContextFields(resource) {
     // CAPA inherits the source NC's problem statement when present; the
     // resource itself just carries `description`. The form schema can
@@ -74,19 +83,37 @@ export const CAPA_MODULE = {
 /** @type {WorkflowModule} */
 export const CR_MODULE = {
   key: 'CR',
+  displayName: 'Change Request',
   resourceType: 'ChangeRequest',
   apiPath: 'changeRequests',
   resourceIdParam: 'crId',
   recordModelName: 'CrRecord',
   recordResourceFk: 'changeRequestId',
   resourceModel: { modelName: 'ChangeRequest' },
+  workflowVersionModuleId: 'CHANGE_REQUEST',
   getStepFormContextFields(resource) {
     return { _parent_problem: resource?.reasonForChange ?? resource?.description ?? '' }
   },
+}
+
+// LogBookVersion runs through the same generic workflow engine but
+// doesn't have everything a full controlled-resource module needs
+// (no per-step record model — log-book entries are FieldRecords on a
+// separate surface from the version-approval flow). It's listed here
+// so its submit-time picker can use the unified WorkflowStepReviewerSelect;
+// fields unrelated to the picker stay undefined.
+/** @type {WorkflowModule} */
+export const LOG_BOOK_VERSION_MODULE = {
+  key: 'LOG_BOOK_VERSION',
+  displayName: 'log book',
+  resourceType: 'LogBookVersion',
+  apiPath: 'logBooks',
+  workflowVersionModuleId: 'LOG_BOOK',
 }
 
 export const MODULES = {
   NC: NC_MODULE,
   CAPA: CAPA_MODULE,
   CR: CR_MODULE,
+  LOG_BOOK_VERSION: LOG_BOOK_VERSION_MODULE,
 }

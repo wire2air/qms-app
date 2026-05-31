@@ -3,10 +3,12 @@ import { DateTime } from 'luxon'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
+import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
+import { NC_MODULE } from '@/components/workflow/workflowModule.js'
 
 const router = useRouter()
 const toast = useToast()
-const ncWorkflowVersionSelectRef = ref(null)
+const workflowPickerRef = ref(null)
 const saving = ref(false)
 
 const form = ref({
@@ -87,7 +89,7 @@ function handleSubmit() {
   }
 
   // Open reviewer dialog (fire-and-forget, actual NC creation happens on confirm)
-  ncWorkflowVersionSelectRef.value.submit()
+  workflowPickerRef.value.submit()
 }
 
 async function handleReviewersConfirmed(reviewers) {
@@ -317,9 +319,10 @@ async function handleReviewersConfirmed(reviewers) {
             Workflow
             <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
           </div>
-          <NCWorkflowVersionSelect
-            ref="ncWorkflowVersionSelectRef"
+          <WorkflowReviewerPickerDialog
+            ref="workflowPickerRef"
             v-model="form.workflowVersionId"
+            :module="NC_MODULE"
             :isSupplierFacing="form.isSupplierFacing"
             :supplierId="form.supplierId"
             :ownerId="form.ownerId"

@@ -1,31 +1,56 @@
 <script setup>
-
+/**
+ * Single-row reviewer picker for a workflow step at submit time.
+ * Replaces NCWorkflowStepReviewerSelect + CAPAWorkflowStepReviewerSelect
+ * (line-for-line near-mirrors before the unification). Behaviour:
+ *
+ *  - Step has roles configured → candidate pool = union of users
+ *    holding any of those roles.
+ *  - Step has no roles → candidate pool = every active internal user
+ *    (the no-friction rule for small teams; see 6730625 / 7207844).
+ *  - Supplier-facing entity + non-APPROVAL step → swap the pool for
+ *    active supplier users at the entity's supplierId. APPROVAL stays
+ *    internal (CFR-21 attestation; can't be delegated to a supplier).
+ *  - On a supplier-facing entity, APPROVAL steps auto-default the
+ *    owner as the approver if the owner is in the role pool.
+ *
+ * Child-step rendering is always-on but benign for modules whose
+ * templates don't define children (NC) — `isChild` defaults to false
+ * and the parent indent / numeric prefix logic short-circuits.
+ *
+ * Empty-state hints use `module.displayName` so the wording reads
+ * naturally per module ('… before submitting this NC' vs 'this CAPA').
+ */
 const props = defineProps({
+  module: { type: Object, required: true },
   step: { type: Object, required: true },
   stepIndex: { type: Number, required: true },
+  parentIndex: { type: Number, default: null },
+  isChild: { type: Boolean, default: false },
   required: { type: Boolean, default: false },
   // Supplier-facing routing — when true AND this step is NOT APPROVAL,
   // candidates come from active supplier users (kind=EXTERNAL_SUPPLIER
-  // scoped to supplierId) instead of the role-eligible internal pool.
-  // Approval steps stay internal so the owner can attest CFR-21-Part-11
-  // signatures even on supplier-facing NCs. Default auto-pick for the
-  // approval step is the owner.
+  // scoped to supplierId) instead of the role / all-internal pool.
   isSupplierFacing: { type: Boolean, default: false },
   supplierId: { type: String, default: null },
   ownerId: { type: String, default: null },
 })
 
-// v-model binding for selected userId (local state, not IDB)
 const modelValue = defineModel({ type: String, default: null })
+
+const numberLabel = computed(() => {
+  if (props.isChild) {
+    const parent = props.parentIndex != null ? props.parentIndex + 1 : '?'
+    return `${parent}.${props.stepIndex + 1}`
+  }
+  return `${props.stepIndex + 1}`
+})
 
 const isApprovalStep = computed(() => props.step?.stepType === 'APPROVAL')
 const usesSupplierPicker = computed(
   () => props.isSupplierFacing && !isApprovalStep.value,
 )
 
-// Internal-pool candidates: users holding at least one role this step
-// declares. Same logic as before — used for non-supplier-facing NCs and
-// for APPROVAL steps even on supplier-facing NCs.
 const stepRoles = useLiveQueryWithDeps(
   [() => props.step.id],
   async (db, [stepId]) => {
@@ -35,16 +60,13 @@ const stepRoles = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-// When the step has at least one role configured, candidates = users
-// holding any of those roles. When it has NO roles configured (the
-// optional-role mode for small teams), candidates = every active
-// internal user — no role filtering. The empty-role state used to
-// surface as an empty picker; now it's the "any user" mode.
+// Role-less step → all active internal users (the no-friction rule
+// for small teams that don't bother setting up roles). Otherwise union
+// of users in the configured roles.
 const internalCandidates = useLiveQueryWithDeps(
   [() => stepRoles.value.map((r) => r.roleId).join(',')],
   async (db, [roleIdsStr]) => {
     if (!roleIdsStr) {
-      // No roles → all active internal users.
       const all = await db.User.where().exec()
       return all.filter((u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
     }
@@ -59,9 +81,6 @@ const internalCandidates = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-// Supplier-pool candidates: active users at the NC's supplier. No role
-// gating — the supplier picks their own reviewer; the workflow step's
-// label tells the supplier WHAT to do, not WHO does it.
 const supplierCandidates = useLiveQueryWithDeps(
   [() => props.supplierId, () => props.isSupplierFacing],
   async (db, [supplierId, isSupplierFacing]) => {
@@ -81,10 +100,11 @@ const candidateUsers = computed(() =>
   usesSupplierPicker.value ? supplierCandidates.value : internalCandidates.value,
 )
 
-// Auto-select the sensible default when required and no selection
-// exists. For approval steps on a supplier-facing NC the owner is the
-// default approver (per the regulatory-attestation rule). Otherwise the
-// first available candidate.
+// Auto-select sensible default on the first required step:
+//  - Approval on a supplier-facing entity → prefer the owner (CFR-21
+//    attestation rule). Falls back to first role-eligible internal
+//    user if the owner isn't in the pool.
+//  - Anywhere else → first available candidate.
 let autoSelectDone = false
 watch(
   [candidateUsers, modelValue, usesSupplierPicker, () => props.ownerId, internalCandidates],
@@ -94,9 +114,6 @@ watch(
       autoSelectDone = true
       return
     }
-    // Approval on a supplier-facing NC: prefer the owner (who is
-    // typically the internal QM submitting the NC). Fall back to first
-    // role-eligible internal user if the owner isn't in the role pool.
     if (!supplierMode && props.isSupplierFacing && isApprovalStep.value && ownerId) {
       const ownerCandidate = internals.find((u) => u.id === ownerId)
       if (ownerCandidate) {
@@ -112,34 +129,36 @@ watch(
   { immediate: true },
 )
 
-// Role-id list — passed to UserSelectMenu's roleIdsFilter so the
-// internal-path dropdown shows only users holding at least one of the
-// step's configured roles. Same filter the candidate-list query uses
-// for auto-default, just plumbed through to the picker.
 const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:space-y-3">
-    <!-- Step header -->
-    <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+  <div
+    class="tw:border tw:border-divider tw:rounded-lg tw:space-y-3"
+    :class="
+      isChild
+        ? 'tw:bg-main-hover/40 tw:ml-8 tw:p-3 tw:border-l-2 tw:border-l-primary/40'
+        : 'tw:bg-white tw:p-4'
+    "
+  >
+    <div class="tw:flex tw:items-center tw:gap-3">
       <div
-        class="tw:w-6 tw:h-6 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-xs tw:font-bold tw:shrink-0"
-        :class="modelValue ? 'tw:bg-primary tw:text-white' : 'tw:bg-main-hover tw:text-secondary'"
+        class="tw:rounded-full tw:flex tw:items-center tw:justify-center tw:font-bold tw:shrink-0"
+        :class="[
+          isChild ? 'tw:w-5 tw:h-5 tw:text-[10px]' : 'tw:w-6 tw:h-6 tw:text-xs',
+          modelValue ? 'tw:bg-primary tw:text-white' : 'tw:bg-main-hover tw:text-secondary',
+        ]"
       >
-        {{ stepIndex + 1 }}
+        {{ numberLabel }}
       </div>
-      <span class="tw:text-sm tw:font-semibold tw:text-on-main">
+      <span class="tw:font-semibold tw:text-on-main" :class="isChild ? 'tw:text-xs' : 'tw:text-sm'">
         {{ step.name }}
         <span v-if="required" class="tw:text-red-500">*</span>
       </span>
-      <!-- Picker-pool chip — matches the inline draft-preview chips so
-           the admin can tell at a glance which candidate pool each step
-           is drawing from. -->
       <span
         v-if="usesSupplierPicker"
         class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5"
-        title="Candidates are active users at this NC's supplier."
+        :title="`Candidates are active users at this ${module.displayName}'s supplier.`"
       >
         Supplier picker
       </span>
@@ -152,16 +171,9 @@ const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
       </span>
     </div>
 
-    <!-- Picker — same UserSelectMenu the detail page uses, with
-         searchable dropdown. The pool is determined by props:
-           - supplier-facing non-APPROVAL → kind=EXTERNAL_SUPPLIER scoped
-             to supplierId (no role filter; the workflow step says WHAT,
-             the supplier chooses WHO)
-           - everything else → kind=INTERNAL, gated by step's roles -->
-    <!-- :required="true" always — the picker is choosing a reviewer,
-         not filtering. The parent's `required` prop drives the form-
-         level "must pick before submit" rule on the first step; on the
-         picker itself we never want the "All" null option to appear. -->
+    <!-- Picker — :required="true" always so the "All" null option
+         never shows on a reviewer picker. The parent's `required`
+         drives the "must pick before submit" rule on the first step. -->
     <UserSelectMenu
       v-if="usesSupplierPicker"
       v-model="modelValue"
@@ -169,9 +181,6 @@ const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
       :supplierId="supplierId"
       :required="true"
     />
-    <!-- Internal picker: when the step has roles → constrain by them;
-         when role-less → show every active internal user. The empty
-         `roleIdsFilter` array signals "no filter" to UserSelectMenu. -->
     <UserSelectMenu
       v-else
       v-model="modelValue"
@@ -180,15 +189,13 @@ const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
       :required="true"
     />
 
-    <!-- Helpful empty-state hints. UserSelectMenu silently shows
-         "Select User" when there are no candidates; these lines tell
-         the admin WHY the picker is empty + what to do about it. -->
     <div
       v-if="usesSupplierPicker && !candidateUsers.length"
       class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
     >
       No active users at this supplier yet. Invite a user under
-      <strong>Suppliers → Users</strong> and have them accept before submitting this NC.
+      <strong>Suppliers → Users</strong> and have them accept before submitting this
+      {{ module.displayName }}.
     </div>
     <div
       v-else-if="!usesSupplierPicker && stepRoles.length && !candidateUsers.length"
@@ -203,7 +210,6 @@ const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
       No active internal users in your company.
     </div>
 
-    <!-- Validation message -->
     <div
       v-if="required && !modelValue && candidateUsers.length > 0"
       class="tw:text-xs tw:text-red-500"

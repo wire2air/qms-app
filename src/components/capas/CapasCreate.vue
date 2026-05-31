@@ -3,11 +3,13 @@ import { DateTime } from 'luxon'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
+import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
+import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
-const capaWorkflowVersionSelectRef = ref(null)
+const workflowPickerRef = ref(null)
 const saving = ref(false)
 
 const presetNcId = computed(() => {
@@ -117,7 +119,7 @@ function handleSubmit() {
     return
   }
 
-  capaWorkflowVersionSelectRef.value.submit()
+  workflowPickerRef.value.submit()
 }
 
 async function handleReviewersConfirmed(reviewers) {
@@ -288,9 +290,10 @@ async function handleReviewersConfirmed(reviewers) {
           >
             Workflow
           </div>
-          <CAPAWorkflowVersionSelect
-            ref="capaWorkflowVersionSelectRef"
+          <WorkflowReviewerPickerDialog
+            ref="workflowPickerRef"
             v-model="form.workflowVersionId"
+            :module="CAPA_MODULE"
             :isSupplierFacing="form.isSupplierFacing"
             :supplierId="form.supplierId"
             :ownerId="form.ownerId"

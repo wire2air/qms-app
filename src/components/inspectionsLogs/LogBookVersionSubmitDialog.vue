@@ -1,15 +1,18 @@
 <script setup>
 import { post } from '@/api'
+import WorkflowStepReviewerSelect from '@/components/workflow/WorkflowStepReviewerSelect.vue'
+import { LOG_BOOK_VERSION_MODULE } from '@/components/workflow/workflowModule.js'
 
 /**
  * Submit-a-log-book-version-for-approval dialog.
  *
  * Given the log book's attached workflow version, lists its steps and
- * lets the submitter pick a reviewer per step (reusing the generic
- * NCWorkflowStepReviewerSelect — it derives candidates from each step's
- * roles). POSTs to /logBookVersions/:versionId/submit with the
- * { [stepId]: [userId] } reviewers map. The backend hands the version to
- * the workflow engine and flips it to UNDER_REVIEW.
+ * lets the submitter pick a reviewer per step (via the generic
+ * WorkflowStepReviewerSelect — derives candidates from each step's
+ * roles, or all active users when role-less). POSTs to
+ * /logBookVersions/:versionId/submit with the { [stepId]: [userId] }
+ * reviewers map. The backend hands the version to the workflow engine
+ * and flips it to UNDER_REVIEW.
  */
 const props = defineProps({
   versionId: { type: String, required: true },
@@ -78,10 +81,11 @@ async function handleConfirm() {
         <p class="tw:text-sm tw:text-secondary">
           Assign a reviewer for each workflow step before submitting.
         </p>
-        <NCWorkflowStepReviewerSelect
+        <WorkflowStepReviewerSelect
           v-for="(step, index) in steps"
           :key="step.id"
           v-model="selections[step.id]"
+          :module="LOG_BOOK_VERSION_MODULE"
           :step="step"
           :stepIndex="index"
           :required="index === 0"
