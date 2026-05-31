@@ -51,21 +51,49 @@ const usesSupplierPicker = computed(
   () => props.isSupplierFacing && !isApprovalStep.value,
 )
 
+// No `initial: []` here on purpose: we need to distinguish
+//   stepRoles === undefined → IDB query still loading
+//   stepRoles === []        → confirmed: step has no roles configured
+//                              (role-optional path → all-users branch)
+//   stepRoles === [{...}]   → step has roles; filter the pool
+// Without the distinction, the role-less branch raced the initial paint
+// for role-gated steps and auto-selected a user who shouldn't have been
+// eligible (see the LogBook submit-dialog regression report).
 const stepRoles = useLiveQueryWithDeps(
   [() => props.step.id],
   async (db, [stepId]) => {
     if (!stepId) return []
     return db.WorkflowStepRole.where('stepId', stepId).exec()
   },
+)
+
+const stepRolesLoaded = computed(() => stepRoles.value !== undefined)
+const stepRoleIds = computed(() => (stepRoles.value ?? []).map((r) => r.roleId))
+
+// Resolve role names for the empty-state hint — when a step has roles
+// and no eligible users hold them, the hint reads "No users assigned
+// to role(s): X, Y" instead of the generic "No internal users hold the
+// role(s) configured for this step", so the author knows exactly which
+// role needs members.
+const stepRoleNames = useLiveQueryWithDeps(
+  [() => stepRoleIds.value.join(',')],
+  async (db, [idsStr]) => {
+    if (!idsStr) return []
+    const ids = idsStr.split(',')
+    const roles = await Promise.all(ids.map((id) => db.Role.findByPk(id)))
+    return roles.filter(Boolean).map((r) => r.name)
+  },
   { initial: [] },
 )
 
-// Role-less step → all active internal users (the no-friction rule
-// for small teams that don't bother setting up roles). Otherwise union
-// of users in the configured roles.
+// Role-less step → all active internal users (no-friction rule for
+// small teams). Otherwise union of users holding any configured role.
+// While stepRoles is still loading we return [] so the auto-select
+// watch below doesn't fire on a transient empty role state.
 const internalCandidates = useLiveQueryWithDeps(
-  [() => stepRoles.value.map((r) => r.roleId).join(',')],
-  async (db, [roleIdsStr]) => {
+  [() => stepRolesLoaded.value, () => stepRoleIds.value.join(',')],
+  async (db, [loaded, roleIdsStr]) => {
+    if (!loaded) return []
     if (!roleIdsStr) {
       const all = await db.User.where().exec()
       return all.filter((u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
@@ -128,8 +156,6 @@ watch(
   },
   { immediate: true },
 )
-
-const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
 </script>
 
 <template>
@@ -197,14 +223,22 @@ const stepRoleIds = computed(() => stepRoles.value.map((r) => r.roleId))
       <strong>Suppliers → Users</strong> and have them accept before submitting this
       {{ module.displayName }}.
     </div>
+    <!-- Empty-state hints only fire after stepRoles has loaded, so we
+         don't flash the wrong copy during the initial query. -->
     <div
-      v-else-if="!usesSupplierPicker && stepRoles.length && !candidateUsers.length"
+      v-else-if="
+        !usesSupplierPicker && stepRolesLoaded && stepRoleIds.length && !candidateUsers.length
+      "
       class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
     >
-      No internal users hold the role(s) configured for this step.
+      No users assigned to role{{ stepRoleNames.length > 1 ? 's' : '' }}:
+      <strong>{{ stepRoleNames.join(', ') || 'configured for this step' }}</strong
+      >. Assign a user to the role before submitting.
     </div>
     <div
-      v-else-if="!usesSupplierPicker && !stepRoles.length && !candidateUsers.length"
+      v-else-if="
+        !usesSupplierPicker && stepRolesLoaded && !stepRoleIds.length && !candidateUsers.length
+      "
       class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
     >
       No active internal users in your company.
