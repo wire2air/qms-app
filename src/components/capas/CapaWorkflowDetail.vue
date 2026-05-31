@@ -77,10 +77,18 @@ const reassignEffectiveRoleIds = computed(() => {
   return [...set]
 })
 
+// Role-less step → every active internal user is eligible (matches the
+// role-optional rule the submit-time picker uses; see 7207844). With
+// roles → union of users holding any of them. Same fallback as
+// WorkflowStepReviewerSelect — kept in sync so reassign sees the same
+// pool the original submit picker drew from.
 const reassignCandidates = useLiveQueryWithDeps(
   [() => reassignEffectiveRoleIds.value.join(',')],
   async (db, [roleIdsStr]) => {
-    if (!roleIdsStr) return []
+    if (!roleIdsStr) {
+      const all = await db.User.where().exec()
+      return all.filter((u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
+    }
     const roleIds = roleIdsStr.split(',')
     const rolesOnUsers = await Promise.all(
       roleIds.map((id) => db.RoleOnUser.where('roleId', id).exec()),
@@ -221,7 +229,11 @@ async function handleReassign() {
           </div>
         </label>
         <p v-if="!reassignCandidates.length" class="tw:text-sm tw:text-secondary">
-          No users hold the role(s) required for this step.
+          {{
+            reassignEffectiveRoleIds.length
+              ? 'No users hold the role(s) required for this step.'
+              : 'No active internal users in your company.'
+          }}
         </p>
       </div>
     </div>
