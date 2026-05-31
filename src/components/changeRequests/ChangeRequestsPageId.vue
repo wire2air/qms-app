@@ -365,23 +365,32 @@ const editingDescription = ref(false)
                 {{ cr.title }}
               </div>
 
-              <BaseTextarea
-                v-if="editingDescription && isEditable"
-                v-model="cr.description"
-                placeholder="Describe the change…"
-                autofocus
-                rows="3"
-                class="tw:mb-4"
-                @blur="editingDescription = false"
-              />
-              <p
+              <div v-if="editingDescription && isEditable" class="cr-detail-editor tw:mb-4">
+                <TiptapEditor
+                  v-model="cr.description"
+                  placeholder="Describe the change…"
+                  @blur="editingDescription = false"
+                />
+              </div>
+              <div
                 v-else
-                class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:whitespace-pre-wrap tw:mb-4"
-                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                class="tw:mb-4"
                 @click="isEditable && (editingDescription = true)"
               >
-                {{ cr.description || (isEditable ? 'Add a description…' : '—') }}
-              </p>
+                <div
+                  v-if="cr.description"
+                  class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:prose tw:max-w-none"
+                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                  v-html="cr.description"
+                />
+                <p
+                  v-else
+                  class="tw:text-sm tw:text-secondary tw:leading-relaxed"
+                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                >
+                  {{ isEditable ? 'Add a description…' : '—' }}
+                </p>
+              </div>
 
               <div class="tw:grid tw:grid-cols-3 tw:gap-3">
                 <div class="tw:flex tw:flex-col tw:gap-1">

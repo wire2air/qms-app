@@ -203,11 +203,12 @@ async function handleSubmit() {
             <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
               Description
             </label>
-            <BaseTextarea
-              v-model="form.description"
-              :rows="3"
-              placeholder="What is being changed and why?"
-            />
+            <div class="create-cr-editor">
+              <TiptapEditor
+                v-model="form.description"
+                placeholder="What is being changed and why?"
+              />
+            </div>
           </div>
 
           <div class="tw:grid tw:grid-cols-2 tw:gap-4">
