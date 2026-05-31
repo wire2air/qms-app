@@ -488,21 +488,26 @@ function onCreateLinkedChangeRequest() {
                 {{ capa.title }}
               </div>
 
-              <BaseTextarea
-                v-if="editingDescription && isEditable"
-                v-model="capa.description"
-                placeholder="Add a description…"
-                autofocus
-                rows="3"
-                class="tw:mb-4"
-                @blur="editingDescription = false"
-              />
+              <div v-if="editingDescription && isEditable" class="capa-detail-editor tw:mb-4">
+                <TiptapEditor
+                  v-model="capa.description"
+                  placeholder="Add a description…"
+                  @blur="editingDescription = false"
+                />
+              </div>
               <div v-else class="tw:mb-4" @click="isEditable && (editingDescription = true)">
+                <div
+                  v-if="capa.description"
+                  class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:prose tw:max-w-none"
+                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                  v-html="capa.description"
+                />
                 <p
-                  class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:whitespace-pre-wrap"
+                  v-else
+                  class="tw:text-sm tw:text-secondary tw:leading-relaxed"
                   :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
                 >
-                  {{ capa.description || (isEditable ? 'Add a description…' : '—') }}
+                  {{ isEditable ? 'Add a description…' : '—' }}
                 </p>
               </div>
 
@@ -881,3 +886,10 @@ function onCreateLinkedChangeRequest() {
     </BaseDialog>
   </div>
 </template>
+
+<style scoped>
+.capa-detail-editor :deep(.tiptap-editor-content) {
+  max-height: 12rem;
+  overflow-y: auto;
+}
+</style>

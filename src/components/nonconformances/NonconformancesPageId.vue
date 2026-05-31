@@ -448,21 +448,26 @@ function onCreateLinkedChangeRequest() {
               >
                 {{ nc.title }}
               </div>
-              <BaseTextarea
-                v-if="editingDescription && isEditable"
-                v-model="nc.description"
-                placeholder="Add a description…"
-                autofocus
-                rows="3"
-                class="tw:mb-4"
-                @blur="editingDescription = false"
-              />
+              <div v-if="editingDescription && isEditable" class="nc-detail-editor tw:mb-4">
+                <TiptapEditor
+                  v-model="nc.description"
+                  placeholder="Add a description…"
+                  @blur="editingDescription = false"
+                />
+              </div>
               <div v-else class="tw:mb-4" @click="isEditable && (editingDescription = true)">
+                <div
+                  v-if="nc.description"
+                  class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:prose tw:max-w-none"
+                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                  v-html="nc.description"
+                />
                 <p
-                  class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:whitespace-pre-wrap"
+                  v-else
+                  class="tw:text-sm tw:text-secondary tw:leading-relaxed"
                   :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
                 >
-                  {{ nc.description || (isEditable ? 'Add a description…' : '—') }}
+                  {{ isEditable ? 'Add a description…' : '—' }}
                 </p>
               </div>
 
@@ -540,15 +545,18 @@ function onCreateLinkedChangeRequest() {
                 >
                   Immediate containment action
                 </label>
-                <BaseTextarea
-                  v-if="isEditable"
-                  v-model="nc.immediateContainmentAction"
-                  placeholder="Describe the immediate action taken to contain this nonconformance…"
-                  :rows="3"
+                <div v-if="isEditable" class="nc-detail-editor">
+                  <TiptapEditor
+                    v-model="nc.immediateContainmentAction"
+                    placeholder="Describe the immediate action taken to contain this nonconformance…"
+                  />
+                </div>
+                <div
+                  v-else-if="nc.immediateContainmentAction"
+                  class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:prose tw:max-w-none"
+                  v-html="nc.immediateContainmentAction"
                 />
-                <p v-else class="tw:text-sm tw:text-on-main tw:leading-relaxed">
-                  {{ nc.immediateContainmentAction || '—' }}
-                </p>
+                <p v-else class="tw:text-sm tw:text-on-main tw:leading-relaxed">—</p>
               </div>
             </div>
 
@@ -1084,3 +1092,10 @@ function onCreateLinkedChangeRequest() {
     </BaseDialog>
   </div>
 </template>
+
+<style scoped>
+.nc-detail-editor :deep(.tiptap-editor-content) {
+  max-height: 12rem;
+  overflow-y: auto;
+}
+</style>

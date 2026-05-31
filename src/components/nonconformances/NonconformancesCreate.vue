@@ -138,11 +138,12 @@ async function handleReviewersConfirmed(reviewers) {
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
-              <BaseTextarea
-                v-model="form.description"
-                placeholder="Provide details about the nonconformance…"
-                :rows="4"
-              />
+              <div class="create-nc-editor">
+                <TiptapEditor
+                  v-model="form.description"
+                  placeholder="Provide details about the nonconformance…"
+                />
+              </div>
             </div>
             <SimilarRecordsPanel
               entityType="Nonconformance"
@@ -304,11 +305,12 @@ async function handleReviewersConfirmed(reviewers) {
             Immediate containment action
             <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
           </div>
-          <BaseTextarea
-            v-model="form.immediateContainmentAction"
-            placeholder="Describe actions taken at the time of detection…"
-            :rows="3"
-          />
+          <div class="create-nc-editor">
+            <TiptapEditor
+              v-model="form.immediateContainmentAction"
+              placeholder="Describe actions taken at the time of detection…"
+            />
+          </div>
         </div>
 
         <!-- Workflow -->
@@ -333,3 +335,10 @@ async function handleReviewersConfirmed(reviewers) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.create-nc-editor :deep(.tiptap-editor-content) {
+  max-height: 10rem;
+  overflow-y: auto;
+}
+</style>
