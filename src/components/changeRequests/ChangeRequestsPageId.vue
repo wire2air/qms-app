@@ -411,26 +411,6 @@ const editingDescription = ref(false)
                     {{ cr.initiatedAt ? cr.initiatedAt.formatDate('date') : '—' }}
                   </span>
                 </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Target Implementation</div>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{
-                      cr.targetImplementationDate
-                        ? cr.targetImplementationDate.formatDate('date')
-                        : '—'
-                    }}
-                  </span>
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Due Date</div>
-                  <span
-                    class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1"
-                    :class="isOverdue ? 'tw:text-red-600' : ''"
-                  >
-                    {{ cr.dueDate ? cr.dueDate.formatDate('date') : '—' }}
-                    <IconAlertTriangle v-if="isOverdue" :size="14" class="tw:text-red-600" />
-                  </span>
-                </div>
               </div>
 
               <div v-if="sourceNc || sourceCapa" class="tw:mt-4 tw:pt-3 tw:border-t tw:border-divider">
@@ -539,6 +519,26 @@ const editingDescription = ref(false)
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Department</span>
                   <DepartmentBadgeById :departmentId="cr.departmentId" />
+                </div>
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Due date</span>
+                  <span
+                    class="tw:text-xs tw:flex tw:items-center tw:gap-1"
+                    :class="isOverdue ? 'tw:text-red-600' : ''"
+                  >
+                    {{ cr.dueDate ? cr.dueDate.formatDate('date') : '—' }}
+                    <IconAlertTriangle v-if="isOverdue" :size="12" class="tw:text-red-600" />
+                  </span>
+                </div>
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Target Implementation</span>
+                  <span class="tw:text-xs">
+                    {{
+                      cr.targetImplementationDate
+                        ? cr.targetImplementationDate.formatDate('date')
+                        : '—'
+                    }}
+                  </span>
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Submitted</span>

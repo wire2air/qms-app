@@ -471,10 +471,27 @@ function onCreateLinkedChangeRequest() {
                 </p>
               </div>
 
-              <div class="tw:grid tw:grid-cols-3 tw:gap-3">
+              <!-- Required-at-create fields stay in the main view:
+                   Severity, Type, Source, Detected. Optional metadata
+                   (Priority, Issue type, Due, Product, Qty, PO #, Order #,
+                   Lot #) all moved to the right-side Overview panel to
+                   match the "required → main / optional → right" rule. -->
+              <div class="tw:grid tw:grid-cols-4 tw:gap-3">
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Severity</div>
-                  <NcSeverityBadgeById :severityId="nc.severityId" />
+                  <NcSeveritySelectMenu
+                    v-if="editingSeverity && isEditable"
+                    v-model="nc.severityId"
+                    :required="true"
+                    @blur="editingSeverity = false"
+                  />
+                  <span
+                    v-else
+                    :class="isEditable ? 'tw:cursor-pointer tw:hover:opacity-70' : ''"
+                    @click="isEditable && (editingSeverity = true)"
+                  >
+                    <NcSeverityBadgeById :severityId="nc.severityId" />
+                  </span>
                 </div>
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Type</div>
@@ -486,55 +503,19 @@ function onCreateLinkedChangeRequest() {
                 </div>
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Detected</div>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ nc.detectedAt.formatDate('date') || '—' }}
-                  </span>
-                </div>
-                <div v-if="nc.ncIssueTypeId" class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Issue type</div>
-                  <NcIssueTypeBadgeById :issueTypeId="nc.ncIssueTypeId" />
-                </div>
-                <div v-if="nc.priorityId" class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Priority</div>
+                  <BaseDatePicker
+                    v-if="editingDetected && isEditable"
+                    v-model="nc.detectedAt"
+                    @blur="editingDetected = false"
+                  />
                   <span
-                    class="tw:inline-flex tw:items-center tw:text-xs tw:font-semibold tw:rounded tw:px-2 tw:py-0.5"
-                    :class="{
-                      'tw:bg-emerald-100 tw:text-emerald-700': nc.priorityId === 'LOW',
-                      'tw:bg-amber-100 tw:text-amber-700': nc.priorityId === 'MEDIUM',
-                      'tw:bg-orange-100 tw:text-orange-700': nc.priorityId === 'HIGH',
-                      'tw:bg-rose-100 tw:text-rose-700': nc.priorityId === 'CRITICAL',
-                    }"
+                    v-else
+                    class="tw:text-sm tw:font-medium"
+                    :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                    @click="isEditable && (editingDetected = true)"
                   >
-                    {{ nc.priorityId.charAt(0) + nc.priorityId.slice(1).toLowerCase() }}
+                    {{ nc.detectedAt ? nc.detectedAt.formatDate('date') : '—' }}
                   </span>
-                </div>
-                <div v-if="nc.dueDate" class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Due</div>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ nc.dueDate.formatDate('date') || '—' }}
-                  </span>
-                </div>
-                <div v-if="nc.productId" class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Product</div>
-                  <ProductBadgeById :productId="nc.productId" />
-                </div>
-                <div v-if="nc.qtyAffected" class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Qty affected</div>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
-                  </span>
-                </div>
-                <div v-if="nc.poNumber" class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">PO #</div>
-                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.poNumber }}</span>
-                </div>
-                <div v-if="nc.orderNumber" class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Order #</div>
-                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.orderNumber }}</span>
-                </div>
-                <div v-if="nc.lotNumber" class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Lot #</div>
-                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.lotNumber }}</span>
                 </div>
               </div>
 
@@ -798,21 +779,28 @@ function onCreateLinkedChangeRequest() {
                  driven, not manual. See SharedWithPanel.vue. -->
             <SharedWithPanel entityType="Nonconformance" :entityId="id" />
 
-            <!-- Overview side card -->
+            <!-- Overview side card. Grouped into subsections with quiet
+                 dividers so the right rail stays scannable as it grows:
+                   Identification → People → Classification → Schedule
+                   → Source / Commerce → Related
+                 Severity / Detected are NOT duplicated here — they live
+                 in the main grid alongside Type + Source. -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
               <div
                 class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
               >
                 Overview
               </div>
-              <div class="tw:flex tw:flex-col tw:divide-y tw:divide-border">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
+
+              <!-- Identification -->
+              <div class="tw:flex tw:flex-col">
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">NC number</span>
-                  <span class="tw:text-xs tw:font-mono tw:font-medium">{{
-                    nc.ncNumber || '—'
-                  }}</span>
+                  <span class="tw:text-xs tw:font-mono tw:font-medium">
+                    {{ nc.ncNumber || '—' }}
+                  </span>
                 </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Status</span>
                   <div class="tw:flex tw:items-center tw:gap-1.5">
                     <NcStatusBadgeById :statusId="nc.statusId" />
@@ -825,47 +813,58 @@ function onCreateLinkedChangeRequest() {
                     </BaseBadge>
                   </div>
                 </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
-                  <span class="tw:text-xs tw:text-secondary">Severity</span>
-                  <NcSeveritySelectMenu
-                    v-if="editingSeverity && isEditable"
-                    v-model="nc.severityId"
-                    :required="true"
-                    class="tw:w-32"
-                    @blur="editingSeverity = false"
-                  />
-                  <span
-                    v-else
-                    class="tw:cursor-pointer tw:hover:opacity-70"
-                    :class="isEditable ? '' : 'tw:pointer-events-none'"
-                    @click="editingSeverity = true"
-                  >
-                    <NcSeverityBadgeById :severityId="nc.severityId" />
-                  </span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
+              </div>
+
+              <!-- People & Location -->
+              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Owner</span>
                   <UserBadgeById v-if="nc.ownerId" :userId="nc.ownerId" />
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
-                  <span class="tw:text-xs tw:text-secondary">Detected</span>
-                  <BaseDatePicker
-                    v-if="editingDetected && isEditable"
-                    v-model="nc.detectedAt"
-                    class="tw:w-36"
-                    @blur="editingDetected = false"
-                  />
-                  <span
-                    v-else
-                    class="tw:text-sm tw:font-medium"
-                    :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                    @click="isEditable && (editingDetected = true)"
-                  >
-                    {{ nc.detectedAt ? nc.detectedAt.formatDate('date') : '—' }}
-                  </span>
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Site</span>
+                  <SiteBadgeById v-if="nc.siteId" :siteId="nc.siteId" />
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Department</span>
+                  <DepartmentBadgeById v-if="nc.departmentId" :departmentId="nc.departmentId" />
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
+                </div>
+              </div>
+
+              <!-- Classification -->
+              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Priority</span>
+                  <span
+                    v-if="nc.priorityId"
+                    class="tw:inline-flex tw:items-center tw:text-xs tw:font-semibold tw:rounded tw:px-2 tw:py-0.5"
+                    :class="{
+                      'tw:bg-emerald-100 tw:text-emerald-700': nc.priorityId === 'LOW',
+                      'tw:bg-amber-100 tw:text-amber-700': nc.priorityId === 'MEDIUM',
+                      'tw:bg-orange-100 tw:text-orange-700': nc.priorityId === 'HIGH',
+                      'tw:bg-rose-100 tw:text-rose-700': nc.priorityId === 'CRITICAL',
+                    }"
+                  >
+                    {{ nc.priorityId.charAt(0) + nc.priorityId.slice(1).toLowerCase() }}
+                  </span>
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
+                </div>
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Issue type</span>
+                  <NcIssueTypeBadgeById
+                    v-if="nc.ncIssueTypeId"
+                    :issueTypeId="nc.ncIssueTypeId"
+                  />
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
+                </div>
+              </div>
+
+              <!-- Schedule -->
+              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Due date</span>
                   <BaseDatePicker
                     v-if="editingDueDate && isEditable"
@@ -886,6 +885,16 @@ function onCreateLinkedChangeRequest() {
                     <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
                   </span>
                 </div>
+              </div>
+
+              <!-- Source / Commerce -->
+              <div
+                v-if="
+                  nc.supplierId || nc.productId || nc.qtyAffected ||
+                  nc.poNumber || nc.orderNumber || nc.lotNumber
+                "
+                class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col"
+              >
                 <div
                   v-if="nc.supplierId"
                   class="tw:flex tw:justify-between tw:items-center tw:py-2"
@@ -893,6 +902,47 @@ function onCreateLinkedChangeRequest() {
                   <span class="tw:text-xs tw:text-secondary">Supplier</span>
                   <SupplierBadgeById :supplierId="nc.supplierId" />
                 </div>
+                <div
+                  v-if="nc.productId"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                >
+                  <span class="tw:text-xs tw:text-secondary">Product</span>
+                  <ProductBadgeById :productId="nc.productId" />
+                </div>
+                <div
+                  v-if="nc.qtyAffected"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                >
+                  <span class="tw:text-xs tw:text-secondary">Qty affected</span>
+                  <span class="tw:text-sm tw:font-medium">
+                    {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
+                  </span>
+                </div>
+                <div
+                  v-if="nc.poNumber"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                >
+                  <span class="tw:text-xs tw:text-secondary">PO #</span>
+                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.poNumber }}</span>
+                </div>
+                <div
+                  v-if="nc.orderNumber"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                >
+                  <span class="tw:text-xs tw:text-secondary">Order #</span>
+                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.orderNumber }}</span>
+                </div>
+                <div
+                  v-if="nc.lotNumber"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                >
+                  <span class="tw:text-xs tw:text-secondary">Lot #</span>
+                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.lotNumber }}</span>
+                </div>
+              </div>
+
+              <!-- Related -->
+              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">CAPA</span>
                   <span

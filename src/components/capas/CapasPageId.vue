@@ -530,15 +530,6 @@ function onCreateLinkedChangeRequest() {
                     {{ capa.initiatedAt?.formatDate('date') || '—' }}
                   </span>
                 </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Due</div>
-                  <span
-                    class="tw:text-sm tw:font-medium"
-                    :class="isOverdue ? 'tw:text-red-600' : ''"
-                  >
-                    {{ capa.dueDate?.formatDate('date') || '—' }}
-                  </span>
-                </div>
                 <div v-if="sourceNc" class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Source NC</div>
                   <RouterLink
@@ -610,6 +601,15 @@ function onCreateLinkedChangeRequest() {
                   Supplier
                 </div>
                 <SupplierBadgeById :supplierId="capa.supplierId" />
+              </div>
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">Due</div>
+                <span
+                  class="tw:text-sm tw:font-medium"
+                  :class="isOverdue ? 'tw:text-red-600' : 'tw:text-on-main'"
+                >
+                  {{ capa.dueDate?.formatDate('date') || '—' }}
+                </span>
               </div>
               <div v-if="capa.verifiedAt" class="tw:flex tw:flex-col tw:gap-1">
                 <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">
