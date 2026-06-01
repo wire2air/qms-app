@@ -111,9 +111,33 @@ export const LOG_BOOK_VERSION_MODULE = {
   workflowVersionModuleId: 'LOG_BOOK',
 }
 
+// AuditInstance — close-out workflow rides the generic engine
+// (resourceType 'AuditInstance', moduleId 'AUDIT'). Per-step form
+// responses go onto the AuditRecord SyncEngine model, exact parity
+// with capa_records / nc_records / cr_records.
+/** @type {WorkflowModule} */
+export const AUDIT_INSTANCE_MODULE = {
+  key: 'AUDIT',
+  displayName: 'audit',
+  resourceType: 'AuditInstance',
+  apiPath: 'audits',
+  resourceIdParam: 'auditId',
+  recordModelName: 'AuditRecord',
+  recordResourceFk: 'auditInstanceId',
+  resourceModel: { modelName: 'AuditInstance' },
+  workflowVersionModuleId: 'AUDIT',
+  getStepFormContextFields(resource) {
+    return {
+      _audit_scope: resource?.scope ?? '',
+      _audit_objectives: resource?.objectives ?? '',
+    }
+  },
+}
+
 export const MODULES = {
   NC: NC_MODULE,
   CAPA: CAPA_MODULE,
   CR: CR_MODULE,
   LOG_BOOK_VERSION: LOG_BOOK_VERSION_MODULE,
+  AUDIT: AUDIT_INSTANCE_MODULE,
 }
