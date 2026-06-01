@@ -61,7 +61,7 @@ const props = defineProps({
       </div>
     </div>
 
-    <div>
+    <div data-testid="training-manager-select">
       <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Training Manager</p>
       <UserSelectMenu v-if="editable" v-model="props.training.managerId" nullLabel="No manager" />
       <UserBadgeById v-else-if="training.managerId" :userId="training.managerId" />

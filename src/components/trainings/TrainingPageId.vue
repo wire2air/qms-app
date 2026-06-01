@@ -166,6 +166,7 @@ const activeTab = ref('details')
         <!-- DRAFT actions -->
         <template v-if="canManage && training.status === 'DRAFT'">
           <BaseButton
+            data-testid="training-publish-button"
             variant="primary"
             :disabled="!training.managerId"
             :title="training.managerId ? '' : 'A Training Manager is required before publishing'"
@@ -173,14 +174,19 @@ const activeTab = ref('details')
           >
             <IconCircleCheck :size="16" class="tw:mr-1" /> Publish
           </BaseButton>
-          <BaseButton variant="secondary" :loading="actionLoading" @click="showDeleteConfirm = true">
+          <BaseButton
+            data-testid="training-delete-button"
+            variant="secondary"
+            :loading="actionLoading"
+            @click="showDeleteConfirm = true"
+          >
             <IconTrash :size="16" class="tw:mr-1" /> Delete
           </BaseButton>
         </template>
 
         <!-- ACTIVE (Published) actions -->
         <template v-if="canManage && training.status === 'ACTIVE'">
-          <BaseButton variant="primary" @click="showLaunchDialog = true">
+          <BaseButton data-testid="training-launch-button" variant="primary" @click="showLaunchDialog = true">
             <IconRocket :size="16" class="tw:mr-1" /> Launch
           </BaseButton>
           <BaseButton variant="secondary" @click="showAddMatrixDialog = true">
@@ -268,7 +274,12 @@ const activeTab = ref('details')
       </div>
       <template #footer="{ close }">
         <BaseButton variant="secondary" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="actionLoading" @click="handlePublish">
+        <BaseButton
+          data-testid="training-publish-confirm"
+          variant="primary"
+          :loading="actionLoading"
+          @click="handlePublish"
+        >
           <IconCircleCheck :size="16" class="tw:mr-1" /> Publish
         </BaseButton>
       </template>
@@ -281,7 +292,12 @@ const activeTab = ref('details')
       </p>
       <template #footer="{ close }">
         <BaseButton variant="secondary" @click="close">Cancel</BaseButton>
-        <BaseButton variant="danger" :loading="actionLoading" @click="handleDelete">
+        <BaseButton
+          data-testid="training-delete-confirm"
+          variant="danger"
+          :loading="actionLoading"
+          @click="handleDelete"
+        >
           <IconTrash :size="16" class="tw:mr-1" /> Delete
         </BaseButton>
       </template>

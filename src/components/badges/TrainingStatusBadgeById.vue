@@ -18,5 +18,11 @@ const status = computed(
 </script>
 
 <template>
-  <TrainingStatusBadge v-if="status" :status="status" :showDot="showDot" v-bind="$attrs" />
+  <TrainingStatusBadge
+    v-if="status"
+    data-testid="training-status-badge"
+    :status="status"
+    :showDot="showDot"
+    v-bind="$attrs"
+  />
 </template>
