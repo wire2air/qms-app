@@ -87,6 +87,7 @@ const OUTCOME_CONFIG = computed(() => ({
 const ALWAYS_HIDDEN_OUTCOMES = new Set(['REASSIGN', 'CANCEL', 'REQUEST_INFO'])
 
 const showConfirmDialog = ref(false)
+const showEsignDialog = ref(false)
 const pendingOutcomeId = ref(null)
 const comment = ref('')
 const actionLoading = ref(false)
@@ -97,12 +98,23 @@ const pendingConfig = computed(() =>
 const isRejectAction = computed(() => pendingOutcomeId.value === 'SEND_BACK')
 const confirmTitle = computed(() => pendingConfig.value?.label ?? 'Confirm')
 
+// E-signature is gated by the step config (requireEsignature prop) and only
+// applies to state-changing outcomes — completion / approval. Send-back +
+// info-requests stay unsigned to match the parent-step inline buttons in
+// WorkflowStep.vue. If product later wants SEND_BACK signed too, add it
+// to this set.
+const ESIGN_GATED_OUTCOMES = new Set(['COMPLETE_AND_ADVANCE'])
+const needsEsignFor = (outcomeId) =>
+  props.requireEsignature && ESIGN_GATED_OUTCOMES.has(outcomeId)
+
 function onOutcomeClick(outcomeId) {
   if (!canActOnStep.value) return
   pendingOutcomeId.value = outcomeId
   comment.value = ''
   if (OUTCOME_CONFIG.value[outcomeId]?.needsComment) {
     showConfirmDialog.value = true
+  } else if (needsEsignFor(outcomeId)) {
+    showEsignDialog.value = true
   } else {
     submitAction()
   }
@@ -114,10 +126,19 @@ function onConfirmDialog() {
     return
   }
   showConfirmDialog.value = false
-  submitAction()
+  if (needsEsignFor(pendingOutcomeId.value)) {
+    showEsignDialog.value = true
+  } else {
+    submitAction()
+  }
 }
 
-async function submitAction() {
+function onEsignVerified({ method, provider, token }) {
+  showEsignDialog.value = false
+  submitAction({ method, provider, token })
+}
+
+async function submitAction(esign = null) {
   if (!currentUserTask.value) return
   actionLoading.value = true
   try {
@@ -143,11 +164,16 @@ async function submitAction() {
     }
     // Other outcomes (COMPLETE_AND_ADVANCE, etc.) go through the generic
     // task-action endpoint — module-agnostic, lives on taskInstances.
+    // Esign creds (when needed) flow through to /taskInstances/:id/action
+    // so the backend verifies the signature before transitioning state.
     const body = {
       action: pendingOutcomeId.value,
       outcomeId: pendingOutcomeId.value,
     }
     if (comment.value) body.comment = comment.value
+    if (esign?.method) body.method = esign.method
+    if (esign?.token) body.token = esign.token
+    if (esign?.provider) body.provider = esign.provider
     await post(`/v1/services/taskInstances/${currentUserTask.value.id}/action`, body)
     toast.success(`${pendingConfig.value?.label ?? 'Action'} completed`)
     emit('done')
@@ -212,5 +238,7 @@ const items = computed(() => {
         </BaseButton>
       </template>
     </BaseDialog>
+
+    <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
   </div>
 </template>

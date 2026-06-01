@@ -281,9 +281,11 @@ async function performComplete(esign = null) {
   submitting.value = true
   try {
     if (hasForm.value) {
-      // Form's submit() (autoApprove=true) saves + submits + completes the
-      // task in one round trip. Don't double-call the action endpoint after.
-      await formRef.value?.submit()
+      // Form's submit(esign) (autoApprove=true) saves + submits + completes
+      // the task in one round trip. Forward the esign payload so the backend
+      // verifies the signature when the child step requires it — matching
+      // the parent-step path in WorkflowStep.vue.
+      await formRef.value?.submit(esign)
     } else {
       // No form to fill — go straight to the action endpoint.
       const body = {
