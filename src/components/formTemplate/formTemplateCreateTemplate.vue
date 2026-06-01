@@ -227,7 +227,7 @@ function prevStep() {
       <!-- Step 1: Metadata -->
       <div v-if="step === 1" class="tw:flex tw:flex-col tw:gap-4">
         <!-- Template Name -->
-        <div>
+        <div data-testid="form-template-title">
           <label class="tw:text-sm tw:font-medium tw:text-on-main"
             >Template Name <span class="tw:text-bad">*</span></label
           >
@@ -240,14 +240,14 @@ function prevStep() {
 
         <!-- Document Type & Code Row -->
         <div class="tw:grid tw:grid-cols-2 tw:gap-4">
-          <div>
+          <div data-testid="form-template-document-type">
             <label class="tw:text-sm tw:font-medium tw:text-on-main"
               >Document Type <span class="tw:text-bad">*</span></label
             >
             <DocumentTypeSelectMenu v-model="templateForm.documentTypeId" required />
           </div>
 
-          <div>
+          <div data-testid="form-template-code">
             <label class="tw:text-sm tw:font-medium tw:text-on-main"
               >Code <span class="tw:text-bad">*</span></label
             >
@@ -312,6 +312,7 @@ function prevStep() {
         <div class="tw:grid tw:grid-cols-2 tw:gap-4 tw:overflow-auto tw:max-h-125 tw:p-1">
           <!-- Blank Option -->
           <div
+            data-testid="form-template-blank-card"
             class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:p-8 tw:border tw:border-divider tw:rounded-xl tw:cursor-pointer tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"
             :class="{ 'tw:border-primary tw:bg-main-hover': selectedPreset === 'blank' }"
             @click="selectBlank"
@@ -360,12 +361,18 @@ function prevStep() {
         <BaseButton variant="outline" :disabled="templateForm.isSubmitting" @click="closeWizard">
           Cancel
         </BaseButton>
-        <BaseButton v-if="step === 1" :disabled="!templateForm.isValid" @click="nextStep">
+        <BaseButton
+          v-if="step === 1"
+          data-testid="form-template-next-button"
+          :disabled="!templateForm.isValid"
+          @click="nextStep"
+        >
           Next: Select Template
           <IconArrowRight :size="16" class="tw:ml-1" />
         </BaseButton>
         <BaseButton
           v-else
+          data-testid="form-template-design-button"
           :disabled="selectedPreset === null || templateForm.isSubmitting"
           @click="goToFormBuilder"
         >

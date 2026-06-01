@@ -93,7 +93,11 @@ async function confirmDeleteTemplate() {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateTemplate" @click="showCreateDialog = true">
+      <BaseButton
+        v-if="canCreateTemplate"
+        data-testid="form-template-create-button"
+        @click="showCreateDialog = true"
+      >
         Create New Template
       </BaseButton>
     </SafeTeleport>
