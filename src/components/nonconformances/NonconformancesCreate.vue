@@ -3,10 +3,12 @@ import { DateTime } from 'luxon'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
+import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
+import { NC_MODULE } from '@/components/workflow/workflowModule.js'
 
 const router = useRouter()
 const toast = useToast()
-const ncWorkflowVersionSelectRef = ref(null)
+const workflowPickerRef = ref(null)
 const saving = ref(false)
 
 const form = ref({
@@ -21,6 +23,21 @@ const form = ref({
   ownerId: currentSession.value?.userId ?? null,
   productId: null,
   supplierId: null,
+  // When true, the workflow attached to this NC routes every step's
+  // assignee from supplier users (entity.supplierId) instead of the
+  // internal role pool. The internal creator stays as owner; supplier
+  // users get co-owner access via the workflow auto-share. Backend
+  // requires supplierId to be set when this is true, and refuses
+  // changes once the NC leaves DRAFT.
+  isSupplierFacing: false,
+  // Top-section classification / commercial-reference fields (added
+  // 2026-05-29). All optional — intake may not know any of these yet.
+  ncIssueTypeId: null,
+  priorityId: null,
+  dueDate: null,
+  poNumber: '',
+  orderNumber: '',
+  lotNumber: '',
   qtyAffected: null,
   unitOfMeasure: '',
   workflowVersionId: null,
@@ -55,6 +72,13 @@ function handleSubmit() {
     toast.notify({ type: 'negative', message: 'Owner is required' })
     return
   }
+  if (form.value.isSupplierFacing && !form.value.supplierId) {
+    toast.notify({
+      type: 'negative',
+      message: 'Pick a supplier before marking this NC as supplier-facing.',
+    })
+    return
+  }
   if (!form.value.detectedAt) {
     toast.notify({ type: 'negative', message: 'Detected date is required' })
     return
@@ -65,7 +89,7 @@ function handleSubmit() {
   }
 
   // Open reviewer dialog (fire-and-forget, actual NC creation happens on confirm)
-  ncWorkflowVersionSelectRef.value.submit()
+  workflowPickerRef.value.submit()
 }
 
 async function handleReviewersConfirmed(reviewers) {
@@ -114,11 +138,12 @@ async function handleReviewersConfirmed(reviewers) {
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
-              <BaseTextarea
-                v-model="form.description"
-                placeholder="Provide details about the nonconformance…"
-                :rows="4"
-              />
+              <div class="create-nc-editor">
+                <BaseRichTextEditor
+                  v-model="form.description"
+                  placeholder="Provide details about the nonconformance…"
+                />
+              </div>
             </div>
             <SimilarRecordsPanel
               entityType="Nonconformance"
@@ -161,6 +186,10 @@ async function handleReviewersConfirmed(reviewers) {
               <NcSourceSelectMenu v-model="form.sourceId" required />
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">Issue type</label>
+              <NcIssueTypeSelectMenu v-model="form.ncIssueTypeId" />
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">
                 Severity <span class="tw:text-red-500">*</span>
               </label>
@@ -177,10 +206,31 @@ async function handleReviewersConfirmed(reviewers) {
               </div>
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">Priority</label>
+              <div class="tw:flex tw:gap-2">
+                <BaseButton
+                  v-for="p in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']"
+                  :key="p"
+                  class="tw:flex-1 tw:justify-center"
+                  :variant="form.priorityId === p ? 'primary' : 'outline'"
+                  @click="form.priorityId = form.priorityId === p ? null : p"
+                >
+                  {{ p.charAt(0) + p.slice(1).toLowerCase() }}
+                </BaseButton>
+              </div>
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">
                 Detected date <span class="tw:text-red-500">*</span>
               </label>
               <BaseDatePicker v-model="form.detectedAt" />
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">
+                Due date
+                <span class="tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
+              </label>
+              <BaseDatePicker v-model="form.dueDate" />
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2 tw:md:col-span-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">
@@ -205,8 +255,24 @@ async function handleReviewersConfirmed(reviewers) {
               <ProductSelectMenu v-model="form.productId" :required="false" />
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Supplier</label>
-              <SupplierSelectMenu v-model="form.supplierId" :required="false" />
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">
+                Supplier
+                <span v-if="form.isSupplierFacing" class="tw:text-bad">*</span>
+              </label>
+              <SupplierSelectMenu v-model="form.supplierId" :required="form.isSupplierFacing" />
+              <label
+                class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
+              >
+                <BaseCheckbox v-model="form.isSupplierFacing" />
+                <div>
+                  <div class="tw:text-sm tw:text-on-main">Supplier-facing NC</div>
+                  <div class="tw:text-[11px] tw:text-secondary">
+                    Workflow steps will be reviewed by users from the selected supplier (you'll
+                    pick the specific reviewer per step when you open the NC). Lockable once
+                    opened.
+                  </div>
+                </div>
+              </label>
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">Qty affected</label>
@@ -215,6 +281,18 @@ async function handleReviewersConfirmed(reviewers) {
             <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">Unit of measure</label>
               <BaseTextInput v-model="form.unitOfMeasure" placeholder="e.g. sheets, units…" />
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">PO #</label>
+              <BaseTextInput v-model="form.poNumber" placeholder="Purchase order number" />
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">Order #</label>
+              <BaseTextInput v-model="form.orderNumber" placeholder="Customer / sales order" />
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">Lot #</label>
+              <BaseTextInput v-model="form.lotNumber" placeholder="Material / production lot" />
             </div>
           </div>
         </div>
@@ -227,11 +305,12 @@ async function handleReviewersConfirmed(reviewers) {
             Immediate containment action
             <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
           </div>
-          <BaseTextarea
-            v-model="form.immediateContainmentAction"
-            placeholder="Describe actions taken at the time of detection…"
-            :rows="3"
-          />
+          <div class="create-nc-editor">
+            <BaseRichTextEditor
+              v-model="form.immediateContainmentAction"
+              placeholder="Describe actions taken at the time of detection…"
+            />
+          </div>
         </div>
 
         <!-- Workflow -->
@@ -242,9 +321,13 @@ async function handleReviewersConfirmed(reviewers) {
             Workflow
             <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
           </div>
-          <NCWorkflowVersionSelect
-            ref="ncWorkflowVersionSelectRef"
+          <WorkflowReviewerPickerDialog
+            ref="workflowPickerRef"
             v-model="form.workflowVersionId"
+            :module="NC_MODULE"
+            :isSupplierFacing="form.isSupplierFacing"
+            :supplierId="form.supplierId"
+            :ownerId="form.ownerId"
             @submit="handleReviewersConfirmed"
           />
         </div>
@@ -252,3 +335,10 @@ async function handleReviewersConfirmed(reviewers) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.create-nc-editor :deep(.rich-text-editor-content) {
+  max-height: 10rem;
+  overflow-y: auto;
+}
+</style>

@@ -1,6 +1,7 @@
 <script setup>
 import { IconHandClick } from '@tabler/icons-vue'
 import { computed } from 'vue'
+import { db } from '@models/index'
 import {
   TYPE_SETTINGS_TYPES,
   NUMBER_TYPES,
@@ -24,6 +25,48 @@ const field = defineModel('field', {
 const hasTypeSettings = computed(() => TYPE_SETTINGS_TYPES.has(field.value?.type))
 const isNumberType = computed(() => NUMBER_TYPES.has(field.value?.type))
 const hasOptions = computed(() => OPTIONS_TYPES.has(field.value?.type))
+
+// When the admin picks an RCA / Risk template, embed a snapshot of the
+// template content onto the field definition. The runtime FE field
+// components (RcaField, RiskAssessmentField) prefer the embedded
+// snapshot over an FK lookup, which lets supplier users render the
+// form without rcaTemplates:read / riskAssessmentTemplates:read RLS
+// grants and locks the template version at workflow-creation time.
+// See backend/api/services/bootstrapCompanyDefaults.js rcaStepSchema
+// for the embedded shape.
+watch(
+  () => field.value?.rcaTemplateId,
+  async (id) => {
+    if (field.value?.type !== 'rca' || !id) {
+      if (field.value && field.value.rcaTemplate) delete field.value.rcaTemplate
+      return
+    }
+    const tpl = await db.RcaTemplate.findByPk(id)
+    if (!tpl) return
+    field.value.rcaTemplate = { id: tpl.id, name: tpl.name, config: tpl.config }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => field.value?.riskAssessmentTemplateId,
+  async (id) => {
+    if (field.value?.type !== 'riskAssessment' || !id) {
+      if (field.value && field.value.riskAssessmentTemplate) {
+        delete field.value.riskAssessmentTemplate
+      }
+      return
+    }
+    const tpl = await db.RiskAssessmentTemplate.findByPk(id)
+    if (!tpl) return
+    field.value.riskAssessmentTemplate = {
+      id: tpl.id,
+      name: tpl.name,
+      config: tpl.config,
+    }
+  },
+  { immediate: true },
+)
 
 const colClassItems = computed(() =>
   COL_CLASS_OPTIONS.map((opt) => ({ id: opt.value, name: opt.label })),
@@ -176,6 +219,25 @@ function updateRowColClass(value) {
             <p class="tw:text-xs tw:text-secondary">
               The template defines the likelihood/severity matrix and risk level colors.
             </p>
+          </div>
+        </template>
+
+        <!-- Instructions Settings — full TipTap editor on field.html.
+             The mention `#` shortcut is enabled, so authors can link
+             SOPs / work-instructions inline; the same editor is used
+             by the document body field, so behaviour matches across
+             the app. -->
+        <template v-if="field.type === 'instructions'">
+          <div class="tw:flex tw:flex-col tw:gap-2">
+            <label class="tw:text-sm tw:font-medium tw:text-on-main">Content</label>
+            <p class="tw:text-xs tw:text-secondary">
+              Tip: type
+              <span class="tw:font-mono tw:bg-main tw:rounded tw:px-1">#</span>
+              to mention a document and create a clickable link.
+            </p>
+            <div class="tw:border tw:border-divider tw:rounded-md tw:overflow-hidden">
+              <BaseRichTextEditor v-model="field.html" />
+            </div>
           </div>
         </template>
       </div>

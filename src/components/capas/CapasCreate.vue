@@ -3,11 +3,13 @@ import { DateTime } from 'luxon'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
+import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
+import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
-const capaWorkflowVersionSelectRef = ref(null)
+const workflowPickerRef = ref(null)
 const saving = ref(false)
 
 const presetNcId = computed(() => {
@@ -38,6 +40,11 @@ const form = ref({
   sourceId: presetNcId.value || null,
   rootCauseCategoryId: null,
   workflowVersionId: null,
+  supplierId: null,
+  // When true, the workflow attached to this CAPA routes every step's
+  // assignee from supplier users (entity.supplierId) instead of the
+  // internal role pool. Requires supplierId. Immutable post-DRAFT.
+  isSupplierFacing: false,
 })
 
 // When the source NC loads, seed the title / site / department / department so
@@ -49,6 +56,14 @@ watch(sourceNc, (nc) => {
   if (!form.value.departmentId) form.value.departmentId = nc.departmentId
   if (!form.value.rootCauseCategoryId && nc.rootCauseCategoryId) {
     form.value.rootCauseCategoryId = nc.rootCauseCategoryId
+  }
+  // Inherit supplier + supplier-facing flag from the source NC so a
+  // supplier NC that spawns a CAPA defaults to the same routing.
+  if (!form.value.supplierId && nc.supplierId) {
+    form.value.supplierId = nc.supplierId
+  }
+  if (nc.isSupplierFacing) {
+    form.value.isSupplierFacing = true
   }
 })
 
@@ -88,6 +103,13 @@ function handleSubmit() {
     toast.notify({ type: 'negative', message: 'Owner is required' })
     return
   }
+  if (form.value.isSupplierFacing && !form.value.supplierId) {
+    toast.notify({
+      type: 'negative',
+      message: 'Pick a supplier before marking this CAPA as supplier-facing.',
+    })
+    return
+  }
   if (!form.value.initiatedAt) {
     toast.notify({ type: 'negative', message: 'Initiated date is required' })
     return
@@ -97,7 +119,7 @@ function handleSubmit() {
     return
   }
 
-  capaWorkflowVersionSelectRef.value.submit()
+  workflowPickerRef.value.submit()
 }
 
 async function handleReviewersConfirmed(reviewers) {
@@ -161,11 +183,12 @@ async function handleReviewersConfirmed(reviewers) {
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
-              <BaseTextarea
-                v-model="form.description"
-                placeholder="Provide context for the CAPA…"
-                :rows="4"
-              />
+              <div class="create-capa-editor">
+                <BaseRichTextEditor
+                  v-model="form.description"
+                  placeholder="Provide context for the CAPA…"
+                />
+              </div>
             </div>
             <SimilarRecordsPanel
               entityType="Capa"
@@ -239,6 +262,25 @@ async function handleReviewersConfirmed(reviewers) {
               </label>
               <UserSelectMenu v-model="form.ownerId" required />
             </div>
+            <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">
+                Supplier
+                <span v-if="form.isSupplierFacing" class="tw:text-red-500">*</span>
+              </label>
+              <SupplierSelectMenu v-model="form.supplierId" :required="form.isSupplierFacing" />
+              <label
+                class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
+              >
+                <BaseCheckbox v-model="form.isSupplierFacing" />
+                <div>
+                  <div class="tw:text-sm tw:text-on-main">Supplier-facing CAPA</div>
+                  <div class="tw:text-[11px] tw:text-secondary">
+                    Workflow steps will be reviewed by users from the selected supplier (you'll
+                    pick the specific reviewer per step at submit). Lockable once submitted.
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -249,9 +291,13 @@ async function handleReviewersConfirmed(reviewers) {
           >
             Workflow
           </div>
-          <CAPAWorkflowVersionSelect
-            ref="capaWorkflowVersionSelectRef"
+          <WorkflowReviewerPickerDialog
+            ref="workflowPickerRef"
             v-model="form.workflowVersionId"
+            :module="CAPA_MODULE"
+            :isSupplierFacing="form.isSupplierFacing"
+            :supplierId="form.supplierId"
+            :ownerId="form.ownerId"
             @submit="handleReviewersConfirmed"
           />
         </div>
@@ -259,3 +305,10 @@ async function handleReviewersConfirmed(reviewers) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.create-capa-editor :deep(.rich-text-editor-content) {
+  max-height: 10rem;
+  overflow-y: auto;
+}
+</style>

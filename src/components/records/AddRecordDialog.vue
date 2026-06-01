@@ -7,11 +7,123 @@ import {
   IconChevronRight,
   IconCircleCheck,
   IconFileText,
+  IconShieldLock,
 } from '@tabler/icons-vue'
+import { post } from '@/api'
+import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { freezeOptionLabels } from '@/utils/freezeFormPayloadLabels.js'
+import { db } from '@models/index'
+
+const props = defineProps({
+  /**
+   * Restrict the template-picker list:
+   *   - 'all'        — every active template (default)
+   *   - 'inspections' — only OPERATIONAL_LOG + CONTROLLED_RECORD,
+   *                    AND further gated to templates the current user
+   *                    has an active FormAssignment for (direct or via
+   *                    role). Admins with `inspections:assign` or
+   *                    `fieldRecords:read_all` can flip "View all".
+   *   - 'utility'    — only UTILITY (or unclassified)
+   */
+  classificationFilter: {
+    type: String,
+    default: 'all',
+    validator: (v) => ['all', 'inspections', 'utility'].includes(v),
+  },
+  // When set, skip the template picker and open straight into the fill
+  // form for this log book (e.g. launched from a task — we already know
+  // which log book the entry is for).
+  logBookId: {
+    type: String,
+    default: null,
+  },
+  // The scheduled instance this fill completes. Passed through to the
+  // submission so the backend flips the instance to COMPLETED + closes
+  // its task. Null for ad-hoc submissions.
+  assignmentInstanceId: {
+    type: String,
+    default: null,
+  },
+})
 
 const emit = defineEmits(['created', 'close'])
 const model = defineModel({ type: Boolean, default: false })
 const toast = useToast()
+
+const userId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
+
+// Admins / planners can bypass the assignment gate so they can submit
+// any inspection template (e.g. for testing or a one-off entry).
+const canBypassAssignmentGate = computed(() =>
+  isAllowed(['inspections:assign', 'fieldRecords:read_all']),
+)
+const viewAll = ref(false)
+
+// Roles the current user holds — used to resolve role-based
+// FormAssignments.
+const myRoleIds = useLiveQueryWithDeps(
+  [() => userId.value],
+  async (db, [uid]) => {
+    if (!uid) return []
+    const rows = await db.RoleOnUser.where('userId', uid).exec()
+    return rows.map((r) => r.roleId)
+  },
+  { initial: [] },
+)
+
+/**
+ * Templates referenced by an active FormAssignment that targets the
+ * current user — either directly via `assignedUserIds` or via a role
+ * they hold. Skips role-only plans whose role they don't have. Honors
+ * `effectiveAt` / `effectiveUntil` windows.
+ *
+ * Returns a Set<logBookId> so the picker filter is O(1) per row.
+ *
+ * Full-scan + in-memory filter is intentional: IndexedDB doesn't allow
+ * Boolean values as index keys, so the model's `active` index is dead
+ * and `.where('active', true)` returns nothing. There are very few
+ * assignment rows per company; the scan is fine.
+ */
+const assignedTemplateIds = useLiveQueryWithDeps(
+  [() => userId.value, () => myRoleIds.value],
+  async (db, [uid, roleIds]) => {
+    if (!uid) return new Set()
+    const rows = await db.FormAssignment.where().exec()
+    const roleSet = new Set(roleIds ?? [])
+    const ids = new Set()
+    for (const row of rows) {
+      if (row.active === false) continue
+      const directHit = Array.isArray(row.assignedUserIds) && row.assignedUserIds.includes(uid)
+      const roleHit = row.assignedRoleId && roleSet.has(row.assignedRoleId)
+      if (directHit || roleHit) ids.add(row.logBookId)
+    }
+    return ids
+  },
+  { initial: new Set() },
+)
+
+// E-sig dialog state for Inspections & Logs submissions. Pending data
+// holds the form payload so we can replay it after the user signs.
+const showEsignDialog = ref(false)
+const pendingEsignPayload = ref(null)
+
+/**
+ * Translate the workflowInstanceEsignAuthDialog's `verified` emit shape
+ * (which uses `{ method, provider, token }` and sends the password as
+ * `token`) into the flat `{ strategy, code, token, password }` esign
+ * sub-object that the backend signatureService expects.
+ */
+function buildEsignFromVerified(v) {
+  if (!v) return null
+  if (v.method === 'PASSWORD') return { password: v.token }
+  if (v.method === 'OAUTH' && v.provider === 'MICROSOFT') {
+    return { strategy: 'microsoft', token: v.token }
+  }
+  if (v.method === 'OAUTH' && v.provider === 'GOOGLE') {
+    return { strategy: 'google', code: v.token, token: v.token }
+  }
+  return v
+}
 
 // Dialog state
 const step = ref('select') // 'select' | 'form' | 'success'
@@ -26,16 +138,67 @@ const documentTypeId = ref(null)
 const submitting = ref(false)
 const createdRecord = ref(null)
 
-const templates = useLiveQuery(async (db) => db.FormTemplate.where('statusId', 'ACTIVE').exec(), {
-  initial: [],
+// Round 0 refactor: the source of templates depends on the entry
+// point. Inspections & Logs reads from the first-class log_books
+// table; the legacy /records flow still reads from form_templates
+// (UTILITY only). When classificationFilter == 'all' (e.g. an admin
+// sees both), we union both sources and stamp a `_kind` so the
+// downstream submit code knows which path to take.
+const inspectionTemplates = useLiveQuery(
+  async (db) => {
+    const rows = await db.LogBook.where('statusId', 'ACTIVE').exec()
+    // Controlled entity: only a log book with an approved EFFECTIVE
+    // version can accept entries. Brand-new books awaiting approval (no
+    // current_effective_version_id) are filtered out of the picker; the
+    // backend also rejects them with LOG_BOOK_NOT_EFFECTIVE as a backstop.
+    return rows
+      .filter((r) => r.currentEffectiveVersionId)
+      .map((r) => ({ ...r, _kind: 'LOG_BOOK' }))
+  },
+  { initial: [] },
+)
+const utilityTemplates = useLiveQuery(
+  async (db) => {
+    const rows = await db.FormTemplate.where('statusId', 'ACTIVE').exec()
+    // form_templates may still hold OPERATIONAL_LOG / CONTROLLED_RECORD
+    // rows if they were never migrated; defensive filter keeps only
+    // unclassified (= UTILITY) rows for this side of the union.
+    return rows
+      .filter((t) => {
+        const cls = t.config?.recordClassification
+        return !cls || cls === 'UTILITY'
+      })
+      .map((t) => ({ ...t, _kind: 'FORM_TEMPLATE' }))
+  },
+  { initial: [] },
+)
+
+const templates = computed(() => {
+  if (props.classificationFilter === 'inspections') return inspectionTemplates.value
+  if (props.classificationFilter === 'utility') return utilityTemplates.value
+  return [...inspectionTemplates.value, ...utilityTemplates.value]
 })
 
+function templateMatchesFilter(t) {
+  if (props.classificationFilter === 'inspections') {
+    // Every row in inspectionTemplates already qualifies by class.
+    // Just apply the assignment gate.
+    if (canBypassAssignmentGate.value && viewAll.value) return true
+    return assignedTemplateIds.value.has(t.id)
+  }
+  // utility / all — no extra gating.
+  return true
+}
+
 const filteredTemplates = computed(() => {
-  if (!templateSearch.value) return templates.value
-  const search = templateSearch.value.toLowerCase()
-  return templates.value.filter(
-    (t) => t.title.toLowerCase().includes(search) || t.code.toLowerCase().includes(search),
-  )
+  let list = templates.value.filter(templateMatchesFilter)
+  if (templateSearch.value) {
+    const search = templateSearch.value.toLowerCase()
+    list = list.filter(
+      (t) => t.title.toLowerCase().includes(search) || t.code.toLowerCase().includes(search),
+    )
+  }
+  return list
 })
 
 function selectTemplate(template) {
@@ -44,6 +207,18 @@ function selectTemplate(template) {
   documentTypeId.value = template.documentTypeId || null
   step.value = 'form'
 }
+
+// Launched with a specific log book (e.g. from a task) → skip the picker
+// and open its fill form directly once the templates have loaded.
+watch(
+  [inspectionTemplates, () => props.logBookId],
+  ([tmpls, lbId]) => {
+    if (!lbId || selectedTemplate.value) return
+    const match = tmpls.find((t) => t.id === lbId)
+    if (match) selectTemplate(match)
+  },
+  { immediate: true },
+)
 
 const createRecord = useLiveMutation(async (db, { templateId, documentTypeId, payload }) => {
   const template = await db.FormTemplate.findByPk(templateId)
@@ -70,23 +245,178 @@ const createRecord = useLiveMutation(async (db, { templateId, documentTypeId, pa
   return record
 })
 
+/**
+ * Read the classification from the selected row.
+ *   - LogBook rows have `recordClassification` as a column.
+ *   - Legacy FormTemplate rows store it (or don't) under config.
+ * Defaults to UTILITY for unclassified form templates.
+ */
+const classification = computed(() => {
+  const t = selectedTemplate.value
+  if (!t) return 'UTILITY'
+  if (t._kind === 'LOG_BOOK') return t.recordClassification ?? 'OPERATIONAL_LOG'
+  const cls = t.config?.recordClassification
+  if (cls === 'OPERATIONAL_LOG' || cls === 'CONTROLLED_RECORD') return cls
+  return 'UTILITY'
+})
+
+const isInspectionRecord = computed(() => classification.value !== 'UTILITY')
+
+/**
+ * Signature requirement at submission:
+ *  - CONTROLLED_RECORD: always
+ *  - OPERATIONAL_LOG: only if the log book / template opted in
+ *  - UTILITY: never (and we route through the legacy path anyway)
+ */
+const requiresSignatureAtSubmit = computed(() => {
+  const t = selectedTemplate.value
+  if (!t) return false
+  if (classification.value === 'CONTROLLED_RECORD') return true
+  if (classification.value === 'OPERATIONAL_LOG') {
+    if (t._kind === 'LOG_BOOK') return Boolean(t.signatureRequired)
+    return Boolean(t.config?.signature?.requiredAtSubmission)
+  }
+  return false
+})
+
+const editWindow = computed(() => {
+  const t = selectedTemplate.value
+  if (!t) return null
+  if (t._kind === 'LOG_BOOK') {
+    return t.editWindowMode === 'TIME_WINDOW'
+      ? { mode: 'TIME_WINDOW', durationMinutes: t.editWindowMinutes }
+      : { mode: t.editWindowMode }
+  }
+  return t.config?.editWindow ?? null
+})
+
+/**
+ * INSPECTIONS & LOGS submission path. Calls POST /v1/services/fieldRecords
+ * with the proper payload. The backend enforces:
+ *   - CONTROLLED_RECORD or opted-in OPERATIONAL_LOG → requires esign
+ *   - Edit window computation (TIME_WINDOW / UNTIL_NEXT_ENTRY / UNTIL_REVIEW)
+ *   - Snapshot the form schema onto the new field_record row
+ *   - Write the INITIAL_SUBMIT revision in the same transaction
+ */
+// ─── Flag-on-submit (R2) ─────────────────────────────────────────────
+// Floor users can flag an entry "for supervisor review" at submission
+// time. We capture severity + notes inline; after the FieldRecord
+// lands, we post the flag against its id. Photo capture is deferred
+// to a separate round once a reusable file-upload component exists.
+const flagOnSubmit = ref(false)
+const flagSeverity = ref('WARN')
+const flagNotes = ref('')
+// BaseUploader v-model: Array<asset> where each asset has { id, ... }.
+// We map .id → attachmentIds[] on the POST.
+const flagPhotos = ref([])
+
+async function postFlagForRecord(recordId) {
+  if (!flagOnSubmit.value) return
+  const notes = flagNotes.value?.trim()
+  if (!notes) return // Skip silently — the UI requires notes when the toggle is on.
+  try {
+    await post(`/v1/services/fieldRecords/${recordId}/flag`, {
+      notes,
+      severity: flagSeverity.value,
+      attachmentIds: flagPhotos.value.map((f) => f.id),
+    })
+  } catch (err) {
+    // Don't fail the whole submission if the flag couldn't be raised —
+    // the entry is already in the system. Tell the user and let them
+    // re-flag via the preview.
+    toast.error(
+      `Entry saved, but flag failed to raise: ${err?.message ?? 'unknown error'}. ` +
+        'You can flag it from the entry detail.',
+    )
+  }
+}
+
+async function submitFieldRecord(payload, esign) {
+  // Round 0: I&L records reference log_books via logBookId, not the
+  // old form_template_id. Selected row's _kind is always LOG_BOOK on
+  // this submit path (the UTILITY branch never reaches here).
+  // Freeze OptionSet labels onto the payload so saved records stay
+  // readable as the admin originally meant them even if the source
+  // OptionSet is later edited. See utils/freezeFormPayloadLabels.js.
+  const frozen = await freezeOptionLabels(db, templateSchema.value, payload)
+  const body = {
+    logBookId: selectedTemplate.value.id,
+    payload: frozen,
+    submittedVia: 'MAIN_QMS',
+  }
+  // Link the scheduled instance so the backend completes it + closes the
+  // task (assignment-driven fills launched from /tasks).
+  if (props.assignmentInstanceId) body.assignmentInstanceId = props.assignmentInstanceId
+  if (esign) body.esign = esign
+
+  const res = await post('/v1/services/fieldRecords', body)
+  return res?.record ?? res
+}
+
 async function handleSubmit(data) {
-  if (!documentTypeId.value) {
-    toast.error('Document Type is required')
+  // UTILITY templates keep the legacy SyncEngine path — they write to
+  // the `records` table and require a document type selection.
+  if (!isInspectionRecord.value) {
+    if (!documentTypeId.value) {
+      toast.error('Document Type is required')
+      return
+    }
+    submitting.value = true
+    try {
+      const frozen = await freezeOptionLabels(db, templateSchema.value, data)
+      const record = await createRecord({
+        templateId: selectedTemplate.value.id,
+        documentTypeId: documentTypeId.value,
+        payload: frozen,
+      })
+      createdRecord.value = record
+      step.value = 'success'
+      emit('created', record)
+    } catch (err) {
+      toast.error(err.message || 'Failed to create record')
+    } finally {
+      submitting.value = false
+    }
     return
   }
+
+  // Inspections & Logs path. If a signature is required, hold the
+  // payload, pop the e-sig dialog, replay after `verified` fires.
+  if (requiresSignatureAtSubmit.value) {
+    pendingEsignPayload.value = data
+    showEsignDialog.value = true
+    return
+  }
+
+  // OPERATIONAL_LOG without esign requirement → submit straight away.
   submitting.value = true
   try {
-    const record = await createRecord({
-      templateId: selectedTemplate.value.id,
-      documentTypeId: documentTypeId.value,
-      payload: data,
-    })
+    const record = await submitFieldRecord(data, null)
     createdRecord.value = record
+    await postFlagForRecord(record.id)
     step.value = 'success'
     emit('created', record)
   } catch (err) {
-    toast.error(err.message || 'Failed to create record')
+    toast.error(err?.message || 'Failed to submit record')
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function onEsignVerified(verified) {
+  const esign = buildEsignFromVerified(verified)
+  showEsignDialog.value = false
+  if (!pendingEsignPayload.value) return
+  submitting.value = true
+  try {
+    const record = await submitFieldRecord(pendingEsignPayload.value, esign)
+    createdRecord.value = record
+    pendingEsignPayload.value = null
+    await postFlagForRecord(record.id)
+    step.value = 'success'
+    emit('created', record)
+  } catch (err) {
+    toast.error(err?.message || 'Submission failed after signature')
   } finally {
     submitting.value = false
   }
@@ -96,12 +426,29 @@ function goBackToSelect() {
   step.value = 'select'
   selectedTemplate.value = null
   formData.value = {}
+  flagOnSubmit.value = false
+  flagSeverity.value = 'WARN'
+  flagNotes.value = ''
+  flagPhotos.value = []
   documentTypeId.value = null
 }
 
 function handleClose() {
   model.value = false
   emit('close')
+}
+
+// "Back" from the form. When the dialog was opened against a fixed log
+// book (from a task, or from a specific log book's "fill" entry) there is
+// no template picker to return to — so back closes the dialog and lets the
+// parent route the user where they came from (e.g. the task inbox), rather
+// than dropping them on the unrelated log-book picker.
+function handleBack() {
+  if (props.logBookId) {
+    handleClose()
+    return
+  }
+  goBackToSelect()
 }
 
 const templateSchema = computed(() => {
@@ -128,7 +475,7 @@ const templateSchema = computed(() => {
               <button
                 v-if="step === 'form'"
                 class="tw:p-1.5 tw:rounded-full tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:bg-main-hover tw:text-secondary tw:transition-colors"
-                @click="goBackToSelect"
+                @click="handleBack"
               >
                 <IconArrowLeft :size="20" />
               </button>
@@ -166,9 +513,43 @@ const templateSchema = computed(() => {
                 />
               </div>
 
-              <!-- Empty -->
+              <!-- Admin toggle: bypass the assignment gate.
+                   Only shown for the inspections entry point AND only to
+                   users with inspections:assign or fieldRecords:read_all. -->
+              <div
+                v-if="classificationFilter === 'inspections' && canBypassAssignmentGate"
+                class="tw:flex tw:items-center tw:gap-2 tw:text-xs"
+              >
+                <label class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
+                  <input v-model="viewAll" type="checkbox" />
+                  <span>View all inspection templates (admin)</span>
+                </label>
+                <span class="tw:text-secondary">
+                  — default is your assigned forms only.
+                </span>
+              </div>
+
+              <!-- Empty: distinguish "no assignments yet" from "no match" -->
+              <div
+                v-if="
+                  filteredTemplates.length === 0 &&
+                  classificationFilter === 'inspections' &&
+                  !viewAll &&
+                  assignedTemplateIds.size === 0
+                "
+                class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:py-10 tw:text-center"
+              >
+                <IconFileText :size="36" class="tw:text-secondary tw:opacity-60" />
+                <div class="tw:text-sm tw:font-medium tw:text-on-sidebar">
+                  No forms assigned to you yet
+                </div>
+                <div class="tw:text-xs tw:text-secondary tw:max-w-md">
+                  Ask an admin to add you to a Form Assignment plan, or have them open this
+                  dialog and toggle "View all" to submit on your behalf.
+                </div>
+              </div>
               <BaseEmptyState
-                v-if="filteredTemplates.length === 0"
+                v-else-if="filteredTemplates.length === 0"
                 :icon="IconFileText"
                 title="No templates found"
                 dense
@@ -204,14 +585,36 @@ const templateSchema = computed(() => {
                 class="tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:mx-auto"
                 style="max-width: 800px"
               >
+                <!-- Inspections & Logs banner: only shows for non-UTILITY templates -->
+                <div
+                  v-if="isInspectionRecord"
+                  class="tw:px-4 tw:py-2.5 tw:border-b tw:border-divider tw:bg-amber-50 tw:text-amber-900 tw:flex tw:items-start tw:gap-2"
+                >
+                  <IconShieldLock :size="18" class="tw:mt-0.5 tw:shrink-0" />
+                  <div class="tw:text-xs tw:leading-relaxed">
+                    <div class="tw:font-bold tw:uppercase tw:tracking-wide">
+                      {{ classification.replace('_', ' ') }}
+                    </div>
+                    <div>
+                      This is a regulated record. Once submitted, the record is preserved
+                      immutably; edits only allowed during the configured window
+                      <span v-if="editWindow?.mode">({{ editWindow.mode }})</span>.
+                      <span v-if="requiresSignatureAtSubmit">
+                        E-signature required on submit.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="tw:p-4 tw:flex tw:flex-col tw:gap-4">
-                  <div>
+                  <!-- Document Type selector only applies to UTILITY records;
+                       inspection records derive the doctype from their log book. -->
+                  <div v-if="!isInspectionRecord">
                     <label class="tw:text-sm tw:font-medium tw:text-on-main">
                       Document Type <span class="tw:text-bad">*</span>
                     </label>
                     <DocumentTypeSelectMenu v-model="documentTypeId" required />
                   </div>
-
                   <DynamicForm
                     v-model="formData"
                     :fields="templateSchema"
@@ -219,29 +622,89 @@ const templateSchema = computed(() => {
                     @submit="handleSubmit"
                   >
                     <template #footer>
+                      <!-- Flag-on-submit (I&L only) — let the floor user raise
+                           a flag at the moment of submission. Notes required
+                           when on; severity defaults to WARN. The flag posts
+                           to /v1/services/fieldRecords/:id/flag right after
+                           the record is created. -->
+                      <div
+                        v-if="isInspectionRecord"
+                        class="tw:mt-4 tw:p-3 tw:border tw:border-divider tw:rounded-lg tw:bg-main"
+                      >
+                        <label
+                          class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main tw:cursor-pointer"
+                        >
+                          <input v-model="flagOnSubmit" type="checkbox" />
+                          <span>Flag this entry for supervisor review</span>
+                          <span class="tw:text-xs tw:text-secondary">
+                            (anomaly, out-of-spec, needs attention)
+                          </span>
+                        </label>
+                        <div v-if="flagOnSubmit" class="tw:mt-3 tw:flex tw:flex-col tw:gap-2">
+                          <div class="tw:flex tw:items-center tw:gap-2">
+                            <span class="tw:text-xs tw:font-semibold tw:text-secondary">
+                              Severity
+                            </span>
+                            <select
+                              v-model="flagSeverity"
+                              class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
+                            >
+                              <option value="INFO">Info — minor note</option>
+                              <option value="WARN">Warn — needs attention</option>
+                              <option value="CRITICAL">Critical — escalates now</option>
+                            </select>
+                          </div>
+                          <textarea
+                            v-model="flagNotes"
+                            rows="3"
+                            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
+                            placeholder="What's off about this entry? Adding detail helps your supervisor act faster."
+                          ></textarea>
+                          <BaseUploader
+                            v-model="flagPhotos"
+                            fileType="ASSET"
+                            accept="image/*"
+                            label="Photo evidence (optional)"
+                            :multiple="true"
+                          />
+                          <div class="tw:text-xs tw:text-secondary">
+                            Adding a photo helps your supervisor act faster. Critical flags send an
+                            immediate alert.
+                          </div>
+                        </div>
+                      </div>
+
                       <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-4">
                         <button
                           class="tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:text-secondary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:text-on-main"
-                          @click="goBackToSelect"
+                          @click="handleBack"
                         >
-                          Back
+                          {{ props.logBookId ? 'Cancel' : 'Back' }}
                         </button>
                         <button
                           class="tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:disabled:opacity-50"
-                          :disabled="submitting"
+                          :disabled="submitting || (flagOnSubmit && !flagNotes.trim())"
                           @click="handleSubmit(formData)"
                         >
                           <span
                             v-if="submitting"
                             class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:mr-2"
                           ></span>
-                          Save Record
+                          {{ requiresSignatureAtSubmit ? 'Sign &amp; Submit' : 'Save Record' }}
                         </button>
                       </div>
                     </template>
                   </DynamicForm>
                 </div>
               </div>
+
+              <!-- E-sig prompt — reused from the workflow approver flow.
+                   `@verified` fires with { method, provider, token }; we
+                   translate to the backend's esign shape in buildEsignFromVerified. -->
+              <WorkflowInstanceEsignAuthDialog
+                v-model="showEsignDialog"
+                @verified="onEsignVerified"
+              />
             </div>
           </div>
 

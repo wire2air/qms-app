@@ -9,11 +9,14 @@ const props = defineProps({
 })
 
 // ─── Option set resolution ────────────────────────────────────────────────────
+// Only fetch the FK for fields that DON'T already carry an embedded
+// snapshot. Embedded fields are the supplier-safe path and skip the
+// IDB lookup entirely.
 const optionSetIds = computed(() => {
   const ids = new Set()
   function collect(fields) {
     for (const f of fields) {
-      if (f.optionSetId) ids.add(f.optionSetId)
+      if (f.optionSetId && !f.optionSet) ids.add(f.optionSetId)
       if (f.children) collect(f.children)
       if (f.template) collect(f.template)
     }
@@ -22,7 +25,7 @@ const optionSetIds = computed(() => {
   return [...ids]
 })
 
-const optionSets = useLiveQueryWithDeps(
+const fkOptionSets = useLiveQueryWithDeps(
   [() => optionSetIds.value.join(',')],
   async (db, [idsStr]) => {
     if (!idsStr) return {}
@@ -37,6 +40,11 @@ const optionSets = useLiveQueryWithDeps(
   { initial: {} },
 )
 
+function getEffectiveOptionSet(field) {
+  // Embedded snapshot wins; fall back to the FK lookup for legacy rows.
+  return field.optionSet ?? (field.optionSetId ? fkOptionSets.value[field.optionSetId] : null)
+}
+
 // ─── Value resolution helpers ─────────────────────────────────────────────────
 function getFieldValue(field) {
   if (!field.name) return null
@@ -46,9 +54,10 @@ function getFieldValue(field) {
 function resolveOptionLabel(field, val) {
   if (val == null) return '—'
 
-  // Check optionSet first
-  if (field.optionSetId && optionSets.value[field.optionSetId]) {
-    const options = optionSets.value[field.optionSetId].options || []
+  // Check optionSet first — embedded snapshot preferred over FK lookup.
+  const effectiveOptionSet = getEffectiveOptionSet(field)
+  if (effectiveOptionSet) {
+    const options = effectiveOptionSet.options || []
     for (const opt of options) {
       if (typeof opt === 'string' && opt === val) return opt
       if (opt.value === val || opt.id === val) return opt.label || opt.name || String(val)
@@ -82,11 +91,21 @@ function formatDisplayValue(field, rawVal) {
 
     case 'select':
     case 'radio':
-    case 'optionGroup':
+    case 'optionGroup': {
+      // Frozen labels (written at submit by freezeOptionLabels) win over
+      // any live OptionSet lookup so a sealed record's display doesn't
+      // shift if the admin later renames an option. Falls through to the
+      // FK/embedded lookup for legacy unfrozen records.
+      const frozen = props.values?._optionLabels?.[field.name]
       if (Array.isArray(rawVal)) {
+        if (Array.isArray(frozen) && frozen.length === rawVal.length) {
+          return frozen.map((v) => String(v)).join(', ') || '—'
+        }
         return rawVal.map((v) => resolveOptionLabel(field, v)).join(', ') || '—'
       }
+      if (frozen != null && !Array.isArray(frozen)) return String(frozen)
       return resolveOptionLabel(field, rawVal)
+    }
 
     case 'checkbox':
     case 'toggle':
@@ -141,6 +160,10 @@ function isSeparatorField(field) {
   return field.type === 'separator'
 }
 
+function isInstructionsField(field) {
+  return field.type === 'instructions'
+}
+
 function isColorPickerField(field) {
   return field.type === 'colorPicker'
 }
@@ -180,6 +203,7 @@ function isRenderableField(field) {
     !isChecklistField(field) &&
     !isPhotoField(field) &&
     !isSeparatorField(field) &&
+    !isInstructionsField(field) &&
     !isColorPickerField(field)
   )
 }
@@ -196,6 +220,8 @@ function getVisibleFields(fields) {
     } else if (isLayoutContainer(field)) {
       if (field.children?.length) result.push(field)
     } else if (isSeparatorField(field)) {
+      result.push(field)
+    } else if (isInstructionsField(field)) {
       result.push(field)
     } else if (field.name) {
       result.push(field)
@@ -310,7 +336,7 @@ function getChecklistColumnLabel(col) {
           class="tw:text-sm tw:text-on-main tw:leading-relaxed"
           v-html="getFieldValue(field)"
         />
-        <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        <span v-else class="tw:text-xs tw:text-secondary tw:italic">Not provided</span>
       </div>
 
       <!-- Textarea field (full-width) -->
@@ -408,6 +434,15 @@ function getChecklistColumnLabel(col) {
       <hr
         v-else-if="isSeparatorField(field)"
         class="tw:col-span-3 tw:border-0 tw:border-t tw:border-divider tw:my-1"
+      />
+
+      <!-- Instructions — display-only rich HTML callout (full-width). -->
+      <div
+        v-else-if="isInstructionsField(field)"
+        class="tw:col-span-3 tw:rounded-lg tw:border tw:border-blue-200 tw:bg-blue-50 tw:px-4 tw:py-3 tw:text-sm tw:text-on-main tw:prose tw:prose-sm tw:max-w-none"
+        :class="field.class"
+        :style="field.style"
+        v-html="field.html || ''"
       />
 
       <!-- Color picker — swatch + hex value (grid cell) -->

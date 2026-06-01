@@ -56,8 +56,22 @@ export class QueryBuilder {
     this.#modelName = modelName
 
     if (indexField) {
-      this.#indexName = indexField
-      this.#indexValue = indexValue
+      // Only pre-set the indexed path when the field is genuinely a
+      // registered IDB index (customIndex). Otherwise fall back to an
+      // in-memory filter — slower (cursor scan) but it returns rows
+      // instead of throwing NotFoundError when the caller didn't know
+      // the field wasn't an index.
+      //
+      // Compound indexes are passed as e.g. '[entityType+entityId]'; the
+      // bracket prefix is the convention. We trust those directly because
+      // there's no JS-side equivalent — if the model declared the
+      // compound index, the IDB store has it.
+      if (indexField.startsWith('[') || ModelRegistry.hasIndex(modelName, indexField)) {
+        this.#indexName = indexField
+        this.#indexValue = indexValue
+      } else {
+        this.#conditions.push([indexField, indexValue])
+      }
     }
 
     if (paranoid) {

@@ -1,5 +1,5 @@
 <script setup>
-import { IconCheck } from '@tabler/icons-vue'
+import { IconCheck, IconChevronDown, IconChevronRight } from '@tabler/icons-vue'
 import { currentSession } from '@/utils/currentSession.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
@@ -15,13 +15,16 @@ const training = useLiveQueryWithDeps([() => props.instance?.trainingId], async 
   id ? db.Training.findByPk(id) : null,
 )
 
-// All assignees of this instance that are still pending verification
+// All assignees of this instance that are still pending verification.
+// FAILED is included because the backend transitions the instance to
+// PENDING_VERIFICATION once retries are exhausted — the manager still
+// needs to either send for retraining or override-approve.
 const pendingAssignees = useLiveQueryWithDeps(
   [() => props.instance?.id],
   async (db, [id]) => {
     if (!id) return []
     const all = await db.TrainingAssignee.where('trainingInstanceId', id).exec()
-    return all.filter((a) => a.status === 'COMPLETED')
+    return all.filter((a) => a.status === 'COMPLETED' || a.status === 'FAILED')
   },
   { initial: [] },
 )
@@ -45,6 +48,20 @@ function toggleAssignee(id) {
     selectedAssigneeIds.value = [...selectedAssigneeIds.value, id]
   }
 }
+
+// Per-assignee answer review — manager can expand a row to see what the
+// trainee picked vs. the correct answers. Uses the instance snapshot's
+// assessment so question text/options match what the trainee actually saw,
+// even if the source training was edited after launch.
+const expandedAssigneeIds = ref(new Set())
+function toggleExpand(id) {
+  const next = new Set(expandedAssigneeIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expandedAssigneeIds.value = next
+}
+const assessmentQuestions = computed(() => props.instance?.snapshot?.assessment ?? [])
+const passingScore = computed(() => props.instance?.snapshot?.passingScore ?? 70)
 
 function toggleAll() {
   if (selectedAssigneeIds.value.length === pendingAssignees.value.length) {
@@ -171,23 +188,46 @@ async function onEsignVerified(esign) {
         </button>
       </div>
       <div class="tw:divide-y tw:divide-divider">
-        <label
-          v-for="a in pendingAssignees"
-          :key="a.id"
-          class="tw:flex tw:items-center tw:gap-3 tw:px-4 tw:py-2.5 tw:cursor-pointer tw:hover:bg-gray-50"
-        >
-          <input
-            type="checkbox"
-            :checked="selectedAssigneeIds.includes(a.id)"
-            @change="toggleAssignee(a.id)"
-          />
-          <UserBadgeById :userId="a.userId" />
-          <span class="tw:text-xs tw:text-secondary tw:ml-auto">Score: {{ a.score ?? '—' }}%</span>
-          <span class="tw:text-xs tw:text-secondary">
-            Completed
-            <template v-if="a.completedAt">{{ a.completedAt.formatDate('date') }}</template>
-          </span>
-        </label>
+        <div v-for="a in pendingAssignees" :key="a.id">
+          <div class="tw:flex tw:items-center tw:gap-3 tw:px-4 tw:py-2.5 tw:hover:bg-gray-50">
+            <input
+              type="checkbox"
+              :checked="selectedAssigneeIds.includes(a.id)"
+              class="tw:cursor-pointer"
+              @change="toggleAssignee(a.id)"
+            />
+            <UserBadgeById :userId="a.userId" />
+            <span class="tw:text-xs tw:text-secondary tw:ml-auto">Score: {{ a.score ?? '—' }}%</span>
+            <span class="tw:text-xs tw:text-secondary">
+              Completed
+              <template v-if="a.completedAt">{{ a.completedAt.formatDate('date') }}</template>
+            </span>
+            <button
+              v-if="assessmentQuestions.length"
+              type="button"
+              class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline tw:ml-2"
+              @click="toggleExpand(a.id)"
+            >
+              <IconChevronDown v-if="expandedAssigneeIds.has(a.id)" :size="14" />
+              <IconChevronRight v-else :size="14" />
+              {{ expandedAssigneeIds.has(a.id) ? 'Hide answers' : 'View answers' }}
+            </button>
+          </div>
+          <div
+            v-if="expandedAssigneeIds.has(a.id) && assessmentQuestions.length"
+            class="tw:px-4 tw:py-3 tw:bg-gray-50/60 tw:border-t tw:border-divider"
+          >
+            <TrainingAssessmentView
+              :answers="a.assessmentAnswers ?? {}"
+              :questions="assessmentQuestions"
+              :passingScore="passingScore"
+              :attemptCount="a.attemptCount ?? 0"
+              :maxAttempts="instance.snapshot?.maxAttempts ?? 1"
+              :readonly="true"
+              :showCorrect="true"
+            />
+          </div>
+        </div>
       </div>
     </div>
 

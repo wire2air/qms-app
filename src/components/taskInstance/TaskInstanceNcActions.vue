@@ -14,6 +14,16 @@ const props = defineProps({
   instanceStep: { type: Object, default: null },
   workflowStep: { type: Object, default: null },
   canActOnStep: { type: Boolean, default: false },
+  // NC id is required for the new SEND_BACK (task-reject) endpoint; the
+  // generic /taskInstances/:id/action route doesn't know the entity.
+  ncId: { type: String, default: null },
+  // Outcomes the parent renders inline (e.g. COMPLETE_AND_ADVANCE on the
+  // step card's own Mark Complete button). Mirrors CapaStepActionsMenu's
+  // `hideOutcomes` — keeps the same action from appearing in two places.
+  hideOutcomes: { type: Array, default: () => [] },
+  // CANCEL is intentionally restricted to NC owners — a regular reviewer
+  // shouldn't be able to terminate the workflow from their task view.
+  isOwner: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['done'])
@@ -29,7 +39,6 @@ const ncRecord = useLiveQueryWithDeps(
   { models: ['NcRecord', 'TaskInstance', 'WorkflowInstance', 'WorkflowInstanceStep'] },
 )
 
-// Own allowedOutcomes and sendBackTargets queries
 const allowedOutcomes = useLiveQueryWithDeps(
   [() => props.instanceStep?.stepId],
   async (db, [stepId]) => {
@@ -39,28 +48,27 @@ const allowedOutcomes = useLiveQueryWithDeps(
   { models: ['AllowedOutcomeOnStep', 'WorkflowStep'] },
 )
 
-const sendBackTargets = useLiveQueryWithDeps(
-  [() => props.instanceStep?.stepId],
-  async (db, [stepId]) => {
-    if (!stepId) return []
-    return db.StepSendBackTarget.where('stepId', stepId).exec()
-  },
-)
-
 // ── Outcome → UI config ──────────────────────────────────────────────────────
-const OUTCOME_CONFIG = {
+// Per-stepType flavoring mirrors CR + CAPA: APPROVAL steps relabel
+// COMPLETE_AND_ADVANCE / SEND_BACK as "Approve" / "Reject" so the
+// reviewer sees the right verb.
+const isApprovalStep = computed(() => props.instanceStep?.stepType === 'APPROVAL')
+const OUTCOME_CONFIG = computed(() => ({
   COMPLETE_AND_ADVANCE: {
-    label: 'Approve & Advance',
+    label: isApprovalStep.value ? 'Approve' : 'Mark Complete',
     variant: 'primary',
     icon: IconCheck,
     needsComment: false,
   },
+  // SEND_BACK = assignee rejects the task back. Target is auto-derived
+  // by the engine: parent step → entity owner; child task → parent
+  // step's assignee. Comment is required so the recipient has context.
   SEND_BACK: {
-    label: 'Send Back',
+    label: isApprovalStep.value ? 'Reject' : 'Send Back',
     variant: 'outline',
     icon: IconArrowBackUp,
-    needsTarget: true,
     needsComment: true,
+    commentRequired: true,
   },
   REQUEST_INFO: {
     label: 'Request Info',
@@ -81,23 +89,15 @@ const OUTCOME_CONFIG = {
     icon: IconBan,
     needsComment: true,
   },
-}
+}))
 
 // ── State ────────────────────────────────────────────────────────────────────
 const showConfirmDialog = ref(false)
 const showEsignDialog = ref(false)
 const pendingOutcomeId = ref(null)
 const comment = ref('')
-const sendBackTargetStepId = ref(null)
 const reassignToUserId = ref(null)
 const actionLoading = ref(false)
-
-// Resolve send-back targets to WorkflowStep names
-const sendBackSteps = useLiveQueryWithDeps([() => sendBackTargets.value], async (db, [targets]) => {
-  if (!targets?.length) return []
-  const steps = await Promise.all(targets.map((t) => db.WorkflowStep.findByPk(t.targetStepId)))
-  return steps.filter(Boolean)
-})
 
 // Candidate users for reassignment (step roles → RoleOnUser → User, excluding current user)
 const stepRoles = useLiveQueryWithDeps(
@@ -137,32 +137,49 @@ const formRequired = computed(
 )
 const formSaveRequired = computed(() => formRequired.value && !ncRecord.value?.submittedAt)
 
+// NC-level closure gates (disposition / CAPA-required / cost-of-NC) live
+// on the NC-level Mark Complete button at the top of the page — they're
+// closure invariants, not per-step concerns. The step approve only gates
+// on the per-step form being submitted (below).
+
 const pendingConfig = computed(() =>
-  pendingOutcomeId.value ? (OUTCOME_CONFIG[pendingOutcomeId.value] ?? null) : null,
+  pendingOutcomeId.value ? (OUTCOME_CONFIG.value[pendingOutcomeId.value] ?? null) : null,
 )
 
 const confirmTitle = computed(() => pendingConfig.value?.label ?? 'Confirm')
 
-// Check if a specific outcome should be disabled
+// Per-step form-saved gate. NC-level concerns (disposition/CAPA/cost) are
+// validated at the NC Mark Complete button instead.
 function isOutcomeDisabled(outcomeId) {
-  // Only COMPLETE_AND_ADVANCE requires the form to be saved first
-  if (outcomeId === 'COMPLETE_AND_ADVANCE' && formSaveRequired.value) {
-    return true
-  }
-  // All other outcomes can proceed regardless of form status
+  if (outcomeId === 'COMPLETE_AND_ADVANCE' && formSaveRequired.value) return true
   return false
 }
 
+function outcomeTitle(outcomeId) {
+  if (outcomeId !== 'COMPLETE_AND_ADVANCE') return undefined
+  if (formSaveRequired.value) return 'Submit the form first before approving'
+  return undefined
+}
+
 // ── Trigger flow ─────────────────────────────────────────────────────────────
+// REQUEST_INFO bypasses the workflow-action machinery — it routes to
+// the generic Information Request dialog. The dialog handles the
+// create-RFI POST and spawns the recipient's respond-task; no esign,
+// no comment-dialog handshake needed here.
+const showRfiDialog = ref(false)
+
 function onOutcomeClick(outcomeId) {
   if (!props.canActOnStep) return
+  if (outcomeId === 'REQUEST_INFO') {
+    showRfiDialog.value = true
+    return
+  }
   pendingOutcomeId.value = outcomeId
   comment.value = ''
-  sendBackTargetStepId.value = null
   reassignToUserId.value = null
 
-  const config = OUTCOME_CONFIG[outcomeId]
-  if (config?.needsComment || config?.needsTarget || config?.needsUser) {
+  const config = OUTCOME_CONFIG.value[outcomeId]
+  if (config?.needsComment || config?.needsUser) {
     showConfirmDialog.value = true
   } else if (props.workflowStep?.requireEsignature) {
     showEsignDialog.value = true
@@ -172,15 +189,22 @@ function onOutcomeClick(outcomeId) {
 }
 
 function onConfirmDialog() {
-  if (pendingConfig.value?.needsTarget && !sendBackTargetStepId.value) {
-    toast.warning('Please select a target step to send back to')
-    return
-  }
   if (pendingConfig.value?.needsUser && !reassignToUserId.value) {
     toast.warning('Please select a user to reassign to')
     return
   }
+  if (pendingConfig.value?.commentRequired && !comment.value.trim()) {
+    toast.warning('A comment is required')
+    return
+  }
   showConfirmDialog.value = false
+  // SEND_BACK on NC = reject task back to owner. No e-sign needed for a
+  // rejection — semantically it's the assignee bowing out, not an
+  // attested decision.
+  if (pendingOutcomeId.value === 'SEND_BACK') {
+    submitAction({})
+    return
+  }
   if (props.workflowStep?.requireEsignature) {
     showEsignDialog.value = true
   } else {
@@ -195,6 +219,20 @@ function onEsignVerified({ method, provider, token }) {
 async function submitAction({ method, provider, token } = {}) {
   actionLoading.value = true
   try {
+    // SEND_BACK on NC uses a dedicated reject endpoint (rejects the
+    // task, notifies owner via a new ACTION task) — not the generic
+    // task-action route. All other outcomes still go through it.
+    if (pendingOutcomeId.value === 'SEND_BACK' && props.ncId && props.instanceStep?.id) {
+      await post(`/v1/services/nonconformances/${props.ncId}/rejectStepTask`, {
+        workflowInstanceStepId: props.instanceStep.id,
+        comment: comment.value,
+      })
+      toast.success('Task sent back — the NC owner has been notified')
+      showEsignDialog.value = false
+      emit('done')
+      return
+    }
+
     const body = {
       action: pendingOutcomeId.value,
       outcomeId: pendingOutcomeId.value,
@@ -203,7 +241,6 @@ async function submitAction({ method, provider, token } = {}) {
     if (token) body.token = token
     if (provider) body.provider = provider
     if (comment.value) body.comment = comment.value
-    if (sendBackTargetStepId.value) body.sendBackTargetStepId = sendBackTargetStepId.value
     if (reassignToUserId.value) body.reassignToUserId = reassignToUserId.value
 
     await post(`/v1/services/taskInstances/${props.taskInstanceId}/action`, body)
@@ -220,14 +257,15 @@ async function submitAction({ method, provider, token } = {}) {
 
 <template>
   <div class="tw:flex tw:items-center tw:gap-2">
-    <template v-for="allowed in allowedOutcomes" :key="allowed.id">
+    <template v-for="allowed in allowedOutcomes">
       <div
-        v-if="OUTCOME_CONFIG[allowed.outcomeId]"
-        :title="
-          allowed.outcomeId === 'COMPLETE_AND_ADVANCE' && formSaveRequired
-            ? 'Submit the form first before approving'
-            : undefined
+        v-if="
+          OUTCOME_CONFIG[allowed.outcomeId] &&
+          !hideOutcomes.includes(allowed.outcomeId) &&
+          (allowed.outcomeId !== 'CANCEL' || isOwner)
         "
+        :key="allowed.id"
+        :title="outcomeTitle(allowed.outcomeId)"
       >
         <BaseButton
           :variant="OUTCOME_CONFIG[allowed.outcomeId].variant"
@@ -279,40 +317,20 @@ async function submitAction({ method, provider, token } = {}) {
         </div>
       </div>
 
-      <!-- Send-back target picker -->
-      <div v-if="pendingConfig?.needsTarget" class="tw:mb-4">
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Send back to step <span class="tw:text-red-500">*</span>
-        </label>
-        <div class="tw:flex tw:flex-col tw:gap-2">
-          <label
-            v-for="step in sendBackSteps"
-            :key="step.id"
-            class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer"
-          >
-            <input
-              v-model="sendBackTargetStepId"
-              type="radio"
-              :value="step.id"
-              class="tw:accent-primary"
-            />
-            <span class="tw:text-sm tw:text-on-main">{{ step.name }}</span>
-          </label>
-          <p v-if="!sendBackSteps?.length" class="tw:text-sm tw:text-secondary">
-            No send-back targets configured for this step.
-          </p>
-        </div>
-      </div>
-
       <div>
         <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Comment {{ pendingConfig?.needsComment ? '(optional)' : '' }}
+          {{ pendingOutcomeId === 'SEND_BACK' ? 'Reason for sending back' : 'Comment' }}
+          <span v-if="pendingConfig?.commentRequired" class="tw:text-red-500">*</span>
         </label>
         <textarea
           v-model="comment"
           rows="3"
           class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:text-on-main tw:text-sm tw:p-3 tw:resize-none tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
-          placeholder="Add a comment…"
+          :placeholder="
+            pendingOutcomeId === 'SEND_BACK'
+              ? 'Why are you sending this back to the owner?'
+              : 'Add a comment…'
+          "
         />
       </div>
 
@@ -330,5 +348,14 @@ async function submitAction({ method, provider, token } = {}) {
 
     <!-- E-sign dialog -->
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
+
+    <!-- RFI dialog (REQUEST_INFO outcome) -->
+    <InformationRequestDialog
+      v-if="ncId"
+      v-model="showRfiDialog"
+      mode="create"
+      entityType="Nonconformance"
+      :entityId="ncId"
+    />
   </div>
 </template>

@@ -15,11 +15,13 @@ const SCHEME_MAP = {
   QUARANTINE_PENDING_REVIEW: { class: 'tw:bg-orange-100 tw:text-orange-700' },
 }
 
-const scheme = (id) => SCHEME_MAP[id] || { class: 'tw:bg-gray-100 tw:text-gray-600' }
+// Keyed off the SCREAMING_SNAKE_CASE code (stable per-tenant), not the
+// UUID id. Tenant-added codes fall through to the neutral grey.
+const scheme = (code) => SCHEME_MAP[code] || { class: 'tw:bg-gray-100 tw:text-gray-600' }
 </script>
 
 <template>
-  <BaseBadge v-bind="$attrs" :class="scheme(dispositionType.id).class">
-    {{ dispositionType.name || dispositionType.id || '—' }}
+  <BaseBadge v-bind="$attrs" :class="scheme(dispositionType.code).class">
+    {{ dispositionType.name || dispositionType.code || '—' }}
   </BaseBadge>
 </template>

@@ -1,5 +1,5 @@
 <script setup>
-import { IconRefresh, IconCheck } from '@tabler/icons-vue'
+import { IconShieldCheck } from '@tabler/icons-vue'
 
 const props = defineProps({
   taskInstance: { type: Object, required: true },
@@ -16,34 +16,24 @@ const check = useLiveQueryWithDeps(
   },
 )
 
+// Single "Verify Effectiveness" entrypoint — the consolidated dialog
+// internally lets the owner pick Effective / Not Effective / Extend
+// (the latter replaces the old standalone Renew button).
 const showComplete = ref(false)
-const showRenew = ref(false)
 </script>
 
 <template>
   <template v-if="check">
     <button
-      class="tw:flex tw:items-center tw:gap-1 tw:px-3 tw:py-1.5 tw:text-xs tw:font-semibold tw:rounded-lg tw:border tw:border-divider tw:text-on-main tw:hover:bg-main-hover"
-      @click="showRenew = true"
-    >
-      <IconRefresh :size="14" />
-      Renew
-    </button>
-    <button
       class="tw:flex tw:items-center tw:gap-1 tw:px-3 tw:py-1.5 tw:text-xs tw:font-semibold tw:rounded-lg tw:bg-primary tw:text-white tw:hover:opacity-90"
       @click="showComplete = true"
     >
-      <IconCheck :size="14" />
-      Complete
+      <IconShieldCheck :size="14" />
+      Verify Effectiveness
     </button>
 
     <CapaEffectivenessCheckCompleteDialog
       v-model="showComplete"
-      :capaId="check.capaId"
-      :checkId="check.id"
-    />
-    <CapaEffectivenessCheckRenewDialog
-      v-model="showRenew"
       :capaId="check.capaId"
       :checkId="check.id"
     />

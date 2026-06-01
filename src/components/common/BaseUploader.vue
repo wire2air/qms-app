@@ -286,6 +286,23 @@ defineExpose({
       </div>
     </div>
 
+    <!-- Already-uploaded files (from v-model) — rendered above the dropzone
+         so users see what's already attached before they add more. -->
+    <div v-if="uploadedFiles?.length > 0" class="tw:px-5 tw:pt-5 tw:pb-3 tw:space-y-2">
+      <div class="ds-label-sm tw:text-secondary tw:mb-2">Uploaded Files</div>
+      <BaseFileItem
+        v-for="asset in uploadedFiles"
+        :key="asset.id"
+        state="uploaded"
+        :fileName="asset.filename || asset.name || 'Uploaded File'"
+        :fileSize="asset.fileSize || 0"
+        :fileUrl="asset.url"
+        :readonly="readonly"
+        :disabled="disabled"
+        @remove="removeUploadedFile(asset.id)"
+      />
+    </div>
+
     <!-- Compact Dropzone -->
     <div v-if="!readonly" class="tw:p-5">
       <div
@@ -335,44 +352,24 @@ defineExpose({
       </div>
     </div>
 
-    <div class="tw:px-5 tw:pt-3 tw:pb-5">
-      <!-- Uploaded Files List (from v-model) -->
-      <div v-if="uploadedFiles?.length > 0" class="tw:pb-0 tw:space-y-2">
-        <div class="ds-label-sm tw:text-secondary tw:mb-2">Uploaded Files</div>
-        <BaseFileItem
-          v-for="asset in uploadedFiles"
-          :key="asset.id"
-          state="uploaded"
-          :fileName="asset.filename || asset.name || 'Uploaded File'"
-          :fileSize="asset.fileSize || 0"
-          :fileUrl="asset.url"
-          :readonly="readonly"
-          :disabled="disabled"
-          @remove="removeUploadedFile(asset.id)"
-        />
-      </div>
-
-      <!-- File List Section -->
-      <div
-        v-if="files?.length > 0"
-        class="tw:space-y-3 tw:max-h-96 tw:overflow-y-auto"
-        :class="{ 'tw:pt-5': uploadedFiles?.length === 0, 'tw:pt-3': uploadedFiles?.length > 0 }"
-      >
-        <div v-if="uploadedFiles?.length > 0" class="ds-label-sm tw:text-secondary tw:mb-2">
-          Pending Files
-        </div>
-        <BaseFileItem
-          v-for="(fileObj, index) in files"
-          :key="index"
-          :state="fileObj.status"
-          :fileName="fileObj.name"
-          :fileSize="fileObj.size"
-          :progress="fileObj.progress"
-          :readonly="readonly"
-          :disabled="disabled"
-          @remove="removeFile(index)"
-        />
-      </div>
+    <!-- Pending files (just dropped, uploading) — stay below the dropzone
+         since they're its transient queue. -->
+    <div
+      v-if="files?.length > 0"
+      class="tw:space-y-3 tw:max-h-96 tw:overflow-y-auto tw:px-5 tw:pb-5"
+    >
+      <div class="ds-label-sm tw:text-secondary tw:mb-2">Pending Files</div>
+      <BaseFileItem
+        v-for="(fileObj, index) in files"
+        :key="index"
+        :state="fileObj.status"
+        :fileName="fileObj.name"
+        :fileSize="fileObj.size"
+        :progress="fileObj.progress"
+        :readonly="readonly"
+        :disabled="disabled"
+        @remove="removeFile(index)"
+      />
     </div>
 
     <!-- Footer Action -->

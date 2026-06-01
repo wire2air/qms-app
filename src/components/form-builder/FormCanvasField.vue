@@ -156,8 +156,15 @@ function onDuplicate() {
       />
     </div>
 
-    <!-- Preview -->
-    <div v-if="!isLayoutField" class="tw:pointer-events-none tw:opacity-60 tw:mt-2">
+    <!-- Preview — generic disabled input for input-style fields,
+         live HTML render for the Instructions block so authors see
+         the exact callout the floor user will see. -->
+    <div
+      v-if="field.type === 'instructions'"
+      class="tw:pointer-events-none tw:mt-2 tw:rounded-lg tw:border tw:border-blue-200 tw:bg-blue-50 tw:px-4 tw:py-3 tw:text-sm tw:prose tw:prose-sm tw:max-w-none"
+      v-html="field.html || '<em class=\'tw:text-secondary\'>Empty instructions — add content in the properties panel.</em>'"
+    />
+    <div v-else-if="!isLayoutField" class="tw:pointer-events-none tw:opacity-60 tw:mt-2">
       <BaseTextInput
         :label="field.label || field.name"
         :placeholder="field.placeholder"

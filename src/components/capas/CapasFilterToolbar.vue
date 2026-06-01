@@ -11,6 +11,7 @@ const filterPills = [
   { value: 'high', label: 'High' },
   { value: 'overdue', label: 'Overdue' },
   { value: 'closed', label: 'Closed' },
+  { value: 'cancelled', label: 'Cancelled' },
 ]
 </script>
 

@@ -82,7 +82,7 @@ const documentSections = computed(() => props.version.sections || [])
           </h3>
 
           <!-- Section Content -->
-          <TiptapEditor
+          <BaseRichTextEditor
             v-if="section.sectionType === 'text'"
             :key="section.id"
             :modelValue="section.content"

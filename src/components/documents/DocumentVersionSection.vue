@@ -180,7 +180,7 @@ const debouncedSaveComment = useDebounceFn(async () => {
 
     <!-- Section Content -->
     <div class="section-content">
-      <TiptapEditor
+      <BaseRichTextEditor
         v-if="section.sectionType === 'text'"
         :key="`${section.id}-${canUpdateSection ? 'editable' : 'readonly'}`"
         v-model="section.content"
