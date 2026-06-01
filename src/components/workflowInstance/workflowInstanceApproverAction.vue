@@ -113,6 +113,7 @@ function onConfirmFeedback() {
   <div class="tw:text-center">
     <BaseButton
       v-if="action === 'APPROVE'"
+      data-testid="workflow-action-approve"
       :isLoading="actionLoading"
       class="tw:font-bold tw:shadow-md tw:shadow-primary/20!"
       @click="onApprove"
@@ -125,6 +126,7 @@ function onConfirmFeedback() {
 
     <BaseButton
       v-if="action === 'REJECT'"
+      data-testid="workflow-action-reject"
       variant="outline"
       class="tw:text-red-600! tw:border-red-200! tw:hover:bg-red-50! tw:font-bold"
       :isLoading="actionLoading"

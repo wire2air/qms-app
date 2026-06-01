@@ -188,10 +188,16 @@ function routeForInstance(instance) {
     :rows="filteredInstances"
     :columns="columns"
     rowKey="id"
+    data-testid="workflow-instances-table"
   >
     <!-- Item Title -->
     <template #body-cell-title="{ row }">
-      <RouterLink class="tw:flex tw:flex-col tw:group" :to="routeForInstance(row)">
+      <RouterLink
+        class="tw:flex tw:flex-col tw:group"
+        :to="routeForInstance(row)"
+        data-testid="workflow-instance-row"
+        :data-instance-id="row.id"
+      >
         <template v-if="row.resourceType === 'Nonconformance'">
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
             {{ getNc(row)?.title || '—' }}

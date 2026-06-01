@@ -67,13 +67,17 @@ const usersMap = useLiveQueryWithDeps(
 <template>
   <div
     class="tw:bg-sidebar tw:rounded-xl tw:border-2 tw:border-primary tw:p-4 tw:shadow-lg tw:shadow-primary/5"
+    data-testid="workflow-instance-active-step"
   >
     <div
       class="tw:flex tw:flex-col tw:md:flex-row tw:md:items-center tw:justify-between tw:gap-3 tw:mb-4"
     >
       <div class="tw:min-w-0 tw:flex-1">
         <h3 class="tw:font-bold tw:text-on-main tw:flex tw:flex-wrap tw:items-center tw:gap-2">
-          <span class="tw:min-w-0 tw:wrap-break-word">
+          <span
+            class="tw:min-w-0 tw:wrap-break-word"
+            data-testid="workflow-instance-active-step-name"
+          >
             Step {{ displayNumber ?? instanceStep?.stepNumber }}: {{ instanceStep?.name }}
           </span>
           <WorkflowInstanceStepStatusBadgeById

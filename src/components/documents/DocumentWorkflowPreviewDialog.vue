@@ -179,7 +179,11 @@ async function confirm() {
 
     <template #footer>
       <BaseButton variant="outline" :disabled="submitting" @click="show = false">Cancel</BaseButton>
-      <BaseButton :disabled="submitting" @click="confirm">
+      <BaseButton
+        data-testid="document-workflow-preview-submit"
+        :disabled="submitting"
+        @click="confirm"
+      >
         {{ submitting ? 'Submitting…' : 'Submit' }}
       </BaseButton>
     </template>
