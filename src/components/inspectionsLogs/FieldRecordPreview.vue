@@ -177,11 +177,22 @@ const template = useLiveQueryWithDeps(
 )
 
 // Prefer the schema snapshot stored on the record (frozen at submit
-// time); fall back to the live template schema for very old records
-// that pre-date the snapshot column.
+// time). Fall back to the live template schema in two cases:
+//   1. Record pre-dates the snapshot column (very old data).
+//   2. Snapshot is present but EMPTY — happens when the EFFECTIVE
+//      LogBookVersion was approved with no fields and the schema was
+//      added afterwards on the live LogBook only. EFFECTIVE versions
+//      are locked, so the mirror in logBookService.updateLogBook
+//      (DRAFT/REJECTED only) doesn't propagate, and the snapshot at
+//      submission time stays empty even though the live schema has
+//      the field the user filled out.
+//
+// Bare `Array.isArray(snap)` was wrong because `[]` is truthy as
+// "is an array" but useless as a schema — the fallback to the live
+// template never fired.
 const schemaFields = computed(() => {
   const snap = record.value?.logBookSchemaSnapshot
-  if (Array.isArray(snap)) return snap
+  if (Array.isArray(snap) && snap.length > 0) return snap
   if (Array.isArray(template.value?.schema)) return template.value.schema
   return []
 })
