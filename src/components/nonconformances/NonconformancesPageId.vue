@@ -449,7 +449,7 @@ function onCreateLinkedChangeRequest() {
                 {{ nc.title }}
               </div>
               <div v-if="editingDescription && isEditable" class="nc-detail-editor tw:mb-4">
-                <TiptapEditor
+                <BaseRichTextEditor
                   v-model="nc.description"
                   placeholder="Add a description…"
                   @blur="editingDescription = false"
@@ -527,7 +527,7 @@ function onCreateLinkedChangeRequest() {
                   Immediate containment action
                 </label>
                 <div v-if="isEditable" class="nc-detail-editor">
-                  <TiptapEditor
+                  <BaseRichTextEditor
                     v-model="nc.immediateContainmentAction"
                     placeholder="Describe the immediate action taken to contain this nonconformance…"
                   />
@@ -1144,7 +1144,7 @@ function onCreateLinkedChangeRequest() {
 </template>
 
 <style scoped>
-.nc-detail-editor :deep(.tiptap-editor-content) {
+.nc-detail-editor :deep(.rich-text-editor-content) {
   max-height: 12rem;
   overflow-y: auto;
 }

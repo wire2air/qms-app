@@ -326,7 +326,7 @@ const isLockedOut = computed(() => {
     <div v-if="step === 'instructions'" class="tw:flex tw:flex-col tw:gap-4">
       <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5">
         <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar tw:mb-3">Instructions</h2>
-        <TiptapEditor
+        <BaseRichTextEditor
           v-if="instance.snapshot?.instructions"
           :modelValue="instance.snapshot.instructions"
           :editable="false"

@@ -489,7 +489,7 @@ function onCreateLinkedChangeRequest() {
               </div>
 
               <div v-if="editingDescription && isEditable" class="capa-detail-editor tw:mb-4">
-                <TiptapEditor
+                <BaseRichTextEditor
                   v-model="capa.description"
                   placeholder="Add a description…"
                   @blur="editingDescription = false"
@@ -888,7 +888,7 @@ function onCreateLinkedChangeRequest() {
 </template>
 
 <style scoped>
-.capa-detail-editor :deep(.tiptap-editor-content) {
+.capa-detail-editor :deep(.rich-text-editor-content) {
   max-height: 12rem;
   overflow-y: auto;
 }

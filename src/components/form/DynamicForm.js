@@ -14,7 +14,7 @@ import BaseTextInput from '@shared/components/BaseTextInput.vue'
 import BaseCheckbox from '@shared/components/BaseCheckbox.vue'
 import BaseSwitch from '@shared/components/BaseSwitch.vue'
 import BaseColorPicker from '@shared/components/BaseColorPicker.vue'
-import TiptapEditor from '@/components/editor/TiptapEditor.vue'
+import BaseRichTextEditor from '@/components/editor/BaseRichTextEditor.vue'
 import BaseDatePicker from '@shared/components/BaseDatePicker.vue'
 import BaseTimePicker from '@shared/components/BaseTimePicker.vue'
 import BaseDateTimePicker from '@shared/components/BaseDateTimePicker.vue'
@@ -224,7 +224,7 @@ export default defineComponent({
           })
 
         case 'textarea':
-          // TiptapEditor doesn't accept a `label` prop, so wrap with an
+          // BaseRichTextEditor doesn't accept a `label` prop, so wrap with an
           // explicit label row. Same reason datetime/colorPicker/slider do.
           return h('div', { class: 'tw:flex tw:flex-col' }, [
             field.label
@@ -234,7 +234,7 @@ export default defineComponent({
                   field.label,
                 )
               : null,
-            h(TiptapEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly }),
+            h(BaseRichTextEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly }),
           ])
 
         case 'number':
@@ -255,7 +255,7 @@ export default defineComponent({
                   field.label,
                 )
               : null,
-            h(TiptapEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly }),
+            h(BaseRichTextEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly }),
           ])
 
         case 'date': {

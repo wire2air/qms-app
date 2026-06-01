@@ -408,7 +408,7 @@ function setContent(content) {
   // Loud: if this fires while the user is actively editing, it's the
   // round-trip-strips-content bug. The cooldown guard below should prevent
   // it, but we still want visibility if something gets through.
-  console.warn('[TiptapEditor] setContent replacing doc', {
+  console.warn('[BaseRichTextEditor] setContent replacing doc', {
     currentLength: currentContent.length,
     newLength: newContent.length,
     msSinceLocalEdit: Date.now() - lastLocalEditAt,
@@ -592,7 +592,7 @@ defineExpose({
     </BubbleMenu>
 
     <!-- Editor Content -->
-    <EditorContent :editor="editor" class="tiptap-editor-content" />
+    <EditorContent :editor="editor" class="rich-text-editor-content" />
   </div>
 </template>
 
@@ -606,7 +606,7 @@ defineExpose({
   flex-direction: column;
 }
 
-.tiptap-editor-content {
+.rich-text-editor-content {
   padding: 1rem;
   display: flex;
   flex-direction: column;
@@ -619,7 +619,7 @@ defineExpose({
   color: white !important;
 }
 
-.tiptap-editor-content :deep(.ProseMirror) {
+.rich-text-editor-content :deep(.ProseMirror) {
   outline: none;
   flex-grow: 1;
 
@@ -805,7 +805,7 @@ defineExpose({
  * because the `content` property accepts counter() but rejects bare
  * integer tokens — using var(--section-number) directly inside content
  * silently fails. */
-.numbered-headings .tiptap-editor-content :deep(.ProseMirror) {
+.numbered-headings .rich-text-editor-content :deep(.ProseMirror) {
   counter-reset: section-num var(--section-number, 0) subsection 0;
 
   h3 {

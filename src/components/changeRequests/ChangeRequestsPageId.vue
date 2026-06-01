@@ -366,7 +366,7 @@ const editingDescription = ref(false)
               </div>
 
               <div v-if="editingDescription && isEditable" class="cr-detail-editor tw:mb-4">
-                <TiptapEditor
+                <BaseRichTextEditor
                   v-model="cr.description"
                   placeholder="Describe the change…"
                   @blur="editingDescription = false"
@@ -446,7 +446,7 @@ const editingDescription = ref(false)
                   Reason for Change
                 </div>
                 <div v-if="isEditable" class="cr-detail-editor">
-                  <TiptapEditor
+                  <BaseRichTextEditor
                     v-model="cr.reasonForChange"
                     placeholder="What's driving this change?"
                   />
@@ -463,7 +463,7 @@ const editingDescription = ref(false)
                   Business Justification
                 </div>
                 <div v-if="isEditable" class="cr-detail-editor">
-                  <TiptapEditor
+                  <BaseRichTextEditor
                     v-model="cr.businessJustification"
                     placeholder="Cost / quality / compliance impact"
                   />
@@ -493,46 +493,67 @@ const editingDescription = ref(false)
 
           <!-- Right column -->
           <div class="tw:flex tw:flex-col tw:gap-3">
+            <!-- Overview side card. Grouped into subsections with quiet
+                 dividers so the right rail stays scannable — same pattern
+                 NC uses (Identification → People & Location → Schedule).
+                 Change Type / Classification / Priority / Initiated stay
+                 in the main "Change Request Details" grid because they're
+                 required at create. -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
               <div
                 class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
               >
                 Overview
               </div>
-              <div class="tw:flex tw:flex-col tw:divide-y tw:divide-border">
+
+              <!-- Identification -->
+              <div class="tw:flex tw:flex-col">
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">CR Number</span>
-                  <span class="tw:text-xs tw:font-mono tw:font-medium">{{ cr.crNumber || '—' }}</span>
+                  <span class="tw:text-xs tw:text-secondary">CR number</span>
+                  <span class="tw:text-xs tw:font-mono tw:font-medium">
+                    {{ cr.crNumber || '—' }}
+                  </span>
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Status</span>
                   <ChangeRequestStatusBadgeById :statusId="cr.statusId" />
                 </div>
+              </div>
+
+              <!-- People & Location -->
+              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Owner</span>
                   <UserBadgeById v-if="cr.ownerId" :userId="cr.ownerId" />
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Site</span>
-                  <SiteBadgeById :siteId="cr.siteId" />
+                  <SiteBadgeById v-if="cr.siteId" :siteId="cr.siteId" />
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Department</span>
-                  <DepartmentBadgeById :departmentId="cr.departmentId" />
+                  <DepartmentBadgeById v-if="cr.departmentId" :departmentId="cr.departmentId" />
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
+              </div>
+
+              <!-- Schedule -->
+              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Due date</span>
                   <span
-                    class="tw:text-xs tw:flex tw:items-center tw:gap-1"
+                    class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
                     :class="isOverdue ? 'tw:text-red-600' : ''"
                   >
-                    {{ cr.dueDate ? cr.dueDate.formatDate('date') : '—' }}
-                    <IconAlertTriangle v-if="isOverdue" :size="12" class="tw:text-red-600" />
+                    <span>{{ cr.dueDate ? cr.dueDate.formatDate('date') : '—' }}</span>
+                    <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
                   </span>
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Target Implementation</span>
-                  <span class="tw:text-xs">
+                  <span class="tw:text-xs tw:text-secondary">Target implementation</span>
+                  <span class="tw:text-sm tw:font-medium">
                     {{
                       cr.targetImplementationDate
                         ? cr.targetImplementationDate.formatDate('date')
@@ -542,11 +563,15 @@ const editingDescription = ref(false)
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Submitted</span>
-                  <span class="tw:text-xs">{{ cr.submittedAt ? cr.submittedAt.formatDate('date') : '—' }}</span>
+                  <span class="tw:text-sm tw:font-medium">
+                    {{ cr.submittedAt ? cr.submittedAt.formatDate('date') : '—' }}
+                  </span>
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Approved</span>
-                  <span class="tw:text-xs">{{ cr.approvedAt ? cr.approvedAt.formatDate('date') : '—' }}</span>
+                  <span class="tw:text-sm tw:font-medium">
+                    {{ cr.approvedAt ? cr.approvedAt.formatDate('date') : '—' }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -700,7 +725,7 @@ const editingDescription = ref(false)
 </template>
 
 <style scoped>
-.cr-detail-editor :deep(.tiptap-editor-content) {
+.cr-detail-editor :deep(.rich-text-editor-content) {
   max-height: 12rem;
   overflow-y: auto;
 }

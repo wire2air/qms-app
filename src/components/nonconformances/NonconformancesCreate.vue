@@ -139,7 +139,7 @@ async function handleReviewersConfirmed(reviewers) {
             <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
               <div class="create-nc-editor">
-                <TiptapEditor
+                <BaseRichTextEditor
                   v-model="form.description"
                   placeholder="Provide details about the nonconformance…"
                 />
@@ -306,7 +306,7 @@ async function handleReviewersConfirmed(reviewers) {
             <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
           </div>
           <div class="create-nc-editor">
-            <TiptapEditor
+            <BaseRichTextEditor
               v-model="form.immediateContainmentAction"
               placeholder="Describe actions taken at the time of detection…"
             />
@@ -337,7 +337,7 @@ async function handleReviewersConfirmed(reviewers) {
 </template>
 
 <style scoped>
-.create-nc-editor :deep(.tiptap-editor-content) {
+.create-nc-editor :deep(.rich-text-editor-content) {
   max-height: 10rem;
   overflow-y: auto;
 }

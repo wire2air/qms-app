@@ -184,7 +184,7 @@ async function handleReviewersConfirmed(reviewers) {
             <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
               <div class="create-capa-editor">
-                <TiptapEditor
+                <BaseRichTextEditor
                   v-model="form.description"
                   placeholder="Provide context for the CAPA…"
                 />
@@ -307,7 +307,7 @@ async function handleReviewersConfirmed(reviewers) {
 </template>
 
 <style scoped>
-.create-capa-editor :deep(.tiptap-editor-content) {
+.create-capa-editor :deep(.rich-text-editor-content) {
   max-height: 10rem;
   overflow-y: auto;
 }

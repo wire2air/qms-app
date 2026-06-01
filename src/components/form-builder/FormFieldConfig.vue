@@ -236,7 +236,7 @@ function updateRowColClass(value) {
               to mention a document and create a clickable link.
             </p>
             <div class="tw:border tw:border-divider tw:rounded-md tw:overflow-hidden">
-              <TiptapEditor v-model="field.html" />
+              <BaseRichTextEditor v-model="field.html" />
             </div>
           </div>
         </template>

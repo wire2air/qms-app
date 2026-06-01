@@ -154,7 +154,7 @@ async function handleSubmit() {
           Instructions
         </label>
         <div class="dialog-description-editor">
-          <TiptapEditor
+          <BaseRichTextEditor
             v-model="form.description"
             placeholder="What does the assignee need to do?"
           />
@@ -271,10 +271,10 @@ async function handleSubmit() {
 </template>
 
 <style scoped>
-/* TiptapEditor's content grows to fill its parent via flex-grow. Cap the
+/* BaseRichTextEditor's content grows to fill its parent via flex-grow. Cap the
    inner ProseMirror surface so the dialog's description field stays
    compact — long content scrolls within the editor. */
-.dialog-description-editor :deep(.tiptap-editor-content) {
+.dialog-description-editor :deep(.rich-text-editor-content) {
   max-height: 8rem;
   overflow-y: auto;
 }

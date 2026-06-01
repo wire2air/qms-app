@@ -151,7 +151,7 @@ async function handleSubmit() {
             Instructions
           </label>
           <div class="dialog-description-editor">
-            <TiptapEditor
+            <BaseRichTextEditor
               v-model="form.description"
               placeholder="What does the assignee need to do?"
             />
@@ -267,7 +267,7 @@ async function handleSubmit() {
 </template>
 
 <style scoped>
-.dialog-description-editor :deep(.tiptap-editor-content) {
+.dialog-description-editor :deep(.rich-text-editor-content) {
   max-height: 8rem;
   overflow-y: auto;
 }

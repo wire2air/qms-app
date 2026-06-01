@@ -204,7 +204,7 @@ async function handleSubmit() {
               Description
             </label>
             <div class="create-cr-editor">
-              <TiptapEditor
+              <BaseRichTextEditor
                 v-model="form.description"
                 placeholder="What is being changed and why?"
               />
@@ -310,7 +310,7 @@ async function handleSubmit() {
               Reason for Change
             </label>
             <div class="create-cr-editor">
-              <TiptapEditor
+              <BaseRichTextEditor
                 v-model="form.reasonForChange"
                 placeholder="What's driving this change? (audit finding, regulatory update, NC, supplier change, etc.)"
               />
@@ -322,7 +322,7 @@ async function handleSubmit() {
               Business Justification
             </label>
             <div class="create-cr-editor">
-              <TiptapEditor
+              <BaseRichTextEditor
                 v-model="form.businessJustification"
                 placeholder="Why is this change worth the effort? Cost / quality / compliance impact."
               />
@@ -347,7 +347,7 @@ async function handleSubmit() {
 </template>
 
 <style scoped>
-.create-cr-editor :deep(.tiptap-editor-content) {
+.create-cr-editor :deep(.rich-text-editor-content) {
   max-height: 10rem;
   overflow-y: auto;
 }
