@@ -58,6 +58,7 @@ import { Site } from './site'
 import { SiteOnTemplate } from './siteOnTemplate'
 import { Supplier } from './supplier'
 import { SupplierAsset } from './supplierAsset'
+import { SupplierCertificateType } from './supplierCertificateType'
 import { SupplierContact } from './supplierContact'
 import { SupplierDocument } from './supplierDocument'
 import { SupplierOnSite } from './supplierOnSite'
@@ -197,6 +198,7 @@ export const db = {
   SiteOnTemplate,
   Supplier,
   SupplierAsset,
+  SupplierCertificateType,
   SupplierContact,
   SupplierDocument,
   SupplierOnSite,

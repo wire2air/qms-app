@@ -140,6 +140,7 @@ watch(
       <div v-else-if="activeTab === 'lookups'" class="tw:flex tw:flex-col tw:gap-8">
         <NcDispositionTypesCard />
         <NcIssueTypesCard />
+        <SupplierCertificateTypesCard />
       </div>
     </div>
   </div>
