@@ -12,7 +12,6 @@ import {
   IconSettings,
   IconAdjustments,
   IconArticle,
-  IconList,
   IconBuilding,
   IconBuildingCommunity,
   IconUsers,
@@ -298,17 +297,11 @@ const navItems = computed(() => {
           icon: IconLayoutGrid,
           to: getCompanyPath('/risk-assessment-templates'),
         },
-        {
-          label: 'Option Sets',
-          icon: IconList,
-          to: getCompanyPath('/option-sets'),
-        },
-        {
-          label: 'NC Dispositions',
-          permissions: ['ncDispositionTypes:manage'],
-          icon: IconList,
-          to: getCompanyPath('/settings?tab=lookups'),
-        },
+        // Option Sets moved under Form Templates → Option Sets tab.
+        // NC Dispositions remain at Settings → Lookups (the canonical
+        // home); previously had a redundant shortcut here.
+        // The standalone /option-sets and /settings?tab=lookups routes
+        // both still exist for back-compat with bookmarks.
         {
           label: 'Sites',
           icon: IconBuilding,

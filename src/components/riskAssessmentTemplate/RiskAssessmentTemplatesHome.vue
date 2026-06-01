@@ -1,6 +1,29 @@
 <script setup>
-import { IconLayoutGrid } from '@tabler/icons-vue'
+import { IconLayoutGrid, IconFileSettings, IconAlertTriangle } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+
+// Tabs — "Templates" hosts the original CRUD; "Hazard Categories" hosts
+// the per-tenant hazard_categories lookup admin (new with the RA
+// reportability spike). Deep-linkable via ?tab=hazards.
+const tabs = [
+  { id: 'templates', label: 'Templates', icon: IconFileSettings },
+  { id: 'hazards', label: 'Hazard Categories', icon: IconAlertTriangle },
+]
+const route = useRoute()
+const router = useRouter()
+const validTabIds = new Set(tabs.map((t) => t.id))
+const initialTab = validTabIds.has(route.query.tab) ? route.query.tab : 'templates'
+const activeTab = ref(initialTab)
+watch(
+  () => route.query.tab,
+  (v) => {
+    if (v && validTabIds.has(v)) activeTab.value = v
+  },
+)
+function setTab(id) {
+  activeTab.value = id
+  router.replace({ query: { ...route.query, tab: id } })
+}
 
 const showCreateDialog = ref(false)
 const editTemplate = ref(null)
@@ -57,7 +80,9 @@ function onDialogClose() {
       </div>
     </SafeTeleport>
 
-    <SafeTeleport to="#main-header-actions">
+    <!-- "New Template" header-action only on the Templates tab; the
+         Hazard Categories tab has its own "Add Category" affordance. -->
+    <SafeTeleport v-if="activeTab === 'templates'" to="#main-header-actions">
       <BaseButton v-if="canCreate" @click="showCreateDialog = true">
         New Template
       </BaseButton>
@@ -67,39 +92,65 @@ function onDialogClose() {
       <div class="tw:flex tw:flex-col tw:gap-1">
         <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Risk Assessment Templates</div>
         <div class="tw:text-sm tw:text-secondary">
-          Configure risk matrices for use in NC and CAPA workflow steps.
+          Configure risk matrices and the hazard categories used when finalising an
+          assessment.
         </div>
       </div>
     </div>
 
-    <div class="tw:flex tw:items-center tw:gap-3">
-      <BaseTextInput
-        v-model="search"
-        placeholder="Search templates..."
-        class="tw:w-72"
-      />
+    <!-- Tabs — Templates (CRUD on risk_assessment_templates) vs Hazard
+         Categories (admin on hazard_categories, the per-tenant lookup
+         used by the RA widget finalize step). -->
+    <div class="tw:flex tw:border-b tw:border-divider">
+      <button
+        v-for="tab in tabs"
+        :key="tab.id"
+        class="tw:px-5 tw:py-2.5 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors tw:bg-transparent tw:cursor-pointer"
+        :class="
+          activeTab === tab.id
+            ? 'tw:border-primary tw:text-primary'
+            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'
+        "
+        @click="setTab(tab.id)"
+      >
+        <component :is="tab.icon" :size="16" /> {{ tab.label }}
+      </button>
     </div>
 
-    <RiskAssessmentTemplatesTable
-      :rows="templates"
-      :canUpdate="canUpdate"
-      :canDelete="canDelete"
-      @edit="onEdit"
-      @delete="onDelete"
+    <!-- Tab: Templates -->
+    <template v-if="activeTab === 'templates'">
+      <div class="tw:flex tw:items-center tw:gap-3">
+        <BaseTextInput
+          v-model="search"
+          placeholder="Search templates..."
+          class="tw:w-72"
+        />
+      </div>
+
+      <RiskAssessmentTemplatesTable
+        :rows="templates"
+        :canUpdate="canUpdate"
+        :canDelete="canDelete"
+        @edit="onEdit"
+        @delete="onDelete"
+      />
+    </template>
+
+    <!-- Tab: Hazard Categories — per-tenant hazard_categories admin. -->
+    <HazardCategoriesCard v-else-if="activeTab === 'hazards'" />
+
+    <RiskAssessmentTemplateDialog
+      v-model="showCreateDialog"
+      :template="editTemplate"
+      @close="onDialogClose"
+    />
+
+    <ConfirmDialog
+      v-model="confirmDelete.open"
+      title="Delete Risk Assessment Template"
+      :message="`Are you sure you want to delete '${confirmDelete.template?.name}'? This cannot be undone.`"
+      okLabel="Delete"
+      @ok="confirmDeleteTemplate"
     />
   </div>
-
-  <RiskAssessmentTemplateDialog
-    v-model="showCreateDialog"
-    :template="editTemplate"
-    @close="onDialogClose"
-  />
-
-  <ConfirmDialog
-    v-model="confirmDelete.open"
-    title="Delete Risk Assessment Template"
-    :message="`Are you sure you want to delete '${confirmDelete.template?.name}'? This cannot be undone.`"
-    okLabel="Delete"
-    @ok="confirmDeleteTemplate"
-  />
 </template>
