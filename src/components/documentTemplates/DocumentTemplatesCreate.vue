@@ -249,13 +249,15 @@ const breadcrumbs = computed(() => [
               <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Basic Information</h2>
             </div>
             <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6">
-              <BaseTextInput
-                v-model="form.name"
-                name="name"
-                label="Name"
-                placeholder="e.g. Standard Operating Procedure"
-                :required="true"
-              />
+              <div data-testid="document-template-name">
+                <BaseTextInput
+                  v-model="form.name"
+                  name="name"
+                  label="Name"
+                  placeholder="e.g. Standard Operating Procedure"
+                  :required="true"
+                />
+              </div>
               <div>
                 <div class="tw:flex tw:items-center tw:gap-2 tw:mb-1">
                   <label class="tw:text-sm tw:font-medium"
@@ -276,12 +278,14 @@ const breadcrumbs = computed(() => [
                     class="tw:text-red-500"
                   />
                 </div>
-                <BaseTextInput
-                  :modelValue="form.prefix"
-                  placeholder="DOC"
-                  :required="true"
-                  @update:modelValue="onPrefixInput"
-                />
+                <div data-testid="document-template-prefix">
+                  <BaseTextInput
+                    :modelValue="form.prefix"
+                    placeholder="DOC"
+                    :required="true"
+                    @update:modelValue="onPrefixInput"
+                  />
+                </div>
                 <p class="tw:text-xs tw:text-secondary tw:mt-1">
                   Prefix for document numbers. Supports placeholders: {SITE_CODE}, {DEPARTMENT_CODE}
                   (e.g. "DOC", "SOP-{SITE_CODE}").
@@ -379,7 +383,11 @@ const breadcrumbs = computed(() => [
         >
           Discard
         </button>
-        <BaseButton :loading="saving" @click="saveTemplate">
+        <BaseButton
+          data-testid="document-template-save"
+          :loading="saving"
+          @click="saveTemplate"
+        >
           {{ isEditMode ? 'Save Changes' : 'Create Template' }}
         </BaseButton>
       </div>

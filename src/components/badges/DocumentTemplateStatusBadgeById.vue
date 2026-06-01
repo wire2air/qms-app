@@ -11,5 +11,11 @@ const status = useLiveQueryWithDeps([() => props.statusId], async (db, [statusId
 </script>
 
 <template>
-  <DocumentTemplateStatusBadge v-if="status" :status="status" :showDot="showDot" v-bind="$attrs" />
+  <DocumentTemplateStatusBadge
+    v-if="status"
+    data-testid="document-template-status-badge"
+    :status="status"
+    :showDot="showDot"
+    v-bind="$attrs"
+  />
 </template>

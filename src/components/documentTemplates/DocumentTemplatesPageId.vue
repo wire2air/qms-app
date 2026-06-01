@@ -123,6 +123,7 @@ function goBack() {
       <div class="tw:flex tw:items-center tw:gap-3">
         <button
           v-if="canUpdate && template?.statusId === 'DRAFT'"
+          data-testid="document-template-publish-button"
           class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:bg-primary tw:text-white tw:text-sm tw:font-medium tw:hover:bg-primary/90 tw:transition-colors"
           @click="showPublishConfirm = true"
         >
@@ -131,6 +132,7 @@ function goBack() {
         </button>
         <button
           v-if="canArchive && template?.statusId !== 'ARCHIVED'"
+          data-testid="document-template-archive-button"
           class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:border tw:border-red-300 tw:text-red-600 tw:text-sm tw:font-medium tw:hover:bg-red-50 tw:transition-colors"
           @click="showArchiveConfirm = true"
         >

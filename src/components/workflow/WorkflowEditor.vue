@@ -445,7 +445,13 @@ watch(steps, () => {
           <div class="tw:h-6 tw:w-px tw:bg-divider"></div>
 
           <template v-if="canUpdate">
-            <BaseButton :isLoading="publishing" @click="handlePublish"> Publish </BaseButton>
+            <BaseButton
+              data-testid="workflow-publish-button"
+              :isLoading="publishing"
+              @click="handlePublish"
+            >
+              Publish
+            </BaseButton>
           </template>
           <BaseButton
             v-if="canCreateDraft"

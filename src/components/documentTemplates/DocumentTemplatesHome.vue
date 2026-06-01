@@ -33,7 +33,13 @@ function navigateToCreate() {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" @click="navigateToCreate">Create Template</BaseButton>
+      <BaseButton
+        v-if="canCreate"
+        data-testid="document-template-create-button"
+        @click="navigateToCreate"
+      >
+        Create Template
+      </BaseButton>
     </SafeTeleport>
 
     <!-- Page Header -->

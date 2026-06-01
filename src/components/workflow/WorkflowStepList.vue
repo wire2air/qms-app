@@ -251,6 +251,7 @@ defineExpose({ addStep })
       <!-- Add Step Button -->
       <button
         v-if="canUpdate"
+        data-testid="workflow-add-step-button"
         class="tw:w-full tw:py-4 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-xl tw:flex tw:items-center tw:justify-center tw:gap-2 tw:text-secondary tw:hover:text-primary tw:hover:border-primary tw:hover:bg-primary/5 tw:transition-all"
         @click="addStep"
       >
