@@ -93,6 +93,10 @@ import { CapaEffectivenessCheck } from './capaEffectivenessCheck'
 import { CapaEffectivenessCheckStatus } from './capaEffectivenessCheckStatus'
 import { RcaTemplate } from './rcaTemplate'
 import { RiskAssessmentTemplate } from './riskAssessmentTemplate'
+import { RootCauseCategory } from './rootCauseCategory'
+import { RootCause } from './rootCause'
+import { HazardCategory } from './hazardCategory'
+import { RiskAssessment } from './riskAssessment'
 import { Training } from './training'
 import { TrainingInstance } from './trainingInstance'
 import { TrainingAssignee } from './trainingAssignee'
@@ -228,6 +232,10 @@ export const db = {
   CapaEffectivenessCheckStatus,
   RcaTemplate,
   RiskAssessmentTemplate,
+  RootCauseCategory,
+  RootCause,
+  HazardCategory,
+  RiskAssessment,
   Training,
   TrainingInstance,
   TrainingAssignee,
