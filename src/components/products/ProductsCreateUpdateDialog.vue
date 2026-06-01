@@ -129,16 +129,18 @@ watch(open, (val) => {
     </template>
 
     <div class="tw:flex tw:flex-col tw:gap-4">
-      <BaseTextInput
-        v-model="form.name"
-        name="name"
-        label="Product Name"
-        placeholder="e.g. Stainless Steel Bolt"
-        :required="true"
-        :errorMsg="validator.$errors?.name?.[0]?.$message"
-      />
+      <div data-testid="product-name">
+        <BaseTextInput
+          v-model="form.name"
+          name="name"
+          label="Product Name"
+          placeholder="e.g. Stainless Steel Bolt"
+          :required="true"
+          :errorMsg="validator.$errors?.name?.[0]?.$message"
+        />
+      </div>
 
-      <div class="tw:relative">
+      <div class="tw:relative" data-testid="product-sku">
         <BaseTextInput
           v-model="form.sku"
           name="sku"
@@ -158,40 +160,44 @@ watch(open, (val) => {
         </template>
       </div>
 
-      <BaseTextInput
-        v-model="form.family"
-        name="family"
-        label="Product Family"
-        placeholder="e.g. Fasteners"
-        :required="true"
-        :errorMsg="validator.$errors?.family?.[0]?.$message"
-      />
+      <div data-testid="product-family">
+        <BaseTextInput
+          v-model="form.family"
+          name="family"
+          label="Product Family"
+          placeholder="e.g. Fasteners"
+          :required="true"
+          :errorMsg="validator.$errors?.family?.[0]?.$message"
+        />
+      </div>
 
       <div class="tw:flex tw:gap-4">
-        <div>
+        <div data-testid="product-type-select">
           <label>Product Type</label>
           <ProductTypeSelectMenu v-model="form.productTypeId" :required="true" />
         </div>
 
-        <div>
+        <div data-testid="product-status-select">
           <label>Status</label>
           <ProductStatusSelectMenu v-model="form.statusId" :required="true" />
         </div>
       </div>
 
-      <BaseTextarea
-        v-model="form.description"
-        name="description"
-        label="Description"
-        placeholder="Short plain-text summary (optional)"
-        :maxlength="1000"
-        :rows="3"
-      />
+      <div data-testid="product-description">
+        <BaseTextarea
+          v-model="form.description"
+          name="description"
+          label="Description"
+          placeholder="Short plain-text summary (optional)"
+          :maxlength="1000"
+          :rows="3"
+        />
+      </div>
     </div>
 
     <template #footer>
       <BaseButton variant="outline" @click="open = false">Cancel</BaseButton>
-      <BaseButton :isLoading="isSubmitting" @click="onSubmit">
+      <BaseButton data-testid="product-save" :isLoading="isSubmitting" @click="onSubmit">
         {{ isEdit ? 'Save Changes' : 'Create Product' }}
       </BaseButton>
     </template>

@@ -60,7 +60,13 @@ async function confirmDeleteProduct() {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateProduct" @click="openDialog()"> Create New Product </BaseButton>
+      <BaseButton
+        v-if="canCreateProduct"
+        data-testid="product-create-button"
+        @click="openDialog()"
+      >
+        Create New Product
+      </BaseButton>
     </SafeTeleport>
 
     <!-- Page Header -->

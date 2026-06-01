@@ -66,6 +66,7 @@ function onRecordCreated() {
       </div>
       <button
         v-if="canCreateRecord"
+        data-testid="record-create-button"
         class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:bg-primary tw:text-white tw:font-bold tw:rounded-lg tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:cursor-pointer"
         @click="showAddDialog = true"
       >

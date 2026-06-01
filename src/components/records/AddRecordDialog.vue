@@ -175,10 +175,11 @@ const templateSchema = computed(() => {
               />
 
               <!-- Template List -->
-              <div v-else class="tw:flex tw:flex-col tw:gap-2">
+              <div v-else class="tw:flex tw:flex-col tw:gap-2" data-testid="record-template-list">
                 <div
                   v-for="template in filteredTemplates"
                   :key="template.id"
+                  :data-testid="`record-template-${template.code}`"
                   class="tw:cursor-pointer tw:bg-sidebar tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:transition-all tw:hover:shadow-md tw:hover:border-primary/30"
                   @click="selectTemplate(template)"
                 >

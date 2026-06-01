@@ -63,7 +63,12 @@ const STATUS_OPTIONS = [
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" variant="primary" @click="router.push(getCompanyPath('/trainings/create'))">
+      <BaseButton
+        v-if="canCreate"
+        data-testid="training-create-button"
+        variant="primary"
+        @click="router.push(getCompanyPath('/trainings/create'))"
+      >
         <IconPlus :size="16" class="tw:mr-1" /> New Training
       </BaseButton>
     </SafeTeleport>

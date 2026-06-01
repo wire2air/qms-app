@@ -49,7 +49,14 @@ async function handleSubmit() {
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton variant="secondary" :disabled="saving" @click="router.push(getCompanyPath('/trainings'))">Cancel</BaseButton>
-      <BaseButton variant="primary" :loading="saving" @click="handleSubmit">Create Training</BaseButton>
+      <BaseButton
+        data-testid="training-create-submit"
+        variant="primary"
+        :loading="saving"
+        @click="handleSubmit"
+      >
+        Create Training
+      </BaseButton>
     </SafeTeleport>
 
     <div class="tw:overflow-y-auto tw:flex-1">
@@ -69,19 +76,23 @@ async function handleSubmit() {
             <label class="tw:text-sm tw:font-medium tw:text-secondary">
               Title <span class="tw:text-red-500">*</span>
             </label>
-            <BaseTextInput
-              v-model="title"
-              placeholder="e.g. Fire Safety Procedures"
-              @keyup.enter="handleSubmit"
-            />
+            <div data-testid="training-title">
+              <BaseTextInput
+                v-model="title"
+                placeholder="e.g. Fire Safety Procedures"
+                @keyup.enter="handleSubmit"
+              />
+            </div>
           </div>
           <div class="tw:flex tw:flex-col tw:gap-1">
             <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
-            <BaseTextarea
-              v-model="description"
-              placeholder="Brief overview of what this training covers…"
-              :rows="3"
-            />
+            <div data-testid="training-description">
+              <BaseTextarea
+                v-model="description"
+                placeholder="Brief overview of what this training covers…"
+                :rows="3"
+              />
+            </div>
           </div>
         </div>
 
