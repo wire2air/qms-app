@@ -116,6 +116,7 @@ function versionBadgeClass(versions) {
             <th class="tw:px-4 tw:py-3">Name</th>
             <th class="tw:px-4 tw:py-3">Code</th>
             <th class="tw:px-4 tw:py-3">Type</th>
+            <th class="tw:px-4 tw:py-3">License</th>
             <th class="tw:px-4 tw:py-3">Version</th>
             <th class="tw:px-4 tw:py-3">Created</th>
           </tr>
@@ -144,6 +145,9 @@ function versionBadgeClass(versions) {
                 :standardTypeId="row.auditStandardTypeId"
               />
               <span v-else class="tw:text-xs tw:text-secondary">—</span>
+            </td>
+            <td class="tw:px-4 tw:py-3">
+              <AuditStandardContentLicenseBadgeById :licenseId="row.contentLicense" />
             </td>
             <td class="tw:px-4 tw:py-3">
               <span

@@ -183,6 +183,47 @@ async function spawnNewDraft() {
   }
 }
 
+// ─── License attestation ─────────────────────────────────────────
+const showAttestDialog = ref(false)
+const attestForm = ref({
+  acknowledged: false,
+  customerLicenseReference: '',
+  customerLicenseExpiresAt: '',
+})
+const attesting = ref(false)
+
+watch(showAttestDialog, (open) => {
+  if (open) {
+    attestForm.value = {
+      acknowledged: false,
+      customerLicenseReference: standard.value?.customerLicenseReference ?? '',
+      customerLicenseExpiresAt: standard.value?.customerLicenseExpiresAt
+        ? typeof standard.value.customerLicenseExpiresAt === 'string'
+          ? standard.value.customerLicenseExpiresAt
+          : standard.value.customerLicenseExpiresAt.toFormat?.('yyyy-LL-dd') ?? ''
+        : '',
+    }
+  }
+})
+
+async function confirmAttest() {
+  if (!standard.value?.id || !attestForm.value.acknowledged || attesting.value) return
+  attesting.value = true
+  try {
+    await post(`/v1/services/auditStandards/${standard.value.id}/attest`, {
+      acknowledged: true,
+      customerLicenseReference: attestForm.value.customerLicenseReference?.trim() || null,
+      customerLicenseExpiresAt: attestForm.value.customerLicenseExpiresAt || null,
+    })
+    toast.success('License attested')
+    showAttestDialog.value = false
+  } catch (e) {
+    toast.error(e.message || 'Failed to record attestation')
+  } finally {
+    attesting.value = false
+  }
+}
+
 async function confirmDiscardVersion() {
   if (!discardTarget.value?.id || discarding.value) return
   discarding.value = true
@@ -402,6 +443,47 @@ async function confirmDiscardVersion() {
                   </BaseBadge>
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Content</span>
+                  <AuditStandardContentLicenseBadgeById :licenseId="standard.contentLicense" />
+                </div>
+                <!-- Attested-by/at line — surfaces who confirmed the
+                     license and when. Shown only when stamped. -->
+                <div
+                  v-if="standard.customerLicenseAttestedAt"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:text-[10px] tw:text-secondary"
+                >
+                  <span>Attested</span>
+                  <span>
+                    {{ standard.customerLicenseAttestedAt.formatDate?.('date') ?? '—' }}
+                    <UserBadgeById
+                      v-if="standard.customerLicenseAttestedBy"
+                      :userId="standard.customerLicenseAttestedBy"
+                      class="tw:ml-1"
+                    />
+                  </span>
+                </div>
+                <!-- Attest CTA — only when the content isn't already
+                     customer-licensed and the user can update. -->
+                <div
+                  v-if="
+                    isEditable &&
+                    standard.contentLicense !== 'CUSTOMER_LICENSED'
+                  "
+                  class="tw:py-2 tw:border-t tw:border-divider tw:mt-1"
+                >
+                  <button
+                    type="button"
+                    class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+                    @click="showAttestDialog = true"
+                  >
+                    {{
+                      standard.contentLicense === 'STRUCTURAL_SHELL'
+                        ? 'I have a license for the normative text →'
+                        : 'Attach a license →'
+                    }}
+                  </button>
+                </div>
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Versions</span>
                   <span class="tw:text-xs tw:font-medium">{{ versions.length }}</span>
                 </div>
@@ -497,6 +579,62 @@ async function confirmDiscardVersion() {
       :workflowVersionId="standard?.workflowVersionId ?? null"
       @submitted="submitTargetVersionId = null"
     />
+
+    <BaseDialog v-model="showAttestDialog" title="Attest License" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <div
+          class="tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200 tw:p-3 tw:text-xs tw:text-amber-800"
+        >
+          By attesting, you confirm that your organization holds a valid license
+          (typically from ANSI, ISO, SAE, or AIAG) to use the normative text of this
+          standard within your QMS. The QMS does not embed the normative text itself;
+          attestation is for your records + audit trail.
+        </div>
+
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+            License Reference (optional)
+          </p>
+          <BaseTextInput
+            v-model="attestForm.customerLicenseReference"
+            placeholder="e.g. ANSI invoice #12345, AIAG site license SL-2026"
+          />
+        </div>
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+            License Expires (optional)
+          </p>
+          <BaseTextInput v-model="attestForm.customerLicenseExpiresAt" type="date" />
+        </div>
+
+        <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer tw:text-xs">
+          <input
+            v-model="attestForm.acknowledged"
+            type="checkbox"
+            class="tw:mt-0.5 tw:cursor-pointer"
+          />
+          <span>
+            I confirm that {{ currentSession?.firstName ?? 'my organization' }} holds a
+            valid license to use this standard's normative text within our QMS, and that
+            this attestation will be recorded with my user account and the current
+            timestamp.
+          </span>
+        </label>
+      </div>
+      <template #footer>
+        <BaseButton variant="outline" :disabled="attesting" @click="showAttestDialog = false">
+          Cancel
+        </BaseButton>
+        <BaseButton
+          variant="primary"
+          :loading="attesting"
+          :disabled="attesting || !attestForm.acknowledged"
+          @click="confirmAttest"
+        >
+          Attest
+        </BaseButton>
+      </template>
+    </BaseDialog>
 
     <BaseDialog
       :modelValue="!!discardTarget"
