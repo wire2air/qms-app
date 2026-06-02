@@ -38,6 +38,13 @@ export class AuditStandard extends BaseModel {
   @Property({ type: String }) latestDraftVersionId = ''
   @Property({ type: String }) workflowVersionId = ''
   @Property({ type: String, required: true }) statusId = 'ACTIVE'
+  // Content-license tracking (Phase J — see qms/database/updates.sql §10).
+  // STRUCTURAL_SHELL / PUBLIC_DOMAIN / OFFICIAL_LICENSED / CUSTOMER_LICENSED / CUSTOMER_AUTHORED.
+  @Property({ type: String, required: true }) contentLicense = 'CUSTOMER_AUTHORED'
+  @Property({ type: String }) customerLicenseReference = ''
+  @Property({ type: DateTime }) customerLicenseExpiresAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) customerLicenseAttestedAt = /** @type {DateTime} */ (null)
+  @Property({ type: String }) customerLicenseAttestedBy = ''
   @Property({ type: String }) createdBy = ''
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })
