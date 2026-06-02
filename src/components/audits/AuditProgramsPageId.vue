@@ -320,7 +320,7 @@ async function handleDelete() {
               <div class="tw:grid tw:grid-cols-2 tw:gap-3">
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Type</div>
-                  <BaseSelectMenu
+                  <BaseInlineSelect
                     v-if="isEditable"
                     v-model="program.programTypeId"
                     :items="PROGRAM_TYPES"
@@ -389,7 +389,7 @@ async function handleDelete() {
               <div class="tw:grid tw:grid-cols-2 tw:gap-3">
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Frequency</div>
-                  <BaseSelectMenu
+                  <BaseInlineSelect
                     v-if="isEditable"
                     v-model="program.frequencyId"
                     :items="FREQUENCIES"
@@ -565,7 +565,7 @@ async function handleDelete() {
         </div>
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Role</p>
-          <BaseSelectMenu
+          <BaseInlineSelect
             v-model="addAuditorForm.roleOnAudit"
             :items="[
               { id: 'TEAM', name: 'Team Member' },

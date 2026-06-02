@@ -83,7 +83,7 @@ const instances = useLiveQueryWithDeps(
     <div class="tw:flex tw:items-center tw:justify-between tw:gap-3">
       <div class="tw:flex tw:items-center tw:gap-3">
         <BaseTextInput v-model="search" placeholder="Search audits…" class="tw:w-72" />
-        <BaseSelectMenu
+        <BaseInlineSelect
           v-model="statusFilter"
           :items="STATUS_FILTER_OPTIONS"
           nullLabel="All statuses"

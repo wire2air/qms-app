@@ -671,7 +671,7 @@ const findingsByStatus = useLiveQueryWithDeps(
         </div>
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Role</p>
-          <BaseSelectMenu
+          <BaseInlineSelect
             v-model="addMemberForm.roleOnAudit"
             :items="[
               { id: 'TEAM', name: 'Team Member' },
