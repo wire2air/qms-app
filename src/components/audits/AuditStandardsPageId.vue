@@ -60,6 +60,12 @@ const versions = useLiveQueryWithDeps(
 const effectiveVersion = computed(() => versions.value.find((v) => v.statusId === 'EFFECTIVE'))
 const draftVersion = computed(() => versions.value.find((v) => v.statusId === 'DRAFT'))
 const editableVersion = computed(() => draftVersion.value ?? versions.value.find((v) => v.statusId === 'REJECTED'))
+// Currently under review — when set, surfaces the approval workflow
+// card with Approve / Reject buttons. Exactly one row at a time
+// (BE submit endpoint refuses concurrent submits).
+const underReviewVersion = computed(() =>
+  versions.value.find((v) => v.statusId === 'UNDER_REVIEW' && v.workflowInstanceId),
+)
 
 const activeVersion = computed(() => editableVersion.value ?? effectiveVersion.value ?? versions.value[0] ?? null)
 
@@ -372,6 +378,33 @@ async function confirmDiscardVersion() {
                   </span>
                 </div>
               </div>
+            </div>
+
+            <!-- Approval Workflow — appears when a version is
+                 UNDER_REVIEW (i.e. has been submitted via
+                 AuditStandardVersionSubmitDialog). Reviewers see
+                 Approve / Reject buttons inside each step card via
+                 the unified WorkflowStep component. On approval the
+                 auditStandardVersionHandler flips the version to
+                 EFFECTIVE; on rejection it goes back to REJECTED so
+                 the author can amend + resubmit. -->
+            <div
+              v-if="underReviewVersion"
+              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
+            >
+              <div
+                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              >
+                Approval Workflow
+                <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
+                  v{{ underReviewVersion.versionMajor }}.{{ underReviewVersion.versionMinor }}
+                </span>
+              </div>
+              <AuditStandardVersionWorkflowDetail
+                :versionId="underReviewVersion.id"
+                :workflowInstanceId="underReviewVersion.workflowInstanceId"
+                :isOwner="underReviewVersion.createdBy === currentSession?.userId"
+              />
             </div>
 
             <!-- Requirements editor (or read-only view) -->

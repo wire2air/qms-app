@@ -126,6 +126,36 @@ const changeRequestMap = useLiveQueryWithDeps(
   { initial: {} },
 )
 
+// Approval tasks for a versioned AuditStandard — entityType
+// 'AuditStandardVersion', entityId is the version row. Title is
+// the parent standard's name; subtitle is the version label
+// (v1.0, v2.0, etc.). Same resolve-via-parent pattern the
+// AuditInstance map below uses.
+const auditStandardVersionMap = useLiveQueryWithDeps(
+  [
+    () =>
+      taskInstances.value
+        .filter((i) => i.entityType === 'AuditStandardVersion')
+        .map((i) => i.entityId),
+  ],
+  async (db, [versionIds]) => {
+    const ids = [...new Set(versionIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const versions = await Promise.all(ids.map((id) => db.AuditStandardVersion.findByPk(id)))
+    const standardIds = [
+      ...new Set(versions.filter(Boolean).map((v) => v.auditStandardId).filter(Boolean)),
+    ]
+    const standards = await Promise.all(standardIds.map((id) => db.AuditStandard.findByPk(id)))
+    const standardById = Object.fromEntries(standards.filter(Boolean).map((s) => [s.id, s]))
+    const map = {}
+    for (const v of versions.filter(Boolean)) {
+      map[v.id] = { version: v, standard: standardById[v.auditStandardId] ?? null }
+    }
+    return map
+  },
+  { initial: {} },
+)
+
 // Close-out review tasks for an AuditInstance — entityType
 // 'AuditInstance', entityId is the instance row. Title comes from
 // audit_number, subtitle is auditStandard's name when we can resolve it.
@@ -297,6 +327,13 @@ const filteredInstances = computed(() => {
         ai?.standard?.code?.toLowerCase().includes(q)
       )
     }
+    if (instance.entityType === 'AuditStandardVersion') {
+      const sv = auditStandardVersionMap.value[instance.entityId]
+      return (
+        sv?.standard?.name?.toLowerCase().includes(q) ||
+        sv?.standard?.code?.toLowerCase().includes(q)
+      )
+    }
     const doc = documentMap.value[instance.entityId]?.doc
     if (!doc) return false
     return doc.title?.toLowerCase().includes(q) || doc.docNumber?.toLowerCase().includes(q)
@@ -323,6 +360,7 @@ const EntityType = {
   AssignmentInstance: 'Inspection / Log',
   FieldRecord: 'Flagged Log',
   AuditInstance: 'Audit',
+  AuditStandardVersion: 'Audit Standard',
 }
 
 const columns = [
@@ -463,6 +501,14 @@ function entityRoute(row) {
   if (row.entityType === 'AuditInstance') {
     return getCompanyPath(`audits/instances/${row.entityId}`)
   }
+  if (row.entityType === 'AuditStandardVersion') {
+    // Deep-link to the parent standard's detail page (where reviewers
+    // see the version timeline + clause list). Falls back to nothing
+    // if the parent hasn't synced yet — the next bootstrap tick fixes
+    // it.
+    const standardId = auditStandardVersionMap.value[row.entityId]?.standard?.id
+    return standardId ? getCompanyPath(`audits/standards/${standardId}`) : null
+  }
   return null
 }
 
@@ -490,6 +536,8 @@ function rowTitle(row) {
       // Standard name is the most useful at-a-glance label; audit_number
       // is the formal identifier and lives in the subtitle below.
       return auditInstanceMap.value[row.entityId]?.standard?.name || 'Audit'
+    case 'AuditStandardVersion':
+      return auditStandardVersionMap.value[row.entityId]?.standard?.name || 'Audit Standard'
     default:
       return getDocument(row)?.title || '—'
   }
@@ -512,6 +560,10 @@ function rowSubtitle(row) {
       return getDocument(row)?.docNumber || ''
     case 'AuditInstance':
       return auditInstanceMap.value[row.entityId]?.audit?.auditNumber || ''
+    case 'AuditStandardVersion': {
+      const v = auditStandardVersionMap.value[row.entityId]?.version
+      return v ? `v${v.versionMajor}.${v.versionMinor}` : ''
+    }
     default:
       return ''
   }
@@ -668,6 +720,18 @@ function rowSubtitle(row) {
           </span>
           <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
             {{ auditInstanceMap[row.entityId]?.audit?.auditNumber || '—' }}
+          </span>
+        </template>
+        <template v-else-if="row.entityType === 'AuditStandardVersion'">
+          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+            {{ auditStandardVersionMap[row.entityId]?.standard?.name || 'Audit Standard' }}
+          </span>
+          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+            {{
+              auditStandardVersionMap[row.entityId]?.version
+                ? `v${auditStandardVersionMap[row.entityId].version.versionMajor}.${auditStandardVersionMap[row.entityId].version.versionMinor}`
+                : '—'
+            }}
           </span>
         </template>
         <template v-else>
