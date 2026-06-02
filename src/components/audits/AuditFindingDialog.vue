@@ -162,7 +162,7 @@ async function handleSave() {
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
             Type <span class="tw:text-red-500">*</span>
           </p>
-          <BaseSelectMenu v-model="form.findingTypeId" :items="FINDING_TYPES" :required="true" />
+          <BaseInlineSelect v-model="form.findingTypeId" :items="FINDING_TYPES" :required="true" />
         </div>
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Category</p>

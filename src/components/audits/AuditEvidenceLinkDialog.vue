@@ -158,7 +158,7 @@ async function handleLink() {
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
       <div>
         <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Record Type</p>
-        <BaseSelectMenu v-model="kindId" :items="KIND_CATALOG" :required="true" />
+        <BaseInlineSelect v-model="kindId" :items="KIND_CATALOG" :required="true" />
       </div>
 
       <div>
