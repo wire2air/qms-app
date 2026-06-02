@@ -12,7 +12,11 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const router = useRouter()
 
-const canRead = computed(() => isAllowed(['audits:read']))
+// No FE canRead gate — RLS is the single source of truth for row
+// visibility (supplier users without audits:read can still see audits
+// they're on the team for via the audit_team_members membership
+// branch). 'New Audit' stays gated on audits:create so users without
+// it don't see a button they can't use.
 const canCreate = computed(() => isAllowed(['audits:create']))
 
 const showCreateDialog = ref(false)
@@ -75,10 +79,7 @@ const instances = useLiveQueryWithDeps(
 </script>
 
 <template>
-  <div v-if="!canRead" class="tw:py-12 tw:text-center tw:text-secondary">
-    You don't have permission to view audit instances.
-  </div>
-  <div v-else class="tw:flex tw:flex-col tw:gap-3">
+  <div class="tw:flex tw:flex-col tw:gap-3">
     <div class="tw:flex tw:items-center tw:justify-between tw:gap-3">
       <div class="tw:flex tw:items-center tw:gap-3">
         <BaseTextInput v-model="search" placeholder="Search audits…" class="tw:w-72" />

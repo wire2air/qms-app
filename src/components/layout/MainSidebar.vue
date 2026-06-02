@@ -127,6 +127,17 @@ const navItems = computed(() => {
         icon: IconShield,
         to: getCompanyPath('/capas'),
       },
+      // Audits surface visible when an internal team adds the
+      // supplier user to an audit's team (audit_team_members) — RLS
+      // lets the supplier through the membership branch even without
+      // audits:read. The /audits route lands on the same module
+      // landing as internal users; the Instances tab is the one with
+      // useful content (Insights / Programs are gated by perms).
+      {
+        label: 'Audits',
+        icon: IconClipboardCheck,
+        to: getCompanyPath('/audits?tab=instances'),
+      },
     ]
   }
 

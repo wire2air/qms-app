@@ -2,16 +2,18 @@
 /**
  * /<companyCode>/supplier — landing page for EXTERNAL_SUPPLIER users.
  *
- * Phase B.6: three live lists driven by SharedWithUser (live query
- * filtered to the current user's userId), plus the Asset Requests
- * placeholder (Phase C wires that one).
+ * Four live lists, two visibility paths:
+ *   - SharedWithUser-driven (Documents / CAPAs / NCs) — the per-entity
+ *     SELECT RLS extension (B.2) makes the entity itself visible only
+ *     when the shared row exists.
+ *   - Asset Requests — RLS-filtered by the C.5 extension.
+ *   - Audits — RLS-via-membership: audit_instances are visible when
+ *     audit_team_members has a row for the current user (no permission
+ *     required). Same path findings + responses ride on.
  *
- * Visibility is doubly enforced: the SharedWithUser query scopes "what's
- * shared with me", and the per-entity SELECT RLS extension (B.2) makes
- * the entity itself visible only when the shared row exists. An internal
- * user landing here (e.g. impersonating) would see only what's explicitly
- * shared with them too — the page is supplier-shaped but not
- * supplier-only.
+ * An internal user landing here (e.g. impersonating) would see only
+ * what's explicitly shared with them too — the page is supplier-shaped
+ * but not supplier-only.
  */
 import {
   IconFileText,
@@ -19,6 +21,7 @@ import {
   IconClipboardList,
   IconShieldCheck,
   IconExternalLink,
+  IconChecklist,
 } from '@tabler/icons-vue'
 import { currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -75,6 +78,34 @@ const sharedCapas = useLiveQueryWithDeps(
   { initial: [] },
 )
 
+// Audits the supplier user can see. Two paths produce the same row
+// list and we union them: (a) team membership via audit_team_members
+// (the RLS-via-membership branch on audit_instances), (b) any audit
+// whose supplier_id matches the supplier this user belongs to (kept
+// as a defence-in-depth filter in case team-seeding hasn't happened
+// yet at audit-create time). The SyncEngine only delivers rows RLS
+// allows the user to see — so this query is by construction safe even
+// if both branches over-match.
+const mySupplierId = computed(() => currentSession.value?.supplierId ?? null)
+const myAudits = useLiveQueryWithDeps(
+  [() => myUserId.value, () => mySupplierId.value],
+  async (db, [userId, supplierId]) => {
+    if (!userId) return []
+    const all = await db.AuditInstance.where().exec()
+    if (!all.length) return []
+    const memberships = await db.AuditTeamMember.where('userId', userId).exec()
+    const myAuditIds = new Set(memberships.map((m) => m.auditInstanceId))
+    return all
+      .filter((a) => myAuditIds.has(a.id) || (supplierId && a.supplierId === supplierId))
+      .sort(
+        (a, b) =>
+          (b.scheduledDate?.toMillis?.() ?? b.createdAt?.toMillis?.() ?? 0) -
+          (a.scheduledDate?.toMillis?.() ?? a.createdAt?.toMillis?.() ?? 0),
+      )
+  },
+  { initial: [] },
+)
+
 const sharedNcIds = computed(() => bucketForType(myShares.value, 'Nonconformance'))
 const sharedNcs = useLiveQueryWithDeps(
   [() => sharedNcIds.value],
@@ -95,6 +126,9 @@ function capaHref(c) {
 }
 function ncHref(n) {
   return getCompanyPath(`nonconformances/${n.id}`)
+}
+function auditHref(a) {
+  return getCompanyPath(`audits/instances/${a.id}`)
 }
 </script>
 
@@ -219,6 +253,46 @@ function ncHref(n) {
           >
             {{ n.statusId }}
           </span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Audits you're on — RLS-via-team-membership branch; the
+         instance landing page handles read-only / editable gating
+         based on the supplier user's permissions. -->
+    <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-2">
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <IconChecklist :size="18" class="tw:text-primary" />
+        <h2 class="tw:text-base tw:font-semibold tw:text-on-main">
+          Your Audits
+          <span v-if="myAudits.length" class="tw:text-secondary tw:font-normal tw:text-sm">
+            ({{ myAudits.length }})
+          </span>
+        </h2>
+      </div>
+      <p v-if="myAudits.length === 0" class="tw:text-xs tw:text-secondary tw:italic tw:py-2">
+        No audits assigned to you yet.
+      </p>
+      <ul v-else class="tw:flex tw:flex-col tw:divide-y tw:divide-divider">
+        <li
+          v-for="a in myAudits"
+          :key="a.id"
+          class="tw:flex tw:items-center tw:gap-3 tw:py-2 tw:text-sm"
+        >
+          <a
+            :href="auditHref(a)"
+            class="tw:flex tw:items-center tw:gap-1.5 tw:text-on-main tw:hover:text-primary tw:flex-1"
+          >
+            <span class="tw:font-mono tw:text-xs tw:text-secondary">{{ a.auditNumber }}</span>
+            <span
+              v-if="a.scheduledDate"
+              class="tw:text-xs tw:text-secondary"
+            >
+              {{ a.scheduledDate.formatDate?.('date') ?? a.scheduledDate }}
+            </span>
+            <IconExternalLink :size="12" class="tw:text-secondary" />
+          </a>
+          <AuditInstanceStatusBadgeById :statusId="a.statusId" />
         </li>
       </ul>
     </section>
