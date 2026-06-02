@@ -480,6 +480,27 @@ const findingsByStatus = useLiveQueryWithDeps(
               />
             </div>
 
+            <!-- Close-Out Workflow — appears once the audit has been
+                 Submitted-for-Close-Out (workflowInstanceId is set).
+                 Reviewers see Approve / Reject buttons inside each
+                 step card via the unified WorkflowStep component. -->
+            <div
+              v-if="auditInstance.workflowInstanceId"
+              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
+            >
+              <div
+                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              >
+                <IconSend :size="14" />
+                Close-Out Workflow
+              </div>
+              <AuditInstanceWorkflowDetail
+                :auditInstanceId="auditInstance.id"
+                :workflowInstanceId="auditInstance.workflowInstanceId"
+                :isOwner="auditInstance.createdBy === currentSession?.userId"
+              />
+            </div>
+
             <!-- Findings -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
               <div
