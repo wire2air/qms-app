@@ -8,6 +8,8 @@
  */
 import { IconClipboardCheck, IconBook, IconCalendarTime, IconChecklist } from '@tabler/icons-vue'
 
+// Standards + Programs tabs are live; Audits/Instances ships in Phase C.
+
 const tabs = [
   { id: 'standards', label: 'Standards', icon: IconBook },
   { id: 'programs', label: 'Programs', icon: IconCalendarTime },
@@ -70,17 +72,7 @@ function setTab(id) {
     </div>
 
     <AuditStandardsHome v-if="activeTab === 'standards'" />
-    <div
-      v-else-if="activeTab === 'programs'"
-      class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:gap-2 tw:py-16 tw:text-secondary"
-    >
-      <IconCalendarTime :size="40" class="tw:opacity-50" />
-      <div class="tw:text-base tw:font-semibold">Programs — next phase</div>
-      <div class="tw:text-sm tw:text-center tw:max-w-md">
-        Recurring audit schedules. Daily worker auto-materialises instances when a
-        program hits its frequency window. Ships in Phase B-3.
-      </div>
-    </div>
+    <AuditProgramsHome v-else-if="activeTab === 'programs'" />
     <div
       v-else-if="activeTab === 'instances'"
       class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:gap-2 tw:py-16 tw:text-secondary"
