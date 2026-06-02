@@ -19,6 +19,7 @@ import {
   IconChecklist,
   IconUsers,
   IconClipboardList,
+  IconBolt,
   IconSend,
   IconPlayerPlay,
   IconBan,
@@ -249,6 +250,19 @@ const responseCount = useLiveQueryWithDeps(
   { initial: 0 },
 )
 const clauseCount = computed(() => auditInstance.value?.requirementSchema?.length ?? 0)
+
+// Findings progress counts — surfaces an at-a-glance "how many
+// findings still need work" badge in the overview rail.
+const findingsByStatus = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [instanceId]) => {
+    if (!instanceId) return { open: 0, total: 0 }
+    const rows = await db.AuditFinding.where('auditInstanceId', instanceId).exec()
+    const open = rows.filter((f) => !['CLOSED', 'CANCELLED'].includes(f.statusId)).length
+    return { open, total: rows.length }
+  },
+  { initial: { open: 0, total: 0 } },
+)
 </script>
 
 <template>
@@ -465,6 +479,17 @@ const clauseCount = computed(() => auditInstance.value?.requirementSchema?.lengt
               />
             </div>
 
+            <!-- Findings -->
+            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+              <div
+                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              >
+                <IconBolt :size="14" />
+                Findings
+              </div>
+              <AuditFindingsPanel :auditInstance="auditInstance" :readonly="!isEditable" />
+            </div>
+
             <!-- Team -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
               <div
@@ -556,6 +581,12 @@ const clauseCount = computed(() => auditInstance.value?.requirementSchema?.lengt
                   <span class="tw:text-xs tw:text-secondary">Progress</span>
                   <span class="tw:text-xs tw:font-medium">
                     {{ responseCount }} / {{ clauseCount }} clauses
+                  </span>
+                </div>
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Findings</span>
+                  <span class="tw:text-xs tw:font-medium">
+                    {{ findingsByStatus.open }} open / {{ findingsByStatus.total }} total
                   </span>
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
