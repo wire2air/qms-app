@@ -5,6 +5,7 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
 import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
 import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
+import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -21,6 +22,22 @@ const sourceNc = useLiveQueryWithDeps([() => presetNcId.value], async (db, [id])
   if (!id) return null
   return db.Nonconformance.findByPk(id)
 })
+
+// Audit-finding spawn deep link. When the user clicks 'Spawn → New
+// CAPA' on an audit finding, this page opens with ?findingId=<id>.
+// We seed common fields from the finding and link the resulting
+// CAPA back via /v1/services/auditFindings/<id>/link on save.
+const presetFindingId = computed(() => {
+  const q = route.query?.findingId
+  return typeof q === 'string' ? q : null
+})
+const sourceFinding = useLiveQueryWithDeps(
+  [() => presetFindingId.value],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.AuditFinding.findByPk(id)
+  },
+)
 
 const form = ref({
   title: '',
@@ -45,6 +62,28 @@ const form = ref({
   // assignee from supplier users (entity.supplierId) instead of the
   // internal role pool. Requires supplierId. Immutable post-DRAFT.
   isSupplierFacing: false,
+})
+
+// When the source finding loads, seed source = INTERNAL_AUDIT,
+// sourceId = finding.id (audit findings live in audit_findings, so
+// the source_id FK points at the finding row), title + description
+// from the finding, department + supplier inherited so the CAPA
+// owner doesn't retype context. capa_sources 'INTERNAL_AUDIT' /
+// 'EXTERNAL_AUDIT' are global seeds (see database.sql).
+watch(sourceFinding, (f) => {
+  if (!f) return
+  if (!form.value.title) {
+    form.value.title = `CAPA for Finding ${f.findingNumber || ''}`.trim()
+  }
+  if (!form.value.description) form.value.description = f.description ?? ''
+  if (!form.value.sourceType) form.value.sourceType = 'INTERNAL_AUDIT'
+  if (!form.value.sourceId) form.value.sourceId = f.id
+  if (!form.value.departmentId && f.departmentId) {
+    form.value.departmentId = f.departmentId
+  }
+  if (!form.value.supplierId && f.supplierId) {
+    form.value.supplierId = f.supplierId
+  }
 })
 
 // When the source NC loads, seed the title / site / department / department so
@@ -126,6 +165,22 @@ async function handleReviewersConfirmed(reviewers) {
   saving.value = true
   try {
     const response = await post('/v1/services/capas', { ...form.value, reviewers })
+    if (presetFindingId.value && response.capa?.id) {
+      try {
+        await linkSpawnedToFinding({
+          findingId: presetFindingId.value,
+          kind: 'CAPA',
+          targetId: response.capa.id,
+        })
+      } catch (linkErr) {
+        toast.notify({
+          type: 'warning',
+          message:
+            linkErr?.message ||
+            "CAPA created, but couldn't link it to the finding — attach manually from the audit page",
+        })
+      }
+    }
     router.push(getCompanyPath(`/capas/${response.capa.id}`))
   } catch (e) {
     toast.notify({ type: 'negative', message: e.message || 'Failed to create CAPA' })

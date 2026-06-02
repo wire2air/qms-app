@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
+import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -34,6 +35,21 @@ const sourceCapa = useLiveQueryWithDeps(
   async (db, [type, id]) => {
     if (type !== 'CAPA' || !id) return null
     return db.Capa.findByPk(id)
+  },
+)
+
+// Audit-finding spawn deep link. When 'Spawn → New CR' on a finding,
+// this page opens with ?findingId=<id>. Pre-fill from the finding +
+// link back via /v1/services/auditFindings/<id>/link on save.
+const presetFindingId = computed(() => {
+  const q = route.query?.findingId
+  return typeof q === 'string' ? q : null
+})
+const sourceFinding = useLiveQueryWithDeps(
+  [() => presetFindingId.value],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.AuditFinding.findByPk(id)
   },
 )
 
@@ -74,6 +90,16 @@ watch(sourceCapa, (capa) => {
   }
   if (!form.value.siteId) form.value.siteId = capa.siteId
   if (!form.value.departmentId) form.value.departmentId = capa.departmentId
+})
+watch(sourceFinding, (f) => {
+  if (!f) return
+  if (!form.value.title) {
+    form.value.title = `Change from Audit Finding ${f.findingNumber || ''}`.trim()
+  }
+  if (!form.value.reasonForChange) form.value.reasonForChange = f.description ?? ''
+  if (!form.value.departmentId && f.departmentId) {
+    form.value.departmentId = f.departmentId
+  }
 })
 
 watch(
@@ -151,6 +177,22 @@ async function handleSubmit() {
       dueDate: form.value.dueDate?.toISODate?.() ?? form.value.dueDate,
     }
     const response = await post('/v1/services/changeRequests', payload)
+    if (presetFindingId.value && response.changeRequest?.id) {
+      try {
+        await linkSpawnedToFinding({
+          findingId: presetFindingId.value,
+          kind: 'CR',
+          targetId: response.changeRequest.id,
+        })
+      } catch (linkErr) {
+        toast.notify({
+          type: 'warning',
+          message:
+            linkErr?.message ||
+            "CR created, but couldn't link it to the finding — attach manually from the audit page",
+        })
+      }
+    }
     router.push(getCompanyPath(`/change-requests/${response.changeRequest.id}`))
   } catch (e) {
     toast.notify({ type: 'negative', message: e.message || 'Failed to create Change Request' })

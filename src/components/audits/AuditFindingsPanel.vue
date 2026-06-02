@@ -126,10 +126,27 @@ async function removeFinding(finding) {
 const router = useRouter()
 
 // kind → spawned_*_id column + the FE route stem so chips can deep-
-// link into the spawned record's detail page.
+// link into the spawned record's detail page. `createPath` optional —
+// when set, surfaces a "+ New" option that deep-links to that
+// module's create page with `?findingId=<id>` so the create page
+// pre-fills + links back on save. Training omitted because the
+// launch flow needs a template+assignees pick (not a deep-link
+// prefill); the user attaches an existing TrainingInstance instead.
 const SPAWN_KINDS = [
-  { id: 'NC', label: 'NC', column: 'spawnedNcId', routeStem: 'nonconformances' },
-  { id: 'CAPA', label: 'CAPA', column: 'spawnedCapaId', routeStem: 'capas' },
+  {
+    id: 'NC',
+    label: 'NC',
+    column: 'spawnedNcId',
+    routeStem: 'nonconformances',
+    createPath: '/nonconformances/create',
+  },
+  {
+    id: 'CAPA',
+    label: 'CAPA',
+    column: 'spawnedCapaId',
+    routeStem: 'capas',
+    createPath: '/capas/create',
+  },
   {
     id: 'TRAINING',
     label: 'Training',
@@ -141,6 +158,7 @@ const SPAWN_KINDS = [
     label: 'CR',
     column: 'spawnedChangeRequestId',
     routeStem: 'change-requests',
+    createPath: '/change-requests/create',
   },
 ]
 const KIND_BY_ID = Object.fromEntries(SPAWN_KINDS.map((k) => [k.id, k]))
@@ -158,6 +176,16 @@ function openSpawned(finding, kind) {
   const targetId = finding[cfg.column]
   if (!targetId) return
   router.push(getCompanyPath(`/${cfg.routeStem}/${targetId}`))
+}
+
+// Deep-link to the target module's create page with ?findingId so
+// the create page can pre-fill from the finding + link back on save.
+// See utils/auditFindingLink.js + the watcher in each create page.
+function newSpawned(finding, kind) {
+  if (props.readonly) return
+  const cfg = KIND_BY_ID[kind]
+  if (!cfg?.createPath) return
+  router.push(getCompanyPath(`${cfg.createPath}?findingId=${finding.id}`))
 }
 
 async function unlinkSpawn(finding, kind) {
@@ -334,9 +362,24 @@ function unlinkedKinds(finding) {
                 </button>
               </span>
             </template>
+            <!-- '+ New' rendered only for kinds whose create page
+                 supports the ?findingId pre-fill (NC / CAPA / CR).
+                 Training is omitted — its launch flow needs a
+                 template + assignees pick that doesn't map to a
+                 deep-link prefill. -->
+            <button
+              v-for="cfg in unlinkedKinds(finding).filter((c) => c.createPath)"
+              :key="`new-${cfg.id}`"
+              type="button"
+              :disabled="readonly"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-medium tw:bg-white tw:text-secondary tw:border tw:border-divider tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:hover:border-primary tw:hover:text-primary"
+              @click="newSpawned(finding, cfg.id)"
+            >
+              <IconPlus :size="10" /> New {{ cfg.label }}
+            </button>
             <button
               v-for="cfg in unlinkedKinds(finding)"
-              :key="cfg.id"
+              :key="`link-${cfg.id}`"
               type="button"
               :disabled="readonly"
               class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-medium tw:bg-white tw:text-secondary tw:border tw:border-divider tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:hover:border-primary tw:hover:text-primary"
