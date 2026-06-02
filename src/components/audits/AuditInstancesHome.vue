@@ -6,13 +6,16 @@
  * daily generator (Phase B-5) off a program; the row reflects who's
  * leading, what state it's in, and when it was scheduled.
  */
-import { IconChecklist } from '@tabler/icons-vue'
+import { IconChecklist, IconPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const router = useRouter()
 
 const canRead = computed(() => isAllowed(['audits:read']))
+const canCreate = computed(() => isAllowed(['audits:create']))
+
+const showCreateDialog = ref(false)
 
 function openDetail(row) {
   router.push(getCompanyPath(`/audits/instances/${row.id}`))
@@ -89,9 +92,12 @@ const instances = useLiveQueryWithDeps(
           {{ instances.length }} audit{{ instances.length === 1 ? '' : 's' }}
         </div>
       </div>
-      <!-- No "New Audit" CTA here: instances are normally minted by the
-           daily generator off a program. Ad-hoc creates ship in a
-           later phase via the program detail page's "Run Now" button. -->
+      <!-- New Audit = ad-hoc create (one-off, no program). The daily
+           generator handles program-driven audits automatically. -->
+      <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreateDialog = true">
+        <template #icon><IconPlus :size="16" /></template>
+        New Audit
+      </BaseButton>
     </div>
 
     <div
@@ -159,5 +165,7 @@ const instances = useLiveQueryWithDeps(
         </tbody>
       </table>
     </div>
+
+    <AuditInstanceCreateDialog v-model="showCreateDialog" />
   </div>
 </template>
