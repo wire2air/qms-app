@@ -1,17 +1,23 @@
 <script setup>
 /**
- * Audit Standards list. Phase B-1: read-only list of seeded standards
- * with a row click that goes nowhere yet (detail page + version
- * authoring UI ship in Phase B-2). The bootstrap-seeded "Internal
- * Quality Audit" shell shows up here with its v1.0 DRAFT badge.
- *
- * "New Standard" button + clause editor + version submission flow all
- * come next phase along with the audit standard version REST service.
+ * Audit Standards list. Phase B-2: list + Create dialog + click-through
+ * to AuditStandardsPageId (detail + requirements editor). Version
+ * submit-for-approval lands in Phase B-3.
  */
-import { IconBook } from '@tabler/icons-vue'
+import { IconBook, IconPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { getCompanyPath } from '@/utils/routeHelpers.js'
+
+const router = useRouter()
 
 const canRead = computed(() => isAllowed(['auditStandards:read']))
+const canCreate = computed(() => isAllowed(['auditStandards:create']))
+
+const showCreateDialog = ref(false)
+
+function openDetail(row) {
+  router.push(getCompanyPath(`/audits/standards/${row.id}`))
+}
 
 const search = ref('')
 
@@ -76,11 +82,17 @@ function versionBadgeClass(versions) {
     You don't have permission to view the audit standards library.
   </div>
   <div v-else class="tw:flex tw:flex-col tw:gap-3">
-    <div class="tw:flex tw:items-center tw:gap-3">
-      <BaseTextInput v-model="search" placeholder="Search standards..." class="tw:w-72" />
-      <div class="tw:text-xs tw:text-secondary">
-        {{ standards.length }} standard{{ standards.length === 1 ? '' : 's' }}
+    <div class="tw:flex tw:items-center tw:justify-between tw:gap-3">
+      <div class="tw:flex tw:items-center tw:gap-3">
+        <BaseTextInput v-model="search" placeholder="Search standards..." class="tw:w-72" />
+        <div class="tw:text-xs tw:text-secondary">
+          {{ standards.length }} standard{{ standards.length === 1 ? '' : 's' }}
+        </div>
       </div>
+      <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreateDialog = true">
+        <template #icon><IconPlus :size="16" /></template>
+        New Standard
+      </BaseButton>
     </div>
 
     <div
@@ -112,7 +124,8 @@ function versionBadgeClass(versions) {
           <tr
             v-for="row in standards"
             :key="row.id"
-            class="tw:border-b tw:border-divider tw:hover:bg-main-hover/40"
+            class="tw:border-b tw:border-divider tw:hover:bg-main-hover/40 tw:cursor-pointer"
+            @click="openDetail(row)"
           >
             <td class="tw:px-4 tw:py-3 tw:font-medium tw:text-on-sidebar">
               {{ row.name }}
@@ -147,5 +160,7 @@ function versionBadgeClass(versions) {
         </tbody>
       </table>
     </div>
+
+    <AuditStandardCreateDialog v-model="showCreateDialog" />
   </div>
 </template>
