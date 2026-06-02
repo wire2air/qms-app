@@ -141,6 +141,8 @@ watch(
         <NcDispositionTypesCard />
         <NcIssueTypesCard />
         <SupplierCertificateTypesCard />
+        <AuditStandardTypesCard />
+        <AuditFindingCategoriesCard />
       </div>
     </div>
   </div>

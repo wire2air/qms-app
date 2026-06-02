@@ -30,6 +30,7 @@ import {
   IconLayoutGrid,
   IconSchool,
   IconReplace,
+  IconChecklist,
   IconClipboardList,
   IconClipboardCheck,
   IconTool,
@@ -164,6 +165,16 @@ const navItems = computed(() => {
       permissions: ['changeRequests:read'],
       icon: IconReplace,
       to: getCompanyPath('/change-requests'),
+    },
+    {
+      label: 'Audits',
+      icon: IconChecklist,
+      // audits:read gates the list itself; auditors assigned to an
+      // audit can still see it via the row-level RLS even without
+      // this permission (handled at the RLS layer, see
+      // audit_instances_select_rls).
+      permissions: ['audits:read'],
+      to: getCompanyPath('/audits'),
     },
     {
       label: 'Inspections & Logs',
