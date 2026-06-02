@@ -109,29 +109,32 @@ async function handleSave({ navigate }) {
         this for one-off or unscheduled audits.
       </div>
 
+      <!-- Standard on its own row — names like '21 CFR Part 820 (US FDA QSR)'
+           don't truncate or shove the Type chip when given full width. -->
+      <div>
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+          Standard <span class="tw:text-red-500">*</span>
+        </p>
+        <AuditStandardSelectMenu v-model="form.auditStandardId" :required="true" />
+        <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
+          Must have an EFFECTIVE version with at least one clause.
+        </p>
+      </div>
+
+      <!-- Two short fields pair on one row. -->
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Standard <span class="tw:text-red-500">*</span>
-          </p>
-          <AuditStandardSelectMenu v-model="form.auditStandardId" :required="true" />
-          <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            Must have an EFFECTIVE version with at least one clause.
-          </p>
-        </div>
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
             Type <span class="tw:text-red-500">*</span>
           </p>
           <BaseInlineSelect v-model="form.programTypeId" :items="PROGRAM_TYPES" :required="true" />
         </div>
-      </div>
-
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Scheduled Date <span class="tw:text-red-500">*</span>
-        </p>
-        <BaseTextInput v-model="form.scheduledDate" type="date" />
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+            Scheduled Date <span class="tw:text-red-500">*</span>
+          </p>
+          <BaseTextInput v-model="form.scheduledDate" type="date" />
+        </div>
       </div>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">

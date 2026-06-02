@@ -168,25 +168,32 @@ async function handleSave({ navigate }) {
         </p>
       </div>
 
+      <!-- Standard on its own row — names like '21 CFR Part 820 (US FDA QSR)'
+           don't truncate or shove the Manager chip when given full width. -->
+      <div>
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Standard</p>
+        <AuditStandardSelectMenu v-model="form.auditStandardId" />
+      </div>
+
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Standard</p>
-          <AuditStandardSelectMenu v-model="form.auditStandardId" />
-        </div>
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Manager</p>
           <UserSelectMenu v-model="form.managerUserId" />
+        </div>
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Department</p>
+          <DepartmentSelectMenu v-model="form.departmentId" />
         </div>
       </div>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Department</p>
-          <DepartmentSelectMenu v-model="form.departmentId" />
-        </div>
-        <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Site</p>
           <SiteSelectMenu v-model="form.siteId" />
+        </div>
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Next Due</p>
+          <BaseTextInput v-model="form.nextDueDate" type="date" />
         </div>
       </div>
 
@@ -198,13 +205,6 @@ async function handleSave({ navigate }) {
         <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
           Required for Supplier-type programs. Audits minted from this program scope to this supplier.
         </p>
-      </div>
-
-      <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Next Due</p>
-          <BaseTextInput v-model="form.nextDueDate" type="date" />
-        </div>
       </div>
 
       <div>
