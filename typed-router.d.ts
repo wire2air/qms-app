@@ -86,6 +86,13 @@ declare module 'vue-router/auto-routes' {
       { companyCode: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/[companyCode]/customer-complaints/[[id]]': RouteRecordInfo<
+      '/[companyCode]/customer-complaints/[[id]]',
+      '/:companyCode/customer-complaints/:id?',
+      { companyCode: ParamValue<true>, id?: ParamValueZeroOrOne<true> },
+      { companyCode: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
     '/[companyCode]/dashboard': RouteRecordInfo<
       '/[companyCode]/dashboard',
       '/:companyCode/dashboard',
@@ -443,6 +450,13 @@ declare module 'vue-router/auto-routes' {
       { token: ParamValue<false> },
       | never
     >,
+    '/support/[companyCode]': RouteRecordInfo<
+      '/support/[companyCode]',
+      '/support/:companyCode',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
   }
 
   /**
@@ -507,6 +521,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[companyCode]/change-requests/[[id]].vue': {
       routes:
         | '/[companyCode]/change-requests/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/customer-complaints/[[id]].vue': {
+      routes:
+        | '/[companyCode]/customer-complaints/[[id]]'
       views:
         | never
     }
@@ -813,6 +833,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/supplier-document/[token].vue': {
       routes:
         | '/supplier-document/[token]'
+      views:
+        | never
+    }
+    'src/pages/support/[companyCode].vue': {
+      routes:
+        | '/support/[companyCode]'
       views:
         | never
     }

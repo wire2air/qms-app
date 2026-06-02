@@ -2,11 +2,7 @@ import { Node, mergeAttributes, nodeInputRule } from '@tiptap/core'
 import { Plugin, NodeSelection, TextSelection } from '@tiptap/pm/state'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
 import ImageNodeView from './ImageNodeView.vue'
-import {
-  imageUploadPlugin,
-  uploadKey,
-  findUploadPlaceholderPos,
-} from './imageUploadPlugin.js'
+import { imageUploadPlugin, uploadKey, findUploadPlaceholderPos } from './imageUploadPlugin.js'
 import { isValidImageFile, sanitizeImageUrl, nextUploadId, normalizeAlignment } from './helpers.js'
 
 // Markdown-style image input: ![alt](src "title")
@@ -162,7 +158,12 @@ export const AdvancedImage = Node.create({
     }
     const img = ['img', imgAttrs]
     if (caption) {
-      return ['figure', figureAttrs, img, ['figcaption', { class: 'tiptap-image__caption' }, caption]]
+      return [
+        'figure',
+        figureAttrs,
+        img,
+        ['figcaption', { class: 'tiptap-image__caption' }, caption],
+      ]
     }
     return ['figure', figureAttrs, img]
   },
@@ -195,7 +196,14 @@ export const AdvancedImage = Node.create({
             this.options.onUploadError?.(new Error('No uploader configured'))
             return false
           }
-          startUpload(editor, file, this.options.uploader, this.name, this.options.onUploadError, posOverride)
+          startUpload(
+            editor,
+            file,
+            this.options.uploader,
+            this.name,
+            this.options.onUploadError,
+            posOverride,
+          )
           return true
         },
 
@@ -209,7 +217,10 @@ export const AdvancedImage = Node.create({
         ({ commands }) => {
           const n = Number(width)
           if (!Number.isFinite(n)) return false
-          const clamped = Math.max(this.options.minWidth, Math.min(this.options.maxWidth, Math.round(n)))
+          const clamped = Math.max(
+            this.options.minWidth,
+            Math.min(this.options.maxWidth, Math.round(n)),
+          )
           return commands.updateAttributes(this.name, { width: clamped })
         },
 
@@ -229,7 +240,8 @@ export const AdvancedImage = Node.create({
 
       setImageAlt:
         (alt) =>
-        ({ commands }) => commands.updateAttributes(this.name, { alt: alt ?? null }),
+        ({ commands }) =>
+          commands.updateAttributes(this.name, { alt: alt ?? null }),
     }
   },
 
@@ -303,7 +315,14 @@ export const AdvancedImage = Node.create({
                 return
               }
               if (!ext.options.uploader) return
-              startUpload(ext.editor, file, ext.options.uploader, ext.name, ext.options.onUploadError, dropPos)
+              startUpload(
+                ext.editor,
+                file,
+                ext.options.uploader,
+                ext.name,
+                ext.options.onUploadError,
+                dropPos,
+              )
             })
             return true
           },
@@ -316,7 +335,13 @@ export const AdvancedImage = Node.create({
               const file = item.getAsFile()
               if (!file || !isValidImageFile(file)) return
               if (!ext.options.uploader) return
-              startUpload(ext.editor, file, ext.options.uploader, ext.name, ext.options.onUploadError)
+              startUpload(
+                ext.editor,
+                file,
+                ext.options.uploader,
+                ext.name,
+                ext.options.onUploadError,
+              )
             })
             return true
           },
@@ -391,11 +416,7 @@ async function startUpload(editor, file, uploader, typeName, onError, posOverrid
     // touching the current selection. `.focus()` brings focus back to the
     // editor without changing the selection target (it would only matter
     // if focus had been lost to the file picker / drop event).
-    editor
-      .chain()
-      .insertContentAt(insertPos, { type: typeName, attrs })
-      .focus()
-      .run()
+    editor.chain().insertContentAt(insertPos, { type: typeName, attrs }).focus().run()
 
     editor.view.dispatch(editor.state.tr.setMeta(uploadKey, { remove: { id: placeholderId } }))
     console.debug('[AdvancedImage] doc HTML after insert:', editor.getHTML())

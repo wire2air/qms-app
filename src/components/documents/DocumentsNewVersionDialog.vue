@@ -85,10 +85,7 @@ const errors = computed(() => {
   if (!draft.value.changeType) {
     e.changeType = 'Pick a change type.'
   }
-  if (
-    draft.value.regulatoryImpact &&
-    !draft.value.regulatoryImpactNotes?.trim()
-  ) {
+  if (draft.value.regulatoryImpact && !draft.value.regulatoryImpactNotes?.trim()) {
     e.regulatoryImpactNotes = 'Notes are required when regulatory impact is flagged.'
   }
   return e
@@ -198,7 +195,9 @@ function cancel() {
       <div class="tw:flex tw:flex-col tw:gap-1.5">
         <label class="tw:text-sm tw:font-medium tw:text-on-main">
           Description of change
-          <span class="tw:text-xs tw:font-normal tw:text-secondary">(what reviewers should focus on)</span>
+          <span class="tw:text-xs tw:font-normal tw:text-secondary"
+            >(what reviewers should focus on)</span
+          >
         </label>
         <BaseTextarea
           v-model="draft.changeSummary"
@@ -211,9 +210,13 @@ function cancel() {
       <div v-if="baselineSections.length" class="tw:flex tw:flex-col tw:gap-1.5">
         <label class="tw:text-sm tw:font-medium tw:text-on-main">
           Affected sections
-          <span class="tw:text-xs tw:font-normal tw:text-secondary">(optional — reviewer focus)</span>
+          <span class="tw:text-xs tw:font-normal tw:text-secondary"
+            >(optional — reviewer focus)</span
+          >
         </label>
-        <div class="tw:max-h-40 tw:overflow-y-auto tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:p-2 tw:flex tw:flex-col tw:gap-1">
+        <div
+          class="tw:max-h-40 tw:overflow-y-auto tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:p-2 tw:flex tw:flex-col tw:gap-1"
+        >
           <label
             v-for="section in baselineSections"
             :key="section.id"
@@ -225,13 +228,17 @@ function cancel() {
               class="tw:size-4 tw:accent-primary tw:cursor-pointer"
               @change="toggleAffected(section.id)"
             />
-            <span class="tw:text-sm">{{ (section.order ?? '?') }}. {{ section.title || '(untitled)' }}</span>
+            <span class="tw:text-sm"
+              >{{ section.order ?? '?' }}. {{ section.title || '(untitled)' }}</span
+            >
           </label>
         </div>
       </div>
 
       <!-- Regulatory impact -->
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider">
+      <div
+        class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
+      >
         <label class="tw:flex tw:items-start tw:gap-3 tw:cursor-pointer">
           <input
             v-model="draft.regulatoryImpact"
@@ -239,7 +246,9 @@ function cancel() {
             class="tw:mt-0.5 tw:size-4 tw:accent-primary tw:cursor-pointer"
           />
           <div class="tw:flex tw:flex-col tw:gap-0.5">
-            <span class="tw:text-sm tw:font-medium tw:text-on-main tw:flex tw:items-center tw:gap-1.5">
+            <span
+              class="tw:text-sm tw:font-medium tw:text-on-main tw:flex tw:items-center tw:gap-1.5"
+            >
               <IconShieldCheck :size="14" /> Regulatory impact
             </span>
             <span class="tw:text-xs tw:text-secondary">

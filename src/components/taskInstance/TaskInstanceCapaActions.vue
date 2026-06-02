@@ -24,8 +24,7 @@ const toast = useToast()
 // spawned steps leave those NULL and inherit from the WorkflowStep. Read
 // the instance value first, fall back to the template.
 const requireEsignature = computed(
-  () =>
-    props.instanceStep?.requireEsignature ?? props.workflowStep?.requireEsignature ?? false,
+  () => props.instanceStep?.requireEsignature ?? props.workflowStep?.requireEsignature ?? false,
 )
 
 const capaRecord = useLiveQueryWithDeps(

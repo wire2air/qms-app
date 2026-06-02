@@ -27,7 +27,9 @@ function getArray() {
               @clear="() => scope.clear(id)"
             />
           </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Risk Assessment Templates</span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
+            >Select Risk Assessment Templates</span
+          >
         </template>
         <template v-else>
           <RiskAssessmentTemplateBadgeById
@@ -37,7 +39,9 @@ function getArray() {
             selectable
             @clear="() => scope.clear(modelValue)"
           />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Risk Assessment Template</span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
+            >Select Risk Assessment Template</span
+          >
         </template>
       </slot>
     </template>

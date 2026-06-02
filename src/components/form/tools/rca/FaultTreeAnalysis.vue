@@ -31,7 +31,9 @@ function toggleOccurred(nodeId) {
     id: cn.id,
     occurred: cn.id === nodeId ? !isOccurred(nodeId) : (existing[cn.id]?.occurred ?? false),
   }))
-  const criticalPath = updated.filter((n) => n.occurred && configNodeMap.value[n.id]?.type !== 'top').map((n) => n.id)
+  const criticalPath = updated
+    .filter((n) => n.occurred && configNodeMap.value[n.id]?.type !== 'top')
+    .map((n) => n.id)
   emit('update:modelValue', { ...props.modelValue, nodes: updated, criticalPath })
 }
 
@@ -41,14 +43,12 @@ const rootNode = computed(() => (props.config.nodes ?? []).find((n) => n.type ==
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
     <div class="tw:text-xs tw:text-secondary">
-      Mark each event/condition that occurred. The critical path will be identified from selected nodes.
+      Mark each event/condition that occurred. The critical path will be identified from selected
+      nodes.
     </div>
 
     <!-- Top event -->
-    <div
-      v-if="rootNode"
-      class="tw:border-2 tw:border-primary tw:rounded-lg tw:p-3 tw:text-center"
-    >
+    <div v-if="rootNode" class="tw:border-2 tw:border-primary tw:rounded-lg tw:p-3 tw:text-center">
       <div class="tw:text-xs tw:font-semibold tw:text-primary tw:uppercase tw:mb-1">Top Event</div>
       <div class="tw:font-semibold tw:text-on-main">
         {{ rootNode.label || config.topEvent || 'Undesired Event' }}
@@ -57,10 +57,7 @@ const rootNode = computed(() => (props.config.nodes ?? []).find((n) => n.type ==
 
     <!-- Nodes -->
     <div class="tw:flex tw:flex-col tw:gap-2">
-      <div
-        v-for="node in config.nodes ?? []"
-        :key="node.id"
-      >
+      <div v-for="node in config.nodes ?? []" :key="node.id">
         <div
           v-if="node.type !== 'top'"
           class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:border tw:border-divider tw:rounded-lg tw:transition-colors"
@@ -73,9 +70,7 @@ const rootNode = computed(() => (props.config.nodes ?? []).find((n) => n.type ==
             >
               {{ node.type === 'basic' ? 'Basic' : 'Event' }}
             </span>
-            <span class="tw:text-[10px] tw:text-secondary">
-              Gate: {{ node.gate }}
-            </span>
+            <span class="tw:text-[10px] tw:text-secondary"> Gate: {{ node.gate }} </span>
           </div>
 
           <span class="tw:flex-1 tw:text-sm tw:text-on-main">

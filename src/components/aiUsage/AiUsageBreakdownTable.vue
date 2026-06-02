@@ -17,7 +17,9 @@ function fmt(value, format) {
 
 <template>
   <div class="tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:overflow-hidden">
-    <div class="tw:px-4 tw:py-2.5 tw:border-b tw:border-divider tw:text-sm tw:font-semibold tw:text-on-main">
+    <div
+      class="tw:px-4 tw:py-2.5 tw:border-b tw:border-divider tw:text-sm tw:font-semibold tw:text-on-main"
+    >
       {{ title }}
     </div>
     <div class="tw:overflow-x-auto">

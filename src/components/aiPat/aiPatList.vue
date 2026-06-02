@@ -3,10 +3,9 @@ import { IconRobot } from '@tabler/icons-vue'
 
 const emit = defineEmits(['create'])
 
-const tokens = useLiveQuery(
-  async (db) => db.AiPat.where().orderBy('createdAt', 'desc').exec(),
-  { initial: [] },
-)
+const tokens = useLiveQuery(async (db) => db.AiPat.where().orderBy('createdAt', 'desc').exec(), {
+  initial: [],
+})
 </script>
 
 <template>

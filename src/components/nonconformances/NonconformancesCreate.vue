@@ -267,9 +267,8 @@ async function handleReviewersConfirmed(reviewers) {
                 <div>
                   <div class="tw:text-sm tw:text-on-main">Supplier-facing NC</div>
                   <div class="tw:text-[11px] tw:text-secondary">
-                    Workflow steps will be reviewed by users from the selected supplier (you'll
-                    pick the specific reviewer per step when you open the NC). Lockable once
-                    opened.
+                    Workflow steps will be reviewed by users from the selected supplier (you'll pick
+                    the specific reviewer per step when you open the NC). Lockable once opened.
                   </div>
                 </div>
               </label>

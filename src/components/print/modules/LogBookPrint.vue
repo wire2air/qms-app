@@ -37,13 +37,10 @@ const props = defineProps({
   cols: { type: String, default: '' },
 })
 
-const template = useLiveQueryWithDeps(
-  [() => props.templateId],
-  async (db, [tid]) => {
-    if (!tid) return null
-    return db.LogBook.findByPk(tid)
-  },
-)
+const template = useLiveQueryWithDeps([() => props.templateId], async (db, [tid]) => {
+  if (!tid) return null
+  return db.LogBook.findByPk(tid)
+})
 
 const records = useLiveQueryWithDeps(
   [() => props.templateId, () => props.from, () => props.to],
@@ -181,9 +178,7 @@ onMounted(() => {
             <th>Log book</th>
             <td colspan="3">
               <strong>{{ template?.title || '—' }}</strong>
-              <span v-if="template?.code" class="lb-print-meta-code">
-                · {{ template.code }}
-              </span>
+              <span v-if="template?.code" class="lb-print-meta-code"> · {{ template.code }} </span>
             </td>
           </tr>
           <tr>
@@ -203,9 +198,7 @@ onMounted(() => {
     </template>
 
     <div v-if="!ready" class="tw:py-10 tw:text-secondary tw:text-center">Loading log book…</div>
-    <div v-else-if="records.length === 0" class="lb-print-empty">
-      No entries in this range.
-    </div>
+    <div v-else-if="records.length === 0" class="lb-print-empty">No entries in this range.</div>
     <div v-else class="lb-print-body">
       <table class="lb-print-entries">
         <thead>
@@ -272,7 +265,9 @@ onMounted(() => {
   color: #6b7280;
   font-size: 10px;
 }
-.lb-print-body { font-size: 10px; }
+.lb-print-body {
+  font-size: 10px;
+}
 .lb-print-empty {
   padding: 30px 0;
   text-align: center;
@@ -299,7 +294,9 @@ onMounted(() => {
   letter-spacing: 0.3px;
   color: #6b7280;
 }
-.lb-print-entries tr:nth-child(even) td { background: #fafafa; }
+.lb-print-entries tr:nth-child(even) td {
+  background: #fafafa;
+}
 .lb-print-id {
   font-family: ui-monospace, SFMono-Regular, monospace;
   white-space: nowrap;

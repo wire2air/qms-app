@@ -86,10 +86,14 @@ export function useAiUsage() {
   }
 
   // Refetch on filter changes. Reset pagination when scope/range changes.
-  watch([scope, since, until], () => {
-    jobsOffset.value = 0
-    refresh()
-  }, { immediate: true })
+  watch(
+    [scope, since, until],
+    () => {
+      jobsOffset.value = 0
+      refresh()
+    },
+    { immediate: true },
+  )
 
   // Refetch jobs on pagination changes (without re-running overview)
   watch([jobsOffset, jobsLimit], () => {

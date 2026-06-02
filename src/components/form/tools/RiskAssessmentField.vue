@@ -77,13 +77,16 @@ function selectCell(likelihoodId, severityId) {
   const key = cellKey(likelihoodId, severityId)
   const levelId = cells.value[key] ?? null
   const rpnScore = computeRpn(likelihoodId, severityId, selectedDetectabilityId.value)
-  emit('update:modelValue', clearFinalizedStamp({
-    _templateId: template.value?.id ?? null,
-    likelihoodId,
-    severityId,
-    riskLevelId: levelId,
-    rpnScore,
-  }))
+  emit(
+    'update:modelValue',
+    clearFinalizedStamp({
+      _templateId: template.value?.id ?? null,
+      likelihoodId,
+      severityId,
+      riskLevelId: levelId,
+      rpnScore,
+    }),
+  )
 }
 
 function selectDetectability(detectabilityId) {
@@ -117,12 +120,8 @@ const hazardCategories = useLiveQuery(
   { initial: [] },
 )
 
-const hazardCategoryId = computed(
-  () => props.modelValue?.finalized?.hazardCategoryId ?? null,
-)
-const assessmentType = computed(
-  () => props.modelValue?.finalized?.assessmentType ?? 'INITIAL',
-)
+const hazardCategoryId = computed(() => props.modelValue?.finalized?.hazardCategoryId ?? null)
+const assessmentType = computed(() => props.modelValue?.finalized?.assessmentType ?? 'INITIAL')
 const isFinalized = computed(() => !!props.modelValue?.finalized?.finalizedAt)
 
 function patchFinalized(patch) {
@@ -220,7 +219,9 @@ const canFinalize = computed(
            sit above the matrix because they affect interpretation of
            the selected risk band — "Quality risk, residual" reads
            differently than "Safety risk, initial". -->
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-main-hover/30">
+      <div
+        class="tw:flex tw:flex-col tw:gap-3 tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-main-hover/30"
+      >
         <div class="tw:flex tw:flex-col tw:gap-1.5">
           <label class="tw:text-xs tw:font-medium tw:text-secondary">
             Hazard category
@@ -285,8 +286,13 @@ const canFinalize = computed(
           v-if="modelValue?.rpnScore"
           class="tw:flex tw:flex-col tw:items-center tw:shrink-0 tw:bg-white/60 tw:rounded-lg tw:px-3 tw:py-1.5"
         >
-          <span class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">RPN</span>
-          <span class="tw:text-xl tw:font-bold tw:text-on-main tw:leading-none">{{ modelValue.rpnScore }}</span>
+          <span
+            class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+            >RPN</span
+          >
+          <span class="tw:text-xl tw:font-bold tw:text-on-main tw:leading-none">{{
+            modelValue.rpnScore
+          }}</span>
         </div>
       </div>
       <div
@@ -301,7 +307,9 @@ const canFinalize = computed(
         <table class="tw:border-collapse">
           <thead>
             <tr>
-              <th class="tw:w-28 tw:text-[10px] tw:text-secondary tw:font-semibold tw:uppercase tw:text-right tw:pr-2 tw:pb-1">
+              <th
+                class="tw:w-28 tw:text-[10px] tw:text-secondary tw:font-semibold tw:uppercase tw:text-right tw:pr-2 tw:pb-1"
+              >
                 Likelihood ↓ / Severity →
               </th>
               <th
@@ -310,32 +318,41 @@ const canFinalize = computed(
                 class="tw:text-[11px] tw:font-semibold tw:text-on-main tw:text-center tw:pb-1 tw:px-1 tw:min-w-[72px]"
               >
                 {{ col.label }}
-                <div class="tw:text-[10px] tw:font-normal tw:text-secondary">({{ col.score ?? col.order }})</div>
+                <div class="tw:text-[10px] tw:font-normal tw:text-secondary">
+                  ({{ col.score ?? col.order }})
+                </div>
               </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in likelihood" :key="row.id">
-              <td class="tw:text-[11px] tw:font-semibold tw:text-on-main tw:text-right tw:pr-2 tw:py-0.5 tw:whitespace-nowrap">
-                {{ row.label }}
-                <div class="tw:text-[10px] tw:font-normal tw:text-secondary">({{ row.score ?? row.order }})</div>
-              </td>
               <td
-                v-for="col in severity"
-                :key="col.id"
-                class="tw:p-0.5"
+                class="tw:text-[11px] tw:font-semibold tw:text-on-main tw:text-right tw:pr-2 tw:py-0.5 tw:whitespace-nowrap"
               >
+                {{ row.label }}
+                <div class="tw:text-[10px] tw:font-normal tw:text-secondary">
+                  ({{ row.score ?? row.order }})
+                </div>
+              </td>
+              <td v-for="col in severity" :key="col.id" class="tw:p-0.5">
                 <div
                   class="tw:w-[72px] tw:h-10 tw:flex tw:items-center tw:justify-center tw:text-xs tw:font-semibold tw:rounded tw:transition-all tw:select-none"
                   :class="[
-                    readonly || disabled ? 'tw:cursor-default' : 'tw:cursor-pointer tw:hover:opacity-80',
+                    readonly || disabled
+                      ? 'tw:cursor-default'
+                      : 'tw:cursor-pointer tw:hover:opacity-80',
                     isSelectedCell(row.id, col.id)
                       ? 'tw:ring-2 tw:ring-offset-1 tw:ring-primary tw:shadow-md tw:scale-105'
                       : '',
                   ]"
-                  :style="cellLevel(row.id, col.id)
-                    ? { backgroundColor: cellLevel(row.id, col.id).bg, color: cellLevel(row.id, col.id).text }
-                    : { backgroundColor: '#f3f4f6', color: '#9ca3af' }"
+                  :style="
+                    cellLevel(row.id, col.id)
+                      ? {
+                          backgroundColor: cellLevel(row.id, col.id).bg,
+                          color: cellLevel(row.id, col.id).text,
+                        }
+                      : { backgroundColor: '#f3f4f6', color: '#9ca3af' }
+                  "
                   @click="selectCell(row.id, col.id)"
                 >
                   {{ cellLevel(row.id, col.id)?.label ?? '—' }}
@@ -350,17 +367,24 @@ const canFinalize = computed(
       <div v-if="enableDetectability" class="tw:flex tw:flex-col tw:gap-2">
         <div class="tw:flex tw:items-center tw:gap-2">
           <label class="tw:text-xs tw:font-medium tw:text-secondary">Detectability</label>
-          <span class="tw:text-[10px] tw:text-secondary tw:bg-divider tw:rounded tw:px-1.5 tw:py-0.5">FMEA</span>
+          <span
+            class="tw:text-[10px] tw:text-secondary tw:bg-divider tw:rounded tw:px-1.5 tw:py-0.5"
+            >FMEA</span
+          >
         </div>
-        <p class="tw:text-[11px] tw:text-secondary tw:-mt-1">How easily can this failure be detected? Lower score = easier to detect.</p>
+        <p class="tw:text-[11px] tw:text-secondary tw:-mt-1">
+          How easily can this failure be detected? Lower score = easier to detect.
+        </p>
         <div class="tw:flex tw:flex-wrap tw:gap-1.5">
           <button
             v-for="item in detectability"
             :key="item.id"
             class="tw:flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:px-3 tw:py-1.5 tw:text-xs tw:font-medium tw:transition-colors tw:cursor-pointer"
-            :class="selectedDetectabilityId === item.id
-              ? 'tw:border-primary tw:bg-primary/10 tw:text-primary'
-              : 'tw:border-divider tw:text-secondary tw:hover:border-primary/50'"
+            :class="
+              selectedDetectabilityId === item.id
+                ? 'tw:border-primary tw:bg-primary/10 tw:text-primary'
+                : 'tw:border-divider tw:text-secondary tw:hover:border-primary/50'
+            "
             :disabled="readonly || disabled"
             @click="selectDetectability(item.id)"
           >
@@ -403,9 +427,7 @@ const canFinalize = computed(
           <template v-else-if="!canFinalize">
             Pick a hazard category, assessment type, and a matrix cell to finalize.
           </template>
-          <template v-else>
-            Mark complete to lock the assessment into reports.
-          </template>
+          <template v-else> Mark complete to lock the assessment into reports. </template>
         </span>
         <button
           v-if="!isFinalized"

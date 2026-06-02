@@ -143,7 +143,9 @@ const TYPE_CLASS = {
     <div v-else class="tw:overflow-x-auto">
       <table class="tw:w-full tw:text-sm tw:border-collapse">
         <thead>
-          <tr class="tw:text-left tw:text-xs tw:uppercase tw:tracking-wide tw:text-secondary tw:border-b tw:border-divider">
+          <tr
+            class="tw:text-left tw:text-xs tw:uppercase tw:tracking-wide tw:text-secondary tw:border-b tw:border-divider"
+          >
             <th class="tw:py-2 tw:pr-3">Version</th>
             <th class="tw:py-2 tw:pr-3">Status</th>
             <th class="tw:py-2 tw:pr-3">Type</th>
@@ -154,11 +156,7 @@ const TYPE_CLASS = {
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="v in versions"
-            :key="v.id"
-            class="tw:border-b tw:border-divider tw:align-top"
-          >
+          <tr v-for="v in versions" :key="v.id" class="tw:border-b tw:border-divider tw:align-top">
             <td class="tw:py-3 tw:pr-3 tw:font-mono tw:font-semibold tw:whitespace-nowrap">
               {{ versionLabel(v) }}
             </td>

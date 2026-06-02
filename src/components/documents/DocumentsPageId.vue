@@ -67,9 +67,7 @@ const aiDiffFromVersion = computed(() => {
   const idx = sorted.findIndex((v) => v.id === selectedVersion.value.id)
   return idx > 0 ? sorted[idx - 1] : null
 })
-const canShowAiDiff = computed(
-  () => !!selectedVersion.value && !!aiDiffFromVersion.value,
-)
+const canShowAiDiff = computed(() => !!selectedVersion.value && !!aiDiffFromVersion.value)
 // Lookup-style helper (the existing `versionLabel` computed already derives
 // the label for the currently-selected version; this one accepts any version
 // — used for the diff dialog's "from" version, which isn't selectedVersion).
@@ -109,9 +107,7 @@ const auditRelatedLinks = useLiveQueryWithDeps(
   async (db, [id]) => {
     if (!id) return []
     const links = await db.DocumentLink.where().exec()
-    return links
-      .filter((l) => l.documentId === id || l.relatedDocumentId === id)
-      .map((l) => l.id)
+    return links.filter((l) => l.documentId === id || l.relatedDocumentId === id).map((l) => l.id)
   },
   { initial: [] },
 )
@@ -188,9 +184,7 @@ const canCreate = computed(() => {
     ['DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED'].includes(v.statusId),
   )
   return (
-    isAllowed(['documents:create']) &&
-    document.value?.statusId !== 'ARCHIVED' &&
-    !hasActiveDraft
+    isAllowed(['documents:create']) && document.value?.statusId !== 'ARCHIVED' && !hasActiveDraft
   )
 })
 const canEdit = computed(

@@ -78,8 +78,7 @@ const reassignInstanceStepRoles = useLiveQueryWithDeps(
 )
 
 const reassignRolesLoaded = computed(
-  () =>
-    reassignStepRoles.value !== undefined && reassignInstanceStepRoles.value !== undefined,
+  () => reassignStepRoles.value !== undefined && reassignInstanceStepRoles.value !== undefined,
 )
 
 const reassignEffectiveRoleIds = computed(() => {
@@ -143,13 +142,10 @@ async function handleReassign() {
   if (!reassignStepInstanceId.value || !reassignToUserId.value) return
   reassigning.value = true
   try {
-    await post(
-      `/v1/services/${props.module.apiPath}/${props.resourceId}/reassignStepReviewer`,
-      {
-        workflowInstanceStepId: reassignStepInstanceId.value,
-        toUserId: reassignToUserId.value,
-      },
-    )
+    await post(`/v1/services/${props.module.apiPath}/${props.resourceId}/reassignStepReviewer`, {
+      workflowInstanceStepId: reassignStepInstanceId.value,
+      toUserId: reassignToUserId.value,
+    })
     showDialog.value = false
     toast.success('Reviewer reassigned successfully')
   } catch (e) {

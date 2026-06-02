@@ -78,7 +78,6 @@ function toggleRootCause(nodeId) {
   )
   emit('update:modelValue', { ...props.modelValue, nodes: updated })
 }
-
 </script>
 
 <template>
@@ -93,7 +92,9 @@ function toggleRootCause(nodeId) {
         placeholder="Describe what happened..."
         :rows="2"
         :readonly="readonly || !!problem"
-        @update:modelValue="(v) => !problem && emit('update:modelValue', { ...modelValue, problem: v })"
+        @update:modelValue="
+          (v) => !problem && emit('update:modelValue', { ...modelValue, problem: v })
+        "
       />
       <div v-if="problem" class="tw:text-xs tw:text-secondary tw:italic">Linked from form</div>
     </div>

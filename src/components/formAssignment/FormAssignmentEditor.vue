@@ -65,9 +65,9 @@ const userTimezone = (() => {
     return 'UTC'
   }
 })()
-const timezoneOptions = computed(() =>
-  [...new Set([userTimezone, form.value.timezone, ...COMMON_TIMEZONES].filter(Boolean))],
-)
+const timezoneOptions = computed(() => [
+  ...new Set([userTimezone, form.value.timezone, ...COMMON_TIMEZONES].filter(Boolean)),
+])
 
 const form = ref({
   logBookId: '',
@@ -169,8 +169,7 @@ watch(frequency, (next) => {
   // Apply unless the user has set non-default values matching a
   // different scheme — best-effort, not perfect.
   const prevDef = lastSuggestedFrequency && DEFAULTS_BY_FREQUENCY[lastSuggestedFrequency]
-  const windowWasDefault =
-    !prevDef || form.value.windowMinutes === prevDef.windowMinutes
+  const windowWasDefault = !prevDef || form.value.windowMinutes === prevDef.windowMinutes
   const graceWasDefault = !prevDef || form.value.graceMinutes === prevDef.graceMinutes
   if (windowWasDefault) form.value.windowMinutes = def.windowMinutes
   if (graceWasDefault) form.value.graceMinutes = def.graceMinutes
@@ -289,7 +288,9 @@ async function save() {
 
 async function archive() {
   if (!isEditing.value) return
-  if (!confirm('Archive this log book assignment? Existing instances stay; no new ones generate.')) {
+  if (
+    !confirm('Archive this log book assignment? Existing instances stay; no new ones generate.')
+  ) {
     return
   }
   isSaving.value = true
@@ -426,9 +427,8 @@ function back() {
           </label>
           <UserSelectMenu v-model="form.assignedUserIds" :multiple="true" />
           <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-            Click each user you want to assign — the menu stays open so you can pick
-            multiple (e.g. one per shift). All selected users get an instance per
-            occurrence.
+            Click each user you want to assign — the menu stays open so you can pick multiple (e.g.
+            one per shift). All selected users get an instance per occurrence.
           </p>
         </div>
         <div v-else>
@@ -458,11 +458,7 @@ function back() {
         </div>
 
         <template v-if="form.scheduleType === 'RECURRING'">
-          <CronPicker
-            v-model="form.cron"
-            v-model:frequency="frequency"
-            :timezone="form.timezone"
-          />
+          <CronPicker v-model="form.cron" v-model:frequency="frequency" :timezone="form.timezone" />
           <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
             <div>
               <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
@@ -526,7 +522,9 @@ function back() {
             <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
               When the window closes unfilled
             </label>
-            <div class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden">
+            <div
+              class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden"
+            >
               <button
                 class="tw:px-3 tw:py-1.5 tw:text-sm tw:border-0 tw:cursor-pointer"
                 :class="

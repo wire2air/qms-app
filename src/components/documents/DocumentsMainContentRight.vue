@@ -129,7 +129,11 @@ watch(
               <label class="ds-label">Type</label>
               <div class="tw:mt-1">
                 <DocumentTypeSelectMenu v-if="canEdit" v-model="document.documentTypeId" required />
-                <DocumentTypeBadgeById v-else :documentTypeId="document.documentTypeId" :iconOnly="false" />
+                <DocumentTypeBadgeById
+                  v-else
+                  :documentTypeId="document.documentTypeId"
+                  :iconOnly="false"
+                />
               </div>
             </div>
             <div>
@@ -146,7 +150,10 @@ watch(
               <label class="ds-label">Department</label>
               <div class="tw:mt-1">
                 <DepartmentSelectMenu v-if="canEdit" v-model="document.departmentId" required />
-                <DepartmentBadgeById v-else-if="document.departmentId" :departmentId="document.departmentId" />
+                <DepartmentBadgeById
+                  v-else-if="document.departmentId"
+                  :departmentId="document.departmentId"
+                />
                 <span v-else class="tw:text-sm tw:text-secondary">—</span>
               </div>
             </div>
@@ -154,7 +161,10 @@ watch(
               <label class="ds-label">Related Standard</label>
               <div class="tw:mt-1">
                 <RelatedStandardSelectMenu v-if="canEdit" v-model="document.relatedStandardId" />
-                <RelatedStandardBadgeById v-else-if="document.relatedStandardId" :relatedStandardId="document.relatedStandardId" />
+                <RelatedStandardBadgeById
+                  v-else-if="document.relatedStandardId"
+                  :relatedStandardId="document.relatedStandardId"
+                />
                 <span v-else class="tw:text-sm tw:text-secondary">—</span>
               </div>
             </div>
@@ -173,7 +183,9 @@ watch(
                 />
                 <span class="tw:text-xs tw:text-secondary">months</span>
               </div>
-              <p v-else class="tw:text-sm tw:font-medium tw:mt-1">{{ document.periodicReviewMonths }} months</p>
+              <p v-else class="tw:text-sm tw:font-medium tw:mt-1">
+                {{ document.periodicReviewMonths }} months
+              </p>
             </div>
             <div>
               <label class="ds-label">Auto-Effective</label>
@@ -187,9 +199,17 @@ watch(
           <div>
             <label class="ds-label">Effective Date</label>
             <div class="tw:mt-1">
-              <BaseDatePicker v-if="canEdit" v-model="currentVersion.effectiveDate" :required="false" />
+              <BaseDatePicker
+                v-if="canEdit"
+                v-model="currentVersion.effectiveDate"
+                :required="false"
+              />
               <p v-else class="tw:text-sm tw:font-medium">
-                {{ currentVersion.effectiveDate ? currentVersion.effectiveDate.formatDate('date') : '—' }}
+                {{
+                  currentVersion.effectiveDate
+                    ? currentVersion.effectiveDate.formatDate('date')
+                    : '—'
+                }}
               </p>
             </div>
           </div>
@@ -210,10 +230,7 @@ watch(
               >
                 Download audit PDF
               </a>
-              <p
-                v-if="currentVersion.snapshotGeneratedAt"
-                class="tw:text-xs tw:text-secondary"
-              >
+              <p v-if="currentVersion.snapshotGeneratedAt" class="tw:text-xs tw:text-secondary">
                 Generated {{ currentVersion.snapshotGeneratedAt.formatDate('datetime') }}
               </p>
               <p

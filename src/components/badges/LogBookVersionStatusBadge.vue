@@ -25,7 +25,9 @@ const LABEL_MAP = {
   SUPERSEDED: 'Superseded',
 }
 
-const scheme = computed(() => SCHEME_MAP[props.statusId] || { class: 'tw:bg-gray-100 tw:text-gray-600' })
+const scheme = computed(
+  () => SCHEME_MAP[props.statusId] || { class: 'tw:bg-gray-100 tw:text-gray-600' },
+)
 const label = computed(() => LABEL_MAP[props.statusId] || props.statusId || '—')
 </script>
 

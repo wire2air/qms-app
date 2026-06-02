@@ -33,9 +33,7 @@ const assetRequests = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db, [supplierId]) => {
     const rows = await db.AssetRequest.where('supplierId', supplierId).exec()
-    return rows.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
   { initial: [] },
 )
@@ -46,10 +44,7 @@ const allItems = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-const allTypes = useLiveQuery(
-  async (db) => db.AssetRequestType.where().exec(),
-  { initial: [] },
-)
+const allTypes = useLiveQuery(async (db) => db.AssetRequestType.where().exec(), { initial: [] })
 
 const typeById = computed(() => {
   const m = new Map()

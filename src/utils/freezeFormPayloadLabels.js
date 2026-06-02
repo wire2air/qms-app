@@ -101,8 +101,7 @@ export async function freezeOptionLabels(db, formSchema, payload) {
 function collectOptionSetIds(fields, out) {
   for (const f of fields) {
     if (!f) continue
-    const usesOptionSet =
-      ['select', 'radio', 'optionGroup'].includes(f.type) && f.optionSetId
+    const usesOptionSet = ['select', 'radio', 'optionGroup'].includes(f.type) && f.optionSetId
     if (usesOptionSet) out.add(f.optionSetId)
     if (Array.isArray(f.children)) collectOptionSetIds(f.children, out)
     if (Array.isArray(f.template)) collectOptionSetIds(f.template, out)
@@ -135,8 +134,7 @@ function freezeScope(fields, values, sets) {
       if (!f) continue
 
       // Option-set value at this scope → freeze its label here.
-      const usesOptionSet =
-        ['select', 'radio', 'optionGroup'].includes(f.type) && f.optionSetId
+      const usesOptionSet = ['select', 'radio', 'optionGroup'].includes(f.type) && f.optionSetId
       if (usesOptionSet && f.name) {
         const v = out[f.name]
         const os = sets[f.optionSetId]

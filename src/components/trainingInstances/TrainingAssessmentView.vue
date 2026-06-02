@@ -55,12 +55,19 @@ const answeredCount = computed(() => {
     <div class="tw:flex tw:items-center tw:justify-between tw:bg-gray-50 tw:rounded-lg tw:p-3">
       <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
         <p class="tw:text-sm tw:font-medium tw:text-on-sidebar">
-          {{ questions.length }} question{{ questions.length !== 1 ? 's' : '' }} — passing score {{ passingScore }}%
+          {{ questions.length }} question{{ questions.length !== 1 ? 's' : '' }} — passing score
+          {{ passingScore }}%
         </p>
         <span class="tw:text-secondary">·</span>
         <p
           class="tw:text-sm tw:font-medium"
-          :class="attemptsLeft === 0 ? 'tw:text-red-600' : (attemptsLeft === 1 && attemptCount > 0 ? 'tw:text-amber-600' : 'tw:text-secondary')"
+          :class="
+            attemptsLeft === 0
+              ? 'tw:text-red-600'
+              : attemptsLeft === 1 && attemptCount > 0
+                ? 'tw:text-amber-600'
+                : 'tw:text-secondary'
+          "
         >
           Attempt {{ Math.min(attemptCount + 1, maxAttempts) }} of {{ maxAttempts }}
           <span v-if="attemptsLeft > 0 && attemptCount > 0" class="tw:text-xs">
@@ -68,7 +75,9 @@ const answeredCount = computed(() => {
           </span>
         </p>
       </div>
-      <p class="tw:text-xs tw:text-secondary">{{ answeredCount }}/{{ questions.length }} answered</p>
+      <p class="tw:text-xs tw:text-secondary">
+        {{ answeredCount }}/{{ questions.length }} answered
+      </p>
     </div>
 
     <div
@@ -77,7 +86,9 @@ const answeredCount = computed(() => {
       class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:flex-col tw:gap-3"
     >
       <div class="tw:flex tw:items-start tw:gap-2">
-        <span class="tw:w-6 tw:h-6 tw:rounded-full tw:bg-gray-100 tw:text-gray-600 tw:text-xs tw:font-bold tw:flex tw:items-center tw:justify-center tw:shrink-0">
+        <span
+          class="tw:w-6 tw:h-6 tw:rounded-full tw:bg-gray-100 tw:text-gray-600 tw:text-xs tw:font-bold tw:flex tw:items-center tw:justify-center tw:shrink-0"
+        >
           {{ idx + 1 }}
         </span>
         <p class="tw:font-medium tw:text-on-sidebar">{{ q.text }}</p>
@@ -92,24 +103,45 @@ const answeredCount = computed(() => {
           :disabled="readonly"
           class="tw:flex tw:items-center tw:gap-3 tw:text-left tw:px-3 tw:py-2 tw:rounded-lg tw:border tw:transition-colors tw:text-sm tw:disabled:cursor-default"
           :class="{
-            'tw:border-green-500 tw:bg-green-50 tw:text-green-700 tw:font-medium': optionState(q, opt) === 'correctSelected',
-            'tw:border-red-500 tw:bg-red-50 tw:text-red-700 tw:font-medium': optionState(q, opt) === 'wrongSelected',
-            'tw:border-green-300 tw:bg-green-50/40 tw:text-green-700': optionState(q, opt) === 'correctMissed',
-            'tw:border-primary tw:bg-blue-50 tw:text-primary tw:font-medium': optionState(q, opt) === 'selected',
+            'tw:border-green-500 tw:bg-green-50 tw:text-green-700 tw:font-medium':
+              optionState(q, opt) === 'correctSelected',
+            'tw:border-red-500 tw:bg-red-50 tw:text-red-700 tw:font-medium':
+              optionState(q, opt) === 'wrongSelected',
+            'tw:border-green-300 tw:bg-green-50/40 tw:text-green-700':
+              optionState(q, opt) === 'correctMissed',
+            'tw:border-primary tw:bg-blue-50 tw:text-primary tw:font-medium':
+              optionState(q, opt) === 'selected',
             'tw:border-divider tw:text-on-sidebar': optionState(q, opt) === 'idle',
-            'tw:hover:border-primary tw:hover:bg-gray-50': optionState(q, opt) === 'idle' && !readonly,
+            'tw:hover:border-primary tw:hover:bg-gray-50':
+              optionState(q, opt) === 'idle' && !readonly,
           }"
           @click="readonly ? null : toggleAnswer(q, opt.id)"
         >
           <span
             class="tw:w-4 tw:h-4 tw:rounded-full tw:border tw:flex tw:items-center tw:justify-center tw:shrink-0"
-            :class="isSelected(q.id, opt.id) ? 'tw:border-primary tw:bg-primary' : 'tw:border-gray-300'"
+            :class="
+              isSelected(q.id, opt.id) ? 'tw:border-primary tw:bg-primary' : 'tw:border-gray-300'
+            "
           >
-            <span v-if="isSelected(q.id, opt.id)" class="tw:w-2 tw:h-2 tw:rounded-full tw:bg-white" />
+            <span
+              v-if="isSelected(q.id, opt.id)"
+              class="tw:w-2 tw:h-2 tw:rounded-full tw:bg-white"
+            />
           </span>
           <span class="tw:flex-1">{{ opt.text }}</span>
-          <IconCheck v-if="showCorrect && (optionState(q, opt) === 'correctSelected' || optionState(q, opt) === 'correctMissed')" :size="16" class="tw:text-green-600 tw:shrink-0" />
-          <IconX v-else-if="showCorrect && optionState(q, opt) === 'wrongSelected'" :size="16" class="tw:text-red-600 tw:shrink-0" />
+          <IconCheck
+            v-if="
+              showCorrect &&
+              (optionState(q, opt) === 'correctSelected' || optionState(q, opt) === 'correctMissed')
+            "
+            :size="16"
+            class="tw:text-green-600 tw:shrink-0"
+          />
+          <IconX
+            v-else-if="showCorrect && optionState(q, opt) === 'wrongSelected'"
+            :size="16"
+            class="tw:text-red-600 tw:shrink-0"
+          />
         </button>
       </div>
     </div>

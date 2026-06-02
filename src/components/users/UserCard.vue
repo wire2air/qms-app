@@ -22,14 +22,12 @@ const roles = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-const site = useLiveQueryWithDeps(
-  [() => props.user?.siteId],
-  async (db, [siteId]) => (siteId ? db.Site.findByPk(siteId) : null),
+const site = useLiveQueryWithDeps([() => props.user?.siteId], async (db, [siteId]) =>
+  siteId ? db.Site.findByPk(siteId) : null,
 )
 
-const department = useLiveQueryWithDeps(
-  [() => props.user?.departmentId],
-  async (db, [deptId]) => (deptId ? db.Department.findByPk(deptId) : null),
+const department = useLiveQueryWithDeps([() => props.user?.departmentId], async (db, [deptId]) =>
+  deptId ? db.Department.findByPk(deptId) : null,
 )
 
 const profileLink = computed(() => getCompanyPath(`/users/${props.user?.id}`))

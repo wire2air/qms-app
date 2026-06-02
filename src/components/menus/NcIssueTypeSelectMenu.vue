@@ -6,10 +6,9 @@ defineProps({
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
-const issueTypes = useLiveQuery(
-  (db) => db.NcIssueType.where().orderBy('displayOrder').exec(),
-  { initial: [] },
-)
+const issueTypes = useLiveQuery((db) => db.NcIssueType.where().orderBy('displayOrder').exec(), {
+  initial: [],
+})
 
 function getArray() {
   return Array.isArray(modelValue.value) ? modelValue.value : []

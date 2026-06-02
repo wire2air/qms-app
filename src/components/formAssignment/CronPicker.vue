@@ -358,9 +358,7 @@ function toggleWeekday(d) {
       </div>
 
       <div
-        v-if="
-          [FREQ.MONTHLY, FREQ.QUARTERLY, FREQ.SEMI_ANNUAL, FREQ.ANNUAL].includes(frequency)
-        "
+        v-if="[FREQ.MONTHLY, FREQ.QUARTERLY, FREQ.SEMI_ANNUAL, FREQ.ANNUAL].includes(frequency)"
         class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap"
       >
         <span class="tw:text-xs tw:font-semibold tw:text-secondary">On day</span>

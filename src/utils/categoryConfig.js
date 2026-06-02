@@ -95,8 +95,7 @@ export const CATEGORY_METADATA = {
     // decision: UI labels only, no DB rename.
     label: 'Item Master',
     icon: IconPackage,
-    description:
-      'Manage access for the Item Master (raw materials, components, finished goods).',
+    description: 'Manage access for the Item Master (raw materials, components, finished goods).',
   },
   nonconformances: {
     label: 'Nonconformances',
@@ -180,7 +179,15 @@ export const PERMISSION_SECTIONS = [
   },
   {
     name: 'Configuration',
-    categories: ['formTemplates', 'rcaTemplates', 'riskAssessmentTemplates', 'records', 'documents', 'document-templates', 'workflows'],
+    categories: [
+      'formTemplates',
+      'rcaTemplates',
+      'riskAssessmentTemplates',
+      'records',
+      'documents',
+      'document-templates',
+      'workflows',
+    ],
   },
   {
     name: 'Training',

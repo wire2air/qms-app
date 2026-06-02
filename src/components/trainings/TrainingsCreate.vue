@@ -48,23 +48,36 @@ async function handleSubmit() {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="secondary" :disabled="saving" @click="router.push(getCompanyPath('/trainings'))">Cancel</BaseButton>
-      <BaseButton variant="primary" :loading="saving" @click="handleSubmit">Create Training</BaseButton>
+      <BaseButton
+        variant="secondary"
+        :disabled="saving"
+        @click="router.push(getCompanyPath('/trainings'))"
+        >Cancel</BaseButton
+      >
+      <BaseButton variant="primary" :loading="saving" @click="handleSubmit"
+        >Create Training</BaseButton
+      >
     </SafeTeleport>
 
     <div class="tw:overflow-y-auto tw:flex-1">
       <div class="tw:max-w-xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">
         <div class="tw:flex tw:items-center tw:gap-3">
-          <div class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0">
+          <div
+            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+          >
             <IconBook :size="20" />
           </div>
           <div>
             <div class="tw:text-xl tw:font-bold tw:text-on-sidebar">New Training</div>
-            <div class="tw:text-sm tw:text-secondary">After creating, add material, assessment questions, and assign roles or users.</div>
+            <div class="tw:text-sm tw:text-secondary">
+              After creating, add material, assessment questions, and assign roles or users.
+            </div>
           </div>
         </div>
 
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4">
+        <div
+          class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4"
+        >
           <div class="tw:flex tw:flex-col tw:gap-1">
             <label class="tw:text-sm tw:font-medium tw:text-secondary">
               Title <span class="tw:text-red-500">*</span>
@@ -85,7 +98,9 @@ async function handleSubmit() {
           </div>
         </div>
 
-        <div class="tw:bg-blue-50 tw:border tw:border-blue-100 tw:rounded-lg tw:p-4 tw:text-sm tw:text-blue-700">
+        <div
+          class="tw:bg-blue-50 tw:border tw:border-blue-100 tw:rounded-lg tw:p-4 tw:text-sm tw:text-blue-700"
+        >
           <p class="tw:font-medium tw:mb-1">What you can configure on the next page:</p>
           <ul class="tw:list-disc tw:list-inside tw:text-blue-600 tw:space-y-0.5">
             <li>Instructions and linked documents</li>

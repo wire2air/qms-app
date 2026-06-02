@@ -97,7 +97,17 @@ const performedByNames = useLiveQueryWithDeps(
 
 function exportCsv() {
   const nameMap = performedByNames.value ?? {}
-  const header = ['When', 'Action', 'Entity Type', 'Entity ID', 'Performed By', 'User ID', 'IP Address', 'Old Value', 'New Value']
+  const header = [
+    'When',
+    'Action',
+    'Entity Type',
+    'Entity ID',
+    'Performed By',
+    'User ID',
+    'IP Address',
+    'Old Value',
+    'New Value',
+  ]
   const rows = (logs.value ?? []).map((log) => [
     log.createdAt?.formatDate?.('datetime') ?? log.createdAt ?? '',
     log.action ?? '',
@@ -127,8 +137,7 @@ function exportCsv() {
     <div class="tw:p-5 tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:items-center tw:justify-between">
         <p class="tw:text-xs tw:text-secondary">
-          Tamper-evident record of changes.
-          Showing {{ logs?.length ?? 0 }} entries
+          Tamper-evident record of changes. Showing {{ logs?.length ?? 0 }} entries
           <template v-if="totalIncludedEntities > 1">
             across {{ totalIncludedEntities }} related records
           </template>
@@ -145,7 +154,9 @@ function exportCsv() {
       </div>
 
       <div v-if="loading" class="tw:flex tw:justify-center tw:py-12">
-        <div class="tw:size-8 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent" />
+        <div
+          class="tw:size-8 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
+        />
       </div>
 
       <AuditLogsList v-else-if="logs?.length" :logs="logs" />

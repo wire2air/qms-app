@@ -45,9 +45,11 @@ function formatRelative(dt) {
         v-for="t in threads"
         :key="t.id"
         class="tw:group tw:flex tw:items-start tw:gap-2 tw:px-3 tw:py-2 tw:rounded-lg tw:text-left tw:text-sm tw:transition-colors tw:cursor-pointer"
-        :class="t.id === activeThreadId
-          ? 'tw:bg-primary/10 tw:text-on-main'
-          : 'tw:hover:bg-main-hover tw:text-on-main'"
+        :class="
+          t.id === activeThreadId
+            ? 'tw:bg-primary/10 tw:text-on-main'
+            : 'tw:hover:bg-main-hover tw:text-on-main'
+        "
         @click="emit('select', t.id)"
       >
         <IconMessage :size="14" class="tw:text-secondary tw:mt-1 tw:flex-none" />

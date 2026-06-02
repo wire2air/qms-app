@@ -6,10 +6,9 @@ defineProps({
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
-const categories = useLiveQuery(
-  (db) => db.HazardCategory.where().orderBy('displayOrder').exec(),
-  { initial: [] },
-)
+const categories = useLiveQuery((db) => db.HazardCategory.where().orderBy('displayOrder').exec(), {
+  initial: [],
+})
 
 function getArray() {
   return Array.isArray(modelValue.value) ? modelValue.value : []
@@ -36,9 +35,7 @@ function getArray() {
               @clear="() => scope.clear(id)"
             />
           </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
-            >Select Hazard</span
-          >
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Hazard</span>
         </template>
         <template v-else>
           <HazardCategoryBadgeById
@@ -48,9 +45,7 @@ function getArray() {
             selectable
             @clear="() => scope.clear(modelValue)"
           />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
-            >Select Hazard</span
-          >
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Hazard</span>
         </template>
       </slot>
     </template>

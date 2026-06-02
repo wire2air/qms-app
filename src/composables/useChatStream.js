@@ -85,10 +85,14 @@ export function useChatStream({ threadId: initialThreadId = null } = {}) {
   // event sets threadId mid-turn, but the backend transaction hasn't
   // committed yet, so a GET would 404. We already have every message
   // live in `items.value`, so a refetch would be redundant anyway.
-  watch(threadId, (id) => {
-    if (isStreaming.value) return
-    loadHistory(id)
-  }, { immediate: true })
+  watch(
+    threadId,
+    (id) => {
+      if (isStreaming.value) return
+      loadHistory(id)
+    },
+    { immediate: true },
+  )
 
   // ─── Send ───────────────────────────────────────────────────────────────
   async function send(message, { context } = {}) {

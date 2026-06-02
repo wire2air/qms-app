@@ -41,8 +41,8 @@ function goSubmit() {
       <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Logs</div>
       <div class="tw:text-sm tw:text-secondary">
         Every log entry submitted across your log books. Use the Form filter to scope into a
-        specific log book (e.g. daily temperature, gemba round). Entries are immutable after
-        the edit window closes.
+        specific log book (e.g. daily temperature, gemba round). Entries are immutable after the
+        edit window closes.
       </div>
     </div>
 

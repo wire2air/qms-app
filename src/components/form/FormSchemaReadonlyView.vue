@@ -272,10 +272,7 @@ function getChecklistColumnLabel(col) {
           >
             {{ field.label }}
           </div>
-          <FormSchemaReadonlyView
-            :fields="field.children"
-            :values="getContainerValues(field)"
-          />
+          <FormSchemaReadonlyView :fields="field.children" :values="getContainerValues(field)" />
         </div>
       </template>
 

@@ -141,9 +141,7 @@ onMounted(() => {
         <div v-else-if="expired" class="tw:text-center tw:py-16">
           <IconClock :size="64" class="tw:text-warning tw:mx-auto" />
           <div class="tw:text-2xl tw:mt-4 tw:text-on-sidebar">Link Expired</div>
-          <p class="tw:text-secondary tw:mt-2">
-            This link has expired or has already been used.
-          </p>
+          <p class="tw:text-secondary tw:mt-2">This link has expired or has already been used.</p>
         </div>
 
         <!-- Error -->
@@ -228,10 +226,7 @@ onMounted(() => {
                         <div v-if="descFor(item)" class="tw:text-xs tw:text-secondary tw:mt-0.5">
                           {{ descFor(item) }}
                         </div>
-                        <div
-                          v-if="itemError[item.id]"
-                          class="tw:text-xs tw:text-bad tw:mt-0.5"
-                        >
+                        <div v-if="itemError[item.id]" class="tw:text-xs tw:text-bad tw:mt-0.5">
                           {{ itemError[item.id] }}
                         </div>
                       </div>
@@ -270,7 +265,9 @@ onMounted(() => {
                     <label
                       v-else
                       class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-primary tw:text-white tw:text-xs tw:px-3 tw:py-1.5 tw:cursor-pointer tw:hover:opacity-90"
-                      :class="effectiveStatus(item) === 'uploading' ? 'tw:opacity-60 tw:cursor-wait' : ''"
+                      :class="
+                        effectiveStatus(item) === 'uploading' ? 'tw:opacity-60 tw:cursor-wait' : ''
+                      "
                     >
                       <IconUpload :size="12" />
                       {{ effectiveStatus(item) === 'uploading' ? 'Uploading…' : 'Upload' }}
@@ -301,10 +298,7 @@ onMounted(() => {
               <IconUpload :size="48" class="tw:text-secondary tw:mx-auto" />
               <p class="tw:text-secondary tw:mt-2">Click to select a file</p>
             </div>
-            <div
-              v-else
-              class="tw:border tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3"
-            >
+            <div v-else class="tw:border tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3">
               <IconFileText :size="32" class="tw:text-primary" />
               <div class="tw:flex-1 tw:min-w-0">
                 <div class="tw:text-on-sidebar tw:truncate">{{ selectedFile.name }}</div>

@@ -13,7 +13,13 @@ const emit = defineEmits(['delete'])
 const columns = [
   { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
   { name: 'status', label: 'STATUS', field: 'status', align: 'left', sortable: false },
-  { name: 'passingScore', label: 'PASS SCORE', field: 'passingScore', align: 'left', sortable: true },
+  {
+    name: 'passingScore',
+    label: 'PASS SCORE',
+    field: 'passingScore',
+    align: 'left',
+    sortable: true,
+  },
   { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
   { name: 'actions', label: '', field: 'actions', align: 'right' },
 ]

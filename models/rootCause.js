@@ -19,8 +19,7 @@ import { DateTime } from 'luxon'
 @ClientModel('rootCauses', {
   primaryKey: 'id',
   syncField: 'updatedAt',
-  customIndex:
-    'companyId, [resourceType+resourceId], categoryId, workflowInstanceStepId',
+  customIndex: 'companyId, [resourceType+resourceId], categoryId, workflowInstanceStepId',
 })
 export class RootCause extends BaseModel {
   static paranoid = true

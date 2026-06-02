@@ -36,7 +36,9 @@ const errorRate = computed(() => {
 <template>
   <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-3 tw:lg:grid-cols-5 tw:gap-3">
     <div class="tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:p-4">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:text-xs tw:font-semibold tw:uppercase">
+      <div
+        class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:text-xs tw:font-semibold tw:uppercase"
+      >
         <IconActivity :size="14" /> Calls
       </div>
       <div class="tw:text-2xl tw:font-bold tw:text-on-main tw:mt-1">
@@ -45,7 +47,9 @@ const errorRate = computed(() => {
     </div>
 
     <div class="tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:p-4">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:text-xs tw:font-semibold tw:uppercase">
+      <div
+        class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:text-xs tw:font-semibold tw:uppercase"
+      >
         <IconCircleCheck :size="14" /> Successful
       </div>
       <div class="tw:text-2xl tw:font-bold tw:text-on-main tw:mt-1">
@@ -57,10 +61,15 @@ const errorRate = computed(() => {
     </div>
 
     <div class="tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:p-4">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:text-xs tw:font-semibold tw:uppercase">
+      <div
+        class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:text-xs tw:font-semibold tw:uppercase"
+      >
         <IconAlertTriangle :size="14" /> Errors
       </div>
-      <div class="tw:text-2xl tw:font-bold tw:text-on-main tw:mt-1" :class="errorRate > 5 ? 'tw:text-red-600' : ''">
+      <div
+        class="tw:text-2xl tw:font-bold tw:text-on-main tw:mt-1"
+        :class="errorRate > 5 ? 'tw:text-red-600' : ''"
+      >
         {{ loading ? '…' : fmtNumber(h.errorCalls) }}
         <span v-if="!loading && h.totalCalls" class="tw:text-sm tw:text-secondary tw:font-normal">
           ({{ errorRate }}%)
@@ -69,7 +78,9 @@ const errorRate = computed(() => {
     </div>
 
     <div class="tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:p-4">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:text-xs tw:font-semibold tw:uppercase">
+      <div
+        class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:text-xs tw:font-semibold tw:uppercase"
+      >
         <IconCurrencyDollar :size="14" /> Est. cost
       </div>
       <div class="tw:text-2xl tw:font-bold tw:text-on-main tw:mt-1">
@@ -81,7 +92,9 @@ const errorRate = computed(() => {
     </div>
 
     <div class="tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:p-4">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:text-xs tw:font-semibold tw:uppercase">
+      <div
+        class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:text-xs tw:font-semibold tw:uppercase"
+      >
         <IconClock :size="14" /> p95 latency
       </div>
       <div class="tw:text-2xl tw:font-bold tw:text-on-main tw:mt-1">

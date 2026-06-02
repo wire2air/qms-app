@@ -143,7 +143,9 @@ async function onSubmit() {
   <BaseDialog v-model="open" maxWidth="2xl" persistent>
     <template #title>
       <div class="tw:flex tw:items-center tw:gap-3">
-        <div class="tw:w-9 tw:h-9 tw:bg-primary/10 tw:rounded-xl tw:flex tw:items-center tw:justify-center">
+        <div
+          class="tw:w-9 tw:h-9 tw:bg-primary/10 tw:rounded-xl tw:flex tw:items-center tw:justify-center"
+        >
           <IconSitemap class="tw:size-5 tw:text-primary" />
         </div>
         <span>{{ isEdit ? 'Edit RCA Template' : 'New RCA Template' }}</span>
@@ -173,7 +175,9 @@ async function onSubmit() {
           Configure Methods
         </div>
         <p class="tw:text-xs tw:text-secondary tw:-mt-3">
-          All four methods are always available. Set up the structure for each one — branches &amp; causes for Fishbone, prompts for 5 Whys, dimensions for Is/Is Not, and nodes for Fault Tree. The end user picks which method to use when filling the form.
+          All four methods are always available. Set up the structure for each one — branches &amp;
+          causes for Fishbone, prompts for 5 Whys, dimensions for Is/Is Not, and nodes for Fault
+          Tree. The end user picks which method to use when filling the form.
         </p>
 
         <!-- Tab bar -->
@@ -182,9 +186,11 @@ async function onSubmit() {
             v-for="tab in TABS"
             :key="tab.key"
             class="tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:border-b-2 tw:transition-colors tw:bg-transparent tw:cursor-pointer tw:-mb-px"
-            :class="activeTab === tab.key
-              ? 'tw:border-primary tw:text-primary'
-              : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'"
+            :class="
+              activeTab === tab.key
+                ? 'tw:border-primary tw:text-primary'
+                : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'
+            "
             @click="activeTab = tab.key"
           >
             {{ tab.label }}

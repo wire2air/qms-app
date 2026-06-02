@@ -86,9 +86,7 @@ const incompleteStepCount = useLiveQueryWithDeps(
       instances.map((i) => db.WorkflowInstanceStep.where('workflowInstanceId', i.id).exec()),
     )
     const allSteps = stepLists.flat()
-    return allSteps.filter(
-      (s) => !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId),
-    ).length
+    return allSteps.filter((s) => !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId)).length
   },
   { initial: 0 },
 )
@@ -258,9 +256,7 @@ const selectedDispositionType = useLiveQueryWithDeps(
   [() => nc.value?.dispositionTypeId],
   async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
 )
-const dispositionTracksCost = computed(
-  () => !!selectedDispositionType.value?.tracksCost,
-)
+const dispositionTracksCost = computed(() => !!selectedDispositionType.value?.tracksCost)
 
 // ─── Inline-edit for overview fields ──────────────────────────────────────────
 const editingTitle = ref(false)
@@ -725,7 +721,9 @@ function onCreateLinkedChangeRequest() {
               <div
                 class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+                <div
+                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+                >
                   Linked CAPAs
                 </div>
                 <div class="tw:flex tw:gap-2">
@@ -765,9 +763,7 @@ function onCreateLinkedChangeRequest() {
                   <CapaStatusBadgeById :statusId="linked.statusId" />
                 </RouterLink>
               </div>
-              <div v-else class="tw:text-sm tw:text-secondary tw:italic">
-                No CAPAs linked yet.
-              </div>
+              <div v-else class="tw:text-sm tw:text-secondary tw:italic">No CAPAs linked yet.</div>
             </div>
           </div>
 
@@ -854,10 +850,7 @@ function onCreateLinkedChangeRequest() {
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Issue type</span>
-                  <NcIssueTypeBadgeById
-                    v-if="nc.ncIssueTypeId"
-                    :issueTypeId="nc.ncIssueTypeId"
-                  />
+                  <NcIssueTypeBadgeById v-if="nc.ncIssueTypeId" :issueTypeId="nc.ncIssueTypeId" />
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
               </div>
@@ -890,8 +883,12 @@ function onCreateLinkedChangeRequest() {
               <!-- Source / Commerce -->
               <div
                 v-if="
-                  nc.supplierId || nc.productId || nc.qtyAffected ||
-                  nc.poNumber || nc.orderNumber || nc.lotNumber
+                  nc.supplierId ||
+                  nc.productId ||
+                  nc.qtyAffected ||
+                  nc.poNumber ||
+                  nc.orderNumber ||
+                  nc.lotNumber
                 "
                 class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col"
               >
@@ -902,10 +899,7 @@ function onCreateLinkedChangeRequest() {
                   <span class="tw:text-xs tw:text-secondary">Supplier</span>
                   <SupplierBadgeById :supplierId="nc.supplierId" />
                 </div>
-                <div
-                  v-if="nc.productId"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
-                >
+                <div v-if="nc.productId" class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Product</span>
                   <ProductBadgeById :productId="nc.productId" />
                 </div>
@@ -918,10 +912,7 @@ function onCreateLinkedChangeRequest() {
                     {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
                   </span>
                 </div>
-                <div
-                  v-if="nc.poNumber"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
-                >
+                <div v-if="nc.poNumber" class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">PO #</span>
                   <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.poNumber }}</span>
                 </div>
@@ -932,10 +923,7 @@ function onCreateLinkedChangeRequest() {
                   <span class="tw:text-xs tw:text-secondary">Order #</span>
                   <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.orderNumber }}</span>
                 </div>
-                <div
-                  v-if="nc.lotNumber"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
-                >
+                <div v-if="nc.lotNumber" class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Lot #</span>
                   <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.lotNumber }}</span>
                 </div>
@@ -1026,12 +1014,12 @@ function onCreateLinkedChangeRequest() {
         >
           <div class="tw:shrink-0 tw:mt-0.5 tw:text-green-600 tw:font-bold">✓</div>
           <div class="tw:text-sm tw:text-green-800">
-            All gates are satisfied — every workflow step is complete, the
-            disposition is recorded with notes
+            All gates are satisfied — every workflow step is complete, the disposition is recorded
+            with notes
             <template v-if="nc?.capaRequired === true">, a CAPA is linked</template>
             <template v-if="ncDispositionType?.tracksCost">, and Cost of NC is entered</template>.
-            Approving signs the closure and transitions the NC to
-            <strong>Closed</strong> — this is the final action.
+            Approving signs the closure and transitions the NC to <strong>Closed</strong> — this is
+            the final action.
           </div>
         </div>
 
@@ -1051,9 +1039,8 @@ function onCreateLinkedChangeRequest() {
         >
           <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
           <div>
-            CFR 21 Part 11 — Approving and closing this NC is an attested
-            regulated action and requires an e-signature. You'll confirm
-            your identity on the next step.
+            CFR 21 Part 11 — Approving and closing this NC is an attested regulated action and
+            requires an e-signature. You'll confirm your identity on the next step.
           </div>
         </div>
 
@@ -1122,8 +1109,8 @@ function onCreateLinkedChangeRequest() {
     <!-- Delete draft NC -->
     <BaseDialog v-model="showDeleteDialog" title="Delete Draft NC" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Delete this draft nonconformance? This permanently removes the
-        record. Drafts have no audit history yet, so this is safe.
+        Delete this draft nonconformance? This permanently removes the record. Drafts have no audit
+        history yet, so this is safe.
       </p>
       <div
         v-if="saveError"

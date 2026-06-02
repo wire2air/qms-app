@@ -31,7 +31,9 @@ const trainings = useLiveQueryWithDeps(
       const q = search.toLowerCase()
       results = results.filter((r) => r.title?.toLowerCase().includes(q))
     }
-    return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    return results.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )
   },
   { initial: [] },
 )
@@ -63,51 +65,81 @@ const STATUS_OPTIONS = [
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" variant="primary" @click="router.push(getCompanyPath('/trainings/create'))">
+      <BaseButton
+        v-if="canCreate"
+        variant="primary"
+        @click="router.push(getCompanyPath('/trainings/create'))"
+      >
         <IconPlus :size="16" class="tw:mr-1" /> New Training
       </BaseButton>
     </SafeTeleport>
 
     <div class="tw:flex tw:flex-col tw:gap-1">
       <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Training Library</div>
-      <div class="tw:text-sm tw:text-secondary">Create and manage training programs for your team.</div>
+      <div class="tw:text-sm tw:text-secondary">
+        Create and manage training programs for your team.
+      </div>
     </div>
 
     <!-- Stat Cards -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4">
-        <div class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0">
+      <div
+        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
+      >
+        <div
+          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+        >
           <IconBook :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">Total</div>
+          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+            Total
+          </div>
           <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.total }}</div>
         </div>
       </div>
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4">
-        <div class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-green-50 tw:text-green-600 tw:flex tw:items-center tw:justify-center tw:shrink-0">
+      <div
+        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
+      >
+        <div
+          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-green-50 tw:text-green-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+        >
           <IconCircleCheck :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">Active</div>
+          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+            Active
+          </div>
           <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.active }}</div>
         </div>
       </div>
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4">
-        <div class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-gray-50 tw:text-gray-600 tw:flex tw:items-center tw:justify-center tw:shrink-0">
+      <div
+        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
+      >
+        <div
+          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-gray-50 tw:text-gray-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+        >
           <IconClock :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">Draft</div>
+          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+            Draft
+          </div>
           <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.draft }}</div>
         </div>
       </div>
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4">
-        <div class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center tw:shrink-0">
+      <div
+        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
+      >
+        <div
+          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+        >
           <IconSchool :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">Archived</div>
+          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+            Archived
+          </div>
           <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.archived }}</div>
         </div>
       </div>
@@ -121,9 +153,11 @@ const STATUS_OPTIONS = [
           v-for="opt in STATUS_OPTIONS"
           :key="String(opt.id)"
           class="tw:px-3 tw:py-1.5 tw:rounded-lg tw:text-sm tw:font-medium tw:transition-colors"
-          :class="filters.status === opt.id
-            ? 'tw:bg-primary tw:text-white'
-            : 'tw:bg-gray-100 tw:text-secondary tw:hover:bg-gray-200'"
+          :class="
+            filters.status === opt.id
+              ? 'tw:bg-primary tw:text-white'
+              : 'tw:bg-gray-100 tw:text-secondary tw:hover:bg-gray-200'
+          "
           @click="filters.status = opt.id"
         >
           {{ opt.name }}
@@ -131,10 +165,6 @@ const STATUS_OPTIONS = [
       </div>
     </div>
 
-    <TrainingsTable
-      :rows="trainings"
-      :canUpdate="canUpdate"
-      :canDelete="canDelete"
-    />
+    <TrainingsTable :rows="trainings" :canUpdate="canUpdate" :canDelete="canDelete" />
   </div>
 </template>

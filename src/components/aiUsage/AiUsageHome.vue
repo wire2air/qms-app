@@ -34,18 +34,22 @@ function pickPeriod(days) {
         >
           <button
             class="tw:flex tw:items-center tw:gap-1 tw:px-2.5 tw:py-1 tw:text-xs tw:font-medium tw:transition-colors"
-            :class="usage.scope.value === 'mine'
-              ? 'tw:bg-primary tw:text-white'
-              : 'tw:text-secondary tw:hover:bg-main-hover'"
+            :class="
+              usage.scope.value === 'mine'
+                ? 'tw:bg-primary tw:text-white'
+                : 'tw:text-secondary tw:hover:bg-main-hover'
+            "
             @click="usage.scope.value = 'mine'"
           >
             <IconUser :size="13" /> Mine
           </button>
           <button
             class="tw:flex tw:items-center tw:gap-1 tw:px-2.5 tw:py-1 tw:text-xs tw:font-medium tw:transition-colors"
-            :class="usage.scope.value === 'all'
-              ? 'tw:bg-primary tw:text-white'
-              : 'tw:text-secondary tw:hover:bg-main-hover'"
+            :class="
+              usage.scope.value === 'all'
+                ? 'tw:bg-primary tw:text-white'
+                : 'tw:text-secondary tw:hover:bg-main-hover'
+            "
             @click="usage.scope.value = 'all'"
           >
             <IconUsers :size="13" /> Everyone
@@ -53,14 +57,18 @@ function pickPeriod(days) {
         </div>
 
         <!-- Period toggle -->
-        <div class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:overflow-hidden">
+        <div
+          class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:overflow-hidden"
+        >
           <button
             v-for="p in periods"
             :key="p.days"
             class="tw:px-2.5 tw:py-1 tw:text-xs tw:font-medium tw:transition-colors"
-            :class="activePeriodDays === p.days
-              ? 'tw:bg-primary tw:text-white'
-              : 'tw:text-secondary tw:hover:bg-main-hover'"
+            :class="
+              activePeriodDays === p.days
+                ? 'tw:bg-primary tw:text-white'
+                : 'tw:text-secondary tw:hover:bg-main-hover'
+            "
             @click="pickPeriod(p.days)"
           >
             {{ p.label }}

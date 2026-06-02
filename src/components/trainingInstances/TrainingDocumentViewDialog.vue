@@ -24,12 +24,18 @@ const resolvedVersion = useLiveQueryWithDeps(
 
 <template>
   <BaseDialog v-model="model" maxWidth="3xl" :title="null">
-    <div v-if="!documentId" class="tw:p-8 tw:text-center tw:text-secondary tw:text-sm">No document selected.</div>
+    <div v-if="!documentId" class="tw:p-8 tw:text-center tw:text-secondary tw:text-sm">
+      No document selected.
+    </div>
     <div v-else-if="!resolvedVersion" class="tw:p-8 tw:text-center tw:text-secondary tw:text-sm">
       No effective (published) version found for this document.
     </div>
     <div v-else class="tw:max-h-[75vh] tw:overflow-y-auto tw:p-5">
-      <DocumentsMainContentLeft :documentId="documentId" :versionId="resolvedVersion.id" :dense="true" />
+      <DocumentsMainContentLeft
+        :documentId="documentId"
+        :versionId="resolvedVersion.id"
+        :dense="true"
+      />
     </div>
   </BaseDialog>
 </template>

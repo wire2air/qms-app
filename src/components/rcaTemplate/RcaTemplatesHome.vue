@@ -16,7 +16,10 @@ const templates = useLiveQueryWithDeps(
   [() => search.value],
   async (db, [q]) => {
     const results = await db.RcaTemplate.where().exec()
-    if (!q) return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    if (!q)
+      return results.sort(
+        (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+      )
     const lower = q.toLowerCase()
     return results
       .filter((t) => t.name.toLowerCase().includes(lower))
@@ -55,9 +58,7 @@ function onDialogClose() {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" @click="showCreateDialog = true">
-        New Template
-      </BaseButton>
+      <BaseButton v-if="canCreate" @click="showCreateDialog = true"> New Template </BaseButton>
     </SafeTeleport>
 
     <div class="tw:flex tw:items-center tw:justify-between">
@@ -70,11 +71,7 @@ function onDialogClose() {
     </div>
 
     <div class="tw:flex tw:items-center tw:gap-3">
-      <BaseTextInput
-        v-model="search"
-        placeholder="Search templates..."
-        class="tw:w-72"
-      />
+      <BaseTextInput v-model="search" placeholder="Search templates..." class="tw:w-72" />
     </div>
 
     <RcaTemplatesTable
@@ -86,11 +83,7 @@ function onDialogClose() {
     />
   </div>
 
-  <RcaTemplateDialog
-    v-model="showCreateDialog"
-    :template="editTemplate"
-    @close="onDialogClose"
-  />
+  <RcaTemplateDialog v-model="showCreateDialog" :template="editTemplate" @close="onDialogClose" />
 
   <ConfirmDialog
     v-model="confirmDelete.open"

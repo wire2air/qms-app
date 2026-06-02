@@ -197,9 +197,7 @@ function truncate(text, n = 80) {
         </BaseButton>
       </div>
     </div>
-    <div v-else class="tw:text-sm tw:text-secondary tw:italic">
-      No information requests yet.
-    </div>
+    <div v-else class="tw:text-sm tw:text-secondary tw:italic">No information requests yet.</div>
 
     <InformationRequestDialog
       v-model="showDialog"

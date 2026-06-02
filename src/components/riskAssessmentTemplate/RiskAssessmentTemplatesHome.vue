@@ -53,14 +53,14 @@ function onDialogClose() {
     <SafeTeleport to="#main-header-title">
       <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
         <IconLayoutGrid class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Risk Assessment Templates</h2>
+        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
+          Risk Assessment Templates
+        </h2>
       </div>
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" @click="showCreateDialog = true">
-        New Template
-      </BaseButton>
+      <BaseButton v-if="canCreate" @click="showCreateDialog = true"> New Template </BaseButton>
     </SafeTeleport>
 
     <div class="tw:flex tw:items-center tw:justify-between">
@@ -73,11 +73,7 @@ function onDialogClose() {
     </div>
 
     <div class="tw:flex tw:items-center tw:gap-3">
-      <BaseTextInput
-        v-model="search"
-        placeholder="Search templates..."
-        class="tw:w-72"
-      />
+      <BaseTextInput v-model="search" placeholder="Search templates..." class="tw:w-72" />
     </div>
 
     <RiskAssessmentTemplatesTable

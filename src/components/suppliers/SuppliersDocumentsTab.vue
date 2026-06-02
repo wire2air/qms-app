@@ -37,9 +37,7 @@ const supplierAssets = useLiveQueryWithDeps(
   async (db, [supplierId]) => {
     if (!supplierId) return []
     const rows = await db.SupplierAsset.where('supplierId', supplierId).exec()
-    return rows.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
   { initial: [] },
 )
@@ -198,7 +196,9 @@ function formatSize(bytes) {
           </p>
           <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
             {{ typeLabel[d.row.documentType] || d.row.documentType }}
-            <span v-if="d.asset?.fileSize" class="tw:ml-1">· {{ formatSize(d.asset.fileSize) }}</span>
+            <span v-if="d.asset?.fileSize" class="tw:ml-1"
+              >· {{ formatSize(d.asset.fileSize) }}</span
+            >
             <span v-if="d.row.createdAt" class="tw:ml-1">
               · added {{ d.row.createdAt.toRelative?.() }}
             </span>
@@ -238,10 +238,7 @@ function formatSize(bytes) {
           <label class="tw:block tw:text-xs tw:font-semibold tw:text-secondary tw:mb-1">
             Title <span class="tw:text-bad">*</span>
           </label>
-          <BaseTextInput
-            v-model="uploadForm.title"
-            placeholder="e.g. ISO 9001 Certificate"
-          />
+          <BaseTextInput v-model="uploadForm.title" placeholder="e.g. ISO 9001 Certificate" />
         </div>
         <div>
           <label class="tw:block tw:text-xs tw:font-semibold tw:text-secondary tw:mb-1">

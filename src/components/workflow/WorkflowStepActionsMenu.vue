@@ -48,9 +48,7 @@ const currentUserTask = useLiveQueryWithDeps(
       stepInstanceId,
     ]).exec()
     return (
-      tasks.find(
-        (t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId),
-      ) || null
+      tasks.find((t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId)) || null
     )
   },
 )
@@ -93,7 +91,7 @@ const comment = ref('')
 const actionLoading = ref(false)
 
 const pendingConfig = computed(() =>
-  pendingOutcomeId.value ? OUTCOME_CONFIG.value[pendingOutcomeId.value] ?? null : null,
+  pendingOutcomeId.value ? (OUTCOME_CONFIG.value[pendingOutcomeId.value] ?? null) : null,
 )
 const isRejectAction = computed(() => pendingOutcomeId.value === 'SEND_BACK')
 const confirmTitle = computed(() => pendingConfig.value?.label ?? 'Confirm')
@@ -104,8 +102,7 @@ const confirmTitle = computed(() => pendingConfig.value?.label ?? 'Confirm')
 // WorkflowStep.vue. If product later wants SEND_BACK signed too, add it
 // to this set.
 const ESIGN_GATED_OUTCOMES = new Set(['COMPLETE_AND_ADVANCE'])
-const needsEsignFor = (outcomeId) =>
-  props.requireEsignature && ESIGN_GATED_OUTCOMES.has(outcomeId)
+const needsEsignFor = (outcomeId) => props.requireEsignature && ESIGN_GATED_OUTCOMES.has(outcomeId)
 
 function onOutcomeClick(outcomeId) {
   if (!canActOnStep.value) return
@@ -147,13 +144,10 @@ async function submitAction(esign = null) {
       // Each module wires this to its own controller (NC's rejectStepTask
       // also flips the user-on-WIS row to REJECTED and may PEND the step;
       // see the per-module backend implementation).
-      await post(
-        `/v1/services/${props.module.apiPath}/${props.resourceId}/rejectStepTask`,
-        {
-          workflowInstanceStepId: props.instanceStepId,
-          comment: comment.value,
-        },
-      )
+      await post(`/v1/services/${props.module.apiPath}/${props.resourceId}/rejectStepTask`, {
+        workflowInstanceStepId: props.instanceStepId,
+        comment: comment.value,
+      })
       toast.success(
         isApprovalStep.value
           ? 'Approval rejected — the owner has been notified'

@@ -76,33 +76,78 @@ function statusClass(s) {
       <table v-if="jobs.length > 0" class="tw:w-full tw:text-sm">
         <thead>
           <tr class="tw:bg-sidebar/40">
-            <th class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-left">When</th>
-            <th class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-left">User</th>
-            <th class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-left">Task</th>
-            <th class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-left">Source</th>
-            <th class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-left">Status</th>
-            <th class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-right">In</th>
-            <th class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-right">Out</th>
-            <th class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-right">Duration</th>
-            <th class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-right">Cost</th>
+            <th
+              class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-left"
+            >
+              When
+            </th>
+            <th
+              class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-left"
+            >
+              User
+            </th>
+            <th
+              class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-left"
+            >
+              Task
+            </th>
+            <th
+              class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-left"
+            >
+              Source
+            </th>
+            <th
+              class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-left"
+            >
+              Status
+            </th>
+            <th
+              class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-right"
+            >
+              In
+            </th>
+            <th
+              class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-right"
+            >
+              Out
+            </th>
+            <th
+              class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-right"
+            >
+              Duration
+            </th>
+            <th
+              class="tw:px-3 tw:py-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:text-right"
+            >
+              Cost
+            </th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="j in jobs" :key="j.id" class="tw:border-t tw:border-divider tw:hover:bg-main-hover">
+          <tr
+            v-for="j in jobs"
+            :key="j.id"
+            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+          >
             <td class="tw:px-3 tw:py-2 tw:text-secondary tw:text-xs tw:whitespace-nowrap">
               {{ fmtTime(j.createdAt) }}
             </td>
             <td class="tw:px-3 tw:py-2 tw:text-on-main tw:whitespace-nowrap">
               {{ j.userName || '—' }}
             </td>
-            <td class="tw:px-3 tw:py-2 tw:text-on-main tw:font-mono tw:text-xs tw:whitespace-nowrap">
+            <td
+              class="tw:px-3 tw:py-2 tw:text-on-main tw:font-mono tw:text-xs tw:whitespace-nowrap"
+            >
               {{ j.task }}
             </td>
             <td class="tw:px-3 tw:py-2 tw:text-secondary tw:text-xs tw:whitespace-nowrap">
               {{ j.source }}
             </td>
             <td class="tw:px-3 tw:py-2">
-              <span class="tw:text-xs tw:px-1.5 tw:py-0.5 tw:rounded tw:font-semibold" :class="statusClass(j.status)">
+              <span
+                class="tw:text-xs tw:px-1.5 tw:py-0.5 tw:rounded tw:font-semibold"
+                :class="statusClass(j.status)"
+              >
                 {{ j.status }}
               </span>
             </td>
@@ -121,7 +166,9 @@ function statusClass(s) {
           </tr>
         </tbody>
       </table>
-      <div v-else-if="loading" class="tw:py-6 tw:text-center tw:text-sm tw:text-secondary">Loading…</div>
+      <div v-else-if="loading" class="tw:py-6 tw:text-center tw:text-sm tw:text-secondary">
+        Loading…
+      </div>
       <div v-else class="tw:py-6 tw:text-center tw:text-sm tw:text-secondary">No calls yet.</div>
     </div>
   </div>

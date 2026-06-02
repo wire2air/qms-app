@@ -424,7 +424,9 @@ function closeAssessmentReview() {
               </span>
             </span>
             <span>
-              Attempts: {{ reviewAssignee.attemptCount ?? 0 }}/{{ instance.snapshot?.maxAttempts ?? 1 }}
+              Attempts: {{ reviewAssignee.attemptCount ?? 0 }}/{{
+                instance.snapshot?.maxAttempts ?? 1
+              }}
             </span>
           </div>
         </div>

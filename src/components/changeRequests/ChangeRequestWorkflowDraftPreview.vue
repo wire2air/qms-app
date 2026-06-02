@@ -34,9 +34,7 @@ const stepRoles = useLiveQueryWithDeps(
   async (db, [idsStr]) => {
     const ids = idsStr ? idsStr.split(',') : []
     if (!ids.length) return {}
-    const rows = await Promise.all(
-      ids.map((id) => db.WorkflowStepRole.where('stepId', id).exec()),
-    )
+    const rows = await Promise.all(ids.map((id) => db.WorkflowStepRole.where('stepId', id).exec()))
     const map = {}
     ids.forEach((id, i) => {
       map[id] = rows[i].map((r) => r.roleId)
@@ -81,14 +79,12 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
     v-if="cr && hasWorkflow"
     class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4"
   >
-    <div
-      class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider"
-    >
+    <div class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider">
       <div>
         <h3 class="tw:text-sm tw:font-bold tw:text-on-main">Approval Workflow Plan</h3>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          Assign a reviewer to each approval step. The workflow launches
-          with these assignments when you click <strong>Submit for Approval</strong>.
+          Assign a reviewer to each approval step. The workflow launches with these assignments when
+          you click <strong>Submit for Approval</strong>.
         </p>
       </div>
       <span v-if="saving" class="tw:text-xs tw:text-secondary">Saving…</span>
@@ -129,10 +125,7 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
             @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
           />
           <div v-else class="tw:flex tw:items-center tw:gap-2">
-            <UserBadgeById
-              v-if="currentAssignee(step.id)"
-              :userId="currentAssignee(step.id)"
-            />
+            <UserBadgeById v-if="currentAssignee(step.id)" :userId="currentAssignee(step.id)" />
             <span v-else class="tw:text-xs tw:text-secondary tw:italic">Unassigned</span>
           </div>
         </div>

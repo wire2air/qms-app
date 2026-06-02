@@ -61,9 +61,7 @@ const currentUserTask = useLiveQueryWithDeps(
       stepInstanceId,
     ]).exec()
     return (
-      tasks.find(
-        (t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId),
-      ) || null
+      tasks.find((t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId)) || null
     )
   },
 )
@@ -224,10 +222,7 @@ function getStatusLabel(statusId) {
         >
           <IconArrowBackUp :size="14" class="tw:text-amber-600" />
         </div>
-        <div
-          v-else
-          class="tw:size-6 tw:rounded-full tw:border-2 tw:border-gray-300 tw:bg-white"
-        />
+        <div v-else class="tw:size-6 tw:rounded-full tw:border-2 tw:border-gray-300 tw:bg-white" />
       </div>
 
       <button
@@ -328,8 +323,8 @@ function getStatusLabel(statusId) {
 
     <BaseDialog v-model="showCancelDialog" title="Cancel Sub-task" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Cancel this sub-task? Any open assignment is closed; the parent
-        stage's completion check will treat it as done.
+        Cancel this sub-task? Any open assignment is closed; the parent stage's completion check
+        will treat it as done.
       </p>
       <BaseTextarea v-model="cancelReason" :rows="3" placeholder="Reason (optional)" />
       <template #footer="{ close }">

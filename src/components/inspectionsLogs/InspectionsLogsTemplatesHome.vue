@@ -1,11 +1,5 @@
 <script setup>
-import {
-  IconStack2,
-  IconPlus,
-  IconShieldCheck,
-  IconClock,
-  IconSearch,
-} from '@tabler/icons-vue'
+import { IconStack2, IconPlus, IconShieldCheck, IconClock, IconSearch } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
@@ -60,13 +54,10 @@ const templates = useLiveQueryWithDeps(
     if (q) {
       const needle = q.toLowerCase()
       rows = rows.filter(
-        (t) =>
-          t.title?.toLowerCase().includes(needle) || t.code?.toLowerCase().includes(needle),
+        (t) => t.title?.toLowerCase().includes(needle) || t.code?.toLowerCase().includes(needle),
       )
     }
-    return rows.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
   { initial: [] },
 )
@@ -181,7 +172,10 @@ function editWindowSummary(t) {
     </div>
 
     <!-- Filters -->
-    <div v-if="templates.length > 0 || classificationFilter !== 'all' || search" class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
+    <div
+      v-if="templates.length > 0 || classificationFilter !== 'all' || search"
+      class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap"
+    >
       <div class="tw:relative tw:flex-1 tw:max-w-md">
         <IconSearch
           :size="16"
@@ -262,10 +256,7 @@ function editWindowSummary(t) {
                 class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
                 :class="classificationBadgeClass(t.recordClassification)"
               >
-                <IconShieldCheck
-                  v-if="t.recordClassification === 'CONTROLLED_RECORD'"
-                  :size="10"
-                />
+                <IconShieldCheck v-if="t.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
                 {{ t.recordClassification?.replace('_', ' ') }}
               </span>
             </td>

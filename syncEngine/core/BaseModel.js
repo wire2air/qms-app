@@ -289,9 +289,7 @@ export class BaseModel {
     ModelValidator.validate(this, this.constructor.name)
 
     if (!BaseModel._saveStrategy) {
-      throw new Error(
-        '[BaseModel] No _saveStrategy installed; call SyncEngine.install() first',
-      )
+      throw new Error('[BaseModel] No _saveStrategy installed; call SyncEngine.install() first')
     }
     await BaseModel._saveStrategy(self)
 

@@ -307,10 +307,14 @@ const isCompleted = computed(() => !!props.modelValue?.outcome?.completedAt)
       <template v-else-if="currentMethodDef">
         <div class="tw:flex tw:items-center tw:gap-2">
           <RcaMethodBadge :method="chosenMethod" />
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main">{{ currentMethodDef.label }}</span>
+          <span class="tw:text-sm tw:font-semibold tw:text-on-main">{{
+            currentMethodDef.label
+          }}</span>
           <span class="tw:text-xs tw:text-secondary tw:mx-1">·</span>
           <span class="tw:text-xs tw:text-secondary">{{ template.name }}</span>
-          <span v-if="isCompleted" class="tw:text-xs tw:text-green-600 tw:ml-auto">✓ Completed</span>
+          <span v-if="isCompleted" class="tw:text-xs tw:text-green-600 tw:ml-auto"
+            >✓ Completed</span
+          >
           <button
             v-else-if="!readonly && !disabled"
             class="tw:ml-auto tw:text-xs tw:text-secondary tw:hover:text-primary tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
@@ -355,9 +359,7 @@ const isCompleted = computed(() => !!props.modelValue?.outcome?.completedAt)
               <span
                 class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:px-2 tw:py-0.5 tw:rounded"
                 :class="
-                  row.isPrimary
-                    ? 'tw:bg-primary tw:text-white'
-                    : 'tw:bg-divider tw:text-secondary'
+                  row.isPrimary ? 'tw:bg-primary tw:text-white' : 'tw:bg-divider tw:text-secondary'
                 "
               >
                 {{ row.isPrimary ? 'Primary' : 'Contributing' }}
@@ -377,9 +379,7 @@ const isCompleted = computed(() => !!props.modelValue?.outcome?.completedAt)
                   v-else-if="row.categoryId"
                   :categoryId="row.categoryId"
                 />
-                <span v-else class="tw:text-xs tw:text-secondary tw:italic">
-                  No category
-                </span>
+                <span v-else class="tw:text-xs tw:text-secondary tw:italic"> No category </span>
               </div>
               <button
                 v-if="!row.isPrimary && !readonly && !disabled && !isCompleted"
@@ -411,11 +411,16 @@ const isCompleted = computed(() => !!props.modelValue?.outcome?.completedAt)
             + Add contributing cause
           </button>
 
-          <div v-if="!readonly && !disabled" class="tw:flex tw:items-center tw:justify-between tw:pt-2 tw:border-t tw:border-divider">
+          <div
+            v-if="!readonly && !disabled"
+            class="tw:flex tw:items-center tw:justify-between tw:pt-2 tw:border-t tw:border-divider"
+          >
             <span class="tw:text-xs tw:text-secondary">
-              {{ isCompleted
-                ? `Completed ${new Date(modelValue.outcome.completedAt).toLocaleString()}`
-                : 'Mark complete when the analysis is done.' }}
+              {{
+                isCompleted
+                  ? `Completed ${new Date(modelValue.outcome.completedAt).toLocaleString()}`
+                  : 'Mark complete when the analysis is done.'
+              }}
             </span>
             <button
               v-if="!isCompleted"

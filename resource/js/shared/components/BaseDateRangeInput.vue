@@ -315,7 +315,9 @@ onUnmounted(() => document.removeEventListener('mousedown', onDocClick))
           </div>
         </div>
 
-        <div class="tw:flex tw:justify-between tw:items-center tw:mt-2 tw:pt-2 tw:border-t tw:border-divider">
+        <div
+          class="tw:flex tw:justify-between tw:items-center tw:mt-2 tw:pt-2 tw:border-t tw:border-divider"
+        >
           <button
             type="button"
             class="tw:text-xs tw:text-secondary tw:hover:text-on-main tw:underline"

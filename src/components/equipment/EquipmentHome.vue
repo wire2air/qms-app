@@ -1,11 +1,5 @@
 <script setup>
-import {
-  IconTool,
-  IconPlus,
-  IconSearch,
-  IconAlertCircle,
-  IconCalendar,
-} from '@tabler/icons-vue'
+import { IconTool, IconPlus, IconSearch, IconAlertCircle, IconCalendar } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { DateTime } from 'luxon'
 
@@ -130,8 +124,8 @@ function onUpdated() {
     <div class="tw:flex tw:flex-col tw:gap-1">
       <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Equipment</div>
       <div class="tw:text-sm tw:text-secondary">
-        Instruments, machines, and other equipment tracked by the QMS. Log books reference
-        equipment for calibration, preventive maintenance, and equipment-specific routines.
+        Instruments, machines, and other equipment tracked by the QMS. Log books reference equipment
+        for calibration, preventive maintenance, and equipment-specific routines.
       </div>
     </div>
 
@@ -196,10 +190,7 @@ function onUpdated() {
     </div>
 
     <!-- Table -->
-    <div
-      v-else
-      class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden"
-    >
+    <div v-else class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden">
       <table class="tw:w-full tw:text-sm">
         <thead class="tw:bg-main">
           <tr class="tw:text-left">
@@ -241,11 +232,13 @@ function onUpdated() {
             <td class="tw:px-3 tw:py-2 tw:text-xs">
               <span
                 v-if="e.nextCalibrationDue"
-                :class="overdue(e.nextCalibrationDue)
-                  ? 'tw:text-red-700 tw:font-medium'
-                  : dueSoon(e.nextCalibrationDue)
-                    ? 'tw:text-amber-700'
-                    : 'tw:text-secondary'"
+                :class="
+                  overdue(e.nextCalibrationDue)
+                    ? 'tw:text-red-700 tw:font-medium'
+                    : dueSoon(e.nextCalibrationDue)
+                      ? 'tw:text-amber-700'
+                      : 'tw:text-secondary'
+                "
                 class="tw:inline-flex tw:items-center tw:gap-1"
               >
                 <IconAlertCircle v-if="overdue(e.nextCalibrationDue)" :size="12" />
@@ -257,11 +250,13 @@ function onUpdated() {
             <td class="tw:px-3 tw:py-2 tw:text-xs">
               <span
                 v-if="e.nextPmDue"
-                :class="overdue(e.nextPmDue)
-                  ? 'tw:text-red-700 tw:font-medium'
-                  : dueSoon(e.nextPmDue)
-                    ? 'tw:text-amber-700'
-                    : 'tw:text-secondary'"
+                :class="
+                  overdue(e.nextPmDue)
+                    ? 'tw:text-red-700 tw:font-medium'
+                    : dueSoon(e.nextPmDue)
+                      ? 'tw:text-amber-700'
+                      : 'tw:text-secondary'
+                "
                 class="tw:inline-flex tw:items-center tw:gap-1"
               >
                 <IconAlertCircle v-if="overdue(e.nextPmDue)" :size="12" />

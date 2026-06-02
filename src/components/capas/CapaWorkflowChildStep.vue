@@ -59,7 +59,9 @@ const assignments = useLiveQueryWithDeps(
 )
 
 const activeAssigneeId = computed(() => {
-  const active = assignments.value.find((a) => a.statusId === 'ASSIGNED' || a.statusId === 'PENDING')
+  const active = assignments.value.find(
+    (a) => a.statusId === 'ASSIGNED' || a.statusId === 'PENDING',
+  )
   return active?.userId || null
 })
 
@@ -153,8 +155,7 @@ async function handleReopen() {
 // terminal alongside APPROVED.
 const canCancelStep = computed(
   () =>
-    props.isOwner &&
-    ['PENDING', 'IN_PROGRESS', 'SENT_BACK'].includes(instanceStep.value?.statusId),
+    props.isOwner && ['PENDING', 'IN_PROGRESS', 'SENT_BACK'].includes(instanceStep.value?.statusId),
 )
 
 const showCancelDialog = ref(false)
@@ -346,10 +347,7 @@ async function performComplete(esign = null) {
         >
           <IconArrowBackUp :size="14" class="tw:text-amber-600" />
         </div>
-        <div
-          v-else
-          class="tw:size-6 tw:rounded-full tw:border-2 tw:border-gray-300 tw:bg-white"
-        />
+        <div v-else class="tw:size-6 tw:rounded-full tw:border-2 tw:border-gray-300 tw:bg-white" />
       </div>
 
       <!-- Title block -->
@@ -375,12 +373,8 @@ async function performComplete(esign = null) {
               : 'tw:bg-gray-100 tw:text-gray-600'
           "
         >
-          <template v-if="overdue">
-            Overdue · {{ daysOverdue }}d
-          </template>
-          <template v-else>
-            Due {{ dueDate.formatDate('date') }}
-          </template>
+          <template v-if="overdue"> Overdue · {{ daysOverdue }}d </template>
+          <template v-else> Due {{ dueDate.formatDate('date') }} </template>
         </BaseBadge>
       </button>
 
@@ -453,7 +447,9 @@ async function performComplete(esign = null) {
            text from the BaseTextarea. v-html handles both — plain text
            with no tags renders as-is. -->
       <div v-if="instanceStep.description" class="tw:mb-3">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium tw:mb-1 tw:uppercase tw:tracking-wider">
+        <div
+          class="tw:text-[11px] tw:text-secondary tw:font-medium tw:mb-1 tw:uppercase tw:tracking-wider"
+        >
           Instructions
         </div>
         <div
@@ -486,9 +482,8 @@ async function performComplete(esign = null) {
         >
           <div class="tw:text-red-600 tw:shrink-0 tw:mt-0.5">⨯</div>
           <div class="tw:text-sm tw:text-red-800">
-            Cancels this sub-task. Any open assignment and task instance
-            for it is closed. The parent stage's "all sub-tasks done"
-            check will then treat this one as completed.
+            Cancels this sub-task. Any open assignment and task instance for it is closed. The
+            parent stage's "all sub-tasks done" check will then treat this one as completed.
           </div>
         </div>
         <div>
@@ -517,13 +512,14 @@ async function performComplete(esign = null) {
 
     <BaseDialog v-model="showReopenDialog" title="Reopen Task" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
-        <div class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200">
+        <div
+          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+        >
           <div class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5">⤺</div>
           <div class="tw:text-sm tw:text-amber-800">
-            Sends this task back to its assignee for revision. They get a
-            fresh task on this step and can edit their existing answers.
-            Other tasks are not affected. Your feedback is recorded in the
-            audit log.
+            Sends this task back to its assignee for revision. They get a fresh task on this step
+            and can edit their existing answers. Other tasks are not affected. Your feedback is
+            recorded in the audit log.
           </div>
         </div>
         <div>

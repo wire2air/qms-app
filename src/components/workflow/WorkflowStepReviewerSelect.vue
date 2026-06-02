@@ -47,9 +47,7 @@ const numberLabel = computed(() => {
 })
 
 const isApprovalStep = computed(() => props.step?.stepType === 'APPROVAL')
-const usesSupplierPicker = computed(
-  () => props.isSupplierFacing && !isApprovalStep.value,
-)
+const usesSupplierPicker = computed(() => props.isSupplierFacing && !isApprovalStep.value)
 
 // No `initial: []` here on purpose: we need to distinguish
 //   stepRoles === undefined → IDB query still loading
@@ -59,13 +57,10 @@ const usesSupplierPicker = computed(
 // Without the distinction, the role-less branch raced the initial paint
 // for role-gated steps and auto-selected a user who shouldn't have been
 // eligible (see the LogBook submit-dialog regression report).
-const stepRoles = useLiveQueryWithDeps(
-  [() => props.step.id],
-  async (db, [stepId]) => {
-    if (!stepId) return []
-    return db.WorkflowStepRole.where('stepId', stepId).exec()
-  },
-)
+const stepRoles = useLiveQueryWithDeps([() => props.step.id], async (db, [stepId]) => {
+  if (!stepId) return []
+  return db.WorkflowStepRole.where('stepId', stepId).exec()
+})
 
 const stepRolesLoaded = computed(() => stepRoles.value !== undefined)
 const stepRoleIds = computed(() => (stepRoles.value ?? []).map((r) => r.roleId))

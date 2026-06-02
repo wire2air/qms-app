@@ -191,9 +191,7 @@ const TYPE_LABEL = {
 
         <div class="tw:grid tw:grid-cols-2 tw:gap-4">
           <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">
-              How many questions?
-            </label>
+            <label class="tw:text-sm tw:font-medium tw:text-secondary"> How many questions? </label>
             <input
               v-model.number="input.count"
               type="number"
@@ -201,21 +199,23 @@ const TYPE_LABEL = {
               max="10"
               class="tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:px-3 tw:py-2 tw:text-sm tw:text-on-main tw:focus:outline-none tw:focus:border-primary tw:focus:ring-1 tw:focus:ring-primary"
             />
-            <p class="tw:text-xs tw:text-secondary">1–10. AI may generate a couple extra so you have choice.</p>
+            <p class="tw:text-xs tw:text-secondary">
+              1–10. AI may generate a couple extra so you have choice.
+            </p>
           </div>
         </div>
 
         <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">
-            Emphasis (optional)
-          </label>
+          <label class="tw:text-sm tw:font-medium tw:text-secondary"> Emphasis (optional) </label>
           <textarea
             v-model="input.emphasis"
             rows="2"
             placeholder="e.g. Focus on safety steps and accept/reject criteria. Skip the introductory scope section."
             class="tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:px-3 tw:py-2 tw:text-sm tw:text-on-main tw:placeholder-placeholder tw:focus:outline-none tw:focus:border-primary tw:focus:ring-1 tw:focus:ring-primary tw:leading-relaxed"
           />
-          <p class="tw:text-xs tw:text-secondary">Leave blank and the AI picks the most important points.</p>
+          <p class="tw:text-xs tw:text-secondary">
+            Leave blank and the AI picks the most important points.
+          </p>
         </div>
 
         <div
@@ -312,7 +312,9 @@ const TYPE_LABEL = {
                     class="tw:text-emerald-600 tw:shrink-0"
                   />
                   <IconCircleX v-else :size="14" class="tw:text-secondary tw:shrink-0" />
-                  <span :class="o.isCorrect ? 'tw:text-on-main tw:font-medium' : 'tw:text-secondary'">
+                  <span
+                    :class="o.isCorrect ? 'tw:text-on-main tw:font-medium' : 'tw:text-secondary'"
+                  >
                     {{ o.text }}
                   </span>
                 </li>

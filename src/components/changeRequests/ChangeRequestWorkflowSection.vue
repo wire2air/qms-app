@@ -67,7 +67,11 @@ function openReassignDialog(instanceStepId) {
         @reassign="openReassignDialog"
       >
         <template
-          #childSteps="{ instanceStep: parentStep, stepDefinition: parentDef, displayNumber: parentNum }"
+          #childSteps="{
+            instanceStep: parentStep,
+            stepDefinition: parentDef,
+            displayNumber: parentNum,
+          }"
         >
           <ChangeRequestWorkflowChildSteps
             v-if="parentStep && parentDef?.allowChildSteps && parentStep.workflowInstanceId"

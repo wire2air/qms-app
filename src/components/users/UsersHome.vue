@@ -21,7 +21,9 @@ const users = useLiveQueryWithDeps(
     if (userStatusId) results = results.filter((u) => u.userStatusId === userStatusId)
     if (roleId) {
       const assignments = await db.RoleOnUser.where().exec()
-      const idsForRole = new Set(assignments.filter((a) => a.roleId === roleId).map((a) => a.userId))
+      const idsForRole = new Set(
+        assignments.filter((a) => a.roleId === roleId).map((a) => a.userId),
+      )
       results = results.filter((u) => idsForRole.has(u.id))
     }
     if (search) {
@@ -33,7 +35,9 @@ const users = useLiveQueryWithDeps(
           u.email?.toLowerCase().includes(q),
       )
     }
-    return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    return results.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )
   },
 )
 

@@ -76,14 +76,20 @@ function fmtDate(iso) {
           class="tw:fill-red-500"
         />
         <!-- tooltip-on-hover via title -->
-        <title>{{ fmtDate(d.day) }}: {{ d.calls }} call{{ d.calls === 1 ? '' : 's' }}, {{ d.errors }} error{{ d.errors === 1 ? '' : 's' }}, ${{ d.costUsd.toFixed(4) }}</title>
+        <title>
+          {{ fmtDate(d.day) }}: {{ d.calls }} call{{ d.calls === 1 ? '' : 's' }},
+          {{ d.errors }} error{{ d.errors === 1 ? '' : 's' }}, ${{ d.costUsd.toFixed(4) }}
+        </title>
       </g>
     </svg>
     <div v-else class="tw:py-10 tw:text-center tw:text-sm tw:text-secondary">
       No activity in this period.
     </div>
     <!-- Axis labels: first + last day -->
-    <div v-if="totalDays > 1" class="tw:flex tw:justify-between tw:text-xs tw:text-secondary tw:mt-1">
+    <div
+      v-if="totalDays > 1"
+      class="tw:flex tw:justify-between tw:text-xs tw:text-secondary tw:mt-1"
+    >
       <span>{{ fmtDate(days[0].day) }}</span>
       <span>{{ fmtDate(days[days.length - 1].day) }}</span>
     </div>

@@ -38,7 +38,8 @@ const pendingInstancesWithCounts = useLiveQueryWithDeps(
     } else {
       const all = await db.TrainingInstance.where().exec()
       candidates = all.filter(
-        (i) => ['PENDING_VERIFICATION', 'COMPLETED'].includes(i.status) && ids.includes(i.trainingId),
+        (i) =>
+          ['PENDING_VERIFICATION', 'COMPLETED'].includes(i.status) && ids.includes(i.trainingId),
       )
     }
     const results = []
@@ -54,7 +55,10 @@ const pendingInstancesWithCounts = useLiveQueryWithDeps(
       }
     }
     // Newest first
-    results.sort((a, b) => (b.instance.createdAt?.toMillis?.() ?? 0) - (a.instance.createdAt?.toMillis?.() ?? 0))
+    results.sort(
+      (a, b) =>
+        (b.instance.createdAt?.toMillis?.() ?? 0) - (a.instance.createdAt?.toMillis?.() ?? 0),
+    )
     return results
   },
   { initial: [] },
@@ -76,8 +80,10 @@ watchEffect(() => {
   }
 })
 
-const selectedInstance = computed(() =>
-  pendingInstancesWithCounts.value.find((r) => r.instance.id === selectedInstanceId.value)?.instance,
+const selectedInstance = computed(
+  () =>
+    pendingInstancesWithCounts.value.find((r) => r.instance.id === selectedInstanceId.value)
+      ?.instance,
 )
 
 // Stats
@@ -94,7 +100,9 @@ function onVerified() {
   // The current instance may still have other pending assignees; the live query refreshes,
   // and if the instance disappears from the list (all verified), pick the next one.
   setTimeout(() => {
-    const stillThere = pendingInstancesWithCounts.value.some((r) => r.instance.id === selectedInstanceId.value)
+    const stillThere = pendingInstancesWithCounts.value.some(
+      (r) => r.instance.id === selectedInstanceId.value,
+    )
     if (!stillThere) {
       selectedInstanceId.value = filteredInstances.value[0]?.instance.id ?? null
     }
@@ -106,12 +114,16 @@ function onVerified() {
   <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5">
     <SafeTeleport to="#main-header-title">
       <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Training Verification</h2>
+        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
+          Training Verification
+        </h2>
       </div>
     </SafeTeleport>
 
     <!-- Top stats -->
-    <div class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:justify-between">
+    <div
+      class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:justify-between"
+    >
       <div>
         <h1 class="tw:text-2xl tw:font-bold tw:text-on-sidebar">Training Verification Dashboard</h1>
         <p class="tw:text-sm tw:text-secondary">Manager review and competency verification queue</p>
@@ -131,14 +143,19 @@ function onVerified() {
     <!-- Body: left list + right panel -->
     <div class="tw:grid tw:grid-cols-[minmax(320px,1fr)_2fr] tw:gap-4 tw:flex-1 tw:min-h-0">
       <!-- Pending instances list -->
-      <div class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:flex-col tw:gap-3 tw:overflow-y-auto">
+      <div
+        class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:flex-col tw:gap-3 tw:overflow-y-auto"
+      >
         <div>
           <p class="tw:text-sm tw:font-bold tw:text-on-sidebar">Pending Training Instances</p>
           <p class="tw:text-xs tw:text-secondary">Instances awaiting competency verification</p>
         </div>
         <BaseTextInput v-model="search" placeholder="Search training..." size="sm" />
 
-        <p v-if="!filteredInstances.length" class="tw:text-sm tw:text-secondary tw:italic tw:p-4 tw:text-center">
+        <p
+          v-if="!filteredInstances.length"
+          class="tw:text-sm tw:text-secondary tw:italic tw:p-4 tw:text-center"
+        >
           No instances pending verification.
         </p>
 
@@ -147,7 +164,11 @@ function onVerified() {
             v-for="row in filteredInstances"
             :key="row.instance.id"
             class="tw:p-3 tw:rounded-lg tw:border tw:cursor-pointer tw:transition-colors"
-            :class="selectedInstanceId === row.instance.id ? 'tw:border-primary tw:bg-blue-50' : 'tw:border-divider tw:hover:bg-gray-50'"
+            :class="
+              selectedInstanceId === row.instance.id
+                ? 'tw:border-primary tw:bg-blue-50'
+                : 'tw:border-divider tw:hover:bg-gray-50'
+            "
             @click="selectedInstanceId = row.instance.id"
           >
             <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
@@ -162,7 +183,9 @@ function onVerified() {
                 {{ row.pendingCount }} pending
               </span>
               <span>/ {{ row.totalCount }} total</span>
-              <span class="tw:ml-auto">Launched {{ row.instance.createdAt?.formatDate('date') }}</span>
+              <span class="tw:ml-auto"
+                >Launched {{ row.instance.createdAt?.formatDate('date') }}</span
+              >
             </div>
           </div>
         </div>
@@ -176,7 +199,10 @@ function onVerified() {
           :instance="selectedInstance"
           @verified="onVerified"
         />
-        <div v-else class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-8 tw:text-center tw:text-secondary tw:italic">
+        <div
+          v-else
+          class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-8 tw:text-center tw:text-secondary tw:italic"
+        >
           <IconClipboardCheck :size="48" class="tw:mx-auto tw:mb-3 tw:text-gray-300" />
           <p>Select a training instance from the left to begin verification.</p>
         </div>

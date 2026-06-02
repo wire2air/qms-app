@@ -42,9 +42,7 @@ function applyActiveFilter(results, af) {
     return results.filter((r) => r.ownerId === userId && OPEN_STATUSES.includes(r.statusId))
   if (af === 'awaiting_approval') return results.filter((r) => r.statusId === 'UNDER_REVIEW')
   if (af === 'urgent')
-    return results.filter(
-      (r) => r.priorityId === 'URGENT' && OPEN_STATUSES.includes(r.statusId),
-    )
+    return results.filter((r) => r.priorityId === 'URGENT' && OPEN_STATUSES.includes(r.statusId))
   if (af === 'closed') return results.filter((r) => CLOSED_STATUSES.includes(r.statusId))
   return results
 }

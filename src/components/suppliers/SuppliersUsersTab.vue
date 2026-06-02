@@ -66,7 +66,8 @@ async function submitInvite() {
 }
 
 function statusLabel(u) {
-  if (u.userStatusId === 'ACTIVE') return { text: 'Active', cls: 'tw:bg-green-100 tw:text-green-700' }
+  if (u.userStatusId === 'ACTIVE')
+    return { text: 'Active', cls: 'tw:bg-green-100 tw:text-green-700' }
   if (u.inviteSent) return { text: 'Invited', cls: 'tw:bg-amber-100 tw:text-amber-700' }
   return { text: 'Inactive', cls: 'tw:bg-gray-100 tw:text-gray-600' }
 }

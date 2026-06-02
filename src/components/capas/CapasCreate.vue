@@ -139,10 +139,7 @@ async function handleReviewersConfirmed(reviewers) {
   <div class="tw:flex tw:flex-col tw:h-full">
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs
-        :items="[
-          { label: 'CAPAs', to: getCompanyPath('/capas') },
-          { label: 'Create CAPA' },
-        ]"
+        :items="[{ label: 'CAPAs', to: getCompanyPath('/capas') }, { label: 'Create CAPA' }]"
       />
     </SafeTeleport>
 
@@ -275,8 +272,8 @@ async function handleReviewersConfirmed(reviewers) {
                 <div>
                   <div class="tw:text-sm tw:text-on-main">Supplier-facing CAPA</div>
                   <div class="tw:text-[11px] tw:text-secondary">
-                    Workflow steps will be reviewed by users from the selected supplier (you'll
-                    pick the specific reviewer per step at submit). Lockable once submitted.
+                    Workflow steps will be reviewed by users from the selected supplier (you'll pick
+                    the specific reviewer per step at submit). Lockable once submitted.
                   </div>
                 </div>
               </label>

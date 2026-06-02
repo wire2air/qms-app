@@ -197,7 +197,9 @@ async function onEsignVerified(esign) {
               @change="toggleAssignee(a.id)"
             />
             <UserBadgeById :userId="a.userId" />
-            <span class="tw:text-xs tw:text-secondary tw:ml-auto">Score: {{ a.score ?? '—' }}%</span>
+            <span class="tw:text-xs tw:text-secondary tw:ml-auto"
+              >Score: {{ a.score ?? '—' }}%</span
+            >
             <span class="tw:text-xs tw:text-secondary">
               Completed
               <template v-if="a.completedAt">{{ a.completedAt.formatDate('date') }}</template>

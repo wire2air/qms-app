@@ -347,9 +347,7 @@ function handlePdfImport(draft) {
         <!-- Header -->
         <div class="tw:mb-8">
           <div class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:mb-6">
-            <h1 class="tw:text-3xl tw:font-extrabold tw:text-on-sidebar">
-              Create New Document
-            </h1>
+            <h1 class="tw:text-3xl tw:font-extrabold tw:text-on-sidebar">Create New Document</h1>
             <div class="tw:flex tw:items-center tw:gap-2">
               <button
                 class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-divider tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-sidebar tw:transition-colors tw:font-medium tw:px-3 tw:py-1.5 tw:text-sm"
@@ -429,10 +427,7 @@ function handlePdfImport(draft) {
           />
 
           <!-- Change Control Tab -->
-          <DocumentsCreateChangeControl
-            v-show="activeTab === 'changeControl'"
-            :form="form"
-          />
+          <DocumentsCreateChangeControl v-show="activeTab === 'changeControl'" :form="form" />
 
           <!-- Content Tab -->
           <DocumentsCreateContent
@@ -442,7 +437,10 @@ function handlePdfImport(draft) {
           />
 
           <!-- Training Assessment Tab -->
-          <DocumentsCreateTraining v-show="activeTab === 'training'" v-model="form.trainingConfig" />
+          <DocumentsCreateTraining
+            v-show="activeTab === 'training'"
+            v-model="form.trainingConfig"
+          />
         </div>
       </div>
     </div>

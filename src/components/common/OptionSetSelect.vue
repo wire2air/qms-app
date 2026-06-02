@@ -56,8 +56,7 @@ const fkOptionSet = useLiveQueryWithDeps(
 )
 
 const computedItems = computed(() => {
-  const rawOptions =
-    props.optionSet?.options ?? fkOptionSet.value?.options ?? props.options ?? []
+  const rawOptions = props.optionSet?.options ?? fkOptionSet.value?.options ?? props.options ?? []
   return rawOptions.map((opt) => {
     if (typeof opt === 'string') return { id: opt, name: opt }
     // Support both {label, value} (Quasar format) and {id, name} format

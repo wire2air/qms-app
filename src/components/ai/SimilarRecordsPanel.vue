@@ -48,9 +48,7 @@ const { matches, loading, error } = useSimilarRecords({
 const expanded = ref(false)
 
 // Auto-expand when something concerning shows up.
-const concerning = computed(() =>
-  matches.value.filter((m) => m.similarity >= props.alarmThreshold),
-)
+const concerning = computed(() => matches.value.filter((m) => m.similarity >= props.alarmThreshold))
 watch(concerning, (rows) => {
   if (rows.length > 0) expanded.value = true
 })
@@ -112,17 +110,18 @@ function statusClass(statusId) {
 </script>
 
 <template>
-  <div
-    class="tw:rounded-lg tw:border tw:overflow-hidden tw:transition-colors"
-    :class="headerClass"
-  >
+  <div class="tw:rounded-lg tw:border tw:overflow-hidden tw:transition-colors" :class="headerClass">
     <button
       class="tw:w-full tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:text-left"
       @click="expanded = !expanded"
     >
       <IconSparkles :size="14" class="tw:flex-none tw:text-primary" />
       <span class="tw:flex-1">{{ headerLabel }}</span>
-      <IconLoader2 v-if="loading" :size="14" class="tw:animate-spin tw:text-secondary tw:flex-none" />
+      <IconLoader2
+        v-if="loading"
+        :size="14"
+        class="tw:animate-spin tw:text-secondary tw:flex-none"
+      />
       <component
         :is="expanded ? IconChevronDown : IconChevronRight"
         :size="14"
@@ -137,9 +136,9 @@ function statusClass(statusId) {
       >
         <IconAlertTriangle :size="14" class="tw:mt-0.5 tw:flex-none" />
         <span>
-          Before creating this {{ entityType === 'Capa' ? 'CAPA' : 'NC' }}, check whether the existing
-          high-similarity records below already cover the situation. Creating a duplicate splits
-          attention and weakens trend analysis.
+          Before creating this {{ entityType === 'Capa' ? 'CAPA' : 'NC' }}, check whether the
+          existing high-similarity records below already cover the situation. Creating a duplicate
+          splits attention and weakens trend analysis.
         </span>
       </div>
 
@@ -169,7 +168,8 @@ function statusClass(statusId) {
               <code
                 v-if="m.code"
                 class="tw:text-xs tw:px-1.5 tw:py-0.5 tw:rounded tw:bg-main-hover tw:font-mono tw:text-secondary"
-              >{{ m.code }}</code>
+                >{{ m.code }}</code
+              >
               <span
                 class="tw:text-xs tw:px-1.5 tw:py-0.5 tw:rounded tw:font-semibold"
                 :class="statusClass(m.statusId)"

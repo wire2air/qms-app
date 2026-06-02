@@ -38,13 +38,10 @@ const record = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
   return db.FieldRecord.findByPk(id)
 })
 
-const template = useLiveQueryWithDeps(
-  [() => record.value?.logBookId],
-  async (db, [tid]) => {
-    if (!tid) return null
-    return db.LogBook.findByPk(tid)
-  },
-)
+const template = useLiveQueryWithDeps([() => record.value?.logBookId], async (db, [tid]) => {
+  if (!tid) return null
+  return db.LogBook.findByPk(tid)
+})
 
 const currentRevision = useLiveQueryWithDeps(
   [() => record.value?.currentRevisionId],
@@ -172,9 +169,7 @@ onMounted(() => {
             <th>Log book</th>
             <td colspan="3">
               <strong>{{ template?.title || '—' }}</strong>
-              <span v-if="template?.code" class="fr-print-meta-code">
-                · {{ template.code }}
-              </span>
+              <span v-if="template?.code" class="fr-print-meta-code"> · {{ template.code }} </span>
             </td>
           </tr>
           <tr>
@@ -232,9 +227,7 @@ onMounted(() => {
           :fields="schemaFields"
           :values="payload"
         />
-        <pre v-else class="fr-print-rawpayload">{{
-          JSON.stringify(payload, null, 2)
-        }}</pre>
+        <pre v-else class="fr-print-rawpayload">{{ JSON.stringify(payload, null, 2) }}</pre>
       </section>
 
       <!-- Revision history — auditor-grade append-only trail. -->
@@ -320,8 +313,13 @@ onMounted(() => {
   color: #991b1b;
   margin-right: 4px;
 }
-.fr-print-body { font-size: 11px; }
-.fr-print-section { margin: 18px 0; break-inside: avoid-page; }
+.fr-print-body {
+  font-size: 11px;
+}
+.fr-print-section {
+  margin: 18px 0;
+  break-inside: avoid-page;
+}
 .fr-print-section > h2 {
   font-size: 14px;
   font-weight: 700;

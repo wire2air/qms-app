@@ -16,7 +16,6 @@ const template = useLiveQueryWithDeps(
     return db.RcaTemplate.findByPk(id)
   },
 )
-
 </script>
 
 <template>
@@ -24,7 +23,9 @@ const template = useLiveQueryWithDeps(
     <!-- Header -->
     <div class="tw:flex tw:items-center tw:gap-2">
       <RcaMethodBadge v-if="values._method" :method="values._method" />
-      <span v-if="template" class="tw:text-sm tw:font-medium tw:text-on-main">{{ template.name }}</span>
+      <span v-if="template" class="tw:text-sm tw:font-medium tw:text-on-main">{{
+        template.name
+      }}</span>
     </div>
 
     <!-- Root cause -->
@@ -38,13 +39,21 @@ const template = useLiveQueryWithDeps(
 
     <!-- Fishbone summary -->
     <template v-if="values._method === 'fishbone' && values.fishbone">
-      <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase">Contributing Causes</div>
+      <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase">
+        Contributing Causes
+      </div>
       <div class="tw:flex tw:flex-wrap tw:gap-1">
         <span
-          v-for="cause in (values.fishbone.branches ?? []).flatMap((b) => b.causes.filter((c) => c.selected))"
+          v-for="cause in (values.fishbone.branches ?? []).flatMap((b) =>
+            b.causes.filter((c) => c.selected),
+          )"
           :key="cause.id"
           class="tw:text-xs tw:bg-main-hover tw:rounded tw:px-2 tw:py-0.5"
-          :class="cause.isRootCause ? 'tw:border tw:border-amber-400 tw:text-amber-700' : 'tw:text-secondary'"
+          :class="
+            cause.isRootCause
+              ? 'tw:border tw:border-amber-400 tw:text-amber-700'
+              : 'tw:text-secondary'
+          "
         >
           {{ cause.text }}
         </span>

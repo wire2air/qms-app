@@ -33,8 +33,9 @@ const workflowInstance = useLiveQueryWithDeps([() => props.id], async (db, [id])
   const results = await db.WorkflowInstance.where('[resourceType+resourceId]', ['Capa', id]).exec()
   // Pick the most recent for the audit/print purposes
   return (
-    results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))[0] ??
-    null
+    results.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )[0] ?? null
   )
 })
 
@@ -214,11 +215,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <PrintLayout
-    :status="capa?.statusId"
-    :identifier="identifier"
-    :auditEntities="auditEntities"
-  >
+  <PrintLayout :status="capa?.statusId" :identifier="identifier" :auditEntities="auditEntities">
     <template #title>
       <div class="capa-print-num">{{ capa?.capaNumber }}</div>
       <h1 class="capa-print-title">{{ capa?.title }}</h1>
@@ -265,7 +262,10 @@ onMounted(() => {
       <div v-if="workflow" class="capa-print-workflow">
         Workflow: <strong>{{ workflow.name }}</strong>
         <span v-if="workflowVersion">
-          (v{{ workflowVersion.versionLabel || `${workflowVersion.versionMajor ?? 1}.${workflowVersion.versionMinor ?? 0}` }})
+          (v{{
+            workflowVersion.versionLabel ||
+            `${workflowVersion.versionMajor ?? 1}.${workflowVersion.versionMinor ?? 0}`
+          }})
         </span>
       </div>
     </template>
@@ -291,8 +291,8 @@ onMounted(() => {
             <div class="capa-print-step-meta">
               <div class="capa-print-step-title">{{ step.name || 'Step' }}</div>
               <div class="capa-print-step-detail">
-                Status: <strong>{{ step.statusId }}</strong>
-                · Assignee: <strong>{{ userName(assigneeIdFor(step.id)) }}</strong>
+                Status: <strong>{{ step.statusId }}</strong> · Assignee:
+                <strong>{{ userName(assigneeIdFor(step.id)) }}</strong>
                 <template v-if="step.completedAt">
                   · Completed {{ fmtDateTime(step.completedAt) }}
                 </template>
@@ -304,11 +304,7 @@ onMounted(() => {
             <span v-html="step.description" />
           </div>
           <!-- Submitted form records -->
-          <div
-            v-for="record in recordsForStep(step.id)"
-            :key="record.id"
-            class="capa-print-record"
-          >
+          <div v-for="record in recordsForStep(step.id)" :key="record.id" class="capa-print-record">
             <div class="capa-print-record-head">
               <strong>{{ userName(record.userId) }}</strong>
               submitted {{ fmtDateTime(record.submittedAt) }}
@@ -330,8 +326,7 @@ onMounted(() => {
               <div class="capa-print-child-head">
                 <strong>{{ idx + 1 }}.{{ ci + 1 }}</strong>
                 {{ child.name || 'Sub-task' }}
-                · {{ child.statusId }}
-                · Assignee: {{ userName(assigneeIdFor(child.id)) }}
+                · {{ child.statusId }} · Assignee: {{ userName(assigneeIdFor(child.id)) }}
                 <template v-if="child.completedAt">
                   · Completed {{ fmtDateTime(child.completedAt) }}
                 </template>
@@ -430,8 +425,13 @@ onMounted(() => {
   margin-top: 10px;
 }
 
-.capa-print-body { font-size: 11px; }
-.capa-print-section { margin: 18px 0; break-inside: avoid-page; }
+.capa-print-body {
+  font-size: 11px;
+}
+.capa-print-section {
+  margin: 18px 0;
+  break-inside: avoid-page;
+}
 .capa-print-section > h2 {
   font-size: 14px;
   font-weight: 700;
@@ -440,8 +440,13 @@ onMounted(() => {
   border-bottom: 1px solid #e5e7eb;
   color: var(--print-accent, #111827);
 }
-.capa-print-paragraph { line-height: 1.5; }
-.capa-print-note { color: #6b7280; font-size: 10px; }
+.capa-print-paragraph {
+  line-height: 1.5;
+}
+.capa-print-note {
+  color: #6b7280;
+  font-size: 10px;
+}
 
 .capa-print-step {
   margin: 10px 0 14px;
@@ -468,8 +473,15 @@ onMounted(() => {
   justify-content: center;
   flex-shrink: 0;
 }
-.capa-print-step-title { font-weight: 700; font-size: 12px; }
-.capa-print-step-detail { color: #4b5563; font-size: 10px; margin-top: 2px; }
+.capa-print-step-title {
+  font-weight: 700;
+  font-size: 12px;
+}
+.capa-print-step-detail {
+  color: #4b5563;
+  font-size: 10px;
+  margin-top: 2px;
+}
 .capa-print-step-instructions {
   margin: 8px 0 4px 32px;
   font-size: 10.5px;
@@ -493,7 +505,10 @@ onMounted(() => {
   font-size: 10px;
   break-inside: avoid-page;
 }
-.capa-print-record-head { color: #4b5563; margin-bottom: 4px; }
+.capa-print-record-head {
+  color: #4b5563;
+  margin-bottom: 4px;
+}
 .capa-print-payload {
   width: 100%;
   border-collapse: collapse;
@@ -530,7 +545,9 @@ onMounted(() => {
   padding-left: 8px;
   border-left: 2px solid #e5e7eb;
 }
-.capa-print-child-head { font-size: 10.5px; }
+.capa-print-child-head {
+  font-size: 10.5px;
+}
 
 .capa-print-effectiveness {
   width: 100%;

@@ -65,20 +65,15 @@ function openAdd() {
           {{ childSteps.length }}
         </span>
       </div>
-      <BaseButton
-        v-if="canAddSubTask"
-        variant="outline"
-        size="sm"
-        @click="openAdd"
-      >
+      <BaseButton v-if="canAddSubTask" variant="outline" size="sm" @click="openAdd">
         <template #icon><IconPlus :size="14" /></template>
         Add Sub-task
       </BaseButton>
     </div>
 
     <div v-if="!childSteps.length" class="tw:text-xs tw:text-secondary tw:italic">
-      No sub-tasks yet. Click "Add Sub-task" to add one (document update,
-      training assignment, supplier notification, validation, etc.).
+      No sub-tasks yet. Click "Add Sub-task" to add one (document update, training assignment,
+      supplier notification, validation, etc.).
     </div>
 
     <ChangeRequestWorkflowChildStep

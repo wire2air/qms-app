@@ -104,9 +104,11 @@ watch(
           v-for="tab in tabs"
           :key="tab.id"
           class="tw:px-5 tw:py-2.5 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors"
-          :class="activeTab === tab.id
-            ? 'tw:border-primary tw:text-primary'
-            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'"
+          :class="
+            activeTab === tab.id
+              ? 'tw:border-primary tw:text-primary'
+              : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'
+          "
           @click="activeTab = tab.id"
         >
           <component :is="tab.icon" :size="16" /> {{ tab.label }}

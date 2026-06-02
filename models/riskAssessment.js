@@ -23,8 +23,7 @@ import { DateTime } from 'luxon'
 @ClientModel('riskAssessments', {
   primaryKey: 'id',
   syncField: 'updatedAt',
-  customIndex:
-    'companyId, [resourceType+resourceId], hazardCategoryId, workflowInstanceStepId',
+  customIndex: 'companyId, [resourceType+resourceId], hazardCategoryId, workflowInstanceStepId',
 })
 export class RiskAssessment extends BaseModel {
   static paranoid = true

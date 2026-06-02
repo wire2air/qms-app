@@ -144,10 +144,7 @@ async function save() {
   isSubmitting.value = true
   try {
     if (isEditing.value) {
-      const res = await patch(
-        `/v1/services/equipment/${props.equipment.id}`,
-        buildPayload(),
-      )
+      const res = await patch(`/v1/services/equipment/${props.equipment.id}`, buildPayload())
       emit('updated', res?.equipment ?? res)
       open.value = false
       toast.success('Equipment updated')
@@ -189,10 +186,7 @@ function close() {
           }}
         </div>
       </div>
-      <button
-        class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-main-hover"
-        @click="close"
-      >
+      <button class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-main-hover" @click="close">
         <IconX :size="20" />
       </button>
     </div>
@@ -210,18 +204,10 @@ function close() {
           Code <span class="tw:text-bad">*</span>
         </label>
         <div class="tw:relative">
-          <BaseTextInput
-            v-model="code"
-            placeholder="e.g. EQ-001"
-            :disabled="isEditing"
-          />
+          <BaseTextInput v-model="code" placeholder="e.g. EQ-001" :disabled="isEditing" />
           <div class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2">
             <IconCheck v-if="isCodeAvailable === true" :size="16" class="tw:text-green-600" />
-            <IconCircleX
-              v-else-if="isCodeAvailable === false"
-              :size="16"
-              class="tw:text-bad"
-            />
+            <IconCircleX v-else-if="isCodeAvailable === false" :size="16" class="tw:text-bad" />
           </div>
         </div>
         <div class="tw:text-xs tw:text-secondary tw:mt-1">
@@ -371,8 +357,12 @@ function close() {
       <BaseButton variant="primary" :disabled="!isFormValid || isSubmitting" @click="save">
         {{
           isSubmitting
-            ? isEditing ? 'Saving…' : 'Creating…'
-            : isEditing ? 'Save changes' : 'Add equipment'
+            ? isEditing
+              ? 'Saving…'
+              : 'Creating…'
+            : isEditing
+              ? 'Save changes'
+              : 'Add equipment'
         }}
       </BaseButton>
     </div>

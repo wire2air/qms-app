@@ -109,15 +109,16 @@ async function handleAdd() {
           <option :value="null">— Select a role —</option>
           <option v-for="r in availableRoles" :key="r.id" :value="r.id">{{ r.name }}</option>
         </select>
-        <p v-if="newTrainingId && !availableRoles.length" class="tw:text-xs tw:text-secondary tw:italic tw:mt-1">
+        <p
+          v-if="newTrainingId && !availableRoles.length"
+          class="tw:text-xs tw:text-secondary tw:italic tw:mt-1"
+        >
           All roles already mapped to this training.
         </p>
       </div>
       <div class="tw:flex tw:justify-end tw:gap-2">
         <BaseButton variant="secondary" @click="model = false">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="saving" @click="handleAdd">
-          Add Rule
-        </BaseButton>
+        <BaseButton variant="primary" :loading="saving" @click="handleAdd"> Add Rule </BaseButton>
       </div>
     </div>
   </BaseDialog>

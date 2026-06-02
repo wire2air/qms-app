@@ -6,10 +6,9 @@ defineProps({
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
-const changeTypes = useLiveQuery(
-  (db) => db.ChangeType.where().orderBy('displayOrder').exec(),
-  { initial: [] },
-)
+const changeTypes = useLiveQuery((db) => db.ChangeType.where().orderBy('displayOrder').exec(), {
+  initial: [],
+})
 
 function getArray() {
   return Array.isArray(modelValue.value) ? modelValue.value : []
@@ -36,7 +35,9 @@ function getArray() {
               @clear="() => scope.clear(id)"
             />
           </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Change Type</span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
+            >Select Change Type</span
+          >
         </template>
         <template v-else>
           <ChangeTypeBadgeById
@@ -46,7 +47,9 @@ function getArray() {
             selectable
             @clear="() => scope.clear(modelValue)"
           />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Change Type</span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
+            >Select Change Type</span
+          >
         </template>
       </slot>
     </template>

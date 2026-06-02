@@ -99,18 +99,14 @@ export function formatCellValue(field, value, { maxLength = 80, dash = '—' } =
   // carries an options array with id+label, prefer the label so the
   // cell reads like the form looked, not like raw stored data.
   if ((field?.type === 'select' || field?.type === 'optionGroup') && Array.isArray(field.options)) {
-    const match = field.options.find(
-      (o) => o?.id === value || o?.value === value || o === value,
-    )
+    const match = field.options.find((o) => o?.id === value || o?.value === value || o === value)
     if (match && typeof match === 'object') return match.label ?? match.name ?? String(value)
   }
 
   // Arrays of primitives (checklist, multi-select, multi-checkbox).
   if (Array.isArray(value)) {
     if (value.length === 0) return dash
-    const allPrimitive = value.every(
-      (v) => typeof v !== 'object' || v == null,
-    )
+    const allPrimitive = value.every((v) => typeof v !== 'object' || v == null)
     if (allPrimitive) {
       const text = value.join(', ')
       return text.length > maxLength ? text.slice(0, maxLength - 1) + '…' : text

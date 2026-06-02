@@ -175,11 +175,17 @@ function getUserDisplayName(user) {
             >
               <div
                 class="tw:w-4 tw:h-4 tw:rounded tw:border tw:flex tw:items-center tw:justify-center tw:shrink-0 tw:transition-colors"
-                :class="assignedRoleIds.includes(role.id)
-                  ? 'tw:bg-primary tw:border-primary'
-                  : 'tw:border-divider'"
+                :class="
+                  assignedRoleIds.includes(role.id)
+                    ? 'tw:bg-primary tw:border-primary'
+                    : 'tw:border-divider'
+                "
               >
-                <IconCheck v-if="assignedRoleIds.includes(role.id)" :size="10" class="tw:text-white" />
+                <IconCheck
+                  v-if="assignedRoleIds.includes(role.id)"
+                  :size="10"
+                  class="tw:text-white"
+                />
               </div>
               <div class="tw:flex-1 tw:min-w-0">
                 <div class="tw:text-sm tw:font-medium tw:text-on-main">{{ role.name }}</div>
@@ -220,11 +226,17 @@ function getUserDisplayName(user) {
             >
               <div
                 class="tw:w-4 tw:h-4 tw:rounded tw:border tw:flex tw:items-center tw:justify-center tw:shrink-0 tw:transition-colors"
-                :class="assignedUserIds.includes(user.id)
-                  ? 'tw:bg-primary tw:border-primary'
-                  : 'tw:border-divider'"
+                :class="
+                  assignedUserIds.includes(user.id)
+                    ? 'tw:bg-primary tw:border-primary'
+                    : 'tw:border-divider'
+                "
               >
-                <IconCheck v-if="assignedUserIds.includes(user.id)" :size="10" class="tw:text-white" />
+                <IconCheck
+                  v-if="assignedUserIds.includes(user.id)"
+                  :size="10"
+                  class="tw:text-white"
+                />
               </div>
               <div class="tw:flex-1 tw:min-w-0">
                 <div class="tw:text-sm tw:font-medium tw:text-on-main">

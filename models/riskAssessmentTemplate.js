@@ -26,7 +26,9 @@ export class RiskAssessmentTemplate extends BaseModel {
   @Property({ type: String }) description = null
   @Property({ type: Object }) config = {}
   @Property({ type: String }) createdBy = null
-  @Property({ type: DateTime, required: true, timestamp: true }) createdAt = /** @type {DateTime} */ (null)
-  @Property({ type: DateTime, required: true, timestamp: true, autoUpdate: true }) updatedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime, required: true, timestamp: true }) createdAt =
+    /** @type {DateTime} */ (null)
+  @Property({ type: DateTime, required: true, timestamp: true, autoUpdate: true }) updatedAt =
+    /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
 }

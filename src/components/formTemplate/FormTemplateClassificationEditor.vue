@@ -130,10 +130,7 @@ const NEXT_ENTRY_SCOPES = [
           Classification, edit window, review gate, and signature requirements.
         </p>
       </div>
-      <span
-        v-if="isSaving"
-        class="tw:text-[10px] tw:text-secondary tw:uppercase tw:tracking-wide"
-      >
+      <span v-if="isSaving" class="tw:text-[10px] tw:text-secondary tw:uppercase tw:tracking-wide">
         Saving…
       </span>
     </div>
@@ -155,7 +152,12 @@ const NEXT_ENTRY_SCOPES = [
               : 'tw:border-divider tw:hover:bg-main-hover'
           "
           :disabled="!canEdit"
-          @click="() => { draft.recordClassification = opt.id; save() }"
+          @click="
+            () => {
+              draft.recordClassification = opt.id
+              save()
+            }
+          "
         >
           <div class="tw:text-sm tw:font-medium tw:text-on-main">{{ opt.label }}</div>
           <div class="tw:text-[11px] tw:text-secondary tw:mt-0.5">{{ opt.hint }}</div>
@@ -271,15 +273,12 @@ const NEXT_ENTRY_SCOPES = [
         v-if="draft.recordClassification === 'CONTROLLED_RECORD'"
         class="tw:text-xs tw:text-secondary tw:italic"
       >
-        E-signature is always required for CONTROLLED_RECORD submissions, amendments, voids,
-        and reviews.
+        E-signature is always required for CONTROLLED_RECORD submissions, amendments, voids, and
+        reviews.
       </div>
     </template>
 
-    <div
-      v-if="!canEdit"
-      class="tw:text-[11px] tw:text-secondary tw:italic"
-    >
+    <div v-if="!canEdit" class="tw:text-[11px] tw:text-secondary tw:italic">
       You need the <code>fieldRecords:classify_forms</code> permission to edit these settings.
     </div>
   </div>

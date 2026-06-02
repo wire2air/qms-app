@@ -153,11 +153,7 @@ function onCaptionPaste(event) {
         @error="onImageError"
       />
 
-      <div
-        v-if="!loaded && !errored"
-        class="tiptap-image-nv__loading"
-        aria-hidden="true"
-      >
+      <div v-if="!loaded && !errored" class="tiptap-image-nv__loading" aria-hidden="true">
         <span class="tiptap-image-nv__spinner" />
       </div>
 
@@ -221,7 +217,9 @@ function onCaptionPaste(event) {
       @paste="onCaptionPaste"
       @mousedown.stop
       @click.stop
-    >{{ caption }}</figcaption>
+    >
+      {{ caption }}
+    </figcaption>
   </NodeViewWrapper>
 </template>
 
@@ -379,7 +377,9 @@ function onCaptionPaste(event) {
       transform: translateY(-50%);
       cursor: ew-resize;
 
-      &:hover { transform: translateY(-50%) scale(1.15); }
+      &:hover {
+        transform: translateY(-50%) scale(1.15);
+      }
     }
     &--e {
       right: -7px;
@@ -387,10 +387,20 @@ function onCaptionPaste(event) {
       transform: translateY(-50%);
       cursor: ew-resize;
 
-      &:hover { transform: translateY(-50%) scale(1.15); }
+      &:hover {
+        transform: translateY(-50%) scale(1.15);
+      }
     }
-    &--sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
-    &--se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+    &--sw {
+      left: -7px;
+      bottom: -7px;
+      cursor: nesw-resize;
+    }
+    &--se {
+      right: -7px;
+      bottom: -7px;
+      cursor: nwse-resize;
+    }
   }
 
   &__size-badge {
@@ -420,7 +430,9 @@ function onCaptionPaste(event) {
     min-height: 1.25em;
     border-radius: 3px;
 
-    &:focus { background: rgba(0, 0, 0, 0.02); }
+    &:focus {
+      background: rgba(0, 0, 0, 0.02);
+    }
 
     &:empty::before {
       content: attr(data-placeholder);
@@ -457,7 +469,9 @@ function onCaptionPaste(event) {
 }
 
 @keyframes tiptap-image-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Mobile touch tuning: handles must be bigger and hit-target friendly. */
@@ -466,10 +480,20 @@ function onCaptionPaste(event) {
     width: 20px;
     height: 20px;
 
-    &--w { left: -11px; }
-    &--e { right: -11px; }
-    &--sw { left: -11px; bottom: -11px; }
-    &--se { right: -11px; bottom: -11px; }
+    &--w {
+      left: -11px;
+    }
+    &--e {
+      right: -11px;
+    }
+    &--sw {
+      left: -11px;
+      bottom: -11px;
+    }
+    &--se {
+      right: -11px;
+      bottom: -11px;
+    }
   }
 }
 </style>

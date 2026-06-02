@@ -383,9 +383,8 @@ function getStatusLabel(statusId) {
         >
           <div class="tw:text-red-600 tw:shrink-0 tw:mt-0.5">⨯</div>
           <div class="tw:text-sm tw:text-red-800">
-            Cancels this step and all of its open assignments / tasks.
-            The workflow stops here — downstream steps stay where they are.
-            Use this when the step is no longer needed.
+            Cancels this step and all of its open assignments / tasks. The workflow stops here —
+            downstream steps stay where they are. Use this when the step is no longer needed.
           </div>
         </div>
         <div>
@@ -420,9 +419,9 @@ function getStatusLabel(statusId) {
         >
           <div class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5">⤺</div>
           <div class="tw:text-sm tw:text-amber-800">
-            Sends the step back to its assignee for revision. The previous
-            assignee gets a new task on this step. Downstream steps are not
-            affected. Your feedback is recorded in the audit log.
+            Sends the step back to its assignee for revision. The previous assignee gets a new task
+            on this step. Downstream steps are not affected. Your feedback is recorded in the audit
+            log.
           </div>
         </div>
         <div>

@@ -70,10 +70,6 @@ const userIds = computed(() => trainingUsers.value.map((u) => u.userId))
       </div>
     </div>
 
-    <TrainingAssigneesDialog
-      v-model="dialogOpen"
-      :trainingId="trainingId"
-      :canUpdate="canUpdate"
-    />
+    <TrainingAssigneesDialog v-model="dialogOpen" :trainingId="trainingId" :canUpdate="canUpdate" />
   </div>
 </template>

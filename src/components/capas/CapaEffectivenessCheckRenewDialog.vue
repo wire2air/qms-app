@@ -71,7 +71,8 @@ async function handleSubmit() {
   <BaseDialog v-model="isOpen" title="Renew Effectiveness Check" maxWidth="md">
     <div class="tw:flex tw:flex-col tw:gap-3">
       <p class="tw:text-sm tw:text-secondary">
-        Close out this check and schedule the next follow-up. This requires e-signature verification.
+        Close out this check and schedule the next follow-up. This requires e-signature
+        verification.
       </p>
       <div class="tw:flex tw:flex-col tw:gap-1">
         <label class="tw:text-sm tw:font-medium tw:text-secondary">

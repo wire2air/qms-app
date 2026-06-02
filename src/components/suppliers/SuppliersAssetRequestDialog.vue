@@ -124,7 +124,9 @@ function removeAdHoc(tempId) {
 }
 
 const totalItems = computed(
-  () => form.value.selectedTypeIds.length + form.value.adHocItems.filter((i) => i.customTitle.trim()).length,
+  () =>
+    form.value.selectedTypeIds.length +
+    form.value.adHocItems.filter((i) => i.customTitle.trim()).length,
 )
 
 const canSubmit = computed(() => {

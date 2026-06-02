@@ -111,7 +111,10 @@ function updateWhyTreeProblemPrompt(problemPrompt) {
       </div>
     </div>
 
-    <div v-if="!(config.branches ?? []).length" class="tw:text-sm tw:text-secondary tw:text-center tw:py-4">
+    <div
+      v-if="!(config.branches ?? []).length"
+      class="tw:text-sm tw:text-secondary tw:text-center tw:py-4"
+    >
       No branches yet. Click "Add Branch" to start.
     </div>
   </div>
@@ -119,13 +122,17 @@ function updateWhyTreeProblemPrompt(problemPrompt) {
   <!-- 5 Whys -->
   <div v-else-if="method === '5why'" class="tw:flex tw:flex-col tw:gap-4">
     <div>
-      <label class="tw:text-sm tw:font-medium tw:text-on-main tw:block tw:mb-1">Problem Prompt</label>
+      <label class="tw:text-sm tw:font-medium tw:text-on-main tw:block tw:mb-1"
+        >Problem Prompt</label
+      >
       <BaseTextInput
         :modelValue="config.problemPrompt ?? ''"
         placeholder="e.g. Describe what happened"
         @update:modelValue="updateProblemPrompt"
       />
-      <p class="tw:text-xs tw:text-secondary tw:mt-1">Shown to users as the first question before the Whys.</p>
+      <p class="tw:text-xs tw:text-secondary tw:mt-1">
+        Shown to users as the first question before the Whys.
+      </p>
     </div>
 
     <div>
@@ -145,7 +152,9 @@ function updateWhyTreeProblemPrompt(problemPrompt) {
           :key="why.id"
           class="tw:flex tw:items-center tw:gap-2"
         >
-          <span class="tw:text-sm tw:text-secondary tw:font-mono tw:w-6 tw:shrink-0">{{ idx + 1 }}.</span>
+          <span class="tw:text-sm tw:text-secondary tw:font-mono tw:w-6 tw:shrink-0"
+            >{{ idx + 1 }}.</span
+          >
           <BaseTextInput
             :modelValue="why.prompt"
             placeholder="e.g. Why did this occur?"
@@ -161,7 +170,10 @@ function updateWhyTreeProblemPrompt(problemPrompt) {
         </div>
       </div>
 
-      <div v-if="!(config.whys ?? []).length" class="tw:text-sm tw:text-secondary tw:text-center tw:py-3">
+      <div
+        v-if="!(config.whys ?? []).length"
+        class="tw:text-sm tw:text-secondary tw:text-center tw:py-3"
+      >
         No whys yet. Add at least 5.
       </div>
     </div>
@@ -205,7 +217,10 @@ function updateWhyTreeProblemPrompt(problemPrompt) {
       </div>
     </div>
 
-    <div v-if="!(config.dimensions ?? []).length" class="tw:text-sm tw:text-secondary tw:text-center tw:py-3">
+    <div
+      v-if="!(config.dimensions ?? []).length"
+      class="tw:text-sm tw:text-secondary tw:text-center tw:py-3"
+    >
       No dimensions yet.
     </div>
   </div>
@@ -213,7 +228,9 @@ function updateWhyTreeProblemPrompt(problemPrompt) {
   <!-- Why Tree -->
   <div v-else-if="method === 'whytree'" class="tw:flex tw:flex-col tw:gap-3">
     <div>
-      <label class="tw:text-sm tw:font-medium tw:text-on-main tw:block tw:mb-1">Problem Prompt</label>
+      <label class="tw:text-sm tw:font-medium tw:text-on-main tw:block tw:mb-1"
+        >Problem Prompt</label
+      >
       <BaseTextInput
         :modelValue="config.problemPrompt ?? ''"
         placeholder="e.g. Describe what happened"

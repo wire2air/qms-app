@@ -14,7 +14,9 @@ const externalLinks = useLiveQueryWithDeps(
   [() => props.training.id],
   async (db, [trainingId]) => {
     if (!trainingId) return []
-    return db.TrainingExternalLink.where('trainingId', trainingId).orderBy('displayOrder', 'asc').exec()
+    return db.TrainingExternalLink.where('trainingId', trainingId)
+      .orderBy('displayOrder', 'asc')
+      .exec()
   },
   { initial: [] },
 )

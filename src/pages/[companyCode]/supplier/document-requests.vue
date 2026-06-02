@@ -26,18 +26,9 @@ pageInfo.value = { showHeader: true }
 
 const toast = useToast()
 
-const requests = useLiveQuery(
-  async (db) => db.AssetRequest.where().exec(),
-  { initial: [] },
-)
-const items = useLiveQuery(
-  async (db) => db.AssetRequestItem.where().exec(),
-  { initial: [] },
-)
-const types = useLiveQuery(
-  async (db) => db.AssetRequestType.where().exec(),
-  { initial: [] },
-)
+const requests = useLiveQuery(async (db) => db.AssetRequest.where().exec(), { initial: [] })
+const items = useLiveQuery(async (db) => db.AssetRequestItem.where().exec(), { initial: [] })
+const types = useLiveQuery(async (db) => db.AssetRequestType.where().exec(), { initial: [] })
 
 const requestById = computed(() => {
   const m = new Map()

@@ -235,7 +235,9 @@ async function onSubmit() {
   <BaseDialog v-model="open" maxWidth="2xl" persistent>
     <template #title>
       <div class="tw:flex tw:items-center tw:gap-3">
-        <div class="tw:w-9 tw:h-9 tw:bg-primary/10 tw:rounded-xl tw:flex tw:items-center tw:justify-center">
+        <div
+          class="tw:w-9 tw:h-9 tw:bg-primary/10 tw:rounded-xl tw:flex tw:items-center tw:justify-center"
+        >
           <IconLayoutGrid class="tw:size-5 tw:text-primary" />
         </div>
         <span>{{ isEdit ? 'Edit Risk Assessment Template' : 'New Risk Assessment Template' }}</span>
@@ -273,7 +275,8 @@ async function onSubmit() {
           </button>
         </div>
         <p class="tw:text-xs tw:text-secondary tw:-mt-1">
-          Define risk categories. Click cells in the matrix below to assign levels — each click cycles to the next level.
+          Define risk categories. Click cells in the matrix below to assign levels — each click
+          cycles to the next level.
         </p>
         <div class="tw:flex tw:flex-wrap tw:gap-2">
           <div
@@ -310,7 +313,9 @@ async function onSubmit() {
         <!-- Likelihood labels (left side, rows) -->
         <div class="tw:flex tw:flex-col tw:gap-2 tw:shrink-0">
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-            <div class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+            <div
+              class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+            >
               Likelihood
             </div>
             <button
@@ -393,23 +398,26 @@ async function onSubmit() {
           </div>
 
           <!-- Severity axis label -->
-          <div class="tw:text-[10px] tw:text-secondary tw:text-center tw:mb-1 tw:uppercase tw:tracking-wide tw:font-semibold">
+          <div
+            class="tw:text-[10px] tw:text-secondary tw:text-center tw:mb-1 tw:uppercase tw:tracking-wide tw:font-semibold"
+          >
             ← Severity →
           </div>
 
           <!-- Matrix rows -->
-          <div
-            v-for="row in form.config.likelihood"
-            :key="row.id"
-            class="tw:flex tw:gap-0"
-          >
+          <div v-for="row in form.config.likelihood" :key="row.id" class="tw:flex tw:gap-0">
             <div
               v-for="col in form.config.severity"
               :key="col.id"
               class="tw:w-20 tw:h-10 tw:shrink-0 tw:flex tw:items-center tw:justify-center tw:text-xs tw:font-semibold tw:cursor-pointer tw:border tw:border-white tw:rounded tw:transition-transform tw:select-none tw:hover:scale-105"
-              :style="cellLevel(row.id, col.id)
-                ? { backgroundColor: cellLevel(row.id, col.id).bg, color: cellLevel(row.id, col.id).text }
-                : { backgroundColor: '#f3f4f6', color: '#9ca3af' }"
+              :style="
+                cellLevel(row.id, col.id)
+                  ? {
+                      backgroundColor: cellLevel(row.id, col.id).bg,
+                      color: cellLevel(row.id, col.id).text,
+                    }
+                  : { backgroundColor: '#f3f4f6', color: '#9ca3af' }
+              "
               :class="{ 'tw:scale-105 tw:shadow-md': cyclingCell === cellKey(row.id, col.id) }"
               @click="cycleCell(row.id, col.id)"
             >
@@ -420,18 +428,22 @@ async function onSubmit() {
       </div>
 
       <p class="tw:text-xs tw:text-secondary tw:-mt-3">
-        Click any cell to cycle through risk levels. Rows = Likelihood (top is highest), Columns = Severity (right is highest).
+        Click any cell to cycle through risk levels. Rows = Likelihood (top is highest), Columns =
+        Severity (right is highest).
       </p>
 
       <!-- Detectability (FMEA 3-factor RPN) -->
       <div class="tw:flex tw:flex-col tw:gap-3 tw:border-t tw:border-divider tw:pt-4">
         <div class="tw:flex tw:items-center tw:justify-between">
           <div class="tw:flex tw:flex-col tw:gap-0.5">
-            <div class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+            <div
+              class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+            >
               Detectability (FMEA 3-factor RPN)
             </div>
             <p class="tw:text-xs tw:text-secondary">
-              When enabled, RPN = Likelihood × Severity × Detectability. Lower score = easier to detect.
+              When enabled, RPN = Likelihood × Severity × Detectability. Lower score = easier to
+              detect.
             </p>
           </div>
           <BaseSwitch v-model="form.config.enableDetectability" />
@@ -440,7 +452,9 @@ async function onSubmit() {
         <template v-if="form.config.enableDetectability">
           <div class="tw:flex tw:flex-col tw:gap-2">
             <div class="tw:flex tw:items-center tw:justify-between">
-              <div class="tw:text-xs tw:text-secondary">Detection levels (score 10 = hardest to detect, 1 = easiest)</div>
+              <div class="tw:text-xs tw:text-secondary">
+                Detection levels (score 10 = hardest to detect, 1 = easiest)
+              </div>
               <button
                 class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
                 @click="addDetectability"

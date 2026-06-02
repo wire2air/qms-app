@@ -12,9 +12,7 @@ const props = defineProps({
 const router = useRouter()
 const toast = useToast()
 
-const cr = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.ChangeRequest.findByPk(id),
-)
+const cr = useLiveQueryWithDeps([() => props.id], async (db, [id]) => db.ChangeRequest.findByPk(id))
 const loading = computed(() => cr.value === undefined)
 
 const breadcrumbs = computed(() => [
@@ -29,11 +27,7 @@ const canUpdate = computed(() => isAllowed(['changeRequests:update']))
 const canDelete = computed(() => isAllowed(['changeRequests:delete']))
 
 const isEditable = computed(
-  () =>
-    cr.value &&
-    cr.value.statusId === 'DRAFT' &&
-    canUpdate.value &&
-    isOwner.value,
+  () => cr.value && cr.value.statusId === 'DRAFT' && canUpdate.value && isOwner.value,
 )
 
 // Inline auto-save while DRAFT (mirrors NC + CAPA).
@@ -291,9 +285,7 @@ const editingDescription = ref(false)
         </BaseButton>
         <BaseButton
           v-if="
-            isOwner &&
-            cr &&
-            !['DRAFT', 'CLOSED', 'REJECTED', 'CANCELLED'].includes(cr.statusId)
+            isOwner && cr && !['DRAFT', 'CLOSED', 'REJECTED', 'CANCELLED'].includes(cr.statusId)
           "
           variant="outline"
           :disabled="cancelling"
@@ -372,11 +364,7 @@ const editingDescription = ref(false)
                   @blur="editingDescription = false"
                 />
               </div>
-              <div
-                v-else
-                class="tw:mb-4"
-                @click="isEditable && (editingDescription = true)"
-              >
+              <div v-else class="tw:mb-4" @click="isEditable && (editingDescription = true)">
                 <div
                   v-if="cr.description"
                   class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:prose tw:max-w-none"
@@ -413,7 +401,10 @@ const editingDescription = ref(false)
                 </div>
               </div>
 
-              <div v-if="sourceNc || sourceCapa" class="tw:mt-4 tw:pt-3 tw:border-t tw:border-divider">
+              <div
+                v-if="sourceNc || sourceCapa"
+                class="tw:mt-4 tw:pt-3 tw:border-t tw:border-divider"
+              >
                 <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-2">
                   Originating record
                 </div>
@@ -607,12 +598,7 @@ const editingDescription = ref(false)
       </div>
       <template #footer="{ close }">
         <BaseButton variant="outline" :disabled="opening" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :loading="opening"
-          :disabled="opening"
-          @click="handleOpenCr"
-        >
+        <BaseButton variant="primary" :loading="opening" :disabled="opening" @click="handleOpenCr">
           Submit for Approval
         </BaseButton>
       </template>
@@ -622,8 +608,8 @@ const editingDescription = ref(false)
     <BaseDialog v-model="showCancelDialog" title="Cancel Change Request" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
         <p class="tw:text-sm tw:text-on-main">
-          Cancelling permanently terminates this Change Request. The record stays
-          in the audit log; you cannot re-open it.
+          Cancelling permanently terminates this Change Request. The record stays in the audit log;
+          you cannot re-open it.
         </p>
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
@@ -659,8 +645,8 @@ const editingDescription = ref(false)
     <BaseDialog v-model="showCloseDialog" title="Close Change Request" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
         <p class="tw:text-sm tw:text-on-main">
-          Closing this Change Request marks it complete. The implementation phase is done
-          and effectiveness has been verified.
+          Closing this Change Request marks it complete. The implementation phase is done and
+          effectiveness has been verified.
         </p>
         <p
           v-if="closeBlockedReason"

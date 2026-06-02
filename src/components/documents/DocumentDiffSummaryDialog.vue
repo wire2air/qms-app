@@ -204,7 +204,11 @@ watch(show, (open) => {
         </div>
 
         <div
-          v-if="!result.changedSections?.length && !result.addedSections?.length && !result.removedSections?.length"
+          v-if="
+            !result.changedSections?.length &&
+            !result.addedSections?.length &&
+            !result.removedSections?.length
+          "
           class="tw:text-sm tw:text-secondary tw:italic tw:text-center tw:py-4"
         >
           No substantive section-level differences found.

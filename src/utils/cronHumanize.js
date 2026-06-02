@@ -35,7 +35,8 @@ const MONTH_NAMES = [
 function timeLabel(minute, hour) {
   const m = Number(minute)
   const h = Number(hour)
-  if (!Number.isInteger(m) || !Number.isInteger(h) || h < 0 || h > 23 || m < 0 || m > 59) return null
+  if (!Number.isInteger(m) || !Number.isInteger(h) || h < 0 || h > 23 || m < 0 || m > 59)
+    return null
   const period = h < 12 ? 'AM' : 'PM'
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${h12}:${String(m).padStart(2, '0')} ${period}`

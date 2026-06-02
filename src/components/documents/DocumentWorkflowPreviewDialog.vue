@@ -108,9 +108,7 @@ const steps = computed(() => {
       }))
       .sort((a, b) => a.name.localeCompare(b.name))
 
-    const roleNames = stepRoleIds
-      .map((id) => stepRoleRecords.value[id]?.name)
-      .filter(Boolean)
+    const roleNames = stepRoleIds.map((id) => stepRoleRecords.value[id]?.name).filter(Boolean)
 
     return {
       ...step,
@@ -176,9 +174,9 @@ async function confirm() {
 
       <div v-else class="tw:space-y-4">
         <p class="tw:text-sm tw:text-secondary tw:px-1">
-          Pick the reviewer(s) for each step. The role on the step defines who's
-          eligible; <strong>ALL</strong> / <strong>ANY</strong> decides at
-          runtime whether every picked reviewer must approve or just the first.
+          Pick the reviewer(s) for each step. The role on the step defines who's eligible;
+          <strong>ALL</strong> / <strong>ANY</strong> decides at runtime whether every picked
+          reviewer must approve or just the first.
         </p>
 
         <div v-for="(step, idx) in steps" :key="step.id" class="tw:relative tw:pl-8 tw:group">
@@ -274,9 +272,7 @@ async function confirm() {
                     Add reviewer
                   </span>
                 </div>
-                <span v-else class="tw:text-sm tw:text-placeholder">
-                  Select reviewer(s)…
-                </span>
+                <span v-else class="tw:text-sm tw:text-placeholder"> Select reviewer(s)… </span>
               </template>
             </BaseSelectMenu>
 
@@ -284,16 +280,14 @@ async function confirm() {
               v-else-if="step.roleNames.length"
               class="tw:text-xs tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-2"
             >
-              No active users hold the role(s) configured for this step.
-              Assign someone to the role before submitting, or pick a
-              different workflow.
+              No active users hold the role(s) configured for this step. Assign someone to the role
+              before submitting, or pick a different workflow.
             </p>
             <p
               v-else
               class="tw:text-xs tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-2"
             >
-              No active internal users in your company yet — invite someone
-              before submitting.
+              No active internal users in your company yet — invite someone before submitting.
             </p>
           </div>
         </div>

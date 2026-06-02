@@ -8,13 +8,10 @@ const props = defineProps({
 // Find the effectiveness-check row tied to this task. The reminder task
 // stores the CAPA id in entityId, and the check row holds a back-link via
 // task_instance_id so we can find it directly.
-const check = useLiveQueryWithDeps(
-  [() => props.taskInstance.id],
-  async (db, [taskInstanceId]) => {
-    if (!taskInstanceId) return null
-    return db.CapaEffectivenessCheck.where('taskInstanceId', taskInstanceId).first()
-  },
-)
+const check = useLiveQueryWithDeps([() => props.taskInstance.id], async (db, [taskInstanceId]) => {
+  if (!taskInstanceId) return null
+  return db.CapaEffectivenessCheck.where('taskInstanceId', taskInstanceId).first()
+})
 
 // Single "Verify Effectiveness" entrypoint — the consolidated dialog
 // internally lets the owner pick Effective / Not Effective / Extend

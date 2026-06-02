@@ -40,9 +40,7 @@ const checks = useLiveQueryWithDeps(
   async (db, [capaId]) => {
     if (!capaId) return []
     const all = await db.CapaEffectivenessCheck.where('capaId', capaId).exec()
-    return all.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return all.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
   { initial: [] },
 )
@@ -55,7 +53,13 @@ const historyChecks = computed(() =>
 )
 
 const completedBys = useLiveQueryWithDeps(
-  [() => checks.value.map((c) => c.completedBy).filter(Boolean).join(',')],
+  [
+    () =>
+      checks.value
+        .map((c) => c.completedBy)
+        .filter(Boolean)
+        .join(','),
+  ],
   async (db, [idsStr]) => {
     if (!idsStr) return {}
     const ids = [...new Set(idsStr.split(','))]
@@ -124,9 +128,8 @@ function openComplete() {
     <!-- ─── Planning mode (DRAFT / PENDING) ────────────────────────────── -->
     <div v-if="!isClosed && capa" class="tw:flex tw:flex-col tw:gap-3">
       <p class="tw:text-xs tw:text-secondary">
-        Set how soon after close the CAPA owner should verify the
-        corrective action's effectiveness. You can still override this
-        when you click <strong>Close CAPA</strong>.
+        Set how soon after close the CAPA owner should verify the corrective action's effectiveness.
+        You can still override this when you click <strong>Close CAPA</strong>.
       </p>
       <div class="tw:flex tw:flex-wrap tw:gap-2">
         <button
@@ -146,8 +149,8 @@ function openComplete() {
         </button>
       </div>
       <p class="tw:text-[11px] tw:text-secondary">
-        Current preference: <strong>{{ capa.ecIntervalDays ?? 90 }} days after close</strong>.
-        No verification task is created until the CAPA is closed.
+        Current preference: <strong>{{ capa.ecIntervalDays ?? 90 }} days after close</strong>. No
+        verification task is created until the CAPA is closed.
       </p>
     </div>
 
@@ -177,10 +180,7 @@ function openComplete() {
     </div>
 
     <!-- ─── Empty state when CLOSED but no EC row (shouldn't normally happen) ─── -->
-    <p
-      v-else-if="isClosed && !checks.length"
-      class="tw:text-sm tw:text-secondary tw:italic"
-    >
+    <p v-else-if="isClosed && !checks.length" class="tw:text-sm tw:text-secondary tw:italic">
       No effectiveness check on file for this closed CAPA.
     </p>
 

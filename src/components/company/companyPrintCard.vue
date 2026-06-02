@@ -73,11 +73,7 @@ function openPreview() {
   // Use the centralised print URL with module=Document. We don't know what
   // document the user wants — let them click into any document and use the
   // page's Print button. This is just a hint to make the connection clear.
-  window.open(
-    `/${currentCompany.value?.code}/documents`,
-    '_blank',
-    'noopener,noreferrer',
-  )
+  window.open(`/${currentCompany.value?.code}/documents`, '_blank', 'noopener,noreferrer')
 }
 </script>
 
@@ -128,7 +124,9 @@ function openPreview() {
             </p>
           </div>
           <div class="tw:flex tw:flex-col tw:items-center tw:gap-1.5">
-            <span class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
+            <span
+              class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide"
+            >
               Preview
             </span>
             <div

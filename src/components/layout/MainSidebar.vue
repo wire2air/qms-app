@@ -27,6 +27,7 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconAlertCircle,
+  IconMessageCircle,
   IconSitemap,
   IconLayoutGrid,
   IconSchool,
@@ -165,6 +166,12 @@ const navItems = computed(() => {
       permissions: ['changeRequests:read'],
       icon: IconReplace,
       to: getCompanyPath('/change-requests'),
+    },
+    {
+      label: 'Customer Complaints',
+      permissions: ['customerComplaints:read'],
+      icon: IconMessageCircle,
+      to: getCompanyPath('/customer-complaints'),
     },
     {
       label: 'Inspections & Logs',

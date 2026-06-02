@@ -38,7 +38,9 @@ const summary = computed(() => {
 
 const argsPreview = computed(() => {
   if (!props.card.args || typeof props.card.args !== 'object') return ''
-  const entries = Object.entries(props.card.args).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  const entries = Object.entries(props.card.args).filter(
+    ([, v]) => v !== undefined && v !== null && v !== '',
+  )
   if (entries.length === 0) return ''
   return entries.map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`).join(', ')
 })
@@ -54,9 +56,7 @@ const resultJson = computed(() => {
 </script>
 
 <template>
-  <div
-    class="tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:overflow-hidden"
-  >
+  <div class="tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:overflow-hidden">
     <button
       class="tw:w-full tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-left tw:text-xs tw:hover:bg-main-hover tw:transition-colors"
       @click="expanded = !expanded"
@@ -75,11 +75,18 @@ const resultJson = computed(() => {
     <div v-if="expanded" class="tw:border-t tw:border-divider tw:p-3 tw:bg-main tw:text-xs">
       <div v-if="argsPreview" class="tw:mb-2">
         <div class="tw:text-secondary tw:mb-1 tw:font-semibold">Arguments</div>
-        <pre class="tw:bg-sidebar tw:rounded tw:p-2 tw:overflow-x-auto tw:text-xs tw:font-mono">{{ JSON.stringify(card.args, null, 2) }}</pre>
+        <pre class="tw:bg-sidebar tw:rounded tw:p-2 tw:overflow-x-auto tw:text-xs tw:font-mono">{{
+          JSON.stringify(card.args, null, 2)
+        }}</pre>
       </div>
       <div v-if="resultJson">
-        <div class="tw:text-secondary tw:mb-1 tw:font-semibold">{{ card.isError ? 'Error' : 'Result' }}</div>
-        <pre class="tw:bg-sidebar tw:rounded tw:p-2 tw:overflow-x-auto tw:text-xs tw:font-mono tw:max-h-64">{{ resultJson }}</pre>
+        <div class="tw:text-secondary tw:mb-1 tw:font-semibold">
+          {{ card.isError ? 'Error' : 'Result' }}
+        </div>
+        <pre
+          class="tw:bg-sidebar tw:rounded tw:p-2 tw:overflow-x-auto tw:text-xs tw:font-mono tw:max-h-64"
+          >{{ resultJson }}</pre
+        >
       </div>
     </div>
   </div>

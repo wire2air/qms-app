@@ -39,9 +39,7 @@ const shares = useLiveQueryWithDeps(
       entityType,
       entityId,
     ]).exec()
-    return rows.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
   { initial: [] },
 )
@@ -64,9 +62,9 @@ function viaLabel(s) {
     </div>
 
     <p class="tw:text-[11px] tw:text-secondary tw:italic">
-      Supplier users are granted read access automatically when a workflow step assigns them
-      to this {{ entityType.toLowerCase() }}. Internal users with the relevant read permission
-      don't need an explicit grant.
+      Supplier users are granted read access automatically when a workflow step assigns them to this
+      {{ entityType.toLowerCase() }}. Internal users with the relevant read permission don't need an
+      explicit grant.
     </p>
 
     <div v-if="shares.length === 0" class="tw:text-xs tw:text-secondary tw:italic">

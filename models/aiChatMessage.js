@@ -15,7 +15,11 @@ import { DateTime } from 'luxon'
  * Messages are immutable on the backend (beforeUpdate throws). The frontend
  * only inserts them via the chat.turn task — never directly.
  */
-@ClientModel('aiChatMessages', { primaryKey: 'id', syncField: 'createdAt', customIndex: 'threadId' })
+@ClientModel('aiChatMessages', {
+  primaryKey: 'id',
+  syncField: 'createdAt',
+  customIndex: 'threadId',
+})
 export class AiChatMessage extends BaseModel {
   constructor(...args) {
     super(...args)

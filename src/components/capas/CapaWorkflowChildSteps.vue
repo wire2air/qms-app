@@ -56,7 +56,6 @@ function openAddDialog() {
   addDialogOpen.value = true
 }
 
-
 // All children (template-spawned or ad-hoc) carry parentInstanceStepId pointing
 // at this parent's instance row. One indexed lookup, no WorkflowStep fetch.
 const childInstanceSteps = useLiveQueryWithDeps(
@@ -78,7 +77,13 @@ const childInstanceSteps = useLiveQueryWithDeps(
 // WorkflowStepActionsMenu — without it, Mark Complete would skip the
 // e-sign gate. Mirrors the fallback in WorkflowStep.vue.
 const stepDefinitionsById = useLiveQueryWithDeps(
-  [() => childInstanceSteps.value.map((s) => s.stepId).filter(Boolean).join(',')],
+  [
+    () =>
+      childInstanceSteps.value
+        .map((s) => s.stepId)
+        .filter(Boolean)
+        .join(','),
+  ],
   async (db, [idsStr]) => {
     if (!idsStr) return {}
     const ids = [...new Set(idsStr.split(','))]

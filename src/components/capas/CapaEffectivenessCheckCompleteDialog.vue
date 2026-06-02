@@ -81,21 +81,11 @@ async function handleSubmit() {
         </label>
         <div class="tw:flex tw:gap-3">
           <label class="tw:flex tw:items-center tw:gap-2">
-            <input
-              v-model="outcome"
-              type="radio"
-              value="EFFECTIVE"
-              class="tw:rounded-full"
-            />
+            <input v-model="outcome" type="radio" value="EFFECTIVE" class="tw:rounded-full" />
             <span class="tw:text-sm">Effective</span>
           </label>
           <label class="tw:flex tw:items-center tw:gap-2">
-            <input
-              v-model="outcome"
-              type="radio"
-              value="NOT_EFFECTIVE"
-              class="tw:rounded-full"
-            />
+            <input v-model="outcome" type="radio" value="NOT_EFFECTIVE" class="tw:rounded-full" />
             <span class="tw:text-sm">Not Effective</span>
           </label>
         </div>

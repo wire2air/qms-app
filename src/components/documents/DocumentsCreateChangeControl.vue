@@ -116,7 +116,9 @@ const CHANGE_TYPES = [
       </div>
 
       <!-- Regulatory impact -->
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider">
+      <div
+        class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
+      >
         <label class="tw:flex tw:items-start tw:gap-3 tw:cursor-pointer">
           <input
             v-model="form.regulatoryImpact"
@@ -124,7 +126,9 @@ const CHANGE_TYPES = [
             class="tw:mt-0.5 tw:size-4 tw:accent-primary tw:cursor-pointer"
           />
           <div class="tw:flex tw:flex-col tw:gap-0.5">
-            <span class="tw:text-sm tw:font-medium tw:text-on-sidebar tw:flex tw:items-center tw:gap-1.5">
+            <span
+              class="tw:text-sm tw:font-medium tw:text-on-sidebar tw:flex tw:items-center tw:gap-1.5"
+            >
               <IconShieldCheck :size="14" /> Regulatory impact
             </span>
             <span class="tw:text-xs tw:text-secondary">

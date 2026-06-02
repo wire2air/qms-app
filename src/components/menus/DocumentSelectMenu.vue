@@ -48,28 +48,32 @@ defineExpose({
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <div ref="triggerElRef">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
+          <template v-if="multiple">
+            <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
+              <DocumentBadgeById
+                v-for="docId in getArray()"
+                :key="docId"
+                :documentId="docId"
+                :clearable="!required || getArray().length > 1"
+                @clear="() => scope.clear(docId)"
+              />
+            </div>
+            <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
+              >Select Documents</span
+            >
+          </template>
+          <template v-else>
             <DocumentBadgeById
-              v-for="docId in getArray()"
-              :key="docId"
-              :documentId="docId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(docId)"
+              v-if="modelValue"
+              :documentId="modelValue"
+              :clearable="!required"
+              selectable
+              @clear="() => scope.clear(modelValue)"
             />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Documents</span>
-        </template>
-        <template v-else>
-          <DocumentBadgeById
-            v-if="modelValue"
-            :documentId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Document</span>
-        </template>
+            <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
+              >Select Document</span
+            >
+          </template>
         </div>
       </slot>
     </template>

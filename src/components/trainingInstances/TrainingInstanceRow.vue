@@ -15,9 +15,8 @@ const assignees = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-const training = useLiveQueryWithDeps(
-  [() => props.instance.trainingId],
-  async (db, [id]) => (id ? db.Training.findByPk(id) : null),
+const training = useLiveQueryWithDeps([() => props.instance.trainingId], async (db, [id]) =>
+  id ? db.Training.findByPk(id) : null,
 )
 
 const stats = computed(() => {
@@ -32,7 +31,10 @@ const stats = computed(() => {
 })
 
 const isOverdue = computed(
-  () => props.instance.dueDate && props.instance.dueDate < DateTime.now() && props.instance.status === 'ACTIVE',
+  () =>
+    props.instance.dueDate &&
+    props.instance.dueDate < DateTime.now() &&
+    props.instance.status === 'ACTIVE',
 )
 
 const completedAt = computed(() => {
@@ -54,7 +56,10 @@ const completedAt = computed(() => {
       <span class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:truncate">
         {{ instance.snapshot?.title || training?.title || '—' }}
       </span>
-      <span v-if="showManager" class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:mt-0.5">
+      <span
+        v-if="showManager"
+        class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:mt-0.5"
+      >
         Manager:
         <UserBadgeById v-if="training?.managerId" :userId="training.managerId" />
         <span v-else>—</span>
@@ -64,26 +69,35 @@ const completedAt = computed(() => {
     <!-- Launched -->
     <div class="tw:flex tw:flex-col tw:shrink-0 tw:w-24">
       <span class="tw:text-xs tw:text-secondary tw:uppercase tw:font-medium">Launched</span>
-      <span class="tw:text-sm tw:text-on-sidebar">{{ instance.createdAt?.formatDate('date') }}</span>
+      <span class="tw:text-sm tw:text-on-sidebar">{{
+        instance.createdAt?.formatDate('date')
+      }}</span>
     </div>
 
     <!-- Due / Completed -->
     <div class="tw:flex tw:flex-col tw:shrink-0 tw:w-36">
-      <span v-if="completedAt" class="tw:text-xs tw:text-green-600 tw:uppercase tw:font-medium tw:flex tw:items-center tw:gap-1">
+      <span
+        v-if="completedAt"
+        class="tw:text-xs tw:text-green-600 tw:uppercase tw:font-medium tw:flex tw:items-center tw:gap-1"
+      >
         <IconCircleCheck :size="11" />
         Completed
       </span>
-      <span v-else class="tw:text-xs tw:text-secondary tw:uppercase tw:font-medium tw:flex tw:items-center tw:gap-1">
+      <span
+        v-else
+        class="tw:text-xs tw:text-secondary tw:uppercase tw:font-medium tw:flex tw:items-center tw:gap-1"
+      >
         <IconClock :size="11" />
         Due
       </span>
-      <span
-        v-if="completedAt"
-        class="tw:text-sm tw:text-green-600 tw:font-medium"
-      >
+      <span v-if="completedAt" class="tw:text-sm tw:text-green-600 tw:font-medium">
         {{ completedAt.formatDate('date') }}
       </span>
-      <span v-else class="tw:text-sm" :class="isOverdue ? 'tw:text-red-600 tw:font-medium' : 'tw:text-on-sidebar'">
+      <span
+        v-else
+        class="tw:text-sm"
+        :class="isOverdue ? 'tw:text-red-600 tw:font-medium' : 'tw:text-on-sidebar'"
+      >
         {{ instance.dueDate ? instance.dueDate.formatDate('date') : '—' }}
         <span v-if="isOverdue" class="tw:text-xs">(overdue)</span>
       </span>
@@ -91,7 +105,9 @@ const completedAt = computed(() => {
 
     <!-- Assigned -->
     <div class="tw:flex tw:flex-col tw:shrink-0 tw:w-20">
-      <span class="tw:text-xs tw:text-secondary tw:uppercase tw:font-medium tw:flex tw:items-center tw:gap-1">
+      <span
+        class="tw:text-xs tw:text-secondary tw:uppercase tw:font-medium tw:flex tw:items-center tw:gap-1"
+      >
         <IconUsers :size="11" />
         Assigned
       </span>
@@ -117,7 +133,13 @@ const completedAt = computed(() => {
       <span class="tw:text-xs tw:text-secondary tw:uppercase tw:font-medium">Pass rate</span>
       <span
         class="tw:text-sm tw:font-semibold"
-        :class="stats.passRate >= 70 ? 'tw:text-green-600' : (stats.completed === 0 && stats.failed === 0 ? 'tw:text-secondary' : 'tw:text-amber-600')"
+        :class="
+          stats.passRate >= 70
+            ? 'tw:text-green-600'
+            : stats.completed === 0 && stats.failed === 0
+              ? 'tw:text-secondary'
+              : 'tw:text-amber-600'
+        "
       >
         {{ stats.passRate }}%
       </span>

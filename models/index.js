@@ -82,6 +82,13 @@ import { NcIssueType } from './ncIssueType'
 import { NcDispositionType } from './ncDispositionType'
 import { NcRootCauseCategory } from './ncRootCauseCategory'
 import { NcRecord } from './ncRecord'
+import { CustomerComplaint } from './customercomplaint'
+import { CustomerComplaintStatus } from './customercomplaintstatus'
+import { CustomerComplaintPriority } from './customercomplaintpriority'
+import { CustomerComplaintSource } from './customercomplaintsource'
+import { CustomerComplaintMessage } from './customercomplaintmessage'
+import { CcAttachment } from './ccattachment'
+import { NonconformanceComplaint } from './nonconformancecomplaint'
 import { Capa } from './capa'
 import { CapaCounter } from './capaCounter'
 import { CapaStatus } from './capaStatus'
@@ -221,6 +228,13 @@ export const db = {
   NcDispositionType,
   NcRootCauseCategory,
   NcRecord,
+  CustomerComplaint,
+  CustomerComplaintStatus,
+  CustomerComplaintPriority,
+  CustomerComplaintSource,
+  CustomerComplaintMessage,
+  CcAttachment,
+  NonconformanceComplaint,
   Capa,
   CapaCounter,
   CapaStatus,
