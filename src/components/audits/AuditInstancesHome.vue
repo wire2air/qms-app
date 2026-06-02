@@ -33,6 +33,7 @@ const STATUS_FILTER_OPTIONS = [
   { id: 'SCHEDULED', name: 'Scheduled' },
   { id: 'IN_PROGRESS', name: 'In Progress' },
   { id: 'REVIEW', name: 'In Review' },
+  { id: 'REJECTED', name: 'Rejected' },
   { id: 'COMPLETED', name: 'Completed' },
   { id: 'CLOSED', name: 'Closed' },
   { id: 'CANCELLED', name: 'Cancelled' },

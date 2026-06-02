@@ -18,6 +18,7 @@ const STATUS_MAP = {
   SCHEDULED:   { id: 'SCHEDULED',   name: 'Scheduled' },
   IN_PROGRESS: { id: 'IN_PROGRESS', name: 'In Progress' },
   REVIEW:      { id: 'REVIEW',      name: 'Review' },
+  REJECTED:    { id: 'REJECTED',    name: 'Rejected' },
   COMPLETED:   { id: 'COMPLETED',   name: 'Completed' },
   CLOSED:      { id: 'CLOSED',      name: 'Closed' },
   CANCELLED:   { id: 'CANCELLED',   name: 'Cancelled' },

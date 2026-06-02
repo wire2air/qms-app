@@ -122,7 +122,7 @@ const canSubmitForCloseOut = computed(
   () =>
     !!auditInstance.value &&
     isEditable.value &&
-    ['DRAFT', 'SCHEDULED', 'IN_PROGRESS'].includes(auditInstance.value.statusId),
+    ['DRAFT', 'SCHEDULED', 'IN_PROGRESS', 'REJECTED'].includes(auditInstance.value.statusId),
 )
 const canCancel = computed(
   () =>
