@@ -113,6 +113,7 @@ import { AuditRecord } from './auditRecord'
 import { AuditFinding } from './auditFinding'
 import { AuditEvidence } from './auditEvidence'
 import { AuditEvidenceLink } from './auditEvidenceLink'
+import { AuditCounter } from './auditCounter'
 import { Training } from './training'
 import { TrainingInstance } from './trainingInstance'
 import { TrainingAssignee } from './trainingAssignee'
@@ -268,6 +269,7 @@ export const db = {
   AuditFinding,
   AuditEvidence,
   AuditEvidenceLink,
+  AuditCounter,
   Training,
   TrainingInstance,
   TrainingAssignee,
