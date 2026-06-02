@@ -20,6 +20,7 @@ import {
   IconUsers,
   IconClipboardList,
   IconBolt,
+  IconPaperclip,
   IconSend,
   IconPlayerPlay,
   IconBan,
@@ -488,6 +489,21 @@ const findingsByStatus = useLiveQueryWithDeps(
                 Findings
               </div>
               <AuditFindingsPanel :auditInstance="auditInstance" :readonly="!isEditable" />
+            </div>
+
+            <!-- Evidence (audit-overall) -->
+            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+              <div
+                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              >
+                <IconPaperclip :size="14" />
+                Evidence
+              </div>
+              <AuditEvidencePanel
+                :auditInstance="auditInstance"
+                scope="audit"
+                :readonly="!isEditable"
+              />
             </div>
 
             <!-- Team -->

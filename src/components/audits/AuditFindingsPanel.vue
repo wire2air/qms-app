@@ -346,6 +346,19 @@ function unlinkedKinds(finding) {
             </button>
           </div>
 
+          <!-- Per-finding evidence — bound by auditFindingId so uploads
+               and polymorphic links from here land scoped to this
+               finding. Reuses the same panel the audit-overall card
+               shows. -->
+          <div class="tw:rounded tw:border tw:border-divider tw:bg-main-hover/30 tw:p-2 tw:mt-1">
+            <AuditEvidencePanel
+              :auditInstance="auditInstance"
+              scope="finding"
+              :scopeId="finding.id"
+              :readonly="readonly"
+            />
+          </div>
+
           <!-- Inline status transitions. Only legal next states show. -->
           <div v-if="!readonly" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:pt-1">
             <button
