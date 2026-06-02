@@ -112,24 +112,32 @@ const childrenBlock = computed(
 // task can land in PENDING before it's activated.
 const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED', 'PENDING']
 
-const currentUserTask = useLiveQueryWithDeps(
-  [() => props.instanceStepId, () => currentUserId.value],
-  async (db, [stepInstanceId, userId]) => {
-    if (!stepInstanceId || !userId) return null
-    const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
+// All tasks ever created on this step — the current user's actionable
+// one is filtered out below for the action gates; the full list also
+// powers the activity panel (rejection comments, approvals with notes).
+const stepTasks = useLiveQueryWithDeps(
+  [() => props.instanceStepId],
+  async (db, [stepInstanceId]) => {
+    if (!stepInstanceId) return []
+    return db.TaskInstance.where('[sourceType+sourceId]', [
       'WorkflowInstanceStep',
       stepInstanceId,
     ]).exec()
-    return (
-      tasks.find(
-        (t) =>
-          t.assignedTo === userId &&
-          t.taskKindId === 'APPROVAL' &&
-          ACTIONABLE_STATUSES.includes(t.statusId),
-      ) || null
-    )
   },
+  { initial: [] },
 )
+
+const currentUserTask = computed(() => {
+  if (!currentUserId.value) return null
+  return (
+    stepTasks.value.find(
+      (t) =>
+        t.assignedTo === currentUserId.value &&
+        t.taskKindId === 'APPROVAL' &&
+        ACTIONABLE_STATUSES.includes(t.statusId),
+    ) || null
+  )
+})
 
 const canActOnStep = computed(() => !!currentUserTask.value)
 const completeDisabled = computed(() => childrenBlock.value)
@@ -278,6 +286,36 @@ function getStatusLabel(statusId) {
   if (statusId === 'APPROVED') return 'Completed'
   return statusId.replace('_', ' ')
 }
+
+// ─── Step activity (rejection / approval comments) ─────────────────
+// Surfaces every task on this step that has a comment — typically
+// rejections with a "reason" but also approvals where the reviewer
+// added a note. Most recent first.
+const activityTasks = computed(() =>
+  [...stepTasks.value]
+    .filter((t) => t.comment && String(t.comment).trim())
+    .sort((a, b) => (b.updatedAt?.toMillis?.() ?? 0) - (a.updatedAt?.toMillis?.() ?? 0)),
+)
+
+function activityChipClass(statusId) {
+  return {
+    REJECTED: 'tw:bg-red-100 tw:text-red-700',
+    APPROVED: 'tw:bg-green-100 tw:text-green-700',
+    CANCELLED: 'tw:bg-gray-100 tw:text-gray-600',
+    SENT_BACK: 'tw:bg-orange-100 tw:text-orange-700',
+    CHANGES_REQUESTED: 'tw:bg-amber-100 tw:text-amber-700',
+  }[statusId] ?? 'tw:bg-blue-100 tw:text-blue-700'
+}
+
+function activityLabel(statusId) {
+  return ({
+    REJECTED: 'Rejected',
+    APPROVED: 'Approved',
+    CANCELLED: 'Cancelled',
+    SENT_BACK: 'Sent back',
+    CHANGES_REQUESTED: 'Changes requested',
+  })[statusId] ?? (statusId || '').replace('_', ' ')
+}
 </script>
 
 <template>
@@ -350,6 +388,39 @@ function getStatusLabel(statusId) {
           :requireEsignature="requireEsignature"
           :hideOutcomes="['COMPLETE_AND_ADVANCE']"
         />
+      </div>
+    </div>
+
+    <!-- Activity — surfaces rejection reasons + reviewer notes that
+         live on task_instances.comment. Most recent first. Renders
+         only when there's at least one commented task to show. -->
+    <div
+      v-if="activityTasks.length"
+      class="tw:flex tw:flex-col tw:gap-2 tw:mb-4 tw:pb-4 tw:border-b tw:border-divider"
+    >
+      <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">
+        Activity
+      </p>
+      <div
+        v-for="t in activityTasks"
+        :key="t.id"
+        class="tw:flex tw:items-start tw:gap-2"
+      >
+        <UserBadgeById v-if="t.assignedTo" :userId="t.assignedTo" />
+        <div class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:min-w-0">
+          <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+            <span
+              class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+              :class="activityChipClass(t.statusId)"
+            >
+              {{ activityLabel(t.statusId) }}
+            </span>
+            <span class="tw:text-[10px] tw:text-secondary">
+              {{ t.updatedAt?.formatDate?.('date-time') ?? '' }}
+            </span>
+          </div>
+          <p class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">{{ t.comment }}</p>
+        </div>
       </div>
     </div>
 
