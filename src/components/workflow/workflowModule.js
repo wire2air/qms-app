@@ -134,10 +134,25 @@ export const AUDIT_INSTANCE_MODULE = {
   },
 }
 
+// AuditStandardVersion runs through the same generic workflow engine
+// for clause-list approval — DocumentVersion / LogBookVersion parity.
+// No per-step record model (the approval workflow is comment-only
+// e-sign on both steps); listed here so its submit-time picker can use
+// the unified WorkflowStepReviewerSelect.
+/** @type {WorkflowModule} */
+export const AUDIT_STANDARD_VERSION_MODULE = {
+  key: 'AUDIT_STANDARD_VERSION',
+  displayName: 'audit standard',
+  resourceType: 'AuditStandardVersion',
+  apiPath: 'auditStandards',
+  workflowVersionModuleId: 'AUDIT',
+}
+
 export const MODULES = {
   NC: NC_MODULE,
   CAPA: CAPA_MODULE,
   CR: CR_MODULE,
   LOG_BOOK_VERSION: LOG_BOOK_VERSION_MODULE,
   AUDIT: AUDIT_INSTANCE_MODULE,
+  AUDIT_STANDARD_VERSION: AUDIT_STANDARD_VERSION_MODULE,
 }

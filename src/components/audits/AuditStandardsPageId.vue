@@ -9,14 +9,16 @@
  * row itself, mirroring the NC / CAPA / CR detail page pattern.
  *
  * Version lifecycle (DRAFT → UNDER_REVIEW → EFFECTIVE → REJECTED →
- * SUPERSEDED) + Submit-for-Approval action ship in Phase B-3 along
- * with the AuditStandardVersionService. Today we render whatever
- * version state the bootstrap or BE create-flow produces.
+ * SUPERSEDED) is driven through the unified workflow engine via
+ * AuditStandardVersionSubmitDialog (submit for approval) +
+ * POST /auditStandards/:id/versions (spawn new draft off effective).
+ * DRAFT/REJECTED versions can be discarded; everything else is
+ * read-only here and managed by the engine.
  */
-import { IconClipboardList, IconArrowBack } from '@tabler/icons-vue'
+import { IconClipboardList, IconArrowBack, IconPlus, IconSend, IconTrash } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { patch } from '@/api'
+import { post, patch, del } from '@/api'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -136,6 +138,64 @@ async function handleDelete() {
     deleting.value = false
   }
 }
+
+// ─── Version lifecycle actions ─────────────────────────────────────
+// Three operations live here (the engine owns approve/reject/send-back
+// via the task-action surface):
+//   1. Submit DRAFT/REJECTED → UNDER_REVIEW (via the picker dialog).
+//   2. Spawn a new DRAFT off the current EFFECTIVE (only valid when
+//      there's an EFFECTIVE and no editable draft is already open).
+//   3. Discard a DRAFT/REJECTED (hard-delete, only allowed when there's
+//      an EFFECTIVE to fall back to).
+const showSubmitDialog = ref(false)
+const submitTargetVersionId = ref(null)
+const spawningDraft = ref(false)
+const discardTarget = ref(null)
+const discarding = ref(false)
+
+const canSubmitEditable = computed(() => {
+  return !!editableVersion.value && isEditable.value && !!standard.value?.workflowVersionId
+})
+// Spawn new draft only when there IS an effective and no editable draft yet.
+const canSpawnNewDraft = computed(() => {
+  if (!isEditable.value) return false
+  if (!effectiveVersion.value) return false
+  if (editableVersion.value) return false
+  if (versions.value.some((v) => v.statusId === 'UNDER_REVIEW')) return false
+  return true
+})
+
+function openSubmitDialog(versionId) {
+  submitTargetVersionId.value = versionId
+  showSubmitDialog.value = true
+}
+
+async function spawnNewDraft() {
+  if (!standard.value?.id || spawningDraft.value) return
+  spawningDraft.value = true
+  try {
+    await post(`/v1/services/auditStandards/${standard.value.id}/versions`, {})
+    toast.success('New draft created')
+  } catch (e) {
+    toast.error(e.message || 'Failed to create new draft')
+  } finally {
+    spawningDraft.value = false
+  }
+}
+
+async function confirmDiscardVersion() {
+  if (!discardTarget.value?.id || discarding.value) return
+  discarding.value = true
+  try {
+    await del(`/v1/services/auditStandardVersions/${discardTarget.value.id}`)
+    toast.success('Draft discarded')
+    discardTarget.value = null
+  } catch (e) {
+    toast.error(e.message || 'Failed to discard draft')
+  } finally {
+    discarding.value = false
+  }
+}
 </script>
 
 <template>
@@ -154,6 +214,25 @@ async function handleDelete() {
         >
           <IconArrowBack :size="16" class="tw:mr-1" />
           Back
+        </BaseButton>
+        <BaseButton
+          v-if="canSubmitEditable && editableVersion"
+          variant="primary"
+          size="sm"
+          @click="openSubmitDialog(editableVersion.id)"
+        >
+          <IconSend :size="16" class="tw:mr-1" />
+          Submit for Approval
+        </BaseButton>
+        <BaseButton
+          v-if="canSpawnNewDraft"
+          variant="outline"
+          size="sm"
+          :disabled="spawningDraft"
+          @click="spawnNewDraft"
+        >
+          <IconPlus :size="16" class="tw:mr-1" />
+          {{ spawningDraft ? 'Creating…' : 'New Draft' }}
         </BaseButton>
         <BaseButton
           v-if="canDelete && standard"
@@ -352,29 +431,96 @@ async function handleDelete() {
                 <IconClipboardList :size="14" />
                 Versions
               </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:flex tw:flex-col tw:gap-0.5">
                 <div
                   v-for="v in versions"
                   :key="v.id"
-                  class="tw:flex tw:items-center tw:justify-between tw:py-1.5 tw:text-xs"
+                  class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:py-1.5 tw:text-xs tw:group"
                 >
-                  <span class="tw:font-mono">v{{ v.versionMajor }}.{{ v.versionMinor }}</span>
-                  <span
-                    class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-1.5 tw:py-0.5"
-                    :class="versionBadgeClass(v.statusId)"
-                  >
-                    {{ v.statusId }}
+                  <span class="tw:font-mono tw:shrink-0">
+                    v{{ v.versionMajor }}.{{ v.versionMinor }}
                   </span>
+                  <div class="tw:flex tw:items-center tw:gap-1 tw:min-w-0">
+                    <!-- Per-row actions appear on hover; only valid actions
+                         render so there's no enabled-but-no-op affordance. -->
+                    <button
+                      v-if="
+                        isEditable &&
+                        (v.statusId === 'DRAFT' || v.statusId === 'REJECTED') &&
+                        standard.workflowVersionId
+                      "
+                      type="button"
+                      class="tw:opacity-0 tw:group-hover:opacity-100 tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-[10px]"
+                      title="Submit for approval"
+                      @click="openSubmitDialog(v.id)"
+                    >
+                      Submit
+                    </button>
+                    <button
+                      v-if="
+                        isEditable &&
+                        (v.statusId === 'DRAFT' || v.statusId === 'REJECTED') &&
+                        !!effectiveVersion
+                      "
+                      type="button"
+                      class="tw:opacity-0 tw:group-hover:opacity-100 tw:text-red-600 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-[10px]"
+                      title="Discard this draft"
+                      @click="discardTarget = v"
+                    >
+                      <IconTrash :size="11" />
+                    </button>
+                    <span
+                      class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-1.5 tw:py-0.5 tw:shrink-0"
+                      :class="versionBadgeClass(v.statusId)"
+                    >
+                      {{ v.statusId }}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div class="tw:text-[10px] tw:text-secondary tw:italic tw:pt-2 tw:border-t tw:border-divider tw:mt-2">
-                Submit-for-approval flow lands in Phase B-3.
+              <div
+                v-if="!standard.workflowVersionId"
+                class="tw:text-[10px] tw:text-amber-700 tw:italic tw:pt-2 tw:border-t tw:border-divider tw:mt-2"
+              >
+                No approval workflow attached. Drafts can't be submitted until one is set.
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <AuditStandardVersionSubmitDialog
+      v-if="submitTargetVersionId"
+      v-model="showSubmitDialog"
+      :versionId="submitTargetVersionId"
+      :workflowVersionId="standard?.workflowVersionId ?? null"
+      @submitted="submitTargetVersionId = null"
+    />
+
+    <BaseDialog
+      :modelValue="!!discardTarget"
+      title="Discard Draft"
+      maxWidth="md"
+      @update:modelValue="discardTarget = null"
+    >
+      <p class="tw:text-sm tw:text-on-main tw:mb-3">
+        Discard
+        <strong v-if="discardTarget">
+          v{{ discardTarget.versionMajor }}.{{ discardTarget.versionMinor }}
+        </strong>?
+        This permanently deletes the draft and its requirements. Existing
+        EFFECTIVE / SUPERSEDED versions are untouched.
+      </p>
+      <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
+        <BaseButton variant="outline" :disabled="discarding" @click="discardTarget = null">
+          Cancel
+        </BaseButton>
+        <BaseButton variant="danger" :disabled="discarding" @click="confirmDiscardVersion">
+          {{ discarding ? 'Discarding…' : 'Discard' }}
+        </BaseButton>
+      </div>
+    </BaseDialog>
 
     <BaseDialog v-model="showDeleteDialog" title="Archive Standard" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
