@@ -17,6 +17,7 @@
 import {
   IconArrowBack,
   IconChecklist,
+  IconClipboardCheck,
   IconUsers,
   IconClipboardList,
   IconBolt,
@@ -133,6 +134,10 @@ const canCancel = computed(
 const showSubmitDialog = ref(false)
 const showCancelDialog = ref(false)
 const showDeleteDialog = ref(false)
+// Audit-log dialog — opens the full per-entity activity history.
+// Includes every workflow event (reject reasons, reassignments,
+// approvals, reopen requests, cancels) plus all metadata updates.
+const showAuditLog = ref(false)
 const transitioning = ref(false)
 
 async function startAudit() {
@@ -311,6 +316,15 @@ const findingsByStatus = useLiveQueryWithDeps(
         >
           <IconBan :size="16" class="tw:mr-1" />
           Cancel
+        </BaseButton>
+        <BaseButton
+          v-if="auditInstance"
+          variant="secondary"
+          size="sm"
+          @click="showAuditLog = true"
+        >
+          <IconClipboardCheck :size="16" class="tw:mr-1" />
+          Audit Log
         </BaseButton>
         <BaseButton
           v-if="canDelete && auditInstance && auditInstance.statusId !== 'CLOSED'"
@@ -750,5 +764,22 @@ const findingsByStatus = useLiveQueryWithDeps(
         </BaseButton>
       </div>
     </BaseDialog>
+
+    <!-- Full audit-log dialog. Includes the AuditInstance row itself
+         plus the parent WorkflowInstance (for cross-step activity)
+         and the child Findings (so reviewers can see the related
+         finding history without leaving the audit). -->
+    <AuditLogDialog
+      v-if="auditInstance?.id"
+      v-model="showAuditLog"
+      entityType="AuditInstance"
+      :entityId="auditInstance.id"
+      :title="`Audit Log — ${auditInstance.auditNumber || 'Audit'}`"
+      :includeEntities="
+        auditInstance.workflowInstanceId
+          ? [{ entityType: 'WorkflowInstance', entityIds: [auditInstance.workflowInstanceId] }]
+          : []
+      "
+    />
   </div>
 </template>

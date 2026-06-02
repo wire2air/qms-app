@@ -15,7 +15,14 @@
  * DRAFT/REJECTED versions can be discarded; everything else is
  * read-only here and managed by the engine.
  */
-import { IconClipboardList, IconArrowBack, IconPlus, IconSend, IconTrash } from '@tabler/icons-vue'
+import {
+  IconClipboardList,
+  IconClipboardCheck,
+  IconArrowBack,
+  IconPlus,
+  IconSend,
+  IconTrash,
+} from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post, patch, del } from '@/api'
@@ -128,6 +135,10 @@ const editingDescription = ref(false)
 
 // ─── Delete ─────────────────────────────────────────────────────────
 const showDeleteDialog = ref(false)
+// Full per-entity audit log — includes every version's workflow
+// activity (reject reasons, reassigns, approvals) plus all metadata
+// updates to the standard itself.
+const showAuditLog = ref(false)
 const deleting = ref(false)
 
 async function handleDelete() {
@@ -280,6 +291,15 @@ async function confirmDiscardVersion() {
         >
           <IconPlus :size="16" class="tw:mr-1" />
           {{ spawningDraft ? 'Creating…' : 'New Draft' }}
+        </BaseButton>
+        <BaseButton
+          v-if="standard"
+          variant="secondary"
+          size="sm"
+          @click="showAuditLog = true"
+        >
+          <IconClipboardCheck :size="16" class="tw:mr-1" />
+          Audit Log
         </BaseButton>
         <BaseButton
           v-if="canDelete && standard"
@@ -715,5 +735,22 @@ async function confirmDiscardVersion() {
         </BaseButton>
       </div>
     </BaseDialog>
+
+    <!-- Full audit-log dialog. Includes the AuditStandard row itself
+         plus every AuditStandardVersion underneath so the per-version
+         approval activity (reject reasons, reassigns, e-signatures)
+         is all in one place. -->
+    <AuditLogDialog
+      v-if="standard?.id"
+      v-model="showAuditLog"
+      entityType="AuditStandard"
+      :entityId="standard.id"
+      :title="`Audit Log — ${standard.name || 'Standard'}`"
+      :includeEntities="
+        versions.length
+          ? [{ entityType: 'AuditStandardVersion', entityIds: versions.map((v) => v.id) }]
+          : []
+      "
+    />
   </div>
 </template>
