@@ -258,6 +258,23 @@ const commentDebounce = useDebounceFn(async (clause) => {
             "
             @update:modelValue="(v) => { setCommentBuffer(clause.requirementId, v); commentDebounce(clause) }"
           />
+
+          <!-- Per-response evidence — appears once a result is picked
+               (the response row exists, so audit_evidence /
+               audit_evidence_links can FK to it). Auditors attach
+               proof inline with the answer instead of bouncing to
+               the audit-overall card. -->
+          <div
+            v-if="responsesById[clause.requirementId]?.id"
+            class="tw:rounded tw:border tw:border-divider tw:bg-main-hover/30 tw:p-2 tw:mt-1"
+          >
+            <AuditEvidencePanel
+              :auditInstance="auditInstance"
+              scope="response"
+              :scopeId="responsesById[clause.requirementId].id"
+              :readonly="readonly"
+            />
+          </div>
         </div>
       </div>
     </div>
