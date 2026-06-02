@@ -126,6 +126,34 @@ const changeRequestMap = useLiveQueryWithDeps(
   { initial: {} },
 )
 
+// Close-out review tasks for an AuditInstance — entityType
+// 'AuditInstance', entityId is the instance row. Title comes from
+// audit_number, subtitle is auditStandard's name when we can resolve it.
+const auditInstanceMap = useLiveQueryWithDeps(
+  [
+    () =>
+      taskInstances.value
+        .filter((i) => i.entityType === 'AuditInstance')
+        .map((i) => i.entityId),
+  ],
+  async (db, [auditIds]) => {
+    const ids = [...new Set(auditIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const audits = await Promise.all(ids.map((id) => db.AuditInstance.findByPk(id)))
+    const standardIds = [
+      ...new Set(audits.filter(Boolean).map((a) => a.auditStandardId).filter(Boolean)),
+    ]
+    const standards = await Promise.all(standardIds.map((id) => db.AuditStandard.findByPk(id)))
+    const standardById = Object.fromEntries(standards.filter(Boolean).map((s) => [s.id, s]))
+    const map = {}
+    for (const a of audits.filter(Boolean)) {
+      map[a.id] = { audit: a, standard: standardById[a.auditStandardId] ?? null }
+    }
+    return map
+  },
+  { initial: {} },
+)
+
 const logBookVersionMap = useLiveQueryWithDeps(
   [
     () =>
@@ -261,6 +289,14 @@ const filteredInstances = computed(() => {
         entry?.record?.recordNumber?.toLowerCase().includes(q)
       )
     }
+    if (instance.entityType === 'AuditInstance') {
+      const ai = auditInstanceMap.value[instance.entityId]
+      return (
+        ai?.audit?.auditNumber?.toLowerCase().includes(q) ||
+        ai?.standard?.name?.toLowerCase().includes(q) ||
+        ai?.standard?.code?.toLowerCase().includes(q)
+      )
+    }
     const doc = documentMap.value[instance.entityId]?.doc
     if (!doc) return false
     return doc.title?.toLowerCase().includes(q) || doc.docNumber?.toLowerCase().includes(q)
@@ -286,6 +322,7 @@ const EntityType = {
   LogBookVersion: 'Log Book',
   AssignmentInstance: 'Inspection / Log',
   FieldRecord: 'Flagged Log',
+  AuditInstance: 'Audit',
 }
 
 const columns = [
@@ -423,6 +460,9 @@ function entityRoute(row) {
     // preview panel auto-opened.
     return getCompanyPath(`inspections-logs/records?recordId=${row.entityId}`)
   }
+  if (row.entityType === 'AuditInstance') {
+    return getCompanyPath(`audits/instances/${row.entityId}`)
+  }
   return null
 }
 
@@ -446,6 +486,10 @@ function rowTitle(row) {
       return assignmentInstanceMap.value[row.entityId]?.logBook?.title || 'Scheduled inspection'
     case 'FieldRecord':
       return fieldRecordMap.value[row.entityId]?.logBook?.title || 'Flagged log entry'
+    case 'AuditInstance':
+      // Standard name is the most useful at-a-glance label; audit_number
+      // is the formal identifier and lives in the subtitle below.
+      return auditInstanceMap.value[row.entityId]?.standard?.name || 'Audit'
     default:
       return getDocument(row)?.title || '—'
   }
@@ -466,6 +510,8 @@ function rowSubtitle(row) {
       return fieldRecordMap.value[row.entityId]?.record?.recordNumber || ''
     case 'DocumentVersion':
       return getDocument(row)?.docNumber || ''
+    case 'AuditInstance':
+      return auditInstanceMap.value[row.entityId]?.audit?.auditNumber || ''
     default:
       return ''
   }
@@ -614,6 +660,14 @@ function rowSubtitle(row) {
           </span>
           <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
             {{ fieldRecordMap[row.entityId]?.record?.recordNumber || 'Needs your attention' }}
+          </span>
+        </template>
+        <template v-else-if="row.entityType === 'AuditInstance'">
+          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+            {{ auditInstanceMap[row.entityId]?.standard?.name || 'Audit' }}
+          </span>
+          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+            {{ auditInstanceMap[row.entityId]?.audit?.auditNumber || '—' }}
           </span>
         </template>
         <template v-else>
