@@ -20,10 +20,15 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconEdit,
+  IconExternalLink,
+  IconLink,
   IconPlus,
   IconTrash,
+  IconX,
 } from '@tabler/icons-vue'
-import { patch, del } from '@/api'
+import { getCompanyPath } from '@/utils/routeHelpers.js'
+// Action RPCs (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { patch, post, del } from '@/api'
 
 const props = defineProps({
   auditInstance: { type: Object, required: true },
@@ -110,6 +115,71 @@ async function removeFinding(finding) {
   } catch (e) {
     toast.error(e.message || 'Failed to delete finding')
   }
+}
+
+// ── Spawn link / open / unlink ─────────────────────────────────────
+//
+// One canonical link per kind on each finding. The Link dialog
+// handles attaching an existing record; we expose open + unlink
+// inline on each populated chip.
+
+const router = useRouter()
+
+// kind → spawned_*_id column + the FE route stem so chips can deep-
+// link into the spawned record's detail page.
+const SPAWN_KINDS = [
+  { id: 'NC', label: 'NC', column: 'spawnedNcId', routeStem: 'nonconformances' },
+  { id: 'CAPA', label: 'CAPA', column: 'spawnedCapaId', routeStem: 'capas' },
+  {
+    id: 'TRAINING',
+    label: 'Training',
+    column: 'spawnedTrainingInstanceId',
+    routeStem: 'training-instances',
+  },
+  {
+    id: 'CR',
+    label: 'CR',
+    column: 'spawnedChangeRequestId',
+    routeStem: 'change-requests',
+  },
+]
+const KIND_BY_ID = Object.fromEntries(SPAWN_KINDS.map((k) => [k.id, k]))
+
+const linkDialogState = ref({ open: false, finding: null, kind: null })
+
+function openLinkDialog(finding, kind) {
+  if (props.readonly) return
+  linkDialogState.value = { open: true, finding, kind }
+}
+
+function openSpawned(finding, kind) {
+  const cfg = KIND_BY_ID[kind]
+  if (!cfg) return
+  const targetId = finding[cfg.column]
+  if (!targetId) return
+  router.push(getCompanyPath(`/${cfg.routeStem}/${targetId}`))
+}
+
+async function unlinkSpawn(finding, kind) {
+  if (props.readonly) return
+  const cfg = KIND_BY_ID[kind]
+  if (!cfg) return
+  if (!confirm(`Unlink the ${cfg.label} from finding ${finding.findingNumber}?`)) return
+  try {
+    await post(`/v1/services/auditFindings/${finding.id}/unlink`, { kind })
+    toast.success(`${cfg.label} unlinked`)
+  } catch (e) {
+    toast.error(e.message || 'Failed to unlink record')
+  }
+}
+
+// Per-finding spawn-state helpers used by the template.
+function isLinked(finding, kind) {
+  const cfg = KIND_BY_ID[kind]
+  return !!(cfg && finding[cfg.column])
+}
+function unlinkedKinds(finding) {
+  return SPAWN_KINDS.filter((k) => !finding[k.column])
 }
 </script>
 
@@ -232,42 +302,48 @@ async function removeFinding(finding) {
             </div>
           </div>
 
-          <!-- Cross-module spawn pointer chips. Lights up when a
-               spawned NC/CAPA/Training/CR is attached (Phase D-2 wires
-               the create/link flow). -->
-          <div
-            v-if="
-              finding.spawnedNcId ||
-              finding.spawnedCapaId ||
-              finding.spawnedTrainingInstanceId ||
-              finding.spawnedChangeRequestId
-            "
-            class="tw:flex tw:flex-wrap tw:gap-1.5"
-          >
-            <span
-              v-if="finding.spawnedNcId"
-              class="tw:text-[10px] tw:bg-red-100 tw:text-red-700 tw:px-2 tw:py-0.5 tw:rounded"
+          <!-- Cross-module spawn pointer chips. Linked records show as
+               clickable chips with an inline unlink; unlinked kinds
+               surface as "+ Link" pills that open the picker. -->
+          <div class="tw:flex tw:flex-wrap tw:gap-1.5 tw:items-center">
+            <p class="tw:text-[10px] tw:text-secondary tw:uppercase tw:font-semibold tw:tracking-wide tw:mr-1">
+              Linked:
+            </p>
+            <template v-for="cfg in SPAWN_KINDS">
+              <span
+                v-if="isLinked(finding, cfg.id)"
+                :key="cfg.id"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:bg-emerald-100 tw:text-emerald-700 tw:rounded tw:pl-2 tw:pr-1 tw:py-0.5"
+              >
+                <button
+                  type="button"
+                  class="tw:flex tw:items-center tw:gap-1 tw:cursor-pointer tw:bg-transparent tw:border-0 tw:text-emerald-700 tw:hover:underline"
+                  :title="`Open spawned ${cfg.label}`"
+                  @click="openSpawned(finding, cfg.id)"
+                >
+                  {{ cfg.label }} <IconExternalLink :size="10" />
+                </button>
+                <button
+                  v-if="!readonly"
+                  type="button"
+                  class="tw:text-emerald-700 tw:hover:bg-emerald-200 tw:rounded tw:p-0.5 tw:cursor-pointer tw:bg-transparent tw:border-0"
+                  title="Unlink"
+                  @click="unlinkSpawn(finding, cfg.id)"
+                >
+                  <IconX :size="10" />
+                </button>
+              </span>
+            </template>
+            <button
+              v-for="cfg in unlinkedKinds(finding)"
+              :key="cfg.id"
+              type="button"
+              :disabled="readonly"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-medium tw:bg-white tw:text-secondary tw:border tw:border-divider tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:hover:border-primary tw:hover:text-primary"
+              @click="openLinkDialog(finding, cfg.id)"
             >
-              NC ↗
-            </span>
-            <span
-              v-if="finding.spawnedCapaId"
-              class="tw:text-[10px] tw:bg-purple-100 tw:text-purple-700 tw:px-2 tw:py-0.5 tw:rounded"
-            >
-              CAPA ↗
-            </span>
-            <span
-              v-if="finding.spawnedTrainingInstanceId"
-              class="tw:text-[10px] tw:bg-blue-100 tw:text-blue-700 tw:px-2 tw:py-0.5 tw:rounded"
-            >
-              Training ↗
-            </span>
-            <span
-              v-if="finding.spawnedChangeRequestId"
-              class="tw:text-[10px] tw:bg-amber-100 tw:text-amber-700 tw:px-2 tw:py-0.5 tw:rounded"
-            >
-              CR ↗
-            </span>
+              <IconLink :size="10" /> Link {{ cfg.label }}
+            </button>
           </div>
 
           <!-- Inline status transitions. Only legal next states show. -->
@@ -290,6 +366,13 @@ async function removeFinding(finding) {
       v-model="showDialog"
       :auditInstance="auditInstance"
       :finding="editingFinding"
+    />
+
+    <AuditFindingLinkSpawnedDialog
+      v-if="linkDialogState.finding"
+      v-model="linkDialogState.open"
+      :finding="linkDialogState.finding"
+      :kind="linkDialogState.kind"
     />
   </div>
 </template>
