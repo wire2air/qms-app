@@ -73,16 +73,6 @@ function setTab(id) {
 
     <AuditStandardsHome v-if="activeTab === 'standards'" />
     <AuditProgramsHome v-else-if="activeTab === 'programs'" />
-    <div
-      v-else-if="activeTab === 'instances'"
-      class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:gap-2 tw:py-16 tw:text-secondary"
-    >
-      <IconChecklist :size="40" class="tw:opacity-50" />
-      <div class="tw:text-base tw:font-semibold">Audit instances — next phase</div>
-      <div class="tw:text-sm tw:text-center tw:max-w-md">
-        The actual audits — requirement execution screen, findings, evidence. Ships in
-        Phase C.
-      </div>
-    </div>
+    <AuditInstancesHome v-else-if="activeTab === 'instances'" />
   </div>
 </template>

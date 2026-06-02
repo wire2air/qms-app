@@ -117,15 +117,15 @@ export const LOG_BOOK_VERSION_MODULE = {
 // with capa_records / nc_records / cr_records.
 /** @type {WorkflowModule} */
 export const AUDIT_INSTANCE_MODULE = {
-  key: 'AUDIT',
+  key: 'AUDIT_INSTANCE',
   displayName: 'audit',
   resourceType: 'AuditInstance',
-  apiPath: 'audits',
+  apiPath: 'auditInstances',
   resourceIdParam: 'auditId',
   recordModelName: 'AuditRecord',
   recordResourceFk: 'auditInstanceId',
   resourceModel: { modelName: 'AuditInstance' },
-  workflowVersionModuleId: 'AUDIT',
+  workflowVersionModuleId: 'AUDIT_INSTANCE',
   getStepFormContextFields(resource) {
     return {
       _audit_scope: resource?.scope ?? '',
@@ -145,7 +145,7 @@ export const AUDIT_STANDARD_VERSION_MODULE = {
   displayName: 'audit standard',
   resourceType: 'AuditStandardVersion',
   apiPath: 'auditStandards',
-  workflowVersionModuleId: 'AUDIT',
+  workflowVersionModuleId: 'AUDIT_STANDARD',
 }
 
 export const MODULES = {
