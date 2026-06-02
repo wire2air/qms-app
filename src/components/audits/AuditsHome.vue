@@ -6,11 +6,18 @@
  * standards). Programs + Instances tabs are placeholders pointing at
  * the next phase. Deep-linkable via ?tab=<id> for share-links.
  */
-import { IconClipboardCheck, IconBook, IconCalendarTime, IconChecklist } from '@tabler/icons-vue'
+import {
+  IconClipboardCheck,
+  IconBook,
+  IconCalendarTime,
+  IconChecklist,
+  IconChartBar,
+} from '@tabler/icons-vue'
 
-// Standards + Programs tabs are live; Audits/Instances ships in Phase C.
+// Insights / Standards / Programs / Instances — all live.
 
 const tabs = [
+  { id: 'insights', label: 'Insights', icon: IconChartBar },
   { id: 'standards', label: 'Standards', icon: IconBook },
   { id: 'programs', label: 'Programs', icon: IconCalendarTime },
   { id: 'instances', label: 'Audits', icon: IconChecklist },
@@ -19,7 +26,7 @@ const tabs = [
 const route = useRoute()
 const router = useRouter()
 const validTabIds = new Set(tabs.map((t) => t.id))
-const initialTab = validTabIds.has(route.query.tab) ? route.query.tab : 'standards'
+const initialTab = validTabIds.has(route.query.tab) ? route.query.tab : 'insights'
 const activeTab = ref(initialTab)
 watch(
   () => route.query.tab,
@@ -71,7 +78,8 @@ function setTab(id) {
       </button>
     </div>
 
-    <AuditStandardsHome v-if="activeTab === 'standards'" />
+    <AuditsInsightsDashboard v-if="activeTab === 'insights'" />
+    <AuditStandardsHome v-else-if="activeTab === 'standards'" />
     <AuditProgramsHome v-else-if="activeTab === 'programs'" />
     <AuditInstancesHome v-else-if="activeTab === 'instances'" />
   </div>
