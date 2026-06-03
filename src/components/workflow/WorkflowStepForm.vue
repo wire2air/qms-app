@@ -203,10 +203,54 @@ async function persistRecord({ submit, esign }) {
 }
 
 function saveDraft() {
+  // Drafts are intentionally lenient — required-field gates only fire
+  // on submit. The assignee should be able to park work-in-progress
+  // mid-flow without being nagged about empty fields.
   return persistRecord({ submit: false })
 }
 
+/**
+ * "Filled" = has a meaningful value. Recurses into objects/arrays so
+ * an unfilled RCA / Risk Assessment widget (which emits `{}` even
+ * when nothing is selected) registers as empty — the surface symptom
+ * of the silent-Mark-Complete bug we hit in testing.
+ */
+function isFieldFilled(value) {
+  if (value === null || value === undefined) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  if (Array.isArray(value)) return value.some(isFieldFilled)
+  if (typeof value === 'object') return Object.values(value).some(isFieldFilled)
+  return true // number, boolean — presence is enough
+}
+
+function getMissingRequiredFields() {
+  const missing = []
+  for (const field of formSchema.value || []) {
+    if (!field?.required || !field?.name) continue
+    if (!isFieldFilled(formData.value?.[field.name])) {
+      missing.push(field.label || field.name)
+    }
+  }
+  return missing
+}
+
 function submitForm(esign) {
+  // Gate the submit on required-field completeness BEFORE persisting,
+  // so the assignee gets a visible reason when Mark Complete refuses
+  // to advance the step (the silent failure that bit testing today).
+  // DynamicForm has vuelidate wired up internally for primitives, but
+  // the workflow form widget bypasses its emit('submit') path and
+  // builds the payload directly from v-model — so we re-do the gate
+  // here, matching the schema's `required: true` flags. Deep check on
+  // value covers complex widgets (rca / riskAssessment) where an empty
+  // `{}` slips past a naive truthy test.
+  const missing = getMissingRequiredFields()
+  if (missing.length > 0) {
+    toast.warning(
+      `Please fill in the required field${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}`,
+    )
+    return
+  }
   return persistRecord({ submit: true, esign })
 }
 
