@@ -81,6 +81,7 @@ declare module 'vue' {
     AuditStandardContentLicenseBadge: typeof import('./src/components/badges/AuditStandardContentLicenseBadge.vue')['default']
     AuditStandardContentLicenseBadgeById: typeof import('./src/components/badges/AuditStandardContentLicenseBadgeById.vue')['default']
     AuditStandardCreateDialog: typeof import('./src/components/audits/AuditStandardCreateDialog.vue')['default']
+    AuditStandardImportDialog: typeof import('./src/components/audits/AuditStandardImportDialog.vue')['default']
     AuditStandardSelectMenu: typeof import('./src/components/menus/AuditStandardSelectMenu.vue')['default']
     AuditStandardsHome: typeof import('./src/components/audits/AuditStandardsHome.vue')['default']
     AuditStandardsPageId: typeof import('./src/components/audits/AuditStandardsPageId.vue')['default']
