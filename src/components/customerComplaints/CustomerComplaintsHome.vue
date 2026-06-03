@@ -5,6 +5,7 @@ import {
   IconAlertTriangle,
   IconCircleCheck,
   IconLink,
+  IconCode,
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -94,6 +95,7 @@ const stats = computed(() => {
 })
 
 const showPublicLinkDialog = ref(false)
+const showWidgetDialog = ref(false)
 
 function onNewComplaint() {
   router.push(getCompanyPath('/customer-complaints/create'))
@@ -121,6 +123,10 @@ async function onDelete(row) {
 
     <SafeTeleport to="#main-header-actions">
       <div class="tw:flex tw:items-center tw:gap-2">
+        <BaseButton variant="outline" @click="showWidgetDialog = true">
+          <template #icon><IconCode :size="16" /></template>
+          Widget
+        </BaseButton>
         <BaseButton variant="outline" @click="showPublicLinkDialog = true">
           <template #icon><IconLink :size="16" /></template>
           Public link
@@ -222,5 +228,6 @@ async function onDelete(row) {
     <CustomerComplaintsTable :rows="complaints" :canDelete="canDelete" @delete="onDelete" />
 
     <PublicLinkDialog v-model="showPublicLinkDialog" />
+    <WidgetEmbedDialog v-model="showWidgetDialog" />
   </div>
 </template>

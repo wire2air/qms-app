@@ -581,6 +581,7 @@ declare module 'vue' {
     WForm: typeof import('./resource/js/shared/components/Form/WForm.js')['default']
     WhyTreeAnalysis: typeof import('./src/components/form/tools/rca/WhyTreeAnalysis.vue')['default']
     WIcon: typeof import('./resource/js/shared/components/icon/WIcon.js')['default']
+    WidgetEmbedDialog: typeof import('./src/components/customerComplaints/WidgetEmbedDialog.vue')['default']
     WInfoGuide: typeof import('./resource/js/shared/components/WTable/WInfoGuide.vue')['default']
     WInput: typeof import('./resource/js/shared/components/input/WInput.js')['default']
     WLabel: typeof import('./resource/js/shared/components/WLabel.vue')['default']

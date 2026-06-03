@@ -39,6 +39,7 @@ export class CustomerComplaint extends BaseModel {
   @Property({ type: String }) supplierId = null
   @Property({ type: DateTime }) resolvedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) closedAt = /** @type {DateTime} */ (null)
+  @Property({ type: String }) visitorToken = null
   @Property({ type: String }) createdBy = ''
   @Property({ type: String }) updatedBy = ''
   @Property({ type: DateTime, required: true, timestamp: true })
