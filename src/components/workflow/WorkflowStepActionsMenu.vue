@@ -143,21 +143,31 @@ async function submitAction(esign = null) {
   actionLoading.value = true
   try {
     if (pendingOutcomeId.value === 'SEND_BACK') {
-      // Module-specific endpoint — rejects the task back to the owner.
-      // Each module wires this to its own controller (NC's rejectStepTask
-      // also flips the user-on-WIS row to REJECTED and may PEND the step;
-      // see the per-module backend implementation).
-      await post(
-        `/v1/services/${props.module.apiPath}/${props.resourceId}/rejectStepTask`,
-        {
-          workflowInstanceStepId: props.instanceStepId,
-          comment: comment.value,
-        },
-      )
+      // Two different backend semantics here, picked by step type:
+      //
+      //   APPROVAL step + "Reject" → /rejectStepTask
+      //     Terminates the workflow_instance, fires handler.onRejection,
+      //     resource flips to its rejected state (Audit → REJECTED,
+      //     NC/CAPA/CR → DRAFT). Owner edits + resubmits for a fresh
+      //     approval cycle (21 CFR 11 — each cycle owns its e-signature
+      //     thread).
+      //
+      //   Non-APPROVAL step + "Send Back" → /sendBackStepTask
+      //     Lightweight: reviewer's ASSIGNED task is UNTOUCHED, a marker
+      //     SENT_BACK task is minted on the step carrying the comment
+      //     so it surfaces in the step activity panel, and the owner
+      //     gets a WORKFLOW_ACTION_REQUIRED notification. No workflow
+      //     termination, no resource status change. Reviewer can still
+      //     complete their original task once the owner responds.
+      const endpoint = isApprovalStep.value ? 'rejectStepTask' : 'sendBackStepTask'
+      await post(`/v1/services/${props.module.apiPath}/${props.resourceId}/${endpoint}`, {
+        workflowInstanceStepId: props.instanceStepId,
+        comment: comment.value,
+      })
       toast.success(
         isApprovalStep.value
           ? 'Approval rejected — the owner has been notified'
-          : 'Task sent back — the owner has been notified',
+          : 'Sent back — the owner has been notified',
       )
       emit('done')
       return

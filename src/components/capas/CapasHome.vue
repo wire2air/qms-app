@@ -14,9 +14,7 @@ const filters = ref({ search: '', statusId: null, priorityId: null, typeId: null
 const activeFilter = ref('all_open')
 
 const CLOSED_STATUSES = ['CLOSED', 'CANCELLED']
-// REJECTED counts as open — owner needs to fix + resubmit, so it should
-// show up in the owner's "Mine" filter and in the all-open list.
-const OPEN_STATUSES = ['DRAFT', 'PENDING', 'REJECTED']
+const OPEN_STATUSES = ['DRAFT', 'PENDING']
 
 function applyFilters(results, search, statusId, priorityId, typeId) {
   if (search) {

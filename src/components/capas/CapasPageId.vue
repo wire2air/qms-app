@@ -395,12 +395,12 @@ function onCreateLinkedChangeRequest() {
           Delete
         </BaseButton>
         <BaseButton
-          v-if="isOwner && (capa?.statusId === 'DRAFT' || capa?.statusId === 'REJECTED')"
+          v-if="isOwner && capa?.statusId === 'DRAFT'"
           variant="primary"
           :disabled="saving"
           @click="openOpenDialog"
         >
-          {{ capa?.statusId === 'REJECTED' ? 'Resubmit for Review' : 'Open CAPA' }}
+          Open CAPA
         </BaseButton>
         <BaseButton
           v-if="isOwner && capa?.statusId === 'PENDING'"
@@ -545,15 +545,9 @@ function onCreateLinkedChangeRequest() {
             <!-- Workflow steps. In DRAFT (no instance yet) we render the
                  template-step preview so the owner can plan assignments.
                  Once they Submit, the workflow instance exists and the
-                 live CapaWorkflowDetail takes over. After a formal reject
-                 the prior workflow_instance is terminated (CFR 21 Part 11
-                 — each cycle gets its own e-signature thread), so REJECTED
-                 also shows the picker for resubmit. -->
+                 live CapaWorkflowDetail takes over. -->
             <CapaWorkflowDraftPreview
-              v-if="
-                !workflowInstance &&
-                (capa?.statusId === 'DRAFT' || capa?.statusId === 'REJECTED')
-              "
+              v-if="!workflowInstance && capa?.statusId === 'DRAFT'"
               :capaId="id"
               :isOwner="isOwner"
             />
