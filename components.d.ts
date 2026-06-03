@@ -182,6 +182,7 @@ declare module 'vue' {
     ChatPanel: typeof import('./src/components/chat/ChatPanel.vue')['default']
     ChatThreadList: typeof import('./src/components/chat/ChatThreadList.vue')['default']
     ChatToolCallCard: typeof import('./src/components/chat/ChatToolCallCard.vue')['default']
+    CompanyAiProfileCard: typeof import('./src/components/company/CompanyAiProfileCard.vue')['default']
     CompanyBrandingCard: typeof import('./src/components/company/companyBrandingCard.vue')['default']
     CompanyCardSaveStatus: typeof import('./src/components/company/CompanyCardSaveStatus.vue')['default']
     CompanyDefaultsCard: typeof import('./src/components/company/companyDefaultsCard.vue')['default']

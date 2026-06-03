@@ -5,8 +5,10 @@ import {
   IconPrinter,
   IconInfoCircle,
   IconList,
+  IconSparkles,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany.js'
+import { isAllowed } from '@/utils/currentSession.js'
 
 const company = useLiveQueryWithDeps(
   [() => currentCompany.value?.id],
@@ -50,22 +52,32 @@ function mirrorToCurrentCompany(c) {
   currentCompany.value.settings = c.settings
 }
 
-const tabs = [
-  { id: 'general', label: 'General', icon: IconInfoCircle },
-  { id: 'defaults', label: 'Defaults', icon: IconAdjustments },
-  { id: 'print', label: 'Print', icon: IconPrinter },
-  { id: 'lookups', label: 'Lookups', icon: IconList },
-]
+// AI tab visible to anyone with ai:manage (owners auto-pass). Tenants
+// where the operator hasn't enabled AI yet still need this tab so an
+// admin can turn it on; gating on the canUseAi session flag would hide
+// the very switch you need to flip.
+const canManageAi = computed(() => isAllowed(['ai:manage']))
+
+const tabs = computed(() => {
+  const base = [
+    { id: 'general', label: 'General', icon: IconInfoCircle },
+    { id: 'defaults', label: 'Defaults', icon: IconAdjustments },
+    { id: 'print', label: 'Print', icon: IconPrinter },
+    { id: 'lookups', label: 'Lookups', icon: IconList },
+  ]
+  if (canManageAi.value) base.push({ id: 'ai', label: 'AI', icon: IconSparkles })
+  return base
+})
 // Honor ?tab=<id> so deep-links from the sidebar (e.g. NC Dispositions
 // going to /settings?tab=lookups) land directly on the right pane.
 const route = useRoute()
-const validTabIds = new Set(tabs.map((t) => t.id))
-const initialTab = validTabIds.has(route.query.tab) ? route.query.tab : 'general'
+const validTabIds = computed(() => new Set(tabs.value.map((t) => t.id)))
+const initialTab = validTabIds.value.has(route.query.tab) ? route.query.tab : 'general'
 const activeTab = ref(initialTab)
 watch(
   () => route.query.tab,
   (v) => {
-    if (v && validTabIds.has(v)) activeTab.value = v
+    if (v && validTabIds.value.has(v)) activeTab.value = v
   },
 )
 </script>
@@ -143,6 +155,11 @@ watch(
         <SupplierCertificateTypesCard />
         <AuditStandardTypesCard />
         <AuditFindingCategoriesCard />
+      </div>
+
+      <!-- Tab: AI — only present when the user has ai:manage. -->
+      <div v-else-if="activeTab === 'ai'">
+        <CompanyAiProfileCard />
       </div>
     </div>
   </div>
