@@ -5,7 +5,7 @@
  * submit-for-approval lands in Phase B-3.
  */
 import { IconBook, IconPlus, IconUpload, IconSparkles, IconFileTypePdf } from '@tabler/icons-vue'
-import { isAllowed } from '@/utils/currentSession.js'
+import { isAllowed, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const router = useRouter()
@@ -94,7 +94,7 @@ function versionBadgeClass(versions) {
       </div>
       <div class="tw:flex tw:items-center tw:gap-2">
         <BaseButton
-          v-if="canCreate"
+          v-if="canCreate && canUseAi"
           variant="outline"
           size="sm"
           @click="showAiGenerateDialog = true"
@@ -103,7 +103,7 @@ function versionBadgeClass(versions) {
           AI Generate
         </BaseButton>
         <BaseButton
-          v-if="canCreate"
+          v-if="canCreate && canUseAi"
           variant="outline"
           size="sm"
           @click="showAiImportDialog = true"

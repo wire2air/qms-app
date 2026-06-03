@@ -1,5 +1,5 @@
 <script setup>
-import { initSession, currentSession } from '@/utils/currentSession'
+import { initSession, currentSession, canUseAi } from '@/utils/currentSession'
 import { initCurrentCompany, companies } from '@/utils/currentCompany'
 import { isPublicRoute as isPublicRouteFn, isAuthRoute } from '@/constants/authRoutes'
 import { initSync, deleteAllSyncDatabases } from '@/utils/initSyncEngine.js'
@@ -135,7 +135,8 @@ onMounted(async () => {
       </div>
     </main>
 
-    <!-- AI sidecar — global slide-out chat (see backend/ai/README.md, AI_PLAN.md §6) -->
-    <ChatPanel />
+    <!-- AI sidecar — global slide-out chat (see backend/ai/README.md, AI_PLAN.md §6).
+         Gated on canUseAi so tenants without the add-on don't even mount it. -->
+    <ChatPanel v-if="canUseAi" />
   </div>
 </template>

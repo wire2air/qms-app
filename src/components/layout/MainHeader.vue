@@ -6,6 +6,7 @@ import {
   originalUserName,
   returnToOriginalUser,
   currentSession,
+  canUseAi,
 } from '@/utils/currentSession'
 import { deleteAllSyncDatabases } from '@/utils/initSyncEngine.js'
 import { useChatPanel } from '@/composables/useChatPanel'
@@ -72,6 +73,7 @@ async function resetSync() {
       <div class="tw:flex tw:items-center tw:gap-4">
         <div id="main-header-actions" />
         <button
+          v-if="canUseAi"
           class="tw:p-2 tw:rounded-full tw:text-primary tw:hover:bg-main-hover tw:transition-colors"
           title="AI Assistant (⌘K)"
           @click="chatPanel.toggle()"
