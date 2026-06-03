@@ -93,6 +93,13 @@ declare module 'vue-router/auto-routes' {
       { companyCode: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/[companyCode]/customer-complaints/contacts': RouteRecordInfo<
+      '/[companyCode]/customer-complaints/contacts',
+      '/:companyCode/customer-complaints/contacts',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
     '/[companyCode]/dashboard': RouteRecordInfo<
       '/[companyCode]/dashboard',
       '/:companyCode/dashboard',
@@ -208,6 +215,13 @@ declare module 'vue-router/auto-routes' {
     '/[companyCode]/inspections-logs/templates': RouteRecordInfo<
       '/[companyCode]/inspections-logs/templates',
       '/:companyCode/inspections-logs/templates',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/knowledge-base': RouteRecordInfo<
+      '/[companyCode]/knowledge-base',
+      '/:companyCode/knowledge-base',
       { companyCode: ParamValue<true> },
       { companyCode: ParamValue<false> },
       | never
@@ -530,6 +544,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/[companyCode]/customer-complaints/contacts.vue': {
+      routes:
+        | '/[companyCode]/customer-complaints/contacts'
+      views:
+        | never
+    }
     'src/pages/[companyCode]/dashboard.vue': {
       routes:
         | '/[companyCode]/dashboard'
@@ -629,6 +649,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[companyCode]/inspections-logs/templates.vue': {
       routes:
         | '/[companyCode]/inspections-logs/templates'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/knowledge-base.vue': {
+      routes:
+        | '/[companyCode]/knowledge-base'
       views:
         | never
     }

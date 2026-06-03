@@ -89,6 +89,7 @@ import { CustomerComplaintSource } from './customercomplaintsource'
 import { CustomerComplaintMessage } from './customercomplaintmessage'
 import { CcAttachment } from './ccattachment'
 import { NonconformanceComplaint } from './nonconformancecomplaint'
+import { KnowledgeBaseArticle } from './knowledgebasearticle'
 import { Capa } from './capa'
 import { CapaCounter } from './capaCounter'
 import { CapaStatus } from './capaStatus'
@@ -235,6 +236,7 @@ export const db = {
   CustomerComplaintMessage,
   CcAttachment,
   NonconformanceComplaint,
+  KnowledgeBaseArticle,
   Capa,
   CapaCounter,
   CapaStatus,

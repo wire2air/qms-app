@@ -35,6 +35,8 @@ import {
   IconClipboardList,
   IconClipboardCheck,
   IconTool,
+  IconBook,
+  IconAddressBook,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import {
@@ -171,7 +173,28 @@ const navItems = computed(() => {
       label: 'Customer Complaints',
       permissions: ['customerComplaints:read'],
       icon: IconMessageCircle,
-      to: getCompanyPath('/customer-complaints'),
+      children: [
+        {
+          label: 'Tickets',
+          icon: IconMessageCircle,
+          to: getCompanyPath('/customer-complaints'),
+        },
+        {
+          label: 'Contacts',
+          permissions: ['customerComplaints:read'],
+          icon: IconAddressBook,
+          to: getCompanyPath('/customer-complaints/contacts'),
+        },
+        {
+          label: 'Knowledge Base',
+          permissions: ['knowledgeBase:read'],
+          icon: IconBook,
+          to: getCompanyPath('/knowledge-base'),
+        },
+      ].filter((item) => {
+        if (!item.permissions || item.permissions.length === 0) return true
+        return isAllowed(item.permissions)
+      }),
     },
     {
       label: 'Inspections & Logs',
