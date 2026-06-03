@@ -1,5 +1,6 @@
 <script setup>
 import { IconUser, IconMail, IconLock } from '@tabler/icons-vue'
+import { currentSubdomain } from '@/utils/tenant'
 
 const props = defineProps({
   mode: {
@@ -38,14 +39,24 @@ const isFormValid = computed(() => {
   return true
 })
 
+// OAuth completes on the fixed callback host (not this tenant subdomain), so
+// pass the current tenant as `redirectToCompany` — the backend threads it
+// through OAuth state and, after the callback, hands off back to THIS tenant
+// rather than the user's first company.
+function federatedLoginUrl(strategy) {
+  const sub = currentSubdomain()
+  const query = sub ? `?redirectToCompany=${encodeURIComponent(sub)}` : ''
+  return `/api/v1/auth/login/federated/${strategy}${query}`
+}
+
 function loginWithGoogle() {
   loadingGoogle.value = true
-  window.location.href = '/api/v1/auth/login/federated/google'
+  window.location.href = federatedLoginUrl('google')
 }
 
 function loginWithMicrosoft() {
   loadingMicrosoft.value = true
-  window.location.href = '/api/v1/auth/login/federated/microsoft'
+  window.location.href = federatedLoginUrl('microsoft')
 }
 
 async function submitForm() {

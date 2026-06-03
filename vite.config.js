@@ -15,21 +15,35 @@ import * as process from 'node:process'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd())
 
+  // Subdomain tenancy: the backend resolves the tenant from the Host header
+  // (acme.localhost:5173 → tenant "acme"). `changeOrigin: true` rewrites Host
+  // to the upstream (localhost:4000), which would hide the subdomain — so we
+  // forward the real browser host as X-Forwarded-Host, which resolveTenant
+  // prefers. Without this, every local request resolves to no tenant.
+  function forwardTenantHost(proxy) {
+    proxy.on('proxyReq', (proxyReq, req) => {
+      if (req.headers.host) proxyReq.setHeader('x-forwarded-host', req.headers.host)
+    })
+  }
+
   // Proxy configuration for API calls
   const proxy = {
     '/api': {
       target: env.VITE_PROXY_API_TARGET,
       changeOrigin: true,
       rewrite: (path) => path.replace(/^\/api/, ''),
+      configure: forwardTenantHost,
     },
     '/auth': {
       target: env.VITE_PROXY_API_TARGET,
       changeOrigin: true,
+      configure: forwardTenantHost,
     },
     '/socket.io': {
       target: env.VITE_PROXY_SYNC_TARGET,
       changeOrigin: true,
       ws: true,
+      configure: forwardTenantHost,
     },
   }
 

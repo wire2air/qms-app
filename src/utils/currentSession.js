@@ -101,9 +101,9 @@ export async function hydrateSession() {
 }
 
 async function fetchUserSession(options = {}) {
-  const url = options.hydrate
-    ? '/v1/auth/hydrateSession'
-    : '/v1/auth/session' + (companyCode.value ? `?companyCode=${companyCode.value}` : '')
+  // Subdomain tenancy: the backend resolves the active company from the request
+  // host (acme.qability.com), so no companyCode query param is sent anymore.
+  const url = options.hydrate ? '/v1/auth/hydrateSession' : '/v1/auth/session'
 
   try {
     // Use raw axios with _retried flag to bypass the 401 interceptor
