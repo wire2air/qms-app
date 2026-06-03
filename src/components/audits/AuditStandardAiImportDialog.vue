@@ -212,7 +212,7 @@ async function onFilePicked(event) {
     //    even 250-row vendor checklists finish in under 90 s. Richer
     //    per-clause guidance lands afterwards via the Enrich buttons
     //    on the requirements editor.
-    busyStage.value = `Structuring ${describeSource(fileMeta.value)} into a clause skeleton (20–90 s)…`
+    busyStage.value = `Extracting clauses verbatim from ${describeSource(fileMeta.value)} (20–90 s)…`
     const res = await post(
       '/v1/services/ai/tasks/audit_standard.import_from_pdf/run',
       {
@@ -289,14 +289,15 @@ const remainingCount = computed(() =>
       >
         <IconSparkles :size="16" class="tw:shrink-0 tw:mt-0.5" />
         <span>
-          <strong>Two-step flow.</strong> This import lands the
-          <em>structure</em> only — clause number + title per row —
-          regardless of source size. Use the
-          <strong>Enrich</strong> buttons on the requirements editor
-          after import to author description, guidance, and expected
-          evidence per clause (per-row or bulk; both run in the
-          background). Splitting it this way keeps the import fast and
-          reliable even on 200+ row vendor checklists.
+          <strong>Pure structural import.</strong> The AI extracts
+          <em>clause number + requirement text verbatim from the
+          source</em>, nothing else. No paraphrasing, no per-clause
+          guidance authored at this step. Use the <strong>Enrich</strong>
+          buttons on the requirements editor afterwards to author
+          description, guidance, and expected evidence per clause
+          (per-row or bulk; both run in the background). Keeping the
+          import skeleton-only is what lets it finish reliably on
+          200+ row vendor checklists.
         </span>
       </div>
 
@@ -393,13 +394,7 @@ const remainingCount = computed(() =>
               {{ row.clauseNumber }}
             </code>
             <div class="tw:flex tw:flex-col tw:gap-0.5 tw:flex-1 tw:min-w-0">
-              <span class="tw:font-semibold tw:text-on-main">{{ row.title }}</span>
-              <span
-                v-if="row.description"
-                class="tw:text-secondary tw:line-clamp-2"
-              >
-                {{ row.description }}
-              </span>
+              <span class="tw:text-on-main tw:line-clamp-3">{{ row.title }}</span>
             </div>
           </div>
           <div
