@@ -52,10 +52,12 @@ const importing = ref(false)
 const preview = ref(null) // { code, name, description, contentLicense, clauses[] }
 const error = ref(null)
 
-// 5-minute timeout matching AI Generate. Full ISO 27001 PDFs (with
-// Annex A) and 160-row supplier audit checklists can both take 1–3
-// minutes for the model to structure.
-const AI_TIMEOUT_MS = 5 * 60_000
+// Generous timeout. The model can take 5-10 minutes to author a full
+// shell when the source has 150+ rows — output is ~30-40K tokens and
+// Claude/GPT produce ~50-100 tokens/sec at this output depth. Anything
+// past 12 min indicates a real stall (network drop / provider rate
+// limit) and the user should split the file.
+const AI_TIMEOUT_MS = 12 * 60_000
 
 // Char cap matches the BE task's extractedText z.max(200_000) — soft-
 // check on the FE so we error early with a clearer message instead of
@@ -204,8 +206,15 @@ async function onFilePicked(event) {
       rowCount: extraction.rowCount,
     }
 
-    // 2. AI structuring.
-    busyStage.value = `Structuring ${describeSource(fileMeta.value)} into clauses (15–60 s)…`
+    // 2. AI structuring. Time scales with input row count: 30-60 s for
+    //    small ISO PDFs, up to 5-10 min for vendor checklists with
+    //    150+ rows. We surface the row count so the wait reads as
+    //    proportionate work, not a stall.
+    const expectedDuration =
+      (fileMeta.value.rowCount ?? 0) > 100 || (fileMeta.value.pageCount ?? 0) > 30
+        ? '2–10 min — long shells output a lot of text'
+        : '15–60 s'
+    busyStage.value = `Structuring ${describeSource(fileMeta.value)} into clauses (${expectedDuration})…`
     const res = await post(
       '/v1/services/ai/tasks/audit_standard.import_from_pdf/run',
       {
