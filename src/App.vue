@@ -12,13 +12,6 @@ providePageInfo(pageInfo)
 const route = useRoute()
 const openRoutes = ['/form']
 const loading = ref(true)
-// Error captured from the boot sequence below. When set we render a
-// recovery panel instead of leaving the dark loader on screen forever
-// (the "black screen on refresh" symptom). Most common causes: IDB
-// open blocked by a sibling tab, IDB open timed out, a bootstrap
-// GraphQL call failing on the very first sync after a schema change.
-const bootError = ref(null)
-const recovering = ref(false)
 const showFormBuilder = computed(() => {
   return route.name === '/[companyCode]/templates/[[id]]' && route.query.mode === 'schema'
 })
@@ -71,70 +64,49 @@ async function bootApp() {
   }
 }
 
+// One-shot silent recovery flag. If the boot path throws (IDB open
+// blocked by a sibling tab, bootstrap GraphQL failure, etc.) we nuke
+// the local IDB once and reload — quietly, no modal. The sessionStorage
+// gate makes sure we only auto-recover ONCE per browser session; if the
+// reload still fails the boot we stop instead of looping. sessionStorage
+// clears when the tab closes, so a fresh session always gets one shot.
+const RECOVERY_FLAG = 'qms.boot.autoRecoveryAttempted'
+
 onMounted(async () => {
   try {
     await bootApp()
   } catch (err) {
     console.error('[App] Boot failed', err)
-    bootError.value = err?.message || 'Failed to load the app'
+    if (sessionStorage.getItem(RECOVERY_FLAG) !== '1') {
+      sessionStorage.setItem(RECOVERY_FLAG, '1')
+      console.warn('[App] Auto-recovering: nuking local IDB and reloading')
+      try {
+        await deleteAllSyncDatabases()
+      } catch (e) {
+        console.error('[App] Auto-recovery deleteAllSyncDatabases failed', e)
+      }
+      window.location.reload()
+      return
+    }
+    // Second-time failure in the same session — don't loop. Hide the
+    // spinner and let the rest of the UI render (it'll be broken, but
+    // visibly broken with a console error is better than an infinite
+    // dark loader the user can't escape).
+    console.error('[App] Boot failed twice — giving up auto-recovery for this session')
   } finally {
     loading.value = false
   }
 })
-
-// Last-resort recovery: nuke local IDB databases and reload. Same
-// motion the MainHeader's "Reset Sync" button does, surfaced here
-// when the user is stuck on the boot-error fallback and can't reach
-// the header. deleteAllSyncDatabases already has the deadlock-safe
-// onsuccess/onblocked/timeout dance — see src/utils/initSyncEngine.js.
-async function resetAndReload() {
-  recovering.value = true
-  try {
-    await deleteAllSyncDatabases()
-  } catch (err) {
-    console.error('[App] Reset failed', err)
-  } finally {
-    window.location.reload()
-  }
-}
 </script>
 
 <template>
   <BaseToastContainer />
 
-  <!-- Boot error fallback. Replaces the dark loader when the onMounted
-       boot sequence threw (IDB open blocked by a sibling tab, IDB open
-       timed out, bootstrap GraphQL failure on first sync after a
-       schema change, …). Without this branch a thrown boot left the
-       loader on screen forever and the user saw a "black screen on
-       refresh" they couldn't recover from. The Reset button calls
-       deleteAllSyncDatabases() (deadlock-safe; see src/utils/initSync-
-       Engine.js) and reloads. -->
-  <div v-if="bootError" class="fixed-full flex flex-center bg-dark" style="z-index: 9999">
-    <div
-      class="tw:max-w-md tw:text-center tw:bg-white tw:rounded-lg tw:p-6 tw:shadow-lg tw:mx-4"
-    >
-      <div class="tw:text-lg tw:font-semibold tw:text-on-main tw:mb-2">
-        Couldn't load the app
-      </div>
-      <div class="tw:text-sm tw:text-secondary tw:mb-4 tw:break-words">{{ bootError }}</div>
-      <button
-        type="button"
-        class="tw:bg-primary tw:text-white tw:px-4 tw:py-2 tw:rounded tw:font-medium tw:cursor-pointer tw:hover:opacity-90 tw:disabled:opacity-50"
-        :disabled="recovering"
-        @click="resetAndReload"
-      >
-        {{ recovering ? 'Resetting…' : 'Reset sync & reload' }}
-      </button>
-    </div>
-  </div>
-
-  <!-- Full-screen loader overlay -->
-  <div
-    v-else-if="loading"
-    class="fixed-full flex flex-center bg-dark"
-    style="z-index: 9999"
-  >
+  <!-- Full-screen loader overlay. Boot failures auto-recover silently
+       via the catch block in onMounted (nuke local IDB + reload, gated
+       to one shot per session). No modal/panel here — kept the UX
+       quiet on purpose. -->
+  <div v-if="loading" class="fixed-full flex flex-center bg-dark" style="z-index: 9999">
     <div class="tw:text-center">
       <div
         class="tw:size-20 tw:animate-spin tw:rounded-full tw:border-4 tw:border-white tw:border-t-transparent"
