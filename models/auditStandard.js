@@ -45,6 +45,11 @@ export class AuditStandard extends BaseModel {
   @Property({ type: DateTime }) customerLicenseExpiresAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) customerLicenseAttestedAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) customerLicenseAttestedBy = ''
+  // Optional pointer to the original source document (Asset) attached at
+  // AI Assist Import time — the PDF / Excel / CSV the structural skeleton
+  // was extracted from. Auditors download it for the source's normative
+  // guidance text since the import only lands clause numbers + titles.
+  @Property({ type: String }) sourceAssetId = ''
   @Property({ type: String }) createdBy = ''
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })

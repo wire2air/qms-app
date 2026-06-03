@@ -22,6 +22,10 @@ import {
   IconPlus,
   IconSend,
   IconTrash,
+  IconFile,
+  IconUpload,
+  IconDownload,
+  IconX,
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -252,6 +256,60 @@ async function confirmDiscardVersion() {
     toast.error(e.message || 'Failed to discard draft')
   } finally {
     discarding.value = false
+  }
+}
+
+// ─── Source document attachment ────────────────────────────────────
+// The standard can carry one Asset reference to the original source
+// document (PDF / Excel / CSV) — set automatically by AI Assist Import
+// and editable here. The Asset row's `url` already holds either a
+// signed URL (private bucket) or a /api/v1/files/... path the FE can
+// link to directly.
+const sourceAsset = useLiveQueryWithDeps(
+  [() => standard.value?.sourceAssetId],
+  async (db, [assetId]) => {
+    if (!assetId) return null
+    return db.Asset.findByPk(assetId)
+  },
+)
+const sourceFileInputRef = ref(null)
+const uploadingSourceFile = ref(false)
+
+async function handleSourceFilePicked(event) {
+  const file = event.target.files?.[0]
+  if (event.target) event.target.value = ''
+  if (!file || !standard.value?.id || uploadingSourceFile.value) return
+  uploadingSourceFile.value = true
+  try {
+    const form = new FormData()
+    form.append('file', file, file.name)
+    await post(
+      `/v1/services/auditStandards/${standard.value.id}/sourceFile`,
+      form,
+      { timeout: 2 * 60_000 },
+    )
+    toast.success('Source document attached')
+  } catch (e) {
+    toast.error(e?.message || 'Failed to attach source document')
+  } finally {
+    uploadingSourceFile.value = false
+  }
+}
+
+const removingSourceFile = ref(false)
+async function handleRemoveSourceFile() {
+  if (!standard.value || removingSourceFile.value) return
+  removingSourceFile.value = true
+  try {
+    // Clear the FK via the standard PATCH endpoint — the actual asset
+    // row is left in place (other entities might reference it; the
+    // upload service handles asset cleanup on its own schedule).
+    await patch(`/v1/services/auditStandards/${standard.value.id}`, { sourceAssetId: null })
+    toast.success('Source document unlinked')
+  } catch (e) {
+    toast.error(e?.message || 'Failed to unlink source document')
+  } finally {
+    removingSourceFile.value = false
   }
 }
 </script>
@@ -553,6 +611,81 @@ async function confirmDiscardVersion() {
                   {{ saveError }}
                 </div>
               </div>
+            </div>
+
+            <!-- Source document — the original PDF / Excel / CSV the
+                 structure was extracted from (or attached by hand for
+                 standards created via Generate / paste import). Lets
+                 auditors reference the source's normative guidance
+                 since the imported requirements are structure-only. -->
+            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
+              <div
+                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
+              >
+                <IconFile :size="14" />
+                Source Document
+              </div>
+
+              <div v-if="sourceAsset" class="tw:flex tw:flex-col tw:gap-2">
+                <a
+                  :href="sourceAsset.url"
+                  target="_blank"
+                  rel="noopener"
+                  class="tw:flex tw:items-start tw:gap-2 tw:text-xs tw:text-primary tw:hover:underline tw:break-all"
+                  :title="sourceAsset.originalFilename || sourceAsset.filename"
+                >
+                  <IconDownload :size="14" class="tw:shrink-0 tw:mt-0.5" />
+                  <span>{{ sourceAsset.originalFilename || sourceAsset.filename }}</span>
+                </a>
+                <div class="tw:text-[10px] tw:text-secondary tw:font-mono">
+                  {{ sourceAsset.mimeType }} ·
+                  {{ ((sourceAsset.fileSize || 0) / 1024).toFixed(1) }} KB
+                </div>
+                <div v-if="isEditable" class="tw:flex tw:gap-1 tw:mt-1">
+                  <button
+                    type="button"
+                    class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50"
+                    :disabled="uploadingSourceFile"
+                    @click="sourceFileInputRef?.click()"
+                  >
+                    {{ uploadingSourceFile ? 'Replacing…' : 'Replace' }}
+                  </button>
+                  <span class="tw:text-[10px] tw:text-secondary">·</span>
+                  <button
+                    type="button"
+                    class="tw:text-[11px] tw:text-red-600 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50"
+                    :disabled="removingSourceFile"
+                    @click="handleRemoveSourceFile"
+                  >
+                    <IconX :size="11" class="tw:inline" />
+                    {{ removingSourceFile ? 'Removing…' : 'Remove' }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-else class="tw:flex tw:flex-col tw:gap-2">
+                <div class="tw:text-[11px] tw:text-secondary tw:italic">
+                  No source document attached.
+                </div>
+                <button
+                  v-if="isEditable"
+                  type="button"
+                  class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50 tw:flex tw:items-center tw:gap-1"
+                  :disabled="uploadingSourceFile"
+                  @click="sourceFileInputRef?.click()"
+                >
+                  <IconUpload :size="12" />
+                  {{ uploadingSourceFile ? 'Uploading…' : 'Attach source file' }}
+                </button>
+              </div>
+
+              <input
+                ref="sourceFileInputRef"
+                type="file"
+                accept=".pdf,.csv,.txt,.tsv,.xlsx,.xls,application/pdf,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                class="tw:hidden"
+                @change="handleSourceFilePicked"
+              />
             </div>
 
             <!-- Versions list -->

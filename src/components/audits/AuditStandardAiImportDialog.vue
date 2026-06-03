@@ -46,6 +46,10 @@ const toast = useToast()
 
 const fileInputRef = ref(null)
 const fileMeta = ref(null) // { name, sizeKb, sourceType, pageCount?, rowCount? }
+// Cached File handle so we can re-upload the same bytes as a source
+// attachment after the structural import succeeds. Kept ref-shallow on
+// purpose — Files aren't deeply reactive and Vue would warn.
+const pickedFile = ref(null)
 const busy = ref(false)
 const busyStage = ref('')
 const importing = ref(false)
@@ -53,12 +57,26 @@ const preview = ref(null) // { code, name, description, contentLicense, clauses[
 const error = ref(null)
 
 // Skeleton-only import — model emits clauseNumber + title only, no
-// per-clause guidance. Output budget stays well under 8K even for
-// 250-row inputs, so total runtime is now ~20-90 s rather than
-// minutes. 3-minute timeout covers slow provider days; richer
-// guidance is filled in afterwards via the per-row + bulk Enrich
-// buttons on the requirements editor.
-const AI_TIMEOUT_MS = 3 * 60_000
+// per-clause guidance. Each call is bounded by the model's 8K output
+// ceiling: even when titles are short, ~80 vendor-checklist rows fill
+// it. Above that we chunk client-side so each AI call stays well under
+// budget and the wall-clock stays interactive. 3 min per chunk covers
+// slow provider days; richer guidance is filled in afterwards via the
+// per-row + bulk Enrich buttons on the requirements editor.
+const PER_CALL_TIMEOUT_MS = 3 * 60_000
+
+// Row thresholds for client-side chunking of spreadsheet sources. The
+// 8K output budget comfortably fits ~60 rows of pure clauseNumber +
+// title even when titles run long (vendor-checklist audit questions
+// can be 200+ chars). We chunk above CHUNK_THRESHOLD_ROWS so the
+// math always works; smaller files go through in a single call.
+//
+// Header rows (the multi-row top header + the column-name row) are
+// detected once and prepended to every chunk so the model has the
+// same parsing context — without them, chunks 2+ would see anonymous
+// columns and bail.
+const CHUNK_THRESHOLD_ROWS = 80
+const CHUNK_SIZE_ROWS = 50
 
 // Char cap matches the BE task's extractedText z.max(200_000) — soft-
 // check on the FE so we error early with a clearer message instead of
@@ -73,6 +91,7 @@ watch(
   (open) => {
     if (!open) return
     fileMeta.value = null
+    pickedFile.value = null
     preview.value = null
     busy.value = false
     busyStage.value = ''
@@ -168,6 +187,84 @@ function describeSource(meta) {
   return 'plain text'
 }
 
+/**
+ * Locate the column-header row inside a spreadsheet-flattened text.
+ * Vendor audit checklists nearly always have a row whose cells include
+ * "Reference" / "Clause" / "Code" / "Section" AND a question-style cell
+ * like "Audit Item" / "Requirement" / "Question" / "Description". Once
+ * we find it, everything from the top of the file through that row is
+ * the header block (multi-row title + column names) and everything
+ * after is data.
+ *
+ * Returns -1 if no header row matches in the first 12 lines — in that
+ * case we treat the whole file as data with no preserved header block.
+ */
+function detectHeaderEndIndex(lines) {
+  const scanWindow = Math.min(lines.length, 12)
+  for (let i = 0; i < scanWindow; i++) {
+    const lower = (lines[i] || '').toLowerCase()
+    const hasNumberCol =
+      lower.includes('reference') ||
+      lower.includes('clause') ||
+      lower.includes('section') ||
+      /\bcode\b/.test(lower)
+    const hasTitleCol =
+      lower.includes('audit item') ||
+      lower.includes('requirement') ||
+      lower.includes('question') ||
+      lower.includes('description') ||
+      lower.includes('subject') ||
+      lower.includes('topic')
+    if (hasNumberCol && hasTitleCol) return i
+  }
+  return -1
+}
+
+/**
+ * Split a spreadsheet-flattened text into per-chunk text strings each
+ * containing the header block plus a slice of data rows. Blank rows
+ * are filtered. The last chunk may be smaller than CHUNK_SIZE_ROWS; if
+ * it would be smaller than 5 rows we merge it into the previous chunk
+ * so each chunk satisfies the BE's clauses.min(5) outputSchema.
+ */
+function chunkSpreadsheetText(text, { rowsPerChunk = CHUNK_SIZE_ROWS } = {}) {
+  const lines = text.split('\n')
+  const headerEndIdx = detectHeaderEndIndex(lines)
+  const headerBlock =
+    headerEndIdx >= 0 ? lines.slice(0, headerEndIdx + 1).join('\n') : ''
+  const dataRows = (headerEndIdx >= 0 ? lines.slice(headerEndIdx + 1) : lines).filter(
+    (l) => l.trim().length > 0,
+  )
+  if (!dataRows.length) return [text]
+
+  const chunks = []
+  for (let i = 0; i < dataRows.length; i += rowsPerChunk) {
+    chunks.push(dataRows.slice(i, i + rowsPerChunk))
+  }
+  // Avoid a final chunk < 5 rows (would fail BE clauses.min(5)) by
+  // merging it into the previous chunk.
+  if (chunks.length >= 2 && chunks[chunks.length - 1].length < 5) {
+    const tail = chunks.pop()
+    chunks[chunks.length - 1].push(...tail)
+  }
+  return chunks.map((rows) =>
+    headerBlock ? `${headerBlock}\n${rows.join('\n')}` : rows.join('\n'),
+  )
+}
+
+/**
+ * Run the AI structuring task. Returns { result, error }. Per-chunk
+ * timeout is 3 min — at skeleton density with 50 rows in, an 8K-cap
+ * output finishes in 30-60 s, so 3 min is the slow-provider buffer.
+ */
+async function runStructuringTask({ extractedText, filenameHint, sourceType }) {
+  return await post(
+    '/v1/services/ai/tasks/audit_standard.import_from_pdf/run',
+    { extractedText, filenameHint, sourceType },
+    { timeout: PER_CALL_TIMEOUT_MS },
+  )
+}
+
 async function onFilePicked(event) {
   const file = event.target.files?.[0]
   if (event.target) event.target.value = ''
@@ -178,6 +275,9 @@ async function onFilePicked(event) {
   busyStage.value = 'Reading file…'
   preview.value = null
   error.value = null
+  // Remember the picked file so handleImport() can re-upload it as the
+  // source-document attachment after the structural import succeeds.
+  pickedFile.value = file
 
   try {
     // 1. Browser-side extraction (per source type).
@@ -208,26 +308,63 @@ async function onFilePicked(event) {
     }
 
     // 2. AI structuring. Skeleton-only output (clauseNumber + title
-    //    per row) so runtime stays bounded regardless of input size —
-    //    even 250-row vendor checklists finish in under 90 s. Richer
-    //    per-clause guidance lands afterwards via the Enrich buttons
-    //    on the requirements editor.
-    busyStage.value = `Extracting clauses verbatim from ${describeSource(fileMeta.value)} (20–90 s)…`
-    const res = await post(
-      '/v1/services/ai/tasks/audit_standard.import_from_pdf/run',
-      {
+    //    per row) keeps each call bounded by the 8K model output
+    //    ceiling. For spreadsheets above CHUNK_THRESHOLD_ROWS we
+    //    split into per-CHUNK_SIZE_ROWS blocks (with the detected
+    //    header rows prepended to each) and call the AI sequentially —
+    //    each chunk finishes well within the per-call timeout, and
+    //    failures isolate to a single chunk. The first chunk's
+    //    standard-level metadata (code/name/description/contentLicense)
+    //    is what we keep; subsequent chunks only contribute clauses.
+    const shouldChunk =
+      extraction.sourceType === 'spreadsheet' &&
+      (extraction.rowCount || 0) > CHUNK_THRESHOLD_ROWS
+
+    if (!shouldChunk) {
+      busyStage.value = `Extracting clauses verbatim from ${describeSource(fileMeta.value)} (20–90 s)…`
+      const res = await runStructuringTask({
         extractedText: extraction.text,
         filenameHint: file.name,
         sourceType: extraction.sourceType,
-      },
-      { timeout: AI_TIMEOUT_MS },
-    )
-    const out = res?.result
-    if (!out?.clauses?.length) {
-      error.value = 'The AI didn\'t return any clauses for this file.'
-      return
+      })
+      const out = res?.result
+      if (!out?.clauses?.length) {
+        error.value = 'The AI didn\'t return any clauses for this file.'
+        return
+      }
+      preview.value = out
+    } else {
+      const chunks = chunkSpreadsheetText(extraction.text, {
+        rowsPerChunk: CHUNK_SIZE_ROWS,
+      })
+      let merged = null
+      const allClauses = []
+      // Local dedup — chunk overlap is unlikely but the header block
+      // we prepend to every chunk could in theory tempt the model to
+      // emit a header-row clause. Track clauseNumber to drop dupes
+      // before the BE import sees them.
+      const seenNumbers = new Set()
+      for (let i = 0; i < chunks.length; i++) {
+        busyStage.value = `Chunk ${i + 1} of ${chunks.length}: extracting rows ${i * CHUNK_SIZE_ROWS + 1}–${i * CHUNK_SIZE_ROWS + CHUNK_SIZE_ROWS}…`
+        const res = await runStructuringTask({
+          extractedText: chunks[i],
+          filenameHint: file.name,
+          sourceType: 'spreadsheet',
+        })
+        const out = res?.result
+        if (!out?.clauses?.length) {
+          error.value = `Chunk ${i + 1} of ${chunks.length} returned no clauses. Try splitting the file manually and importing each half.`
+          return
+        }
+        if (!merged) merged = out
+        for (const clause of out.clauses) {
+          if (seenNumbers.has(clause.clauseNumber)) continue
+          seenNumbers.add(clause.clauseNumber)
+          allClauses.push(clause)
+        }
+      }
+      preview.value = { ...merged, clauses: allClauses }
     }
-    preview.value = out
   } catch (err) {
     if (err instanceof PdfImportLimitError) {
       error.value = err.message
@@ -259,8 +396,34 @@ async function handleImport() {
       licenseAttested: false,
     }
     const res = await post('/v1/services/auditStandards/import', payload)
-    toast.success(`Created ${res?.auditStandard?.name ?? preview.value.name}`)
-    emit('created', res?.auditStandard ?? null)
+    const standard = res?.standard ?? null
+    toast.success(`Created ${standard?.name ?? preview.value.name}`)
+
+    // Attach the original file as the source document so auditors can
+    // refer back to the normative guidance the skeleton was extracted
+    // from. Best-effort — if the upload fails, the standard is still
+    // created and the user gets a non-blocking warning. Keeps the
+    // import success path unconditional.
+    if (standard?.id && pickedFile.value) {
+      try {
+        const form = new FormData()
+        form.append('file', pickedFile.value, pickedFile.value.name)
+        await post(
+          `/v1/services/auditStandards/${standard.id}/sourceFile`,
+          form,
+          // axios picks the multipart boundary itself when given FormData;
+          // we just bump the timeout — large PDFs over slow links can
+          // take 30-60 s.
+          { timeout: 2 * 60_000 },
+        )
+      } catch (uploadErr) {
+        toast.warning(
+          `Standard created but the source file couldn't be attached: ${uploadErr?.message || 'upload failed'}. You can attach it later from the standard's detail page.`,
+        )
+      }
+    }
+
+    emit('created', standard)
     close()
   } catch (err) {
     toast.error(err?.message || 'Import failed')
@@ -292,12 +455,14 @@ const remainingCount = computed(() =>
           <strong>Pure structural import.</strong> The AI extracts
           <em>clause number + requirement text verbatim from the
           source</em>, nothing else. No paraphrasing, no per-clause
-          guidance authored at this step. Use the <strong>Enrich</strong>
-          buttons on the requirements editor afterwards to author
-          description, guidance, and expected evidence per clause
-          (per-row or bulk; both run in the background). Keeping the
-          import skeleton-only is what lets it finish reliably on
-          200+ row vendor checklists.
+          guidance authored at this step. Files larger than
+          {{ CHUNK_THRESHOLD_ROWS }} rows are processed in
+          {{ CHUNK_SIZE_ROWS }}-row chunks so the AI call stays within
+          its output budget — expect ~1 minute per chunk. Use the
+          <strong>Enrich</strong> buttons on the requirements editor
+          afterwards to author description, guidance, and expected
+          evidence per clause (per-row or bulk; both run in the
+          background).
         </span>
       </div>
 
