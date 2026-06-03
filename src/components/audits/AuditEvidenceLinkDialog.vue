@@ -105,7 +105,22 @@ const candidates = useLiveQueryWithDeps(
   async (db, [kind, q]) => {
     const cfg = KIND_CATALOG.find((k) => k.id === kind)
     if (!cfg || !db[cfg.modelName]) return []
-    const rows = await db[cfg.modelName].where().exec()
+    let rows = await db[cfg.modelName].where().exec()
+
+    // Document kind: only surface documents that currently have an
+    // EFFECTIVE version. Auditors should be able to link the
+    // controlled, in-force document as evidence — not drafts, not
+    // retired/superseded copies. DRAFT/SUPERSEDED docs would point at
+    // a non-authoritative artifact and pollute the audit trail.
+    if (kind === 'Document') {
+      const effectiveVersions = await db.DocumentVersion.where(
+        'statusId',
+        'EFFECTIVE',
+      ).exec()
+      const effectiveDocIds = new Set(effectiveVersions.map((v) => v.documentId))
+      rows = rows.filter((r) => effectiveDocIds.has(r.id))
+    }
+
     const sorted = rows.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )

@@ -247,10 +247,9 @@ const commentDebounce = useDebounceFn(async (clause) => {
               {{ r.name }}
             </button>
           </div>
-          <BaseTextarea
+          <BaseRichTextEditor
             :modelValue="commentValue(clause.requirementId)"
-            :rows="2"
-            :disabled="readonly || !responsesById[clause.requirementId]?.resultId"
+            :editable="!readonly && !!responsesById[clause.requirementId]?.resultId"
             :placeholder="
               responsesById[clause.requirementId]?.resultId
                 ? 'Comments…'
