@@ -198,6 +198,25 @@ const canFinalize = computed(
     !!hazardCategoryId.value &&
     !!assessmentType.value,
 )
+
+// Auto-finalize hook for the workflow step form. Mirrors RcaField's
+// registration — saves the user a click on the per-field Finalize
+// Assessment button when they hit Save Draft / Mark Complete on the
+// step form. No-op when the matrix isn't fully picked yet, already
+// finalized, or the field is read-only.
+const formFinalizers = inject('formFinalizers', null)
+function autoFinalize() {
+  if (props.readonly || props.disabled) return
+  if (isFinalized.value) return
+  if (!canFinalize.value) return
+  onFinalizeAssessment()
+}
+onMounted(() => {
+  formFinalizers?.add(autoFinalize)
+})
+onBeforeUnmount(() => {
+  formFinalizers?.delete(autoFinalize)
+})
 </script>
 
 <template>

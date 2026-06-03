@@ -101,6 +101,31 @@ const formData = ref({})
 const saving = ref(false)
 let formSeeded = false
 
+// Auto-finalize registry. Field widgets that have a "Finalize" step
+// (RcaField, RiskAssessmentField) inject this set on mount and register
+// a callback that finalizes themselves if their current state is
+// finalizable. Save Draft + Mark Complete iterate the registry before
+// persisting so the user doesn't have to remember to click Finalize on
+// every analysis field — easy-to-miss, was burning testers (silent
+// downstream rca/ra derivation skip on submit).
+const formFinalizers = new Set()
+provide('formFinalizers', formFinalizers)
+
+async function runFinalizers() {
+  for (const fn of formFinalizers) {
+    try {
+      fn()
+    } catch (err) {
+      console.error('[WorkflowStepForm] finalize hook failed', err)
+    }
+  }
+  // The finalize callbacks emit `update:modelValue` synchronously;
+  // wait for Vue to flush the v-model setters into `formData` before
+  // we read it inside persistRecord, otherwise the saved payload
+  // would still hold the pre-finalize value.
+  await nextTick()
+}
+
 // Seed form data once: prefer the user's existing record payload (so
 // a draft can be edited), and overlay module-specific context fields
 // (e.g. _parent_problem from the resource description). The watch fires
@@ -202,10 +227,13 @@ async function persistRecord({ submit, esign }) {
   }
 }
 
-function saveDraft() {
-  // Drafts are intentionally lenient — required-field gates only fire
-  // on submit. The assignee should be able to park work-in-progress
-  // mid-flow without being nagged about empty fields.
+async function saveDraft() {
+  // Auto-finalize any analysis widgets (RCA / Risk Assessment) that
+  // are ready but not yet finalized — bundles "Save Draft" with the
+  // Finalize click the user otherwise has to remember to do on each
+  // analysis field. Drafts stay lenient on REQUIRED-field gates;
+  // finalize-on-save is a convenience, not a hard validation.
+  await runFinalizers()
   return persistRecord({ submit: false })
 }
 
@@ -234,7 +262,14 @@ function getMissingRequiredFields() {
   return missing
 }
 
-function submitForm(esign) {
+async function submitForm(esign) {
+  // Same finalize-on-save bundling as saveDraft — Mark Complete also
+  // benefits from this since a user is likely to hit it once they
+  // think they're done, and a still-unfinalized RCA would otherwise
+  // sail past the required-field check (the payload is truthy) and
+  // then skip downstream BE rca/ra derivation on the approve.
+  await runFinalizers()
+
   // Gate the submit on required-field completeness BEFORE persisting,
   // so the assignee gets a visible reason when Mark Complete refuses
   // to advance the step (the silent failure that bit testing today).
