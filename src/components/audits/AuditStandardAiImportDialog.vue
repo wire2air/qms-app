@@ -1,37 +1,41 @@
 <script setup>
 /**
- * AI Assist Import — PDF → AI-structured clauses → review → import.
+ * AI Assist Import — accept a source document (PDF, CSV, Excel, plain
+ * text) → AI-structured clauses → review → import.
  *
  * Deliberately separate from:
- *   - AuditStandardImportDialog (no-AI: paste / .txt / .csv / .json)
+ *   - AuditStandardImportDialog (no-AI: paste / .txt / .csv / .json
+ *     where the data already matches the expected column shape)
  *   - AuditStandardAiGenerateDialog (AI authors from a standard NAME,
  *     no source document)
  *
- * Both AI dialogs share the same Preview + Import pattern (code + name
- * + description + clauses[] from the AI task → POSTed to the existing
- * /v1/services/auditStandards/import endpoint), but the input shape is
- * different enough that one dialog with a mode switch felt cramped.
+ * Three input source paths converge on the same AI task:
+ *   1. PDF — pdfjs-dist text extraction (parsePdfAndExtractImages).
+ *      Same composable document.import_from_pdf uses, with the
+ *      auto-detect + strip of repeating headers/footers/company logos.
+ *   2. CSV / plain text — File.text() inline. The AI handles messy
+ *      multi-row headers + non-standard columns (e.g. supplier audit
+ *      checklists with a Reference column for clause numbers + an
+ *      Audit Item column for titles + scoring/observation columns to
+ *      ignore).
+ *   3. Excel (.xlsx / .xls) — xlsx (SheetJS) browser-side. Sheets are
+ *      flattened to CSV text, all sheets concatenated with sheet-name
+ *      separator rows. AI figures out the structure.
  *
- * Pipeline:
- *   1. User picks a PDF. We parse it client-side via pdfjs-dist
- *      (parsePdfAndExtractImages — same composable document.import_
- *      from_pdf uses), including the auto-detect + strip of repeating
- *      headers/footers/company logos.
- *   2. Extracted text + filename hint POSTed to the AI task
- *      audit_standard.import_from_pdf. Returns the same shape AI
- *      Generate returns.
- *   3. Preview pane shows the result. "Import N clauses" pipes the
- *      JSON into /v1/services/auditStandards/import.
+ * The audit_standard.import_from_pdf BE task is named for its first
+ * use case but its inputSchema already accepts arbitrary extractedText;
+ * we pass sourceType so the model can apply the right parsing heuristic.
  *
  * Licensing: the AI returns a contentLicense suggestion (typically
  * STRUCTURAL_SHELL for ISO/IEC sources). We honour it on import. The
  * user can flip to a different licence on the standard's detail page
  * afterwards if needed.
  */
-import { IconSparkles, IconUpload, IconAlertTriangle, IconFileTypePdf } from '@tabler/icons-vue'
+import { IconSparkles, IconUpload, IconAlertTriangle, IconUpload as IconFileUpload } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 import { parsePdfAndExtractImages, PdfImportLimitError } from '@/composables/usePdfImport.js'
+import * as XLSX from 'xlsx'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -40,8 +44,8 @@ const emit = defineEmits(['update:modelValue', 'created'])
 
 const toast = useToast()
 
-const pdfInputRef = ref(null)
-const fileMeta = ref(null) // { name, sizeKb, pageCount }
+const fileInputRef = ref(null)
+const fileMeta = ref(null) // { name, sizeKb, sourceType, pageCount?, rowCount? }
 const busy = ref(false)
 const busyStage = ref('')
 const importing = ref(false)
@@ -49,8 +53,17 @@ const preview = ref(null) // { code, name, description, contentLicense, clauses[
 const error = ref(null)
 
 // 5-minute timeout matching AI Generate. Full ISO 27001 PDFs (with
-// Annex A) can take 1–3 minutes for the model to structure.
-const AI_PDF_TIMEOUT_MS = 5 * 60_000
+// Annex A) and 160-row supplier audit checklists can both take 1–3
+// minutes for the model to structure.
+const AI_TIMEOUT_MS = 5 * 60_000
+
+// Char cap matches the BE task's extractedText z.max(200_000) — soft-
+// check on the FE so we error early with a clearer message instead of
+// burning a 4xx round-trip.
+const MAX_EXTRACTED_CHARS = 200_000
+
+const ACCEPTED_FILE_TYPES =
+  '.pdf,.csv,.txt,.tsv,.xlsx,.xls,application/pdf,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel'
 
 watch(
   () => props.modelValue,
@@ -68,48 +81,143 @@ function close() {
   emit('update:modelValue', false)
 }
 
-async function onPdfPicked(event) {
+function fileSourceType(file) {
+  const lowerName = (file.name || '').toLowerCase()
+  const lowerType = (file.type || '').toLowerCase()
+  if (lowerName.endsWith('.pdf') || lowerType === 'application/pdf') return 'pdf'
+  if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls') || /spreadsheet|excel/.test(lowerType)) {
+    return 'spreadsheet'
+  }
+  if (lowerName.endsWith('.csv') || lowerName.endsWith('.tsv') || lowerType === 'text/csv') {
+    return 'spreadsheet'
+  }
+  return 'text'
+}
+
+/**
+ * Flatten an Excel workbook into a CSV-flavoured text stream the AI
+ * task can read. Each sheet becomes a block with a "=== Sheet: <name>"
+ * separator so the model can tell where one sheet ends and the next
+ * begins (rare for audit checklists but worth supporting). xlsx is
+ * already in the FE deps from the spreadsheet preview surfaces.
+ */
+function extractExcelText(arrayBuffer) {
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+  const parts = []
+  let totalRows = 0
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName]
+    if (!sheet) continue
+    const csv = XLSX.utils.sheet_to_csv(sheet, { blankrows: false })
+    if (!csv?.trim()) continue
+    parts.push(`=== Sheet: ${sheetName} ===\n${csv}`)
+    totalRows += csv.split('\n').length
+  }
+  return { text: parts.join('\n\n'), rowCount: totalRows }
+}
+
+/**
+ * Extract raw text from PDF / CSV / Excel / TXT into a single string
+ * the audit_standard.import_from_pdf task can structure. Returns
+ * { text, meta } where meta has sourceType + filename + size + the
+ * per-source-type stats (pageCount for PDFs, rowCount for spreadsheets).
+ */
+async function extractFromFile(file, onProgress) {
+  const sourceType = fileSourceType(file)
+  if (sourceType === 'pdf') {
+    const extraction = await parsePdfAndExtractImages(file, onProgress)
+    return {
+      text: extraction.text,
+      sourceType: 'pdf',
+      pageCount: extraction.pageCount,
+    }
+  }
+  if (sourceType === 'spreadsheet') {
+    // CSV / TSV: read text directly. xlsx-likely paths: SheetJS read.
+    const lowerName = (file.name || '').toLowerCase()
+    const isExcel =
+      lowerName.endsWith('.xlsx') ||
+      lowerName.endsWith('.xls') ||
+      /spreadsheet|excel/.test(file.type || '')
+    if (isExcel) {
+      onProgress?.({ message: 'Reading Excel workbook…' })
+      const buffer = await file.arrayBuffer()
+      const { text, rowCount } = extractExcelText(buffer)
+      return { text, sourceType: 'spreadsheet', rowCount }
+    }
+    onProgress?.({ message: 'Reading spreadsheet text…' })
+    const text = await file.text()
+    return { text, sourceType: 'spreadsheet', rowCount: text.split('\n').length }
+  }
+  // Plain text.
+  onProgress?.({ message: 'Reading file…' })
+  const text = await file.text()
+  return { text, sourceType: 'text' }
+}
+
+function describeSource(meta) {
+  if (meta.sourceType === 'pdf') {
+    return `${meta.pageCount} page${meta.pageCount === 1 ? '' : 's'}`
+  }
+  if (meta.sourceType === 'spreadsheet') {
+    return `${meta.rowCount} row${meta.rowCount === 1 ? '' : 's'}`
+  }
+  return 'plain text'
+}
+
+async function onFilePicked(event) {
   const file = event.target.files?.[0]
   if (event.target) event.target.value = ''
   if (!file) return
   if (busy.value) return
 
   busy.value = true
-  busyStage.value = 'Extracting text from PDF…'
+  busyStage.value = 'Reading file…'
   preview.value = null
   error.value = null
 
   try {
-    // 1. Browser-side extraction.
-    const extraction = await parsePdfAndExtractImages(file, (stage) => {
+    // 1. Browser-side extraction (per source type).
+    const extraction = await extractFromFile(file, (stage) => {
       if (stage?.message) busyStage.value = stage.message
     })
-    if (!extraction?.text || extraction.text.trim().length < 50) {
-      error.value =
-        'PDF extraction returned almost no text. The file may be scanned (image-only) — try a text-based copy.'
+    const trimmed = (extraction.text || '').trim()
+    if (trimmed.length < 50) {
+      if (extraction.sourceType === 'pdf') {
+        error.value =
+          'PDF extraction returned almost no text. The file may be scanned (image-only) — try a text-based copy.'
+      } else {
+        error.value =
+          'The file appears empty or unparseable. Re-export the audit checklist and try again.'
+      }
+      return
+    }
+    if (trimmed.length > MAX_EXTRACTED_CHARS) {
+      error.value = `File too large after extraction (${(trimmed.length / 1024).toFixed(0)} KB > ${MAX_EXTRACTED_CHARS / 1024} KB cap). Split into multiple files and import each.`
       return
     }
     fileMeta.value = {
       name: file.name,
       sizeKb: (file.size / 1024).toFixed(1),
+      sourceType: extraction.sourceType,
       pageCount: extraction.pageCount,
+      rowCount: extraction.rowCount,
     }
 
     // 2. AI structuring.
-    busyStage.value = `Structuring ${extraction.pageCount} page${
-      extraction.pageCount === 1 ? '' : 's'
-    } into clauses (15–60 s)…`
+    busyStage.value = `Structuring ${describeSource(fileMeta.value)} into clauses (15–60 s)…`
     const res = await post(
       '/v1/services/ai/tasks/audit_standard.import_from_pdf/run',
       {
         extractedText: extraction.text,
         filenameHint: file.name,
+        sourceType: extraction.sourceType,
       },
-      { timeout: AI_PDF_TIMEOUT_MS },
+      { timeout: AI_TIMEOUT_MS },
     )
     const out = res?.result
     if (!out?.clauses?.length) {
-      error.value = 'The AI didn\'t return any clauses for this PDF.'
+      error.value = 'The AI didn\'t return any clauses for this file.'
       return
     }
     preview.value = out
@@ -117,7 +225,7 @@ async function onPdfPicked(event) {
     if (err instanceof PdfImportLimitError) {
       error.value = err.message
     } else {
-      error.value = err?.message || 'PDF import failed'
+      error.value = err?.message || 'Import failed'
     }
   } finally {
     busy.value = false
@@ -163,7 +271,7 @@ const remainingCount = computed(() =>
 <template>
   <BaseDialog
     :modelValue="modelValue"
-    title="AI Assist Import — Parse a PDF into clauses"
+    title="AI Assist Import — Parse a document into clauses"
     maxWidth="xl"
     @update:modelValue="close"
   >
@@ -174,11 +282,12 @@ const remainingCount = computed(() =>
       >
         <IconSparkles :size="16" class="tw:shrink-0 tw:mt-0.5" />
         <span>
-          Upload a PDF of your licensed standard. The browser extracts
-          the text, the AI reconstructs the clause structure + authors
-          original audit guidance per row, you review, then import.
-          Normative text is never reproduced — clause numbers + titles
-          are read from the source; guidance is the model's own prose.
+          Upload a PDF of a published standard, OR an Excel / CSV audit
+          checklist (the format vendors usually share). The browser
+          extracts the text, the AI figures out which columns hold the
+          clause number / question / observations, reconstructs the
+          clause structure, and authors original audit guidance per row.
+          Review, then import. Normative text is never reproduced.
         </span>
       </div>
 
@@ -186,33 +295,35 @@ const remainingCount = computed(() =>
       <div v-if="!preview" class="tw:flex tw:flex-col tw:gap-3">
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            PDF file
+            Source file
           </p>
           <BaseButton
             variant="outline"
             size="sm"
             :disabled="busy"
-            @click="pdfInputRef?.click()"
+            @click="fileInputRef?.click()"
           >
-            <template #icon><IconFileTypePdf :size="16" /></template>
-            {{ busy ? 'Processing…' : fileMeta ? 'Replace file' : 'Choose PDF' }}
+            <template #icon><IconFileUpload :size="16" /></template>
+            {{ busy ? 'Processing…' : fileMeta ? 'Replace file' : 'Choose file' }}
           </BaseButton>
           <input
-            ref="pdfInputRef"
+            ref="fileInputRef"
             type="file"
-            accept=".pdf,application/pdf"
+            :accept="ACCEPTED_FILE_TYPES"
             class="tw:hidden"
-            @change="onPdfPicked"
+            @change="onFilePicked"
           />
           <div
             v-if="fileMeta && !busy"
             class="tw:text-[11px] tw:text-secondary tw:mt-1 tw:font-mono"
           >
-            {{ fileMeta.name }} · {{ fileMeta.sizeKb }} KB · {{ fileMeta.pageCount }} page{{ fileMeta.pageCount === 1 ? '' : 's' }}
+            {{ fileMeta.name }} · {{ fileMeta.sizeKb }} KB · {{ describeSource(fileMeta) }}
           </div>
           <div class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            Limits: 20 MB / 300 pages. Scanned (image-only) PDFs won't
-            extract — use a text-based copy.
+            Accepts <strong>PDF, Excel (.xlsx/.xls), CSV, TSV, plain text</strong>.
+            PDF limit 20 MB / 300 pages. After extraction the text is
+            capped at 200 KB — split larger documents into multiple files.
+            Scanned (image-only) PDFs won't extract.
           </div>
         </div>
 
@@ -290,15 +401,15 @@ const remainingCount = computed(() =>
           </div>
         </div>
 
-        <!-- Inline replace-PDF affordance once a preview exists. -->
+        <!-- Inline replace-source affordance once a preview exists. -->
         <div class="tw:text-[11px] tw:text-secondary">
           Not quite right?
           <button
             type="button"
             class="tw:text-primary tw:underline tw:cursor-pointer"
-            @click="pdfInputRef?.click()"
+            @click="fileInputRef?.click()"
           >
-            Try another PDF
+            Try another file
           </button>
           or
           <button

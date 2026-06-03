@@ -4,7 +4,7 @@
  * to AuditStandardsPageId (detail + requirements editor). Version
  * submit-for-approval lands in Phase B-3.
  */
-import { IconBook, IconPlus, IconUpload, IconSparkles, IconFileTypePdf } from '@tabler/icons-vue'
+import { IconBook, IconPlus, IconUpload, IconSparkles, IconFileText } from '@tabler/icons-vue'
 import { isAllowed, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
@@ -108,7 +108,7 @@ function versionBadgeClass(versions) {
           size="sm"
           @click="showAiImportDialog = true"
         >
-          <template #icon><IconFileTypePdf :size="16" /></template>
+          <template #icon><IconFileText :size="16" /></template>
           AI Assist Import
         </BaseButton>
         <BaseButton
