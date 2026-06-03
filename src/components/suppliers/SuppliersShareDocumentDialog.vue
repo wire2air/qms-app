@@ -26,12 +26,19 @@ const sharedDocs = useLiveQueryWithDeps(
   { initial: [] },
 )
 
+// Only EFFECTIVE versions are shareable with suppliers — drafts /
+// under-review / superseded versions are work-in-progress or historical
+// and must never leak out as the controlled artifact. Replaces the
+// previous `isLatest` filter, which could surface a draft simply
+// because it was the newest revision.
 const allLatestVersions = useLiveQuery(
   async (db) => {
-    const versions = await db.DocumentVersion.where().exec()
-    const latest = versions.filter((v) => v.isLatest)
+    const versions = await db.DocumentVersion.where(
+      'statusId',
+      'EFFECTIVE',
+    ).exec()
     const resolved = await Promise.all(
-      latest.map(async (v) => {
+      versions.map(async (v) => {
         const doc = await db.Document.findByPk(v.documentId)
         if (!doc) return null
         return { id: v.id, name: `${doc.docNumber} — ${doc.title}` }
