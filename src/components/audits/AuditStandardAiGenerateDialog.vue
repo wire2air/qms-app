@@ -55,6 +55,12 @@ function close() {
   emit('update:modelValue', false)
 }
 
+// Default axios timeout is 30s (src/api/client.js). The AI runner can
+// take much longer for large standards — SOC 2's 5 trust criteria +
+// points-of-focus, ISO 27001 with Annex A's 93 controls, NIST 800-53,
+// etc. — easily run 1–3 minutes at the upper end. Bump per-call.
+const AI_GENERATE_TIMEOUT_MS = 5 * 60_000 // 5 minutes
+
 async function generate() {
   if (generating.value || !standardName.value.trim()) return
   generating.value = true
@@ -68,6 +74,7 @@ async function generate() {
         notes: notes.value.trim() || undefined,
         includeAnnexes: includeAnnexes.value,
       },
+      { timeout: AI_GENERATE_TIMEOUT_MS },
     )
     const out = res?.result
     if (!out?.clauses?.length) {
