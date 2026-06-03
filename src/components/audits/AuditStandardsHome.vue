@@ -4,7 +4,7 @@
  * to AuditStandardsPageId (detail + requirements editor). Version
  * submit-for-approval lands in Phase B-3.
  */
-import { IconBook, IconPlus, IconUpload } from '@tabler/icons-vue'
+import { IconBook, IconPlus, IconUpload, IconSparkles } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
@@ -15,6 +15,7 @@ const canCreate = computed(() => isAllowed(['auditStandards:create']))
 
 const showCreateDialog = ref(false)
 const showImportDialog = ref(false)
+const showAiGenerateDialog = ref(false)
 
 function openDetail(row) {
   router.push(getCompanyPath(`/audits/standards/${row.id}`))
@@ -91,6 +92,15 @@ function versionBadgeClass(versions) {
         </div>
       </div>
       <div class="tw:flex tw:items-center tw:gap-2">
+        <BaseButton
+          v-if="canCreate"
+          variant="outline"
+          size="sm"
+          @click="showAiGenerateDialog = true"
+        >
+          <template #icon><IconSparkles :size="16" /></template>
+          AI Generate
+        </BaseButton>
         <BaseButton
           v-if="canCreate"
           variant="outline"
@@ -180,6 +190,10 @@ function versionBadgeClass(versions) {
     <AuditStandardCreateDialog v-model="showCreateDialog" />
     <AuditStandardImportDialog
       v-model="showImportDialog"
+      @created="(s) => s?.id && openDetail(s)"
+    />
+    <AuditStandardAiGenerateDialog
+      v-model="showAiGenerateDialog"
       @created="(s) => s?.id && openDetail(s)"
     />
   </div>
