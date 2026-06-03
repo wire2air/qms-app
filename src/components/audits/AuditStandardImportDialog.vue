@@ -17,7 +17,7 @@
  *   - CSV:   header: clauseNumber,title,description,guidance,expectedEvidence
  *   - JSON:  array of objects with the same field shape as CSV.
  */
-import { IconUpload, IconAlertTriangle } from '@tabler/icons-vue'
+import { IconUpload, IconAlertTriangle, IconFileUpload } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 
@@ -92,6 +92,43 @@ const licenseAttested = ref(false)
 const customerLicenseReference = ref('')
 const customerLicenseExpiresAt = ref('')
 const submitting = ref(false)
+
+// File upload — saves users from copy-pasting long clause lists out of
+// their licensed copy. Accepts .txt (paste), .csv (csv), .json (json).
+// PDFs go through a separate AI-structuring pipeline added in a
+// follow-up commit; not handled here.
+const fileInputRef = ref(null)
+const readingFile = ref(false)
+
+function detectFormatFromName(filename) {
+  const lower = filename.toLowerCase()
+  if (lower.endsWith('.csv')) return 'csv'
+  if (lower.endsWith('.json')) return 'json'
+  // .txt / unknown all go through the paste parser.
+  return 'paste'
+}
+
+async function onFilePicked(event) {
+  const file = event.target.files?.[0]
+  // Reset so re-selecting the same file still fires @change.
+  if (event.target) event.target.value = ''
+  if (!file) return
+  if (file.size > 5 * 1024 * 1024) {
+    toast.warning('File too large (5 MB max). Paste the content instead.')
+    return
+  }
+  readingFile.value = true
+  try {
+    const text = await file.text()
+    content.value = text
+    format.value = detectFormatFromName(file.name)
+    toast.success(`Loaded ${file.name} (${(file.size / 1024).toFixed(1)} KB)`)
+  } catch (err) {
+    toast.error(err?.message || 'Failed to read file')
+  } finally {
+    readingFile.value = false
+  }
+}
 
 const activeFormat = computed(() => FORMATS.find((f) => f.id === format.value))
 const requiresAttestation = computed(() => contentLicense.value === 'CUSTOMER_LICENSED')
@@ -273,29 +310,61 @@ function safeParseJson(raw) {
         </div>
       </div>
 
-      <!-- Input format picker -->
+      <!-- Input format picker. Stacked vertically (was a 3-up grid that
+           crowded the labels). Each row reads as "type + description". -->
       <div>
         <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Format</p>
-        <div class="tw:flex tw:gap-2">
+        <div class="tw:flex tw:flex-col tw:gap-2">
           <button
             v-for="fmt in FORMATS"
             :key="fmt.id"
             type="button"
-            class="tw:flex tw:flex-col tw:gap-1 tw:text-left tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:flex-1 tw:cursor-pointer tw:hover:border-primary tw:hover:bg-primary/5"
+            class="tw:flex tw:items-start tw:gap-3 tw:text-left tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:cursor-pointer tw:hover:border-primary tw:hover:bg-primary/5"
             :class="format === fmt.id ? 'tw:bg-primary/5 tw:border-primary' : 'tw:bg-white'"
             @click="format = fmt.id"
           >
-            <span class="tw:text-sm tw:font-semibold">{{ fmt.label }}</span>
-            <span class="tw:text-[11px] tw:text-secondary">{{ fmt.description }}</span>
+            <input
+              type="radio"
+              name="import-format"
+              :value="fmt.id"
+              :checked="format === fmt.id"
+              class="tw:mt-1 tw:shrink-0"
+              tabindex="-1"
+            />
+            <div class="tw:flex tw:flex-col tw:gap-0.5 tw:flex-1 tw:min-w-0">
+              <span class="tw:text-sm tw:font-semibold">{{ fmt.label }}</span>
+              <span class="tw:text-[11px] tw:text-secondary">{{ fmt.description }}</span>
+            </div>
           </button>
         </div>
       </div>
 
-      <!-- Content textarea -->
+      <!-- Content textarea + file-upload affordance. Upload button reads
+           a local .txt / .csv / .json into the textarea and auto-picks
+           the matching format. Saves users from copy-pasting long clause
+           lists from their licensed copy. -->
       <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Clauses ({{ activeFormat?.label ?? '' }})
-        </p>
+        <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
+            Clauses ({{ activeFormat?.label ?? '' }})
+          </p>
+          <BaseButton
+            variant="outline"
+            size="xs"
+            :disabled="readingFile"
+            @click="fileInputRef?.click()"
+          >
+            <template #icon><IconFileUpload :size="14" /></template>
+            {{ readingFile ? 'Reading…' : 'Upload file' }}
+          </BaseButton>
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept=".txt,.csv,.json,text/plain,text/csv,application/json"
+            class="tw:hidden"
+            @change="onFilePicked"
+          />
+        </div>
         <BaseTextarea
           v-model="content"
           :rows="12"
