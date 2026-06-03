@@ -1,10 +1,13 @@
 <script setup>
 /**
- * BYOL (Bring-Your-Own-License) import for an audit standard. Surfaces
- * the existing /v1/services/auditStandards/import endpoint (Phase J-2)
- * so customers can paste a clause list / CSV / JSON from their
- * licensed copy of an industry standard. The BE creates AuditStandard
- * + v1.0 EFFECTIVE version + parsed clauses in one transaction.
+ * BYOL (Bring-Your-Own-License) import for an audit standard.
+ * Deliberately AI-FREE — paste / .txt / .csv / .json only. PDF + AI-
+ * structuring belongs in the separate "AI Assist" dialog so that
+ * tenants without the AI add-on still get a complete import path here.
+ *
+ * Surfaces /v1/services/auditStandards/import (Phase J-2): the BE
+ * creates AuditStandard + v1.0 EFFECTIVE version + parsed clauses in
+ * one transaction.
  *
  * License attestation is mandatory when contentLicense ==
  * CUSTOMER_LICENSED (the default) — the checkbox below is the
@@ -14,13 +17,13 @@
  * Three input formats:
  *   - Paste: one clause per line, first whitespace-separated token is
  *            the clause number, rest is the title.
- *   - CSV:   header: clauseNumber,title,description,guidance,expectedEvidence
+ *   - CSV:   exact header row required: clauseNumber,title,description,
+ *            guidance,expectedEvidence
  *   - JSON:  array of objects with the same field shape as CSV.
  */
-import { IconUpload, IconAlertTriangle, IconFileUpload, IconFileTypePdf } from '@tabler/icons-vue'
+import { IconUpload, IconAlertTriangle, IconFileUpload, IconDownload } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
-import { parsePdfAndExtractImages, PdfImportLimitError } from '@/composables/usePdfImport.js'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -29,12 +32,22 @@ const emit = defineEmits(['update:modelValue', 'created'])
 
 const toast = useToast()
 
+// Each format ships a tight sample so spreadsheet users (especially
+// CSV) can see the EXACT shape the BE parser expects. The `requiredFields`
+// line + the "Download sample" button below the textarea were added in
+// response to a real CSV import that failed with "header missing required
+// column 'clauseNumber'" — the column name is case-sensitive + camelCase,
+// which Excel-exported headers usually aren't.
 const FORMATS = [
   {
     id: 'paste',
     label: 'Paste clause list',
-    description: 'One clause per line. First token = clause number, rest = title. Most forgiving for quick imports.',
-    placeholder:
+    description:
+      'One clause per line. First token = clause number, rest = title. Most forgiving for quick imports.',
+    requiredFields: 'No header — first whitespace-separated token is treated as the clause number.',
+    sampleName: 'clauses.txt',
+    sampleMime: 'text/plain',
+    sample:
       '4.1 Understanding the organization and its context\n' +
       '4.2 Understanding the needs and expectations of interested parties\n' +
       '4.3 Determining the scope of the QMS\n' +
@@ -44,20 +57,31 @@ const FORMATS = [
     id: 'csv',
     label: 'CSV',
     description:
-      'First row is the header: clauseNumber,title,description,guidance,expectedEvidence. Only the first two columns are required.',
-    placeholder:
+      'Spreadsheet export. The first row MUST be the header below (case + spelling exact); only clauseNumber + title are required, the other three are optional per-row.',
+    requiredFields:
+      'Required header: clauseNumber,title,description,guidance,expectedEvidence',
+    sampleName: 'clauses-sample.csv',
+    sampleMime: 'text/csv',
+    sample:
       'clauseNumber,title,description,guidance,expectedEvidence\n' +
-      '"4.1","Understanding context","Section header","Verify…","Evidence to collect…"\n' +
-      '"4.2","Interested parties",,"Verify…",',
+      '"4.1","Understanding context","Section header","Verify external/internal issues are identified","Context document; SWOT/PESTLE"\n' +
+      '"4.2","Interested parties",,"Verify stakeholder requirements are captured","Stakeholder register"\n' +
+      '"4.3","Scope of the QMS",,,',
   },
   {
     id: 'json',
     label: 'JSON',
-    description: 'Array of { clauseNumber, title, description?, guidance?, expectedEvidence?, riskWeight? }.',
-    placeholder:
+    description:
+      'Array of clause objects. Each requires clauseNumber + title; description / guidance / expectedEvidence / riskWeight are optional.',
+    requiredFields:
+      'Shape: [{ clauseNumber: string, title: string, description?: string, guidance?: string, expectedEvidence?: string, riskWeight?: 1-100 }]',
+    sampleName: 'clauses-sample.json',
+    sampleMime: 'application/json',
+    sample:
       '[\n' +
-      '  { "clauseNumber": "4.1", "title": "Understanding context" },\n' +
-      '  { "clauseNumber": "4.2", "title": "Interested parties" }\n' +
+      '  { "clauseNumber": "4.1", "title": "Understanding context", "description": "Section header" },\n' +
+      '  { "clauseNumber": "4.2", "title": "Interested parties" },\n' +
+      '  { "clauseNumber": "4.3", "title": "Scope of the QMS" }\n' +
       ']',
   },
 ]
@@ -96,22 +120,11 @@ const submitting = ref(false)
 
 // File upload — saves users from copy-pasting long clause lists out of
 // their licensed copy. Accepts .txt (paste), .csv (csv), .json (json).
-// PDFs go through a separate AI-structuring pipeline (handled below).
+// PDFs intentionally NOT handled here — the AI-structuring pipeline
+// lives in the separate AuditStandardAiAssistDialog so this Import
+// dialog stays usable for tenants without the AI add-on.
 const fileInputRef = ref(null)
 const readingFile = ref(false)
-
-// PDF pipeline. Re-uses the existing client-side pdfjs-dist extractor
-// (src/composables/usePdfImport.js) — same one document.import_from_pdf
-// rides on. Extracted text is sent to the audit_standard.import_from_pdf
-// AI task which reconstructs the clause structure + authors original
-// guidance per clause. The result populates the form fields below so
-// the user can review + submit via the existing import endpoint.
-const pdfInputRef = ref(null)
-const pdfBusy = ref(false)
-const pdfBusyStage = ref('')
-// 5-minute timeout matching the AI Generate dialog — large standards
-// (full ISO 27001 with Annex A, NIST 800-53) can run 1-3 min.
-const AI_PDF_TIMEOUT_MS = 5 * 60_000
 
 function detectFormatFromName(filename) {
   const lower = filename.toLowerCase()
@@ -143,68 +156,18 @@ async function onFilePicked(event) {
   }
 }
 
-async function onPdfPicked(event) {
-  const file = event.target.files?.[0]
-  if (event.target) event.target.value = ''
-  if (!file) return
-  if (pdfBusy.value) return
-  pdfBusy.value = true
-  pdfBusyStage.value = 'Extracting text from PDF…'
-  try {
-    // 1. Browser-side extraction. parsePdfAndExtractImages returns
-    //    `{ text, pageCount, ... }`; we don't need the inline images,
-    //    just the text stream.
-    const extraction = await parsePdfAndExtractImages(file, (stage) => {
-      if (stage?.message) pdfBusyStage.value = stage.message
-    })
-    if (!extraction?.text || extraction.text.trim().length < 50) {
-      toast.error(
-        'PDF extraction returned almost no text. The file may be scanned (image-only) — try a text-based copy.',
-      )
-      return
-    }
-
-    // 2. Send the extracted text to the AI task. It reconstructs the
-    //    clause structure + authors original guidance per clause.
-    pdfBusyStage.value = `Structuring ${extraction.pageCount} page${
-      extraction.pageCount === 1 ? '' : 's'
-    } into clauses (15–60 s)…`
-    const res = await post(
-      '/v1/services/ai/tasks/audit_standard.import_from_pdf/run',
-      {
-        extractedText: extraction.text,
-        filenameHint: file.name,
-      },
-      { timeout: AI_PDF_TIMEOUT_MS },
-    )
-    const out = res?.result
-    if (!out?.clauses?.length) {
-      toast.error('The AI didn\'t return any clauses for this PDF.')
-      return
-    }
-
-    // 3. Pour the AI output into the form. Format → json, content →
-    //    pretty-printed clauses[] so the user sees what's going in and
-    //    can hand-edit before clicking Import. Code / name / description
-    //    are pre-filled but stay editable.
-    code.value = out.code || code.value
-    name.value = out.name || name.value
-    description.value = out.description || description.value
-    format.value = 'json'
-    content.value = JSON.stringify(out.clauses, null, 2)
-    toast.success(
-      `Structured ${out.clauses.length} clause${out.clauses.length === 1 ? '' : 's'} from ${file.name}.`,
-    )
-  } catch (err) {
-    if (err instanceof PdfImportLimitError) {
-      toast.error(err.message)
-    } else {
-      toast.error(err?.message || 'PDF import failed')
-    }
-  } finally {
-    pdfBusy.value = false
-    pdfBusyStage.value = ''
-  }
+function downloadActiveSample() {
+  const fmt = activeFormat.value
+  if (!fmt?.sample) return
+  const blob = new Blob([fmt.sample], { type: fmt.sampleMime || 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fmt.sampleName || `clauses-sample.${fmt.id}`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 const activeFormat = computed(() => FORMATS.find((f) => f.id === format.value))
@@ -416,13 +379,10 @@ function safeParseJson(raw) {
         </div>
       </div>
 
-      <!-- Content textarea + file-upload affordances. "Upload file"
+      <!-- Content textarea + file-upload affordance. "Upload file"
            handles local .txt / .csv / .json — reads inline and auto-
-           picks the matching format. "Upload PDF" runs the full
-           extract + AI-structure pipeline; on success it pre-fills code
-           / name / description and pastes the structured clauses[]
-           into the textarea as JSON for review. Both paths converge on
-           the same Import submit. -->
+           picks the matching format. PDF + AI-structuring lives in the
+           separate "AI Assist" dialog so this stays AI-free. -->
       <div>
         <div class="tw:flex tw:items-center tw:justify-between tw:mb-1 tw:gap-2">
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
@@ -432,20 +392,20 @@ function safeParseJson(raw) {
             <BaseButton
               variant="outline"
               size="xs"
-              :disabled="readingFile || pdfBusy"
-              @click="fileInputRef?.click()"
+              :disabled="readingFile"
+              @click="downloadActiveSample"
             >
-              <template #icon><IconFileUpload :size="14" /></template>
-              {{ readingFile ? 'Reading…' : 'Upload file' }}
+              <template #icon><IconDownload :size="14" /></template>
+              Download sample
             </BaseButton>
             <BaseButton
               variant="outline"
               size="xs"
-              :disabled="readingFile || pdfBusy"
-              @click="pdfInputRef?.click()"
+              :disabled="readingFile"
+              @click="fileInputRef?.click()"
             >
-              <template #icon><IconFileTypePdf :size="14" /></template>
-              {{ pdfBusy ? 'Processing…' : 'Upload PDF' }}
+              <template #icon><IconFileUpload :size="14" /></template>
+              {{ readingFile ? 'Reading…' : 'Upload file' }}
             </BaseButton>
           </div>
           <input
@@ -455,28 +415,21 @@ function safeParseJson(raw) {
             class="tw:hidden"
             @change="onFilePicked"
           />
-          <input
-            ref="pdfInputRef"
-            type="file"
-            accept=".pdf,application/pdf"
-            class="tw:hidden"
-            @change="onPdfPicked"
-          />
         </div>
-        <!-- PDF progress strip. Two-stage status — extracting, then
-             AI-structuring — surfaced so the user understands the
-             15-60s delay isn't a hang. -->
+        <!-- Per-format requirements strip. Surfaces the EXACT header /
+             shape the BE parser expects so a wrong-cased CSV header
+             ("Clause Number" vs "clauseNumber") is impossible to miss
+             before submit. -->
         <div
-          v-if="pdfBusy"
-          class="tw:rounded tw:bg-purple-50 tw:border tw:border-purple-200 tw:p-2 tw:mb-2 tw:text-[11px] tw:text-purple-900 tw:flex tw:items-center tw:gap-2"
+          v-if="activeFormat?.requiredFields"
+          class="tw:rounded tw:bg-gray-50 tw:border tw:border-gray-200 tw:px-2 tw:py-1.5 tw:mb-2 tw:text-[11px] tw:text-gray-700 tw:font-mono tw:break-all"
         >
-          <span class="tw:inline-block tw:size-3 tw:border-2 tw:border-purple-400 tw:border-t-transparent tw:rounded-full tw:animate-spin" />
-          {{ pdfBusyStage || 'Working…' }}
+          {{ activeFormat.requiredFields }}
         </div>
         <BaseTextarea
           v-model="content"
           :rows="12"
-          :placeholder="activeFormat?.placeholder ?? ''"
+          :placeholder="activeFormat?.sample ?? ''"
           class="tw:font-mono tw:text-[12px]"
         />
       </div>
