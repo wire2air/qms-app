@@ -28,16 +28,62 @@ export class IndexedDB {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(dbName, 1)
       console.log(`[IndexedDB] Opening database "${dbName}"`)
-      req.onerror = () => reject(req.error)
+
+      // Settle-once guard so onblocked / timeout / late onerror after
+      // settling can't double-resolve. Without this guard, a blocked
+      // open silently hangs the App.vue boot path forever — user sees
+      // the dark loading overlay and calls it a "black screen".
+      let settled = false
+      const settleResolve = (value) => {
+        if (settled) return
+        settled = true
+        resolve(value)
+      }
+      const settleReject = (err) => {
+        if (settled) return
+        settled = true
+        reject(err)
+      }
+
+      req.onerror = () => settleReject(req.error)
       req.onsuccess = () => {
         IndexedDB.#db = req.result
         IndexedDB.#currentDbName = dbName
-        resolve(IndexedDB.#db)
+        // versionchange fires when ANOTHER tab/connection tries to
+        // upgrade/delete this same DB. Close our handle eagerly so the
+        // other side isn't blocked by us — otherwise their open() hangs
+        // and they see the black-screen-on-refresh symptom.
+        IndexedDB.#db.onversionchange = () => {
+          console.warn(`[IndexedDB] versionchange on "${dbName}" — closing connection`)
+          IndexedDB.close()
+        }
+        settleResolve(IndexedDB.#db)
       }
       req.onupgradeneeded = (event) => {
         console.log(`[IndexedDB] Upgrading database to version ${event.newVersion}`)
         this.ensureSchema(event.target.result)
       }
+      // onblocked: another live connection (same DB, lower version)
+      // is preventing the upgrade. Without this handler the request
+      // never resolves. Reject so App.vue's boot try/catch can surface
+      // a recovery affordance instead of hanging on the spinner.
+      req.onblocked = () => {
+        console.error(
+          `[IndexedDB] open blocked on "${dbName}" — another tab holds an older version. Close other tabs and reload.`,
+        )
+        settleReject(
+          new Error(
+            `IndexedDB open blocked on "${dbName}". Close other tabs of this app and reload.`,
+          ),
+        )
+      }
+      // Hard backstop. Some browser+OS combos drop IDB callbacks
+      // entirely (private mode, quota exhaustion, OS-level lock).
+      // 10s is plenty for a v1 open; anything past that is a stuck
+      // request and the user is better off seeing the recovery UI.
+      setTimeout(() => {
+        settleReject(new Error(`IndexedDB open timed out for "${dbName}" after 10s`))
+      }, 10000)
     })
   }
 
