@@ -12,8 +12,9 @@
  * non-DRAFT/REJECTED versions — we mirror that here by hiding the
  * edit affordances when the `readonly` prop is true.
  */
-import { IconPlus, IconPencil, IconTrash, IconClipboardCheck } from '@tabler/icons-vue'
+import { IconPlus, IconPencil, IconTrash, IconClipboardCheck, IconSparkles } from '@tabler/icons-vue'
 import { post, patch, del } from '@/api'
+import { canUseAi } from '@/utils/currentSession.js'
 
 const props = defineProps({
   version: { type: Object, required: true },
@@ -145,19 +146,120 @@ function toggleExpanded(id) {
   // Trigger reactivity since Set mutations don't notify.
   expandedIds.value = new Set(expandedIds.value)
 }
+
+// ─── AI enrichment ──────────────────────────────────────────────────────
+// Per-row sync enrich + a bulk "enrich all empty" path that kicks a
+// worker job. Both require the version to be editable (the BE refuses
+// otherwise, but hiding the affordance here keeps the UI honest), the
+// user to hold `auditStandards:update` (implicit in `!readonly`), AND
+// `canUseAi` to be true (env flag + tenant opt-in). Without AI the
+// buttons are simply absent.
+
+// Per-row spinner — id of the row currently being enriched. Multiple
+// concurrent enrich-clicks are blocked at the row level so the user
+// gets clear feedback on which row is in flight.
+const enrichingRowId = ref(null)
+const bulkEnriching = ref(false)
+
+const emptyRowCount = computed(() =>
+  requirements.value.filter((r) => !r.guidance || !r.expectedEvidence).length,
+)
+
+async function handleEnrichRow(row) {
+  if (props.readonly || enrichingRowId.value || bulkEnriching.value) return
+  enrichingRowId.value = row.id
+  try {
+    await post(`/v1/services/ai/auditRequirements/${row.id}/enrich`, {})
+    // The row update lands via SyncEngine; toast just confirms success.
+    toast.success(`Enriched ${row.clauseNumber}`)
+    // Auto-expand so the user can see the new guidance.
+    expandedIds.value = new Set([...expandedIds.value, row.id])
+  } catch (e) {
+    toast.error(e.message || 'Enrichment failed')
+  } finally {
+    enrichingRowId.value = null
+  }
+}
+
+const showBulkConfirm = ref(false)
+function openBulkConfirm() {
+  if (props.readonly || bulkEnriching.value) return
+  if (emptyRowCount.value === 0) {
+    toast.info('No rows need enrichment — every clause has guidance and expected evidence already.')
+    return
+  }
+  showBulkConfirm.value = true
+}
+
+async function handleBulkEnrich() {
+  showBulkConfirm.value = false
+  bulkEnriching.value = true
+  try {
+    const res = await post(
+      `/v1/services/ai/auditStandardVersions/${props.version.id}/bulkEnrich`,
+      { onlyEmpty: true },
+    )
+    const total = res?.total ?? 0
+    toast.success(
+      `Bulk enrichment queued for ${total} row${total === 1 ? '' : 's'}. Rows will update in real time as the worker finishes each one.`,
+    )
+  } catch (e) {
+    toast.error(e.message || 'Failed to queue bulk enrichment')
+    bulkEnriching.value = false
+    return
+  }
+  // Auto-clear the busy flag once the empty-row count actually
+  // drops below the original — the worker's writes flow back via
+  // SyncEngine. A 30s safety cap keeps the spinner from hanging if
+  // the worker errors silently on every row.
+  const initial = emptyRowCount.value
+  const stop = watch(emptyRowCount, (now) => {
+    if (now < initial) {
+      bulkEnriching.value = false
+      stop()
+    }
+  })
+  setTimeout(() => {
+    if (bulkEnriching.value) {
+      bulkEnriching.value = false
+      stop()
+    }
+  }, 30_000)
+}
 </script>
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3">
     <!-- Add affordance (editable only) -->
     <div v-if="!readonly" class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:text-xs tw:text-secondary">
-        {{ requirements.length }} clause{{ requirements.length === 1 ? '' : 's' }}
+      <div class="tw:flex tw:items-center tw:gap-3">
+        <div class="tw:text-xs tw:text-secondary">
+          {{ requirements.length }} clause{{ requirements.length === 1 ? '' : 's' }}
+        </div>
+        <span
+          v-if="canUseAi && emptyRowCount > 0"
+          class="tw:text-[11px] tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:px-1.5 tw:py-0.5"
+        >
+          {{ emptyRowCount }} missing guidance
+        </span>
       </div>
-      <BaseButton variant="primary" size="sm" @click="openAdd">
-        <template #icon><IconPlus :size="16" /></template>
-        Add Requirement
-      </BaseButton>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <BaseButton
+          v-if="canUseAi && emptyRowCount > 0"
+          variant="outline"
+          size="sm"
+          :loading="bulkEnriching"
+          :disabled="bulkEnriching"
+          @click="openBulkConfirm"
+        >
+          <template #icon><IconSparkles :size="16" /></template>
+          Enrich {{ emptyRowCount }} empty
+        </BaseButton>
+        <BaseButton variant="primary" size="sm" @click="openAdd">
+          <template #icon><IconPlus :size="16" /></template>
+          Add Requirement
+        </BaseButton>
+      </div>
     </div>
 
     <!-- Empty state -->
@@ -202,6 +304,18 @@ function toggleExpanded(id) {
             </div>
           </div>
           <div v-if="!readonly" class="tw:flex tw:items-center tw:gap-1 tw:shrink-0">
+            <button
+              v-if="canUseAi && (!row.guidance || !row.expectedEvidence)"
+              class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-purple-50 tw:hover:text-purple-600 tw:disabled:opacity-50 tw:disabled:cursor-not-allowed"
+              :title="enrichingRowId === row.id ? 'Enriching…' : 'Enrich with AI'"
+              :disabled="enrichingRowId === row.id || bulkEnriching"
+              @click.stop="handleEnrichRow(row)"
+            >
+              <IconSparkles
+                :size="16"
+                :class="enrichingRowId === row.id ? 'tw:animate-pulse tw:text-purple-600' : ''"
+              />
+            </button>
             <button
               class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-white tw:hover:text-primary"
               title="Edit"
@@ -337,6 +451,39 @@ function toggleExpanded(id) {
           @click="handleSave"
         >
           {{ editing ? 'Save' : 'Add Requirement' }}
+        </BaseButton>
+      </template>
+    </BaseDialog>
+
+    <!-- Bulk-enrich confirmation dialog. Surfaces the row count + the
+         expected duration before queuing the worker job. The user can
+         still hit the per-row Enrich button afterwards to re-author
+         any individual clause they want to revise. -->
+    <BaseDialog v-model="showBulkConfirm" title="Enrich with AI" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1 tw:text-sm tw:text-on-main">
+        <p>
+          The AI will author original
+          <strong>description</strong>, <strong>guidance</strong>, and
+          <strong>expected evidence</strong> for
+          <strong>{{ emptyRowCount }}</strong>
+          row{{ emptyRowCount === 1 ? '' : 's' }} on this draft version
+          that don't have them yet.
+        </p>
+        <p class="tw:text-xs tw:text-secondary">
+          Each row takes ~3–5 seconds. The job runs in the background;
+          rows update in real time as the worker finishes each one. You
+          can keep editing other parts of the standard while it runs.
+        </p>
+        <p class="tw:text-xs tw:text-secondary">
+          Normative text from copyrighted standards is never reproduced
+          — guidance is the model's own original prose.
+        </p>
+      </div>
+      <template #footer>
+        <BaseButton variant="outline" @click="showBulkConfirm = false">Cancel</BaseButton>
+        <BaseButton variant="primary" :loading="bulkEnriching" @click="handleBulkEnrich">
+          <template #icon><IconSparkles :size="16" /></template>
+          Enrich {{ emptyRowCount }} row{{ emptyRowCount === 1 ? '' : 's' }}
         </BaseButton>
       </template>
     </BaseDialog>
