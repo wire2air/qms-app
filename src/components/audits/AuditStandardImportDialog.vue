@@ -17,9 +17,10 @@
  *   - CSV:   header: clauseNumber,title,description,guidance,expectedEvidence
  *   - JSON:  array of objects with the same field shape as CSV.
  */
-import { IconUpload, IconAlertTriangle, IconFileUpload } from '@tabler/icons-vue'
+import { IconUpload, IconAlertTriangle, IconFileUpload, IconFileTypePdf } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
+import { parsePdfAndExtractImages, PdfImportLimitError } from '@/composables/usePdfImport.js'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -95,10 +96,22 @@ const submitting = ref(false)
 
 // File upload — saves users from copy-pasting long clause lists out of
 // their licensed copy. Accepts .txt (paste), .csv (csv), .json (json).
-// PDFs go through a separate AI-structuring pipeline added in a
-// follow-up commit; not handled here.
+// PDFs go through a separate AI-structuring pipeline (handled below).
 const fileInputRef = ref(null)
 const readingFile = ref(false)
+
+// PDF pipeline. Re-uses the existing client-side pdfjs-dist extractor
+// (src/composables/usePdfImport.js) — same one document.import_from_pdf
+// rides on. Extracted text is sent to the audit_standard.import_from_pdf
+// AI task which reconstructs the clause structure + authors original
+// guidance per clause. The result populates the form fields below so
+// the user can review + submit via the existing import endpoint.
+const pdfInputRef = ref(null)
+const pdfBusy = ref(false)
+const pdfBusyStage = ref('')
+// 5-minute timeout matching the AI Generate dialog — large standards
+// (full ISO 27001 with Annex A, NIST 800-53) can run 1-3 min.
+const AI_PDF_TIMEOUT_MS = 5 * 60_000
 
 function detectFormatFromName(filename) {
   const lower = filename.toLowerCase()
@@ -127,6 +140,70 @@ async function onFilePicked(event) {
     toast.error(err?.message || 'Failed to read file')
   } finally {
     readingFile.value = false
+  }
+}
+
+async function onPdfPicked(event) {
+  const file = event.target.files?.[0]
+  if (event.target) event.target.value = ''
+  if (!file) return
+  if (pdfBusy.value) return
+  pdfBusy.value = true
+  pdfBusyStage.value = 'Extracting text from PDF…'
+  try {
+    // 1. Browser-side extraction. parsePdfAndExtractImages returns
+    //    `{ text, pageCount, ... }`; we don't need the inline images,
+    //    just the text stream.
+    const extraction = await parsePdfAndExtractImages(file, (stage) => {
+      if (stage?.message) pdfBusyStage.value = stage.message
+    })
+    if (!extraction?.text || extraction.text.trim().length < 50) {
+      toast.error(
+        'PDF extraction returned almost no text. The file may be scanned (image-only) — try a text-based copy.',
+      )
+      return
+    }
+
+    // 2. Send the extracted text to the AI task. It reconstructs the
+    //    clause structure + authors original guidance per clause.
+    pdfBusyStage.value = `Structuring ${extraction.pageCount} page${
+      extraction.pageCount === 1 ? '' : 's'
+    } into clauses (15–60 s)…`
+    const res = await post(
+      '/v1/services/ai/tasks/audit_standard.import_from_pdf/run',
+      {
+        extractedText: extraction.text,
+        filenameHint: file.name,
+      },
+      { timeout: AI_PDF_TIMEOUT_MS },
+    )
+    const out = res?.result
+    if (!out?.clauses?.length) {
+      toast.error('The AI didn\'t return any clauses for this PDF.')
+      return
+    }
+
+    // 3. Pour the AI output into the form. Format → json, content →
+    //    pretty-printed clauses[] so the user sees what's going in and
+    //    can hand-edit before clicking Import. Code / name / description
+    //    are pre-filled but stay editable.
+    code.value = out.code || code.value
+    name.value = out.name || name.value
+    description.value = out.description || description.value
+    format.value = 'json'
+    content.value = JSON.stringify(out.clauses, null, 2)
+    toast.success(
+      `Structured ${out.clauses.length} clause${out.clauses.length === 1 ? '' : 's'} from ${file.name}.`,
+    )
+  } catch (err) {
+    if (err instanceof PdfImportLimitError) {
+      toast.error(err.message)
+    } else {
+      toast.error(err?.message || 'PDF import failed')
+    }
+  } finally {
+    pdfBusy.value = false
+    pdfBusyStage.value = ''
   }
 }
 
@@ -339,24 +416,38 @@ function safeParseJson(raw) {
         </div>
       </div>
 
-      <!-- Content textarea + file-upload affordance. Upload button reads
-           a local .txt / .csv / .json into the textarea and auto-picks
-           the matching format. Saves users from copy-pasting long clause
-           lists from their licensed copy. -->
+      <!-- Content textarea + file-upload affordances. "Upload file"
+           handles local .txt / .csv / .json — reads inline and auto-
+           picks the matching format. "Upload PDF" runs the full
+           extract + AI-structure pipeline; on success it pre-fills code
+           / name / description and pastes the structured clauses[]
+           into the textarea as JSON for review. Both paths converge on
+           the same Import submit. -->
       <div>
-        <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
+        <div class="tw:flex tw:items-center tw:justify-between tw:mb-1 tw:gap-2">
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
             Clauses ({{ activeFormat?.label ?? '' }})
           </p>
-          <BaseButton
-            variant="outline"
-            size="xs"
-            :disabled="readingFile"
-            @click="fileInputRef?.click()"
-          >
-            <template #icon><IconFileUpload :size="14" /></template>
-            {{ readingFile ? 'Reading…' : 'Upload file' }}
-          </BaseButton>
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <BaseButton
+              variant="outline"
+              size="xs"
+              :disabled="readingFile || pdfBusy"
+              @click="fileInputRef?.click()"
+            >
+              <template #icon><IconFileUpload :size="14" /></template>
+              {{ readingFile ? 'Reading…' : 'Upload file' }}
+            </BaseButton>
+            <BaseButton
+              variant="outline"
+              size="xs"
+              :disabled="readingFile || pdfBusy"
+              @click="pdfInputRef?.click()"
+            >
+              <template #icon><IconFileTypePdf :size="14" /></template>
+              {{ pdfBusy ? 'Processing…' : 'Upload PDF' }}
+            </BaseButton>
+          </div>
           <input
             ref="fileInputRef"
             type="file"
@@ -364,6 +455,23 @@ function safeParseJson(raw) {
             class="tw:hidden"
             @change="onFilePicked"
           />
+          <input
+            ref="pdfInputRef"
+            type="file"
+            accept=".pdf,application/pdf"
+            class="tw:hidden"
+            @change="onPdfPicked"
+          />
+        </div>
+        <!-- PDF progress strip. Two-stage status — extracting, then
+             AI-structuring — surfaced so the user understands the
+             15-60s delay isn't a hang. -->
+        <div
+          v-if="pdfBusy"
+          class="tw:rounded tw:bg-purple-50 tw:border tw:border-purple-200 tw:p-2 tw:mb-2 tw:text-[11px] tw:text-purple-900 tw:flex tw:items-center tw:gap-2"
+        >
+          <span class="tw:inline-block tw:size-3 tw:border-2 tw:border-purple-400 tw:border-t-transparent tw:rounded-full tw:animate-spin" />
+          {{ pdfBusyStage || 'Working…' }}
         </div>
         <BaseTextarea
           v-model="content"
