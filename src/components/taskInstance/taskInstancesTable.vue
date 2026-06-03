@@ -754,6 +754,19 @@ function rowSubtitle(row) {
             </template>
           </div>
         </template>
+
+        <!-- Task comment subline. Renders for ANY entity type when a
+             task has a populated comment — typically the back-to-owner
+             REVIEW task minted after all sub-tasks complete (handler
+             onComplete), or an ACTION task with reviewer context.
+             Gives the assignee a one-line "why" without having to open
+             the detail page. -->
+        <span
+          v-if="row.comment"
+          class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-0.5 tw:line-clamp-2"
+        >
+          {{ row.comment }}
+        </span>
       </component>
     </template>
 
