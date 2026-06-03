@@ -83,6 +83,15 @@ const currentUserRecord = computed(
 
 const submittedRecords = computed(() => records.value.filter((r) => r.submittedAt))
 
+// Pick the user's CURRENTLY-ACTIONABLE APPROVAL task on this step. A
+// step can host multiple TaskInstances for the same user across its
+// lifecycle: an old APPROVED row from a prior completion (reopen
+// leaves it as-is and mints a fresh ASSIGNED one), plus our SENT_BACK
+// marker tasks (kind=REVIEW). Without these filters the form's
+// isEditable / persistRecord could lock onto a stale APPROVED row
+// after a reopen and render read-only even though there's a live
+// ASSIGNED task ready to edit.
+const ACTIONABLE_TASK_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
 const currentUserTask = useLiveQueryWithDeps(
   [() => props.instanceStepId, () => currentUserId.value],
   async (db, [stepInstanceId, userId]) => {
@@ -91,7 +100,13 @@ const currentUserTask = useLiveQueryWithDeps(
       'WorkflowInstanceStep',
       stepInstanceId,
     ]).exec()
-    return tasks.find((t) => t.assignedTo === userId) || null
+    const userApprovalTasks = tasks.filter(
+      (t) => t.assignedTo === userId && t.taskKindId === 'APPROVAL',
+    )
+    const actionable = userApprovalTasks.find((t) =>
+      ACTIONABLE_TASK_STATUSES.includes(t.statusId),
+    )
+    return actionable ?? userApprovalTasks[0] ?? null
   },
 )
 
