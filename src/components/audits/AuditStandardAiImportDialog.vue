@@ -52,12 +52,13 @@ const importing = ref(false)
 const preview = ref(null) // { code, name, description, contentLicense, clauses[] }
 const error = ref(null)
 
-// Generous timeout. The model can take 5-10 minutes to author a full
-// shell when the source has 150+ rows — output is ~30-40K tokens and
-// Claude/GPT produce ~50-100 tokens/sec at this output depth. Anything
-// past 12 min indicates a real stall (network drop / provider rate
-// limit) and the user should split the file.
-const AI_TIMEOUT_MS = 12 * 60_000
+// Skeleton-only import — model emits clauseNumber + title only, no
+// per-clause guidance. Output budget stays well under 8K even for
+// 250-row inputs, so total runtime is now ~20-90 s rather than
+// minutes. 3-minute timeout covers slow provider days; richer
+// guidance is filled in afterwards via the per-row + bulk Enrich
+// buttons on the requirements editor.
+const AI_TIMEOUT_MS = 3 * 60_000
 
 // Char cap matches the BE task's extractedText z.max(200_000) — soft-
 // check on the FE so we error early with a clearer message instead of
@@ -206,15 +207,12 @@ async function onFilePicked(event) {
       rowCount: extraction.rowCount,
     }
 
-    // 2. AI structuring. Time scales with input row count: 30-60 s for
-    //    small ISO PDFs, up to 5-10 min for vendor checklists with
-    //    150+ rows. We surface the row count so the wait reads as
-    //    proportionate work, not a stall.
-    const expectedDuration =
-      (fileMeta.value.rowCount ?? 0) > 100 || (fileMeta.value.pageCount ?? 0) > 30
-        ? '2–10 min — long shells output a lot of text'
-        : '15–60 s'
-    busyStage.value = `Structuring ${describeSource(fileMeta.value)} into clauses (${expectedDuration})…`
+    // 2. AI structuring. Skeleton-only output (clauseNumber + title
+    //    per row) so runtime stays bounded regardless of input size —
+    //    even 250-row vendor checklists finish in under 90 s. Richer
+    //    per-clause guidance lands afterwards via the Enrich buttons
+    //    on the requirements editor.
+    busyStage.value = `Structuring ${describeSource(fileMeta.value)} into a clause skeleton (20–90 s)…`
     const res = await post(
       '/v1/services/ai/tasks/audit_standard.import_from_pdf/run',
       {
@@ -291,12 +289,14 @@ const remainingCount = computed(() =>
       >
         <IconSparkles :size="16" class="tw:shrink-0 tw:mt-0.5" />
         <span>
-          Upload a PDF of a published standard, OR an Excel / CSV audit
-          checklist (the format vendors usually share). The browser
-          extracts the text, the AI figures out which columns hold the
-          clause number / question / observations, reconstructs the
-          clause structure, and authors original audit guidance per row.
-          Review, then import. Normative text is never reproduced.
+          <strong>Two-step flow.</strong> This import lands the
+          <em>structure</em> only — clause number + title per row —
+          regardless of source size. Use the
+          <strong>Enrich</strong> buttons on the requirements editor
+          after import to author description, guidance, and expected
+          evidence per clause (per-row or bulk; both run in the
+          background). Splitting it this way keeps the import fast and
+          reliable even on 200+ row vendor checklists.
         </span>
       </div>
 
