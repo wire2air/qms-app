@@ -72,6 +72,34 @@ declare module 'vue-router/auto-routes' {
       { companyCode: ParamValue<false> },
       | never
     >,
+    '/[companyCode]/audits/': RouteRecordInfo<
+      '/[companyCode]/audits/',
+      '/:companyCode/audits',
+      { companyCode: ParamValue<true> },
+      { companyCode: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/audits/instances/[id]': RouteRecordInfo<
+      '/[companyCode]/audits/instances/[id]',
+      '/:companyCode/audits/instances/:id',
+      { companyCode: ParamValue<true>, id: ParamValue<true> },
+      { companyCode: ParamValue<false>, id: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/audits/programs/[id]': RouteRecordInfo<
+      '/[companyCode]/audits/programs/[id]',
+      '/:companyCode/audits/programs/:id',
+      { companyCode: ParamValue<true>, id: ParamValue<true> },
+      { companyCode: ParamValue<false>, id: ParamValue<false> },
+      | never
+    >,
+    '/[companyCode]/audits/standards/[id]': RouteRecordInfo<
+      '/[companyCode]/audits/standards/[id]',
+      '/:companyCode/audits/standards/:id',
+      { companyCode: ParamValue<true>, id: ParamValue<true> },
+      { companyCode: ParamValue<false>, id: ParamValue<false> },
+      | never
+    >,
     '/[companyCode]/capas/[[id]]': RouteRecordInfo<
       '/[companyCode]/capas/[[id]]',
       '/:companyCode/capas/:id?',
@@ -495,6 +523,30 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[companyCode]/audit-logs.vue': {
       routes:
         | '/[companyCode]/audit-logs'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/audits/index.vue': {
+      routes:
+        | '/[companyCode]/audits/'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/audits/instances/[id].vue': {
+      routes:
+        | '/[companyCode]/audits/instances/[id]'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/audits/programs/[id].vue': {
+      routes:
+        | '/[companyCode]/audits/programs/[id]'
+      views:
+        | never
+    }
+    'src/pages/[companyCode]/audits/standards/[id].vue': {
+      routes:
+        | '/[companyCode]/audits/standards/[id]'
       views:
         | never
     }

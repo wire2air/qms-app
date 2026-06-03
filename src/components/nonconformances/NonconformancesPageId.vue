@@ -350,11 +350,11 @@ function onCreateLinkedChangeRequest() {
       <div class="tw:flex tw:items-center tw:gap-2">
         <!-- Action buttons (left): lifecycle transitions for the NC. -->
         <BaseButton
-          v-if="isOwner && nc?.statusId === 'DRAFT'"
+          v-if="isOwner && (nc?.statusId === 'DRAFT' || nc?.statusId === 'REJECTED')"
           variant="primary"
           :disabled="saving"
           @click="openOpenDialog"
-          >Open NC</BaseButton
+          >{{ nc?.statusId === 'REJECTED' ? 'Resubmit for Review' : 'Open NC' }}</BaseButton
         >
         <BaseButton
           v-if="isOwner && nc && !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId)"
@@ -544,9 +544,15 @@ function onCreateLinkedChangeRequest() {
             <!-- Workflow steps. In DRAFT (no instance yet) we render the
                  template-step preview so the owner can plan assignments;
                  picks are saved to nc.pendingReviewers and consumed by
-                 submitNcForReview when the owner clicks Open NC. -->
+                 submitNcForReview when the owner clicks Open NC. After a
+                 formal reject the prior workflow_instance is terminated
+                 (CFR 21 Part 11 — each cycle gets its own e-signature
+                 thread), so REJECTED also shows the picker for resubmit. -->
             <NcWorkflowDraftPreview
-              v-if="!workflowInstance && nc?.statusId === 'DRAFT'"
+              v-if="
+                !workflowInstance &&
+                (nc?.statusId === 'DRAFT' || nc?.statusId === 'REJECTED')
+              "
               :ncId="id"
               :isOwner="isOwner"
             />
