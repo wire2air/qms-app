@@ -377,54 +377,90 @@ async function onFilePicked(event) {
   }
 }
 
+// Replace-existing confirm state. See AuditStandardAiGenerateDialog
+// for the parallel implementation — BE returns 409 STANDARD_CODE_EXISTS
+// when the per-tenant code clashes, the FE surfaces this dialog, and
+// confirm re-posts the same payload with replaceExistingId set so the
+// BE soft-deletes the old standard inside the create transaction.
+const replaceConfirm = ref(null) // { existingId, existingName, existingCode }
+
+function buildImportPayload(replaceExistingId = null) {
+  return {
+    code: preview.value.code,
+    name: preview.value.name,
+    description: preview.value.description || null,
+    contentLicense: preview.value.contentLicense || 'STRUCTURAL_SHELL',
+    format: 'json',
+    clauses: preview.value.clauses,
+    // The PDF-derived path is BYOL territory (the user uploaded their
+    // own licensed copy) but the AI-restructured result is shipped
+    // under the licence the model picked, mirroring AI Generate. If
+    // the user wants CUSTOMER_LICENSED + attestation they can use the
+    // regular Import dialog after exporting clauses[] there.
+    licenseAttested: false,
+    ...(replaceExistingId ? { replaceExistingId } : {}),
+  }
+}
+
+async function attachSourceFile(standard) {
+  if (!standard?.id || !pickedFile.value) return
+  // Best-effort — if the upload fails the standard is still created
+  // and the user gets a non-blocking warning. Keeps the import
+  // success path unconditional.
+  try {
+    const form = new FormData()
+    form.append('file', pickedFile.value, pickedFile.value.name)
+    await post(
+      `/v1/services/auditStandards/${standard.id}/sourceFile`,
+      form,
+      // axios picks the multipart boundary itself when given FormData;
+      // we just bump the timeout — large PDFs over slow links can
+      // take 30-60 s.
+      { timeout: 2 * 60_000 },
+    )
+  } catch (uploadErr) {
+    toast.warning(
+      `Standard created but the source file couldn't be attached: ${uploadErr?.message || 'upload failed'}. You can attach it later from the standard's detail page.`,
+    )
+  }
+}
+
+async function submitImport(payload) {
+  const res = await post('/v1/services/auditStandards/import', payload)
+  const standard = res?.standard ?? null
+  toast.success(`Created ${standard?.name ?? preview.value.name}`)
+  await attachSourceFile(standard)
+  emit('created', standard)
+  close()
+}
+
 async function handleImport() {
   if (importing.value || !preview.value) return
   importing.value = true
   try {
-    const payload = {
-      code: preview.value.code,
-      name: preview.value.name,
-      description: preview.value.description || null,
-      contentLicense: preview.value.contentLicense || 'STRUCTURAL_SHELL',
-      format: 'json',
-      clauses: preview.value.clauses,
-      // The PDF-derived path is BYOL territory (the user uploaded their
-      // own licensed copy) but the AI-restructured result is shipped
-      // under the licence the model picked, mirroring AI Generate. If
-      // the user wants CUSTOMER_LICENSED + attestation they can use the
-      // regular Import dialog after exporting clauses[] there.
-      licenseAttested: false,
-    }
-    const res = await post('/v1/services/auditStandards/import', payload)
-    const standard = res?.standard ?? null
-    toast.success(`Created ${standard?.name ?? preview.value.name}`)
-
-    // Attach the original file as the source document so auditors can
-    // refer back to the normative guidance the skeleton was extracted
-    // from. Best-effort — if the upload fails, the standard is still
-    // created and the user gets a non-blocking warning. Keeps the
-    // import success path unconditional.
-    if (standard?.id && pickedFile.value) {
-      try {
-        const form = new FormData()
-        form.append('file', pickedFile.value, pickedFile.value.name)
-        await post(
-          `/v1/services/auditStandards/${standard.id}/sourceFile`,
-          form,
-          // axios picks the multipart boundary itself when given FormData;
-          // we just bump the timeout — large PDFs over slow links can
-          // take 30-60 s.
-          { timeout: 2 * 60_000 },
-        )
-      } catch (uploadErr) {
-        toast.warning(
-          `Standard created but the source file couldn't be attached: ${uploadErr?.message || 'upload failed'}. You can attach it later from the standard's detail page.`,
-        )
+    await submitImport(buildImportPayload())
+  } catch (err) {
+    if (err?.code === 'STANDARD_CODE_EXISTS' && err?.details?.existingStandardId) {
+      replaceConfirm.value = {
+        existingId: err.details.existingStandardId,
+        existingName: err.details.existingStandardName,
+        existingCode: err.details.existingStandardCode,
       }
+      return
     }
+    toast.error(err?.message || 'Import failed')
+  } finally {
+    importing.value = false
+  }
+}
 
-    emit('created', standard)
-    close()
+async function confirmReplace() {
+  if (!replaceConfirm.value || importing.value) return
+  importing.value = true
+  const existingId = replaceConfirm.value.existingId
+  replaceConfirm.value = null
+  try {
+    await submitImport(buildImportPayload(existingId))
   } catch (err) {
     toast.error(err?.message || 'Import failed')
   } finally {
@@ -603,6 +639,47 @@ const remainingCount = computed(() =>
       >
         <template #icon><IconUpload :size="16" /></template>
         Import {{ preview.clauses.length }} clauses
+      </BaseButton>
+    </template>
+  </BaseDialog>
+
+  <!-- Replace-existing confirm. Shown when /import returns
+       409 STANDARD_CODE_EXISTS. Confirm → re-post with
+       replaceExistingId so the BE soft-deletes the old standard in
+       the same transaction. -->
+  <BaseDialog
+    :modelValue="!!replaceConfirm"
+    title="Standard already exists"
+    maxWidth="md"
+    @update:modelValue="replaceConfirm = null"
+  >
+    <div v-if="replaceConfirm" class="tw:flex tw:flex-col tw:gap-3 tw:p-1 tw:text-sm">
+      <p class="tw:text-on-main">
+        A standard with code
+        <code class="tw:font-mono tw:bg-main-hover tw:px-1.5 tw:py-0.5 tw:rounded">
+          {{ replaceConfirm.existingCode }}
+        </code>
+        already exists for this company:
+        <strong>{{ replaceConfirm.existingName }}</strong>.
+      </p>
+      <p class="tw:text-secondary tw:text-xs">
+        Archiving the existing standard will remove it from the standards list
+        and free the code for the new import. Any historical audit instances
+        that referenced it keep their snapshotted requirements (audits do not
+        re-resolve against the live standard).
+      </p>
+    </div>
+    <template #footer>
+      <BaseButton variant="outline" :disabled="importing" @click="replaceConfirm = null">
+        Cancel
+      </BaseButton>
+      <BaseButton
+        variant="danger"
+        :loading="importing"
+        :disabled="importing"
+        @click="confirmReplace"
+      >
+        Archive existing &amp; replace
       </BaseButton>
     </template>
   </BaseDialog>

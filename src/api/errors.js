@@ -17,15 +17,21 @@ export class ApiError extends Error {
    * @param {object} opts
    * @param {string} opts.message
    * @param {number} [opts.status=0]
-   * @param {object} [opts.errors={}]
+   * @param {object} [opts.errors={}]    Per-field validation errors (422)
+   * @param {object} [opts.details]      Extra payload the FE wires onto
+   *                                     conditional flows (e.g. the
+   *                                     existingStandardId on a 409
+   *                                     STANDARD_CODE_EXISTS so a confirm
+   *                                     dialog can offer "archive + replace").
    * @param {string} [opts.code='API_ERROR']
    * @param {Error}  [opts.raw]
    */
-  constructor({ message, status = 0, errors = {}, code = 'API_ERROR', raw }) {
+  constructor({ message, status = 0, errors = {}, details = null, code = 'API_ERROR', raw }) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.errors = errors
+    this.details = details
     this.code = code
     this.raw = raw
   }

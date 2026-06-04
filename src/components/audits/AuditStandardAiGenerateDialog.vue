@@ -96,31 +96,71 @@ async function generate() {
   }
 }
 
+// Replace-confirm state. When the BE returns STANDARD_CODE_EXISTS we
+// stash the existing standard's id + name and surface a confirm
+// dialog; user click "Archive & replace" re-posts the same payload
+// with replaceExistingId set so the BE soft-deletes the old row in
+// the same transaction as the new create.
+const replaceConfirm = ref(null) // { existingId, existingName, existingCode }
+
+function buildImportPayload(replaceExistingId = null) {
+  return {
+    code: preview.value.code,
+    name: preview.value.name,
+    description: preview.value.description || null,
+    // AI output never carries a customer licence — these are the
+    // model's own original guidance. Drop straight into the licence
+    // tier the model chose (validated by Zod to be one of the three
+    // non-OFFICIAL_LICENSED ids).
+    contentLicense: preview.value.contentLicense || 'STRUCTURAL_SHELL',
+    format: 'json',
+    clauses: preview.value.clauses,
+    // Attestation N/A for STRUCTURAL_SHELL / PUBLIC_DOMAIN /
+    // CUSTOMER_AUTHORED; BE schema only requires it for
+    // CUSTOMER_LICENSED. Pass false explicitly to silence linting.
+    licenseAttested: false,
+    ...(replaceExistingId ? { replaceExistingId } : {}),
+  }
+}
+
+async function submitImport(payload) {
+  const res = await post('/v1/services/auditStandards/import', payload)
+  const standard = res?.standard ?? null
+  toast.success(`Created ${standard?.name ?? preview.value.name}`)
+  emit('created', standard)
+  close()
+}
+
 async function handleImport() {
   if (importing.value || !preview.value) return
   importing.value = true
   try {
-    const payload = {
-      code: preview.value.code,
-      name: preview.value.name,
-      description: preview.value.description || null,
-      // AI output never carries a customer licence — these are the
-      // model's own original guidance. Drop straight into the licence
-      // tier the model chose (validated by Zod to be one of the three
-      // non-OFFICIAL_LICENSED ids).
-      contentLicense: preview.value.contentLicense || 'STRUCTURAL_SHELL',
-      format: 'json',
-      clauses: preview.value.clauses,
-      // Attestation N/A for STRUCTURAL_SHELL / PUBLIC_DOMAIN /
-      // CUSTOMER_AUTHORED; BE schema only requires it for
-      // CUSTOMER_LICENSED. Pass false explicitly to silence linting.
-      licenseAttested: false,
+    await submitImport(buildImportPayload())
+  } catch (err) {
+    if (err?.code === 'STANDARD_CODE_EXISTS' && err?.details?.existingStandardId) {
+      // Caller will see the confirm dialog; keep `importing` from
+      // toggling back so the primary button stays disabled until they
+      // resolve the dialog.
+      replaceConfirm.value = {
+        existingId: err.details.existingStandardId,
+        existingName: err.details.existingStandardName,
+        existingCode: err.details.existingStandardCode,
+      }
+      return
     }
-    const res = await post('/v1/services/auditStandards/import', payload)
-    const standard = res?.standard ?? null
-    toast.success(`Created ${standard?.name ?? preview.value.name}`)
-    emit('created', standard)
-    close()
+    toast.error(err?.message || 'Import failed')
+  } finally {
+    importing.value = false
+  }
+}
+
+async function confirmReplace() {
+  if (!replaceConfirm.value || importing.value) return
+  importing.value = true
+  const existingId = replaceConfirm.value.existingId
+  replaceConfirm.value = null
+  try {
+    await submitImport(buildImportPayload(existingId))
   } catch (err) {
     toast.error(err?.message || 'Import failed')
   } finally {
@@ -273,6 +313,46 @@ const remainingCount = computed(() =>
       >
         <template #icon><IconUpload :size="16" /></template>
         Import {{ preview.clauses.length }} clauses
+      </BaseButton>
+    </template>
+  </BaseDialog>
+
+  <!-- Replace-existing confirm. Shown when the import endpoint returns
+       409 STANDARD_CODE_EXISTS. User can either archive the old
+       standard + create the new one, or back out. -->
+  <BaseDialog
+    :modelValue="!!replaceConfirm"
+    title="Standard already exists"
+    maxWidth="md"
+    @update:modelValue="replaceConfirm = null"
+  >
+    <div v-if="replaceConfirm" class="tw:flex tw:flex-col tw:gap-3 tw:p-1 tw:text-sm">
+      <p class="tw:text-on-main">
+        A standard with code
+        <code class="tw:font-mono tw:bg-main-hover tw:px-1.5 tw:py-0.5 tw:rounded">
+          {{ replaceConfirm.existingCode }}
+        </code>
+        already exists for this company:
+        <strong>{{ replaceConfirm.existingName }}</strong>.
+      </p>
+      <p class="tw:text-secondary tw:text-xs">
+        Archiving the existing standard will remove it from the standards list
+        and free the code for the new generated standard. Any historical audit
+        instances that referenced it keep their snapshotted requirements (audits
+        do not re-resolve against the live standard).
+      </p>
+    </div>
+    <template #footer>
+      <BaseButton variant="outline" :disabled="importing" @click="replaceConfirm = null">
+        Cancel
+      </BaseButton>
+      <BaseButton
+        variant="danger"
+        :loading="importing"
+        :disabled="importing"
+        @click="confirmReplace"
+      >
+        Archive existing &amp; replace
       </BaseButton>
     </template>
   </BaseDialog>
