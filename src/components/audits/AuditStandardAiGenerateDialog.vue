@@ -1,24 +1,27 @@
 <script setup>
 /**
- * AI-generate an audit standard's structural shell from its name.
+ * AI-generate an audit checklist skeleton from a standard's name.
  * Two-step flow:
  *
  *   1. User types the standard name (+ optional notes) and clicks
  *      "Generate". We POST to /v1/services/ai/tasks/audit_standard.
  *      generate_shell/run; the model returns code + name + description
- *      + clauses[] (clauseNumber, title, optional description / guidance
- *      / expectedEvidence) under STRUCTURAL_SHELL by default.
+ *      + clauses[] where each clause is `{ clauseNumber, title }` and
+ *      title is formatted as "<Section name>: <one-line auditor
+ *      question>". One concrete question per clause, in the model's
+ *      own auditor voice — never reproduces normative text.
  *
  *   2. A preview block shows the clause count + first ~6 rows. The
  *      user can tick the include-annexes flag or tweak notes and
  *      regenerate. When happy, "Import" pipes the result into the
  *      existing import endpoint (format='json') and the user lands on
- *      the new standard's detail page.
+ *      the new standard's detail page. Per-clause description /
+ *      guidance / evidence is filled in afterwards via the per-row +
+ *      bulk Enrich flows on the requirements editor.
  *
  * No new BE endpoint — the AI task is registered in
  * backend/ai/tasks/audit_standard.generate_shell.js and surfaced via
- * the generic /v1/services/ai/tasks/:taskName/run runner. Generated
- * content is original prose; we never reproduce normative text.
+ * the generic /v1/services/ai/tasks/:taskName/run runner.
  */
 import { IconSparkles, IconUpload, IconAlertTriangle } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
@@ -55,11 +58,15 @@ function close() {
   emit('update:modelValue', false)
 }
 
-// Default axios timeout is 30s (src/api/client.js). The AI runner can
-// take much longer for large standards — SOC 2's 5 trust criteria +
-// points-of-focus, ISO 27001 with Annex A's 93 controls, NIST 800-53,
-// etc. — easily run 1–3 minutes at the upper end. Bump per-call.
-const AI_GENERATE_TIMEOUT_MS = 5 * 60_000 // 5 minutes
+// Default axios timeout is 30s (src/api/client.js). At skeleton density
+// — one `<Section>: <question>` title per row, no per-clause guidance
+// — even ISO 27001 + Annex A's 93 controls or SOC 2 trust criteria
+// fit comfortably in the 8K output budget and complete in 30–90 s. The
+// 3-min cap covers slow provider days; richer per-clause guidance is
+// added afterwards via the per-row + bulk Enrich flow (the user keeps
+// any notes they typed into description / guidance / expectedEvidence
+// — those fields are user-editable on the requirements editor).
+const AI_GENERATE_TIMEOUT_MS = 3 * 60_000
 
 async function generate() {
   if (generating.value || !standardName.value.trim()) return
@@ -110,8 +117,9 @@ async function handleImport() {
       licenseAttested: false,
     }
     const res = await post('/v1/services/auditStandards/import', payload)
-    toast.success(`Created ${res?.auditStandard?.name ?? preview.value.name}`)
-    emit('created', res?.auditStandard ?? null)
+    const standard = res?.standard ?? null
+    toast.success(`Created ${standard?.name ?? preview.value.name}`)
+    emit('created', standard)
     close()
   } catch (err) {
     toast.error(err?.message || 'Import failed')
@@ -140,10 +148,14 @@ const remainingCount = computed(() =>
       >
         <IconSparkles :size="16" class="tw:shrink-0 tw:mt-0.5" />
         <span>
-          The AI authors a STRUCTURAL SHELL — clause numbers, section
-          titles, and original audit guidance per clause. It NEVER
-          reproduces the standard's normative text. Review and edit on
-          the standard's detail page after import.
+          The AI produces an <strong>audit checklist skeleton</strong> —
+          one row per clause, with a title formatted as
+          <em>“Section name: one-line auditor question”</em>. The
+          question is the model's own original prose (never the
+          standard's normative text). Description / guidance / expected
+          evidence are left empty for you to fill in as notes, or to
+          author later via the per-row + bulk <strong>Enrich</strong>
+          buttons on the requirements editor.
         </span>
       </div>
 
@@ -190,7 +202,7 @@ const remainingCount = computed(() =>
           {{ preview ? 'Regenerate' : 'Generate' }}
         </BaseButton>
         <span v-if="generating" class="tw:text-xs tw:text-secondary tw:self-center">
-          Authoring… this can take 15–30 s for larger standards.
+          Authoring auditor questions… 30–90 s for most standards.
         </span>
       </div>
 
@@ -237,13 +249,7 @@ const remainingCount = computed(() =>
               {{ row.clauseNumber }}
             </code>
             <div class="tw:flex tw:flex-col tw:gap-0.5 tw:flex-1 tw:min-w-0">
-              <span class="tw:font-semibold tw:text-on-main">{{ row.title }}</span>
-              <span
-                v-if="row.description"
-                class="tw:text-secondary tw:line-clamp-2"
-              >
-                {{ row.description }}
-              </span>
+              <span class="tw:text-on-main tw:line-clamp-3">{{ row.title }}</span>
             </div>
           </div>
           <div
