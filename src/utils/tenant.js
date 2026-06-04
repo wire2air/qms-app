@@ -63,6 +63,24 @@ export function tenantOrigin(code) {
 }
 
 /**
+ * Origin of the workspace selector (the apex WorkspacePicker), preserving
+ * protocol and port. Use this to send a user back from a tenant's /signin to
+ * "choose a different workspace".
+ *
+ * Targets the reserved `app.` host rather than the bare root: in production the
+ * bare apex isn't routed (Traefik only matches `*.${DOMAIN}` tenant subdomains —
+ * see compose.production.yaml), whereas `app` is a reserved label that renders
+ * the picker. The same host shows the picker locally too.
+ *   dev  → http://app.localhost:5173
+ *   prod → https://app.qability.com
+ */
+export function apexOrigin() {
+  const { protocol, port } = window.location
+  const portSuffix = port ? `:${port}` : ''
+  return `${protocol}//app.${rootDomain()}${portSuffix}`
+}
+
+/**
  * Navigate to a tenant.
  *
  * Same-host target → plain in-app navigation (the session cookie is already
