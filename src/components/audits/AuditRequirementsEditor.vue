@@ -39,6 +39,47 @@ const requirements = useLiveQueryWithDeps(
   { initial: [] },
 )
 
+// Depth lookup for hierarchical rendering. Each row's depth is
+// computed by walking parentId pointers up to a root row; the result
+// is memoised across the whole list so we don't recompute for every
+// render. Dangling parentIds (parent missing / cycles) fall back to
+// depth 0 so the row still renders at root rather than disappearing.
+// Depth 0 → no indent, depth 1 → 24px, etc.
+const depthByRequirementId = computed(() => {
+  const rows = requirements.value ?? []
+  const rowById = new Map(rows.map((r) => [r.id, r]))
+  const depthById = new Map()
+  function compute(row, seen = new Set()) {
+    if (depthById.has(row.id)) return depthById.get(row.id)
+    if (!row.parentId) {
+      depthById.set(row.id, 0)
+      return 0
+    }
+    if (seen.has(row.id)) {
+      // Cycle — defensive; the BE controller already guards against
+      // self-refs. Treat as root.
+      depthById.set(row.id, 0)
+      return 0
+    }
+    const parent = rowById.get(row.parentId)
+    if (!parent) {
+      depthById.set(row.id, 0)
+      return 0
+    }
+    seen.add(row.id)
+    const d = compute(parent, seen) + 1
+    depthById.set(row.id, d)
+    return d
+  }
+  for (const r of rows) compute(r)
+  return depthById
+})
+
+function rowIndentStyle(rowId) {
+  const depth = depthByRequirementId.value.get(rowId) ?? 0
+  return depth > 0 ? { marginLeft: `${depth * 24}px` } : null
+}
+
 // ─── Dialog ────────────────────────────────────────────────────────────
 const showEditDialog = ref(false)
 const editing = ref(null)
@@ -283,6 +324,7 @@ async function handleBulkEnrich() {
       <div
         v-for="row in requirements"
         :key="row.id"
+        :style="rowIndentStyle(row.id)"
         class="tw:border tw:border-divider tw:rounded-md tw:bg-main-hover/30"
       >
         <div
