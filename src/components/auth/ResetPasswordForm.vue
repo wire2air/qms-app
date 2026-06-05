@@ -1,6 +1,7 @@
 <script setup>
 import { IconLock } from '@tabler/icons-vue'
 import { useAuth } from '@/composables/useAuth.js'
+import { currentSubdomain, tenantOrigin } from '@/utils/tenant'
 
 const router = useRouter()
 const route = useRoute()
@@ -10,6 +11,7 @@ const { confirmPasswordReset, loading } = useAuth()
 const password = ref('')
 const confirmPassword = ref('')
 const token = ref('')
+const companyCode = ref(null)
 
 // Get token from URL query parameter
 onMounted(() => {
@@ -55,17 +57,25 @@ async function handleSubmit() {
     return
   }
 
-  await confirmPasswordReset(token.value, password.value)
+  const result = await confirmPasswordReset(token.value, password.value)
+  if (!result) return
 
+  companyCode.value = result.companyCode || null
   toast.success('Password updated successfully')
 
-  // Redirect to login page after successful reset
-  setTimeout(() => {
-    router.push('/signin')
-  }, 1000)
+  // Redirect to the tenant's sign-in after a successful reset
+  setTimeout(goToLogin, 1000)
 }
 
+// Send the user to their tenant's own sign-in. If we know the company and we're
+// not already on its host (e.g. an older apex reset link), do a full
+// cross-origin navigation to the subdomain; otherwise just route to /signin.
 function goToLogin() {
+  const code = companyCode.value
+  if (code && code !== currentSubdomain()) {
+    window.location.assign(`${tenantOrigin(code)}/signin`)
+    return
+  }
   router.push('/signin')
 }
 </script>

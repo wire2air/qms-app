@@ -19,13 +19,16 @@ import {
   IconAlertTriangle,
 } from '@tabler/icons-vue'
 import { provideUsers } from '@/composables/useUsers.js'
+import { currentSession } from '@/utils/currentSession'
 
 defineOptions({
   name: 'CompanyDashboard',
 })
 
 const route = useRoute()
-const companyCode = computed(() => route.params.companyCode)
+// Subdomain tenancy: the tenant is the host, not a route param. Use the active
+// company's name/code from the session for display.
+const companyCode = computed(() => currentSession.value?.name || currentSession.value?.code || '')
 
 const showOnboarding = ref(route.query.onboarding === 'true')
 provideUsers()

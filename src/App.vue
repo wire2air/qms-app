@@ -3,6 +3,7 @@ import { initSession, currentSession } from '@/utils/currentSession'
 import { initCurrentCompany, companies } from '@/utils/currentCompany'
 import { isPublicRoute as isPublicRouteFn, isAuthRoute } from '@/constants/authRoutes'
 import { initSync } from '@/utils/initSyncEngine.js'
+import { currentSubdomain, gotoTenant } from '@/utils/tenant'
 
 const pageInfo = ref({
   showHeader: true,
@@ -13,14 +14,19 @@ const route = useRoute()
 const openRoutes = ['/form']
 const loading = ref(true)
 const showFormBuilder = computed(() => {
-  return route.name === '/[companyCode]/templates/[[id]]' && route.query.mode === 'schema'
+  return route.name === '/templates/[[id]]' && route.query.mode === 'schema'
 })
 const currentPath = window.location.pathname
 const isOpenRoute = openRoutes.some(
   (route) => currentPath === route || currentPath.startsWith(`${route}/`),
 )
-// Check if this is a public route that doesn't depend on companyCode
+// Public routes (signin, signup, …) render on any host and need no tenant.
 const isPublicRoute = isPublicRouteFn(currentPath)
+
+// Subdomain tenancy: the active tenant is the request host (acme.qability.com),
+// not a path segment. null on apex / reserved hosts (localhost, admin.*, …).
+const subdomain = currentSubdomain()
+
 onMounted(async () => {
   if (isOpenRoute) {
     loading.value = false
@@ -28,13 +34,13 @@ onMounted(async () => {
   }
 
   if (isPublicRoute) {
-    // For public routes, just init session without companyCode
+    // Public/auth pages render on any host. If already authenticated and on an
+    // auth page, forward into the user's tenant app (its own subdomain).
     await initSession()
     if (currentSession.value && isAuthRoute(currentPath)) {
       await initCurrentCompany()
       if (companies.value?.length > 0) {
-        const firstCompanyCode = companies.value[0].code
-        window.location.href = `/${firstCompanyCode}/dashboard`
+        gotoTenant(companies.value[0].code, '/dashboard')
         return
       }
     }
@@ -42,27 +48,33 @@ onMounted(async () => {
     return
   }
 
-  // Extract companyCode from the pathname since route.params isn't populated yet
-  const pathParts = currentPath.split('/').filter((part) => part !== '')
-  const companyCode = pathParts[0] // First segment is the company code
-
-  await initSession(companyCode)
-  await initCurrentCompany()
-
-  const isCompanyExists = companies.value.some((c) => c.code === companyCode)
-  if (!isCompanyExists && companies.value?.length > 0) {
-    const firstCompanyCode = companies.value[0].code
-    window.location.href = `/${firstCompanyCode}/dashboard`
+  // App route — requires a tenant subdomain. Apex / reserved hosts have no
+  // tenant to load, so bounce to sign-in.
+  if (!subdomain) {
+    window.location.assign('/signin')
     return
   }
 
-  // If URL companyCode doesn't match the active company in session, re-call session to update it
-  const activeCompanyCode = currentSession.value?.activeCompanyCode
-  if (activeCompanyCode && activeCompanyCode !== companyCode) {
-    await initSession(companyCode)
+  // The backend binds the session's active company to the host. fetchUserSession
+  // handles 401 (→ /signin) and 403 / wrong-tenant (→ currentSession null) itself.
+  await initSession(subdomain)
+  await initCurrentCompany()
+
+  const belongsToTenant = companies.value.some(
+    (c) => String(c.code).toLowerCase() === subdomain,
+  )
+  if (!belongsToTenant) {
+    // Authenticated but not a member of this tenant → send them to one they
+    // belong to; if they belong to none, to sign-in.
+    if (companies.value?.length > 0) {
+      gotoTenant(companies.value[0].code, '/dashboard')
+    } else {
+      window.location.assign('/signin')
+    }
+    return
   }
 
-  // Install syncEngine with company-scoped DB
+  // Install syncEngine with the company-scoped IndexedDB.
   if (currentSession.value?.companyId) {
     await initSync(currentSession.value.companyId)
   }

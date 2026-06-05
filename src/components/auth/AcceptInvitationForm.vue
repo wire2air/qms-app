@@ -1,6 +1,7 @@
 <script setup>
 import { IconAlertCircle, IconConfetti, IconLock } from '@tabler/icons-vue'
 import { useAuth } from '@/composables/useAuth.js'
+import { currentSubdomain, tenantOrigin } from '@/utils/tenant'
 
 const router = useRouter()
 const route = useRoute()
@@ -13,6 +14,7 @@ const token = ref('')
 const firstName = ref('')
 const lastName = ref('')
 const email = ref('')
+const companyCode = ref(null)
 const tokenValid = ref(false)
 const validating = ref(true)
 
@@ -31,6 +33,7 @@ onMounted(async () => {
       firstName.value = data.firstName
       lastName.value = data.lastName
       email.value = data.email
+      companyCode.value = data.companyCode || null
       tokenValid.value = true
     } else {
       tokenValid.value = false
@@ -78,13 +81,19 @@ async function handleSubmit() {
   if (result) {
     toast.success('Welcome! Your account is now active.')
 
-    setTimeout(() => {
-      router.push('/signin')
-    }, 1000)
+    setTimeout(goToLogin, 1000)
   }
 }
 
+// Send the user to their tenant's own sign-in. If we already know the company
+// and we're not on its host (e.g. an older apex invite link), do a full
+// cross-origin navigation to the subdomain; otherwise just route to /signin.
 function goToLogin() {
+  const code = companyCode.value
+  if (code && code !== currentSubdomain()) {
+    window.location.assign(`${tenantOrigin(code)}/signin`)
+    return
+  }
   router.push('/signin')
 }
 </script>

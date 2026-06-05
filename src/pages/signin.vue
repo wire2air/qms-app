@@ -1,10 +1,25 @@
 <script setup>
 import LoginForm from '@/components/auth/LoginForm.vue'
-import { IconShieldCheck, IconCircleCheck } from '@tabler/icons-vue'
+import WorkspacePicker from '@/components/auth/WorkspacePicker.vue'
+import { currentSubdomain } from '@/utils/tenant'
+import { IconShieldCheck, IconFileText, IconClipboardCheck, IconChartDots } from '@tabler/icons-vue'
 
 defineOptions({
   name: 'LoginPage',
 })
+
+// Subdomain tenancy splits sign-in in two (the Zendesk model):
+//  • tenant host (acme.qability.com) → the real credential form, which sets the
+//    session cookie on the right host.
+//  • apex / reserved host (no tenant) → a workspace picker that routes the user
+//    to their tenant's own /signin.
+const onTenant = computed(() => currentSubdomain() !== null)
+
+const features = [
+  { icon: IconFileText, title: 'Document Control', desc: 'Versioned, audited, always current' },
+  { icon: IconClipboardCheck, title: 'Audit Management', desc: 'Plan, track and close findings' },
+  { icon: IconChartDots, title: 'Compliance Tracking', desc: 'Real-time status across standards' },
+]
 </script>
 
 <template>
@@ -12,33 +27,57 @@ defineOptions({
     <div class="login-container">
       <!-- Left side - Branding -->
       <div class="login-branding">
+        <!-- decorative depth layers -->
+        <div class="brand-grid" aria-hidden="true"></div>
+        <div class="brand-orb brand-orb--one" aria-hidden="true"></div>
+        <div class="brand-orb brand-orb--two" aria-hidden="true"></div>
+
         <div class="branding-content">
-          <IconShieldCheck :size="48" class="tw:text-white" />
+          <div class="brand-logo">
+            <IconShieldCheck :size="30" class="tw:text-white" :stroke="2" />
+          </div>
+
           <h1 class="branding-title">QMS</h1>
           <p class="branding-subtitle">Quality Management System</p>
+
           <div class="branding-features">
-            <div class="tw:flex tw:items-center tw:gap-2 tw:mb-4">
-              <IconCircleCheck :size="20" class="tw:text-white" />
-              <span>Document Control</span>
+            <div v-for="feature in features" :key="feature.title" class="feature-card">
+              <div class="feature-icon">
+                <component :is="feature.icon" :size="20" class="tw:text-white" :stroke="2" />
+              </div>
+              <div>
+                <div class="feature-title">{{ feature.title }}</div>
+                <div class="feature-desc">{{ feature.desc }}</div>
+              </div>
             </div>
-            <div class="tw:flex tw:items-center tw:gap-2 tw:mb-4">
-              <IconCircleCheck :size="20" class="tw:text-white" />
-              <span>Audit Management</span>
+          </div>
+
+          <div class="brand-footer">
+            <div class="brand-dots" aria-hidden="true">
+              <span></span><span></span><span></span>
             </div>
-            <div class="tw:flex tw:items-center tw:gap-2">
-              <IconCircleCheck :size="20" class="tw:text-white" />
-              <span>Compliance Tracking</span>
-            </div>
+            Trusted by quality teams to stay audit-ready, every day.
           </div>
         </div>
       </div>
 
-      <!-- Right side - Login Form -->
-      <div class="login-form-section tw:flex tw:flex-col tw:items-center tw:justify-center tw:p-8">
-        <LoginForm mode="signin" />
+      <!-- Right side - tenant credential form, or apex workspace picker -->
+      <div class="login-form-section">
+        <!-- compact brand mark for mobile, where the left panel is hidden -->
+        <div class="mobile-brand">
+          <div class="mobile-brand-logo">
+            <IconShieldCheck :size="22" class="tw:text-white" :stroke="2" />
+          </div>
+          <span class="mobile-brand-name">QMS</span>
+        </div>
 
-        <div class="tw:text-xs tw:text-secondary tw:text-center tw:mt-6">
-          © 2026 Quality Management System. All rights reserved.
+        <div class="form-wrap">
+          <div class="form-card">
+            <LoginForm v-if="onTenant" mode="signin" />
+            <WorkspacePicker v-else />
+          </div>
+
+          <div class="form-footer">© 2026 Quality Management System. All rights reserved.</div>
         </div>
       </div>
     </div>
@@ -48,7 +87,7 @@ defineOptions({
 <style lang="scss" scoped>
 .login-page {
   min-height: 100vh;
-  background-color: var(--main);
+  background-color: var(--sidebar);
 }
 
 .login-container {
@@ -56,96 +95,243 @@ defineOptions({
   min-height: 100vh;
 }
 
+/* ---------- Left brand panel ---------- */
 .login-branding {
-  flex: 1;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark, var(--primary)) 100%);
+  position: relative;
+  flex: 1.1;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 48px;
+  padding: 56px;
   color: white;
+  isolation: isolate;
+  background:
+    radial-gradient(125% 125% at 0% 0%, #2f7bf6 0%, transparent 55%),
+    linear-gradient(155deg, #1457c9 0%, #0f47a8 45%, #0a306f 100%);
 
   @media (max-width: 900px) {
     display: none;
   }
 }
 
+/* faint blueprint grid for texture */
+.brand-grid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(120% 100% at 30% 20%, black 30%, transparent 80%);
+}
+
+/* soft glowing orbs for depth */
+.brand-orb {
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.55;
+}
+.brand-orb--one {
+  width: 460px;
+  height: 460px;
+  top: -160px;
+  right: -120px;
+  background: radial-gradient(circle, #5b9bff 0%, transparent 70%);
+}
+.brand-orb--two {
+  width: 360px;
+  height: 360px;
+  bottom: -140px;
+  left: -100px;
+  background: radial-gradient(circle, #1e3a8a 0%, transparent 70%);
+  opacity: 0.7;
+}
+
 .branding-content {
-  max-width: 400px;
-}
-
-.branding-title {
-  font-size: 3rem;
-  font-weight: 700;
-  margin: 24px 0 8px;
-  letter-spacing: -0.5px;
-}
-
-.branding-subtitle {
-  font-size: 1.1rem;
-  opacity: 0.9;
-  margin-bottom: 48px;
-}
-
-.login-form-section {
-  flex: 1;
-  background-color: var(--sidebar);
-
-  @media (max-width: 900px) {
-    min-height: 100vh;
-  }
-}
-
-.login-card {
+  position: relative;
   width: 100%;
   max-width: 420px;
 }
 
-.login-btn {
-  padding: 14px 20px;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  background-color: $grey-2;
-  color: $grey-9;
-  border: 1px solid $grey-4;
-
-  &:hover {
-    background-color: $grey-3;
-  }
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 10px 30px rgba(8, 30, 80, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
 }
 
-.login-icon {
-  width: 20px;
-  height: 20px;
+.branding-title {
+  font-size: 3.25rem;
+  font-weight: 800;
+  line-height: 1;
+  margin: 26px 0 10px;
+  letter-spacing: -1.5px;
 }
 
-.separator {
+.branding-subtitle {
+  font-size: 1.05rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.78);
+  margin-bottom: 44px;
+}
+
+.branding-features {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.feature-card {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(6px);
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+.feature-card:hover {
+  transform: translateX(4px);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
-.separator-text {
-  color: $grey-6;
+.feature-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.feature-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.feature-desc {
   font-size: 0.8rem;
-  padding: 0 8px;
-  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.65);
+  margin-top: 2px;
 }
 
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
+.brand-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 48px;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+.brand-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.brand-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+}
+.brand-dots span:nth-child(2) {
+  background: rgba(255, 255, 255, 0.7);
+}
+.brand-dots span:nth-child(3) {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* ---------- Right form panel ---------- */
+.login-form-section {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background-color: var(--main);
+}
+
+.mobile-brand {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
+
+  @media (max-width: 900px) {
+    display: flex;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+}
+.mobile-brand-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: linear-gradient(160deg, var(--primary), #0a306f);
+}
+.mobile-brand-name {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--on-main);
+}
+
+.form-wrap {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Elevated card sits on the subtle grey panel for clear enterprise depth. */
+.form-card {
+  width: 100%;
+  padding: 40px 38px;
+  background-color: var(--sidebar);
+  border: 1px solid var(--divider);
+  border-radius: 18px;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    0 12px 32px rgba(16, 24, 40, 0.06);
+
+  @media (max-width: 480px) {
+    padding: 28px 22px;
   }
+}
+
+.form-footer {
+  font-size: 0.72rem;
+  color: var(--secondary);
+  text-align: center;
+  margin-top: 24px;
 }
 
 a {
   text-decoration: none;
-
   &:hover {
     text-decoration: underline;
   }

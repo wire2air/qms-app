@@ -1,5 +1,6 @@
 <script setup>
-import { IconUser, IconMail, IconLock } from '@tabler/icons-vue'
+import { IconUser, IconMail, IconLock, IconBuilding, IconArrowLeft } from '@tabler/icons-vue'
+import { currentSubdomain, rootDomain, apexOrigin } from '@/utils/tenant'
 
 const props = defineProps({
   mode: {
@@ -24,6 +25,18 @@ const lastName = ref('')
 
 const isSignup = computed(() => props.mode === 'signup')
 
+// The tenant whose /signin we're on (acme.qability.com → "acme"), or null on the
+// apex host. When set, the form offers a way back to the workspace picker so a
+// user who landed on the wrong workspace isn't stranded (they'd otherwise have
+// to hand-edit the URL).
+const workspace = computed(() => currentSubdomain())
+const domainSuffix = computed(() => `.${rootDomain()}`)
+
+function goToWorkspacePicker() {
+  // Full cross-origin navigation to the apex host, where WorkspacePicker lives.
+  window.location.assign(`${apexOrigin()}/signin`)
+}
+
 const isFormValid = computed(() => {
   if (!email.value || !password.value) return false
   if (isSignup.value) {
@@ -38,14 +51,24 @@ const isFormValid = computed(() => {
   return true
 })
 
+// OAuth completes on the fixed callback host (not this tenant subdomain), so
+// pass the current tenant as `redirectToCompany` — the backend threads it
+// through OAuth state and, after the callback, hands off back to THIS tenant
+// rather than the user's first company.
+function federatedLoginUrl(strategy) {
+  const sub = currentSubdomain()
+  const query = sub ? `?redirectToCompany=${encodeURIComponent(sub)}` : ''
+  return `/api/v1/auth/login/federated/${strategy}${query}`
+}
+
 function loginWithGoogle() {
   loadingGoogle.value = true
-  window.location.href = '/api/v1/auth/login/federated/google'
+  window.location.href = federatedLoginUrl('google')
 }
 
 function loginWithMicrosoft() {
   loadingMicrosoft.value = true
-  window.location.href = '/api/v1/auth/login/federated/microsoft'
+  window.location.href = federatedLoginUrl('microsoft')
 }
 
 async function submitForm() {
@@ -136,6 +159,25 @@ async function submitForm() {
             ? 'Authenticate to create your organization'
             : 'Sign in to access your dashboard'
         }}
+      </div>
+
+      <!-- Tenant sign-in: show which workspace this is and a way back to the
+           picker. Hidden on the apex host (no workspace) and on signup. -->
+      <!-- This is not needed now so it will not get mounted on the page. When needed remove false from v-if -->
+      <div v-if="false && !isSignup && workspace" class="tw:mt-3 tw:flex tw:items-center tw:gap-2">
+        <span
+          class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-md tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-1 tw:text-sm tw:font-medium tw:text-on-main"
+        >
+          <IconBuilding :size="14" class="tw:text-secondary" />
+          {{ workspace }}<span class="tw:text-secondary tw:font-normal">{{ domainSuffix }}</span>
+        </span>
+        <button
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:font-medium tw:text-primary tw:bg-transparent tw:border-0 tw:p-0 tw:cursor-pointer tw:hover:underline"
+          @click="goToWorkspacePicker"
+        >
+          <IconArrowLeft :size="14" />
+          Different workspace
+        </button>
       </div>
     </div>
 
