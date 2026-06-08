@@ -59,11 +59,12 @@ async function verifyWithGoogle() {
 
       scope: 'openid email profile',
 
-      // E-signature: always show the account chooser so the signer
-      // consciously confirms identity, even when a Google session is active.
-      // Without this, GIS silently reuses the logged-in account after the
-      // first grant (defeats the point of re-authenticating to sign).
-      prompt: 'select_account',
+      // E-signature (21 CFR Part 11): force the account chooser AND the consent
+      // screen on every sign, so the signer takes a deliberate action and
+      // can't silently reuse an active session. (The GIS token client can't
+      // force password re-entry — that needs the redirect/auth-code flow with
+      // max_age=0, checked server-side via the id_token auth_time claim.)
+      prompt: 'select_account consent',
 
       callback(response) {
         if (response.error) {
@@ -105,6 +106,9 @@ async function verifyWithMicrosoft() {
     await msalInstance.initialize()
     const response = await msalInstance.loginPopup({
       scopes: ['https://graph.microsoft.com/User.Read'],
+      // E-signature: force full re-authentication (credential re-entry), not a
+      // silent SSO token — MSAL supports prompt=login for true Part 11 re-auth.
+      prompt: 'login',
     })
     emit('verified', { method: 'OAUTH', provider: 'MICROSOFT', token: response.accessToken })
     show.value = false
