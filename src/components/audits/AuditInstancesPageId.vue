@@ -581,6 +581,8 @@ const auditTabs = computed(() => [
               v-if="auditInstance.programTypeId === 'SUPPLIER' && tab === 'info'"
               :auditInstance="auditInstance"
               :readonly="!isEditable"
+              :docRequestReadonly="docRequestReadonly"
+              :canManageRequests="isEditable"
             />
 
             <!-- Requirements execution -->
@@ -622,7 +624,12 @@ const auditTabs = computed(() => [
             <!-- Document Request — the documents requested for the audit.
                  The auditee uploads new files or links existing records
                  here (renamed from "Evidence"). -->
-            <div v-show="tab === 'info'" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <!-- Standalone for internal audits; supplier audits render it
+                 inside the Agenda panel (sent to the auditee together). -->
+            <div
+              v-show="tab === 'info' && auditInstance.programTypeId !== 'SUPPLIER'"
+              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
+            >
               <div
                 class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >

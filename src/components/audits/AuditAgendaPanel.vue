@@ -7,12 +7,15 @@
  * grants the supplier's users read-only access to the audit + emails them.
  * Editable + re-sendable — "Send" upserts the agenda and re-notifies.
  */
-import { IconCalendarEvent, IconSend, IconCheck } from '@tabler/icons-vue'
+import { IconCalendarEvent, IconSend, IconCheck, IconPaperclip } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 
 const props = defineProps({
   auditInstance: { type: Object, required: true },
   readonly: { type: Boolean, default: false },
+  // Forwarded to the embedded Document Request list (sent with the agenda).
+  docRequestReadonly: { type: Boolean, default: false },
+  canManageRequests: { type: Boolean, default: false },
 })
 
 const toast = useToast()
@@ -131,6 +134,18 @@ async function send() {
         :rows="3"
         :disabled="readonly"
         placeholder="Meeting time, opening/closing arrangements, site contacts, documents to prepare…"
+      />
+    </div>
+
+    <!-- Requested documents — sent to the supplier with the agenda. -->
+    <div class="tw:mb-3 tw:pt-3 tw:border-t tw:border-divider">
+      <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2 tw:flex tw:items-center tw:gap-1">
+        <IconPaperclip :size="14" /> Requested Documents
+      </p>
+      <AuditDocumentRequestPanel
+        :auditInstance="auditInstance"
+        :readonly="docRequestReadonly"
+        :canManageRequests="canManageRequests"
       />
     </div>
 
