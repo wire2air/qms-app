@@ -111,6 +111,7 @@ function handleUploadError(err) {
 // pipeline so users can frame the image before it leaves the browser.
 const showCropDialog = ref(false)
 const cropFile = ref(null)
+const showCameraDialog = ref(false)
 // 'insert' = new image at insertPos; 'replace' = swap the currently selected
 // image's attrs.
 const cropMode = ref('insert')
@@ -484,6 +485,7 @@ defineExpose({
       :imageUploading="imageUploading"
       @toggleLink="openLinkDialog"
       @uploadImage="handleToolbarImageUpload"
+      @takePhoto="showCameraDialog = true"
     >
       <!-- AI-free extension point: sidecar tools (e.g. voice-to-text) inject
            here. The base editor stays AI-agnostic; injected tools get the
@@ -507,6 +509,9 @@ defineExpose({
       title="Crop Image"
       @save="handleCropSave"
     />
+
+    <!-- Camera capture (getUserMedia) — captured photo runs the image pipeline -->
+    <CameraCaptureDialog v-model="showCameraDialog" @captured="handleToolbarImageUpload" />
 
     <!-- Link Dialog -->
     <LinkDialog

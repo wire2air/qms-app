@@ -133,6 +133,7 @@ declare module 'vue' {
     BaseToast: typeof import('./resource/js/shared/components/BaseToast.vue')['default']
     BaseToastContainer: typeof import('./resource/js/shared/components/BaseToastContainer.vue')['default']
     BaseUploader: typeof import('./src/components/common/BaseUploader.vue')['default']
+    CameraCaptureDialog: typeof import('./src/components/editor/CameraCaptureDialog.vue')['default']
     CapaAddChildStepDialog: typeof import('./src/components/capas/CapaAddChildStepDialog.vue')['default']
     CapaAuditOriginPanel: typeof import('./src/components/capas/CapaAuditOriginPanel.vue')['default']
     CapaEffectivenessCheckCard: typeof import('./src/components/capas/CapaEffectivenessCheckCard.vue')['default']

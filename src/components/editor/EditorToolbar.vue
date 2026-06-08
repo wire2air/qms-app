@@ -27,7 +27,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['toggleLink', 'uploadImage'])
+const emit = defineEmits(['toggleLink', 'uploadImage', 'takePhoto'])
 
 const toolbarItems = [
   { icon: IconBold, action: 'bold', label: 'Bold' },
@@ -68,7 +68,7 @@ function executeCommand(item) {
   }
 
   if (item.custom && item.action === 'camera') {
-    openCameraCapture()
+    emit('takePhoto')
     return
   }
 
@@ -104,20 +104,6 @@ function openImageFilePicker() {
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = 'image/*'
-  input.onchange = (e) => {
-    const file = e.target.files?.[0]
-    if (file) emit('uploadImage', file)
-  }
-  input.click()
-}
-
-// Take Photo — same upload pipeline, but `capture` hints the device camera
-// (opens the camera on mobile; falls back to a file picker on desktop).
-function openCameraCapture() {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = 'image/*'
-  input.capture = 'environment'
   input.onchange = (e) => {
     const file = e.target.files?.[0]
     if (file) emit('uploadImage', file)
