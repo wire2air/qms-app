@@ -51,6 +51,12 @@ export class AuditFinding extends BaseModel {
   @Property({ type: String }) spawnedChangeRequestId = ''
   @Property({ type: String }) spawnedTrainingInstanceId = ''
 
+  // Supplier remediation (#7): CAPA/response + expected completion; overdue derived.
+  @Property({ type: String }) responseText = ''
+  @Property({ type: DateTime }) expectedCompletionDate = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) completedAt = /** @type {DateTime} */ (null)
+  @Property({ type: String }) completedBy = ''
+
   @Property({ type: String }) createdBy = ''
   @Property({ type: DateTime }) closedAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) closedBy = ''

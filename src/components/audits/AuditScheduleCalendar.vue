@@ -164,11 +164,14 @@ function openAudit(a) {
                   :key="a.id"
                   type="button"
                   class="tw:text-left tw:rounded tw:bg-primary/5 tw:border tw:border-primary/20 tw:px-1.5 tw:py-1 tw:cursor-pointer tw:hover:bg-primary/10 tw:border-0"
-                  :title="`${a.auditNumber || 'Audit'} — ${auditorName(a.leadAuditorUserId)} (${a.statusId})`"
+                  :title="`${a.auditNumber || 'Audit'}${a.displayMeta?.standardName ? ' · ' + a.displayMeta.standardName : ''} — ${auditorName(a.leadAuditorUserId)} (${a.statusId})`"
                   @click="openAudit(a)"
                 >
                   <div class="tw:font-mono tw:font-semibold tw:text-primary tw:text-[10px] tw:truncate">
                     {{ a.auditNumber || 'Audit' }}
+                  </div>
+                  <div v-if="a.displayMeta?.standardName" class="tw:text-[10px] tw:font-medium tw:text-on-main tw:truncate">
+                    {{ a.displayMeta.standardName }}
                   </div>
                   <div class="tw:text-[10px] tw:text-secondary tw:truncate">
                     {{ auditorName(a.leadAuditorUserId) }}

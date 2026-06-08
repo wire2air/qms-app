@@ -47,6 +47,9 @@ export class AuditInstance extends BaseModel {
   // Snapshot of related display names (standard/lead/supplier/auditee) so
   // shared supplier/auditee viewers see them without read access to those tables.
   @Property({ type: Object }) displayMeta = null
+  // Supplier-audit release — gates the supplier's Req/Findings/OFI view.
+  @Property({ type: DateTime }) releasedAt = /** @type {DateTime} */ (null)
+  @Property({ type: String }) releasedBy = ''
   @Property({ type: String }) scope = ''
   @Property({ type: String }) objectives = ''
   @Property({ type: String }) workflowInstanceId = ''
