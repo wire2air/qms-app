@@ -160,5 +160,7 @@ function isActive(item) {
         <component :is="item.icon" v-else :size="18" />
       </button>
     </template>
+    <!-- Injected sidecar tools (e.g. voice-to-text), pushed to the right. -->
+    <div class="tw:ml-auto tw:flex tw:items-center tw:gap-1"><slot /></div>
   </div>
 </template>

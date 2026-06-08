@@ -453,9 +453,20 @@ onBeforeUnmount(() => {
   }
 })
 
+/**
+ * Append plain text to the end of the document (new paragraph) — used by
+ * injected tools like voice-to-text. Never overwrites existing content.
+ */
+function appendText(text) {
+  const t = (text || '').trim()
+  if (!editor.value || !t) return
+  editor.value.chain().focus('end').insertContent(`<p>${t}</p>`).run()
+}
+
 defineExpose({
   editor,
   setContent,
+  appendText,
   getContent: () => (editor.value ? getContent(editor.value) : ''),
 })
 </script>
@@ -473,7 +484,12 @@ defineExpose({
       :imageUploading="imageUploading"
       @toggleLink="openLinkDialog"
       @uploadImage="handleToolbarImageUpload"
-    />
+    >
+      <!-- AI-free extension point: sidecar tools (e.g. voice-to-text) inject
+           here. The base editor stays AI-agnostic; injected tools get the
+           editor + appendText to write into the document. -->
+      <slot v-if="editable" name="toolbar-extra" :editor="editor" :append="appendText" />
+    </EditorToolbar>
 
     <!-- Image bubble menu (appears when an image node is selected) -->
     <ImageBubbleMenu
