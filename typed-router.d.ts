@@ -86,6 +86,34 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/audits/': RouteRecordInfo<
+      '/audits/',
+      '/audits',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/audits/instances/[id]': RouteRecordInfo<
+      '/audits/instances/[id]',
+      '/audits/instances/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/audits/programs/[id]': RouteRecordInfo<
+      '/audits/programs/[id]',
+      '/audits/programs/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/audits/standards/[id]': RouteRecordInfo<
+      '/audits/standards/[id]',
+      '/audits/standards/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
     '/capas/[[id]]': RouteRecordInfo<
       '/capas/[[id]]',
       '/capas/:id?',
@@ -507,6 +535,30 @@ declare module 'vue-router/auto-routes' {
     'src/pages/audit-logs.vue': {
       routes:
         | '/audit-logs'
+      views:
+        | never
+    }
+    'src/pages/audits/index.vue': {
+      routes:
+        | '/audits/'
+      views:
+        | never
+    }
+    'src/pages/audits/instances/[id].vue': {
+      routes:
+        | '/audits/instances/[id]'
+      views:
+        | never
+    }
+    'src/pages/audits/programs/[id].vue': {
+      routes:
+        | '/audits/programs/[id]'
+      views:
+        | never
+    }
+    'src/pages/audits/standards/[id].vue': {
+      routes:
+        | '/audits/standards/[id]'
       views:
         | never
     }
