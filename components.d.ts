@@ -25,6 +25,7 @@ declare module 'vue' {
     AiUsageHome: typeof import('./src/components/aiUsage/AiUsageHome.vue')['default']
     AiUsageJobsTable: typeof import('./src/components/aiUsage/AiUsageJobsTable.vue')['default']
     AiUsageTimeSeries: typeof import('./src/components/aiUsage/AiUsageTimeSeries.vue')['default']
+    AiVoiceToTextButton: typeof import('./src/components/ai/AiVoiceToTextButton.vue')['default']
     ApiKeyCreateDialog: typeof import('./src/components/apiKey/apiKeyCreateDialog.vue')['default']
     ApiKeyHome: typeof import('./src/components/apiKey/apiKeyHome.vue')['default']
     ApiKeyIndex: typeof import('./src/components/apiKey/apiKeyIndex.vue')['default']

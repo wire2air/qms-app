@@ -17,6 +17,7 @@
  */
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post, patch } from '@/api'
+import { canUseAi } from '@/utils/currentSession'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -79,6 +80,15 @@ function close() {
 }
 
 const canSave = computed(() => !!form.value.description.trim() && !!form.value.findingTypeId)
+
+// Voice-to-text appends the transcript to the description (plain text).
+function appendToDescription(text) {
+  const t = (text || '').trim()
+  if (!t) return
+  form.value.description = form.value.description
+    ? `${form.value.description.trimEnd()}\n${t}`
+    : t
+}
 
 async function handleSave() {
   if (!canSave.value || saving.value) return
@@ -152,9 +162,12 @@ async function handleSave() {
       </div>
 
       <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Description <span class="tw:text-red-500">*</span>
-        </p>
+        <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
+            Description <span class="tw:text-red-500">*</span>
+          </p>
+          <AiVoiceToTextButton v-if="canUseAi" :append="appendToDescription" />
+        </div>
         <BaseTextarea
           v-model="form.description"
           :rows="4"
