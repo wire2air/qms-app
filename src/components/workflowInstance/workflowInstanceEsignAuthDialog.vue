@@ -59,6 +59,12 @@ async function verifyWithGoogle() {
 
       scope: 'openid email profile',
 
+      // E-signature: always show the account chooser so the signer
+      // consciously confirms identity, even when a Google session is active.
+      // Without this, GIS silently reuses the logged-in account after the
+      // first grant (defeats the point of re-authenticating to sign).
+      prompt: 'select_account',
+
       callback(response) {
         if (response.error) {
           errorMessage.value = response.error_description || response.error
