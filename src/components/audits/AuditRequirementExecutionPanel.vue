@@ -22,6 +22,7 @@
 import { IconChevronDown, IconChevronRight } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
+import { canUseAi } from '@/utils/currentSession'
 
 const props = defineProps({
   auditInstance: { type: Object, required: true },
@@ -259,7 +260,11 @@ const commentDebounce = useDebounceFn(async (clause) => {
             :editable="!readonly && !!responsesById[clause.requirementId]?.resultId"
             placeholder="Comments…"
             @update:modelValue="(v) => { setCommentBuffer(clause.requirementId, v); commentDebounce(clause) }"
-          />
+          >
+            <template #toolbar-extra="{ append }">
+              <AiVoiceToTextButton v-if="canUseAi" :append="append" />
+            </template>
+          </BaseRichTextEditor>
           <p
             v-else-if="!readonly"
             class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
