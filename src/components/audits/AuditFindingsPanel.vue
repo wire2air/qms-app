@@ -19,6 +19,7 @@ import {
   IconBolt,
   IconChevronDown,
   IconChevronRight,
+  IconCircleCheck,
   IconEdit,
   IconExternalLink,
   IconLink,
@@ -365,6 +366,15 @@ function unlinkedKinds(finding) {
           </div>
           <div class="tw:flex tw:items-center tw:gap-1 tw:shrink-0">
             <button
+              v-if="!readonly && !['CLOSED', 'CANCELLED'].includes(finding.statusId)"
+              type="button"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-emerald-700 tw:hover:bg-emerald-50 tw:rounded tw:px-2 tw:py-1 tw:cursor-pointer tw:bg-transparent tw:border tw:border-emerald-200 tw:text-[11px] tw:font-medium"
+              title="Close this finding"
+              @click="setStatus(finding, 'CLOSED')"
+            >
+              <IconCircleCheck :size="14" /> Close
+            </button>
+            <button
               v-if="!readonly"
               type="button"
               class="tw:text-secondary tw:hover:text-primary tw:hover:bg-main-hover tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0"
@@ -391,21 +401,6 @@ function unlinkedKinds(finding) {
           class="tw:ml-7 tw:flex tw:flex-col tw:gap-2 tw:text-xs"
         >
           <div class="tw:grid tw:grid-cols-2 tw:gap-2">
-            <div>
-              <span class="tw:text-secondary">Assignee:</span>
-              <UserBadgeById
-                v-if="finding.assignedToUserId"
-                :userId="finding.assignedToUserId"
-                class="tw:ml-1"
-              />
-              <span v-else class="tw:ml-1 tw:text-secondary">—</span>
-            </div>
-            <div>
-              <span class="tw:text-secondary">Due:</span>
-              <span class="tw:ml-1">
-                {{ finding.dueDate ? finding.dueDate.formatDate('date') : '—' }}
-              </span>
-            </div>
             <div>
               <span class="tw:text-secondary">Severity:</span>
               <span class="tw:ml-1 tw:font-medium">{{ finding.severityScore }}</span>

@@ -166,6 +166,7 @@ export default {
     "useAsyncState": true,
     "useAttrs": true,
     "useAuditLogs": true,
+    "useAuditScoring": true,
     "useAuth": true,
     "useBase64": true,
     "useBattery": true,

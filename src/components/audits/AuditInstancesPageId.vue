@@ -336,10 +336,19 @@ const findingsByStatus = useLiveQueryWithDeps(
           v-if="canSubmitForCloseOut"
           variant="primary"
           size="sm"
+          :disabled="findingsByStatus.open > 0"
+          :title="
+            findingsByStatus.open > 0
+              ? `Resolve or close all findings first — ${findingsByStatus.open} still open.`
+              : 'Submit this audit for close-out'
+          "
           @click="showSubmitDialog = true"
         >
           <IconSend :size="16" class="tw:mr-1" />
           Submit for Close-Out
+          <span v-if="findingsByStatus.open > 0" class="tw:ml-1 tw:text-[10px] tw:opacity-80">
+            ({{ findingsByStatus.open }} open)
+          </span>
         </BaseButton>
         <BaseButton
           v-if="canCancel"

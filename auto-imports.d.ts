@@ -176,6 +176,7 @@ declare global {
   const useAsyncState: typeof import('@vueuse/core').useAsyncState
   const useAttrs: typeof import('vue').useAttrs
   const useAuditLogs: typeof import('./src/composables/useAuditLogs.js').useAuditLogs
+  const useAuditScoring: typeof import('./src/composables/useAuditScoring.js').useAuditScoring
   const useAuth: typeof import('./src/composables/useAuth.js').useAuth
   const useBase64: typeof import('@vueuse/core').useBase64
   const useBattery: typeof import('@vueuse/core').useBattery
