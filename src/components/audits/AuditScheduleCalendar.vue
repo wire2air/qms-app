@@ -97,6 +97,35 @@ function cellAudits(deptKey, monthIdx) {
 function openAudit(a) {
   router.push(getCompanyPath(`/audits/instances/${a.id}`))
 }
+
+// Color-code each audit chip by lifecycle/due state.
+function startOfToday() {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
+function auditTone(a) {
+  if (a.statusId === 'CANCELLED') return 'cancelled'
+  if (['COMPLETED', 'CLOSED'].includes(a.statusId)) return 'done'
+  if (['IN_PROGRESS', 'REVIEW'].includes(a.statusId)) return 'inflight'
+  // DRAFT / SCHEDULED: past due once the scheduled date has passed unstarted.
+  const due = a.scheduledDate?.toMillis ? a.scheduledDate.toMillis() : null
+  if (due != null && due < startOfToday()) return 'pastdue'
+  return 'scheduled'
+}
+const TONE_CLASS = {
+  pastdue: 'tw:bg-red-50 tw:border-red-300 tw:hover:bg-red-100',
+  inflight: 'tw:bg-amber-50 tw:border-amber-300 tw:hover:bg-amber-100',
+  done: 'tw:bg-emerald-50 tw:border-emerald-300 tw:hover:bg-emerald-100',
+  cancelled: 'tw:bg-gray-50 tw:border-gray-200 tw:opacity-60',
+  scheduled: 'tw:bg-primary/5 tw:border-primary/20 tw:hover:bg-primary/10',
+}
+const LEGEND = [
+  { tone: 'scheduled', label: 'Scheduled', dot: 'tw:bg-primary/40' },
+  { tone: 'inflight', label: 'In Flight', dot: 'tw:bg-amber-400' },
+  { tone: 'pastdue', label: 'Past Due', dot: 'tw:bg-red-400' },
+  { tone: 'done', label: 'Completed', dot: 'tw:bg-emerald-400' },
+]
 </script>
 
 <template>
@@ -124,6 +153,14 @@ function openAudit(a) {
         >
           <IconChevronRight :size="18" />
         </button>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="tw:flex tw:items-center tw:gap-4 tw:flex-wrap">
+      <div v-for="l in LEGEND" :key="l.tone" class="tw:flex tw:items-center tw:gap-1.5">
+        <span class="tw:size-2.5 tw:rounded-full" :class="l.dot"></span>
+        <span class="tw:text-[11px] tw:text-secondary">{{ l.label }}</span>
       </div>
     </div>
 
@@ -163,11 +200,12 @@ function openAudit(a) {
                   v-for="a in cellAudits(row.key, mi)"
                   :key="a.id"
                   type="button"
-                  class="tw:text-left tw:rounded tw:bg-primary/5 tw:border tw:border-primary/20 tw:px-1.5 tw:py-1 tw:cursor-pointer tw:hover:bg-primary/10 tw:border-0"
+                  class="tw:text-left tw:rounded tw:border tw:px-1.5 tw:py-1 tw:cursor-pointer"
+                  :class="TONE_CLASS[auditTone(a)]"
                   :title="`${a.auditNumber || 'Audit'}${a.displayMeta?.standardName ? ' · ' + a.displayMeta.standardName : ''} — ${auditorName(a.leadAuditorUserId)} (${a.statusId})`"
                   @click="openAudit(a)"
                 >
-                  <div class="tw:font-mono tw:font-semibold tw:text-primary tw:text-[10px] tw:truncate">
+                  <div class="tw:font-mono tw:font-semibold tw:text-on-main tw:text-[10px] tw:truncate">
                     {{ a.auditNumber || 'Audit' }}
                   </div>
                   <div v-if="a.displayMeta?.standardName" class="tw:text-[10px] tw:font-medium tw:text-on-main tw:truncate">
