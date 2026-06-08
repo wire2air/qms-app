@@ -188,7 +188,7 @@ function openUpload(requestId) {
               <IconExternalLink :size="14" />
             </button>
             <button
-              v-if="!readonly"
+              v-if="canManageRequests"
               type="button"
               class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0"
               title="Remove"
@@ -247,7 +247,7 @@ function openUpload(requestId) {
             <IconExternalLink :size="14" />
           </button>
           <button
-            v-if="!readonly"
+            v-if="canManageRequests"
             type="button"
             class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0"
             title="Remove"
