@@ -40,9 +40,13 @@ export class AuditInstance extends BaseModel {
   @Property({ type: DateTime }) startedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) completedAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) leadAuditorUserId = ''
+  @Property({ type: String }) auditeeUserId = ''
   @Property({ type: String }) departmentId = ''
   @Property({ type: String }) siteId = ''
   @Property({ type: String }) supplierId = ''
+  // Snapshot of related display names (standard/lead/supplier/auditee) so
+  // shared supplier/auditee viewers see them without read access to those tables.
+  @Property({ type: Object }) displayMeta = null
   @Property({ type: String }) scope = ''
   @Property({ type: String }) objectives = ''
   @Property({ type: String }) workflowInstanceId = ''

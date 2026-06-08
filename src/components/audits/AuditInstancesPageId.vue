@@ -467,9 +467,12 @@ const auditTabs = computed(() => [
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Standard</div>
                   <AuditStandardBadgeById
-                    v-if="auditInstance.auditStandardId"
+                    v-if="isEditable && auditInstance.auditStandardId"
                     :standardId="auditInstance.auditStandardId"
                   />
+                  <span v-else-if="auditInstance.displayMeta?.standardName" class="tw:text-sm">
+                    {{ auditInstance.displayMeta.standardName }}
+                  </span>
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
                 <div class="tw:flex tw:flex-col tw:gap-1">
@@ -490,10 +493,22 @@ const auditTabs = computed(() => [
                     v-if="isEditable"
                     v-model="auditInstance.leadAuditorUserId"
                   />
-                  <UserBadgeById
-                    v-else-if="auditInstance.leadAuditorUserId"
-                    :userId="auditInstance.leadAuditorUserId"
+                  <span v-else-if="auditInstance.displayMeta?.leadAuditorName" class="tw:text-sm">
+                    {{ auditInstance.displayMeta.leadAuditorName }}
+                  </span>
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
+                </div>
+                <div class="tw:flex tw:flex-col tw:gap-1">
+                  <div class="tw:text-xs tw:text-secondary">Auditee</div>
+                  <UserSelectMenu
+                    v-if="isEditable"
+                    v-model="auditInstance.auditeeUserId"
+                    :kind="auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'"
+                    :supplierId="auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null"
                   />
+                  <span v-else-if="auditInstance.displayMeta?.auditeeName" class="tw:text-sm">
+                    {{ auditInstance.displayMeta.auditeeName }}
+                  </span>
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
                 <div class="tw:flex tw:flex-col tw:gap-1">
@@ -520,9 +535,12 @@ const auditTabs = computed(() => [
                 >
                   <div class="tw:text-xs tw:text-secondary">Supplier</div>
                   <SupplierBadgeById
-                    v-if="auditInstance.supplierId"
+                    v-if="isEditable && auditInstance.supplierId"
                     :supplierId="auditInstance.supplierId"
                   />
+                  <span v-else-if="auditInstance.displayMeta?.supplierName" class="tw:text-sm">
+                    {{ auditInstance.displayMeta.supplierName }}
+                  </span>
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
               </div>
