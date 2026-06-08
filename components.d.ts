@@ -685,6 +685,7 @@ declare module 'vue' {
     WorkflowUserSelector: typeof import('./src/components/workflow/WorkflowUserSelector.vue')['default']
     WorkflowVersionSelect: typeof import('./src/components/documents/WorkflowVersionSelect.vue')['default']
     WorkflowVersionStatusBadgeById: typeof import('./src/components/badges/WorkflowVersionStatusBadgeById.vue')['default']
+    WorkspacePicker: typeof import('./src/components/auth/WorkspacePicker.vue')['default']
     WPhoto: typeof import('./resource/js/shared/components/WPhoto.js')['default']
     WSelect: typeof import('./resource/js/shared/components/select/WSelect.js')['default']
     WStatusBadge: typeof import('./resource/js/shared/components/badges/WStatusBadge.vue')['default']
