@@ -143,6 +143,7 @@ const debouncedSave = useDebounceFn(async () => {
       objectives: a.objectives ?? null,
       scheduledDate: scheduledDateStr.value || null,
       leadAuditorUserId: a.leadAuditorUserId || null,
+      auditeeUserId: a.auditeeUserId || null,
       departmentId: a.departmentId || null,
       siteId: a.siteId || null,
     })
