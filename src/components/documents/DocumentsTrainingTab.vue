@@ -63,13 +63,18 @@ const showGenerateDialog = ref(false)
 // existing assessment so we never overwrite. ensureConfig() guarantees
 // the trainingConfig object exists before we land here (the dialog only
 // opens when canGenerateQuestions is true, which requires enabled = true).
+//
+// Drop empty starter questions (text === '') before appending — toggling
+// Assessment on auto-creates one blank question, and users expect AI
+// output to replace it, not sit alongside it.
 function handleQuestionsApply({ questions }) {
   if (!selectedVersion.value || !questions?.length) return
   const cfg = selectedVersion.value.trainingConfig ?? {}
   const existing = Array.isArray(cfg.assessment) ? cfg.assessment : []
+  const nonEmpty = existing.filter((q) => q.text?.trim())
   selectedVersion.value.trainingConfig = {
     ...cfg,
-    assessment: [...existing, ...questions],
+    assessment: [...nonEmpty, ...questions],
   }
   toast.notify({
     type: 'positive',
@@ -77,11 +82,63 @@ function handleQuestionsApply({ questions }) {
   })
 }
 
+// Returns null if every question is complete, otherwise the first error.
+// "Complete" = text present, ≥2 options each with text, and the right
+// number of correct answers for the question type.
+function validateAssessment(assessment) {
+  if (!Array.isArray(assessment)) return null
+  for (let i = 0; i < assessment.length; i++) {
+    const q = assessment[i]
+    if (!q.text?.trim()) return `Question ${i + 1}: text is required`
+    if (!Array.isArray(q.options) || q.options.length < 2) {
+      return `Question ${i + 1}: needs at least 2 options`
+    }
+    for (let j = 0; j < q.options.length; j++) {
+      if (!q.options[j].text?.trim()) {
+        return `Question ${i + 1}, option ${j + 1}: text is required`
+      }
+    }
+    const correct = q.options.filter((o) => o.isCorrect).length
+    if (q.type === 'single' && correct !== 1) {
+      return `Question ${i + 1}: select exactly one correct answer`
+    }
+    if (q.type === 'multiple' && correct < 1) {
+      return `Question ${i + 1}: select at least one correct answer`
+    }
+  }
+  return null
+}
+
 // Auto-save the version's trainingConfig on edits
 const isFirstLoad = ref(true)
 const isSaving = ref(false)
+const saveBlockedReason = ref(null)
+// Cooldown prevents the toast firing on every keystroke while the user is
+// typing into a still-incomplete question. The persistent inline status
+// (saveBlockedReason) carries the message between toasts.
+let lastToastMsg = null
+let lastToastTime = 0
+const TOAST_COOLDOWN_MS = 3000
+
 const debouncedSave = useDebounceFn(async () => {
   if (!selectedVersion.value || !isEditable.value) return
+
+  const cfg = selectedVersion.value.trainingConfig
+  if (cfg?.enabled && cfg.assessment?.length) {
+    const error = validateAssessment(cfg.assessment)
+    if (error) {
+      saveBlockedReason.value = error
+      const now = Date.now()
+      if (error !== lastToastMsg || now - lastToastTime > TOAST_COOLDOWN_MS) {
+        toast.notify({ type: 'warning', message: error })
+        lastToastMsg = error
+        lastToastTime = now
+      }
+      return
+    }
+  }
+  saveBlockedReason.value = null
+
   isSaving.value = true
   try {
     await selectedVersion.value.save()
@@ -297,6 +354,13 @@ function libraryAssigneeStats(instanceId) {
             AI Generate Questions
           </button>
           <span v-if="isSaving" class="tw:text-xs tw:text-secondary">Saving…</span>
+          <span
+            v-else-if="saveBlockedReason"
+            class="tw:text-xs tw:text-red-600 tw:font-medium"
+            :title="saveBlockedReason"
+          >
+            Save blocked: {{ saveBlockedReason }}
+          </span>
         </div>
       </div>
       <DocumentsCreateTraining v-model="selectedVersion.trainingConfig" />

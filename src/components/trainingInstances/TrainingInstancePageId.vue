@@ -1,5 +1,5 @@
 <script setup>
-import { IconChevronRight, IconBan, IconUserMinus } from '@tabler/icons-vue'
+import { IconChevronRight, IconBan, IconUserMinus, IconListSearch } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
@@ -113,13 +113,14 @@ const stats = computed(() => {
 })
 
 // Instance needs manager verification if it's been moved to PENDING_VERIFICATION,
-// or there are assignees who passed assessment but haven't been verified yet
-// (covers pre-existing COMPLETED instances from before the verification flow shipped).
+// or there are assignees who reached a terminal assessment state (passed or
+// failed-out-of-retries) but haven't been verified yet. Failed assignees
+// still need the manager to decide retrain-vs-override, so they count.
 const needsVerification = computed(() => {
   if (!instance.value) return false
   if (instance.value.status === 'PENDING_VERIFICATION') return true
   if (instance.value.status === 'COMPLETED') {
-    return allAssignees.value.some((a) => a.status === 'COMPLETED')
+    return allAssignees.value.some((a) => a.status === 'COMPLETED' || a.status === 'FAILED')
   }
   return false
 })
@@ -139,6 +140,20 @@ const instanceCompletedAt = computed(() => {
 
 function isAssigneeOverdue(assignee) {
   return instanceOverdue.value && assignee.status !== 'COMPLETED'
+}
+
+// ─── Assessment review dialog ────────────────────────────────────────────────
+// Manager (canManage) opens a popup with a single assignee's most recent
+// answers, with correct/incorrect highlighting (showCorrect). Assignees who
+// haven't attempted yet (attemptCount === 0) hide the link.
+const reviewAssignee = ref(null)
+const assessmentQuestions = computed(() => instance.value?.snapshot?.assessment ?? [])
+const hasAssessment = computed(() => assessmentQuestions.value.length > 0)
+function openAssessmentReview(assignee) {
+  reviewAssignee.value = assignee
+}
+function closeAssessmentReview() {
+  reviewAssignee.value = null
 }
 </script>
 
@@ -268,7 +283,7 @@ function isAssigneeOverdue(assignee) {
         <div
           v-for="assignee in allAssignees"
           :key="assignee.id"
-          class="tw:grid tw:grid-cols-[1fr_auto_auto_auto_auto_auto] tw:items-center tw:gap-4 tw:px-3 tw:py-2.5 tw:rounded-lg tw:border tw:border-divider tw:bg-white"
+          class="tw:grid tw:grid-cols-[1fr_auto_auto_auto_auto_auto_auto] tw:items-center tw:gap-4 tw:px-3 tw:py-2.5 tw:rounded-lg tw:border tw:border-divider tw:bg-white"
           :class="[
             isAssigneeOverdue(assignee) ? 'tw:border-red-200 tw:bg-red-50/30' : '',
             assignee.status === 'REMOVED' ? 'tw:opacity-60' : '',
@@ -319,6 +334,17 @@ function isAssigneeOverdue(assignee) {
           <TrainingAssigneeStatusBadgeById :statusId="assignee.status" />
 
           <button
+            v-if="canManage && hasAssessment && (assignee.attemptCount ?? 0) > 0"
+            class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline"
+            title="Review trainee's assessment answers"
+            @click="openAssessmentReview(assignee)"
+          >
+            <IconListSearch :size="14" />
+            View answers
+          </button>
+          <span v-else class="tw:w-[88px]" />
+
+          <button
             v-if="canManage && ['ASSIGNED', 'IN_PROGRESS', 'FAILED'].includes(assignee.status)"
             class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-red-50 tw:hover:text-red-600 tw:transition-colors"
             title="Remove assignee"
@@ -367,6 +393,53 @@ function isAssigneeOverdue(assignee) {
         >
           Remove Assignee
         </BaseButton>
+      </template>
+    </BaseDialog>
+
+    <!-- Assessment review dialog (manager only) -->
+    <BaseDialog
+      :modelValue="!!reviewAssignee"
+      title="Assessment Answers"
+      maxWidth="3xl"
+      @update:modelValue="(v) => !v && closeAssessmentReview()"
+    >
+      <div v-if="reviewAssignee" class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+        <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
+          <div class="tw:flex tw:items-center tw:gap-3">
+            <UserBadgeById :userId="reviewAssignee.userId" />
+            <TrainingAssigneeStatusBadgeById :statusId="reviewAssignee.status" />
+          </div>
+          <div class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary">
+            <span>
+              Score:
+              <span
+                class="tw:font-semibold"
+                :class="
+                  reviewAssignee.status === 'COMPLETED' || reviewAssignee.status === 'VERIFIED'
+                    ? 'tw:text-green-600'
+                    : 'tw:text-red-600'
+                "
+              >
+                {{ reviewAssignee.score ?? '—' }}%
+              </span>
+            </span>
+            <span>
+              Attempts: {{ reviewAssignee.attemptCount ?? 0 }}/{{ instance.snapshot?.maxAttempts ?? 1 }}
+            </span>
+          </div>
+        </div>
+        <TrainingAssessmentView
+          :answers="reviewAssignee.assessmentAnswers ?? {}"
+          :questions="assessmentQuestions"
+          :passingScore="instance.snapshot?.passingScore ?? 70"
+          :attemptCount="reviewAssignee.attemptCount ?? 0"
+          :maxAttempts="instance.snapshot?.maxAttempts ?? 1"
+          :readonly="true"
+          :showCorrect="true"
+        />
+      </div>
+      <template #footer="{ close }">
+        <BaseButton variant="secondary" @click="close">Close</BaseButton>
       </template>
     </BaseDialog>
 

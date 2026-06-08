@@ -1,0 +1,59 @@
+import { currentSession } from '@/utils/currentSession'
+import { BaseModel, ClientModel, Property } from '@syncEngine/index'
+import { DateTime } from 'luxon'
+
+@ClientModel('changeRequests', {
+  primaryKey: 'id',
+  syncField: 'updatedAt',
+  customIndex: 'companyId, [sourceType+sourceId]',
+  schemaVersion: 1,
+})
+export class ChangeRequest extends BaseModel {
+  static paranoid = true
+
+  constructor(...args) {
+    super(...args)
+    if (!this.companyId) {
+      this.companyId = currentSession.value?.companyId || ''
+    }
+    if (!this.id) {
+      this.id = crypto.randomUUID()
+    }
+  }
+
+  @Property({ type: String, uuid: true, required: true }) id = ''
+  @Property({ type: String, required: true }) companyId = ''
+  @Property({ type: String }) crNumber = ''
+  @Property({ type: String, required: true }) title = ''
+  @Property({ type: String }) description = ''
+  @Property({ type: String }) statusId = 'DRAFT'
+  @Property({ type: String, required: true }) priorityId = ''
+  @Property({ type: String, required: true }) changeTypeId = ''
+  @Property({ type: String }) classification = null
+  @Property({ type: String, required: true }) siteId = ''
+  @Property({ type: String, required: true }) departmentId = ''
+  @Property({ type: String, required: true }) ownerId = ''
+  @Property({ type: String }) sourceType = 'DIRECT'
+  @Property({ type: String }) sourceId = /** @type {String} */ (null)
+  @Property({ type: DateTime }) initiatedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) targetImplementationDate = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) dueDate = /** @type {DateTime} */ (null)
+  @Property({ type: String }) reasonForChange = ''
+  @Property({ type: String }) businessJustification = ''
+  @Property({ type: String }) workflowVersionId = /** @type {String} */ (null)
+  @Property({ type: Object }) pendingReviewers = /** @type {Object} */ ({})
+  @Property({ type: Boolean }) requiresEffectivenessCheck = false
+  @Property({ type: DateTime }) submittedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) approvedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) closedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) cancelledAt = /** @type {DateTime} */ (null)
+  @Property({ type: String }) cancelledBy = /** @type {String} */ (null)
+  @Property({ type: String }) cancelReason = /** @type {String} */ (null)
+  @Property({ type: String, required: true }) createdBy = ''
+  @Property({ type: String, required: true }) updatedBy = ''
+  @Property({ type: DateTime, required: true, timestamp: true })
+  createdAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime, required: true, timestamp: true, autoUpdate: true })
+  updatedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
+}

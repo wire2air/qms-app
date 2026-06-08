@@ -30,7 +30,8 @@ async function saveSchema(schemaData) {
     await template.value.save()
     toast.success('Form template saved successfully')
     handleCancel()
-  } catch {
+  } catch (e) {
+    console.error('Error saving form template:', e)
     toast.error('Failed to save template')
   } finally {
     isSaving.value = false

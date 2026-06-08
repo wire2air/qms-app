@@ -1,5 +1,4 @@
 <script setup>
-import { useRoute } from 'vue-router'
 import { ENTITY_LABEL_RESOLVERS } from '@/utils/auditConstants.js'
 import { DISPLAY_TYPE_LABELS } from '@/utils/auditFieldFormatters.js'
 import { singular } from 'pluralize'
@@ -12,8 +11,6 @@ const props = defineProps({
   },
 })
 
-const route = useRoute()
-const companyCode = computed(() => route.params.companyCode)
 const expanded = ref(false)
 const hasDiff = computed(() => props.log.oldValueJson || props.log.newValueJson)
 
@@ -70,7 +67,6 @@ const displayAction = computed(() => (resolvedEntity.value?.isChild ? 'UPDATE' :
             :entityType="resolvedEntity.displayType"
             :entityId="resolvedEntity.displayId"
             :contextLabel="resolvedEntity.label"
-            :companyCode="companyCode"
           />
           <span
             class="tw:text-[10px] tw:px-1.5 tw:py-0.5 tw:rounded tw:bg-main tw:text-secondary tw:border tw:border-divider"

@@ -8,9 +8,12 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
+// Prefer embedded snapshot; fall back to FK lookup. See RcaField for
+// the rationale.
 const template = useLiveQueryWithDeps(
-  [() => props.field.riskAssessmentTemplateId],
-  async (db, [id]) => {
+  [() => props.field.riskAssessmentTemplate, () => props.field.riskAssessmentTemplateId],
+  async (db, [embedded, id]) => {
+    if (embedded?.config) return embedded
     if (!id) return null
     return db.RiskAssessmentTemplate.findByPk(id)
   },
@@ -58,29 +61,35 @@ function computeRpn(likelihoodId, severityId, detectabilityId) {
   return lScore * sScore
 }
 
+// Any input change after Finalize clears the finalizedAt stamp so the
+// user has to re-finalize before submitting — keeps the frozen labels
+// in sync with whatever the matrix says right now.
+function clearFinalizedStamp(patch) {
+  const next = { ...(props.modelValue ?? {}), ...patch }
+  if (next.finalized?.finalizedAt) {
+    next.finalized = { ...next.finalized, finalizedAt: null }
+  }
+  return next
+}
+
 function selectCell(likelihoodId, severityId) {
   if (props.readonly || props.disabled) return
   const key = cellKey(likelihoodId, severityId)
   const levelId = cells.value[key] ?? null
   const rpnScore = computeRpn(likelihoodId, severityId, selectedDetectabilityId.value)
-  emit('update:modelValue', {
-    ...(props.modelValue ?? {}),
+  emit('update:modelValue', clearFinalizedStamp({
     _templateId: template.value?.id ?? null,
     likelihoodId,
     severityId,
     riskLevelId: levelId,
     rpnScore,
-  })
+  }))
 }
 
 function selectDetectability(detectabilityId) {
   if (props.readonly || props.disabled) return
   const rpnScore = computeRpn(selectedLikelihoodId.value, selectedSeverityId.value, detectabilityId)
-  emit('update:modelValue', {
-    ...(props.modelValue ?? {}),
-    detectabilityId,
-    rpnScore,
-  })
+  emit('update:modelValue', clearFinalizedStamp({ detectabilityId, rpnScore }))
 }
 
 function isSelectedCell(likelihoodId, severityId) {
@@ -92,6 +101,103 @@ function updateNotes(notes) {
 }
 
 const notes = computed(() => props.modelValue?.notes ?? '')
+
+// ─── Finalize: hazard category + INITIAL / RESIDUAL + frozen labels ──────────
+//
+// The matrix selection above tells you "what risk level" — the
+// finalize step adds the categorisation ("what KIND of risk") +
+// whether this is the pre-mitigation or post-mitigation assessment.
+// Once finalized, every label + score is denormalized onto the
+// payload so reports stay self-consistent across template edits and
+// category renames. Same drift-protection pattern as
+// freezeFormPayloadLabels.
+
+const hazardCategories = useLiveQuery(
+  (db) => db.HazardCategory.where().orderBy('displayOrder').exec(),
+  { initial: [] },
+)
+
+const hazardCategoryId = computed(
+  () => props.modelValue?.finalized?.hazardCategoryId ?? null,
+)
+const assessmentType = computed(
+  () => props.modelValue?.finalized?.assessmentType ?? 'INITIAL',
+)
+const isFinalized = computed(() => !!props.modelValue?.finalized?.finalizedAt)
+
+function patchFinalized(patch) {
+  if (props.readonly || props.disabled) return
+  emit('update:modelValue', {
+    ...(props.modelValue ?? {}),
+    finalized: {
+      ...(props.modelValue?.finalized ?? {}),
+      ...patch,
+      // Any edit to finalize-time fields invalidates the prior stamp.
+      finalizedAt: null,
+    },
+  })
+}
+
+function setHazardCategory(id) {
+  patchFinalized({ hazardCategoryId: id })
+}
+
+function setAssessmentType(t) {
+  patchFinalized({ assessmentType: t })
+}
+
+// Read enough off the template config to denormalize labels + scores
+// onto the finalized payload at click time.
+function findById(arr, id) {
+  return arr.find((x) => x.id === id) ?? null
+}
+
+function onFinalizeAssessment() {
+  if (props.readonly || props.disabled) return
+  if (!selectedLikelihoodId.value || !selectedSeverityId.value) return // matrix not picked
+  const l = findById(likelihood.value, selectedLikelihoodId.value)
+  const s = findById(severity.value, selectedSeverityId.value)
+  const r = selectedRiskLevel.value
+  const d =
+    enableDetectability.value && selectedDetectabilityId.value
+      ? findById(detectability.value, selectedDetectabilityId.value)
+      : null
+  const cat = hazardCategoryId.value
+    ? findById(hazardCategories.value, hazardCategoryId.value)
+    : null
+
+  emit('update:modelValue', {
+    ...(props.modelValue ?? {}),
+    finalized: {
+      assessmentType: assessmentType.value,
+      hazardCategoryId: cat?.id ?? null,
+      hazardCategoryLabel: cat?.name ?? null,
+      hazardCategoryColor: cat?.color ?? null,
+      likelihoodId: l?.id ?? null,
+      likelihoodLabel: l?.label ?? null,
+      likelihoodScore: l?.score ?? l?.order ?? null,
+      severityId: s?.id ?? null,
+      severityLabel: s?.label ?? null,
+      severityScore: s?.score ?? s?.order ?? null,
+      detectabilityId: d?.id ?? null,
+      detectabilityLabel: d?.label ?? null,
+      detectabilityScore: d?.score ?? d?.order ?? null,
+      computedRiskLevelId: r?.id ?? null,
+      computedRiskLevelLabel: r?.label ?? null,
+      computedScore: props.modelValue?.rpnScore ?? null,
+      justification: props.modelValue?.notes ?? null,
+      finalizedAt: new Date().toISOString(),
+    },
+  })
+}
+
+const canFinalize = computed(
+  () =>
+    !!selectedLikelihoodId.value &&
+    !!selectedSeverityId.value &&
+    !!hazardCategoryId.value &&
+    !!assessmentType.value,
+)
 </script>
 
 <template>
@@ -110,6 +216,46 @@ const notes = computed(() => props.modelValue?.notes ?? '')
     </div>
 
     <template v-else>
+      <!-- Hazard category + assessment type (INITIAL / RESIDUAL). These
+           sit above the matrix because they affect interpretation of
+           the selected risk band — "Quality risk, residual" reads
+           differently than "Safety risk, initial". -->
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-main-hover/30">
+        <div class="tw:flex tw:flex-col tw:gap-1.5">
+          <label class="tw:text-xs tw:font-medium tw:text-secondary">
+            Hazard category
+            <span class="tw:text-red-500">*</span>
+          </label>
+          <HazardCategorySelectMenu
+            :modelValue="hazardCategoryId"
+            :required="true"
+            @update:modelValue="setHazardCategory"
+          />
+        </div>
+        <div class="tw:flex tw:flex-col tw:gap-1.5">
+          <label class="tw:text-xs tw:font-medium tw:text-secondary">
+            Assessment type
+            <span class="tw:text-red-500">*</span>
+          </label>
+          <div class="tw:flex tw:gap-2">
+            <button
+              v-for="t in ['INITIAL', 'RESIDUAL']"
+              :key="t"
+              class="tw:flex-1 tw:text-xs tw:font-medium tw:rounded tw:px-3 tw:py-1.5 tw:border tw:transition-colors tw:cursor-pointer"
+              :class="
+                assessmentType === t
+                  ? 'tw:border-primary tw:bg-primary tw:text-white'
+                  : 'tw:border-divider tw:bg-white tw:text-secondary tw:hover:border-primary/50'
+              "
+              :disabled="readonly || disabled"
+              @click="setAssessmentType(t)"
+            >
+              {{ t === 'INITIAL' ? 'Initial (before mitigation)' : 'Residual (after mitigation)' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Selected risk level display -->
       <div
         v-if="selectedRiskLevel"
@@ -224,16 +370,51 @@ const notes = computed(() => props.modelValue?.notes ?? '')
         </div>
       </div>
 
-      <!-- Notes -->
+      <!-- Justification (formerly "Notes" — same field name on the
+           payload for backward compat; the label changed because the
+           text now anchors the finalized assessment's rationale, not
+           just freeform notes). -->
       <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-xs tw:font-medium tw:text-secondary">Notes (optional)</label>
+        <label class="tw:text-xs tw:font-medium tw:text-secondary">Justification</label>
         <BaseTextarea
           :modelValue="notes"
-          placeholder="Explain the rationale for this risk assessment..."
+          placeholder="Explain the rationale for this risk assessment — controls in place, what would change between initial and residual, etc."
           :rows="2"
           :readonly="readonly || disabled"
           @update:modelValue="updateNotes"
         />
+      </div>
+
+      <!-- Finalize. Mirrors RcaField's pattern — once clicked, the
+           hazard / matrix / detectability / justification are frozen
+           onto modelValue.finalized as denormalized labels + scores
+           and the BE step-submit hook derives a risk_assessments row
+           from that snapshot on next task approval. Changing any
+           input after finalize clears the stamp and requires a
+           re-finalize. -->
+      <div
+        v-if="!readonly && !disabled"
+        class="tw:flex tw:items-center tw:justify-between tw:pt-3 tw:border-t tw:border-divider"
+      >
+        <span class="tw:text-xs tw:text-secondary">
+          <template v-if="isFinalized">
+            Finalized {{ new Date(modelValue.finalized.finalizedAt).toLocaleString() }}
+          </template>
+          <template v-else-if="!canFinalize">
+            Pick a hazard category, assessment type, and a matrix cell to finalize.
+          </template>
+          <template v-else>
+            Mark complete to lock the assessment into reports.
+          </template>
+        </span>
+        <button
+          v-if="!isFinalized"
+          class="tw:text-xs tw:bg-primary tw:text-white tw:rounded tw:px-3 tw:py-1.5 tw:hover:bg-primary/90 tw:disabled:opacity-50 tw:disabled:cursor-not-allowed tw:transition-colors tw:border-0 tw:cursor-pointer"
+          :disabled="!canFinalize"
+          @click="onFinalizeAssessment"
+        >
+          Finalize Assessment
+        </button>
       </div>
     </template>
   </div>

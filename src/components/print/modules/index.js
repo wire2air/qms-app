@@ -16,8 +16,13 @@
  */
 export const printModules = {
   Document: () => import('./DocumentPrint.vue'),
+  Capa: () => import('./CapaPrint.vue'),
+  // Inspections & Logs:
+  //   FieldRecord — one log entry
+  //   LogBook     — many entries from one log book, date-range filtered
+  FieldRecord: () => import('./FieldRecordPrint.vue'),
+  LogBook: () => import('./LogBookPrint.vue'),
   // Future:
-  // Capa: () => import('./CapaPrint.vue'),
   // Nonconformance: () => import('./NonconformancePrint.vue'),
 }
 

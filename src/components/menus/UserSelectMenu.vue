@@ -1,4 +1,6 @@
 <script setup>
+import { IconPlus } from '@tabler/icons-vue'
+
 const props = defineProps({
   required: {
     type: Boolean,
@@ -23,6 +25,25 @@ const props = defineProps({
     type: Array,
     default: null,
   },
+  // Restrict to a kind. Default 'INTERNAL' so the generic picker no
+  // longer leaks supplier users into screens it never used to (workflow
+  // step assignees, admin users home, etc).
+  //   'INTERNAL'           — staff only (default)
+  //   'EXTERNAL_SUPPLIER'  — supplier users only
+  //   null                 — both kinds, e.g. for system-wide impersonate
+  //                          or future cross-kind tooling
+  kind: {
+    type: String,
+    default: 'INTERNAL',
+    validator: (v) => v === null || v === 'INTERNAL' || v === 'EXTERNAL_SUPPLIER',
+  },
+  // Restrict to users at a given supplier (paired with kind='EXTERNAL_SUPPLIER').
+  // Useful for picking a supplier reviewer at NC/CAPA submit time when
+  // entity.supplierId is set. Ignored when kind != 'EXTERNAL_SUPPLIER'.
+  supplierId: {
+    type: String,
+    default: null,
+  },
 })
 
 const modelValue = defineModel({
@@ -30,11 +51,16 @@ const modelValue = defineModel({
   default: null,
 })
 
-const users = useLiveQuery(
-  async (db) => {
-    const users = await db.User.where().exec()
-    return users
-      .filter((u) => props.includeInactive || u.userStatusId === 'ACTIVE')
+const users = useLiveQueryWithDeps(
+  [() => props.kind, () => props.supplierId, () => props.includeInactive],
+  async (db, [kind, supplierId, includeInactive]) => {
+    const all = await db.User.where().exec()
+    return all
+      .filter((u) => includeInactive || u.userStatusId === 'ACTIVE')
+      .filter((u) => (kind ? u.kind === kind : true))
+      .filter((u) =>
+        kind === 'EXTERNAL_SUPPLIER' && supplierId ? u.supplierId === supplierId : true,
+      )
       .map((user) => ({ id: user.id, name: `${user.firstName} ${user.lastName}` }))
   },
   { initial: [] },
@@ -102,7 +128,7 @@ function getArray() {
       <slot name="button" v-bind="scope">
         <!-- MULTIPLE MODE -->
         <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
+          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
             <UserBadgeById
               v-for="userId in getArray()"
               :key="userId"
@@ -110,6 +136,16 @@ function getArray() {
               :clearable="!required || getArray().length > 1"
               @clear="() => scope.clear(userId)"
             />
+            <!-- Explicit "add more" affordance — without it the badge
+                 row visually reads as final / single-select. Click is
+                 captured by the surrounding popover trigger and opens
+                 the menu. -->
+            <span
+              class="tw:inline-flex tw:items-center tw:gap-0.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:bg-primary/10 tw:rounded tw:px-1.5 tw:py-0.5 tw:cursor-pointer tw:border tw:border-dashed tw:border-primary/40"
+            >
+              <IconPlus :size="12" />
+              Add
+            </span>
           </div>
           <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Users </span>
         </template>

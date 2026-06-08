@@ -21,9 +21,15 @@ const METHODS = [
   { key: 'whytree', label: 'Why Tree', component: WhyTreeAnalysis },
 ]
 
+// Prefer the embedded snapshot — that's what works for supplier users
+// (who can't SELECT rca_templates via RLS) and locks the template
+// version at workflow-creation time. Fall back to the FK lookup for
+// any not-yet-migrated rows. See bootstrapCompanyDefaults.js
+// rcaStepSchema for the embedded shape.
 const template = useLiveQueryWithDeps(
-  [() => props.field.rcaTemplateId],
-  async (db, [id]) => {
+  [() => props.field.rcaTemplate, () => props.field.rcaTemplateId],
+  async (db, [embedded, id]) => {
+    if (embedded?.config) return embedded
     if (!id) return null
     return db.RcaTemplate.findByPk(id)
   },
@@ -114,31 +120,144 @@ function buildFishboneSummary(fishboneData) {
   return parts.join('; ')
 }
 
+// ─── Outcome (root causes) ────────────────────────────────────────────────────
+//
+// Multi-row outcome: one is_primary=true row (always present, can't be
+// removed) plus zero or more contributing rows. Each row carries a
+// category + description; labels + colours are frozen onto the row at
+// Finalize time so post-finalize reports are drift-resistant.
+//
+// Backward-compat: older records stored a single string at
+// outcome.rootCause. If that's all we have, synthesize a primary row
+// from it so editing continues to work.
+
+const categories = useLiveQuery(
+  (db) => db.RootCauseCategory.where().orderBy('displayOrder').exec(),
+  { initial: [] },
+)
+
+const rootCauses = computed(() => {
+  const stored = props.modelValue?.outcome?.rootCauses
+  if (Array.isArray(stored) && stored.length > 0) return stored
+  const legacy = props.modelValue?.outcome?.rootCause
+  return [
+    {
+      description: legacy ?? '',
+      isPrimary: true,
+      categoryId: null,
+      categoryLabel: null,
+      categoryColor: null,
+    },
+  ]
+})
+
+function emitRootCauses(nextRows) {
+  // Mirror the primary description to outcome.rootCause so the legacy
+  // field stays in sync — read-only viewers + older code paths still
+  // render the canonical summary without knowing about the array.
+  const primary = nextRows.find((r) => r.isPrimary)
+  emit('update:modelValue', {
+    ...props.modelValue,
+    outcome: {
+      ...(props.modelValue?.outcome ?? {}),
+      rootCauses: nextRows,
+      rootCause: primary?.description ?? '',
+    },
+  })
+}
+
+function updateRow(index, patch) {
+  const next = rootCauses.value.map((row, i) => (i === index ? { ...row, ...patch } : row))
+  emitRootCauses(next)
+}
+
+function addContributingRow() {
+  emitRootCauses([
+    ...rootCauses.value,
+    {
+      description: '',
+      isPrimary: false,
+      categoryId: null,
+      categoryLabel: null,
+      categoryColor: null,
+    },
+  ])
+}
+
+function removeRow(index) {
+  // Primary row can't be removed — the outcome has to have one
+  // canonical cause. UI hides the delete affordance on it, but guard
+  // here too in case it ever gets called.
+  if (rootCauses.value[index]?.isPrimary) return
+  emitRootCauses(rootCauses.value.filter((_, i) => i !== index))
+}
+
 function onMethodUpdate(val) {
   const updated = { ...props.modelValue, [chosenMethod.value]: val }
 
-  // Auto-populate root cause from fishbone causes while not yet finalized
+  // Auto-populate the PRIMARY row's description from the fishbone
+  // causes while not yet finalized. Keeps the old "Auto-filled from
+  // causes" affordance working in the new multi-row world.
   if (chosenMethod.value === 'fishbone' && !props.modelValue?.outcome?.completedAt) {
     const summary = buildFishboneSummary(val)
     if (summary) {
-      updated.outcome = { ...(updated.outcome ?? {}), rootCause: summary }
+      const rows = rootCauses.value
+      const nextRows = rows.map((row, i) =>
+        i === 0 && row.isPrimary ? { ...row, description: summary } : row,
+      )
+      updated.outcome = {
+        ...(updated.outcome ?? {}),
+        rootCauses: nextRows,
+        rootCause: summary,
+      }
     }
   }
 
   emit('update:modelValue', updated)
 }
 
-function onRootCauseUpdate(rootCause) {
-  emit('update:modelValue', {
-    ...props.modelValue,
-    outcome: { ...props.modelValue?.outcome, rootCause },
-  })
+function categoryById(id) {
+  return categories.value.find((c) => c.id === id) ?? null
 }
 
 function onFinalize() {
+  // Freeze category labels + colours into each row at finalize time
+  // so a later rename / soft-delete of the category doesn't reshape
+  // historical reports. Skips rows with empty descriptions — they're
+  // contributing placeholders the user left blank.
+  const methodCode = chosenMethod.value ? String(chosenMethod.value).toUpperCase() : null
+  const frozenRows = rootCauses.value
+    .filter((r) => r.description?.trim())
+    .map((r) => {
+      const cat = r.categoryId ? categoryById(r.categoryId) : null
+      return {
+        description: r.description.trim(),
+        isPrimary: !!r.isPrimary,
+        categoryId: r.categoryId ?? null,
+        categoryLabel: cat?.name ?? null,
+        categoryColor: cat?.color ?? null,
+        methodUsed: methodCode,
+        evidenceUrl: r.evidenceUrl ?? null,
+      }
+    })
+
+  // Guarantee one primary row in the frozen output — if the user
+  // wiped the primary description but kept contributing rows, promote
+  // the first contributing row to primary so the BE derivation has
+  // someone to flag.
+  if (frozenRows.length > 0 && !frozenRows.some((r) => r.isPrimary)) {
+    frozenRows[0].isPrimary = true
+  }
+
+  const primary = frozenRows.find((r) => r.isPrimary)
   emit('update:modelValue', {
     ...props.modelValue,
-    outcome: { ...props.modelValue?.outcome, completedAt: new Date().toISOString() },
+    outcome: {
+      ...(props.modelValue?.outcome ?? {}),
+      rootCauses: frozenRows,
+      rootCause: primary?.description ?? '',
+      completedAt: new Date().toISOString(),
+    },
   })
 }
 
@@ -214,22 +333,85 @@ const isCompleted = computed(() => !!props.modelValue?.outcome?.completedAt)
         <!-- Outcome -->
         <div class="tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:flex-col tw:gap-3">
           <div class="tw:flex tw:items-center tw:justify-between">
-            <div class="tw:text-sm tw:font-semibold tw:text-on-main">Root Cause Conclusion</div>
+            <div class="tw:text-sm tw:font-semibold tw:text-on-main">Root Causes</div>
             <span
               v-if="chosenMethod === 'fishbone' && !isCompleted && !readonly && !disabled"
               class="tw:text-xs tw:text-secondary tw:italic"
             >
-              Auto-filled from causes
+              Primary auto-filled from causes
             </span>
           </div>
-          <BaseTextarea
-            :modelValue="modelValue?.outcome?.rootCause ?? ''"
-            placeholder="Summarize the identified root cause..."
-            :rows="3"
-            :readonly="readonly || disabled"
-            @update:modelValue="onRootCauseUpdate"
-          />
-          <div v-if="!readonly && !disabled" class="tw:flex tw:items-center tw:justify-between">
+
+          <!-- Multi-row outcome. Row 0 is always primary (one canonical
+               cause per analysis); contributing rows can be added /
+               removed freely. -->
+          <div
+            v-for="(row, idx) in rootCauses"
+            :key="idx"
+            class="tw:border tw:border-divider tw:rounded-md tw:p-3 tw:flex tw:flex-col tw:gap-2"
+            :class="row.isPrimary ? 'tw:bg-primary/5' : 'tw:bg-main-hover/40'"
+          >
+            <div class="tw:flex tw:items-center tw:gap-2">
+              <span
+                class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:px-2 tw:py-0.5 tw:rounded"
+                :class="
+                  row.isPrimary
+                    ? 'tw:bg-primary tw:text-white'
+                    : 'tw:bg-divider tw:text-secondary'
+                "
+              >
+                {{ row.isPrimary ? 'Primary' : 'Contributing' }}
+              </span>
+              <div class="tw:flex-1 tw:min-w-0">
+                <!-- Edit view: live picker via SelectMenu. After finalize,
+                     the row's frozen categoryLabel is what the readonly
+                     view reads — but we keep the live picker so the user
+                     can still change the live category before the next
+                     finalize. -->
+                <RootCauseCategorySelectMenu
+                  v-if="!readonly && !disabled && !isCompleted"
+                  :modelValue="row.categoryId"
+                  @update:modelValue="(v) => updateRow(idx, { categoryId: v })"
+                />
+                <RootCauseCategoryBadgeById
+                  v-else-if="row.categoryId"
+                  :categoryId="row.categoryId"
+                />
+                <span v-else class="tw:text-xs tw:text-secondary tw:italic">
+                  No category
+                </span>
+              </div>
+              <button
+                v-if="!row.isPrimary && !readonly && !disabled && !isCompleted"
+                class="tw:text-xs tw:text-secondary tw:hover:text-red-600 tw:bg-transparent tw:border-0 tw:cursor-pointer tw:px-2 tw:py-1"
+                title="Remove contributing cause"
+                @click="removeRow(idx)"
+              >
+                ✕
+              </button>
+            </div>
+            <BaseTextarea
+              :modelValue="row.description"
+              :placeholder="
+                row.isPrimary
+                  ? 'Articulate the primary root cause…'
+                  : 'Describe a contributing factor…'
+              "
+              :rows="2"
+              :readonly="readonly || disabled || isCompleted"
+              @update:modelValue="(v) => updateRow(idx, { description: v })"
+            />
+          </div>
+
+          <button
+            v-if="!readonly && !disabled && !isCompleted"
+            class="tw:self-start tw:text-xs tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:px-0"
+            @click="addContributingRow"
+          >
+            + Add contributing cause
+          </button>
+
+          <div v-if="!readonly && !disabled" class="tw:flex tw:items-center tw:justify-between tw:pt-2 tw:border-t tw:border-divider">
             <span class="tw:text-xs tw:text-secondary">
               {{ isCompleted
                 ? `Completed ${new Date(modelValue.outcome.completedAt).toLocaleString()}`

@@ -30,9 +30,19 @@ import {
   IconSitemap,
   IconLayoutGrid,
   IconSchool,
+  IconReplace,
+  IconClipboardList,
+  IconClipboardCheck,
+  IconTool,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
-import { logoutCurrentSession, currentSession, isAllowed, isAdmin } from '@/utils/currentSession'
+import {
+  logoutCurrentSession,
+  currentSession,
+  isAllowed,
+  isAdmin,
+  isSupplier,
+} from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
 
@@ -82,6 +92,44 @@ const logoUrl = computed(() => {
 
 // Navigation items
 const navItems = computed(() => {
+  // EXTERNAL_SUPPLIER users get a stripped-down menu — just the things
+  // they can actually act on. No admin/settings/training/audit. The
+  // dashboard at /[code]/supplier is their landing page.
+  if (isSupplier.value) {
+    return [
+      {
+        label: 'Dashboard',
+        icon: IconChartBar,
+        to: getCompanyPath('/supplier'),
+      },
+      {
+        label: 'Document Requests',
+        icon: IconInbox,
+        to: getCompanyPath('/supplier/document-requests'),
+      },
+      {
+        label: 'My Tasks',
+        icon: IconCheckbox,
+        to: getCompanyPath('/task-instances'),
+      },
+      {
+        label: 'Documents',
+        icon: IconFileText,
+        to: getCompanyPath('/documents'),
+      },
+      {
+        label: 'Nonconformances',
+        icon: IconAlertCircle,
+        to: getCompanyPath('/nonconformances'),
+      },
+      {
+        label: 'CAPAs',
+        icon: IconShield,
+        to: getCompanyPath('/capas'),
+      },
+    ]
+  }
+
   return [
     {
       label: 'Records',
@@ -111,6 +159,31 @@ const navItems = computed(() => {
       permissions: ['capas:read'],
       icon: IconShield,
       to: getCompanyPath('/capas'),
+    },
+    {
+      label: 'Change Requests',
+      permissions: ['changeRequests:read'],
+      icon: IconReplace,
+      to: getCompanyPath('/change-requests'),
+    },
+    {
+      label: 'Inspections & Logs',
+      icon: IconClipboardList,
+      // Single broadly-granted gate. The landing page itself shows /
+      // hides individual cards based on finer-grained permissions
+      // (inspections:assign for plans, fieldRecords:review for the
+      // review queue, etc.).
+      permissions: ['fieldRecords:create'],
+      to: getCompanyPath('/inspections-logs'),
+    },
+    {
+      // Floor-user logging entry — mobile-first dashboard (pick a log
+      // book → fill) + My Tasks. The route wrapped in the iOS/Android
+      // WebView later. Distinct from the admin "Inspections & Logs".
+      label: 'Logging',
+      icon: IconClipboardCheck,
+      permissions: ['fieldRecords:create'],
+      to: getCompanyPath('/logging'),
     },
     {
       label: 'Training',
@@ -188,10 +261,24 @@ const navItems = computed(() => {
           to: getCompanyPath('/document-templates'),
         },
         {
-          label: 'Products',
+          // Industry-aligned label: "Item Master" for the admin
+          // catalog page. Covers raw materials, components, WIP, and
+          // finished goods — matches ERP terminology. Underlying DB
+          // table stays `products` (UI-only relabel decision
+          // 2026-05-26); operational selectors use "Item".
+          label: 'Item Master',
           permissions: ['products:read'],
           icon: IconPackage,
           to: getCompanyPath('/products'),
+        },
+        {
+          label: 'Equipment',
+          // No `equipment:read` gate by design — RLS SELECT lets any
+          // in-tenant user see the catalog, since log book authors need
+          // to pick equipment without needing a separate permission.
+          // Visibility is via the menu link being available to all.
+          icon: IconTool,
+          to: getCompanyPath('/equipment'),
         },
         {
           label: 'Suppliers',
@@ -215,6 +302,12 @@ const navItems = computed(() => {
           label: 'Option Sets',
           icon: IconList,
           to: getCompanyPath('/option-sets'),
+        },
+        {
+          label: 'NC Dispositions',
+          permissions: ['ncDispositionTypes:manage'],
+          icon: IconList,
+          to: getCompanyPath('/settings?tab=lookups'),
         },
         {
           label: 'Sites',
@@ -315,9 +408,11 @@ const navItems = computed(() => {
           </div>
           <div class="tw:flex tw:flex-col">
             <div class="tw:text-on-sidebar tw:text-base tw:font-bold tw:leading-tight">
-              QMS Admin
+              {{ isSupplier ? 'Supplier Portal' : 'QMS Admin' }}
             </div>
-            <div class="tw:text-secondary tw:text-xs tw:font-medium">Quality Management</div>
+            <div class="tw:text-secondary tw:text-xs tw:font-medium">
+              {{ isSupplier ? 'Documents & Tasks' : 'Quality Management' }}
+            </div>
           </div>
         </div>
 

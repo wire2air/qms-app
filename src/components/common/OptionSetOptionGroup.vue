@@ -8,14 +8,23 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  // Embedded OptionSet snapshot — { id, name, options }. When present,
+  // skips the FK lookup entirely so supplier users (who can't SELECT
+  // option_sets via RLS) can still render. See ConfigOptions for the
+  // embed-on-pick watcher.
+  optionSet: {
+    type: Object,
+    default: null,
+  },
 })
 
 // Use WOptionGroup props
 const attrs = useAttrs()
 
-const optionSet = useLiveQueryWithDeps(
-  [() => props.optionSetId],
-  async (db, [optionSetId]) => {
+const fkOptionSet = useLiveQueryWithDeps(
+  [() => props.optionSetId, () => !!props.optionSet],
+  async (db, [optionSetId, hasEmbed]) => {
+    if (hasEmbed) return null // embedded wins; skip the lookup
     if (!optionSetId) return null
     return db.OptionSet.findByPk(optionSetId)
   },
@@ -23,8 +32,9 @@ const optionSet = useLiveQueryWithDeps(
 )
 
 const computedOptions = computed(() => {
-  if (optionSet.value?.options) {
-    return optionSet.value.options.map((opt) => {
+  const source = props.optionSet?.options ?? fkOptionSet.value?.options
+  if (source) {
+    return source.map((opt) => {
       if (typeof opt === 'string') return { label: opt, value: opt }
       return opt
     })

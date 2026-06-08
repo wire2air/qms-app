@@ -15,12 +15,56 @@ import { useDebounceFn } from '@vueuse/core'
 import { put } from '@/api'
 import { QMS_TEMPLATES } from '@/constants/formTemplates'
 
+const props = defineProps({
+  /**
+   * Pre-classify the new template for an Inspections & Logs flow.
+   *   - 'OPERATIONAL_LOG' — routine field log, auto-locks 15 min after
+   *     submit, no esig, no review by default.
+   *   - 'CONTROLLED_RECORD' — regulated record, esig required at submit,
+   *     review required, edits only allowed UNTIL_REVIEW.
+   * When set, the resulting template.config carries the matching
+   * classification + sane edit/signature defaults so floor users get
+   * the right behavior with zero extra configuration. Admin can still
+   * fine-tune on the template detail page afterwards.
+   */
+  defaultClassification: {
+    type: String,
+    default: null,
+    validator: (v) => v === null || ['OPERATIONAL_LOG', 'CONTROLLED_RECORD'].includes(v),
+  },
+})
+
 const emit = defineEmits(['next', 'cancel'])
 
 const open = defineModel({
   type: Boolean,
   default: false,
 })
+
+/**
+ * Build the I&L config payload baked onto template.config when the
+ * dialog is opened with `defaultClassification` set. Matches the shape
+ * read by FieldRecordsList / AddRecordDialog / fieldRecordService.
+ */
+function classificationConfigDefaults(cls) {
+  if (cls === 'OPERATIONAL_LOG') {
+    return {
+      recordClassification: 'OPERATIONAL_LOG',
+      editWindow: { mode: 'TIME_WINDOW', durationMinutes: 15 },
+      signature: { requiredAtSubmission: false },
+      review: { required: false },
+    }
+  }
+  if (cls === 'CONTROLLED_RECORD') {
+    return {
+      recordClassification: 'CONTROLLED_RECORD',
+      editWindow: { mode: 'UNTIL_REVIEW' },
+      signature: { requiredAtSubmission: true },
+      review: { required: true },
+    }
+  }
+  return null
+}
 
 const templateForm = reactive({
   title: '',
@@ -37,16 +81,29 @@ const templateForm = reactive({
   isValid: computed(() => {
     const titleValid = templateForm.title.trim().length > 0
     const codeValid = /^[a-z0-9-_]+$/i.test(templateForm.code.trim())
-    const documentTypeValid = templateForm.documentTypeId !== null
+    // I&L log books skip the manual Document Type pick; the watch
+    // below stamps INSPECTION_LOG so the field is always populated.
+    const documentTypeValid =
+      props.defaultClassification !== null || templateForm.documentTypeId !== null
     return titleValid && codeValid && documentTypeValid && templateForm.code.trim().length >= 2
   }),
 })
 
 const isCodeChangeFromTitle = ref(false)
 
+// Auto-stamped DocumentType for the I&L flow. The taxonomy of
+// SOP / POLICY / CAPA / NC / AUDIT carries no meaning for routine
+// logs, so we hide the field and pin it to a catch-all type seeded
+// by migration 20260628000800.
+const INSPECTION_LOG_DOC_TYPE_ID = 'INSPECTION_LOG'
+
 const templateRules = computed(() => ({
   title: { required: helpers.withMessage('Required', required) },
-  documentTypeId: { required: helpers.withMessage('Required', required) },
+  // Document Type only matters for controlled-document forms; I&L
+  // log books get the field hidden and auto-stamped below.
+  ...(props.defaultClassification
+    ? {}
+    : { documentTypeId: { required: helpers.withMessage('Required', required) } }),
   code: { required: helpers.withMessage('Required', required) },
 }))
 
@@ -121,16 +178,37 @@ watch(
   },
 )
 
+// Stamp the auto-assigned doc type as soon as the dialog opens in I&L
+// mode. Watching `open` (rather than running once) so re-opening
+// after a cancel/reset still pins the value before the wizard renders.
+watch(
+  open,
+  (isOpen) => {
+    if (isOpen && props.defaultClassification) {
+      templateForm.documentTypeId = INSPECTION_LOG_DOC_TYPE_ID
+    }
+  },
+  { immediate: true },
+)
+
 const createTemplate = useLiveMutation(async (db, formData) => {
+  const inspectionsConfig = classificationConfigDefaults(props.defaultClassification)
+  // I&L templates skip the DRAFT phase. The draft-then-activate dance
+  // exists for controlled-document forms (CAPA / NC / Audit) that
+  // typically go through a review before becoming part of the QMS. A
+  // routine inspection log doesn't need that ceremony — admin clicked
+  // "New Inspection Form", so they meant it.
+  const statusId = props.defaultClassification ? 'ACTIVE' : formData.status
   const template = db.FormTemplate.create({
     title: formData.title,
     code: formData.code,
     documentTypeId: formData.documentTypeId,
-    statusId: formData.status,
+    statusId,
     schema: formData.schema || [],
     config: {
       trainingRequired: formData.trainingRequired,
       retrainingOnRevision: formData.retrainingOnRevision,
+      ...(inspectionsConfig ?? {}),
     },
   })
   await template.save()
@@ -209,9 +287,14 @@ function prevStep() {
     <!-- Wizard Header -->
     <div class="tw:flex tw:justify-between tw:items-center tw:mb-4">
       <div>
-        <div class="tw:text-xl tw:font-bold tw:text-on-main">Create New Template</div>
+        <div class="tw:text-xl tw:font-bold tw:text-on-main">
+          {{ defaultClassification ? 'New Inspection &amp; Log Form' : 'Create New Template' }}
+        </div>
         <div class="tw:text-xs tw:text-secondary">
           Step {{ step }}: {{ step === 1 ? 'Define Metadata' : 'Choose Template' }}
+          <span v-if="defaultClassification" class="tw:ml-2 tw:text-amber-700 tw:font-medium">
+            · pre-set as {{ defaultClassification.replace('_', ' ') }}
+          </span>
         </div>
       </div>
       <button
@@ -238,9 +321,15 @@ function prevStep() {
           />
         </div>
 
-        <!-- Document Type & Code Row -->
-        <div class="tw:grid tw:grid-cols-2 tw:gap-4">
-          <div>
+        <!-- Document Type & Code Row.
+             Document Type is hidden in I&L mode — log books are auto-
+             stamped with the INSPECTION_LOG doc type. Code spans full
+             width when the doc-type field is hidden. -->
+        <div
+          class="tw:grid tw:gap-4"
+          :class="defaultClassification ? 'tw:grid-cols-1' : 'tw:grid-cols-2'"
+        >
+          <div v-if="!defaultClassification">
             <label class="tw:text-sm tw:font-medium tw:text-on-main"
               >Document Type <span class="tw:text-bad">*</span></label
             >
@@ -274,8 +363,12 @@ function prevStep() {
           </div>
         </div>
 
-        <!-- Training Configuration -->
-        <div class="tw:bg-main-hover tw:p-3 tw:rounded-lg">
+        <!-- Training Configuration — hidden in I&L mode. Inspection &
+             log entries are quick floor-worker actions; tying them to
+             training assignments is a controlled-document concern, not
+             a record-entry one. Admin can still flip these on the
+             template detail page if they need to. -->
+        <div v-if="!defaultClassification" class="tw:bg-main-hover tw:p-3 tw:rounded-lg">
           <div class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:mb-3">
             Training Configuration
           </div>

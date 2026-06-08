@@ -26,6 +26,7 @@ export class WorkflowStep extends BaseModel {
   @Property({ type: String }) description = ''
   @Property({ type: Number, required: true }) stepOrder = 0
   @Property({ type: String, required: true }) approvalRule = 'ALL'
+  @Property({ type: String, required: true }) stepType = 'ACTION'
   @Property({ type: Number }) slaDays = 10
   @Property({ type: Boolean }) requireComments = false
   @Property({ type: Boolean }) requireEsignature = false

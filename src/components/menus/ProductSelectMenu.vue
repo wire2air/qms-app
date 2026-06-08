@@ -77,7 +77,7 @@ function getArray() {
                 />
               </div>
               <BaseBadge v-else class="tw:text-sm tw:font-medium tw:text-placeholder" selectable>
-                Select Products
+                Select Items
               </BaseBadge>
             </template>
 
@@ -91,7 +91,7 @@ function getArray() {
                 @clear="() => scope.clear(modelValue)"
               />
               <BaseBadge v-else class="tw:text-sm tw:font-medium tw:text-placeholder" selectable>
-                Select Product
+                Select Item
               </BaseBadge>
             </template>
           </slot>
@@ -104,7 +104,7 @@ function getArray() {
             @click="openCreateDialog(close)"
           >
             <IconPlus :size="16" />
-            Add New Product
+            Add New Item
           </button>
         </template>
       </BaseSelectMenu>

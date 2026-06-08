@@ -22,6 +22,7 @@ function getArray() {
     :items="dispositionTypes"
     :required="required"
     :multiple="multiple"
+    nullLabel="— Select —"
   >
     <template #button="scope">
       <slot name="button" v-bind="scope">

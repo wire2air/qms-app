@@ -3,7 +3,6 @@ import { IconBellOff } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 
 const emit = defineEmits(['close'])
-const route = useRoute()
 
 const notifications = useLiveQuery(
   async (db) => db.Notification.where().orderBy('createdAt', 'desc').exec(),
@@ -12,7 +11,7 @@ const notifications = useLiveQuery(
 
 const unreadCount = computed(() => notifications.value.filter((n) => !n.isRead).length)
 const previewNotifications = computed(() => notifications.value.slice(0, 6))
-const viewAllPath = computed(() => `/${route.params.companyCode}/notifications`)
+const viewAllPath = '/notifications'
 
 const markAllAsRead = useLiveMutation(async (db) => {
   const all = await db.Notification.where().exec()
