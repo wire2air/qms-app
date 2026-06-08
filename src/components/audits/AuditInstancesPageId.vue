@@ -28,6 +28,7 @@ import {
   IconPlus,
   IconTrash,
   IconPrinter,
+  IconBulb,
 } from '@tabler/icons-vue'
 import { useAuditScoring } from '@/composables/useAuditScoring'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
@@ -47,7 +48,17 @@ const auditInstance = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
 )
 
 // #1 — conformance scoring rollup (shared with the printable report).
-const { scoring } = useAuditScoring(() => props.id)
+const { scoring, responses } = useAuditScoring(() => props.id)
+
+// Close-out readiness: every assessable clause (those with a question) must
+// have a response. Section headers (no question) aren't assessed.
+const respondedIds = computed(() => new Set(responses.value.map((r) => r.requirementId)))
+const assessableClauses = computed(() =>
+  (auditInstance.value?.requirementSchema ?? []).filter((c) => c.question),
+)
+const unassessedCount = computed(
+  () => assessableClauses.value.filter((c) => !respondedIds.value.has(c.requirementId)).length,
+)
 
 function openReport() {
   router.push({ path: getCompanyPath('/print'), query: { module: 'AuditInstance', id: props.id } })
@@ -307,6 +318,7 @@ const auditTabs = computed(() => [
   { id: 'info', label: 'Information', icon: IconClipboardCheck, count: null },
   { id: 'requirements', label: 'Requirements', icon: IconClipboardList, count: clauseCount.value },
   { id: 'findings', label: 'Findings', icon: IconBolt, count: findingsByStatus.value.total },
+  { id: 'ofi', label: 'OFI', icon: IconBulb, count: scoring.value.counts.OFI },
 ])
 </script>
 
@@ -345,18 +357,23 @@ const auditTabs = computed(() => [
           v-if="canSubmitForCloseOut"
           variant="primary"
           size="sm"
-          :disabled="findingsByStatus.open > 0"
+          :disabled="unassessedCount > 0 || findingsByStatus.open > 0"
           :title="
-            findingsByStatus.open > 0
-              ? `Resolve or close all findings first — ${findingsByStatus.open} still open.`
-              : 'Submit this audit for close-out'
+            unassessedCount > 0
+              ? `Assess all requirements first — ${unassessedCount} not yet assessed.`
+              : findingsByStatus.open > 0
+                ? `Resolve or close all findings first — ${findingsByStatus.open} still open.`
+                : 'Submit this audit for close-out'
           "
           @click="showSubmitDialog = true"
         >
           <IconSend :size="16" class="tw:mr-1" />
           Submit for Close-Out
-          <span v-if="findingsByStatus.open > 0" class="tw:ml-1 tw:text-[10px] tw:opacity-80">
-            ({{ findingsByStatus.open }} open)
+          <span
+            v-if="unassessedCount > 0 || findingsByStatus.open > 0"
+            class="tw:ml-1 tw:text-[10px] tw:opacity-80"
+          >
+            ({{ unassessedCount > 0 ? `${unassessedCount} unassessed` : `${findingsByStatus.open} open` }})
           </span>
         </BaseButton>
         <BaseButton
@@ -589,6 +606,17 @@ const auditTabs = computed(() => [
                 Findings
               </div>
               <AuditFindingsPanel :auditInstance="auditInstance" :readonly="!isEditable" />
+            </div>
+
+            <!-- OFI — opportunities for improvement (requirement results = OFI) -->
+            <div v-show="tab === 'ofi'" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+              <div
+                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              >
+                <IconBulb :size="14" />
+                Opportunities for Improvement
+              </div>
+              <AuditOfiPanel :auditInstance="auditInstance" />
             </div>
 
             <!-- Document Request — the documents requested for the audit.
