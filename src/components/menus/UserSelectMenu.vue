@@ -44,6 +44,11 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  // Restrict to users in a given department (null = no department filter).
+  departmentId: {
+    type: String,
+    default: null,
+  },
 })
 
 const modelValue = defineModel({
@@ -52,8 +57,8 @@ const modelValue = defineModel({
 })
 
 const users = useLiveQueryWithDeps(
-  [() => props.kind, () => props.supplierId, () => props.includeInactive],
-  async (db, [kind, supplierId, includeInactive]) => {
+  [() => props.kind, () => props.supplierId, () => props.includeInactive, () => props.departmentId],
+  async (db, [kind, supplierId, includeInactive, departmentId]) => {
     const all = await db.User.where().exec()
     return all
       .filter((u) => includeInactive || u.userStatusId === 'ACTIVE')
@@ -61,6 +66,7 @@ const users = useLiveQueryWithDeps(
       .filter((u) =>
         kind === 'EXTERNAL_SUPPLIER' && supplierId ? u.supplierId === supplierId : true,
       )
+      .filter((u) => (departmentId ? u.departmentId === departmentId : true))
       .map((user) => ({ id: user.id, name: `${user.firstName} ${user.lastName}` }))
   },
   { initial: [] },

@@ -57,7 +57,7 @@ const supplierRequired = computed(() => form.value.programTypeId === 'SUPPLIER')
 // Switching audit type or supplier invalidates a previously-picked auditee
 // (internal ↔ supplier user, or a different supplier's user) — clear it.
 watch(
-  () => [form.value.programTypeId, form.value.supplierId],
+  () => [form.value.programTypeId, form.value.supplierId, form.value.departmentId],
   () => {
     form.value.auditeeUserId = null
   },
@@ -180,22 +180,25 @@ async function handleSave({ navigate }) {
           />
         </div>
       </div>
-      <div v-else>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Auditee <span class="tw:font-normal tw:normal-case tw:text-secondary">(notified; read-only access)</span>
-        </p>
-        <UserSelectMenu v-model="form.auditeeUserId" />
-      </div>
-
-      <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+      <!-- Internal: Department + Auditee on one line; the auditee list is
+           filtered to the chosen department. (Department is omitted for
+           supplier audits — it has no meaning there.) -->
+      <div v-else class="tw:grid tw:grid-cols-2 tw:gap-3">
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Department</p>
           <DepartmentSelectMenu v-model="form.departmentId" />
         </div>
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Site</p>
-          <SiteSelectMenu v-model="form.siteId" />
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+            Auditee <span class="tw:font-normal tw:normal-case tw:text-secondary">(notified; read-only)</span>
+          </p>
+          <UserSelectMenu v-model="form.auditeeUserId" :departmentId="form.departmentId" />
         </div>
+      </div>
+
+      <div>
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Site</p>
+        <SiteSelectMenu v-model="form.siteId" />
       </div>
 
       <div>

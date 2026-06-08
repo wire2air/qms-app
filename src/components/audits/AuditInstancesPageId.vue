@@ -555,13 +555,17 @@ watch(auditTabs, (tabs) => {
                     nullLabel="-- Select --"
                     :kind="auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'"
                     :supplierId="auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null"
+                    :departmentId="auditInstance.programTypeId === 'SUPPLIER' ? null : auditInstance.departmentId"
                   />
                   <span v-else-if="auditInstance.displayMeta?.auditeeName" class="tw:text-sm">
                     {{ auditInstance.displayMeta.auditeeName }}
                   </span>
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
+                <div
+                  v-if="auditInstance.programTypeId !== 'SUPPLIER'"
+                  class="tw:flex tw:flex-col tw:gap-1"
+                >
                   <div class="tw:text-xs tw:text-secondary">Department</div>
                   <DepartmentSelectMenu
                     v-if="isEditable"
