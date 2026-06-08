@@ -504,6 +504,7 @@ const auditTabs = computed(() => [
                   <UserSelectMenu
                     v-if="isEditable"
                     v-model="auditInstance.auditeeUserId"
+                    nullLabel="-- Select --"
                     :kind="auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'"
                     :supplierId="auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null"
                   />
