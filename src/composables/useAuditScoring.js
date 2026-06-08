@@ -18,8 +18,14 @@ import { useLiveQueryWithDeps } from '@/composables/useLiveQuery'
  * @param {import('vue').Ref<string>|string} auditInstanceId
  */
 export function useAuditScoring(auditInstanceId) {
+  // Accept a getter (() => id), a ref, or a plain string. unref alone does NOT
+  // invoke a getter — without this the id became the function itself and the
+  // query fell back to scanning EVERY audit's responses (wrong totals).
+  const readId = () =>
+    typeof auditInstanceId === 'function' ? auditInstanceId() : unref(auditInstanceId)
+
   const responses = useLiveQueryWithDeps(
-    [() => unref(auditInstanceId)],
+    [() => readId()],
     async (db, [id]) => {
       if (!id) return []
       return db.AuditRequirementResponse.where('auditInstanceId', id).exec()
