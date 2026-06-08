@@ -30,7 +30,9 @@ export class AuditDocumentRequest extends BaseModel {
   @Property({ type: String }) notes = ''
   @Property({ type: Number }) displayOrder = 1000
   @Property({ type: String }) createdBy = ''
-  @Property({ type: DateTime, timestamp: true }) createdAt = null
-  @Property({ type: DateTime, autoUpdate: true }) updatedAt = null
-  @Property({ type: DateTime }) deletedAt = null
+  @Property({ type: DateTime, required: true, timestamp: true })
+  createdAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime, required: true, timestamp: true, autoUpdate: true })
+  updatedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
 }
