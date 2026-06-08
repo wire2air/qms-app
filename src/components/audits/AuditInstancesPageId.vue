@@ -676,7 +676,13 @@ watch(auditTabs, (tabs) => {
                 <IconBolt :size="14" />
                 Findings
               </div>
-              <AuditFindingsPanel :auditInstance="auditInstance" :readonly="!isEditable" />
+              <AuditFindingsPanel
+                :auditInstance="auditInstance"
+                :readonly="!isEditable"
+                :canRespond="
+                  auditInstance.programTypeId === 'SUPPLIER' && (isEditable || isAuditee)
+                "
+              />
             </div>
 
             <!-- OFI — opportunities for improvement (requirement results = OFI) -->

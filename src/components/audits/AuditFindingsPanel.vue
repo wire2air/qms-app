@@ -34,9 +34,68 @@ import { patch, post, del } from '@/api'
 const props = defineProps({
   auditInstance: { type: Object, required: true },
   readonly: { type: Boolean, default: false },
+  // #7 — can the current user record a supplier CAPA/response + mark complete
+  // (the supplier/auditee on a supplier audit, or the auditor).
+  canRespond: { type: Boolean, default: false },
 })
 
 const toast = useToast()
+
+// #7 — supplier audits replace the NC/CAPA/link actions with a CAPA/Response
+// + expected completion + complete/overdue workflow. Close stays auditor-only.
+const supplierMode = computed(() => props.auditInstance?.programTypeId === 'SUPPLIER')
+
+const responseBuffers = reactive({})
+const expectedBuffers = reactive({})
+const savingResponse = reactive({})
+
+function responseValue(f) {
+  return responseBuffers[f.id] !== undefined ? responseBuffers[f.id] : (f.responseText ?? '')
+}
+function expectedValue(f) {
+  if (expectedBuffers[f.id] !== undefined) return expectedBuffers[f.id]
+  const d = f.expectedCompletionDate
+  return d?.toFormat ? d.toFormat('yyyy-MM-dd') : d ? String(d).slice(0, 10) : ''
+}
+async function saveResponse(f) {
+  if (!props.canRespond) return
+  savingResponse[f.id] = true
+  try {
+    await patch(`/v1/services/auditFindings/${f.id}/response`, {
+      responseText: (responseValue(f) || '').trim() || null,
+      expectedCompletionDate: expectedValue(f) || null,
+    })
+  } catch (e) {
+    toast.error(e.message || 'Failed to save response')
+  } finally {
+    savingResponse[f.id] = false
+  }
+}
+const saveResponseDebounced = useDebounceFn((f) => saveResponse(f), 700)
+function onResponseInput(f, v) {
+  responseBuffers[f.id] = v
+  saveResponseDebounced(f)
+}
+function onExpectedInput(f, v) {
+  expectedBuffers[f.id] = v
+  saveResponse(f)
+}
+async function markComplete(f, completed = true) {
+  if (!props.canRespond) return
+  try {
+    await post(`/v1/services/auditFindings/${f.id}/complete`, { completed })
+    toast.success(completed ? 'Marked complete' : 'Reopened')
+  } catch (e) {
+    toast.error(e.message || 'Failed to update')
+  }
+}
+function isOverdue(f) {
+  if (f.completedAt || ['CLOSED', 'CANCELLED'].includes(f.statusId)) return false
+  const d = f.expectedCompletionDate
+  if (!d) return false
+  const due = d?.toMillis ? d.toMillis() : new Date(d).getTime()
+  return due < Date.now()
+}
 
 const findings = useLiveQueryWithDeps(
   [() => props.auditInstance.id],
@@ -279,7 +338,7 @@ function unlinkedKinds(finding) {
     <!-- Bulk bar: raise ONE CAPA from several selected findings (create or
          attach an existing one). Shows once at least one finding is ticked. -->
     <div
-      v-if="!readonly && selectedCount"
+      v-if="!readonly && !supplierMode && selectedCount"
       class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap tw:bg-primary/5 tw:border tw:border-primary/20 tw:rounded-md tw:px-3 tw:py-2"
     >
       <span class="tw:text-xs tw:font-medium tw:text-primary">
@@ -326,7 +385,7 @@ function unlinkedKinds(finding) {
         <!-- Row header -->
         <div class="tw:flex tw:items-start tw:gap-2">
           <input
-            v-if="!readonly"
+            v-if="!readonly && !supplierMode"
             type="checkbox"
             class="tw:mt-1 tw:cursor-pointer"
             :checked="!!selected[finding.id]"
@@ -362,14 +421,29 @@ function unlinkedKinds(finding) {
                    see at a glance that a CAPA / NC / CR / Training was raised
                    from this finding (clickable to open it). Full link/unlink
                    controls remain in the expanded section. -->
-              <template v-for="cfg in SPAWN_KINDS">
-                <AuditFindingLinkedChip
-                  v-if="isLinked(finding, cfg.id)"
-                  :key="`hdr-${cfg.id}`"
-                  :kind="cfg.id"
-                  :targetId="finding[cfg.column]"
-                />
+              <template v-if="!supplierMode">
+                <template v-for="cfg in SPAWN_KINDS">
+                  <AuditFindingLinkedChip
+                    v-if="isLinked(finding, cfg.id)"
+                    :key="`hdr-${cfg.id}`"
+                    :kind="cfg.id"
+                    :targetId="finding[cfg.column]"
+                  />
+                </template>
               </template>
+              <!-- #7 — supplier-mode status chips: overdue / completed -->
+              <span
+                v-if="supplierMode && isOverdue(finding)"
+                class="tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-red-100 tw:text-red-700"
+              >
+                Overdue
+              </span>
+              <span
+                v-else-if="supplierMode && finding.completedAt"
+                class="tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-emerald-100 tw:text-emerald-700"
+              >
+                Completed
+              </span>
             </div>
             <div
               class="tw:text-sm tw:text-on-main"
@@ -430,10 +504,66 @@ function unlinkedKinds(finding) {
             </div>
           </div>
 
-          <!-- Cross-module spawn pointer chips. Linked records show as
-               clickable chips with an inline unlink; unlinked kinds
-               surface as "+ Link" pills that open the picker. -->
-          <div class="tw:flex tw:flex-wrap tw:gap-1.5 tw:items-center">
+          <!-- #7 — supplier remediation: CAPA/Response + expected completion +
+               mark complete. Replaces the internal NC/CAPA/link actions. -->
+          <div
+            v-if="supplierMode"
+            class="tw:flex tw:flex-col tw:gap-2 tw:rounded tw:border tw:border-divider tw:bg-main-hover/20 tw:p-2"
+          >
+            <div class="tw:flex tw:items-center tw:justify-between">
+              <span class="tw:text-[10px] tw:uppercase tw:font-semibold tw:tracking-wide tw:text-secondary">
+                CAPA / Response
+              </span>
+              <span v-if="finding.completedAt" class="tw:text-[10px] tw:text-emerald-700 tw:font-medium">
+                Completed {{ finding.completedAt.formatDate?.('date') }}
+              </span>
+              <span v-else-if="isOverdue(finding)" class="tw:text-[10px] tw:text-red-700 tw:font-bold tw:uppercase">
+                Overdue
+              </span>
+            </div>
+            <BaseRichTextEditor
+              :modelValue="responseValue(finding)"
+              :editable="canRespond && !finding.completedAt"
+              placeholder="Describe the corrective action / response…"
+              @update:modelValue="(v) => onResponseInput(finding, v)"
+            />
+            <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
+              <div class="tw:flex tw:items-center tw:gap-1">
+                <span class="tw:text-secondary">Expected completion:</span>
+                <BaseTextInput
+                  v-if="canRespond && !finding.completedAt"
+                  :modelValue="expectedValue(finding)"
+                  type="date"
+                  size="sm"
+                  @update:modelValue="(v) => onExpectedInput(finding, v)"
+                />
+                <span v-else class="tw:font-medium">{{ expectedValue(finding) || '—' }}</span>
+              </div>
+              <div class="tw:flex-1" />
+              <BaseButton
+                v-if="canRespond && !finding.completedAt"
+                variant="primary"
+                size="sm"
+                :disabled="savingResponse[finding.id]"
+                @click="markComplete(finding, true)"
+              >
+                Mark Complete
+              </BaseButton>
+              <BaseButton
+                v-else-if="canRespond && finding.completedAt"
+                variant="outline"
+                size="sm"
+                @click="markComplete(finding, false)"
+              >
+                Reopen
+              </BaseButton>
+            </div>
+          </div>
+
+          <!-- Cross-module spawn pointer chips (internal audits only). Linked
+               records show as clickable chips with an inline unlink; unlinked
+               kinds surface as "+ Link" pills that open the picker. -->
+          <div v-if="!supplierMode" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:items-center">
             <p class="tw:text-[10px] tw:text-secondary tw:uppercase tw:font-semibold tw:tracking-wide tw:mr-1">
               Linked:
             </p>
@@ -502,8 +632,9 @@ function unlinkedKinds(finding) {
             />
           </div>
 
-          <!-- Inline status transitions. Only legal next states show. -->
-          <div v-if="!readonly" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:pt-1">
+          <!-- Inline status transitions (internal audits). Supplier audits use
+               the response/complete flow + the auditor's header Close action. -->
+          <div v-if="!readonly && !supplierMode" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:pt-1">
             <button
               v-for="t in allowedTransitions(finding.statusId)"
               :key="t.id"
