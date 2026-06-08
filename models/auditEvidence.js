@@ -30,6 +30,7 @@ export class AuditEvidence extends BaseModel {
   @Property({ type: String, required: true }) auditInstanceId = ''
   @Property({ type: String }) auditRequirementResponseId = ''
   @Property({ type: String }) auditFindingId = ''
+  @Property({ type: String }) auditDocumentRequestId = ''
   @Property({ type: String, required: true }) assetId = ''
   @Property({ type: String }) caption = ''
   @Property({ type: String }) uploadedByUserId = ''

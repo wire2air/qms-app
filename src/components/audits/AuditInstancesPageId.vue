@@ -629,10 +629,10 @@ const auditTabs = computed(() => [
                 <IconPaperclip :size="14" />
                 Document Request
               </div>
-              <AuditEvidencePanel
+              <AuditDocumentRequestPanel
                 :auditInstance="auditInstance"
-                scope="audit"
                 :readonly="docRequestReadonly"
+                :canManageRequests="isEditable"
               />
             </div>
 

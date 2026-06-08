@@ -62,6 +62,8 @@ async function handleUpload() {
       fd.append('auditFindingId', props.scopeId)
     } else if (props.scope === 'response' && props.scopeId) {
       fd.append('auditRequirementResponseId', props.scopeId)
+    } else if (props.scope === 'documentRequest' && props.scopeId) {
+      fd.append('auditDocumentRequestId', props.scopeId)
     }
     if (caption.value.trim()) fd.append('caption', caption.value.trim())
     await upload('/v1/services/auditEvidence', fd)

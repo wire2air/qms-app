@@ -38,6 +38,7 @@ declare module 'vue' {
     AssetRequestTypeBadgeById: typeof import('./src/components/badges/AssetRequestTypeBadgeById.vue')['default']
     AssetRequestTypeSelectMenu: typeof import('./src/components/menus/AssetRequestTypeSelectMenu.vue')['default']
     AuditAgendaPanel: typeof import('./src/components/audits/AuditAgendaPanel.vue')['default']
+    AuditDocumentRequestPanel: typeof import('./src/components/audits/AuditDocumentRequestPanel.vue')['default']
     AuditEvidenceLinkDialog: typeof import('./src/components/audits/AuditEvidenceLinkDialog.vue')['default']
     AuditEvidencePanel: typeof import('./src/components/audits/AuditEvidencePanel.vue')['default']
     AuditEvidenceUploadDialog: typeof import('./src/components/audits/AuditEvidenceUploadDialog.vue')['default']
