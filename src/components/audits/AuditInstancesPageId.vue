@@ -28,8 +28,6 @@ import {
   IconPlus,
   IconTrash,
   IconPrinter,
-  IconChevronDown,
-  IconChevronRight,
 } from '@tabler/icons-vue'
 import { useAuditScoring } from '@/composables/useAuditScoring'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
@@ -163,8 +161,8 @@ const canCancel = computed(
     !['CLOSED', 'CANCELLED', 'REVIEW'].includes(auditInstance.value.statusId),
 )
 
-// Collapsible main-column sections (open by default).
-const sectionsOpen = reactive({ requirements: true, findings: true })
+// Main-column tab (Information / Requirements / Findings).
+const tab = ref('info')
 
 const showSubmitDialog = ref(false)
 const showCancelDialog = ref(false)
@@ -304,6 +302,12 @@ const findingsByStatus = useLiveQueryWithDeps(
   },
   { initial: { open: 0, total: 0 } },
 )
+
+const auditTabs = computed(() => [
+  { id: 'info', label: 'Information', icon: IconClipboardCheck, count: null },
+  { id: 'requirements', label: 'Requirements', icon: IconClipboardList, count: clauseCount.value },
+  { id: 'findings', label: 'Findings', icon: IconBolt, count: findingsByStatus.value.total },
+])
 </script>
 
 <template>
@@ -402,8 +406,35 @@ const findingsByStatus = useLiveQueryWithDeps(
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_320px] tw:gap-4 tw:items-start">
           <div class="tw:flex tw:flex-col tw:gap-4">
+            <!-- Tabs: Information (details + agenda + document request +
+                 close-out) · Requirements · Findings. The right rail stays
+                 persistent across tabs. -->
+            <div class="tw:flex tw:border-b tw:border-divider">
+              <button
+                v-for="t in auditTabs"
+                :key="t.id"
+                type="button"
+                class="tw:px-4 tw:py-2 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:bg-transparent tw:cursor-pointer"
+                :class="
+                  tab === t.id
+                    ? 'tw:border-primary tw:text-primary'
+                    : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'
+                "
+                @click="tab = t.id"
+              >
+                <component :is="t.icon" :size="16" />
+                {{ t.label }}
+                <span
+                  v-if="t.count != null"
+                  class="tw:text-[10px] tw:font-normal tw:bg-main-hover tw:text-secondary tw:rounded tw:px-1.5 tw:py-0.5"
+                >
+                  {{ t.count }}
+                </span>
+              </button>
+            </div>
+
             <!-- Details card -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <div v-show="tab === 'info'" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
               <div
                 class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
@@ -530,60 +561,59 @@ const findingsByStatus = useLiveQueryWithDeps(
 
             <!-- Supplier-audit agenda (#15): select clauses + send to supplier. -->
             <AuditAgendaPanel
-              v-if="auditInstance.programTypeId === 'SUPPLIER'"
+              v-if="auditInstance.programTypeId === 'SUPPLIER' && tab === 'info'"
               :auditInstance="auditInstance"
               :readonly="!isEditable"
             />
 
             <!-- Requirements execution -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <button
-                type="button"
-                class="tw:w-full tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
-                :class="sectionsOpen.requirements ? 'tw:mb-4' : ''"
-                @click="sectionsOpen.requirements = !sectionsOpen.requirements"
+            <div v-show="tab === 'requirements'" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+              <div
+                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >
                 <IconClipboardList :size="14" />
                 Requirements
-                <span class="tw:flex-1"></span>
-                <IconChevronDown v-if="sectionsOpen.requirements" :size="16" />
-                <IconChevronRight v-else :size="16" />
-              </button>
+              </div>
               <AuditRequirementExecutionPanel
-                v-show="sectionsOpen.requirements"
                 :auditInstance="auditInstance"
                 :readonly="!isEditable"
               />
             </div>
 
             <!-- Findings -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <button
-                type="button"
-                class="tw:w-full tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
-                :class="sectionsOpen.findings ? 'tw:mb-4' : ''"
-                @click="sectionsOpen.findings = !sectionsOpen.findings"
+            <div v-show="tab === 'findings'" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+              <div
+                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >
                 <IconBolt :size="14" />
                 Findings
-                <span class="tw:flex-1"></span>
-                <IconChevronDown v-if="sectionsOpen.findings" :size="16" />
-                <IconChevronRight v-else :size="16" />
-              </button>
-              <AuditFindingsPanel
-                v-show="sectionsOpen.findings"
+              </div>
+              <AuditFindingsPanel :auditInstance="auditInstance" :readonly="!isEditable" />
+            </div>
+
+            <!-- Document Request — the documents requested for the audit.
+                 The auditee uploads new files or links existing records
+                 here (renamed from "Evidence"). -->
+            <div v-show="tab === 'info'" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+              <div
+                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              >
+                <IconPaperclip :size="14" />
+                Document Request
+              </div>
+              <AuditEvidencePanel
                 :auditInstance="auditInstance"
-                :readonly="!isEditable"
+                scope="audit"
+                :readonly="docRequestReadonly"
               />
             </div>
 
             <!-- Close-Out Workflow — appears once the audit has been
                  Submitted-for-Close-Out (workflowInstanceId is set).
                  Reviewers see Approve / Reject buttons inside each step card
-                 via the unified WorkflowStep component. Placed below Findings
-                 so the findings drive the close-out. -->
+                 via the unified WorkflowStep component. -->
             <div
-              v-if="auditInstance.workflowInstanceId"
+              v-if="auditInstance.workflowInstanceId && tab === 'info'"
               class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
             >
               <div
@@ -596,23 +626,6 @@ const findingsByStatus = useLiveQueryWithDeps(
                 :auditInstanceId="auditInstance.id"
                 :workflowInstanceId="auditInstance.workflowInstanceId"
                 :isOwner="auditInstance.createdBy === currentSession?.userId"
-              />
-            </div>
-
-            <!-- Document Request — the documents requested for the audit.
-                 The auditee uploads new files or links existing records
-                 here (renamed from "Evidence"). -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-              >
-                <IconPaperclip :size="14" />
-                Document Request
-              </div>
-              <AuditEvidencePanel
-                :auditInstance="auditInstance"
-                scope="audit"
-                :readonly="docRequestReadonly"
               />
             </div>
 
