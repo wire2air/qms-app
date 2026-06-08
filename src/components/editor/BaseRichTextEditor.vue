@@ -601,7 +601,7 @@ defineExpose({
   border: 1px solid var(--q-divider, #e0e0e0);
   border-radius: 4px;
   background: var(--q-background, #fff);
-  min-height: 200px;
+  min-height: 100px;
   display: flex;
   flex-direction: column;
 }
