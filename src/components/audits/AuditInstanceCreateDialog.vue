@@ -54,6 +54,15 @@ watch(
 
 const supplierRequired = computed(() => form.value.programTypeId === 'SUPPLIER')
 
+// Switching audit type or supplier invalidates a previously-picked auditee
+// (internal ↔ supplier user, or a different supplier's user) — clear it.
+watch(
+  () => [form.value.programTypeId, form.value.supplierId],
+  () => {
+    form.value.auditeeUserId = null
+  },
+)
+
 const canSave = computed(() => {
   if (!form.value.auditStandardId) return false
   if (!form.value.scheduledDate) return false
@@ -150,7 +159,28 @@ async function handleSave({ navigate }) {
         </div>
       </div>
 
-      <div>
+      <!-- Supplier + Auditee. For a supplier audit the auditee is one of the
+           SUPPLIER's users (supplier selected first); for internal audits it's
+           an internal user. Both get notified + read-only audit access. -->
+      <div v-if="supplierRequired" class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+            Supplier <span class="tw:text-red-500">*</span>
+          </p>
+          <SupplierSelectMenu v-model="form.supplierId" :required="true" />
+        </div>
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+            Auditee <span class="tw:font-normal tw:normal-case tw:text-secondary">(supplier contact)</span>
+          </p>
+          <UserSelectMenu
+            v-model="form.auditeeUserId"
+            kind="EXTERNAL_SUPPLIER"
+            :supplierId="form.supplierId"
+          />
+        </div>
+      </div>
+      <div v-else>
         <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
           Auditee <span class="tw:font-normal tw:normal-case tw:text-secondary">(notified; read-only access)</span>
         </p>
@@ -166,13 +196,6 @@ async function handleSave({ navigate }) {
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Site</p>
           <SiteSelectMenu v-model="form.siteId" />
         </div>
-      </div>
-
-      <div v-if="supplierRequired">
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Supplier <span class="tw:text-red-500">*</span>
-        </p>
-        <SupplierSelectMenu v-model="form.supplierId" :required="true" />
       </div>
 
       <div>

@@ -28,6 +28,8 @@ import {
   IconPlus,
   IconTrash,
   IconPrinter,
+  IconChevronDown,
+  IconChevronRight,
 } from '@tabler/icons-vue'
 import { useAuditScoring } from '@/composables/useAuditScoring'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
@@ -160,6 +162,9 @@ const canCancel = computed(
     isEditable.value &&
     !['CLOSED', 'CANCELLED', 'REVIEW'].includes(auditInstance.value.statusId),
 )
+
+// Collapsible main-column sections (open by default).
+const sectionsOpen = reactive({ requirements: true, findings: true })
 
 const showSubmitDialog = ref(false)
 const showCancelDialog = ref(false)
@@ -532,13 +537,20 @@ const findingsByStatus = useLiveQueryWithDeps(
 
             <!-- Requirements execution -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              <button
+                type="button"
+                class="tw:w-full tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
+                :class="sectionsOpen.requirements ? 'tw:mb-4' : ''"
+                @click="sectionsOpen.requirements = !sectionsOpen.requirements"
               >
                 <IconClipboardList :size="14" />
                 Requirements
-              </div>
+                <span class="tw:flex-1"></span>
+                <IconChevronDown v-if="sectionsOpen.requirements" :size="16" />
+                <IconChevronRight v-else :size="16" />
+              </button>
               <AuditRequirementExecutionPanel
+                v-show="sectionsOpen.requirements"
                 :auditInstance="auditInstance"
                 :readonly="!isEditable"
               />
@@ -546,13 +558,23 @@ const findingsByStatus = useLiveQueryWithDeps(
 
             <!-- Findings -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              <button
+                type="button"
+                class="tw:w-full tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
+                :class="sectionsOpen.findings ? 'tw:mb-4' : ''"
+                @click="sectionsOpen.findings = !sectionsOpen.findings"
               >
                 <IconBolt :size="14" />
                 Findings
-              </div>
-              <AuditFindingsPanel :auditInstance="auditInstance" :readonly="!isEditable" />
+                <span class="tw:flex-1"></span>
+                <IconChevronDown v-if="sectionsOpen.findings" :size="16" />
+                <IconChevronRight v-else :size="16" />
+              </button>
+              <AuditFindingsPanel
+                v-show="sectionsOpen.findings"
+                :auditInstance="auditInstance"
+                :readonly="!isEditable"
+              />
             </div>
 
             <!-- Close-Out Workflow — appears once the audit has been
