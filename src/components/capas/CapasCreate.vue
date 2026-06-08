@@ -27,10 +27,21 @@ const sourceNc = useLiveQueryWithDeps([() => presetNcId.value], async (db, [id])
 // CAPA' on an audit finding, this page opens with ?findingId=<id>.
 // We seed common fields from the finding and link the resulting
 // CAPA back via /v1/services/auditFindings/<id>/link on save.
-const presetFindingId = computed(() => {
-  const q = route.query?.findingId
-  return typeof q === 'string' ? q : null
+// One CAPA can be raised from several failed-requirement findings selected
+// on the audit page: ?findingIds=a,b,c (plural). The legacy single ?findingId
+// is folded in. We seed common fields from the FIRST finding and link ALL of
+// them back on save.
+const presetFindingIds = computed(() => {
+  const single = route.query?.findingId
+  const multi = route.query?.findingIds
+  const ids = []
+  if (typeof single === 'string' && single) ids.push(single)
+  if (typeof multi === 'string' && multi) {
+    ids.push(...multi.split(',').map((s) => s.trim()).filter(Boolean))
+  }
+  return [...new Set(ids)]
 })
+const presetFindingId = computed(() => presetFindingIds.value[0] ?? null)
 const sourceFinding = useLiveQueryWithDeps(
   [() => presetFindingId.value],
   async (db, [id]) => {
@@ -165,19 +176,22 @@ async function handleReviewersConfirmed(reviewers) {
   saving.value = true
   try {
     const response = await post('/v1/services/capas', { ...form.value, reviewers })
-    if (presetFindingId.value && response.capa?.id) {
+    if (presetFindingIds.value.length && response.capa?.id) {
       try {
-        await linkSpawnedToFinding({
-          findingId: presetFindingId.value,
-          kind: 'CAPA',
-          targetId: response.capa.id,
-        })
+        // Link every selected finding to the new CAPA (N findings → 1 CAPA).
+        for (const findingId of presetFindingIds.value) {
+          await linkSpawnedToFinding({
+            findingId,
+            kind: 'CAPA',
+            targetId: response.capa.id,
+          })
+        }
       } catch (linkErr) {
         toast.notify({
           type: 'warning',
           message:
             linkErr?.message ||
-            "CAPA created, but couldn't link it to the finding — attach manually from the audit page",
+            "CAPA created, but couldn't link one or more findings — attach manually from the audit page",
         })
       }
     }

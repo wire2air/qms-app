@@ -33,6 +33,7 @@ export class AuditInstance extends BaseModel {
   @Property({ type: String }) auditStandardId = ''
   @Property({ type: String }) auditStandardVersionId = ''
   @Property({ type: Object }) requirementSchema = []
+  @Property({ type: Object }) agenda = null
   @Property({ type: String, required: true }) programTypeId = ''
   @Property({ type: String, required: true }) statusId = 'DRAFT'
   @Property({ type: DateTime }) scheduledDate = /** @type {DateTime} */ (null)

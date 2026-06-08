@@ -38,6 +38,7 @@ function defaultForm() {
     siteId: null,
     supplierId: null,
     teamUserIds: [],
+    auditeeUserId: null,
   }
 }
 
@@ -82,6 +83,7 @@ async function handleSave({ navigate }) {
       siteId: form.value.siteId || null,
       supplierId: supplierRequired.value ? form.value.supplierId : null,
       teamUserIds: form.value.teamUserIds ?? [],
+      auditeeUserId: form.value.auditeeUserId || null,
     })
     const auditInstance = result?.auditInstance
     toast.success(`Audit ${auditInstance?.auditNumber} created`)
@@ -146,6 +148,13 @@ async function handleSave({ navigate }) {
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Team</p>
           <UserSelectMenu v-model="form.teamUserIds" :multiple="true" />
         </div>
+      </div>
+
+      <div>
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+          Auditee <span class="tw:font-normal tw:normal-case tw:text-secondary">(notified; read-only access)</span>
+        </p>
+        <UserSelectMenu v-model="form.auditeeUserId" />
       </div>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">

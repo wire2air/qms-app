@@ -86,6 +86,9 @@ const editing = ref(null)
 const form = ref({
   clauseNumber: '',
   title: '',
+  question: '',
+  departmentId: null,
+  categoryId: null,
   description: '',
   guidance: '',
   expectedEvidence: '',
@@ -100,6 +103,9 @@ function openAdd() {
   form.value = {
     clauseNumber: '',
     title: '',
+    question: '',
+    departmentId: null,
+    categoryId: null,
     description: '',
     guidance: '',
     expectedEvidence: '',
@@ -115,6 +121,9 @@ function openEdit(row) {
   form.value = {
     clauseNumber: row.clauseNumber,
     title: row.title,
+    question: row.question ?? '',
+    departmentId: row.departmentId ?? null,
+    categoryId: row.categoryId ?? null,
     description: row.description ?? '',
     guidance: row.guidance ?? '',
     expectedEvidence: row.expectedEvidence ?? '',
@@ -138,6 +147,9 @@ async function handleSave() {
     const body = {
       clauseNumber: form.value.clauseNumber.trim(),
       title: form.value.title.trim(),
+      question: form.value.question?.trim() || null,
+      departmentId: form.value.departmentId || null,
+      categoryId: form.value.categoryId || null,
       description: form.value.description?.trim() || null,
       guidance: form.value.guidance?.trim() || null,
       expectedEvidence: form.value.expectedEvidence?.trim() || null,
@@ -338,9 +350,12 @@ async function handleBulkEnrich() {
           </code>
           <div class="tw:flex-1 tw:min-w-0">
             <div class="tw:text-sm tw:font-medium tw:text-on-main">{{ row.title }}</div>
+            <div v-if="row.question" class="tw:text-xs tw:text-secondary tw:mt-0.5">
+              {{ row.question }}
+            </div>
             <div
               v-if="row.description && !expandedIds.has(row.id)"
-              class="tw:text-xs tw:text-secondary tw:truncate"
+              class="tw:text-xs tw:text-secondary tw:truncate tw:mt-0.5"
             >
               {{ row.description }}
             </div>
@@ -434,6 +449,26 @@ async function handleBulkEnrich() {
               v-model="form.title"
               placeholder="Personnel competency assessment"
             />
+          </div>
+        </div>
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+            Question
+          </p>
+          <BaseTextarea
+            v-model="form.question"
+            :rows="2"
+            placeholder="The closed auditor question, e.g. 'Is competency assessed and recorded for personnel doing QMS work?' Joined with the title when working the audit. Leave blank for section headers."
+          />
+        </div>
+        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <div>
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Department</p>
+            <DepartmentSelectMenu v-model="form.departmentId" />
+          </div>
+          <div>
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Category</p>
+            <AuditFindingCategorySelectMenu v-model="form.categoryId" />
           </div>
         </div>
         <div>

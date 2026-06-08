@@ -38,51 +38,24 @@ const toast = useToast()
 // response to a real CSV import that failed with "header missing required
 // column 'clauseNumber'" — the column name is case-sensitive + camelCase,
 // which Excel-exported headers usually aren't.
+// CSV template only — download the template, fill one row per clause, upload.
+// The PDF / AI-assisted / paste / JSON paths were removed as too heavyweight;
+// this keeps a single, predictable import shape.
 const FORMATS = [
   {
-    id: 'paste',
-    label: 'Paste clause list',
-    description:
-      'One clause per line. First token = clause number, rest = title. Most forgiving for quick imports.',
-    requiredFields: 'No header — first whitespace-separated token is treated as the clause number.',
-    sampleName: 'clauses.txt',
-    sampleMime: 'text/plain',
-    sample:
-      '4.1 Understanding the organization and its context\n' +
-      '4.2 Understanding the needs and expectations of interested parties\n' +
-      '4.3 Determining the scope of the QMS\n' +
-      '4.4 QMS and its processes',
-  },
-  {
     id: 'csv',
-    label: 'CSV',
+    label: 'CSV template',
     description:
-      'Spreadsheet export. The first row MUST be the header below (case + spelling exact); only clauseNumber + title are required, the other three are optional per-row.',
+      'Download the template, fill one row per clause, and upload it. The first row MUST be the header below (case + spelling exact). Only clauseNumber + title are required; question and the rest are optional per row. Building it in Excel? Save As → CSV (UTF-8).',
     requiredFields:
-      'Required header: clauseNumber,title,description,guidance,expectedEvidence',
-    sampleName: 'clauses-sample.csv',
+      'Required header: clauseNumber,title,question,description,guidance,expectedEvidence',
+    sampleName: 'audit-standard-template.csv',
     sampleMime: 'text/csv',
     sample:
-      'clauseNumber,title,description,guidance,expectedEvidence\n' +
-      '"4.1","Understanding context","Section header","Verify external/internal issues are identified","Context document; SWOT/PESTLE"\n' +
-      '"4.2","Interested parties",,"Verify stakeholder requirements are captured","Stakeholder register"\n' +
-      '"4.3","Scope of the QMS",,,',
-  },
-  {
-    id: 'json',
-    label: 'JSON',
-    description:
-      'Array of clause objects. Each requires clauseNumber + title; description / guidance / expectedEvidence / riskWeight are optional.',
-    requiredFields:
-      'Shape: [{ clauseNumber: string, title: string, description?: string, guidance?: string, expectedEvidence?: string, riskWeight?: 1-100 }]',
-    sampleName: 'clauses-sample.json',
-    sampleMime: 'application/json',
-    sample:
-      '[\n' +
-      '  { "clauseNumber": "4.1", "title": "Understanding context", "description": "Section header" },\n' +
-      '  { "clauseNumber": "4.2", "title": "Interested parties" },\n' +
-      '  { "clauseNumber": "4.3", "title": "Scope of the QMS" }\n' +
-      ']',
+      'clauseNumber,title,question,description,guidance,expectedEvidence\n' +
+      '"4","Context of the organization",,,,\n' +
+      '"4.1","Understanding the organization and its context","Has the organization determined the external and internal issues relevant to its purpose, and does it review them?",,,\n' +
+      '"4.2","Interested parties","Are relevant interested parties and their requirements identified and reviewed?",,,',
   },
 ]
 
@@ -111,27 +84,21 @@ const code = ref('')
 const name = ref('')
 const description = ref('')
 const contentLicense = ref('CUSTOMER_LICENSED')
-const format = ref('paste')
+const format = ref('csv')
 const content = ref('')
 const licenseAttested = ref(false)
 const customerLicenseReference = ref('')
 const customerLicenseExpiresAt = ref('')
 const submitting = ref(false)
 
-// File upload — saves users from copy-pasting long clause lists out of
-// their licensed copy. Accepts .txt (paste), .csv (csv), .json (json).
-// PDFs intentionally NOT handled here — the AI-structuring pipeline
-// lives in the separate AuditStandardAiAssistDialog so this Import
-// dialog stays usable for tenants without the AI add-on.
+// File upload — fill the downloaded CSV template and upload it. CSV only;
+// PDF / AI / paste / JSON paths were removed as too heavyweight.
 const fileInputRef = ref(null)
 const readingFile = ref(false)
 
-function detectFormatFromName(filename) {
-  const lower = filename.toLowerCase()
-  if (lower.endsWith('.csv')) return 'csv'
-  if (lower.endsWith('.json')) return 'json'
-  // .txt / unknown all go through the paste parser.
-  return 'paste'
+function detectFormatFromName() {
+  // CSV is the only supported format now.
+  return 'csv'
 }
 
 async function onFilePicked(event) {
@@ -354,35 +321,22 @@ function safeParseJson(raw) {
            crowded the labels). Each row reads as "type + description". -->
       <div>
         <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Format</p>
+        <!-- Single format (CSV template). Render the guidance without the
+             selector chrome since there's nothing to choose. -->
         <div class="tw:flex tw:flex-col tw:gap-2">
-          <button
+          <div
             v-for="fmt in FORMATS"
             :key="fmt.id"
-            type="button"
-            class="tw:flex tw:items-start tw:gap-3 tw:text-left tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:cursor-pointer tw:hover:border-primary tw:hover:bg-primary/5"
-            :class="format === fmt.id ? 'tw:bg-primary/5 tw:border-primary' : 'tw:bg-white'"
-            @click="format = fmt.id"
+            class="tw:flex tw:flex-col tw:gap-0.5 tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-primary/5"
           >
-            <input
-              type="radio"
-              name="import-format"
-              :value="fmt.id"
-              :checked="format === fmt.id"
-              class="tw:mt-1 tw:shrink-0"
-              tabindex="-1"
-            />
-            <div class="tw:flex tw:flex-col tw:gap-0.5 tw:flex-1 tw:min-w-0">
-              <span class="tw:text-sm tw:font-semibold">{{ fmt.label }}</span>
-              <span class="tw:text-[11px] tw:text-secondary">{{ fmt.description }}</span>
-            </div>
-          </button>
+            <span class="tw:text-sm tw:font-semibold">{{ fmt.label }}</span>
+            <span class="tw:text-[11px] tw:text-secondary">{{ fmt.description }}</span>
+          </div>
         </div>
       </div>
 
-      <!-- Content textarea + file-upload affordance. "Upload file"
-           handles local .txt / .csv / .json — reads inline and auto-
-           picks the matching format. PDF + AI-structuring lives in the
-           separate "AI Assist" dialog so this stays AI-free. -->
+      <!-- Content textarea + file-upload affordance. Download the CSV
+           template, fill it, and upload it (or paste the CSV inline). -->
       <div>
         <div class="tw:flex tw:items-center tw:justify-between tw:mb-1 tw:gap-2">
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
@@ -396,7 +350,7 @@ function safeParseJson(raw) {
               @click="downloadActiveSample"
             >
               <template #icon><IconDownload :size="14" /></template>
-              Download sample
+              Download template
             </BaseButton>
             <BaseButton
               variant="outline"
@@ -411,7 +365,7 @@ function safeParseJson(raw) {
           <input
             ref="fileInputRef"
             type="file"
-            accept=".txt,.csv,.json,text/plain,text/csv,application/json"
+            accept=".csv,text/csv"
             class="tw:hidden"
             @change="onFilePicked"
           />

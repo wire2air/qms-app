@@ -27,7 +27,9 @@ import {
   IconBan,
   IconPlus,
   IconTrash,
+  IconPrinter,
 } from '@tabler/icons-vue'
+import { useAuditScoring } from '@/composables/useAuditScoring'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPCs (not entity CRUD) — see CLAUDE.md rule #4 exception.
@@ -43,6 +45,13 @@ const router = useRouter()
 const auditInstance = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
   db.AuditInstance.findByPk(id),
 )
+
+// #1 — conformance scoring rollup (shared with the printable report).
+const { scoring } = useAuditScoring(() => props.id)
+
+function openReport() {
+  router.push({ path: getCompanyPath('/print'), query: { module: 'AuditInstance', id: props.id } })
+}
 const loading = computed(() => auditInstance.value === undefined)
 
 const canUpdate = computed(() => isAllowed(['audits:update']))
@@ -52,6 +61,27 @@ const isEditable = computed(
   () =>
     (canUpdate.value || isOwner.value) &&
     !['CLOSED', 'CANCELLED', 'REVIEW'].includes(auditInstance.value?.statusId),
+)
+
+// #14/#16 — is the current user a shared auditee/supplier on this audit? They
+// get a read-only audit EXCEPT they may upload to the Document Request section.
+const myShares = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return []
+    return db.SharedWithUser.where('[entityType+entityId]', ['AuditInstance', id]).exec()
+  },
+  { initial: [] },
+)
+const isAuditee = computed(() =>
+  myShares.value.some((s) => s.userId === currentSession.value?.userId),
+)
+// Document Request is writable by editors OR a shared auditee (upload only),
+// but not once the audit is sealed (CLOSED / CANCELLED).
+const docRequestReadonly = computed(
+  () =>
+    !isEditable.value &&
+    !(isAuditee.value && !['CLOSED', 'CANCELLED'].includes(auditInstance.value?.statusId)),
 )
 
 const breadcrumbs = computed(() => [
@@ -288,6 +318,10 @@ const findingsByStatus = useLiveQueryWithDeps(
           <IconArrowBack :size="16" class="tw:mr-1" />
           Back
         </BaseButton>
+        <BaseButton v-if="auditInstance" variant="outline" size="sm" @click="openReport">
+          <IconPrinter :size="16" class="tw:mr-1" />
+          Report
+        </BaseButton>
         <BaseButton
           v-if="canStart"
           variant="primary"
@@ -480,6 +514,13 @@ const findingsByStatus = useLiveQueryWithDeps(
               </div>
             </div>
 
+            <!-- Supplier-audit agenda (#15): select clauses + send to supplier. -->
+            <AuditAgendaPanel
+              v-if="auditInstance.programTypeId === 'SUPPLIER'"
+              :auditInstance="auditInstance"
+              :readonly="!isEditable"
+            />
+
             <!-- Requirements execution -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
               <div
@@ -494,10 +535,22 @@ const findingsByStatus = useLiveQueryWithDeps(
               />
             </div>
 
+            <!-- Findings -->
+            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+              <div
+                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              >
+                <IconBolt :size="14" />
+                Findings
+              </div>
+              <AuditFindingsPanel :auditInstance="auditInstance" :readonly="!isEditable" />
+            </div>
+
             <!-- Close-Out Workflow — appears once the audit has been
                  Submitted-for-Close-Out (workflowInstanceId is set).
-                 Reviewers see Approve / Reject buttons inside each
-                 step card via the unified WorkflowStep component. -->
+                 Reviewers see Approve / Reject buttons inside each step card
+                 via the unified WorkflowStep component. Placed below Findings
+                 so the findings drive the close-out. -->
             <div
               v-if="auditInstance.workflowInstanceId"
               class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
@@ -515,30 +568,57 @@ const findingsByStatus = useLiveQueryWithDeps(
               />
             </div>
 
-            <!-- Findings -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-              >
-                <IconBolt :size="14" />
-                Findings
-              </div>
-              <AuditFindingsPanel :auditInstance="auditInstance" :readonly="!isEditable" />
-            </div>
-
-            <!-- Evidence (audit-overall) -->
+            <!-- Document Request — the documents requested for the audit.
+                 The auditee uploads new files or links existing records
+                 here (renamed from "Evidence"). -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
               <div
                 class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >
                 <IconPaperclip :size="14" />
-                Evidence
+                Document Request
               </div>
               <AuditEvidencePanel
                 :auditInstance="auditInstance"
                 scope="audit"
-                :readonly="!isEditable"
+                :readonly="docRequestReadonly"
               />
+            </div>
+
+          </div>
+
+          <!-- Right rail -->
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <!-- Conformance score (#1) -->
+            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+              <div
+                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
+              >
+                <IconClipboardCheck :size="14" />
+                Conformance
+              </div>
+              <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
+                <div
+                  class="tw:text-3xl tw:font-extrabold"
+                  :class="scoring.pass ? 'tw:text-emerald-600' : 'tw:text-red-600'"
+                >
+                  {{ scoring.conformancePct == null ? '—' : `${scoring.conformancePct}%` }}
+                </div>
+                <span
+                  class="tw:text-[10px] tw:font-bold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+                  :class="scoring.pass ? 'tw:bg-emerald-100 tw:text-emerald-700' : 'tw:bg-red-100 tw:text-red-700'"
+                >
+                  {{ scoring.pass ? 'Pass' : 'Fail' }}
+                </span>
+              </div>
+              <div class="tw:grid tw:grid-cols-2 tw:gap-x-3 tw:gap-y-1 tw:text-xs">
+                <div class="tw:flex tw:justify-between"><span class="tw:text-secondary">Conforming</span><span class="tw:font-medium">{{ scoring.counts.CONFORMING }}</span></div>
+                <div class="tw:flex tw:justify-between"><span class="tw:text-secondary">Minor NC</span><span class="tw:font-medium">{{ scoring.counts.MINOR_NC }}</span></div>
+                <div class="tw:flex tw:justify-between"><span class="tw:text-secondary">Major NC</span><span class="tw:font-medium tw:text-red-600">{{ scoring.counts.MAJOR_NC }}</span></div>
+                <div class="tw:flex tw:justify-between"><span class="tw:text-secondary">OFI</span><span class="tw:font-medium">{{ scoring.counts.OFI }}</span></div>
+                <div class="tw:flex tw:justify-between"><span class="tw:text-secondary">N/A</span><span class="tw:font-medium">{{ scoring.counts.NA }}</span></div>
+                <div class="tw:flex tw:justify-between"><span class="tw:text-secondary">Assessed</span><span class="tw:font-medium">{{ scoring.assessed }}</span></div>
+              </div>
             </div>
 
             <!-- Team -->
@@ -607,10 +687,6 @@ const findingsByStatus = useLiveQueryWithDeps(
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- Right rail -->
-          <div class="tw:flex tw:flex-col tw:gap-3">
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
               <div
                 class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"

@@ -542,6 +542,12 @@ function onCreateLinkedChangeRequest() {
               </div>
             </div>
 
+            <!-- Raised-from-Audit context (scoped): audit header + only the
+                 findings/failed requirements this CAPA addresses. Self-hides
+                 when the CAPA didn't originate from an audit. Visible to
+                 assignees without audits:read — see AuditOriginPanel. -->
+            <AuditOriginPanel entityType="Capa" :entityId="id" />
+
             <!-- Workflow steps. In DRAFT (no instance yet) we render the
                  template-step preview so the owner can plan assignments.
                  Once they Submit, the workflow instance exists and the
@@ -564,8 +570,10 @@ function onCreateLinkedChangeRequest() {
             <!-- External access — read-only panel populated by workflow-
                  step assignment (autoShareSupplierUsers). The product
                  decision (2026-05-29) is that supplier visibility on CAPA
-                 is workflow-driven, not manual. See SharedWithPanel.vue. -->
-            <SharedWithPanel entityType="Capa" :entityId="id" />
+                 is workflow-driven, not manual. See SharedWithPanel.vue.
+                 Only relevant on supplier-facing CAPAs — external access is
+                 only ever granted on those, so hide the section otherwise. -->
+            <SharedWithPanel v-if="capa?.isSupplierFacing" entityType="Capa" :entityId="id" />
           </div>
 
           <!-- Right column -->

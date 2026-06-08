@@ -10,6 +10,7 @@ import {
   IconClipboardCheck,
   IconBook,
   IconCalendarTime,
+  IconCalendar,
   IconChecklist,
   IconChartBar,
 } from '@tabler/icons-vue'
@@ -21,6 +22,7 @@ const tabs = [
   { id: 'standards', label: 'Standards', icon: IconBook },
   { id: 'programs', label: 'Programs', icon: IconCalendarTime },
   { id: 'instances', label: 'Audits', icon: IconChecklist },
+  { id: 'calendar', label: 'Calendar', icon: IconCalendar },
 ]
 
 const route = useRoute()
@@ -82,5 +84,6 @@ function setTab(id) {
     <AuditStandardsHome v-else-if="activeTab === 'standards'" />
     <AuditProgramsHome v-else-if="activeTab === 'programs'" />
     <AuditInstancesHome v-else-if="activeTab === 'instances'" />
+    <AuditScheduleCalendar v-else-if="activeTab === 'calendar'" />
   </div>
 </template>

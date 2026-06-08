@@ -73,16 +73,19 @@ const TRANSITIONS = {
   OPEN: [
     { id: 'IN_REVIEW', name: 'In Review' },
     { id: 'IN_REMEDIATION', name: 'In Remediation' },
+    { id: 'CLOSED', name: 'Close' },
     { id: 'CANCELLED', name: 'Cancel' },
   ],
   IN_REVIEW: [
     { id: 'OPEN', name: 'Re-open' },
     { id: 'IN_REMEDIATION', name: 'In Remediation' },
+    { id: 'CLOSED', name: 'Close' },
     { id: 'CANCELLED', name: 'Cancel' },
   ],
   IN_REMEDIATION: [
     { id: 'IN_REVIEW', name: 'Back to Review' },
     { id: 'VERIFIED', name: 'Verified' },
+    { id: 'CLOSED', name: 'Close' },
     { id: 'CANCELLED', name: 'Cancel' },
   ],
   VERIFIED: [
@@ -163,11 +166,41 @@ const SPAWN_KINDS = [
 ]
 const KIND_BY_ID = Object.fromEntries(SPAWN_KINDS.map((k) => [k.id, k]))
 
-const linkDialogState = ref({ open: false, finding: null, kind: null })
+const linkDialogState = ref({ open: false, finding: null, findings: null, kind: null })
 
 function openLinkDialog(finding, kind) {
   if (props.readonly) return
-  linkDialogState.value = { open: true, finding, kind }
+  linkDialogState.value = { open: true, finding, findings: null, kind }
+}
+
+// ── Multi-select → one CAPA (create or attach) ─────────────────────
+// Select several failed-requirement findings, then raise ONE CAPA that
+// covers them all (N findings → 1 CAPA via spawned_capa_id). Create routes
+// to the CAPA create page with ?findingIds=…; Attach reuses the link dialog
+// in multi mode.
+const selected = reactive({})
+const selectedFindings = computed(() => findings.value.filter((f) => selected[f.id]))
+const selectedCount = computed(() => selectedFindings.value.length)
+
+function toggleSelect(id) {
+  selected[id] = !selected[id]
+}
+function clearSelection() {
+  for (const k of Object.keys(selected)) delete selected[k]
+}
+function createCapaFromSelected() {
+  if (props.readonly || !selectedCount.value) return
+  const ids = selectedFindings.value.map((f) => f.id).join(',')
+  router.push(getCompanyPath(`/capas/create?findingIds=${ids}`))
+}
+function attachSelectedToCapa() {
+  if (props.readonly || !selectedCount.value) return
+  linkDialogState.value = {
+    open: true,
+    finding: null,
+    findings: selectedFindings.value,
+    kind: 'CAPA',
+  }
 }
 
 function openSpawned(finding, kind) {
@@ -228,6 +261,39 @@ function unlinkedKinds(finding) {
       </BaseButton>
     </div>
 
+    <!-- Bulk bar: raise ONE CAPA from several selected findings (create or
+         attach an existing one). Shows once at least one finding is ticked. -->
+    <div
+      v-if="!readonly && selectedCount"
+      class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap tw:bg-primary/5 tw:border tw:border-primary/20 tw:rounded-md tw:px-3 tw:py-2"
+    >
+      <span class="tw:text-xs tw:font-medium tw:text-primary">
+        {{ selectedCount }} finding{{ selectedCount === 1 ? '' : 's' }} selected
+      </span>
+      <div class="tw:flex-1" />
+      <button
+        type="button"
+        class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:bg-primary tw:text-white tw:rounded tw:px-2.5 tw:py-1 tw:cursor-pointer tw:hover:opacity-90 tw:border-0"
+        @click="createCapaFromSelected"
+      >
+        <IconPlus :size="13" /> Create CAPA
+      </button>
+      <button
+        type="button"
+        class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:bg-white tw:text-primary tw:border tw:border-primary/40 tw:rounded tw:px-2.5 tw:py-1 tw:cursor-pointer tw:hover:bg-primary/10"
+        @click="attachSelectedToCapa"
+      >
+        <IconLink :size="13" /> Attach to CAPA
+      </button>
+      <button
+        type="button"
+        class="tw:text-xs tw:text-secondary tw:hover:text-primary tw:cursor-pointer tw:bg-transparent tw:border-0"
+        @click="clearSelection"
+      >
+        Clear
+      </button>
+    </div>
+
     <div
       v-if="!findings.length"
       class="tw:py-8 tw:text-center tw:text-sm tw:text-secondary tw:italic"
@@ -244,6 +310,14 @@ function unlinkedKinds(finding) {
       >
         <!-- Row header -->
         <div class="tw:flex tw:items-start tw:gap-2">
+          <input
+            v-if="!readonly"
+            type="checkbox"
+            class="tw:mt-1 tw:cursor-pointer"
+            :checked="!!selected[finding.id]"
+            title="Select for CAPA"
+            @change="toggleSelect(finding.id)"
+          />
           <button
             type="button"
             class="tw:mt-0.5 tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
@@ -269,6 +343,18 @@ function unlinkedKinds(finding) {
               >
                 {{ finding.processArea }}
               </span>
+              <!-- Linked-record chips, surfaced in the collapsed row so users
+                   see at a glance that a CAPA / NC / CR / Training was raised
+                   from this finding (clickable to open it). Full link/unlink
+                   controls remain in the expanded section. -->
+              <template v-for="cfg in SPAWN_KINDS">
+                <AuditFindingLinkedChip
+                  v-if="isLinked(finding, cfg.id)"
+                  :key="`hdr-${cfg.id}`"
+                  :kind="cfg.id"
+                  :targetId="finding[cfg.column]"
+                />
+              </template>
             </div>
             <p
               class="tw:text-sm tw:text-on-main"
@@ -425,10 +511,12 @@ function unlinkedKinds(finding) {
     />
 
     <AuditFindingLinkSpawnedDialog
-      v-if="linkDialogState.finding"
+      v-if="linkDialogState.finding || linkDialogState.findings"
       v-model="linkDialogState.open"
       :finding="linkDialogState.finding"
+      :findings="linkDialogState.findings"
       :kind="linkDialogState.kind"
+      @linked="clearSelection"
     />
   </div>
 </template>

@@ -67,7 +67,9 @@ async function resetSync() {
 
         <div id="main-header-title" />
 
-        <div id="main-header-search" class="tw:w-full"></div>
+        <div id="main-header-search" class="tw:w-full">
+          <GlobalSearch />
+        </div>
       </div>
 
       <div class="tw:flex tw:items-center tw:gap-4">

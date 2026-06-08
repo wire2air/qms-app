@@ -55,7 +55,8 @@ const RESULTS = [
   { id: 'CONFORMING', name: 'Conforming' },
   { id: 'MINOR_NC', name: 'Minor NC' },
   { id: 'MAJOR_NC', name: 'Major NC' },
-  { id: 'OBSERVATION', name: 'Observation' },
+  // OBSERVATION removed as a requirement result — OFI covers it (the auditor's
+  // improvement note). OBSERVATION remains a finding TYPE, not a clause result.
   { id: 'OFI', name: 'OFI' },
   { id: 'NA', name: 'N/A' },
 ]
@@ -182,7 +183,9 @@ const commentDebounce = useDebounceFn(async (clause) => {
               <code class="tw:text-xs tw:font-mono tw:text-secondary">
                 {{ clause.clauseNumber }}
               </code>
-              <span class="tw:text-sm tw:font-medium">{{ clause.title }}</span>
+              <span class="tw:text-sm tw:font-medium">
+                {{ clause.title }}{{ clause.question ? `: ${clause.question}` : '' }}
+              </span>
               <span
                 v-if="clause.riskWeight && clause.riskWeight !== 1"
                 class="tw:text-[10px] tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-semibold"

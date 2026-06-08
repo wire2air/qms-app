@@ -16,11 +16,20 @@ import { post } from '@/api'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
-  finding: { type: Object, required: true },
+  // Single-finding mode (most callers). Either `finding` OR `findings`.
+  finding: { type: Object, default: null },
+  // Multi-finding mode: link the picked record to every finding in the list
+  // (e.g. "attach these 3 failed-requirement findings to one existing CAPA").
+  findings: { type: Array, default: null },
   // 'NC' | 'CAPA' | 'TRAINING' | 'CR' — picked by the parent dropdown.
   kind: { type: String, required: true },
 })
 const emit = defineEmits(['update:modelValue', 'linked'])
+
+// Normalised target list — the findings this link applies to.
+const targetFindings = computed(() =>
+  props.findings?.length ? props.findings : props.finding ? [props.finding] : [],
+)
 
 const toast = useToast()
 
@@ -107,14 +116,23 @@ function close() {
 
 async function handleLink() {
   if (!selectedTargetId.value || linking.value) return
+  const list = targetFindings.value
+  if (!list.length) return
   linking.value = true
   try {
-    await post(`/v1/services/auditFindings/${props.finding.id}/link`, {
-      kind: props.kind,
-      targetId: selectedTargetId.value,
-    })
-    toast.success(`${config.value.label} linked to finding`)
-    emit('linked', { kind: props.kind, targetId: selectedTargetId.value })
+    // One link call per finding — all point at the same picked record
+    // (server upserts spawned_*_id, so this is idempotent per finding).
+    for (const f of list) {
+      await post(`/v1/services/auditFindings/${f.id}/link`, {
+        kind: props.kind,
+        targetId: selectedTargetId.value,
+      })
+    }
+    const n = list.length
+    toast.success(
+      `${config.value.label} linked to ${n} finding${n === 1 ? '' : 's'}`,
+    )
+    emit('linked', { kind: props.kind, targetId: selectedTargetId.value, count: n })
     close()
   } catch (e) {
     toast.error(e.message || 'Failed to link record')
@@ -138,7 +156,13 @@ async function handleLink() {
       <div
         class="tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:p-3 tw:text-xs tw:text-blue-800"
       >
-        <strong>Linking to:</strong> {{ finding.findingNumber }} — {{ finding.description }}
+        <template v-if="targetFindings.length === 1">
+          <strong>Linking to:</strong> {{ targetFindings[0].findingNumber }} — {{ targetFindings[0].description }}
+        </template>
+        <template v-else>
+          <strong>Linking to {{ targetFindings.length }} findings:</strong>
+          {{ targetFindings.map((f) => f.findingNumber).join(', ') }}
+        </template>
       </div>
 
       <div>

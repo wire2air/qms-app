@@ -40,23 +40,11 @@ const FINDING_TYPES = [
 ]
 
 function defaultForm() {
-  // Derive a sensible processArea from the response snapshot — the
-  // clause number + title is the most useful "where in the audit
-  // did this come from" hint.
-  let processArea = ''
-  if (props.requirementResponse?.requirementSnapshot) {
-    const s = props.requirementResponse.requirementSnapshot
-    processArea = `${s.clauseNumber || ''} ${s.title || ''}`.trim()
-  }
   return {
     findingTypeId: 'MINOR_NC',
     description: '',
     categoryId: null,
     departmentId: props.auditInstance?.departmentId ?? null,
-    supplierId: props.auditInstance?.supplierId ?? null,
-    processArea,
-    assignedToUserId: null,
-    dueDate: '',
     severityScore: 1,
     riskScore: 1,
   }
@@ -77,14 +65,6 @@ watch(
         description: props.finding.description ?? '',
         categoryId: props.finding.categoryId ?? null,
         departmentId: props.finding.departmentId ?? null,
-        supplierId: props.finding.supplierId ?? null,
-        processArea: props.finding.processArea ?? '',
-        assignedToUserId: props.finding.assignedToUserId ?? null,
-        dueDate: props.finding.dueDate
-          ? typeof props.finding.dueDate === 'string'
-            ? props.finding.dueDate
-            : props.finding.dueDate.toFormat?.('yyyy-LL-dd') ?? ''
-          : '',
         severityScore: props.finding.severityScore ?? 1,
         riskScore: props.finding.riskScore ?? 1,
       }
@@ -109,10 +89,6 @@ async function handleSave() {
       description: form.value.description.trim(),
       categoryId: form.value.categoryId || null,
       departmentId: form.value.departmentId || null,
-      supplierId: form.value.supplierId || null,
-      processArea: form.value.processArea?.trim() || null,
-      assignedToUserId: form.value.assignedToUserId || null,
-      dueDate: form.value.dueDate || null,
       severityScore: Number(form.value.severityScore) || 1,
       riskScore: Number(form.value.riskScore) || 1,
     }
@@ -154,7 +130,12 @@ async function handleSave() {
       >
         <strong>Escalating from clause:</strong>
         {{ requirementResponse.requirementSnapshot.clauseNumber }} —
-        {{ requirementResponse.requirementSnapshot.title }}
+        {{ requirementResponse.requirementSnapshot.title
+        }}{{
+          requirementResponse.requirementSnapshot.question
+            ? `: ${requirementResponse.requirementSnapshot.question}`
+            : ''
+        }}
       </div>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
@@ -181,34 +162,9 @@ async function handleSave() {
         />
       </div>
 
-      <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Department</p>
-          <DepartmentSelectMenu v-model="form.departmentId" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Supplier</p>
-          <SupplierSelectMenu v-model="form.supplierId" />
-        </div>
-      </div>
-
       <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Process Area</p>
-        <BaseTextInput
-          v-model="form.processArea"
-          placeholder="e.g. Receiving Inspection / Calibration / 7.5 Production"
-        />
-      </div>
-
-      <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Assignee</p>
-          <UserSelectMenu v-model="form.assignedToUserId" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Due Date</p>
-          <BaseTextInput v-model="form.dueDate" type="date" />
-        </div>
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Department</p>
+        <DepartmentSelectMenu v-model="form.departmentId" />
       </div>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
