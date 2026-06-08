@@ -314,12 +314,43 @@ const findingsByStatus = useLiveQueryWithDeps(
   { initial: { open: 0, total: 0 } },
 )
 
-const auditTabs = computed(() => [
-  { id: 'info', label: 'Information', icon: IconClipboardCheck, count: null },
-  { id: 'requirements', label: 'Requirements', icon: IconClipboardList, count: clauseCount.value },
-  { id: 'findings', label: 'Findings', icon: IconBolt, count: findingsByStatus.value.total },
-  { id: 'ofi', label: 'OFI', icon: IconBulb, count: scoring.value.counts.OFI },
-])
+// #3/#4 — supplier-audit release. The supplier (non-auditor viewer) only sees
+// Requirements/Findings/OFI once the auditor releases; the auditor sees all.
+const isReleased = computed(() => !!auditInstance.value?.releasedAt)
+const supplierTabsLocked = computed(
+  () => auditInstance.value?.programTypeId === 'SUPPLIER' && !isEditable.value && !isReleased.value,
+)
+const canRelease = computed(
+  () => auditInstance.value?.programTypeId === 'SUPPLIER' && isEditable.value,
+)
+const releasing = ref(false)
+async function releaseAudit() {
+  if (!canRelease.value || releasing.value) return
+  releasing.value = true
+  try {
+    const res = await post(`/v1/services/auditInstances/${props.id}/release`)
+    const n = res?.notified ?? 0
+    toast.success(n > 0 ? `Released — ${n} supplier contact${n === 1 ? '' : 's'} notified.` : 'Audit released.')
+  } catch (e) {
+    toast.error(e.message || 'Failed to release audit')
+  } finally {
+    releasing.value = false
+  }
+}
+
+const auditTabs = computed(() => {
+  const tabs = [
+    { id: 'info', label: 'Information', icon: IconClipboardCheck, count: null },
+    { id: 'requirements', label: 'Requirements', icon: IconClipboardList, count: clauseCount.value },
+    { id: 'findings', label: 'Findings', icon: IconBolt, count: findingsByStatus.value.total },
+    { id: 'ofi', label: 'OFI', icon: IconBulb, count: scoring.value.counts.OFI },
+  ]
+  return supplierTabsLocked.value ? tabs.filter((t) => t.id === 'info') : tabs
+})
+// If the active tab becomes unavailable (supplier pre-release), fall back to Information.
+watch(auditTabs, (tabs) => {
+  if (!tabs.some((t) => t.id === tab.value)) tab.value = 'info'
+})
 </script>
 
 <template>
@@ -343,6 +374,24 @@ const auditTabs = computed(() => [
           <IconPrinter :size="16" class="tw:mr-1" />
           Report
         </BaseButton>
+        <!-- #3 — release a supplier audit for the supplier's review. -->
+        <BaseButton
+          v-if="canRelease && !isReleased"
+          variant="primary"
+          size="sm"
+          :loading="releasing"
+          @click="releaseAudit"
+        >
+          <IconSend :size="16" class="tw:mr-1" />
+          Release to Supplier
+        </BaseButton>
+        <span
+          v-else-if="isReleased && canRelease"
+          class="tw:inline-flex tw:items-center tw:text-xs tw:font-medium tw:text-emerald-700 tw:bg-emerald-50 tw:rounded tw:px-2 tw:py-1"
+          :title="`Released to supplier on ${auditInstance.releasedAt?.formatDate?.('datetime') ?? ''}`"
+        >
+          Released {{ auditInstance.releasedAt?.formatDate?.('date') }}
+        </span>
         <BaseButton
           v-if="canStart"
           variant="primary"
