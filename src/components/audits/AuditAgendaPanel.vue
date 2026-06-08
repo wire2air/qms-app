@@ -58,6 +58,10 @@ function toggle(id) {
 }
 
 const sentAt = computed(() => props.auditInstance?.agenda?.sentAt ?? null)
+// Supplier audits send to the supplier's users; internal audits to the auditee.
+const recipientLabel = computed(() =>
+  props.auditInstance?.programTypeId === 'SUPPLIER' ? 'Supplier' : 'Auditee',
+)
 function fmt(d) {
   if (!d) return ''
   return new Date(d).toLocaleString()
@@ -77,7 +81,7 @@ async function send() {
     })
     const n = res?.notified ?? 0
     toast.success(
-      n > 0 ? `Agenda sent to ${n} supplier contact${n === 1 ? '' : 's'}.` : 'Agenda saved.',
+      n > 0 ? `Agenda sent to ${n} recipient${n === 1 ? '' : 's'}.` : 'Agenda saved.',
     )
   } catch (e) {
     toast.error(e.message || 'Failed to send agenda')
@@ -100,8 +104,8 @@ async function send() {
     </div>
 
     <p class="tw:text-xs tw:text-secondary tw:mb-3">
-      Select the clauses to include in the agenda emailed to the supplier. They get read-only
-      access to this audit and can upload requested documents.
+      Select the clauses to include in the agenda emailed to the {{ recipientLabel.toLowerCase() }}.
+      They get read-only access to this audit and can upload requested documents.
     </p>
 
     <div class="tw:flex tw:flex-col tw:gap-1 tw:max-h-72 tw:overflow-y-auto tw:mb-3 tw:border tw:border-divider tw:rounded tw:p-2">
@@ -153,7 +157,7 @@ async function send() {
       <span class="tw:text-xs tw:text-secondary">{{ selected.size }} of {{ clauses.length }} clauses selected</span>
       <BaseButton v-if="!readonly" variant="primary" size="sm" :loading="sending" @click="send">
         <template #icon><IconSend :size="14" /></template>
-        {{ sentAt ? 'Re-send to Supplier' : 'Generate & Send to Supplier' }}
+        {{ sentAt ? `Re-send to ${recipientLabel}` : `Generate & Send to ${recipientLabel}` }}
       </BaseButton>
     </div>
   </div>

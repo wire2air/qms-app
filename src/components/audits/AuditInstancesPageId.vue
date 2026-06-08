@@ -21,7 +21,6 @@ import {
   IconUsers,
   IconClipboardList,
   IconBolt,
-  IconPaperclip,
   IconSend,
   IconPlayerPlay,
   IconBan,
@@ -596,9 +595,10 @@ const auditTabs = computed(() => [
               </div>
             </div>
 
-            <!-- Supplier-audit agenda (#15): select clauses + send to supplier. -->
+            <!-- Agenda + embedded Document Request (#15/#2): select clauses +
+                 requested docs, send to the supplier or the internal auditee. -->
             <AuditAgendaPanel
-              v-if="auditInstance.programTypeId === 'SUPPLIER' && tab === 'info'"
+              v-if="tab === 'info'"
               :auditInstance="auditInstance"
               :readonly="!isEditable"
               :docRequestReadonly="docRequestReadonly"
@@ -641,27 +641,8 @@ const auditTabs = computed(() => [
               <AuditOfiPanel :auditInstance="auditInstance" />
             </div>
 
-            <!-- Document Request — the documents requested for the audit.
-                 The auditee uploads new files or links existing records
-                 here (renamed from "Evidence"). -->
-            <!-- Standalone for internal audits; supplier audits render it
-                 inside the Agenda panel (sent to the auditee together). -->
-            <div
-              v-show="tab === 'info' && auditInstance.programTypeId !== 'SUPPLIER'"
-              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-            >
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-              >
-                <IconPaperclip :size="14" />
-                Document Request
-              </div>
-              <AuditDocumentRequestPanel
-                :auditInstance="auditInstance"
-                :readonly="docRequestReadonly"
-                :canManageRequests="isEditable"
-              />
-            </div>
+            <!-- Document Request now lives inside the Agenda panel for every
+                 audit type (they're sent to the auditee/supplier together). -->
 
             <!-- Close-Out Workflow — appears once the audit has been
                  Submitted-for-Close-Out (workflowInstanceId is set).
