@@ -19,10 +19,10 @@ import {
 
 const tabs = [
   { id: 'insights', label: 'Insights', icon: IconChartBar },
-  { id: 'standards', label: 'Standards', icon: IconBook },
-  { id: 'programs', label: 'Programs', icon: IconCalendarTime },
   { id: 'instances', label: 'Audits', icon: IconChecklist },
+  { id: 'programs', label: 'Audit Plan', icon: IconCalendarTime },
   { id: 'calendar', label: 'Calendar', icon: IconCalendar },
+  { id: 'standards', label: 'Standards', icon: IconBook },
 ]
 
 const route = useRoute()
