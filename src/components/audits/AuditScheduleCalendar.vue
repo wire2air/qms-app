@@ -62,26 +62,46 @@ function yearOf(d) {
 
 const UNASSIGNED = '__none__'
 
-// grid[deptKey][monthIdx] = [instances]; only scheduled audits in the year.
+// Row grouping: supplier audits group by supplier ("Supplier: X"); internal
+// audits group by department (Unassigned if none).
+function rowKey(a) {
+  if (a.programTypeId === 'SUPPLIER' && a.supplierId) return `supplier:${a.supplierId}`
+  return a.departmentId || UNASSIGNED
+}
+
+// grid[rowKey][monthIdx] = [instances]; only scheduled audits in the year.
 const grid = computed(() => {
   const g = {}
   for (const a of instances.value) {
     if (yearOf(a.scheduledDate) !== year.value) continue
     const mi = monthIndex(a.scheduledDate)
     if (mi == null) continue
-    const key = a.departmentId || UNASSIGNED
+    const key = rowKey(a)
     g[key] ??= {}
     ;(g[key][mi] ??= []).push(a)
   }
   return g
 })
 
-// Rows = departments that have at least one audit this year (+ Unassigned).
+// Resolve a display label per row key (supplier name / department name).
+const labelByKey = computed(() => {
+  const m = {}
+  for (const a of instances.value) {
+    if (yearOf(a.scheduledDate) !== year.value) continue
+    const key = rowKey(a)
+    if (m[key]) continue
+    if (key.startsWith('supplier:')) m[key] = `Supplier: ${a.displayMeta?.supplierName || 'Supplier'}`
+    else if (key === UNASSIGNED) m[key] = 'Unassigned'
+    else m[key] = deptName.value[key] || 'Department'
+  }
+  return m
+})
+
+// Rows = supplier/department groups with audits this year (+ Unassigned last).
 const rows = computed(() => {
-  const keys = Object.keys(grid.value)
-  const out = keys
+  const out = Object.keys(grid.value)
     .filter((k) => k !== UNASSIGNED)
-    .map((k) => ({ key: k, label: deptName.value[k] || 'Department' }))
+    .map((k) => ({ key: k, label: labelByKey.value[k] || 'Department' }))
     .sort((a, b) => a.label.localeCompare(b.label))
   if (grid.value[UNASSIGNED]) out.push({ key: UNASSIGNED, label: 'Unassigned' })
   return out
