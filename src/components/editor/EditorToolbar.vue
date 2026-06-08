@@ -9,6 +9,7 @@ import {
   IconCode,
   IconLink,
   IconPhoto,
+  IconCamera,
   IconTable,
   IconHighlight,
   IconH3,
@@ -46,6 +47,7 @@ const toolbarItems = [
   { icon: IconLink, action: 'link', label: 'Link', custom: true },
   { divider: true },
   { icon: IconPhoto, action: 'image', label: 'Insert Image', custom: true },
+  { icon: IconCamera, action: 'camera', label: 'Take Photo', custom: true },
   { divider: true },
   { icon: IconTable, action: 'table', label: 'Insert Table', custom: true },
   { divider: true },
@@ -62,6 +64,11 @@ function executeCommand(item) {
 
   if (item.custom && item.action === 'image') {
     openImageFilePicker()
+    return
+  }
+
+  if (item.custom && item.action === 'camera') {
+    openCameraCapture()
     return
   }
 
@@ -97,6 +104,20 @@ function openImageFilePicker() {
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = 'image/*'
+  input.onchange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) emit('uploadImage', file)
+  }
+  input.click()
+}
+
+// Take Photo — same upload pipeline, but `capture` hints the device camera
+// (opens the camera on mobile; falls back to a file picker on desktop).
+function openCameraCapture() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.capture = 'environment'
   input.onchange = (e) => {
     const file = e.target.files?.[0]
     if (file) emit('uploadImage', file)
