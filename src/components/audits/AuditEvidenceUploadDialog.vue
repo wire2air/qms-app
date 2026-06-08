@@ -31,6 +31,11 @@ const file = ref(null)
 const caption = ref('')
 const uploading = ref(false)
 
+// Title reflects the scope so it's clear which upload path fired.
+const dialogTitle = computed(() =>
+  props.scope === 'documentRequest' ? 'Upload Requested Document' : 'Upload Evidence',
+)
+
 watch(
   () => props.modelValue,
   (open) => {
@@ -79,7 +84,7 @@ async function handleUpload() {
 </script>
 
 <template>
-  <BaseDialog :modelValue="modelValue" title="Upload Evidence" maxWidth="md" @update:modelValue="close">
+  <BaseDialog :modelValue="modelValue" :title="dialogTitle" maxWidth="md" @update:modelValue="close">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
       <div>
         <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
