@@ -250,16 +250,22 @@ const commentDebounce = useDebounceFn(async (clause) => {
               {{ r.name }}
             </button>
           </div>
+          <!-- Comments — only mount the editor once a result is picked (or a
+               comment already exists). Avoids a tall, empty, placeholder-less
+               editor per clause (and hundreds of TipTap instances). -->
           <BaseRichTextEditor
+            v-if="responsesById[clause.requirementId]?.resultId || commentValue(clause.requirementId)"
             :modelValue="commentValue(clause.requirementId)"
             :editable="!readonly && !!responsesById[clause.requirementId]?.resultId"
-            :placeholder="
-              responsesById[clause.requirementId]?.resultId
-                ? 'Comments…'
-                : 'Pick a result first, then add comments'
-            "
+            placeholder="Comments…"
             @update:modelValue="(v) => { setCommentBuffer(clause.requirementId, v); commentDebounce(clause) }"
           />
+          <p
+            v-else-if="!readonly"
+            class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
+          >
+            Pick a result first, then add comments.
+          </p>
 
           <!-- Per-response evidence — appears once a result is picked
                (the response row exists, so audit_evidence /
