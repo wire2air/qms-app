@@ -31,7 +31,9 @@ const department = useLiveQueryWithDeps([() => audit.value?.departmentId], async
   id ? db.Department.findByPk(id) : null,
 )
 
-const { responses, scoring } = useAuditScoring(() => props.id)
+// Requirement-level results are intentionally NOT printed — the report shared
+// with the auditee/supplier carries the conformance summary + findings only.
+const { scoring } = useAuditScoring(() => props.id)
 
 const findings = useLiveQueryWithDeps(
   [() => props.id],
@@ -77,26 +79,12 @@ function userName(id) {
   return id ? (userMap.value[id] ?? id) : '—'
 }
 
-// Requirement results, sorted by clause number, with the joined clause text.
 const RESULT_LABEL = {
   CONFORMING: 'Conforming',
   MINOR_NC: 'Minor NC',
   MAJOR_NC: 'Major NC',
   OFI: 'OFI',
   NA: 'N/A',
-}
-const sortedResponses = computed(() =>
-  [...responses.value].sort((a, b) =>
-    String(a.requirementSnapshot?.clauseNumber ?? '').localeCompare(
-      String(b.requirementSnapshot?.clauseNumber ?? ''),
-      undefined,
-      { numeric: true },
-    ),
-  ),
-)
-function clauseText(snap) {
-  if (!snap) return ''
-  return `${snap.title ?? ''}${snap.question ? `: ${snap.question}` : ''}`
 }
 function resultClass(id) {
   if (id === 'MAJOR_NC') return 'aud-r-major'
@@ -107,9 +95,6 @@ function resultClass(id) {
 }
 
 const identifier = computed(() => audit.value?.auditNumber ?? '')
-const auditEntities = computed(() =>
-  audit.value?.id ? [{ entityType: 'AuditInstances', entityId: audit.value.id }] : [],
-)
 
 function fmtDate(d) {
   if (!d) return '—'
@@ -132,7 +117,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <PrintLayout :status="audit?.statusId" :identifier="identifier" :auditEntities="auditEntities">
+  <PrintLayout :status="audit?.statusId" :identifier="identifier">
     <template #title>
       <div class="aud-print-num">{{ audit?.auditNumber }}</div>
       <h1 class="aud-print-title">
@@ -210,27 +195,10 @@ onMounted(() => {
         </p>
       </section>
 
-      <!-- Requirement results -->
-      <section v-if="sortedResponses.length" class="aud-print-section">
-        <h2>3. Requirement Results</h2>
-        <table class="aud-print-results">
-          <thead>
-            <tr><th>Clause</th><th>Requirement</th><th>Result</th><th>Comments</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in sortedResponses" :key="r.id">
-              <td class="aud-clause">{{ r.requirementSnapshot?.clauseNumber || '—' }}</td>
-              <td>{{ clauseText(r.requirementSnapshot) }}</td>
-              <td><span class="aud-result" :class="resultClass(r.resultId)">{{ RESULT_LABEL[r.resultId] || r.resultId }}</span></td>
-              <td>{{ r.comments || '' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <!-- Findings -->
+      <!-- Findings — the report shared with the auditee/supplier carries the
+           findings, not the per-clause requirement results. -->
       <section v-if="findings.length" class="aud-print-section">
-        <h2>4. Findings ({{ findings.length }})</h2>
+        <h2>3. Findings ({{ findings.length }})</h2>
         <table class="aud-print-results">
           <thead>
             <tr><th>#</th><th>Type</th><th>Status</th><th>Description</th></tr>
@@ -248,7 +216,7 @@ onMounted(() => {
 
       <!-- Audit team + sign-off -->
       <section class="aud-print-section">
-        <h2>5. Audit Team &amp; Sign-off</h2>
+        <h2>4. Audit Team &amp; Sign-off</h2>
         <table class="aud-print-results">
           <thead>
             <tr><th>Auditor</th><th>Role</th><th>Signature</th><th>Date</th></tr>
