@@ -704,7 +704,8 @@ function summarizeFinding() {
                 class="tw:[&_.ProseMirror]:min-h-24"
                 @update:modelValue="setAuditorNotes"
               >
-                <template #toolbar-extra="{ append }">
+                <template #toolbar-extra="{ editor, append }">
+                  <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
                   <AiVoiceToTextButton v-if="canUseAi" :append="append" />
                 </template>
               </BaseRichTextEditor>
@@ -785,7 +786,8 @@ function summarizeFinding() {
                 class="tw:[&_.ProseMirror]:min-h-24"
                 @update:modelValue="setComments"
               >
-                <template #toolbar-extra="{ append }">
+                <template #toolbar-extra="{ editor, append }">
+                  <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
                   <AiVoiceToTextButton v-if="canUseAi" :append="append" />
                 </template>
               </BaseRichTextEditor>
