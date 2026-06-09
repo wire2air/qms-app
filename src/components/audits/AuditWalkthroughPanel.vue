@@ -10,7 +10,7 @@
  * the response (and its checklist / interviewees / notes) saves. Once a result
  * exists, edits auto-save (debounced).
  */
-import { IconChevronDown, IconChevronRight, IconX, IconUser, IconPlus, IconList, IconNotebook } from '@tabler/icons-vue'
+import { IconChevronDown, IconChevronRight, IconX, IconUser, IconPlus, IconList, IconNotebook, IconGavel } from '@tabler/icons-vue'
 import { canUseAi } from '@/utils/currentSession'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
@@ -405,12 +405,12 @@ function setAuditorNotes(v) {
              who was interviewed, evidence, photos, voice + free-form notes.
              NOT included in the finding; only the Result + Finding Notes
              (below) are shared. -->
-        <div class="tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
-          <div class="tw:bg-main-hover/50 tw:px-3 tw:py-2 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-1.5">
-            <IconNotebook :size="14" class="tw:text-secondary tw:shrink-0" />
-            <p class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-secondary">
+        <div class="tw:border tw:border-slate-200 tw:rounded-lg tw:overflow-hidden tw:bg-slate-50/40">
+          <div class="tw:bg-slate-100 tw:px-3 tw:py-2 tw:border-b tw:border-slate-200 tw:flex tw:items-center tw:gap-1.5">
+            <IconNotebook :size="14" class="tw:text-slate-600 tw:shrink-0" />
+            <p class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-slate-600">
               Auditor's Notebook
-              <span class="tw:font-normal tw:normal-case tw:text-secondary/80">— private, not shared in the finding</span>
+              <span class="tw:font-normal tw:normal-case tw:text-slate-500">— private, not shared in the finding</span>
             </p>
           </div>
           <div class="tw:p-3 tw:flex tw:flex-col tw:gap-4">
@@ -549,45 +549,55 @@ function setAuditorNotes(v) {
           </div>
         </div>
 
-        <hr class="tw:border-divider" />
-
-        <!-- ── Result → finding. The verdict + Finding Notes are what become
-             the finding / report (shared with the auditee/supplier). -->
-        <div>
-          <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">Result</p>
-          <div class="tw:flex tw:flex-wrap tw:gap-1.5">
-            <button
-              v-for="r in RESULTS"
-              :key="r.id"
-              type="button"
-              class="tw:text-[11px] tw:font-semibold tw:rounded tw:px-2.5 tw:py-1 tw:cursor-pointer tw:border tw:transition-colors"
-              :disabled="readonly || saving[currentReqId]"
-              :class="currentResponse?.resultId === r.id
-                ? 'tw:bg-primary tw:text-white tw:border-primary'
-                : 'tw:bg-white tw:text-on-main tw:border-divider tw:hover:border-primary tw:hover:text-primary'"
-              @click="pickResult(r.id)"
-            >{{ r.name }}</button>
+        <!-- ── Result → finding (shared). The verdict + Finding Notes become
+             the finding / report seen by the auditee/supplier. -->
+        <div class="tw:border tw:border-blue-200 tw:rounded-lg tw:overflow-hidden tw:bg-blue-50/30">
+          <div class="tw:bg-blue-50 tw:px-3 tw:py-2 tw:border-b tw:border-blue-200 tw:flex tw:items-center tw:gap-1.5">
+            <IconGavel :size="14" class="tw:text-blue-700 tw:shrink-0" />
+            <p class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-blue-700">
+              Result &amp; Finding
+              <span class="tw:font-normal tw:normal-case tw:text-blue-700/70">— shared in the finding / report</span>
+            </p>
           </div>
-          <p v-if="!currentResponse?.resultId" class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-            Work through your notebook above, then pick a result to record the verdict. Everything saves as you go.
-          </p>
-        </div>
+          <div class="tw:p-3 tw:flex tw:flex-col tw:gap-4">
+            <!-- Verdict -->
+            <div>
+              <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">Result</p>
+              <div class="tw:flex tw:flex-wrap tw:gap-1.5">
+                <button
+                  v-for="r in RESULTS"
+                  :key="r.id"
+                  type="button"
+                  class="tw:text-[11px] tw:font-semibold tw:rounded tw:px-2.5 tw:py-1 tw:cursor-pointer tw:border tw:transition-colors"
+                  :disabled="readonly || saving[currentReqId]"
+                  :class="currentResponse?.resultId === r.id
+                    ? 'tw:bg-primary tw:text-white tw:border-primary'
+                    : 'tw:bg-white tw:text-on-main tw:border-divider tw:hover:border-primary tw:hover:text-primary'"
+                  @click="pickResult(r.id)"
+                >{{ r.name }}</button>
+              </div>
+              <p v-if="!currentResponse?.resultId" class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
+                Work through your notebook above, then pick a result to record the verdict. Everything saves as you go.
+              </p>
+            </div>
 
-        <!-- Finding Notes — included in the finding / report (shared). For an
-             NC result this seeds the auto-finding description. -->
-        <div>
-          <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Finding Notes</p>
-          <BaseRichTextEditor
-            :modelValue="currentBuffer?.comments"
-            :editable="!readonly"
-            placeholder="The note that goes into the finding for this clause (shared in reports)…"
-            class="tw:[&_.ProseMirror]:min-h-24"
-            @update:modelValue="setComments"
-          >
-            <template #toolbar-extra="{ append }">
-              <AiVoiceToTextButton v-if="canUseAi" :append="append" />
-            </template>
-          </BaseRichTextEditor>
+            <!-- Finding Notes — included in the finding / report (shared). For
+                 an NC result this seeds the auto-finding description. -->
+            <div>
+              <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Finding Notes</p>
+              <BaseRichTextEditor
+                :modelValue="currentBuffer?.comments"
+                :editable="!readonly"
+                placeholder="The note that goes into the finding for this clause (shared in reports)…"
+                class="tw:[&_.ProseMirror]:min-h-24"
+                @update:modelValue="setComments"
+              >
+                <template #toolbar-extra="{ append }">
+                  <AiVoiceToTextButton v-if="canUseAi" :append="append" />
+                </template>
+              </BaseRichTextEditor>
+            </div>
+          </div>
         </div>
       </div>
     </div>
