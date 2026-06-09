@@ -17,8 +17,9 @@
  * Three input formats:
  *   - Paste: one clause per line, first whitespace-separated token is
  *            the clause number, rest is the title.
- *   - CSV:   exact header row required: clauseNumber,title,description,
- *            guidance,expectedEvidence
+ *   - CSV:   exact header row required: clauseNumber,parentClauseNumber,title,
+ *            questions,peopleToInterview,description,guidance,expectedEvidence.
+ *            `questions` + `peopleToInterview` are pipe (" | ") separated.
  *   - JSON:  array of objects with the same field shape as CSV.
  */
 import { IconUpload, IconAlertTriangle, IconFileUpload, IconDownload } from '@tabler/icons-vue'
@@ -46,16 +47,16 @@ const FORMATS = [
     id: 'csv',
     label: 'CSV template',
     description:
-      'Download the template, fill one row per clause, and upload it. The first row MUST be the header below (case + spelling exact). Only clauseNumber + title are required; question and the rest are optional per row. Building it in Excel? Save As → CSV (UTF-8).',
+      'Download the template, fill one row per clause, and upload it. The first row MUST be the header below (case + spelling exact). Only clauseNumber + title are required; the rest are optional per row. Put MULTIPLE checklist questions (and multiple interview roles) in ONE cell separated by a pipe " | " — NOT commas (commas split CSV columns, and questions contain commas). Building it in Excel? Save As → CSV (UTF-8).',
     requiredFields:
-      'Required header: clauseNumber,title,question,description,guidance,expectedEvidence',
+      'Required header: clauseNumber,parentClauseNumber,title,questions,peopleToInterview,description,guidance,expectedEvidence',
     sampleName: 'audit-standard-template.csv',
     sampleMime: 'text/csv',
     sample:
-      'clauseNumber,title,question,description,guidance,expectedEvidence\n' +
-      '"4","Context of the organization",,,,\n' +
-      '"4.1","Understanding the organization and its context","Has the organization determined the external and internal issues relevant to its purpose, and does it review them?",,,\n' +
-      '"4.2","Interested parties","Are relevant interested parties and their requirements identified and reviewed?",,,',
+      'clauseNumber,parentClauseNumber,title,questions,peopleToInterview,description,guidance,expectedEvidence\n' +
+      '"4",,"Context of the organization",,,,,\n' +
+      '"4.1","4","Understanding the organization and its context","Has the organization determined the external and internal issues relevant to its purpose? | Does it monitor and review these issues?","Quality Manager | Top Management",,,\n' +
+      '"4.2","4","Interested parties","Are relevant interested parties identified? | Are their requirements determined and reviewed?","Quality Manager",,,',
   },
 ]
 
