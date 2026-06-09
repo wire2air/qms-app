@@ -28,6 +28,9 @@ export class AuditRequirement extends BaseModel {
   @Property({ type: String, required: true }) clauseNumber = ''
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) question = ''
+  // Guided audit (#23): checklist [{ id, text }] + roles/titles to interview.
+  @Property({ type: Object }) questions = []
+  @Property({ type: Object }) peopleToInterview = []
   @Property({ type: String }) departmentId = ''
   @Property({ type: String }) categoryId = ''
   @Property({ type: String }) description = ''
