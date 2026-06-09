@@ -76,7 +76,13 @@ function verifyViaApex(strategy, provider) {
     errorMessage.value = 'Verification is unavailable right now. Please try again.'
     return
   }
-  const url = `${apex}/api/v1/services/verify-identity/esign-oauth/${strategy}?origin=${encodeURIComponent(window.location.origin)}`
+
+  // Opener-generated channel id — the popup can't postMessage back reliably
+  // (Google's COOP severs window.opener), so we poll the result by this id.
+  const channel = (crypto.randomUUID?.() || `${Date.now()}${Math.random()}`).replace(/[^a-f0-9]/gi, '')
+  const url =
+    `${apex}/api/v1/services/verify-identity/esign-oauth/${strategy}` +
+    `?origin=${encodeURIComponent(window.location.origin)}&channel=${channel}`
   const popup = window.open(url, 'qms-esign-verify', 'width=480,height=680')
   if (!popup) {
     oauthLoading.value = false
@@ -84,32 +90,52 @@ function verifyViaApex(strategy, provider) {
     return
   }
 
-  function cleanup() {
+  let done = false
+  const startedAt = Date.now()
+
+  function finish(ok, payload) {
+    if (done) return
+    done = true
     window.removeEventListener('message', onMessage)
-    clearInterval(closeTimer)
+    clearInterval(pollTimer)
+    oauthLoading.value = false
+    try {
+      if (popup && !popup.closed) popup.close()
+    } catch {
+      /* COOP may forbid closing — harmless */
+    }
+    if (ok) {
+      emit('verified', { method: 'OAUTH', provider: payload.provider || provider, token: payload.token })
+      show.value = false
+    } else if (payload?.error) {
+      errorMessage.value = OAUTH_ERRORS[payload.error] || 'Verification failed. Please try again.'
+    }
   }
+
+  // Fast path: direct postMessage when COOP permits it.
   function onMessage(e) {
-    // Only trust messages from the apex origin (where the OAuth ran).
     if (e.origin !== apex) return
     const d = e.data
     if (!d || d.source !== 'qms-esign') return
-    cleanup()
-    oauthLoading.value = false
-    if (d.ok && d.token) {
-      emit('verified', { method: 'OAUTH', provider: d.provider || provider, token: d.token })
-      show.value = false
-    } else {
-      errorMessage.value = OAUTH_ERRORS[d.error] || 'Verification failed. Please try again.'
-    }
+    finish(!!(d.ok && d.token), d)
   }
-  // If the user closes the popup without finishing, stop the spinner.
-  const closeTimer = setInterval(() => {
-    if (popup.closed) {
-      cleanup()
-      oauthLoading.value = false
-    }
-  }, 700)
   window.addEventListener('message', onMessage)
+
+  // Reliable path: poll the result channel (COOP-proof).
+  const pollTimer = setInterval(async () => {
+    if (done) return
+    if (Date.now() - startedAt > 120000) return finish(false, { error: 'timeout' })
+    try {
+      const r = await get(`/v1/services/verify-identity/esign-oauth/result?channel=${channel}`, {
+        showError: false,
+      })
+      if (r && r.pending === false && r.token) return finish(true, r)
+    } catch {
+      /* keep polling */
+    }
+    // User closed the popup and nothing arrived → quietly give up.
+    if (popup.closed && Date.now() - startedAt > 2500) finish(false, null)
+  }, 1200)
 }
 
 function verifyWithGoogle() {
