@@ -44,27 +44,43 @@ const RESULTS = [
   { id: 'NA', name: 'N/A' },
 ]
 
-// ── Clause tree (top-level sections + their children) ───────────────────────
-const tree = computed(() => {
-  const all = clauses.value
-  const ids = new Set(all.map((c) => c.requirementId))
-  const childrenByParent = {}
-  const roots = []
-  for (const c of all) {
-    const isRoot = !c.parentId || !ids.has(c.parentId)
-    if (isRoot) roots.push(c)
-    else (childrenByParent[c.parentId] ??= []).push(c)
+// ── Clause tree (arbitrary nesting depth via parent_id) ─────────────────────
+const ROOT = '__root__'
+const childrenByParent = computed(() => {
+  const ids = new Set(clauses.value.map((c) => c.requirementId))
+  const m = {}
+  for (const c of clauses.value) {
+    // Dangling/absent parent → treat as a root so nothing is ever dropped.
+    const key = c.parentId && ids.has(c.parentId) ? c.parentId : ROOT
+    ;(m[key] ??= []).push(c)
   }
-  return roots.map((r) => ({ ...r, children: childrenByParent[r.requirementId] ?? [] }))
+  return m
 })
-
-// Flat navigation order: each section, then its children.
+// Full depth-first order — EVERY clause is a step (any nesting level).
 const orderedSteps = computed(() => {
   const out = []
-  for (const node of tree.value) {
-    out.push(node)
-    for (const child of node.children) out.push(child)
+  const walk = (parentKey, depth) => {
+    for (const c of childrenByParent.value[parentKey] ?? []) {
+      out.push({ ...c, depth })
+      walk(c.requirementId, depth + 1)
+    }
   }
+  walk(ROOT, 0)
+  return out
+})
+
+// Rail rows — same DFS but stops descending into collapsed nodes. The node
+// itself still shows so it can be expanded again.
+const railRows = computed(() => {
+  const out = []
+  const walk = (parentKey, depth) => {
+    for (const c of childrenByParent.value[parentKey] ?? []) {
+      const kids = childrenByParent.value[c.requirementId] ?? []
+      out.push({ ...c, depth, hasChildren: kids.length > 0 })
+      if (kids.length && !collapsed[c.requirementId]) walk(c.requirementId, depth + 1)
+    }
+  }
+  walk(ROOT, 0)
   return out
 })
 
@@ -243,52 +259,39 @@ function setComments(v) {
     </div>
 
     <div v-else class="tw:flex tw:gap-4 tw:items-start">
-      <!-- ── Left rail: clause tree ── -->
+      <!-- ── Left rail: clause tree (arbitrary depth, indented by level) ── -->
       <div class="tw:w-64 tw:shrink-0 tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden tw:max-h-[70vh] tw:overflow-y-auto">
-        <div v-for="node in tree" :key="node.requirementId" class="tw:border-b tw:border-divider tw:last:border-0">
-          <div class="tw:flex tw:items-center">
-            <button
-              type="button"
-              class="tw:p-2 tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
-              :title="collapsed[node.requirementId] ? 'Expand' : 'Collapse'"
-              @click="toggleSection(node.requirementId)"
-            >
-              <IconChevronRight v-if="collapsed[node.requirementId]" :size="15" />
-              <IconChevronDown v-else :size="15" />
-            </button>
-            <button
-              type="button"
-              class="tw:flex-1 tw:text-left tw:py-2 tw:pr-2 tw:cursor-pointer tw:border-0 tw:flex tw:items-center tw:gap-1.5"
-              :class="currentReqId === node.requirementId ? 'tw:bg-primary/10' : 'tw:bg-transparent tw:hover:bg-main-hover'"
-              @click="goToStep(node.requirementId)"
-            >
-              <code class="tw:text-[10px] tw:font-mono tw:text-secondary">{{ node.clauseNumber }}</code>
-              <span class="tw:text-xs tw:font-semibold tw:truncate">{{ node.title }}</span>
-              <span
-                v-if="responsesById[node.requirementId]"
-                class="tw:ml-auto tw:size-1.5 tw:rounded-full tw:bg-emerald-500 tw:shrink-0"
-                title="Assessed"
-              />
-            </button>
-          </div>
-          <div v-if="!collapsed[node.requirementId] && node.children.length" class="tw:flex tw:flex-col">
-            <button
-              v-for="child in node.children"
-              :key="child.requirementId"
-              type="button"
-              class="tw:text-left tw:pl-9 tw:pr-2 tw:py-1.5 tw:cursor-pointer tw:border-0 tw:flex tw:items-center tw:gap-1.5"
-              :class="currentReqId === child.requirementId ? 'tw:bg-primary/10' : 'tw:bg-transparent tw:hover:bg-main-hover'"
-              @click="goToStep(child.requirementId)"
-            >
-              <code class="tw:text-[10px] tw:font-mono tw:text-secondary">{{ child.clauseNumber }}</code>
-              <span class="tw:text-xs tw:truncate">{{ child.title }}</span>
-              <span
-                v-if="responsesById[child.requirementId]"
-                class="tw:ml-auto tw:size-1.5 tw:rounded-full tw:bg-emerald-500 tw:shrink-0"
-                title="Assessed"
-              />
-            </button>
-          </div>
+        <div
+          v-for="row in railRows"
+          :key="row.requirementId"
+          class="tw:flex tw:items-center tw:border-b tw:border-divider tw:last:border-0"
+          :style="{ paddingLeft: row.depth * 14 + 'px' }"
+        >
+          <button
+            v-if="row.hasChildren"
+            type="button"
+            class="tw:p-2 tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            :title="collapsed[row.requirementId] ? 'Expand' : 'Collapse'"
+            @click="toggleSection(row.requirementId)"
+          >
+            <IconChevronRight v-if="collapsed[row.requirementId]" :size="15" />
+            <IconChevronDown v-else :size="15" />
+          </button>
+          <span v-else class="tw:w-7 tw:shrink-0" />
+          <button
+            type="button"
+            class="tw:flex-1 tw:min-w-0 tw:text-left tw:py-1.5 tw:pr-2 tw:cursor-pointer tw:border-0 tw:flex tw:items-center tw:gap-1.5"
+            :class="currentReqId === row.requirementId ? 'tw:bg-primary/10' : 'tw:bg-transparent tw:hover:bg-main-hover'"
+            @click="goToStep(row.requirementId)"
+          >
+            <code class="tw:text-[10px] tw:font-mono tw:text-secondary">{{ row.clauseNumber }}</code>
+            <span class="tw:text-xs tw:truncate" :class="row.depth === 0 ? 'tw:font-semibold' : ''">{{ row.title }}</span>
+            <span
+              v-if="responsesById[row.requirementId]"
+              class="tw:ml-auto tw:size-1.5 tw:rounded-full tw:bg-emerald-500 tw:shrink-0"
+              title="Assessed"
+            />
+          </button>
         </div>
       </div>
 
