@@ -10,7 +10,7 @@
  * the response (and its checklist / interviewees / notes) saves. Once a result
  * exists, edits auto-save (debounced).
  */
-import { IconChevronDown, IconChevronRight, IconX, IconUser, IconPlus, IconList } from '@tabler/icons-vue'
+import { IconChevronDown, IconChevronRight, IconX, IconUser, IconPlus, IconList, IconNotebook } from '@tabler/icons-vue'
 import { canUseAi } from '@/utils/currentSession'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
@@ -148,6 +148,7 @@ function ensureBuffer(reqId) {
       evidenceChecklist: r?.evidenceChecklist ? { ...r.evidenceChecklist } : {},
       peopleInterviewed: Array.isArray(r?.peopleInterviewed) ? [...r.peopleInterviewed] : [],
       comments: r?.comments ?? '',
+      auditorNotes: r?.auditorNotes ?? '',
     }
   }
   return buffers[reqId]
@@ -177,6 +178,7 @@ async function saveResponse(reqId, resultId) {
       requirementId: reqId,
       resultId: resultId ?? null,
       comments: buf.comments?.trim() || null,
+      auditorNotes: buf.auditorNotes?.trim() || null,
       questionChecklist: buf.questionChecklist,
       observationChecklist: buf.observationChecklist,
       evidenceChecklist: buf.evidenceChecklist,
@@ -263,6 +265,10 @@ function removeInterviewee(idx) {
 
 function setComments(v) {
   currentBuffer.value.comments = v
+  debouncedSave()
+}
+function setAuditorNotes(v) {
+  currentBuffer.value.auditorNotes = v
   debouncedSave()
 }
 </script>
@@ -391,47 +397,159 @@ function setComments(v) {
           </div>
         </div>
 
-        <!-- Checklists: Questions (ask/confirm), Observations (watch),
-             Expected Evidence (records to collect). Each item: tick + note. -->
-        <div
-          v-for="cl in [
-            { items: currentClause.questions, field: 'questionChecklist', label: 'Questions' },
-            { items: currentClause.observations, field: 'observationChecklist', label: 'Observations' },
-            { items: currentClause.evidenceItems, field: 'evidenceChecklist', label: 'Expected Evidence' },
-          ]"
-          :key="cl.field"
-        >
-          <template v-if="cl.items?.length">
-            <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">{{ cl.label }}</p>
-            <div class="tw:flex tw:flex-col tw:gap-2 tw:mb-3">
-              <div v-for="item in cl.items" :key="item.id" class="tw:flex tw:flex-col tw:gap-1 tw:border tw:border-divider tw:rounded tw:p-2">
-                <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">
-                  <input
-                    type="checkbox"
-                    class="tw:mt-0.5"
-                    :checked="checklistState(cl.field, item.id).checked"
-                    :disabled="readonly"
-                    @change="toggleChecklist(cl.field, item.id)"
+        <!-- ── Auditor's Notebook (private working area) ──────────────────
+             The auditor's own material for forming a judgment — checklists,
+             who was interviewed, evidence, photos, voice + free-form notes.
+             NOT included in the finding; only the Result + Finding Notes
+             (below) are shared. -->
+        <div class="tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
+          <div class="tw:bg-main-hover/50 tw:px-3 tw:py-2 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-1.5">
+            <IconNotebook :size="14" class="tw:text-secondary tw:shrink-0" />
+            <p class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-secondary">
+              Auditor's Notebook
+              <span class="tw:font-normal tw:normal-case tw:text-secondary/80">— private, not shared in the finding</span>
+            </p>
+          </div>
+          <div class="tw:p-3 tw:flex tw:flex-col tw:gap-4">
+            <!-- Checklists: Questions (ask/confirm), Observations (watch),
+                 Expected Evidence (records to collect). Each item: tick + note. -->
+            <div
+              v-for="cl in [
+                { items: currentClause.questions, field: 'questionChecklist', label: 'Questions' },
+                { items: currentClause.observations, field: 'observationChecklist', label: 'Observations' },
+                { items: currentClause.evidenceItems, field: 'evidenceChecklist', label: 'Expected Evidence' },
+              ]"
+              :key="cl.field"
+            >
+              <template v-if="cl.items?.length">
+                <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">{{ cl.label }}</p>
+                <div class="tw:flex tw:flex-col tw:gap-2">
+                  <div v-for="item in cl.items" :key="item.id" class="tw:flex tw:flex-col tw:gap-1 tw:border tw:border-divider tw:rounded tw:p-2">
+                    <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">
+                      <input
+                        type="checkbox"
+                        class="tw:mt-0.5"
+                        :checked="checklistState(cl.field, item.id).checked"
+                        :disabled="readonly"
+                        @change="toggleChecklist(cl.field, item.id)"
+                      />
+                      <span class="tw:text-sm" :class="checklistState(cl.field, item.id).checked ? 'tw:text-on-main' : 'tw:text-secondary'">{{ item.text }}</span>
+                    </label>
+                    <BaseTextInput
+                      v-if="!readonly"
+                      :modelValue="checklistState(cl.field, item.id).note"
+                      size="sm"
+                      placeholder="Note (optional)"
+                      class="tw:ml-6"
+                      @update:modelValue="(v) => setChecklistNote(cl.field, item.id, v)"
+                    />
+                    <p v-else-if="checklistState(cl.field, item.id).note" class="tw:ml-6 tw:text-xs tw:text-secondary tw:italic">{{ checklistState(cl.field, item.id).note }}</p>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- People interviewed (hybrid) -->
+            <div>
+              <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">People interviewed</p>
+              <div v-if="currentBuffer?.peopleInterviewed?.length" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:mb-2">
+                <span
+                  v-for="(p, pi) in currentBuffer.peopleInterviewed"
+                  :key="pi"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:bg-main-hover tw:rounded tw:pl-1.5 tw:pr-1 tw:py-0.5"
+                >
+                  <template v-if="p.userId">
+                    <IconUser :size="12" /><UserBadgeById :userId="p.userId" />
+                  </template>
+                  <template v-else>{{ p.name }}<span v-if="p.title" class="tw:text-secondary"> — {{ p.title }}</span></template>
+                  <button
+                    v-if="!readonly"
+                    type="button"
+                    class="tw:text-secondary tw:hover:text-red-600 tw:rounded tw:cursor-pointer tw:bg-transparent tw:border-0"
+                    @click="removeInterviewee(pi)"
+                  ><IconX :size="12" /></button>
+                </span>
+              </div>
+              <div v-if="!readonly" class="tw:flex tw:flex-col tw:gap-2">
+                <!-- Pick an internal/external user -->
+                <div class="tw:flex tw:items-center tw:gap-2">
+                  <!-- #7 — supplier audits interview supplier users; internal
+                       audits interview internal staff. Mirrors the auditee picker. -->
+                  <UserSelectMenu
+                    v-model="pickUserId"
+                    :kind="auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'"
+                    :supplierId="auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null"
+                    nullLabel="Select a user…"
+                    class="tw:flex-1"
                   />
-                  <span class="tw:text-sm" :class="checklistState(cl.field, item.id).checked ? 'tw:text-on-main' : 'tw:text-secondary'">{{ item.text }}</span>
-                </label>
-                <BaseTextInput
-                  v-if="!readonly"
-                  :modelValue="checklistState(cl.field, item.id).note"
-                  size="sm"
-                  placeholder="Note (optional)"
-                  class="tw:ml-6"
-                  @update:modelValue="(v) => setChecklistNote(cl.field, item.id, v)"
-                />
-                <p v-else-if="checklistState(cl.field, item.id).note" class="tw:ml-6 tw:text-xs tw:text-secondary tw:italic">{{ checklistState(cl.field, item.id).note }}</p>
+                  <BaseButton variant="outline" size="sm" :disabled="!pickUserId" @click="addUserInterviewee">Add</BaseButton>
+                </div>
+                <!-- Or add manually -->
+                <div class="tw:flex tw:items-center tw:gap-2">
+                  <BaseTextInput v-model="manualName" size="sm" placeholder="Name" class="tw:flex-1" />
+                  <BaseTextInput v-model="manualTitle" size="sm" placeholder="Title (optional)" class="tw:flex-1" />
+                  <BaseButton variant="outline" size="sm" :disabled="!manualName.trim()" @click="addManualInterviewee">
+                    <template #icon><IconPlus :size="14" /></template>
+                    Add
+                  </BaseButton>
+                </div>
               </div>
             </div>
-          </template>
+
+            <!-- Evidence & photos — scoped to this clause's response. Available
+                 before a verdict (#27): the first attach materialises the response. -->
+            <div>
+              <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Evidence &amp; Photos</p>
+              <AuditEvidencePanel
+                v-if="currentResponse?.id"
+                :auditInstance="auditInstance"
+                scope="response"
+                :scopeId="currentResponse.id"
+                :readonly="readonly"
+              />
+              <div v-else-if="!readonly" class="tw:flex tw:items-center tw:gap-2">
+                <BaseButton variant="outline" size="sm" :loading="saving[currentReqId]" @click="ensureResponse">
+                  <template #icon><IconPlus :size="14" /></template>
+                  Add evidence / photo
+                </BaseButton>
+                <span class="tw:text-xs tw:text-secondary tw:italic">Saved against this clause as you capture.</span>
+              </div>
+              <p v-else class="tw:text-xs tw:text-secondary tw:italic">No evidence captured.</p>
+            </div>
+
+            <!-- Voice notes — record spoken notes for this clause (#2). -->
+            <div>
+              <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Voice Notes</p>
+              <AuditVoiceNotesPanel
+                :auditInstance="auditInstance"
+                :scopeId="currentResponse?.id ?? null"
+                :readonly="readonly"
+                :ensureResponse="ensureResponse"
+              />
+            </div>
+
+            <!-- Auditor Notes — private free-form notebook (dictate-to-text). -->
+            <div>
+              <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Auditor Notes</p>
+              <BaseRichTextEditor
+                :modelValue="currentBuffer?.auditorNotes"
+                :editable="!readonly"
+                placeholder="Your private working notes for this clause — observations, leads to follow, reminders…"
+                class="tw:[&_.ProseMirror]:min-h-24"
+                @update:modelValue="setAuditorNotes"
+              >
+                <template #toolbar-extra="{ append }">
+                  <AiVoiceToTextButton v-if="canUseAi" :append="append" />
+                </template>
+              </BaseRichTextEditor>
+            </div>
+          </div>
         </div>
 
         <hr class="tw:border-divider" />
 
-        <!-- Capture: result -->
+        <!-- ── Result → finding. The verdict + Finding Notes are what become
+             the finding / report (shared with the auditee/supplier). -->
         <div>
           <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">Result</p>
           <div class="tw:flex tw:flex-wrap tw:gap-1.5">
@@ -448,105 +566,25 @@ function setComments(v) {
             >{{ r.name }}</button>
           </div>
           <p v-if="!currentResponse?.resultId" class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-            Notes, checklists, interviewees and evidence save as you go — pick a result to record the verdict.
+            Work through your notebook above, then pick a result to record the verdict. Everything saves as you go.
           </p>
         </div>
 
-        <!-- Notes — always available so the auditor can capture before deciding. -->
+        <!-- Finding Notes — included in the finding / report (shared). For an
+             NC result this seeds the auto-finding description. -->
         <div>
-          <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Notes</p>
+          <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Finding Notes</p>
           <BaseRichTextEditor
             :modelValue="currentBuffer?.comments"
             :editable="!readonly"
-            placeholder="Auditor notes for this clause…"
-            class="tw:[&_.ProseMirror]:min-h-28"
+            placeholder="The note that goes into the finding for this clause (shared in reports)…"
+            class="tw:[&_.ProseMirror]:min-h-24"
             @update:modelValue="setComments"
           >
             <template #toolbar-extra="{ append }">
               <AiVoiceToTextButton v-if="canUseAi" :append="append" />
             </template>
           </BaseRichTextEditor>
-        </div>
-
-        <!-- People interviewed (hybrid) -->
-        <div>
-          <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">People interviewed</p>
-          <div v-if="currentBuffer?.peopleInterviewed?.length" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:mb-2">
-            <span
-              v-for="(p, pi) in currentBuffer.peopleInterviewed"
-              :key="pi"
-              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:bg-main-hover tw:rounded tw:pl-1.5 tw:pr-1 tw:py-0.5"
-            >
-              <template v-if="p.userId">
-                <IconUser :size="12" /><UserBadgeById :userId="p.userId" />
-              </template>
-              <template v-else>{{ p.name }}<span v-if="p.title" class="tw:text-secondary"> — {{ p.title }}</span></template>
-              <button
-                v-if="!readonly"
-                type="button"
-                class="tw:text-secondary tw:hover:text-red-600 tw:rounded tw:cursor-pointer tw:bg-transparent tw:border-0"
-                @click="removeInterviewee(pi)"
-              ><IconX :size="12" /></button>
-            </span>
-          </div>
-          <div v-if="!readonly" class="tw:flex tw:flex-col tw:gap-2">
-            <!-- Pick an internal/external user -->
-            <div class="tw:flex tw:items-center tw:gap-2">
-              <!-- #7 — supplier audits interview supplier users; internal
-                   audits interview internal staff. Mirrors the auditee picker. -->
-              <UserSelectMenu
-                v-model="pickUserId"
-                :kind="auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'"
-                :supplierId="auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null"
-                nullLabel="Select a user…"
-                class="tw:flex-1"
-              />
-              <BaseButton variant="outline" size="sm" :disabled="!pickUserId" @click="addUserInterviewee">Add</BaseButton>
-            </div>
-            <!-- Or add manually -->
-            <div class="tw:flex tw:items-center tw:gap-2">
-              <BaseTextInput v-model="manualName" size="sm" placeholder="Name" class="tw:flex-1" />
-              <BaseTextInput v-model="manualTitle" size="sm" placeholder="Title (optional)" class="tw:flex-1" />
-              <BaseButton variant="outline" size="sm" :disabled="!manualName.trim()" @click="addManualInterviewee">
-                <template #icon><IconPlus :size="14" /></template>
-                Add
-              </BaseButton>
-            </div>
-          </div>
-        </div>
-
-        <!-- Evidence & photos — scoped to this clause's response. Available
-             before a verdict (#27): the first attach materialises the response. -->
-        <div>
-          <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Evidence &amp; Photos</p>
-          <AuditEvidencePanel
-            v-if="currentResponse?.id"
-            :auditInstance="auditInstance"
-            scope="response"
-            :scopeId="currentResponse.id"
-            :readonly="readonly"
-          />
-          <div v-else-if="!readonly" class="tw:flex tw:items-center tw:gap-2">
-            <BaseButton variant="outline" size="sm" :loading="saving[currentReqId]" @click="ensureResponse">
-              <template #icon><IconPlus :size="14" /></template>
-              Add evidence / photo
-            </BaseButton>
-            <span class="tw:text-xs tw:text-secondary tw:italic">Saved against this clause as you capture.</span>
-          </div>
-          <p v-else class="tw:text-xs tw:text-secondary tw:italic">No evidence captured.</p>
-        </div>
-
-        <!-- Voice notes — record spoken notes for this clause (#2). The Notes
-             editor above still offers dictate-to-text; this stores the raw
-             audio. Saving materialises the response (no verdict needed). -->
-        <div>
-          <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Voice Notes</p>
-          <AuditVoiceNotesPanel
-            :auditInstance="auditInstance"
-            :scopeId="currentResponse?.id ?? null"
-            :readonly="readonly"
-            :ensureResponse="ensureResponse"
-          />
         </div>
       </div>
     </div>
