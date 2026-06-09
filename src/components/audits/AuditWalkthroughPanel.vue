@@ -133,10 +133,13 @@ function toggleSection(id) {
 }
 
 const progress = computed(() => {
-  const total = clauses.value.length
+  // Only leaf clauses (actual requirements) count toward completion — parent /
+  // section headers are exempt, matching the close-out gate. Assessed = carries
+  // a verdict; in-progress responses (#27) don't count.
+  const leaves = clauses.value.filter((c) => !(childrenByParent.value[c.requirementId]?.length))
+  const total = leaves.length
   if (!total) return { done: 0, total: 0, pct: 0 }
-  // Assessed = carries a verdict; in-progress responses (#27) don't count.
-  const done = clauses.value.filter((c) => responsesById.value[c.requirementId]?.resultId).length
+  const done = leaves.filter((c) => responsesById.value[c.requirementId]?.resultId).length
   return { done, total, pct: Math.round((done / total) * 100) }
 })
 

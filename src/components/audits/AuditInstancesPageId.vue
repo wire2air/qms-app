@@ -49,16 +49,18 @@ const auditInstance = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
 // #1 — conformance scoring rollup (shared with the printable report).
 const { scoring, responses } = useAuditScoring(() => props.id)
 
-// Close-out readiness: every assessable clause (those with a question) must
-// have a response. Section headers (no question) aren't assessed.
-// A clause is assessed only when its response carries a verdict — in-progress
-// responses with no result_id (#27) don't count toward close-out readiness.
+// Close-out readiness: every LEAF clause (an actual requirement — not a
+// parent/section header) must be assessed. A clause is assessed only when its
+// response carries a verdict — in-progress responses with no result_id (#27)
+// don't count. A clause is a leaf when its id isn't referenced as a parentId.
 const respondedIds = computed(
   () => new Set(responses.value.filter((r) => r.resultId).map((r) => r.requirementId)),
 )
-const assessableClauses = computed(() =>
-  (auditInstance.value?.requirementSchema ?? []).filter((c) => c.question),
-)
+const assessableClauses = computed(() => {
+  const schema = auditInstance.value?.requirementSchema ?? []
+  const parentIds = new Set(schema.map((c) => c.parentId).filter(Boolean))
+  return schema.filter((c) => !parentIds.has(c.requirementId))
+})
 const unassessedCount = computed(
   () => assessableClauses.value.filter((c) => !respondedIds.value.has(c.requirementId)).length,
 )
