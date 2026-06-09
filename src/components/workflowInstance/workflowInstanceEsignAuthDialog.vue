@@ -2,7 +2,6 @@
 import { IconCircleCheck, IconLock, IconAlertTriangle } from '@tabler/icons-vue'
 import { get } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
-import { apexOrigin } from '@/utils/tenant'
 
 const emit = defineEmits(['verified'])
 
@@ -16,6 +15,9 @@ const hasPassword = ref(null)
 const errorMessage = ref('')
 const googleClientId = ref(null)
 const microsoftClientId = ref(null)
+// Apex origin the OAuth popup must open on (= the backend callback origin),
+// provided by the backend so the FE never guesses it.
+const apexBase = ref(null)
 
 const userEmail = computed(() => currentSession.value?.email || '')
 const userName = computed(() => {
@@ -41,6 +43,7 @@ async function fetchIdentityMethods() {
     hasPassword.value = data.hasPassword
     googleClientId.value = data.googleClientId
     microsoftClientId.value = data.microsoftClientId
+    apexBase.value = data.esignApexOrigin || null
   } catch {
     hasPassword.value = false
   } finally {
@@ -67,7 +70,12 @@ function verifyViaApex(strategy, provider) {
   oauthLoading.value = true
   errorMessage.value = ''
 
-  const apex = apexOrigin()
+  const apex = apexBase.value
+  if (!apex) {
+    oauthLoading.value = false
+    errorMessage.value = 'Verification is unavailable right now. Please try again.'
+    return
+  }
   const url = `${apex}/api/v1/services/verify-identity/esign-oauth/${strategy}?origin=${encodeURIComponent(window.location.origin)}`
   const popup = window.open(url, 'qms-esign-verify', 'width=480,height=680')
   if (!popup) {
