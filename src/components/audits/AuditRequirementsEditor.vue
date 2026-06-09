@@ -83,35 +83,45 @@ function rowIndentStyle(rowId) {
 // ─── Dialog ────────────────────────────────────────────────────────────
 const showEditDialog = ref(false)
 const editing = ref(null)
-const form = ref({
-  clauseNumber: '',
-  title: '',
-  question: '',
-  departmentId: null,
-  categoryId: null,
-  description: '',
-  guidance: '',
-  expectedEvidence: '',
-  riskWeight: 1,
-  displayOrder: 1000,
-})
-const saving = ref(false)
-
-function openAdd() {
-  if (props.readonly) return
-  editing.value = null
-  form.value = {
+function blankForm(displayOrder = 1000) {
+  return {
     clauseNumber: '',
     title: '',
-    question: '',
+    questions: [],
+    peopleToInterview: [],
     departmentId: null,
     categoryId: null,
     description: '',
     guidance: '',
     expectedEvidence: '',
     riskWeight: 1,
-    displayOrder: (requirements.value?.length ?? 0) * 100 + 100,
+    displayOrder,
   }
+}
+const form = ref(blankForm())
+const saving = ref(false)
+const newRole = ref('')
+
+// Guided-audit checklist helpers.
+function addQuestion() {
+  form.value.questions.push({ id: crypto.randomUUID(), text: '' })
+}
+function removeQuestion(idx) {
+  form.value.questions.splice(idx, 1)
+}
+function addRole() {
+  const r = newRole.value.trim()
+  if (r && !form.value.peopleToInterview.includes(r)) form.value.peopleToInterview.push(r)
+  newRole.value = ''
+}
+function removeRole(idx) {
+  form.value.peopleToInterview.splice(idx, 1)
+}
+
+function openAdd() {
+  if (props.readonly) return
+  editing.value = null
+  form.value = blankForm((requirements.value?.length ?? 0) * 100 + 100)
   showEditDialog.value = true
 }
 
@@ -121,7 +131,14 @@ function openEdit(row) {
   form.value = {
     clauseNumber: row.clauseNumber,
     title: row.title,
-    question: row.question ?? '',
+    // Migrate a legacy single question into the checklist on first edit.
+    questions:
+      Array.isArray(row.questions) && row.questions.length
+        ? row.questions.map((q) => ({ id: q.id ?? crypto.randomUUID(), text: q.text ?? '' }))
+        : row.question
+          ? [{ id: crypto.randomUUID(), text: row.question }]
+          : [],
+    peopleToInterview: Array.isArray(row.peopleToInterview) ? [...row.peopleToInterview] : [],
     departmentId: row.departmentId ?? null,
     categoryId: row.categoryId ?? null,
     description: row.description ?? '',
@@ -144,10 +161,17 @@ async function handleSave() {
   }
   saving.value = true
   try {
+    // Drop blank checklist rows; derive the legacy `question` headline from the
+    // first checklist item so findings/reports keep a one-line label.
+    const questions = (form.value.questions || [])
+      .map((q) => ({ id: q.id, text: (q.text || '').trim() }))
+      .filter((q) => q.text)
     const body = {
       clauseNumber: form.value.clauseNumber.trim(),
       title: form.value.title.trim(),
-      question: form.value.question?.trim() || null,
+      questions,
+      peopleToInterview: form.value.peopleToInterview || [],
+      question: questions[0]?.text || null,
       departmentId: form.value.departmentId || null,
       categoryId: form.value.categoryId || null,
       description: form.value.description?.trim() || null,
@@ -451,15 +475,75 @@ async function handleBulkEnrich() {
             />
           </div>
         </div>
+        <!-- Guided audit (#23): the question checklist the auditor works through. -->
+        <div>
+          <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
+              Questions (checklist)
+            </p>
+            <button
+              type="button"
+              class="tw:text-xs tw:font-medium tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:inline-flex tw:items-center tw:gap-1"
+              @click="addQuestion"
+            >
+              <IconPlus :size="13" /> Add question
+            </button>
+          </div>
+          <div v-if="form.questions.length" class="tw:flex tw:flex-col tw:gap-1.5">
+            <div v-for="(q, qi) in form.questions" :key="q.id" class="tw:flex tw:items-start tw:gap-2">
+              <span class="tw:text-xs tw:text-secondary tw:mt-2 tw:w-4 tw:text-right">{{ qi + 1 }}</span>
+              <BaseTextInput
+                v-model="q.text"
+                class="tw:flex-1"
+                placeholder="e.g. Is competency assessed and recorded for QMS personnel?"
+              />
+              <button
+                type="button"
+                class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1.5 tw:mt-0.5 tw:cursor-pointer tw:bg-transparent tw:border-0"
+                title="Remove question"
+                @click="removeQuestion(qi)"
+              >
+                <IconTrash :size="14" />
+              </button>
+            </div>
+          </div>
+          <p v-else class="tw:text-xs tw:text-secondary tw:italic">
+            No questions yet — add the checklist items the auditor will work through.
+          </p>
+        </div>
+
+        <!-- People / roles to interview (free-text roles/titles). -->
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Question
+            People / roles to interview
           </p>
-          <BaseTextarea
-            v-model="form.question"
-            :rows="2"
-            placeholder="The closed auditor question, e.g. 'Is competency assessed and recorded for personnel doing QMS work?' Joined with the title when working the audit. Leave blank for section headers."
-          />
+          <div v-if="form.peopleToInterview.length" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:mb-1.5">
+            <span
+              v-for="(role, ri) in form.peopleToInterview"
+              :key="ri"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:bg-main-hover tw:rounded tw:pl-2 tw:pr-1 tw:py-0.5"
+            >
+              {{ role }}
+              <button
+                type="button"
+                class="tw:text-secondary tw:hover:text-red-600 tw:rounded tw:cursor-pointer tw:bg-transparent tw:border-0"
+                @click="removeRole(ri)"
+              >
+                <IconX :size="12" />
+              </button>
+            </span>
+          </div>
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <BaseTextInput
+              v-model="newRole"
+              class="tw:flex-1"
+              placeholder="e.g. Quality Manager, Line Supervisor…"
+              @keyup.enter="addRole"
+            />
+            <BaseButton variant="outline" size="sm" :disabled="!newRole.trim()" @click="addRole">
+              Add
+            </BaseButton>
+          </div>
         </div>
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
           <div>
