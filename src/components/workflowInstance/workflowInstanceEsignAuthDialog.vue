@@ -129,7 +129,7 @@ function verifyViaApex(strategy, provider) {
       const r = await get(`/v1/services/verify-identity/esign-oauth/result?channel=${channel}`, {
         showError: false,
       })
-      if (r && r.pending === false && r.token) return finish(true, r)
+      if (r && r.pending === false) return finish(!!r.token, r)
     } catch {
       /* keep polling */
     }
