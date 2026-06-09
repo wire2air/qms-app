@@ -221,22 +221,85 @@ async function ensureResponse() {
   return await saveResponse(reqId, currentResponse.value?.resultId ?? null)
 }
 
+// Per-item conformance ratings. Each list has its own vocabulary; severity
+// (Major/Minor/OFI) stays the clause-level Result, not a per-item choice.
+const QUESTION_STATUSES = [
+  { id: 'CONFORM', name: 'Conform', active: 'tw:bg-emerald-600 tw:text-white tw:border-emerald-600' },
+  { id: 'NONCONFORM', name: 'Nonconform', active: 'tw:bg-red-600 tw:text-white tw:border-red-600' },
+  { id: 'NA', name: 'N/A', active: 'tw:bg-gray-400 tw:text-white tw:border-gray-400' },
+]
+const OBSERVATION_STATUSES = [
+  { id: 'OK', name: 'OK', active: 'tw:bg-emerald-600 tw:text-white tw:border-emerald-600' },
+  { id: 'CONCERN', name: 'Concern', active: 'tw:bg-amber-500 tw:text-white tw:border-amber-500' },
+  { id: 'NA', name: 'N/A', active: 'tw:bg-gray-400 tw:text-white tw:border-gray-400' },
+]
+const EVIDENCE_STATUSES = [
+  { id: 'PROVIDED', name: 'Provided', active: 'tw:bg-emerald-600 tw:text-white tw:border-emerald-600' },
+  { id: 'PARTIAL', name: 'Partial', active: 'tw:bg-amber-500 tw:text-white tw:border-amber-500' },
+  { id: 'MISSING', name: 'Missing', active: 'tw:bg-red-600 tw:text-white tw:border-red-600' },
+  { id: 'NA', name: 'N/A', active: 'tw:bg-gray-400 tw:text-white tw:border-gray-400' },
+]
+
 // Checklists — `field` is questionChecklist | observationChecklist | evidenceChecklist.
-function toggleChecklist(field, id) {
+// Item shape is now { status, note }; clicking the active status again clears it.
+function setChecklistStatus(field, id, status) {
   if (props.readonly) return
   const map = (currentBuffer.value[field] ??= {})
-  const item = (map[id] ??= { checked: false, note: '' })
-  item.checked = !item.checked
+  const item = (map[id] ??= { status: null, note: '' })
+  item.status = item.status === status ? null : status
   debouncedSave()
 }
 function setChecklistNote(field, id, note) {
   const map = (currentBuffer.value[field] ??= {})
-  const item = (map[id] ??= { checked: false, note: '' })
+  const item = (map[id] ??= { status: null, note: '' })
   item.note = note
   debouncedSave()
 }
 function checklistState(field, id) {
-  return currentBuffer.value?.[field]?.[id] ?? { checked: false, note: '' }
+  return currentBuffer.value?.[field]?.[id] ?? { status: null, note: '' }
+}
+
+// Roll-up of the per-item ratings for the current clause — drives the summary
+// line + non-binding suggested verdict in the Result panel. Never auto-creates
+// a finding; it just tells the auditor what to address.
+const clauseSummary = computed(() => {
+  const cl = currentClause.value
+  const empty = { parts: [], flags: 0, assessed: 0, suggested: null }
+  if (!cl) return empty
+  const stat = (field, id) => currentBuffer.value?.[field]?.[id]?.status
+  let nonconform = 0, missing = 0, partial = 0, concern = 0, assessed = 0
+  for (const q of cl.questions || []) {
+    const s = stat('questionChecklist', q.id)
+    if (s) assessed++
+    if (s === 'NONCONFORM') nonconform++
+  }
+  for (const o of cl.observations || []) {
+    const s = stat('observationChecklist', o.id)
+    if (s) assessed++
+    if (s === 'CONCERN') concern++
+  }
+  for (const e of cl.evidenceItems || []) {
+    const s = stat('evidenceChecklist', e.id)
+    if (s) assessed++
+    if (s === 'MISSING') missing++
+    else if (s === 'PARTIAL') partial++
+  }
+  const parts = []
+  if (nonconform) parts.push(`${nonconform} nonconform`)
+  if (missing) parts.push(`${missing} missing`)
+  if (partial) parts.push(`${partial} partial`)
+  if (concern) parts.push(`${concern} concern${concern > 1 ? 's' : ''}`)
+  const flags = nonconform + missing + partial + concern
+  let suggested = null
+  if (nonconform || missing) suggested = 'NC'
+  else if (partial || concern) suggested = 'OFI'
+  else if (assessed > 0) suggested = 'CONFORMING'
+  return { parts, flags, assessed, suggested }
+})
+const SUGGESTED_LABEL = {
+  NC: 'a nonconformity (pick Minor or Major)',
+  OFI: 'an opportunity for improvement (OFI)',
+  CONFORMING: 'Conforming',
 }
 
 // People interviewed (hybrid)
@@ -421,35 +484,36 @@ function setAuditorNotes(v) {
                  Expected Evidence (records to collect). Each item: tick + note. -->
             <div
               v-for="cl in [
-                { items: currentClause.questions, field: 'questionChecklist', label: 'Questions' },
-                { items: currentClause.observations, field: 'observationChecklist', label: 'Observations' },
-                { items: currentClause.evidenceItems, field: 'evidenceChecklist', label: 'Expected Evidence' },
+                { items: currentClause.questions, field: 'questionChecklist', label: 'Questions', statuses: QUESTION_STATUSES },
+                { items: currentClause.observations, field: 'observationChecklist', label: 'Observations', statuses: OBSERVATION_STATUSES },
+                { items: currentClause.evidenceItems, field: 'evidenceChecklist', label: 'Expected Evidence', statuses: EVIDENCE_STATUSES },
               ]"
               :key="cl.field"
             >
               <template v-if="cl.items?.length">
                 <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">{{ cl.label }}</p>
                 <div class="tw:flex tw:flex-col tw:gap-2">
-                  <div v-for="item in cl.items" :key="item.id" class="tw:flex tw:flex-col tw:gap-1 tw:border tw:border-divider tw:rounded tw:p-2">
-                    <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">
-                      <input
-                        type="checkbox"
-                        class="tw:mt-0.5"
-                        :checked="checklistState(cl.field, item.id).checked"
+                  <div v-for="item in cl.items" :key="item.id" class="tw:flex tw:flex-col tw:gap-1.5 tw:border tw:border-divider tw:rounded tw:p-2 tw:bg-white">
+                    <p class="tw:text-sm tw:text-on-main">{{ item.text }}</p>
+                    <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
+                      <button
+                        v-for="st in cl.statuses"
+                        :key="st.id"
+                        type="button"
+                        class="tw:text-[10px] tw:font-semibold tw:rounded tw:px-2 tw:py-0.5 tw:border tw:cursor-pointer tw:transition-colors"
                         :disabled="readonly"
-                        @change="toggleChecklist(cl.field, item.id)"
-                      />
-                      <span class="tw:text-sm" :class="checklistState(cl.field, item.id).checked ? 'tw:text-on-main' : 'tw:text-secondary'">{{ item.text }}</span>
-                    </label>
+                        :class="checklistState(cl.field, item.id).status === st.id ? st.active : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:border-primary tw:hover:text-primary'"
+                        @click="setChecklistStatus(cl.field, item.id, st.id)"
+                      >{{ st.name }}</button>
+                    </div>
                     <BaseTextInput
                       v-if="!readonly"
                       :modelValue="checklistState(cl.field, item.id).note"
                       size="sm"
                       placeholder="Note (optional)"
-                      class="tw:ml-6"
                       @update:modelValue="(v) => setChecklistNote(cl.field, item.id, v)"
                     />
-                    <p v-else-if="checklistState(cl.field, item.id).note" class="tw:ml-6 tw:text-xs tw:text-secondary tw:italic">{{ checklistState(cl.field, item.id).note }}</p>
+                    <p v-else-if="checklistState(cl.field, item.id).note" class="tw:text-xs tw:text-secondary tw:italic">{{ checklistState(cl.field, item.id).note }}</p>
                   </div>
                 </div>
               </template>
@@ -566,6 +630,19 @@ function setAuditorNotes(v) {
             <!-- Verdict -->
             <div>
               <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">Result</p>
+              <!-- Roll-up of the notebook ratings — what to address + a
+                   non-binding suggested verdict. The auditor still decides. -->
+              <div
+                v-if="clauseSummary.parts.length || clauseSummary.suggested"
+                class="tw:mb-2 tw:text-[11px] tw:flex tw:flex-wrap tw:gap-x-2 tw:gap-y-0.5"
+              >
+                <span v-if="clauseSummary.parts.length" class="tw:text-red-700 tw:font-medium">
+                  Flags: {{ clauseSummary.parts.join(' · ') }}
+                </span>
+                <span v-if="clauseSummary.suggested" class="tw:text-secondary">
+                  Suggested: {{ SUGGESTED_LABEL[clauseSummary.suggested] }}
+                </span>
+              </div>
               <div class="tw:flex tw:flex-wrap tw:gap-1.5">
                 <button
                   v-for="r in RESULTS"
