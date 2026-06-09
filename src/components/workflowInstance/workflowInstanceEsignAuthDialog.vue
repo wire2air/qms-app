@@ -59,12 +59,10 @@ async function verifyWithGoogle() {
 
       scope: 'openid email profile',
 
-      // E-signature (21 CFR Part 11): force the account chooser AND the consent
-      // screen on every sign, so the signer takes a deliberate action and
-      // can't silently reuse an active session. (The GIS token client can't
-      // force password re-entry — that needs the redirect/auth-code flow with
-      // max_age=0, checked server-side via the id_token auth_time claim.)
-      prompt: 'select_account consent',
+      // E-signature: force the account chooser on every sign. Use only a single
+      // documented value ('', 'none', 'consent', 'select_account') — combining
+      // them ('select_account consent') makes Google reject the request.
+      prompt: 'select_account',
 
       callback(response) {
         if (response.error) {
