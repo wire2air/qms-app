@@ -312,6 +312,7 @@ declare global {
   const useScrollLock: typeof import('@vueuse/core').useScrollLock
   const useSessionStorage: typeof import('@vueuse/core').useSessionStorage
   const useShare: typeof import('@vueuse/core').useShare
+  const useSidebar: typeof import('./src/composables/useSidebar.js').useSidebar
   const useSimilarRecords: typeof import('./src/composables/useSimilarRecords.js').useSimilarRecords
   const useSites: typeof import('./src/composables/useSites.js').useSites
   const useSlots: typeof import('vue').useSlots

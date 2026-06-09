@@ -293,6 +293,7 @@ export default {
     "useScrollLock": true,
     "useSessionStorage": true,
     "useShare": true,
+    "useSidebar": true,
     "useSimilarRecords": true,
     "useSites": true,
     "useSlots": true,
