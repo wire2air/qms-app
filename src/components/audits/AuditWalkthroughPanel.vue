@@ -105,13 +105,18 @@ const currentIndex = computed(() =>
 )
 const currentResponse = computed(() => responsesById.value[currentReqId.value] ?? null)
 
-// Clause rail visibility — hidden by default on small screens (iPad/phone)
-// to give the walkthrough full width; toggled via the "Clauses" button.
-const railOpen = ref(false)
+// Clause rail visibility — collapsible on every screen size. Defaults open on
+// desktop, closed on iPad/phone (where it stacks full-width above the step);
+// resetting to the layout default when the breakpoint is crossed.
+const isDesktop = useMediaQuery('(min-width: 1024px)')
+const railOpen = ref(isDesktop.value)
+watch(isDesktop, (d) => {
+  railOpen.value = d
+})
 function goToStep(reqId) {
   currentReqId.value = reqId
   // On a narrow screen the rail overlays the step; close it after picking.
-  if (window.matchMedia('(max-width: 1023px)').matches) railOpen.value = false
+  if (!isDesktop.value) railOpen.value = false
 }
 function prevStep() {
   if (currentIndex.value > 0) currentReqId.value = orderedSteps.value[currentIndex.value - 1].requirementId
@@ -278,17 +283,15 @@ function setAuditorNotes(v) {
     <!-- Progress header -->
     <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:pb-3 tw:border-b tw:border-divider">
       <div class="tw:flex tw:items-center tw:gap-3">
-        <!-- Clause-list toggle — only on narrow screens (iPad/phone); the rail
-             is always visible on lg+. -->
+        <!-- Clause-list toggle — collapses/expands the rail on every screen. -->
         <BaseButton
           v-if="clauses.length"
           variant="outline"
           size="sm"
-          class="tw:lg:hidden"
           @click="railOpen = !railOpen"
         >
           <template #icon><IconList :size="16" /></template>
-          {{ railOpen ? 'Hide' : 'Clauses' }}
+          {{ railOpen ? 'Hide clauses' : 'Clauses' }}
         </BaseButton>
         <div class="tw:text-sm tw:font-medium">{{ progress.done }} / {{ progress.total }} assessed</div>
         <div class="tw:w-32 tw:h-2 tw:bg-main-hover tw:rounded-full tw:overflow-hidden">
@@ -310,8 +313,8 @@ function setAuditorNotes(v) {
            Hidden by default below lg; toggled via the "Clauses" button so the
            walkthrough gets full width on iPad/phone. Always shown on lg+. ── -->
       <div
+        v-if="railOpen"
         class="tw:w-full tw:lg:w-64 tw:shrink-0 tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden tw:max-h-[70vh] tw:overflow-y-auto"
-        :class="railOpen ? 'tw:block' : 'tw:hidden tw:lg:block'"
       >
         <div
           v-for="row in railRows"
