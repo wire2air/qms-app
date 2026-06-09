@@ -10,7 +10,7 @@
  * the response (and its checklist / interviewees / notes) saves. Once a result
  * exists, edits auto-save (debounced).
  */
-import { IconChevronDown, IconChevronRight, IconX, IconUser, IconPlus, IconList, IconNotebook, IconGavel, IconSparkles, IconListCheck } from '@tabler/icons-vue'
+import { IconChevronDown, IconChevronRight, IconX, IconUser, IconPlus, IconList, IconNotebook, IconGavel, IconListCheck } from '@tabler/icons-vue'
 import { canUseAi } from '@/utils/currentSession'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
@@ -397,29 +397,6 @@ function summarizeFinding() {
   toast.success('Summary added to Finding Notes — review and edit.')
 }
 
-// AI Draft Finding — composes a finding for this clause from the notebook
-// (ratings + notes + interviewees) into Finding Notes for the auditor to edit.
-// Suggestion-only; never auto-applied.
-const draftingFinding = ref(false)
-async function draftFinding() {
-  const reqId = currentReqId.value
-  if (!reqId || draftingFinding.value) return
-  draftingFinding.value = true
-  try {
-    const data = await post(
-      `/v1/services/ai/auditInstances/${props.auditInstance.id}/draftFinding`,
-      { requirementId: reqId },
-    )
-    if (data?.finding) {
-      setComments(data.finding)
-      toast.success('Draft finding added — review and edit before submitting.')
-    }
-  } catch (e) {
-    toast.error(e?.message || 'Could not draft the finding')
-  } finally {
-    draftingFinding.value = false
-  }
-}
 </script>
 
 <template>
@@ -789,29 +766,17 @@ async function draftFinding() {
             <div>
               <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:mb-1">
                 <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">Finding Notes</p>
-                <div v-if="!readonly" class="tw:flex tw:items-center tw:gap-3">
-                  <!-- Deterministic: extract flagged items + notes. No AI. -->
-                  <button
-                    type="button"
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[11px] tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:bg-transparent tw:border-0 tw:cursor-pointer"
-                    title="Summarize the flagged items + notes into Finding Notes"
-                    @click="summarizeFinding"
-                  >
-                    <IconListCheck :size="14" />
-                    Summarize
-                  </button>
-                  <button
-                    v-if="canUseAi"
-                    type="button"
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[11px] tw:font-medium tw:text-purple-600 tw:hover:text-purple-700 tw:bg-transparent tw:border-0 tw:cursor-pointer tw:disabled:opacity-50"
-                    :disabled="draftingFinding"
-                    title="Draft a finding from your notebook (ratings, notes, interviews)"
-                    @click="draftFinding"
-                  >
-                    <IconSparkles :size="14" :class="draftingFinding ? 'tw:animate-pulse' : ''" />
-                    {{ draftingFinding ? 'Drafting…' : 'Draft with AI' }}
-                  </button>
-                </div>
+                <!-- Deterministic: extract flagged items + notes. No AI. -->
+                <button
+                  v-if="!readonly"
+                  type="button"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[11px] tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                  title="Summarize the flagged items + notes into Finding Notes"
+                  @click="summarizeFinding"
+                >
+                  <IconListCheck :size="14" />
+                  Summarize
+                </button>
               </div>
               <BaseRichTextEditor
                 :modelValue="currentBuffer?.comments"
