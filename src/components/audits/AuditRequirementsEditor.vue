@@ -102,6 +102,8 @@ function blankForm(displayOrder = 1000) {
 const form = ref(blankForm())
 const saving = ref(false)
 const newRole = ref('')
+// Edit dialog tab: 'clause' (identity + guidance) | 'checklists' (guided audit).
+const editTab = ref('clause')
 
 // Guided-audit checklist helpers (questions / observations / evidence all
 // share the [{ id, text }] shape).
@@ -135,6 +137,7 @@ function removeRole(idx) {
 function openAdd() {
   if (props.readonly) return
   editing.value = null
+  editTab.value = 'clause'
   form.value = blankForm((requirements.value?.length ?? 0) * 100 + 100)
   showEditDialog.value = true
 }
@@ -142,6 +145,7 @@ function openAdd() {
 function openEdit(row) {
   if (props.readonly) return
   editing.value = row
+  editTab.value = 'clause'
   form.value = {
     clauseNumber: row.clauseNumber,
     title: row.title,
@@ -471,9 +475,10 @@ async function handleBulkEnrich() {
     <BaseDialog
       v-model="showEditDialog"
       :title="editing ? 'Edit Requirement' : 'Add Requirement'"
-      maxWidth="lg"
+      maxWidth="3xl"
     >
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <!-- Identity row — always visible across tabs. -->
         <div class="tw:grid tw:grid-cols-[150px_1fr] tw:gap-3">
           <div>
             <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
@@ -491,6 +496,26 @@ async function handleBulkEnrich() {
             />
           </div>
         </div>
+
+        <!-- Tabs -->
+        <div class="tw:flex tw:gap-1 tw:border-b tw:border-divider">
+          <button
+            v-for="t in [
+              { id: 'clause', label: 'Clause details' },
+              { id: 'checklists', label: 'Audit checklists' },
+            ]"
+            :key="t.id"
+            type="button"
+            class="tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:cursor-pointer tw:bg-transparent tw:border-0 tw:border-b-2 tw:-mb-px"
+            :class="editTab === t.id ? 'tw:border-primary tw:text-primary' : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'"
+            @click="editTab = t.id"
+          >
+            {{ t.label }}
+          </button>
+        </div>
+
+        <!-- Tab: Audit checklists -->
+        <div v-show="editTab === 'checklists'" class="tw:flex tw:flex-col tw:gap-3">
         <!-- Guided audit: three tick-off checklists the auditor works through —
              Questions (ask/confirm), Observations (watch), Expected Evidence
              (records to collect). All share the [{id,text}] shape. -->
@@ -562,6 +587,11 @@ async function handleBulkEnrich() {
             </BaseButton>
           </div>
         </div>
+        </div>
+        <!-- /Audit checklists tab -->
+
+        <!-- Tab: Clause details -->
+        <div v-show="editTab === 'clause'" class="tw:flex tw:flex-col tw:gap-3">
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
           <div>
             <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Department</p>
@@ -610,6 +640,8 @@ async function handleBulkEnrich() {
             </p>
           </div>
         </div>
+        </div>
+        <!-- /Clause details tab -->
       </div>
       <template #footer="{ close }">
         <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
