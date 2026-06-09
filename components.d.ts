@@ -102,6 +102,7 @@ declare module 'vue' {
     AuditStandardVersionSubmitDialog: typeof import('./src/components/audits/AuditStandardVersionSubmitDialog.vue')['default']
     AuditStandardVersionWorkflowDetail: typeof import('./src/components/audits/AuditStandardVersionWorkflowDetail.vue')['default']
     AuditValueCell: typeof import('./src/components/auditLog/AuditValueCell.vue')['default']
+    AuditWalkthroughPanel: typeof import('./src/components/audits/AuditWalkthroughPanel.vue')['default']
     BaseBadge: typeof import('./resource/js/shared/components/BaseBadge.vue')['default']
     BaseBreadcrumbs: typeof import('./resource/js/shared/components/BaseBreadcrumbs.vue')['default']
     BaseButton: typeof import('./resource/js/shared/components/BaseButton.vue')['default']

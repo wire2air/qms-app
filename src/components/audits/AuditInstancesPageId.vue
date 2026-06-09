@@ -666,7 +666,7 @@ watch(auditTabs, (tabs) => {
                 <IconClipboardList :size="14" />
                 Requirements
               </div>
-              <AuditRequirementExecutionPanel
+              <AuditWalkthroughPanel
                 :auditInstance="auditInstance"
                 :readonly="!isEditable"
               />
