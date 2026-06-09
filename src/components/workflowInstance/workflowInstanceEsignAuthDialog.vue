@@ -1,8 +1,8 @@
 <script setup>
-import { PublicClientApplication } from '@azure/msal-browser'
 import { IconCircleCheck, IconLock, IconAlertTriangle } from '@tabler/icons-vue'
 import { get } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
+import { apexOrigin } from '@/utils/tenant'
 
 const emit = defineEmits(['verified'])
 
@@ -48,75 +48,67 @@ async function fetchIdentityMethods() {
   }
 }
 
-// ── Google GIS popup ───────────────────────────────────────────────────────────
-async function verifyWithGoogle() {
-  oauthLoading.value = true
-  errorMessage.value = ''
-
-  try {
-    const tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: googleClientId.value,
-
-      scope: 'openid email profile',
-
-      // E-signature: force the account chooser on every sign. Use only a single
-      // documented value ('', 'none', 'consent', 'select_account') — combining
-      // them ('select_account consent') makes Google reject the request.
-      prompt: 'select_account',
-
-      callback(response) {
-        if (response.error) {
-          errorMessage.value = response.error_description || response.error
-
-          return
-        }
-
-        emit('verified', {
-          method: 'OAUTH',
-          provider: 'GOOGLE',
-          token: response.access_token,
-        })
-
-        show.value = false
-      },
-    })
-
-    tokenClient.requestAccessToken()
-  } catch (err) {
-    errorMessage.value = err.message || 'Google verification failed. Please try again.'
-  } finally {
-    oauthLoading.value = false
-  }
+// ── OAuth via the apex bridge ───────────────────────────────────────────────
+// Per-tenant subdomains can't run the provider SDKs (origins can't be
+// wildcard-registered), so — exactly like login — we do the OAuth on the apex
+// in a popup and the apex postMessages back a one-time proof token. The token
+// goes out unchanged as { method:'OAUTH', provider, token }, so every consumer
+// is untouched; the backend confirms the verified email is the signer's.
+const OAUTH_ERRORS = {
+  cancelled: 'Verification was cancelled.',
+  invalid_state: 'Verification expired — please try again.',
+  timeout: 'Verification timed out — please try again.',
+  no_email: "Couldn't read your email from the provider.",
+  verification_failed: 'Verification failed. Please try again.',
+  no_pending: 'Verification session was lost — please try again.',
 }
 
-// ── Microsoft MSAL popup ───────────────────────────────────────────────────────
-async function verifyWithMicrosoft() {
+function verifyViaApex(strategy, provider) {
   oauthLoading.value = true
   errorMessage.value = ''
-  try {
-    const msalInstance = new PublicClientApplication({
-      auth: {
-        clientId: microsoftClientId.value,
-        authority: 'https://login.microsoftonline.com/common',
-      },
-      cache: { cacheLocation: 'sessionStorage' },
-    })
-    await msalInstance.initialize()
-    const response = await msalInstance.loginPopup({
-      scopes: ['https://graph.microsoft.com/User.Read'],
-      // E-signature: force full re-authentication (credential re-entry), not a
-      // silent SSO token — MSAL supports prompt=login for true Part 11 re-auth.
-      prompt: 'login',
-    })
-    emit('verified', { method: 'OAUTH', provider: 'MICROSOFT', token: response.accessToken })
-    show.value = false
-  } catch (err) {
-    if (err?.errorCode !== 'user_cancelled') {
-      errorMessage.value = err?.message || 'Microsoft verification failed. Please try again.'
-    }
-  } finally {
+
+  const apex = apexOrigin()
+  const url = `${apex}/api/v1/services/verify-identity/esign-oauth/${strategy}?origin=${encodeURIComponent(window.location.origin)}`
+  const popup = window.open(url, 'qms-esign-verify', 'width=480,height=680')
+  if (!popup) {
     oauthLoading.value = false
+    errorMessage.value = 'Popup blocked. Allow popups for this site and try again.'
+    return
   }
+
+  function cleanup() {
+    window.removeEventListener('message', onMessage)
+    clearInterval(closeTimer)
+  }
+  function onMessage(e) {
+    // Only trust messages from the apex origin (where the OAuth ran).
+    if (e.origin !== apex) return
+    const d = e.data
+    if (!d || d.source !== 'qms-esign') return
+    cleanup()
+    oauthLoading.value = false
+    if (d.ok && d.token) {
+      emit('verified', { method: 'OAUTH', provider: d.provider || provider, token: d.token })
+      show.value = false
+    } else {
+      errorMessage.value = OAUTH_ERRORS[d.error] || 'Verification failed. Please try again.'
+    }
+  }
+  // If the user closes the popup without finishing, stop the spinner.
+  const closeTimer = setInterval(() => {
+    if (popup.closed) {
+      cleanup()
+      oauthLoading.value = false
+    }
+  }, 700)
+  window.addEventListener('message', onMessage)
+}
+
+function verifyWithGoogle() {
+  verifyViaApex('google', 'GOOGLE')
+}
+function verifyWithMicrosoft() {
+  verifyViaApex('microsoft', 'MICROSOFT')
 }
 
 // ── Password ───────────────────────────────────────────────────────────────────
