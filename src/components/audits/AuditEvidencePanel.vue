@@ -79,7 +79,13 @@ const links = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-const totalCount = computed(() => uploads.value.length + links.value.length)
+// Audio attachments are voice notes (#2) — surfaced in AuditVoiceNotesPanel,
+// not here, so they don't show in two places.
+const visibleUploads = computed(() =>
+  uploads.value.filter((u) => !(assetsById.value[u.assetId]?.mimeType || '').startsWith('audio/')),
+)
+
+const totalCount = computed(() => visibleUploads.value.length + links.value.length)
 
 // ── Open / delete ─────────────────────────────────────────────────
 
@@ -198,9 +204,9 @@ const showLinkDialog = ref(false)
     </div>
 
     <div v-else class="tw:flex tw:flex-col tw:divide-y tw:divide-divider">
-      <!-- File uploads -->
+      <!-- File uploads (audio voice notes excluded — see AuditVoiceNotesPanel) -->
       <div
-        v-for="u in uploads"
+        v-for="u in visibleUploads"
         :key="`up-${u.id}`"
         class="tw:flex tw:items-start tw:gap-3 tw:py-2"
       >

@@ -169,11 +169,11 @@ const saving = reactive({})
 // resultId may be null (#27): an in-progress response saves notes / checklists
 // / interviewees / evidence before the auditor picks a verdict.
 async function saveResponse(reqId, resultId) {
-  if (props.readonly || !reqId) return
+  if (props.readonly || !reqId) return null
   const buf = ensureBuffer(reqId)
   saving[reqId] = true
   try {
-    await post(`/v1/services/auditInstances/${props.auditInstance.id}/responses`, {
+    const data = await post(`/v1/services/auditInstances/${props.auditInstance.id}/responses`, {
       requirementId: reqId,
       resultId: resultId ?? null,
       comments: buf.comments?.trim() || null,
@@ -182,8 +182,10 @@ async function saveResponse(reqId, resultId) {
       evidenceChecklist: buf.evidenceChecklist,
       peopleInterviewed: buf.peopleInterviewed,
     })
+    return data?.response?.id ?? null
   } catch (e) {
     toast.error(e.message || 'Failed to save')
+    return null
   } finally {
     saving[reqId] = false
   }
@@ -204,8 +206,9 @@ const debouncedSave = useDebounceFn(() => {
 // response id to attach uploads/photos to, and we allow that before a verdict.
 async function ensureResponse() {
   const reqId = currentReqId.value
-  if (!reqId || currentResponse.value?.id) return
-  await saveResponse(reqId, currentResponse.value?.resultId ?? null)
+  if (!reqId) return null
+  if (currentResponse.value?.id) return currentResponse.value.id
+  return await saveResponse(reqId, currentResponse.value?.resultId ?? null)
 }
 
 // Checklists — `field` is questionChecklist | observationChecklist | evidenceChecklist.
@@ -531,6 +534,19 @@ function setComments(v) {
             <span class="tw:text-xs tw:text-secondary tw:italic">Saved against this clause as you capture.</span>
           </div>
           <p v-else class="tw:text-xs tw:text-secondary tw:italic">No evidence captured.</p>
+        </div>
+
+        <!-- Voice notes — record spoken notes for this clause (#2). The Notes
+             editor above still offers dictate-to-text; this stores the raw
+             audio. Saving materialises the response (no verdict needed). -->
+        <div>
+          <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Voice Notes</p>
+          <AuditVoiceNotesPanel
+            :auditInstance="auditInstance"
+            :scopeId="currentResponse?.id ?? null"
+            :readonly="readonly"
+            :ensureResponse="ensureResponse"
+          />
         </div>
       </div>
     </div>
