@@ -352,6 +352,7 @@ function flagSeverityClass(s) {
 function buildEsignFromVerified(v) {
   if (!v) return null
   if (v.method === 'PASSWORD') return { password: v.token }
+  if (v.method === 'PIN') return { strategy: 'pin', token: v.token }
   if (v.method === 'OAUTH' && v.provider === 'MICROSOFT') {
     return { strategy: 'microsoft', token: v.token }
   }
