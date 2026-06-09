@@ -163,7 +163,9 @@ function apply() {
 
         <div v-else-if="result">
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Result (edit before applying)</p>
-          <BaseTextarea v-model="result" :rows="8" />
+          <!-- autosize + maxRows so the box grows with the text and then
+               scrolls — a plain rows= textarea clips (overflow hidden). -->
+          <BaseTextarea v-model="result" autosize :rows="6" :maxRows="14" />
         </div>
       </div>
 
