@@ -10,7 +10,7 @@
  * the response (and its checklist / interviewees / notes) saves. Once a result
  * exists, edits auto-save (debounced).
  */
-import { IconChevronDown, IconChevronRight, IconX, IconUser, IconPlus } from '@tabler/icons-vue'
+import { IconChevronDown, IconChevronRight, IconX, IconUser, IconPlus, IconList } from '@tabler/icons-vue'
 import { canUseAi } from '@/utils/currentSession'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
@@ -105,8 +105,13 @@ const currentIndex = computed(() =>
 )
 const currentResponse = computed(() => responsesById.value[currentReqId.value] ?? null)
 
+// Clause rail visibility — hidden by default on small screens (iPad/phone)
+// to give the walkthrough full width; toggled via the "Clauses" button.
+const railOpen = ref(false)
 function goToStep(reqId) {
   currentReqId.value = reqId
+  // On a narrow screen the rail overlays the step; close it after picking.
+  if (window.matchMedia('(max-width: 1023px)').matches) railOpen.value = false
 }
 function prevStep() {
   if (currentIndex.value > 0) currentReqId.value = orderedSteps.value[currentIndex.value - 1].requirementId
@@ -215,6 +220,13 @@ function checklistState(field, id) {
 const pickUserId = ref(null)
 const manualName = ref('')
 const manualTitle = ref('')
+// The picker inputs are draft state for the CURRENT clause only — reset them
+// when navigating to another step so a half-entered pick doesn't carry over.
+watch(currentReqId, () => {
+  pickUserId.value = null
+  manualName.value = ''
+  manualTitle.value = ''
+})
 function addUserInterviewee() {
   if (!pickUserId.value) return
   const buf = currentBuffer.value
@@ -247,6 +259,18 @@ function setComments(v) {
     <!-- Progress header -->
     <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:pb-3 tw:border-b tw:border-divider">
       <div class="tw:flex tw:items-center tw:gap-3">
+        <!-- Clause-list toggle — only on narrow screens (iPad/phone); the rail
+             is always visible on lg+. -->
+        <BaseButton
+          v-if="clauses.length"
+          variant="outline"
+          size="sm"
+          class="tw:lg:hidden"
+          @click="railOpen = !railOpen"
+        >
+          <template #icon><IconList :size="16" /></template>
+          {{ railOpen ? 'Hide' : 'Clauses' }}
+        </BaseButton>
         <div class="tw:text-sm tw:font-medium">{{ progress.done }} / {{ progress.total }} assessed</div>
         <div class="tw:w-32 tw:h-2 tw:bg-main-hover tw:rounded-full tw:overflow-hidden">
           <div class="tw:h-full tw:bg-primary tw:transition-all" :style="{ width: progress.pct + '%' }" />
@@ -262,9 +286,14 @@ function setComments(v) {
       No clauses on this audit.
     </div>
 
-    <div v-else class="tw:flex tw:gap-4 tw:items-start">
-      <!-- ── Left rail: clause tree (arbitrary depth, indented by level) ── -->
-      <div class="tw:w-64 tw:shrink-0 tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden tw:max-h-[70vh] tw:overflow-y-auto">
+    <div v-else class="tw:flex tw:flex-col tw:lg:flex-row tw:gap-4 tw:items-start">
+      <!-- ── Left rail: clause tree (arbitrary depth, indented by level).
+           Hidden by default below lg; toggled via the "Clauses" button so the
+           walkthrough gets full width on iPad/phone. Always shown on lg+. ── -->
+      <div
+        class="tw:w-full tw:lg:w-64 tw:shrink-0 tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden tw:max-h-[70vh] tw:overflow-y-auto"
+        :class="railOpen ? 'tw:block' : 'tw:hidden tw:lg:block'"
+      >
         <div
           v-for="row in railRows"
           :key="row.requirementId"
@@ -331,10 +360,9 @@ function setComments(v) {
             <p class="tw:text-[11px] tw:font-semibold tw:text-blue-700 tw:uppercase tw:tracking-wide tw:mb-0.5">Guidance</p>
             <p class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">{{ currentClause.guidance }}</p>
           </div>
-          <div v-if="currentClause.expectedEvidence" class="tw:bg-main-hover/40 tw:rounded tw:p-3">
-            <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-0.5">Expected Evidence</p>
-            <p class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">{{ currentClause.expectedEvidence }}</p>
-          </div>
+          <!-- Expected Evidence is rendered as the checklist below (#24); the
+               legacy free-text block is intentionally not shown to avoid
+               duplicating the same content. -->
         </div>
 
         <!-- People / roles to interview (guidance from the standard) -->
@@ -413,6 +441,7 @@ function setComments(v) {
             :modelValue="currentBuffer?.comments"
             :editable="!readonly"
             placeholder="Auditor notes for this clause…"
+            class="tw:[&_.ProseMirror]:min-h-28"
             @update:modelValue="setComments"
           >
             <template #toolbar-extra="{ append }">
@@ -445,7 +474,15 @@ function setComments(v) {
           <div v-if="!readonly" class="tw:flex tw:flex-col tw:gap-2">
             <!-- Pick an internal/external user -->
             <div class="tw:flex tw:items-center tw:gap-2">
-              <UserSelectMenu v-model="pickUserId" :kind="null" nullLabel="Select a user…" class="tw:flex-1" />
+              <!-- #7 — supplier audits interview supplier users; internal
+                   audits interview internal staff. Mirrors the auditee picker. -->
+              <UserSelectMenu
+                v-model="pickUserId"
+                :kind="auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'"
+                :supplierId="auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null"
+                nullLabel="Select a user…"
+                class="tw:flex-1"
+              />
               <BaseButton variant="outline" size="sm" :disabled="!pickUserId" @click="addUserInterviewee">Add</BaseButton>
             </div>
             <!-- Or add manually -->

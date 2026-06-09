@@ -13,6 +13,7 @@
  * to object storage via uploadFile + saveAssetToDatabase, then binds
  * the asset to the audit through audit_evidence.
  */
+import { IconCamera } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { upload } from '@/api'
 
@@ -30,6 +31,10 @@ const toast = useToast()
 const file = ref(null)
 const caption = ref('')
 const uploading = ref(false)
+// Hidden camera input — `capture` opens the rear camera on mobile/iPad so the
+// auditor can photograph evidence during the walkthrough. On desktop the
+// attribute is ignored and it behaves as a normal file picker.
+const cameraInputRef = ref(null)
 
 // Title reflects the scope so it's clear which upload path fired.
 const dialogTitle = computed(() =>
@@ -95,6 +100,22 @@ async function handleUpload() {
           class="tw:block tw:w-full tw:text-sm tw:text-secondary tw:file:mr-3 tw:file:py-1.5 tw:file:px-3 tw:file:rounded tw:file:border-0 tw:file:bg-primary tw:file:text-white tw:file:font-semibold tw:file:cursor-pointer tw:file:hover:bg-primary/90"
           @change="pickFile"
         />
+        <!-- Take Photo — opens the device camera on mobile/iPad. -->
+        <input
+          ref="cameraInputRef"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          class="tw:hidden"
+          @change="pickFile"
+        />
+        <button
+          type="button"
+          class="tw:mt-2 tw:inline-flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
+          @click="cameraInputRef?.click()"
+        >
+          <IconCamera :size="15" /> Take Photo
+        </button>
         <p
           v-if="file"
           class="tw:text-[11px] tw:text-secondary tw:mt-1"

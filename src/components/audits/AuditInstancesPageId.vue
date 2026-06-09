@@ -728,8 +728,9 @@ watch(auditTabs, (tabs) => {
 
           <!-- Right rail -->
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <!-- Conformance score (#1) -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <!-- Conformance score (#1). Hidden on mobile/iPad to save space —
+                 the auditor still sees it in the printable report; shown on lg+. -->
+            <div class="tw:hidden tw:lg:block tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
               <div
                 class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
               >

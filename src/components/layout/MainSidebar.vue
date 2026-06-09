@@ -44,10 +44,19 @@ import {
   isSupplier,
 } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
+import { useSidebar } from '@/composables/useSidebar'
 
-const drawer = useCompanyLocalStorage('sidebar-drawer', true)
+const { visible, isDesktop, closeMobile } = useSidebar()
 const route = useRoute()
+
+// On a small screen the sidebar overlays the page; close it after the user
+// navigates so it doesn't linger over the destination.
+watch(
+  () => route.fullPath,
+  () => {
+    if (!isDesktop.value) closeMobile()
+  },
+)
 
 // Track expanded state for grouped nav items
 const expandedGroups = ref({})
@@ -404,11 +413,20 @@ const navItems = computed(() => {
 </script>
 
 <template>
-  <Transition name="mainSidebar">
-    <aside
-      v-if="drawer"
-      class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen"
-    >
+  <!-- display:contents wrapper — single template root for lint, but the aside
+       still participates in the parent flex layout exactly as before. -->
+  <div class="tw:contents">
+    <!-- Backdrop — only on small screens when the overlay sidebar is open. -->
+    <div
+      v-if="visible && !isDesktop"
+      class="tw:fixed tw:inset-0 tw:z-30 tw:bg-black/40 tw:lg:hidden"
+      @click="closeMobile"
+    />
+    <Transition name="mainSidebar">
+      <aside
+        v-if="visible"
+        class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen tw:fixed tw:inset-y-0 tw:left-0 tw:z-40 tw:lg:static tw:lg:z-auto"
+      >
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-4 tw:flex-1 tw:overflow-hidden">
         <!-- Brand -->
         <div class="tw:flex tw:items-center tw:gap-3">
@@ -503,7 +521,8 @@ const navItems = computed(() => {
         </div>
       </div>
     </aside>
-  </Transition>
+    </Transition>
+  </div>
 </template>
 
 <style scoped>
