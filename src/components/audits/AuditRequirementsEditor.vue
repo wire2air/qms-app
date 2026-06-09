@@ -88,12 +88,13 @@ function blankForm(displayOrder = 1000) {
     clauseNumber: '',
     title: '',
     questions: [],
+    observations: [],
+    evidenceItems: [],
     peopleToInterview: [],
     departmentId: null,
     categoryId: null,
     description: '',
     guidance: '',
-    expectedEvidence: '',
     riskWeight: 1,
     displayOrder,
   }
@@ -102,12 +103,25 @@ const form = ref(blankForm())
 const saving = ref(false)
 const newRole = ref('')
 
-// Guided-audit checklist helpers.
-function addQuestion() {
-  form.value.questions.push({ id: crypto.randomUUID(), text: '' })
+// Guided-audit checklist helpers (questions / observations / evidence all
+// share the [{ id, text }] shape).
+function addChecklistItem(list) {
+  list.push({ id: crypto.randomUUID(), text: '' })
 }
-function removeQuestion(idx) {
-  form.value.questions.splice(idx, 1)
+function removeChecklistItem(list, idx) {
+  list.splice(idx, 1)
+}
+// Normalize a legacy array/text into [{ id, text }] for the editor.
+function toChecklist(arr, fallbackText) {
+  if (Array.isArray(arr) && arr.length)
+    return arr.map((q) => ({ id: q.id ?? crypto.randomUUID(), text: q.text ?? '' }))
+  if (fallbackText)
+    return String(fallbackText)
+      .split('\n')
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .map((text) => ({ id: crypto.randomUUID(), text }))
+  return []
 }
 function addRole() {
   const r = newRole.value.trim()
@@ -131,19 +145,15 @@ function openEdit(row) {
   form.value = {
     clauseNumber: row.clauseNumber,
     title: row.title,
-    // Migrate a legacy single question into the checklist on first edit.
-    questions:
-      Array.isArray(row.questions) && row.questions.length
-        ? row.questions.map((q) => ({ id: q.id ?? crypto.randomUUID(), text: q.text ?? '' }))
-        : row.question
-          ? [{ id: crypto.randomUUID(), text: row.question }]
-          : [],
+    // Migrate legacy single question / free-text evidence into checklists.
+    questions: toChecklist(row.questions, row.question),
+    observations: toChecklist(row.observations),
+    evidenceItems: toChecklist(row.evidenceItems, row.expectedEvidence),
     peopleToInterview: Array.isArray(row.peopleToInterview) ? [...row.peopleToInterview] : [],
     departmentId: row.departmentId ?? null,
     categoryId: row.categoryId ?? null,
     description: row.description ?? '',
     guidance: row.guidance ?? '',
-    expectedEvidence: row.expectedEvidence ?? '',
     riskWeight: row.riskWeight ?? 1,
     displayOrder: row.displayOrder ?? 1000,
   }
@@ -161,22 +171,28 @@ async function handleSave() {
   }
   saving.value = true
   try {
-    // Drop blank checklist rows; derive the legacy `question` headline from the
-    // first checklist item so findings/reports keep a one-line label.
-    const questions = (form.value.questions || [])
-      .map((q) => ({ id: q.id, text: (q.text || '').trim() }))
-      .filter((q) => q.text)
+    // Drop blank checklist rows.
+    const clean = (list) =>
+      (list || [])
+        .map((q) => ({ id: q.id, text: (q.text || '').trim() }))
+        .filter((q) => q.text)
+    const questions = clean(form.value.questions)
+    const observations = clean(form.value.observations)
+    const evidenceItems = clean(form.value.evidenceItems)
     const body = {
       clauseNumber: form.value.clauseNumber.trim(),
       title: form.value.title.trim(),
       questions,
+      observations,
+      evidenceItems,
       peopleToInterview: form.value.peopleToInterview || [],
+      // Derived headlines kept for findings/reports that read the text columns.
       question: questions[0]?.text || null,
       departmentId: form.value.departmentId || null,
       categoryId: form.value.categoryId || null,
       description: form.value.description?.trim() || null,
       guidance: form.value.guidance?.trim() || null,
-      expectedEvidence: form.value.expectedEvidence?.trim() || null,
+      expectedEvidence: evidenceItems.map((e) => e.text).join('\n') || null,
       riskWeight: form.value.riskWeight,
       displayOrder: form.value.displayOrder,
     }
@@ -475,41 +491,42 @@ async function handleBulkEnrich() {
             />
           </div>
         </div>
-        <!-- Guided audit (#23): the question checklist the auditor works through. -->
-        <div>
+        <!-- Guided audit: three tick-off checklists the auditor works through —
+             Questions (ask/confirm), Observations (watch), Expected Evidence
+             (records to collect). All share the [{id,text}] shape. -->
+        <div
+          v-for="cl in [
+            { key: 'questions', label: 'Questions (checklist)', add: 'Add question', ph: 'e.g. Is competency assessed and recorded for QMS personnel?', empty: 'No questions yet — add the items the auditor will confirm.' },
+            { key: 'observations', label: 'Observations (checklist)', add: 'Add observation', ph: 'e.g. Operators wearing required PPE on the line', empty: 'No observations yet — add what the auditor should watch for.' },
+            { key: 'evidenceItems', label: 'Expected Evidence (checklist)', add: 'Add evidence item', ph: 'e.g. Calibration certificates for test equipment', empty: 'No evidence items yet — add the records the auditor should collect.' },
+          ]"
+          :key="cl.key"
+        >
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
-              Questions (checklist)
-            </p>
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">{{ cl.label }}</p>
             <button
               type="button"
               class="tw:text-xs tw:font-medium tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:inline-flex tw:items-center tw:gap-1"
-              @click="addQuestion"
+              @click="addChecklistItem(form[cl.key])"
             >
-              <IconPlus :size="13" /> Add question
+              <IconPlus :size="13" /> {{ cl.add }}
             </button>
           </div>
-          <div v-if="form.questions.length" class="tw:flex tw:flex-col tw:gap-1.5">
-            <div v-for="(q, qi) in form.questions" :key="q.id" class="tw:flex tw:items-start tw:gap-2">
-              <span class="tw:text-xs tw:text-secondary tw:mt-2 tw:w-4 tw:text-right">{{ qi + 1 }}</span>
-              <BaseTextInput
-                v-model="q.text"
-                class="tw:flex-1"
-                placeholder="e.g. Is competency assessed and recorded for QMS personnel?"
-              />
+          <div v-if="form[cl.key].length" class="tw:flex tw:flex-col tw:gap-1.5">
+            <div v-for="(item, ii) in form[cl.key]" :key="item.id" class="tw:flex tw:items-start tw:gap-2">
+              <span class="tw:text-xs tw:text-secondary tw:mt-2 tw:w-4 tw:text-right">{{ ii + 1 }}</span>
+              <BaseTextInput v-model="item.text" class="tw:flex-1" :placeholder="cl.ph" />
               <button
                 type="button"
                 class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1.5 tw:mt-0.5 tw:cursor-pointer tw:bg-transparent tw:border-0"
-                title="Remove question"
-                @click="removeQuestion(qi)"
+                title="Remove"
+                @click="removeChecklistItem(form[cl.key], ii)"
               >
                 <IconTrash :size="14" />
               </button>
             </div>
           </div>
-          <p v-else class="tw:text-xs tw:text-secondary tw:italic">
-            No questions yet — add the checklist items the auditor will work through.
-          </p>
+          <p v-else class="tw:text-xs tw:text-secondary tw:italic">{{ cl.empty }}</p>
         </div>
 
         <!-- People / roles to interview (free-text roles/titles). -->
@@ -575,16 +592,7 @@ async function handleBulkEnrich() {
             placeholder="How to interpret / audit this requirement. Internal interpretation notes."
           />
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Expected Evidence
-          </p>
-          <BaseTextarea
-            v-model="form.expectedEvidence"
-            :rows="3"
-            placeholder="What evidence the auditor should look for. Bulleted list works well."
-          />
-        </div>
+        <!-- Expected Evidence is now the checklist above (#24). -->
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
           <div>
             <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">

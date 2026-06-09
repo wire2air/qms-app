@@ -38,6 +38,9 @@ export class AuditRequirementResponse extends BaseModel {
   // Guided audit (#23): per-question checklist + who was interviewed.
   @Property({ type: Object }) questionChecklist = {}
   @Property({ type: Object }) peopleInterviewed = []
+  // Guided audit (#24): observation + evidence checklists { [id]: {checked,note} }.
+  @Property({ type: Object }) observationChecklist = {}
+  @Property({ type: Object }) evidenceChecklist = {}
   @Property({ type: String }) assessedByUserId = ''
   @Property({ type: DateTime }) assessedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)

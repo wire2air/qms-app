@@ -138,6 +138,8 @@ function ensureBuffer(reqId) {
     const r = responsesById.value[reqId]
     buffers[reqId] = {
       questionChecklist: r?.questionChecklist ? { ...r.questionChecklist } : {},
+      observationChecklist: r?.observationChecklist ? { ...r.observationChecklist } : {},
+      evidenceChecklist: r?.evidenceChecklist ? { ...r.evidenceChecklist } : {},
       peopleInterviewed: Array.isArray(r?.peopleInterviewed) ? [...r.peopleInterviewed] : [],
       comments: r?.comments ?? '',
     }
@@ -168,6 +170,8 @@ async function saveResponse(reqId, resultId) {
       resultId,
       comments: buf.comments?.trim() || null,
       questionChecklist: buf.questionChecklist,
+      observationChecklist: buf.observationChecklist,
+      evidenceChecklist: buf.evidenceChecklist,
       peopleInterviewed: buf.peopleInterviewed,
     })
   } catch (e) {
@@ -189,22 +193,22 @@ const debouncedSave = useDebounceFn(() => {
   if (resultId) saveResponse(reqId, resultId)
 }, 600)
 
-// Checklist
-function toggleChecklist(qid) {
+// Checklists — `field` is questionChecklist | observationChecklist | evidenceChecklist.
+function toggleChecklist(field, id) {
   if (props.readonly) return
-  const buf = currentBuffer.value
-  const item = (buf.questionChecklist[qid] ??= { checked: false, note: '' })
+  const map = (currentBuffer.value[field] ??= {})
+  const item = (map[id] ??= { checked: false, note: '' })
   item.checked = !item.checked
   debouncedSave()
 }
-function setChecklistNote(qid, note) {
-  const buf = currentBuffer.value
-  const item = (buf.questionChecklist[qid] ??= { checked: false, note: '' })
+function setChecklistNote(field, id, note) {
+  const map = (currentBuffer.value[field] ??= {})
+  const item = (map[id] ??= { checked: false, note: '' })
   item.note = note
   debouncedSave()
 }
-function checklistState(qid) {
-  return currentBuffer.value?.questionChecklist?.[qid] ?? { checked: false, note: '' }
+function checklistState(field, id) {
+  return currentBuffer.value?.[field]?.[id] ?? { checked: false, note: '' }
 }
 
 // People interviewed (hybrid)
@@ -341,32 +345,42 @@ function setComments(v) {
           </div>
         </div>
 
-        <!-- Question checklist -->
-        <div v-if="currentClause.questions?.length">
-          <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">Checklist</p>
-          <div class="tw:flex tw:flex-col tw:gap-2">
-            <div v-for="q in currentClause.questions" :key="q.id" class="tw:flex tw:flex-col tw:gap-1 tw:border tw:border-divider tw:rounded tw:p-2">
-              <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">
-                <input
-                  type="checkbox"
-                  class="tw:mt-0.5"
-                  :checked="checklistState(q.id).checked"
-                  :disabled="readonly"
-                  @change="toggleChecklist(q.id)"
+        <!-- Checklists: Questions (ask/confirm), Observations (watch),
+             Expected Evidence (records to collect). Each item: tick + note. -->
+        <div
+          v-for="cl in [
+            { items: currentClause.questions, field: 'questionChecklist', label: 'Questions' },
+            { items: currentClause.observations, field: 'observationChecklist', label: 'Observations' },
+            { items: currentClause.evidenceItems, field: 'evidenceChecklist', label: 'Expected Evidence' },
+          ]"
+          :key="cl.field"
+        >
+          <template v-if="cl.items?.length">
+            <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">{{ cl.label }}</p>
+            <div class="tw:flex tw:flex-col tw:gap-2 tw:mb-3">
+              <div v-for="item in cl.items" :key="item.id" class="tw:flex tw:flex-col tw:gap-1 tw:border tw:border-divider tw:rounded tw:p-2">
+                <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">
+                  <input
+                    type="checkbox"
+                    class="tw:mt-0.5"
+                    :checked="checklistState(cl.field, item.id).checked"
+                    :disabled="readonly"
+                    @change="toggleChecklist(cl.field, item.id)"
+                  />
+                  <span class="tw:text-sm" :class="checklistState(cl.field, item.id).checked ? 'tw:text-on-main' : 'tw:text-secondary'">{{ item.text }}</span>
+                </label>
+                <BaseTextInput
+                  v-if="!readonly"
+                  :modelValue="checklistState(cl.field, item.id).note"
+                  size="sm"
+                  placeholder="Note (optional)"
+                  class="tw:ml-6"
+                  @update:modelValue="(v) => setChecklistNote(cl.field, item.id, v)"
                 />
-                <span class="tw:text-sm" :class="checklistState(q.id).checked ? 'tw:text-on-main' : 'tw:text-secondary'">{{ q.text }}</span>
-              </label>
-              <BaseTextInput
-                v-if="!readonly"
-                :modelValue="checklistState(q.id).note"
-                size="sm"
-                placeholder="Observation / note (optional)"
-                class="tw:ml-6"
-                @update:modelValue="(v) => setChecklistNote(q.id, v)"
-              />
-              <p v-else-if="checklistState(q.id).note" class="tw:ml-6 tw:text-xs tw:text-secondary tw:italic">{{ checklistState(q.id).note }}</p>
+                <p v-else-if="checklistState(cl.field, item.id).note" class="tw:ml-6 tw:text-xs tw:text-secondary tw:italic">{{ checklistState(cl.field, item.id).note }}</p>
+              </div>
             </div>
-          </div>
+          </template>
         </div>
 
         <hr class="tw:border-divider" />

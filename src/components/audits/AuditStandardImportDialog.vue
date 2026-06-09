@@ -47,16 +47,16 @@ const FORMATS = [
     id: 'csv',
     label: 'CSV template',
     description:
-      'Download the template, fill one row per clause, and upload it. The first row MUST be the header below (case + spelling exact). Only clauseNumber + title are required; the rest are optional per row. Put MULTIPLE checklist questions (and multiple interview roles) in ONE cell separated by a pipe " | " — NOT commas (commas split CSV columns, and questions contain commas). Building it in Excel? Save As → CSV (UTF-8).',
+      'Download the template, fill one row per clause, and upload it. The first row MUST be the header below (case + spelling exact). Only clauseNumber + title are required; the rest are optional per row. The checklist columns — questions, observations, expectedEvidence — and peopleToInterview hold MULTIPLE items in ONE cell separated by a pipe " | " (NOT commas — commas split CSV columns). Building it in Excel? Save As → CSV (UTF-8).',
     requiredFields:
-      'Required header: clauseNumber,parentClauseNumber,title,questions,peopleToInterview,description,guidance,expectedEvidence',
+      'Required header: clauseNumber,parentClauseNumber,title,questions,observations,expectedEvidence,peopleToInterview,description,guidance',
     sampleName: 'audit-standard-template.csv',
     sampleMime: 'text/csv',
     sample:
-      'clauseNumber,parentClauseNumber,title,questions,peopleToInterview,description,guidance,expectedEvidence\n' +
-      '"4",,"Context of the organization",,,,,\n' +
-      '"4.1","4","Understanding the organization and its context","Has the organization determined the external and internal issues relevant to its purpose? | Does it monitor and review these issues?","Quality Manager | Top Management",,,\n' +
-      '"4.2","4","Interested parties","Are relevant interested parties identified? | Are their requirements determined and reviewed?","Quality Manager",,,',
+      'clauseNumber,parentClauseNumber,title,questions,observations,expectedEvidence,peopleToInterview,description,guidance\n' +
+      '"4",,"Context of the organization",,,,,,\n' +
+      '"4.1","4","Understanding the organization and its context","Has the organization determined external and internal issues? | Does it monitor and review them?","Issues log is current and reviewed","Context analysis document | Management review minutes","Quality Manager | Top Management",,\n' +
+      '"7.1.5","7.1","Monitoring and measuring resources","Is measuring equipment calibrated? | Are calibration records maintained?","Calibration stickers present and in date on the floor","Calibration certificates | Calibration schedule","Calibration Technician | Quality Manager",,',
   },
 ]
 

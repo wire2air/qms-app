@@ -31,6 +31,9 @@ export class AuditRequirement extends BaseModel {
   // Guided audit (#23): checklist [{ id, text }] + roles/titles to interview.
   @Property({ type: Object }) questions = []
   @Property({ type: Object }) peopleToInterview = []
+  // Guided audit (#24): observation + expected-evidence checklists [{ id, text }].
+  @Property({ type: Object }) observations = []
+  @Property({ type: Object }) evidenceItems = []
   @Property({ type: String }) departmentId = ''
   @Property({ type: String }) categoryId = ''
   @Property({ type: String }) description = ''
