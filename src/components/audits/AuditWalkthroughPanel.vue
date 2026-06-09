@@ -265,6 +265,19 @@ function checklistState(field, id) {
   return currentBuffer.value?.[field]?.[id] ?? { status: null, note: '' }
 }
 
+// Notebook view controls (sticky across clauses): collapse the whole panel,
+// and hide already-rated items so the auditor can focus on what's left.
+const notebookOpen = ref(true)
+const hideAnswered = ref(false)
+const currentHasChecklistItems = computed(() => {
+  const cl = currentClause.value
+  return !!(cl && (cl.questions?.length || cl.observations?.length || cl.evidenceItems?.length))
+})
+function visibleItems(field, items) {
+  if (!hideAnswered.value) return items || []
+  return (items || []).filter((it) => !checklistState(field, it.id).status)
+}
+
 // Roll-up of the per-item ratings for the current clause — drives the summary
 // line + non-binding suggested verdict in the Result panel. Never auto-creates
 // a finding; it just tells the auditor what to address.
@@ -564,14 +577,35 @@ function summarizeFinding() {
           v-if="!currentHasChildren"
           class="tw:border tw:border-slate-200 tw:rounded-lg tw:overflow-hidden tw:bg-slate-50/40"
         >
-          <div class="tw:bg-slate-100 tw:px-3 tw:py-2 tw:border-b tw:border-slate-200 tw:flex tw:items-center tw:gap-1.5">
-            <IconNotebook :size="14" class="tw:text-slate-600 tw:shrink-0" />
-            <p class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-slate-600">
-              Auditor's Notebook
-              <span class="tw:font-normal tw:normal-case tw:text-slate-500">— private, not shared in the finding</span>
-            </p>
+          <div class="tw:bg-slate-100 tw:px-3 tw:py-2 tw:border-b tw:border-slate-200 tw:flex tw:items-center tw:justify-between tw:gap-2">
+            <div class="tw:flex tw:items-center tw:gap-1.5 tw:min-w-0">
+              <IconNotebook :size="14" class="tw:text-slate-600 tw:shrink-0" />
+              <p class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-slate-600 tw:truncate">
+                Auditor's Notebook
+                <span class="tw:font-normal tw:normal-case tw:text-slate-500">— private, not shared in the finding</span>
+              </p>
+            </div>
+            <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
+              <button
+                v-if="notebookOpen && currentHasChecklistItems"
+                type="button"
+                class="tw:text-[10px] tw:font-medium tw:text-slate-600 tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                @click="hideAnswered = !hideAnswered"
+              >
+                {{ hideAnswered ? 'Show all' : 'Hide answered' }}
+              </button>
+              <button
+                type="button"
+                class="tw:text-slate-600 tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:flex tw:items-center"
+                :title="notebookOpen ? 'Collapse notebook' : 'Expand notebook'"
+                @click="notebookOpen = !notebookOpen"
+              >
+                <IconChevronDown v-if="notebookOpen" :size="16" />
+                <IconChevronRight v-else :size="16" />
+              </button>
+            </div>
           </div>
-          <div class="tw:p-3 tw:flex tw:flex-col tw:gap-4">
+          <div v-show="notebookOpen" class="tw:p-3 tw:flex tw:flex-col tw:gap-4">
             <!-- Checklists: Questions (ask/confirm), Observations (watch),
                  Expected Evidence (records to collect). Each item: tick + note. -->
             <div
@@ -582,10 +616,10 @@ function summarizeFinding() {
               ]"
               :key="cl.field"
             >
-              <template v-if="cl.items?.length">
+              <template v-if="visibleItems(cl.field, cl.items).length">
                 <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">{{ cl.label }}</p>
                 <div class="tw:flex tw:flex-col tw:gap-2">
-                  <div v-for="item in cl.items" :key="item.id" class="tw:flex tw:flex-col tw:gap-1.5 tw:border tw:border-divider tw:rounded tw:p-2 tw:bg-white">
+                  <div v-for="item in visibleItems(cl.field, cl.items)" :key="item.id" class="tw:flex tw:flex-col tw:gap-1.5 tw:border tw:border-divider tw:rounded tw:p-2 tw:bg-white">
                     <!-- Text + status on one row; the status group wraps below
                          the text on a narrow (mobile) screen. -->
                     <div class="tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-x-3 tw:gap-y-1">
