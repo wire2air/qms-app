@@ -518,17 +518,21 @@ async function draftFinding() {
                 <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">{{ cl.label }}</p>
                 <div class="tw:flex tw:flex-col tw:gap-2">
                   <div v-for="item in cl.items" :key="item.id" class="tw:flex tw:flex-col tw:gap-1.5 tw:border tw:border-divider tw:rounded tw:p-2 tw:bg-white">
-                    <p class="tw:text-sm tw:text-on-main">{{ item.text }}</p>
-                    <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
-                      <button
-                        v-for="st in cl.statuses"
-                        :key="st.id"
-                        type="button"
-                        class="tw:text-[10px] tw:font-semibold tw:rounded tw:px-2 tw:py-0.5 tw:border tw:cursor-pointer tw:transition-colors"
-                        :disabled="readonly"
-                        :class="checklistState(cl.field, item.id).status === st.id ? st.active : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:border-primary tw:hover:text-primary'"
-                        @click="setChecklistStatus(cl.field, item.id, st.id)"
-                      >{{ st.name }}</button>
+                    <!-- Text + status on one row; the status group wraps below
+                         the text on a narrow (mobile) screen. -->
+                    <div class="tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-x-3 tw:gap-y-1">
+                      <p class="tw:text-sm tw:text-on-main tw:flex-1 tw:min-w-48">{{ item.text }}</p>
+                      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:shrink-0">
+                        <button
+                          v-for="st in cl.statuses"
+                          :key="st.id"
+                          type="button"
+                          class="tw:text-[10px] tw:font-semibold tw:rounded tw:px-2 tw:py-0.5 tw:border tw:cursor-pointer tw:transition-colors"
+                          :disabled="readonly"
+                          :class="checklistState(cl.field, item.id).status === st.id ? st.active : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:border-primary tw:hover:text-primary'"
+                          @click="setChecklistStatus(cl.field, item.id, st.id)"
+                        >{{ st.name }}</button>
+                      </div>
                     </div>
                     <BaseTextInput
                       v-if="!readonly"
