@@ -434,7 +434,11 @@ async function handleBulkEnrich() {
           </div>
         </div>
 
-        <!-- Expanded body -->
+        <!-- Expanded body — read view of every clause attribute, shown in
+             both editable and readonly (EFFECTIVE) mode so reviewers can
+             inspect the full guided-audit content without an edit button.
+             Evidence is rendered ONLY as the checklist (#24); the derived
+             expectedEvidence text column is not shown separately. -->
         <div
           v-if="expandedIds.has(row.id)"
           class="tw:px-3 tw:py-3 tw:border-t tw:border-divider tw:flex tw:flex-col tw:gap-3 tw:bg-white"
@@ -455,14 +459,52 @@ async function handleBulkEnrich() {
               {{ row.guidance }}
             </div>
           </div>
-          <div v-if="row.expectedEvidence">
-            <div class="tw:text-[10px] tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
-              Expected Evidence
-            </div>
-            <div class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">
-              {{ row.expectedEvidence }}
+
+          <!-- Guided-audit checklists (questions / observations / evidence) —
+               each falls back to its legacy free-text column for old rows. -->
+          <div
+            v-for="cl in [
+              { label: 'Questions', items: toChecklist(row.questions, row.question) },
+              { label: 'Observations', items: toChecklist(row.observations) },
+              { label: 'Expected Evidence', items: toChecklist(row.evidenceItems, row.expectedEvidence) },
+            ]"
+            :key="cl.label"
+          >
+            <div v-if="cl.items.length">
+              <div class="tw:text-[10px] tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
+                {{ cl.label }}
+              </div>
+              <ul class="tw:flex tw:flex-col tw:gap-1">
+                <li
+                  v-for="(item, idx) in cl.items"
+                  :key="item.id"
+                  class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main"
+                >
+                  <span class="tw:text-xs tw:text-secondary tw:mt-0.5 tw:w-4 tw:text-right tw:shrink-0">
+                    {{ idx + 1 }}
+                  </span>
+                  <span class="tw:whitespace-pre-line">{{ item.text }}</span>
+                </li>
+              </ul>
             </div>
           </div>
+
+          <!-- People / roles to interview. -->
+          <div v-if="row.peopleToInterview && row.peopleToInterview.length">
+            <div class="tw:text-[10px] tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
+              People / roles to interview
+            </div>
+            <div class="tw:flex tw:flex-wrap tw:gap-1.5">
+              <span
+                v-for="(role, ri) in row.peopleToInterview"
+                :key="ri"
+                class="tw:inline-flex tw:items-center tw:text-xs tw:bg-main-hover tw:rounded tw:px-2 tw:py-0.5"
+              >
+                {{ role }}
+              </span>
+            </div>
+          </div>
+
           <div class="tw:flex tw:items-center tw:gap-4 tw:text-xs tw:text-secondary tw:pt-2 tw:border-t tw:border-divider">
             <span>Order: <strong>{{ row.displayOrder }}</strong></span>
             <span>Risk Weight: <strong>{{ row.riskWeight }}</strong></span>
