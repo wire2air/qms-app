@@ -10,7 +10,7 @@
  * the response (and its checklist / interviewees / notes) saves. Once a result
  * exists, edits auto-save (debounced).
  */
-import { IconChevronDown, IconChevronRight, IconX, IconUser, IconPlus, IconList, IconNotebook, IconGavel, IconSparkles } from '@tabler/icons-vue'
+import { IconChevronDown, IconChevronRight, IconX, IconUser, IconPlus, IconList, IconNotebook, IconGavel, IconSparkles, IconListCheck } from '@tabler/icons-vue'
 import { canUseAi } from '@/utils/currentSession'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
@@ -104,6 +104,12 @@ const currentIndex = computed(() =>
   orderedSteps.value.findIndex((s) => s.requirementId === currentReqId.value),
 )
 const currentResponse = computed(() => responsesById.value[currentReqId.value] ?? null)
+
+// A clause with sub-clauses is a section heading (ISO 4–10 style) — assessed
+// via its leaves, not at this level. The walkthrough shows a section overview
+// for these instead of the capture panels.
+const currentChildren = computed(() => childrenByParent.value[currentReqId.value] ?? [])
+const currentHasChildren = computed(() => currentChildren.value.length > 0)
 
 // Clause rail visibility — collapsible on every screen size. Defaults open on
 // desktop, closed on iPad/phone (where it stacks full-width above the step);
@@ -343,6 +349,54 @@ function setAuditorNotes(v) {
   debouncedSave()
 }
 
+// Deterministic Summarize — assembles Finding Notes from the notebook with no
+// AI: the flagged items (+ their notes) and the auditor's notes. Fast, reliable,
+// offline-friendly; the auditor edits it into the final finding.
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+function summarizeFinding() {
+  const cl = currentClause.value
+  if (!cl) return
+  const buf = currentBuffer.value
+  const stat = (field, id) => buf?.[field]?.[id]?.status
+  const noteOf = (field, id) => buf?.[field]?.[id]?.note
+  const flagged = []
+  for (const q of cl.questions || []) {
+    if (stat('questionChecklist', q.id) === 'NONCONFORM')
+      flagged.push({ tag: 'Nonconform', text: q.text, note: noteOf('questionChecklist', q.id) })
+  }
+  for (const e of cl.evidenceItems || []) {
+    const s = stat('evidenceChecklist', e.id)
+    if (s === 'MISSING' || s === 'PARTIAL')
+      flagged.push({ tag: s === 'MISSING' ? 'Missing' : 'Partial', text: e.text, note: noteOf('evidenceChecklist', e.id) })
+  }
+  for (const o of cl.observations || []) {
+    if (stat('observationChecklist', o.id) === 'CONCERN')
+      flagged.push({ tag: 'Concern', text: o.text, note: noteOf('observationChecklist', o.id) })
+  }
+
+  const html = [`<p><strong>${escapeHtml(cl.clauseNumber)} — ${escapeHtml(cl.title)}</strong></p>`]
+  if (flagged.length) {
+    html.push('<p><strong>Findings:</strong></p><ul>')
+    for (const f of flagged) {
+      html.push(`<li>[${f.tag}] ${escapeHtml(f.text)}${f.note ? ` — ${escapeHtml(f.note)}` : ''}</li>`)
+    }
+    html.push('</ul>')
+  } else {
+    html.push('<p>No nonconformities identified — clause met.</p>')
+  }
+  if (buf?.auditorNotes && buf.auditorNotes.trim()) {
+    html.push('<p><strong>Auditor notes:</strong></p>')
+    html.push(buf.auditorNotes) // already HTML from the editor
+  }
+  setComments(html.join('\n'))
+  toast.success('Summary added to Finding Notes — review and edit.')
+}
+
 // AI Draft Finding — composes a finding for this clause from the notebook
 // (ratings + notes + interviewees) into Finding Notes for the auditor to edit.
 // Suggestion-only; never auto-applied.
@@ -490,12 +544,49 @@ async function draftFinding() {
           </div>
         </div>
 
+        <!-- Section overview — this clause has sub-clauses, so it's a heading
+             (ISO 4–10 style). No verdict is captured here; the auditor assesses
+             its leaves. -->
+        <div
+          v-if="currentHasChildren"
+          class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-main-hover/30"
+        >
+          <p class="tw:text-xs tw:text-secondary tw:mb-2">
+            This is a section heading — assess its sub-clauses. No result is recorded at this level.
+          </p>
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <button
+              v-for="child in currentChildren"
+              :key="child.requirementId"
+              type="button"
+              class="tw:flex tw:items-center tw:gap-2 tw:text-left tw:rounded tw:px-2 tw:py-1.5 tw:bg-white tw:border tw:border-divider tw:hover:border-primary tw:cursor-pointer"
+              @click="goToStep(child.requirementId)"
+            >
+              <code class="tw:text-[10px] tw:font-mono tw:text-secondary tw:shrink-0">{{ child.clauseNumber }}</code>
+              <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{ child.title }}</span>
+              <span
+                v-if="responsesById[child.requirementId]?.resultId"
+                class="tw:size-1.5 tw:rounded-full tw:bg-emerald-500 tw:shrink-0"
+                title="Assessed"
+              />
+              <span
+                v-else-if="responsesById[child.requirementId]"
+                class="tw:size-1.5 tw:rounded-full tw:bg-amber-400 tw:shrink-0"
+                title="In progress"
+              />
+            </button>
+          </div>
+        </div>
+
         <!-- ── Auditor's Notebook (private working area) ──────────────────
              The auditor's own material for forming a judgment — checklists,
              who was interviewed, evidence, photos, voice + free-form notes.
              NOT included in the finding; only the Result + Finding Notes
-             (below) are shared. -->
-        <div class="tw:border tw:border-slate-200 tw:rounded-lg tw:overflow-hidden tw:bg-slate-50/40">
+             (below) are shared. Hidden on section headings (#parent). -->
+        <div
+          v-if="!currentHasChildren"
+          class="tw:border tw:border-slate-200 tw:rounded-lg tw:overflow-hidden tw:bg-slate-50/40"
+        >
           <div class="tw:bg-slate-100 tw:px-3 tw:py-2 tw:border-b tw:border-slate-200 tw:flex tw:items-center tw:gap-1.5">
             <IconNotebook :size="14" class="tw:text-slate-600 tw:shrink-0" />
             <p class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-slate-600">
@@ -645,8 +736,12 @@ async function draftFinding() {
         </div>
 
         <!-- ── Result → finding (shared). The verdict + Finding Notes become
-             the finding / report seen by the auditee/supplier. -->
-        <div class="tw:border tw:border-blue-200 tw:rounded-lg tw:overflow-hidden tw:bg-blue-50/30">
+             the finding / report seen by the auditee/supplier. Hidden on
+             section headings (no verdict captured at parent level). -->
+        <div
+          v-if="!currentHasChildren"
+          class="tw:border tw:border-blue-200 tw:rounded-lg tw:overflow-hidden tw:bg-blue-50/30"
+        >
           <div class="tw:bg-blue-50 tw:px-3 tw:py-2 tw:border-b tw:border-blue-200 tw:flex tw:items-center tw:gap-1.5">
             <IconGavel :size="14" class="tw:text-blue-700 tw:shrink-0" />
             <p class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-blue-700">
@@ -694,17 +789,29 @@ async function draftFinding() {
             <div>
               <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:mb-1">
                 <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">Finding Notes</p>
-                <button
-                  v-if="canUseAi && !readonly"
-                  type="button"
-                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[11px] tw:font-medium tw:text-purple-600 tw:hover:text-purple-700 tw:bg-transparent tw:border-0 tw:cursor-pointer tw:disabled:opacity-50"
-                  :disabled="draftingFinding"
-                  title="Draft a finding from your notebook (ratings, notes, interviews)"
-                  @click="draftFinding"
-                >
-                  <IconSparkles :size="14" :class="draftingFinding ? 'tw:animate-pulse' : ''" />
-                  {{ draftingFinding ? 'Drafting…' : 'Draft with AI' }}
-                </button>
+                <div v-if="!readonly" class="tw:flex tw:items-center tw:gap-3">
+                  <!-- Deterministic: extract flagged items + notes. No AI. -->
+                  <button
+                    type="button"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[11px] tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                    title="Summarize the flagged items + notes into Finding Notes"
+                    @click="summarizeFinding"
+                  >
+                    <IconListCheck :size="14" />
+                    Summarize
+                  </button>
+                  <button
+                    v-if="canUseAi"
+                    type="button"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[11px] tw:font-medium tw:text-purple-600 tw:hover:text-purple-700 tw:bg-transparent tw:border-0 tw:cursor-pointer tw:disabled:opacity-50"
+                    :disabled="draftingFinding"
+                    title="Draft a finding from your notebook (ratings, notes, interviews)"
+                    @click="draftFinding"
+                  >
+                    <IconSparkles :size="14" :class="draftingFinding ? 'tw:animate-pulse' : ''" />
+                    {{ draftingFinding ? 'Drafting…' : 'Draft with AI' }}
+                  </button>
+                </div>
               </div>
               <BaseRichTextEditor
                 :modelValue="currentBuffer?.comments"
