@@ -130,7 +130,8 @@ function toggleSection(id) {
 const progress = computed(() => {
   const total = clauses.value.length
   if (!total) return { done: 0, total: 0, pct: 0 }
-  const done = clauses.value.filter((c) => responsesById.value[c.requirementId]).length
+  // Assessed = carries a verdict; in-progress responses (#27) don't count.
+  const done = clauses.value.filter((c) => responsesById.value[c.requirementId]?.resultId).length
   return { done, total, pct: Math.round((done / total) * 100) }
 })
 
@@ -165,14 +166,16 @@ watch(responsesById, (map) => {
 })
 
 const saving = reactive({})
+// resultId may be null (#27): an in-progress response saves notes / checklists
+// / interviewees / evidence before the auditor picks a verdict.
 async function saveResponse(reqId, resultId) {
-  if (props.readonly || !reqId || !resultId) return
+  if (props.readonly || !reqId) return
   const buf = ensureBuffer(reqId)
   saving[reqId] = true
   try {
     await post(`/v1/services/auditInstances/${props.auditInstance.id}/responses`, {
       requirementId: reqId,
-      resultId,
+      resultId: resultId ?? null,
       comments: buf.comments?.trim() || null,
       questionChecklist: buf.questionChecklist,
       observationChecklist: buf.observationChecklist,
@@ -190,13 +193,20 @@ function pickResult(resultId) {
   saveResponse(currentReqId.value, resultId)
 }
 
+// Save in-progress capture data, preserving any verdict already chosen (or null).
 const debouncedSave = useDebounceFn(() => {
   const reqId = currentReqId.value
-  const resultId = responsesById.value[reqId]?.resultId
-  // Consistent with the old panel: don't save capture data until a result is
-  // chosen (the response row requires a result_id).
-  if (resultId) saveResponse(reqId, resultId)
+  if (!reqId) return
+  saveResponse(reqId, responsesById.value[reqId]?.resultId ?? null)
 }, 600)
+
+// Materialise the response row right away — the evidence panel needs a saved
+// response id to attach uploads/photos to, and we allow that before a verdict.
+async function ensureResponse() {
+  const reqId = currentReqId.value
+  if (!reqId || currentResponse.value?.id) return
+  await saveResponse(reqId, currentResponse.value?.resultId ?? null)
+}
 
 // Checklists — `field` is questionChecklist | observationChecklist | evidenceChecklist.
 function toggleChecklist(field, id) {
@@ -320,9 +330,14 @@ function setComments(v) {
             <code class="tw:text-[10px] tw:font-mono tw:text-secondary">{{ row.clauseNumber }}</code>
             <span class="tw:text-xs tw:truncate" :class="row.depth === 0 ? 'tw:font-semibold' : ''">{{ row.title }}</span>
             <span
-              v-if="responsesById[row.requirementId]"
+              v-if="responsesById[row.requirementId]?.resultId"
               class="tw:ml-auto tw:size-1.5 tw:rounded-full tw:bg-emerald-500 tw:shrink-0"
               title="Assessed"
+            />
+            <span
+              v-else-if="responsesById[row.requirementId]"
+              class="tw:ml-auto tw:size-1.5 tw:rounded-full tw:bg-amber-400 tw:shrink-0"
+              title="In progress — no verdict yet"
             />
           </button>
         </div>
@@ -430,12 +445,12 @@ function setComments(v) {
             >{{ r.name }}</button>
           </div>
           <p v-if="!currentResponse?.resultId" class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-            Pick a result to save the checklist, notes and interviewees for this clause.
+            Notes, checklists, interviewees and evidence save as you go — pick a result to record the verdict.
           </p>
         </div>
 
-        <!-- Notes -->
-        <div v-if="currentResponse?.resultId || currentBuffer?.comments">
+        <!-- Notes — always available so the auditor can capture before deciding. -->
+        <div>
           <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Notes</p>
           <BaseRichTextEditor
             :modelValue="currentBuffer?.comments"
@@ -497,9 +512,10 @@ function setComments(v) {
           </div>
         </div>
 
-        <!-- Evidence — scoped to this clause's response (needs a saved result). -->
+        <!-- Evidence & photos — scoped to this clause's response. Available
+             before a verdict (#27): the first attach materialises the response. -->
         <div>
-          <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Evidence</p>
+          <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Evidence &amp; Photos</p>
           <AuditEvidencePanel
             v-if="currentResponse?.id"
             :auditInstance="auditInstance"
@@ -507,7 +523,14 @@ function setComments(v) {
             :scopeId="currentResponse.id"
             :readonly="readonly"
           />
-          <p v-else class="tw:text-xs tw:text-secondary tw:italic">Pick a result first to attach evidence.</p>
+          <div v-else-if="!readonly" class="tw:flex tw:items-center tw:gap-2">
+            <BaseButton variant="outline" size="sm" :loading="saving[currentReqId]" @click="ensureResponse">
+              <template #icon><IconPlus :size="14" /></template>
+              Add evidence / photo
+            </BaseButton>
+            <span class="tw:text-xs tw:text-secondary tw:italic">Saved against this clause as you capture.</span>
+          </div>
+          <p v-else class="tw:text-xs tw:text-secondary tw:italic">No evidence captured.</p>
         </div>
       </div>
     </div>

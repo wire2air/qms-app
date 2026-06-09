@@ -51,7 +51,11 @@ const { scoring, responses } = useAuditScoring(() => props.id)
 
 // Close-out readiness: every assessable clause (those with a question) must
 // have a response. Section headers (no question) aren't assessed.
-const respondedIds = computed(() => new Set(responses.value.map((r) => r.requirementId)))
+// A clause is assessed only when its response carries a verdict — in-progress
+// responses with no result_id (#27) don't count toward close-out readiness.
+const respondedIds = computed(
+  () => new Set(responses.value.filter((r) => r.resultId).map((r) => r.requirementId)),
+)
 const assessableClauses = computed(() =>
   (auditInstance.value?.requirementSchema ?? []).filter((c) => c.question),
 )

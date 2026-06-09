@@ -38,7 +38,9 @@ export function useAuditScoring(auditInstanceId) {
     for (const r of responses.value) {
       if (counts[r.resultId] !== undefined) counts[r.resultId] += 1
     }
-    const assessed = responses.value.length
+    // Only count responses carrying a verdict — in-progress rows (#27, null
+    // result_id) aren't assessed yet.
+    const assessed = responses.value.filter((r) => r.resultId).length
     const scored = counts.CONFORMING + counts.OFI + counts.MINOR_NC + counts.MAJOR_NC
     const conformant = counts.CONFORMING + counts.OFI
     const conformancePct = scored > 0 ? Math.round((conformant / scored) * 100) : null
