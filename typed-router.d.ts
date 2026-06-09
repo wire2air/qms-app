@@ -331,6 +331,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/reset-esign-pin': RouteRecordInfo<
+      '/reset-esign-pin',
+      '/reset-esign-pin',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/reset-password': RouteRecordInfo<
       '/reset-password',
       '/reset-password',
@@ -745,6 +752,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/records.vue': {
       routes:
         | '/records'
+      views:
+        | never
+    }
+    'src/pages/reset-esign-pin.vue': {
+      routes:
+        | '/reset-esign-pin'
       views:
         | never
     }

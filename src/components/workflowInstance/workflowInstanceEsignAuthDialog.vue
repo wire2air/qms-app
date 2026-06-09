@@ -24,7 +24,7 @@ const checking = ref(false)
 const submitting = ref(false)
 const errorMessage = ref('')
 const hasPin = ref(null)
-const mode = ref('enter') // 'enter' | 'set' | 'change'
+const mode = ref('enter') // 'enter' | 'set' | 'change' | 'sent'
 
 const pin = ref('')
 const confirmPin = ref('')
@@ -120,6 +120,20 @@ async function changePin() {
   }
 }
 
+// Forgot PIN → email a one-time reset link to the signed-in user.
+async function requestReset() {
+  submitting.value = true
+  errorMessage.value = ''
+  try {
+    await post('/v1/services/esign-pin/reset-request', {})
+    mode.value = 'sent'
+  } catch (e) {
+    errorMessage.value = e?.message || 'Could not send the reset email. Please try again.'
+  } finally {
+    submitting.value = false
+  }
+}
+
 function goToChange() {
   resetFields()
   mode.value = 'change'
@@ -186,13 +200,38 @@ function backToEnter() {
         <BaseButton class="tw:w-full" :isLoading="submitting" :disabled="!pin" @click="signWithPin">
           Sign
         </BaseButton>
-        <button
-          type="button"
-          class="tw:text-xs tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:self-center"
-          @click="goToChange"
-        >
-          Change PIN
-        </button>
+        <div class="tw:flex tw:items-center tw:justify-center tw:gap-4">
+          <button
+            type="button"
+            class="tw:text-xs tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            @click="goToChange"
+          >
+            Change PIN
+          </button>
+          <span class="tw:text-secondary tw:text-xs">·</span>
+          <button
+            type="button"
+            class="tw:text-xs tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            :disabled="submitting"
+            @click="requestReset"
+          >
+            Forgot PIN?
+          </button>
+        </div>
+      </div>
+
+      <!-- Reset link sent -->
+      <div v-else-if="mode === 'sent'" class="tw:flex tw:flex-col tw:gap-3 tw:text-center">
+        <div class="tw:flex tw:justify-center">
+          <div class="tw:size-12 tw:rounded-full tw:bg-green-100 tw:flex tw:items-center tw:justify-center tw:text-green-600">
+            <IconCircleCheck :size="26" />
+          </div>
+        </div>
+        <p class="tw:text-sm tw:text-on-main tw:font-medium">Check your email</p>
+        <p class="tw:text-xs tw:text-secondary">
+          We sent a reset link to <span class="tw:font-medium">{{ userEmail }}</span>. Open it to set
+          a new e-signature PIN, then come back and sign.
+        </p>
       </div>
 
       <!-- Set PIN (first time) -->
