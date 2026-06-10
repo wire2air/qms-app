@@ -10,12 +10,6 @@ import {
   IconEdit,
 } from '@tabler/icons-vue'
 
-// Adobe e-sign step flags are persisted but their runtime (agreement creation,
-// webhook completion, supplier submit selection) isn't shipped yet — keep the
-// switches disabled so they can't be toggled into a misleading inert state.
-// Flip to true when steps 3–6 of the Adobe Sign integration land.
-const ADOBE_ESIGN_READY = false
-
 const props = defineProps({
   stepId: { type: String, required: true },
   canUpdate: { type: Boolean, default: false },
@@ -33,6 +27,12 @@ const props = defineProps({
     validator: (v) => ['ALL', 'ANY', null].includes(v),
   },
 })
+
+// Adobe e-sign step flags are persisted but their runtime (agreement creation,
+// webhook completion, supplier submit selection) isn't shipped yet — keep the
+// switches disabled so they can't be toggled into a misleading inert state.
+// Flip to true when steps 3–6 of the Adobe Sign integration land.
+const ADOBE_ESIGN_READY = false
 
 const step = useLiveQueryWithDeps([() => props.stepId], async (db, [stepId]) => {
   if (!stepId) return null
