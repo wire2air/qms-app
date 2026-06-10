@@ -10,10 +10,10 @@
  * an "Open" button (Asset URL for uploads; deep link for polymorphic
  * record links), and a delete affordance.
  */
-import { IconFile, IconLink, IconPaperclip, IconTrash, IconExternalLink } from '@tabler/icons-vue'
+import { IconFile, IconLink, IconPaperclip, IconTrash, IconExternalLink, IconCamera } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { patch, del } from '@/api'
+import { patch, del, upload } from '@/api'
 
 const props = defineProps({
   auditInstance: { type: Object, required: true },
@@ -171,6 +171,34 @@ async function saveCaption(row, kind) {
 // ── Dialog state ──────────────────────────────────────────────────
 const showUploadDialog = ref(false)
 const showLinkDialog = ref(false)
+
+// ── Take Photo — one-tap camera capture (mobile/iPad opens the rear
+// camera via `capture`; desktop falls back to a file picker). Uploads
+// straight to the same audit-evidence endpoint with the panel's scope. ──
+const photoInputRef = ref(null)
+const uploadingPhoto = ref(false)
+async function onPhotoPicked(e) {
+  const file = e.target.files?.[0]
+  if (e.target) e.target.value = ''
+  if (!file || uploadingPhoto.value) return
+  uploadingPhoto.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file, file.name || `photo-${Date.now()}.jpg`)
+    fd.append('auditInstanceId', props.auditInstance.id)
+    if (props.scope === 'finding' && props.scopeId) fd.append('auditFindingId', props.scopeId)
+    else if (props.scope === 'response' && props.scopeId)
+      fd.append('auditRequirementResponseId', props.scopeId)
+    else if (props.scope === 'documentRequest' && props.scopeId)
+      fd.append('auditDocumentRequestId', props.scopeId)
+    await upload('/v1/services/auditEvidence', fd)
+    toast.success('Photo added')
+  } catch (err) {
+    toast.error(err?.message || 'Failed to add photo')
+  } finally {
+    uploadingPhoto.value = false
+  }
+}
 </script>
 
 <template>
@@ -185,6 +213,18 @@ const showLinkDialog = ref(false)
         </span>
       </div>
       <div v-if="!readonly" class="tw:flex tw:items-center tw:gap-2">
+        <BaseButton variant="outline" size="sm" :loading="uploadingPhoto" @click="photoInputRef?.click()">
+          <template #icon><IconCamera :size="14" /></template>
+          Take Photo
+        </BaseButton>
+        <input
+          ref="photoInputRef"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          class="tw:hidden"
+          @change="onPhotoPicked"
+        />
         <BaseButton variant="outline" size="sm" @click="showLinkDialog = true">
           <template #icon><IconLink :size="14" /></template>
           Link Record
