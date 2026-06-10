@@ -208,7 +208,10 @@ onMounted(() => {
               <td class="aud-clause">{{ f.findingNumber || '—' }}</td>
               <td><span class="aud-result" :class="resultClass(f.findingTypeId)">{{ RESULT_LABEL[f.findingTypeId] || f.findingTypeId }}</span></td>
               <td>{{ f.statusId }}</td>
-              <td>{{ f.description }}</td>
+              <td>
+                <div v-if="f.detailsHtml" class="aud-finding-rich" v-html="f.detailsHtml" />
+                <template v-else>{{ f.description }}</template>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -268,4 +271,13 @@ onMounted(() => {
 .aud-r-major { background: #fef2f2; color: #b91c1c; }
 .aud-r-ofi { background: #eff6ff; color: #1d4ed8; }
 .aud-r-na { background: #f3f4f6; color: #6b7280; }
+
+/* Rich finding body (#29) rendered via v-html in the report. */
+.aud-finding-rich p { margin: 0 0 4px; }
+.aud-finding-rich ul { list-style: disc; padding-left: 16px; margin: 3px 0; }
+.aud-finding-rich ol { list-style: decimal; padding-left: 16px; margin: 3px 0; }
+.aud-finding-rich li { margin: 1px 0; }
+.aud-finding-rich mark { background: #fef08a; padding: 0 1px; }
+.aud-finding-rich img { max-width: 220px; height: auto; border-radius: 3px; }
+.aud-finding-rich strong { font-weight: 700; }
 </style>
