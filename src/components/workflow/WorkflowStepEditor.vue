@@ -295,10 +295,31 @@ watch(
               <span class="tw:text-xs tw:font-semibold tw:text-on-main">Require Comments</span>
             </label>
             <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
-              <BaseSwitch v-model="step.requireEsignature" :disabled="!canUpdate" />
+              <BaseSwitch v-model="step.requireEsignature" :disabled="!canUpdate || step.adobeEsignRequired" />
               <span class="tw:text-xs tw:font-semibold tw:text-on-main">Require E-signature</span>
             </label>
           </div>
+
+          <!-- E-signature provider + external signers (Document Control). Adobe
+               supersedes the in-app PIN; external_supplier swaps role-based
+               internal approvers for supplier users picked at submit. -->
+          <div class="tw:flex tw:justify-between">
+            <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
+              <BaseSwitch v-model="step.adobeEsignRequired" :disabled="!canUpdate" />
+              <span class="tw:text-xs tw:font-semibold tw:text-on-main">Adobe e-signature</span>
+            </label>
+            <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
+              <BaseSwitch v-model="step.externalSupplier" :disabled="!canUpdate" />
+              <span class="tw:text-xs tw:font-semibold tw:text-on-main">External (supplier) signers</span>
+            </label>
+          </div>
+          <p
+            v-if="step.adobeEsignRequired"
+            class="tw:text-[11px] tw:text-secondary tw:-mt-1"
+          >
+            Signs via your connected Adobe Acrobat Sign account (Company Settings → Integrations).
+            All selected signers must sign before the step completes.
+          </p>
 
           <!-- ACTION-only: lets the resource owner add ad-hoc child steps
                from within a running record. Hidden for APPROVAL steps —

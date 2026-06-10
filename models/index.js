@@ -19,6 +19,8 @@ import { AssetRequest } from './assetRequest'
 import { AssetRequestItem } from './assetRequestItem'
 import { AssetRequestOnContact } from './assetRequestOnContact'
 import { AssetRequestOnUser } from './assetRequestOnUser'
+import { EsignAgreement } from './esignAgreement'
+import { EsignAgreementSigner } from './esignAgreementSigner'
 import { AssetRequestStatus } from './assetRequestStatus'
 import { AssetRequestType } from './assetRequestType'
 import { AuditLog } from './auditLog'
@@ -178,6 +180,8 @@ export const db = {
   AssetRequestItem,
   AssetRequestOnContact,
   AssetRequestOnUser,
+  EsignAgreement,
+  EsignAgreementSigner,
   AssetRequestStatus,
   AssetRequestType,
   AuditLog,
