@@ -21,6 +21,7 @@ function getArray() {
     :items="severities"
     :required="required"
     :multiple="multiple"
+    nullLabel="— All severities —"
   >
     <template #button="scope">
       <slot name="button" v-bind="scope">

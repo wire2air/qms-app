@@ -1,21 +1,32 @@
 <script setup>
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { currentSession } from '@/utils/currentSession'
+import { exportToCSV } from '@/utils/exportUtils.js'
+import { dateInRange } from '@/utils/listFilters.js'
 import { DateTime } from 'luxon'
 
 const props = defineProps({
   search: { type: String, default: '' },
   statusId: { type: String, default: null },
   taskKindId: { type: String, default: null },
+  dateFrom: { type: String, default: '' },
+  dateTo: { type: String, default: '' },
 })
 
 const taskInstances = useLiveQueryWithDeps(
-  [() => props.statusId, () => props.taskKindId, () => currentSession.value?.userId],
-  async (db, [statusId, taskKindId, userId]) => {
+  [
+    () => props.statusId,
+    () => props.taskKindId,
+    () => props.dateFrom,
+    () => props.dateTo,
+    () => currentSession.value?.userId,
+  ],
+  async (db, [statusId, taskKindId, dateFrom, dateTo, userId]) => {
     if (!userId) return []
     let results = await db.TaskInstance.where('assignedTo', userId).exec()
     if (statusId) results = results.filter((t) => t.statusId === statusId)
     if (taskKindId) results = results.filter((t) => t.taskKindId === taskKindId)
+    if (dateFrom || dateTo) results = results.filter((t) => dateInRange(t.createdAt, dateFrom, dateTo))
     return results
   },
   { initial: [] },
@@ -392,6 +403,53 @@ const pagination = ref({
   total: null,
 })
 
+// Resolve a row's display title from the per-entity maps (mirrors the title
+// cell), for export.
+function titleFor(row) {
+  switch (row.entityType) {
+    case 'TrainingAssignee':
+      return getTrainingAssigneeEntry(row)?.instance?.snapshot?.title || ''
+    case 'TrainingInstance':
+      return trainingInstanceMap.value[row.entityId]?.snapshot?.title || ''
+    case 'Nonconformance':
+      return getNc(row)?.title || ''
+    case 'Capa':
+      return getCapa(row)?.title || ''
+    case 'ChangeRequest':
+      return getChangeRequest(row)?.title || ''
+    case 'LogBookVersion':
+      return logBookVersionMap.value[row.entityId]?.logBook?.title || ''
+    case 'AssignmentInstance':
+      return assignmentInstanceMap.value[row.entityId]?.logBook?.title || ''
+    case 'FieldRecord':
+      return fieldRecordMap.value[row.entityId]?.logBook?.title || ''
+    case 'AuditInstance':
+      return (
+        auditInstanceMap.value[row.entityId]?.standard?.name ||
+        auditInstanceMap.value[row.entityId]?.audit?.auditNumber ||
+        ''
+      )
+    case 'AuditStandardVersion':
+      return auditStandardVersionMap.value[row.entityId]?.standard?.name || ''
+    default:
+      return getDocument(row)?.title || ''
+  }
+}
+
+function exportCsv() {
+  exportToCSV(
+    sortedInstances.value,
+    [
+      { field: (r) => titleFor(r), label: 'Item' },
+      { field: (r) => EntityType[r.entityType] || r.entityType, label: 'Entity Type' },
+      { field: 'statusId', label: 'Status' },
+      { field: (r) => r.dueDate?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Due' },
+      { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
+    ],
+    'my-tasks',
+  )
+}
+
 function getTrainingAssigneeEntry(instance) {
   return trainingAssigneeMap.value[instance.entityId] || null
 }
@@ -575,6 +633,8 @@ function rowSubtitle(row) {
       return ''
   }
 }
+
+defineExpose({ exportCsv })
 </script>
 
 <template>

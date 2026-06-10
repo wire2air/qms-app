@@ -16,7 +16,7 @@ function getArray() {
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="items" :required="required" :multiple="multiple">
+  <BaseSelectMenu v-model="modelValue" :items="items" :required="required" :multiple="multiple" nullLabel="— All types —">
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <template v-if="multiple">

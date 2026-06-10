@@ -118,7 +118,7 @@ const instances = useLiveQueryWithDeps(
         <BaseInlineSelect
           v-model="statusFilter"
           :items="STATUS_FILTER_OPTIONS"
-          nullLabel="All statuses"
+          nullLabel="— All statuses —"
           class="tw:w-44"
         />
         <SupplierSelectMenu v-model="supplierFilter" class="tw:w-48" />
