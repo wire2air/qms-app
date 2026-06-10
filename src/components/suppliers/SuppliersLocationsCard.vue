@@ -4,7 +4,15 @@
  * technical / engineering. Inline card CRUD via SyncEngine. Distinct from the
  * "Associated Sites" card (which is OUR sites that use this supplier).
  */
-import { IconBuildingFactory2, IconPlus, IconTrash, IconStar, IconStarFilled } from '@tabler/icons-vue'
+import {
+  IconBuildingFactory2,
+  IconPlus,
+  IconTrash,
+  IconStar,
+  IconStarFilled,
+  IconChevronDown,
+  IconChevronRight,
+} from '@tabler/icons-vue'
 
 const props = defineProps({
   supplierId: { type: String, required: true },
@@ -27,8 +35,12 @@ const locations = useLiveQueryWithDeps(
   { initial: [] },
 )
 
+// Collapsed by default — locations are reference detail, expand to view/edit.
+const open = ref(false)
+
 const draft = ref(null)
 function addLocation() {
+  open.value = true
   if (draft.value) return
   draft.value = {
     name: '',
@@ -80,19 +92,30 @@ async function setPrimary(loc) {
 
 <template>
   <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:overflow-hidden">
-    <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:items-center tw:gap-3">
+    <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between tw:gap-2">
+      <button
+        type="button"
+        class="tw:flex tw:items-center tw:gap-3 tw:flex-1 tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer"
+        @click="open = !open"
+      >
         <div class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-gray-100 tw:flex tw:items-center tw:justify-center">
           <IconBuildingFactory2 :size="20" class="tw:text-secondary" />
         </div>
         <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Locations</h3>
-      </div>
+        <span
+          v-if="locations.length"
+          class="tw:text-xs tw:font-semibold tw:text-secondary tw:bg-white tw:border tw:border-divider tw:rounded-full tw:px-2 tw:py-0.5"
+        >
+          {{ locations.length }}
+        </span>
+        <component :is="open ? IconChevronDown : IconChevronRight" :size="18" class="tw:text-secondary" />
+      </button>
       <BaseButton v-if="canUpdate && !draft" variant="text-link" size="sm" @click="addLocation">
         <IconPlus :size="14" />
         Add Location
       </BaseButton>
     </div>
-    <div class="tw:p-6">
+    <div v-show="open" class="tw:p-6">
       <div v-if="locations.length || draft" class="tw:space-y-4">
         <div
           v-for="loc in locations"
