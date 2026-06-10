@@ -66,7 +66,10 @@ const unassessedCount = computed(
 )
 
 function openReport() {
-  router.push({ path: getCompanyPath('/print'), query: { module: 'AuditInstance', id: props.id } })
+  // Open the report in a new tab (matches NC/CAPA/CR/I&L) so the auditor keeps
+  // the audit open behind it and the print page auto-fires window.print().
+  const params = new URLSearchParams({ module: 'AuditInstance', id: props.id })
+  window.open(getCompanyPath(`/print?${params.toString()}`), '_blank', 'noopener,noreferrer')
 }
 const loading = computed(() => auditInstance.value === undefined)
 
