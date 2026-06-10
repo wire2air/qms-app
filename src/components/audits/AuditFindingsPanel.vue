@@ -19,6 +19,7 @@ import {
   IconBolt,
   IconChevronDown,
   IconChevronRight,
+  IconArrowBackUp,
   IconCircleCheck,
   IconEdit,
   IconExternalLink,
@@ -153,8 +154,8 @@ const TRANSITIONS = {
     { id: 'CLOSED', name: 'Close' },
     { id: 'CANCELLED', name: 'Cancel' },
   ],
-  CLOSED: [{ id: 'IN_REMEDIATION', name: 'Re-open' }],
-  CANCELLED: [{ id: 'OPEN', name: 'Re-instate' }],
+  CLOSED: [{ id: 'OPEN', name: 'Reopen' }],
+  CANCELLED: [{ id: 'OPEN', name: 'Reopen' }],
 }
 // Auto-findings store "<clause>: <question>\n<comment>". Split so the clause
 // renders italic on its own line and the comment sits below it. Manual
@@ -473,6 +474,15 @@ function unlinkedKinds(finding) {
               @click="setStatus(finding, 'CLOSED')"
             >
               <IconCircleCheck :size="14" /> Close
+            </button>
+            <button
+              v-if="!readonly && ['CLOSED', 'CANCELLED'].includes(finding.statusId)"
+              type="button"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-primary tw:hover:bg-main-hover tw:rounded tw:px-2 tw:py-1 tw:cursor-pointer tw:bg-transparent tw:border tw:border-divider tw:text-[11px] tw:font-medium"
+              :title="finding.statusId === 'CANCELLED' ? 'Re-instate this finding' : 'Reopen this finding'"
+              @click="setStatus(finding, 'OPEN')"
+            >
+              <IconArrowBackUp :size="14" /> Reopen
             </button>
             <button
               v-if="!readonly"
