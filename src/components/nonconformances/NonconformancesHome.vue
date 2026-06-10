@@ -13,6 +13,24 @@ const canDelete = computed(() => isAllowed(['nonconformances:delete']))
 const filters = ref({ search: '', statusId: null, severityId: null, typeId: null })
 const activeFilter = ref('all_open')
 
+const route = useRoute()
+// Supplier deep-link: /nonconformances?supplierId=… prefilters to one supplier
+// (used by the supplier Performance tab). Clearable via the chip below.
+const supplierFilter = ref(route.query.supplierId || null)
+watch(
+  () => route.query.supplierId,
+  (v) => (supplierFilter.value = v || null),
+)
+const filterSupplier = useLiveQueryWithDeps([() => supplierFilter.value], async (db, [id]) =>
+  id ? db.Supplier.findByPk(id) : null,
+)
+function clearSupplierFilter() {
+  supplierFilter.value = null
+  const q = { ...route.query }
+  delete q.supplierId
+  router.replace({ query: q })
+}
+
 const CLOSED_STATUSES = ['CLOSED']
 const OPEN_STATUSES = ['DRAFT', 'UNDER_REVIEW']
 
@@ -54,11 +72,13 @@ const ncs = useLiveQueryWithDeps(
     () => filters.value.severityId,
     () => filters.value.typeId,
     () => activeFilter.value,
+    () => supplierFilter.value,
   ],
-  async (db, [search, statusId, severityId, typeId, af]) => {
+  async (db, [search, statusId, severityId, typeId, af, supplierId]) => {
     let results = await db.Nonconformance.where().exec()
     results = applyFilters(results, search, statusId, severityId, typeId)
     results = applyActiveFilter(results, af)
+    if (supplierId) results = results.filter((r) => r.supplierId === supplierId)
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -181,6 +201,20 @@ function onRaiseNc() {
           </div>
         </div>
       </div>
+    </div>
+
+    <div
+      v-if="supplierFilter"
+      class="tw:flex tw:items-center tw:gap-2 tw:mb-3 tw:text-sm tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-blue-800 tw:rounded-lg tw:px-3 tw:py-2"
+    >
+      <span>Filtered by supplier: <strong>{{ filterSupplier?.name || '…' }}</strong></span>
+      <button
+        type="button"
+        class="tw:ml-auto tw:text-blue-700 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-xs tw:font-medium"
+        @click="clearSupplierFilter"
+      >
+        Clear
+      </button>
     </div>
 
     <NonconformancesFilterToolbar v-model:filters="filters" v-model:activeFilter="activeFilter" />

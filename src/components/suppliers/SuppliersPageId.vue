@@ -57,9 +57,9 @@ const tabs = [
   { value: 'overview', label: 'Overview' },
   { value: 'company-profile', label: 'Company Profile' },
   { value: 'locations', label: 'Locations & Contacts' },
+  { value: 'performance', label: 'Performance' },
   { value: 'users', label: 'Users' },
   { value: 'documents', label: 'Documents' },
-  { value: 'shared-documents', label: 'Shared Documents' },
   { value: 'asset-requests', label: 'Asset Requests' },
   { value: 'evaluations', label: 'Evaluations' },
 ]
@@ -172,11 +172,12 @@ const activeTab = computed({
           :supplierId="props.id"
           :canUpdate="canUpdate"
         />
-        <SuppliersDocumentsTab v-else-if="activeTab === 'documents'" :supplier="supplier" />
-        <SuppliersSharedDocumentsTab
-          v-else-if="activeTab === 'shared-documents'"
+        <SuppliersPerformanceTab
+          v-else-if="activeTab === 'performance'"
           :supplierId="props.id"
+          :canUpdate="canUpdate"
         />
+        <SuppliersDocumentsTab v-else-if="activeTab === 'documents'" :supplier="supplier" />
         <SuppliersAssetRequestsTab
           v-else-if="activeTab === 'asset-requests'"
           :supplierId="props.id"

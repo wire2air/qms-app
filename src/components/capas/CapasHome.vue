@@ -13,6 +13,23 @@ const canDelete = computed(() => isAllowed(['capas:delete']))
 const filters = ref({ search: '', statusId: null, priorityId: null, typeId: null })
 const activeFilter = ref('all_open')
 
+const route = useRoute()
+// Supplier deep-link: /capas?supplierId=… prefilters to one supplier.
+const supplierFilter = ref(route.query.supplierId || null)
+watch(
+  () => route.query.supplierId,
+  (v) => (supplierFilter.value = v || null),
+)
+const filterSupplier = useLiveQueryWithDeps([() => supplierFilter.value], async (db, [id]) =>
+  id ? db.Supplier.findByPk(id) : null,
+)
+function clearSupplierFilter() {
+  supplierFilter.value = null
+  const q = { ...route.query }
+  delete q.supplierId
+  router.replace({ query: q })
+}
+
 const CLOSED_STATUSES = ['CLOSED', 'CANCELLED']
 const OPEN_STATUSES = ['DRAFT', 'PENDING']
 
@@ -55,11 +72,13 @@ const capas = useLiveQueryWithDeps(
     () => filters.value.priorityId,
     () => filters.value.typeId,
     () => activeFilter.value,
+    () => supplierFilter.value,
   ],
-  async (db, [search, statusId, priorityId, typeId, af]) => {
+  async (db, [search, statusId, priorityId, typeId, af, supplierId]) => {
     let results = await db.Capa.where().exec()
     results = applyFilters(results, search, statusId, priorityId, typeId)
     results = applyActiveFilter(results, af)
+    if (supplierId) results = results.filter((r) => r.supplierId === supplierId)
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -184,6 +203,20 @@ function onCreateCapa() {
           </div>
         </div>
       </div>
+    </div>
+
+    <div
+      v-if="supplierFilter"
+      class="tw:flex tw:items-center tw:gap-2 tw:mb-3 tw:text-sm tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-blue-800 tw:rounded-lg tw:px-3 tw:py-2"
+    >
+      <span>Filtered by supplier: <strong>{{ filterSupplier?.name || '…' }}</strong></span>
+      <button
+        type="button"
+        class="tw:ml-auto tw:text-blue-700 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-xs tw:font-medium"
+        @click="clearSupplierFilter"
+      >
+        Clear
+      </button>
     </div>
 
     <CapasFilterToolbar v-model:filters="filters" v-model:activeFilter="activeFilter" />
