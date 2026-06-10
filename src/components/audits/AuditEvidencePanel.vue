@@ -89,6 +89,10 @@ const totalCount = computed(() => visibleUploads.value.length + links.value.leng
 
 // ── Open / delete ─────────────────────────────────────────────────
 
+function isImageUpload(u) {
+  return (assetsById.value[u.assetId]?.mimeType || '').startsWith('image/')
+}
+
 function openAsset(upload) {
   const asset = assetsById.value[upload.assetId]
   if (asset?.url) window.open(asset.url, '_blank')
@@ -240,7 +244,21 @@ async function uploadPhotoFile(file) {
         :key="`up-${u.id}`"
         class="tw:flex tw:items-start tw:gap-3 tw:py-2"
       >
-        <IconFile :size="16" class="tw:text-blue-600 tw:mt-0.5 tw:shrink-0" />
+        <button
+          v-if="isImageUpload(u) && assetsById[u.assetId]?.url"
+          type="button"
+          class="tw:shrink-0 tw:cursor-pointer tw:bg-transparent tw:border-0 tw:p-0"
+          title="Open photo"
+          @click="openAsset(u)"
+        >
+          <img
+            :src="assetsById[u.assetId].url"
+            :alt="assetsById[u.assetId]?.originalFilename || 'Photo'"
+            loading="lazy"
+            class="tw:size-14 tw:rounded tw:object-cover tw:border tw:border-divider"
+          />
+        </button>
+        <IconFile v-else :size="16" class="tw:text-blue-600 tw:mt-0.5 tw:shrink-0" />
         <div class="tw:flex-1 tw:min-w-0">
           <p class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">
             {{ assetsById[u.assetId]?.originalFilename || assetsById[u.assetId]?.filename || 'Uploaded file' }}
