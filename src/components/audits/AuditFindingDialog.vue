@@ -149,7 +149,7 @@ async function handleSave() {
   <BaseDialog
     :modelValue="modelValue"
     :title="isEdit ? 'Edit Finding' : 'New Finding'"
-    maxWidth="lg"
+    maxWidth="3xl"
     @update:modelValue="close"
   >
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
