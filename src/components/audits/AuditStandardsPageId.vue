@@ -26,6 +26,7 @@ import {
   IconUpload,
   IconDownload,
   IconX,
+  IconCopy,
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -45,6 +46,8 @@ const loading = computed(() => standard.value === undefined)
 
 const canUpdate = computed(() => isAllowed(['auditStandards:update']))
 const canDelete = computed(() => isAllowed(['auditStandards:delete']))
+const canCreate = computed(() => isAllowed(['auditStandards:create']))
+const showCloneDialog = ref(false)
 const isOwner = computed(() => !!currentSession.value?.isOwner)
 const isEditable = computed(() => canUpdate.value || isOwner.value)
 
@@ -330,6 +333,15 @@ async function handleRemoveSourceFile() {
         >
           <IconArrowBack :size="16" class="tw:mr-1" />
           Back
+        </BaseButton>
+        <BaseButton
+          v-if="canCreate && standard"
+          variant="outline"
+          size="sm"
+          @click="showCloneDialog = true"
+        >
+          <IconCopy :size="16" class="tw:mr-1" />
+          Duplicate
         </BaseButton>
         <BaseButton
           v-if="canSubmitEditable && editableVersion"
@@ -757,6 +769,8 @@ async function handleRemoveSourceFile() {
         </div>
       </div>
     </div>
+
+    <AuditStandardCloneDialog v-model="showCloneDialog" :standard="standard" />
 
     <AuditStandardVersionSubmitDialog
       v-if="submitTargetVersionId"
