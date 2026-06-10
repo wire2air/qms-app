@@ -61,6 +61,7 @@ import { SupplierAsset } from './supplierAsset'
 import { SupplierCertificateType } from './supplierCertificateType'
 import { SupplierContact } from './supplierContact'
 import { SupplierDocument } from './supplierDocument'
+import { SupplierLocation } from './supplierLocation'
 import { SupplierOnSite } from './supplierOnSite'
 import { SupplierStatus } from './supplierStatus'
 import { TaskInstance } from './taskInstance'
@@ -218,6 +219,7 @@ export const db = {
   SupplierCertificateType,
   SupplierContact,
   SupplierDocument,
+  SupplierLocation,
   SupplierOnSite,
   SupplierStatus,
   TaskInstance,

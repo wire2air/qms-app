@@ -55,6 +55,8 @@ watch(
 
 const tabs = [
   { value: 'overview', label: 'Overview' },
+  { value: 'company-profile', label: 'Company Profile' },
+  { value: 'locations', label: 'Locations & Contacts' },
   { value: 'users', label: 'Users' },
   { value: 'documents', label: 'Documents' },
   { value: 'shared-documents', label: 'Shared Documents' },
@@ -154,6 +156,16 @@ const activeTab = computed({
           :supplier="supplier"
           :canUpdate="canUpdate"
           :supplierId="props.id"
+        />
+        <SuppliersCompanyProfileTab
+          v-else-if="activeTab === 'company-profile'"
+          :supplier="supplier"
+          :canUpdate="canUpdate"
+        />
+        <SuppliersLocationsContactsTab
+          v-else-if="activeTab === 'locations'"
+          :supplierId="props.id"
+          :canUpdate="canUpdate"
         />
         <SuppliersUsersTab
           v-else-if="activeTab === 'users'"
