@@ -1,34 +1,58 @@
 <script setup>
-import { IconAlertCircle, IconAlertTriangle, IconClock, IconCircleCheck } from '@tabler/icons-vue'
+import { IconAlertCircle, IconAlertTriangle, IconClock, IconCircleCheck, IconDownload } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
+import { dateInRange } from '@/utils/listFilters.js'
+import { exportToCSV } from '@/utils/exportUtils.js'
 
 const router = useRouter()
+const route = useRoute()
 
 const canCreate = computed(() => isAllowed(['nonconformances:create']))
 const canUpdate = computed(() => isAllowed(['nonconformances:update']))
 const canDelete = computed(() => isAllowed(['nonconformances:delete']))
 
-const filters = ref({ search: '', statusId: null, severityId: null, typeId: null })
+const filters = ref({
+  search: '',
+  statusId: null,
+  severityId: null,
+  typeId: null,
+  supplierId: route.query.supplierId || null,
+  dateFrom: '',
+  dateTo: '',
+})
 const activeFilter = ref('all_open')
 
-const route = useRoute()
-// Supplier deep-link: /nonconformances?supplierId=… prefilters to one supplier
-// (used by the supplier Performance tab). Clearable via the chip below.
-const supplierFilter = ref(route.query.supplierId || null)
+// Supplier deep-link: /nonconformances?supplierId=… prefilters to one supplier.
 watch(
   () => route.query.supplierId,
-  (v) => (supplierFilter.value = v || null),
+  (v) => (filters.value.supplierId = v || null),
 )
-const filterSupplier = useLiveQueryWithDeps([() => supplierFilter.value], async (db, [id]) =>
+const filterSupplier = useLiveQueryWithDeps([() => filters.value.supplierId], async (db, [id]) =>
   id ? db.Supplier.findByPk(id) : null,
 )
 function clearSupplierFilter() {
-  supplierFilter.value = null
+  filters.value.supplierId = null
   const q = { ...route.query }
   delete q.supplierId
   router.replace({ query: q })
+}
+
+function exportCsv() {
+  exportToCSV(
+    ncs.value,
+    [
+      { field: 'ncNumber', label: 'NC #' },
+      { field: 'title', label: 'Title' },
+      { field: 'statusId', label: 'Status' },
+      { field: 'severityId', label: 'Severity' },
+      { field: 'typeId', label: 'Type' },
+      { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
+      { field: (r) => r.dueDate?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Due' },
+    ],
+    'nonconformances',
+  )
 }
 
 const CLOSED_STATUSES = ['CLOSED']
@@ -72,13 +96,16 @@ const ncs = useLiveQueryWithDeps(
     () => filters.value.severityId,
     () => filters.value.typeId,
     () => activeFilter.value,
-    () => supplierFilter.value,
+    () => filters.value.supplierId,
+    () => filters.value.dateFrom,
+    () => filters.value.dateTo,
   ],
-  async (db, [search, statusId, severityId, typeId, af, supplierId]) => {
+  async (db, [search, statusId, severityId, typeId, af, supplierId, dateFrom, dateTo]) => {
     let results = await db.Nonconformance.where().exec()
     results = applyFilters(results, search, statusId, severityId, typeId)
     results = applyActiveFilter(results, af)
     if (supplierId) results = results.filter((r) => r.supplierId === supplierId)
+    if (dateFrom || dateTo) results = results.filter((r) => dateInRange(r.createdAt, dateFrom, dateTo))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -118,6 +145,10 @@ function onRaiseNc() {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
+      <BaseButton variant="outline" :disabled="!ncs.length" @click="exportCsv">
+        <IconDownload :size="16" class="tw:mr-1" />
+        Export
+      </BaseButton>
       <BaseButton v-if="canCreate" variant="primary" @click="onRaiseNc">Raise NC</BaseButton>
     </SafeTeleport>
 

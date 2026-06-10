@@ -1,7 +1,9 @@
 <script setup>
-import { IconAlertCircle, IconClock, IconShieldCheck, IconCircleCheck } from '@tabler/icons-vue'
+import { IconAlertCircle, IconClock, IconShieldCheck, IconCircleCheck, IconDownload } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { dateInRange } from '@/utils/listFilters.js'
+import { exportToCSV } from '@/utils/exportUtils.js'
 import { DateTime } from 'luxon'
 
 const router = useRouter()
@@ -9,8 +11,29 @@ const router = useRouter()
 const canCreate = computed(() => isAllowed(['changeRequests:create']))
 const canUpdate = computed(() => isAllowed(['changeRequests:update']))
 
-const filters = ref({ search: '', statusId: null, priorityId: null, changeTypeId: null })
+const filters = ref({
+  search: '',
+  statusId: null,
+  priorityId: null,
+  changeTypeId: null,
+  dateFrom: '',
+  dateTo: '',
+})
 const activeFilter = ref('all_open')
+
+function exportCsv() {
+  exportToCSV(
+    changeRequests.value,
+    [
+      { field: 'crNumber', label: 'CR #' },
+      { field: 'title', label: 'Title' },
+      { field: 'statusId', label: 'Status' },
+      { field: 'priorityId', label: 'Priority' },
+      { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
+    ],
+    'change-requests',
+  )
+}
 
 const OPEN_STATUSES = [
   'DRAFT',
@@ -58,11 +81,14 @@ const changeRequests = useLiveQueryWithDeps(
     () => filters.value.priorityId,
     () => filters.value.changeTypeId,
     () => activeFilter.value,
+    () => filters.value.dateFrom,
+    () => filters.value.dateTo,
   ],
-  async (db, [search, statusId, priorityId, changeTypeId, af]) => {
+  async (db, [search, statusId, priorityId, changeTypeId, af, dateFrom, dateTo]) => {
     let results = await db.ChangeRequest.where().exec()
     results = applyFilters(results, search, statusId, priorityId, changeTypeId)
     results = applyActiveFilter(results, af)
+    if (dateFrom || dateTo) results = results.filter((r) => dateInRange(r.createdAt, dateFrom, dateTo))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -102,6 +128,10 @@ function onCreate() {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
+      <BaseButton variant="outline" :disabled="!changeRequests.length" @click="exportCsv">
+        <IconDownload :size="16" class="tw:mr-1" />
+        Export
+      </BaseButton>
       <BaseButton v-if="canCreate" variant="primary" @click="onCreate">
         New Change Request
       </BaseButton>
