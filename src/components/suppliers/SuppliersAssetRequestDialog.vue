@@ -55,16 +55,31 @@ const form = ref({
   description: '',
   dueDate: null,
   expiryDate: null,
-  contactIds: [],
+  userIds: [], // recipient supplier users (#31)
   selectedTypeIds: [], // master-list / tenant types ticked
   adHocItems: [], // [{ tempId, customTitle, customDescription }]
 })
 
-const editingContacts = useLiveQueryWithDeps(
+// Recipients are now supplier USERS (kind EXTERNAL_SUPPLIER) — they're notified
+// and respond in-portal. Contacts that aren't users can't act (#31).
+const supplierUsers = useLiveQueryWithDeps(
+  [() => props.supplierId],
+  async (db, [supplierId]) => {
+    if (!supplierId) return []
+    const rows = await db.User.where('supplierId', supplierId).exec()
+    return rows.filter((u) => u.kind === 'EXTERNAL_SUPPLIER')
+  },
+  { initial: [] },
+)
+function userLabel(u) {
+  return [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id
+}
+
+const editingRecipients = useLiveQueryWithDeps(
   [() => props.editingRequest?.id],
   async (db, [requestId]) => {
     if (!requestId) return []
-    return db.AssetRequestOnContact.where('assetRequestId', requestId).exec()
+    return db.AssetRequestOnUser.where('assetRequestId', requestId).exec()
   },
   { initial: [] },
 )
@@ -77,7 +92,7 @@ watch(show, async (val) => {
       description: props.editingRequest.description || '',
       dueDate: props.editingRequest.dueDate || null,
       expiryDate: props.editingRequest.expiryDate || null,
-      contactIds: editingContacts.value.map((c) => c.supplierContactId),
+      userIds: editingRecipients.value.map((r) => r.userId),
       selectedTypeIds: [],
       adHocItems: [],
     }
@@ -91,7 +106,7 @@ watch(show, async (val) => {
           })
         : null,
       expiryDate: null,
-      contactIds: [],
+      userIds: [],
       selectedTypeIds: [],
       adHocItems: [],
     }
@@ -99,10 +114,10 @@ watch(show, async (val) => {
   }
 })
 
-function toggleContact(id) {
-  const i = form.value.contactIds.indexOf(id)
-  if (i === -1) form.value.contactIds = [...form.value.contactIds, id]
-  else form.value.contactIds = form.value.contactIds.filter((x) => x !== id)
+function toggleUser(id) {
+  const i = form.value.userIds.indexOf(id)
+  if (i === -1) form.value.userIds = [...form.value.userIds, id]
+  else form.value.userIds = form.value.userIds.filter((x) => x !== id)
 }
 
 function toggleType(typeId) {
@@ -129,8 +144,8 @@ const totalItems = computed(
 
 const canSubmit = computed(() => {
   if (!form.value.title?.trim()) return false
-  if (!form.value.contactIds?.length) return false
-  if (props.editingRequest) return true // edit just needs title + contact
+  if (!form.value.userIds?.length) return false
+  if (props.editingRequest) return true // edit just needs title + recipient
   return totalItems.value > 0
 })
 
@@ -165,7 +180,7 @@ async function onSave() {
         description: form.value.description || null,
         dueDate: form.value.dueDate || null,
         expiryDate: form.value.expiryDate || null,
-        contactIds: form.value.contactIds,
+        userIds: form.value.userIds,
         items,
       })
     }
@@ -196,29 +211,31 @@ async function onSave() {
         <BaseTextInput v-model="form.title" placeholder="What's this batch for?" />
       </div>
 
-      <!-- Contacts -->
+      <!-- Recipients = supplier portal users (#31). They get notified + respond
+           in-portal. Add one via Locations & Contacts → "invite as portal user". -->
       <div>
         <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Supplier Contacts <span class="tw:text-bad">*</span>
+          Supplier Users <span class="tw:text-bad">*</span>
         </label>
         <div
           class="tw:space-y-1 tw:max-h-32 tw:overflow-y-auto tw:rounded-md tw:border tw:border-divider tw:p-2"
         >
           <label
-            v-for="contact in contacts"
-            :key="contact.id"
+            v-for="user in supplierUsers"
+            :key="user.id"
             class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:px-2 tw:py-1 tw:rounded tw:hover:bg-main-hover"
           >
             <BaseCheckbox
-              :modelValue="form.contactIds.includes(contact.id)"
-              @update:modelValue="toggleContact(contact.id)"
+              :modelValue="form.userIds.includes(user.id)"
+              @update:modelValue="toggleUser(user.id)"
             />
             <span class="tw:text-sm tw:text-on-main">
-              {{ contact.email || contact.phoneNumber || 'No email' }}
+              {{ userLabel(user) }}
+              <span v-if="user.email" class="tw:text-xs tw:text-secondary">· {{ user.email }}</span>
             </span>
           </label>
-          <p v-if="!contacts.length" class="tw:text-sm tw:text-secondary tw:px-2 tw:py-1">
-            No contacts available
+          <p v-if="!supplierUsers.length" class="tw:text-sm tw:text-secondary tw:px-2 tw:py-1">
+            No portal users yet — add one via Locations &amp; Contacts ("invite as portal user").
           </p>
         </div>
       </div>

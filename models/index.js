@@ -18,6 +18,7 @@ import { Asset } from './asset'
 import { AssetRequest } from './assetRequest'
 import { AssetRequestItem } from './assetRequestItem'
 import { AssetRequestOnContact } from './assetRequestOnContact'
+import { AssetRequestOnUser } from './assetRequestOnUser'
 import { AssetRequestStatus } from './assetRequestStatus'
 import { AssetRequestType } from './assetRequestType'
 import { AuditLog } from './auditLog'
@@ -176,6 +177,7 @@ export const db = {
   AssetRequest,
   AssetRequestItem,
   AssetRequestOnContact,
+  AssetRequestOnUser,
   AssetRequestStatus,
   AssetRequestType,
   AuditLog,
