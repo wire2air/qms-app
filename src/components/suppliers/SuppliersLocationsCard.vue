@@ -151,7 +151,7 @@ async function setPrimary(loc) {
             </div>
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Type</label>
-              <BaseSelectMenu v-if="canUpdate" v-model="loc.locationType" :items="LOCATION_TYPES" :required="true" @update:modelValue="saveLocation(loc)" />
+              <BaseInlineSelect v-if="canUpdate" v-model="loc.locationType" :items="LOCATION_TYPES" :required="true" placeholder="Select type…" @update:modelValue="saveLocation(loc)" />
               <span v-else class="tw:text-sm tw:text-on-main">{{ LOCATION_TYPES.find((t) => t.id === loc.locationType)?.name || '—' }}</span>
             </div>
             <div class="tw:md:col-span-2">
@@ -207,7 +207,7 @@ async function setPrimary(loc) {
             </div>
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Type</label>
-              <BaseSelectMenu v-model="draft.locationType" :items="LOCATION_TYPES" :required="true" />
+              <BaseInlineSelect v-model="draft.locationType" :items="LOCATION_TYPES" :required="true" placeholder="Select type…" />
             </div>
             <div class="tw:md:col-span-2">
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Street address</label>

@@ -143,10 +143,12 @@ async function setPrimary(contact) {
             </div>
             <div v-if="locationItems.length" class="tw:md:col-span-2">
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Location (optional)</label>
-              <BaseSelectMenu
+              <BaseInlineSelect
                 v-if="canUpdate"
                 v-model="contact.supplierLocationId"
                 :items="locationItems"
+                nullLabel="No location"
+                placeholder="No location"
                 @update:modelValue="saveContact(contact)"
               />
               <span v-else class="tw:text-sm tw:text-on-main">
@@ -186,7 +188,7 @@ async function setPrimary(contact) {
             </div>
             <div v-if="locationItems.length" class="tw:md:col-span-2">
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Location (optional)</label>
-              <BaseSelectMenu v-model="draft.supplierLocationId" :items="locationItems" />
+              <BaseInlineSelect v-model="draft.supplierLocationId" :items="locationItems" nullLabel="No location" placeholder="No location" />
             </div>
           </div>
           <div class="tw:flex tw:justify-end">
