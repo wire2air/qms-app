@@ -58,6 +58,7 @@ import { Site } from './site'
 import { SiteOnTemplate } from './siteOnTemplate'
 import { Supplier } from './supplier'
 import { SupplierAsset } from './supplierAsset'
+import { SupplierCertificateType } from './supplierCertificateType'
 import { SupplierContact } from './supplierContact'
 import { SupplierDocument } from './supplierDocument'
 import { SupplierOnSite } from './supplierOnSite'
@@ -97,6 +98,23 @@ import { RootCauseCategory } from './rootCauseCategory'
 import { RootCause } from './rootCause'
 import { HazardCategory } from './hazardCategory'
 import { RiskAssessment } from './riskAssessment'
+// Audit Management (Phase A foundation)
+import { AuditStandardType } from './auditStandardType'
+import { AuditFindingCategory } from './auditFindingCategory'
+import { AuditStandard } from './auditStandard'
+import { AuditStandardVersion } from './auditStandardVersion'
+import { AuditRequirement } from './auditRequirement'
+import { AuditProgram } from './auditProgram'
+import { AuditProgramAuditor } from './auditProgramAuditor'
+import { AuditInstance } from './auditInstance'
+import { AuditTeamMember } from './auditTeamMember'
+import { AuditRequirementResponse } from './auditRequirementResponse'
+import { AuditRecord } from './auditRecord'
+import { AuditFinding } from './auditFinding'
+import { AuditEvidence } from './auditEvidence'
+import { AuditEvidenceLink } from './auditEvidenceLink'
+import { AuditDocumentRequest } from './auditDocumentRequest'
+import { AuditCounter } from './auditCounter'
 import { Training } from './training'
 import { TrainingInstance } from './trainingInstance'
 import { TrainingAssignee } from './trainingAssignee'
@@ -197,6 +215,7 @@ export const db = {
   SiteOnTemplate,
   Supplier,
   SupplierAsset,
+  SupplierCertificateType,
   SupplierContact,
   SupplierDocument,
   SupplierOnSite,
@@ -236,6 +255,23 @@ export const db = {
   RootCause,
   HazardCategory,
   RiskAssessment,
+  // Audit Management (Phase A foundation)
+  AuditStandardType,
+  AuditFindingCategory,
+  AuditStandard,
+  AuditStandardVersion,
+  AuditRequirement,
+  AuditProgram,
+  AuditProgramAuditor,
+  AuditInstance,
+  AuditTeamMember,
+  AuditRequirementResponse,
+  AuditRecord,
+  AuditFinding,
+  AuditEvidence,
+  AuditEvidenceLink,
+  AuditDocumentRequest,
+  AuditCounter,
   Training,
   TrainingInstance,
   TrainingAssignee,

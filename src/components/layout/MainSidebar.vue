@@ -12,7 +12,6 @@ import {
   IconSettings,
   IconAdjustments,
   IconArticle,
-  IconList,
   IconBuilding,
   IconBuildingCommunity,
   IconUsers,
@@ -31,6 +30,7 @@ import {
   IconLayoutGrid,
   IconSchool,
   IconReplace,
+  IconChecklist,
   IconClipboardList,
   IconClipboardCheck,
   IconTool,
@@ -44,10 +44,19 @@ import {
   isSupplier,
 } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
+import { useSidebar } from '@/composables/useSidebar'
 
-const drawer = useCompanyLocalStorage('sidebar-drawer', true)
+const { visible, isDesktop, closeMobile } = useSidebar()
 const route = useRoute()
+
+// On a small screen the sidebar overlays the page; close it after the user
+// navigates so it doesn't linger over the destination.
+watch(
+  () => route.fullPath,
+  () => {
+    if (!isDesktop.value) closeMobile()
+  },
+)
 
 // Track expanded state for grouped nav items
 const expandedGroups = ref({})
@@ -127,6 +136,17 @@ const navItems = computed(() => {
         icon: IconShield,
         to: getCompanyPath('/capas'),
       },
+      // Audits surface visible when an internal team adds the
+      // supplier user to an audit's team (audit_team_members) — RLS
+      // lets the supplier through the membership branch even without
+      // audits:read. The /audits route lands on the same module
+      // landing as internal users; the Instances tab is the one with
+      // useful content (Insights / Programs are gated by perms).
+      {
+        label: 'Audits',
+        icon: IconClipboardCheck,
+        to: getCompanyPath('/audits?tab=instances'),
+      },
     ]
   }
 
@@ -165,6 +185,16 @@ const navItems = computed(() => {
       permissions: ['changeRequests:read'],
       icon: IconReplace,
       to: getCompanyPath('/change-requests'),
+    },
+    {
+      label: 'Audits',
+      icon: IconChecklist,
+      // audits:read gates the list itself; auditors assigned to an
+      // audit can still see it via the row-level RLS even without
+      // this permission (handled at the RLS layer, see
+      // audit_instances_select_rls).
+      permissions: ['audits:read'],
+      to: getCompanyPath('/audits'),
     },
     {
       label: 'Inspections & Logs',
@@ -298,17 +328,11 @@ const navItems = computed(() => {
           icon: IconLayoutGrid,
           to: getCompanyPath('/risk-assessment-templates'),
         },
-        {
-          label: 'Option Sets',
-          icon: IconList,
-          to: getCompanyPath('/option-sets'),
-        },
-        {
-          label: 'NC Dispositions',
-          permissions: ['ncDispositionTypes:manage'],
-          icon: IconList,
-          to: getCompanyPath('/settings?tab=lookups'),
-        },
+        // Option Sets moved under Form Templates → Option Sets tab.
+        // NC Dispositions remain at Settings → Lookups (the canonical
+        // home); previously had a redundant shortcut here.
+        // The standalone /option-sets and /settings?tab=lookups routes
+        // both still exist for back-compat with bookmarks.
         {
           label: 'Sites',
           icon: IconBuilding,
@@ -389,11 +413,20 @@ const navItems = computed(() => {
 </script>
 
 <template>
-  <Transition name="mainSidebar">
-    <aside
-      v-if="drawer"
-      class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen"
-    >
+  <!-- display:contents wrapper — single template root for lint, but the aside
+       still participates in the parent flex layout exactly as before. -->
+  <div class="tw:contents">
+    <!-- Backdrop — only on small screens when the overlay sidebar is open. -->
+    <div
+      v-if="visible && !isDesktop"
+      class="tw:fixed tw:inset-0 tw:z-30 tw:bg-black/40 tw:lg:hidden"
+      @click="closeMobile"
+    />
+    <Transition name="mainSidebar">
+      <aside
+        v-if="visible"
+        class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen tw:fixed tw:inset-y-0 tw:left-0 tw:z-40 tw:lg:static tw:lg:z-auto"
+      >
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-4 tw:flex-1 tw:overflow-hidden">
         <!-- Brand -->
         <div class="tw:flex tw:items-center tw:gap-3">
@@ -488,7 +521,8 @@ const navItems = computed(() => {
         </div>
       </div>
     </aside>
-  </Transition>
+    </Transition>
+  </div>
 </template>
 
 <style scoped>

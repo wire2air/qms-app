@@ -1,8 +1,8 @@
 <script setup>
-import { initSession, currentSession } from '@/utils/currentSession'
+import { initSession, currentSession, canUseAi } from '@/utils/currentSession'
 import { initCurrentCompany, companies } from '@/utils/currentCompany'
 import { isPublicRoute as isPublicRouteFn, isAuthRoute } from '@/constants/authRoutes'
-import { initSync } from '@/utils/initSyncEngine.js'
+import { initSync, deleteAllSyncDatabases } from '@/utils/initSyncEngine.js'
 import { currentSubdomain, gotoTenant } from '@/utils/tenant'
 
 const pageInfo = ref({
@@ -27,11 +27,8 @@ const isPublicRoute = isPublicRouteFn(currentPath)
 // not a path segment. null on apex / reserved hosts (localhost, admin.*, …).
 const subdomain = currentSubdomain()
 
-onMounted(async () => {
-  if (isOpenRoute) {
-    loading.value = false
-    return
-  }
+async function bootApp() {
+  if (isOpenRoute) return
 
   if (isPublicRoute) {
     // Public/auth pages render on any host. If already authenticated and on an
@@ -44,7 +41,6 @@ onMounted(async () => {
         return
       }
     }
-    loading.value = false
     return
   }
 
@@ -78,15 +74,50 @@ onMounted(async () => {
   if (currentSession.value?.companyId) {
     await initSync(currentSession.value.companyId)
   }
+}
 
-  loading.value = false
+// One-shot silent recovery flag. If the boot path throws (IDB open
+// blocked by a sibling tab, bootstrap GraphQL failure, etc.) we nuke
+// the local IDB once and reload — quietly, no modal. The sessionStorage
+// gate makes sure we only auto-recover ONCE per browser session; if the
+// reload still fails the boot we stop instead of looping. sessionStorage
+// clears when the tab closes, so a fresh session always gets one shot.
+const RECOVERY_FLAG = 'qms.boot.autoRecoveryAttempted'
+
+onMounted(async () => {
+  try {
+    await bootApp()
+  } catch (err) {
+    console.error('[App] Boot failed', err)
+    if (sessionStorage.getItem(RECOVERY_FLAG) !== '1') {
+      sessionStorage.setItem(RECOVERY_FLAG, '1')
+      console.warn('[App] Auto-recovering: nuking local IDB and reloading')
+      try {
+        await deleteAllSyncDatabases()
+      } catch (e) {
+        console.error('[App] Auto-recovery deleteAllSyncDatabases failed', e)
+      }
+      window.location.reload()
+      return
+    }
+    // Second-time failure in the same session — don't loop. Hide the
+    // spinner and let the rest of the UI render (it'll be broken, but
+    // visibly broken with a console error is better than an infinite
+    // dark loader the user can't escape).
+    console.error('[App] Boot failed twice — giving up auto-recovery for this session')
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
 <template>
   <BaseToastContainer />
 
-  <!-- Full-screen loader overlay -->
+  <!-- Full-screen loader overlay. Boot failures auto-recover silently
+       via the catch block in onMounted (nuke local IDB + reload, gated
+       to one shot per session). No modal/panel here — kept the UX
+       quiet on purpose. -->
   <div v-if="loading" class="fixed-full flex flex-center bg-dark" style="z-index: 9999">
     <div class="tw:text-center">
       <div
@@ -116,7 +147,8 @@ onMounted(async () => {
       </div>
     </main>
 
-    <!-- AI sidecar — global slide-out chat (see backend/ai/README.md, AI_PLAN.md §6) -->
-    <ChatPanel />
+    <!-- AI sidecar — global slide-out chat (see backend/ai/README.md, AI_PLAN.md §6).
+         Gated on canUseAi so tenants without the add-on don't even mount it. -->
+    <ChatPanel v-if="canUseAi" />
   </div>
 </template>

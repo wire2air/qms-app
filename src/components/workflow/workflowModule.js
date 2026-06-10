@@ -111,9 +111,48 @@ export const LOG_BOOK_VERSION_MODULE = {
   workflowVersionModuleId: 'LOG_BOOK',
 }
 
+// AuditInstance — close-out workflow rides the generic engine
+// (resourceType 'AuditInstance', moduleId 'AUDIT'). Per-step form
+// responses go onto the AuditRecord SyncEngine model, exact parity
+// with capa_records / nc_records / cr_records.
+/** @type {WorkflowModule} */
+export const AUDIT_INSTANCE_MODULE = {
+  key: 'AUDIT_INSTANCE',
+  displayName: 'audit',
+  resourceType: 'AuditInstance',
+  apiPath: 'auditInstances',
+  resourceIdParam: 'auditId',
+  recordModelName: 'AuditRecord',
+  recordResourceFk: 'auditInstanceId',
+  resourceModel: { modelName: 'AuditInstance' },
+  workflowVersionModuleId: 'AUDIT_INSTANCE',
+  getStepFormContextFields(resource) {
+    return {
+      _audit_scope: resource?.scope ?? '',
+      _audit_objectives: resource?.objectives ?? '',
+    }
+  },
+}
+
+// AuditStandardVersion runs through the same generic workflow engine
+// for clause-list approval — DocumentVersion / LogBookVersion parity.
+// No per-step record model (the approval workflow is comment-only
+// e-sign on both steps); listed here so its submit-time picker can use
+// the unified WorkflowStepReviewerSelect.
+/** @type {WorkflowModule} */
+export const AUDIT_STANDARD_VERSION_MODULE = {
+  key: 'AUDIT_STANDARD_VERSION',
+  displayName: 'audit standard',
+  resourceType: 'AuditStandardVersion',
+  apiPath: 'auditStandards',
+  workflowVersionModuleId: 'AUDIT_STANDARD',
+}
+
 export const MODULES = {
   NC: NC_MODULE,
   CAPA: CAPA_MODULE,
   CR: CR_MODULE,
   LOG_BOOK_VERSION: LOG_BOOK_VERSION_MODULE,
+  AUDIT: AUDIT_INSTANCE_MODULE,
+  AUDIT_STANDARD_VERSION: AUDIT_STANDARD_VERSION_MODULE,
 }

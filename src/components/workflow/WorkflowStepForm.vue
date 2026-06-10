@@ -83,6 +83,15 @@ const currentUserRecord = computed(
 
 const submittedRecords = computed(() => records.value.filter((r) => r.submittedAt))
 
+// Pick the user's CURRENTLY-ACTIONABLE APPROVAL task on this step. A
+// step can host multiple TaskInstances for the same user across its
+// lifecycle: an old APPROVED row from a prior completion (reopen
+// leaves it as-is and mints a fresh ASSIGNED one), plus our SENT_BACK
+// marker tasks (kind=REVIEW). Without these filters the form's
+// isEditable / persistRecord could lock onto a stale APPROVED row
+// after a reopen and render read-only even though there's a live
+// ASSIGNED task ready to edit.
+const ACTIONABLE_TASK_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
 const currentUserTask = useLiveQueryWithDeps(
   [() => props.instanceStepId, () => currentUserId.value],
   async (db, [stepInstanceId, userId]) => {
@@ -91,7 +100,13 @@ const currentUserTask = useLiveQueryWithDeps(
       'WorkflowInstanceStep',
       stepInstanceId,
     ]).exec()
-    return tasks.find((t) => t.assignedTo === userId) || null
+    const userApprovalTasks = tasks.filter(
+      (t) => t.assignedTo === userId && t.taskKindId === 'APPROVAL',
+    )
+    const actionable = userApprovalTasks.find((t) =>
+      ACTIONABLE_TASK_STATUSES.includes(t.statusId),
+    )
+    return actionable ?? userApprovalTasks[0] ?? null
   },
 )
 
@@ -100,6 +115,31 @@ const isEditable = computed(() => currentUserTask.value?.statusId === 'ASSIGNED'
 const formData = ref({})
 const saving = ref(false)
 let formSeeded = false
+
+// Auto-finalize registry. Field widgets that have a "Finalize" step
+// (RcaField, RiskAssessmentField) inject this set on mount and register
+// a callback that finalizes themselves if their current state is
+// finalizable. Save Draft + Mark Complete iterate the registry before
+// persisting so the user doesn't have to remember to click Finalize on
+// every analysis field — easy-to-miss, was burning testers (silent
+// downstream rca/ra derivation skip on submit).
+const formFinalizers = new Set()
+provide('formFinalizers', formFinalizers)
+
+async function runFinalizers() {
+  for (const fn of formFinalizers) {
+    try {
+      fn()
+    } catch (err) {
+      console.error('[WorkflowStepForm] finalize hook failed', err)
+    }
+  }
+  // The finalize callbacks emit `update:modelValue` synchronously;
+  // wait for Vue to flush the v-model setters into `formData` before
+  // we read it inside persistRecord, otherwise the saved payload
+  // would still hold the pre-finalize value.
+  await nextTick()
+}
 
 // Seed form data once: prefer the user's existing record payload (so
 // a draft can be edited), and overlay module-specific context fields
@@ -202,11 +242,65 @@ async function persistRecord({ submit, esign }) {
   }
 }
 
-function saveDraft() {
+async function saveDraft() {
+  // Auto-finalize any analysis widgets (RCA / Risk Assessment) that
+  // are ready but not yet finalized — bundles "Save Draft" with the
+  // Finalize click the user otherwise has to remember to do on each
+  // analysis field. Drafts stay lenient on REQUIRED-field gates;
+  // finalize-on-save is a convenience, not a hard validation.
+  await runFinalizers()
   return persistRecord({ submit: false })
 }
 
-function submitForm(esign) {
+/**
+ * "Filled" = has a meaningful value. Recurses into objects/arrays so
+ * an unfilled RCA / Risk Assessment widget (which emits `{}` even
+ * when nothing is selected) registers as empty — the surface symptom
+ * of the silent-Mark-Complete bug we hit in testing.
+ */
+function isFieldFilled(value) {
+  if (value === null || value === undefined) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  if (Array.isArray(value)) return value.some(isFieldFilled)
+  if (typeof value === 'object') return Object.values(value).some(isFieldFilled)
+  return true // number, boolean — presence is enough
+}
+
+function getMissingRequiredFields() {
+  const missing = []
+  for (const field of formSchema.value || []) {
+    if (!field?.required || !field?.name) continue
+    if (!isFieldFilled(formData.value?.[field.name])) {
+      missing.push(field.label || field.name)
+    }
+  }
+  return missing
+}
+
+async function submitForm(esign) {
+  // Same finalize-on-save bundling as saveDraft — Mark Complete also
+  // benefits from this since a user is likely to hit it once they
+  // think they're done, and a still-unfinalized RCA would otherwise
+  // sail past the required-field check (the payload is truthy) and
+  // then skip downstream BE rca/ra derivation on the approve.
+  await runFinalizers()
+
+  // Gate the submit on required-field completeness BEFORE persisting,
+  // so the assignee gets a visible reason when Mark Complete refuses
+  // to advance the step (the silent failure that bit testing today).
+  // DynamicForm has vuelidate wired up internally for primitives, but
+  // the workflow form widget bypasses its emit('submit') path and
+  // builds the payload directly from v-model — so we re-do the gate
+  // here, matching the schema's `required: true` flags. Deep check on
+  // value covers complex widgets (rca / riskAssessment) where an empty
+  // `{}` slips past a naive truthy test.
+  const missing = getMissingRequiredFields()
+  if (missing.length > 0) {
+    toast.warning(
+      `Please fill in the required field${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}`,
+    )
+    return
+  }
   return persistRecord({ submit: true, esign })
 }
 

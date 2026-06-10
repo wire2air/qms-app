@@ -262,6 +262,26 @@ function onFinalize() {
 }
 
 const isCompleted = computed(() => !!props.modelValue?.outcome?.completedAt)
+
+// Auto-finalize hook for the workflow step form. WorkflowStepForm
+// provides a Set of callbacks invoked on Save Draft / Mark Complete;
+// we register ours so the user doesn't have to remember to click
+// Finalize Analysis separately. Skipped when there's nothing to
+// finalize, already finalized, or the field is read-only — so the
+// hook is safe on every save tick.
+const formFinalizers = inject('formFinalizers', null)
+function autoFinalize() {
+  if (props.readonly || props.disabled) return
+  if (isCompleted.value) return
+  if (!rootCauses.value.some((r) => r.description?.trim())) return
+  onFinalize()
+}
+onMounted(() => {
+  formFinalizers?.add(autoFinalize)
+})
+onBeforeUnmount(() => {
+  formFinalizers?.delete(autoFinalize)
+})
 </script>
 
 <template>

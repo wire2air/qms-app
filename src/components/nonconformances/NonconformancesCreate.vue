@@ -5,11 +5,31 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
 import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
 import { NC_MODULE } from '@/components/workflow/workflowModule.js'
+import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
 
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const workflowPickerRef = ref(null)
 const saving = ref(false)
+
+// ── Audit-finding spawn deep link ─────────────────────────────────
+// When the user clicks 'Spawn → New NC' on an audit finding, this
+// page opens with ?findingId=<id>. We pre-fill common fields from
+// the finding (title, description, source=AUDIT, type=AUDIT_FINDING,
+// department, supplier) and link the resulting NC back to the
+// finding on save.
+const presetFindingId = computed(() => {
+  const q = route.query?.findingId
+  return typeof q === 'string' ? q : null
+})
+const sourceFinding = useLiveQueryWithDeps(
+  [() => presetFindingId.value],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.AuditFinding.findByPk(id)
+  },
+)
 
 const form = ref({
   title: '',
@@ -41,6 +61,26 @@ const form = ref({
   qtyAffected: null,
   unitOfMeasure: '',
   workflowVersionId: null,
+})
+
+// When the source finding loads, seed the title / description /
+// source / type / department / supplier so the user doesn't have
+// to retype the context. nc_sources 'AUDIT' + nc_types
+// 'AUDIT_FINDING' are global seeds (see database.sql).
+watch(sourceFinding, (f) => {
+  if (!f) return
+  if (!form.value.title) {
+    form.value.title = `Audit Finding ${f.findingNumber || ''}`.trim()
+  }
+  if (!form.value.description) form.value.description = f.description ?? ''
+  if (!form.value.sourceId) form.value.sourceId = 'AUDIT'
+  if (!form.value.typeId) form.value.typeId = 'AUDIT_FINDING'
+  if (!form.value.departmentId && f.departmentId) {
+    form.value.departmentId = f.departmentId
+  }
+  if (!form.value.supplierId && f.supplierId) {
+    form.value.supplierId = f.supplierId
+  }
 })
 
 function handleSubmit() {
@@ -96,6 +136,25 @@ async function handleReviewersConfirmed(reviewers) {
   saving.value = true
   try {
     const response = await post('/v1/services/nonconformances', { ...form.value, reviewers })
+    // If this NC was spawned from an audit finding, link the new
+    // NC back so the finding's chip lights up. Best-effort —
+    // a link failure shouldn't drop the NC we just created.
+    if (presetFindingId.value && response.nonconformance?.id) {
+      try {
+        await linkSpawnedToFinding({
+          findingId: presetFindingId.value,
+          kind: 'NC',
+          targetId: response.nonconformance.id,
+        })
+      } catch (linkErr) {
+        toast.notify({
+          type: 'warning',
+          message:
+            linkErr?.message ||
+            "NC created, but couldn't link it to the finding — attach manually from the audit page",
+        })
+      }
+    }
     router.push(getCompanyPath(`/nonconformances/${response.nonconformance.id}`))
   } catch (e) {
     toast.notify({ type: 'negative', message: e.message || 'Failed to create NC' })

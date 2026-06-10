@@ -541,6 +541,10 @@ function onCreateLinkedChangeRequest() {
               </div>
             </div>
 
+            <!-- Raised-from-Audit context (scoped) — self-hides when this NC
+                 wasn't spawned from an audit finding. -->
+            <AuditOriginPanel entityType="Nonconformance" :entityId="id" />
+
             <!-- Workflow steps. In DRAFT (no instance yet) we render the
                  template-step preview so the owner can plan assignments;
                  picks are saved to nc.pendingReviewers and consumed by

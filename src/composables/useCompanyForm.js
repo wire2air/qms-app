@@ -1,6 +1,7 @@
 import { currentSession } from '@/utils/currentSession.js'
 import { useDebounceFn } from '@vueuse/core'
 import { currentCompany } from '@/utils/currentCompany.js'
+import { gotoTenant } from '@/utils/tenant'
 import { put, patch } from '@/api'
 
 export function useCompanyForm(props, isEdit = false) {
@@ -135,7 +136,9 @@ export function useCompanyForm(props, isEdit = false) {
 
       fadeOut.value = true
       setTimeout(() => {
-        window.location = `/${companyForm.code}?onboarding=true`
+        // Subdomain tenancy: switch into the new tenant's host (lands on
+        // {code}.<domain>/?onboarding=true), not a path segment.
+        gotoTenant(companyForm.code, '/?onboarding=true')
       }, 900)
     }
   }
@@ -146,7 +149,8 @@ export function useCompanyForm(props, isEdit = false) {
     })
     currentCompany.value.code = companyForm.code.trim()
     currentCompany.value.save()
-    window.open(`/${companyForm.code}`, '_self')
+    // Code changed → the tenant host changed; switch into the new subdomain.
+    gotoTenant(companyForm.code)
   }
 
   // Add function to extract company name from email domain

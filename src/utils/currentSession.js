@@ -45,6 +45,14 @@ export const isSupplier = computed(() => {
   return currentSession.value?.kind === 'EXTERNAL_SUPPLIER'
 })
 
+// AI sidecar gate. True when BOTH the global env switch
+// (AI_MODULE_ENABLED) AND the active company's company_ai_profile.enabled
+// flag are true — resolved server-side in /v1/services/auth/session and
+// echoed on the session payload as `aiEnabled`. UI affordances that
+// invoke AI tasks (AI Generate, AI Assist Import, chat panel, etc.)
+// should v-if on canUseAi so tenants without the add-on never see them.
+export const canUseAi = computed(() => !!currentSession.value?.aiEnabled)
+
 export const isAdmin = computed(() => {
   const email = currentSession.value?.email
   if (!email) return false

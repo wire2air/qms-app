@@ -22,6 +22,8 @@ export const printModules = {
   //   LogBook     — many entries from one log book, date-range filtered
   FieldRecord: () => import('./FieldRecordPrint.vue'),
   LogBook: () => import('./LogBookPrint.vue'),
+  // Audit report — header + conformance score + requirement results + findings.
+  AuditInstance: () => import('./AuditInstancePrint.vue'),
   // Future:
   // Nonconformance: () => import('./NonconformancePrint.vue'),
 }

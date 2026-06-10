@@ -111,6 +111,7 @@ function handleUploadError(err) {
 // pipeline so users can frame the image before it leaves the browser.
 const showCropDialog = ref(false)
 const cropFile = ref(null)
+const showCameraDialog = ref(false)
 // 'insert' = new image at insertPos; 'replace' = swap the currently selected
 // image's attrs.
 const cropMode = ref('insert')
@@ -453,9 +454,20 @@ onBeforeUnmount(() => {
   }
 })
 
+/**
+ * Append plain text to the end of the document (new paragraph) — used by
+ * injected tools like voice-to-text. Never overwrites existing content.
+ */
+function appendText(text) {
+  const t = (text || '').trim()
+  if (!editor.value || !t) return
+  editor.value.chain().focus('end').insertContent(`<p>${t}</p>`).run()
+}
+
 defineExpose({
   editor,
   setContent,
+  appendText,
   getContent: () => (editor.value ? getContent(editor.value) : ''),
 })
 </script>
@@ -473,7 +485,13 @@ defineExpose({
       :imageUploading="imageUploading"
       @toggleLink="openLinkDialog"
       @uploadImage="handleToolbarImageUpload"
-    />
+      @takePhoto="showCameraDialog = true"
+    >
+      <!-- AI-free extension point: sidecar tools (e.g. voice-to-text) inject
+           here. The base editor stays AI-agnostic; injected tools get the
+           editor + appendText to write into the document. -->
+      <slot v-if="editable" name="toolbar-extra" :editor="editor" :append="appendText" />
+    </EditorToolbar>
 
     <!-- Image bubble menu (appears when an image node is selected) -->
     <ImageBubbleMenu
@@ -491,6 +509,9 @@ defineExpose({
       title="Crop Image"
       @save="handleCropSave"
     />
+
+    <!-- Camera capture (getUserMedia) — captured photo runs the image pipeline -->
+    <CameraCaptureDialog v-model="showCameraDialog" @captured="handleToolbarImageUpload" />
 
     <!-- Link Dialog -->
     <LinkDialog
@@ -601,7 +622,7 @@ defineExpose({
   border: 1px solid var(--q-divider, #e0e0e0);
   border-radius: 4px;
   background: var(--q-background, #fff);
-  min-height: 200px;
+  min-height: 100px;
   display: flex;
   flex-direction: column;
 }

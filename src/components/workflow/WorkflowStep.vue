@@ -112,24 +112,32 @@ const childrenBlock = computed(
 // task can land in PENDING before it's activated.
 const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED', 'PENDING']
 
-const currentUserTask = useLiveQueryWithDeps(
-  [() => props.instanceStepId, () => currentUserId.value],
-  async (db, [stepInstanceId, userId]) => {
-    if (!stepInstanceId || !userId) return null
-    const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
+// All tasks ever created on this step — the current user's actionable
+// one is filtered out below for the action gates; the full list also
+// powers the activity panel (rejection comments, approvals with notes).
+const stepTasks = useLiveQueryWithDeps(
+  [() => props.instanceStepId],
+  async (db, [stepInstanceId]) => {
+    if (!stepInstanceId) return []
+    return db.TaskInstance.where('[sourceType+sourceId]', [
       'WorkflowInstanceStep',
       stepInstanceId,
     ]).exec()
-    return (
-      tasks.find(
-        (t) =>
-          t.assignedTo === userId &&
-          t.taskKindId === 'APPROVAL' &&
-          ACTIONABLE_STATUSES.includes(t.statusId),
-      ) || null
-    )
   },
+  { initial: [] },
 )
+
+const currentUserTask = computed(() => {
+  if (!currentUserId.value) return null
+  return (
+    stepTasks.value.find(
+      (t) =>
+        t.assignedTo === currentUserId.value &&
+        t.taskKindId === 'APPROVAL' &&
+        ACTIONABLE_STATUSES.includes(t.statusId),
+    ) || null
+  )
+})
 
 const canActOnStep = computed(() => !!currentUserTask.value)
 const completeDisabled = computed(() => childrenBlock.value)
@@ -278,6 +286,86 @@ function getStatusLabel(statusId) {
   if (statusId === 'APPROVED') return 'Completed'
   return statusId.replace('_', ' ')
 }
+
+// ─── Step activity (per-step audit trail) ──────────────────────────
+// Two data sources combined into one chronological feed:
+//
+//   1. TaskInstance rows with a comment — rejections (with reason),
+//      approvals with notes, reopens. These carry free-text content.
+//
+//   2. UserOnWorkflowInstanceStep rows in REASSIGNED / REJECTED /
+//      CANCELLED status — the per-reviewer assignment history.
+//      Reassignments don't write a comment anywhere, so this is the
+//      only place they surface inline.
+//
+// Both sources are projected to a uniform shape:
+//   { id, kind, who, statusId, comment?, at }
+// then merged + sorted newest-first.
+
+const stepAssignments = useLiveQueryWithDeps(
+  [() => props.instanceStepId],
+  async (db, [stepInstanceId]) => {
+    if (!stepInstanceId) return []
+    return db.UserOnWorkflowInstanceStep.where(
+      'workflowInstanceStepId',
+      stepInstanceId,
+    ).exec()
+  },
+  { initial: [] },
+)
+
+// History-only — terminal-ish statuses where something happened.
+// ASSIGNED / PENDING / APPROVED rows aren't 'activity', they're the
+// current-state record the step header already shows.
+const HISTORY_ASSIGNMENT_STATUSES = new Set(['REASSIGNED', 'REJECTED', 'CANCELLED'])
+
+const activity = computed(() => {
+  const fromTasks = stepTasks.value
+    .filter((t) => t.comment && String(t.comment).trim())
+    .map((t) => ({
+      id: `task-${t.id}`,
+      kind: 'task',
+      who: t.assignedTo,
+      statusId: t.statusId,
+      comment: t.comment,
+      at: t.updatedAt,
+    }))
+  const fromAssignments = stepAssignments.value
+    .filter((a) => HISTORY_ASSIGNMENT_STATUSES.has(a.statusId))
+    .map((a) => ({
+      id: `assignment-${a.id}`,
+      kind: 'assignment',
+      who: a.userId,
+      statusId: a.statusId,
+      comment: null,
+      at: a.updatedAt,
+    }))
+  return [...fromTasks, ...fromAssignments].sort(
+    (a, b) => (b.at?.toMillis?.() ?? 0) - (a.at?.toMillis?.() ?? 0),
+  )
+})
+
+function activityChipClass(statusId) {
+  return {
+    REJECTED: 'tw:bg-red-100 tw:text-red-700',
+    APPROVED: 'tw:bg-green-100 tw:text-green-700',
+    CANCELLED: 'tw:bg-gray-100 tw:text-gray-600',
+    REASSIGNED: 'tw:bg-blue-100 tw:text-blue-700',
+    SENT_BACK: 'tw:bg-orange-100 tw:text-orange-700',
+    CHANGES_REQUESTED: 'tw:bg-amber-100 tw:text-amber-700',
+  }[statusId] ?? 'tw:bg-blue-100 tw:text-blue-700'
+}
+
+function activityLabel(statusId) {
+  return ({
+    REJECTED: 'Rejected',
+    APPROVED: 'Approved',
+    CANCELLED: 'Cancelled',
+    REASSIGNED: 'Reassigned',
+    SENT_BACK: 'Sent back',
+    CHANGES_REQUESTED: 'Changes requested',
+  })[statusId] ?? (statusId || '').replace('_', ' ')
+}
 </script>
 
 <template>
@@ -350,6 +438,48 @@ function getStatusLabel(statusId) {
           :requireEsignature="requireEsignature"
           :hideOutcomes="['COMPLETE_AND_ADVANCE']"
         />
+      </div>
+    </div>
+
+    <!-- Activity — per-step audit trail. Merges TaskInstance rows
+         with comments (rejection reasons, reviewer notes) with
+         UserOnWorkflowInstanceStep history rows (REASSIGNED /
+         REJECTED / CANCELLED) so reassignments surface here too,
+         even though they don't carry a free-text comment. Most
+         recent first. Full audit log lives on the entity detail
+         page's 'Audit Log' button. -->
+    <div
+      v-if="activity.length"
+      class="tw:flex tw:flex-col tw:gap-2 tw:mb-4 tw:pb-4 tw:border-b tw:border-divider"
+    >
+      <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">
+        Activity
+      </p>
+      <div
+        v-for="row in activity"
+        :key="row.id"
+        class="tw:flex tw:items-start tw:gap-2"
+      >
+        <UserBadgeById v-if="row.who" :userId="row.who" />
+        <div class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:min-w-0">
+          <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+            <span
+              class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+              :class="activityChipClass(row.statusId)"
+            >
+              {{ activityLabel(row.statusId) }}
+            </span>
+            <span class="tw:text-[10px] tw:text-secondary">
+              {{ row.at?.formatDate?.('date-time') ?? '' }}
+            </span>
+          </div>
+          <p
+            v-if="row.comment"
+            class="tw:text-sm tw:text-on-main tw:whitespace-pre-line"
+          >
+            {{ row.comment }}
+          </p>
+        </div>
       </div>
     </div>
 

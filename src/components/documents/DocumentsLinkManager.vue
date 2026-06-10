@@ -42,9 +42,22 @@ const versionsById = computed(() => {
   return map
 })
 
+// Only documents with at least one EFFECTIVE version are pickable as
+// link targets — auditors / authors shouldn't link to drafts or
+// retired/superseded copies. `allDocuments` itself stays unfiltered so
+// the `documentsById` resolution map can still render the title of an
+// already-linked document that has since been superseded.
+const effectiveDocumentIds = computed(() => {
+  const ids = new Set()
+  for (const v of allVersions.value) {
+    if (v.statusId === 'EFFECTIVE') ids.add(v.documentId)
+  }
+  return ids
+})
+
 const availableDocuments = computed(() =>
   (allDocuments.value ?? [])
-    .filter((d) => d.id !== props.documentId)
+    .filter((d) => d.id !== props.documentId && effectiveDocumentIds.value.has(d.id))
     .map((d) => ({ id: d.id, name: `${d.docNumber} - ${d.title}` })),
 )
 

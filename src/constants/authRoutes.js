@@ -14,7 +14,15 @@ export const AUTH_ROUTES = [
  * Public/unauthorized routes that don't require authentication.
  * These routes are exempt from session expiry redirects.
  */
-export const PUBLIC_ROUTES = [...AUTH_ROUTES, '/asset-request', '/supplier-document']
+// Note: `/reset-esign-pin` is public but intentionally NOT an AUTH_ROUTE — the
+// signer is usually still logged in when they reset, and AUTH_ROUTEs bounce
+// logged-in users to the dashboard.
+export const PUBLIC_ROUTES = [
+  ...AUTH_ROUTES,
+  '/asset-request',
+  '/supplier-document',
+  '/reset-esign-pin',
+]
 
 /**
  * Check if a given path is a public route.

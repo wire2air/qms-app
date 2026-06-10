@@ -1,16 +1,17 @@
 <script setup>
 import { IconUsersGroup, IconMenu2, IconRefresh, IconSparkles } from '@tabler/icons-vue'
-import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
 import {
   isImpersonating,
   originalUserName,
   returnToOriginalUser,
   currentSession,
+  canUseAi,
 } from '@/utils/currentSession'
 import { deleteAllSyncDatabases } from '@/utils/initSyncEngine.js'
 import { useChatPanel } from '@/composables/useChatPanel'
+import { useSidebar } from '@/composables/useSidebar'
 
-const drawer = useCompanyLocalStorage('sidebar-drawer', true)
+const { toggle: toggleSidebar } = useSidebar()
 const chatPanel = useChatPanel()
 
 const impersonatedName = computed(() => {
@@ -59,19 +60,22 @@ async function resetSync() {
       <div class="tw:flex tw:items-center tw:gap-2 tw:flex-1 tw:max-w-2xl">
         <button
           class="tw:p-2 tw:rounded-full tw:text-primary tw:hover:bg-main-hover tw:transition-colors"
-          @click="drawer = !drawer"
+          @click="toggleSidebar"
         >
           <IconMenu2 :size="20" />
         </button>
 
         <div id="main-header-title" />
 
-        <div id="main-header-search" class="tw:w-full"></div>
+        <div id="main-header-search" class="tw:w-full">
+          <GlobalSearch />
+        </div>
       </div>
 
       <div class="tw:flex tw:items-center tw:gap-4">
         <div id="main-header-actions" />
         <button
+          v-if="canUseAi"
           class="tw:p-2 tw:rounded-full tw:text-primary tw:hover:bg-main-hover tw:transition-colors"
           title="AI Assistant (⌘K)"
           @click="chatPanel.toggle()"

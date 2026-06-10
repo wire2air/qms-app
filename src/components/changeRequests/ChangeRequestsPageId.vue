@@ -477,6 +477,10 @@ const editingDescription = ref(false)
               </div>
             </div>
 
+            <!-- Raised-from-Audit context (scoped) — self-hides when this CR
+                 wasn't spawned from an audit finding. -->
+            <AuditOriginPanel entityType="ChangeRequest" :entityId="id" />
+
             <!-- Workflow: draft preview while DRAFT, live section after Open -->
             <ChangeRequestWorkflowDraftPreview
               v-if="!workflowInstance && cr.statusId === 'DRAFT'"

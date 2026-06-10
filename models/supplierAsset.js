@@ -33,6 +33,13 @@ export class SupplierAsset extends BaseModel {
   @Property({ type: String }) title = null
   @Property({ type: String }) description = null
   @Property({ type: String }) uploadedBy = null
+  // Certificate metadata. is_certificate is the fast filter flag so
+  // "what's expiring soon" queries skip non-cert uploads without
+  // joining the cert-type lookup. certificate_type_id + expires_at
+  // populate when is_certificate = true; null otherwise.
+  @Property({ type: String }) certificateTypeId = null
+  @Property({ type: DateTime }) expiresAt = null
+  @Property({ type: Boolean }) isCertificate = false
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)
