@@ -172,14 +172,12 @@ async function saveCaption(row, kind) {
 const showUploadDialog = ref(false)
 const showLinkDialog = ref(false)
 
-// ── Take Photo — one-tap camera capture (mobile/iPad opens the rear
-// camera via `capture`; desktop falls back to a file picker). Uploads
-// straight to the same audit-evidence endpoint with the panel's scope. ──
-const photoInputRef = ref(null)
+// ── Take Photo — in-app camera capture (CameraCaptureDialog uses getUserMedia,
+// works on desktop webcam + mobile/iPad rear camera). The captured JPEG uploads
+// straight to the audit-evidence endpoint with the panel's scope. ──
+const showCameraDialog = ref(false)
 const uploadingPhoto = ref(false)
-async function onPhotoPicked(e) {
-  const file = e.target.files?.[0]
-  if (e.target) e.target.value = ''
+async function uploadPhotoFile(file) {
   if (!file || uploadingPhoto.value) return
   uploadingPhoto.value = true
   try {
@@ -213,18 +211,10 @@ async function onPhotoPicked(e) {
         </span>
       </div>
       <div v-if="!readonly" class="tw:flex tw:items-center tw:gap-2">
-        <BaseButton variant="outline" size="sm" :loading="uploadingPhoto" @click="photoInputRef?.click()">
+        <BaseButton variant="outline" size="sm" :loading="uploadingPhoto" @click="showCameraDialog = true">
           <template #icon><IconCamera :size="14" /></template>
           Take Photo
         </BaseButton>
-        <input
-          ref="photoInputRef"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          class="tw:hidden"
-          @change="onPhotoPicked"
-        />
         <BaseButton variant="outline" size="sm" @click="showLinkDialog = true">
           <template #icon><IconLink :size="14" /></template>
           Link Record
@@ -358,5 +348,6 @@ async function onPhotoPicked(e) {
       :scope="scope"
       :scopeId="scopeId"
     />
+    <CameraCaptureDialog v-model="showCameraDialog" @captured="uploadPhotoFile" />
   </div>
 </template>
