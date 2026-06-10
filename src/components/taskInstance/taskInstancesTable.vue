@@ -349,6 +349,13 @@ const sortedInstances = computed(() =>
   ),
 )
 
+// Audit close-out tasks: TYPE column shows the audit's program (Internal /
+// Supplier); standard-approval tasks show 'Standard Approval'.
+const AUDIT_PROGRAM_LABEL = { INTERNAL: 'Internal Audit', SUPPLIER: 'Supplier Audit' }
+function auditProgramLabel(id) {
+  return AUDIT_PROGRAM_LABEL[id] || (id ? `${id} Audit` : 'Audit')
+}
+
 const EntityType = {
   DocumentVersion: 'Document',
   Nonconformance: 'Nonconformance',
@@ -803,6 +810,12 @@ function rowSubtitle(row) {
         class="tw:text-sm tw:text-on-main"
       >
         {{ fieldRecordMap[row.entityId].typeLabel }}
+      </span>
+      <span v-else-if="row.entityType === 'AuditInstance'" class="tw:text-sm tw:text-on-main">
+        {{ auditProgramLabel(auditInstanceMap[row.entityId]?.audit?.programTypeId) }}
+      </span>
+      <span v-else-if="row.entityType === 'AuditStandardVersion'" class="tw:text-sm tw:text-on-main">
+        Standard Approval
       </span>
       <span v-else class="tw:text-sm tw:text-secondary">—</span>
     </template>
