@@ -57,7 +57,7 @@ const tabs = [
   { value: 'overview', label: 'Overview' },
   { value: 'company-profile', label: 'Company Profile' },
   { value: 'locations', label: 'Locations & Contacts' },
-  { value: 'performance', label: 'Performance' },
+  { value: 'quality-records', label: 'Quality Records' },
   { value: 'users', label: 'Users' },
   { value: 'documents', label: 'Documents' },
   { value: 'asset-requests', label: 'Asset Requests' },
@@ -173,7 +173,7 @@ const activeTab = computed({
           :canUpdate="canUpdate"
         />
         <SuppliersPerformanceTab
-          v-else-if="activeTab === 'performance'"
+          v-else-if="activeTab === 'quality-records'"
           :supplierId="props.id"
           :canUpdate="canUpdate"
         />
