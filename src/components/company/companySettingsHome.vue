@@ -6,6 +6,7 @@ import {
   IconInfoCircle,
   IconList,
   IconSparkles,
+  IconPlug,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany.js'
 import { isAllowed } from '@/utils/currentSession.js'
@@ -57,6 +58,7 @@ function mirrorToCurrentCompany(c) {
 // admin can turn it on; gating on the canUseAi session flag would hide
 // the very switch you need to flip.
 const canManageAi = computed(() => isAllowed(['ai:manage']))
+const canManageCompany = computed(() => isAllowed(['company:manage']))
 
 const tabs = computed(() => {
   const base = [
@@ -65,6 +67,7 @@ const tabs = computed(() => {
     { id: 'print', label: 'Print', icon: IconPrinter },
     { id: 'lookups', label: 'Lookups', icon: IconList },
   ]
+  if (canManageCompany.value) base.push({ id: 'integrations', label: 'Integrations', icon: IconPlug })
   if (canManageAi.value) base.push({ id: 'ai', label: 'AI', icon: IconSparkles })
   return base
 })
@@ -155,6 +158,11 @@ watch(
         <SupplierCertificateTypesCard />
         <AuditStandardTypesCard />
         <AuditFindingCategoriesCard />
+      </div>
+
+      <!-- Tab: Integrations — connected third-party accounts (Adobe Sign). -->
+      <div v-else-if="activeTab === 'integrations'">
+        <CompanyIntegrationsCard />
       </div>
 
       <!-- Tab: AI — only present when the user has ai:manage. -->
