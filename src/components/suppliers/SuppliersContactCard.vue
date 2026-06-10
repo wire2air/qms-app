@@ -1,10 +1,14 @@
 <script setup>
 import { IconMail, IconPlus, IconTrash, IconStar, IconStarFilled } from '@tabler/icons-vue'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { post } from '@/api'
 
 const props = defineProps({
   supplierId: { type: String, required: true },
   canUpdate: { type: Boolean, default: false },
 })
+
+const toast = useToast()
 
 const contacts = useLiveQueryWithDeps(
   [() => props.supplierId],
@@ -30,7 +34,14 @@ function locationLabel(l) {
 const draft = ref(null)
 function addContact() {
   if (draft.value) return
-  draft.value = { name: '', jobTitle: '', email: '', phoneNumber: '', supplierLocationId: null }
+  draft.value = {
+    name: '',
+    jobTitle: '',
+    email: '',
+    phoneNumber: '',
+    supplierLocationId: null,
+    inviteAsUser: false,
+  }
 }
 function cancelDraft() {
   draft.value = null
@@ -51,6 +62,37 @@ const saveDraft = useLiveMutation(async (db) => {
   draft.value = null
   return contact
 })
+
+const savingDraft = ref(false)
+// Save the contact, and — when "invite as portal user" is ticked — also create
+// + invite a supplier user (kind EXTERNAL_SUPPLIER) so they can actually log in
+// and be assigned work. Reuses the existing supplier-user invite endpoint.
+async function onSaveDraft() {
+  if (savingDraft.value) return
+  const name = (draft.value.name || '').trim()
+  const email = (draft.value.email || '').trim()
+  const invite = draft.value.inviteAsUser && name && email
+    ? { name, email, jobTitle: (draft.value.jobTitle || '').trim() }
+    : null
+  savingDraft.value = true
+  try {
+    await saveDraft()
+    if (invite) {
+      const [firstName, ...rest] = invite.name.split(/\s+/)
+      await post(`/v1/services/suppliers/${props.supplierId}/users`, {
+        firstName,
+        lastName: rest.join(' '),
+        email: invite.email,
+        jobTitle: invite.jobTitle,
+      })
+      toast.success('Contact added and portal-user invite sent.')
+    }
+  } catch (e) {
+    toast.error(e?.message || 'Contact saved, but the portal-user invite failed.')
+  } finally {
+    savingDraft.value = false
+  }
+}
 
 // Existing contacts edit inline; persist on blur / change.
 async function saveContact(contact) {
@@ -191,8 +233,28 @@ async function setPrimary(contact) {
               <BaseInlineSelect v-model="draft.supplierLocationId" :items="locationItems" nullLabel="No location" placeholder="No location" />
             </div>
           </div>
+          <label
+            class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:cursor-pointer"
+            :class="!draft.name || !draft.email ? 'tw:opacity-50' : ''"
+          >
+            <input
+              v-model="draft.inviteAsUser"
+              type="checkbox"
+              class="tw:mt-0.5"
+              :disabled="!draft.name || !draft.email"
+            />
+            <span>
+              Also invite as <strong>portal user</strong>
+              <span class="tw:text-xs tw:text-secondary tw:block">
+                Creates a supplier login + sends an invite, so they can respond and be assigned
+                CAPAs/NCs/asset requests. Needs a name + email.
+              </span>
+            </span>
+          </label>
           <div class="tw:flex tw:justify-end">
-            <BaseButton size="sm" :disabled="!draft.name && !draft.email" @click="saveDraft">Save Contact</BaseButton>
+            <BaseButton size="sm" :loading="savingDraft" :disabled="!draft.name && !draft.email" @click="onSaveDraft">
+              {{ draft.inviteAsUser ? 'Save & Invite' : 'Save Contact' }}
+            </BaseButton>
           </div>
         </div>
       </div>
