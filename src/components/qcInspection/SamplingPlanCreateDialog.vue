@@ -167,7 +167,8 @@ async function onSave() {
             </BaseButton>
           </div>
           <div class="tw:flex tw:flex-col tw:gap-2">
-            <div v-for="(row, i) in form.severityAqls" :key="i"
+            <div
+v-for="(row, i) in form.severityAqls" :key="i"
               class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
             >
               <div class="tw:flex-1">
@@ -178,7 +179,8 @@ async function onSave() {
                 <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">AQL %</label>
                 <BaseTextInput v-model.number="row.aql" type="number" placeholder="e.g. 2.5" size="sm" />
               </div>
-              <button type="button"
+              <button
+type="button"
                 class="tw:p-1.5 tw:mt-4 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
                 @click="removeAql(i)"
               >
