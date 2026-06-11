@@ -37,9 +37,17 @@ async function sendWorkspaceLinks() {
 
   forgotLoading.value = true
   try {
-    await post('/v1/auth/workspaces/forgot', { email }, { showError: false })
-    toast.success('If that email belongs to any workspaces, we just sent the sign-in links')
-    forgotOpen.value = false
+    const response = await post('/v1/auth/workspaces/forgot', { email }, { showError: false })
+    const message =
+      response?.message ||
+      'If any workspaces are associated with that email, you will receive an email with sign-in links shortly.'
+
+    if (response?.hasWorkspaces) {
+      toast.success(message)
+      forgotOpen.value = false
+    } else {
+      toast.error(message)
+    }
   } catch (err) {
     // Surface the server's field-level validation message (e.g. invalid email)
     // when present; otherwise fall back to a generic failure.
@@ -89,7 +97,9 @@ function goToWorkspace() {
         <!-- Single unified control: org icon, slug input, and the domain suffix
              all share one border. The suffix is quiet inline text, not a box. -->
         <div class="ws-field tw:group">
-          <span class="tw:pl-3.5 tw:text-secondary tw:group-focus-within:text-primary tw:transition-colors">
+          <span
+            class="tw:pl-3.5 tw:text-secondary tw:group-focus-within:text-primary tw:transition-colors"
+          >
             <IconBuilding :size="18" :stroke="1.75" />
           </span>
           <input
@@ -119,7 +129,10 @@ function goToWorkspace() {
         ></span>
         <template v-else>
           <span>Continue</span>
-          <IconArrowRight :size="16" class="tw:transition-transform tw:group-hover:translate-x-0.5" />
+          <IconArrowRight
+            :size="16"
+            class="tw:transition-transform tw:group-hover:translate-x-0.5"
+          />
         </template>
       </button>
 
@@ -225,7 +238,11 @@ function goToWorkspace() {
   font-weight: 600;
   color: #fff;
   cursor: pointer;
-  background-image: linear-gradient(180deg, color-mix(in srgb, var(--primary) 88%, white) 0%, var(--primary) 100%);
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--primary) 88%, white) 0%,
+    var(--primary) 100%
+  );
   box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 22%, transparent);
   transition:
     transform 0.18s ease,
