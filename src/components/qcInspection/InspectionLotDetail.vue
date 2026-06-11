@@ -219,8 +219,13 @@ async function act(path, okMsg) {
             </td>
           </tr>
           <tr v-if="!characteristics.length">
-            <td colspan="4" class="tw:px-5 tw:py-6 tw:text-center tw:text-secondary tw:italic">
-              No specification bound to this lot — configure an inspection plan for this product + point.
+            <td colspan="4" class="tw:px-5 tw:py-6 tw:text-center tw:text-secondary">
+              <p class="tw:font-medium tw:text-on-main tw:mb-1">No specification linked to this lot.</p>
+              <p class="tw:text-xs">
+                Options:
+                <strong>A)</strong> Create a new lot and pick a Specification directly in the "Specification &amp; Sampling Plan" section,
+                or <strong>B)</strong> set up an <em>Inspection Plan</em> (QC Inspection → Inspection Plans) that binds a Specification + Sampling Plan to this product + inspection point — future lots auto-resolve it.
+              </p>
             </td>
           </tr>
         </tbody>

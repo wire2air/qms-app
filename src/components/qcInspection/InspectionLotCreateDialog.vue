@@ -25,6 +25,8 @@ function reset() {
     productId: null,
     supplierId: null,
     equipmentId: null,
+    specificationId: null,    // null = auto-resolve from inspection plan
+    samplingPlanId: null,
     quantity: null,
     poNumber: '',
     receiptNumber: '',
@@ -48,6 +50,8 @@ async function onSave() {
       productId: f.productId,
       supplierId: f.supplierId || null,
       equipmentId: f.equipmentId || null,
+      specificationId: f.specificationId || null,
+      samplingPlanId: f.samplingPlanId || null,
       quantity: f.quantity ?? null,
       poNumber: f.poNumber?.trim() || null,
       receiptNumber: f.receiptNumber?.trim() || null,
@@ -103,10 +107,24 @@ async function onSave() {
           <BaseTextInput v-model="form.receiptNumber" placeholder="optional" />
         </div>
       </div>
-      <p class="tw:text-[11px] tw:text-secondary">
-        The matching inspection plan, specification and sampling plan are resolved automatically for
-        this product + point.
-      </p>
+      <!-- Specification + Sampling Plan: auto-resolved from the inspection plan
+           (template) for this product + point; pick manually to override. -->
+      <div class="tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
+        <div class="tw:px-4 tw:py-2.5 tw:bg-main-hover tw:flex tw:items-center tw:gap-2">
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">Specification &amp; Sampling Plan</span>
+          <span class="tw:text-xs tw:text-secondary">— auto-resolved from inspection plan unless you pick below</span>
+        </div>
+        <div class="tw:p-3 tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+          <div>
+            <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Specification (override)</label>
+            <SpecificationSelectMenu v-model="form.specificationId" class="tw:w-full" />
+          </div>
+          <div>
+            <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Sampling Plan (override)</label>
+            <SamplingPlanSelectMenu v-model="form.samplingPlanId" class="tw:w-full" />
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
