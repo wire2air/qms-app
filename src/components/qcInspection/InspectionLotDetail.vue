@@ -16,6 +16,7 @@ const router = useRouter()
 const toast = useToast()
 const saving = ref(false)
 const acting = ref(false)
+const showSubmit = ref(false)
 
 const canExecute = computed(() => isAllowed(['qcInspection:lot:execute']))
 const canDispose = computed(() => isAllowed(['qcInspection:lot:dispose']))
@@ -143,10 +144,9 @@ async function act(path, okMsg) {
           v-if="canDispose && lot.statusId === 'COMPLETED'"
           variant="primary"
           size="sm"
-          :loading="acting"
-          @click="act('submit', 'Submitted for disposition')"
+          @click="showSubmit = true"
         >
-          Submit for disposition
+          Submit for QA Disposition
         </BaseButton>
       </div>
     </div>
@@ -231,6 +231,8 @@ async function act(path, okMsg) {
         </tbody>
       </table>
     </div>
+
+    <InspectionLotSubmitDialog v-model="showSubmit" :lotId="props.id" />
   </div>
 
   <div v-else class="tw:p-10 tw:text-center tw:text-secondary">Loading…</div>

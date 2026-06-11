@@ -12,7 +12,7 @@ const specs = useLiveQuery(
   async (db) => {
     const rows = await db.Specification.where().exec()
     return rows
-      .filter((s) => s.statusId === 'EFFECTIVE' || s.statusId === 'DRAFT')
+      .filter((s) => s.statusId === 'EFFECTIVE')
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   },
   { initial: [] },

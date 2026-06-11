@@ -13,7 +13,7 @@ const plans = useLiveQuery(
   async (db) => {
     const rows = await db.SamplingPlan.where().exec()
     return rows
-      .filter((p) => p.statusId === 'ACTIVE' || p.statusId === 'DRAFT')
+      .filter((p) => p.statusId === 'ACTIVE')
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   },
   { initial: [] },
