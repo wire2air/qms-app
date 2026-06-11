@@ -6,10 +6,17 @@
  * qcInspection REST service.
  */
 import { IconPlus } from '@tabler/icons-vue'
+import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { isAllowed } from '@/utils/currentSession.js'
 
 defineProps({ canManage: { type: Boolean, default: false } })
 
+const toast = useToast()
 const showCreate = ref(false)
+const showEsign = ref(false)
+const approvingId = ref(null)
+
+const canApprove = computed(() => isAllowed(['qcInspection:plan:approve']))
 
 const POINT_LABELS = { INCOMING: 'Incoming', IN_PROCESS: 'In-process', FINAL: 'Final', OUTGOING: 'Outgoing' }
 
@@ -22,6 +29,25 @@ const plans = useLiveQuery(
 )
 const standards = useLiveQuery(async (db) => db.SamplingStandard.where().exec(), { initial: [] })
 const standardName = (code) => standards.value.find((s) => s.id === code)?.name || code || '—'
+
+function startApprove(plan) {
+  approvingId.value = plan.id
+  showEsign.value = true
+}
+
+async function onEsignVerified({ method, token }) {
+  if (!approvingId.value) return
+  try {
+    await post(`/v1/services/qcInspection/samplingPlans/${approvingId.value}/approve`, {
+      esign: { method, token },
+    })
+    toast.success('Sampling plan approved and now active')
+  } catch (err) {
+    toast.error(err?.message || 'Approval failed')
+  } finally {
+    approvingId.value = null
+  }
+}
 </script>
 
 <template>
@@ -42,6 +68,7 @@ const standardName = (code) => standards.value.find((s) => s.id === code)?.name 
             <th class="tw:text-left tw:px-4 tw:py-2.5">Point</th>
             <th class="tw:text-left tw:px-4 tw:py-2.5">Standard / Level</th>
             <th class="tw:text-left tw:px-4 tw:py-2.5">Status</th>
+            <th class="tw:px-4 tw:py-2.5"></th>
           </tr>
         </thead>
         <tbody>
@@ -52,7 +79,26 @@ const standardName = (code) => standards.value.find((s) => s.id === code)?.name 
               <template v-if="p.planType === 'STANDARD'">{{ standardName(p.standardCode) }} · {{ p.inspectionLevel }}</template>
               <template v-else>Custom table</template>
             </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ p.statusId }}</td>
+            <td class="tw:px-4 tw:py-2.5">
+              <span
+                class="tw:text-[11px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
+                :class="{
+                  'tw:bg-amber-100 tw:text-amber-700': p.statusId === 'DRAFT',
+                  'tw:bg-green-100 tw:text-green-700': p.statusId === 'ACTIVE',
+                  'tw:bg-gray-200 tw:text-gray-600': p.statusId === 'SUPERSEDED',
+                }"
+              >{{ p.statusId }}</span>
+            </td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-right">
+              <BaseButton
+                v-if="canApprove && p.statusId === 'DRAFT'"
+                variant="outline"
+                size="sm"
+                @click="startApprove(p)"
+              >
+                Approve
+              </BaseButton>
+            </td>
           </tr>
           <tr v-if="!plans.length">
             <td colspan="4" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">No sampling plans yet.</td>
@@ -62,5 +108,6 @@ const standardName = (code) => standards.value.find((s) => s.id === code)?.name 
     </div>
 
     <SamplingPlanCreateDialog v-model="showCreate" />
+    <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
   </div>
 </template>
