@@ -108,7 +108,7 @@ async function onSave() {
 </script>
 
 <template>
-  <BaseDialog v-model="show" title="New Sampling Plan" :persistent="true" size="lg">
+  <BaseDialog v-model="show" title="New Sampling Plan" :persistent="true" size="xl">
     <div class="tw:p-4 tw:space-y-4">
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
         <div>
@@ -133,13 +133,14 @@ async function onSave() {
           </div>
         </div>
         <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">AQL standard <span class="tw:text-bad">*</span></label>
-          <BaseInlineSelect v-model="form.standardCode" :items="standardItems" :required="true" placeholder="Select standard…" />
-        </div>
-        <div>
           <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection level</label>
           <BaseInlineSelect v-model="form.inspectionLevel" :items="LEVELS" :required="true" />
         </div>
+      </div>
+
+      <div>
+        <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">AQL standard <span class="tw:text-bad">*</span></label>
+        <BaseInlineSelect v-model="form.standardCode" :items="standardItems" :required="true" placeholder="Select standard…" class="tw:w-full" />
       </div>
 
       <div>

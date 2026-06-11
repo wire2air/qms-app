@@ -23,6 +23,8 @@ const standards = useLiveQuery(
   { initial: [] },
 )
 const selected = computed(() => standards.value.find((s) => s.id === selectedId.value) || null)
+// Global standards are view-only; only tenant custom clones are editable.
+const selectedEditable = computed(() => !!selected.value?.companyId)
 
 const cells = useLiveQueryWithDeps(
   [() => selectedId.value],
@@ -44,11 +46,12 @@ function openClone(s) {
   cloneSource.value = { id: s.id, name: s.name }
   showClone.value = true
 }
-function edit(s) {
+function select(s) {
   selectedId.value = s.id
   letterFilter.value = null
 }
 async function saveCell(cell) {
+  if (!selectedEditable.value) return // globals are read-only
   try {
     await cell.save()
   } catch (err) {
@@ -79,11 +82,13 @@ async function saveCell(cell) {
                 {{ s.companyId ? 'Custom' : 'Global' }}
               </span>
             </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-right">
+            <td class="tw:px-4 tw:py-2.5 tw:text-right tw:whitespace-nowrap">
+              <BaseButton variant="text-link" size="sm" @click="select(s)">
+                {{ s.companyId ? 'Edit cells' : 'View' }}
+              </BaseButton>
               <BaseButton v-if="canManage && !s.companyId" variant="text-link" size="sm" @click="openClone(s)">
                 <IconCopy :size="14" /> Clone
               </BaseButton>
-              <BaseButton v-if="s.companyId" variant="outline" size="sm" @click="edit(s)">Edit cells</BaseButton>
             </td>
           </tr>
           <tr v-if="!standards.length">
@@ -96,7 +101,10 @@ async function saveCell(cell) {
     <!-- Cell editor for the selected custom standard -->
     <div v-if="selected" class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
       <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-3">
-        <h3 class="tw:font-bold tw:text-on-main">{{ selected.name }} — plan cells</h3>
+        <h3 class="tw:font-bold tw:text-on-main">
+          {{ selected.name }} — plan cells
+          <span v-if="!selectedEditable" class="tw:text-xs tw:font-normal tw:text-secondary">(read-only — clone to edit)</span>
+        </h3>
         <BaseInlineSelect
           v-model="letterFilter"
           :items="codeLetters.map((l) => ({ id: l, name: `Letter ${l}` }))"
@@ -122,21 +130,21 @@ async function saveCell(cell) {
               <td class="tw:px-5 tw:py-1.5">{{ c.aql }}</td>
               <td class="tw:px-5 tw:py-1.5 tw:text-secondary tw:text-xs">{{ c.severity }}</td>
               <td class="tw:px-5 tw:py-1.5">
-                <BaseTextInput v-model.number="c.sampleSize" type="number" size="sm" class="tw:w-20" @blur="saveCell(c)" />
+                <BaseTextInput v-model.number="c.sampleSize" type="number" size="sm" class="tw:w-20" :disabled="!selectedEditable" @blur="saveCell(c)" />
               </td>
               <td class="tw:px-5 tw:py-1.5">
-                <BaseTextInput v-model.number="c.accept" type="number" size="sm" class="tw:w-16" @blur="saveCell(c)" />
+                <BaseTextInput v-model.number="c.accept" type="number" size="sm" class="tw:w-16" :disabled="!selectedEditable" @blur="saveCell(c)" />
               </td>
               <td class="tw:px-5 tw:py-1.5">
-                <BaseTextInput v-model.number="c.reject" type="number" size="sm" class="tw:w-16" @blur="saveCell(c)" />
+                <BaseTextInput v-model.number="c.reject" type="number" size="sm" class="tw:w-16" :disabled="!selectedEditable" @blur="saveCell(c)" />
               </td>
             </tr>
           </tbody>
         </table>
       </div>
       <p class="tw:text-[11px] tw:text-secondary tw:px-5 tw:py-2">
-        Edits save automatically. Empty Sample/Ac/Re with an arrow cell means "use the arrowed code
-        letter" (kept from the source standard).
+        <template v-if="selectedEditable">Edits save automatically. </template>
+        Empty Sample/Ac/Re with an arrow cell means "use the arrowed code letter".
       </p>
     </div>
 
