@@ -109,72 +109,110 @@ async function onSave() {
 
 <template>
   <BaseDialog v-model="show" title="New Sampling Plan" :persistent="true" size="3xl">
-    <div class="tw:p-4 tw:space-y-4">
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+    <div class="tw:p-5 tw:flex tw:flex-col tw:gap-5">
+
+      <!-- ── Basic info ───────────────────────────────────────────────── -->
+      <div class="tw:flex tw:flex-col tw:gap-3">
         <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Name <span class="tw:text-bad">*</span></label>
-          <BaseTextInput v-model="form.name" placeholder="e.g. Bulk FG AQL plan" />
+          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Plan name <span class="tw:text-bad">*</span></label>
+          <BaseTextInput v-model="form.name" placeholder="e.g. Finished Goods AQL 2.5" />
         </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection point</label>
-          <BaseInlineSelect v-model="form.inspectionPoint" :items="POINTS" :required="true" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Scope</label>
-          <div class="tw:flex tw:gap-2">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+          <div>
+            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection point</label>
+            <BaseInlineSelect v-model="form.inspectionPoint" :items="POINTS" :required="true" class="tw:w-full" />
+          </div>
+          <div>
+            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Scope</label>
             <BaseInlineSelect
               v-model="form.scope"
-              :items="[{ id: 'product', name: 'Product' }, { id: 'productType', name: 'Product type' }]"
+              :items="[{ id: 'product', name: 'Specific product' }, { id: 'productType', name: 'Product type' }]"
               :required="true"
-              class="tw:w-36"
+              class="tw:w-full"
             />
-            <ProductSelectMenu v-if="form.scope === 'product'" v-model="form.productId" class="tw:flex-1" />
-            <ProductTypeSelectMenu v-else v-model="form.productTypeId" class="tw:flex-1" />
           </div>
         </div>
+        <!-- Product / Product-type on its own row so SKU + name has space -->
         <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection level</label>
-          <BaseInlineSelect v-model="form.inspectionLevel" :items="LEVELS" :required="true" />
+          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
+            {{ form.scope === 'product' ? 'Product' : 'Product type' }} <span class="tw:text-bad">*</span>
+          </label>
+          <ProductSelectMenu v-if="form.scope === 'product'" v-model="form.productId" class="tw:w-full" />
+          <ProductTypeSelectMenu v-else v-model="form.productTypeId" class="tw:w-full" />
         </div>
       </div>
 
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">AQL standard <span class="tw:text-bad">*</span></label>
-        <BaseInlineSelect v-model="form.standardCode" :items="standardItems" :required="true" placeholder="Select standard…" class="tw:w-full" />
-      </div>
+      <hr class="tw:border-divider" />
 
-      <div>
-        <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
-          <label class="tw:text-sm tw:font-semibold">Severity → AQL</label>
-          <BaseButton variant="secondary" size="sm" @click="addAql"><IconPlus :size="14" /> Add</BaseButton>
-        </div>
-        <div v-for="(row, i) in form.severityAqls" :key="i" class="tw:flex tw:items-center tw:gap-2 tw:mb-2">
-          <BaseInlineSelect v-model="row.severity" :items="SEVERITIES" :required="true" class="tw:w-40" />
-          <BaseTextInput v-model.number="row.aql" type="number" placeholder="AQL %" size="sm" class="tw:w-28" />
-          <button type="button" class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer" @click="removeAql(i)">
-            <IconTrash :size="14" />
-          </button>
-        </div>
-      </div>
-
-      <!-- Live preview -->
-      <div class="tw:bg-main-hover tw:rounded-lg tw:p-3">
-        <div class="tw:flex tw:items-end tw:gap-2">
+      <!-- ── Sampling configuration ────────────────────────────────────── -->
+      <div class="tw:flex tw:flex-col tw:gap-3">
+        <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">Sampling configuration</p>
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <div>
-            <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Preview lot size</label>
-            <BaseTextInput v-model.number="form.previewLotSize" type="number" size="sm" class="tw:w-32" />
+            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">AQL standard <span class="tw:text-bad">*</span></label>
+            <BaseInlineSelect v-model="form.standardCode" :items="standardItems" :required="true" placeholder="Select standard…" class="tw:w-full" />
           </div>
-          <BaseButton variant="outline" size="sm" :loading="previewing" :disabled="!form.standardCode" @click="runPreview">
+          <div>
+            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection level</label>
+            <BaseInlineSelect v-model="form.inspectionLevel" :items="LEVELS" :required="true" class="tw:w-full" />
+          </div>
+        </div>
+
+        <!-- Severity → AQL rows -->
+        <div>
+          <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
+            <label class="tw:text-sm tw:font-medium">Severity → AQL %</label>
+            <BaseButton variant="text-link" size="sm" @click="addAql">
+              <IconPlus :size="14" /> Add severity
+            </BaseButton>
+          </div>
+          <div class="tw:flex tw:flex-col tw:gap-2">
+            <div v-for="(row, i) in form.severityAqls" :key="i"
+              class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
+            >
+              <div class="tw:flex-1">
+                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Severity</label>
+                <BaseInlineSelect v-model="row.severity" :items="SEVERITIES" :required="true" class="tw:w-full" />
+              </div>
+              <div class="tw:w-36">
+                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">AQL %</label>
+                <BaseTextInput v-model.number="row.aql" type="number" placeholder="e.g. 2.5" size="sm" />
+              </div>
+              <button type="button"
+                class="tw:p-1.5 tw:mt-4 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                @click="removeAql(i)"
+              >
+                <IconTrash :size="16" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="tw:border-divider" />
+
+      <!-- ── Live preview ──────────────────────────────────────────────── -->
+      <div>
+        <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-3">Sample-size preview</p>
+        <div class="tw:flex tw:items-end tw:gap-3">
+          <div class="tw:w-40">
+            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Lot size</label>
+            <BaseTextInput v-model.number="form.previewLotSize" type="number" size="sm" placeholder="e.g. 1000" />
+          </div>
+          <BaseButton variant="outline" size="sm" :loading="previewing" :disabled="!form.standardCode || !form.inspectionLevel" @click="runPreview">
             Preview
           </BaseButton>
         </div>
-        <div v-if="preview" class="tw:mt-2 tw:text-sm">
-          <div class="tw:font-medium tw:text-on-main">Code letter {{ preview.codeLetter }} · sample size {{ preview.sampleSize }}</div>
+        <div v-if="preview" class="tw:mt-3 tw:p-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:flex tw:flex-col tw:gap-1">
+          <div class="tw:text-sm tw:font-semibold tw:text-on-main">
+            Code letter <span class="tw:font-mono">{{ preview.codeLetter }}</span> · Sample size <span class="tw:font-mono">{{ preview.sampleSize }}</span>
+          </div>
           <div v-for="s in preview.perSeverity" :key="s.severity + s.aql" class="tw:text-xs tw:text-secondary">
-            {{ s.severity }} @ AQL {{ s.aql }} → accept {{ s.accept }}, reject {{ s.reject }}
+            {{ s.severity }} — AQL {{ s.aql }}% → accept ≤ {{ s.accept }}, reject ≥ {{ s.reject }}
           </div>
         </div>
       </div>
+
     </div>
 
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
