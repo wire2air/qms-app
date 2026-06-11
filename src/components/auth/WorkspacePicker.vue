@@ -37,17 +37,15 @@ async function sendWorkspaceLinks() {
 
   forgotLoading.value = true
   try {
-    const response = await post('/v1/auth/workspaces/forgot', { email }, { showError: false })
-    const message =
-      response?.message ||
-      'If any workspaces are associated with that email, you will receive an email with sign-in links shortly.'
+    // The API intentionally returns one generic response whether or not the
+    // email matched any workspace (no enumeration). Always show the same
+    // confirmation and close — never branch on the outcome.
+    await post('/v1/auth/workspaces/forgot', { email }, { showError: false })
 
-    if (response?.hasWorkspaces) {
-      toast.success(message)
-      forgotOpen.value = false
-    } else {
-      toast.error(message)
-    }
+    toast.success(
+      'If any workspaces are associated with that email, you will receive an email with sign-in links shortly.',
+    )
+    forgotOpen.value = false
   } catch (err) {
     // Surface the server's field-level validation message (e.g. invalid email)
     // when present; otherwise fall back to a generic failure.
