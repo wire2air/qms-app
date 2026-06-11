@@ -82,13 +82,15 @@ async function saveCell(cell) {
                 {{ s.companyId ? 'Custom' : 'Global' }}
               </span>
             </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-right tw:whitespace-nowrap">
-              <BaseButton variant="text-link" size="sm" @click="select(s)">
-                {{ s.companyId ? 'Edit cells' : 'View' }}
-              </BaseButton>
-              <BaseButton v-if="canManage && !s.companyId" variant="text-link" size="sm" @click="openClone(s)">
-                <IconCopy :size="14" /> Clone
-              </BaseButton>
+            <td class="tw:px-4 tw:py-2.5">
+              <div class="tw:flex tw:items-center tw:justify-end tw:gap-4">
+                <BaseButton variant="text-link" size="sm" @click="select(s)">
+                  {{ s.companyId ? 'Edit cells' : 'View' }}
+                </BaseButton>
+                <BaseButton v-if="canManage && !s.companyId" variant="text-link" size="sm" @click="openClone(s)">
+                  <IconCopy :size="14" /> Clone
+                </BaseButton>
+              </div>
             </td>
           </tr>
           <tr v-if="!standards.length">
