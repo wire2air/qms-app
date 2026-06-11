@@ -1,7 +1,10 @@
 <script setup>
-defineProps({
-  required: { type: Boolean, default: false },
-})
+/**
+ * Sampling-plan picker for the inspection-lot create form. Uses BaseInlineSelect
+ * (safe default button — avoids the BaseSelectMenu invisible-trigger issue when
+ * no #button slot is wired). Null = auto-resolve from inspection plan.
+ */
+defineProps({ required: { type: Boolean, default: false } })
 const modelValue = defineModel({ type: [String, null], default: null })
 
 const POINT = { INCOMING: 'IQC', IN_PROCESS: 'IPQC', FINAL: 'FQC', OUTGOING: 'OQC' }
@@ -11,7 +14,7 @@ const plans = useLiveQuery(
     const rows = await db.SamplingPlan.where().exec()
     return rows
       .filter((p) => p.statusId === 'ACTIVE' || p.statusId === 'DRAFT')
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   },
   { initial: [] },
 )
@@ -24,19 +27,12 @@ const items = computed(() =>
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="items" :required="required" nullLabel="— Auto-resolve from plan —">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <BaseBadge
-          v-if="scope.selected"
-          selectable
-          :clearable="!required"
-          @clear="() => scope.clear(scope.selected)"
-        >
-          {{ items.find((i) => i.id === scope.selected)?.name ?? scope.selected }}
-        </BaseBadge>
-        <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">— Auto-resolve from plan —</span>
-      </slot>
-    </template>
-  </BaseSelectMenu>
+  <BaseInlineSelect
+    v-model="modelValue"
+    :items="items"
+    :required="required"
+    nullLabel="— Auto-resolve from plan —"
+    placeholder="— Auto-resolve from plan —"
+    class="tw:w-full"
+  />
 </template>
