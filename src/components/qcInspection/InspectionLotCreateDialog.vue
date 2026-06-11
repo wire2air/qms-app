@@ -65,16 +65,18 @@ async function onSave() {
 </script>
 
 <template>
-  <BaseDialog v-model="show" title="New Inspection Lot" :persistent="true" size="lg">
+  <BaseDialog v-model="show" title="New Inspection Lot" :persistent="true" size="xl">
     <div class="tw:p-4 tw:space-y-4">
+      <!-- Product on its own row — the select shows SKU + name and needs the width. -->
+      <div>
+        <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Product <span class="tw:text-bad">*</span></label>
+        <ProductSelectMenu v-model="form.productId" class="tw:w-full" />
+      </div>
+
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
         <div>
           <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection point</label>
           <BaseInlineSelect v-model="form.inspectionPoint" :items="POINTS" :required="true" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Product <span class="tw:text-bad">*</span></label>
-          <ProductSelectMenu v-model="form.productId" />
         </div>
         <div>
           <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Supplier</label>
