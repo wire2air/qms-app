@@ -13,6 +13,7 @@ const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
 const toast = useToast()
 const acting = ref(false)
+const showEsign = ref(false)
 
 const canManage = computed(() => isAllowed(['qcInspection:spec:write']))
 
@@ -37,11 +38,13 @@ function limitText(c) {
   return [parts.join(', '), c.uom].filter(Boolean).join(' ') || '—'
 }
 
-async function approve() {
+async function onEsignVerified({ method, token }) {
   if (acting.value) return
   acting.value = true
   try {
-    await post(`/v1/services/qcInspection/specifications/${props.id}/approve`, {})
+    await post(`/v1/services/qcInspection/specifications/${props.id}/approve`, {
+      esign: { method, token },
+    })
     toast.success('Specification approved — now effective')
   } catch (err) {
     toast.error(err?.message || 'Approval failed')
@@ -87,7 +90,7 @@ async function newVersion() {
         </div>
       </div>
       <div v-if="canManage" class="tw:flex tw:items-center tw:gap-2">
-        <BaseButton v-if="spec.statusId === 'DRAFT'" variant="primary" size="sm" :loading="acting" @click="approve">
+        <BaseButton v-if="spec.statusId === 'DRAFT'" variant="primary" size="sm" :loading="acting" @click="showEsign = true">
           Approve
         </BaseButton>
         <BaseButton v-if="spec.statusId === 'EFFECTIVE'" variant="outline" size="sm" :loading="acting" @click="newVersion">
@@ -123,6 +126,8 @@ async function newVersion() {
         </tbody>
       </table>
     </div>
+
+    <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
   </div>
 
   <div v-else class="tw:p-10 tw:text-center tw:text-secondary">Loading…</div>

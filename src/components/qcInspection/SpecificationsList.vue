@@ -8,13 +8,39 @@ import { IconPlus, IconDownload } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { dateInRange } from '@/utils/listFilters.js'
 import { exportToCSV } from '@/utils/exportUtils.js'
+import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { isAllowed } from '@/utils/currentSession.js'
 
 defineProps({ canManage: { type: Boolean, default: false } })
 
+const toast = useToast()
 const router = useRouter()
 const showCreate = ref(false)
+const showEsign = ref(false)
+const approvingId = ref(null)
 const dateFrom = ref('')
 const dateTo = ref('')
+
+const canApprove = computed(() => isAllowed(['qcInspection:spec:write']))
+
+function startApprove(spec) {
+  approvingId.value = spec.id
+  showEsign.value = true
+}
+
+async function onEsignVerified({ method, token }) {
+  if (!approvingId.value) return
+  try {
+    await post(`/v1/services/qcInspection/specifications/${approvingId.value}/approve`, {
+      esign: { method, token },
+    })
+    toast.success('Specification approved — now effective')
+  } catch (err) {
+    toast.error(err?.message || 'Approval failed')
+  } finally {
+    approvingId.value = null
+  }
+}
 
 const MATERIAL_LABELS = {
   RAW: 'Raw material',
@@ -85,6 +111,7 @@ function exportCsv() {
             <th class="tw:text-left tw:px-4 tw:py-2.5">Material</th>
             <th class="tw:text-left tw:px-4 tw:py-2.5">Version</th>
             <th class="tw:text-left tw:px-4 tw:py-2.5">Status</th>
+            <th class="tw:px-4 tw:py-2.5"></th>
           </tr>
         </thead>
         <tbody>
@@ -101,9 +128,19 @@ function exportCsv() {
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ MATERIAL_LABELS[s.materialKind] || s.materialKind }}</td>
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">v{{ s.version }}</td>
             <td class="tw:px-4 tw:py-2.5"><SpecificationStatusBadgeById :statusId="s.statusId" /></td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-right" @click.stop>
+              <BaseButton
+                v-if="canApprove && s.statusId === 'DRAFT'"
+                variant="outline"
+                size="sm"
+                @click="startApprove(s)"
+              >
+                Approve
+              </BaseButton>
+            </td>
           </tr>
           <tr v-if="!specs.length">
-            <td colspan="4" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
+            <td colspan="5" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
               No specifications yet.
             </td>
           </tr>
@@ -112,5 +149,6 @@ function exportCsv() {
     </div>
 
     <SpecificationCreateDialog v-model="showCreate" @created="(id) => openSpec(id)" />
+    <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
   </div>
 </template>
