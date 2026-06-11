@@ -12,6 +12,8 @@ const route = useRoute()
 const tabs = [
   { id: 'lots', label: 'Inspection Lots' },
   { id: 'specifications', label: 'Specifications' },
+  { id: 'sampling-plans', label: 'Sampling Plans' },
+  { id: 'aql-standards', label: 'AQL Standards' },
 ]
 const validTabIds = new Set(tabs.map((t) => t.id))
 const activeTab = ref(validTabIds.has(route.query.tab) ? route.query.tab : 'lots')
@@ -24,6 +26,8 @@ watch(
 
 const canManageSpecs = computed(() => isAllowed(['qcInspection:spec:write']))
 const canCreateLots = computed(() => isAllowed(['qcInspection:lot:create']))
+const canManagePlans = computed(() => isAllowed(['qcInspection:plan:create']))
+const canManageStandards = computed(() => isAllowed(['qcInspection:standards:write']))
 </script>
 
 <template>
@@ -62,6 +66,8 @@ const canCreateLots = computed(() => isAllowed(['qcInspection:lot:create']))
 
       <InspectionLotsList v-if="activeTab === 'lots'" :canCreate="canCreateLots" />
       <SpecificationsList v-else-if="activeTab === 'specifications'" :canManage="canManageSpecs" />
+      <SamplingPlansList v-else-if="activeTab === 'sampling-plans'" :canManage="canManagePlans" />
+      <AqlStandardsList v-else-if="activeTab === 'aql-standards'" :canManage="canManageStandards" />
     </div>
   </div>
 </template>

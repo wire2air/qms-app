@@ -1,0 +1,66 @@
+<script setup>
+/**
+ * Sampling plans — a tenant's chosen sampling rules (standard + level +
+ * severity→AQL). The standard dropdown includes the tenant's custom (cloned)
+ * standards, so "custom AQL" = pick your clone here. Reads live; create via the
+ * qcInspection REST service.
+ */
+import { IconPlus } from '@tabler/icons-vue'
+
+defineProps({ canManage: { type: Boolean, default: false } })
+
+const showCreate = ref(false)
+
+const POINT_LABELS = { INCOMING: 'Incoming', IN_PROCESS: 'In-process', FINAL: 'Final', OUTGOING: 'Outgoing' }
+
+const plans = useLiveQuery(
+  async (db) => {
+    const rows = await db.SamplingPlan.where().exec()
+    return rows.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+  },
+  { initial: [] },
+)
+const standards = useLiveQuery(async (db) => db.SamplingStandard.where().exec(), { initial: [] })
+const standardName = (code) => standards.value.find((s) => s.id === code)?.name || code || '—'
+</script>
+
+<template>
+  <div class="tw:flex tw:flex-col tw:gap-3">
+    <div class="tw:flex tw:items-center tw:justify-between">
+      <div class="tw:text-sm tw:text-secondary">{{ plans.length }} sampling plan(s)</div>
+      <BaseButton v-if="canManage" variant="primary" size="sm" @click="showCreate = true">
+        <template #icon><IconPlus :size="16" /></template>
+        New Sampling Plan
+      </BaseButton>
+    </div>
+
+    <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
+      <table class="tw:w-full tw:text-sm">
+        <thead class="tw:bg-main-hover tw:text-secondary tw:text-xs tw:uppercase">
+          <tr>
+            <th class="tw:text-left tw:px-4 tw:py-2.5">Name</th>
+            <th class="tw:text-left tw:px-4 tw:py-2.5">Point</th>
+            <th class="tw:text-left tw:px-4 tw:py-2.5">Standard / Level</th>
+            <th class="tw:text-left tw:px-4 tw:py-2.5">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="p in plans" :key="p.id" class="tw:border-t tw:border-divider">
+            <td class="tw:px-4 tw:py-2.5 tw:font-medium tw:text-on-main">{{ p.name }}</td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ POINT_LABELS[p.inspectionPoint] || p.inspectionPoint }}</td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
+              <template v-if="p.planType === 'STANDARD'">{{ standardName(p.standardCode) }} · {{ p.inspectionLevel }}</template>
+              <template v-else>Custom table</template>
+            </td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ p.statusId }}</td>
+          </tr>
+          <tr v-if="!plans.length">
+            <td colspan="4" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">No sampling plans yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <SamplingPlanCreateDialog v-model="showCreate" />
+  </div>
+</template>
