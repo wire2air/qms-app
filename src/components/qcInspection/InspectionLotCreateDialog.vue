@@ -65,7 +65,7 @@ async function onSave() {
 </script>
 
 <template>
-  <BaseDialog v-model="show" title="New Inspection Lot" :persistent="true" size="xl">
+  <BaseDialog v-model="show" title="New Inspection Lot" :persistent="true" size="3xl">
     <div class="tw:p-4 tw:space-y-4">
       <!-- Product on its own row — the select shows SKU + name and needs the width. -->
       <div>

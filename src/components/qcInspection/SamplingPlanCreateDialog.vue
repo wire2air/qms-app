@@ -108,7 +108,7 @@ async function onSave() {
 </script>
 
 <template>
-  <BaseDialog v-model="show" title="New Sampling Plan" :persistent="true" size="xl">
+  <BaseDialog v-model="show" title="New Sampling Plan" :persistent="true" size="3xl">
     <div class="tw:p-4 tw:space-y-4">
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
         <div>
