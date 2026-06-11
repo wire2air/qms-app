@@ -274,6 +274,14 @@ const navItems = computed(() => {
           to: getCompanyPath('/settings'),
         },
         {
+          // Deep link straight to the Email Channels tab (Zendesk-style
+          // support addresses) — same ?tab= pattern as NC Dispositions.
+          label: 'Email Channels',
+          permissions: ['customerComplaints:update'],
+          icon: IconHeadset,
+          to: getCompanyPath('/settings?tab=email-channels'),
+        },
+        {
           label: 'Form Templates',
           permissions: ['formTemplates:read'],
           icon: IconForms,

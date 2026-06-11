@@ -34,6 +34,8 @@ export class CustomerComplaint extends BaseModel {
   @Property({ type: String }) customerCompany = /** @type {String} */ (null)
   @Property({ type: String }) customerPhone = /** @type {String} */ (null)
   @Property({ type: String }) assignedTo = /** @type {String} */ (null)
+  // Email channel the ticket arrived on (null for web/manual tickets).
+  @Property({ type: String }) channelId = /** @type {String} */ (null)
   @Property({ type: DateTime }) lastCustomerMessageAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) resolvedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) closedAt = /** @type {DateTime} */ (null)
