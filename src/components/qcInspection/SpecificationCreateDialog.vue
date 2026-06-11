@@ -115,17 +115,22 @@ async function onSave() {
         </div>
         <div>
           <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Scope</label>
-          <div class="tw:flex tw:gap-2">
-            <BaseInlineSelect
-              v-model="form.scope"
-              :items="[{ id: 'product', name: 'Specific product' }, { id: 'productType', name: 'Product type' }]"
-              :required="true"
-              class="tw:w-44"
-            />
-            <ProductSelectMenu v-if="form.scope === 'product'" v-model="form.productId" class="tw:flex-1" />
-            <ProductTypeSelectMenu v-else v-model="form.productTypeId" class="tw:flex-1" />
-          </div>
+          <BaseInlineSelect
+            v-model="form.scope"
+            :items="[{ id: 'product', name: 'Specific product' }, { id: 'productType', name: 'Product type' }]"
+            :required="true"
+            class="tw:w-full"
+          />
         </div>
+      </div>
+
+      <!-- Scope target on its own row (the select needs the width). -->
+      <div>
+        <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
+          {{ form.scope === 'product' ? 'Product' : 'Product type' }} <span class="tw:text-bad">*</span>
+        </label>
+        <ProductSelectMenu v-if="form.scope === 'product'" v-model="form.productId" class="tw:w-full" />
+        <ProductTypeSelectMenu v-else v-model="form.productTypeId" class="tw:w-full" />
       </div>
 
       <div>
@@ -141,27 +146,46 @@ async function onSave() {
         <div
           v-for="(c, i) in form.characteristics"
           :key="i"
-          class="tw:flex tw:items-start tw:gap-2 tw:p-2 tw:mb-2 tw:rounded tw:border tw:border-divider"
+          class="tw:p-3 tw:mb-2 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover"
         >
-          <div class="tw:flex-1 tw:grid tw:grid-cols-2 tw:md:grid-cols-6 tw:gap-2">
-            <BaseTextInput v-model="c.name" placeholder="Test name" size="sm" class="tw:col-span-2" />
-            <BaseInlineSelect v-model="c.testType" :items="TEST_TYPES" :required="true" />
-            <template v-if="c.testType === 'NUMERIC'">
-              <BaseTextInput v-model.number="c.lsl" type="number" placeholder="LSL" size="sm" />
-              <BaseTextInput v-model.number="c.usl" type="number" placeholder="USL" size="sm" />
-              <BaseTextInput v-model="c.uom" placeholder="UOM" size="sm" />
-            </template>
-            <label v-else class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary tw:col-span-3">
+          <div class="tw:flex tw:items-end tw:gap-3">
+            <div class="tw:flex-1">
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Test name</label>
+              <BaseTextInput v-model="c.name" placeholder="e.g. pH, Appearance" size="sm" />
+            </div>
+            <div class="tw:w-44">
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Type</label>
+              <BaseInlineSelect v-model="c.testType" :items="TEST_TYPES" :required="true" />
+            </div>
+            <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
               <BaseCheckbox v-model="c.isCritical" /> Critical
             </label>
+            <button
+              type="button"
+              class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              @click="removeCharacteristic(i)"
+            >
+              <IconTrash :size="16" />
+            </button>
           </div>
-          <button
-            type="button"
-            class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
-            @click="removeCharacteristic(i)"
-          >
-            <IconTrash :size="14" />
-          </button>
+          <div v-if="c.testType === 'NUMERIC'" class="tw:flex tw:flex-wrap tw:gap-3 tw:mt-3">
+            <div class="tw:w-28">
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Target</label>
+              <BaseTextInput v-model.number="c.targetValue" type="number" size="sm" />
+            </div>
+            <div class="tw:w-28">
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">LSL (min)</label>
+              <BaseTextInput v-model.number="c.lsl" type="number" size="sm" />
+            </div>
+            <div class="tw:w-28">
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">USL (max)</label>
+              <BaseTextInput v-model.number="c.usl" type="number" size="sm" />
+            </div>
+            <div class="tw:w-28">
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">UOM</label>
+              <BaseTextInput v-model="c.uom" placeholder="e.g. pH, %" size="sm" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
