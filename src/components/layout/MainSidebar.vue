@@ -33,6 +33,7 @@ import {
   IconChecklist,
   IconClipboardList,
   IconClipboardCheck,
+  IconHeadset,
   IconTool,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
@@ -173,6 +174,12 @@ const navItems = computed(() => {
       permissions: ['nonconformances:read'],
       icon: IconAlertCircle,
       to: getCompanyPath('/nonconformances'),
+    },
+    {
+      label: 'Customer Complaints',
+      permissions: ['customerComplaints:read'],
+      icon: IconHeadset,
+      to: getCompanyPath('/customer-complaints'),
     },
     {
       label: 'CAPAs',

@@ -252,6 +252,19 @@ export const AUDIT_FIELD_FORMATTERS = {
     reportedById: { label: 'Reported By', type: 'fk', refModel: 'User' },
   },
 
+  // ── Customer Complaints ──────────────────────────────────────────────────────
+  CustomerComplaint: {
+    subject: { label: 'Subject', type: 'text' },
+    complaintNumber: { label: 'Ticket Number', type: 'text' },
+    statusId: { label: 'Status', type: 'status', statusModel: 'CustomerComplaintStatus' },
+    priorityId: { label: 'Priority', type: 'text' },
+    sourceId: { label: 'Source', type: 'text' },
+    description: { label: 'Description', type: 'text' },
+    customerName: { label: 'Customer Name', type: 'text' },
+    customerEmail: { label: 'Customer Email', type: 'text' },
+    assignedTo: { label: 'Assigned To', type: 'fk', refModel: 'User' },
+  },
+
   // ── Users & Access ───────────────────────────────────────────────────────────
   User: {
     firstName: { label: 'First Name', type: 'text' },
@@ -404,6 +417,8 @@ export const DISPLAY_TYPE_LABELS = {
   SupplierAsset: 'Supplier Asset',
   AssetRequest: 'Asset Request',
   Nonconformance: 'Nonconformance',
+  CustomerComplaint: 'Customer Complaint',
+  CustomerComplaintMessage: 'Complaint Message',
   User: 'User',
   Role: 'Role',
   PermissionOnRole: 'Permission',

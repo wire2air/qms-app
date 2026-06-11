@@ -128,6 +128,13 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/customer-complaints/[[id]]': RouteRecordInfo<
+      '/customer-complaints/[[id]]',
+      '/customer-complaints/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
     '/dashboard': RouteRecordInfo<
       '/dashboard',
       '/dashboard',
@@ -578,6 +585,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/change-requests/[[id]].vue': {
       routes:
         | '/change-requests/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/customer-complaints/[[id]].vue': {
+      routes:
+        | '/customer-complaints/[[id]]'
       views:
         | never
     }
