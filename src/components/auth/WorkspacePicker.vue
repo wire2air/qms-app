@@ -40,8 +40,11 @@ async function sendWorkspaceLinks() {
     await post('/v1/auth/workspaces/forgot', { email }, { showError: false })
     toast.success('If that email belongs to any workspaces, we just sent the sign-in links')
     forgotOpen.value = false
-  } catch {
-    toast.error('Something went wrong. Please try again.')
+  } catch (err) {
+    // Surface the server's field-level validation message (e.g. invalid email)
+    // when present; otherwise fall back to a generic failure.
+    const fieldError = err?.errors?.email?.[0]
+    toast.error(fieldError || err?.message || 'Something went wrong. Please try again.')
   } finally {
     forgotLoading.value = false
   }
