@@ -34,6 +34,7 @@ import {
   IconClipboardList,
   IconClipboardCheck,
   IconTool,
+  IconTestPipe,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import {
@@ -205,6 +206,12 @@ const navItems = computed(() => {
       // review queue, etc.).
       permissions: ['fieldRecords:create'],
       to: getCompanyPath('/inspections-logs'),
+    },
+    {
+      label: 'QC Inspection',
+      icon: IconTestPipe,
+      permissions: ['qcInspection:lot:read'],
+      to: getCompanyPath('/qc-inspection'),
     },
     {
       // Floor-user logging entry — mobile-first dashboard (pick a log
