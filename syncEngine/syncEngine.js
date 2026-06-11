@@ -80,6 +80,48 @@ export class SyncEngine {
 
     // Socket subscriber: server-push sync via the existing app socket
     initSocketSubscriber()
+
+    // Orphan-DB sweep. Each schema-change cycle mints a new timestamped
+    // DB and tries to delete the previous one in #nukeDatabaseIfNeeded();
+    // if that delete was blocked by a sibling tab, the old DB stays as
+    // an orphan and every later boot accumulates one more. Sweep all
+    // qms-X-* DBs that aren't the active one in the background — keeps
+    // the IDB list tidy and shrinks the surface for future block races.
+    // Fire-and-forget; never block the user on cleanup.
+    this.#sweepOrphanDatabases().catch((err) =>
+      console.warn('[SyncEngine] Orphan sweep failed', err),
+    )
+  }
+
+  async #sweepOrphanDatabases() {
+    if (!indexedDB.databases) return // older browsers — no enumeration API
+
+    const databases = await indexedDB.databases()
+    const active = this.dbName
+    const prefix = `${this.#rawDbName}-`
+    const orphans = databases
+      .map((db) => db.name)
+      .filter((name) => name && name.startsWith(prefix) && name !== active)
+
+    if (orphans.length === 0) return
+    console.log(
+      `[SyncEngine] Sweeping ${orphans.length} orphan database(s):`,
+      orphans,
+    )
+
+    for (const name of orphans) {
+      const req = indexedDB.deleteDatabase(name)
+      req.onsuccess = () => console.log(`[SyncEngine] Swept orphan: ${name}`)
+      req.onerror = () =>
+        console.warn(`[SyncEngine] Orphan delete failed: ${name}`, req.error)
+      // onblocked is informational only — if the orphan is held open
+      // by a sibling tab, our IndexedDB.init's onversionchange listener
+      // there will close it eagerly, and this delete will land then.
+      req.onblocked = () =>
+        console.warn(
+          `[SyncEngine] Orphan delete blocked (sibling tab holds connection): ${name}`,
+        )
+    }
   }
 
   async #initDatabase(dbName) {

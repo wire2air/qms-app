@@ -274,6 +274,11 @@ async function handleDelete() {
             </div>
           </div>
 
+          <!-- Inspections & Logs classification editor -->
+          <div class="tw:space-y-4 tw:pt-4 tw:border-t tw:border-divider">
+            <FormTemplateClassificationEditor :template="template" />
+          </div>
+
           <!-- JSON Configuration -->
           <div
             v-if="template.config && Object.keys(template.config).length"

@@ -20,7 +20,7 @@ export class FormTemplate extends BaseModel {
   @Property({ type: String }) title = ''
   @Property({ type: String, required: true }) code = ''
   @Property({ type: Array }) schema = /** @type {Array} */ ([])
-  @Property({ type: String, required: true }) documentTypeId = ''
+  @Property({ type: String }) documentTypeId = ''
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: Number }) version = 1

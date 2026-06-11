@@ -11,6 +11,7 @@ declare global {
   const PdfImportLimitError: typeof import('./src/composables/usePdfImport.js').PdfImportLimitError
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
+  const buildCombinedDocumentPdf: typeof import('./src/composables/useDocumentCombinedPdf.js').buildCombinedDocumentPdf
   const computed: typeof import('vue').computed
   const computedAsync: typeof import('@vueuse/core').computedAsync
   const computedEager: typeof import('@vueuse/core').computedEager
@@ -175,6 +176,7 @@ declare global {
   const useAsyncState: typeof import('@vueuse/core').useAsyncState
   const useAttrs: typeof import('vue').useAttrs
   const useAuditLogs: typeof import('./src/composables/useAuditLogs.js').useAuditLogs
+  const useAuditScoring: typeof import('./src/composables/useAuditScoring.js').useAuditScoring
   const useAuth: typeof import('./src/composables/useAuth.js').useAuth
   const useBase64: typeof import('@vueuse/core').useBase64
   const useBattery: typeof import('@vueuse/core').useBattery
@@ -310,6 +312,7 @@ declare global {
   const useScrollLock: typeof import('@vueuse/core').useScrollLock
   const useSessionStorage: typeof import('@vueuse/core').useSessionStorage
   const useShare: typeof import('@vueuse/core').useShare
+  const useSidebar: typeof import('./src/composables/useSidebar.js').useSidebar
   const useSimilarRecords: typeof import('./src/composables/useSimilarRecords.js').useSimilarRecords
   const useSites: typeof import('./src/composables/useSites.js').useSites
   const useSlots: typeof import('vue').useSlots

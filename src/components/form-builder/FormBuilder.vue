@@ -185,12 +185,16 @@ function validateSchema(fields) {
 }
 
 function onPreviewSubmit(data) {
+  // Preview only — no record is created. The toast used to say "Form
+  // submitted!" which read like a real save; clarified so authors don't
+  // think they accidentally posted something. Payload still logs to
+  // console for debugging the schema.
   toast.notify({
-    type: 'positive',
-    message: 'Form submitted!',
-    caption: 'Check console for form data',
+    type: 'info',
+    message: 'Preview only — no record was saved.',
+    caption: 'Check console for the form payload',
   })
-  console.info('Form Data:', data)
+  console.info('Form preview payload:', data)
 }
 
 function confirmClear() {
@@ -363,7 +367,7 @@ function copyJson() {
                         class="tw:flex tw:justify-end tw:mt-5 tw:pt-4 tw:border-t tw:border-divider"
                       >
                         <BaseButton variant="primary" size="lg" @click="submit">
-                          Submit Application
+                          Submit (preview)
                         </BaseButton>
                       </div>
                     </template>

@@ -65,7 +65,7 @@ const LINK_TYPES = [
     <!-- Instructions -->
     <div>
       <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">Instructions</p>
-      <TiptapEditor
+      <BaseRichTextEditor
         v-model="props.training.instructions"
         :editable="editable"
         placeholder="Describe what the trainee needs to read or do..."

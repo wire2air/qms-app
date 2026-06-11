@@ -1,7 +1,6 @@
 <script setup>
-import { IconEdit, IconTrash, IconGitBranch } from '@tabler/icons-vue'
+import { IconEdit, IconGitBranch } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
   filters: {
@@ -11,10 +10,6 @@ const props = defineProps({
 })
 
 const router = useRouter()
-
-const canDeleteWorkflow = computed(() => isAllowed(['workflows:delete']))
-
-const confirmDelete = ref({ open: false, workflow: null })
 
 const columns = [
   { name: 'name', label: 'WORKFLOW NAME', field: 'name', align: 'left', sortable: true },
@@ -70,21 +65,10 @@ function navigateToWorkflow(row) {
   router.push(getCompanyPath(`/workflow-templates/${row.id}`))
 }
 
-function handleDelete(workflow) {
-  confirmDelete.value = { open: true, workflow }
-}
-
-async function confirmDeleteWorkflow() {
-  await confirmDelete.value.workflow.delete()
-  confirmDelete.value = { open: false, workflow: null }
-}
-
+// Archive / Restore / Delete live on the workflow detail page (header),
+// not here — they need the full version context to decide what's safe.
 function rowMenuItems(workflow) {
-  const items = [{ name: 'Edit', icon: IconEdit, click: () => navigateToWorkflow(workflow) }]
-  if (canDeleteWorkflow.value) {
-    items.push({ name: 'Delete', icon: IconTrash, click: () => handleDelete(workflow) })
-  }
-  return items
+  return [{ name: 'Edit', icon: IconEdit, click: () => navigateToWorkflow(workflow) }]
 }
 
 const pagination = ref({
@@ -148,12 +132,4 @@ const pagination = ref({
       </div>
     </template>
   </BaseTable>
-
-  <ConfirmDialog
-    v-model="confirmDelete.open"
-    title="Delete Workflow"
-    :message="`Are you sure you want to delete '${confirmDelete.workflow?.name}'? This cannot be undone.`"
-    okLabel="Delete"
-    @ok="confirmDeleteWorkflow"
-  />
 </template>

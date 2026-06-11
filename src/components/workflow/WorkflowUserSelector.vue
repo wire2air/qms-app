@@ -8,8 +8,15 @@ const props = defineProps({
 
 const search = ref('')
 
+// Templates can only assign INTERNAL users — supplier-user assignment
+// is a separate mechanism (resolved at submit time once we know the
+// entity's supplier_id; see [[supplier-workflow-assignee design]]).
+// Mixing them in this picker confuses authors.
 const users = useLiveQuery(
-  async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
+  async (db) =>
+    (await db.User.where().exec()).filter(
+      (u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER',
+    ),
   { initial: [] },
 )
 

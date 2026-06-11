@@ -112,12 +112,8 @@ function openTask() {
   // exact route depends on the app's task routing — falling back to
   // the global tasks list with the task id as a query for deep-link.
   if (!openReviewTask.value) return
-  // Most QMS apps route tasks via /:companyCode/tasks/:id; if your routing
-  // differs, swap this path here.
-  const companyCode = router.currentRoute.value.params?.companyCode
-  if (companyCode) {
-    router.push(`/${companyCode}/tasks/${openReviewTask.value.id}`)
-  }
+  // Subdomain tenancy: routes are flat (tenant is the host).
+  router.push(`/tasks/${openReviewTask.value.id}`)
 }
 </script>
 

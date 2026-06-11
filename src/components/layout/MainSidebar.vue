@@ -12,7 +12,6 @@ import {
   IconSettings,
   IconAdjustments,
   IconArticle,
-  IconList,
   IconBuilding,
   IconBuildingCommunity,
   IconUsers,
@@ -30,14 +29,34 @@ import {
   IconSitemap,
   IconLayoutGrid,
   IconSchool,
+  IconReplace,
+  IconChecklist,
+  IconClipboardList,
+  IconClipboardCheck,
+  IconTool,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
-import { logoutCurrentSession, currentSession, isAllowed, isAdmin } from '@/utils/currentSession'
+import {
+  logoutCurrentSession,
+  currentSession,
+  isAllowed,
+  isAdmin,
+  isSupplier,
+} from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
+import { useSidebar } from '@/composables/useSidebar'
 
-const drawer = useCompanyLocalStorage('sidebar-drawer', true)
+const { visible, isDesktop, closeMobile } = useSidebar()
 const route = useRoute()
+
+// On a small screen the sidebar overlays the page; close it after the user
+// navigates so it doesn't linger over the destination.
+watch(
+  () => route.fullPath,
+  () => {
+    if (!isDesktop.value) closeMobile()
+  },
+)
 
 // Track expanded state for grouped nav items
 const expandedGroups = ref({})
@@ -82,6 +101,55 @@ const logoUrl = computed(() => {
 
 // Navigation items
 const navItems = computed(() => {
+  // EXTERNAL_SUPPLIER users get a stripped-down menu — just the things
+  // they can actually act on. No admin/settings/training/audit. The
+  // dashboard at /[code]/supplier is their landing page.
+  if (isSupplier.value) {
+    return [
+      {
+        label: 'Dashboard',
+        icon: IconChartBar,
+        to: getCompanyPath('/supplier'),
+      },
+      {
+        label: 'Document Requests',
+        icon: IconInbox,
+        to: getCompanyPath('/supplier/document-requests'),
+      },
+      {
+        label: 'My Tasks',
+        icon: IconCheckbox,
+        to: getCompanyPath('/task-instances'),
+      },
+      {
+        label: 'Documents',
+        icon: IconFileText,
+        to: getCompanyPath('/documents'),
+      },
+      {
+        label: 'Nonconformances',
+        icon: IconAlertCircle,
+        to: getCompanyPath('/nonconformances'),
+      },
+      {
+        label: 'CAPAs',
+        icon: IconShield,
+        to: getCompanyPath('/capas'),
+      },
+      // Audits surface visible when an internal team adds the
+      // supplier user to an audit's team (audit_team_members) — RLS
+      // lets the supplier through the membership branch even without
+      // audits:read. The /audits route lands on the same module
+      // landing as internal users; the Instances tab is the one with
+      // useful content (Insights / Programs are gated by perms).
+      {
+        label: 'Audits',
+        icon: IconClipboardCheck,
+        to: getCompanyPath('/audits?tab=instances'),
+      },
+    ]
+  }
+
   return [
     {
       label: 'Records',
@@ -111,6 +179,41 @@ const navItems = computed(() => {
       permissions: ['capas:read'],
       icon: IconShield,
       to: getCompanyPath('/capas'),
+    },
+    {
+      label: 'Change Requests',
+      permissions: ['changeRequests:read'],
+      icon: IconReplace,
+      to: getCompanyPath('/change-requests'),
+    },
+    {
+      label: 'Audits',
+      icon: IconChecklist,
+      // audits:read gates the list itself; auditors assigned to an
+      // audit can still see it via the row-level RLS even without
+      // this permission (handled at the RLS layer, see
+      // audit_instances_select_rls).
+      permissions: ['audits:read'],
+      to: getCompanyPath('/audits'),
+    },
+    {
+      label: 'Inspections & Logs',
+      icon: IconClipboardList,
+      // Single broadly-granted gate. The landing page itself shows /
+      // hides individual cards based on finer-grained permissions
+      // (inspections:assign for plans, fieldRecords:review for the
+      // review queue, etc.).
+      permissions: ['fieldRecords:create'],
+      to: getCompanyPath('/inspections-logs'),
+    },
+    {
+      // Floor-user logging entry — mobile-first dashboard (pick a log
+      // book → fill) + My Tasks. The route wrapped in the iOS/Android
+      // WebView later. Distinct from the admin "Inspections & Logs".
+      label: 'Logging',
+      icon: IconClipboardCheck,
+      permissions: ['fieldRecords:create'],
+      to: getCompanyPath('/logging'),
     },
     {
       label: 'Training',
@@ -188,10 +291,24 @@ const navItems = computed(() => {
           to: getCompanyPath('/document-templates'),
         },
         {
-          label: 'Products',
+          // Industry-aligned label: "Item Master" for the admin
+          // catalog page. Covers raw materials, components, WIP, and
+          // finished goods — matches ERP terminology. Underlying DB
+          // table stays `products` (UI-only relabel decision
+          // 2026-05-26); operational selectors use "Item".
+          label: 'Item Master',
           permissions: ['products:read'],
           icon: IconPackage,
           to: getCompanyPath('/products'),
+        },
+        {
+          label: 'Equipment',
+          // No `equipment:read` gate by design — RLS SELECT lets any
+          // in-tenant user see the catalog, since log book authors need
+          // to pick equipment without needing a separate permission.
+          // Visibility is via the menu link being available to all.
+          icon: IconTool,
+          to: getCompanyPath('/equipment'),
         },
         {
           label: 'Suppliers',
@@ -211,11 +328,11 @@ const navItems = computed(() => {
           icon: IconLayoutGrid,
           to: getCompanyPath('/risk-assessment-templates'),
         },
-        {
-          label: 'Option Sets',
-          icon: IconList,
-          to: getCompanyPath('/option-sets'),
-        },
+        // Option Sets moved under Form Templates → Option Sets tab.
+        // NC Dispositions remain at Settings → Lookups (the canonical
+        // home); previously had a redundant shortcut here.
+        // The standalone /option-sets and /settings?tab=lookups routes
+        // both still exist for back-compat with bookmarks.
         {
           label: 'Sites',
           icon: IconBuilding,
@@ -296,11 +413,20 @@ const navItems = computed(() => {
 </script>
 
 <template>
-  <Transition name="mainSidebar">
-    <aside
-      v-if="drawer"
-      class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen"
-    >
+  <!-- display:contents wrapper — single template root for lint, but the aside
+       still participates in the parent flex layout exactly as before. -->
+  <div class="tw:contents">
+    <!-- Backdrop — only on small screens when the overlay sidebar is open. -->
+    <div
+      v-if="visible && !isDesktop"
+      class="tw:fixed tw:inset-0 tw:z-30 tw:bg-black/40 tw:lg:hidden"
+      @click="closeMobile"
+    />
+    <Transition name="mainSidebar">
+      <aside
+        v-if="visible"
+        class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen tw:fixed tw:inset-y-0 tw:left-0 tw:z-40 tw:lg:static tw:lg:z-auto"
+      >
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-4 tw:flex-1 tw:overflow-hidden">
         <!-- Brand -->
         <div class="tw:flex tw:items-center tw:gap-3">
@@ -315,9 +441,11 @@ const navItems = computed(() => {
           </div>
           <div class="tw:flex tw:flex-col">
             <div class="tw:text-on-sidebar tw:text-base tw:font-bold tw:leading-tight">
-              QMS Admin
+              {{ isSupplier ? 'Supplier Portal' : 'QMS Admin' }}
             </div>
-            <div class="tw:text-secondary tw:text-xs tw:font-medium">Quality Management</div>
+            <div class="tw:text-secondary tw:text-xs tw:font-medium">
+              {{ isSupplier ? 'Documents & Tasks' : 'Quality Management' }}
+            </div>
           </div>
         </div>
 
@@ -393,7 +521,8 @@ const navItems = computed(() => {
         </div>
       </div>
     </aside>
-  </Transition>
+    </Transition>
+  </div>
 </template>
 
 <style scoped>

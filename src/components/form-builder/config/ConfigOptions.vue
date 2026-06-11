@@ -20,10 +20,23 @@ const groupTypeItems = computed(() =>
 watch(useCustomOptions, (val) => {
   if (val) {
     field.value.optionSetId = null
+    // Cleanup the embed in case this field was authored during the
+    // brief window when ConfigOptions was auto-snapshotting OptionSet
+    // content onto the field def. Going forward, OptionSet stays
+    // FK-only and resolves at render time.
+    if (field.value.optionSet) delete field.value.optionSet
   } else {
     field.value.options = []
   }
 })
+
+// Note: unlike RCA / Risk Assessment templates, OptionSet is NOT
+// embedded onto the field definition. It's tenant config (dropdown
+// values), admins expect edits to propagate to existing forms.
+// Supplier users can read option_sets via the relaxed RLS (no
+// permission gate, company scope only — see qms#... updates.sql).
+// Renderers still tolerate field.optionSet for any rows authored
+// during the embed-everything pass that's been since reverted.
 
 function addOption() {
   if (!field.value.options) {

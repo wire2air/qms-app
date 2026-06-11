@@ -171,10 +171,44 @@ function reprint() {
 function close() {
   window.close()
 }
+
+// Browsers use document.title as the default "Save as PDF" filename (and
+// as the physical printer job name). Track the original so we can restore
+// on unmount — otherwise the title leaks back to the app shell after
+// navigating away.
+const originalTitle = window.document.title
+
+function sanitizeFilename(s) {
+  // Strip path separators and Windows-reserved chars. Browsers tolerate
+  // most punctuation but a bare "/" can fool some "Save as" dialogs into
+  // treating it as a folder.
+  return s.replace(/[\\/:*?"<>|]/g, '_').trim()
+}
+
+// Compose: company code + identifier (e.g. "ACME · SOP-001 v1.2"). Falls
+// back to identifier alone, then to the original title.
+watchEffect(() => {
+  const idPart = sanitizeFilename(props.identifier ?? '')
+  const codePart = sanitizeFilename(branding.value?.code ?? '')
+  if (idPart && codePart) window.document.title = `${codePart} · ${idPart}`
+  else if (idPart) window.document.title = idPart
+})
+
+onBeforeUnmount(() => {
+  window.document.title = originalTitle
+})
 </script>
 
 <template>
-  <div class="print-root" :style="accentStyle">
+  <!-- Teleport into the pre-provisioned #print-portal in index.html — a
+       sibling of #app, NOT a descendant. The app shell wraps everything in
+       h-screen + overflow-hidden + a flex chain; left in place, those
+       constraints collapse the print-root to one viewport's height when
+       printed (and `flex-1` collapses to 0 once h-screen is flattened).
+       Teleporting sidesteps the entire chain. #app already has
+       `tw:print:hidden`, so it disappears during print. -->
+  <Teleport to="#print-portal">
+    <div class="print-root" :style="accentStyle">
     <!-- Toolbar — hidden when printing -->
     <div class="print-toolbar tw:no-print">
       <div class="tw:flex tw:items-center tw:gap-2">
@@ -288,7 +322,8 @@ function close() {
         </div>
       </footer>
     </article>
-  </div>
+    </div>
+  </Teleport>
 </template>
 
 <style>
@@ -444,7 +479,17 @@ function close() {
 }
 
 @media print {
-  body, html { background: white !important; margin: 0; padding: 0; }
+  /* body has `tw:overflow-hidden` from index.html — override so the print
+     content can paginate past the viewport. #app is `tw:print:hidden` and
+     the print-root is teleported into #print-portal (sibling of #app), so
+     no other shell overrides are needed. */
+  html, body {
+    background: white !important;
+    margin: 0;
+    padding: 0;
+    height: auto !important;
+    overflow: visible !important;
+  }
   .print-root { position: static; padding: 0; background: white; }
   .print-toolbar, .tw\:no-print { display: none !important; }
   .print-page {

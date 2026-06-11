@@ -39,9 +39,22 @@ export async function deleteAllSyncDatabases() {
       (db) =>
         new Promise((resolve) => {
           const req = indexedDB.deleteDatabase(db.name)
-          req.onsuccess = resolve
-          req.onerror = resolve // best-effort — don't block logout
-          req.onblocked = resolve
+          // Resolve only when the DB is truly gone. Do NOT resolve on
+          // `onblocked` — that fires while a lingering connection keeps
+          // the delete *pending*; if the caller then reloads, the fresh
+          // page reopens the same DB mid-delete and IndexedDB deadlocks
+          // (black screen). Wait for `onsuccess` once the connection
+          // closes; a hard timeout guarantees we never hang the refresh.
+          let settled = false
+          const done = () => {
+            if (settled) return
+            settled = true
+            resolve()
+          }
+          req.onsuccess = done
+          req.onerror = done // best-effort — don't block logout/refresh
+          req.onblocked = () => {} // keep waiting; onsuccess fires once unblocked
+          setTimeout(done, 3000)
         }),
     )
 

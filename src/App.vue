@@ -1,8 +1,9 @@
 <script setup>
-import { initSession, currentSession } from '@/utils/currentSession'
+import { initSession, currentSession, canUseAi } from '@/utils/currentSession'
 import { initCurrentCompany, companies } from '@/utils/currentCompany'
 import { isPublicRoute as isPublicRouteFn, isAuthRoute } from '@/constants/authRoutes'
-import { initSync } from '@/utils/initSyncEngine.js'
+import { initSync, deleteAllSyncDatabases } from '@/utils/initSyncEngine.js'
+import { currentSubdomain, gotoTenant } from '@/utils/tenant'
 
 const pageInfo = ref({
   showHeader: true,
@@ -13,68 +14,110 @@ const route = useRoute()
 const openRoutes = ['/form']
 const loading = ref(true)
 const showFormBuilder = computed(() => {
-  return route.name === '/[companyCode]/templates/[[id]]' && route.query.mode === 'schema'
+  return route.name === '/templates/[[id]]' && route.query.mode === 'schema'
 })
 const currentPath = window.location.pathname
 const isOpenRoute = openRoutes.some(
   (route) => currentPath === route || currentPath.startsWith(`${route}/`),
 )
-// Check if this is a public route that doesn't depend on companyCode
+// Public routes (signin, signup, …) render on any host and need no tenant.
 const isPublicRoute = isPublicRouteFn(currentPath)
-onMounted(async () => {
-  if (isOpenRoute) {
-    loading.value = false
-    return
-  }
+
+// Subdomain tenancy: the active tenant is the request host (acme.qability.com),
+// not a path segment. null on apex / reserved hosts (localhost, admin.*, …).
+const subdomain = currentSubdomain()
+
+async function bootApp() {
+  if (isOpenRoute) return
 
   if (isPublicRoute) {
-    // For public routes, just init session without companyCode
+    // Public/auth pages render on any host. If already authenticated and on an
+    // auth page, forward into the user's tenant app (its own subdomain).
     await initSession()
     if (currentSession.value && isAuthRoute(currentPath)) {
       await initCurrentCompany()
       if (companies.value?.length > 0) {
-        const firstCompanyCode = companies.value[0].code
-        window.location.href = `/${firstCompanyCode}/dashboard`
+        gotoTenant(companies.value[0].code, '/dashboard')
         return
       }
     }
-    loading.value = false
     return
   }
 
-  // Extract companyCode from the pathname since route.params isn't populated yet
-  const pathParts = currentPath.split('/').filter((part) => part !== '')
-  const companyCode = pathParts[0] // First segment is the company code
+  // App route — requires a tenant subdomain. Apex / reserved hosts have no
+  // tenant to load, so bounce to sign-in.
+  if (!subdomain) {
+    window.location.assign('/signin')
+    return
+  }
 
-  await initSession(companyCode)
+  // The backend binds the session's active company to the host. fetchUserSession
+  // handles 401 (→ /signin) and 403 / wrong-tenant (→ currentSession null) itself.
+  await initSession(subdomain)
   await initCurrentCompany()
 
-  const isCompanyExists = companies.value.some((c) => c.code === companyCode)
-  if (!isCompanyExists && companies.value?.length > 0) {
-    const firstCompanyCode = companies.value[0].code
-    window.location.href = `/${firstCompanyCode}/dashboard`
+  const belongsToTenant = companies.value.some(
+    (c) => String(c.code).toLowerCase() === subdomain,
+  )
+  if (!belongsToTenant) {
+    // Authenticated but not a member of this tenant → send them to one they
+    // belong to; if they belong to none, to sign-in.
+    if (companies.value?.length > 0) {
+      gotoTenant(companies.value[0].code, '/dashboard')
+    } else {
+      window.location.assign('/signin')
+    }
     return
   }
 
-  // If URL companyCode doesn't match the active company in session, re-call session to update it
-  const activeCompanyCode = currentSession.value?.activeCompanyCode
-  if (activeCompanyCode && activeCompanyCode !== companyCode) {
-    await initSession(companyCode)
-  }
-
-  // Install syncEngine with company-scoped DB
+  // Install syncEngine with the company-scoped IndexedDB.
   if (currentSession.value?.companyId) {
     await initSync(currentSession.value.companyId)
   }
+}
 
-  loading.value = false
+// One-shot silent recovery flag. If the boot path throws (IDB open
+// blocked by a sibling tab, bootstrap GraphQL failure, etc.) we nuke
+// the local IDB once and reload — quietly, no modal. The sessionStorage
+// gate makes sure we only auto-recover ONCE per browser session; if the
+// reload still fails the boot we stop instead of looping. sessionStorage
+// clears when the tab closes, so a fresh session always gets one shot.
+const RECOVERY_FLAG = 'qms.boot.autoRecoveryAttempted'
+
+onMounted(async () => {
+  try {
+    await bootApp()
+  } catch (err) {
+    console.error('[App] Boot failed', err)
+    if (sessionStorage.getItem(RECOVERY_FLAG) !== '1') {
+      sessionStorage.setItem(RECOVERY_FLAG, '1')
+      console.warn('[App] Auto-recovering: nuking local IDB and reloading')
+      try {
+        await deleteAllSyncDatabases()
+      } catch (e) {
+        console.error('[App] Auto-recovery deleteAllSyncDatabases failed', e)
+      }
+      window.location.reload()
+      return
+    }
+    // Second-time failure in the same session — don't loop. Hide the
+    // spinner and let the rest of the UI render (it'll be broken, but
+    // visibly broken with a console error is better than an infinite
+    // dark loader the user can't escape).
+    console.error('[App] Boot failed twice — giving up auto-recovery for this session')
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
 <template>
   <BaseToastContainer />
 
-  <!-- Full-screen loader overlay -->
+  <!-- Full-screen loader overlay. Boot failures auto-recover silently
+       via the catch block in onMounted (nuke local IDB + reload, gated
+       to one shot per session). No modal/panel here — kept the UX
+       quiet on purpose. -->
   <div v-if="loading" class="fixed-full flex flex-center bg-dark" style="z-index: 9999">
     <div class="tw:text-center">
       <div
@@ -104,7 +147,8 @@ onMounted(async () => {
       </div>
     </main>
 
-    <!-- AI sidecar — global slide-out chat (see backend/ai/README.md, AI_PLAN.md §6) -->
-    <ChatPanel />
+    <!-- AI sidecar — global slide-out chat (see backend/ai/README.md, AI_PLAN.md §6).
+         Gated on canUseAi so tenants without the add-on don't even mount it. -->
+    <ChatPanel v-if="canUseAi" />
   </div>
 </template>

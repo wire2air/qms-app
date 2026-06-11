@@ -42,6 +42,7 @@ function applyActiveFilter(results, af) {
   if (af === 'overdue')
     return results.filter((r) => r.dueDate && r.dueDate < now && OPEN_STATUSES.includes(r.statusId))
   if (af === 'closed') return results.filter((r) => r.statusId === 'CLOSED')
+  if (af === 'cancelled') return results.filter((r) => r.statusId === 'CANCELLED')
   return results
 }
 

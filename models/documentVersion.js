@@ -45,6 +45,12 @@ export class DocumentVersion extends BaseModel {
   @Property({ type: String }) workflowInstanceId = /** @type {String|null} */ (null)
   @Property({ type: Boolean }) isLatest = true
   @Property({ type: DateTime }) effectiveDate = DateTime.now()
+  // Immutable EFFECTIVE snapshot — populated by the worker when the
+  // version transitions to EFFECTIVE. Used by the doc detail page to
+  // surface a "View Audit PDF" link once available.
+  @Property({ type: String }) snapshotStoragePath = /** @type {String|null} */ (null)
+  @Property({ type: String }) snapshotSha256 = /** @type {String|null} */ (null)
+  @Property({ type: DateTime }) snapshotGeneratedAt = /** @type {DateTime|null} */ (null)
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)

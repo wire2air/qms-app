@@ -1,5 +1,5 @@
 <script setup>
-import { IconAlertTriangle } from '@tabler/icons-vue'
+import { IconAlertTriangle, IconPrinter, IconClipboardList } from '@tabler/icons-vue'
 import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
@@ -25,12 +25,17 @@ const breadcrumbs = computed(() => [
 // ─── Inline disposition auto-save ─────────────────────────────────────────────
 const isFirstLoad = ref(true)
 const canUpdate = computed(() => isAllowed(['nonconformances:update']))
+// Page-level fields (title, description, disposition, containment, etc.)
+// are owner-controlled. Anyone else with NC module access can READ the
+// record (default module behavior) but must not edit it — workflow-step
+// forms have their own editability gate inside WorkflowStepForm.
 const isEditable = computed(
   () =>
     nc.value &&
     nc.value.statusId !== 'CLOSED' &&
     nc.value.statusId !== 'VOID' &&
-    canUpdate.value,
+    canUpdate.value &&
+    isOwner.value,
 )
 
 const debouncedSave = useDebounceFn(async () => {
@@ -53,38 +58,164 @@ watch(
 const saving = ref(false)
 const saveError = ref(null)
 
-// ─── Close NC (owner only) ────────────────────────────────────────────────────
-const showCloseDialog = ref(false)
-const closing = ref(false)
+// ─── NC-level Approve and Close (the single terminal action) ────────────────
+// Reviewer per-step Mark Complete advances the workflow; THIS button is
+// what the owner clicks once every step is done. Validates closure
+// invariants (per ISO 9001:2015 §8.7 / ISO 13485:2016 §8.3 / 21 CFR
+// 820.90): all steps done → disposition picked → notes recorded → linked
+// CAPA when capaRequired → cost when disposition tracks it. CFR-11
+// e-sign on submit. Backend flags complete + transitions statusId='CLOSED'
+// in one transaction — the old separate "Close NC" button was redundant
+// and got folded in here.
+const showMarkCompleteDialog = ref(false)
+const showMarkCompleteEsign = ref(false)
+const completing = ref(false)
+const completeComments = ref('')
+
+// Count workflow steps still open (NOT in APPROVED/SKIPPED/CANCELLED).
+const incompleteStepCount = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [ncId]) => {
+    if (!ncId) return 0
+    const instances = await db.WorkflowInstance.where('[resourceType+resourceId]', [
+      'Nonconformance',
+      ncId,
+    ]).exec()
+    if (!instances.length) return 0
+    const stepLists = await Promise.all(
+      instances.map((i) => db.WorkflowInstanceStep.where('workflowInstanceId', i.id).exec()),
+    )
+    const allSteps = stepLists.flat()
+    return allSteps.filter((s) => !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId)).length
+  },
+  { initial: 0 },
+)
+
+const linkedCapaCount = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [ncId]) => {
+    if (!ncId) return 0
+    const rows = await db.Capa.where('[sourceType+sourceId]', ['NC', ncId]).exec()
+    return rows.length
+  },
+  { initial: 0 },
+)
+
+const ncDispositionType = useLiveQueryWithDeps(
+  [() => nc.value?.dispositionTypeId],
+  async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
+)
+
+const markCompleteBlockedReason = computed(() => {
+  if (!nc.value) return null
+  if (nc.value.statusId === 'DRAFT') return 'Submit the NC for review first.'
+  if (incompleteStepCount.value > 0) {
+    return `${incompleteStepCount.value} workflow step${
+      incompleteStepCount.value === 1 ? '' : 's'
+    } still open. Complete or skip them first.`
+  }
+  if (!nc.value.dispositionTypeId) return 'Pick a Disposition before marking complete.'
+  if (!nc.value.dispositionNotes?.trim()) {
+    return 'Disposition notes are required before marking complete.'
+  }
+  if (nc.value.capaRequired === true && linkedCapaCount.value === 0) {
+    return 'CAPA required is set to Yes — create at least one linked CAPA first.'
+  }
+  if (ncDispositionType.value?.tracksCost && nc.value.costOfNc == null) {
+    return `Cost of NC is required for the “${ncDispositionType.value.name}” disposition.`
+  }
+  return null
+})
+
+const canMarkComplete = computed(() => !markCompleteBlockedReason.value)
+
+function openMarkCompleteDialog() {
+  if (!canMarkComplete.value) return
+  saveError.value = null
+  completeComments.value = ''
+  showMarkCompleteDialog.value = true
+}
+
+// Two-step click: dialog confirms reason+comments, then esign auth.
+function handleMarkCompleteClick() {
+  if (!canMarkComplete.value) return
+  showMarkCompleteEsign.value = true
+}
+
+async function onMarkCompleteEsignVerified({ method, provider, token }) {
+  showMarkCompleteEsign.value = false
+  completing.value = true
+  saveError.value = null
+  try {
+    await post(`/v1/services/nonconformances/${props.id}/markComplete`, {
+      comments: completeComments.value.trim() || null,
+      method,
+      provider: provider || null,
+      token,
+    })
+    showMarkCompleteDialog.value = false
+    // NC is now CLOSED — route back to the list. The detail page would
+    // continue to render (read-only) but landing back on the list matches
+    // the user's mental model of "this NC is done".
+    router.push(getCompanyPath('/nonconformances'))
+  } catch (e) {
+    saveError.value = e.message || 'Failed to approve and close'
+    // Re-open the action dialog so the user sees the error and retries.
+    showMarkCompleteDialog.value = true
+  } finally {
+    completing.value = false
+  }
+}
 
 const isOwner = computed(
   () => nc.value?.ownerId && nc.value.ownerId === currentSession.value?.userId,
 )
 
-async function handleCloseNc() {
-  if (!nc.value) return
-  closing.value = true
+// ─── Open NC (DRAFT → UNDER_REVIEW, kicks off workflow) ──────────────────────
+// "Open" matches the industry term (Greenlight Guru / ISO 13485 §10.2).
+// Confirmation dialog sets expectations: once opened, the NC becomes a
+// permanent audit record — most fields stay editable but it can't be
+// deleted, only voided/cancelled with reason.
+const showOpenDialog = ref(false)
+
+function openOpenDialog() {
   saveError.value = null
-  try {
-    await post(`/v1/services/nonconformances/${props.id}/close`, {})
-    showCloseDialog.value = false
-    router.push(getCompanyPath('/nonconformances'))
-  } catch (e) {
-    saveError.value = e.message || 'Failed to close NC'
-  } finally {
-    closing.value = false
-  }
+  showOpenDialog.value = true
 }
 
 async function handleSubmitForReview() {
   if (!nc.value) return
   saving.value = true
+  saveError.value = null
   try {
     await post(`/v1/services/nonconformances/${props.id}/submitForReview`, {})
+    showOpenDialog.value = false
   } catch (e) {
-    saveError.value = e.message || 'Failed to submit for review'
+    saveError.value = e.message || 'Failed to open NC'
   } finally {
     saving.value = false
+  }
+}
+
+// ─── Delete draft NC (DRAFT-only) ─────────────────────────────────────────────
+// Soft-delete via the syncEngine — paranoid mode sets deletedAt. Drafts
+// have no workflow / records attached yet so there's nothing to cascade.
+// Refused for any non-DRAFT status by the disabled gate below.
+const showDeleteDialog = ref(false)
+const deleting = ref(false)
+
+async function handleDeleteDraft() {
+  if (!nc.value || nc.value.statusId !== 'DRAFT' || deleting.value) return
+  deleting.value = true
+  saveError.value = null
+  try {
+    await nc.value.delete()
+    showDeleteDialog.value = false
+    router.push(getCompanyPath('/nonconformances'))
+  } catch (e) {
+    saveError.value = e.message || 'Failed to delete draft'
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -116,6 +247,17 @@ const workflowVersion = useLiveQueryWithDeps(
 const editingCost = ref(false)
 const editingCredit = ref(false)
 
+// Look up the selected disposition type so we can decide whether to show
+// the Cost of NC field (cost capture is disposition-driven — Scrap /
+// Rework / Return-to-Supplier / Regrade track cost; Use-As-Is /
+// Quarantine don't). Mirrors ISO/TR 10014:2021 COPQ practice across
+// modern QMS products.
+const selectedDispositionType = useLiveQueryWithDeps(
+  [() => nc.value?.dispositionTypeId],
+  async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
+)
+const dispositionTracksCost = computed(() => !!selectedDispositionType.value?.tracksCost)
+
 // ─── Inline-edit for overview fields ──────────────────────────────────────────
 const editingTitle = ref(false)
 const editingDescription = ref(false)
@@ -123,8 +265,53 @@ const editingSeverity = ref(false)
 const editingDetected = ref(false)
 const editingDueDate = ref(false)
 
+// ─── Print + Audit Log (parity with CAPA page) ───────────────────────────────
+const showAuditLog = ref(false)
+
+function openPrintView() {
+  if (!nc.value?.id) return
+  const params = new URLSearchParams({ module: 'Nonconformance', id: nc.value.id })
+  const url = getCompanyPath(`/print?${params.toString()}`)
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+// Roll up the NC + its workflow instance + steps so the audit dialog
+// shows the full timeline (not just the NC row's own log).
+const allNcWorkflowInstanceIds = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [ncId]) => {
+    if (!ncId) return []
+    const rows = await db.WorkflowInstance.where('[resourceType+resourceId]', [
+      'Nonconformance',
+      ncId,
+    ]).exec()
+    return rows.map((r) => r.id)
+  },
+  { initial: [] },
+)
+
+const allNcWorkflowInstanceStepIds = useLiveQueryWithDeps(
+  [() => allNcWorkflowInstanceIds.value.join(',')],
+  async (db, [idsStr]) => {
+    if (!idsStr) return []
+    const instanceIds = idsStr.split(',')
+    const lists = await Promise.all(
+      instanceIds.map((id) => db.WorkflowInstanceStep.where('workflowInstanceId', id).exec()),
+    )
+    return lists.flat().map((s) => s.id)
+  },
+  { initial: [] },
+)
+
+const auditIncludeEntities = computed(() => [
+  { entityType: 'Nonconformances', entityIds: [props.id] },
+  { entityType: 'WorkflowInstances', entityIds: allNcWorkflowInstanceIds.value },
+  { entityType: 'WorkflowInstanceSteps', entityIds: allNcWorkflowInstanceStepIds.value },
+])
+
 // ─── Linked CAPAs ─────────────────────────────────────────────────────────────
 const canCreateCapa = computed(() => isAllowed(['capas:create']))
+const canCreateChangeRequest = computed(() => isAllowed(['changeRequests:create']))
 
 const linkedCapas = useLiveQueryWithDeps(
   [() => props.id],
@@ -139,6 +326,13 @@ function onCreateLinkedCapa() {
   router.push({ path: getCompanyPath('/capas/create'), query: { ncId: props.id } })
 }
 
+function onCreateLinkedChangeRequest() {
+  router.push({
+    path: getCompanyPath('/change-requests/create'),
+    query: { source: 'NC', sourceId: props.id },
+  })
+}
+
 // ─── Workflow steps are handled by NcWorkflowDetail component ────────────────
 </script>
 
@@ -150,6 +344,40 @@ function onCreateLinkedCapa() {
 
     <SafeTeleport to="#main-header-actions">
       <div class="tw:flex tw:items-center tw:gap-2">
+        <!-- Action buttons (left): lifecycle transitions for the NC. -->
+        <BaseButton
+          v-if="isOwner && nc?.statusId === 'DRAFT'"
+          variant="primary"
+          :disabled="saving"
+          @click="openOpenDialog"
+          >Open NC</BaseButton
+        >
+        <BaseButton
+          v-if="isOwner && nc && !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId)"
+          variant="primary"
+          :disabled="!canMarkComplete || completing"
+          :title="markCompleteBlockedReason || undefined"
+          @click="openMarkCompleteDialog"
+        >
+          {{ completing ? 'Closing…' : 'Approve and Close' }}
+        </BaseButton>
+        <BaseButton
+          v-if="isOwner && nc?.statusId === 'DRAFT'"
+          variant="outline"
+          :disabled="deleting"
+          @click="showDeleteDialog = true"
+          >Delete</BaseButton
+        >
+
+        <!-- Utility buttons (right): always rightmost, parity with CAPA. -->
+        <BaseButton v-if="nc?.id" variant="secondary" @click="openPrintView">
+          <IconPrinter :size="20" class="tw:mr-1" />
+          Print
+        </BaseButton>
+        <BaseButton v-if="nc?.id" variant="secondary" @click="showAuditLog = true">
+          <IconClipboardList :size="20" class="tw:mr-1" />
+          Audit Log
+        </BaseButton>
         <AskAiButton
           v-if="nc?.id"
           entityType="Nonconformance"
@@ -157,22 +385,6 @@ function onCreateLinkedCapa() {
           :entityTitle="nc.title"
           :entityNumber="nc.ncNumber"
         />
-        <TaskActionBar v-if="nc?.id" entityType="Nonconformance" :entityId="nc.id" />
-        <BaseButton
-          v-if="nc?.statusId === 'DRAFT'"
-          variant="primary"
-          data-testid="nc-submit-for-review"
-          :disabled="saving"
-          @click="handleSubmitForReview"
-          >Submit for review</BaseButton
-        >
-        <BaseButton
-          v-if="isOwner && nc?.statusId !== 'CLOSED'"
-          variant="danger"
-          :disabled="closing"
-          @click="showCloseDialog = true"
-          >Close NC</BaseButton
-        >
       </div>
     </SafeTeleport>
 
@@ -191,9 +403,30 @@ function onCreateLinkedCapa() {
             <!-- NC Details card -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
               <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+                class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                NC Details
+                <div
+                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+                >
+                  NC Details
+                </div>
+                <!-- At-a-glance indicator of which assignee pool the
+                     workflow draws from. Always visible (not just on
+                     the DRAFT preview), so you can spot a mislabeled
+                     supplier-facing NC at any lifecycle stage. -->
+                <span
+                  v-if="nc.isSupplierFacing"
+                  class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+                  title="Supplier-facing: non-approval workflow steps draw from this NC's supplier users. Approval steps stay internal."
+                >
+                  Supplier-facing
+                </span>
+                <span
+                  v-else
+                  class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+                >
+                  Internal
+                </span>
               </div>
               <BaseTextInput
                 v-if="editingTitle && isEditable"
@@ -211,28 +444,50 @@ function onCreateLinkedCapa() {
               >
                 {{ nc.title }}
               </div>
-              <BaseTextarea
-                v-if="editingDescription && isEditable"
-                v-model="nc.description"
-                placeholder="Add a description…"
-                autofocus
-                rows="3"
-                class="tw:mb-4"
-                @blur="editingDescription = false"
-              />
+              <div v-if="editingDescription && isEditable" class="nc-detail-editor tw:mb-4">
+                <BaseRichTextEditor
+                  v-model="nc.description"
+                  placeholder="Add a description…"
+                  @blur="editingDescription = false"
+                />
+              </div>
               <div v-else class="tw:mb-4" @click="isEditable && (editingDescription = true)">
+                <div
+                  v-if="nc.description"
+                  class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:prose tw:max-w-none"
+                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                  v-html="nc.description"
+                />
                 <p
-                  class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:whitespace-pre-wrap"
+                  v-else
+                  class="tw:text-sm tw:text-secondary tw:leading-relaxed"
                   :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
                 >
-                  {{ nc.description || (isEditable ? 'Add a description…' : '—') }}
+                  {{ isEditable ? 'Add a description…' : '—' }}
                 </p>
               </div>
 
-              <div class="tw:grid tw:grid-cols-3 tw:gap-3">
+              <!-- Required-at-create fields stay in the main view:
+                   Severity, Type, Source, Detected. Optional metadata
+                   (Priority, Issue type, Due, Product, Qty, PO #, Order #,
+                   Lot #) all moved to the right-side Overview panel to
+                   match the "required → main / optional → right" rule. -->
+              <div class="tw:grid tw:grid-cols-4 tw:gap-3">
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Severity</div>
-                  <NcSeverityBadgeById :severityId="nc.severityId" />
+                  <NcSeveritySelectMenu
+                    v-if="editingSeverity && isEditable"
+                    v-model="nc.severityId"
+                    :required="true"
+                    @blur="editingSeverity = false"
+                  />
+                  <span
+                    v-else
+                    :class="isEditable ? 'tw:cursor-pointer tw:hover:opacity-70' : ''"
+                    @click="isEditable && (editingSeverity = true)"
+                  >
+                    <NcSeverityBadgeById :severityId="nc.severityId" />
+                  </span>
                 </div>
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Type</div>
@@ -244,18 +499,18 @@ function onCreateLinkedCapa() {
                 </div>
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Detected</div>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ nc.detectedAt.formatDate('date') || '—' }}
-                  </span>
-                </div>
-                <div v-if="nc.productId" class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Product</div>
-                  <ProductBadgeById :productId="nc.productId" />
-                </div>
-                <div v-if="nc.qtyAffected" class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Qty affected</div>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
+                  <BaseDatePicker
+                    v-if="editingDetected && isEditable"
+                    v-model="nc.detectedAt"
+                    @blur="editingDetected = false"
+                  />
+                  <span
+                    v-else
+                    class="tw:text-sm tw:font-medium"
+                    :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                    @click="isEditable && (editingDetected = true)"
+                  >
+                    {{ nc.detectedAt ? nc.detectedAt.formatDate('date') : '—' }}
                   </span>
                 </div>
               </div>
@@ -267,19 +522,36 @@ function onCreateLinkedCapa() {
                 >
                   Immediate containment action
                 </label>
-                <BaseTextarea
-                  v-if="isEditable"
-                  v-model="nc.immediateContainmentAction"
-                  placeholder="Describe the immediate action taken to contain this nonconformance…"
-                  :rows="3"
+                <div v-if="isEditable" class="nc-detail-editor">
+                  <BaseRichTextEditor
+                    v-model="nc.immediateContainmentAction"
+                    placeholder="Describe the immediate action taken to contain this nonconformance…"
+                  />
+                </div>
+                <div
+                  v-else-if="nc.immediateContainmentAction"
+                  class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:prose tw:max-w-none"
+                  v-html="nc.immediateContainmentAction"
                 />
-                <p v-else class="tw:text-sm tw:text-on-main tw:leading-relaxed">
-                  {{ nc.immediateContainmentAction || '—' }}
-                </p>
+                <p v-else class="tw:text-sm tw:text-on-main tw:leading-relaxed">—</p>
               </div>
             </div>
 
+            <!-- Raised-from-Audit context (scoped) — self-hides when this NC
+                 wasn't spawned from an audit finding. -->
+            <AuditOriginPanel entityType="Nonconformance" :entityId="id" />
+
+            <!-- Workflow steps. In DRAFT (no instance yet) we render the
+                 template-step preview so the owner can plan assignments;
+                 picks are saved to nc.pendingReviewers and consumed by
+                 submitNcForReview when the owner clicks Open NC. -->
+            <NcWorkflowDraftPreview
+              v-if="!workflowInstance && nc?.statusId === 'DRAFT'"
+              :ncId="id"
+              :isOwner="isOwner"
+            />
             <NcWorkflowDetail
+              v-else
               :ncId="id"
               :workflowInstanceId="workflowInstance?.id"
               :isOwner="isOwner"
@@ -318,8 +590,13 @@ function onCreateLinkedCapa() {
                       >
                     </div>
                   </div>
-                  <div class="tw:flex tw:flex-col tw:gap-1">
-                    <div class="tw:text-xs tw:text-secondary">Cost of NC</div>
+                  <!-- Cost of NC — disposition-driven. Shows + becomes
+                       required only when the picked disposition has
+                       tracks_cost=true (Scrap / Rework / RTS / Regrade). -->
+                  <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
+                    <div class="tw:text-xs tw:text-secondary">
+                      Cost of NC <span class="tw:text-red-500">*</span>
+                    </div>
                     <BaseTextInput
                       v-if="editingCost"
                       v-model="nc.costOfNc"
@@ -343,7 +620,11 @@ function onCreateLinkedCapa() {
                       }}
                     </span>
                   </div>
-                  <div class="tw:flex tw:flex-col tw:gap-1">
+                  <!-- Credit from Supplier — offsetting recovery when the
+                       supplier reimburses the NC cost. Shown alongside
+                       Cost of NC so reporting can compute net COPQ
+                       (cost − credit). Optional. -->
+                  <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
                     <div class="tw:text-xs tw:text-secondary">Credit from Supplier</div>
                     <BaseTextInput
                       v-if="editingCredit"
@@ -400,7 +681,7 @@ function onCreateLinkedCapa() {
                       }}
                     </span>
                   </div>
-                  <div class="tw:flex tw:flex-col tw:gap-1">
+                  <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
                     <div class="tw:text-xs tw:text-secondary">Cost of NC</div>
                     <span class="tw:text-sm tw:font-medium">
                       {{
@@ -413,7 +694,7 @@ function onCreateLinkedCapa() {
                       }}
                     </span>
                   </div>
-                  <div class="tw:flex tw:flex-col tw:gap-1">
+                  <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
                     <div class="tw:text-xs tw:text-secondary">Credit from Supplier</div>
                     <span class="tw:text-sm tw:font-medium">
                       {{
@@ -444,17 +725,29 @@ function onCreateLinkedCapa() {
               <div
                 class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+                <div
+                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+                >
                   Linked CAPAs
                 </div>
-                <BaseButton
-                  v-if="canCreateCapa"
-                  variant="outline"
-                  size="sm"
-                  @click="onCreateLinkedCapa"
-                >
-                  Create CAPA
-                </BaseButton>
+                <div class="tw:flex tw:gap-2">
+                  <BaseButton
+                    v-if="canCreateChangeRequest"
+                    variant="outline"
+                    size="sm"
+                    @click="onCreateLinkedChangeRequest"
+                  >
+                    Create Change Request
+                  </BaseButton>
+                  <BaseButton
+                    v-if="canCreateCapa"
+                    variant="outline"
+                    size="sm"
+                    @click="onCreateLinkedCapa"
+                  >
+                    Create CAPA
+                  </BaseButton>
+                </div>
               </div>
               <div v-if="linkedCapas.length" class="tw:flex tw:flex-col tw:gap-2">
                 <RouterLink
@@ -474,76 +767,101 @@ function onCreateLinkedCapa() {
                   <CapaStatusBadgeById :statusId="linked.statusId" />
                 </RouterLink>
               </div>
-              <div v-else class="tw:text-sm tw:text-secondary tw:italic">
-                No CAPAs linked yet.
-              </div>
+              <div v-else class="tw:text-sm tw:text-secondary tw:italic">No CAPAs linked yet.</div>
             </div>
           </div>
 
           <!-- Right column -->
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <!-- Overview side card -->
+            <!-- External access — read-only panel populated by workflow-
+                 step assignment (autoShareSupplierUsers). Product decision
+                 (2026-05-29): supplier visibility on NCs is workflow-
+                 driven, not manual. See SharedWithPanel.vue. -->
+            <SharedWithPanel entityType="Nonconformance" :entityId="id" />
+
+            <!-- Overview side card. Grouped into subsections with quiet
+                 dividers so the right rail stays scannable as it grows:
+                   Identification → People → Classification → Schedule
+                   → Source / Commerce → Related
+                 Severity / Detected are NOT duplicated here — they live
+                 in the main grid alongside Type + Source. -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
               <div
                 class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
               >
                 Overview
               </div>
-              <div class="tw:flex tw:flex-col tw:divide-y tw:divide-border">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
+
+              <!-- Identification -->
+              <div class="tw:flex tw:flex-col">
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">NC number</span>
-                  <span class="tw:text-xs tw:font-mono tw:font-medium">{{
-                    nc.ncNumber || '—'
-                  }}</span>
-                </div>
-                <div
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider"
-                  data-testid="nc-status-badge"
-                >
-                  <span class="tw:text-xs tw:text-secondary">Status</span>
-                  <NcStatusBadgeById :statusId="nc.statusId" />
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
-                  <span class="tw:text-xs tw:text-secondary">Severity</span>
-                  <NcSeveritySelectMenu
-                    v-if="editingSeverity && isEditable"
-                    v-model="nc.severityId"
-                    :required="true"
-                    class="tw:w-32"
-                    @blur="editingSeverity = false"
-                  />
-                  <span
-                    v-else
-                    class="tw:cursor-pointer tw:hover:opacity-70"
-                    :class="isEditable ? '' : 'tw:pointer-events-none'"
-                    @click="editingSeverity = true"
-                  >
-                    <NcSeverityBadgeById :severityId="nc.severityId" />
+                  <span class="tw:text-xs tw:font-mono tw:font-medium">
+                    {{ nc.ncNumber || '—' }}
                   </span>
                 </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Status</span>
+                  <div class="tw:flex tw:items-center tw:gap-1.5">
+                    <NcStatusBadgeById :statusId="nc.statusId" />
+                    <BaseBadge
+                      v-if="nc.markedCompleteAt"
+                      class="tw:text-[10px] tw:bg-emerald-100 tw:text-emerald-700"
+                      title="Marked complete by owner — pending final close"
+                    >
+                      Completed
+                    </BaseBadge>
+                  </div>
+                </div>
+              </div>
+
+              <!-- People & Location -->
+              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Owner</span>
                   <UserBadgeById v-if="nc.ownerId" :userId="nc.ownerId" />
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
-                  <span class="tw:text-xs tw:text-secondary">Detected</span>
-                  <BaseDatePicker
-                    v-if="editingDetected && isEditable"
-                    v-model="nc.detectedAt"
-                    class="tw:w-36"
-                    @blur="editingDetected = false"
-                  />
-                  <span
-                    v-else
-                    class="tw:text-sm tw:font-medium"
-                    :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                    @click="isEditable && (editingDetected = true)"
-                  >
-                    {{ nc.detectedAt ? nc.detectedAt.formatDate('date') : '—' }}
-                  </span>
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Site</span>
+                  <SiteBadgeById v-if="nc.siteId" :siteId="nc.siteId" />
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:border-divider">
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Department</span>
+                  <DepartmentBadgeById v-if="nc.departmentId" :departmentId="nc.departmentId" />
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
+                </div>
+              </div>
+
+              <!-- Classification -->
+              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Priority</span>
+                  <span
+                    v-if="nc.priorityId"
+                    class="tw:inline-flex tw:items-center tw:text-xs tw:font-semibold tw:rounded tw:px-2 tw:py-0.5"
+                    :class="{
+                      'tw:bg-emerald-100 tw:text-emerald-700': nc.priorityId === 'LOW',
+                      'tw:bg-amber-100 tw:text-amber-700': nc.priorityId === 'MEDIUM',
+                      'tw:bg-orange-100 tw:text-orange-700': nc.priorityId === 'HIGH',
+                      'tw:bg-rose-100 tw:text-rose-700': nc.priorityId === 'CRITICAL',
+                    }"
+                  >
+                    {{ nc.priorityId.charAt(0) + nc.priorityId.slice(1).toLowerCase() }}
+                  </span>
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
+                </div>
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Issue type</span>
+                  <NcIssueTypeBadgeById v-if="nc.ncIssueTypeId" :issueTypeId="nc.ncIssueTypeId" />
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
+                </div>
+              </div>
+
+              <!-- Schedule -->
+              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Due date</span>
                   <BaseDatePicker
                     v-if="editingDueDate && isEditable"
@@ -564,6 +882,20 @@ function onCreateLinkedCapa() {
                     <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
                   </span>
                 </div>
+              </div>
+
+              <!-- Source / Commerce -->
+              <div
+                v-if="
+                  nc.supplierId ||
+                  nc.productId ||
+                  nc.qtyAffected ||
+                  nc.poNumber ||
+                  nc.orderNumber ||
+                  nc.lotNumber
+                "
+                class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col"
+              >
                 <div
                   v-if="nc.supplierId"
                   class="tw:flex tw:justify-between tw:items-center tw:py-2"
@@ -571,6 +903,38 @@ function onCreateLinkedCapa() {
                   <span class="tw:text-xs tw:text-secondary">Supplier</span>
                   <SupplierBadgeById :supplierId="nc.supplierId" />
                 </div>
+                <div v-if="nc.productId" class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Product</span>
+                  <ProductBadgeById :productId="nc.productId" />
+                </div>
+                <div
+                  v-if="nc.qtyAffected"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                >
+                  <span class="tw:text-xs tw:text-secondary">Qty affected</span>
+                  <span class="tw:text-sm tw:font-medium">
+                    {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
+                  </span>
+                </div>
+                <div v-if="nc.poNumber" class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">PO #</span>
+                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.poNumber }}</span>
+                </div>
+                <div
+                  v-if="nc.orderNumber"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                >
+                  <span class="tw:text-xs tw:text-secondary">Order #</span>
+                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.orderNumber }}</span>
+                </div>
+                <div v-if="nc.lotNumber" class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Lot #</span>
+                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.lotNumber }}</span>
+                </div>
+              </div>
+
+              <!-- Related -->
+              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">CAPA</span>
                   <span
@@ -643,16 +1007,114 @@ function onCreateLinkedCapa() {
       description="This nonconformance could not be found."
     />
 
-    <!-- Close NC confirmation dialog -->
-    <BaseDialog v-model="showCloseDialog" title="Close Nonconformance" maxWidth="md">
-      <p class="tw:text-sm tw:text-secondary tw:mb-4">
-        Are you sure you want to close this nonconformance?
-      </p>
-      <p
-        v-if="workflowInstance?.statusId === 'IN_PROGRESS'"
-        class="tw:text-sm tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded-md tw:p-3 tw:mb-4"
-      >
-        This NC has an in-progress workflow. Closing will cancel the workflow and all pending tasks.
+    <!-- ─── NC-level Approve and Close dialog ──────────────────────────── -->
+    <!-- Shows all closure invariants visually; the button at the page
+         header is already disabled when any check fails, so this dialog
+         is the confirmation + comments collection step before esign. -->
+    <BaseDialog v-model="showMarkCompleteDialog" title="Approve and Close" maxWidth="lg">
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+        <div
+          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:border tw:bg-green-50 tw:border-green-200"
+        >
+          <div class="tw:shrink-0 tw:mt-0.5 tw:text-green-600 tw:font-bold">✓</div>
+          <div class="tw:text-sm tw:text-green-800">
+            All gates are satisfied — every workflow step is complete, the disposition is recorded
+            with notes
+            <template v-if="nc?.capaRequired === true">, a CAPA is linked</template>
+            <template v-if="ncDispositionType?.tracksCost">, and Cost of NC is entered</template>.
+            Approving signs the closure and transitions the NC to <strong>Closed</strong> — this is
+            the final action.
+          </div>
+        </div>
+
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+            Completion Notes (optional)
+          </p>
+          <BaseTextarea
+            v-model="completeComments"
+            :rows="3"
+            placeholder="Summary of the corrective handling — verification of disposition, evidence references, …"
+          />
+        </div>
+
+        <div
+          class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800"
+        >
+          <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
+          <div>
+            CFR 21 Part 11 — Approving and closing this NC is an attested regulated action and
+            requires an e-signature. You'll confirm your identity on the next step.
+          </div>
+        </div>
+
+        <p v-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</p>
+      </div>
+      <template #footer="{ close }">
+        <BaseButton variant="outline" :disabled="completing" @click="close">Cancel</BaseButton>
+        <BaseButton
+          variant="primary"
+          :loading="completing"
+          :disabled="completing"
+          @click="handleMarkCompleteClick"
+        >
+          Sign &amp; Close
+        </BaseButton>
+      </template>
+    </BaseDialog>
+
+    <WorkflowInstanceEsignAuthDialog
+      v-model="showMarkCompleteEsign"
+      @verified="onMarkCompleteEsignVerified"
+    />
+
+    <!-- Open NC confirmation — explains the audit implications before
+         the Draft → Under Review transition. Reviewer picks come from
+         pendingReviewers (parked at create time) and are applied
+         server-side on submit. -->
+    <BaseDialog v-model="showOpenDialog" title="Open Nonconformance" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <p class="tw:text-sm tw:text-on-main">
+          Opening this NC starts the assigned workflow and makes it a
+          <strong>permanent audit record</strong>.
+        </p>
+        <ul class="tw:text-sm tw:text-secondary tw:list-disc tw:pl-5 tw:space-y-1">
+          <li>Most fields stay editable until the NC is closed.</li>
+          <li>It can no longer be deleted — only closed or cancelled with a recorded reason.</li>
+          <li>The workflow's first step becomes active and the assignee gets a task.</li>
+        </ul>
+        <div
+          v-if="saveError"
+          class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm"
+        >
+          {{ saveError }}
+        </div>
+      </div>
+      <template #footer="{ close }">
+        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
+        <BaseButton
+          variant="primary"
+          :loading="saving"
+          :disabled="saving"
+          @click="handleSubmitForReview"
+        >
+          Open NC
+        </BaseButton>
+      </template>
+    </BaseDialog>
+
+    <!-- Audit Log dialog — NC + its workflow instance / steps in one timeline. -->
+    <AuditLogDialog
+      v-model="showAuditLog"
+      :includeEntities="auditIncludeEntities"
+      :title="`Audit Log — ${nc?.ncNumber ?? 'NC'}`"
+    />
+
+    <!-- Delete draft NC -->
+    <BaseDialog v-model="showDeleteDialog" title="Delete Draft NC" maxWidth="md">
+      <p class="tw:text-sm tw:text-on-main tw:mb-3">
+        Delete this draft nonconformance? This permanently removes the record. Drafts have no audit
+        history yet, so this is safe.
       </p>
       <div
         v-if="saveError"
@@ -661,11 +1123,20 @@ function onCreateLinkedCapa() {
         {{ saveError }}
       </div>
       <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
-        <BaseButton variant="outline" @click="showCloseDialog = false">Cancel</BaseButton>
-        <BaseButton variant="danger" :disabled="closing" @click="handleCloseNc">
-          {{ closing ? 'Closing…' : 'Close NC' }}
+        <BaseButton variant="outline" :disabled="deleting" @click="showDeleteDialog = false">
+          Cancel
+        </BaseButton>
+        <BaseButton variant="danger" :disabled="deleting" @click="handleDeleteDraft">
+          {{ deleting ? 'Deleting…' : 'Delete' }}
         </BaseButton>
       </div>
     </BaseDialog>
   </div>
 </template>
+
+<style scoped>
+.nc-detail-editor :deep(.rich-text-editor-content) {
+  max-height: 12rem;
+  overflow-y: auto;
+}
+</style>

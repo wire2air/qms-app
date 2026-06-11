@@ -34,6 +34,11 @@ export class TaskInstance extends BaseModel {
   @Property({ type: String, required: true }) sourceType = ''
   @Property({ type: String, required: true }) sourceId = ''
   @Property({ type: String }) reassignedToUserId = null
+  // Reviewer's reject reason / approval note. Surfaced on the
+  // WorkflowStep Activity panel and used by the parent entity's
+  // status flip downstream. BE writes this on /rejectStepTask +
+  // /taskInstances/<id>/action.
+  @Property({ type: String }) comment = ''
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })

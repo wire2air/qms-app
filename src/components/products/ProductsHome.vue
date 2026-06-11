@@ -55,26 +55,23 @@ async function confirmDeleteProduct() {
     <SafeTeleport to="#main-header-title">
       <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
         <IconPackage class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Products</h2>
+        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Item Master</h2>
       </div>
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
-      <BaseButton
-        v-if="canCreateProduct"
-        data-testid="product-create-button"
-        @click="openDialog()"
-      >
-        Create New Product
+      <BaseButton v-if="canCreateProduct" data-testid="product-create-button" @click="openDialog()">
+        Add New Item
       </BaseButton>
     </SafeTeleport>
 
     <!-- Page Header -->
     <div class="tw:flex tw:items-center tw:justify-between">
       <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Products</div>
+        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Item Master</div>
         <div class="tw:text-sm tw:text-secondary">
-          Manage your organization's product catalogue.
+          Manage your organization's items — raw materials, components, intermediates, and finished
+          goods.
         </div>
       </div>
     </div>

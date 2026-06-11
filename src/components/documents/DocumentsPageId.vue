@@ -171,11 +171,23 @@ const isOwner = computed(
   () => currentSession.value?.id === document.value?.userId || currentSession.value?.isOwner,
 )
 
+// Create New Draft is allowed when there's no version currently in flight.
+// "In flight" = a draft anyone is actively iterating on or has open for
+// review. Terminal / finalized statuses (APPROVED, EFFECTIVE, REJECTED,
+// SUPERSEDED, ARCHIVED) don't block a new draft.
+//
+// Previously this used `versions.every(v => APPROVED || EFFECTIVE)` —
+// which broke after the second approval, because the prior version
+// auto-transitions to SUPERSEDED and `every` then returned false forever.
 const canCreate = computed(() => {
-  const allApproved = versions.value.every(
-    (v) => v.statusId === 'APPROVED' || v.statusId === 'EFFECTIVE',
+  const hasActiveDraft = versions.value.some((v) =>
+    ['DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED'].includes(v.statusId),
   )
-  return isAllowed(['documents:create']) && document.value?.statusId !== 'ARCHIVED' && allApproved
+  return (
+    isAllowed(['documents:create']) &&
+    document.value?.statusId !== 'ARCHIVED' &&
+    !hasActiveDraft
+  )
 })
 const canEdit = computed(
   () => isAllowed(['documents:update']) && document.value?.statusId !== 'ARCHIVED',
@@ -352,7 +364,11 @@ async function handleNewVersionConfirm(changeControl) {
 </script>
 
 <template>
-  <div class="tw:min-h-screen tw:bg-main">
+  <!-- Issue #3 fix: drop the min-h-screen — it forced the inner column to
+       be at least 100vh tall, which interacted with the sticky toolbar and
+       could make the document body unreachable on shorter viewports. The
+       App.vue overflow-auto wrapper already owns the scroll. -->
+  <div class="tw:bg-main">
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
@@ -549,6 +565,12 @@ async function handleNewVersionConfirm(changeControl) {
         :versionId="selectedVersion?.id"
         :reviewMode="hasActiveTaskOnSelected"
       />
+
+      <!-- Shared with — explicit per-user grants outside the normal
+           permission scope (typically supplier users). -->
+      <!-- Read-only access panel — populated by workflow-step assignment
+           via autoShareSupplierUsers. See SharedWithPanel.vue header. -->
+      <SharedWithPanel entityType="Document" :entityId="props.id" />
 
       <!-- Messages Drawer -->
       <DocumentsMessages v-model="showMessages" :documentId="props.id" />

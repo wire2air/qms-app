@@ -25,6 +25,8 @@ export class CapaEffectivenessCheck extends BaseModel {
   @Property({ type: String, required: true }) statusId = 'PENDING'
   @Property({ type: String }) taskInstanceId = /** @type {String} */ (null)
   @Property({ type: String }) parentCheckId = /** @type {String} */ (null)
+  // Verdict on completed rows: 'EFFECTIVE' | 'NOT_EFFECTIVE' | null
+  @Property({ type: String }) outcome = /** @type {String} */ (null)
   @Property({ type: String }) comments = ''
   @Property({ type: DateTime }) completedAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) completedBy = /** @type {String} */ (null)

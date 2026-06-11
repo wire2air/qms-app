@@ -38,6 +38,21 @@ export const isSuperUser = computed(() => {
   return email.endsWith('@qms.com') || email.endsWith('@qms.com')
 })
 
+// EXTERNAL_SUPPLIER users get a stripped-down sidebar + a dedicated
+// /[code]/supplier dashboard. Mirrors the backend's `users.kind` column
+// and the per-company `kind` field on the session payload.
+export const isSupplier = computed(() => {
+  return currentSession.value?.kind === 'EXTERNAL_SUPPLIER'
+})
+
+// AI sidecar gate. True when BOTH the global env switch
+// (AI_MODULE_ENABLED) AND the active company's company_ai_profile.enabled
+// flag are true — resolved server-side in /v1/services/auth/session and
+// echoed on the session payload as `aiEnabled`. UI affordances that
+// invoke AI tasks (AI Generate, AI Assist Import, chat panel, etc.)
+// should v-if on canUseAi so tenants without the add-on never see them.
+export const canUseAi = computed(() => !!currentSession.value?.aiEnabled)
+
 export const isAdmin = computed(() => {
   const email = currentSession.value?.email
   if (!email) return false
@@ -94,9 +109,9 @@ export async function hydrateSession() {
 }
 
 async function fetchUserSession(options = {}) {
-  const url = options.hydrate
-    ? '/v1/auth/hydrateSession'
-    : '/v1/auth/session' + (companyCode.value ? `?companyCode=${companyCode.value}` : '')
+  // Subdomain tenancy: the backend resolves the active company from the request
+  // host (acme.qability.com), so no companyCode query param is sent anymore.
+  const url = options.hydrate ? '/v1/auth/hydrateSession' : '/v1/auth/session'
 
   try {
     // Use raw axios with _retried flag to bypass the 401 interceptor

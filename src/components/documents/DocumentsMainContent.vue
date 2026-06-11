@@ -67,7 +67,7 @@ const activeTab = ref('content')
     <PrintTeleport>
       <div
         v-if="activeTab === 'content'"
-        class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-8 tw:py-4"
+        class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-8 tw:py-4 tw:items-start"
       >
         <!-- Left Column: Document Content (2/3 width) -->
         <DocumentsMainContentLeft

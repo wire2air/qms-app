@@ -44,7 +44,11 @@ const pendingInstancesWithCounts = useLiveQueryWithDeps(
     const results = []
     for (const inst of candidates) {
       const assignees = await db.TrainingAssignee.where('trainingInstanceId', inst.id).exec()
-      const pending = assignees.filter((a) => a.status === 'COMPLETED')
+      // FAILED counts as "pending review" too — the manager still needs to
+      // act (typically retrain, sometimes override-approve), and the backend
+      // already moves the instance to PENDING_VERIFICATION when all retries
+      // are exhausted.
+      const pending = assignees.filter((a) => a.status === 'COMPLETED' || a.status === 'FAILED')
       if (pending.length > 0) {
         results.push({ instance: inst, pendingCount: pending.length, totalCount: assignees.length })
       }

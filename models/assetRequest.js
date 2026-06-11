@@ -27,13 +27,16 @@ export class AssetRequest extends BaseModel {
   @Property({ type: String, uuid: true, required: true }) id = ''
   @Property({ type: String, required: true }) supplierId = ''
   @Property({ type: String, required: true }) companyId = ''
-  @Property({ type: String, required: true }) requestTypeId = ''
+  // Phase C: per-item type lives on asset_request_items; parent
+  // bundles intentionally leave requestTypeId null. Same for dueDate
+  // — admin can omit on create.
+  @Property({ type: String }) requestTypeId = null
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) description = ''
-  @Property({ type: DateTime, required: true }) dueDate = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) dueDate = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) expiryDate = /** @type {DateTime} */ (null)
   @Property({ type: String }) statusId = 'PENDING'
-  @Property({ type: String, required: true }) createdBy = ''
+  @Property({ type: String }) createdBy = null
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)

@@ -32,10 +32,23 @@ export async function bootstrapAll(signal) {
 
   const results = await Promise.allSettled(allMetas.map((meta) => bootstrapModel(meta, signal)))
 
-  const failed = allMetas
-    .filter((_, i) => results[i].status === 'rejected')
-    .map((meta) => meta.modelName)
+  const failures = allMetas
+    .map((meta, i) => ({ meta, result: results[i] }))
+    .filter(({ result }) => result.status === 'rejected')
 
+  // Surface every failing model + its error in the browser console.
+  // Silent allSettled() previously made schema-drift (e.g. server doesn't
+  // know a field we added; PostGraphile hasn't re-introspected) look
+  // like "FE just shows nothing". Now you can grep the console.
+  for (const { meta, result } of failures) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[syncEngine bootstrap] ${meta.modelName} failed:`,
+      result.reason?.message || result.reason,
+    )
+  }
+
+  const failed = failures.map(({ meta }) => meta.modelName)
   syncBus.emit({ type: 'bootstrapComplete', ...(failed.length > 0 ? { failed } : {}) })
 
   for (const modelName of failed) {

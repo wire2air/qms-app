@@ -16,6 +16,7 @@ import { WorkflowVersion } from './workflowVersion'
 import { WorkflowVersionStatus } from './workflowVersionStatus'
 import { Asset } from './asset'
 import { AssetRequest } from './assetRequest'
+import { AssetRequestItem } from './assetRequestItem'
 import { AssetRequestOnContact } from './assetRequestOnContact'
 import { AssetRequestStatus } from './assetRequestStatus'
 import { AssetRequestType } from './assetRequestType'
@@ -57,6 +58,7 @@ import { Site } from './site'
 import { SiteOnTemplate } from './siteOnTemplate'
 import { Supplier } from './supplier'
 import { SupplierAsset } from './supplierAsset'
+import { SupplierCertificateType } from './supplierCertificateType'
 import { SupplierContact } from './supplierContact'
 import { SupplierDocument } from './supplierDocument'
 import { SupplierOnSite } from './supplierOnSite'
@@ -77,6 +79,7 @@ import { NcStatus } from './ncStatus'
 import { NcType } from './ncType'
 import { NcSeverity } from './ncSeverity'
 import { NcSource } from './ncSource'
+import { NcIssueType } from './ncIssueType'
 import { NcDispositionType } from './ncDispositionType'
 import { NcRootCauseCategory } from './ncRootCauseCategory'
 import { NcRecord } from './ncRecord'
@@ -91,6 +94,27 @@ import { CapaEffectivenessCheck } from './capaEffectivenessCheck'
 import { CapaEffectivenessCheckStatus } from './capaEffectivenessCheckStatus'
 import { RcaTemplate } from './rcaTemplate'
 import { RiskAssessmentTemplate } from './riskAssessmentTemplate'
+import { RootCauseCategory } from './rootCauseCategory'
+import { RootCause } from './rootCause'
+import { HazardCategory } from './hazardCategory'
+import { RiskAssessment } from './riskAssessment'
+// Audit Management (Phase A foundation)
+import { AuditStandardType } from './auditStandardType'
+import { AuditFindingCategory } from './auditFindingCategory'
+import { AuditStandard } from './auditStandard'
+import { AuditStandardVersion } from './auditStandardVersion'
+import { AuditRequirement } from './auditRequirement'
+import { AuditProgram } from './auditProgram'
+import { AuditProgramAuditor } from './auditProgramAuditor'
+import { AuditInstance } from './auditInstance'
+import { AuditTeamMember } from './auditTeamMember'
+import { AuditRequirementResponse } from './auditRequirementResponse'
+import { AuditRecord } from './auditRecord'
+import { AuditFinding } from './auditFinding'
+import { AuditEvidence } from './auditEvidence'
+import { AuditEvidenceLink } from './auditEvidenceLink'
+import { AuditDocumentRequest } from './auditDocumentRequest'
+import { AuditCounter } from './auditCounter'
 import { Training } from './training'
 import { TrainingInstance } from './trainingInstance'
 import { TrainingAssignee } from './trainingAssignee'
@@ -100,6 +124,27 @@ import { TrainingExternalLink } from './trainingExternalLink'
 import { TrainingDocumentLink } from './trainingDocumentLink'
 import { TrainingMatrix } from './trainingMatrix'
 import { TrainingVerification } from './trainingVerification'
+import { InformationRequest } from './informationRequest'
+import { ChangeRequest } from './changeRequest'
+import { ChangeRequestStatus } from './changeRequestStatus'
+import { ChangeRequestPriority } from './changeRequestPriority'
+import { ChangeType } from './changeType'
+import { ChangeRequestLink } from './changeRequestLink'
+import { CrRecord } from './crRecord'
+import { FieldRecord } from './fieldRecord'
+import { FieldRecordRevision } from './fieldRecordRevision'
+import { FieldRecordStatus } from './fieldRecordStatus'
+import { FormAssignment } from './formAssignment'
+import { LogBook } from './logBook'
+import { LogBookVersion } from './logBookVersion'
+import { LogBookType } from './logBookType'
+import { SiteOnLogBook } from './siteOnLogBook'
+import { LogBookDocumentLink } from './logBookDocumentLink'
+import { SharedWithUser } from './sharedWithUser'
+import { Equipment } from './equipment'
+import { FieldRecordFlag } from './fieldRecordFlag'
+import { AssignmentInstance } from './assignmentInstance'
+import { AssignmentInstanceStatus } from './assignmentInstanceStatus'
 // AI sidecar (see backend/ai/README.md, AI_PLAN.md §11). All AI models are
 // grouped here. Existing models stay AI-agnostic.
 import { AiPat } from './aiPat'
@@ -128,6 +173,7 @@ export const db = {
   WorkflowVersionStatus,
   Asset,
   AssetRequest,
+  AssetRequestItem,
   AssetRequestOnContact,
   AssetRequestStatus,
   AssetRequestType,
@@ -169,6 +215,7 @@ export const db = {
   SiteOnTemplate,
   Supplier,
   SupplierAsset,
+  SupplierCertificateType,
   SupplierContact,
   SupplierDocument,
   SupplierOnSite,
@@ -189,6 +236,7 @@ export const db = {
   NcType,
   NcSeverity,
   NcSource,
+  NcIssueType,
   NcDispositionType,
   NcRootCauseCategory,
   NcRecord,
@@ -203,6 +251,27 @@ export const db = {
   CapaEffectivenessCheckStatus,
   RcaTemplate,
   RiskAssessmentTemplate,
+  RootCauseCategory,
+  RootCause,
+  HazardCategory,
+  RiskAssessment,
+  // Audit Management (Phase A foundation)
+  AuditStandardType,
+  AuditFindingCategory,
+  AuditStandard,
+  AuditStandardVersion,
+  AuditRequirement,
+  AuditProgram,
+  AuditProgramAuditor,
+  AuditInstance,
+  AuditTeamMember,
+  AuditRequirementResponse,
+  AuditRecord,
+  AuditFinding,
+  AuditEvidence,
+  AuditEvidenceLink,
+  AuditDocumentRequest,
+  AuditCounter,
   Training,
   TrainingInstance,
   TrainingAssignee,
@@ -212,4 +281,25 @@ export const db = {
   TrainingDocumentLink,
   TrainingMatrix,
   TrainingVerification,
+  InformationRequest,
+  ChangeRequest,
+  ChangeRequestStatus,
+  ChangeRequestPriority,
+  ChangeType,
+  ChangeRequestLink,
+  CrRecord,
+  FieldRecord,
+  FieldRecordRevision,
+  FieldRecordStatus,
+  FormAssignment,
+  LogBook,
+  LogBookVersion,
+  LogBookType,
+  SiteOnLogBook,
+  LogBookDocumentLink,
+  SharedWithUser,
+  Equipment,
+  FieldRecordFlag,
+  AssignmentInstance,
+  AssignmentInstanceStatus,
 }

@@ -3,11 +3,14 @@ import { DateTime } from 'luxon'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
+import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
+import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
+import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
 
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
-const capaWorkflowVersionSelectRef = ref(null)
+const workflowPickerRef = ref(null)
 const saving = ref(false)
 
 const presetNcId = computed(() => {
@@ -19,6 +22,33 @@ const sourceNc = useLiveQueryWithDeps([() => presetNcId.value], async (db, [id])
   if (!id) return null
   return db.Nonconformance.findByPk(id)
 })
+
+// Audit-finding spawn deep link. When the user clicks 'Spawn → New
+// CAPA' on an audit finding, this page opens with ?findingId=<id>.
+// We seed common fields from the finding and link the resulting
+// CAPA back via /v1/services/auditFindings/<id>/link on save.
+// One CAPA can be raised from several failed-requirement findings selected
+// on the audit page: ?findingIds=a,b,c (plural). The legacy single ?findingId
+// is folded in. We seed common fields from the FIRST finding and link ALL of
+// them back on save.
+const presetFindingIds = computed(() => {
+  const single = route.query?.findingId
+  const multi = route.query?.findingIds
+  const ids = []
+  if (typeof single === 'string' && single) ids.push(single)
+  if (typeof multi === 'string' && multi) {
+    ids.push(...multi.split(',').map((s) => s.trim()).filter(Boolean))
+  }
+  return [...new Set(ids)]
+})
+const presetFindingId = computed(() => presetFindingIds.value[0] ?? null)
+const sourceFinding = useLiveQueryWithDeps(
+  [() => presetFindingId.value],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.AuditFinding.findByPk(id)
+  },
+)
 
 const form = ref({
   title: '',
@@ -38,6 +68,33 @@ const form = ref({
   sourceId: presetNcId.value || null,
   rootCauseCategoryId: null,
   workflowVersionId: null,
+  supplierId: null,
+  // When true, the workflow attached to this CAPA routes every step's
+  // assignee from supplier users (entity.supplierId) instead of the
+  // internal role pool. Requires supplierId. Immutable post-DRAFT.
+  isSupplierFacing: false,
+})
+
+// When the source finding loads, seed source = INTERNAL_AUDIT,
+// sourceId = finding.id (audit findings live in audit_findings, so
+// the source_id FK points at the finding row), title + description
+// from the finding, department + supplier inherited so the CAPA
+// owner doesn't retype context. capa_sources 'INTERNAL_AUDIT' /
+// 'EXTERNAL_AUDIT' are global seeds (see database.sql).
+watch(sourceFinding, (f) => {
+  if (!f) return
+  if (!form.value.title) {
+    form.value.title = `CAPA for Finding ${f.findingNumber || ''}`.trim()
+  }
+  if (!form.value.description) form.value.description = f.description ?? ''
+  if (!form.value.sourceType) form.value.sourceType = 'INTERNAL_AUDIT'
+  if (!form.value.sourceId) form.value.sourceId = f.id
+  if (!form.value.departmentId && f.departmentId) {
+    form.value.departmentId = f.departmentId
+  }
+  if (!form.value.supplierId && f.supplierId) {
+    form.value.supplierId = f.supplierId
+  }
 })
 
 // When the source NC loads, seed the title / site / department / department so
@@ -49,6 +106,14 @@ watch(sourceNc, (nc) => {
   if (!form.value.departmentId) form.value.departmentId = nc.departmentId
   if (!form.value.rootCauseCategoryId && nc.rootCauseCategoryId) {
     form.value.rootCauseCategoryId = nc.rootCauseCategoryId
+  }
+  // Inherit supplier + supplier-facing flag from the source NC so a
+  // supplier NC that spawns a CAPA defaults to the same routing.
+  if (!form.value.supplierId && nc.supplierId) {
+    form.value.supplierId = nc.supplierId
+  }
+  if (nc.isSupplierFacing) {
+    form.value.isSupplierFacing = true
   }
 })
 
@@ -88,6 +153,13 @@ function handleSubmit() {
     toast.notify({ type: 'negative', message: 'Owner is required' })
     return
   }
+  if (form.value.isSupplierFacing && !form.value.supplierId) {
+    toast.notify({
+      type: 'negative',
+      message: 'Pick a supplier before marking this CAPA as supplier-facing.',
+    })
+    return
+  }
   if (!form.value.initiatedAt) {
     toast.notify({ type: 'negative', message: 'Initiated date is required' })
     return
@@ -97,13 +169,32 @@ function handleSubmit() {
     return
   }
 
-  capaWorkflowVersionSelectRef.value.submit()
+  workflowPickerRef.value.submit()
 }
 
 async function handleReviewersConfirmed(reviewers) {
   saving.value = true
   try {
     const response = await post('/v1/services/capas', { ...form.value, reviewers })
+    if (presetFindingIds.value.length && response.capa?.id) {
+      try {
+        // Link every selected finding to the new CAPA (N findings → 1 CAPA).
+        for (const findingId of presetFindingIds.value) {
+          await linkSpawnedToFinding({
+            findingId,
+            kind: 'CAPA',
+            targetId: response.capa.id,
+          })
+        }
+      } catch (linkErr) {
+        toast.notify({
+          type: 'warning',
+          message:
+            linkErr?.message ||
+            "CAPA created, but couldn't link one or more findings — attach manually from the audit page",
+        })
+      }
+    }
     router.push(getCompanyPath(`/capas/${response.capa.id}`))
   } catch (e) {
     toast.notify({ type: 'negative', message: e.message || 'Failed to create CAPA' })
@@ -168,11 +259,12 @@ async function handleReviewersConfirmed(reviewers) {
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
               <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
-              <BaseTextarea
-                v-model="form.description"
-                placeholder="Provide context for the CAPA…"
-                :rows="4"
-              />
+              <div class="create-capa-editor">
+                <BaseRichTextEditor
+                  v-model="form.description"
+                  placeholder="Provide context for the CAPA…"
+                />
+              </div>
             </div>
             <SimilarRecordsPanel
               entityType="Capa"
@@ -247,6 +339,25 @@ async function handleReviewersConfirmed(reviewers) {
               </label>
               <UserSelectMenu v-model="form.ownerId" required />
             </div>
+            <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
+              <label class="tw:text-sm tw:font-medium tw:text-secondary">
+                Supplier
+                <span v-if="form.isSupplierFacing" class="tw:text-red-500">*</span>
+              </label>
+              <SupplierSelectMenu v-model="form.supplierId" :required="form.isSupplierFacing" />
+              <label
+                class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
+              >
+                <BaseCheckbox v-model="form.isSupplierFacing" />
+                <div>
+                  <div class="tw:text-sm tw:text-on-main">Supplier-facing CAPA</div>
+                  <div class="tw:text-[11px] tw:text-secondary">
+                    Workflow steps will be reviewed by users from the selected supplier (you'll
+                    pick the specific reviewer per step at submit). Lockable once submitted.
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -257,9 +368,13 @@ async function handleReviewersConfirmed(reviewers) {
           >
             Workflow
           </div>
-          <CAPAWorkflowVersionSelect
-            ref="capaWorkflowVersionSelectRef"
+          <WorkflowReviewerPickerDialog
+            ref="workflowPickerRef"
             v-model="form.workflowVersionId"
+            :module="CAPA_MODULE"
+            :isSupplierFacing="form.isSupplierFacing"
+            :supplierId="form.supplierId"
+            :ownerId="form.ownerId"
             @submit="handleReviewersConfirmed"
           />
         </div>
@@ -267,3 +382,10 @@ async function handleReviewersConfirmed(reviewers) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.create-capa-editor :deep(.rich-text-editor-content) {
+  max-height: 10rem;
+  overflow-y: auto;
+}
+</style>

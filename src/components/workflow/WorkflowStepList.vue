@@ -43,6 +43,11 @@ function selectStep(step) {
 
 const createStep = useLiveMutation(async (db, { versionId, order, settings, parentStepId }) => {
   const s = settings || {}
+  // formSchema starts empty. The previous auto-seed from the "TASK"
+  // FormTemplate (rich text + file upload) was silently adding a form
+  // to every new step — including APPROVAL steps that shouldn't have
+  // one at all. The Form tab on the step editor still lets authors
+  // explicitly pick or build a schema when they want one.
   const step = db.WorkflowStep.create({
     workflowVersionId: versionId,
     name: `Step ${order}`,
@@ -52,6 +57,7 @@ const createStep = useLiveMutation(async (db, { versionId, order, settings, pare
     slaDays: s.defaultSla ?? null,
     requireComments: s.defaultWorkflowRequireComment ?? false,
     requireEsignature: s.defaultWorkflowRequireSignature ?? false,
+    formSchema: [],
     ...(parentStepId ? { parentStepId } : {}),
   })
   await step.save()
