@@ -33,6 +33,7 @@ import {
   IconChecklist,
   IconClipboardList,
   IconClipboardCheck,
+  IconHeadset,
   IconTool,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
@@ -175,6 +176,12 @@ const navItems = computed(() => {
       to: getCompanyPath('/nonconformances'),
     },
     {
+      label: 'Customer Complaints',
+      permissions: ['customerComplaints:read'],
+      icon: IconHeadset,
+      to: getCompanyPath('/customer-complaints'),
+    },
+    {
       label: 'CAPAs',
       permissions: ['capas:read'],
       icon: IconShield,
@@ -265,6 +272,14 @@ const navItems = computed(() => {
           permissions: ['company:manage'],
           icon: IconAdjustments,
           to: getCompanyPath('/settings'),
+        },
+        {
+          // Deep link straight to the Email Channels tab (Zendesk-style
+          // support addresses) — same ?tab= pattern as NC Dispositions.
+          label: 'Email Channels',
+          permissions: ['customerComplaints:update'],
+          icon: IconHeadset,
+          to: getCompanyPath('/settings?tab=email-channels'),
         },
         {
           label: 'Form Templates',

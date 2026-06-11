@@ -332,6 +332,24 @@ export const ENTITY_LABEL_RESOLVERS = {
       : null
   },
 
+  async CustomerComplaint(id, db) {
+    const e = await db.CustomerComplaint.findByPk(id, { force: true })
+    return e
+      ? {
+          label: e.complaintNumber || e.subject || id,
+          displayType: 'CustomerComplaint',
+          displayId: id,
+        }
+      : null
+  },
+
+  // Conversation messages roll up to their parent complaint in the trail.
+  async CustomerComplaintMessage(id, db) {
+    const e = await db.CustomerComplaintMessage.findByPk(id, { force: true })
+    if (!e) return null
+    return this.CustomerComplaint(e.complaintId, db)
+  },
+
   async User(id, db) {
     const e = await db.User.findByPk(id, { force: true })
     if (!e) return null
