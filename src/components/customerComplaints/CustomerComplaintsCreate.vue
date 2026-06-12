@@ -4,7 +4,6 @@ import { IconPaperclip, IconX } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { uploadFile } from '@/composables/useFileUpload'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { validateCustomerEmail } from '@/utils/customerContactValidation.js'
 
 const router = useRouter()
 const toast = useToast()
@@ -59,11 +58,6 @@ async function handleSubmit() {
     toast.notify({ type: 'negative', message: 'Subject is required' })
     return
   }
-  const emailError = validateCustomerEmail(form.value.customerEmail)
-  if (emailError) {
-    toast.notify({ type: 'negative', message: emailError })
-    return
-  }
   saving.value = true
   try {
     const response = await post('/v1/services/customerComplaints', {
@@ -72,7 +66,7 @@ async function handleSubmit() {
       priorityId: form.value.priorityId,
       sourceId: form.value.sourceId || 'WEB',
       customerName: form.value.customerName || null,
-      customerEmail: form.value.customerEmail.trim() || null,
+      customerEmail: form.value.customerEmail || null,
       customerCompany: form.value.customerCompany || null,
       customerPhone: form.value.customerPhone || null,
       assetIds: pendingAssets.value.map((a) => a.id),
