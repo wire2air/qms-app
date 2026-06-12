@@ -261,6 +261,21 @@ const assignmentInstanceMap = useLiveQueryWithDeps(
   { initial: {} },
 )
 
+// QA Disposition tasks — entityId is the InspectionLot id.
+const inspectionLotMap = useLiveQueryWithDeps(
+  [
+    () =>
+      taskInstances.value.filter((i) => i.entityType === 'InspectionLot').map((i) => i.entityId),
+  ],
+  async (db, [lotIds]) => {
+    const ids = [...new Set(lotIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const lots = await Promise.all(ids.map((id) => db.InspectionLot.findByPk(id)))
+    return Object.fromEntries(lots.filter(Boolean).map((l) => [l.id, l]))
+  },
+  { initial: {} },
+)
+
 // Flagged log entries (entityType 'FieldRecord') — resolve the record →
 // log book for label / type / open-the-entry route.
 const fieldRecordMap = useLiveQueryWithDeps(
@@ -345,6 +360,10 @@ const filteredInstances = computed(() => {
         sv?.standard?.code?.toLowerCase().includes(q)
       )
     }
+    if (instance.entityType === 'InspectionLot') {
+      const lot = inspectionLotMap.value[instance.entityId]
+      return !!lot && lot.lotNumber?.toLowerCase().includes(q)
+    }
     const doc = documentMap.value[instance.entityId]?.doc
     if (!doc) return false
     return doc.title?.toLowerCase().includes(q) || doc.docNumber?.toLowerCase().includes(q)
@@ -379,6 +398,7 @@ const EntityType = {
   FieldRecord: 'Flagged Log',
   AuditInstance: 'Audit',
   AuditStandardVersion: 'Audit Standard',
+  InspectionLot: 'QC Inspection Lot',
 }
 
 const columns = [
@@ -431,6 +451,8 @@ function titleFor(row) {
       )
     case 'AuditStandardVersion':
       return auditStandardVersionMap.value[row.entityId]?.standard?.name || ''
+    case 'InspectionLot':
+      return inspectionLotMap.value[row.entityId]?.lotNumber || ''
     default:
       return getDocument(row)?.title || ''
   }
@@ -574,6 +596,9 @@ function entityRoute(row) {
     const standardId = auditStandardVersionMap.value[row.entityId]?.standard?.id
     return standardId ? getCompanyPath(`audits/standards/${standardId}`) : null
   }
+  if (row.entityType === 'InspectionLot') {
+    return getCompanyPath(`qc-inspection/lots/${row.entityId}`)
+  }
   return null
 }
 
@@ -603,6 +628,8 @@ function rowTitle(row) {
       return auditInstanceMap.value[row.entityId]?.standard?.name || 'Audit'
     case 'AuditStandardVersion':
       return auditStandardVersionMap.value[row.entityId]?.standard?.name || 'Audit Standard'
+    case 'InspectionLot':
+      return inspectionLotMap.value[row.entityId]?.lotNumber || 'Inspection Lot'
     default:
       return getDocument(row)?.title || '—'
   }
@@ -628,6 +655,10 @@ function rowSubtitle(row) {
     case 'AuditStandardVersion': {
       const v = auditStandardVersionMap.value[row.entityId]?.version
       return v ? `v${v.versionMajor}.${v.versionMinor}` : ''
+    }
+    case 'InspectionLot': {
+      const lot = inspectionLotMap.value[row.entityId]
+      return lot?.inspectionPoint || ''
     }
     default:
       return ''
@@ -801,6 +832,14 @@ defineExpose({ exportCsv })
             }}
           </span>
         </template>
+        <template v-else-if="row.entityType === 'InspectionLot'">
+          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+            {{ inspectionLotMap[row.entityId]?.lotNumber || 'Inspection Lot' }}
+          </span>
+          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+            {{ inspectionLotMap[row.entityId]?.inspectionPoint || '—' }}
+          </span>
+        </template>
         <template v-else>
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
             {{ getDocument(row)?.title || '—' }}
@@ -876,6 +915,9 @@ defineExpose({ exportCsv })
       </span>
       <span v-else-if="row.entityType === 'AuditStandardVersion'" class="tw:text-sm tw:text-on-main">
         Standard Approval
+      </span>
+      <span v-else-if="row.entityType === 'InspectionLot'" class="tw:text-sm tw:text-on-main">
+        QA Disposition
       </span>
       <span v-else class="tw:text-sm tw:text-secondary">—</span>
     </template>

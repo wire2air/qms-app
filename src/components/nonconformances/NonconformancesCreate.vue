@@ -61,6 +61,9 @@ const form = ref({
   qtyAffected: null,
   unitOfMeasure: '',
   workflowVersionId: null,
+  // Groups emailed when the NC is raised and when it closes. Email-only —
+  // no tasks, no access granted (unlike workflow step assignment).
+  notifyGroupIds: [],
 })
 
 // When the source finding loads, seed the title / description /
@@ -353,6 +356,24 @@ async function handleReviewersConfirmed(reviewers) {
               <label class="tw:text-sm tw:font-medium tw:text-secondary">Lot #</label>
               <BaseTextInput v-model="form.lotNumber" placeholder="Material / production lot" />
             </div>
+          </div>
+        </div>
+
+        <!-- Notifications — email-only group fan-out on raise + close -->
+        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+          <div
+            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          >
+            Notifications
+            <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
+          </div>
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <label class="tw:text-sm tw:font-medium tw:text-secondary">Notification groups</label>
+            <GroupSelectMenu v-model="form.notifyGroupIds" multiple class="tw:w-full" />
+            <p class="tw:text-xs tw:text-secondary tw:mt-1">
+              Members are emailed when this NC is raised and when it closes. Email only — no tasks
+              are created and no access is granted.
+            </p>
           </div>
         </div>
 

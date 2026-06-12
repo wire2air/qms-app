@@ -24,6 +24,7 @@ export class InspectionResult extends BaseModel {
   @Property({ type: String }) valueText = /** @type {String} */ (null)
   @Property({ type: Boolean }) valueBool = /** @type {Boolean} */ (null)
   @Property({ type: Array }) attachments = /** @type {Array} */ ([])
+  @Property({ type: String }) equipmentId = /** @type {String} */ (null)
   @Property({ type: String }) outcome = /** @type {String} */ (null)
   @Property({ type: String }) recordedBy = /** @type {String} */ (null)
   @Property({ type: DateTime }) recordedAt = null

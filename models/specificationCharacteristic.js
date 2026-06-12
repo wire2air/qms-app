@@ -25,6 +25,8 @@ export class SpecificationCharacteristic extends BaseModel {
   @Property({ type: Number }) usl = /** @type {Number} */ (null)
   @Property({ type: String }) uom = /** @type {String} */ (null)
   @Property({ type: Boolean }) isCritical = false
+  @Property({ type: Boolean }) requiresInstrument = false
+  @Property({ type: String }) testMethod = /** @type {String} */ (null)
   @Property({ type: Number }) sortOrder = 0
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })

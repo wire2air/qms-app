@@ -1,8 +1,9 @@
 <script setup>
 /**
  * QC Inspection landing — tabbed workspace for the operational quality layer:
- * Inspection Lots (execution) + Specifications (test master). Inspection Plans
- * (binding spec+sampling onto templates) is a later tab.
+ * Inspection Lots (execution), Specifications (test master), Inspection Plans
+ * (the product+point → spec/sampling/workflow resolution table), Sampling
+ * Plans and AQL Standards.
  */
 import { IconTestPipe } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
@@ -12,6 +13,7 @@ const route = useRoute()
 const tabs = [
   { id: 'lots', label: 'Inspection Lots' },
   { id: 'specifications', label: 'Specifications' },
+  { id: 'inspection-plans', label: 'Inspection Plans' },
   { id: 'sampling-plans', label: 'Sampling Plans' },
   { id: 'aql-standards', label: 'AQL Standards' },
 ]
@@ -28,6 +30,7 @@ const canManageSpecs = computed(() => isAllowed(['qcInspection:spec:write']))
 const canCreateLots = computed(() => isAllowed(['qcInspection:lot:create']))
 const canManagePlans = computed(() => isAllowed(['qcInspection:plan:create']))
 const canManageStandards = computed(() => isAllowed(['qcInspection:standards:write']))
+const canManageTemplates = computed(() => isAllowed(['qcInspection:template:write']))
 </script>
 
 <template>
@@ -66,6 +69,7 @@ const canManageStandards = computed(() => isAllowed(['qcInspection:standards:wri
 
       <InspectionLotsList v-if="activeTab === 'lots'" :canCreate="canCreateLots" />
       <SpecificationsList v-else-if="activeTab === 'specifications'" :canManage="canManageSpecs" />
+      <InspectionPlansList v-else-if="activeTab === 'inspection-plans'" :canManage="canManageTemplates" />
       <SamplingPlansList v-else-if="activeTab === 'sampling-plans'" :canManage="canManagePlans" />
       <AqlStandardsList v-else-if="activeTab === 'aql-standards'" :canManage="canManageStandards" />
     </div>

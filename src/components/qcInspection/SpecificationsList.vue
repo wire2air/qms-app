@@ -53,6 +53,7 @@ const specs = useLiveQueryWithDeps(
   [() => dateFrom.value, () => dateTo.value],
   async (db, [from, to]) => {
     let rows = await db.Specification.where().exec()
+    rows = rows.filter((s) => s.statusId !== 'SUPERSEDED')
     if (from || to) rows = rows.filter((s) => dateInRange(s.createdAt, from, to))
     return rows.sort((a, b) => (a.name || '').localeCompare(b.name || '') || b.version - a.version)
   },

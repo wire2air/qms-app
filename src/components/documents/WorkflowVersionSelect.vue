@@ -64,10 +64,17 @@ function stepCount(versionId) {
   return steps.value.filter((s) => s.workflowVersionId === versionId).length
 }
 
+// Auto-select: the module's default workflow wins; a single available
+// workflow is the implicit default. Reduces friction — most tenants have
+// one blessed flow per module and shouldn't have to pick it every time.
 watch(
   activeWorkflows,
   (entries) => {
-    if (!selectedVersionId.value && entries.length === 1) {
+    if (selectedVersionId.value || !entries.length) return
+    const def = entries.find((e) => e.workflow.isDefault)
+    if (def) {
+      selectedVersionId.value = def.version.id
+    } else if (entries.length === 1) {
       selectedVersionId.value = entries[0].version.id
     }
   },
@@ -128,6 +135,12 @@ function versionLabel(version) {
               :class="{ 'tw:text-primary': selectedVersionId === entry.version.id }"
             >
               {{ entry.workflow.name }}
+              <span
+                v-if="entry.workflow.isDefault"
+                class="tw:ml-1 tw:text-[10px] tw:font-semibold tw:px-1.5 tw:py-0.5 tw:rounded tw:bg-primary/10 tw:text-primary tw:align-middle"
+              >
+                Default
+              </span>
             </p>
             <p
               v-if="entry.workflow.description"

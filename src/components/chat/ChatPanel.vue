@@ -1,9 +1,10 @@
 <script setup>
-import { useEventListener } from '@vueuse/core'
+import { useEventListener, onClickOutside } from '@vueuse/core'
 import {
   IconX,
   IconSparkles,
-  IconLayoutSidebar,
+  IconHistory,
+  IconPlus,
   IconAlertTriangle,
   IconFileText,
 } from '@tabler/icons-vue'
@@ -43,7 +44,13 @@ watch(chat.threadId, (id) => {
   if (id !== panel.activeThreadId.value) panel.selectThread(id)
 })
 
-const showThreadList = ref(true)
+// Chat history lives in a header dropdown (not a persistent rail) so the
+// conversation gets the full panel width.
+const showHistory = ref(false)
+const historyRef = ref(null)
+onClickOutside(historyRef, () => {
+  showHistory.value = false
+})
 
 // Surface the entity context (either pending — about to be attached to next
 // new thread — or already saved on the active thread).
@@ -66,11 +73,13 @@ function handleCancel() {
 function handleSelectThread(id) {
   if (chat.isStreaming.value) chat.cancel?.()
   panel.selectThread(id)
+  showHistory.value = false
 }
 
 function handleNewChat() {
   if (chat.isStreaming.value) chat.cancel?.()
   panel.startNew()
+  showHistory.value = false
 }
 
 async function handleDeleteThread(thread) {
@@ -120,13 +129,6 @@ watch(
         <header
           class="tw:flex! tw:flex-none tw:items-center tw:gap-2 tw:px-4 tw:py-3 tw:border-b tw:border-divider tw:bg-sidebar"
         >
-          <button
-            class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
-            :title="showThreadList ? 'Hide threads' : 'Show threads'"
-            @click="showThreadList = !showThreadList"
-          >
-            <IconLayoutSidebar :size="18" />
-          </button>
           <IconSparkles :size="18" class="tw:text-primary" />
           <div class="tw:flex-1 tw:min-w-0">
             <div class="tw:text-sm tw:font-bold tw:text-on-main tw:truncate">
@@ -134,6 +136,42 @@ watch(
             </div>
             <div class="tw:text-xs tw:text-secondary">Ask anything about your QMS data</div>
           </div>
+
+          <!-- Chat history dropdown -->
+          <div ref="historyRef" class="tw:relative">
+            <button
+              class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
+              :class="showHistory ? 'tw:bg-main-hover tw:text-on-main' : ''"
+              title="Chat history"
+              @click="showHistory = !showHistory"
+            >
+              <IconHistory :size="18" />
+            </button>
+            <div
+              v-if="showHistory"
+              class="tw:absolute tw:right-0 tw:top-full tw:mt-2 tw:w-80 tw:max-h-96 tw:overflow-hidden tw:flex tw:flex-col tw:bg-main tw:border tw:border-divider tw:rounded-xl tw:shadow-xl tw:z-50"
+            >
+              <div class="tw:px-3 tw:py-2 tw:border-b tw:border-divider tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">
+                Chat history
+              </div>
+              <div class="tw:flex-1 tw:overflow-y-auto">
+                <ChatThreadList
+                  :activeThreadId="panel.activeThreadId.value"
+                  @select="handleSelectThread"
+                  @delete="handleDeleteThread"
+                />
+              </div>
+            </div>
+          </div>
+
+          <button
+            class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
+            title="New chat"
+            @click="handleNewChat"
+          >
+            <IconPlus :size="18" />
+          </button>
+
           <button
             class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
             title="Close (Cmd-K)"
@@ -158,20 +196,7 @@ watch(
 
         <!-- Body -->
         <div class="tw:flex tw:flex-1 tw:min-h-0 tw:overflow-hidden">
-          <!-- Thread list rail -->
-          <div
-            v-if="showThreadList"
-            class="tw:w-72 tw:border-r tw:border-divider tw:bg-sidebar/40 tw:flex-none tw:overflow-y-auto"
-          >
-            <ChatThreadList
-              :activeThreadId="panel.activeThreadId.value"
-              @select="handleSelectThread"
-              @new="handleNewChat"
-              @delete="handleDeleteThread"
-            />
-          </div>
-
-          <!-- Conversation -->
+          <!-- Conversation (full width — history lives in the header dropdown) -->
           <div class="tw:flex tw:flex-col tw:flex-1 tw:min-w-0 tw:overflow-hidden">
             <!-- Messages -->
             <div

@@ -44,6 +44,7 @@ export class Nonconformance extends BaseModel {
   // supplierId) instead of the internal role pool. Immutable once
   // submitted; backend enforces.
   @Property({ type: Boolean }) isSupplierFacing = false
+  @Property({ type: Array }) notifyGroupIds = /** @type {Array} */ ([])
   // Top-section classification (added 2026-05-29). Independent of the
   // existing typeId — issue-type captures the discovery dimension
   // (out-of-spec / receiving / missing standard), typeId stays the

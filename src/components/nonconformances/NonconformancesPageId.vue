@@ -262,6 +262,68 @@ const dispositionTracksCost = computed(
   () => !!selectedDispositionType.value?.tracksCost,
 )
 
+const toast = useToast()
+
+// ─── Supplier-facing toggle (DRAFT only) ─────────────────────────────────────
+// The flag decides which user pool non-approval workflow steps draw from,
+// so it's only changeable while DRAFT (no workflow instance exists yet —
+// controllers reject changes after that). Flipping it resets the draft
+// step-assignee plan (pendingReviewers): those picks came from the other
+// pool. The NC row update lands in the audit log via the audit trigger.
+const audienceModel = computed({
+  get: () => (nc.value?.isSupplierFacing ? 'SUPPLIER' : 'INTERNAL'),
+  set: (v) => {
+    if (!nc.value) return
+    const wantSupplier = v === 'SUPPLIER'
+    if (wantSupplier === !!nc.value.isSupplierFacing) return
+    if (wantSupplier && !nc.value.supplierId) {
+      toast.error('Select a supplier first — a supplier-facing NC needs one.')
+      return
+    }
+    nc.value.isSupplierFacing = wantSupplier
+    nc.value.pendingReviewers = {}
+  },
+})
+
+// ─── Convert OPEN NC → supplier-facing ───────────────────────────────────────
+// Investigation on an internal NC concluded it's the supplier's problem.
+// Everything entered is retained; the backend re-points every unfinished
+// non-approval workflow step at the supplier's default user (old
+// assignments parked as REASSIGNED — step history keeps who held them).
+const showConvertDialog = ref(false)
+const convertSupplierId = ref(null)
+const converting = ref(false)
+const canConvertToSupplier = computed(
+  () =>
+    nc.value &&
+    !nc.value.isSupplierFacing &&
+    nc.value.statusId === 'UNDER_REVIEW' &&
+    isOwner.value,
+)
+function openConvertDialog() {
+  convertSupplierId.value = nc.value?.supplierId ?? null
+  showConvertDialog.value = true
+}
+async function confirmConvert() {
+  if (converting.value) return
+  if (!convertSupplierId.value) {
+    toast.error('Select the supplier this NC belongs to.')
+    return
+  }
+  converting.value = true
+  try {
+    await post(`/v1/services/nonconformances/${props.id}/convertSupplierFacing`, {
+      supplierId: convertSupplierId.value,
+    })
+    toast.success('NC converted to supplier-facing — open steps reassigned to the supplier')
+    showConvertDialog.value = false
+  } catch (err) {
+    toast.error(err?.message || 'Conversion failed')
+  } finally {
+    converting.value = false
+  }
+}
+
 // ─── Inline-edit for overview fields ──────────────────────────────────────────
 const editingTitle = ref(false)
 const editingDescription = ref(false)
@@ -312,6 +374,19 @@ const auditIncludeEntities = computed(() => [
   { entityType: 'WorkflowInstances', entityIds: allNcWorkflowInstanceIds.value },
   { entityType: 'WorkflowInstanceSteps', entityIds: allNcWorkflowInstanceStepIds.value },
 ])
+
+// ─── QC origin ────────────────────────────────────────────────────────────────
+// A rejected inspection lot auto-creates this NC and stamps its id on
+// inspection_lots.nc_id. Reverse-resolve the source lot so the NC owner can
+// jump back to the inspection evidence. Lots are few; a scan is fine.
+const sourceLot = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [ncId]) => {
+    if (!ncId) return null
+    const lots = await db.InspectionLot.where().exec()
+    return lots.find((l) => l.ncId === ncId) ?? null
+  },
+)
 
 // ─── Linked CAPAs ─────────────────────────────────────────────────────────────
 const canCreateCapa = computed(() => isAllowed(['capas:create']))
@@ -400,8 +475,26 @@ function onCreateLinkedChangeRequest() {
 
     <div v-else-if="nc" class="tw:overflow-y-auto tw:flex-1">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+        <!-- QC inspection origin — this NC was auto-raised by a rejected lot -->
+        <div
+          v-if="sourceLot"
+          class="tw:bg-blue-50 tw:border tw:border-blue-200 tw:rounded-lg tw:px-4 tw:py-2.5 tw:text-sm tw:flex tw:items-center tw:gap-2 tw:flex-wrap"
+        >
+          <span class="tw:text-blue-900">
+            Raised from rejected QC inspection lot
+            <span class="tw:font-mono tw:font-semibold">{{ sourceLot.lotNumber }}</span>
+            ({{ sourceLot.inspectionPoint }})
+          </span>
+          <RouterLink
+            :to="getCompanyPath(`/qc-inspection/lots/${sourceLot.id}`)"
+            class="tw:text-blue-700 tw:font-medium tw:underline"
+          >
+            View inspection results
+          </RouterLink>
+        </div>
+
         <!-- 2-column layout -->
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_280px] tw:gap-4 tw:items-start">
+        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_25fr] tw:gap-4 tw:items-start">
           <!-- Left column -->
           <div class="tw:flex tw:flex-col tw:gap-4">
             <!-- NC Details card -->
@@ -780,8 +873,13 @@ function onCreateLinkedChangeRequest() {
             <!-- External access — read-only panel populated by workflow-
                  step assignment (autoShareSupplierUsers). Product decision
                  (2026-05-29): supplier visibility on NCs is workflow-
-                 driven, not manual. See SharedWithPanel.vue. -->
-            <SharedWithPanel entityType="Nonconformance" :entityId="id" />
+                 driven, not manual. Only meaningful on supplier-facing
+                 NCs — internal NCs never share externally. -->
+            <SharedWithPanel
+              v-if="nc.isSupplierFacing"
+              entityType="Nonconformance"
+              :entityId="id"
+            />
 
             <!-- Overview side card. Grouped into subsections with quiet
                  dividers so the right rail stays scannable as it grows:
@@ -821,29 +919,49 @@ function onCreateLinkedChangeRequest() {
 
               <!-- People & Location -->
               <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Owner</span>
-                  <UserBadgeById v-if="nc.ownerId" :userId="nc.ownerId" />
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2">
+                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Owner</span>
+                  <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
+                    <UserSelectMenu v-model="nc.ownerId" :required="true" />
+                  </div>
+                  <UserBadgeById v-else-if="nc.ownerId" :userId="nc.ownerId" />
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Site</span>
-                  <SiteBadgeById v-if="nc.siteId" :siteId="nc.siteId" />
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2">
+                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Site</span>
+                  <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
+                    <SiteSelectMenu v-model="nc.siteId" :required="true" />
+                  </div>
+                  <SiteBadgeById v-else-if="nc.siteId" :siteId="nc.siteId" />
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Department</span>
-                  <DepartmentBadgeById v-if="nc.departmentId" :departmentId="nc.departmentId" />
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2">
+                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Department</span>
+                  <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
+                    <DepartmentSelectMenu v-model="nc.departmentId" :required="true" />
+                  </div>
+                  <DepartmentBadgeById v-else-if="nc.departmentId" :departmentId="nc.departmentId" />
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
               </div>
 
               <!-- Classification -->
               <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Priority</span>
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2">
+                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Priority</span>
+                  <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
+                    <BaseInlineSelect
+                      v-model="nc.priorityId"
+                      :items="[
+                        { id: 'LOW', name: 'Low' },
+                        { id: 'MEDIUM', name: 'Medium' },
+                        { id: 'HIGH', name: 'High' },
+                        { id: 'CRITICAL', name: 'Critical' },
+                      ]"
+                    />
+                  </div>
                   <span
-                    v-if="nc.priorityId"
+                    v-else-if="nc.priorityId"
                     class="tw:inline-flex tw:items-center tw:text-xs tw:font-semibold tw:rounded tw:px-2 tw:py-0.5"
                     :class="{
                       'tw:bg-emerald-100 tw:text-emerald-700': nc.priorityId === 'LOW',
@@ -856,10 +974,13 @@ function onCreateLinkedChangeRequest() {
                   </span>
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Issue type</span>
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2">
+                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Issue type</span>
+                  <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
+                    <NcIssueTypeSelectMenu v-model="nc.ncIssueTypeId" />
+                  </div>
                   <NcIssueTypeBadgeById
-                    v-if="nc.ncIssueTypeId"
+                    v-else-if="nc.ncIssueTypeId"
                     :issueTypeId="nc.ncIssueTypeId"
                   />
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
@@ -891,57 +1012,116 @@ function onCreateLinkedChangeRequest() {
                 </div>
               </div>
 
-              <!-- Source / Commerce -->
+              <!-- Source / Commerce. Editable rows always render so a
+                   missing value (e.g. PO# on a lot-spawned NC) can be
+                   ADDED — read-only mode keeps hiding empties. -->
               <div
                 v-if="
-                  nc.supplierId || nc.productId || nc.qtyAffected ||
+                  isEditable || nc.supplierId || nc.productId || nc.qtyAffected ||
                   nc.poNumber || nc.orderNumber || nc.lotNumber
                 "
                 class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col"
               >
                 <div
-                  v-if="nc.supplierId"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                  v-if="isEditable || nc.supplierId"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
                 >
-                  <span class="tw:text-xs tw:text-secondary">Supplier</span>
-                  <SupplierBadgeById :supplierId="nc.supplierId" />
+                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Supplier</span>
+                  <div
+                    v-if="isEditable && nc.statusId === 'DRAFT'"
+                    class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end"
+                  >
+                    <SupplierSelectMenu v-model="nc.supplierId" />
+                  </div>
+                  <SupplierBadgeById v-else-if="nc.supplierId" :supplierId="nc.supplierId" />
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
+                </div>
+                <!-- Supplier facing — free toggle while DRAFT; once OPEN,
+                     the owner can still CONVERT internal → supplier-facing
+                     (guided dialog; reassigns open steps to the supplier
+                     with full step history). -->
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2">
+                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Supplier facing</span>
+                  <div
+                    v-if="isEditable && nc.statusId === 'DRAFT'"
+                    class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end"
+                  >
+                    <BaseInlineSelect
+                      v-model="audienceModel"
+                      :items="[
+                        { id: 'INTERNAL', name: 'No — internal' },
+                        { id: 'SUPPLIER', name: 'Yes — supplier facing' },
+                      ]"
+                      :required="true"
+                    />
+                  </div>
+                  <div v-else class="tw:flex tw:items-center tw:gap-2">
+                    <span
+                      class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5"
+                      :class="nc.isSupplierFacing
+                        ? 'tw:bg-violet-100 tw:text-violet-700'
+                        : 'tw:bg-gray-100 tw:text-secondary'"
+                    >
+                      {{ nc.isSupplierFacing ? 'Supplier-facing' : 'Internal' }}
+                    </span>
+                    <button
+                      v-if="canConvertToSupplier"
+                      class="tw:text-[11px] tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+                      @click="openConvertDialog"
+                    >
+                      Convert…
+                    </button>
+                  </div>
                 </div>
                 <div
-                  v-if="nc.productId"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                  v-if="isEditable || nc.productId"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
                 >
-                  <span class="tw:text-xs tw:text-secondary">Product</span>
-                  <ProductBadgeById :productId="nc.productId" />
+                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Product</span>
+                  <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
+                    <ProductSelectMenu v-model="nc.productId" :allowCreate="false" />
+                  </div>
+                  <div v-else-if="nc.productId" class="tw:min-w-0 tw:flex tw:justify-end">
+                    <ProductBadgeById :productId="nc.productId" />
+                  </div>
+                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
                 <div
-                  v-if="nc.qtyAffected"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                  v-if="isEditable || nc.qtyAffected"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
                 >
-                  <span class="tw:text-xs tw:text-secondary">Qty affected</span>
-                  <span class="tw:text-sm tw:font-medium">
+                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Qty affected</span>
+                  <div v-if="isEditable" class="tw:flex tw:gap-1 tw:w-48">
+                    <BaseTextInput v-model.number="nc.qtyAffected" type="number" size="sm" class="tw:flex-1" />
+                    <BaseTextInput v-model="nc.unitOfMeasure" size="sm" placeholder="UOM" class="tw:w-16" />
+                  </div>
+                  <span v-else class="tw:text-sm tw:font-medium">
                     {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
                   </span>
                 </div>
                 <div
-                  v-if="nc.poNumber"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                  v-if="isEditable || nc.poNumber"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
                 >
-                  <span class="tw:text-xs tw:text-secondary">PO #</span>
-                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.poNumber }}</span>
+                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">PO #</span>
+                  <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" class="tw:w-48" />
+                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.poNumber }}</span>
                 </div>
                 <div
-                  v-if="nc.orderNumber"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                  v-if="isEditable || nc.orderNumber"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
                 >
-                  <span class="tw:text-xs tw:text-secondary">Order #</span>
-                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.orderNumber }}</span>
+                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Order #</span>
+                  <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" class="tw:w-48" />
+                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.orderNumber }}</span>
                 </div>
                 <div
-                  v-if="nc.lotNumber"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                  v-if="isEditable || nc.lotNumber"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
                 >
-                  <span class="tw:text-xs tw:text-secondary">Lot #</span>
-                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.lotNumber }}</span>
+                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Lot #</span>
+                  <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" class="tw:w-48" />
+                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.lotNumber }}</span>
                 </div>
               </div>
 
@@ -1141,6 +1321,43 @@ function onCreateLinkedChangeRequest() {
         </BaseButton>
         <BaseButton variant="danger" :disabled="deleting" @click="handleDeleteDraft">
           {{ deleting ? 'Deleting…' : 'Delete' }}
+        </BaseButton>
+      </div>
+    </BaseDialog>
+
+    <!-- Convert OPEN internal NC → supplier-facing -->
+    <BaseDialog v-model="showConvertDialog" title="Convert to Supplier-Facing NC" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3">
+        <p class="tw:text-sm tw:text-on-main">
+          Investigation points at a supplier? Converting keeps everything already
+          entered on this NC and re-routes the remaining workflow to the supplier:
+        </p>
+        <ul class="tw:text-xs tw:text-secondary tw:list-disc tw:pl-5 tw:space-y-1">
+          <li>Completed steps and their history are untouched.</li>
+          <li>
+            Open and upcoming non-approval steps are reassigned to the supplier's
+            portal user — previous assignees stay visible in step history as
+            <span class="tw:font-semibold">Reassigned</span>.
+          </li>
+          <li>Final approval steps remain internal.</li>
+          <li>The NC stays open; nothing restarts.</li>
+        </ul>
+        <div>
+          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
+            Supplier <span class="tw:text-bad">*</span>
+          </label>
+          <SupplierSelectMenu v-model="convertSupplierId" class="tw:w-full" />
+          <p class="tw:text-xs tw:text-secondary tw:mt-1">
+            The supplier needs at least one active portal user.
+          </p>
+        </div>
+      </div>
+      <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-4 tw:mt-2 tw:border-t tw:border-divider">
+        <BaseButton variant="outline" :disabled="converting" @click="showConvertDialog = false">
+          Cancel
+        </BaseButton>
+        <BaseButton :loading="converting" :disabled="!convertSupplierId" @click="confirmConvert">
+          Convert &amp; reassign
         </BaseButton>
       </div>
     </BaseDialog>

@@ -1,18 +1,24 @@
 <script setup>
 /**
- * Create a STANDARD sampling plan: standard (global or custom clone) + inspection
- * level + severity→AQL rows, with a live preview of the resulting sample size /
- * accept-reject. Aggregate write through the qcInspection REST service.
+ * Create or edit a STANDARD sampling plan: standard (global or custom clone) +
+ * inspection level + severity→AQL rows, with a live preview of the resulting
+ * sample size / accept-reject. Aggregate write through the qcInspection REST
+ * service. Pass `editPlan` to pre-populate and PATCH instead of POST.
  */
 import { IconPlus, IconTrash } from '@tabler/icons-vue'
-import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 
-const emit = defineEmits(['created'])
+const props = defineProps({
+  editPlan: { type: Object, default: null },
+})
+const emit = defineEmits(['created', 'updated'])
 const show = defineModel({ type: Boolean, default: false })
 const toast = useToast()
 const saving = ref(false)
 const preview = ref(null)
 const previewing = ref(false)
+
+const isEdit = computed(() => Boolean(props.editPlan))
 
 const POINTS = [
   { id: 'INCOMING', name: 'Incoming (IQC)' },
@@ -29,24 +35,42 @@ const standardItems = computed(() =>
 )
 
 const form = ref(null)
-function reset() {
-  form.value = {
-    name: '',
-    scope: 'product',
-    productId: null,
-    productTypeId: null,
-    inspectionPoint: 'INCOMING',
-    standardCode: null,
-    inspectionLevel: 'II',
-    severityAqls: [{ severity: 'NORMAL', aql: 2.5 }],
+
+function seedFromPlan(plan) {
+  return {
+    name: plan.name ?? '',
+    scope: plan.productId ? 'product' : 'productType',
+    productId: plan.productId ?? null,
+    productTypeId: plan.productTypeId ?? null,
+    inspectionPoint: plan.inspectionPoint ?? 'INCOMING',
+    standardCode: plan.standardCode ?? null,
+    inspectionLevel: plan.inspectionLevel ?? 'II',
+    severityAqls: Array.isArray(plan.severityAqls) && plan.severityAqls.length
+      ? plan.severityAqls.map((r) => ({ severity: r.severity, aql: r.aql }))
+      : [{ severity: 'NORMAL', aql: 2.5 }],
     previewLotSize: 1000,
   }
+}
+
+function reset() {
+  form.value = props.editPlan
+    ? seedFromPlan(props.editPlan)
+    : {
+        name: '',
+        scope: 'product',
+        productId: null,
+        productTypeId: null,
+        inspectionPoint: 'INCOMING',
+        standardCode: null,
+        inspectionLevel: 'II',
+        severityAqls: [{ severity: 'NORMAL', aql: 2.5 }],
+        previewLotSize: 1000,
+      }
   preview.value = null
 }
 reset()
-watch(show, (v) => {
-  if (v) reset()
-})
+watch(show, (v) => { if (v) reset() })
+watch(() => props.editPlan, (plan) => { if (show.value && plan) reset() })
 
 function addAql() {
   form.value.severityAqls.push({ severity: 'NORMAL', aql: 1.0 })
@@ -86,7 +110,7 @@ async function onSave() {
   saving.value = true
   try {
     const f = form.value
-    const { plan } = await post('/v1/services/qcInspection/samplingPlans', {
+    const body = {
       name: f.name.trim(),
       productId: f.scope === 'product' ? f.productId : null,
       productTypeId: f.scope === 'productType' ? f.productTypeId : null,
@@ -95,12 +119,20 @@ async function onSave() {
       standardCode: f.standardCode,
       inspectionLevel: f.inspectionLevel,
       severityAqls: f.severityAqls,
-    })
-    toast.success('Sampling plan created (draft)')
-    show.value = false
-    emit('created', plan.id)
+    }
+    if (isEdit.value) {
+      const { plan } = await patch(`/v1/services/qcInspection/samplingPlans/${props.editPlan.id}`, body)
+      toast.success('Sampling plan updated')
+      show.value = false
+      emit('updated', plan.id)
+    } else {
+      const { plan } = await post('/v1/services/qcInspection/samplingPlans', body)
+      toast.success('Sampling plan created (draft)')
+      show.value = false
+      emit('created', plan.id)
+    }
   } catch (err) {
-    toast.error(err?.message || 'Failed to create sampling plan')
+    toast.error(err?.message || (isEdit.value ? 'Failed to update sampling plan' : 'Failed to create sampling plan'))
   } finally {
     saving.value = false
   }
@@ -108,7 +140,7 @@ async function onSave() {
 </script>
 
 <template>
-  <BaseDialog v-model="show" title="New Sampling Plan" :persistent="true" size="3xl">
+  <BaseDialog v-model="show" :title="isEdit ? 'Edit Sampling Plan' : 'New Sampling Plan'" :persistent="true" size="3xl">
     <div class="tw:p-5 tw:flex tw:flex-col tw:gap-5">
 
       <!-- ── Basic info ───────────────────────────────────────────────── -->
@@ -132,7 +164,6 @@ async function onSave() {
             />
           </div>
         </div>
-        <!-- Product / Product-type on its own row so SKU + name has space -->
         <div>
           <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
             {{ form.scope === 'product' ? 'Product' : 'Product type' }} <span class="tw:text-bad">*</span>
@@ -158,7 +189,6 @@ async function onSave() {
           </div>
         </div>
 
-        <!-- Severity → AQL rows -->
         <div>
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
             <label class="tw:text-sm tw:font-medium">Severity → AQL %</label>
@@ -220,7 +250,9 @@ async function onSave() {
 
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
       <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
-      <BaseButton :disabled="!canSubmit || saving" :loading="saving" @click="onSave">Create draft</BaseButton>
+      <BaseButton :disabled="!canSubmit || saving" :loading="saving" @click="onSave">
+        {{ isEdit ? 'Save changes' : 'Create draft' }}
+      </BaseButton>
     </div>
   </BaseDialog>
 </template>

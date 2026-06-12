@@ -100,6 +100,8 @@ function exportCsv() {
             <th class="tw:text-left tw:px-4 tw:py-2.5">Product</th>
             <th class="tw:text-left tw:px-4 tw:py-2.5">Sample</th>
             <th class="tw:text-left tw:px-4 tw:py-2.5">Status</th>
+            <th class="tw:text-left tw:px-4 tw:py-2.5">Disposition</th>
+            <th class="tw:text-left tw:px-4 tw:py-2.5">NC</th>
           </tr>
         </thead>
         <tbody>
@@ -114,9 +116,27 @@ function exportCsv() {
             <td class="tw:px-4 tw:py-2.5">{{ productName(l.productId) }}</td>
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ l.sampleSize ?? '—' }}<span v-if="l.quantity"> / {{ l.quantity }}</span></td>
             <td class="tw:px-4 tw:py-2.5"><InspectionLotStatusBadgeById :statusId="l.statusId" /></td>
+            <td class="tw:px-4 tw:py-2.5">
+              <span
+                v-if="l.disposition"
+                class="tw:text-[11px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
+                :class="l.disposition === 'RELEASE' ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-red-100 tw:text-red-700'"
+              >{{ l.disposition }}</span>
+              <span v-else class="tw:text-secondary">—</span>
+            </td>
+            <td class="tw:px-4 tw:py-2.5" @click.stop>
+              <RouterLink
+                v-if="l.ncId"
+                :to="getCompanyPath(`/nonconformances/${l.ncId}`)"
+                class="tw:text-[11px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full tw:bg-red-100 tw:text-red-700 tw:hover:bg-red-200"
+              >
+                NC raised
+              </RouterLink>
+              <span v-else class="tw:text-secondary">—</span>
+            </td>
           </tr>
           <tr v-if="!lots.length">
-            <td colspan="5" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">No inspection lots yet.</td>
+            <td colspan="7" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">No inspection lots yet.</td>
           </tr>
         </tbody>
       </table>

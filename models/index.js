@@ -29,6 +29,7 @@ import { SamplingStandard } from './samplingStandard'
 import { SamplingPlanTable } from './samplingPlanTable'
 import { SampleSizeCodeLetter } from './sampleSizeCodeLetter'
 import { SamplingPlan } from './samplingPlan'
+import { QcInspectionTemplate } from './qcInspectionTemplate'
 import { AssetRequestStatus } from './assetRequestStatus'
 import { AssetRequestType } from './assetRequestType'
 import { AuditLog } from './auditLog'
@@ -198,6 +199,7 @@ export const db = {
   SamplingPlanTable,
   SampleSizeCodeLetter,
   SamplingPlan,
+  QcInspectionTemplate,
   AssetRequestStatus,
   AssetRequestType,
   AuditLog,

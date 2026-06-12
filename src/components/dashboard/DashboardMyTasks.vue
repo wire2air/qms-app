@@ -1,0 +1,125 @@
+<script setup>
+/**
+ * My open tasks — actionable TaskInstances assigned to the current user,
+ * soonest due first. Row click goes to the task inbox.
+ */
+import { currentSession } from '@/utils/currentSession'
+import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { DateTime } from 'luxon'
+
+const ENTITY_LABEL = {
+  DocumentVersion: 'Document',
+  Nonconformance: 'NC',
+  Capa: 'CAPA',
+  ChangeRequest: 'Change Request',
+  TrainingAssignee: 'Training',
+  TrainingInstance: 'Training Verification',
+  LogBookVersion: 'Log Book',
+  AssignmentInstance: 'Inspection / Log',
+  FieldRecord: 'Flagged Log',
+  AuditInstance: 'Audit',
+  AuditStandardVersion: 'Audit Standard',
+  InspectionLot: 'QC Lot',
+}
+
+// Resolve the deep link for a task's host entity. Mirrors entityRoute in
+// taskInstancesTable, in lightweight form: direct-id types map straight to
+// their page; versioned types resolve the parent id; RFI tasks and types
+// needing richer context fall back to the task inbox.
+async function resolveRoute(db, t) {
+  if (t.sourceType === 'InformationRequest') return '/task-instances'
+  switch (t.entityType) {
+    case 'Nonconformance':
+      return `/nonconformances/${t.entityId}`
+    case 'Capa':
+      return `/capas/${t.entityId}`
+    case 'ChangeRequest':
+      return `/change-requests/${t.entityId}`
+    case 'AuditInstance':
+      return `/audits/instances/${t.entityId}`
+    case 'InspectionLot':
+      return `/qc-inspection/lots/${t.entityId}`
+    case 'TrainingInstance':
+      return `/training-verifications/${t.entityId}`
+    case 'DocumentVersion': {
+      const v = await db.DocumentVersion.findByPk(t.entityId)
+      return v?.documentId ? `/documents/${v.documentId}` : '/task-instances'
+    }
+    case 'LogBookVersion': {
+      const v = await db.LogBookVersion.findByPk(t.entityId)
+      return v?.logBookId ? `/inspections-logs/log-books/${v.logBookId}` : '/task-instances'
+    }
+    case 'AuditStandardVersion': {
+      const v = await db.AuditStandardVersion.findByPk(t.entityId)
+      return v?.auditStandardId ? `/audits/standards/${v.auditStandardId}` : '/task-instances'
+    }
+    case 'TrainingAssignee': {
+      const a = await db.TrainingAssignee.findByPk(t.entityId)
+      return a?.trainingInstanceId ? `/my-training/${a.trainingInstanceId}` : '/task-instances'
+    }
+    case 'AssignmentInstance': {
+      const inst = await db.AssignmentInstance.findByPk(t.entityId)
+      const plan = inst?.formAssignmentId
+        ? await db.FormAssignment.findByPk(inst.formAssignmentId)
+        : null
+      return plan?.logBookId
+        ? `/inspections-logs/fill?logBookId=${plan.logBookId}&assignmentInstanceId=${t.entityId}`
+        : '/task-instances'
+    }
+    case 'FieldRecord':
+      return `/inspections-logs/records?recordId=${t.entityId}`
+    default:
+      return '/task-instances'
+  }
+}
+
+const tasks = useLiveQueryWithDeps(
+  [() => currentSession.value?.userId],
+  async (db, [userId]) => {
+    if (!userId) return []
+    const rows = await db.TaskInstance.where('assignedTo', userId).exec()
+    const open = rows
+      .filter((t) => ['ASSIGNED', 'FORM_SUBMITTED'].includes(t.statusId))
+      .sort((a, b) => {
+        const da = a.dueDate?.toMillis?.() ?? Infinity
+        const dbb = b.dueDate?.toMillis?.() ?? Infinity
+        return da - dbb
+      })
+    return Promise.all(open.map(async (t) => ({ task: t, route: await resolveRoute(db, t) })))
+  },
+  { initial: [] },
+)
+
+function isOverdue(t) {
+  return t.dueDate && t.dueDate < DateTime.now()
+}
+</script>
+
+<template>
+  <DashboardWidgetCard title="My Tasks" :count="tasks.length" linkTo="/task-instances">
+    <div v-if="!tasks.length" class="tw:px-4 tw:py-6 tw:text-center tw:text-sm tw:text-secondary">
+      Nothing assigned to you. 🎉
+    </div>
+    <RouterLink
+      v-for="{ task: t, route } in tasks.slice(0, 6)"
+      :key="t.id"
+      :to="getCompanyPath(route)"
+      class="tw:flex tw:items-center tw:gap-3 tw:px-4 tw:py-2.5 tw:border-t tw:first:border-t-0 tw:border-divider tw:hover:bg-main-hover tw:transition-colors"
+    >
+      <div class="tw:flex-1 tw:min-w-0">
+        <div class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">
+          {{ ENTITY_LABEL[t.entityType] || t.entityType }}
+          <span v-if="t.taskKindId" class="tw:text-xs tw:text-secondary">· {{ t.taskKindId.replaceAll('_', ' ').toLowerCase() }}</span>
+        </div>
+        <div v-if="t.comment" class="tw:text-xs tw:text-secondary tw:truncate">{{ t.comment }}</div>
+      </div>
+      <span
+        v-if="t.dueDate"
+        class="tw:text-xs tw:font-medium tw:whitespace-nowrap"
+        :class="isOverdue(t) ? 'tw:text-bad' : 'tw:text-secondary'"
+      >
+        {{ t.dueDate.formatDate('date') }}
+      </span>
+    </RouterLink>
+  </DashboardWidgetCard>
+</template>

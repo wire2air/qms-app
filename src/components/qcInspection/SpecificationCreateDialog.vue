@@ -50,6 +50,8 @@ function addCharacteristic() {
     usl: null,
     uom: '',
     isCritical: false,
+    requiresInstrument: false,
+    testMethod: '',
   })
 }
 function removeCharacteristic(i) {
@@ -83,6 +85,8 @@ async function onSave() {
         usl: c.testType === 'NUMERIC' ? c.usl : null,
         uom: c.testType === 'NUMERIC' ? c.uom?.trim() || null : null,
         isCritical: !!c.isCritical,
+        requiresInstrument: !!c.requiresInstrument,
+        testMethod: c.testMethod?.trim() || null,
         sortOrder: i,
       })),
     })
@@ -160,6 +164,9 @@ async function onSave() {
             <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
               <BaseCheckbox v-model="c.isCritical" /> Critical
             </label>
+            <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
+              <BaseCheckbox v-model="c.requiresInstrument" /> Instrument
+            </label>
             <button
               type="button"
               class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
@@ -185,6 +192,14 @@ async function onSave() {
               <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">UOM</label>
               <BaseTextInput v-model="c.uom" placeholder="e.g. pH, %" size="sm" />
             </div>
+          </div>
+          <div class="tw:mt-3">
+            <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Test method / instrument requirements</label>
+            <BaseTextInput
+              v-model="c.testMethod"
+              size="sm"
+              placeholder="e.g. Calibrated micrometer, 0.001 mm resolution, 20°C"
+            />
           </div>
         </div>
       </div>
