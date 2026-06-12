@@ -4,6 +4,7 @@ import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
+import { validateCustomerEmail } from '@/utils/customerContactValidation.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -28,9 +29,7 @@ const canConvert = computed(
   () => isAllowed(['customerComplaints:update']) && isAllowed(['nonconformances:create']),
 )
 
-const isTerminal = computed(() =>
-  ['CLOSED', 'CONVERTED_TO_NC'].includes(complaint.value?.statusId),
-)
+const isTerminal = computed(() => ['CLOSED', 'CONVERTED_TO_NC'].includes(complaint.value?.statusId))
 // Closed/converted complaints are immutable — a customer reply (or an
 // explicit Reopen) is the only way back.
 const isEditable = computed(() => complaint.value && !isTerminal.value && canUpdate.value)
@@ -39,11 +38,29 @@ const isEditable = computed(() => complaint.value && !isTerminal.value && canUpd
 const isFirstLoad = ref(true)
 const saveError = ref(null)
 
+// Email is optional — only validated when present. Don't persist an invalid
+// email; surface it as a toast. The flag fires the toast once per invalid
+// streak so editing other fields meanwhile doesn't re-toast on every save.
+let emailToastShown = false
+// Last email we successfully persisted — used to revert an invalid edit when
+// the user leaves edit mode. Seeded on entering edit mode, refreshed on save.
+let lastSavedEmail = null
+
 const debouncedSave = useDebounceFn(async () => {
   if (!complaint.value) return
+  const emailError = validateCustomerEmail(complaint.value.customerEmail)
+  if (emailError) {
+    if (!emailToastShown) {
+      toast.notify({ type: 'negative', message: emailError })
+      emailToastShown = true
+    }
+    return
+  }
+  emailToastShown = false
   saveError.value = null
   try {
     await complaint.value.save()
+    lastSavedEmail = complaint.value.customerEmail
   } catch (err) {
     saveError.value = err.message || 'Failed to save'
   }
@@ -64,6 +81,26 @@ watch(
 const editingSubject = ref(false)
 const editingDescription = ref(false)
 const editingCustomer = ref(false)
+
+// Edit/Done toggle for customer details. An invalid email is never persisted,
+// so on leaving edit mode we discard the bad value, restore the last saved
+// email, and drop to view mode. Entering edit mode snapshots the current
+// (saved, valid) email so there's always something to revert to.
+function toggleCustomerEdit() {
+  if (editingCustomer.value) {
+    if (validateCustomerEmail(complaint.value?.customerEmail)) {
+      complaint.value.customerEmail = lastSavedEmail
+      toast.notify({
+        type: 'negative',
+        message: 'Invalid email discarded — reverted to the last saved address.',
+      })
+    }
+    editingCustomer.value = false
+  } else {
+    lastSavedEmail = complaint.value?.customerEmail ?? null
+    editingCustomer.value = true
+  }
+}
 
 // ─── Lifecycle action RPCs ────────────────────────────────────────────────────
 const acting = ref(false)
@@ -360,7 +397,7 @@ const auditIncludeEntities = computed(() => [
                 <button
                   v-if="isEditable"
                   class="tw:text-xs tw:text-primary tw:hover:underline"
-                  @click="editingCustomer = !editingCustomer"
+                  @click="toggleCustomerEdit"
                 >
                   {{ editingCustomer ? 'Done' : 'Edit' }}
                 </button>
@@ -452,11 +489,7 @@ const auditIncludeEntities = computed(() => [
       </div>
       <template #footer="{ close }">
         <BaseButton variant="outline" :disabled="acting" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :disabled="!assignUserId || acting"
-          @click="handleAssign"
-        >
+        <BaseButton variant="primary" :disabled="!assignUserId || acting" @click="handleAssign">
           Assign
         </BaseButton>
       </template>
@@ -466,14 +499,10 @@ const auditIncludeEntities = computed(() => [
     <BaseDialog v-model="showCloseDialog" title="Close Complaint" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
         <p class="tw:text-sm tw:text-on-main">
-          Closing marks this complaint as done. If the customer replies by email, the ticket
-          reopens automatically.
+          Closing marks this complaint as done. If the customer replies by email, the ticket reopens
+          automatically.
         </p>
-        <BaseTextarea
-          v-model="closeComment"
-          :rows="3"
-          placeholder="Closing comment (optional)…"
-        />
+        <BaseTextarea v-model="closeComment" :rows="3" placeholder="Closing comment (optional)…" />
       </div>
       <template #footer="{ close }">
         <BaseButton variant="outline" :disabled="acting" @click="close">Cancel</BaseButton>
