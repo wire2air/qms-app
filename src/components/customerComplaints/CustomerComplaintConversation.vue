@@ -26,6 +26,7 @@ const messages = useLiveQueryWithDeps(
 // fallback.
 const replyHtml = ref('')
 const sending = ref(false)
+const replyEditorRef = ref(null)
 
 function htmlToPlainText(html) {
   const doc = new DOMParser().parseFromString(html ?? '', 'text/html')
@@ -43,7 +44,9 @@ async function sendReply() {
       body,
       bodyHtml: replyHtml.value,
     })
-    replyHtml.value = ''
+    // Clearing via the v-model alone won't empty the editor (its cooldown +
+    // falsy-content guards swallow it) — reset it through the exposed method.
+    replyEditorRef.value?.clearContent()
   } catch (e) {
     toast.notify({ type: 'negative', message: e.message || 'Failed to send reply' })
   } finally {
@@ -111,6 +114,7 @@ function trustedHtml(message) {
     <div v-if="canReply" class="tw:mt-4 tw:pt-4 tw:border-t tw:border-divider">
       <div v-if="customerEmail" class="cc-reply-editor">
         <BaseRichTextEditor
+          ref="replyEditorRef"
           v-model="replyHtml"
           :placeholder="`Reply to ${customerEmail}…`"
         />
