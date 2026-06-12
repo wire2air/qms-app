@@ -1,6 +1,7 @@
 <script setup>
 import { IconClipboardList, IconTransform } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
@@ -173,6 +174,14 @@ const auditIncludeEntities = computed(() => [
           Resolve
         </BaseButton>
         <BaseButton
+          v-if="isEditable && complaint.statusId !== 'ON_HOLD'"
+          variant="outline"
+          :disabled="acting"
+          @click="runAction('hold')"
+        >
+          Hold
+        </BaseButton>
+        <BaseButton
           v-if="isEditable"
           variant="outline"
           :disabled="acting"
@@ -266,11 +275,22 @@ const auditIncludeEntities = computed(() => [
               </div>
             </div>
 
+            <!-- Form submission data (web-form tickets only; self-hides) -->
+            <CustomerComplaintFormPanel
+              :formId="complaint.formId"
+              :formSnapshot="complaint.formSnapshot"
+              :customFields="complaint.customFields"
+              :editable="isEditable"
+              @update:customFields="(v) => (complaint.customFields = v)"
+            />
+
             <!-- Conversation timeline -->
             <CustomerComplaintConversation
               :complaintId="id"
               :canReply="isEditable"
               :customerEmail="complaint.customerEmail"
+              :customerName="complaint.customerName"
+              :complaintNumber="complaint.complaintNumber"
             />
 
             <!-- Attachments -->
@@ -321,6 +341,37 @@ const auditIncludeEntities = computed(() => [
                   <span v-else class="tw:text-sm tw:text-secondary tw:italic">Unassigned</span>
                 </div>
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Group</span>
+                  <GroupSelectMenu v-if="isEditable" v-model="complaint.assignedTeamId" />
+                  <template v-else>
+                    <GroupBadgeById
+                      v-if="complaint.assignedTeamId"
+                      :teamId="complaint.assignedTeamId"
+                    />
+                    <span v-else class="tw:text-sm tw:text-secondary">—</span>
+                  </template>
+                </div>
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                  <span class="tw:text-xs tw:text-secondary">Sentiment</span>
+                  <BaseSelectMenu
+                    v-if="isEditable"
+                    v-model="complaint.sentiment"
+                    :items="[
+                      { id: 'POSITIVE', name: 'Positive' },
+                      { id: 'NEUTRAL', name: 'Neutral' },
+                      { id: 'NEGATIVE', name: 'Negative' },
+                      { id: 'URGENT', name: 'Urgent' },
+                    ]"
+                  />
+                  <template v-else>
+                    <CustomerComplaintSentimentBadgeById
+                      v-if="complaint.sentiment"
+                      :sentiment="complaint.sentiment"
+                    />
+                    <span v-else class="tw:text-sm tw:text-secondary">—</span>
+                  </template>
+                </div>
+                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Created</span>
                   <span class="tw:text-sm tw:font-medium">
                     {{ complaint.createdAt?.formatDate('datetime') }}
@@ -344,8 +395,35 @@ const auditIncludeEntities = computed(() => [
                     {{ complaint.closedAt.formatDate('datetime') }}
                   </span>
                 </div>
+                <div
+                  v-if="complaint.slaFirstResponseDueAt && !complaint.firstResponseAt"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                >
+                  <span class="tw:text-xs tw:text-secondary">First response due</span>
+                  <span
+                    class="tw:text-sm tw:font-medium"
+                    :class="complaint.slaFirstResponseDueAt < DateTime.now() ? 'tw:text-red-600' : ''"
+                  >
+                    {{ complaint.slaFirstResponseDueAt.formatDate('datetime') }}
+                  </span>
+                </div>
+                <div
+                  v-if="complaint.csatRating"
+                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                >
+                  <span class="tw:text-xs tw:text-secondary">Customer rating</span>
+                  <span class="tw:text-sm tw:font-medium" :title="complaint.csatComment || ''">
+                    {{ '★'.repeat(complaint.csatRating) }}{{ '☆'.repeat(5 - complaint.csatRating) }}
+                  </span>
+                </div>
               </div>
             </div>
+
+            <!-- Customer profile + history (requester layer) -->
+            <CustomerComplaintCustomerPanel
+              :complaintId="id"
+              :customerId="complaint.customerId"
+            />
 
             <!-- Customer details -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">

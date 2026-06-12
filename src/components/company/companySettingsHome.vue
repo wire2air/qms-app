@@ -5,7 +5,6 @@ import {
   IconPrinter,
   IconInfoCircle,
   IconList,
-  IconMailForward,
   IconSparkles,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany.js'
@@ -59,9 +58,6 @@ function mirrorToCurrentCompany(c) {
 // the very switch you need to flip.
 const canManageAi = computed(() => isAllowed(['ai:manage']))
 
-// Email Channels tab — Zendesk-style support addresses for email
-// tickets. Visible to anyone who can work complaints (owners auto-pass).
-const canManageSupportInbox = computed(() => isAllowed(['customerComplaints:update']))
 
 const tabs = computed(() => {
   const base = [
@@ -70,9 +66,6 @@ const tabs = computed(() => {
     { id: 'print', label: 'Print', icon: IconPrinter },
     { id: 'lookups', label: 'Lookups', icon: IconList },
   ]
-  if (canManageSupportInbox.value) {
-    base.push({ id: 'email-channels', label: 'Email Channels', icon: IconMailForward })
-  }
   if (canManageAi.value) base.push({ id: 'ai', label: 'AI', icon: IconSparkles })
   return base
 })
@@ -163,11 +156,6 @@ watch(
         <SupplierCertificateTypesCard />
         <AuditStandardTypesCard />
         <AuditFindingCategoriesCard />
-      </div>
-
-      <!-- Tab: Email Channels — Zendesk-style support addresses. -->
-      <div v-else-if="activeTab === 'email-channels'">
-        <EmailChannelsHome />
       </div>
 
       <!-- Tab: AI — only present when the user has ai:manage. -->

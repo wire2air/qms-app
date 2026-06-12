@@ -2,13 +2,13 @@ import { currentSession } from '@/utils/currentSession'
 import { BaseModel, ClientModel, Property } from '@syncEngine/index'
 import { DateTime } from 'luxon'
 
-@ClientModel('customerComplaintMessages', {
+@ClientModel('complaintCannedResponses', {
   primaryKey: 'id',
   syncField: 'updatedAt',
-  customIndex: 'complaintId, companyId',
+  customIndex: 'companyId',
   schemaVersion: 1,
 })
-export class CustomerComplaintMessage extends BaseModel {
+export class ComplaintCannedResponse extends BaseModel {
   static paranoid = true
 
   constructor(...args) {
@@ -23,19 +23,13 @@ export class CustomerComplaintMessage extends BaseModel {
 
   @Property({ type: String, uuid: true, required: true }) id = ''
   @Property({ type: String, required: true }) companyId = ''
-  @Property({ type: String, required: true }) complaintId = ''
-  // INBOUND = customer message, OUTBOUND = agent reply.
-  @Property({ type: String }) direction = 'INBOUND'
-  // PUBLIC_REPLY (customer-visible) | INTERNAL_NOTE (agent-only).
-  @Property({ type: String }) kind = 'PUBLIC_REPLY'
-  @Property({ type: String }) senderUserId = /** @type {String} */ (null)
-  @Property({ type: String }) senderName = /** @type {String} */ (null)
-  @Property({ type: String }) senderEmail = /** @type {String} */ (null)
-  @Property({ type: String }) subject = /** @type {String} */ (null)
-  @Property({ type: String }) body = ''
+  @Property({ type: String, required: true }) name = ''
+  // Plain text + rich HTML; {{customer.name}}, {{ticket.number}},
+  // {{agent.name}} substituted at insert time.
+  @Property({ type: String, required: true }) body = ''
   @Property({ type: String }) bodyHtml = /** @type {String} */ (null)
-  @Property({ type: String }) emailMessageId = /** @type {String} */ (null)
-  @Property({ type: String }) inReplyTo = /** @type {String} */ (null)
+  @Property({ type: String }) createdBy = /** @type {String} */ (null)
+  @Property({ type: String }) updatedBy = /** @type {String} */ (null)
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)
