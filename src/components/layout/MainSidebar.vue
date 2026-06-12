@@ -34,6 +34,7 @@ import {
   IconChecklist,
   IconClipboardList,
   IconClipboardCheck,
+  IconHeadset,
   IconTool,
   IconTestPipe,
 } from '@tabler/icons-vue'
@@ -183,6 +184,12 @@ const navItems = computed(() => {
       to: getCompanyPath('/nonconformances'),
     },
     {
+      label: 'Customer Complaints',
+      permissions: ['customerComplaints:read'],
+      icon: IconHeadset,
+      to: getCompanyPath('/customer-complaints'),
+    },
+    {
       label: 'CAPAs',
       permissions: ['capas:read'],
       icon: IconShield,
@@ -279,6 +286,14 @@ const navItems = computed(() => {
           permissions: ['company:manage'],
           icon: IconAdjustments,
           to: getCompanyPath('/settings'),
+        },
+        {
+          // The Customer Complaint module's own admin hub (email
+          // channels now; forms / custom fields / routing as they land).
+          label: 'Complaint Settings',
+          permissions: ['customerComplaints:update'],
+          icon: IconHeadset,
+          to: getCompanyPath('/complaint-settings'),
         },
         {
           label: 'Form Templates',

@@ -59,6 +59,7 @@ function mirrorToCurrentCompany(c) {
 const canManageAi = computed(() => isAllowed(['ai:manage']))
 const canManageCompany = computed(() => isAllowed(['company:manage']))
 
+
 const tabs = computed(() => {
   const base = [
     { id: 'general', label: 'General', icon: IconInfoCircle },

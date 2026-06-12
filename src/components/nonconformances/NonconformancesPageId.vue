@@ -881,6 +881,10 @@ function onCreateLinkedChangeRequest() {
               :entityId="id"
             />
 
+            <!-- Customer complaints this NC was converted from — resolves
+                 via nc_source_links, self-hides when there are none. -->
+            <NcLinkedComplaintsPanel :ncId="id" />
+
             <!-- Overview side card. Grouped into subsections with quiet
                  dividers so the right rail stays scannable as it grows:
                    Identification → People → Classification → Schedule

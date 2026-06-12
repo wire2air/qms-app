@@ -128,6 +128,27 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/complaint-settings': RouteRecordInfo<
+      '/complaint-settings',
+      '/complaint-settings',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/customer-complaints/[[id]]': RouteRecordInfo<
+      '/customer-complaints/[[id]]',
+      '/customer-complaints/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/customer-complaints/reports': RouteRecordInfo<
+      '/customer-complaints/reports',
+      '/customer-complaints/reports',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/dashboard': RouteRecordInfo<
       '/dashboard',
       '/dashboard',
@@ -443,6 +464,20 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/support/[slug]': RouteRecordInfo<
+      '/support/[slug]',
+      '/support/:slug',
+      { slug: ParamValue<true> },
+      { slug: ParamValue<false> },
+      | never
+    >,
+    '/support/ticket/[id]': RouteRecordInfo<
+      '/support/ticket/[id]',
+      '/support/ticket/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
     '/task-instances': RouteRecordInfo<
       '/task-instances',
       '/task-instances',
@@ -606,6 +641,24 @@ declare module 'vue-router/auto-routes' {
     'src/pages/change-requests/[[id]].vue': {
       routes:
         | '/change-requests/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/complaint-settings.vue': {
+      routes:
+        | '/complaint-settings'
+      views:
+        | never
+    }
+    'src/pages/customer-complaints/[[id]].vue': {
+      routes:
+        | '/customer-complaints/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/customer-complaints/reports.vue': {
+      routes:
+        | '/customer-complaints/reports'
       views:
         | never
     }
@@ -876,6 +929,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/suppliers/[[id]].vue': {
       routes:
         | '/suppliers/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/support/[slug].vue': {
+      routes:
+        | '/support/[slug]'
+      views:
+        | never
+    }
+    'src/pages/support/ticket/[id].vue': {
+      routes:
+        | '/support/ticket/[id]'
       views:
         | never
     }
