@@ -464,9 +464,24 @@ function appendText(text) {
   editor.value.chain().focus('end').insertContent(`<p>${t}</p>`).run()
 }
 
+/**
+ * Empty the editor. Needed because clearing via v-model (modelValue = '')
+ * is a no-op here: setContent() bails on falsy content, and the modelValue
+ * watcher ignores pushes during the post-edit cooldown. Callers that reset a
+ * reply/comment box after submit must use this. We reset the edit timestamp
+ * and sync modelValue so the parent's bound value matches the empty doc.
+ */
+function clearContent() {
+  if (!editor.value) return
+  lastLocalEditAt = 0
+  editor.value.commands.clearContent()
+  modelValue.value = getContent(editor.value)
+}
+
 defineExpose({
   editor,
   setContent,
+  clearContent,
   appendText,
   getContent: () => (editor.value ? getContent(editor.value) : ''),
 })
