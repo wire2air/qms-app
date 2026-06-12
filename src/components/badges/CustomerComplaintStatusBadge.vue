@@ -12,6 +12,7 @@ const SCHEME_MAP = {
   ASSIGNED: { class: 'tw:bg-indigo-100 tw:text-indigo-700' },
   IN_PROGRESS: { class: 'tw:bg-amber-100 tw:text-amber-700' },
   WAITING_CUSTOMER: { class: 'tw:bg-orange-100 tw:text-orange-700' },
+  ON_HOLD: { class: 'tw:bg-slate-200 tw:text-slate-700' },
   RESOLVED: { class: 'tw:bg-emerald-100 tw:text-emerald-700' },
   CLOSED: { class: 'tw:bg-green-100 tw:text-green-700' },
   CONVERTED_TO_NC: { class: 'tw:bg-purple-100 tw:text-purple-700' },

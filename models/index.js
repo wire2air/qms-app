@@ -90,6 +90,9 @@ import { CustomerComplaintSource } from './customerComplaintSource'
 import { CustomerComplaintMessage } from './customerComplaintMessage'
 import { CustomerComplaintAttachment } from './customerComplaintAttachment'
 import { NcSourceLink } from './ncSourceLink'
+import { ComplaintCannedResponse } from './complaintCannedResponse'
+import { Customer } from './customer'
+import { CustomerOrganization } from './customerOrganization'
 import { CapaCounter } from './capaCounter'
 import { CapaStatus } from './capaStatus'
 import { CapaType } from './capaType'
@@ -252,6 +255,9 @@ export const db = {
   CustomerComplaintMessage,
   CustomerComplaintAttachment,
   NcSourceLink,
+  ComplaintCannedResponse,
+  Customer,
+  CustomerOrganization,
   Capa,
   CapaCounter,
   CapaStatus,

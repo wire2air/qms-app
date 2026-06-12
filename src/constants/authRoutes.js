@@ -22,6 +22,8 @@ export const PUBLIC_ROUTES = [
   '/asset-request',
   '/supplier-document',
   '/reset-esign-pin',
+  // Public complaint intake forms (/support/<slug>) — no session needed.
+  '/support',
 ]
 
 /**

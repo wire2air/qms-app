@@ -6,6 +6,9 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   initialSchema: { type: Array, default: () => [] },
   startAtSelect: { type: Boolean, default: false },
+  // Title shown inside the FormBuilder canvas — the panel is generic
+  // (workflow steps + complaint forms both embed schemas through it).
+  builderTitle: { type: String, default: 'Step Form Schema' },
 })
 
 const emit = defineEmits(['update:modelValue', 'save'])
@@ -165,7 +168,7 @@ const showBackButton = computed(() => {
           <div v-else class="tw:flex-1 tw:min-h-0 tw:overflow-hidden">
             <FormBuilder
               :initialSchema="buildSchema"
-              title="Step Form Schema"
+              :title="builderTitle"
               @save="handleBuilderSave"
             />
           </div>
