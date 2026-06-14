@@ -38,6 +38,15 @@ const filterPills = [
         <div class="tw:w-full tw:md:w-1/6">
           <NcTypeSelectMenu v-model="filters.typeId" />
         </div>
+        <div class="tw:w-full tw:md:w-auto">
+          <SupplierSelectMenu v-model="filters.supplierId" />
+        </div>
+        <DateRangeFilter
+          :from="filters.dateFrom"
+          :to="filters.dateTo"
+          @update:from="(v) => (filters.dateFrom = v)"
+          @update:to="(v) => (filters.dateTo = v)"
+        />
       </div>
     </div>
     <div class="tw:flex tw:gap-2 tw:flex-wrap tw:items-center">

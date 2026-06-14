@@ -6,9 +6,11 @@
  * daily generator (Phase B-5) off a program; the row reflects who's
  * leading, what state it's in, and when it was scheduled.
  */
-import { IconChecklist, IconPlus } from '@tabler/icons-vue'
+import { IconChecklist, IconPlus, IconDownload } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { dateInRange } from '@/utils/listFilters.js'
+import { exportToCSV } from '@/utils/exportUtils.js'
 
 const router = useRouter()
 
@@ -27,6 +29,24 @@ function openDetail(row) {
 
 const search = ref('')
 const statusFilter = ref(null)
+const supplierFilter = ref(null)
+const dateFrom = ref('')
+const dateTo = ref('')
+
+function exportCsv() {
+  exportToCSV(
+    instances.value,
+    [
+      { field: 'auditNumber', label: 'Audit #' },
+      { field: 'programTypeId', label: 'Type' },
+      { field: (r) => r.displayMeta?.standardName ?? '', label: 'Standard' },
+      { field: 'statusId', label: 'Status' },
+      { field: (r) => r.scheduledDate?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Scheduled' },
+      { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
+    ],
+    'audits',
+  )
+}
 
 const STATUS_FILTER_OPTIONS = [
   { id: 'DRAFT', name: 'Draft' },
@@ -58,10 +78,21 @@ function typeBadgeClass(typeId) {
 }
 
 const instances = useLiveQueryWithDeps(
-  [() => search.value, () => statusFilter.value],
-  async (db, [q, status]) => {
+  [
+    () => search.value,
+    () => statusFilter.value,
+    () => supplierFilter.value,
+    () => dateFrom.value,
+    () => dateTo.value,
+  ],
+  async (db, [q, status, supplierId, df, dt]) => {
     const results = await db.AuditInstance.where().exec()
-    const filtered = results.filter((i) => (status ? i.statusId === status : true))
+    const filtered = results.filter(
+      (i) =>
+        (status ? i.statusId === status : true) &&
+        (supplierId ? i.supplierId === supplierId : true) &&
+        (df || dt ? dateInRange(i.createdAt, df, dt) : true),
+    )
     const sorted = filtered.sort(
       (a, b) =>
         (b.scheduledDate?.toMillis?.() ?? b.createdAt?.toMillis?.() ?? 0) -
@@ -87,19 +118,32 @@ const instances = useLiveQueryWithDeps(
         <BaseInlineSelect
           v-model="statusFilter"
           :items="STATUS_FILTER_OPTIONS"
-          nullLabel="All statuses"
+          nullLabel="— All statuses —"
           class="tw:w-44"
+        />
+        <SupplierSelectMenu v-model="supplierFilter" class="tw:w-48" />
+        <DateRangeFilter
+          :from="dateFrom"
+          :to="dateTo"
+          @update:from="(v) => (dateFrom = v)"
+          @update:to="(v) => (dateTo = v)"
         />
         <div class="tw:text-xs tw:text-secondary">
           {{ instances.length }} audit{{ instances.length === 1 ? '' : 's' }}
         </div>
       </div>
-      <!-- New Audit = ad-hoc create (one-off, no program). The daily
-           generator handles program-driven audits automatically. -->
-      <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreateDialog = true">
-        <template #icon><IconPlus :size="16" /></template>
-        New Audit
-      </BaseButton>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <BaseButton variant="outline" size="sm" :disabled="!instances.length" @click="exportCsv">
+          <template #icon><IconDownload :size="16" /></template>
+          Export
+        </BaseButton>
+        <!-- New Audit = ad-hoc create (one-off, no program). The daily
+             generator handles program-driven audits automatically. -->
+        <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreateDialog = true">
+          <template #icon><IconPlus :size="16" /></template>
+          New Audit
+        </BaseButton>
+      </div>
     </div>
 
     <div

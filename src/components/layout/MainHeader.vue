@@ -74,6 +74,7 @@ async function resetSync() {
 
       <div class="tw:flex tw:items-center tw:gap-4">
         <div id="main-header-actions" />
+        <ThemeToggle :size="20" />
         <button
           v-if="canUseAi"
           class="tw:p-2 tw:rounded-full tw:text-primary tw:hover:bg-main-hover tw:transition-colors"

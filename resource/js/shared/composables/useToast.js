@@ -36,16 +36,43 @@ const timers = new Map()
 
 /**
  * Add a toast to the queue.
+ *
+ * Deduped: an identical toast (same type + message + caption) already on
+ * screen means the same event was reported through two paths — typically
+ * the API layer's global error handler AND a component's catch block both
+ * toasting one failed request. Refresh the existing toast's timer instead
+ * of stacking a visual duplicate.
+ *
  * @param {ToastOptions} options
  * @returns {number} toast id (for programmatic dismiss)
  */
 function notify(options) {
+  const type = options.type || 'info'
+  const message = options.message || ''
+  const caption = options.caption || ''
+
+  const existing = toasts.value.find(
+    (t) => t.type === type && t.message === message && t.caption === caption,
+  )
+  if (existing) {
+    const timer = timers.get(existing.id)
+    if (timer) clearTimeout(timer)
+    const timeout = options.timeout ?? 3000
+    if (timeout > 0) {
+      timers.set(
+        existing.id,
+        setTimeout(() => dismiss(existing.id), timeout),
+      )
+    }
+    return existing.id
+  }
+
   const id = nextId++
   const toast = {
     id,
-    type: options.type || 'info',
-    message: options.message || '',
-    caption: options.caption || '',
+    type,
+    message,
+    caption,
     position: options.position || 'top',
     timeout: options.timeout ?? 3000,
     html: options.html || false,

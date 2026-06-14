@@ -1,21 +1,32 @@
 <script setup>
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { currentSession } from '@/utils/currentSession'
+import { exportToCSV } from '@/utils/exportUtils.js'
+import { dateInRange } from '@/utils/listFilters.js'
 import { DateTime } from 'luxon'
 
 const props = defineProps({
   search: { type: String, default: '' },
   statusId: { type: String, default: null },
   taskKindId: { type: String, default: null },
+  dateFrom: { type: String, default: '' },
+  dateTo: { type: String, default: '' },
 })
 
 const taskInstances = useLiveQueryWithDeps(
-  [() => props.statusId, () => props.taskKindId, () => currentSession.value?.userId],
-  async (db, [statusId, taskKindId, userId]) => {
+  [
+    () => props.statusId,
+    () => props.taskKindId,
+    () => props.dateFrom,
+    () => props.dateTo,
+    () => currentSession.value?.userId,
+  ],
+  async (db, [statusId, taskKindId, dateFrom, dateTo, userId]) => {
     if (!userId) return []
     let results = await db.TaskInstance.where('assignedTo', userId).exec()
     if (statusId) results = results.filter((t) => t.statusId === statusId)
     if (taskKindId) results = results.filter((t) => t.taskKindId === taskKindId)
+    if (dateFrom || dateTo) results = results.filter((t) => dateInRange(t.createdAt, dateFrom, dateTo))
     return results
   },
   { initial: [] },
@@ -250,6 +261,21 @@ const assignmentInstanceMap = useLiveQueryWithDeps(
   { initial: {} },
 )
 
+// QA Disposition tasks — entityId is the InspectionLot id.
+const inspectionLotMap = useLiveQueryWithDeps(
+  [
+    () =>
+      taskInstances.value.filter((i) => i.entityType === 'InspectionLot').map((i) => i.entityId),
+  ],
+  async (db, [lotIds]) => {
+    const ids = [...new Set(lotIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const lots = await Promise.all(ids.map((id) => db.InspectionLot.findByPk(id)))
+    return Object.fromEntries(lots.filter(Boolean).map((l) => [l.id, l]))
+  },
+  { initial: {} },
+)
+
 // Flagged log entries (entityType 'FieldRecord') — resolve the record →
 // log book for label / type / open-the-entry route.
 const fieldRecordMap = useLiveQueryWithDeps(
@@ -334,6 +360,10 @@ const filteredInstances = computed(() => {
         sv?.standard?.code?.toLowerCase().includes(q)
       )
     }
+    if (instance.entityType === 'InspectionLot') {
+      const lot = inspectionLotMap.value[instance.entityId]
+      return !!lot && lot.lotNumber?.toLowerCase().includes(q)
+    }
     const doc = documentMap.value[instance.entityId]?.doc
     if (!doc) return false
     return doc.title?.toLowerCase().includes(q) || doc.docNumber?.toLowerCase().includes(q)
@@ -349,6 +379,13 @@ const sortedInstances = computed(() =>
   ),
 )
 
+// Audit close-out tasks: TYPE column shows the audit's program (Internal /
+// Supplier); standard-approval tasks show 'Standard Approval'.
+const AUDIT_PROGRAM_LABEL = { INTERNAL: 'Internal Audit', SUPPLIER: 'Supplier Audit' }
+function auditProgramLabel(id) {
+  return AUDIT_PROGRAM_LABEL[id] || (id ? `${id} Audit` : 'Audit')
+}
+
 const EntityType = {
   DocumentVersion: 'Document',
   Nonconformance: 'Nonconformance',
@@ -361,6 +398,7 @@ const EntityType = {
   FieldRecord: 'Flagged Log',
   AuditInstance: 'Audit',
   AuditStandardVersion: 'Audit Standard',
+  InspectionLot: 'QC Inspection Lot',
 }
 
 const columns = [
@@ -384,6 +422,55 @@ const pagination = ref({
   descending: true,
   total: null,
 })
+
+// Resolve a row's display title from the per-entity maps (mirrors the title
+// cell), for export.
+function titleFor(row) {
+  switch (row.entityType) {
+    case 'TrainingAssignee':
+      return getTrainingAssigneeEntry(row)?.instance?.snapshot?.title || ''
+    case 'TrainingInstance':
+      return trainingInstanceMap.value[row.entityId]?.snapshot?.title || ''
+    case 'Nonconformance':
+      return getNc(row)?.title || ''
+    case 'Capa':
+      return getCapa(row)?.title || ''
+    case 'ChangeRequest':
+      return getChangeRequest(row)?.title || ''
+    case 'LogBookVersion':
+      return logBookVersionMap.value[row.entityId]?.logBook?.title || ''
+    case 'AssignmentInstance':
+      return assignmentInstanceMap.value[row.entityId]?.logBook?.title || ''
+    case 'FieldRecord':
+      return fieldRecordMap.value[row.entityId]?.logBook?.title || ''
+    case 'AuditInstance':
+      return (
+        auditInstanceMap.value[row.entityId]?.standard?.name ||
+        auditInstanceMap.value[row.entityId]?.audit?.auditNumber ||
+        ''
+      )
+    case 'AuditStandardVersion':
+      return auditStandardVersionMap.value[row.entityId]?.standard?.name || ''
+    case 'InspectionLot':
+      return inspectionLotMap.value[row.entityId]?.lotNumber || ''
+    default:
+      return getDocument(row)?.title || ''
+  }
+}
+
+function exportCsv() {
+  exportToCSV(
+    sortedInstances.value,
+    [
+      { field: (r) => titleFor(r), label: 'Item' },
+      { field: (r) => EntityType[r.entityType] || r.entityType, label: 'Entity Type' },
+      { field: 'statusId', label: 'Status' },
+      { field: (r) => r.dueDate?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Due' },
+      { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
+    ],
+    'my-tasks',
+  )
+}
 
 function getTrainingAssigneeEntry(instance) {
   return trainingAssigneeMap.value[instance.entityId] || null
@@ -509,6 +596,9 @@ function entityRoute(row) {
     const standardId = auditStandardVersionMap.value[row.entityId]?.standard?.id
     return standardId ? getCompanyPath(`audits/standards/${standardId}`) : null
   }
+  if (row.entityType === 'InspectionLot') {
+    return getCompanyPath(`qc-inspection/lots/${row.entityId}`)
+  }
   return null
 }
 
@@ -538,6 +628,8 @@ function rowTitle(row) {
       return auditInstanceMap.value[row.entityId]?.standard?.name || 'Audit'
     case 'AuditStandardVersion':
       return auditStandardVersionMap.value[row.entityId]?.standard?.name || 'Audit Standard'
+    case 'InspectionLot':
+      return inspectionLotMap.value[row.entityId]?.lotNumber || 'Inspection Lot'
     default:
       return getDocument(row)?.title || '—'
   }
@@ -564,10 +656,16 @@ function rowSubtitle(row) {
       const v = auditStandardVersionMap.value[row.entityId]?.version
       return v ? `v${v.versionMajor}.${v.versionMinor}` : ''
     }
+    case 'InspectionLot': {
+      const lot = inspectionLotMap.value[row.entityId]
+      return lot?.inspectionPoint || ''
+    }
     default:
       return ''
   }
 }
+
+defineExpose({ exportCsv })
 </script>
 
 <template>
@@ -734,6 +832,14 @@ function rowSubtitle(row) {
             }}
           </span>
         </template>
+        <template v-else-if="row.entityType === 'InspectionLot'">
+          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+            {{ inspectionLotMap[row.entityId]?.lotNumber || 'Inspection Lot' }}
+          </span>
+          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+            {{ inspectionLotMap[row.entityId]?.inspectionPoint || '—' }}
+          </span>
+        </template>
         <template v-else>
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
             {{ getDocument(row)?.title || '—' }}
@@ -803,6 +909,15 @@ function rowSubtitle(row) {
         class="tw:text-sm tw:text-on-main"
       >
         {{ fieldRecordMap[row.entityId].typeLabel }}
+      </span>
+      <span v-else-if="row.entityType === 'AuditInstance'" class="tw:text-sm tw:text-on-main">
+        {{ auditProgramLabel(auditInstanceMap[row.entityId]?.audit?.programTypeId) }}
+      </span>
+      <span v-else-if="row.entityType === 'AuditStandardVersion'" class="tw:text-sm tw:text-on-main">
+        Standard Approval
+      </span>
+      <span v-else-if="row.entityType === 'InspectionLot'" class="tw:text-sm tw:text-on-main">
+        QA Disposition
       </span>
       <span v-else class="tw:text-sm tw:text-secondary">—</span>
     </template>

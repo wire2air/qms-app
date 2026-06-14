@@ -55,9 +55,11 @@ watch(
 
 const tabs = [
   { value: 'overview', label: 'Overview' },
+  { value: 'company-profile', label: 'Company Profile' },
+  { value: 'locations', label: 'Locations & Contacts' },
+  { value: 'quality-records', label: 'Quality Records' },
   { value: 'users', label: 'Users' },
   { value: 'documents', label: 'Documents' },
-  { value: 'shared-documents', label: 'Shared Documents' },
   { value: 'asset-requests', label: 'Asset Requests' },
   { value: 'evaluations', label: 'Evaluations' },
 ]
@@ -155,16 +157,27 @@ const activeTab = computed({
           :canUpdate="canUpdate"
           :supplierId="props.id"
         />
+        <SuppliersCompanyProfileTab
+          v-else-if="activeTab === 'company-profile'"
+          :supplier="supplier"
+          :canUpdate="canUpdate"
+        />
+        <SuppliersLocationsContactsTab
+          v-else-if="activeTab === 'locations'"
+          :supplierId="props.id"
+          :canUpdate="canUpdate"
+        />
         <SuppliersUsersTab
           v-else-if="activeTab === 'users'"
           :supplierId="props.id"
           :canUpdate="canUpdate"
         />
-        <SuppliersDocumentsTab v-else-if="activeTab === 'documents'" :supplier="supplier" />
-        <SuppliersSharedDocumentsTab
-          v-else-if="activeTab === 'shared-documents'"
+        <SuppliersPerformanceTab
+          v-else-if="activeTab === 'quality-records'"
           :supplierId="props.id"
+          :canUpdate="canUpdate"
         />
+        <SuppliersDocumentsTab v-else-if="activeTab === 'documents'" :supplier="supplier" />
         <SuppliersAssetRequestsTab
           v-else-if="activeTab === 'asset-requests'"
           :supplierId="props.id"

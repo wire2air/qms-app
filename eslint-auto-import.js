@@ -329,6 +329,7 @@ export default {
     "useTransition": true,
     "useUrlSearchParams": true,
     "useUserMedia": true,
+    "useUserSettings": true,
     "useUsers": true,
     "useVModel": true,
     "useVModels": true,

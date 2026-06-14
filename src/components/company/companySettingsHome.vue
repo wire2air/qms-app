@@ -4,8 +4,8 @@ import {
   IconAdjustments,
   IconPrinter,
   IconInfoCircle,
-  IconList,
   IconSparkles,
+  IconPlug,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany.js'
 import { isAllowed } from '@/utils/currentSession.js'
@@ -57,6 +57,7 @@ function mirrorToCurrentCompany(c) {
 // admin can turn it on; gating on the canUseAi session flag would hide
 // the very switch you need to flip.
 const canManageAi = computed(() => isAllowed(['ai:manage']))
+const canManageCompany = computed(() => isAllowed(['company:manage']))
 
 
 const tabs = computed(() => {
@@ -64,22 +65,28 @@ const tabs = computed(() => {
     { id: 'general', label: 'General', icon: IconInfoCircle },
     { id: 'defaults', label: 'Defaults', icon: IconAdjustments },
     { id: 'print', label: 'Print', icon: IconPrinter },
-    { id: 'lookups', label: 'Lookups', icon: IconList },
   ]
+  if (canManageCompany.value) base.push({ id: 'integrations', label: 'Integrations', icon: IconPlug })
   if (canManageAi.value) base.push({ id: 'ai', label: 'AI', icon: IconSparkles })
   return base
 })
-// Honor ?tab=<id> so deep-links from the sidebar (e.g. NC Dispositions
-// going to /settings?tab=lookups) land directly on the right pane.
+// Honor ?tab=<id> deep-links. Lookups moved to the standalone /lookups page
+// (2026-06-12) — redirect old ?tab=lookups bookmarks there.
 const route = useRoute()
+const router = useRouter()
 const validTabIds = computed(() => new Set(tabs.value.map((t) => t.id)))
 const initialTab = validTabIds.value.has(route.query.tab) ? route.query.tab : 'general'
 const activeTab = ref(initialTab)
 watch(
   () => route.query.tab,
   (v) => {
+    if (v === 'lookups') {
+      router.replace('/lookups')
+      return
+    }
     if (v && validTabIds.value.has(v)) activeTab.value = v
   },
+  { immediate: true },
 )
 </script>
 
@@ -149,13 +156,9 @@ watch(
         <CompanyPrintCard />
       </div>
 
-      <!-- Tab: Lookups — shared master data (NC dispositions, etc.) -->
-      <div v-else-if="activeTab === 'lookups'" class="tw:flex tw:flex-col tw:gap-8">
-        <NcDispositionTypesCard />
-        <NcIssueTypesCard />
-        <SupplierCertificateTypesCard />
-        <AuditStandardTypesCard />
-        <AuditFindingCategoriesCard />
+      <!-- Tab: Integrations — connected third-party accounts (Adobe Sign). -->
+      <div v-else-if="activeTab === 'integrations'">
+        <CompanyIntegrationsCard />
       </div>
 
       <!-- Tab: AI — only present when the user has ai:manage. -->

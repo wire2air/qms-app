@@ -18,6 +18,18 @@ import { Asset } from './asset'
 import { AssetRequest } from './assetRequest'
 import { AssetRequestItem } from './assetRequestItem'
 import { AssetRequestOnContact } from './assetRequestOnContact'
+import { AssetRequestOnUser } from './assetRequestOnUser'
+import { EsignAgreement } from './esignAgreement'
+import { EsignAgreementSigner } from './esignAgreementSigner'
+import { Specification } from './specification'
+import { SpecificationCharacteristic } from './specificationCharacteristic'
+import { InspectionLot } from './inspectionLot'
+import { InspectionResult } from './inspectionResult'
+import { SamplingStandard } from './samplingStandard'
+import { SamplingPlanTable } from './samplingPlanTable'
+import { SampleSizeCodeLetter } from './sampleSizeCodeLetter'
+import { SamplingPlan } from './samplingPlan'
+import { QcInspectionTemplate } from './qcInspectionTemplate'
 import { AssetRequestStatus } from './assetRequestStatus'
 import { AssetRequestType } from './assetRequestType'
 import { AuditLog } from './auditLog'
@@ -61,6 +73,7 @@ import { SupplierAsset } from './supplierAsset'
 import { SupplierCertificateType } from './supplierCertificateType'
 import { SupplierContact } from './supplierContact'
 import { SupplierDocument } from './supplierDocument'
+import { SupplierLocation } from './supplierLocation'
 import { SupplierOnSite } from './supplierOnSite'
 import { SupplierStatus } from './supplierStatus'
 import { TaskInstance } from './taskInstance'
@@ -184,6 +197,18 @@ export const db = {
   AssetRequest,
   AssetRequestItem,
   AssetRequestOnContact,
+  AssetRequestOnUser,
+  EsignAgreement,
+  EsignAgreementSigner,
+  Specification,
+  SpecificationCharacteristic,
+  InspectionLot,
+  InspectionResult,
+  SamplingStandard,
+  SamplingPlanTable,
+  SampleSizeCodeLetter,
+  SamplingPlan,
+  QcInspectionTemplate,
   AssetRequestStatus,
   AssetRequestType,
   AuditLog,
@@ -227,6 +252,7 @@ export const db = {
   SupplierCertificateType,
   SupplierContact,
   SupplierDocument,
+  SupplierLocation,
   SupplierOnSite,
   SupplierStatus,
   TaskInstance,

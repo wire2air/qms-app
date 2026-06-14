@@ -31,9 +31,8 @@ defineProps({
       :supplierId="supplierId"
       class="tw:col-span-12 tw:lg:col-span-4"
     />
-    <SuppliersContactCard
+    <SuppliersPrimaryContactCard
       :supplierId="supplierId"
-      :canUpdate="canUpdate"
       class="tw:col-span-12 tw:lg:col-span-8"
     />
     <SuppliersAssociatedSitesCard

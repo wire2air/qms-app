@@ -43,12 +43,39 @@ const FINDING_TYPES = [
 function defaultForm() {
   return {
     findingTypeId: 'MINOR_NC',
-    description: '',
+    detailsHtml: '',
     categoryId: null,
     departmentId: props.auditInstance?.departmentId ?? null,
     severityScore: 1,
     riskScore: 1,
   }
+}
+
+// The finding body is rich HTML (detailsHtml); description stays a derived
+// plain-text summary for lists / search / CAPA spawn.
+function escapeHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+function textToHtml(t) {
+  const s = String(t ?? '')
+  if (!s.trim()) return ''
+  return s
+    .split(/\n{2,}/)
+    .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+    .join('')
+}
+function htmlToText(html) {
+  if (!html) return ''
+  return String(html)
+    .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 const isEdit = computed(() => !!props.finding)
@@ -63,7 +90,9 @@ watch(
       // Pre-fill from the existing finding row.
       form.value = {
         findingTypeId: props.finding.findingTypeId,
-        description: props.finding.description ?? '',
+        // Prefer the rich body; fall back to the plain description (older
+        // findings) wrapped as HTML so it's editable in the rich editor.
+        detailsHtml: props.finding.detailsHtml || textToHtml(props.finding.description ?? ''),
         categoryId: props.finding.categoryId ?? null,
         departmentId: props.finding.departmentId ?? null,
         severityScore: props.finding.severityScore ?? 1,
@@ -79,16 +108,8 @@ function close() {
   emit('update:modelValue', false)
 }
 
-const canSave = computed(() => !!form.value.description.trim() && !!form.value.findingTypeId)
-
-// Voice-to-text appends the transcript to the description (plain text).
-function appendToDescription(text) {
-  const t = (text || '').trim()
-  if (!t) return
-  form.value.description = form.value.description
-    ? `${form.value.description.trimEnd()}\n${t}`
-    : t
-}
+const descriptionText = computed(() => htmlToText(form.value.detailsHtml))
+const canSave = computed(() => !!descriptionText.value.trim() && !!form.value.findingTypeId)
 
 async function handleSave() {
   if (!canSave.value || saving.value) return
@@ -96,7 +117,8 @@ async function handleSave() {
   try {
     const payload = {
       findingTypeId: form.value.findingTypeId,
-      description: form.value.description.trim(),
+      description: descriptionText.value.trim(),
+      detailsHtml: form.value.detailsHtml || null,
       categoryId: form.value.categoryId || null,
       departmentId: form.value.departmentId || null,
       severityScore: Number(form.value.severityScore) || 1,
@@ -127,7 +149,7 @@ async function handleSave() {
   <BaseDialog
     :modelValue="modelValue"
     :title="isEdit ? 'Edit Finding' : 'New Finding'"
-    maxWidth="lg"
+    maxWidth="3xl"
     @update:modelValue="close"
   >
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
@@ -162,17 +184,20 @@ async function handleSave() {
       </div>
 
       <div>
-        <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
-            Description <span class="tw:text-red-500">*</span>
-          </p>
-          <AiVoiceToTextButton v-if="canUseAi" :append="appendToDescription" />
-        </div>
-        <BaseTextarea
-          v-model="form.description"
-          :rows="4"
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+          Description <span class="tw:text-red-500">*</span>
+        </p>
+        <BaseRichTextEditor
+          :modelValue="form.detailsHtml"
           placeholder="What was observed? Include the requirement reference + evidence summary."
-        />
+          class="tw:[&_.ProseMirror]:min-h-32 tw:[&_.ProseMirror]:max-h-80 tw:[&_.ProseMirror]:overflow-y-auto"
+          @update:modelValue="(v) => (form.detailsHtml = v)"
+        >
+          <template #toolbar-extra="{ editor, append }">
+            <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
+            <AiVoiceToTextButton v-if="canUseAi" :append="append" />
+          </template>
+        </BaseRichTextEditor>
       </div>
 
       <div>

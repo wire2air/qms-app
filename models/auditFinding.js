@@ -37,6 +37,8 @@ export class AuditFinding extends BaseModel {
   @Property({ type: String, required: true }) statusId = 'OPEN'
   @Property({ type: String }) categoryId = ''
   @Property({ type: String, required: true }) description = ''
+  // Rich finding body (#29) — Finding Notes HTML; preserves formatting/images.
+  @Property({ type: String }) detailsHtml = ''
   @Property({ type: Number }) severityScore = 1
   @Property({ type: Number }) riskScore = 1
   @Property({ type: String }) departmentId = ''

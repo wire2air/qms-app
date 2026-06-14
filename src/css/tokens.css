@@ -163,7 +163,187 @@
     --good: #34d399;
     --bad: #f87171;
     --warn: #fbbf24;
+
+    /* ==============================================
+     * Raw Tailwind palette — dark remap
+     * ==============================================
+     * Tailwind v4 emits utilities as var(--tw-color-<hue>-<shade>), so
+     * remapping the variables here rethemes every `tw:bg-amber-50`-style
+     * usage app-wide without touching components. Scheme per hue:
+     *   50/100/200/300 → translucent tints of the hue (surfaces/borders)
+     *   500/600        → the light-mode 400 (vivid on dark)
+     *   700            → the light-mode 300 (readable accent text)
+     *   800/900        → the light-mode 200 (high-contrast text on tints)
+     * 400 keeps its default — already light enough on dark surfaces.
+     * Gray-family hues invert onto the dark neutral scale.
+     * `white` is intentionally NOT remapped (text-white on colored
+     * buttons must stay white) — see the .dark .tw\:bg-white rule below.
+     */
+    --tw-color-red-50: rgba(220, 38, 38, 0.12);
+    --tw-color-red-100: rgba(220, 38, 38, 0.18);
+    --tw-color-red-200: rgba(220, 38, 38, 0.3);
+    --tw-color-red-300: rgba(220, 38, 38, 0.45);
+    --tw-color-red-500: #f87171;
+    --tw-color-red-600: #f87171;
+    --tw-color-red-700: #fca5a5;
+    --tw-color-red-800: #fecaca;
+    --tw-color-red-900: #fecaca;
+
+    --tw-color-amber-50: rgba(217, 119, 6, 0.12);
+    --tw-color-amber-100: rgba(217, 119, 6, 0.18);
+    --tw-color-amber-200: rgba(217, 119, 6, 0.3);
+    --tw-color-amber-300: rgba(217, 119, 6, 0.45);
+    --tw-color-amber-500: #fbbf24;
+    --tw-color-amber-600: #fbbf24;
+    --tw-color-amber-700: #fcd34d;
+    --tw-color-amber-800: #fde68a;
+    --tw-color-amber-900: #fde68a;
+
+    --tw-color-yellow-50: rgba(202, 138, 4, 0.12);
+    --tw-color-yellow-100: rgba(202, 138, 4, 0.18);
+    --tw-color-yellow-200: rgba(202, 138, 4, 0.3);
+    --tw-color-yellow-300: rgba(202, 138, 4, 0.45);
+    --tw-color-yellow-500: #facc15;
+    --tw-color-yellow-600: #facc15;
+    --tw-color-yellow-700: #fde047;
+    --tw-color-yellow-800: #fef08a;
+    --tw-color-yellow-900: #fef08a;
+
+    --tw-color-orange-50: rgba(234, 88, 12, 0.12);
+    --tw-color-orange-100: rgba(234, 88, 12, 0.18);
+    --tw-color-orange-200: rgba(234, 88, 12, 0.3);
+    --tw-color-orange-300: rgba(234, 88, 12, 0.45);
+    --tw-color-orange-500: #fb923c;
+    --tw-color-orange-600: #fb923c;
+    --tw-color-orange-700: #fdba74;
+    --tw-color-orange-800: #fed7aa;
+    --tw-color-orange-900: #fed7aa;
+
+    --tw-color-green-50: rgba(22, 163, 74, 0.12);
+    --tw-color-green-100: rgba(22, 163, 74, 0.18);
+    --tw-color-green-200: rgba(22, 163, 74, 0.3);
+    --tw-color-green-300: rgba(22, 163, 74, 0.45);
+    --tw-color-green-500: #4ade80;
+    --tw-color-green-600: #4ade80;
+    --tw-color-green-700: #86efac;
+    --tw-color-green-800: #bbf7d0;
+    --tw-color-green-900: #bbf7d0;
+
+    --tw-color-emerald-50: rgba(5, 150, 105, 0.12);
+    --tw-color-emerald-100: rgba(5, 150, 105, 0.18);
+    --tw-color-emerald-200: rgba(5, 150, 105, 0.3);
+    --tw-color-emerald-300: rgba(5, 150, 105, 0.45);
+    --tw-color-emerald-500: #34d399;
+    --tw-color-emerald-600: #34d399;
+    --tw-color-emerald-700: #6ee7b7;
+    --tw-color-emerald-800: #a7f3d0;
+    --tw-color-emerald-900: #a7f3d0;
+
+    --tw-color-teal-50: rgba(13, 148, 136, 0.12);
+    --tw-color-teal-100: rgba(13, 148, 136, 0.18);
+    --tw-color-teal-200: rgba(13, 148, 136, 0.3);
+    --tw-color-teal-300: rgba(13, 148, 136, 0.45);
+    --tw-color-teal-500: #2dd4bf;
+    --tw-color-teal-600: #2dd4bf;
+    --tw-color-teal-700: #5eead4;
+    --tw-color-teal-800: #99f6e4;
+    --tw-color-teal-900: #99f6e4;
+
+    --tw-color-blue-50: rgba(37, 99, 235, 0.12);
+    --tw-color-blue-100: rgba(37, 99, 235, 0.18);
+    --tw-color-blue-200: rgba(37, 99, 235, 0.3);
+    --tw-color-blue-300: rgba(37, 99, 235, 0.45);
+    --tw-color-blue-500: #60a5fa;
+    --tw-color-blue-600: #60a5fa;
+    --tw-color-blue-700: #93c5fd;
+    --tw-color-blue-800: #bfdbfe;
+    --tw-color-blue-900: #bfdbfe;
+
+    --tw-color-sky-50: rgba(2, 132, 199, 0.12);
+    --tw-color-sky-100: rgba(2, 132, 199, 0.18);
+    --tw-color-sky-200: rgba(2, 132, 199, 0.3);
+    --tw-color-sky-300: rgba(2, 132, 199, 0.45);
+    --tw-color-sky-500: #38bdf8;
+    --tw-color-sky-600: #38bdf8;
+    --tw-color-sky-700: #7dd3fc;
+    --tw-color-sky-800: #bae6fd;
+    --tw-color-sky-900: #bae6fd;
+
+    /* indigo-700/800/900 deliberately NOT remapped — the signup hero uses
+     * a from-indigo-900/to-indigo-700 gradient with white text that must
+     * stay dark in both themes. */
+    --tw-color-indigo-50: rgba(79, 70, 229, 0.12);
+    --tw-color-indigo-100: rgba(79, 70, 229, 0.18);
+    --tw-color-indigo-200: rgba(79, 70, 229, 0.3);
+    --tw-color-indigo-300: rgba(79, 70, 229, 0.45);
+    --tw-color-indigo-500: #818cf8;
+    --tw-color-indigo-600: #818cf8;
+
+    --tw-color-violet-50: rgba(124, 58, 237, 0.12);
+    --tw-color-violet-100: rgba(124, 58, 237, 0.18);
+    --tw-color-violet-200: rgba(124, 58, 237, 0.3);
+    --tw-color-violet-300: rgba(124, 58, 237, 0.45);
+    --tw-color-violet-500: #a78bfa;
+    --tw-color-violet-600: #a78bfa;
+    --tw-color-violet-700: #c4b5fd;
+    --tw-color-violet-800: #ddd6fe;
+    --tw-color-violet-900: #ddd6fe;
+
+    --tw-color-purple-50: rgba(147, 51, 234, 0.12);
+    --tw-color-purple-100: rgba(147, 51, 234, 0.18);
+    --tw-color-purple-200: rgba(147, 51, 234, 0.3);
+    --tw-color-purple-300: rgba(147, 51, 234, 0.45);
+    --tw-color-purple-500: #c084fc;
+    --tw-color-purple-600: #c084fc;
+    --tw-color-purple-700: #d8b4fe;
+    --tw-color-purple-800: #e9d5ff;
+    --tw-color-purple-900: #e9d5ff;
+
+    --tw-color-rose-50: rgba(225, 29, 72, 0.12);
+    --tw-color-rose-100: rgba(225, 29, 72, 0.18);
+    --tw-color-rose-200: rgba(225, 29, 72, 0.3);
+    --tw-color-rose-300: rgba(225, 29, 72, 0.45);
+    --tw-color-rose-500: #fb7185;
+    --tw-color-rose-600: #fb7185;
+    --tw-color-rose-700: #fda4af;
+    --tw-color-rose-800: #fecdd3;
+    --tw-color-rose-900: #fecdd3;
+
+    /* Gray family — inverted onto the dark neutral scale */
+    --tw-color-gray-50: #1c2531;
+    --tw-color-gray-100: #2a3441;
+    --tw-color-gray-200: #334155;
+    --tw-color-gray-300: #475569;
+    --tw-color-gray-400: #64748b;
+    --tw-color-gray-500: #94a3b8;
+    --tw-color-gray-600: #cbd5e1;
+    --tw-color-gray-700: #e2e8f0;
+    --tw-color-gray-800: #f1f5f9;
+    --tw-color-gray-900: #f8fafc;
+
+    --tw-color-slate-50: #1c2531;
+    --tw-color-slate-100: #2a3441;
+    --tw-color-slate-200: #334155;
+    --tw-color-slate-300: #475569;
+    --tw-color-slate-400: #64748b;
+    --tw-color-slate-500: #94a3b8;
+    --tw-color-slate-600: #cbd5e1;
+    --tw-color-slate-700: #e2e8f0;
+    --tw-color-slate-800: #f1f5f9;
+    --tw-color-slate-900: #f8fafc;
+
+    --tw-color-stone-50: #1c2531;
+    --tw-color-stone-100: #2a3441;
+    --tw-color-stone-200: #334155;
+    --tw-color-stone-300: #475569;
+    --tw-color-stone-400: #64748b;
+    --tw-color-stone-500: #94a3b8;
+    --tw-color-stone-600: #cbd5e1;
+    --tw-color-stone-700: #e2e8f0;
+    --tw-color-stone-800: #f1f5f9;
+    --tw-color-stone-900: #f8fafc;
   }
+
 
   /* ==============================================
    * Elevation System (3-tier)
@@ -251,4 +431,13 @@
   .q-btn:focus-visible .q-focus-helper {
     opacity: 0;
   }
+}
+
+/* `tw:bg-white` surfaces become panel surfaces in dark mode. Done as an
+ * unlayered utility override (beats @layer utilities in the cascade) rather
+ * than remapping --tw-color-white, because text-white on colored buttons
+ * must remain white. */
+.dark .tw\:bg-white,
+.dark .tw\:hover\:bg-white:hover {
+  background-color: var(--sidebar);
 }

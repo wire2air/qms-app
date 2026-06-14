@@ -1,12 +1,12 @@
 <script setup>
-import { IconMessage, IconPlus, IconTrash } from '@tabler/icons-vue'
+import { IconMessage, IconTrash } from '@tabler/icons-vue'
 import { useChatThreads } from '@/composables/useChatThreads'
 
 defineProps({
   activeThreadId: { type: String, default: null },
 })
 
-const emit = defineEmits(['select', 'new', 'delete'])
+const emit = defineEmits(['select', 'delete'])
 
 const threads = useChatThreads()
 
@@ -26,14 +26,6 @@ function formatRelative(dt) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:h-full tw:gap-2 tw:p-2">
-    <button
-      class="tw:w-full tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:font-semibold tw:rounded-lg tw:bg-primary tw:text-white tw:hover:bg-primary/90 tw:transition-colors"
-      @click="emit('new')"
-    >
-      <IconPlus :size="16" />
-      New chat
-    </button>
-
     <div class="tw:flex-1 tw:overflow-y-auto tw:flex tw:flex-col tw:gap-1">
       <template v-if="threads.length === 0">
         <div class="tw:text-xs tw:text-secondary tw:px-3 tw:py-4 tw:text-center">

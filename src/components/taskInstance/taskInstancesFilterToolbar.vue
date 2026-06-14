@@ -22,5 +22,11 @@ const filters = defineModel('filters', {
     </SafeTeleport>
 
     <TaskInstanceStatusSelectMenu v-model="filters.statusId" />
+    <DateRangeFilter
+      :from="filters.dateFrom"
+      :to="filters.dateTo"
+      @update:from="(v) => (filters.dateFrom = v)"
+      @update:to="(v) => (filters.dateTo = v)"
+    />
   </div>
 </template>

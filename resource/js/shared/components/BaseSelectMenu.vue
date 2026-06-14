@@ -153,8 +153,12 @@ watch(
     </template>
 
     <template #content="{ close }">
+      <!-- Panel is wider than the trigger on purpose — long entity names
+           (products with SKUs, suppliers) need room; the trigger may be a
+           narrow inline cell. Items truncate with a title tooltip past
+           the panel width. -->
       <div
-        class="tw:w-64 tw:bg-white tw:rounded-xl tw:shadow-xl tw:border tw:border-divider tw:overflow-hidden"
+        class="tw:w-80 tw:max-w-[90vw] tw:bg-white tw:rounded-xl tw:shadow-xl tw:border tw:border-divider tw:overflow-hidden"
       >
         <!-- Search Header -->
         <div class="tw:p-3 tw:border-b tw:border-divider tw:bg-sidebar/50">
@@ -217,7 +221,10 @@ watch(
               "
               @click="toggleSelection(item.id, close)"
             >
-              <span class="tw:font-medium tw:text-start">
+              <span
+                class="tw:font-medium tw:text-start tw:min-w-0 tw:flex-1 tw:truncate"
+                :title="item.name"
+              >
                 <slot name="item" :item="item">
                   {{ item.name }}
                 </slot>

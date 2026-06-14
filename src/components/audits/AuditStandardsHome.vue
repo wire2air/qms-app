@@ -4,7 +4,7 @@
  * to AuditStandardsPageId (detail + requirements editor). Version
  * submit-for-approval lands in Phase B-3.
  */
-import { IconBook, IconPlus, IconUpload, IconSparkles } from '@tabler/icons-vue'
+import { IconBook, IconPlus, IconUpload, IconSparkles, IconCopy } from '@tabler/icons-vue'
 import { isAllowed, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
@@ -16,6 +16,13 @@ const canCreate = computed(() => isAllowed(['auditStandards:create']))
 const showCreateDialog = ref(false)
 const showImportDialog = ref(false)
 const showAiGenerateDialog = ref(false)
+// Clone — row action opens the duplicate dialog seeded with that standard.
+const showCloneDialog = ref(false)
+const cloneTarget = ref(null)
+function openClone(row) {
+  cloneTarget.value = row
+  showCloneDialog.value = true
+}
 
 function openDetail(row) {
   router.push(getCompanyPath(`/audits/standards/${row.id}`))
@@ -141,6 +148,7 @@ function versionBadgeClass(versions) {
             <th class="tw:px-4 tw:py-3">License</th>
             <th class="tw:px-4 tw:py-3">Version</th>
             <th class="tw:px-4 tw:py-3">Created</th>
+            <th class="tw:px-4 tw:py-3" />
           </tr>
         </thead>
         <tbody>
@@ -182,12 +190,26 @@ function versionBadgeClass(versions) {
             <td class="tw:px-4 tw:py-3 tw:text-xs tw:text-secondary">
               {{ row.createdAt ? row.createdAt.formatDate('date') : '—' }}
             </td>
+            <td class="tw:px-4 tw:py-3 tw:text-right">
+              <button
+                v-if="canCreate"
+                type="button"
+                class="tw:text-secondary tw:hover:text-primary tw:hover:bg-main-hover tw:rounded tw:p-1.5 tw:cursor-pointer tw:bg-transparent tw:border-0"
+                title="Duplicate this standard"
+                @click.stop="openClone(row)"
+              >
+                <IconCopy :size="16" />
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <AuditStandardCreateDialog v-model="showCreateDialog" />
+    <!-- 'Duplicate & open' navigates from inside the dialog; plain 'Duplicate'
+         stays here and the new row syncs into the list automatically. -->
+    <AuditStandardCloneDialog v-model="showCloneDialog" :standard="cloneTarget" />
     <AuditStandardImportDialog
       v-model="showImportDialog"
       @created="(s) => s?.id && openDetail(s)"

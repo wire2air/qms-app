@@ -12,7 +12,7 @@
  * non-DRAFT/REJECTED versions — we mirror that here by hiding the
  * edit affordances when the `readonly` prop is true.
  */
-import { IconPlus, IconPencil, IconTrash, IconClipboardCheck, IconSparkles } from '@tabler/icons-vue'
+import { IconPlus, IconPencil, IconTrash, IconClipboardCheck, IconSparkles, IconLoader2 } from '@tabler/icons-vue'
 import { post, patch, del } from '@/api'
 import { canUseAi } from '@/utils/currentSession.js'
 
@@ -412,10 +412,12 @@ async function handleBulkEnrich() {
               :disabled="enrichingRowId === row.id || bulkEnriching"
               @click.stop="handleEnrichRow(row)"
             >
-              <IconSparkles
+              <IconLoader2
+                v-if="enrichingRowId === row.id"
                 :size="16"
-                :class="enrichingRowId === row.id ? 'tw:animate-pulse tw:text-purple-600' : ''"
+                class="tw:animate-spin tw:text-purple-600"
               />
+              <IconSparkles v-else :size="16" />
             </button>
             <button
               class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-white tw:hover:text-primary"

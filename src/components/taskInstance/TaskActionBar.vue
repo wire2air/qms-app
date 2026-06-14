@@ -44,7 +44,7 @@ defineExpose({ taskInstance })
 </script>
 
 <template>
-  <template v-if="taskInstance">
+  <div v-if="taskInstance" class="tw:contents">
     <template v-if="entityType === 'DocumentVersion'">
       <WorkflowInstanceApproverAction
         action="APPROVE"
@@ -92,5 +92,19 @@ defineExpose({ taskInstance })
         :requireEsignature="workflowStep?.requireEsignature"
       />
     </template>
-  </template>
+    <template v-else-if="entityType === 'InspectionLot'">
+      <WorkflowInstanceApproverAction
+        action="APPROVE"
+        :taskInstanceId="taskInstance.id"
+        :instanceStepId="instanceStep?.id"
+        :requireEsignature="workflowStep?.requireEsignature"
+      />
+      <WorkflowInstanceApproverAction
+        action="REJECT"
+        :taskInstanceId="taskInstance.id"
+        :instanceStepId="instanceStep?.id"
+        :requireEsignature="workflowStep?.requireEsignature"
+      />
+    </template>
+  </div>
 </template>

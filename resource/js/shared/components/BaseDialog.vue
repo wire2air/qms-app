@@ -2,14 +2,20 @@
 import { TransitionRoot, TransitionChild, Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
 import { IconX } from '@tabler/icons-vue'
 
-defineProps({
+const props = defineProps({
   title: {
     type: String,
     default: '',
   },
+  // `size` is the canonical prop; `maxWidth` is kept for backwards compat.
+  size: {
+    type: String,
+    default: null,
+    validator: (v) => !v || ['sm', 'md', 'lg', 'xl', '2xl', '3xl', 'full'].includes(v),
+  },
   maxWidth: {
     type: String,
-    default: 'md',
+    default: '2xl',
     validator: (v) => ['sm', 'md', 'lg', 'xl', '2xl', '3xl', 'full'].includes(v),
   },
   persistent: {
@@ -22,6 +28,9 @@ const isOpen = defineModel({
   type: Boolean,
   default: false,
 })
+
+// `size` wins over `maxWidth`; default resolves to 2xl.
+const resolvedSize = computed(() => props.size || props.maxWidth)
 
 function close() {
   isOpen.value = false
@@ -67,7 +76,7 @@ const maxWidthClass = {
           >
             <DialogPanel
               class="tw:w-full tw:transform tw:rounded-2xl tw:bg-sidebar tw:shadow-xl tw:transition-all tw:overflow-hidden"
-              :class="maxWidthClass[maxWidth]"
+              :class="maxWidthClass[resolvedSize]"
             >
               <!-- Header -->
               <div

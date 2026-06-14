@@ -351,6 +351,7 @@ declare global {
   const useTransition: typeof import('@vueuse/core').useTransition
   const useUrlSearchParams: typeof import('@vueuse/core').useUrlSearchParams
   const useUserMedia: typeof import('@vueuse/core').useUserMedia
+  const useUserSettings: typeof import('./src/composables/useUserSettings.js').useUserSettings
   const useUsers: typeof import('./src/composables/useUsers.js').useUsers
   const useVModel: typeof import('@vueuse/core').useVModel
   const useVModels: typeof import('@vueuse/core').useVModels

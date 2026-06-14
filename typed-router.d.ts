@@ -296,6 +296,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/lookups': RouteRecordInfo<
+      '/lookups',
+      '/lookups',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/my-training/[id]': RouteRecordInfo<
       '/my-training/[id]',
       '/my-training/:id',
@@ -336,6 +343,27 @@ declare module 'vue-router/auto-routes' {
       '/products',
       Record<never, never>,
       Record<never, never>,
+      | never
+    >,
+    '/qc-inspection/': RouteRecordInfo<
+      '/qc-inspection/',
+      '/qc-inspection',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/qc-inspection/lots/[id]': RouteRecordInfo<
+      '/qc-inspection/lots/[id]',
+      '/qc-inspection/lots/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/qc-inspection/specifications/[id]': RouteRecordInfo<
+      '/qc-inspection/specifications/[id]',
+      '/qc-inspection/specifications/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
       | never
     >,
     '/rca-templates': RouteRecordInfo<
@@ -760,6 +788,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/lookups.vue': {
+      routes:
+        | '/lookups'
+      views:
+        | never
+    }
     'src/pages/my-training/[id].vue': {
       routes:
         | '/my-training/[id]'
@@ -793,6 +827,24 @@ declare module 'vue-router/auto-routes' {
     'src/pages/products.vue': {
       routes:
         | '/products'
+      views:
+        | never
+    }
+    'src/pages/qc-inspection/index.vue': {
+      routes:
+        | '/qc-inspection/'
+      views:
+        | never
+    }
+    'src/pages/qc-inspection/lots/[id].vue': {
+      routes:
+        | '/qc-inspection/lots/[id]'
+      views:
+        | never
+    }
+    'src/pages/qc-inspection/specifications/[id].vue': {
+      routes:
+        | '/qc-inspection/specifications/[id]'
       views:
         | never
     }

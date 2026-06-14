@@ -28,6 +28,7 @@ import {
   IconAlertCircle,
   IconSitemap,
   IconLayoutGrid,
+  IconList,
   IconSchool,
   IconReplace,
   IconChecklist,
@@ -35,8 +36,10 @@ import {
   IconClipboardCheck,
   IconHeadset,
   IconTool,
+  IconTestPipe,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
+import { isDark } from '@/utils/theme.js'
 import {
   logoutCurrentSession,
   currentSession,
@@ -96,7 +99,12 @@ const currentUser = computed(() => {
   }
 })
 
+// Prefer the dark-mode logo variant (uploaded in Company Settings →
+// Branding) when the dark theme is active; fall back to the regular icon.
 const logoUrl = computed(() => {
+  if (isDark.value && currentCompany.value?.companyDarkIconUrl) {
+    return currentCompany.value.companyDarkIconUrl
+  }
   return currentCompany.value?.companyIconUrl
 })
 
@@ -214,6 +222,12 @@ const navItems = computed(() => {
       to: getCompanyPath('/inspections-logs'),
     },
     {
+      label: 'QC Inspection',
+      icon: IconTestPipe,
+      permissions: ['qcInspection:lot:read'],
+      to: getCompanyPath('/qc-inspection'),
+    },
+    {
       // Floor-user logging entry — mobile-first dashboard (pick a log
       // book → fill) + My Tasks. The route wrapped in the iOS/Android
       // WebView later. Distinct from the admin "Inspections & Logs".
@@ -294,12 +308,6 @@ const navItems = computed(() => {
           to: getCompanyPath('/workflow-templates'),
         },
         {
-          label: 'Workflow Instances',
-          permissions: ['documents:read'],
-          icon: IconInbox,
-          to: getCompanyPath('/workflow-instances'),
-        },
-        {
           label: 'Document Templates',
           permissions: ['document-templates:read'],
           icon: IconArticle,
@@ -344,10 +352,16 @@ const navItems = computed(() => {
           to: getCompanyPath('/risk-assessment-templates'),
         },
         // Option Sets moved under Form Templates → Option Sets tab.
-        // NC Dispositions remain at Settings → Lookups (the canonical
-        // home); previously had a redundant shortcut here.
-        // The standalone /option-sets and /settings?tab=lookups routes
-        // both still exist for back-compat with bookmarks.
+        // Lookups (NC dispositions/issue types, supplier certificate
+        // types, audit standard types/finding categories) live on the
+        // standalone /lookups page; /settings?tab=lookups redirects
+        // there for old bookmarks.
+        {
+          label: 'Lookups',
+          permissions: ['company:manage'],
+          icon: IconList,
+          to: getCompanyPath('/lookups'),
+        },
         {
           label: 'Sites',
           icon: IconBuilding,
@@ -443,8 +457,11 @@ const navItems = computed(() => {
         class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen tw:fixed tw:inset-y-0 tw:left-0 tw:z-40 tw:lg:static tw:lg:z-auto"
       >
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-4 tw:flex-1 tw:overflow-hidden">
-        <!-- Brand -->
-        <div class="tw:flex tw:items-center tw:gap-3">
+        <!-- Brand — links home (dashboard) -->
+        <RouterLink
+          :to="getCompanyPath('/dashboard')"
+          class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:-m-1 tw:p-1 tw:hover:bg-main-hover tw:transition-colors"
+        >
           <div v-if="logoUrl">
             <img :src="logoUrl" alt="Company Logo" class="tw:w-10 tw:h-10 tw:rounded" />
           </div>
@@ -462,7 +479,7 @@ const navItems = computed(() => {
               {{ isSupplier ? 'Documents & Tasks' : 'Quality Management' }}
             </div>
           </div>
-        </div>
+        </RouterLink>
 
         <!-- Nav Links -->
         <nav class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:overflow-auto">
@@ -527,6 +544,7 @@ const navItems = computed(() => {
             <div class="tw:text-sm tw:font-bold tw:text-on-sidebar">{{ currentUser.fullName }}</div>
             <div class="tw:text-xs tw:text-secondary">{{ currentUser.jobTitle }}</div>
           </div>
+          <ThemeToggle />
           <button
             class="tw:p-1.5 tw:rounded-full tw:text-secondary tw:hover:text-primary tw:hover:bg-main-hover tw:transition-colors tw:bg-transparent tw:border-0 tw:cursor-pointer"
             @click="logoutCurrentSession"

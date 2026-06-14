@@ -1,17 +1,59 @@
 <script setup>
-import { IconAlertCircle, IconClock, IconCircleCheck, IconShieldCheck } from '@tabler/icons-vue'
+import { IconAlertCircle, IconClock, IconCircleCheck, IconShieldCheck, IconDownload } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { dateInRange } from '@/utils/listFilters.js'
+import { exportToCSV } from '@/utils/exportUtils.js'
 import { DateTime } from 'luxon'
 
 const router = useRouter()
+const route = useRoute()
 
 const canCreate = computed(() => isAllowed(['capas:create']))
 const canUpdate = computed(() => isAllowed(['capas:update']))
 const canDelete = computed(() => isAllowed(['capas:delete']))
 
-const filters = ref({ search: '', statusId: null, priorityId: null, typeId: null })
+const filters = ref({
+  search: '',
+  statusId: null,
+  priorityId: null,
+  typeId: null,
+  supplierId: route.query.supplierId || null,
+  dateFrom: '',
+  dateTo: '',
+})
 const activeFilter = ref('all_open')
+
+// Supplier deep-link: /capas?supplierId=… prefilters to one supplier.
+watch(
+  () => route.query.supplierId,
+  (v) => (filters.value.supplierId = v || null),
+)
+const filterSupplier = useLiveQueryWithDeps([() => filters.value.supplierId], async (db, [id]) =>
+  id ? db.Supplier.findByPk(id) : null,
+)
+function clearSupplierFilter() {
+  filters.value.supplierId = null
+  const q = { ...route.query }
+  delete q.supplierId
+  router.replace({ query: q })
+}
+
+function exportCsv() {
+  exportToCSV(
+    capas.value,
+    [
+      { field: 'capaNumber', label: 'CAPA #' },
+      { field: 'title', label: 'Title' },
+      { field: 'statusId', label: 'Status' },
+      { field: 'priorityId', label: 'Priority' },
+      { field: 'typeId', label: 'Type' },
+      { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
+      { field: (r) => r.dueDate?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Due' },
+    ],
+    'capas',
+  )
+}
 
 const CLOSED_STATUSES = ['CLOSED', 'CANCELLED']
 const OPEN_STATUSES = ['DRAFT', 'PENDING']
@@ -55,11 +97,16 @@ const capas = useLiveQueryWithDeps(
     () => filters.value.priorityId,
     () => filters.value.typeId,
     () => activeFilter.value,
+    () => filters.value.supplierId,
+    () => filters.value.dateFrom,
+    () => filters.value.dateTo,
   ],
-  async (db, [search, statusId, priorityId, typeId, af]) => {
+  async (db, [search, statusId, priorityId, typeId, af, supplierId, dateFrom, dateTo]) => {
     let results = await db.Capa.where().exec()
     results = applyFilters(results, search, statusId, priorityId, typeId)
     results = applyActiveFilter(results, af)
+    if (supplierId) results = results.filter((r) => r.supplierId === supplierId)
+    if (dateFrom || dateTo) results = results.filter((r) => dateInRange(r.createdAt, dateFrom, dateTo))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -99,6 +146,10 @@ function onCreateCapa() {
     </SafeTeleport>
 
     <SafeTeleport to="#main-header-actions">
+      <BaseButton variant="outline" :disabled="!capas.length" @click="exportCsv">
+        <IconDownload :size="16" class="tw:mr-1" />
+        Export
+      </BaseButton>
       <BaseButton v-if="canCreate" variant="primary" @click="onCreateCapa">Create CAPA</BaseButton>
     </SafeTeleport>
 
@@ -184,6 +235,20 @@ function onCreateCapa() {
           </div>
         </div>
       </div>
+    </div>
+
+    <div
+      v-if="supplierFilter"
+      class="tw:flex tw:items-center tw:gap-2 tw:mb-3 tw:text-sm tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-blue-800 tw:rounded-lg tw:px-3 tw:py-2"
+    >
+      <span>Filtered by supplier: <strong>{{ filterSupplier?.name || '…' }}</strong></span>
+      <button
+        type="button"
+        class="tw:ml-auto tw:text-blue-700 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-xs tw:font-medium"
+        @click="clearSupplierFilter"
+      >
+        Clear
+      </button>
     </div>
 
     <CapasFilterToolbar v-model:filters="filters" v-model:activeFilter="activeFilter" />

@@ -114,6 +114,25 @@ async function handleAssigneeChange(stepId, userId) {
 
 const hasWorkflow = computed(() => !!nc.value?.workflowVersionId)
 
+// Owner can pick / change the workflow while DRAFT (an NC spawned from a
+// rejected QC lot arrives with NO workflow at all). Changing it resets the
+// per-step assignee plan — the old picks are keyed by step ids that no
+// longer apply.
+const selectedWorkflowVersionId = computed({
+  get: () => nc.value?.workflowVersionId ?? null,
+  set: async (versionId) => {
+    if (!nc.value || versionId === nc.value.workflowVersionId) return
+    nc.value.workflowVersionId = versionId
+    nc.value.pendingReviewers = {}
+    autoDefaultDone.value = false
+    try {
+      await nc.value.save()
+    } catch (e) {
+      toast.error(e?.message || 'Failed to set workflow')
+    }
+  },
+})
+
 // Auto-pick a sensible default for each step on a supplier-facing NC so
 // the owner doesn't have to click N times when the obvious choice
 // applies. One-shot — once we've initialised the empty slots ONE TIME,
@@ -165,8 +184,35 @@ watch(
 </script>
 
 <template>
+  <div v-if="nc" class="tw:flex tw:flex-col tw:gap-4">
+  <!-- Workflow selection — same choice the Create page offers, kept
+       available through DRAFT. An NC spawned from a rejected QC lot
+       arrives with no workflow; without this card there'd be no way to
+       set one before Open NC. -->
   <div
-    v-if="nc && hasWorkflow"
+    class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-3"
+  >
+    <div class="tw:pb-3 tw:border-b tw:border-divider">
+      <h3 class="tw:text-sm tw:font-bold tw:text-on-main">Workflow</h3>
+      <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
+        {{ hasWorkflow
+          ? 'You can switch workflows while the NC is in draft — step assignments reset on change.'
+          : 'Pick the approval workflow this NC will follow when you click Open NC.' }}
+      </p>
+    </div>
+    <WorkflowVersionSelect
+      v-if="isOwner"
+      v-model="selectedWorkflowVersionId"
+      moduleId="NON_CONFORMANCE"
+      dense
+    />
+    <p v-else-if="!hasWorkflow" class="tw:text-sm tw:text-secondary tw:italic">
+      No workflow selected yet — the NC owner picks one before opening.
+    </p>
+  </div>
+
+  <div
+    v-if="hasWorkflow"
     class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4"
   >
     <div
@@ -296,5 +342,6 @@ watch(
         </div>
       </div>
     </div>
+  </div>
   </div>
 </template>

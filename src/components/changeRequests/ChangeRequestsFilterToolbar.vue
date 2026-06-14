@@ -3,7 +3,14 @@ import { IconSearch, IconX } from '@tabler/icons-vue'
 
 const filters = defineModel('filters', {
   type: Object,
-  default: () => ({ search: '', statusId: null, priorityId: null, changeTypeId: null }),
+  default: () => ({
+    search: '',
+    statusId: null,
+    priorityId: null,
+    changeTypeId: null,
+    dateFrom: '',
+    dateTo: '',
+  }),
 })
 const activeFilter = defineModel('activeFilter', { type: String, default: 'all_open' })
 
@@ -23,6 +30,8 @@ function clearAll() {
   filters.value.statusId = null
   filters.value.priorityId = null
   filters.value.changeTypeId = null
+  filters.value.dateFrom = ''
+  filters.value.dateTo = ''
 }
 
 const hasActiveFilters = computed(
@@ -30,7 +39,9 @@ const hasActiveFilters = computed(
     filters.value.search ||
     filters.value.statusId ||
     filters.value.priorityId ||
-    filters.value.changeTypeId,
+    filters.value.changeTypeId ||
+    filters.value.dateFrom ||
+    filters.value.dateTo,
 )
 </script>
 
@@ -77,6 +88,12 @@ const hasActiveFilters = computed(
       <ChangeRequestStatusSelectMenu v-model="filters.statusId" class="tw:w-44" />
       <ChangeRequestPrioritySelectMenu v-model="filters.priorityId" class="tw:w-44" />
       <ChangeTypeSelectMenu v-model="filters.changeTypeId" class="tw:w-44" />
+      <DateRangeFilter
+        :from="filters.dateFrom"
+        :to="filters.dateTo"
+        @update:from="(v) => (filters.dateFrom = v)"
+        @update:to="(v) => (filters.dateTo = v)"
+      />
       <BaseButton v-if="hasActiveFilters" variant="outline" size="sm" @click="clearAll">
         Clear
       </BaseButton>

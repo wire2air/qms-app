@@ -19,6 +19,20 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <title>QMS Web Client</title>
+
+    <!-- Apply dark mode before the app mounts to avoid a light flash.
+         Mirrors src/utils/theme.js (localStorage 'theme': light|dark|system). -->
+    <script>
+      ;(function () {
+        try {
+          var mode = localStorage.getItem('theme') || 'system'
+          var dark =
+            mode === 'dark' ||
+            (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (dark) document.documentElement.classList.add('dark')
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body class="tw:overflow-hidden">
     <div id="app" class="tw:bg-main tw:text-on-main tw:h-screen tw:flex tw:print:hidden"></div>

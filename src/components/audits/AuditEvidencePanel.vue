@@ -10,10 +10,10 @@
  * an "Open" button (Asset URL for uploads; deep link for polymorphic
  * record links), and a delete affordance.
  */
-import { IconFile, IconLink, IconPaperclip, IconTrash, IconExternalLink } from '@tabler/icons-vue'
+import { IconFile, IconLink, IconPaperclip, IconTrash, IconExternalLink, IconCamera } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { patch, del } from '@/api'
+import { patch, del, upload } from '@/api'
 
 const props = defineProps({
   auditInstance: { type: Object, required: true },
@@ -88,6 +88,10 @@ const visibleUploads = computed(() =>
 const totalCount = computed(() => visibleUploads.value.length + links.value.length)
 
 // ── Open / delete ─────────────────────────────────────────────────
+
+function isImageUpload(u) {
+  return (assetsById.value[u.assetId]?.mimeType || '').startsWith('image/')
+}
 
 function openAsset(upload) {
   const asset = assetsById.value[upload.assetId]
@@ -171,6 +175,32 @@ async function saveCaption(row, kind) {
 // ── Dialog state ──────────────────────────────────────────────────
 const showUploadDialog = ref(false)
 const showLinkDialog = ref(false)
+
+// ── Take Photo — in-app camera capture (CameraCaptureDialog uses getUserMedia,
+// works on desktop webcam + mobile/iPad rear camera). The captured JPEG uploads
+// straight to the audit-evidence endpoint with the panel's scope. ──
+const showCameraDialog = ref(false)
+const uploadingPhoto = ref(false)
+async function uploadPhotoFile(file) {
+  if (!file || uploadingPhoto.value) return
+  uploadingPhoto.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file, file.name || `photo-${Date.now()}.jpg`)
+    fd.append('auditInstanceId', props.auditInstance.id)
+    if (props.scope === 'finding' && props.scopeId) fd.append('auditFindingId', props.scopeId)
+    else if (props.scope === 'response' && props.scopeId)
+      fd.append('auditRequirementResponseId', props.scopeId)
+    else if (props.scope === 'documentRequest' && props.scopeId)
+      fd.append('auditDocumentRequestId', props.scopeId)
+    await upload('/v1/services/auditEvidence', fd)
+    toast.success('Photo added')
+  } catch (err) {
+    toast.error(err?.message || 'Failed to add photo')
+  } finally {
+    uploadingPhoto.value = false
+  }
+}
 </script>
 
 <template>
@@ -185,6 +215,10 @@ const showLinkDialog = ref(false)
         </span>
       </div>
       <div v-if="!readonly" class="tw:flex tw:items-center tw:gap-2">
+        <BaseButton variant="outline" size="sm" :loading="uploadingPhoto" @click="showCameraDialog = true">
+          <template #icon><IconCamera :size="14" /></template>
+          Take Photo
+        </BaseButton>
         <BaseButton variant="outline" size="sm" @click="showLinkDialog = true">
           <template #icon><IconLink :size="14" /></template>
           Link Record
@@ -210,7 +244,21 @@ const showLinkDialog = ref(false)
         :key="`up-${u.id}`"
         class="tw:flex tw:items-start tw:gap-3 tw:py-2"
       >
-        <IconFile :size="16" class="tw:text-blue-600 tw:mt-0.5 tw:shrink-0" />
+        <button
+          v-if="isImageUpload(u) && assetsById[u.assetId]?.url"
+          type="button"
+          class="tw:shrink-0 tw:cursor-pointer tw:bg-transparent tw:border-0 tw:p-0"
+          title="Open photo"
+          @click="openAsset(u)"
+        >
+          <img
+            :src="assetsById[u.assetId].url"
+            :alt="assetsById[u.assetId]?.originalFilename || 'Photo'"
+            loading="lazy"
+            class="tw:size-14 tw:rounded tw:object-cover tw:border tw:border-divider"
+          />
+        </button>
+        <IconFile v-else :size="16" class="tw:text-blue-600 tw:mt-0.5 tw:shrink-0" />
         <div class="tw:flex-1 tw:min-w-0">
           <p class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">
             {{ assetsById[u.assetId]?.originalFilename || assetsById[u.assetId]?.filename || 'Uploaded file' }}
@@ -318,5 +366,6 @@ const showLinkDialog = ref(false)
       :scope="scope"
       :scopeId="scopeId"
     />
+    <CameraCaptureDialog v-model="showCameraDialog" @captured="uploadPhotoFile" />
   </div>
 </template>
