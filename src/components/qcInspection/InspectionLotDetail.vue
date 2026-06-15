@@ -104,8 +104,16 @@ const anyRequiresInstrument = computed(() =>
 )
 
 
-const isLocked = computed(() => ['APPROVED', 'REJECTED', 'CLOSED', 'UNDER_REVIEW'].includes(lot.value?.statusId))
+// Terminal lot statuses mirror the QA disposition outcome (mapped from the
+// shared disposition lookup by the backend handler).
+const TERMINAL_STATUSES = ['RELEASED', 'USE_AS_IS', 'REGRADE', 'REWORK', 'RETURN_TO_SUPPLIER', 'REJECTED', 'HOLD', 'CLOSED']
+// Adverse outcomes that may warrant a nonconformance.
+const ADVERSE_STATUSES = ['REWORK', 'RETURN_TO_SUPPLIER', 'REJECTED', 'HOLD']
+const isLocked = computed(() =>
+  [...TERMINAL_STATUSES, 'UNDER_REVIEW'].includes(lot.value?.statusId),
+)
 const isUnderReview = computed(() => lot.value?.statusId === 'UNDER_REVIEW')
+const isAdverse = computed(() => ADVERSE_STATUSES.includes(lot.value?.statusId))
 
 function limitText(c) {
   if (c.testType !== 'NUMERIC') return ''
@@ -170,33 +178,8 @@ async function createNcFromLot() {
   }
 }
 
-// QA reviewer picks the intended disposition while the lot is UNDER_REVIEW,
-// before clicking Approve / Reject. The handler reads the pre-set value.
-const APPROVE_DISPOSITIONS = [
-  { id: 'RELEASE', name: 'Release' },
-  { id: 'USE_AS_IS', name: 'Use as-is (with deviation)' },
-]
-const REJECT_DISPOSITIONS = [
-  { id: 'REWORK', name: 'Rework required' },
-  { id: 'RETURN_TO_VENDOR', name: 'Return to vendor (RTV)' },
-  { id: 'REJECT', name: 'Reject / Scrap' },
-]
-const ALL_DISPOSITIONS = [...APPROVE_DISPOSITIONS, ...REJECT_DISPOSITIONS]
-const savingDisposition = ref(false)
-async function setDisposition(value) {
-  if (savingDisposition.value) return
-  savingDisposition.value = true
-  try {
-    await patch(`/v1/services/qcInspection/lots/${props.id}`, { disposition: value })
-  } catch (err) {
-    toast.error(err?.message || 'Failed to set disposition')
-  } finally {
-    savingDisposition.value = false
-  }
-}
-
 // Disposition notes stay editable after disposition — the QA approver may
-// not have left a comment in the workflow action.
+// want to refine the reasoning recorded at disposition time.
 const editingNotes = ref(false)
 const notesDraft = ref('')
 const savingNotes = ref(false)
@@ -281,13 +264,15 @@ async function saveDispositionNotes() {
       </div>
     </div>
 
-    <!-- Rejected lot — disposition recorded; NC creation is the user's call -->
+    <!-- Adverse disposition (rework / return / reject / hold) — NC creation is
+         the user's call. -->
     <div
-      v-if="lot.statusId === 'REJECTED'"
+      v-if="isAdverse"
       class="tw:bg-red-50 tw:border tw:border-red-200 tw:rounded-lg tw:px-4 tw:py-3 tw:text-sm tw:flex tw:flex-col tw:gap-2"
     >
       <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
-        <span class="tw:font-semibold tw:text-red-800">This lot was rejected.</span>
+        <span class="tw:font-semibold tw:text-red-800">Disposition:</span>
+        <NcDispositionTypeBadgeById :dispositionTypeId="lot.dispositionTypeId" />
         <RouterLink
           v-if="lot.ncId"
           :to="getCompanyPath(`/nonconformances/${lot.ncId}`)"
@@ -314,7 +299,7 @@ async function saveDispositionNotes() {
         {{ lot.dispositionNotes }}
       </div>
       <div v-if="editingNotes" class="tw:flex tw:flex-col tw:gap-2">
-        <BaseTextarea v-model="notesDraft" :rows="3" placeholder="Why was this lot rejected? Disposition reasoning…" />
+        <BaseTextarea v-model="notesDraft" :rows="3" placeholder="Disposition reasoning…" />
         <div class="tw:flex tw:gap-2">
           <BaseButton variant="primary" size="sm" :loading="savingNotes" @click="saveDispositionNotes">Save</BaseButton>
           <BaseButton variant="outline" size="sm" @click="editingNotes = false">Cancel</BaseButton>
@@ -343,30 +328,17 @@ async function saveDispositionNotes() {
       </RouterLink>
     </div>
 
-    <!-- Approval banner when UNDER_REVIEW -->
+    <!-- Disposition banner when UNDER_REVIEW. The assigned reviewer records a
+         single disposition (which becomes the lot's terminal status); no
+         separate Approve/Reject. Non-reviewers see only the pending notice. -->
     <div
       v-if="isUnderReview"
       class="tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded-lg tw:px-4 tw:py-3 tw:flex tw:flex-col tw:gap-3"
     >
       <span class="tw:text-sm tw:font-semibold tw:text-amber-900">
-        This lot is pending QA disposition approval
+        This lot is pending QA disposition
       </span>
-      <!-- Disposition picker: QA reviewer selects the outcome label before
-           clicking Approve or Reject. The handler reads the pre-set value. -->
-      <div v-if="canDispose" class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
-        <span class="tw:text-sm tw:text-amber-800 tw:shrink-0">Disposition:</span>
-        <BaseInlineSelect
-          :modelValue="lot.disposition || 'RELEASE'"
-          :items="ALL_DISPOSITIONS"
-          :required="true"
-          class="tw:w-60"
-          @update:modelValue="setDisposition"
-        />
-        <TaskActionBar entityType="InspectionLot" :entityId="lot.id" />
-      </div>
-      <div v-else class="tw:flex tw:items-center tw:gap-2">
-        <TaskActionBar entityType="InspectionLot" :entityId="lot.id" />
-      </div>
+      <InspectionLotDispositionAction v-if="canDispose" :lotId="lot.id" />
     </div>
 
     <!-- Two-column: results on left, overview on right -->
@@ -577,9 +549,9 @@ async function saveDispositionNotes() {
             <div class="tw:text-on-main tw:font-medium">{{ lot.qualityState }}</div>
           </div>
           <!-- Disposition -->
-          <div v-if="lot.disposition">
+          <div v-if="lot.dispositionTypeId">
             <div class="tw:text-xs tw:text-secondary tw:mb-1">Disposition</div>
-            <InspectionLotDispositionBadge :disposition="lot.disposition" />
+            <NcDispositionTypeBadgeById :dispositionTypeId="lot.dispositionTypeId" />
           </div>
           <div v-if="lot.dispositionNotes">
             <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Disposition Notes</div>
@@ -596,8 +568,6 @@ async function saveDispositionNotes() {
 
     <InspectionLotSubmitDialog v-model="showSubmit" :lotId="props.id" />
     <InspectionLotCreateDialog v-model="showEdit" :editLot="lot" />
-    <CameraCaptureDialog v-model="showCamera" @captured="onPhotoCaptured" />
-    <input ref="fileInputRef" type="file" class="tw:hidden" accept="image/*,.pdf" @change="onFilePicked" />
   </div>
 
   <div v-else class="tw:p-10 tw:text-center tw:text-secondary">Loading…</div>

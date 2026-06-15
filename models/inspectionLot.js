@@ -30,7 +30,8 @@ export class InspectionLot extends BaseModel {
   @Property({ type: String }) workOrder = /** @type {String} */ (null)
   @Property({ type: String }) batchNumber = /** @type {String} */ (null)
   @Property({ type: String }) workflowInstanceId = /** @type {String} */ (null)
-  @Property({ type: String }) disposition = /** @type {String} */ (null)
+  // FK → ncDispositionTypes (shared QC + NC disposition lookup).
+  @Property({ type: String }) dispositionTypeId = /** @type {String} */ (null)
   @Property({ type: String }) dispositionNotes = /** @type {String} */ (null)
   @Property({ type: Boolean }) autoCreateNcOnReject = /** @type {Boolean} */ (null)
   @Property({ type: Array }) notifyGroupIdsOnPass = /** @type {Array} */ ([])

@@ -37,6 +37,8 @@ const lots = useLiveQueryWithDeps(
 )
 const products = useLiveQuery(async (db) => db.Product.where().exec(), { initial: [] })
 const productName = (id) => products.value.find((p) => p.id === id)?.name || '—'
+const dispositionTypes = useLiveQuery(async (db) => db.NcDispositionType.where().exec(), { initial: [] })
+const dispositionName = (id) => dispositionTypes.value.find((d) => d.id === id)?.name || ''
 
 function openLot(id) {
   router.push(getCompanyPath(`/qc-inspection/lots/${id}`))
@@ -52,7 +54,7 @@ function exportCsv() {
       { field: 'statusId', label: 'Status' },
       { field: 'sampleSize', label: 'Sample size' },
       { field: 'quantity', label: 'Quantity' },
-      { field: 'disposition', label: 'Disposition' },
+      { field: (r) => dispositionName(r.dispositionTypeId), label: 'Disposition' },
       { field: 'qualityState', label: 'Quality state' },
       { field: 'batchNumber', label: 'Batch' },
       { field: 'poNumber', label: 'PO' },
@@ -122,7 +124,7 @@ function exportCsv() {
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ l.sampleSize ?? '—' }}<span v-if="l.quantity"> / {{ l.quantity }}</span></td>
             <td class="tw:px-4 tw:py-2.5"><InspectionLotStatusBadgeById :statusId="l.statusId" /></td>
             <td class="tw:px-4 tw:py-2.5">
-              <InspectionLotDispositionBadge v-if="l.disposition" :disposition="l.disposition" />
+              <NcDispositionTypeBadgeById v-if="l.dispositionTypeId" :dispositionTypeId="l.dispositionTypeId" />
               <span v-else class="tw:text-secondary">—</span>
             </td>
             <td class="tw:px-4 tw:py-2.5" @click.stop>
