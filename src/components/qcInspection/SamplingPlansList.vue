@@ -6,7 +6,7 @@
  * pre-populated. ACTIVE plans show a "New Version" button.
  */
 import { IconPlus, IconChevronDown, IconChevronRight } from '@tabler/icons-vue'
-import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { post, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { isAllowed } from '@/utils/currentSession.js'
 
 defineProps({ canManage: { type: Boolean, default: false } })
@@ -17,6 +17,7 @@ const showEsign = ref(false)
 const showEdit = ref(false)
 const approvingId = ref(null)
 const revisingId = ref(null)
+const deletingId = ref(null)
 const editingPlan = ref(null)
 const expandedId = ref(null)
 
@@ -73,6 +74,18 @@ function startApprove(plan) {
 function startEdit(plan) {
   editingPlan.value = plan
   showEdit.value = true
+}
+
+async function deletePlan(id) {
+  if (deletingId.value !== id) { deletingId.value = id; return }
+  try {
+    await del(`/v1/services/qcInspection/samplingPlans/${id}`)
+    toast.success('Sampling plan deleted')
+  } catch (err) {
+    toast.error(err?.message || 'Delete failed')
+  } finally {
+    deletingId.value = null
+  }
 }
 
 async function onEsignVerified({ method, token }) {
@@ -170,6 +183,14 @@ async function createNewVersion(plan) {
                   @click="startApprove(p)"
                 >
                   Approve
+                </BaseButton>
+                <BaseButton
+                  v-if="canCreate && p.statusId === 'DRAFT'"
+                  :variant="deletingId === p.id ? 'danger' : 'outline'"
+                  size="sm"
+                  @click="deletePlan(p.id)"
+                >
+                  {{ deletingId === p.id ? 'Confirm Delete?' : 'Delete' }}
                 </BaseButton>
                 <BaseButton
                   v-if="canCreate && p.statusId === 'ACTIVE'"

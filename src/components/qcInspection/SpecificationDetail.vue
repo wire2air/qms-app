@@ -353,10 +353,10 @@ async function newVersion() {
               </div>
             </div>
             <div class="tw:mt-2">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Test method / instrument requirements</label>
-              <BaseTextInput
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Test method / reference attachments</label>
+              <RichTextAttachments
                 v-model="c.testMethod"
-                size="sm"
+                :rows="2"
                 placeholder="e.g. Calibrated micrometer, 0.001 mm resolution, 20°C"
                 @update:modelValue="markCharsDirty"
               />
@@ -383,8 +383,8 @@ async function newVersion() {
                 <td class="tw:px-5 tw:py-2.5 tw:font-medium tw:text-on-main">
                   {{ c.name }}
                   <span v-if="c.isCritical" class="tw:text-[10px] tw:text-red-600 tw:font-semibold">CRITICAL</span>
-                  <div v-if="c.testMethod" class="tw:text-[11px] tw:text-secondary tw:font-normal tw:mt-0.5">
-                    {{ c.testMethod }}
+                  <div v-if="c.testMethod" class="tw:mt-1">
+                    <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
                   </div>
                 </td>
                 <td class="tw:px-5 tw:py-2.5 tw:text-secondary">{{ c.testType }}</td>

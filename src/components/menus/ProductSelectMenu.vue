@@ -15,6 +15,10 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  nullLabel: {
+    type: String,
+    default: undefined,
+  },
 })
 
 const modelValue = defineModel({
@@ -62,6 +66,7 @@ function getArray() {
         :items="products"
         :required="required"
         :multiple="multiple"
+        v-bind="nullLabel !== undefined ? { nullLabel } : {}"
       >
         <template #button="scope">
           <slot name="button" v-bind="scope">

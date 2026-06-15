@@ -39,6 +39,10 @@ const form = ref(null)
 function seedFromPlan(plan) {
   return {
     name: plan.name ?? '',
+    planType: plan.planType ?? 'STANDARD',
+    customRows: Array.isArray(plan.customPlanTable?.rows)
+      ? plan.customPlanTable.rows.map((r) => ({ ...r }))
+      : [{ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 }],
     scope: plan.productId ? 'product' : 'productType',
     productId: plan.productId ?? null,
     productTypeId: plan.productTypeId ?? null,
@@ -57,6 +61,8 @@ function reset() {
     ? seedFromPlan(props.editPlan)
     : {
         name: '',
+        planType: 'STANDARD',
+        customRows: [{ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 }],
         scope: 'product',
         productId: null,
         productTypeId: null,
@@ -75,16 +81,34 @@ watch(() => props.editPlan, (plan) => { if (show.value && plan) reset() })
 function addAql() {
   form.value.severityAqls.push({ severity: 'NORMAL', aql: 1.0 })
 }
+function addCustomRow() {
+  form.value.customRows.push({ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 })
+}
+function removeCustomRow(i) {
+  form.value.customRows.splice(i, 1)
+}
 function removeAql(i) {
   form.value.severityAqls.splice(i, 1)
 }
 
 const canSubmit = computed(() => {
   const f = form.value
-  if (!f.name?.trim() || !f.standardCode || !f.inspectionLevel) return false
+  if (!f.name?.trim()) return false
   if (f.scope === 'product' && !f.productId) return false
   if (f.scope === 'productType' && !f.productTypeId) return false
-  return f.severityAqls.length > 0
+  if (f.planType === 'CUSTOM') {
+    return (
+      f.customRows.length > 0 &&
+      f.customRows.every(
+        (r) =>
+          r.severityLabel?.trim() &&
+          Number.isInteger(r.sampleSize) && r.sampleSize >= 1 &&
+          Number.isInteger(r.accept) && r.accept >= 0 &&
+          Number.isInteger(r.reject) && r.reject > r.accept,
+      )
+    )
+  }
+  return !!f.standardCode && !!f.inspectionLevel && f.severityAqls.length > 0
 })
 
 async function runPreview() {
@@ -115,10 +139,14 @@ async function onSave() {
       productId: f.scope === 'product' ? f.productId : null,
       productTypeId: f.scope === 'productType' ? f.productTypeId : null,
       inspectionPoint: f.inspectionPoint,
-      planType: 'STANDARD',
-      standardCode: f.standardCode,
-      inspectionLevel: f.inspectionLevel,
-      severityAqls: f.severityAqls,
+      planType: f.planType,
+      ...(f.planType === 'CUSTOM'
+        ? { customPlanTable: { rows: f.customRows } }
+        : {
+            standardCode: f.standardCode,
+            inspectionLevel: f.inspectionLevel,
+            severityAqls: f.severityAqls,
+          }),
     }
     if (isEdit.value) {
       const { plan } = await patch(`/v1/services/qcInspection/samplingPlans/${props.editPlan.id}`, body)
@@ -149,7 +177,7 @@ async function onSave() {
           <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Plan name <span class="tw:text-bad">*</span></label>
           <BaseTextInput v-model="form.name" placeholder="e.g. Finished Goods AQL 2.5" />
         </div>
-        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
           <div>
             <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection point</label>
             <BaseInlineSelect v-model="form.inspectionPoint" :items="POINTS" :required="true" class="tw:w-full" />
@@ -159,6 +187,18 @@ async function onSave() {
             <BaseInlineSelect
               v-model="form.scope"
               :items="[{ id: 'product', name: 'Specific product' }, { id: 'productType', name: 'Product type' }]"
+              :required="true"
+              class="tw:w-full"
+            />
+          </div>
+          <div>
+            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Plan type</label>
+            <BaseInlineSelect
+              v-model="form.planType"
+              :items="[
+                { id: 'STANDARD', name: 'AQL standard' },
+                { id: 'CUSTOM', name: 'Custom table' },
+              ]"
               :required="true"
               class="tw:w-full"
             />
@@ -175,8 +215,54 @@ async function onSave() {
 
       <hr class="tw:border-divider" />
 
-      <!-- ── Sampling configuration ────────────────────────────────────── -->
-      <div class="tw:flex tw:flex-col tw:gap-3">
+      <!-- ── CUSTOM plan table — fixed (sampleSize, accept, reject) per
+           severity, no AQL standard lookup. ─────────────────────────────── -->
+      <div v-if="form.planType === 'CUSTOM'" class="tw:flex tw:flex-col tw:gap-3">
+        <div class="tw:flex tw:items-center tw:justify-between">
+          <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">Custom plan table</p>
+          <BaseButton variant="text-link" size="sm" @click="addCustomRow">
+            <IconPlus :size="14" /> Add row
+          </BaseButton>
+        </div>
+        <p class="tw:text-xs tw:text-secondary tw:-mt-2">
+          Each row sets the fixed sample size and accept/reject numbers for a severity. Reject must
+          be greater than accept (e.g. accept 0 / reject 1 = any defect fails the lot).
+        </p>
+        <div class="tw:flex tw:flex-col tw:gap-2">
+          <div
+            v-for="(row, i) in form.customRows"
+            :key="i"
+            class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
+          >
+            <div class="tw:flex-1">
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Severity label</label>
+              <BaseTextInput v-model="row.severityLabel" size="sm" placeholder="e.g. NORMAL, CRITICAL" />
+            </div>
+            <div class="tw:w-28">
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Sample size</label>
+              <BaseTextInput v-model.number="row.sampleSize" type="number" size="sm" />
+            </div>
+            <div class="tw:w-24">
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Accept ≤</label>
+              <BaseTextInput v-model.number="row.accept" type="number" size="sm" />
+            </div>
+            <div class="tw:w-24">
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Reject ≥</label>
+              <BaseTextInput v-model.number="row.reject" type="number" size="sm" />
+            </div>
+            <button
+              type="button"
+              class="tw:p-1.5 tw:mt-4 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              @click="removeCustomRow(i)"
+            >
+              <IconTrash :size="16" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Sampling configuration (STANDARD) ─────────────────────────── -->
+      <div v-if="form.planType === 'STANDARD'" class="tw:flex tw:flex-col tw:gap-3">
         <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">Sampling configuration</p>
         <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <div>
@@ -222,10 +308,10 @@ async function onSave() {
         </div>
       </div>
 
-      <hr class="tw:border-divider" />
+      <hr v-if="form.planType === 'STANDARD'" class="tw:border-divider" />
 
-      <!-- ── Live preview ──────────────────────────────────────────────── -->
-      <div>
+      <!-- ── Live preview (STANDARD only — custom tables ARE the plan) ──── -->
+      <div v-if="form.planType === 'STANDARD'">
         <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-3">Sample-size preview</p>
         <div class="tw:flex tw:items-end tw:gap-3">
           <div class="tw:w-40">

@@ -15,7 +15,7 @@ const modelValue = defineModel({
   default: null,
 })
 
-const suppliers = useLiveQuery((db) => db.Supplier.where().exec(), { initial: [] })
+const suppliers = useLiveQuery((db) => db.Supplier.where('statusId', 'APPROVED').exec(), { initial: [] })
 
 function getArray() {
   return Array.isArray(modelValue.value) ? modelValue.value : []
@@ -23,7 +23,7 @@ function getArray() {
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="suppliers" :required="required" :multiple="multiple" nullLabel="— All suppliers —">
+  <BaseSelectMenu v-model="modelValue" :items="suppliers" :required="required" :multiple="multiple">
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <!-- MULTIPLE MODE -->

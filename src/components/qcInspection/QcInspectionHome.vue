@@ -12,8 +12,8 @@ const route = useRoute()
 
 const tabs = [
   { id: 'lots', label: 'Inspection Lots' },
-  { id: 'specifications', label: 'Specifications' },
   { id: 'inspection-plans', label: 'Inspection Plans' },
+  { id: 'specifications', label: 'Specifications' },
   { id: 'sampling-plans', label: 'Sampling Plans' },
   { id: 'aql-standards', label: 'AQL Standards' },
 ]

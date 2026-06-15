@@ -3,7 +3,7 @@
  * Inspection lots list — the QC execution queue. Reads live from the
  * SyncEngine; create/import/transition go through the qcInspection REST service.
  */
-import { IconPlus, IconDownload } from '@tabler/icons-vue'
+import { IconPlus, IconDownload, IconUpload } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { dateInRange } from '@/utils/listFilters.js'
 import { exportToCSV } from '@/utils/exportUtils.js'
@@ -12,6 +12,7 @@ defineProps({ canCreate: { type: Boolean, default: false } })
 
 const router = useRouter()
 const showCreate = ref(false)
+const showImport = ref(false)
 const pointFilter = ref(null)
 const dateFrom = ref('')
 const dateTo = ref('')
@@ -84,6 +85,10 @@ function exportCsv() {
           <template #icon><IconDownload :size="16" /></template>
           Export
         </BaseButton>
+        <BaseButton v-if="canCreate" variant="outline" size="sm" @click="showImport = true">
+          <template #icon><IconUpload :size="16" /></template>
+          Import CSV
+        </BaseButton>
         <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreate = true">
           <template #icon><IconPlus :size="16" /></template>
           New Lot
@@ -117,11 +122,7 @@ function exportCsv() {
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ l.sampleSize ?? '—' }}<span v-if="l.quantity"> / {{ l.quantity }}</span></td>
             <td class="tw:px-4 tw:py-2.5"><InspectionLotStatusBadgeById :statusId="l.statusId" /></td>
             <td class="tw:px-4 tw:py-2.5">
-              <span
-                v-if="l.disposition"
-                class="tw:text-[11px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
-                :class="l.disposition === 'RELEASE' ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-red-100 tw:text-red-700'"
-              >{{ l.disposition }}</span>
+              <InspectionLotDispositionBadge v-if="l.disposition" :disposition="l.disposition" />
               <span v-else class="tw:text-secondary">—</span>
             </td>
             <td class="tw:px-4 tw:py-2.5" @click.stop>
@@ -143,5 +144,6 @@ function exportCsv() {
     </div>
 
     <InspectionLotCreateDialog v-model="showCreate" @created="(id) => openLot(id)" />
+    <InspectionLotImportDialog v-model="showImport" />
   </div>
 </template>

@@ -6,12 +6,15 @@
  * these up automatically (specific-product plans win over product-type plans).
  */
 import { IconPlus } from '@tabler/icons-vue'
+import { del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 
 defineProps({ canManage: { type: Boolean, default: false } })
 
+const toast = useToast()
 const showCreate = ref(false)
 const showEdit = ref(false)
 const editingPlan = ref(null)
+const deletingId = ref(null)
 
 const POINT_LABELS = { INCOMING: 'Incoming', IN_PROCESS: 'In-process', FINAL: 'Final' }
 
@@ -58,6 +61,18 @@ function startEdit(plan) {
   editingPlan.value = plan
   showEdit.value = true
 }
+
+async function deletePlan(id) {
+  if (deletingId.value !== id) { deletingId.value = id; return }
+  try {
+    await del(`/v1/services/qcInspection/templates/${id}`)
+    toast.success('Inspection plan deleted')
+  } catch (err) {
+    toast.error(err?.message || 'Delete failed')
+  } finally {
+    deletingId.value = null
+  }
+}
 </script>
 
 <template>
@@ -101,9 +116,19 @@ function startEdit(plan) {
               >{{ t.active ? 'ACTIVE' : 'INACTIVE' }}</span>
             </td>
             <td class="tw:px-4 tw:py-2.5 tw:text-right">
-              <BaseButton v-if="canManage" variant="outline" size="sm" @click="startEdit(t)">
-                Edit
-              </BaseButton>
+              <div class="tw:flex tw:items-center tw:justify-end tw:gap-2">
+                <BaseButton v-if="canManage" variant="outline" size="sm" @click="startEdit(t)">
+                  Edit
+                </BaseButton>
+                <BaseButton
+                  v-if="canManage"
+                  :variant="deletingId === t.id ? 'danger' : 'outline'"
+                  size="sm"
+                  @click="deletePlan(t.id)"
+                >
+                  {{ deletingId === t.id ? 'Confirm Delete?' : 'Delete' }}
+                </BaseButton>
+              </div>
             </td>
           </tr>
           <tr v-if="!plans.length">

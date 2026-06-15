@@ -8,7 +8,7 @@ import { IconPlus, IconDownload } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { dateInRange } from '@/utils/listFilters.js'
 import { exportToCSV } from '@/utils/exportUtils.js'
-import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { post, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { isAllowed } from '@/utils/currentSession.js'
 
 defineProps({ canManage: { type: Boolean, default: false } })
@@ -18,6 +18,7 @@ const router = useRouter()
 const showCreate = ref(false)
 const showEsign = ref(false)
 const approvingId = ref(null)
+const deletingId = ref(null)
 const dateFrom = ref('')
 const dateTo = ref('')
 
@@ -26,6 +27,18 @@ const canApprove = computed(() => isAllowed(['qcInspection:spec:write']))
 function startApprove(spec) {
   approvingId.value = spec.id
   showEsign.value = true
+}
+
+async function deleteSpec(id) {
+  if (deletingId.value !== id) { deletingId.value = id; return }
+  try {
+    await del(`/v1/services/qcInspection/specifications/${id}`)
+    toast.success('Specification deleted')
+  } catch (err) {
+    toast.error(err?.message || 'Delete failed')
+  } finally {
+    deletingId.value = null
+  }
 }
 
 async function onEsignVerified({ method, token }) {
@@ -130,14 +143,24 @@ function exportCsv() {
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">v{{ s.version }}</td>
             <td class="tw:px-4 tw:py-2.5"><SpecificationStatusBadgeById :statusId="s.statusId" /></td>
             <td class="tw:px-4 tw:py-2.5 tw:text-right" @click.stop>
-              <BaseButton
-                v-if="canApprove && s.statusId === 'DRAFT'"
-                variant="outline"
-                size="sm"
-                @click="startApprove(s)"
-              >
-                Approve
-              </BaseButton>
+              <div class="tw:flex tw:items-center tw:justify-end tw:gap-2">
+                <BaseButton
+                  v-if="canApprove && s.statusId === 'DRAFT'"
+                  variant="outline"
+                  size="sm"
+                  @click="startApprove(s)"
+                >
+                  Approve
+                </BaseButton>
+                <BaseButton
+                  v-if="canApprove && s.statusId === 'DRAFT'"
+                  :variant="deletingId === s.id ? 'danger' : 'outline'"
+                  size="sm"
+                  @click="deleteSpec(s.id)"
+                >
+                  {{ deletingId === s.id ? 'Confirm Delete?' : 'Delete' }}
+                </BaseButton>
+              </div>
             </td>
           </tr>
           <tr v-if="!specs.length">

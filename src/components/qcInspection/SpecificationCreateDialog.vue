@@ -86,7 +86,7 @@ async function onSave() {
         uom: c.testType === 'NUMERIC' ? c.uom?.trim() || null : null,
         isCritical: !!c.isCritical,
         requiresInstrument: !!c.requiresInstrument,
-        testMethod: c.testMethod?.trim() || null,
+        testMethod: c.testMethod || null,
         sortOrder: i,
       })),
     })
@@ -195,10 +195,9 @@ async function onSave() {
           </div>
           <div class="tw:mt-3">
             <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Test method / instrument requirements</label>
-            <BaseTextInput
+            <RichTextAttachments
               v-model="c.testMethod"
-              size="sm"
-              placeholder="e.g. Calibrated micrometer, 0.001 mm resolution, 20°C"
+              placeholder="e.g. Calibrated micrometer, 0.001 mm resolution, 20°C — attach reference images or spec sheets"
             />
           </div>
         </div>
