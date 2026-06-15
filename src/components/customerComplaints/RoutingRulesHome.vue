@@ -276,7 +276,7 @@ async function handleDelete(rule) {
     <BaseDialog
       v-model="showEditDialog"
       :title="editing ? 'Edit Routing Rule' : 'New Routing Rule'"
-      maxWidth="lg"
+      maxWidth="2xl"
     >
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
@@ -288,12 +288,11 @@ async function handleDelete(rule) {
           </div>
           <div class="tw:flex tw:flex-col tw:gap-1">
             <label class="tw:text-sm tw:font-medium tw:text-secondary">Run when</label>
-            <div class="tw:flex tw:gap-2">
+            <div class="tw:flex tw:flex-wrap tw:gap-2">
               <BaseButton
                 v-for="event in EVENTS"
                 :key="event.id"
                 size="sm"
-                class="tw:flex-1 tw:justify-center"
                 :variant="draft.triggerEvents.includes(event.id) ? 'primary' : 'outline'"
                 @click="toggleEvent(event.id)"
               >
@@ -316,20 +315,28 @@ async function handleDelete(rule) {
           <div
             v-for="(condition, index) in draft[group]"
             :key="index"
-            class="tw:flex tw:items-center tw:gap-2"
+            class="tw:flex tw:flex-wrap tw:items-center tw:gap-2"
           >
             <BaseSelectMenu
               v-model="condition.field"
               :items="CONDITION_FIELDS"
               required
               class="tw:w-40"
-            />
-            <BaseSelectMenu v-model="condition.op" :items="OPERATORS" required class="tw:w-40" />
+            >
+              <template #button>
+                <BaseBadge selectable>{{ fieldLabel(condition.field) }}</BaseBadge>
+              </template>
+            </BaseSelectMenu>
+            <BaseSelectMenu v-model="condition.op" :items="OPERATORS" required class="tw:w-40">
+              <template #button>
+                <BaseBadge selectable>{{ opLabel(condition.op) }}</BaseBadge>
+              </template>
+            </BaseSelectMenu>
             <BaseTextInput
               v-if="needsValue(condition.op)"
               v-model="condition.value"
               placeholder="value"
-              class="tw:flex-1"
+              class="tw:flex-1 tw:min-w-32"
             />
             <span v-else class="tw:flex-1" />
             <button
@@ -357,35 +364,51 @@ async function handleDelete(rule) {
           <div
             v-for="(action, index) in draft.actions"
             :key="index"
-            class="tw:flex tw:items-center tw:gap-2"
+            class="tw:flex tw:flex-wrap tw:items-center tw:gap-2"
           >
-            <BaseSelectMenu v-model="action.type" :items="ACTION_TYPES" required class="tw:w-44" />
+            <BaseSelectMenu v-model="action.type" :items="ACTION_TYPES" required class="tw:w-44">
+              <template #button>
+                <BaseBadge selectable>{{ actionLabel(action) }}</BaseBadge>
+              </template>
+            </BaseSelectMenu>
             <UserSelectMenu
               v-if="['ASSIGN_USER', 'NOTIFY_USER'].includes(action.type)"
               v-model="action.userId"
               required
-              class="tw:flex-1"
+              class="tw:flex-1 tw:min-w-40"
             />
             <GroupSelectMenu
               v-else-if="action.type === 'ASSIGN_TEAM'"
               v-model="action.teamId"
               required
-              class="tw:flex-1"
+              class="tw:flex-1 tw:min-w-40"
             />
             <BaseSelectMenu
               v-else-if="action.type === 'SET_PRIORITY'"
               v-model="action.priorityId"
               :items="PRIORITIES"
               required
-              class="tw:flex-1"
-            />
+              class="tw:flex-1 tw:min-w-40"
+            >
+              <template #button>
+                <BaseBadge selectable>
+                  {{ PRIORITIES.find((p) => p.id === action.priorityId)?.name || 'Select priority' }}
+                </BaseBadge>
+              </template>
+            </BaseSelectMenu>
             <BaseSelectMenu
               v-else-if="action.type === 'SET_SENTIMENT'"
               v-model="action.sentiment"
               :items="SENTIMENTS"
               required
-              class="tw:flex-1"
-            />
+              class="tw:flex-1 tw:min-w-40"
+            >
+              <template #button>
+                <BaseBadge selectable>
+                  {{ SENTIMENTS.find((s) => s.id === action.sentiment)?.name || 'Select sentiment' }}
+                </BaseBadge>
+              </template>
+            </BaseSelectMenu>
             <span v-else class="tw:flex-1" />
             <button class="tw:text-secondary tw:hover:text-red-600" @click="removeAction(index)">
               <IconX :size="14" />
