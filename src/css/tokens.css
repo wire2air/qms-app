@@ -389,25 +389,21 @@
     --height-nav-item: 40px;
 
     /* ==============================================
-     * Border Radius
+     * Border Radius & Typography — governed elsewhere, DO NOT re-add here
+     * ==============================================
+     * Radius: Tailwind's default utility scale already encodes the intended
+     * hierarchy — DON'T define --radius-* (they were dead: no var() consumer,
+     * and same-named tokens with a *shifted* scale invite a regression):
+     *   tw:rounded-lg  = 8px   → components (buttons, inputs)
+     *   tw:rounded-xl  = 12px  → cards
+     *   tw:rounded-2xl = 16px  → dialogs
+     * Wiring --radius-* into @theme would push lg→12px and shift every corner
+     * one step rounder across 600+ elements. Use the utilities above instead.
+     *
+     * Typography: the --text-* scale lives in base.css @theme so Tailwind emits
+     * tw:text-page-title|section-title|subheading|body|label|caption|badge
+     * font-size utilities. See base.css.
      * ============================================== */
-    --radius-sm: 6px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
-    --radius-xl: 16px;
-    --radius-full: 9999px;
-
-    /* ==============================================
-     * Typography Scale
-     * ============================================== */
-    --text-page-title: 28px;
-    --text-section-title: 18px;
-    --text-subheading: 15px;
-    --text-body: 14px;
-    --text-label: 12px;
-    --text-caption: 11px;
-    --text-badge: 11px;
-    --text-table-header: 11px;
   }
 
   /* ==============================================

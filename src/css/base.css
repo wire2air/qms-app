@@ -113,6 +113,20 @@
   --shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-floating: 0 4px 16px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
   --shadow-overlay: 0 12px 40px rgba(0, 0, 0, 0.15);
+
+  /* Typography scale — emits tw:text-<name> font-size utilities (page-title,
+   * section-title, subheading, body, label, caption, badge, table-header).
+   * Additive to Tailwind's default text-xs…text-9xl scale; nothing is removed.
+   * Lets feature code replace ad-hoc text-[10px]/[11px] magic numbers with a
+   * named token. */
+  --text-page-title: 28px;
+  --text-section-title: 18px;
+  --text-subheading: 15px;
+  --text-body: 14px;
+  --text-label: 12px;
+  --text-caption: 11px;
+  --text-badge: 11px;
+  --text-table-header: 11px;
 }
 
 @layer base {
@@ -147,7 +161,10 @@
     /* Divider / Border */
     --divider: #e5e7eb;
 
-    --placeholder: #9ca3af;
+    /* Placeholder/muted text. Darkened from #9ca3af (2.55:1 on white — fails
+     * WCAG AA) to #6b7280 (4.9:1 — passes). Dark-mode placeholder stays #9ca3af
+     * since it already clears AA (~7:1) on the dark surface. */
+    --placeholder: #6b7280;
 
     /* Card surface = white panel in light mode */
     --card: var(--sidebar);
