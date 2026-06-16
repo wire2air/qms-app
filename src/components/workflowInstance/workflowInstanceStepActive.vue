@@ -11,24 +11,32 @@ const currentUserId = computed(() => currentSession.value?.id)
 
 const instanceStep = useLiveQueryWithDeps(
   [() => props.instanceStepId],
+
   async (db, [instanceStepId]) => {
     if (!instanceStepId) return null
     return db.WorkflowInstanceStep.findByPk(instanceStepId)
   },
+  { models: ['WorkflowInstanceStep'] },
 )
 
 const workflowInstance = useLiveQueryWithDeps(
   [() => instanceStep.value?.workflowInstanceId],
+
   async (db, [instanceId]) => {
     if (!instanceId) return null
     return db.WorkflowInstance.findByPk(instanceId)
   },
+  { models: ['WorkflowInstance'] },
 )
 
-const step = useLiveQueryWithDeps([() => instanceStep.value?.stepId], async (db, [stepId]) => {
-  if (!stepId) return null
-  return db.WorkflowStep.findByPk(stepId)
-})
+const step = useLiveQueryWithDeps(
+  [() => instanceStep.value?.stepId],
+  async (db, [stepId]) => {
+    if (!stepId) return null
+    return db.WorkflowStep.findByPk(stepId)
+  },
+  { models: ['WorkflowStep'] },
+)
 
 const tasks = useLiveQueryWithDeps(
   [() => props.instanceStepId],
@@ -39,7 +47,8 @@ const tasks = useLiveQueryWithDeps(
       instanceStepId,
     ]).exec()
   },
-  { initial: [] },
+
+  { models: ['TaskInstance'], initial: [] },
 )
 
 function isCurrentUser(task) {
@@ -60,7 +69,8 @@ const usersMap = useLiveQueryWithDeps(
     const users = await Promise.all(ids.map((id) => db.User.findByPk(id)))
     return Object.fromEntries(users.filter(Boolean).map((u) => [u.id, u]))
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 </script>
 

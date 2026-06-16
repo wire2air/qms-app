@@ -9,7 +9,11 @@ const formTemplate = useLiveQueryWithDeps(
     if (!id) return null
     return db.FormTemplate.findByPk(id)
   },
-  { initial: () => (props.formTemplateId ? { id: props.formTemplateId } : null) },
+
+  {
+    models: ['FormTemplate'],
+    initial: () => (props.formTemplateId ? { id: props.formTemplateId } : null),
+  },
 )
 </script>
 

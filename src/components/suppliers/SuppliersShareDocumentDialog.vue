@@ -23,7 +23,8 @@ const sharedDocs = useLiveQueryWithDeps(
       }),
     )
   },
-  { initial: [] },
+
+  { models: ['SupplierDocument', 'DocumentVersion', 'Document'], initial: [] },
 )
 
 // Only EFFECTIVE versions are shareable with suppliers — drafts /
@@ -33,10 +34,7 @@ const sharedDocs = useLiveQueryWithDeps(
 // because it was the newest revision.
 const allLatestVersions = useLiveQuery(
   async (db) => {
-    const versions = await db.DocumentVersion.where(
-      'statusId',
-      'EFFECTIVE',
-    ).exec()
+    const versions = await db.DocumentVersion.where('statusId', 'EFFECTIVE').exec()
     const resolved = await Promise.all(
       versions.map(async (v) => {
         const doc = await db.Document.findByPk(v.documentId)
@@ -46,7 +44,8 @@ const allLatestVersions = useLiveQuery(
     )
     return resolved.filter(Boolean)
   },
-  { initial: [] },
+
+  { models: ['DocumentVersion', 'Document'], initial: [] },
 )
 
 const selectedVersionId = ref(null)
@@ -113,10 +112,7 @@ watch(open, (val) => {
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
       <BaseButton variant="outline" @click="open = false">Cancel</BaseButton>
       <BaseButton :disabled="!selectedVersionId || saving" @click="handleShare">
-        <div
-          v-if="saving"
-          class="tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-white tw:border-t-transparent"
-        />
+        <BaseSpinner v-if="saving" size="sm" color="white" />
         <span>{{ saving ? 'Sharing...' : 'Share' }}</span>
       </BaseButton>
     </div>

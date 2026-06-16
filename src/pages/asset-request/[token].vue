@@ -131,9 +131,7 @@ onMounted(() => {
       <div class="tw:w-full tw:max-w-3xl tw:bg-sidebar tw:rounded-lg tw:shadow-lg tw:p-6 tw:m-4">
         <!-- Loading -->
         <div v-if="loading" class="tw:text-center tw:py-16">
-          <div
-            class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-4 tw:border-primary tw:border-t-transparent tw:mx-auto"
-          />
+          <BaseSpinner size="lg" class="tw:mx-auto" />
           <div class="tw:text-secondary tw:mt-4">Loading...</div>
         </div>
 
@@ -293,14 +291,15 @@ onMounted(() => {
             <label class="tw:block tw:text-sm tw:font-medium tw:text-on-sidebar tw:mb-2">
               Upload Document *
             </label>
-            <div
+            <BaseClickableRow
               v-if="!selectedFile"
-              class="tw:border-2 tw:border-dashed tw:border-gray-300 tw:rounded-lg tw:p-8 tw:text-center tw:cursor-pointer tw:hover:border-primary"
+              class="tw:border-2 tw:border-dashed tw:border-gray-300 tw:rounded-lg tw:p-8 tw:text-center tw:hover:border-primary"
+              aria-label="Select a file to upload"
               @click="$refs.legacyFileInput.click()"
             >
               <IconUpload :size="48" class="tw:text-secondary tw:mx-auto" />
               <p class="tw:text-secondary tw:mt-2">Click to select a file</p>
-            </div>
+            </BaseClickableRow>
             <div
               v-else
               class="tw:border tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3"

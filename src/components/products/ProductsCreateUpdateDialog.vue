@@ -27,10 +27,14 @@ const form = ref({
 })
 
 // Load existing product if editing
-const product = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.Product.findByPk(id)
-})
+const product = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.Product.findByPk(id)
+  },
+  { models: ['Product'] },
+)
 
 // SKU uniqueness check
 const skuAvailable = useLiveQueryWithDeps(
@@ -40,7 +44,8 @@ const skuAvailable = useLiveQueryWithDeps(
     const all = await db.Product.where().exec()
     return !all.some((p) => p.sku === sku && p.id !== id)
   },
-  { initial: true },
+
+  { models: ['Product'], initial: true },
 )
 
 const rules = computed(() => ({

@@ -13,16 +13,12 @@
  * stay self-consistent after a rename.
  */
 
-import {
-  IconPlus,
-  IconPencil,
-  IconTrash,
-  IconRestore,
-} from '@tabler/icons-vue'
+import { IconPlus, IconPencil, IconTrash, IconRestore } from '@tabler/icons-vue'
 import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api'
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const canManage = computed(
   () => !!currentSession.value?.isOwner || isAllowed(['hazardCategories:manage']),
@@ -30,7 +26,8 @@ const canManage = computed(
 
 const categories = useLiveQuery(
   async (db) => db.HazardCategory.where().orderBy('displayOrder', 'asc').exec(),
-  { initial: [] },
+
+  { models: ['HazardCategory'], initial: [] },
 )
 
 const deactivated = useLiveQuery(
@@ -38,7 +35,8 @@ const deactivated = useLiveQuery(
     const all = await db.HazardCategory.where('id', undefined, { force: true }).exec()
     return all.filter((c) => c.deletedAt)
   },
-  { initial: [] },
+
+  { models: ['HazardCategory'], initial: [] },
 )
 
 const showEditDialog = ref(false)
@@ -141,9 +139,12 @@ async function handleSave() {
 
 async function handleDeactivate(row) {
   if (
-    !window.confirm(
-      `Deactivate "${row.name}"? Historical risk_assessments rows referencing this category will keep their denormalized label + colour; new assessments won't see it in the picker.`,
-    )
+    !(await confirm({
+      title: 'Deactivate category',
+      message: `Deactivate "${row.name}"? Historical risk_assessments rows referencing this category will keep their denormalized label + colour; new assessments won't see it in the picker.`,
+      okLabel: 'Deactivate',
+      danger: true,
+    }))
   ) {
     return
   }
@@ -177,10 +178,10 @@ const showDeactivated = ref(false)
       <div>
         <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Hazard Categories</h2>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          Categories the reviewer picks when finalising a Risk Assessment (initial or
-          residual). Seeded with seven standard hazards (Safety / Quality / Supply Chain
-          / Regulatory / Financial / Operational / Environmental). Colour drives the
-          badge styling on risk_assessments rows and dashboards.
+          Categories the reviewer picks when finalising a Risk Assessment (initial or residual).
+          Seeded with seven standard hazards (Safety / Quality / Supply Chain / Regulatory /
+          Financial / Operational / Environmental). Colour drives the badge styling on
+          risk_assessments rows and dashboards.
         </p>
       </div>
       <BaseButton v-if="canManage" variant="primary" size="sm" @click="openAdd">
@@ -210,11 +211,7 @@ const showDeactivated = ref(false)
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="row in categories"
-            :key="row.id"
-            class="tw:border-b tw:border-divider"
-          >
+          <tr v-for="row in categories" :key="row.id" class="tw:border-b tw:border-divider">
             <td class="tw:px-3 tw:py-3">
               <div class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</div>
               <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">
@@ -333,14 +330,12 @@ const showDeactivated = ref(false)
             @input="codeDirty = true"
           />
           <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            SCREAMING_SNAKE_CASE. Stable identifier denormalized onto every
-            risk_assessments row using this category — cannot be changed later.
+            SCREAMING_SNAKE_CASE. Stable identifier denormalized onto every risk_assessments row
+            using this category — cannot be changed later.
           </p>
         </div>
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Description
-          </p>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
           <BaseTextarea
             v-model="form.description"
             :rows="2"
@@ -349,9 +344,7 @@ const showDeactivated = ref(false)
         </div>
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
           <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-              Colour
-            </p>
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Colour</p>
             <BaseColorPicker v-model="form.color" allowNull />
             <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
               Used as the badge background tint. Leave empty for neutral grey.
@@ -367,12 +360,7 @@ const showDeactivated = ref(false)
       </div>
       <template #footer="{ close }">
         <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :loading="saving"
-          :disabled="saving"
-          @click="handleSave"
-        >
+        <BaseButton variant="primary" :loading="saving" :disabled="saving" @click="handleSave">
           {{ editing ? 'Save' : 'Add' }}
         </BaseButton>
       </template>

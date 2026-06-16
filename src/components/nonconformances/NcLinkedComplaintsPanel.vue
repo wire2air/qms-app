@@ -17,7 +17,8 @@ const links = useLiveQueryWithDeps(
     const rows = await db.NcSourceLink.where('ncId', ncId).exec()
     return rows.filter((l) => l.sourceType === 'CUSTOMER_COMPLAINT')
   },
-  { initial: [] },
+
+  { models: ['NcSourceLink'], initial: [] },
 )
 
 const complaintIdList = computed(() => links.value.map((l) => l.sourceId).join(','))
@@ -29,7 +30,8 @@ const complaints = useLiveQueryWithDeps(
     const rows = await Promise.all(ids.map((id) => db.CustomerComplaint.findByPk(id)))
     return rows.filter(Boolean)
   },
-  { initial: [] },
+
+  { models: ['CustomerComplaint'], initial: [] },
 )
 </script>
 

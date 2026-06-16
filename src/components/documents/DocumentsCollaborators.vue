@@ -16,7 +16,8 @@ const isUpdating = ref(false)
 
 const allUsers = useLiveQuery(
   async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 
 const collaboratorRecords = useLiveQueryWithDeps(
@@ -25,7 +26,8 @@ const collaboratorRecords = useLiveQueryWithDeps(
     const records = await db.UserOnDocument.where().exec()
     return records.filter((r) => r.documentId === documentId && !r.deletedAt)
   },
-  { initial: [] },
+
+  { models: ['UserOnDocument'], initial: [] },
 )
 
 const collaboratorUserIds = computed(() => collaboratorRecords.value.map((r) => r.userId))

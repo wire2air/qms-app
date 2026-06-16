@@ -72,9 +72,7 @@ onMounted(async () => {
     v-if="sessionLoading"
     class="tw:w-full tw:h-full tw:flex tw:flex-col tw:items-center tw:justify-center"
   >
-    <div
-      class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-4 tw:border-primary tw:border-t-transparent"
-    ></div>
+    <BaseSpinner size="lg" />
     <div class="tw:text-secondary tw:mt-4">Loading...</div>
   </div>
 
@@ -248,9 +246,7 @@ onMounted(async () => {
                 v-if="isSubmitting"
                 class="tw:inline-flex tw:items-center tw:justify-center tw:gap-2"
               >
-                <span
-                  class="tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:inline-block"
-                ></span>
+                <BaseSpinner size="sm" color="white" />
                 Creating...
               </span>
               <span v-else>Create Organization</span>

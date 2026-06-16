@@ -3,10 +3,14 @@ const props = defineProps({
   issueTypeId: { type: String, default: null },
 })
 
-const issueType = useLiveQueryWithDeps([() => props.issueTypeId], async (db, [id]) => {
-  if (!id) return null
-  return db.NcIssueType.findByPk(id)
-})
+const issueType = useLiveQueryWithDeps(
+  [() => props.issueTypeId],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.NcIssueType.findByPk(id)
+  },
+  { models: ['NcIssueType'] },
+)
 </script>
 
 <template>

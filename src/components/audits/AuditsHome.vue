@@ -44,12 +44,7 @@ function setTab(id) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconClipboardCheck class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Audits</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconClipboardCheck" title="Audits" />
 
     <div class="tw:flex tw:items-center tw:justify-between">
       <div class="tw:flex tw:flex-col tw:gap-1">

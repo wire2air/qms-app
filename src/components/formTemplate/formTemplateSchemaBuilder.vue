@@ -11,10 +11,14 @@ const props = defineProps({
 const toast = useToast()
 const router = useRouter()
 
-const template = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.FormTemplate.findByPk(id)
-})
+const template = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.FormTemplate.findByPk(id)
+  },
+  { models: ['FormTemplate'] },
+)
 
 const loading = computed(() => template.value === undefined)
 const isSaving = ref(false)
@@ -85,9 +89,7 @@ function cancelEditTitle() {
       v-if="loading"
       class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:h-full tw:p-5"
     >
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
       <div class="tw:text-sm tw:text-secondary tw:mt-3">Loading template...</div>
     </div>
 
@@ -108,15 +110,16 @@ function cancelEditTitle() {
               @blur="saveTitle"
             />
           </div>
-          <div
+          <BaseClickableRow
             v-else
-            class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:hover:text-primary tw:transition-colors"
+            class="tw:flex tw:items-center tw:gap-2 tw:hover:text-primary tw:transition-colors"
+            aria-label="Edit schema title"
             @click="startEditTitle"
           >
             <span class="tw:text-secondary">Edit Schema:</span>
             <span class="tw:font-bold">{{ template.title }}</span>
             <IconEdit :size="14" class="tw:text-secondary" />
-          </div>
+          </BaseClickableRow>
         </template>
       </FormBuilder>
 
@@ -125,9 +128,7 @@ function cancelEditTitle() {
         v-if="isSaving"
         class="tw:absolute tw:inset-0 tw:bg-main/60 tw:flex tw:flex-col tw:items-center tw:justify-center tw:z-10"
       >
-        <div
-          class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-        />
+        <BaseSpinner size="lg" />
         <div class="tw:text-sm tw:text-secondary tw:mt-4">Saving...</div>
       </div>
     </template>

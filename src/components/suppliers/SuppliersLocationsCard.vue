@@ -32,7 +32,8 @@ const locations = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db, [supplierId]) =>
     db.SupplierLocation.where('supplierId', supplierId).orderBy('displayOrder').exec(),
-  { initial: [] },
+
+  { models: ['SupplierLocation'], initial: [] },
 )
 
 // Collapsed by default — locations are reference detail, expand to view/edit.
@@ -91,14 +92,20 @@ async function setPrimary(loc) {
 </script>
 
 <template>
-  <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:overflow-hidden">
-    <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between tw:gap-2">
+  <div
+    class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:overflow-hidden"
+  >
+    <div
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between tw:gap-2"
+    >
       <button
         type="button"
         class="tw:flex tw:items-center tw:gap-3 tw:flex-1 tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer"
         @click="open = !open"
       >
-        <div class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-gray-100 tw:flex tw:items-center tw:justify-center">
+        <div
+          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-gray-100 tw:flex tw:items-center tw:justify-center"
+        >
           <IconBuildingFactory2 :size="20" class="tw:text-secondary" />
         </div>
         <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Locations</h3>
@@ -108,7 +115,11 @@ async function setPrimary(loc) {
         >
           {{ locations.length }}
         </span>
-        <component :is="open ? IconChevronDown : IconChevronRight" :size="18" class="tw:text-secondary" />
+        <component
+          :is="open ? IconChevronDown : IconChevronRight"
+          :size="18"
+          class="tw:text-secondary"
+        />
       </button>
       <BaseButton v-if="canUpdate && !draft" variant="text-link" size="sm" @click="addLocation">
         <IconPlus :size="14" />
@@ -126,14 +137,18 @@ async function setPrimary(loc) {
             <div class="tw:flex tw:items-center tw:gap-2">
               <button
                 class="tw:p-0.5 tw:rounded"
-                :class="loc.isPrimary ? 'tw:text-amber-500' : 'tw:text-secondary tw:hover:text-amber-500'"
+                :class="
+                  loc.isPrimary ? 'tw:text-amber-500' : 'tw:text-secondary tw:hover:text-amber-500'
+                "
                 :title="loc.isPrimary ? 'Primary (HQ)' : 'Set as primary'"
                 @click="!loc.isPrimary && canUpdate && setPrimary(loc)"
               >
                 <IconStarFilled v-if="loc.isPrimary" :size="16" />
                 <IconStar v-else :size="16" />
               </button>
-              <span class="tw:text-sm tw:font-semibold tw:text-on-main">{{ loc.name || 'Location' }}</span>
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main">{{
+                loc.name || 'Location'
+              }}</span>
             </div>
             <button
               v-if="canUpdate"
@@ -146,17 +161,35 @@ async function setPrimary(loc) {
           <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Name / label</label>
-              <BaseTextInput v-if="canUpdate" v-model="loc.name" placeholder="e.g. Detroit Plant" @blur="saveLocation(loc)" />
+              <BaseTextInput
+                v-if="canUpdate"
+                v-model="loc.name"
+                placeholder="e.g. Detroit Plant"
+                @blur="saveLocation(loc)"
+              />
               <span v-else class="tw:text-sm tw:text-on-main">{{ loc.name || '—' }}</span>
             </div>
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Type</label>
-              <BaseInlineSelect v-if="canUpdate" v-model="loc.locationType" :items="LOCATION_TYPES" :required="true" placeholder="Select type…" @update:modelValue="saveLocation(loc)" />
-              <span v-else class="tw:text-sm tw:text-on-main">{{ LOCATION_TYPES.find((t) => t.id === loc.locationType)?.name || '—' }}</span>
+              <BaseInlineSelect
+                v-if="canUpdate"
+                v-model="loc.locationType"
+                :items="LOCATION_TYPES"
+                :required="true"
+                placeholder="Select type…"
+                @update:modelValue="saveLocation(loc)"
+              />
+              <span v-else class="tw:text-sm tw:text-on-main">{{
+                LOCATION_TYPES.find((t) => t.id === loc.locationType)?.name || '—'
+              }}</span>
             </div>
             <div class="tw:md:col-span-2">
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Street address</label>
-              <BaseTextInput v-if="canUpdate" v-model="loc.streetAddress" @blur="saveLocation(loc)" />
+              <BaseTextInput
+                v-if="canUpdate"
+                v-model="loc.streetAddress"
+                @blur="saveLocation(loc)"
+              />
               <span v-else class="tw:text-sm tw:text-on-main">{{ loc.streetAddress || '—' }}</span>
             </div>
             <div>
@@ -166,12 +199,20 @@ async function setPrimary(loc) {
             </div>
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">State / Province</label>
-              <BaseTextInput v-if="canUpdate" v-model="loc.stateProvince" @blur="saveLocation(loc)" />
+              <BaseTextInput
+                v-if="canUpdate"
+                v-model="loc.stateProvince"
+                @blur="saveLocation(loc)"
+              />
               <span v-else class="tw:text-sm tw:text-on-main">{{ loc.stateProvince || '—' }}</span>
             </div>
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">ZIP / Postal</label>
-              <BaseTextInput v-if="canUpdate" v-model="loc.zipPostalCode" @blur="saveLocation(loc)" />
+              <BaseTextInput
+                v-if="canUpdate"
+                v-model="loc.zipPostalCode"
+                @blur="saveLocation(loc)"
+              />
               <span v-else class="tw:text-sm tw:text-on-main">{{ loc.zipPostalCode || '—' }}</span>
             </div>
             <div>
@@ -181,22 +222,40 @@ async function setPrimary(loc) {
             </div>
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Products</label>
-              <BaseTextInput v-if="canUpdate" v-model="loc.products" placeholder="What's made/handled here" @blur="saveLocation(loc)" />
+              <BaseTextInput
+                v-if="canUpdate"
+                v-model="loc.products"
+                placeholder="What's made/handled here"
+                @blur="saveLocation(loc)"
+              />
               <span v-else class="tw:text-sm tw:text-on-main">{{ loc.products || '—' }}</span>
             </div>
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Turnover (USD M)</label>
-              <BaseTextInput v-if="canUpdate" v-model.number="loc.turnoverUsdM" type="number" @blur="saveLocation(loc)" />
+              <BaseTextInput
+                v-if="canUpdate"
+                v-model.number="loc.turnoverUsdM"
+                type="number"
+                @blur="saveLocation(loc)"
+              />
               <span v-else class="tw:text-sm tw:text-on-main">{{ loc.turnoverUsdM ?? '—' }}</span>
             </div>
           </div>
         </div>
 
         <!-- Draft -->
-        <div v-if="draft" class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:border tw:border-primary/40 tw:rounded-lg tw:bg-primary/5">
+        <div
+          v-if="draft"
+          class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:border tw:border-primary/40 tw:rounded-lg tw:bg-primary/5"
+        >
           <div class="tw:flex tw:items-center tw:justify-between">
-            <span class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wide">New Location</span>
-            <button class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-red-500" @click="cancelDraft">
+            <span class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wide"
+              >New Location</span
+            >
+            <button
+              class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-red-500"
+              @click="cancelDraft"
+            >
               <IconTrash :size="14" />
             </button>
           </div>
@@ -207,21 +266,46 @@ async function setPrimary(loc) {
             </div>
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Type</label>
-              <BaseInlineSelect v-model="draft.locationType" :items="LOCATION_TYPES" :required="true" placeholder="Select type…" />
+              <BaseInlineSelect
+                v-model="draft.locationType"
+                :items="LOCATION_TYPES"
+                :required="true"
+                placeholder="Select type…"
+              />
             </div>
             <div class="tw:md:col-span-2">
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Street address</label>
               <BaseTextInput v-model="draft.streetAddress" />
             </div>
-            <div><label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">City</label><BaseTextInput v-model="draft.city" /></div>
-            <div><label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">State / Province</label><BaseTextInput v-model="draft.stateProvince" /></div>
-            <div><label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">ZIP / Postal</label><BaseTextInput v-model="draft.zipPostalCode" /></div>
-            <div><label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Country</label><BaseTextInput v-model="draft.country" /></div>
-            <div><label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Products</label><BaseTextInput v-model="draft.products" /></div>
-            <div><label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Turnover (USD M)</label><BaseTextInput v-model.number="draft.turnoverUsdM" type="number" /></div>
+            <div>
+              <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">City</label
+              ><BaseTextInput v-model="draft.city" />
+            </div>
+            <div>
+              <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">State / Province</label
+              ><BaseTextInput v-model="draft.stateProvince" />
+            </div>
+            <div>
+              <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">ZIP / Postal</label
+              ><BaseTextInput v-model="draft.zipPostalCode" />
+            </div>
+            <div>
+              <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Country</label
+              ><BaseTextInput v-model="draft.country" />
+            </div>
+            <div>
+              <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Products</label
+              ><BaseTextInput v-model="draft.products" />
+            </div>
+            <div>
+              <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Turnover (USD M)</label
+              ><BaseTextInput v-model.number="draft.turnoverUsdM" type="number" />
+            </div>
           </div>
           <div class="tw:flex tw:justify-end">
-            <BaseButton size="sm" :disabled="!draft.name && !draft.city" @click="saveDraft">Save Location</BaseButton>
+            <BaseButton size="sm" :disabled="!draft.name && !draft.city" @click="saveDraft"
+              >Save Location</BaseButton
+            >
           </div>
         </div>
       </div>

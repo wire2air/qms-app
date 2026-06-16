@@ -12,7 +12,8 @@ const team = useLiveQueryWithDeps(
     if (!teamId) return null
     return db.Team.findByPk(teamId)
   },
-  { initial: null },
+
+  { models: ['Team'], initial: null },
 )
 </script>
 

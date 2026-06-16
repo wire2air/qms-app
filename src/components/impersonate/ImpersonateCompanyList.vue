@@ -4,21 +4,16 @@ import { useImpersonate } from '@/composables/useImpersonate.js'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const { companies } = useImpersonate()
-
-const router = useRouter()
-
-function onClick(company) {
-  router.push(getCompanyPath(`/admin/impersonate/${company.id}`))
-}
 </script>
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-2">
-    <div
+    <BaseClickableRow
       v-for="company in companies"
       :key="company.id"
-      class="tw:p-3 tw:cursor-pointer tw:hover:bg-main-hover tw:transition-colors tw:rounded-xl tw:border tw:border-divider"
-      @click="onClick(company)"
+      :to="getCompanyPath(`/admin/impersonate/${company.id}`)"
+      class="tw:block tw:p-3 tw:hover:bg-main-hover tw:transition-colors tw:rounded-xl tw:border tw:border-divider"
+      :aria-label="`Impersonate company ${company.name}`"
     >
       <div class="tw:flex tw:items-center tw:gap-3">
         <div v-if="company.companyIconUrl" class="tw:flex-none">
@@ -41,6 +36,6 @@ function onClick(company) {
 
         <IconChevronRight :size="24" class="tw:text-secondary" />
       </div>
-    </div>
+    </BaseClickableRow>
   </div>
 </template>

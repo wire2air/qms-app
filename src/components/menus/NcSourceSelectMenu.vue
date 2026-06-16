@@ -7,6 +7,7 @@ defineProps({
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
 const sources = useLiveQuery((db) => db.NcSource.where().orderBy('displayOrder').exec(), {
+  models: ['NcSource'],
   initial: [],
 })
 

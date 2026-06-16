@@ -9,7 +9,8 @@ const template = useLiveQueryWithDeps(
     if (!id) return null
     return db.RcaTemplate.findByPk(id)
   },
-  { initial: () => (props.templateId ? { id: props.templateId } : null) },
+
+  { models: ['RcaTemplate'], initial: () => (props.templateId ? { id: props.templateId } : null) },
 )
 </script>
 

@@ -12,6 +12,7 @@ const filters = ref({ search: '', userStatusId: null, roleId: null })
 // Live query for users — applies search, status, and role filters
 const users = useLiveQueryWithDeps(
   [() => filters.value.search, () => filters.value.userStatusId, () => filters.value.roleId],
+
   async (db, [search, userStatusId, roleId]) => {
     let results = await db.User.where().exec()
     // Settings → Users is the internal-user admin page. Supplier users
@@ -21,7 +22,9 @@ const users = useLiveQueryWithDeps(
     if (userStatusId) results = results.filter((u) => u.userStatusId === userStatusId)
     if (roleId) {
       const assignments = await db.RoleOnUser.where().exec()
-      const idsForRole = new Set(assignments.filter((a) => a.roleId === roleId).map((a) => a.userId))
+      const idsForRole = new Set(
+        assignments.filter((a) => a.roleId === roleId).map((a) => a.userId),
+      )
       results = results.filter((u) => idsForRole.has(u.id))
     }
     if (search) {
@@ -33,8 +36,11 @@ const users = useLiveQueryWithDeps(
           u.email?.toLowerCase().includes(q),
       )
     }
-    return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    return results.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )
   },
+  { models: ['User', 'RoleOnUser'] },
 )
 
 const loading = computed(() => users.value === undefined)
@@ -42,12 +48,7 @@ const loading = computed(() => users.value === undefined)
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:overflow-hidden tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconUsers class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Users</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconUsers" title="Users" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canCreateUser" @click="showCreateDialog = true"> Create User </BaseButton>

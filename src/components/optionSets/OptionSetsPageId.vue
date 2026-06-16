@@ -12,9 +12,13 @@ const props = defineProps({
 
 const router = useRouter()
 
-const optionSet = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  return db.OptionSet.findByPk(id)
-})
+const optionSet = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    return db.OptionSet.findByPk(id)
+  },
+  { models: ['OptionSet'] },
+)
 
 const loading = computed(() => optionSet.value === undefined)
 const canUpdate = computed(() => isAllowed(['optionSets:update']))
@@ -96,9 +100,7 @@ async function confirmDelete() {
 
     <!-- Loading State -->
     <div v-if="loading" class="tw:flex tw:justify-center tw:py-12">
-      <div
-        class="tw:size-10 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
     </div>
 
     <!-- Content -->
@@ -142,10 +144,12 @@ async function confirmDelete() {
                   <!-- Option Content -->
                   <div class="tw:flex-1">
                     <!-- Display Mode -->
-                    <div
+                    <BaseClickableRow
                       v-if="editingOptionIndex !== idx"
-                      class="tw:text-base tw:px-2 tw:py-1 tw:rounded-lg tw:transition-all tw:duration-200 tw:text-on-main tw:flex tw:items-center tw:justify-between tw:cursor-pointer tw:hover:bg-main-hover"
-                      @click="canUpdate && startEditOption(idx)"
+                      class="tw:text-base tw:px-2 tw:py-1 tw:rounded-lg tw:transition-all tw:duration-200 tw:text-on-main tw:flex tw:items-center tw:justify-between tw:hover:bg-main-hover"
+                      :disabled="!canUpdate"
+                      :aria-label="`Edit option ${opt || 'Empty option'}`"
+                      @click="startEditOption(idx)"
                     >
                       <span>{{ opt || 'Empty option' }}</span>
                       <IconEdit
@@ -153,7 +157,7 @@ async function confirmDelete() {
                         :size="18"
                         class="tw:text-secondary tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity"
                       />
-                    </div>
+                    </BaseClickableRow>
 
                     <!-- Edit Mode -->
                     <BaseTextInput

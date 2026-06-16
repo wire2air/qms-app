@@ -16,12 +16,16 @@ const attachments = useLiveQueryWithDeps(
     if (!complaintId) return []
     return db.CustomerComplaintAttachment.where('complaintId', complaintId).exec()
   },
-  { initial: [] },
+
+  { models: ['CustomerComplaintAttachment'], initial: [] },
 )
 
 // Batch-resolve the assets behind the attachment rows.
 const assetIdList = computed(() =>
-  attachments.value.map((a) => a.assetId).filter(Boolean).join(','),
+  attachments.value
+    .map((a) => a.assetId)
+    .filter(Boolean)
+    .join(','),
 )
 const assetsById = useLiveQueryWithDeps(
   [() => assetIdList.value],
@@ -33,7 +37,8 @@ const assetsById = useLiveQueryWithDeps(
     for (const a of rows) if (wanted.has(a.id)) map[a.id] = a
     return map
   },
-  { initial: {} },
+
+  { models: ['Asset'], initial: {} },
 )
 
 const uploading = ref(false)

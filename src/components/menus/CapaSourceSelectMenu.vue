@@ -7,6 +7,7 @@ defineProps({
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
 const items = useLiveQuery((db) => db.CapaSource.where().orderBy('displayOrder').exec(), {
+  models: ['CapaSource'],
   initial: [],
 })
 

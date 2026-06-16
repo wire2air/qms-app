@@ -23,36 +23,53 @@ const canExecute = computed(() => isAllowed(['qcInspection:lot:execute']))
 const canDispose = computed(() => isAllowed(['qcInspection:lot:dispose']))
 const canCreateNc = computed(() => isAllowed(['nonconformances:create']))
 
-const lot = useLiveQueryWithDeps([() => props.id], async (db, [id]) => db.InspectionLot.findByPk(id))
+const lot = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.InspectionLot.findByPk(id),
+  { models: ['InspectionLot'] },
+)
 const results = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => db.InspectionResult.where('inspectionLotId', id).exec(),
-  { initial: [] },
+
+  { models: ['InspectionResult'], initial: [] },
 )
 
 const creator = useLiveQueryWithDeps(
   [() => lot.value?.createdBy],
+
   async (db, [userId]) => (userId ? db.User.findByPk(userId) : null),
+  { models: ['User'] },
 )
 const inspector = useLiveQueryWithDeps(
   [() => lot.value?.assignedTo],
+
   async (db, [userId]) => (userId ? db.User.findByPk(userId) : null),
+  { models: ['User'] },
 )
 const workflowInstance = useLiveQueryWithDeps(
   [() => lot.value?.workflowInstanceId],
+
   async (db, [wfId]) => (wfId ? db.WorkflowInstance.findByPk(wfId) : null),
+  { models: ['WorkflowInstance'] },
 )
 const product = useLiveQueryWithDeps(
   [() => lot.value?.productId],
+
   async (db, [productId]) => (productId ? db.Product.findByPk(productId) : null),
+  { models: ['Product'] },
 )
 const supplier = useLiveQueryWithDeps(
   [() => lot.value?.supplierId],
+
   async (db, [supplierId]) => (supplierId ? db.Supplier.findByPk(supplierId) : null),
+  { models: ['Supplier'] },
 )
 const equipment = useLiveQueryWithDeps(
   [() => lot.value?.equipmentId],
+
   async (db, [equipmentId]) => (equipmentId ? db.Equipment.findByPk(equipmentId) : null),
+  { models: ['Equipment'] },
 )
 
 // Mirrors the backend calibration gate (inspectionResultService.assertCalibrationOk):
@@ -67,7 +84,12 @@ function userName(user) {
   return [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || '—'
 }
 
-const POINT_LABELS = { INCOMING: 'Incoming', IN_PROCESS: 'In-process', FINAL: 'Final', OUTGOING: 'Outgoing' }
+const POINT_LABELS = {
+  INCOMING: 'Incoming',
+  IN_PROCESS: 'In-process',
+  FINAL: 'Final',
+  OUTGOING: 'Outgoing',
+}
 
 const characteristics = computed(() => lot.value?.specSnapshot?.characteristics ?? [])
 // Single-result (LOT) mode is the sampleIndex=1 row. Prefer it so that a lot
@@ -108,7 +130,6 @@ watch(
 const anyRequiresInstrument = computed(() =>
   characteristics.value.some((c) => c.requiresInstrument),
 )
-
 
 // Terminal lot statuses mirror the QA disposition outcome (mapped from the
 // shared disposition lookup by the backend handler).
@@ -227,7 +248,10 @@ async function createNcFromLot() {
   if (creatingNc.value) return
   creatingNc.value = true
   try {
-    const { nonconformance } = await post(`/v1/services/qcInspection/lots/${props.id}/create-nc`, {})
+    const { nonconformance } = await post(
+      `/v1/services/qcInspection/lots/${props.id}/create-nc`,
+      {},
+    )
     toast.success(`Draft ${nonconformance.ncNumber} created — complete it and pick a workflow`)
     router.push(getCompanyPath(`/nonconformances/${nonconformance.id}`))
   } catch (err) {
@@ -281,7 +305,8 @@ async function saveDispositionNotes() {
           <InspectionLotStatusBadgeById :statusId="lot.statusId" />
         </div>
         <div class="tw:text-sm tw:text-secondary tw:mt-1">
-          {{ POINT_LABELS[lot.inspectionPoint] || lot.inspectionPoint }} · sample {{ lot.sampleSize ?? '—' }}<span v-if="lot.quantity"> of {{ lot.quantity }}</span>
+          {{ POINT_LABELS[lot.inspectionPoint] || lot.inspectionPoint }} · sample
+          {{ lot.sampleSize ?? '—' }}<span v-if="lot.quantity"> of {{ lot.quantity }}</span>
           <span v-if="lot.qualityState"> · {{ lot.qualityState }}</span>
         </div>
       </div>
@@ -354,13 +379,22 @@ async function saveDispositionNotes() {
           </BaseButton>
         </template>
       </div>
-      <div v-if="lot.dispositionNotes && !editingNotes" class="tw:text-red-900 tw:whitespace-pre-wrap">
+      <div
+        v-if="lot.dispositionNotes && !editingNotes"
+        class="tw:text-red-900 tw:whitespace-pre-wrap"
+      >
         {{ lot.dispositionNotes }}
       </div>
       <div v-if="editingNotes" class="tw:flex tw:flex-col tw:gap-2">
         <BaseTextarea v-model="notesDraft" :rows="3" placeholder="Disposition reasoning…" />
         <div class="tw:flex tw:gap-2">
-          <BaseButton variant="primary" size="sm" :loading="savingNotes" @click="saveDispositionNotes">Save</BaseButton>
+          <BaseButton
+            variant="primary"
+            size="sm"
+            :loading="savingNotes"
+            @click="saveDispositionNotes"
+            >Save</BaseButton
+          >
           <BaseButton variant="outline" size="sm" @click="editingNotes = false">Cancel</BaseButton>
         </div>
       </div>
@@ -377,7 +411,8 @@ async function saveDispositionNotes() {
       <span class="tw:text-amber-900">
         <span class="tw:font-semibold">{{ equipment?.name || 'The default instrument' }}</span>
         is out of calibration (due {{ equipment?.nextCalibrationDue?.formatDate('date') }}) —
-        instrument-based tests using it will be blocked. Pick a different instrument on those rows, or recalibrate.
+        instrument-based tests using it will be blocked. Pick a different instrument on those rows,
+        or recalibrate.
       </span>
       <RouterLink
         :to="getCompanyPath('/equipment')"
@@ -578,7 +613,9 @@ async function saveDispositionNotes() {
       <!-- /left column -->
 
       <!-- Overview panel (1/3 width on desktop) -->
-      <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:divide-y tw:divide-divider">
+      <div
+        class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:divide-y tw:divide-divider"
+      >
         <div class="tw:px-4 tw:py-3">
           <h3 class="tw:font-semibold tw:text-on-main tw:text-sm">Overview</h3>
         </div>
@@ -591,14 +628,18 @@ async function saveDispositionNotes() {
           <!-- Inspection point -->
           <div>
             <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Inspection Point</div>
-            <div class="tw:text-on-main tw:font-medium">{{ POINT_LABELS[lot.inspectionPoint] || lot.inspectionPoint }}</div>
+            <div class="tw:text-on-main tw:font-medium">
+              {{ POINT_LABELS[lot.inspectionPoint] || lot.inspectionPoint }}
+            </div>
           </div>
           <!-- Product -->
           <div v-if="product">
             <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Item</div>
             <div class="tw:text-on-main">
               {{ product.name }}
-              <span v-if="product.sku" class="tw:text-xs tw:text-secondary tw:font-mono">· {{ product.sku }}</span>
+              <span v-if="product.sku" class="tw:text-xs tw:text-secondary tw:font-mono"
+                >· {{ product.sku }}</span
+              >
             </div>
           </div>
           <!-- Supplier -->
@@ -631,7 +672,9 @@ async function saveDispositionNotes() {
             <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Equipment</div>
             <div class="tw:text-on-main">
               {{ equipment.name }}
-              <span v-if="equipment.code" class="tw:text-xs tw:text-secondary tw:font-mono">· {{ equipment.code }}</span>
+              <span v-if="equipment.code" class="tw:text-xs tw:text-secondary tw:font-mono"
+                >· {{ equipment.code }}</span
+              >
             </div>
           </div>
           <!-- Created -->
@@ -665,9 +708,14 @@ async function saveDispositionNotes() {
                 'tw:bg-amber-100 tw:text-amber-700': workflowInstance.statusId === 'IN_PROGRESS',
                 'tw:bg-green-100 tw:text-green-700': workflowInstance.statusId === 'COMPLETED',
                 'tw:bg-red-100 tw:text-red-700': workflowInstance.statusId === 'REJECTED',
-                'tw:bg-gray-100 tw:text-gray-600': !['IN_PROGRESS','COMPLETED','REJECTED'].includes(workflowInstance.statusId),
+                'tw:bg-gray-100 tw:text-gray-600': ![
+                  'IN_PROGRESS',
+                  'COMPLETED',
+                  'REJECTED',
+                ].includes(workflowInstance.statusId),
               }"
-            >{{ workflowInstance.statusId }}</span>
+              >{{ workflowInstance.statusId }}</span
+            >
           </div>
           <!-- Quality state -->
           <div v-if="lot.qualityState">

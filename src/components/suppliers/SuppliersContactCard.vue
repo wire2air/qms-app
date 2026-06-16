@@ -14,7 +14,8 @@ const contacts = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db, [supplierId]) =>
     db.SupplierContact.where('supplierId', supplierId).orderBy('createdAt').exec(),
-  { initial: [] },
+
+  { models: ['SupplierContact'], initial: [] },
 )
 
 // Locations for the optional "tagged to location" select.
@@ -22,7 +23,8 @@ const locations = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db, [supplierId]) =>
     db.SupplierLocation.where('supplierId', supplierId).orderBy('displayOrder').exec(),
-  { initial: [] },
+
+  { models: ['SupplierLocation'], initial: [] },
 )
 const locationItems = computed(() =>
   locations.value.map((l) => ({ id: l.id, name: l.name || locationLabel(l) })),
@@ -71,9 +73,10 @@ async function onSaveDraft() {
   if (savingDraft.value) return
   const name = (draft.value.name || '').trim()
   const email = (draft.value.email || '').trim()
-  const invite = draft.value.inviteAsUser && name && email
-    ? { name, email, jobTitle: (draft.value.jobTitle || '').trim() }
-    : null
+  const invite =
+    draft.value.inviteAsUser && name && email
+      ? { name, email, jobTitle: (draft.value.jobTitle || '').trim() }
+      : null
   savingDraft.value = true
   try {
     await saveDraft()
@@ -116,12 +119,16 @@ async function setPrimary(contact) {
 </script>
 
 <template>
-  <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:overflow-hidden">
+  <div
+    class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:overflow-hidden"
+  >
     <div
       class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
     >
       <div class="tw:flex tw:items-center tw:gap-3">
-        <div class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-gray-100 tw:flex tw:items-center tw:justify-center">
+        <div
+          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-gray-100 tw:flex tw:items-center tw:justify-center"
+        >
           <IconMail :size="20" class="tw:text-secondary" />
         </div>
         <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Contacts</h3>
@@ -142,7 +149,11 @@ async function setPrimary(contact) {
             <div class="tw:flex tw:items-center tw:gap-2">
               <button
                 class="tw:p-0.5 tw:rounded tw:transition-colors"
-                :class="contact.isPrimary ? 'tw:text-amber-500' : 'tw:text-secondary tw:hover:text-amber-500'"
+                :class="
+                  contact.isPrimary
+                    ? 'tw:text-amber-500'
+                    : 'tw:text-secondary tw:hover:text-amber-500'
+                "
                 :title="contact.isPrimary ? 'Primary' : 'Set as primary'"
                 @click="!contact.isPrimary && canUpdate && setPrimary(contact)"
               >
@@ -164,27 +175,58 @@ async function setPrimary(contact) {
           <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Name</label>
-              <BaseTextInput v-if="canUpdate" v-model="contact.name" placeholder="Full name" @blur="saveContact(contact)" />
-              <span v-else class="tw:text-sm tw:font-medium tw:text-on-main">{{ contact.name || '—' }}</span>
+              <BaseTextInput
+                v-if="canUpdate"
+                v-model="contact.name"
+                placeholder="Full name"
+                @blur="saveContact(contact)"
+              />
+              <span v-else class="tw:text-sm tw:font-medium tw:text-on-main">{{
+                contact.name || '—'
+              }}</span>
             </div>
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Job Title</label>
-              <BaseTextInput v-if="canUpdate" v-model="contact.jobTitle" placeholder="e.g. Quality Manager" @blur="saveContact(contact)" />
+              <BaseTextInput
+                v-if="canUpdate"
+                v-model="contact.jobTitle"
+                placeholder="e.g. Quality Manager"
+                @blur="saveContact(contact)"
+              />
               <span v-else class="tw:text-sm tw:text-on-main">{{ contact.jobTitle || '—' }}</span>
             </div>
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Email</label>
-              <BaseTextInput v-if="canUpdate" v-model="contact.email" placeholder="email@supplier.com" @blur="saveContact(contact)" />
-              <a v-else-if="contact.email" :href="`mailto:${contact.email}`" class="tw:text-primary tw:font-medium tw:text-sm tw:hover:underline">{{ contact.email }}</a>
+              <BaseTextInput
+                v-if="canUpdate"
+                v-model="contact.email"
+                placeholder="email@supplier.com"
+                @blur="saveContact(contact)"
+              />
+              <a
+                v-else-if="contact.email"
+                :href="`mailto:${contact.email}`"
+                class="tw:text-primary tw:font-medium tw:text-sm tw:hover:underline"
+                >{{ contact.email }}</a
+              >
               <span v-else class="tw:text-sm tw:text-secondary">—</span>
             </div>
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Phone</label>
-              <BaseTextInput v-if="canUpdate" v-model="contact.phoneNumber" placeholder="+1 (555) 000-0000" @blur="saveContact(contact)" />
-              <span v-else class="tw:text-sm tw:font-medium tw:text-on-main">{{ contact.phoneNumber || '—' }}</span>
+              <BaseTextInput
+                v-if="canUpdate"
+                v-model="contact.phoneNumber"
+                placeholder="+1 (555) 000-0000"
+                @blur="saveContact(contact)"
+              />
+              <span v-else class="tw:text-sm tw:font-medium tw:text-on-main">{{
+                contact.phoneNumber || '—'
+              }}</span>
             </div>
             <div v-if="locationItems.length" class="tw:md:col-span-2">
-              <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Location (optional)</label>
+              <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1"
+                >Location (optional)</label
+              >
               <BaseInlineSelect
                 v-if="canUpdate"
                 v-model="contact.supplierLocationId"
@@ -206,8 +248,13 @@ async function setPrimary(contact) {
           class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:border tw:border-primary/40 tw:rounded-lg tw:bg-primary/5"
         >
           <div class="tw:flex tw:items-center tw:justify-between">
-            <span class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wide">New Contact</span>
-            <button class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-red-500" @click="cancelDraft">
+            <span class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wide"
+              >New Contact</span
+            >
+            <button
+              class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-red-500"
+              @click="cancelDraft"
+            >
               <IconTrash :size="14" />
             </button>
           </div>
@@ -229,8 +276,15 @@ async function setPrimary(contact) {
               <BaseTextInput v-model="draft.phoneNumber" placeholder="+1 (555) 000-0000" />
             </div>
             <div v-if="locationItems.length" class="tw:md:col-span-2">
-              <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Location (optional)</label>
-              <BaseInlineSelect v-model="draft.supplierLocationId" :items="locationItems" nullLabel="No location" placeholder="No location" />
+              <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1"
+                >Location (optional)</label
+              >
+              <BaseInlineSelect
+                v-model="draft.supplierLocationId"
+                :items="locationItems"
+                nullLabel="No location"
+                placeholder="No location"
+              />
             </div>
           </div>
           <label
@@ -252,7 +306,12 @@ async function setPrimary(contact) {
             </span>
           </label>
           <div class="tw:flex tw:justify-end">
-            <BaseButton size="sm" :loading="savingDraft" :disabled="!draft.name && !draft.email" @click="onSaveDraft">
+            <BaseButton
+              size="sm"
+              :loading="savingDraft"
+              :disabled="!draft.name && !draft.email"
+              @click="onSaveDraft"
+            >
               {{ draft.inviteAsUser ? 'Save & Invite' : 'Save Contact' }}
             </BaseButton>
           </div>

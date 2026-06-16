@@ -24,11 +24,18 @@ const links = useLiveQueryWithDeps(
     const all = await db.DocumentLink.where().exec()
     return all.filter((l) => l.fromDocumentVersionId === versionId)
   },
-  { initial: [] },
+
+  { models: ['DocumentLink'], initial: [] },
 )
 
-const allDocuments = useLiveQuery(async (db) => db.Document.where().exec(), { initial: [] })
-const allVersions = useLiveQuery(async (db) => db.DocumentVersion.where().exec(), { initial: [] })
+const allDocuments = useLiveQuery(async (db) => db.Document.where().exec(), {
+  models: ['Document'],
+  initial: [],
+})
+const allVersions = useLiveQuery(async (db) => db.DocumentVersion.where().exec(), {
+  models: ['DocumentVersion'],
+  initial: [],
+})
 
 const documentsById = computed(() => {
   const map = {}

@@ -45,7 +45,8 @@ const myShares = useLiveQueryWithDeps(
     if (!userId) return []
     return db.SharedWithUser.where('userId', userId).exec()
   },
-  { initial: [] },
+
+  { models: ['SharedWithUser'], initial: [] },
 )
 
 function bucketForType(shares, type) {
@@ -63,7 +64,8 @@ const sharedDocs = useLiveQueryWithDeps(
     const idSet = new Set(ids)
     return all.filter((d) => idSet.has(d.id))
   },
-  { initial: [] },
+
+  { models: ['Document'], initial: [] },
 )
 
 const sharedCapaIds = computed(() => bucketForType(myShares.value, 'Capa'))
@@ -75,7 +77,8 @@ const sharedCapas = useLiveQueryWithDeps(
     const idSet = new Set(ids)
     return all.filter((c) => idSet.has(c.id))
   },
-  { initial: [] },
+
+  { models: ['Capa'], initial: [] },
 )
 
 // Audits the supplier user can see. Two paths produce the same row
@@ -103,7 +106,8 @@ const myAudits = useLiveQueryWithDeps(
           (a.scheduledDate?.toMillis?.() ?? a.createdAt?.toMillis?.() ?? 0),
       )
   },
-  { initial: [] },
+
+  { models: ['AuditInstance', 'AuditTeamMember'], initial: [] },
 )
 
 const sharedNcIds = computed(() => bucketForType(myShares.value, 'Nonconformance'))
@@ -115,7 +119,8 @@ const sharedNcs = useLiveQueryWithDeps(
     const idSet = new Set(ids)
     return all.filter((n) => idSet.has(n.id))
   },
-  { initial: [] },
+
+  { models: ['Nonconformance'], initial: [] },
 )
 
 function docHref(d) {
@@ -284,10 +289,7 @@ function auditHref(a) {
             class="tw:flex tw:items-center tw:gap-1.5 tw:text-on-main tw:hover:text-primary tw:flex-1"
           >
             <span class="tw:font-mono tw:text-xs tw:text-secondary">{{ a.auditNumber }}</span>
-            <span
-              v-if="a.scheduledDate"
-              class="tw:text-xs tw:text-secondary"
-            >
+            <span v-if="a.scheduledDate" class="tw:text-xs tw:text-secondary">
               {{ a.scheduledDate.formatDate?.('date') ?? a.scheduledDate }}
             </span>
             <IconExternalLink :size="12" class="tw:text-secondary" />

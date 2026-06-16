@@ -35,7 +35,8 @@ const optionSets = useLiveQueryWithDeps(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['OptionSet'], initial: [] },
 )
 
 function openDialog(id = null) {
@@ -56,12 +57,7 @@ function openDialog(id = null) {
           Reusable option lists for dropdowns / radios / checklists across form fields.
         </span>
       </div>
-      <BaseButton
-        v-if="canCreateOptionSet"
-        variant="primary"
-        size="sm"
-        @click="openDialog()"
-      >
+      <BaseButton v-if="canCreateOptionSet" variant="primary" size="sm" @click="openDialog()">
         <template #icon><IconPlus :size="16" /></template>
         Create Option Set
       </BaseButton>

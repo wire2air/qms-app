@@ -10,10 +10,14 @@ const props = defineProps({
 
 const route = useRoute()
 
-const template = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.FormTemplate.findByPk(id)
-})
+const template = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.FormTemplate.findByPk(id)
+  },
+  { models: ['FormTemplate'] },
+)
 
 const mode = computed(() => route.query.mode || 'details')
 

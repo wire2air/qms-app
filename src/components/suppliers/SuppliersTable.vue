@@ -20,7 +20,7 @@ const props = defineProps({
 const emit = defineEmits(['delete', 'edit'])
 
 const columns = [
-  { name: 'name', label: 'SUPPLIER NAME', field: 'name', align: 'left', sortable: true },
+  { name: 'name', label: 'SUPPLIER NAME', field: 'name', align: 'left', sortable: true, hideable: false },
   { name: 'code', label: 'CODE', field: 'code', align: 'left', sortable: true },
   { name: 'category', label: 'CATEGORY', field: 'category', align: 'left', sortable: true },
   { name: 'riskLevel', label: 'RISK LEVEL', field: 'riskLevel', align: 'left', sortable: true },
@@ -64,7 +64,14 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
+  <BaseTable
+    v-model:pagination="pagination"
+    :rows="rows"
+    :columns="columns"
+    rowKey="id"
+    columnToggle
+    showDensityToggle
+  >
     <!-- Name Column -->
     <template #body-cell-name="{ row }">
       <RouterLink

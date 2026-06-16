@@ -20,6 +20,7 @@ const props = defineProps({
 
 const toast = useToast()
 const router = useRouter()
+const { confirm } = useConfirm()
 const role = ref(null)
 const loading = ref(false)
 const error = ref(null)
@@ -103,9 +104,12 @@ const isInactive = computed(() => role.value?.statusId === 'INACTIVE')
 
 async function handleDeactivate() {
   if (
-    !confirm(
-      `Are you sure you want to deactivate the role "${role.value.name}"?\n\nDeactivating a role will set its status to Inactive.`,
-    )
+    !(await confirm({
+      title: 'Deactivate role',
+      message: `Are you sure you want to deactivate the role "${role.value.name}"?\n\nDeactivating a role will set its status to Inactive.`,
+      okLabel: 'Deactivate',
+      danger: true,
+    }))
   )
     return
   const success = await deactivateRole(props.id)
@@ -118,7 +122,14 @@ async function handleDeactivate() {
 }
 
 async function handleActivate() {
-  if (!confirm(`Are you sure you want to activate the role "${role.value.name}"?`)) return
+  if (
+    !(await confirm({
+      title: 'Activate role',
+      message: `Are you sure you want to activate the role "${role.value.name}"?`,
+      okLabel: 'Activate',
+    }))
+  )
+    return
   const success = await activateRole(props.id)
   if (success) {
     role.value = { ...role.value, statusId: 'ACTIVE' }
@@ -218,9 +229,7 @@ watch(
   <div class="tw:flex tw:flex-col tw:h-full">
     <!-- Loading State -->
     <div v-if="loading && !role" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      ></div>
+      <BaseSpinner size="lg" />
     </div>
 
     <!-- Error State -->
@@ -266,10 +275,7 @@ watch(
               :disabled="loading"
               @click="saveChanges"
             >
-              <span
-                v-if="loading"
-                class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent"
-              ></span>
+              <BaseSpinner v-if="loading" size="sm" color="white" class="tw:mr-1" />
               Save Changes
             </button>
           </template>

@@ -12,7 +12,8 @@ const documentTemplate = useLiveQueryWithDeps(
     if (!documentTemplateId) return null
     return db.DocumentTemplate.findByPk(documentTemplateId)
   },
-  { initial: null },
+
+  { models: ['DocumentTemplate'], initial: null },
 )
 </script>
 

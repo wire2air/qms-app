@@ -12,7 +12,8 @@ const optionSet = useLiveQueryWithDeps(
     if (!optionSetId) return null
     return db.OptionSet.findByPk(optionSetId)
   },
-  { initial: null },
+
+  { models: ['OptionSet'], initial: null },
 )
 </script>
 

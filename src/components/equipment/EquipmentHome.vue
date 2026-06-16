@@ -1,11 +1,5 @@
 <script setup>
-import {
-  IconTool,
-  IconPlus,
-  IconSearch,
-  IconAlertCircle,
-  IconCalendar,
-} from '@tabler/icons-vue'
+import { IconTool, IconPlus, IconSearch, IconAlertCircle, IconCalendar } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { DateTime } from 'luxon'
 
@@ -44,10 +38,11 @@ const equipment = useLiveQueryWithDeps(
     }
     return rows.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
   },
-  { initial: [] },
+
+  { models: ['Equipment'], initial: [] },
 )
 
-const sites = useLiveQuery((db) => db.Site.where().exec(), { initial: [] })
+const sites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
 const siteById = computed(() => new Map(sites.value.map((s) => [s.id, s])))
 
 function fmtDate(d) {
@@ -113,12 +108,7 @@ function onUpdated() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconTool class="tw:text-primary" :size="22" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Equipment</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconTool" title="Equipment" :iconSize="22" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canCreate" variant="primary" @click="showCreateDialog = true">
@@ -130,8 +120,8 @@ function onUpdated() {
     <div class="tw:flex tw:flex-col tw:gap-1">
       <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Equipment</div>
       <div class="tw:text-sm tw:text-secondary">
-        Instruments, machines, and other equipment tracked by the QMS. Log books reference
-        equipment for calibration, preventive maintenance, and equipment-specific routines.
+        Instruments, machines, and other equipment tracked by the QMS. Log books reference equipment
+        for calibration, preventive maintenance, and equipment-specific routines.
       </div>
     </div>
 
@@ -196,10 +186,7 @@ function onUpdated() {
     </div>
 
     <!-- Table -->
-    <div
-      v-else
-      class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden"
-    >
+    <div v-else class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden">
       <table class="tw:w-full tw:text-sm">
         <thead class="tw:bg-main">
           <tr class="tw:text-left">
@@ -212,12 +199,14 @@ function onUpdated() {
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="e in equipment"
             :key="e.id"
+            tag="tr"
+            :disabled="!canUpdate"
             class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-            :class="canUpdate ? 'tw:cursor-pointer' : ''"
-            @click="canUpdate && openEdit(e)"
+            :aria-label="`Edit ${e.name}`"
+            @click="openEdit(e)"
           >
             <td class="tw:px-3 tw:py-2">
               <div class="tw:font-medium tw:text-on-main">{{ e.name }}</div>
@@ -241,11 +230,13 @@ function onUpdated() {
             <td class="tw:px-3 tw:py-2 tw:text-xs">
               <span
                 v-if="e.nextCalibrationDue"
-                :class="overdue(e.nextCalibrationDue)
-                  ? 'tw:text-red-700 tw:font-medium'
-                  : dueSoon(e.nextCalibrationDue)
-                    ? 'tw:text-amber-700'
-                    : 'tw:text-secondary'"
+                :class="
+                  overdue(e.nextCalibrationDue)
+                    ? 'tw:text-red-700 tw:font-medium'
+                    : dueSoon(e.nextCalibrationDue)
+                      ? 'tw:text-amber-700'
+                      : 'tw:text-secondary'
+                "
                 class="tw:inline-flex tw:items-center tw:gap-1"
               >
                 <IconAlertCircle v-if="overdue(e.nextCalibrationDue)" :size="12" />
@@ -257,11 +248,13 @@ function onUpdated() {
             <td class="tw:px-3 tw:py-2 tw:text-xs">
               <span
                 v-if="e.nextPmDue"
-                :class="overdue(e.nextPmDue)
-                  ? 'tw:text-red-700 tw:font-medium'
-                  : dueSoon(e.nextPmDue)
-                    ? 'tw:text-amber-700'
-                    : 'tw:text-secondary'"
+                :class="
+                  overdue(e.nextPmDue)
+                    ? 'tw:text-red-700 tw:font-medium'
+                    : dueSoon(e.nextPmDue)
+                      ? 'tw:text-amber-700'
+                      : 'tw:text-secondary'
+                "
                 class="tw:inline-flex tw:items-center tw:gap-1"
               >
                 <IconAlertCircle v-if="overdue(e.nextPmDue)" :size="12" />
@@ -270,7 +263,7 @@ function onUpdated() {
               </span>
               <span v-else class="tw:text-secondary">—</span>
             </td>
-          </tr>
+          </BaseClickableRow>
         </tbody>
       </table>
     </div>

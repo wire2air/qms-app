@@ -42,7 +42,8 @@ const steps = useLiveQueryWithDeps(
       .filter((s) => !s.parentInstanceStepId)
       .sort((a, b) => a.stepNumber - b.stepNumber)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 // ─── Reassign dialog (owner) ─────────────────────────────────────────────────
@@ -67,7 +68,11 @@ function openReassignDialog(instanceStepId) {
         @reassign="openReassignDialog"
       >
         <template
-          #childSteps="{ instanceStep: parentStep, stepDefinition: parentDef, displayNumber: parentNum }"
+          #childSteps="{
+            instanceStep: parentStep,
+            stepDefinition: parentDef,
+            displayNumber: parentNum,
+          }"
         >
           <ChangeRequestWorkflowChildSteps
             v-if="parentStep && parentDef?.allowChildSteps && parentStep.workflowInstanceId"

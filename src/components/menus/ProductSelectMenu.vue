@@ -26,7 +26,10 @@ const modelValue = defineModel({
   default: null,
 })
 
-const products = useLiveQuery(async (db) => db.Product.where().exec(), { initial: [] })
+const products = useLiveQuery(async (db) => db.Product.where().exec(), {
+  models: ['Product'],
+  initial: [],
+})
 
 // QMS users key off the SKU#, so the dropdown lists (and searches) each item
 // as "SKU - Item name". The selected chip renders via ProductBadge(ById) which

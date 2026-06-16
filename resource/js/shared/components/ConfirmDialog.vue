@@ -24,6 +24,11 @@ defineProps({
     type: String,
     default: 'Cancel',
   },
+  // Visual emphasis of the confirm button. Use 'danger' for destructive actions.
+  okVariant: {
+    type: String,
+    default: 'primary',
+  },
 })
 
 const emit = defineEmits(['ok', 'cancel'])
@@ -53,7 +58,7 @@ function handleCancel() {
       <BaseButton v-if="cancel" variant="outline" @click="handleCancel">
         {{ cancelLabel }}
       </BaseButton>
-      <BaseButton variant="primary" @click="handleOk">
+      <BaseButton :variant="okVariant" @click="handleOk">
         {{ okLabel }}
       </BaseButton>
     </template>

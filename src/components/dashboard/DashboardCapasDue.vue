@@ -4,6 +4,7 @@
  */
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
+import { IconCircleCheck } from '@tabler/icons-vue'
 
 const capas = useLiveQuery(
   async (db) => {
@@ -16,7 +17,8 @@ const capas = useLiveQuery(
         return da - dbb
       })
   },
-  { initial: [] },
+
+  { models: ['Capa'], initial: [] },
 )
 
 function isOverdue(c) {
@@ -26,9 +28,7 @@ function isOverdue(c) {
 
 <template>
   <DashboardWidgetCard title="CAPAs Due" :count="capas.length" linkTo="/capas">
-    <div v-if="!capas.length" class="tw:px-4 tw:py-6 tw:text-center tw:text-sm tw:text-secondary">
-      No open CAPAs.
-    </div>
+    <BaseEmptyState v-if="!capas.length" dense :icon="IconCircleCheck" title="No open CAPAs" />
     <RouterLink
       v-for="c in capas.slice(0, 5)"
       :key="c.id"

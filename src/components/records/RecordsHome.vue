@@ -3,6 +3,7 @@ import { IconFolderOpen, IconPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 
 const toast = useToast()
+const { confirm } = useConfirm()
 const showAddDialog = ref(false)
 
 const filters = ref({ search: '' })
@@ -17,7 +18,8 @@ const records = useLiveQueryWithDeps(
     const s = search.toLowerCase()
     return all.filter((r) => r.recordNumber?.toLowerCase().includes(s))
   },
-  { initial: [] },
+
+  { models: ['Record'], initial: [] },
 )
 
 const loading = computed(() => records.value === undefined)
@@ -30,9 +32,12 @@ const deleteRecord = useLiveMutation(async (db, id) => {
 
 async function onDeleteRecord(row) {
   if (
-    !confirm(
-      `Are you sure you want to delete record "${row.recordNumber}"? This action cannot be undone.`,
-    )
+    !(await confirm({
+      title: 'Delete Record',
+      message: `Are you sure you want to delete record "${row.recordNumber}"? This action cannot be undone.`,
+      okLabel: 'Delete',
+      danger: true,
+    }))
   )
     return
   try {
@@ -51,12 +56,7 @@ function onRecordCreated() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconFolderOpen :size="24" class="tw:text-primary" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Records</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconFolderOpen" title="Records" />
 
     <!-- Page Header -->
     <div class="tw:flex tw:items-center tw:justify-between">

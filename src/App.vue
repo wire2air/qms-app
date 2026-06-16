@@ -23,6 +23,47 @@ const isOpenRoute = openRoutes.some(
 // Public routes (signin, signup, …) render on any host and need no tenant.
 const isPublicRoute = isPublicRouteFn(currentPath)
 
+// ── Route-level navigation progress ──────────────────────────────────────────
+// With importMode 'async', each page is a lazy chunk that downloads on first
+// visit — without feedback that gap reads as a freeze/glitch. Show a thin top
+// progress bar while navigating. The 120ms delay means instant (cached-chunk)
+// navigations don't flash it; only real chunk downloads show the bar.
+const router = useRouter()
+const navigating = ref(false)
+let navDelayTimer = null
+router.beforeEach(() => {
+  navDelayTimer = setTimeout(() => (navigating.value = true), 120)
+})
+function endNavigation() {
+  clearTimeout(navDelayTimer)
+  navigating.value = false
+}
+router.afterEach(endNavigation)
+router.onError(endNavigation)
+
+// Prefetch a route's lazy chunk when the user hovers any internal link, so by
+// the time they click it's already cached and navigation is instant. One
+// global listener covers every RouterLink; each chunk loads at most once.
+const prefetchedPaths = new Set()
+function prefetchRouteChunk(path) {
+  if (!path || prefetchedPaths.has(path)) return
+  prefetchedPaths.add(path)
+  try {
+    for (const record of router.resolve(path).matched) {
+      const loader = record.components?.default
+      if (typeof loader === 'function') loader() // triggers the dynamic import()
+    }
+  } catch {
+    // unresolvable href — ignore
+  }
+}
+function onLinkHover(e) {
+  const a = e.target?.closest?.('a[href^="/"]')
+  if (a) prefetchRouteChunk(a.getAttribute('href'))
+}
+onMounted(() => document.addEventListener('mouseover', onLinkHover, { passive: true }))
+onBeforeUnmount(() => document.removeEventListener('mouseover', onLinkHover))
+
 // Subdomain tenancy: the active tenant is the request host (acme.qability.com),
 // not a path segment. null on apex / reserved hosts (localhost, admin.*, …).
 const subdomain = currentSubdomain()
@@ -56,9 +97,7 @@ async function bootApp() {
   await initSession(subdomain)
   await initCurrentCompany()
 
-  const belongsToTenant = companies.value.some(
-    (c) => String(c.code).toLowerCase() === subdomain,
-  )
+  const belongsToTenant = companies.value.some((c) => String(c.code).toLowerCase() === subdomain)
   if (!belongsToTenant) {
     // Authenticated but not a member of this tenant → send them to one they
     // belong to; if they belong to none, to sign-in.
@@ -113,16 +152,26 @@ onMounted(async () => {
 
 <template>
   <BaseToastContainer />
+  <ConfirmDialogHost />
+
+  <!-- Route navigation progress — feedback while async page chunks load -->
+  <div
+    v-if="navigating"
+    class="tw:fixed tw:inset-x-0 tw:top-0 tw:z-[10000] tw:h-0.5 tw:overflow-hidden tw:bg-primary/15"
+  >
+    <div class="app-nav-progress tw:h-full tw:w-2/5 tw:bg-primary" />
+  </div>
 
   <!-- Full-screen loader overlay. Boot failures auto-recover silently
        via the catch block in onMounted (nuke local IDB + reload, gated
        to one shot per session). No modal/panel here — kept the UX
        quiet on purpose. -->
-  <div v-if="loading" class="fixed-full flex flex-center bg-dark" style="z-index: 9999">
+  <div
+    v-if="loading"
+    class="tw:fixed tw:inset-0 tw:z-[9999] tw:flex tw:items-center tw:justify-center tw:bg-[#101822]"
+  >
     <div class="tw:text-center">
-      <div
-        class="tw:size-20 tw:animate-spin tw:rounded-full tw:border-4 tw:border-white tw:border-t-transparent"
-      ></div>
+      <BaseSpinner :size="72" color="white" class="tw:mx-auto" />
       <div class="tw:text-lg tw:font-semibold tw:text-white tw:mt-4">Loading...</div>
     </div>
   </div>
@@ -152,3 +201,18 @@ onMounted(async () => {
     <ChatPanel v-if="canUseAi" />
   </div>
 </template>
+
+<style scoped>
+@keyframes app-nav-progress-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(360%);
+  }
+}
+
+.app-nav-progress {
+  animation: app-nav-progress-slide 1s ease-in-out infinite;
+}
+</style>

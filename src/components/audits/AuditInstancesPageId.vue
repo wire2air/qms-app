@@ -42,8 +42,10 @@ const props = defineProps({
 const toast = useToast()
 const router = useRouter()
 
-const auditInstance = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.AuditInstance.findByPk(id),
+const auditInstance = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.AuditInstance.findByPk(id),
+  { models: ['AuditInstance'] },
 )
 
 // #1 — conformance scoring rollup (shared with the printable report).
@@ -90,7 +92,8 @@ const myShares = useLiveQueryWithDeps(
     if (!id) return []
     return db.SharedWithUser.where('[entityType+entityId]', ['AuditInstance', id]).exec()
   },
-  { initial: [] },
+
+  { models: ['SharedWithUser'], initial: [] },
 )
 const isAuditee = computed(() =>
   myShares.value.some((s) => s.userId === currentSession.value?.userId),
@@ -250,7 +253,8 @@ const teamMembers = useLiveQueryWithDeps(
       return (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0)
     })
   },
-  { initial: [] },
+
+  { models: ['AuditTeamMember'], initial: [] },
 )
 
 const showAddMemberDialog = ref(false)
@@ -306,7 +310,8 @@ const responseCount = useLiveQueryWithDeps(
     const rows = await db.AuditRequirementResponse.where('auditInstanceId', instanceId).exec()
     return rows.length
   },
-  { initial: 0 },
+
+  { models: ['AuditRequirementResponse'], initial: 0 },
 )
 const clauseCount = computed(() => auditInstance.value?.requirementSchema?.length ?? 0)
 
@@ -320,7 +325,8 @@ const findingsByStatus = useLiveQueryWithDeps(
     const open = rows.filter((f) => !['CLOSED', 'CANCELLED'].includes(f.statusId)).length
     return { open, total: rows.length }
   },
-  { initial: { open: 0, total: 0 } },
+
+  { models: ['AuditFinding'], initial: { open: 0, total: 0 } },
 )
 
 // #3/#4 — supplier-audit release. The supplier (non-auditor viewer) only sees
@@ -339,7 +345,9 @@ async function releaseAudit() {
   try {
     const res = await post(`/v1/services/auditInstances/${props.id}/release`)
     const n = res?.notified ?? 0
-    toast.success(n > 0 ? `Released — ${n} supplier contact${n === 1 ? '' : 's'} notified.` : 'Audit released.')
+    toast.success(
+      n > 0 ? `Released — ${n} supplier contact${n === 1 ? '' : 's'} notified.` : 'Audit released.',
+    )
   } catch (e) {
     toast.error(e.message || 'Failed to release audit')
   } finally {
@@ -350,7 +358,12 @@ async function releaseAudit() {
 const auditTabs = computed(() => {
   const tabs = [
     { id: 'info', label: 'Information', icon: IconClipboardCheck, count: null },
-    { id: 'requirements', label: 'Requirements', icon: IconClipboardList, count: clauseCount.value },
+    {
+      id: 'requirements',
+      label: 'Requirements',
+      icon: IconClipboardList,
+      count: clauseCount.value,
+    },
     { id: 'findings', label: 'Findings', icon: IconBolt, count: findingsByStatus.value.total },
     { id: 'ofi', label: 'OFI', icon: IconBulb, count: scoring.value.counts.OFI },
   ]
@@ -431,7 +444,11 @@ watch(auditTabs, (tabs) => {
             v-if="unassessedCount > 0 || findingsByStatus.open > 0"
             class="tw:ml-1 tw:text-[10px] tw:opacity-80"
           >
-            ({{ unassessedCount > 0 ? `${unassessedCount} unassessed` : `${findingsByStatus.open} open` }})
+            ({{
+              unassessedCount > 0
+                ? `${unassessedCount} unassessed`
+                : `${findingsByStatus.open} open`
+            }})
           </span>
         </BaseButton>
         <BaseButton
@@ -444,12 +461,7 @@ watch(auditTabs, (tabs) => {
           <IconBan :size="16" class="tw:mr-1" />
           Cancel
         </BaseButton>
-        <BaseButton
-          v-if="auditInstance"
-          variant="secondary"
-          size="sm"
-          @click="showAuditLog = true"
-        >
+        <BaseButton v-if="auditInstance" variant="secondary" size="sm" @click="showAuditLog = true">
           <IconClipboardCheck :size="16" class="tw:mr-1" />
           Audit Log
         </BaseButton>
@@ -465,11 +477,7 @@ watch(auditTabs, (tabs) => {
       </div>
     </SafeTeleport>
 
-    <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:size-12 tw:border-4 tw:border-primary tw:border-t-transparent"
-      />
-    </div>
+    <BaseSpinner v-if="loading" centered size="lg" />
 
     <BaseEmptyState
       v-else-if="!auditInstance"
@@ -509,7 +517,10 @@ watch(auditTabs, (tabs) => {
             </div>
 
             <!-- Details card -->
-            <div v-show="tab === 'info'" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <div
+              v-show="tab === 'info'"
+              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
+            >
               <div
                 class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
@@ -542,15 +553,16 @@ watch(auditTabs, (tabs) => {
                     size="sm"
                   />
                   <span v-else class="tw:text-sm">
-                    {{ auditInstance.scheduledDate ? auditInstance.scheduledDate.formatDate('date') : '—' }}
+                    {{
+                      auditInstance.scheduledDate
+                        ? auditInstance.scheduledDate.formatDate('date')
+                        : '—'
+                    }}
                   </span>
                 </div>
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Lead Auditor</div>
-                  <UserSelectMenu
-                    v-if="isEditable"
-                    v-model="auditInstance.leadAuditorUserId"
-                  />
+                  <UserSelectMenu v-if="isEditable" v-model="auditInstance.leadAuditorUserId" />
                   <span v-else-if="auditInstance.displayMeta?.leadAuditorName" class="tw:text-sm">
                     {{ auditInstance.displayMeta.leadAuditorName }}
                   </span>
@@ -562,9 +574,15 @@ watch(auditTabs, (tabs) => {
                     v-if="isEditable"
                     v-model="auditInstance.auditeeUserId"
                     nullLabel="-- Select --"
-                    :kind="auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'"
-                    :supplierId="auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null"
-                    :departmentId="auditInstance.programTypeId === 'SUPPLIER' ? null : auditInstance.departmentId"
+                    :kind="
+                      auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'
+                    "
+                    :supplierId="
+                      auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null
+                    "
+                    :departmentId="
+                      auditInstance.programTypeId === 'SUPPLIER' ? null : auditInstance.departmentId
+                    "
                   />
                   <span v-else-if="auditInstance.displayMeta?.auditeeName" class="tw:text-sm">
                     {{ auditInstance.displayMeta.auditeeName }}
@@ -576,10 +594,7 @@ watch(auditTabs, (tabs) => {
                   class="tw:flex tw:flex-col tw:gap-1"
                 >
                   <div class="tw:text-xs tw:text-secondary">Department</div>
-                  <DepartmentSelectMenu
-                    v-if="isEditable"
-                    v-model="auditInstance.departmentId"
-                  />
+                  <DepartmentSelectMenu v-if="isEditable" v-model="auditInstance.departmentId" />
                   <DepartmentBadgeById
                     v-else-if="auditInstance.departmentId"
                     :departmentId="auditInstance.departmentId"
@@ -611,9 +626,7 @@ watch(auditTabs, (tabs) => {
               <!-- Scope / Objectives — click-to-edit, long form -->
               <div class="tw:flex tw:flex-col tw:gap-3">
                 <div>
-                  <p
-                    class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1"
-                  >
+                  <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
                     Scope
                   </p>
                   <BaseTextarea
@@ -623,19 +636,19 @@ watch(auditTabs, (tabs) => {
                     placeholder="What's in scope for this audit?"
                     @blur="editingScope = false"
                   />
-                  <div
+                  <BaseClickableRow
                     v-else
                     class="tw:text-sm tw:whitespace-pre-line tw:text-on-main"
                     :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                    :disabled="!isEditable"
+                    aria-label="Edit audit scope"
                     @click="isEditable && (editingScope = true)"
                   >
                     {{ auditInstance.scope || (isEditable ? 'Add scope…' : '—') }}
-                  </div>
+                  </BaseClickableRow>
                 </div>
                 <div>
-                  <p
-                    class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1"
-                  >
+                  <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
                     Objectives
                   </p>
                   <BaseTextarea
@@ -645,14 +658,16 @@ watch(auditTabs, (tabs) => {
                     placeholder="What outcomes does this audit need to produce?"
                     @blur="editingObjectives = false"
                   />
-                  <div
+                  <BaseClickableRow
                     v-else
                     class="tw:text-sm tw:whitespace-pre-line tw:text-on-main"
                     :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                    :disabled="!isEditable"
+                    aria-label="Edit audit objectives"
                     @click="isEditable && (editingObjectives = true)"
                   >
                     {{ auditInstance.objectives || (isEditable ? 'Add objectives…' : '—') }}
-                  </div>
+                  </BaseClickableRow>
                 </div>
               </div>
             </div>
@@ -668,21 +683,24 @@ watch(auditTabs, (tabs) => {
             />
 
             <!-- Requirements execution -->
-            <div v-show="tab === 'requirements'" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <div
+              v-show="tab === 'requirements'"
+              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
+            >
               <div
                 class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >
                 <IconClipboardList :size="14" />
                 Requirements
               </div>
-              <AuditWalkthroughPanel
-                :auditInstance="auditInstance"
-                :readonly="!isEditable"
-              />
+              <AuditWalkthroughPanel :auditInstance="auditInstance" :readonly="!isEditable" />
             </div>
 
             <!-- Findings -->
-            <div v-show="tab === 'findings'" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <div
+              v-show="tab === 'findings'"
+              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
+            >
               <div
                 class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >
@@ -699,7 +717,10 @@ watch(auditTabs, (tabs) => {
             </div>
 
             <!-- OFI — opportunities for improvement (requirement results = OFI) -->
-            <div v-show="tab === 'ofi'" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <div
+              v-show="tab === 'ofi'"
+              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
+            >
               <div
                 class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >
@@ -732,14 +753,15 @@ watch(auditTabs, (tabs) => {
                 :isOwner="auditInstance.createdBy === currentSession?.userId"
               />
             </div>
-
           </div>
 
           <!-- Right rail -->
           <div class="tw:flex tw:flex-col tw:gap-3">
             <!-- Conformance score (#1). Hidden on mobile/iPad to save space —
                  the auditor still sees it in the printable report; shown on lg+. -->
-            <div class="tw:hidden tw:lg:block tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <div
+              class="tw:hidden tw:lg:block tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
+            >
               <div
                 class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
               >
@@ -755,18 +777,40 @@ watch(auditTabs, (tabs) => {
                 </div>
                 <span
                   class="tw:text-[10px] tw:font-bold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
-                  :class="scoring.pass ? 'tw:bg-emerald-100 tw:text-emerald-700' : 'tw:bg-red-100 tw:text-red-700'"
+                  :class="
+                    scoring.pass
+                      ? 'tw:bg-emerald-100 tw:text-emerald-700'
+                      : 'tw:bg-red-100 tw:text-red-700'
+                  "
                 >
                   {{ scoring.pass ? 'Pass' : 'Fail' }}
                 </span>
               </div>
               <div class="tw:grid tw:grid-cols-2 tw:gap-x-3 tw:gap-y-1 tw:text-xs">
-                <div class="tw:flex tw:justify-between"><span class="tw:text-secondary">Conforming</span><span class="tw:font-medium">{{ scoring.counts.CONFORMING }}</span></div>
-                <div class="tw:flex tw:justify-between"><span class="tw:text-secondary">Minor NC</span><span class="tw:font-medium">{{ scoring.counts.MINOR_NC }}</span></div>
-                <div class="tw:flex tw:justify-between"><span class="tw:text-secondary">Major NC</span><span class="tw:font-medium tw:text-red-600">{{ scoring.counts.MAJOR_NC }}</span></div>
-                <div class="tw:flex tw:justify-between"><span class="tw:text-secondary">OFI</span><span class="tw:font-medium">{{ scoring.counts.OFI }}</span></div>
-                <div class="tw:flex tw:justify-between"><span class="tw:text-secondary">N/A</span><span class="tw:font-medium">{{ scoring.counts.NA }}</span></div>
-                <div class="tw:flex tw:justify-between"><span class="tw:text-secondary">Assessed</span><span class="tw:font-medium">{{ scoring.assessed }}</span></div>
+                <div class="tw:flex tw:justify-between">
+                  <span class="tw:text-secondary">Conforming</span
+                  ><span class="tw:font-medium">{{ scoring.counts.CONFORMING }}</span>
+                </div>
+                <div class="tw:flex tw:justify-between">
+                  <span class="tw:text-secondary">Minor NC</span
+                  ><span class="tw:font-medium">{{ scoring.counts.MINOR_NC }}</span>
+                </div>
+                <div class="tw:flex tw:justify-between">
+                  <span class="tw:text-secondary">Major NC</span
+                  ><span class="tw:font-medium tw:text-red-600">{{ scoring.counts.MAJOR_NC }}</span>
+                </div>
+                <div class="tw:flex tw:justify-between">
+                  <span class="tw:text-secondary">OFI</span
+                  ><span class="tw:font-medium">{{ scoring.counts.OFI }}</span>
+                </div>
+                <div class="tw:flex tw:justify-between">
+                  <span class="tw:text-secondary">N/A</span
+                  ><span class="tw:font-medium">{{ scoring.counts.NA }}</span>
+                </div>
+                <div class="tw:flex tw:justify-between">
+                  <span class="tw:text-secondary">Assessed</span
+                  ><span class="tw:font-medium">{{ scoring.assessed }}</span>
+                </div>
               </div>
             </div>
 
@@ -845,7 +889,9 @@ watch(auditTabs, (tabs) => {
               <div class="tw:flex tw:flex-col">
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Audit Number</span>
-                  <code class="tw:text-xs tw:font-mono tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded">
+                  <code
+                    class="tw:text-xs tw:font-mono tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
+                  >
                     {{ auditInstance.auditNumber || '—' }}
                   </code>
                 </div>
@@ -874,7 +920,9 @@ watch(auditTabs, (tabs) => {
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Completed</span>
                   <span class="tw:text-xs">
-                    {{ auditInstance.completedAt ? auditInstance.completedAt.formatDate('date') : '—' }}
+                    {{
+                      auditInstance.completedAt ? auditInstance.completedAt.formatDate('date') : '—'
+                    }}
                   </span>
                 </div>
                 <div v-if="saving" class="tw:text-[11px] tw:text-secondary tw:italic tw:pt-1">
@@ -961,9 +1009,9 @@ watch(auditTabs, (tabs) => {
 
     <BaseDialog v-model="showCancelDialog" title="Cancel Audit" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Cancel <strong>{{ auditInstance?.auditNumber }}</strong>?
-        Existing requirement responses + team data stay intact — the audit is just
-        marked CANCELLED. Use Delete to remove the row entirely.
+        Cancel <strong>{{ auditInstance?.auditNumber }}</strong
+        >? Existing requirement responses + team data stay intact — the audit is just marked
+        CANCELLED. Use Delete to remove the row entirely.
       </p>
       <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
         <BaseButton variant="outline" :disabled="transitioning" @click="showCancelDialog = false">
@@ -977,8 +1025,8 @@ watch(auditTabs, (tabs) => {
 
     <BaseDialog v-model="showDeleteDialog" title="Archive Audit" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Archive <strong>{{ auditInstance?.auditNumber }}</strong>?
-        Soft-delete; admins can restore via Settings if needed.
+        Archive <strong>{{ auditInstance?.auditNumber }}</strong
+        >? Soft-delete; admins can restore via Settings if needed.
       </p>
       <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
         <BaseButton variant="outline" :disabled="transitioning" @click="showDeleteDialog = false">

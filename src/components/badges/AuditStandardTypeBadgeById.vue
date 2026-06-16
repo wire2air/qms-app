@@ -9,14 +9,11 @@ const standardType = useLiveQueryWithDeps(
     if (!id) return null
     return db.AuditStandardType.findByPk(id)
   },
-  { initial: null },
+
+  { models: ['AuditStandardType'], initial: null },
 )
 </script>
 
 <template>
-  <AuditStandardTypeBadge
-    v-if="standardType"
-    :standardType="standardType"
-    v-bind="$attrs"
-  />
+  <AuditStandardTypeBadge v-if="standardType" :standardType="standardType" v-bind="$attrs" />
 </template>

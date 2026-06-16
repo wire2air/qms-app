@@ -12,7 +12,8 @@ const role = useLiveQueryWithDeps(
     if (!roleId) return null
     return db.Role.findByPk(roleId)
   },
-  { initial: null },
+
+  { models: ['Role'], initial: null },
 )
 </script>
 

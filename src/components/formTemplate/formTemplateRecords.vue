@@ -25,10 +25,14 @@ const props = defineProps({
 
 const toast = useToast()
 
-const template = useLiveQueryWithDeps([() => props.templateId], async (db, [id]) => {
-  if (!id) return null
-  return db.FormTemplate.findByPk(id)
-})
+const template = useLiveQueryWithDeps(
+  [() => props.templateId],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.FormTemplate.findByPk(id)
+  },
+  { models: ['FormTemplate'] },
+)
 
 const templateRecords = useLiveQueryWithDeps(
   [() => props.templateId],
@@ -36,7 +40,8 @@ const templateRecords = useLiveQueryWithDeps(
     if (!id) return []
     return db.Record.where('templateId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['Record'], initial: [] },
 )
 
 const recordsLoading = computed(() => templateRecords.value === undefined)
@@ -681,7 +686,7 @@ async function handleExport(format) {
 
       <template #body-cell="{ row, column }">
         <template v-if="column.fieldType === 'repeater'">
-          <div
+          <BaseClickableRow
             v-for="(preview, idx) in [
               getRepeaterPreview(
                 getRawValue(row.payload, column.name) || [],
@@ -689,8 +694,10 @@ async function handleExport(format) {
               ),
             ]"
             :key="idx"
-            :class="['tw:max-w-80', isColumnEditable(column.name) ? 'tw:cursor-pointer' : '']"
-            @click="isColumnEditable(column.name) && openCellEdit(row, column.name)"
+            :disabled="!isColumnEditable(column.name)"
+            class="tw:max-w-80"
+            :aria-label="`Edit ${column.label}`"
+            @click="openCellEdit(row, column.name)"
           >
             <template v-if="preview.text !== '-'">
               <span
@@ -702,19 +709,20 @@ async function handleExport(format) {
               >
             </template>
             <span v-else class="tw:text-secondary">-</span>
-          </div>
+          </BaseClickableRow>
         </template>
         <template
           v-else-if="
             schemaFields.find((f) => f.name === column.name) && isColumnEditable(column.name)
           "
         >
-          <div
-            class="tw:cursor-pointer tw:max-w-60 tw:overflow-hidden tw:whitespace-nowrap tw:text-ellipsis"
+          <BaseClickableRow
+            class="tw:max-w-60 tw:overflow-hidden tw:whitespace-nowrap tw:text-ellipsis"
+            :aria-label="`Edit ${column.label}`"
             @click="openCellEdit(row, column.name)"
           >
             {{ getFieldValue(row.payload, column.name) }}
-          </div>
+          </BaseClickableRow>
         </template>
         <template v-else-if="schemaFields.find((f) => f.name === column.name)">
           <div class="tw:max-w-60 tw:overflow-hidden tw:whitespace-nowrap tw:text-ellipsis">

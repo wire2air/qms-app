@@ -19,17 +19,22 @@ const roles = useLiveQueryWithDeps(
     const list = await Promise.all(assignments.map((ra) => db.Role.findByPk(ra.roleId)))
     return list.filter(Boolean)
   },
-  { initial: [] },
+
+  { models: ['RoleOnUser', 'Role'], initial: [] },
 )
 
 const site = useLiveQueryWithDeps(
   [() => props.user?.siteId],
+
   async (db, [siteId]) => (siteId ? db.Site.findByPk(siteId) : null),
+  { models: ['Site'] },
 )
 
 const department = useLiveQueryWithDeps(
   [() => props.user?.departmentId],
+
   async (db, [deptId]) => (deptId ? db.Department.findByPk(deptId) : null),
+  { models: ['Department'] },
 )
 
 const profileLink = computed(() => getCompanyPath(`/users/${props.user?.id}`))

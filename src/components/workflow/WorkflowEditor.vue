@@ -1,5 +1,12 @@
 <script setup>
-import { IconHistory, IconLock, IconCheck, IconArchive, IconRestore, IconTrash } from '@tabler/icons-vue'
+import {
+  IconHistory,
+  IconLock,
+  IconCheck,
+  IconArchive,
+  IconRestore,
+  IconTrash,
+} from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
@@ -8,6 +15,7 @@ const props = defineProps({
 })
 
 const toast = useToast()
+const { confirm } = useConfirm()
 const route = useRoute()
 const router = useRouter()
 
@@ -53,8 +61,10 @@ watch(
 )
 
 // --- Live data ---
-const workflow = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.Workflow.findByPk(id),
+const workflow = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.Workflow.findByPk(id),
+  { models: ['Workflow'] },
 )
 
 // CC mirrors CAPA's authoring capabilities — full step config (outcomes,
@@ -74,9 +84,7 @@ const showFormSchema = computed(() =>
 const showAllowChildSteps = computed(() =>
   MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId),
 )
-const showChildSteps = computed(() =>
-  MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId),
-)
+const showChildSteps = computed(() => MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId))
 // Workflow templates assign approvers by ROLE only. The specific
 // reviewer (a named user) is chosen by the owner when the workflow is
 // attached to an entity and submitted (the reviewer-per-step picker
@@ -107,7 +115,8 @@ const versions = useLiveQueryWithDeps(
       return b.versionMinor - a.versionMinor
     })
   },
-  { initial: [] },
+
+  { models: ['WorkflowVersion'], initial: [] },
 )
 
 const steps = useLiveQueryWithDeps(
@@ -116,7 +125,8 @@ const steps = useLiveQueryWithDeps(
     if (!versionId) return []
     return db.WorkflowStep.where('workflowVersionId', versionId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStep'], initial: [] },
 )
 
 watch(
@@ -212,7 +222,7 @@ async function handleDeleteDraft() {
   const message = onlyVersion
     ? `Delete workflow '${workflow.value?.name}'? It has never been published.`
     : 'Discard this draft version? It has never been published and will be removed.'
-  if (!confirm(message)) return
+  if (!(await confirm({ message, danger: true }))) return
   workflowStatusBusy.value = true
   try {
     if (onlyVersion) {
@@ -367,41 +377,8 @@ function handleVersionSelect(version, close) {
   close()
 }
 
-const isFirstLoad = ref(true)
-
-const debouncedSaveVersion = useDebounceFn(() => {
-  if (!selectedVersion.value) return
-  selectedVersion.value.save()
-}, 1000)
-
-const debounedSaveWorkflow = useDebounceFn(() => {
-  if (!workflow.value) return
-  workflow.value.save()
-}, 1000)
-
-watch(
-  selectedVersion,
-  () => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    debouncedSaveVersion()
-  },
-  { deep: true },
-)
-
-watch(
-  workflow,
-  (oldValue) => {
-    // undefined on initial load, we only want to trigger save on subsequent changes
-    if (oldValue === undefined) {
-      return
-    }
-    debounedSaveWorkflow()
-  },
-  { deep: true },
-)
+useAutoSave(selectedVersion, { debounce: 1000 })
+useAutoSave(workflow, { debounce: 1000 })
 
 watch(steps, () => {
   if (!steps.value.some((s) => s.id === selectedStepId.value)) {

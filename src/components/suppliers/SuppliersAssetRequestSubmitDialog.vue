@@ -118,10 +118,7 @@ async function onSubmit() {
         </div>
         <div v-if="selectedFile && !uploadedAsset" class="tw:mt-2">
           <BaseButton :disabled="uploading" size="sm" @click="onUpload">
-            <div
-              v-if="uploading"
-              class="tw:animate-spin tw:rounded-full tw:size-3 tw:border-2 tw:border-white tw:border-t-transparent"
-            />
+            <BaseSpinner v-if="uploading" size="xs" color="white" />
             <span>{{ uploading ? 'Uploading...' : 'Upload' }}</span>
           </BaseButton>
         </div>
@@ -131,10 +128,7 @@ async function onSubmit() {
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
       <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
       <BaseButton :disabled="!uploadedAsset || submitting" @click="onSubmit">
-        <div
-          v-if="submitting"
-          class="tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-white tw:border-t-transparent"
-        />
+        <BaseSpinner v-if="submitting" size="sm" color="white" />
         <span>{{ submitting ? 'Submitting...' : 'Submit' }}</span>
       </BaseButton>
     </div>

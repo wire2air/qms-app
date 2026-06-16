@@ -39,8 +39,10 @@ const props = defineProps({
 const toast = useToast()
 const router = useRouter()
 
-const standard = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.AuditStandard.findByPk(id),
+const standard = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.AuditStandard.findByPk(id),
+  { models: ['AuditStandard'] },
 )
 const loading = computed(() => standard.value === undefined)
 
@@ -69,11 +71,14 @@ const versions = useLiveQueryWithDeps(
       return bv - av
     })
   },
-  { initial: [] },
+
+  { models: ['AuditStandardVersion'], initial: [] },
 )
 const effectiveVersion = computed(() => versions.value.find((v) => v.statusId === 'EFFECTIVE'))
 const draftVersion = computed(() => versions.value.find((v) => v.statusId === 'DRAFT'))
-const editableVersion = computed(() => draftVersion.value ?? versions.value.find((v) => v.statusId === 'REJECTED'))
+const editableVersion = computed(
+  () => draftVersion.value ?? versions.value.find((v) => v.statusId === 'REJECTED'),
+)
 // Currently under review — when set, surfaces the approval workflow
 // card with Approve / Reject buttons. Exactly one row at a time
 // (BE submit endpoint refuses concurrent submits).
@@ -81,7 +86,9 @@ const underReviewVersion = computed(() =>
   versions.value.find((v) => v.statusId === 'UNDER_REVIEW' && v.workflowInstanceId),
 )
 
-const activeVersion = computed(() => editableVersion.value ?? effectiveVersion.value ?? versions.value[0] ?? null)
+const activeVersion = computed(
+  () => editableVersion.value ?? effectiveVersion.value ?? versions.value[0] ?? null,
+)
 
 function versionBadgeClass(status) {
   switch (status) {
@@ -224,7 +231,7 @@ watch(showAttestDialog, (open) => {
       customerLicenseExpiresAt: standard.value?.customerLicenseExpiresAt
         ? typeof standard.value.customerLicenseExpiresAt === 'string'
           ? standard.value.customerLicenseExpiresAt
-          : standard.value.customerLicenseExpiresAt.toFormat?.('yyyy-LL-dd') ?? ''
+          : (standard.value.customerLicenseExpiresAt.toFormat?.('yyyy-LL-dd') ?? '')
         : '',
     }
   }
@@ -270,10 +277,12 @@ async function confirmDiscardVersion() {
 // link to directly.
 const sourceAsset = useLiveQueryWithDeps(
   [() => standard.value?.sourceAssetId],
+
   async (db, [assetId]) => {
     if (!assetId) return null
     return db.Asset.findByPk(assetId)
   },
+  { models: ['Asset'] },
 )
 const sourceFileInputRef = ref(null)
 const uploadingSourceFile = ref(false)
@@ -286,11 +295,9 @@ async function handleSourceFilePicked(event) {
   try {
     const form = new FormData()
     form.append('file', file, file.name)
-    await post(
-      `/v1/services/auditStandards/${standard.value.id}/sourceFile`,
-      form,
-      { timeout: 2 * 60_000 },
-    )
+    await post(`/v1/services/auditStandards/${standard.value.id}/sourceFile`, form, {
+      timeout: 2 * 60_000,
+    })
     toast.success('Source document attached')
   } catch (e) {
     toast.error(e?.message || 'Failed to attach source document')
@@ -362,12 +369,7 @@ async function handleRemoveSourceFile() {
           <IconPlus :size="16" class="tw:mr-1" />
           {{ spawningDraft ? 'Creating…' : 'New Draft' }}
         </BaseButton>
-        <BaseButton
-          v-if="standard"
-          variant="secondary"
-          size="sm"
-          @click="showAuditLog = true"
-        >
+        <BaseButton v-if="standard" variant="secondary" size="sm" @click="showAuditLog = true">
           <IconClipboardCheck :size="16" class="tw:mr-1" />
           Audit Log
         </BaseButton>
@@ -384,9 +386,7 @@ async function handleRemoveSourceFile() {
     </SafeTeleport>
 
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:size-12 tw:border-4 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
     </div>
 
     <BaseEmptyState
@@ -416,19 +416,18 @@ async function handleRemoveSourceFile() {
                 class="tw:mb-2"
                 @blur="editingName = false"
               />
-              <div
+              <BaseClickableRow
                 v-else
                 class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
                 :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                :disabled="!isEditable"
+                aria-label="Edit standard name"
                 @click="isEditable && (editingName = true)"
               >
                 {{ standard.name }}
-              </div>
+              </BaseClickableRow>
 
-              <div
-                v-if="editingDescription && isEditable"
-                class="tw:mb-4"
-              >
+              <div v-if="editingDescription && isEditable" class="tw:mb-4">
                 <BaseTextarea
                   v-model="standard.description"
                   :rows="3"
@@ -436,17 +435,16 @@ async function handleRemoveSourceFile() {
                   @blur="editingDescription = false"
                 />
               </div>
-              <div
+              <BaseClickableRow
                 v-else
                 class="tw:mb-4 tw:text-sm tw:text-secondary tw:leading-relaxed"
                 :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                :disabled="!isEditable"
+                aria-label="Edit standard description"
                 @click="isEditable && (editingDescription = true)"
               >
-                {{
-                  standard.description ||
-                  (isEditable ? 'Add a description…' : '—')
-                }}
-              </div>
+                {{ standard.description || (isEditable ? 'Add a description…' : '—') }}
+              </BaseClickableRow>
 
               <div class="tw:grid tw:grid-cols-2 tw:gap-3">
                 <div class="tw:flex tw:flex-col tw:gap-1">
@@ -499,8 +497,12 @@ async function handleRemoveSourceFile() {
 
             <!-- Requirements editor (or read-only view) -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
-                <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+              <div
+                class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+              >
+                <div
+                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+                >
                   Requirements
                   <span
                     v-if="activeVersion"
@@ -527,10 +529,7 @@ async function handleRemoveSourceFile() {
                 :version="activeVersion"
                 readonly
               />
-              <div
-                v-else
-                class="tw:py-12 tw:text-center tw:text-sm tw:text-secondary tw:italic"
-              >
+              <div v-else class="tw:py-12 tw:text-center tw:text-sm tw:text-secondary tw:italic">
                 No version yet — try creating a new draft.
               </div>
             </div>
@@ -547,7 +546,9 @@ async function handleRemoveSourceFile() {
               <div class="tw:flex tw:flex-col">
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Code</span>
-                  <code class="tw:text-xs tw:font-mono tw:text-on-main tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded">
+                  <code
+                    class="tw:text-xs tw:font-mono tw:text-on-main tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
+                  >
                     {{ standard.code }}
                   </code>
                 </div>
@@ -588,10 +589,7 @@ async function handleRemoveSourceFile() {
                 <!-- Attest CTA — only when the content isn't already
                      customer-licensed and the user can update. -->
                 <div
-                  v-if="
-                    isEditable &&
-                    standard.contentLicense !== 'CUSTOMER_LICENSED'
-                  "
+                  v-if="isEditable && standard.contentLicense !== 'CUSTOMER_LICENSED'"
                   class="tw:py-2 tw:border-t tw:border-divider tw:mt-1"
                 >
                   <button
@@ -785,10 +783,10 @@ async function handleRemoveSourceFile() {
         <div
           class="tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200 tw:p-3 tw:text-xs tw:text-amber-800"
         >
-          By attesting, you confirm that your organization holds a valid license
-          (typically from ANSI, ISO, SAE, or AIAG) to use the normative text of this
-          standard within your QMS. The QMS does not embed the normative text itself;
-          attestation is for your records + audit trail.
+          By attesting, you confirm that your organization holds a valid license (typically from
+          ANSI, ISO, SAE, or AIAG) to use the normative text of this standard within your QMS. The
+          QMS does not embed the normative text itself; attestation is for your records + audit
+          trail.
         </div>
 
         <div>
@@ -814,10 +812,9 @@ async function handleRemoveSourceFile() {
             class="tw:mt-0.5 tw:cursor-pointer"
           />
           <span>
-            I confirm that {{ currentSession?.firstName ?? 'my organization' }} holds a
-            valid license to use this standard's normative text within our QMS, and that
-            this attestation will be recorded with my user account and the current
-            timestamp.
+            I confirm that {{ currentSession?.firstName ?? 'my organization' }} holds a valid
+            license to use this standard's normative text within our QMS, and that this attestation
+            will be recorded with my user account and the current timestamp.
           </span>
         </label>
       </div>
@@ -845,10 +842,9 @@ async function handleRemoveSourceFile() {
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
         Discard
         <strong v-if="discardTarget">
-          v{{ discardTarget.versionMajor }}.{{ discardTarget.versionMinor }}
-        </strong>?
-        This permanently deletes the draft and its requirements. Existing
-        EFFECTIVE / SUPERSEDED versions are untouched.
+          v{{ discardTarget.versionMajor }}.{{ discardTarget.versionMinor }} </strong
+        >? This permanently deletes the draft and its requirements. Existing EFFECTIVE / SUPERSEDED
+        versions are untouched.
       </p>
       <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
         <BaseButton variant="outline" :disabled="discarding" @click="discardTarget = null">
@@ -862,10 +858,10 @@ async function handleRemoveSourceFile() {
 
     <BaseDialog v-model="showDeleteDialog" title="Archive Standard" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Archive <strong>{{ standard?.name }}</strong>?
-        Existing audit instances referencing this standard keep their reference and
-        snapshot. Active audits filed against it stay valid; the standard just won't
-        appear in pickers for new audits.
+        Archive <strong>{{ standard?.name }}</strong
+        >? Existing audit instances referencing this standard keep their reference and snapshot.
+        Active audits filed against it stay valid; the standard just won't appear in pickers for new
+        audits.
       </p>
       <p
         v-if="!canDelete"

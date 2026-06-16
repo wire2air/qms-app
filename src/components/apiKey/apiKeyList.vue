@@ -3,16 +3,17 @@ import { IconKey } from '@tabler/icons-vue'
 
 const emit = defineEmits(['create'])
 
-const apiKeys = useLiveQuery(async (db) => db.ApiKey.where().exec(), { initial: [] })
+const apiKeys = useLiveQuery(async (db) => db.ApiKey.where().exec(), {
+  models: ['ApiKey'],
+  initial: [],
+})
 </script>
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-2">
     <!-- Loading State -->
     <div v-if="apiKeys === undefined" class="tw:flex tw:justify-center tw:py-12">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:size-12 tw:border-4 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
     </div>
 
     <!-- Empty State -->

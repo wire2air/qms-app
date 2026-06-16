@@ -34,6 +34,7 @@ const emit = defineEmits(['saved', 'cancel'])
 
 const router = useRouter()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 // Lock the log book when we're scoped to one (embedded in its tab) — the
 // picker is hidden and the value can't be changed.
@@ -65,9 +66,9 @@ const userTimezone = (() => {
     return 'UTC'
   }
 })()
-const timezoneOptions = computed(() =>
-  [...new Set([userTimezone, form.value.timezone, ...COMMON_TIMEZONES].filter(Boolean))],
-)
+const timezoneOptions = computed(() => [
+  ...new Set([userTimezone, form.value.timezone, ...COMMON_TIMEZONES].filter(Boolean)),
+])
 
 const form = ref({
   logBookId: '',
@@ -169,8 +170,7 @@ watch(frequency, (next) => {
   // Apply unless the user has set non-default values matching a
   // different scheme — best-effort, not perfect.
   const prevDef = lastSuggestedFrequency && DEFAULTS_BY_FREQUENCY[lastSuggestedFrequency]
-  const windowWasDefault =
-    !prevDef || form.value.windowMinutes === prevDef.windowMinutes
+  const windowWasDefault = !prevDef || form.value.windowMinutes === prevDef.windowMinutes
   const graceWasDefault = !prevDef || form.value.graceMinutes === prevDef.graceMinutes
   if (windowWasDefault) form.value.windowMinutes = def.windowMinutes
   if (graceWasDefault) form.value.graceMinutes = def.graceMinutes
@@ -178,10 +178,14 @@ watch(frequency, (next) => {
 })
 
 const isEditing = computed(() => Boolean(props.id))
-const existing = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.FormAssignment.findByPk(id)
-})
+const existing = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.FormAssignment.findByPk(id)
+  },
+  { models: ['FormAssignment'] },
+)
 
 // Round 0 refactor: log books are a first-class entity. We query
 // db.LogBook directly — every row qualifies (OPERATIONAL_LOG or
@@ -192,7 +196,8 @@ const inspectionTemplates = useLiveQuery(
     const rows = await db.LogBook.where().exec()
     return rows.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
   },
-  { initial: [] },
+
+  { models: ['LogBook'], initial: [] },
 )
 
 // Seed the form from the stored plan ONCE per id. The live query
@@ -289,7 +294,14 @@ async function save() {
 
 async function archive() {
   if (!isEditing.value) return
-  if (!confirm('Archive this log book assignment? Existing instances stay; no new ones generate.')) {
+  if (
+    !(await confirm({
+      title: 'Archive Assignment',
+      message: 'Archive this log book assignment? Existing instances stay; no new ones generate.',
+      okLabel: 'Archive',
+      danger: true,
+    }))
+  ) {
     return
   }
   isSaving.value = true
@@ -325,13 +337,11 @@ function back() {
     <!-- Standalone-route chrome: title + actions teleported to the page
          header. Suppressed when embedded (the host tab owns the header). -->
     <template v-if="!embedded">
-      <SafeTeleport to="#main-header-title">
-        <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-          <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
-            {{ isEditing ? 'Edit Log Book Assignment' : 'New Log Book Assignment' }}
-          </h2>
-        </div>
-      </SafeTeleport>
+      <PageHeader>
+        <template #title>
+          {{ isEditing ? 'Edit Log Book Assignment' : 'New Log Book Assignment' }}
+        </template>
+      </PageHeader>
 
       <SafeTeleport to="#main-header-actions">
         <BaseButton variant="ghost" @click="back">
@@ -426,9 +436,8 @@ function back() {
           </label>
           <UserSelectMenu v-model="form.assignedUserIds" :multiple="true" />
           <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-            Click each user you want to assign — the menu stays open so you can pick
-            multiple (e.g. one per shift). All selected users get an instance per
-            occurrence.
+            Click each user you want to assign — the menu stays open so you can pick multiple (e.g.
+            one per shift). All selected users get an instance per occurrence.
           </p>
         </div>
         <div v-else>
@@ -458,11 +467,7 @@ function back() {
         </div>
 
         <template v-if="form.scheduleType === 'RECURRING'">
-          <CronPicker
-            v-model="form.cron"
-            v-model:frequency="frequency"
-            :timezone="form.timezone"
-          />
+          <CronPicker v-model="form.cron" v-model:frequency="frequency" :timezone="form.timezone" />
           <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
             <div>
               <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
@@ -526,7 +531,9 @@ function back() {
             <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
               When the window closes unfilled
             </label>
-            <div class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden">
+            <div
+              class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden"
+            >
               <button
                 class="tw:px-3 tw:py-1.5 tw:text-sm tw:border-0 tw:cursor-pointer"
                 :class="

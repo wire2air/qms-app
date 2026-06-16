@@ -25,7 +25,8 @@ const sharedDocs = useLiveQueryWithDeps(
       }),
     )
   },
-  { initial: [] },
+
+  { models: ['SupplierDocument', 'DocumentVersion', 'Document'], initial: [] },
 )
 
 // ─── Share document ──────────────────────────────────────────────────────────

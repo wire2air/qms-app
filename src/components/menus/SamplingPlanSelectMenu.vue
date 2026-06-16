@@ -26,7 +26,8 @@ const plans = useLiveQueryWithDeps(
       })
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   },
-  { initial: [] },
+
+  { models: ['SamplingPlan'], initial: [] },
 )
 
 const items = computed(() =>

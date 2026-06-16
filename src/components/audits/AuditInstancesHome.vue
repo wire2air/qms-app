@@ -106,7 +106,8 @@ const instances = useLiveQueryWithDeps(
         (i.scope || '').toLowerCase().includes(lower),
     )
   },
-  { initial: [] },
+
+  { models: ['AuditInstance'], initial: [] },
 )
 </script>
 
@@ -153,8 +154,8 @@ const instances = useLiveQueryWithDeps(
       <IconChecklist :size="40" class="tw:opacity-50" />
       <div class="tw:text-base tw:font-semibold">No audits yet</div>
       <div class="tw:text-sm tw:text-center tw:max-w-md">
-        Audits are minted by the daily generator from active programs.
-        Create a program with a next-due date to see your first audit.
+        Audits are minted by the daily generator from active programs. Create a program with a
+        next-due date to see your first audit.
       </div>
     </div>
 
@@ -173,10 +174,12 @@ const instances = useLiveQueryWithDeps(
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="row in instances"
             :key="row.id"
-            class="tw:border-b tw:border-divider tw:hover:bg-main-hover/40 tw:cursor-pointer"
+            tag="tr"
+            class="tw:border-b tw:border-divider tw:hover:bg-main-hover/40"
+            :aria-label="`Open audit ${row.auditNumber || row.id.slice(0, 8)}`"
             @click="openDetail(row)"
           >
             <td class="tw:px-4 tw:py-3 tw:font-mono tw:text-xs">
@@ -207,7 +210,7 @@ const instances = useLiveQueryWithDeps(
             <td class="tw:px-4 tw:py-3">
               <AuditInstanceStatusBadgeById :statusId="row.statusId" />
             </td>
-          </tr>
+          </BaseClickableRow>
         </tbody>
       </table>
     </div>

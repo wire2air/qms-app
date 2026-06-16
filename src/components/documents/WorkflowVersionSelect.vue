@@ -20,16 +20,19 @@ const selectedVersionId = defineModel({
 const workflows = useLiveQueryWithDeps(
   [() => props.moduleId],
   async (db, [moduleId]) => db.Workflow.where('moduleId', moduleId).exec(),
-  {
-    initial: [],
-  },
+
+  { models: ['Workflow'], initial: [] },
 )
 
 const versions = useLiveQuery(async (db) => db.WorkflowVersion.where().exec(), {
+  models: ['WorkflowVersion'],
   initial: [],
 })
 
-const steps = useLiveQuery(async (db) => db.WorkflowStep.where().exec(), { initial: [] })
+const steps = useLiveQuery(async (db) => db.WorkflowStep.where().exec(), {
+  models: ['WorkflowStep'],
+  initial: [],
+})
 
 const activeWorkflows = computed(() => {
   return workflows.value
@@ -103,10 +106,10 @@ function versionLabel(version) {
 
     <!-- Workflow list -->
     <div v-else class="tw:grid tw:grid-cols-1 tw:gap-2">
-      <div
+      <BaseClickableRow
         v-for="entry in displayWorkflows"
         :key="entry.workflow.id"
-        class="tw:w-full tw:flex tw:items-center tw:justify-between tw:p-4 tw:rounded-xl tw:border-2 tw:cursor-pointer tw:transition-all tw:group"
+        class="tw:w-full tw:flex tw:items-center tw:justify-between tw:p-4 tw:rounded-xl tw:border-2 tw:transition-all tw:group"
         :class="[
           [
             selectedVersionId === entry.version.id
@@ -115,6 +118,7 @@ function versionLabel(version) {
             { 'tw:flex-col': dense },
           ],
         ]"
+        :aria-label="`Select workflow ${entry.workflow.name}`"
         @click="pickWorkflow(entry)"
       >
         <div class="tw:flex tw:items-center tw:gap-3">
@@ -166,7 +170,7 @@ function versionLabel(version) {
             Selected
           </span>
         </div>
-      </div>
+      </BaseClickableRow>
     </div>
   </div>
 </template>

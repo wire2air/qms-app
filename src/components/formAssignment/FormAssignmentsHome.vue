@@ -24,7 +24,10 @@ const filters = ref({
 // Round 0: query log_books directly. Variable names preserved at the
 // template binding level (logBookId, logBookById) so reading the view
 // stays consistent with the rest of the I&L module.
-const logBooks = useLiveQuery((db) => db.LogBook.where().exec(), { initial: [] })
+const logBooks = useLiveQuery((db) => db.LogBook.where().exec(), {
+  models: ['LogBook'],
+  initial: [],
+})
 const assignments = useLiveQueryWithDeps(
   [() => filters.value.logBookId, () => filters.value.active],
   async (db, [logBookId, active]) => {
@@ -34,7 +37,8 @@ const assignments = useLiveQueryWithDeps(
     if (active === 'inactive') rows = rows.filter((r) => r.active === false)
     return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['FormAssignment'], initial: [] },
 )
 
 const logBookById = computed(() => {
@@ -63,13 +67,7 @@ function goEdit(id) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
-          Log Book Assignments
-        </h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader title="Log Book Assignments" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canAssign" variant="primary" @click="goCreate">

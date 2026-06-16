@@ -1,11 +1,5 @@
 <script setup>
-import {
-  IconStack2,
-  IconPlus,
-  IconShieldCheck,
-  IconClock,
-  IconSearch,
-} from '@tabler/icons-vue'
+import { IconStack2, IconPlus, IconShieldCheck, IconClock, IconSearch } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
@@ -40,7 +34,8 @@ const logBookTypes = useLiveQuery(
     const rows = await db.LogBookType.where().exec()
     return rows.sort((a, b) => (a.sequence ?? 100) - (b.sequence ?? 100))
   },
-  { initial: [] },
+
+  { models: ['LogBookType'], initial: [] },
 )
 const typeById = computed(() => new Map(logBookTypes.value.map((t) => [t.id, t])))
 function typeName(id) {
@@ -60,15 +55,13 @@ const templates = useLiveQueryWithDeps(
     if (q) {
       const needle = q.toLowerCase()
       rows = rows.filter(
-        (t) =>
-          t.title?.toLowerCase().includes(needle) || t.code?.toLowerCase().includes(needle),
+        (t) => t.title?.toLowerCase().includes(needle) || t.code?.toLowerCase().includes(needle),
       )
     }
-    return rows.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['LogBook'], initial: [] },
 )
 
 function openCreate(cls) {
@@ -113,12 +106,7 @@ function editWindowSummary(t) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconStack2 class="tw:text-primary" :size="22" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Log Books</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconStack2" title="Log Books" :iconSize="22" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canCreate" variant="primary" @click="openCreate('OPERATIONAL_LOG')">
@@ -181,7 +169,10 @@ function editWindowSummary(t) {
     </div>
 
     <!-- Filters -->
-    <div v-if="templates.length > 0 || classificationFilter !== 'all' || search" class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
+    <div
+      v-if="templates.length > 0 || classificationFilter !== 'all' || search"
+      class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap"
+    >
       <div class="tw:relative tw:flex-1 tw:max-w-md">
         <IconSearch
           :size="16"
@@ -238,10 +229,12 @@ function editWindowSummary(t) {
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="t in templates"
             :key="t.id"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover tw:cursor-pointer"
+            tag="tr"
+            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+            :aria-label="`Open log book ${t.title}`"
             @click="openTemplate(t.id)"
           >
             <td class="tw:px-3 tw:py-2">
@@ -262,10 +255,7 @@ function editWindowSummary(t) {
                 class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
                 :class="classificationBadgeClass(t.recordClassification)"
               >
-                <IconShieldCheck
-                  v-if="t.recordClassification === 'CONTROLLED_RECORD'"
-                  :size="10"
-                />
+                <IconShieldCheck v-if="t.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
                 {{ t.recordClassification?.replace('_', ' ') }}
               </span>
             </td>
@@ -284,7 +274,7 @@ function editWindowSummary(t) {
               </span>
               <span v-else class="tw:text-secondary">—</span>
             </td>
-          </tr>
+          </BaseClickableRow>
         </tbody>
       </table>
     </div>

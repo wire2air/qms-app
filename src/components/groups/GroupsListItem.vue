@@ -19,7 +19,8 @@ const confirmDelete = ref(false)
 const memberships = useLiveQueryWithDeps(
   [() => props.group.id],
   async (db, [id]) => db.UserOnTeam.where('teamId', id).exec(),
-  { initial: [] },
+
+  { models: ['UserOnTeam'], initial: [] },
 )
 
 const memberCount = computed(() => memberships.value.length)
@@ -35,8 +36,9 @@ async function onConfirmDelete() {
 </script>
 
 <template>
-  <div
-    class="tw:border tw:border-divider tw:rounded-xl tw:p-3 tw:cursor-pointer tw:hover:bg-main-hover tw:transition-colors"
+  <BaseClickableRow
+    class="tw:block tw:border tw:border-divider tw:rounded-xl tw:p-3 tw:hover:bg-main-hover tw:transition-colors"
+    :aria-label="`Open group ${group.name}`"
     @click="onClick"
   >
     <div class="tw:flex tw:items-center tw:gap-3">
@@ -76,7 +78,7 @@ async function onConfirmDelete() {
         </BaseMenu>
       </div>
     </div>
-  </div>
+  </BaseClickableRow>
 
   <ConfirmDialog
     v-model="confirmDelete"

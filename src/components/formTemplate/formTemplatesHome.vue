@@ -83,7 +83,8 @@ const templates = useLiveQueryWithDeps(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['FormTemplate', 'SiteOnTemplate'], initial: [] },
 )
 
 const viewSwitches = [
@@ -108,12 +109,7 @@ async function confirmDeleteTemplate() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconStack2 class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Form Templates</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconStack2" title="Form Templates" />
 
     <!-- "Create New Template" only on the Templates tab; Option Sets
          tab has its own create affordance inside the embedded panel. -->
@@ -128,8 +124,7 @@ async function confirmDeleteTemplate() {
       <div class="tw:flex tw:flex-col tw:gap-1">
         <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Form Templates</div>
         <div class="tw:text-sm tw:text-secondary">
-          Manage QMS form structure + the reusable option sets that picker fields draw
-          from.
+          Manage QMS form structure + the reusable option sets that picker fields draw from.
         </div>
       </div>
     </div>

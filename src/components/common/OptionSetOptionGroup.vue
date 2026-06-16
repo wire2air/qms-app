@@ -18,7 +18,7 @@ const props = defineProps({
   },
 })
 
-// Use WOptionGroup props
+// Forwards modelValue / type / inline / label / name / disabled to BaseOptionGroup.
 const attrs = useAttrs()
 
 const fkOptionSet = useLiveQueryWithDeps(
@@ -28,7 +28,8 @@ const fkOptionSet = useLiveQueryWithDeps(
     if (!optionSetId) return null
     return db.OptionSet.findByPk(optionSetId)
   },
-  { initial: null },
+
+  { models: ['OptionSet'], initial: null },
 )
 
 const computedOptions = computed(() => {
@@ -44,5 +45,5 @@ const computedOptions = computed(() => {
 </script>
 
 <template>
-  <WOptionGroup v-bind="attrs" :options="computedOptions" />
+  <BaseOptionGroup v-bind="attrs" :options="computedOptions" />
 </template>

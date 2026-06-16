@@ -15,10 +15,13 @@ const canUpdate = computed(() => isAllowed(['teams:update']))
 
 // ─── Live queries ─────────────────────────────────────────────────────────────
 
-const group = useLiveQueryWithDeps([() => props.id], async (db, [id]) => db.Team.findByPk(id))
+const group = useLiveQueryWithDeps([() => props.id], async (db, [id]) => db.Team.findByPk(id), {
+  models: ['Team'],
+})
 const users = useLiveQuery(
   async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 const userMapById = computed(() => {
   const map = new Map()
@@ -35,7 +38,8 @@ const memberships = useLiveQueryWithDeps(
     )
     return resolved.filter((e) => e.user)
   },
-  { initial: [] },
+
+  { models: ['UserOnTeam'], initial: [] },
 )
 
 const loading = computed(() => group.value === undefined)
@@ -61,35 +65,8 @@ const breadcrumbItems = computed(() => [
 
 // ─── Auto-save ────────────────────────────────────────────────────────────────
 
-const isSaving = ref(false)
-const saveError = ref(null)
-const isFirstLoad = ref(true)
 const editingName = ref(false)
-
-const debouncedSave = useDebounceFn(async () => {
-  if (!group.value) return
-  isSaving.value = true
-  saveError.value = null
-  try {
-    await group.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  group,
-  (g) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (g) debouncedSave()
-  },
-  { deep: true },
-)
+const { isSaving, saveError } = useAutoSave(group)
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
@@ -169,9 +146,7 @@ function copyToClipboard(text) {
           v-if="isSaving"
           class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary"
         >
-          <div
-            class="tw:size-3 tw:animate-spin tw:rounded-full tw:border tw:border-primary tw:border-t-transparent"
-          />
+          <BaseSpinner size="xs" />
           Saving...
         </div>
       </div>
@@ -182,9 +157,7 @@ function copyToClipboard(text) {
       v-if="loading"
       class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:flex-1 tw:py-8"
     >
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
       <div class="tw:text-sm tw:text-secondary tw:mt-3">Loading team...</div>
     </div>
 
@@ -206,9 +179,10 @@ function copyToClipboard(text) {
           >
             <div class="tw:flex tw:items-center tw:gap-6">
               <!-- Avatar -->
-              <div
+              <BaseClickableRow
                 class="tw:relative tw:group"
-                :class="{ 'tw:cursor-pointer': canUpdate }"
+                :disabled="!canUpdate"
+                aria-label="Change group avatar"
                 @click="openAvatarDialog"
               >
                 <TeamAvatar :team="group" class="tw:size-20" />
@@ -218,7 +192,7 @@ function copyToClipboard(text) {
                 >
                   <IconCamera :size="28" class="tw:text-white" />
                 </div>
-              </div>
+              </BaseClickableRow>
 
               <!-- Name & Leadership -->
               <div>

@@ -7,10 +7,14 @@ const props = defineProps({
   canUpdate: { type: Boolean, default: false },
 })
 
-const step = useLiveQueryWithDeps([() => props.stepId], async (db, [stepId]) => {
-  if (!stepId) return null
-  return await db.WorkflowStep.findByPk(stepId)
-})
+const step = useLiveQueryWithDeps(
+  [() => props.stepId],
+  async (db, [stepId]) => {
+    if (!stepId) return null
+    return await db.WorkflowStep.findByPk(stepId)
+  },
+  { models: ['WorkflowStep'] },
+)
 
 const hasSchema = computed(() => (step.value?.formSchema?.length ?? 0) > 0)
 

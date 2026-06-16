@@ -20,6 +20,7 @@ const props = defineProps({
 // WorkflowStep template fetch.
 const stepEntries = useLiveQueryWithDeps(
   [() => props.workflowInstanceId],
+
   async (db, [workflowInstanceId]) => {
     if (!workflowInstanceId) return []
     const instanceSteps = await db.WorkflowInstanceStep.where(
@@ -59,6 +60,7 @@ const stepEntries = useLiveQueryWithDeps(
     })
     return entries
   },
+  { models: ['WorkflowInstanceStep'] },
 )
 
 const loading = computed(() => stepEntries.value === undefined)
@@ -78,9 +80,7 @@ function stepState(step) {
     <h2 class="tw:text-lg tw:font-bold tw:text-on-main tw:px-1">Workflow</h2>
 
     <div v-if="loading" class="tw:flex tw:justify-center tw:py-12">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:h-8 tw:w-8 tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="md" />
     </div>
 
     <div

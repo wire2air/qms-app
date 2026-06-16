@@ -101,14 +101,15 @@ function onDuplicate() {
 </script>
 
 <template>
-  <div
-    class="tw:bg-main tw:border-2 tw:border-divider tw:rounded-xl tw:p-3 tw:cursor-pointer tw:transition-all tw:duration-200 tw:relative tw:group"
+  <BaseClickableRow
+    class="tw:bg-main tw:border-2 tw:border-divider tw:rounded-xl tw:p-3 tw:transition-all tw:duration-200 tw:relative tw:group"
     :class="{
       'tw:border-primary tw:ring-4 tw:ring-primary/10 tw:bg-main-selected': isSelected,
       'tw:bg-main-hover/30': isLayoutField,
       'tw:hover:border-primary/50 tw:hover:shadow-lg': !isSelected,
     }"
     :data-path="path"
+    :aria-label="`Select field ${field.label || field.name || field.type}`"
     @click.stop="onSelect"
   >
     <!-- Field Controls (Top Right) -->
@@ -204,7 +205,7 @@ function onDuplicate() {
         </div>
       </div>
     </div>
-  </div>
+  </BaseClickableRow>
 </template>
 
 <style lang="scss" scoped>

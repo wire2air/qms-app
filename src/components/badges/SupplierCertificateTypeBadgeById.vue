@@ -9,7 +9,8 @@ const certificateType = useLiveQueryWithDeps(
     if (!id) return null
     return db.SupplierCertificateType.findByPk(id)
   },
-  { initial: null },
+
+  { models: ['SupplierCertificateType'], initial: null },
 )
 </script>
 

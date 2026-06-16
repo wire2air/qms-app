@@ -37,6 +37,22 @@
 
   --color-placeholder: var(--placeholder);
 
+  /* Surface — card (= raised panel surface; flips white→dark via --sidebar) */
+  --color-card: var(--card);
+
+  /* Text on the main surface (aliases used widely by Base inputs) */
+  --color-main-text: var(--main-text);
+  --color-main-text-muted: var(--main-text-muted);
+  --color-main-text-hover: var(--main-text-hover);
+  --color-main-unselected: var(--main-unselected);
+
+  /* Text on a primary surface */
+  --color-primary-text: var(--primary-text);
+
+  /* Legacy grey aliases (carried over from the Quasar grey scale) */
+  --color-grey-4: var(--grey-4);
+  --color-grey-5: var(--grey-5);
+
   /* Semantic Colors (theme-responsive via tokens.css) */
   --color-bad: var(--bad);
   --color-good: var(--good);
@@ -83,6 +99,34 @@
   --color-changes-500: var(--color-changes-500);
   --color-changes-600: var(--color-changes-600);
   --color-changes-700: var(--color-changes-700);
+
+  /* Code / dark-surface token — intentionally dark in BOTH themes (code &
+   * JSON blocks, terminals, dark-asset previews). Deliberately NOT remapped by
+   * the dark palette inversion, so it stays dark in light mode too. */
+  --color-code: #111827;
+
+  /* Elevation scale (3-tier) — generates tw:shadow-flat|raised|floating|overlay.
+   * flat: borders only · raised: cards/list rows · floating: menus/popovers ·
+   * overlay: dialogs. Black-alpha shadows read subtly on dark surfaces; the
+   * existing hairline ring on overlays keeps separation there. */
+  --shadow-flat: none;
+  --shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-floating: 0 4px 16px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-overlay: 0 12px 40px rgba(0, 0, 0, 0.15);
+
+  /* Typography scale — emits tw:text-<name> font-size utilities (page-title,
+   * section-title, subheading, body, label, caption, badge, table-header).
+   * Additive to Tailwind's default text-xs…text-9xl scale; nothing is removed.
+   * Lets feature code replace ad-hoc text-[10px]/[11px] magic numbers with a
+   * named token. */
+  --text-page-title: 28px;
+  --text-section-title: 18px;
+  --text-subheading: 15px;
+  --text-body: 14px;
+  --text-label: 12px;
+  --text-caption: 11px;
+  --text-badge: 11px;
+  --text-table-header: 11px;
 }
 
 @layer base {
@@ -117,7 +161,26 @@
     /* Divider / Border */
     --divider: #e5e7eb;
 
-    --placeholder: #9ca3af;
+    /* Placeholder/muted text. Darkened from #9ca3af (2.55:1 on white — fails
+     * WCAG AA) to #6b7280 (4.9:1 — passes). Dark-mode placeholder stays #9ca3af
+     * since it already clears AA (~7:1) on the dark surface. */
+    --placeholder: #6b7280;
+
+    /* Card surface = white panel in light mode */
+    --card: var(--sidebar);
+
+    /* Input/text aliases (resolve the *-main-text family) */
+    --main-text: var(--on-main);
+    --main-text-muted: var(--secondary);
+    --main-text-hover: var(--secondary);
+    --main-unselected: var(--main);
+
+    /* Text on primary surfaces */
+    --primary-text: var(--on-primary);
+
+    /* Legacy grey scale → neutral aliases */
+    --grey-4: var(--color-neutral-400);
+    --grey-5: var(--secondary);
   }
 
   .dark {
@@ -150,6 +213,22 @@
     /* Divider / Border */
     --divider: #2d3748;
     --placeholder: #9ca3af;
+
+    /* Card surface = dark panel (= sidebar) in dark mode */
+    --card: var(--sidebar);
+
+    /* Input/text aliases (resolve the *-main-text family) */
+    --main-text: var(--on-main);
+    --main-text-muted: var(--secondary);
+    --main-text-hover: var(--secondary);
+    --main-unselected: var(--main-hover);
+
+    /* Text on primary surfaces */
+    --primary-text: var(--on-primary);
+
+    /* Legacy grey scale → neutral aliases */
+    --grey-4: var(--color-neutral-400);
+    --grey-5: var(--secondary);
   }
 
   /* Global Scrollbar */

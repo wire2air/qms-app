@@ -12,7 +12,14 @@
  * non-DRAFT/REJECTED versions — we mirror that here by hiding the
  * edit affordances when the `readonly` prop is true.
  */
-import { IconPlus, IconPencil, IconTrash, IconClipboardCheck, IconSparkles, IconLoader2 } from '@tabler/icons-vue'
+import {
+  IconPlus,
+  IconPencil,
+  IconTrash,
+  IconClipboardCheck,
+  IconSparkles,
+  IconLoader2,
+} from '@tabler/icons-vue'
 import { post, patch, del } from '@/api'
 import { canUseAi } from '@/utils/currentSession.js'
 
@@ -22,6 +29,7 @@ const props = defineProps({
 })
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const requirements = useLiveQueryWithDeps(
   [() => props.version?.id],
@@ -36,7 +44,8 @@ const requirements = useLiveQueryWithDeps(
           a.clauseNumber.localeCompare(b.clauseNumber),
       )
   },
-  { initial: [] },
+
+  { models: ['AuditRequirement'], initial: [] },
 )
 
 // Depth lookup for hierarchical rendering. Each row's depth is
@@ -177,9 +186,7 @@ async function handleSave() {
   try {
     // Drop blank checklist rows.
     const clean = (list) =>
-      (list || [])
-        .map((q) => ({ id: q.id, text: (q.text || '').trim() }))
-        .filter((q) => q.text)
+      (list || []).map((q) => ({ id: q.id, text: (q.text || '').trim() })).filter((q) => q.text)
     const questions = clean(form.value.questions)
     const observations = clean(form.value.observations)
     const evidenceItems = clean(form.value.evidenceItems)
@@ -221,9 +228,12 @@ async function handleSave() {
 async function handleDelete(row) {
   if (props.readonly) return
   if (
-    !window.confirm(
-      `Delete clause ${row.clauseNumber} — "${row.title}"? This can be undone via the audit log within the same version.`,
-    )
+    !(await confirm({
+      title: 'Delete clause',
+      message: `Delete clause ${row.clauseNumber} — "${row.title}"? This can be undone via the audit log within the same version.`,
+      okLabel: 'Delete',
+      danger: true,
+    }))
   ) {
     return
   }
@@ -258,8 +268,8 @@ function toggleExpanded(id) {
 const enrichingRowId = ref(null)
 const bulkEnriching = ref(false)
 
-const emptyRowCount = computed(() =>
-  requirements.value.filter((r) => !r.guidance || !r.expectedEvidence).length,
+const emptyRowCount = computed(
+  () => requirements.value.filter((r) => !r.guidance || !r.expectedEvidence).length,
 )
 
 async function handleEnrichRow(row) {
@@ -292,10 +302,9 @@ async function handleBulkEnrich() {
   showBulkConfirm.value = false
   bulkEnriching.value = true
   try {
-    const res = await post(
-      `/v1/services/ai/auditStandardVersions/${props.version.id}/bulkEnrich`,
-      { onlyEmpty: true },
-    )
+    const res = await post(`/v1/services/ai/auditStandardVersions/${props.version.id}/bulkEnrich`, {
+      onlyEmpty: true,
+    })
     const total = res?.total ?? 0
     toast.success(
       `Bulk enrichment queued for ${total} row${total === 1 ? '' : 's'}. Rows will update in real time as the worker finishes each one.`,
@@ -383,8 +392,10 @@ async function handleBulkEnrich() {
         :style="rowIndentStyle(row.id)"
         class="tw:border tw:border-divider tw:rounded-md tw:bg-main-hover/30"
       >
-        <div
+        <BaseClickableRow
           class="tw:flex tw:items-start tw:gap-3 tw:px-3 tw:py-2.5 tw:cursor-pointer tw:hover:bg-main-hover/60"
+          :aria-label="`${expandedIds.has(row.id) ? 'Collapse' : 'Expand'} clause ${row.clauseNumber}`"
+          :aria-expanded="expandedIds.has(row.id)"
           @click="toggleExpanded(row.id)"
         >
           <code
@@ -434,7 +445,7 @@ async function handleBulkEnrich() {
               <IconTrash :size="16" />
             </button>
           </div>
-        </div>
+        </BaseClickableRow>
 
         <!-- Expanded body — read view of every clause attribute, shown in
              both editable and readonly (EFFECTIVE) mode so reviewers can
@@ -468,7 +479,10 @@ async function handleBulkEnrich() {
             v-for="cl in [
               { label: 'Questions', items: toChecklist(row.questions, row.question) },
               { label: 'Observations', items: toChecklist(row.observations) },
-              { label: 'Expected Evidence', items: toChecklist(row.evidenceItems, row.expectedEvidence) },
+              {
+                label: 'Expected Evidence',
+                items: toChecklist(row.evidenceItems, row.expectedEvidence),
+              },
             ]"
             :key="cl.label"
           >
@@ -482,7 +496,9 @@ async function handleBulkEnrich() {
                   :key="item.id"
                   class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main"
                 >
-                  <span class="tw:text-xs tw:text-secondary tw:mt-0.5 tw:w-4 tw:text-right tw:shrink-0">
+                  <span
+                    class="tw:text-xs tw:text-secondary tw:mt-0.5 tw:w-4 tw:text-right tw:shrink-0"
+                  >
                     {{ idx + 1 }}
                   </span>
                   <span class="tw:whitespace-pre-line">{{ item.text }}</span>
@@ -507,9 +523,15 @@ async function handleBulkEnrich() {
             </div>
           </div>
 
-          <div class="tw:flex tw:items-center tw:gap-4 tw:text-xs tw:text-secondary tw:pt-2 tw:border-t tw:border-divider">
-            <span>Order: <strong>{{ row.displayOrder }}</strong></span>
-            <span>Risk Weight: <strong>{{ row.riskWeight }}</strong></span>
+          <div
+            class="tw:flex tw:items-center tw:gap-4 tw:text-xs tw:text-secondary tw:pt-2 tw:border-t tw:border-divider"
+          >
+            <span
+              >Order: <strong>{{ row.displayOrder }}</strong></span
+            >
+            <span
+              >Risk Weight: <strong>{{ row.riskWeight }}</strong></span
+            >
           </div>
         </div>
       </div>
@@ -534,10 +556,7 @@ async function handleBulkEnrich() {
             <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
               Title <span class="tw:text-red-500">*</span>
             </p>
-            <BaseTextInput
-              v-model="form.title"
-              placeholder="Personnel competency assessment"
-            />
+            <BaseTextInput v-model="form.title" placeholder="Personnel competency assessment" />
           </div>
         </div>
 
@@ -551,7 +570,11 @@ async function handleBulkEnrich() {
             :key="t.id"
             type="button"
             class="tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:cursor-pointer tw:bg-transparent tw:border-0 tw:border-b-2 tw:-mb-px"
-            :class="editTab === t.id ? 'tw:border-primary tw:text-primary' : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'"
+            :class="
+              editTab === t.id
+                ? 'tw:border-primary tw:text-primary'
+                : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'
+            "
             @click="editTab = t.id"
           >
             {{ t.label }}
@@ -560,141 +583,163 @@ async function handleBulkEnrich() {
 
         <!-- Tab: Audit checklists -->
         <div v-show="editTab === 'checklists'" class="tw:flex tw:flex-col tw:gap-3">
-        <!-- Guided audit: three tick-off checklists the auditor works through —
+          <!-- Guided audit: three tick-off checklists the auditor works through —
              Questions (ask/confirm), Observations (watch), Expected Evidence
              (records to collect). All share the [{id,text}] shape. -->
-        <div
-          v-for="cl in [
-            { key: 'questions', label: 'Questions (checklist)', add: 'Add question', ph: 'e.g. Is competency assessed and recorded for QMS personnel?', empty: 'No questions yet — add the items the auditor will confirm.' },
-            { key: 'observations', label: 'Observations (checklist)', add: 'Add observation', ph: 'e.g. Operators wearing required PPE on the line', empty: 'No observations yet — add what the auditor should watch for.' },
-            { key: 'evidenceItems', label: 'Expected Evidence (checklist)', add: 'Add evidence item', ph: 'e.g. Calibration certificates for test equipment', empty: 'No evidence items yet — add the records the auditor should collect.' },
-          ]"
-          :key="cl.key"
-        >
-          <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">{{ cl.label }}</p>
-            <button
-              type="button"
-              class="tw:text-xs tw:font-medium tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:inline-flex tw:items-center tw:gap-1"
-              @click="addChecklistItem(form[cl.key])"
-            >
-              <IconPlus :size="13" /> {{ cl.add }}
-            </button>
-          </div>
-          <div v-if="form[cl.key].length" class="tw:flex tw:flex-col tw:gap-1.5">
-            <div v-for="(item, ii) in form[cl.key]" :key="item.id" class="tw:flex tw:items-start tw:gap-2">
-              <span class="tw:text-xs tw:text-secondary tw:mt-2 tw:w-4 tw:text-right">{{ ii + 1 }}</span>
-              <BaseTextInput v-model="item.text" class="tw:flex-1" :placeholder="cl.ph" />
+          <div
+            v-for="cl in [
+              {
+                key: 'questions',
+                label: 'Questions (checklist)',
+                add: 'Add question',
+                ph: 'e.g. Is competency assessed and recorded for QMS personnel?',
+                empty: 'No questions yet — add the items the auditor will confirm.',
+              },
+              {
+                key: 'observations',
+                label: 'Observations (checklist)',
+                add: 'Add observation',
+                ph: 'e.g. Operators wearing required PPE on the line',
+                empty: 'No observations yet — add what the auditor should watch for.',
+              },
+              {
+                key: 'evidenceItems',
+                label: 'Expected Evidence (checklist)',
+                add: 'Add evidence item',
+                ph: 'e.g. Calibration certificates for test equipment',
+                empty: 'No evidence items yet — add the records the auditor should collect.',
+              },
+            ]"
+            :key="cl.key"
+          >
+            <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">{{ cl.label }}</p>
               <button
                 type="button"
-                class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1.5 tw:mt-0.5 tw:cursor-pointer tw:bg-transparent tw:border-0"
-                title="Remove"
-                @click="removeChecklistItem(form[cl.key], ii)"
+                class="tw:text-xs tw:font-medium tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:inline-flex tw:items-center tw:gap-1"
+                @click="addChecklistItem(form[cl.key])"
               >
-                <IconTrash :size="14" />
+                <IconPlus :size="13" /> {{ cl.add }}
               </button>
             </div>
-          </div>
-          <p v-else class="tw:text-xs tw:text-secondary tw:italic">{{ cl.empty }}</p>
-        </div>
-
-        <!-- People / roles to interview (free-text roles/titles). -->
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            People / roles to interview
-          </p>
-          <div v-if="form.peopleToInterview.length" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:mb-1.5">
-            <span
-              v-for="(role, ri) in form.peopleToInterview"
-              :key="ri"
-              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:bg-main-hover tw:rounded tw:pl-2 tw:pr-1 tw:py-0.5"
-            >
-              {{ role }}
-              <button
-                type="button"
-                class="tw:text-secondary tw:hover:text-red-600 tw:rounded tw:cursor-pointer tw:bg-transparent tw:border-0"
-                @click="removeRole(ri)"
+            <div v-if="form[cl.key].length" class="tw:flex tw:flex-col tw:gap-1.5">
+              <div
+                v-for="(item, ii) in form[cl.key]"
+                :key="item.id"
+                class="tw:flex tw:items-start tw:gap-2"
               >
-                <IconX :size="12" />
-              </button>
-            </span>
+                <span class="tw:text-xs tw:text-secondary tw:mt-2 tw:w-4 tw:text-right">{{
+                  ii + 1
+                }}</span>
+                <BaseTextInput v-model="item.text" class="tw:flex-1" :placeholder="cl.ph" />
+                <button
+                  type="button"
+                  class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1.5 tw:mt-0.5 tw:cursor-pointer tw:bg-transparent tw:border-0"
+                  title="Remove"
+                  @click="removeChecklistItem(form[cl.key], ii)"
+                >
+                  <IconTrash :size="14" />
+                </button>
+              </div>
+            </div>
+            <p v-else class="tw:text-xs tw:text-secondary tw:italic">{{ cl.empty }}</p>
           </div>
-          <div class="tw:flex tw:items-center tw:gap-2">
-            <BaseTextInput
-              v-model="newRole"
-              class="tw:flex-1"
-              placeholder="e.g. Quality Manager, Line Supervisor…"
-              @keyup.enter="addRole"
-            />
-            <BaseButton variant="outline" size="sm" :disabled="!newRole.trim()" @click="addRole">
-              Add
-            </BaseButton>
+
+          <!-- People / roles to interview (free-text roles/titles). -->
+          <div>
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+              People / roles to interview
+            </p>
+            <div
+              v-if="form.peopleToInterview.length"
+              class="tw:flex tw:flex-wrap tw:gap-1.5 tw:mb-1.5"
+            >
+              <span
+                v-for="(role, ri) in form.peopleToInterview"
+                :key="ri"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:bg-main-hover tw:rounded tw:pl-2 tw:pr-1 tw:py-0.5"
+              >
+                {{ role }}
+                <button
+                  type="button"
+                  class="tw:text-secondary tw:hover:text-red-600 tw:rounded tw:cursor-pointer tw:bg-transparent tw:border-0"
+                  @click="removeRole(ri)"
+                >
+                  <IconX :size="12" />
+                </button>
+              </span>
+            </div>
+            <div class="tw:flex tw:items-center tw:gap-2">
+              <BaseTextInput
+                v-model="newRole"
+                class="tw:flex-1"
+                placeholder="e.g. Quality Manager, Line Supervisor…"
+                @keyup.enter="addRole"
+              />
+              <BaseButton variant="outline" size="sm" :disabled="!newRole.trim()" @click="addRole">
+                Add
+              </BaseButton>
+            </div>
           </div>
-        </div>
         </div>
         <!-- /Audit checklists tab -->
 
         <!-- Tab: Clause details -->
         <div v-show="editTab === 'clause'" class="tw:flex tw:flex-col tw:gap-3">
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-          <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Department</p>
-            <DepartmentSelectMenu v-model="form.departmentId" />
-          </div>
-          <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Category</p>
-            <AuditFindingCategorySelectMenu v-model="form.categoryId" />
-          </div>
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Description
-          </p>
-          <BaseTextarea
-            v-model="form.description"
-            :rows="4"
-            placeholder="What the requirement says verbatim. Pasted from the standard text."
-          />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Guidance
-          </p>
-          <BaseTextarea
-            v-model="form.guidance"
-            :rows="3"
-            placeholder="How to interpret / audit this requirement. Internal interpretation notes."
-          />
-        </div>
-        <!-- Expected Evidence is now the checklist above (#24). -->
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-          <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-              Display Order
-            </p>
-            <BaseTextInput v-model.number="form.displayOrder" type="number" :min="0" />
+          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <div>
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+                Department
+              </p>
+              <DepartmentSelectMenu v-model="form.departmentId" />
+            </div>
+            <div>
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Category</p>
+              <AuditFindingCategorySelectMenu v-model="form.categoryId" />
+            </div>
           </div>
           <div>
             <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-              Risk Weight
+              Description
             </p>
-            <BaseTextInput v-model.number="form.riskWeight" type="number" :min="1" :max="100" />
-            <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-              1–100. Reserved for risk-based auditing prioritisation.
-            </p>
+            <BaseTextarea
+              v-model="form.description"
+              :rows="4"
+              placeholder="What the requirement says verbatim. Pasted from the standard text."
+            />
           </div>
-        </div>
+          <div>
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Guidance</p>
+            <BaseTextarea
+              v-model="form.guidance"
+              :rows="3"
+              placeholder="How to interpret / audit this requirement. Internal interpretation notes."
+            />
+          </div>
+          <!-- Expected Evidence is now the checklist above (#24). -->
+          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <div>
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+                Display Order
+              </p>
+              <BaseTextInput v-model.number="form.displayOrder" type="number" :min="0" />
+            </div>
+            <div>
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+                Risk Weight
+              </p>
+              <BaseTextInput v-model.number="form.riskWeight" type="number" :min="1" :max="100" />
+              <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
+                1–100. Reserved for risk-based auditing prioritisation.
+              </p>
+            </div>
+          </div>
         </div>
         <!-- /Clause details tab -->
       </div>
       <template #footer="{ close }">
         <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :loading="saving"
-          :disabled="saving"
-          @click="handleSave"
-        >
+        <BaseButton variant="primary" :loading="saving" :disabled="saving" @click="handleSave">
           {{ editing ? 'Save' : 'Add Requirement' }}
         </BaseButton>
       </template>
@@ -711,17 +756,16 @@ async function handleBulkEnrich() {
           <strong>description</strong>, <strong>guidance</strong>, and
           <strong>expected evidence</strong> for
           <strong>{{ emptyRowCount }}</strong>
-          row{{ emptyRowCount === 1 ? '' : 's' }} on this draft version
-          that don't have them yet.
+          row{{ emptyRowCount === 1 ? '' : 's' }} on this draft version that don't have them yet.
         </p>
         <p class="tw:text-xs tw:text-secondary">
-          Each row takes ~3–5 seconds. The job runs in the background;
-          rows update in real time as the worker finishes each one. You
-          can keep editing other parts of the standard while it runs.
+          Each row takes ~3–5 seconds. The job runs in the background; rows update in real time as
+          the worker finishes each one. You can keep editing other parts of the standard while it
+          runs.
         </p>
         <p class="tw:text-xs tw:text-secondary">
-          Normative text from copyrighted standards is never reproduced
-          — guidance is the model's own original prose.
+          Normative text from copyrighted standards is never reproduced — guidance is the model's
+          own original prose.
         </p>
       </div>
       <template #footer>

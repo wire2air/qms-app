@@ -66,7 +66,8 @@ const supervisedLogBooks = useLiveQueryWithDeps(
     if (!uid) return []
     return db.LogBook.where('supervisorUserId', uid).exec()
   },
-  { initial: [] },
+
+  { models: ['LogBook'], initial: [] },
 )
 const supervisedIds = computed(() => new Set(supervisedLogBooks.value.map((lb) => lb.id)))
 
@@ -111,7 +112,8 @@ const openFlagsByRecordId = useLiveQuery(
     }
     return out
   },
-  { initial: new Map() },
+
+  { models: ['FieldRecordFlag'], initial: new Map() },
 )
 
 function openFlagCount(recordId) {
@@ -171,7 +173,8 @@ const records = useLiveQueryWithDeps(
       (a, b) => (b.submittedAt?.toMillis?.() ?? 0) - (a.submittedAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['FieldRecord'], initial: [] },
 )
 
 // ─── Bulk-select state for supervisor review ───────────────────────
@@ -179,9 +182,7 @@ const records = useLiveQueryWithDeps(
 // bulk/review accepts); selecting any of them surfaces the sticky
 // action bar with Approve / Reject / Return-for-info.
 const selectedIds = ref(new Set())
-const selectableRecords = computed(() =>
-  records.value.filter((r) => r.statusId === 'UNDER_REVIEW'),
-)
+const selectableRecords = computed(() => records.value.filter((r) => r.statusId === 'UNDER_REVIEW'))
 const showBulkColumn = computed(() => canReview.value && selectableRecords.value.length > 0)
 
 function toggleSelected(id) {
@@ -291,7 +292,10 @@ async function submitBulk(esign) {
 
 // Round 0: log books live in db.LogBook. Variable name preserved at
 // the template binding level for stability.
-const formTemplates = useLiveQuery((db) => db.LogBook.where().exec(), { initial: [] })
+const formTemplates = useLiveQuery((db) => db.LogBook.where().exec(), {
+  models: ['LogBook'],
+  initial: [],
+})
 const templateById = computed(() => new Map(formTemplates.value.map((t) => [t.id, t])))
 
 /**
@@ -325,7 +329,8 @@ const currentPayloadByRecordId = useLiveQueryWithDeps(
     }
     return out
   },
-  { initial: new Map() },
+
+  { models: ['FieldRecordRevision'], initial: new Map() },
 )
 
 function payloadFor(record) {
@@ -413,10 +418,7 @@ const visibleColumnKeys = computed({
   get() {
     if (!isLogBookMode.value) return []
     const tid = selectedTemplate.value.id
-    return (
-      visibleColumnsByTemplate.value[tid] ??
-      defaultVisibleColumnKeys(scalarFields.value)
-    )
+    return visibleColumnsByTemplate.value[tid] ?? defaultVisibleColumnKeys(scalarFields.value)
   },
   set(keys) {
     if (!isLogBookMode.value) return
@@ -436,9 +438,7 @@ function toggleColumn(name) {
   if (set.has(name)) set.delete(name)
   else set.add(name)
   // Preserve schema order in the visible list.
-  visibleColumnKeys.value = scalarFields.value
-    .map((f) => f.name)
-    .filter((n) => set.has(n))
+  visibleColumnKeys.value = scalarFields.value.map((f) => f.name).filter((n) => set.has(n))
 }
 
 // ─── Print / Export ─────────────────────────────────────────────────
@@ -463,11 +463,13 @@ function exportCsv() {
     const payload = payloadFor(r)
     return [
       r.recordNumber ?? r.id,
-      r.submittedAt?.toISO ? r.submittedAt.toISO() : r.submittedAt ?? '',
+      r.submittedAt?.toISO ? r.submittedAt.toISO() : (r.submittedAt ?? ''),
       r.submittedByUserId ?? '',
       r.statusId ?? '',
       ...cols.map((c) => formatCellValue(c, payload[c.name], { maxLength: 1000 })),
-    ].map(csvEscape).join(',')
+    ]
+      .map(csvEscape)
+      .join(',')
   })
   const csv = [header.map(csvEscape).join(','), ...rows].join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
@@ -574,10 +576,7 @@ function printList() {
            Only meaningful when a single log book is selected — mixed
            log books can't share columns, so the buttons are gated. -->
       <div class="tw:flex-1" />
-      <div
-        v-if="isLogBookMode"
-        class="tw:flex tw:items-center tw:gap-2 tw:relative"
-      >
+      <div v-if="isLogBookMode" class="tw:flex tw:items-center tw:gap-2 tw:relative">
         <button
           type="button"
           class="tw:px-2 tw:py-1 tw:text-xs tw:rounded tw:bg-main tw:border tw:border-divider tw:text-on-main tw:flex tw:items-center tw:gap-1 tw:hover:bg-main-hover"
@@ -688,7 +687,11 @@ function printList() {
             v-if="visibleColumns.length"
             class="tw:mt-2 tw:grid tw:grid-cols-2 tw:gap-x-3 tw:gap-y-1"
           >
-            <div v-for="col in visibleColumns" :key="col.name" class="tw:text-xs tw:min-w-0 tw:truncate">
+            <div
+              v-for="col in visibleColumns"
+              :key="col.name"
+              class="tw:text-xs tw:min-w-0 tw:truncate"
+            >
               <span class="tw:text-secondary">{{ col.label || col.name }}:</span>
               <span class="tw:text-on-main tw:ml-1">{{
                 formatCellValue(col, payloadFor(row)[col.name])
@@ -703,161 +706,160 @@ function printList() {
         class="tw:hidden tw:md:block tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden"
       >
         <table class="tw:w-full tw:text-sm">
-        <thead class="tw:bg-main">
-          <tr class="tw:text-left">
-            <!-- Bulk-review checkbox column — only rendered when the
+          <thead class="tw:bg-main">
+            <tr class="tw:text-left">
+              <!-- Bulk-review checkbox column — only rendered when the
                  viewer can review AND there's at least one UNDER_REVIEW
                  row in the current filter. Header checkbox toggles all
                  reviewable rows (non-reviewable rows stay untouched). -->
-            <th v-if="showBulkColumn" class="tw:px-3 tw:py-2 tw:w-8">
-              <input
-                type="checkbox"
-                :checked="allSelectableSelected"
-                :indeterminate.prop="selectedIds.size > 0 && !allSelectableSelected"
-                @change="toggleSelectAll"
-              />
-            </th>
-            <!-- "Form" column is replaced by the Entry ID in log-book
+              <th v-if="showBulkColumn" class="tw:px-3 tw:py-2 tw:w-8">
+                <input
+                  type="checkbox"
+                  :checked="allSelectableSelected"
+                  :indeterminate.prop="selectedIds.size > 0 && !allSelectableSelected"
+                  @change="toggleSelectAll"
+                />
+              </th>
+              <!-- "Form" column is replaced by the Entry ID in log-book
                  mode (the form is the same for every row, so showing
                  it on each row is wasted space). -->
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">
-              {{ isLogBookMode ? 'Entry ID' : 'Form' }}
-            </th>
-            <!-- Classification column hidden in log-book mode (all rows
+              <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">
+                {{ isLogBookMode ? 'Entry ID' : 'Form' }}
+              </th>
+              <!-- Classification column hidden in log-book mode (all rows
                  share the same classification — visible in the header). -->
-            <th
-              v-if="!isLogBookMode"
-              class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary"
-            >
-              Classification
-            </th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Status</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Submitted</th>
-            <!-- Schema-derived dynamic columns. Only render when a
+              <th v-if="!isLogBookMode" class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">
+                Classification
+              </th>
+              <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Status</th>
+              <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Submitted</th>
+              <!-- Schema-derived dynamic columns. Only render when a
                  single log book is selected. -->
-            <th
-              v-for="col in visibleColumns"
-              :key="col.name"
-              class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary"
+              <th
+                v-for="col in visibleColumns"
+                :key="col.name"
+                class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary"
+              >
+                {{ col.label || col.name }}
+              </th>
+              <th v-if="!compact" class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">
+                Lock
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <BaseClickableRow
+              v-for="row in records"
+              :key="row.id"
+              tag="tr"
+              class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+              :class="selectedIds.has(row.id) ? 'tw:bg-primary/5' : ''"
+              :aria-label="`Open log entry ${row.recordNumber || row.id}`"
+              @click="openRecord(row.id)"
             >
-              {{ col.label || col.name }}
-            </th>
-            <th v-if="!compact" class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">
-              Lock
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="row in records"
-            :key="row.id"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover tw:cursor-pointer"
-            :class="selectedIds.has(row.id) ? 'tw:bg-primary/5' : ''"
-            @click="openRecord(row.id)"
-          >
-            <!-- Per-row bulk checkbox. Only reviewable rows
+              <!-- Per-row bulk checkbox. Only reviewable rows
                  (UNDER_REVIEW) get an interactive checkbox; others
                  render an empty cell so column alignment stays clean. -->
-            <td v-if="showBulkColumn" class="tw:px-3 tw:py-2 tw:w-8" @click.stop>
-              <input
-                v-if="row.statusId === 'UNDER_REVIEW'"
-                type="checkbox"
-                :checked="selectedIds.has(row.id)"
-                @change="toggleSelected(row.id)"
-              />
-            </td>
-            <td class="tw:px-3 tw:py-2">
-              <template v-if="isLogBookMode">
-                <div class="tw:font-mono tw:text-on-main tw:text-xs">
-                  {{ row.recordNumber || row.id }}
-                </div>
-              </template>
-              <template v-else>
-                <div class="tw:font-medium tw:text-on-main">{{ templateTitle(row) }}</div>
-                <div class="tw:text-xs tw:text-secondary tw:truncate">{{ row.id }}</div>
-              </template>
-            </td>
-            <td v-if="!isLogBookMode" class="tw:px-3 tw:py-2">
-              <span
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
-                :class="classificationBadgeClass(row.recordClassification)"
-              >
-                <IconShieldCheck
-                  v-if="row.recordClassification === 'CONTROLLED_RECORD'"
-                  :size="10"
+              <td v-if="showBulkColumn" class="tw:px-3 tw:py-2 tw:w-8" @click.stop>
+                <input
+                  v-if="row.statusId === 'UNDER_REVIEW'"
+                  type="checkbox"
+                  :checked="selectedIds.has(row.id)"
+                  @change="toggleSelected(row.id)"
                 />
-                {{ row.recordClassification?.replace('_', ' ') }}
-              </span>
-            </td>
-            <td class="tw:px-3 tw:py-2">
-              <div class="tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
+              </td>
+              <td class="tw:px-3 tw:py-2">
+                <template v-if="isLogBookMode">
+                  <div class="tw:font-mono tw:text-on-main tw:text-xs">
+                    {{ row.recordNumber || row.id }}
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="tw:font-medium tw:text-on-main">{{ templateTitle(row) }}</div>
+                  <div class="tw:text-xs tw:text-secondary tw:truncate">{{ row.id }}</div>
+                </template>
+              </td>
+              <td v-if="!isLogBookMode" class="tw:px-3 tw:py-2">
                 <span
-                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-bold tw:rounded tw:px-2 tw:py-0.5"
-                  :class="statusBadgeClass(row.statusId)"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
+                  :class="classificationBadgeClass(row.recordClassification)"
                 >
-                  <IconLock v-if="row.statusId === 'LOCKED'" :size="10" />
-                  <IconAlertCircle v-if="row.statusId === 'UNDER_REVIEW'" :size="10" />
-                  {{ fieldRecordStatusLabel(row.statusId) }}
+                  <IconShieldCheck
+                    v-if="row.recordClassification === 'CONTROLLED_RECORD'"
+                    :size="10"
+                  />
+                  {{ row.recordClassification?.replace('_', ' ') }}
                 </span>
-                <!-- Open-flag chip — only shown when the record has at
+              </td>
+              <td class="tw:px-3 tw:py-2">
+                <div class="tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
+                  <span
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-bold tw:rounded tw:px-2 tw:py-0.5"
+                    :class="statusBadgeClass(row.statusId)"
+                  >
+                    <IconLock v-if="row.statusId === 'LOCKED'" :size="10" />
+                    <IconAlertCircle v-if="row.statusId === 'UNDER_REVIEW'" :size="10" />
+                    {{ fieldRecordStatusLabel(row.statusId) }}
+                  </span>
+                  <!-- Open-flag chip — only shown when the record has at
                      least one unresolved flag. Click-through still
                      opens the preview so the supervisor can read the
                      flag notes / resolve. -->
-                <span
-                  v-if="openFlagCount(row.id) > 0"
-                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-orange-100 tw:text-orange-700 tw:border tw:border-orange-300"
-                  :title="`${openFlagCount(row.id)} open flag${openFlagCount(row.id) === 1 ? '' : 's'}`"
-                >
-                  <IconFlag :size="10" />
-                  {{ openFlagCount(row.id) }}
-                </span>
-              </div>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-secondary tw:text-xs">
-              {{ fmtDate(row.submittedAt) }}
-            </td>
-            <!-- Schema-derived dynamic cells. The actual values live
+                  <span
+                    v-if="openFlagCount(row.id) > 0"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-orange-100 tw:text-orange-700 tw:border tw:border-orange-300"
+                    :title="`${openFlagCount(row.id)} open flag${openFlagCount(row.id) === 1 ? '' : 's'}`"
+                  >
+                    <IconFlag :size="10" />
+                    {{ openFlagCount(row.id) }}
+                  </span>
+                </div>
+              </td>
+              <td class="tw:px-3 tw:py-2 tw:text-secondary tw:text-xs">
+                {{ fmtDate(row.submittedAt) }}
+              </td>
+              <!-- Schema-derived dynamic cells. The actual values live
                  on the current revision, not on the FieldRecord row —
                  payloadFor() resolves the lookup. formatCellValue
                  handles primitives, dates, arrays uniformly. -->
-            <td
-              v-for="col in visibleColumns"
-              :key="col.name"
-              class="tw:px-3 tw:py-2 tw:text-on-main tw:text-xs"
-            >
-              {{ formatCellValue(col, payloadFor(row)[col.name]) }}
-            </td>
-            <td v-if="!compact" class="tw:px-3 tw:py-2 tw:text-xs">
-              <template v-if="row.statusId === 'LOCKED'">
-                <span class="tw:text-gray-700">
-                  completed
-                  <span v-if="row.lockReason" class="tw:text-secondary">
-                    ({{ row.lockReason.toLowerCase() }})
+              <td
+                v-for="col in visibleColumns"
+                :key="col.name"
+                class="tw:px-3 tw:py-2 tw:text-on-main tw:text-xs"
+              >
+                {{ formatCellValue(col, payloadFor(row)[col.name]) }}
+              </td>
+              <td v-if="!compact" class="tw:px-3 tw:py-2 tw:text-xs">
+                <template v-if="row.statusId === 'LOCKED'">
+                  <span class="tw:text-gray-700">
+                    completed
+                    <span v-if="row.lockReason" class="tw:text-secondary">
+                      ({{ row.lockReason.toLowerCase() }})
+                    </span>
                   </span>
-                </span>
-              </template>
-              <template v-else-if="row.lockAt && lockCountdown(row.lockAt)">
-                <span class="tw:text-amber-700">
-                  editable for {{ lockCountdown(row.lockAt) }}
-                </span>
-              </template>
-              <template v-else-if="row.lockAt">
-                <span class="tw:text-secondary">expires {{ fmtDate(row.lockAt) }}</span>
-              </template>
-              <template v-else>
-                <!-- No lockAt — either NONE/UNTIL_NEXT_ENTRY/UNTIL_REVIEW
+                </template>
+                <template v-else-if="row.lockAt && lockCountdown(row.lockAt)">
+                  <span class="tw:text-amber-700">
+                    editable for {{ lockCountdown(row.lockAt) }}
+                  </span>
+                </template>
+                <template v-else-if="row.lockAt">
+                  <span class="tw:text-secondary">expires {{ fmtDate(row.lockAt) }}</span>
+                </template>
+                <template v-else>
+                  <!-- No lockAt — either NONE/UNTIL_NEXT_ENTRY/UNTIL_REVIEW
                      edit-window mode, or status is non-editable already
                      (UNDER_REVIEW / APPROVED / REJECTED / VOIDED). Show
                      a hint so supervisors aren't left wondering. -->
-                <span v-if="row.statusId === 'SUBMITTED'" class="tw:text-amber-700">
-                  editable (until next entry or review)
-                </span>
-                <span v-else class="tw:text-secondary">—</span>
-              </template>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                  <span v-if="row.statusId === 'SUBMITTED'" class="tw:text-amber-700">
+                    editable (until next entry or review)
+                  </span>
+                  <span v-else class="tw:text-secondary">—</span>
+                </template>
+              </td>
+            </BaseClickableRow>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -880,9 +882,7 @@ function printList() {
         v-if="canReview && selectedIds.size > 0"
         class="tw:fixed tw:bottom-0 tw:left-0 tw:right-0 tw:bg-white tw:border-t tw:border-divider tw:shadow-lg tw:px-5 tw:py-3 tw:flex tw:items-center tw:gap-3 tw:z-40"
       >
-        <div class="tw:text-sm tw:text-on-main tw:font-medium">
-          {{ selectedIds.size }} selected
-        </div>
+        <div class="tw:text-sm tw:text-on-main tw:font-medium">{{ selectedIds.size }} selected</div>
         <button
           type="button"
           class="tw:text-xs tw:text-secondary tw:underline tw:hover:text-on-main"

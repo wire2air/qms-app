@@ -47,9 +47,7 @@ const numberLabel = computed(() => {
 })
 
 const isApprovalStep = computed(() => props.step?.stepType === 'APPROVAL')
-const usesSupplierPicker = computed(
-  () => props.isSupplierFacing && !isApprovalStep.value,
-)
+const usesSupplierPicker = computed(() => props.isSupplierFacing && !isApprovalStep.value)
 
 // No `initial: []` here on purpose: we need to distinguish
 //   stepRoles === undefined → IDB query still loading
@@ -61,10 +59,12 @@ const usesSupplierPicker = computed(
 // eligible (see the LogBook submit-dialog regression report).
 const stepRoles = useLiveQueryWithDeps(
   [() => props.step.id],
+
   async (db, [stepId]) => {
     if (!stepId) return []
     return db.WorkflowStepRole.where('stepId', stepId).exec()
   },
+  { models: ['WorkflowStepRole'] },
 )
 
 const stepRolesLoaded = computed(() => stepRoles.value !== undefined)
@@ -83,7 +83,8 @@ const stepRoleNames = useLiveQueryWithDeps(
     const roles = await Promise.all(ids.map((id) => db.Role.findByPk(id)))
     return roles.filter(Boolean).map((r) => r.name)
   },
-  { initial: [] },
+
+  { models: ['Role'], initial: [] },
 )
 
 // Role-less step → all active internal users (no-friction rule for
@@ -106,7 +107,8 @@ const internalCandidates = useLiveQueryWithDeps(
     const users = await Promise.all(userIds.map((id) => db.User.findByPk(id)))
     return users.filter((u) => u && u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
   },
-  { initial: [] },
+
+  { models: ['User', 'RoleOnUser'], initial: [] },
 )
 
 const supplierCandidates = useLiveQueryWithDeps(
@@ -121,7 +123,8 @@ const supplierCandidates = useLiveQueryWithDeps(
         u.userStatusId === 'ACTIVE',
     )
   },
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 
 const candidateUsers = computed(() =>

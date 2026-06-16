@@ -33,25 +33,33 @@ const props = defineProps({
   id: { type: String, default: null },
 })
 
-const record = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.FieldRecord.findByPk(id)
-})
+const record = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.FieldRecord.findByPk(id)
+  },
+  { models: ['FieldRecord'] },
+)
 
 const template = useLiveQueryWithDeps(
   [() => record.value?.logBookId],
+
   async (db, [tid]) => {
     if (!tid) return null
     return db.LogBook.findByPk(tid)
   },
+  { models: ['LogBook'] },
 )
 
 const currentRevision = useLiveQueryWithDeps(
   [() => record.value?.currentRevisionId],
+
   async (db, [rid]) => {
     if (!rid) return null
     return db.FieldRecordRevision.findByPk(rid)
   },
+  { models: ['FieldRecordRevision'] },
 )
 
 const revisions = useLiveQueryWithDeps(
@@ -61,7 +69,8 @@ const revisions = useLiveQueryWithDeps(
     const rows = await db.FieldRecordRevision.where('fieldRecordId', id).exec()
     return rows.sort((a, b) => (a.revisionNumber ?? 0) - (b.revisionNumber ?? 0))
   },
-  { initial: [] },
+
+  { models: ['FieldRecordRevision'], initial: [] },
 )
 
 // Schema snapshot takes priority — frozen at submit time, so even if
@@ -99,7 +108,8 @@ const userMap = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 
 function userName(id) {
@@ -172,9 +182,7 @@ onMounted(() => {
             <th>Log book</th>
             <td colspan="3">
               <strong>{{ template?.title || '—' }}</strong>
-              <span v-if="template?.code" class="fr-print-meta-code">
-                · {{ template.code }}
-              </span>
+              <span v-if="template?.code" class="fr-print-meta-code"> · {{ template.code }} </span>
             </td>
           </tr>
           <tr>
@@ -232,9 +240,7 @@ onMounted(() => {
           :fields="schemaFields"
           :values="payload"
         />
-        <pre v-else class="fr-print-rawpayload">{{
-          JSON.stringify(payload, null, 2)
-        }}</pre>
+        <pre v-else class="fr-print-rawpayload">{{ JSON.stringify(payload, null, 2) }}</pre>
       </section>
 
       <!-- Revision history — auditor-grade append-only trail. -->
@@ -320,8 +326,13 @@ onMounted(() => {
   color: #991b1b;
   margin-right: 4px;
 }
-.fr-print-body { font-size: 11px; }
-.fr-print-section { margin: 18px 0; break-inside: avoid-page; }
+.fr-print-body {
+  font-size: 11px;
+}
+.fr-print-section {
+  margin: 18px 0;
+  break-inside: avoid-page;
+}
 .fr-print-section > h2 {
   font-size: 14px;
   font-weight: 700;

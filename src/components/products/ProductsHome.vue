@@ -5,6 +5,7 @@ import { isAllowed } from '@/utils/currentSession.js'
 const showDialog = ref(false)
 const selectedProductId = ref(null)
 const confirmDelete = ref({ open: false, product: null })
+const confirmBulkDelete = ref({ open: false, rows: [] })
 
 const canCreateProduct = computed(() => isAllowed(['products:create']))
 const canUpdateProduct = computed(() => isAllowed(['products:update']))
@@ -28,7 +29,8 @@ const products = useLiveQueryWithDeps(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['Product'], initial: [] },
 )
 
 function openDialog(id = null) {
@@ -48,16 +50,20 @@ async function confirmDeleteProduct() {
   await confirmDelete.value.product.delete()
   confirmDelete.value = { open: false, product: null }
 }
+
+function onBulkDelete(rows) {
+  confirmBulkDelete.value = { open: true, rows }
+}
+
+async function confirmBulkDeleteProducts() {
+  for (const product of confirmBulkDelete.value.rows) await product.delete()
+  confirmBulkDelete.value = { open: false, rows: [] }
+}
 </script>
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconPackage class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Item Master</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconPackage" title="Item Master" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canCreateProduct" @click="openDialog()"> Add New Item </BaseButton>
@@ -82,6 +88,7 @@ async function confirmDeleteProduct() {
       :canDelete="canDeleteProduct"
       @delete="onDeleteProduct"
       @edit="onEditProduct"
+      @bulkDelete="onBulkDelete"
     />
   </div>
 
@@ -95,5 +102,14 @@ async function confirmDeleteProduct() {
     :message="`Are you sure you want to delete '${confirmDelete.product?.name}' (${confirmDelete.product?.sku})? This cannot be undone.`"
     okLabel="Delete"
     @ok="confirmDeleteProduct"
+  />
+
+  <!-- Bulk Delete Confirm Dialog -->
+  <ConfirmDialog
+    v-model="confirmBulkDelete.open"
+    title="Delete Products"
+    :message="`Delete ${confirmBulkDelete.rows.length} selected item${confirmBulkDelete.rows.length === 1 ? '' : 's'}? This cannot be undone.`"
+    okLabel="Delete"
+    @ok="confirmBulkDeleteProducts"
   />
 </template>

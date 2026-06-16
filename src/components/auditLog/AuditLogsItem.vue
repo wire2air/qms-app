@@ -50,9 +50,12 @@ const displayAction = computed(() => (resolvedEntity.value?.isChild ? 'UPDATE' :
 
 <template>
   <div v-if="resolvedEntity" class="tw:hover:bg-main-hover tw:transition-colors">
-    <div
+    <BaseClickableRow
       class="tw:px-5 tw:py-3 tw:flex tw:items-start tw:gap-4"
       :class="{ 'tw:cursor-pointer': hasDiff }"
+      :disabled="!hasDiff"
+      :aria-label="expanded ? 'Collapse change details' : 'Expand change details'"
+      :aria-expanded="hasDiff ? expanded : undefined"
       @click="hasDiff && (expanded = !expanded)"
     >
       <!-- Action badge -->
@@ -86,7 +89,7 @@ const displayAction = computed(() => (resolvedEntity.value?.isChild ? 'UPDATE' :
         <IconChevronUp v-if="expanded" :size="16" />
         <IconChevronDown v-else :size="16" />
       </div>
-    </div>
+    </BaseClickableRow>
 
     <!-- Diff viewer -->
     <div v-if="expanded && hasDiff" class="tw:px-5 tw:pb-4">

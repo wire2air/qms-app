@@ -1,6 +1,4 @@
 <script setup>
-import { IconSearch, IconX } from '@tabler/icons-vue'
-
 const filters = defineModel('filters', {
   type: Object,
   default: () => ({
@@ -22,9 +20,6 @@ const TABS = [
   { id: 'closed', label: 'Closed' },
 ]
 
-function clearSearch() {
-  filters.value.search = ''
-}
 function clearAll() {
   filters.value.search = ''
   filters.value.statusId = null
@@ -65,38 +60,23 @@ const hasActiveFilters = computed(
     </div>
 
     <!-- Field filters -->
-    <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
-      <div class="tw:relative tw:flex-1 tw:min-w-64">
-        <IconSearch
-          :size="16"
-          class="tw:absolute tw:left-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary"
+    <BaseFilterBar
+      v-model:search="filters.search"
+      searchPlaceholder="Search by CR number or title…"
+      :showClear="hasActiveFilters"
+      @clear="clearAll"
+    >
+      <template #filters>
+        <ChangeRequestStatusSelectMenu v-model="filters.statusId" class="tw:w-44" />
+        <ChangeRequestPrioritySelectMenu v-model="filters.priorityId" class="tw:w-44" />
+        <ChangeTypeSelectMenu v-model="filters.changeTypeId" class="tw:w-44" />
+        <DateRangeFilter
+          :from="filters.dateFrom"
+          :to="filters.dateTo"
+          @update:from="(v) => (filters.dateFrom = v)"
+          @update:to="(v) => (filters.dateTo = v)"
         />
-        <input
-          v-model="filters.search"
-          type="text"
-          placeholder="Search by CR number or title…"
-          class="tw:w-full tw:pl-9 tw:pr-9 tw:py-2 tw:text-sm tw:rounded-lg tw:border tw:border-divider tw:bg-white tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/40"
-        />
-        <button
-          v-if="filters.search"
-          class="tw:absolute tw:right-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:hover:text-on-main"
-          @click="clearSearch"
-        >
-          <IconX :size="14" />
-        </button>
-      </div>
-      <ChangeRequestStatusSelectMenu v-model="filters.statusId" class="tw:w-44" />
-      <ChangeRequestPrioritySelectMenu v-model="filters.priorityId" class="tw:w-44" />
-      <ChangeTypeSelectMenu v-model="filters.changeTypeId" class="tw:w-44" />
-      <DateRangeFilter
-        :from="filters.dateFrom"
-        :to="filters.dateTo"
-        @update:from="(v) => (filters.dateFrom = v)"
-        @update:to="(v) => (filters.dateTo = v)"
-      />
-      <BaseButton v-if="hasActiveFilters" variant="outline" size="sm" @click="clearAll">
-        Clear
-      </BaseButton>
-    </div>
+      </template>
+    </BaseFilterBar>
   </div>
 </template>

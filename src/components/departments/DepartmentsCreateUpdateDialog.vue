@@ -25,10 +25,14 @@ const form = ref({
 })
 
 // Load existing department if editing
-const department = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.Department.findByPk(id)
-})
+const department = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.Department.findByPk(id)
+  },
+  { models: ['Department'] },
+)
 
 // Code availability check using live query
 const codeAvailable = useLiveQueryWithDeps(
@@ -38,7 +42,8 @@ const codeAvailable = useLiveQueryWithDeps(
     const all = await db.Department.where().exec()
     return !all.some((d) => d.code === code && d.id !== id)
   },
-  { initial: true },
+
+  { models: ['Department'], initial: true },
 )
 
 const rules = computed(() => ({

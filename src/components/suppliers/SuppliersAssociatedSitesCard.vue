@@ -15,7 +15,8 @@ const props = defineProps({
 const supplierSites = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db, [supplierId]) => db.SupplierOnSite.where('supplierId', supplierId).exec(),
-  { initial: [] },
+
+  { models: ['SupplierOnSite'], initial: [] },
 )
 
 const addSite = useLiveMutation(async (db, { supplierId, siteId }) => {

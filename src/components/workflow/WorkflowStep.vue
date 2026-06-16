@@ -45,13 +45,17 @@ const toast = useToast()
 const currentUserId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
 
 // ─── Step + definition ───────────────────────────────────────────────────────
-const instanceStep = useLiveQueryWithDeps([() => props.instanceStepId], async (db, [id]) =>
-  id ? db.WorkflowInstanceStep.findByPk(id) : null,
+const instanceStep = useLiveQueryWithDeps(
+  [() => props.instanceStepId],
+  async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+  { models: ['WorkflowInstanceStep'] },
 )
 
 const stepDefinition = useLiveQueryWithDeps(
   [() => instanceStep.value?.stepId],
+
   async (db, [stepId]) => (stepId ? db.WorkflowStep.findByPk(stepId) : null),
+  { models: ['WorkflowStep'] },
 )
 
 const isApprovalStep = computed(() => instanceStep.value?.stepType === 'APPROVAL')
@@ -75,7 +79,8 @@ const assignments = useLiveQueryWithDeps(
     if (!id) return []
     return db.UserOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['UserOnWorkflowInstanceStep'], initial: [] },
 )
 
 const activeAssigneeId = computed(() => {
@@ -90,7 +95,8 @@ const childInstanceSteps = useLiveQueryWithDeps(
     if (!parentId) return []
     return db.WorkflowInstanceStep.where('parentInstanceStepId', parentId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 const allChildrenApproved = computed(
@@ -124,7 +130,8 @@ const stepTasks = useLiveQueryWithDeps(
       stepInstanceId,
     ]).exec()
   },
-  { initial: [] },
+
+  { models: ['TaskInstance'], initial: [] },
 )
 
 const currentUserTask = computed(() => {
@@ -306,12 +313,10 @@ const stepAssignments = useLiveQueryWithDeps(
   [() => props.instanceStepId],
   async (db, [stepInstanceId]) => {
     if (!stepInstanceId) return []
-    return db.UserOnWorkflowInstanceStep.where(
-      'workflowInstanceStepId',
-      stepInstanceId,
-    ).exec()
+    return db.UserOnWorkflowInstanceStep.where('workflowInstanceStepId', stepInstanceId).exec()
   },
-  { initial: [] },
+
+  { models: ['UserOnWorkflowInstanceStep'], initial: [] },
 )
 
 // History-only — terminal-ish statuses where something happened.
@@ -346,25 +351,29 @@ const activity = computed(() => {
 })
 
 function activityChipClass(statusId) {
-  return {
-    REJECTED: 'tw:bg-red-100 tw:text-red-700',
-    APPROVED: 'tw:bg-green-100 tw:text-green-700',
-    CANCELLED: 'tw:bg-gray-100 tw:text-gray-600',
-    REASSIGNED: 'tw:bg-blue-100 tw:text-blue-700',
-    SENT_BACK: 'tw:bg-orange-100 tw:text-orange-700',
-    CHANGES_REQUESTED: 'tw:bg-amber-100 tw:text-amber-700',
-  }[statusId] ?? 'tw:bg-blue-100 tw:text-blue-700'
+  return (
+    {
+      REJECTED: 'tw:bg-red-100 tw:text-red-700',
+      APPROVED: 'tw:bg-green-100 tw:text-green-700',
+      CANCELLED: 'tw:bg-gray-100 tw:text-gray-600',
+      REASSIGNED: 'tw:bg-blue-100 tw:text-blue-700',
+      SENT_BACK: 'tw:bg-orange-100 tw:text-orange-700',
+      CHANGES_REQUESTED: 'tw:bg-amber-100 tw:text-amber-700',
+    }[statusId] ?? 'tw:bg-blue-100 tw:text-blue-700'
+  )
 }
 
 function activityLabel(statusId) {
-  return ({
-    REJECTED: 'Rejected',
-    APPROVED: 'Approved',
-    CANCELLED: 'Cancelled',
-    REASSIGNED: 'Reassigned',
-    SENT_BACK: 'Sent back',
-    CHANGES_REQUESTED: 'Changes requested',
-  })[statusId] ?? (statusId || '').replace('_', ' ')
+  return (
+    {
+      REJECTED: 'Rejected',
+      APPROVED: 'Approved',
+      CANCELLED: 'Cancelled',
+      REASSIGNED: 'Reassigned',
+      SENT_BACK: 'Sent back',
+      CHANGES_REQUESTED: 'Changes requested',
+    }[statusId] ?? (statusId || '').replace('_', ' ')
+  )
 }
 </script>
 
@@ -455,11 +464,7 @@ function activityLabel(statusId) {
       <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">
         Activity
       </p>
-      <div
-        v-for="row in activity"
-        :key="row.id"
-        class="tw:flex tw:items-start tw:gap-2"
-      >
+      <div v-for="row in activity" :key="row.id" class="tw:flex tw:items-start tw:gap-2">
         <UserBadgeById v-if="row.who" :userId="row.who" />
         <div class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:min-w-0">
           <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
@@ -473,10 +478,7 @@ function activityLabel(statusId) {
               {{ row.at?.formatDate?.('date-time') ?? '' }}
             </span>
           </div>
-          <p
-            v-if="row.comment"
-            class="tw:text-sm tw:text-on-main tw:whitespace-pre-line"
-          >
+          <p v-if="row.comment" class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">
             {{ row.comment }}
           </p>
         </div>
@@ -513,9 +515,8 @@ function activityLabel(statusId) {
         >
           <div class="tw:text-red-600 tw:shrink-0 tw:mt-0.5">⨯</div>
           <div class="tw:text-sm tw:text-red-800">
-            Cancels this step and all of its open assignments / tasks.
-            The workflow stops here — downstream steps stay where they are.
-            Use this when the step is no longer needed.
+            Cancels this step and all of its open assignments / tasks. The workflow stops here —
+            downstream steps stay where they are. Use this when the step is no longer needed.
           </div>
         </div>
         <div>
@@ -550,9 +551,9 @@ function activityLabel(statusId) {
         >
           <div class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5">⤺</div>
           <div class="tw:text-sm tw:text-amber-800">
-            Sends the step back to its assignee for revision. The previous
-            assignee gets a new task on this step. Downstream steps are not
-            affected. Your feedback is recorded in the audit log.
+            Sends the step back to its assignee for revision. The previous assignee gets a new task
+            on this step. Downstream steps are not affected. Your feedback is recorded in the audit
+            log.
           </div>
         </div>
         <div>

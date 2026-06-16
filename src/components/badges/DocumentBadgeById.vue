@@ -9,7 +9,8 @@ const document = useLiveQueryWithDeps(
     if (!documentId) return null
     return db.Document.findByPk(documentId)
   },
-  { initial: null },
+
+  { models: ['Document'], initial: null },
 )
 </script>
 

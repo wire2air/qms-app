@@ -18,12 +18,7 @@ function pickPeriod(days) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconChartBar class="tw:text-primary tw:size-6" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">AI Usage</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconChartBar" title="AI Usage" />
 
     <SafeTeleport to="#main-header-actions">
       <div class="tw:flex tw:items-center tw:gap-2">

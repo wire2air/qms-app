@@ -14,9 +14,13 @@ const props = defineProps({
 
 const canUpdateUser = computed(() => isAllowed(['users:update']))
 
-const user = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  return db.User.findByPk(id)
-})
+const user = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    return db.User.findByPk(id)
+  },
+  { models: ['User'] },
+)
 
 const loading = computed(() => user.value === undefined)
 
@@ -26,34 +30,8 @@ const uploadingAvatar = ref(false)
 const sendingInvite = ref(false)
 const showRoleSelect = ref(false)
 const editingName = ref(false)
-const isSaving = ref(false)
-const saveError = ref(null)
-const isFirstLoad = ref(true)
 
-const debouncedSave = useDebounceFn(async () => {
-  if (!user.value) return
-  isSaving.value = true
-  saveError.value = null
-  try {
-    await user.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  user,
-  (u) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (u) debouncedSave()
-  },
-  { deep: true },
-)
+const { isSaving, saveError } = useAutoSave(user)
 
 const roleAssignments = useLiveQueryWithDeps(
   [() => props.id],
@@ -61,7 +39,8 @@ const roleAssignments = useLiveQueryWithDeps(
     if (!userId) return []
     return db.RoleOnUser.where('userId', userId).exec()
   },
-  { initial: [] },
+
+  { models: ['RoleOnUser'], initial: [] },
 )
 
 const assignedRoleIds = computed(() => roleAssignments.value.map((ra) => ra.roleId))
@@ -159,9 +138,7 @@ async function handleAvatarDelete() {
       v-if="loading"
       class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:flex-1 tw:py-8"
     >
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
       <div class="tw:text-sm tw:text-secondary tw:mt-3">Loading user...</div>
     </div>
 
@@ -170,9 +147,7 @@ async function handleAvatarDelete() {
       <div class="tw:max-w-5xl tw:mx-auto tw:space-y-6">
         <!-- Saving Indicator -->
         <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary">
-          <div
-            class="tw:size-3 tw:animate-spin tw:rounded-full tw:border tw:border-primary tw:border-t-transparent"
-          />
+          <BaseSpinner size="xs" />
           Saving...
         </div>
 
@@ -186,10 +161,11 @@ async function handleAvatarDelete() {
           <div
             class="tw:flex tw:flex-col tw:md:flex-row tw:items-center tw:md:items-start tw:gap-6"
           >
-            <div
+            <BaseClickableRow
               class="tw:relative tw:group"
-              :class="{ 'tw:cursor-pointer': canUpdateUser }"
-              @click="canUpdateUser ? openAvatarDialog() : null"
+              :disabled="!canUpdateUser"
+              aria-label="Change profile picture"
+              @click="openAvatarDialog"
             >
               <UserAvatar :user="user" :showBadge="true" class="tw:size-24" />
               <div
@@ -198,7 +174,7 @@ async function handleAvatarDelete() {
               >
                 <IconCamera :size="32" class="tw:text-white" />
               </div>
-            </div>
+            </BaseClickableRow>
             <div
               class="tw:flex tw:flex-col tw:items-center tw:md:items-start tw:text-center tw:md:text-left tw:pt-2"
             >

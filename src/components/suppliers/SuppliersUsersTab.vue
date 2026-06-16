@@ -19,6 +19,7 @@ const props = defineProps({
 })
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const users = useLiveQueryWithDeps(
   [() => props.supplierId],
@@ -29,7 +30,8 @@ const users = useLiveQueryWithDeps(
       .filter((u) => u.kind === 'EXTERNAL_SUPPLIER')
       .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 
 const showInvite = ref(false)
@@ -66,7 +68,8 @@ async function submitInvite() {
 }
 
 function statusLabel(u) {
-  if (u.userStatusId === 'ACTIVE') return { text: 'Active', cls: 'tw:bg-green-100 tw:text-green-700' }
+  if (u.userStatusId === 'ACTIVE')
+    return { text: 'Active', cls: 'tw:bg-green-100 tw:text-green-700' }
   if (u.inviteSent) return { text: 'Invited', cls: 'tw:bg-amber-100 tw:text-amber-700' }
   return { text: 'Inactive', cls: 'tw:bg-gray-100 tw:text-gray-600' }
 }
@@ -82,7 +85,14 @@ function canCancelInvite(u) {
 async function cancelInvite(u) {
   if (!canCancelInvite(u)) return
   const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email
-  if (!confirm(`Cancel the invitation for ${name}? They won't be able to use the link anymore.`)) {
+  if (
+    !(await confirm({
+      title: 'Cancel invitation',
+      message: `Cancel the invitation for ${name}? They won't be able to use the link anymore.`,
+      okLabel: 'Cancel invitation',
+      danger: true,
+    }))
+  ) {
     return
   }
   try {

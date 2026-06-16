@@ -2,7 +2,6 @@
 import { IconTrash, IconEdit, IconCode } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { useDebounceFn } from '@vueuse/core'
 
 const props = defineProps({
   id: {
@@ -14,10 +13,14 @@ const props = defineProps({
 const toast = useToast()
 const router = useRouter()
 
-const template = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.FormTemplate.findByPk(id)
-})
+const template = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.FormTemplate.findByPk(id)
+  },
+  { models: ['FormTemplate'] },
+)
 
 const siteAssignments = useLiveQueryWithDeps(
   [() => props.id],
@@ -25,7 +28,8 @@ const siteAssignments = useLiveQueryWithDeps(
     if (!id) return []
     return db.SiteOnTemplate.where('templateId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['SiteOnTemplate'], initial: [] },
 )
 
 const assignedSiteIds = computed(() => siteAssignments.value.map((s) => s.siteId))
@@ -39,32 +43,7 @@ const canDelete = computed(() => isAllowed(['formTemplates:delete']))
 const loading = computed(() => template.value === undefined)
 
 // Auto-save for template fields
-const isSaving = ref(false)
-const isFirstLoad = ref(true)
-
-const debouncedSave = useDebounceFn(async () => {
-  if (!template.value) return
-  isSaving.value = true
-  try {
-    await template.value.save()
-  } catch (err) {
-    toast.error(err.message || 'Failed to save')
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  template,
-  (t) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (t) debouncedSave()
-  },
-  { deep: true },
-)
+useAutoSave(template, { onError: (err) => toast.error(err.message || 'Failed to save') })
 
 // Site assignments (junction table — separate handler)
 const addSiteOnTemplate = useLiveMutation(async (db, { templateId, siteId }) => {
@@ -137,9 +116,7 @@ async function handleDelete() {
     <div class="tw:grow tw:flex tw:flex-col tw:min-w-0 tw:overflow-hidden">
       <!-- Loading State -->
       <div v-if="loading" class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:h-full">
-        <div
-          class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-        />
+        <BaseSpinner size="lg" />
         <div class="tw:text-sm tw:text-on-main tw:mt-4">Loading template...</div>
       </div>
 
@@ -287,7 +264,7 @@ async function handleDelete() {
             <h4 class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary">
               JSON Configuration
             </h4>
-            <div class="tw:rounded-lg tw:bg-[#111827] tw:p-3 tw:overflow-hidden">
+            <div class="tw:rounded-lg tw:bg-code tw:p-3 tw:overflow-hidden">
               <pre
                 class="tw:text-[10px] tw:text-good tw:font-mono tw:leading-relaxed tw:whitespace-pre-wrap"
               ><code>{{ JSON.stringify(template.config, null, 2) }}</code></pre>

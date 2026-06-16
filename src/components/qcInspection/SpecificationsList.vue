@@ -70,7 +70,8 @@ const specs = useLiveQueryWithDeps(
     if (from || to) rows = rows.filter((s) => dateInRange(s.createdAt, from, to))
     return rows.sort((a, b) => (a.name || '').localeCompare(b.name || '') || b.version - a.version)
   },
-  { initial: [] },
+
+  { models: ['Specification'], initial: [] },
 )
 
 function openSpec(id) {
@@ -129,19 +130,27 @@ function exportCsv() {
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="s in specs"
             :key="s.id"
-            class="tw:border-t tw:border-divider tw:cursor-pointer tw:hover:bg-main-hover"
+            tag="tr"
+            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+            :aria-label="`Open specification ${s.name}`"
             @click="openSpec(s.id)"
           >
             <td class="tw:px-4 tw:py-2.5 tw:font-medium tw:text-on-main">
               {{ s.name }}
-              <span v-if="s.code" class="tw:text-xs tw:text-secondary tw:font-mono">· {{ s.code }}</span>
+              <span v-if="s.code" class="tw:text-xs tw:text-secondary tw:font-mono"
+                >· {{ s.code }}</span
+              >
             </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ MATERIAL_LABELS[s.materialKind] || s.materialKind }}</td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
+              {{ MATERIAL_LABELS[s.materialKind] || s.materialKind }}
+            </td>
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">v{{ s.version }}</td>
-            <td class="tw:px-4 tw:py-2.5"><SpecificationStatusBadgeById :statusId="s.statusId" /></td>
+            <td class="tw:px-4 tw:py-2.5">
+              <SpecificationStatusBadgeById :statusId="s.statusId" />
+            </td>
             <td class="tw:px-4 tw:py-2.5 tw:text-right" @click.stop>
               <div class="tw:flex tw:items-center tw:justify-end tw:gap-2">
                 <BaseButton
@@ -162,7 +171,7 @@ function exportCsv() {
                 </BaseButton>
               </div>
             </td>
-          </tr>
+          </BaseClickableRow>
           <tr v-if="!specs.length">
             <td colspan="5" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
               No specifications yet.

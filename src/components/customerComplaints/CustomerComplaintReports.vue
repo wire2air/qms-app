@@ -16,7 +16,10 @@ const RANGES = [
 ]
 const rangeDays = ref(90)
 
-const complaints = useLiveQuery((db) => db.CustomerComplaint.where().exec(), { initial: [] })
+const complaints = useLiveQuery((db) => db.CustomerComplaint.where().exec(), {
+  models: ['CustomerComplaint'],
+  initial: [],
+})
 
 const inRange = computed(() => {
   const since = DateTime.now().minus({ days: rangeDays.value })
@@ -49,9 +52,7 @@ const metrics = computed(() => {
     avgFirstResponse: avgHours(rows, 'createdAt', 'firstResponseAt'),
     avgResolution: avgHours(resolved, 'createdAt', 'resolvedAt'),
     csatCount: rated.length,
-    csatAvg: rated.length
-      ? rated.reduce((a, r) => a + r.csatRating, 0) / rated.length
-      : null,
+    csatAvg: rated.length ? rated.reduce((a, r) => a + r.csatRating, 0) / rated.length : null,
   }
 })
 
@@ -110,14 +111,7 @@ const BREAKDOWN_SECTIONS = [
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconChartBar class="tw:text-primary tw:size-6" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
-          Complaint Reports
-        </h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconChartBar" title="Complaint Reports" />
 
     <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:flex-wrap">
       <div class="tw:flex tw:flex-col tw:gap-1">
@@ -128,10 +122,7 @@ const BREAKDOWN_SECTIONS = [
       </div>
       <div class="tw:flex tw:items-center tw:gap-2">
         <BaseSelectMenu v-model="rangeDays" :items="RANGES" :required="true" />
-        <BaseButton
-          variant="outline"
-          @click="router.push(getCompanyPath('/customer-complaints'))"
-        >
+        <BaseButton variant="outline" @click="router.push(getCompanyPath('/customer-complaints'))">
           <IconArrowLeft :size="16" class="tw:mr-1" />
           Back to tickets
         </BaseButton>
@@ -149,9 +140,7 @@ const BREAKDOWN_SECTIONS = [
         <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ metrics.resolved }}</div>
       </div>
       <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-        <div class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
-          Avg first response
-        </div>
+        <div class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Avg first response</div>
         <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
           {{ formatHours(metrics.avgFirstResponse) }}
         </div>

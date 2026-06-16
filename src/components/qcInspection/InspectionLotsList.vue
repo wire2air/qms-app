@@ -31,11 +31,17 @@ const lots = useLiveQueryWithDeps(
     const rows = await db.InspectionLot.where().exec()
     let filtered = point ? rows.filter((l) => l.inspectionPoint === point) : rows
     if (from || to) filtered = filtered.filter((l) => dateInRange(l.createdAt, from, to))
-    return filtered.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    return filtered.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )
   },
-  { initial: [] },
+
+  { models: ['InspectionLot'], initial: [] },
 )
-const products = useLiveQuery(async (db) => db.Product.where().exec(), { initial: [] })
+const products = useLiveQuery(async (db) => db.Product.where().exec(), {
+  models: ['Product'],
+  initial: [],
+})
 const productName = (id) => products.value.find((p) => p.id === id)?.name || '—'
 const dispositionTypes = useLiveQuery(async (db) => db.NcDispositionType.where().exec(), { initial: [] })
 const dispositionName = (id) => dispositionTypes.value.find((d) => d.id === id)?.name || ''
@@ -112,17 +118,25 @@ function exportCsv() {
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="l in lots"
             :key="l.id"
-            class="tw:border-t tw:border-divider tw:cursor-pointer tw:hover:bg-main-hover"
+            tag="tr"
+            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+            :aria-label="`Open inspection lot ${l.lotNumber}`"
             @click="openLot(l.id)"
           >
             <td class="tw:px-4 tw:py-2.5 tw:font-mono tw:text-on-main">{{ l.lotNumber }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ POINT_LABELS[l.inspectionPoint] || l.inspectionPoint }}</td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
+              {{ POINT_LABELS[l.inspectionPoint] || l.inspectionPoint }}
+            </td>
             <td class="tw:px-4 tw:py-2.5">{{ productName(l.productId) }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ l.sampleSize ?? '—' }}<span v-if="l.quantity"> / {{ l.quantity }}</span></td>
-            <td class="tw:px-4 tw:py-2.5"><InspectionLotStatusBadgeById :statusId="l.statusId" /></td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
+              {{ l.sampleSize ?? '—' }}<span v-if="l.quantity"> / {{ l.quantity }}</span>
+            </td>
+            <td class="tw:px-4 tw:py-2.5">
+              <InspectionLotStatusBadgeById :statusId="l.statusId" />
+            </td>
             <td class="tw:px-4 tw:py-2.5">
               <NcDispositionTypeBadgeById v-if="l.dispositionTypeId" :dispositionTypeId="l.dispositionTypeId" />
               <span v-else class="tw:text-secondary">—</span>
@@ -137,9 +151,11 @@ function exportCsv() {
               </RouterLink>
               <span v-else class="tw:text-secondary">—</span>
             </td>
-          </tr>
+          </BaseClickableRow>
           <tr v-if="!lots.length">
-            <td colspan="7" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">No inspection lots yet.</td>
+            <td colspan="7" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
+              No inspection lots yet.
+            </td>
           </tr>
         </tbody>
       </table>

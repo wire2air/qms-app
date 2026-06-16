@@ -12,7 +12,8 @@ const openNcs = useLiveQuery(
     const rows = await db.Nonconformance.where().exec()
     return rows.filter((n) => n.statusId !== 'CLOSED')
   },
-  { initial: [] },
+
+  { models: ['Nonconformance'], initial: [] },
 )
 
 const openCapas = useLiveQuery(
@@ -20,7 +21,8 @@ const openCapas = useLiveQuery(
     const rows = await db.Capa.where().exec()
     return rows.filter((c) => !['CLOSED', 'CANCELLED'].includes(c.statusId))
   },
-  { initial: [] },
+
+  { models: ['Capa'], initial: [] },
 )
 
 const myTasks = useLiveQueryWithDeps(
@@ -30,7 +32,8 @@ const myTasks = useLiveQueryWithDeps(
     const rows = await db.TaskInstance.where('assignedTo', userId).exec()
     return rows.filter((t) => ['ASSIGNED', 'FORM_SUBMITTED'].includes(t.statusId))
   },
-  { initial: [] },
+
+  { models: ['TaskInstance'], initial: [] },
 )
 
 const lotsAwaiting = useLiveQuery(
@@ -38,7 +41,8 @@ const lotsAwaiting = useLiveQuery(
     const rows = await db.InspectionLot.where().exec()
     return rows.filter((l) => ['COMPLETED', 'UNDER_REVIEW'].includes(l.statusId))
   },
-  { initial: [] },
+
+  { models: ['InspectionLot'], initial: [] },
 )
 
 function overdueCount(rows, dateField = 'dueDate') {

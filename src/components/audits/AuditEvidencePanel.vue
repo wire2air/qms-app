@@ -10,7 +10,14 @@
  * an "Open" button (Asset URL for uploads; deep link for polymorphic
  * record links), and a delete affordance.
  */
-import { IconFile, IconLink, IconPaperclip, IconTrash, IconExternalLink, IconCamera } from '@tabler/icons-vue'
+import {
+  IconFile,
+  IconLink,
+  IconPaperclip,
+  IconTrash,
+  IconExternalLink,
+  IconCamera,
+} from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { patch, del, upload } from '@/api'
@@ -26,6 +33,7 @@ const props = defineProps({
 
 const toast = useToast()
 const router = useRouter()
+const { confirm } = useConfirm()
 
 // ── Uploads (audit_evidence) ───────────────────────────────────────
 
@@ -41,13 +49,17 @@ const uploads = useLiveQueryWithDeps(
       return !r.auditFindingId && !r.auditRequirementResponseId
     })
   },
-  { initial: [] },
+
+  { models: ['AuditEvidence'], initial: [] },
 )
 
 // Asset rows for the uploads list, keyed by id → URL / filename so
 // the render can resolve them in one pass.
 const assetIdList = computed(() =>
-  uploads.value.map((u) => u.assetId).filter(Boolean).join(','),
+  uploads.value
+    .map((u) => u.assetId)
+    .filter(Boolean)
+    .join(','),
 )
 const assetsById = useLiveQueryWithDeps(
   [() => assetIdList.value],
@@ -60,7 +72,8 @@ const assetsById = useLiveQueryWithDeps(
     for (const a of rows) if (wanted.has(a.id)) map[a.id] = a
     return map
   },
-  { initial: {} },
+
+  { models: ['Asset'], initial: {} },
 )
 
 // ── Links (audit_evidence_links) ───────────────────────────────────
@@ -76,7 +89,8 @@ const links = useLiveQueryWithDeps(
       return !r.auditFindingId && !r.auditRequirementResponseId
     })
   },
-  { initial: [] },
+
+  { models: ['AuditEvidenceLink'], initial: [] },
 )
 
 // Audio attachments are voice notes (#2) — surfaced in AuditVoiceNotesPanel,
@@ -122,7 +136,15 @@ function openLink(link) {
 
 async function removeUpload(upload) {
   if (props.readonly) return
-  if (!confirm('Remove this evidence file from the audit?')) return
+  if (
+    !(await confirm({
+      title: 'Remove evidence',
+      message: 'Remove this evidence file from the audit?',
+      okLabel: 'Remove',
+      danger: true,
+    }))
+  )
+    return
   try {
     await del(`/v1/services/auditEvidence/${upload.id}`)
     toast.success('Evidence removed')
@@ -133,7 +155,15 @@ async function removeUpload(upload) {
 
 async function removeLink(link) {
   if (props.readonly) return
-  if (!confirm('Unlink this record from the audit?')) return
+  if (
+    !(await confirm({
+      title: 'Unlink record',
+      message: 'Unlink this record from the audit?',
+      okLabel: 'Unlink',
+      danger: true,
+    }))
+  )
+    return
   try {
     await del(`/v1/services/auditEvidenceLinks/${link.id}`)
     toast.success('Evidence unlinked')
@@ -205,9 +235,7 @@ async function uploadPhotoFile(file) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3">
-    <div
-      class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider"
-    >
+    <div class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider">
       <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
         <IconPaperclip :size="14" class="tw:text-secondary" />
         <span class="tw:font-medium">
@@ -215,7 +243,12 @@ async function uploadPhotoFile(file) {
         </span>
       </div>
       <div v-if="!readonly" class="tw:flex tw:items-center tw:gap-2">
-        <BaseButton variant="outline" size="sm" :loading="uploadingPhoto" @click="showCameraDialog = true">
+        <BaseButton
+          variant="outline"
+          size="sm"
+          :loading="uploadingPhoto"
+          @click="showCameraDialog = true"
+        >
           <template #icon><IconCamera :size="14" /></template>
           Take Photo
         </BaseButton>
@@ -230,10 +263,7 @@ async function uploadPhotoFile(file) {
       </div>
     </div>
 
-    <div
-      v-if="!totalCount"
-      class="tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic"
-    >
+    <div v-if="!totalCount" class="tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic">
       No evidence attached.
     </div>
 
@@ -261,7 +291,11 @@ async function uploadPhotoFile(file) {
         <IconFile v-else :size="16" class="tw:text-blue-600 tw:mt-0.5 tw:shrink-0" />
         <div class="tw:flex-1 tw:min-w-0">
           <p class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">
-            {{ assetsById[u.assetId]?.originalFilename || assetsById[u.assetId]?.filename || 'Uploaded file' }}
+            {{
+              assetsById[u.assetId]?.originalFilename ||
+              assetsById[u.assetId]?.filename ||
+              'Uploaded file'
+            }}
           </p>
           <div v-if="editingCaption === u.id" class="tw:mt-1">
             <BaseTextInput
@@ -302,11 +336,7 @@ async function uploadPhotoFile(file) {
       </div>
 
       <!-- Polymorphic record links -->
-      <div
-        v-for="l in links"
-        :key="`lk-${l.id}`"
-        class="tw:flex tw:items-start tw:gap-3 tw:py-2"
-      >
+      <div v-for="l in links" :key="`lk-${l.id}`" class="tw:flex tw:items-start tw:gap-3 tw:py-2">
         <IconLink :size="16" class="tw:text-emerald-600 tw:mt-0.5 tw:shrink-0" />
         <div class="tw:flex-1 tw:min-w-0">
           <p class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">

@@ -15,7 +15,7 @@ const modelValue = defineModel({
   default: null,
 })
 
-const groups = useLiveQuery(async (db) => db.Team.where().exec(), { initial: [] })
+const groups = useLiveQuery(async (db) => db.Team.where().exec(), { models: ['Team'], initial: [] })
 
 function getArray() {
   return Array.isArray(modelValue.value) ? modelValue.value : []

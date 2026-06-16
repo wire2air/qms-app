@@ -30,6 +30,7 @@ const props = defineProps({
 })
 
 const toast = useToast()
+const { confirm } = useConfirm()
 const canUpdate = computed(() => isAllowed(['suppliers:update']))
 
 const supplierAssets = useLiveQueryWithDeps(
@@ -37,11 +38,10 @@ const supplierAssets = useLiveQueryWithDeps(
   async (db, [supplierId]) => {
     if (!supplierId) return []
     const rows = await db.SupplierAsset.where('supplierId', supplierId).exec()
-    return rows.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['SupplierAsset'], initial: [] },
 )
 
 const documents = useLiveQueryWithDeps(
@@ -119,7 +119,16 @@ async function submitUpload() {
 
 async function removeDoc(d) {
   if (!canUpdate.value) return
-  if (!confirm(`Remove "${displayTitle(d)}" from this supplier?`)) return
+  if (
+    !(await confirm({
+      title: 'Remove document',
+      message: `Remove "${displayTitle(d)}" from this supplier?`,
+      okLabel: 'Remove',
+      danger: true,
+    }))
+  ) {
+    return
+  }
   try {
     await d.row.delete()
     toast.success('Removed')
@@ -198,7 +207,9 @@ function formatSize(bytes) {
           </p>
           <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
             {{ typeLabel[d.row.documentType] || d.row.documentType }}
-            <span v-if="d.asset?.fileSize" class="tw:ml-1">· {{ formatSize(d.asset.fileSize) }}</span>
+            <span v-if="d.asset?.fileSize" class="tw:ml-1"
+              >· {{ formatSize(d.asset.fileSize) }}</span
+            >
             <span v-if="d.row.createdAt" class="tw:ml-1">
               · added {{ d.row.createdAt.toRelative?.() }}
             </span>
@@ -238,10 +249,7 @@ function formatSize(bytes) {
           <label class="tw:block tw:text-xs tw:font-semibold tw:text-secondary tw:mb-1">
             Title <span class="tw:text-bad">*</span>
           </label>
-          <BaseTextInput
-            v-model="uploadForm.title"
-            placeholder="e.g. ISO 9001 Certificate"
-          />
+          <BaseTextInput v-model="uploadForm.title" placeholder="e.g. ISO 9001 Certificate" />
         </div>
         <div>
           <label class="tw:block tw:text-xs tw:font-semibold tw:text-secondary tw:mb-1">
@@ -257,14 +265,15 @@ function formatSize(bytes) {
           <label class="tw:block tw:text-xs tw:font-semibold tw:text-secondary tw:mb-1">
             File <span class="tw:text-bad">*</span>
           </label>
-          <div
+          <BaseClickableRow
             v-if="!uploadForm.file"
-            class="tw:border-2 tw:border-dashed tw:border-divider tw:rounded-lg tw:p-6 tw:text-center tw:cursor-pointer tw:hover:border-primary tw:transition-colors"
+            class="tw:border-2 tw:border-dashed tw:border-divider tw:rounded-lg tw:p-6 tw:text-center tw:hover:border-primary tw:transition-colors"
+            aria-label="Select a file to upload"
             @click="pickFile"
           >
             <IconUpload :size="28" class="tw:text-secondary tw:mx-auto" />
             <p class="tw:text-xs tw:text-secondary tw:mt-1">Click to select a file</p>
-          </div>
+          </BaseClickableRow>
           <div
             v-else
             class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:flex tw:items-center tw:gap-3"

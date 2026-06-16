@@ -13,8 +13,10 @@ const route = useRoute()
 const router = useRouter()
 const canUpdate = computed(() => isAllowed(['suppliers:update']))
 
-const supplier = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.Supplier.findByPk(id),
+const supplier = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.Supplier.findByPk(id),
+  { models: ['Supplier'] },
 )
 
 const loading = computed(() => supplier.value === undefined)
@@ -24,34 +26,7 @@ const breadcrumbs = computed(() => [
   { label: supplier.value?.name || 'Loading...' },
 ])
 
-const isSaving = ref(false)
-const saveError = ref(null)
-const isFirstLoad = ref(true)
-
-const debouncedSave = useDebounceFn(async () => {
-  if (!supplier.value) return
-  isSaving.value = true
-  saveError.value = null
-  try {
-    await supplier.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  supplier,
-  (s) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (s) debouncedSave()
-  },
-  { deep: true },
-)
+const { isSaving, saveError } = useAutoSave(supplier)
 
 const tabs = [
   { value: 'overview', label: 'Overview' },
@@ -82,9 +57,7 @@ const activeTab = computed({
 
     <SafeTeleport to="#main-header-actions">
       <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary">
-        <div
-          class="tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-primary tw:border-t-transparent"
-        />
+        <BaseSpinner size="sm" />
         Saving...
       </div>
       <p v-else-if="saveError" class="tw:text-sm tw:text-red-500">{{ saveError }}</p>
@@ -92,9 +65,7 @@ const activeTab = computed({
 
     <!-- Loading State -->
     <div v-if="loading" class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:py-16">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:size-12 tw:border-4 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
       <div class="tw:text-sm tw:text-secondary tw:mt-3">Loading supplier...</div>
     </div>
 

@@ -42,7 +42,10 @@ const AQL_OPTIONS = [0.4, 0.65, 1.0, 1.5, 2.5, 4.0, 6.5, 10, 15, 25].map((v) => 
   name: `${v}%`,
 }))
 
-const standards = useLiveQuery(async (db) => db.SamplingStandard.where().exec(), { initial: [] })
+const standards = useLiveQuery(async (db) => db.SamplingStandard.where().exec(), {
+  models: ['SamplingStandard'],
+  initial: [],
+})
 const standardItems = computed(() =>
   standards.value.map((s) => ({ id: s.id, name: s.companyId ? `${s.name} (custom)` : s.name })),
 )
@@ -98,8 +101,15 @@ function reset() {
   preview.value = null
 }
 reset()
-watch(show, (v) => { if (v) reset() })
-watch(() => props.editPlan, (plan) => { if (show.value && plan) reset() })
+watch(show, (v) => {
+  if (v) reset()
+})
+watch(
+  () => props.editPlan,
+  (plan) => {
+    if (show.value && plan) reset()
+  },
+)
 
 function addAql() {
   form.value.severityAqls.push({ severity: 'MAJOR', aql: 1.0 })
@@ -173,7 +183,10 @@ async function onSave() {
           }),
     }
     if (isEdit.value) {
-      const { plan } = await patch(`/v1/services/qcInspection/samplingPlans/${props.editPlan.id}`, body)
+      const { plan } = await patch(
+        `/v1/services/qcInspection/samplingPlans/${props.editPlan.id}`,
+        body,
+      )
       toast.success('Sampling plan updated')
       show.value = false
       emit('updated', plan.id)
@@ -184,7 +197,10 @@ async function onSave() {
       emit('created', plan.id)
     }
   } catch (err) {
-    toast.error(err?.message || (isEdit.value ? 'Failed to update sampling plan' : 'Failed to create sampling plan'))
+    toast.error(
+      err?.message ||
+        (isEdit.value ? 'Failed to update sampling plan' : 'Failed to create sampling plan'),
+    )
   } finally {
     saving.value = false
   }
@@ -192,25 +208,39 @@ async function onSave() {
 </script>
 
 <template>
-  <BaseDialog v-model="show" :title="isEdit ? 'Edit Sampling Plan' : 'New Sampling Plan'" :persistent="true" size="3xl">
+  <BaseDialog
+    v-model="show"
+    :title="isEdit ? 'Edit Sampling Plan' : 'New Sampling Plan'"
+    :persistent="true"
+    size="3xl"
+  >
     <div class="tw:p-5 tw:flex tw:flex-col tw:gap-5">
-
       <!-- ── Basic info ───────────────────────────────────────────────── -->
       <div class="tw:flex tw:flex-col tw:gap-3">
         <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Plan name <span class="tw:text-bad">*</span></label>
+          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1"
+            >Plan name <span class="tw:text-bad">*</span></label
+          >
           <BaseTextInput v-model="form.name" placeholder="e.g. Finished Goods AQL 2.5" />
         </div>
         <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
           <div>
             <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection point</label>
-            <BaseInlineSelect v-model="form.inspectionPoint" :items="POINTS" :required="true" class="tw:w-full" />
+            <BaseInlineSelect
+              v-model="form.inspectionPoint"
+              :items="POINTS"
+              :required="true"
+              class="tw:w-full"
+            />
           </div>
           <div>
             <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Scope</label>
             <BaseInlineSelect
               v-model="form.scope"
-              :items="[{ id: 'product', name: 'Specific product' }, { id: 'productType', name: 'Product type' }]"
+              :items="[
+                { id: 'product', name: 'Specific product' },
+                { id: 'productType', name: 'Product type' },
+              ]"
               :required="true"
               class="tw:w-full"
             />
@@ -230,9 +260,14 @@ async function onSave() {
         </div>
         <div>
           <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
-            {{ form.scope === 'product' ? 'Product' : 'Product type' }} <span class="tw:text-bad">*</span>
+            {{ form.scope === 'product' ? 'Product' : 'Product type' }}
+            <span class="tw:text-bad">*</span>
           </label>
-          <ProductSelectMenu v-if="form.scope === 'product'" v-model="form.productId" class="tw:w-full" />
+          <ProductSelectMenu
+            v-if="form.scope === 'product'"
+            v-model="form.productId"
+            class="tw:w-full"
+          />
           <ProductTypeSelectMenu v-else v-model="form.productTypeId" class="tw:w-full" />
         </div>
       </div>
@@ -290,12 +325,25 @@ async function onSave() {
         <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">Sampling configuration</p>
         <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">AQL standard <span class="tw:text-bad">*</span></label>
-            <BaseInlineSelect v-model="form.standardCode" :items="standardItems" :required="true" placeholder="Select standard…" class="tw:w-full" />
+            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1"
+              >AQL standard <span class="tw:text-bad">*</span></label
+            >
+            <BaseInlineSelect
+              v-model="form.standardCode"
+              :items="standardItems"
+              :required="true"
+              placeholder="Select standard…"
+              class="tw:w-full"
+            />
           </div>
           <div>
             <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection level</label>
-            <BaseInlineSelect v-model="form.inspectionLevel" :items="LEVELS" :required="true" class="tw:w-full" />
+            <BaseInlineSelect
+              v-model="form.inspectionLevel"
+              :items="LEVELS"
+              :required="true"
+              class="tw:w-full"
+            />
           </div>
           <div>
             <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Switching state</label>
@@ -348,22 +396,40 @@ async function onSave() {
         <div class="tw:flex tw:items-end tw:gap-3">
           <div class="tw:w-40">
             <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Lot size</label>
-            <BaseTextInput v-model.number="form.previewLotSize" type="number" size="sm" placeholder="e.g. 1000" />
+            <BaseTextInput
+              v-model.number="form.previewLotSize"
+              type="number"
+              size="sm"
+              placeholder="e.g. 1000"
+            />
           </div>
-          <BaseButton variant="outline" size="sm" :loading="previewing" :disabled="!form.standardCode || !form.inspectionLevel" @click="runPreview">
+          <BaseButton
+            variant="outline"
+            size="sm"
+            :loading="previewing"
+            :disabled="!form.standardCode || !form.inspectionLevel"
+            @click="runPreview"
+          >
             Preview
           </BaseButton>
         </div>
-        <div v-if="preview" class="tw:mt-3 tw:p-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:flex tw:flex-col tw:gap-1">
+        <div
+          v-if="preview"
+          class="tw:mt-3 tw:p-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:flex tw:flex-col tw:gap-1"
+        >
           <div class="tw:text-sm tw:font-semibold tw:text-on-main">
-            Code letter <span class="tw:font-mono">{{ preview.codeLetter }}</span> · Sample size <span class="tw:font-mono">{{ preview.sampleSize }}</span>
+            Code letter <span class="tw:font-mono">{{ preview.codeLetter }}</span> · Sample size
+            <span class="tw:font-mono">{{ preview.sampleSize }}</span>
           </div>
-          <div v-for="s in preview.perSeverity" :key="s.severity + s.aql" class="tw:text-xs tw:text-secondary">
+          <div
+            v-for="s in preview.perSeverity"
+            :key="s.severity + s.aql"
+            class="tw:text-xs tw:text-secondary"
+          >
             {{ s.severity }} — AQL {{ s.aql }}% → accept ≤ {{ s.accept }}, reject ≥ {{ s.reject }}
           </div>
         </div>
       </div>
-
     </div>
 
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">

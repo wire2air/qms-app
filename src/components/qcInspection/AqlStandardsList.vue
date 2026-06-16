@@ -18,9 +18,12 @@ const letterFilter = ref(null)
 const standards = useLiveQuery(
   async (db) => {
     const rows = await db.SamplingStandard.where().exec()
-    return rows.sort((a, b) => Number(!!a.companyId) - Number(!!b.companyId) || a.name.localeCompare(b.name))
+    return rows.sort(
+      (a, b) => Number(!!a.companyId) - Number(!!b.companyId) || a.name.localeCompare(b.name),
+    )
   },
-  { initial: [] },
+
+  { models: ['SamplingStandard'], initial: [] },
 )
 const selected = computed(() => standards.value.find((s) => s.id === selectedId.value) || null)
 // Global standards are view-only; only tenant custom clones are editable.
@@ -32,10 +35,14 @@ const cells = useLiveQueryWithDeps(
     if (!id) return []
     const rows = await db.SamplingPlanTable.where('standardId', id).exec()
     return rows.sort(
-      (a, b) => a.codeLetter.localeCompare(b.codeLetter) || a.aql - b.aql || a.severity.localeCompare(b.severity),
+      (a, b) =>
+        a.codeLetter.localeCompare(b.codeLetter) ||
+        a.aql - b.aql ||
+        a.severity.localeCompare(b.severity),
     )
   },
-  { initial: [] },
+
+  { models: ['SamplingPlanTable'], initial: [] },
 )
 const codeLetters = computed(() => [...new Set(cells.value.map((c) => c.codeLetter))].sort())
 const visibleCells = computed(() =>
@@ -77,7 +84,11 @@ async function saveCell(cell) {
             <td class="tw:px-4 tw:py-2.5">
               <span
                 class="tw:text-[10px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
-                :class="s.companyId ? 'tw:bg-blue-100 tw:text-blue-700' : 'tw:bg-gray-100 tw:text-gray-600'"
+                :class="
+                  s.companyId
+                    ? 'tw:bg-blue-100 tw:text-blue-700'
+                    : 'tw:bg-gray-100 tw:text-gray-600'
+                "
               >
                 {{ s.companyId ? 'Custom' : 'Global' }}
               </span>
@@ -87,25 +98,39 @@ async function saveCell(cell) {
                 <BaseButton variant="text-link" size="sm" @click="select(s)">
                   {{ s.companyId ? 'Edit cells' : 'View' }}
                 </BaseButton>
-                <BaseButton v-if="canManage && !s.companyId" variant="text-link" size="sm" @click="openClone(s)">
+                <BaseButton
+                  v-if="canManage && !s.companyId"
+                  variant="text-link"
+                  size="sm"
+                  @click="openClone(s)"
+                >
                   <IconCopy :size="14" /> Clone
                 </BaseButton>
               </div>
             </td>
           </tr>
           <tr v-if="!standards.length">
-            <td colspan="3" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">No standards.</td>
+            <td colspan="3" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
+              No standards.
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <!-- Cell editor for the selected custom standard -->
-    <div v-if="selected" class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-      <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-3">
+    <div
+      v-if="selected"
+      class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden"
+    >
+      <div
+        class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-3"
+      >
         <h3 class="tw:font-bold tw:text-on-main">
           {{ selected.name }} — plan cells
-          <span v-if="!selectedEditable" class="tw:text-xs tw:font-normal tw:text-secondary">(read-only — clone to edit)</span>
+          <span v-if="!selectedEditable" class="tw:text-xs tw:font-normal tw:text-secondary"
+            >(read-only — clone to edit)</span
+          >
         </h3>
         <BaseInlineSelect
           v-model="letterFilter"
@@ -132,13 +157,34 @@ async function saveCell(cell) {
               <td class="tw:px-5 tw:py-1.5">{{ c.aql }}</td>
               <td class="tw:px-5 tw:py-1.5 tw:text-secondary tw:text-xs">{{ c.severity }}</td>
               <td class="tw:px-5 tw:py-1.5">
-                <BaseTextInput v-model.number="c.sampleSize" type="number" size="sm" class="tw:w-20" :disabled="!selectedEditable" @blur="saveCell(c)" />
+                <BaseTextInput
+                  v-model.number="c.sampleSize"
+                  type="number"
+                  size="sm"
+                  class="tw:w-20"
+                  :disabled="!selectedEditable"
+                  @blur="saveCell(c)"
+                />
               </td>
               <td class="tw:px-5 tw:py-1.5">
-                <BaseTextInput v-model.number="c.accept" type="number" size="sm" class="tw:w-16" :disabled="!selectedEditable" @blur="saveCell(c)" />
+                <BaseTextInput
+                  v-model.number="c.accept"
+                  type="number"
+                  size="sm"
+                  class="tw:w-16"
+                  :disabled="!selectedEditable"
+                  @blur="saveCell(c)"
+                />
               </td>
               <td class="tw:px-5 tw:py-1.5">
-                <BaseTextInput v-model.number="c.reject" type="number" size="sm" class="tw:w-16" :disabled="!selectedEditable" @blur="saveCell(c)" />
+                <BaseTextInput
+                  v-model.number="c.reject"
+                  type="number"
+                  size="sm"
+                  class="tw:w-16"
+                  :disabled="!selectedEditable"
+                  @blur="saveCell(c)"
+                />
               </td>
             </tr>
           </tbody>

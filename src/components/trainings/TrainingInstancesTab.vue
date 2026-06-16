@@ -9,7 +9,8 @@ const instances = useLiveQueryWithDeps(
     const all = await db.TrainingInstance.where('trainingId', trainingId).exec()
     return all.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['TrainingInstance'], initial: [] },
 )
 </script>
 

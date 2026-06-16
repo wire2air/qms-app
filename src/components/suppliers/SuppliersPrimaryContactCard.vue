@@ -14,15 +14,22 @@ const contacts = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db, [supplierId]) =>
     db.SupplierContact.where('supplierId', supplierId).orderBy('createdAt').exec(),
-  { initial: [] },
+
+  { models: ['SupplierContact'], initial: [] },
 )
 const primary = computed(() => contacts.value.find((c) => c.isPrimary) || contacts.value[0] || null)
 </script>
 
 <template>
-  <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:overflow-hidden">
-    <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-3">
-      <div class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-gray-100 tw:flex tw:items-center tw:justify-center">
+  <div
+    class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:overflow-hidden"
+  >
+    <div
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-3"
+    >
+      <div
+        class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-gray-100 tw:flex tw:items-center tw:justify-center"
+      >
         <IconUser :size="20" class="tw:text-secondary" />
       </div>
       <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Primary Contact</h3>
@@ -31,7 +38,9 @@ const primary = computed(() => contacts.value.find((c) => c.isPrimary) || contac
       <div v-if="primary" class="tw:flex tw:flex-col tw:gap-2">
         <div class="tw:text-base tw:font-semibold tw:text-on-main">
           {{ primary.name || '—' }}
-          <span v-if="primary.jobTitle" class="tw:text-sm tw:font-normal tw:text-secondary"> · {{ primary.jobTitle }}</span>
+          <span v-if="primary.jobTitle" class="tw:text-sm tw:font-normal tw:text-secondary">
+            · {{ primary.jobTitle }}</span
+          >
         </div>
         <a
           v-if="primary.email"
@@ -40,7 +49,10 @@ const primary = computed(() => contacts.value.find((c) => c.isPrimary) || contac
         >
           <IconMail :size="14" /> {{ primary.email }}
         </a>
-        <span v-if="primary.phoneNumber" class="tw:inline-flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
+        <span
+          v-if="primary.phoneNumber"
+          class="tw:inline-flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main"
+        >
           <IconPhone :size="14" class="tw:text-secondary" /> {{ primary.phoneNumber }}
         </span>
         <p class="tw:text-xs tw:text-secondary tw:mt-1">

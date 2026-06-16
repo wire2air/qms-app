@@ -11,7 +11,10 @@ const modelValue = defineModel({
   default: null,
 })
 
-const optionSets = useLiveQuery(async (db) => db.OptionSet.where().exec(), { initial: [] })
+const optionSets = useLiveQuery(async (db) => db.OptionSet.where().exec(), {
+  models: ['OptionSet'],
+  initial: [],
+})
 </script>
 
 <template>

@@ -41,14 +41,11 @@ const standards = useLiveQueryWithDeps(
     }
     const lower = q.toLowerCase()
     return results
-      .filter(
-        (s) =>
-          s.name.toLowerCase().includes(lower) ||
-          s.code.toLowerCase().includes(lower),
-      )
+      .filter((s) => s.name.toLowerCase().includes(lower) || s.code.toLowerCase().includes(lower))
       .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['AuditStandard'], initial: [] },
 )
 
 const effectiveVersionByStandardId = useLiveQueryWithDeps(
@@ -65,7 +62,8 @@ const effectiveVersionByStandardId = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['AuditStandardVersion'], initial: {} },
 )
 
 function versionLabel(versions) {
@@ -108,12 +106,7 @@ function versionBadgeClass(versions) {
           <template #icon><IconSparkles :size="16" /></template>
           AI Generate
         </BaseButton>
-        <BaseButton
-          v-if="canCreate"
-          variant="outline"
-          size="sm"
-          @click="showImportDialog = true"
-        >
+        <BaseButton v-if="canCreate" variant="outline" size="sm" @click="showImportDialog = true">
           <template #icon><IconUpload :size="16" /></template>
           Import (CSV)
         </BaseButton>
@@ -131,8 +124,8 @@ function versionBadgeClass(versions) {
       <IconBook :size="40" class="tw:opacity-50" />
       <div class="tw:text-base tw:font-semibold">No audit standards yet</div>
       <div class="tw:text-sm tw:text-center tw:max-w-md">
-        New tenants are seeded with an empty "Internal Quality Audit" shell. Standard +
-        clause authoring UI lands in Phase B-2.
+        New tenants are seeded with an empty "Internal Quality Audit" shell. Standard + clause
+        authoring UI lands in Phase B-2.
       </div>
     </div>
 
@@ -152,20 +145,27 @@ function versionBadgeClass(versions) {
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="row in standards"
             :key="row.id"
-            class="tw:border-b tw:border-divider tw:hover:bg-main-hover/40 tw:cursor-pointer"
+            tag="tr"
+            class="tw:border-b tw:border-divider tw:hover:bg-main-hover/40"
+            :aria-label="`Open standard ${row.name}`"
             @click="openDetail(row)"
           >
             <td class="tw:px-4 tw:py-3 tw:font-medium tw:text-on-sidebar">
               {{ row.name }}
-              <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:font-normal tw:mt-0.5 tw:truncate tw:max-w-md">
+              <div
+                v-if="row.description"
+                class="tw:text-xs tw:text-secondary tw:font-normal tw:mt-0.5 tw:truncate tw:max-w-md"
+              >
                 {{ row.description }}
               </div>
             </td>
             <td class="tw:px-4 tw:py-3">
-              <code class="tw:text-xs tw:bg-main-hover tw:text-secondary tw:rounded tw:px-2 tw:py-0.5">
+              <code
+                class="tw:text-xs tw:bg-main-hover tw:text-secondary tw:rounded tw:px-2 tw:py-0.5"
+              >
                 {{ row.code }}
               </code>
             </td>
@@ -201,7 +201,7 @@ function versionBadgeClass(versions) {
                 <IconCopy :size="16" />
               </button>
             </td>
-          </tr>
+          </BaseClickableRow>
         </tbody>
       </table>
     </div>

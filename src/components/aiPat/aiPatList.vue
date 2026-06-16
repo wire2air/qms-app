@@ -5,7 +5,8 @@ const emit = defineEmits(['create'])
 
 const tokens = useLiveQuery(
   async (db) => db.AiPat.where().orderBy('createdAt', 'desc').exec(),
-  { initial: [] },
+
+  { models: ['AiPat'], initial: [] },
 )
 </script>
 
@@ -13,9 +14,7 @@ const tokens = useLiveQuery(
   <div class="tw:flex tw:flex-col tw:gap-2">
     <!-- Loading State -->
     <div v-if="tokens === undefined" class="tw:flex tw:justify-center tw:py-12">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:size-12 tw:border-4 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
     </div>
 
     <!-- Empty State -->

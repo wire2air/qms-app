@@ -3,6 +3,7 @@
  * Document versions under review — resolved to the parent document title.
  */
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { IconCircleCheck } from '@tabler/icons-vue'
 
 const pending = useLiveQuery(
   async (db) => {
@@ -16,15 +17,23 @@ const pending = useLiveQuery(
       (a, b) => (b.version.updatedAt?.toMillis?.() ?? 0) - (a.version.updatedAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['DocumentVersion', 'Document'], initial: [] },
 )
 </script>
 
 <template>
-  <DashboardWidgetCard title="Documents Pending Approval" :count="pending.length" linkTo="/documents">
-    <div v-if="!pending.length" class="tw:px-4 tw:py-6 tw:text-center tw:text-sm tw:text-secondary">
-      Nothing awaiting approval.
-    </div>
+  <DashboardWidgetCard
+    title="Documents Pending Approval"
+    :count="pending.length"
+    linkTo="/documents"
+  >
+    <BaseEmptyState
+      v-if="!pending.length"
+      dense
+      :icon="IconCircleCheck"
+      title="Nothing awaiting approval"
+    />
     <RouterLink
       v-for="p in pending.slice(0, 5)"
       :key="p.version.id"
@@ -36,7 +45,9 @@ const pending = useLiveQuery(
           {{ p.doc?.title || 'Document' }}
         </div>
         <div class="tw:text-xs tw:text-secondary tw:font-mono">
-          {{ p.doc?.docNumber }} · v{{ p.version.versionLabel || `${p.version.versionMajor}.${p.version.versionMinor}` }}
+          {{ p.doc?.docNumber }} · v{{
+            p.version.versionLabel || `${p.version.versionMajor}.${p.version.versionMinor}`
+          }}
         </div>
       </div>
     </RouterLink>

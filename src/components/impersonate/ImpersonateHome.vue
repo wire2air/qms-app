@@ -40,9 +40,7 @@ function loadMore() {
     </SafeTeleport>
 
     <div v-if="loading && companies.length === 0" class="tw:flex tw:justify-center tw:p-8">
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      ></div>
+      <BaseSpinner size="lg" />
     </div>
 
     <BaseEmptyState
@@ -61,10 +59,7 @@ function loadMore() {
           :disabled="loading"
           @click="loadMore"
         >
-          <span
-            v-if="loading"
-            class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent tw:mr-2"
-          ></span>
+          <BaseSpinner v-if="loading" size="sm" class="tw:mr-2" />
           Load More
         </button>
       </div>

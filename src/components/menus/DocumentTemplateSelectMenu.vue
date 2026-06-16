@@ -19,7 +19,8 @@ const modelValue = defineModel({
 // are not yet usable; ARCHIVED templates are read-only and not re-attachable.
 const templates = useLiveQuery(
   async (db) => db.DocumentTemplate.where('statusId', 'PUBLISHED').exec(),
-  { initial: [] },
+
+  { models: ['DocumentTemplate'], initial: [] },
 )
 
 function getArray() {

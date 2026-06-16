@@ -25,10 +25,14 @@ function sanitizedSectionContent(section) {
   return sanitizeHtml(section?.content ?? '', { allowImages: true })
 }
 
-const document = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.Document.findByPk(id)
-})
+const document = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.Document.findByPk(id)
+  },
+  { models: ['Document'] },
+)
 
 const versions = useLiveQueryWithDeps(
   [() => props.id],
@@ -36,7 +40,8 @@ const versions = useLiveQueryWithDeps(
     if (!id) return []
     return db.DocumentVersion.where('documentId', id).orderBy('createdAt', 'desc').exec()
   },
-  { initial: [] },
+
+  { models: ['DocumentVersion'], initial: [] },
 )
 
 // Revision history appendix — last 5 versions (newest first) shown at the
@@ -74,7 +79,8 @@ const revisionApprovals = useLiveQueryWithDeps(
     }
     return rows.filter((l) => APPROVAL_ACTIONS.includes(l.action))
   },
-  { initial: [] },
+
+  { models: ['AuditLog'], initial: [] },
 )
 
 // Resolve approver user → display name for the appendix.
@@ -92,7 +98,8 @@ const approverNames = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 
 const approvalByVersion = computed(() => {
@@ -146,7 +153,8 @@ const sections = useLiveQueryWithDeps(
     const rows = await db.DocumentSection.where('documentVersionId', vid).exec()
     return rows.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   },
-  { initial: [] },
+
+  { models: ['DocumentSection'], initial: [] },
 )
 
 const versionLabel = computed(() => {

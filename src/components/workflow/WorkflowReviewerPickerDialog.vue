@@ -38,7 +38,8 @@ const steps = useLiveQueryWithDeps(
     if (!versionId) return []
     return db.WorkflowStep.where('workflowVersionId', versionId).orderBy('stepOrder', 'asc').exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStep'], initial: [] },
 )
 
 // Flatten as root1, root1.child1, root1.child2, root2, … so children

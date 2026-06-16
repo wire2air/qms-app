@@ -11,10 +11,12 @@ const toast = useToast()
 
 const company = useLiveQueryWithDeps(
   [() => currentSession.value?.companyId],
+
   async (db, [companyId]) => {
     if (!companyId) return null
     return db.Company.findByPk(companyId)
   },
+  { models: ['Company'] },
 )
 
 const DEFAULTS = {
@@ -86,9 +88,7 @@ const FIELDS = [
 
 <template>
   <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:max-w-2xl">
-    <div
-      class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-    >
+    <div class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
       <IconClockHour4 :size="18" class="tw:text-primary" />
       <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
         SLA &amp; Lifecycle

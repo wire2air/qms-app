@@ -27,7 +27,8 @@ const optionSets = useLiveQueryWithDeps(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['OptionSet'], initial: [] },
 )
 
 function openDialog(id = null) {
@@ -38,12 +39,7 @@ function openDialog(id = null) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconChecklist class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Option Sets</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconChecklist" title="Option Sets" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canCreateOptionSet" @click="openDialog()"> Create Option Set </BaseButton>

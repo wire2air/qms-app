@@ -4,8 +4,9 @@ import { DateTime } from 'luxon'
 
 const filter = ref('all') // 'all' | 'unread'
 
-const allNotifications = useLiveQuery(async (db) =>
-  db.Notification.where().orderBy('createdAt', 'desc').exec(),
+const allNotifications = useLiveQuery(
+  async (db) => db.Notification.where().orderBy('createdAt', 'desc').exec(),
+  { models: ['Notification'] },
 )
 
 const loading = computed(() => allNotifications.value === undefined)
@@ -74,9 +75,7 @@ async function handleMarkAllRead() {
 
     <!-- Loading -->
     <div v-if="loading" class="tw:flex tw:justify-center tw:py-16">
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      ></div>
+      <BaseSpinner size="lg" />
     </div>
 
     <!-- Empty state -->

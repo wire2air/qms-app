@@ -32,11 +32,10 @@ const steps = useLiveQueryWithDeps(
   [() => props.workflowVersionId],
   async (db, [versionId]) => {
     if (!versionId) return []
-    return db.WorkflowStep.where('workflowVersionId', versionId)
-      .orderBy('stepOrder', 'asc')
-      .exec()
+    return db.WorkflowStep.where('workflowVersionId', versionId).orderBy('stepOrder', 'asc').exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStep'], initial: [] },
 )
 
 const firstStepHasUser = computed(() => {

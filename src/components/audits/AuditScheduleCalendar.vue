@@ -15,8 +15,14 @@ const year = ref(new Date().getFullYear())
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-const instances = useLiveQuery(async (db) => db.AuditInstance.where().exec(), { initial: [] })
-const departments = useLiveQuery(async (db) => db.Department.where().exec(), { initial: [] })
+const instances = useLiveQuery(async (db) => db.AuditInstance.where().exec(), {
+  models: ['AuditInstance'],
+  initial: [],
+})
+const departments = useLiveQuery(async (db) => db.Department.where().exec(), {
+  models: ['Department'],
+  initial: [],
+})
 
 // Lead-auditor names.
 const userIds = computed(() => [
@@ -34,7 +40,8 @@ const userMap = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 function auditorName(id) {
   return id ? (userMap.value[id] ?? '—') : '—'
@@ -90,7 +97,8 @@ const labelByKey = computed(() => {
     if (yearOf(a.scheduledDate) !== year.value) continue
     const key = rowKey(a)
     if (m[key]) continue
-    if (key.startsWith('supplier:')) m[key] = `Supplier: ${a.displayMeta?.supplierName || 'Supplier'}`
+    if (key.startsWith('supplier:'))
+      m[key] = `Supplier: ${a.displayMeta?.supplierName || 'Supplier'}`
     else if (key === UNASSIGNED) m[key] = 'Unassigned'
     else m[key] = deptName.value[key] || 'Department'
   }
@@ -107,8 +115,8 @@ const rows = computed(() => {
   return out
 })
 
-const totalScheduled = computed(() =>
-  instances.value.filter((a) => yearOf(a.scheduledDate) === year.value).length,
+const totalScheduled = computed(
+  () => instances.value.filter((a) => yearOf(a.scheduledDate) === year.value).length,
 )
 
 function cellAudits(deptKey, monthIdx) {
@@ -155,7 +163,9 @@ const LEGEND = [
       <div class="tw:flex tw:items-center tw:gap-2">
         <IconCalendarTime :size="18" class="tw:text-primary" />
         <span class="tw:text-sm tw:font-semibold tw:text-on-sidebar">Annual Audit Schedule</span>
-        <span class="tw:text-xs tw:text-secondary">{{ totalScheduled }} scheduled in {{ year }}</span>
+        <span class="tw:text-xs tw:text-secondary"
+          >{{ totalScheduled }} scheduled in {{ year }}</span
+        >
       </div>
       <div class="tw:flex tw:items-center tw:gap-1">
         <button
@@ -188,7 +198,9 @@ const LEGEND = [
       <table class="tw:w-full tw:border-collapse tw:text-xs">
         <thead>
           <tr class="tw:bg-main-hover/40">
-            <th class="tw:sticky tw:left-0 tw:bg-main-hover/40 tw:text-left tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary tw:border-b tw:border-divider tw:min-w-44">
+            <th
+              class="tw:sticky tw:left-0 tw:bg-main-hover/40 tw:text-left tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary tw:border-b tw:border-divider tw:min-w-44"
+            >
               Area / Department
             </th>
             <th
@@ -207,7 +219,9 @@ const LEGEND = [
             </td>
           </tr>
           <tr v-for="row in rows" :key="row.key" class="tw:border-b tw:border-divider">
-            <td class="tw:sticky tw:left-0 tw:bg-white tw:px-3 tw:py-2 tw:font-medium tw:text-on-main tw:border-r tw:border-divider">
+            <td
+              class="tw:sticky tw:left-0 tw:bg-white tw:px-3 tw:py-2 tw:font-medium tw:text-on-main tw:border-r tw:border-divider"
+            >
               {{ row.label }}
             </td>
             <td
@@ -225,10 +239,15 @@ const LEGEND = [
                   :title="`${a.auditNumber || 'Audit'}${a.displayMeta?.standardName ? ' · ' + a.displayMeta.standardName : ''} — ${auditorName(a.leadAuditorUserId)} (${a.statusId})`"
                   @click="openAudit(a)"
                 >
-                  <div class="tw:font-mono tw:font-semibold tw:text-on-main tw:text-[10px] tw:truncate">
+                  <div
+                    class="tw:font-mono tw:font-semibold tw:text-on-main tw:text-[10px] tw:truncate"
+                  >
                     {{ a.auditNumber || 'Audit' }}
                   </div>
-                  <div v-if="a.displayMeta?.standardName" class="tw:text-[10px] tw:font-medium tw:text-on-main tw:truncate">
+                  <div
+                    v-if="a.displayMeta?.standardName"
+                    class="tw:text-[10px] tw:font-medium tw:text-on-main tw:truncate"
+                  >
                     {{ a.displayMeta.standardName }}
                   </div>
                   <div class="tw:text-[10px] tw:text-secondary tw:truncate">

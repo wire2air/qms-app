@@ -15,16 +15,12 @@
  * dialog includes a colour picker.
  */
 
-import {
-  IconPlus,
-  IconPencil,
-  IconTrash,
-  IconRestore,
-} from '@tabler/icons-vue'
+import { IconPlus, IconPencil, IconTrash, IconRestore } from '@tabler/icons-vue'
 import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api'
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const canManage = computed(
   () => !!currentSession.value?.isOwner || isAllowed(['rootCauseCategories:manage']),
@@ -32,7 +28,8 @@ const canManage = computed(
 
 const categories = useLiveQuery(
   async (db) => db.RootCauseCategory.where().orderBy('displayOrder', 'asc').exec(),
-  { initial: [] },
+
+  { models: ['RootCauseCategory'], initial: [] },
 )
 
 const deactivated = useLiveQuery(
@@ -40,7 +37,8 @@ const deactivated = useLiveQuery(
     const all = await db.RootCauseCategory.where('id', undefined, { force: true }).exec()
     return all.filter((c) => c.deletedAt)
   },
-  { initial: [] },
+
+  { models: ['RootCauseCategory'], initial: [] },
 )
 
 // ─── Dialog state ────────────────────────────────────────────────────────────
@@ -144,9 +142,12 @@ async function handleSave() {
 
 async function handleDeactivate(row) {
   if (
-    !window.confirm(
-      `Deactivate "${row.name}"? Historical root_causes rows referencing this category will keep their denormalized label + colour; new RCAs won't see it in the picker.`,
-    )
+    !(await confirm({
+      title: 'Deactivate category',
+      message: `Deactivate "${row.name}"? Historical root_causes rows referencing this category will keep their denormalized label + colour; new RCAs won't see it in the picker.`,
+      okLabel: 'Deactivate',
+      danger: true,
+    }))
   ) {
     return
   }
@@ -180,11 +181,10 @@ const showDeactivated = ref(false)
       <div>
         <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Root Cause Categories</h2>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          Categories the supplier / analyst picks when finalising a Root Cause Analysis.
-          Seeded with the Fishbone 6Ms (People / Machine / Method / Material /
-          Measurement / Environment) + System / Process. Edit or add tenant-specific
-          categories below — colour drives the badge styling on root_causes rows
-          and reports.
+          Categories the supplier / analyst picks when finalising a Root Cause Analysis. Seeded with
+          the Fishbone 6Ms (People / Machine / Method / Material / Measurement / Environment) +
+          System / Process. Edit or add tenant-specific categories below — colour drives the badge
+          styling on root_causes rows and reports.
         </p>
       </div>
       <BaseButton v-if="canManage" variant="primary" size="sm" @click="openAdd">
@@ -214,11 +214,7 @@ const showDeactivated = ref(false)
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="row in categories"
-            :key="row.id"
-            class="tw:border-b tw:border-divider"
-          >
+          <tr v-for="row in categories" :key="row.id" class="tw:border-b tw:border-divider">
             <td class="tw:px-3 tw:py-3">
               <div class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</div>
               <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">
@@ -337,15 +333,13 @@ const showDeactivated = ref(false)
             @input="codeDirty = true"
           />
           <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            SCREAMING_SNAKE_CASE. Stable identifier denormalized onto every root_causes
-            row using this category — cannot be changed later. We generate it from the
-            name; click <strong>Edit</strong> to override.
+            SCREAMING_SNAKE_CASE. Stable identifier denormalized onto every root_causes row using
+            this category — cannot be changed later. We generate it from the name; click
+            <strong>Edit</strong> to override.
           </p>
         </div>
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Description
-          </p>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
           <BaseTextarea
             v-model="form.description"
             :rows="2"
@@ -354,9 +348,7 @@ const showDeactivated = ref(false)
         </div>
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
           <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-              Colour
-            </p>
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Colour</p>
             <BaseColorPicker v-model="form.color" allowNull />
             <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
               Used as the badge background tint. Leave empty for neutral grey.
@@ -372,12 +364,7 @@ const showDeactivated = ref(false)
       </div>
       <template #footer="{ close }">
         <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :loading="saving"
-          :disabled="saving"
-          @click="handleSave"
-        >
+        <BaseButton variant="primary" :loading="saving" :disabled="saving" @click="handleSave">
           {{ editing ? 'Save' : 'Add' }}
         </BaseButton>
       </template>

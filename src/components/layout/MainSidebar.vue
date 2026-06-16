@@ -49,6 +49,7 @@ import {
 } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { useSidebar } from '@/composables/useSidebar'
+import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
 
 const { visible, isDesktop, closeMobile } = useSidebar()
 const route = useRoute()
@@ -62,11 +63,16 @@ watch(
   },
 )
 
-// Track expanded state for grouped nav items
-const expandedGroups = ref({})
+// Track expanded state for grouped nav items — persisted per company so a
+// collapsed group stays collapsed across navigation and reloads.
+const expandedGroups = useCompanyLocalStorage('sidebar-groups', {})
 
 function toggleGroup(label) {
-  expandedGroups.value[label] = !(expandedGroups.value[label] ?? true)
+  // Reassign (not mutate-in-place) so the localStorage-backed ref persists.
+  expandedGroups.value = {
+    ...expandedGroups.value,
+    [label]: !(expandedGroups.value[label] ?? true),
+  }
 }
 
 function isGroupExpanded(label) {
@@ -536,22 +542,70 @@ const navItems = computed(() => {
         </nav>
       </div>
 
-      <!-- Profile / Bottom -->
-      <div class="tw:px-4 tw:py-2 tw:border-t tw:border-divider">
-        <div v-if="currentUser" class="tw:flex tw:items-center tw:gap-3">
-          <UserAvatar :user="currentUser" class="tw:size-8" />
-          <div class="tw:flex tw:flex-col tw:flex-1">
-            <div class="tw:text-sm tw:font-bold tw:text-on-sidebar">{{ currentUser.fullName }}</div>
-            <div class="tw:text-xs tw:text-secondary">{{ currentUser.jobTitle }}</div>
-          </div>
-          <ThemeToggle />
-          <button
-            class="tw:p-1.5 tw:rounded-full tw:text-secondary tw:hover:text-primary tw:hover:bg-main-hover tw:transition-colors tw:bg-transparent tw:border-0 tw:cursor-pointer"
-            @click="logoutCurrentSession"
-          >
-            <IconLogout :size="18" />
-          </button>
-        </div>
+      <!-- Profile / Account menu -->
+      <div class="tw:px-3 tw:py-2 tw:border-t tw:border-divider">
+        <BasePopover v-if="currentUser" placement="top-start" :arrow="false">
+          <template #button>
+            <button
+              class="tw:flex tw:w-full tw:items-center tw:gap-3 tw:rounded-lg tw:p-1.5 tw:hover:bg-sidebar-hover tw:transition-colors"
+            >
+              <UserAvatar :user="currentUser" class="tw:size-8" />
+              <div class="tw:flex tw:min-w-0 tw:flex-1 tw:flex-col tw:items-start">
+                <div class="tw:max-w-full tw:truncate tw:text-sm tw:font-bold tw:text-on-sidebar">
+                  {{ currentUser.fullName }}
+                </div>
+                <div class="tw:max-w-full tw:truncate tw:text-xs tw:text-secondary">
+                  {{ currentUser.jobTitle }}
+                </div>
+              </div>
+              <IconChevronDown :size="16" class="tw:shrink-0 tw:text-secondary" />
+            </button>
+          </template>
+
+          <template #content="{ close }">
+            <div class="tw:w-60 tw:py-1">
+              <div class="tw:px-3 tw:py-2">
+                <div class="tw:truncate tw:text-sm tw:font-semibold tw:text-on-sidebar">
+                  {{ currentUser.fullName }}
+                </div>
+                <div class="tw:truncate tw:text-xs tw:text-secondary">
+                  {{ currentUser.jobTitle }}
+                </div>
+              </div>
+
+              <hr class="tw:my-1 tw:border-divider" />
+
+              <RouterLink
+                :to="getCompanyPath('/settings')"
+                class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
+                @click="close()"
+              >
+                <IconSettings :size="16" class="tw:text-secondary" />
+                Settings
+              </RouterLink>
+
+              <div
+                class="tw:flex tw:items-center tw:justify-between tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar"
+              >
+                <span class="tw:flex tw:items-center tw:gap-2">
+                  <IconUserCircle :size="16" class="tw:text-secondary" />
+                  Appearance
+                </span>
+                <ThemeToggle :size="18" />
+              </div>
+
+              <hr class="tw:my-1 tw:border-divider" />
+
+              <button
+                class="tw:flex tw:w-full tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-bad tw:transition-colors tw:hover:bg-main-hover"
+                @click="logoutCurrentSession"
+              >
+                <IconLogout :size="16" />
+                Log out
+              </button>
+            </div>
+          </template>
+        </BasePopover>
       </div>
     </aside>
     </Transition>

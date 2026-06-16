@@ -12,7 +12,8 @@ const workflows = useLiveQuery(
     const all = await db.Workflow.where().exec()
     return all
   },
-  { initial: [] },
+
+  { models: ['Workflow'], initial: [] },
 )
 
 const filteredWorkflows = computed(() => {
@@ -53,7 +54,9 @@ async function setDefault(workflow) {
     }
     workflow.isDefault = true
     await workflow.save()
-    toast.success(`${workflow.name} is now the default for new ${workflow.moduleId.toLowerCase().replaceAll('_', ' ')} entities`)
+    toast.success(
+      `${workflow.name} is now the default for new ${workflow.moduleId.toLowerCase().replaceAll('_', ' ')} entities`,
+    )
   } catch (err) {
     toast.error(err?.message || 'Failed to update default workflow')
   }

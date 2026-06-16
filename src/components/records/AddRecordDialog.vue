@@ -68,7 +68,8 @@ const myRoleIds = useLiveQueryWithDeps(
     const rows = await db.RoleOnUser.where('userId', uid).exec()
     return rows.map((r) => r.roleId)
   },
-  { initial: [] },
+
+  { models: ['RoleOnUser'], initial: [] },
 )
 
 /**
@@ -99,7 +100,8 @@ const assignedTemplateIds = useLiveQueryWithDeps(
     }
     return ids
   },
-  { initial: new Set() },
+
+  { models: ['FormAssignment'], initial: new Set() },
 )
 
 // E-sig dialog state for Inspections & Logs submissions. Pending data
@@ -152,11 +154,10 @@ const inspectionTemplates = useLiveQuery(
     // version can accept entries. Brand-new books awaiting approval (no
     // current_effective_version_id) are filtered out of the picker; the
     // backend also rejects them with LOG_BOOK_NOT_EFFECTIVE as a backstop.
-    return rows
-      .filter((r) => r.currentEffectiveVersionId)
-      .map((r) => ({ ...r, _kind: 'LOG_BOOK' }))
+    return rows.filter((r) => r.currentEffectiveVersionId).map((r) => ({ ...r, _kind: 'LOG_BOOK' }))
   },
-  { initial: [] },
+
+  { models: ['LogBook'], initial: [] },
 )
 const utilityTemplates = useLiveQuery(
   async (db) => {
@@ -171,7 +172,8 @@ const utilityTemplates = useLiveQuery(
       })
       .map((t) => ({ ...t, _kind: 'FORM_TEMPLATE' }))
   },
-  { initial: [] },
+
+  { models: ['FormTemplate'], initial: [] },
 )
 
 const templates = computed(() => {
@@ -525,9 +527,7 @@ const templateSchema = computed(() => {
                   <input v-model="viewAll" type="checkbox" />
                   <span>View all inspection templates (admin)</span>
                 </label>
-                <span class="tw:text-secondary">
-                  — default is your assigned forms only.
-                </span>
+                <span class="tw:text-secondary"> — default is your assigned forms only. </span>
               </div>
 
               <!-- Empty: distinguish "no assignments yet" from "no match" -->
@@ -545,8 +545,8 @@ const templateSchema = computed(() => {
                   No forms assigned to you yet
                 </div>
                 <div class="tw:text-xs tw:text-secondary tw:max-w-md">
-                  Ask an admin to add you to a Form Assignment plan, or have them open this
-                  dialog and toggle "View all" to submit on your behalf.
+                  Ask an admin to add you to a Form Assignment plan, or have them open this dialog
+                  and toggle "View all" to submit on your behalf.
                 </div>
               </div>
               <BaseEmptyState
@@ -558,10 +558,11 @@ const templateSchema = computed(() => {
 
               <!-- Template List -->
               <div v-else class="tw:flex tw:flex-col tw:gap-2">
-                <div
+                <BaseClickableRow
                   v-for="template in filteredTemplates"
                   :key="template.id"
-                  class="tw:cursor-pointer tw:bg-sidebar tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:transition-all tw:hover:shadow-md tw:hover:border-primary/30"
+                  class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:transition-all tw:hover:shadow-md tw:hover:border-primary/30"
+                  :aria-label="`Select template ${template.title}`"
                   @click="selectTemplate(template)"
                 >
                   <div class="tw:flex tw:items-center tw:gap-3">
@@ -574,7 +575,7 @@ const templateSchema = computed(() => {
                     <div class="tw:flex-1" />
                     <IconChevronRight :size="24" class="tw:text-secondary" />
                   </div>
-                </div>
+                </BaseClickableRow>
               </div>
             </div>
           </div>
@@ -597,8 +598,8 @@ const templateSchema = computed(() => {
                       {{ classification.replace('_', ' ') }}
                     </div>
                     <div>
-                      This is a regulated record. Once submitted, the record is preserved
-                      immutably; edits only allowed during the configured window
+                      This is a regulated record. Once submitted, the record is preserved immutably;
+                      edits only allowed during the configured window
                       <span v-if="editWindow?.mode">({{ editWindow.mode }})</span>.
                       <span v-if="requiresSignatureAtSubmit">
                         E-signature required on submit.
@@ -687,10 +688,7 @@ const templateSchema = computed(() => {
                           :disabled="submitting || (flagOnSubmit && !flagNotes.trim())"
                           @click="handleSubmit(formData)"
                         >
-                          <span
-                            v-if="submitting"
-                            class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:mr-2"
-                          ></span>
+                          <BaseSpinner v-if="submitting" size="sm" color="white" class="tw:mr-2" />
                           {{ requiresSignatureAtSubmit ? 'Sign &amp; Submit' : 'Save Record' }}
                         </button>
                       </div>

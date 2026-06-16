@@ -72,7 +72,8 @@ const logBookTypes = useLiveQuery(
     const rows = await db.LogBookType.where().exec()
     return rows.sort((a, b) => (a.sequence ?? 100) - (b.sequence ?? 100))
   },
-  { initial: [] },
+
+  { models: ['LogBookType'], initial: [] },
 )
 
 // Equipment dropdown — uses EquipmentSelectMenu (added with the
@@ -142,13 +143,12 @@ const policySummary = computed(() => {
 // without round-tripping. Unresolvable placeholders stay literal
 // (the server resolves the canonical value at save and rejects if
 // the dependency is missing).
-const departments = useLiveQuery(async (db) => db.Department.where().exec(), { initial: [] })
-const departmentById = computed(
-  () => new Map(departments.value.map((d) => [d.id, d])),
-)
-const logBookTypeById = computed(
-  () => new Map(logBookTypes.value.map((t) => [t.id, t])),
-)
+const departments = useLiveQuery(async (db) => db.Department.where().exec(), {
+  models: ['Department'],
+  initial: [],
+})
+const departmentById = computed(() => new Map(departments.value.map((d) => [d.id, d])))
+const logBookTypeById = computed(() => new Map(logBookTypes.value.map((t) => [t.id, t])))
 
 const resolvedCodePreview = computed(() => {
   const template = (codePrefix.value || '').trim()
@@ -202,8 +202,7 @@ async function save() {
       retentionMonths: retentionMonths.value || null,
       recordClassification: derivedClassification.value,
       editWindowMode: editWindowMode.value,
-      editWindowMinutes:
-        editWindowMode.value === 'TIME_WINDOW' ? editWindowMinutes.value : null,
+      editWindowMinutes: editWindowMode.value === 'TIME_WINDOW' ? editWindowMinutes.value : null,
       signatureRequired: signatureRequired.value,
       reviewRequired: reviewRequired.value,
       notifyOnSubmit: 'DIGEST',
@@ -240,10 +239,7 @@ function close() {
           Define what gets logged. You'll build the form fields next.
         </div>
       </div>
-      <button
-        class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-main-hover"
-        @click="close"
-      >
+      <button class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-main-hover" @click="close">
         <IconX :size="20" />
       </button>
     </div>
@@ -271,8 +267,7 @@ function close() {
             <span class="tw:font-mono tw:text-on-main">{DEPTCODE}</span>
             and
             <span class="tw:font-mono tw:text-on-main">{TYPECODE}</span>
-            to insert the selected Department + Log Book Type. Leave plain text
-            for a literal code.
+            to insert the selected Department + Log Book Type. Leave plain text for a literal code.
           </div>
           <div>
             Resolved:
@@ -309,8 +304,8 @@ function close() {
             v-if="logBookTypes.length === 0"
             class="tw:text-[11px] tw:text-amber-700 tw:italic tw:mt-1"
           >
-            No categories loaded yet — the seeded global types sync on the next bootstrap. If
-            this persists, hard-refresh the page to re-bootstrap IndexedDB.
+            No categories loaded yet — the seeded global types sync on the next bootstrap. If this
+            persists, hard-refresh the page to re-bootstrap IndexedDB.
           </div>
         </div>
         <div>
@@ -357,10 +352,7 @@ function close() {
           <span class="tw:font-medium">References</span>
           <component :is="showReferences ? IconChevronUp : IconChevronDown" :size="16" />
         </button>
-        <div
-          v-if="showReferences"
-          class="tw:px-3 tw:pb-3 tw:pt-1 tw:flex tw:flex-col tw:gap-3"
-        >
+        <div v-if="showReferences" class="tw:px-3 tw:pb-3 tw:pt-1 tw:flex tw:flex-col tw:gap-3">
           <div>
             <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
               Equipment
@@ -389,10 +381,7 @@ function close() {
           <span class="tw:font-medium">Compliance</span>
           <component :is="showCompliance ? IconChevronUp : IconChevronDown" :size="16" />
         </button>
-        <div
-          v-if="showCompliance"
-          class="tw:px-3 tw:pb-3 tw:pt-1 tw:flex tw:flex-col tw:gap-3"
-        >
+        <div v-if="showCompliance" class="tw:px-3 tw:pb-3 tw:pt-1 tw:flex tw:flex-col tw:gap-3">
           <div>
             <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
               Related standard
@@ -429,9 +418,7 @@ function close() {
       <!-- Behavior settings — these define the policy. We derive the
            classification label from them at save time. -->
       <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:flex tw:flex-col tw:gap-3">
-        <div class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary">
-          Entry policy
-        </div>
+        <div class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary">Entry policy</div>
 
         <!-- Edit window -->
         <div>

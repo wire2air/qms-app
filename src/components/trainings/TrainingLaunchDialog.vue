@@ -30,7 +30,8 @@ const resolvedUserIds = useLiveQueryWithDeps(
     users.forEach((u) => set.add(u.userId))
     return [...set]
   },
-  { initial: [] },
+
+  { models: ['TrainingRole', 'TrainingUser', 'RoleOnUser'], initial: [] },
 )
 
 // Final list the manager actually wants to launch with (starts as resolved, editable)
@@ -73,7 +74,8 @@ const roleResolvedUserIds = useLiveQueryWithDeps(
     const assignments = await db.RoleOnUser.where().exec()
     return assignments.filter((a) => a.roleId === roleId).map((a) => a.userId)
   },
-  { initial: null },
+
+  { models: ['RoleOnUser'], initial: null },
 )
 
 watch(roleResolvedUserIds, (roleUserIds) => {

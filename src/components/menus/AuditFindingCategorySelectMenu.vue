@@ -8,7 +8,8 @@ const modelValue = defineModel({ type: [String, Array, null], default: null })
 
 const categories = useLiveQuery(
   (db) => db.AuditFindingCategory.where().orderBy('displayOrder').exec(),
-  { initial: [] },
+
+  { models: ['AuditFindingCategory'], initial: [] },
 )
 
 function getArray() {
@@ -36,9 +37,7 @@ function getArray() {
               @clear="() => scope.clear(id)"
             />
           </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
-            >Select Category</span
-          >
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Category</span>
         </template>
         <template v-else>
           <AuditFindingCategoryBadgeById
@@ -48,9 +47,7 @@ function getArray() {
             selectable
             @clear="() => scope.clear(modelValue)"
           />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
-            >Select Category</span
-          >
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Category</span>
         </template>
       </slot>
     </template>

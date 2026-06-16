@@ -17,7 +17,8 @@ const users = useLiveQuery(
     (await db.User.where().exec()).filter(
       (u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER',
     ),
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 
 const stepUsers = useLiveQueryWithDeps(
@@ -26,7 +27,8 @@ const stepUsers = useLiveQueryWithDeps(
     if (!stepId) return []
     return await db.WorkflowStepUser.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStepUser'], initial: [] },
 )
 
 const reviewerIds = computed(() => stepUsers.value.map((su) => su.userId))
@@ -106,17 +108,18 @@ async function removeUser(userId) {
 
     <!-- User List -->
     <div class="tw:max-h-48 tw:overflow-y-auto tw:space-y-1">
-      <div
+      <BaseClickableRow
         v-for="user in filteredUsers"
         :key="user.id"
+        :disabled="!canUpdate"
+        :aria-label="`Toggle user ${getUserDisplayName(user)}`"
         class="tw:flex tw:items-center tw:gap-3 tw:p-2 tw:rounded-lg tw:transition-colors"
         :class="[
           reviewerIds.includes(user.id)
             ? 'tw:bg-primary/10 tw:border tw:border-primary/20'
             : 'tw:hover:bg-main-hover',
-          canUpdate ? 'tw:cursor-pointer' : 'tw:cursor-default',
         ]"
-        @click="canUpdate && toggleUser(user.id)"
+        @click="toggleUser(user.id)"
       >
         <BaseCheckbox
           :modelValue="reviewerIds.includes(user.id)"
@@ -130,7 +133,7 @@ async function removeUser(userId) {
           </div>
           <div class="tw:text-xs tw:text-secondary tw:truncate">{{ user.email }}</div>
         </div>
-      </div>
+      </BaseClickableRow>
 
       <BaseEmptyState v-if="filteredUsers.length === 0" dense title="No users found" />
     </div>

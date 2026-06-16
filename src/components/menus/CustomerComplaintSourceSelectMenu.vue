@@ -8,7 +8,8 @@ const modelValue = defineModel({ type: [String, Array, null], default: null })
 
 const sources = useLiveQuery(
   (db) => db.CustomerComplaintSource.where().orderBy('displayOrder').exec(),
-  { initial: [] },
+
+  { models: ['CustomerComplaintSource'], initial: [] },
 )
 
 function getArray() {

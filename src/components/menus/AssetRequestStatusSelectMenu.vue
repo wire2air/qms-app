@@ -17,7 +17,8 @@ const modelValue = defineModel({
 
 const statuses = useLiveQuery(
   (db) => db.AssetRequestStatus.where().orderBy('displayOrder').exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestStatus'], initial: [] },
 )
 
 function getArray() {

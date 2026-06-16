@@ -32,9 +32,13 @@ const router = useRouter()
 const { setEffective, cancelReview } = useDocuments()
 
 // State
-const document = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  return db.Document.findByPk(id)
-})
+const document = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    return db.Document.findByPk(id)
+  },
+  { models: ['Document'] },
+)
 const versions = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => {
@@ -43,11 +47,15 @@ const versions = useLiveQueryWithDeps(
   { initial: [], models: ['DocumentVersion', 'Document'] },
 )
 
-const latestVersion = useLiveQueryWithDeps([() => props.id], async (db, [documentId]) => {
-  return db.DocumentVersion.where('documentId', documentId, { force: true })
-    .orderBy('createdAt', 'desc')
-    .first()
-})
+const latestVersion = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [documentId]) => {
+    return db.DocumentVersion.where('documentId', documentId, { force: true })
+      .orderBy('createdAt', 'desc')
+      .first()
+  },
+  { models: ['DocumentVersion'] },
+)
 
 const selectedVersion = ref(null)
 const showMessages = ref(false)
@@ -67,9 +75,7 @@ const aiDiffFromVersion = computed(() => {
   const idx = sorted.findIndex((v) => v.id === selectedVersion.value.id)
   return idx > 0 ? sorted[idx - 1] : null
 })
-const canShowAiDiff = computed(
-  () => !!selectedVersion.value && !!aiDiffFromVersion.value,
-)
+const canShowAiDiff = computed(() => !!selectedVersion.value && !!aiDiffFromVersion.value)
 // Lookup-style helper (the existing `versionLabel` computed already derives
 // the label for the currently-selected version; this one accepts any version
 // — used for the diff dialog's "from" version, which isn't selectedVersion).
@@ -101,7 +107,8 @@ const auditRelatedSections = useLiveQueryWithDeps(
     )
     return sections.flat().map((s) => s.id)
   },
-  { initial: [] },
+
+  { models: ['DocumentSection'], initial: [] },
 )
 
 const auditRelatedLinks = useLiveQueryWithDeps(
@@ -109,11 +116,10 @@ const auditRelatedLinks = useLiveQueryWithDeps(
   async (db, [id]) => {
     if (!id) return []
     const links = await db.DocumentLink.where().exec()
-    return links
-      .filter((l) => l.documentId === id || l.relatedDocumentId === id)
-      .map((l) => l.id)
+    return links.filter((l) => l.documentId === id || l.relatedDocumentId === id).map((l) => l.id)
   },
-  { initial: [] },
+
+  { models: ['DocumentLink'], initial: [] },
 )
 
 const auditIncludeEntities = computed(() => [
@@ -188,9 +194,7 @@ const canCreate = computed(() => {
     ['DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED'].includes(v.statusId),
   )
   return (
-    isAllowed(['documents:create']) &&
-    document.value?.statusId !== 'ARCHIVED' &&
-    !hasActiveDraft
+    isAllowed(['documents:create']) && document.value?.statusId !== 'ARCHIVED' && !hasActiveDraft
   )
 })
 const canEdit = computed(
@@ -299,7 +303,8 @@ const baselineSections = useLiveQueryWithDeps(
     if (!versionId) return []
     return db.DocumentSection.where('documentVersionId', versionId).orderBy('order', 'asc').exec()
   },
-  { initial: [] },
+
+  { models: ['DocumentSection'], initial: [] },
 )
 
 const nextVersionLabel = computed(() => {
@@ -377,11 +382,7 @@ async function handleNewVersionConfirm(changeControl) {
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
     <!-- Loading State -->
-    <div v-if="!document" class="tw:flex tw:items-center tw:justify-center tw:min-h-screen">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:size-12 tw:border-4 tw:border-primary tw:border-t-transparent"
-      />
-    </div>
+    <BaseSpinner v-if="!document" centered size="lg" />
 
     <!-- Main Content -->
     <div v-else class="tw:flex tw:flex-col">

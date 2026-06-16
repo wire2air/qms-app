@@ -96,12 +96,14 @@ async function handleAttachmentsChange(next) {
 // ── Reviewer comments ───────────────────────────────────────────
 const rejectedTask = useLiveQueryWithDeps(
   [() => props.documentVersionId],
+
   async (db, [versionId]) => {
     if (!versionId) return null
     return db.TaskInstance.where('[entityType+entityId]', ['DocumentVersion', versionId])
       .where('statusId', 'REJECTED')
       .first()
   },
+  { models: ['TaskInstance'] },
 )
 
 const reviewerComment = useLiveQueryWithDeps(

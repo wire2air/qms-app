@@ -1,5 +1,11 @@
 <script setup>
-import { IconAlertCircle, IconClock, IconShieldCheck, IconCircleCheck, IconDownload } from '@tabler/icons-vue'
+import {
+  IconAlertCircle,
+  IconClock,
+  IconShieldCheck,
+  IconCircleCheck,
+  IconDownload,
+} from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { dateInRange } from '@/utils/listFilters.js'
@@ -65,14 +71,15 @@ function applyActiveFilter(results, af) {
     return results.filter((r) => r.ownerId === userId && OPEN_STATUSES.includes(r.statusId))
   if (af === 'awaiting_approval') return results.filter((r) => r.statusId === 'UNDER_REVIEW')
   if (af === 'urgent')
-    return results.filter(
-      (r) => r.priorityId === 'URGENT' && OPEN_STATUSES.includes(r.statusId),
-    )
+    return results.filter((r) => r.priorityId === 'URGENT' && OPEN_STATUSES.includes(r.statusId))
   if (af === 'closed') return results.filter((r) => CLOSED_STATUSES.includes(r.statusId))
   return results
 }
 
-const allCRs = useLiveQuery((db) => db.ChangeRequest.where().exec(), { initial: [] })
+const allCRs = useLiveQuery((db) => db.ChangeRequest.where().exec(), {
+  models: ['ChangeRequest'],
+  initial: [],
+})
 
 const changeRequests = useLiveQueryWithDeps(
   [
@@ -88,12 +95,14 @@ const changeRequests = useLiveQueryWithDeps(
     let results = await db.ChangeRequest.where().exec()
     results = applyFilters(results, search, statusId, priorityId, changeTypeId)
     results = applyActiveFilter(results, af)
-    if (dateFrom || dateTo) results = results.filter((r) => dateInRange(r.createdAt, dateFrom, dateTo))
+    if (dateFrom || dateTo)
+      results = results.filter((r) => dateInRange(r.createdAt, dateFrom, dateTo))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['ChangeRequest'], initial: [] },
 )
 
 const stats = computed(() => {
@@ -121,11 +130,7 @@ function onCreate() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Change Requests</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader title="Change Requests" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton variant="outline" :disabled="!changeRequests.length" @click="exportCsv">

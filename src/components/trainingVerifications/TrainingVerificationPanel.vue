@@ -11,8 +11,10 @@ const props = defineProps({
 const emit = defineEmits(['verified'])
 const toast = useToast()
 
-const training = useLiveQueryWithDeps([() => props.instance?.trainingId], async (db, [id]) =>
-  id ? db.Training.findByPk(id) : null,
+const training = useLiveQueryWithDeps(
+  [() => props.instance?.trainingId],
+  async (db, [id]) => (id ? db.Training.findByPk(id) : null),
+  { models: ['Training'] },
 )
 
 // All assignees of this instance that are still pending verification.
@@ -26,7 +28,8 @@ const pendingAssignees = useLiveQueryWithDeps(
     const all = await db.TrainingAssignee.where('trainingInstanceId', id).exec()
     return all.filter((a) => a.status === 'COMPLETED' || a.status === 'FAILED')
   },
-  { initial: [] },
+
+  { models: ['TrainingAssignee'], initial: [] },
 )
 
 const isManager = computed(() => training.value?.managerId === currentSession.value?.userId)
@@ -197,7 +200,9 @@ async function onEsignVerified(esign) {
               @change="toggleAssignee(a.id)"
             />
             <UserBadgeById :userId="a.userId" />
-            <span class="tw:text-xs tw:text-secondary tw:ml-auto">Score: {{ a.score ?? '—' }}%</span>
+            <span class="tw:text-xs tw:text-secondary tw:ml-auto"
+              >Score: {{ a.score ?? '—' }}%</span
+            >
             <span class="tw:text-xs tw:text-secondary">
               Completed
               <template v-if="a.completedAt">{{ a.completedAt.formatDate('date') }}</template>

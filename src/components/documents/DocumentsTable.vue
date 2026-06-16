@@ -35,7 +35,8 @@ const currentVersionMapById = useLiveQueryWithDeps(
     for (const v of versions) map[v.documentId] = v
     return map
   },
-  { initial: {} },
+
+  { models: ['DocumentVersion'], initial: {} },
 )
 
 const latestVersionMapById = useLiveQueryWithDeps(
@@ -54,11 +55,19 @@ const latestVersionMapById = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['DocumentVersion'], initial: {} },
 )
 
 const columns = computed(() => [
-  { name: 'docNumber', label: 'DOC #', field: 'docNumber', align: 'left', sortable: true },
+  {
+    name: 'docNumber',
+    label: 'DOC #',
+    field: 'docNumber',
+    align: 'left',
+    sortable: true,
+    hideable: false,
+  },
   { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
   { name: 'department', label: 'DEPARTMENT', field: 'departmentId', align: 'left', sortable: true },
   {
@@ -84,7 +93,7 @@ const columns = computed(() => [
   },
   { name: 'owner', label: 'OWNER', field: 'owner', align: 'left', sortable: true },
   { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right' },
+  { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right', hideable: false },
 ])
 
 const pagination = ref({
@@ -121,7 +130,14 @@ async function onUnarchiveDocument(row) {
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" :loading="loading">
+  <BaseTable
+    v-model:pagination="pagination"
+    :rows="rows"
+    :columns="columns"
+    :loading="loading"
+    columnToggle
+    showDensityToggle
+  >
     <!-- Doc Number Column -->
     <template #body-cell-docNumber="{ row }">
       <BaseBadge>{{ row.docNumber }}</BaseBadge>
@@ -130,12 +146,13 @@ async function onUnarchiveDocument(row) {
     <!-- Title Column -->
     <template #body-cell-title="{ row }">
       <div class="tw:flex tw:items-center tw:gap-2">
-        <div
-          class="tw:font-bold tw:text-on-main tw:cursor-pointer tw:hover:text-primary"
+        <BaseClickableRow
+          class="tw:font-bold tw:text-on-main tw:hover:text-primary"
+          :aria-label="`View ${row.title}`"
           @click="emit('view', row)"
         >
           {{ row.title }}
-        </div>
+        </BaseClickableRow>
         <span
           v-if="row.statusId === 'ARCHIVED'"
           class="tw:inline-flex tw:items-center tw:rounded tw:bg-amber-100 tw:px-1.5 tw:py-0.5 tw:text-xs tw:font-medium tw:text-amber-700 tw:ring-1 tw:ring-inset tw:ring-amber-600/20"

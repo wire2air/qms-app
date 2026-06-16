@@ -11,7 +11,9 @@ const props = defineProps({
 
 const router = useRouter()
 
-const capa = useLiveQueryWithDeps([() => props.id], async (db, [id]) => db.Capa.findByPk(id))
+const capa = useLiveQueryWithDeps([() => props.id], async (db, [id]) => db.Capa.findByPk(id), {
+  models: ['Capa'],
+})
 
 const loading = computed(() => capa.value === undefined)
 
@@ -20,30 +22,11 @@ const breadcrumbs = computed(() => [
   { label: capa.value?.capaNumber || capa.value?.title || 'Loading…' },
 ])
 
-const isFirstLoad = ref(true)
 const isEditable = computed(
-  () =>
-    capa.value &&
-    capa.value.statusId !== 'CLOSED' &&
-    capa.value.statusId !== 'CANCELLED',
+  () => capa.value && capa.value.statusId !== 'CLOSED' && capa.value.statusId !== 'CANCELLED',
 )
 
-const debouncedSave = useDebounceFn(async () => {
-  if (!capa.value) return
-  await capa.value.save()
-}, 500)
-
-watch(
-  capa,
-  () => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (capa.value) debouncedSave()
-  },
-  { deep: true },
-)
+useAutoSave(capa)
 
 const saving = ref(false)
 const saveError = ref(null)
@@ -103,7 +86,8 @@ const allWorkflowInstanceIds = useLiveQueryWithDeps(
     ]).exec()
     return rows.map((r) => r.id)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstance'], initial: [] },
 )
 
 const allWorkflowInstanceStepIds = useLiveQueryWithDeps(
@@ -116,7 +100,8 @@ const allWorkflowInstanceStepIds = useLiveQueryWithDeps(
     )
     return lists.flat().map((s) => s.id)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 const allEffectivenessCheckIds = useLiveQueryWithDeps(
@@ -126,7 +111,8 @@ const allEffectivenessCheckIds = useLiveQueryWithDeps(
     const rows = await db.CapaEffectivenessCheck.where('capaId', capaId).exec()
     return rows.map((r) => r.id)
   },
-  { initial: [] },
+
+  { models: ['CapaEffectivenessCheck'], initial: [] },
 )
 
 const auditIncludeEntities = computed(() => [
@@ -146,15 +132,13 @@ const incompleteStepCount = useLiveQueryWithDeps(
     if (!idsStr) return 0
     const ids = idsStr.split(',')
     const steps = await Promise.all(ids.map((id) => db.WorkflowInstanceStep.findByPk(id)))
-    return steps.filter(
-      (s) => s && !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId),
-    ).length
+    return steps.filter((s) => s && !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId))
+      .length
   },
-  { initial: 0 },
+
+  { models: ['WorkflowInstanceStep'], initial: 0 },
 )
-const canClose = computed(
-  () => incompleteStepCount.value === 0 && !!closeEffectivenessDate.value,
-)
+const canClose = computed(() => incompleteStepCount.value === 0 && !!closeEffectivenessDate.value)
 const closeDisabledReason = computed(() => {
   if (incompleteStepCount.value > 0) {
     return `${incompleteStepCount.value} workflow step${
@@ -311,28 +295,39 @@ const isOverdue = computed(() => {
   return capa.value.dueDate < DateTime.now()
 })
 
-const workflowInstance = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  const results = await db.WorkflowInstance.where('[resourceType+resourceId]', ['Capa', id]).exec()
-  return results.find((i) => i.statusId === 'IN_PROGRESS') || results[0] || null
-})
+const workflowInstance = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    const results = await db.WorkflowInstance.where('[resourceType+resourceId]', [
+      'Capa',
+      id,
+    ]).exec()
+    return results.find((i) => i.statusId === 'IN_PROGRESS') || results[0] || null
+  },
+  { models: ['WorkflowInstance'] },
+)
 
 // Resolve the WorkflowVersion (for label + workflowId link target). Prefer the
 // instance's version; fall back to the CAPA's directly-assigned version if no
 // instance exists yet (DRAFT CAPAs).
 const workflowVersion = useLiveQueryWithDeps(
   [() => workflowInstance.value?.workflowVersionId ?? capa.value?.workflowVersionId],
+
   async (db, [versionId]) => {
     if (!versionId) return null
     return db.WorkflowVersion.findByPk(versionId)
   },
+  { models: ['WorkflowVersion'] },
 )
 
 const workflow = useLiveQueryWithDeps(
   [() => workflowVersion.value?.workflowId],
+
   async (db, [workflowId]) => {
     if (!workflowId) return null
     return db.Workflow.findByPk(workflowId)
   },
+  { models: ['Workflow'] },
 )
 
 function workflowVersionLabel(v) {
@@ -344,10 +339,12 @@ function workflowVersionLabel(v) {
 // from one (source_type='NC' → source_id points at a Nonconformance row).
 const sourceNc = useLiveQueryWithDeps(
   [() => capa.value?.sourceType, () => capa.value?.sourceId],
+
   async (db, [sourceType, sourceId]) => {
     if (sourceType !== 'NC' || !sourceId) return null
     return db.Nonconformance.findByPk(sourceId)
   },
+  { models: ['Nonconformance'] },
 )
 
 const editingTitle = ref(false)
@@ -428,11 +425,7 @@ function onCreateLinkedChangeRequest() {
       </div>
     </SafeTeleport>
 
-    <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:w-8 tw:h-8 tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
-    </div>
+    <BaseSpinner v-if="loading" centered size="md" />
 
     <div v-else-if="capa" class="tw:overflow-y-auto tw:flex-1">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
@@ -691,14 +684,18 @@ function onCreateLinkedChangeRequest() {
           >
             {{ incompleteStepCount === 0 ? '✓' : '⚠' }}
           </div>
-          <div class="tw:text-sm" :class="incompleteStepCount === 0 ? 'tw:text-green-800' : 'tw:text-red-800'">
+          <div
+            class="tw:text-sm"
+            :class="incompleteStepCount === 0 ? 'tw:text-green-800' : 'tw:text-red-800'"
+          >
             <template v-if="incompleteStepCount === 0">
               All workflow steps and sub-tasks are complete.
             </template>
             <template v-else>
               <strong>{{ incompleteStepCount }}</strong> workflow step{{
                 incompleteStepCount === 1 ? '' : 's'
-              }} still open. Complete, skip, or cancel them before closing.
+              }}
+              still open. Complete, skip, or cancel them before closing.
             </template>
           </div>
         </div>
@@ -709,8 +706,8 @@ function onCreateLinkedChangeRequest() {
             Effectiveness Check Date <span class="tw:text-red-500">*</span>
           </p>
           <p class="tw:text-xs tw:text-secondary tw:mb-2">
-            When should the corrective action's effectiveness be verified?
-            Industry standard is 90 days from close.
+            When should the corrective action's effectiveness be verified? Industry standard is 90
+            days from close.
           </p>
           <div class="tw:flex tw:flex-wrap tw:gap-2 tw:mb-3">
             <button
@@ -737,10 +734,7 @@ function onCreateLinkedChangeRequest() {
             <span class="tw:text-xs tw:text-secondary">Or pick a specific date:</span>
             <BaseDatePicker v-model="closeEcCustomDate" />
           </div>
-          <p
-            v-if="closeEffectivenessDate"
-            class="tw:text-xs tw:text-secondary tw:mt-2"
-          >
+          <p v-if="closeEffectivenessDate" class="tw:text-xs tw:text-secondary tw:mt-2">
             Will schedule for: <strong>{{ closeEffectivenessDate.formatDate('date') }}</strong>
           </p>
         </div>
@@ -758,12 +752,13 @@ function onCreateLinkedChangeRequest() {
         </div>
 
         <!-- CFR 21 Part 11 notice -->
-        <div class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800">
+        <div
+          class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800"
+        >
           <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
           <div>
-            CFR 21 Part 11 — Closing this CAPA finalises the controlled record
-            and requires an e-signature. You'll be prompted to confirm your
-            identity on the next step.
+            CFR 21 Part 11 — Closing this CAPA finalises the controlled record and requires an
+            e-signature. You'll be prompted to confirm your identity on the next step.
           </div>
         </div>
 
@@ -799,12 +794,13 @@ function onCreateLinkedChangeRequest() {
 
     <BaseDialog v-model="showCancelDialog" title="Cancel CAPA" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
-        <div class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200">
+        <div
+          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+        >
           <div class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5">⚠</div>
           <div class="tw:text-sm tw:text-amber-800">
-            Cancelling will abort any in-progress workflow and mark the CAPA
-            cancelled. The reason below is recorded on the row and in the
-            audit log.
+            Cancelling will abort any in-progress workflow and mark the CAPA cancelled. The reason
+            below is recorded on the row and in the audit log.
           </div>
         </div>
         <div>
@@ -816,12 +812,13 @@ function onCreateLinkedChangeRequest() {
           />
         </div>
         <!-- CFR 21 Part 11 notice -->
-        <div class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800">
+        <div
+          class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800"
+        >
           <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
           <div>
-            CFR 21 Part 11 — Cancelling a CAPA is a regulated decision and
-            requires an e-signature. You'll confirm your identity on the
-            next step.
+            CFR 21 Part 11 — Cancelling a CAPA is a regulated decision and requires an e-signature.
+            You'll confirm your identity on the next step.
           </div>
         </div>
         <p v-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</p>
@@ -874,8 +871,8 @@ function onCreateLinkedChangeRequest() {
     <!-- Delete draft CAPA -->
     <BaseDialog v-model="showDeleteDialog" title="Delete Draft CAPA" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Delete this draft CAPA? This permanently removes the record.
-        Drafts have no audit history yet, so this is safe.
+        Delete this draft CAPA? This permanently removes the record. Drafts have no audit history
+        yet, so this is safe.
       </p>
       <div
         v-if="saveError"

@@ -1,5 +1,5 @@
 <script setup>
-import { IconFilter, IconX } from '@tabler/icons-vue'
+import { IconFilter } from '@tabler/icons-vue'
 import { useAuditLogs } from '@/composables/useAuditLogs.js'
 import { MODULE_OPTIONS, AUDIT_ACTIONS } from '@/utils/auditConstants.js'
 
@@ -24,73 +24,61 @@ const hasActiveFilters = computed(
 </script>
 
 <template>
-  <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-    <div class="tw:flex tw:items-center tw:gap-1 tw:text-secondary tw:text-sm">
-      <IconFilter :size="16" />
-      <span class="tw:font-medium">Filters</span>
-    </div>
+  <BaseFilterBar hideSearch :showClear="hasActiveFilters" @clear="resetFilters">
+    <template #filters>
+      <div class="tw:flex tw:items-center tw:gap-1 tw:text-secondary tw:text-sm">
+        <IconFilter :size="16" />
+        <span class="tw:font-medium">Filters</span>
+      </div>
 
-    <!-- Module filter -->
-    <BaseSelectMenu
-      v-model="filters.modules"
-      :items="moduleItems"
-      multiple
-      placeholder="All modules"
-      style="min-width: 160px"
-    >
-      <template #button>
-        <span class="tw:text-sm">
-          {{ filters.modules.length ? `${filters.modules.length} module(s)` : 'All modules' }}
-        </span>
-      </template>
-    </BaseSelectMenu>
-
-    <!-- Action filter -->
-    <BaseSelectMenu
-      v-model="filters.actions"
-      :items="actionOptions"
-      multiple
-      placeholder="All actions"
-      style="min-width: 140px"
-    >
-      <template #button>
-        <span class="tw:text-sm">
-          {{ filters.actions.length ? `${filters.actions.length} action(s)` : 'All actions' }}
-        </span>
-      </template>
-    </BaseSelectMenu>
-
-    <!-- Performed by -->
-    <WSelectUserMenu
-      v-model="filters.performedBy"
-      placeholder="Any user"
-      style="min-width: 140px"
-    />
-
-    <!-- Date from -->
-    <div class="tw:flex tw:flex-col tw:gap-0.5">
-      <span class="tw:text-[10px] tw:font-medium tw:text-secondary tw:uppercase tw:tracking-wide"
-        >Start date</span
+      <!-- Module filter -->
+      <BaseSelectMenu
+        v-model="filters.modules"
+        :items="moduleItems"
+        multiple
+        placeholder="All modules"
+        style="min-width: 160px"
       >
-      <BaseDatePicker v-model="filters.dateFrom" :showShortcuts="false" />
-    </div>
+        <template #button>
+          <span class="tw:text-sm">
+            {{ filters.modules.length ? `${filters.modules.length} module(s)` : 'All modules' }}
+          </span>
+        </template>
+      </BaseSelectMenu>
 
-    <!-- Date to -->
-    <div class="tw:flex tw:flex-col tw:gap-0.5">
-      <span class="tw:text-[10px] tw:font-medium tw:text-secondary tw:uppercase tw:tracking-wide"
-        >End date</span
+      <!-- Action filter -->
+      <BaseSelectMenu
+        v-model="filters.actions"
+        :items="actionOptions"
+        multiple
+        placeholder="All actions"
+        style="min-width: 140px"
       >
-      <BaseDatePicker v-model="filters.dateTo" :showShortcuts="false" />
-    </div>
+        <template #button>
+          <span class="tw:text-sm">
+            {{ filters.actions.length ? `${filters.actions.length} action(s)` : 'All actions' }}
+          </span>
+        </template>
+      </BaseSelectMenu>
 
-    <!-- Reset -->
-    <button
-      v-if="hasActiveFilters"
-      class="tw:flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary tw:hover:text-on-main tw:transition-colors"
-      @click="resetFilters"
-    >
-      <IconX :size="14" />
-      Clear
-    </button>
-  </div>
+      <!-- Performed by -->
+      <UserSelectMenu v-model="filters.performedBy" nullLabel="Any user" style="min-width: 140px" />
+
+      <!-- Date from -->
+      <div class="tw:flex tw:flex-col tw:gap-0.5">
+        <span class="tw:text-[10px] tw:font-medium tw:text-secondary tw:uppercase tw:tracking-wide"
+          >Start date</span
+        >
+        <BaseDatePicker v-model="filters.dateFrom" :showShortcuts="false" />
+      </div>
+
+      <!-- Date to -->
+      <div class="tw:flex tw:flex-col tw:gap-0.5">
+        <span class="tw:text-[10px] tw:font-medium tw:text-secondary tw:uppercase tw:tracking-wide"
+          >End date</span
+        >
+        <BaseDatePicker v-model="filters.dateTo" :showShortcuts="false" />
+      </div>
+    </template>
+  </BaseFilterBar>
 </template>

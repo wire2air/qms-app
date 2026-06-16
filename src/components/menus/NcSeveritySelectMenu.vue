@@ -7,6 +7,7 @@ defineProps({
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
 const severities = useLiveQuery((db) => db.NcSeverity.where().orderBy('displayOrder').exec(), {
+  models: ['NcSeverity'],
   initial: [],
 })
 

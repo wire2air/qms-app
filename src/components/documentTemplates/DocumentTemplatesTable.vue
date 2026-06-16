@@ -109,12 +109,13 @@ function rowMenuItems(row) {
     rowKey="id"
   >
     <template #body-cell-name="{ row }">
-      <div
-        class="tw:font-bold tw:text-on-main tw:cursor-pointer tw:hover:text-primary"
-        @click="navigateToDetail(row)"
+      <BaseClickableRow
+        :to="getCompanyPath(`/document-templates/${row.id}`)"
+        class="tw:font-bold tw:text-on-main tw:hover:text-primary"
+        :aria-label="`View document template ${row.name}`"
       >
         {{ row.name }}
-      </div>
+      </BaseClickableRow>
     </template>
 
     <template #body-cell-status="{ row }">

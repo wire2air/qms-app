@@ -64,9 +64,7 @@ function goToLogin() {
           @click="handleSubmit"
         >
           <span v-if="loading" class="tw:inline-flex tw:items-center tw:justify-center tw:gap-2">
-            <span
-              class="tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:inline-block"
-            ></span>
+            <BaseSpinner size="sm" color="white" />
             Sending...
           </span>
           <span v-else>Send reset link</span>

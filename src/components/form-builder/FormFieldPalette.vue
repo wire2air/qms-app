@@ -130,11 +130,12 @@ function onFieldClick(fieldType) {
           </div>
 
           <div :ref="(el) => setCategoryRef(category, el)" class="tw:flex tw:flex-col tw:gap-2">
-            <div
+            <BaseClickableRow
               v-for="(fieldMeta, fieldType) in categoryFields"
               :key="fieldType"
               :data-field-type="fieldType"
               class="tw:bg-main tw:border drag-handle tw:border-divider tw:p-1 tw:rounded-xl tw:flex tw:items-center tw:gap-2 tw:cursor-grab tw:active:cursor-grabbing tw:hover:border-primary tw:hover:bg-main-selected tw:transition-all"
+              :aria-label="`Add ${fieldMeta.label} field`"
               @click="onFieldClick(fieldType)"
             >
               <div
@@ -146,7 +147,7 @@ function onFieldClick(fieldType) {
                 {{ fieldMeta.label }}
               </div>
               <IconGripVertical :size="18" class="tw:text-divider" />
-            </div>
+            </BaseClickableRow>
           </div>
         </div>
       </template>

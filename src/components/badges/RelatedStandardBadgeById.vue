@@ -12,7 +12,8 @@ const relatedStandard = useLiveQueryWithDeps(
     if (!relatedStandardId) return null
     return db.RelatedStandard.findByPk(relatedStandardId)
   },
-  { initial: null },
+
+  { models: ['RelatedStandard'], initial: null },
 )
 </script>
 

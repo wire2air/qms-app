@@ -8,7 +8,8 @@ const modelValue = defineModel({ type: [String, Array, null], default: null })
 
 const priorities = useLiveQuery(
   (db) => db.ChangeRequestPriority.where().orderBy('displayOrder').exec(),
-  { initial: [] },
+
+  { models: ['ChangeRequestPriority'], initial: [] },
 )
 
 function getArray() {

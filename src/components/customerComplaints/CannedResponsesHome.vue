@@ -8,13 +8,15 @@ import { IconMessage2, IconPlus, IconPencil, IconTrash } from '@tabler/icons-vue
  * substituted when the agent inserts the response into a reply.
  */
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const responses = useLiveQuery(
   async (db) => {
     const rows = await db.ComplaintCannedResponse.where().exec()
     return rows.sort((a, b) => a.name.localeCompare(b.name))
   },
-  { initial: [] },
+
+  { models: ['ComplaintCannedResponse'], initial: [] },
 )
 
 const showEditDialog = ref(false)
@@ -79,7 +81,15 @@ async function handleSave() {
 }
 
 async function handleDelete(response) {
-  if (!window.confirm(`Delete "${response.name}"?`)) return
+  if (
+    !(await confirm({
+      title: 'Delete Canned Response',
+      message: `Delete "${response.name}"?`,
+      okLabel: 'Delete',
+      danger: true,
+    }))
+  )
+    return
   try {
     await response.delete()
   } catch (e) {
@@ -107,10 +117,7 @@ async function handleDelete(response) {
 
     <p class="tw:text-sm tw:text-secondary tw:mb-4">
       Saved replies agents insert from the ticket reply box. Use placeholders:
-      <code
-        v-for="(ph, i) in PLACEHOLDERS"
-        :key="ph"
-        class="tw:font-mono tw:text-xs"
+      <code v-for="(ph, i) in PLACEHOLDERS" :key="ph" class="tw:font-mono tw:text-xs"
         >{{ ph }}{{ i < PLACEHOLDERS.length - 1 ? ', ' : '' }}</code
       >
       — substituted at insert time.

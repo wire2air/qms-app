@@ -286,21 +286,20 @@ function goBack() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconTruck class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
-          New Supplier Onboarding
-        </h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconTruck" title="New Supplier Onboarding" />
 
     <!-- Scrollable content -->
     <div class="tw:flex-1 tw:overflow-y-auto tw:pb-24">
       <div class="tw:max-w-5xl tw:mx-auto tw:px-6 tw:py-8">
         <!-- Breadcrumbs -->
         <div class="tw:mb-4 tw:flex tw:items-center tw:text-sm tw:text-secondary tw:gap-1">
-          <span class="tw:cursor-pointer tw:hover:underline" @click="goBack">Suppliers</span>
+          <BaseClickableRow
+            tag="span"
+            class="tw:hover:underline"
+            aria-label="Back to Suppliers"
+            @click="goBack"
+            >Suppliers</BaseClickableRow
+          >
           <IconChevronRight :size="14" />
           <span class="tw:text-on-sidebar tw:font-medium">Onboarding</span>
         </div>
@@ -355,9 +354,10 @@ function goBack() {
                   </label>
                   <div class="tw:relative">
                     <BaseTextInput v-model="form.code" placeholder="e.g. SUP-2024-001" />
-                    <div
+                    <BaseSpinner
                       v-if="isChecking"
-                      class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2 tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-primary tw:border-t-transparent"
+                      size="sm"
+                      class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2"
                     />
                   </div>
                   <p v-if="codeError" class="tw:text-xs tw:text-bad tw:mt-1">{{ codeError }}</p>
@@ -584,10 +584,7 @@ function goBack() {
         <div class="tw:flex tw:items-center tw:gap-4">
           <BaseButton variant="secondary" :disabled="saving" @click="goBack"> Cancel </BaseButton>
           <BaseButton :disabled="saving" @click="saveSupplier">
-            <div
-              v-if="saving"
-              class="tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-white tw:border-t-transparent"
-            />
+            <BaseSpinner v-if="saving" size="sm" color="white" />
             <span>{{ saving ? 'Saving...' : 'Submit for Onboarding' }}</span>
           </BaseButton>
         </div>

@@ -6,6 +6,7 @@
 import { currentSession } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
+import { IconCircleCheck } from '@tabler/icons-vue'
 
 const ENTITY_LABEL = {
   DocumentVersion: 'Document',
@@ -97,9 +98,7 @@ function isOverdue(t) {
 
 <template>
   <DashboardWidgetCard title="My Tasks" :count="tasks.length" linkTo="/task-instances">
-    <div v-if="!tasks.length" class="tw:px-4 tw:py-6 tw:text-center tw:text-sm tw:text-secondary">
-      Nothing assigned to you. 🎉
-    </div>
+    <BaseEmptyState v-if="!tasks.length" dense :icon="IconCircleCheck" title="You're all caught up" />
     <RouterLink
       v-for="{ task: t, route } in tasks.slice(0, 6)"
       :key="t.id"

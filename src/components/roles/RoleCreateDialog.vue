@@ -168,10 +168,7 @@ async function handleSubmit() {
           :disabled="loading"
           @click="handleSubmit"
         >
-          <span
-            v-if="loading"
-            class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:mr-2"
-          ></span>
+          <BaseSpinner v-if="loading" size="sm" color="white" class="tw:mr-2" />
           Create Role
         </button>
       </div>

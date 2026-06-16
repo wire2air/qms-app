@@ -8,19 +8,26 @@
  * owner. Soft-delete (paranoid) preserves historical NC references.
  */
 
-import { IconPlus, IconPencil, IconTrash, IconRestore, IconCircleCheckFilled } from '@tabler/icons-vue'
+import {
+  IconPlus,
+  IconPencil,
+  IconTrash,
+  IconRestore,
+  IconCircleCheckFilled,
+} from '@tabler/icons-vue'
 import { currentSession } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api'
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const isOwner = computed(() => !!currentSession.value?.isOwner)
 
 // Active dispositions (paranoid filter — deletedAt is null).
 const dispositions = useLiveQuery(
-  async (db) =>
-    db.NcDispositionType.where().orderBy('displayOrder', 'asc').exec(),
-  { initial: [] },
+  async (db) => db.NcDispositionType.where().orderBy('displayOrder', 'asc').exec(),
+
+  { models: ['NcDispositionType'], initial: [] },
 )
 
 // Deactivated (soft-deleted) — read with force=true to bypass paranoid.
@@ -30,7 +37,8 @@ const deactivated = useLiveQuery(
     const all = await db.NcDispositionType.where('id', undefined, { force: true }).exec()
     return all.filter((d) => d.deletedAt)
   },
-  { initial: [] },
+
+  { models: ['NcDispositionType'], initial: [] },
 )
 
 // ─── Dialog state ────────────────────────────────────────────────────────────
@@ -137,9 +145,12 @@ async function handleSave() {
 
 async function handleDeactivate(row) {
   if (
-    !window.confirm(
-      `Deactivate "${row.name}"? Existing NC rows referencing this disposition will keep their reference; new NCs won't see it in the picker.`,
-    )
+    !(await confirm({
+      title: 'Deactivate disposition',
+      message: `Deactivate "${row.name}"? Existing NC rows referencing this disposition will keep their reference; new NCs won't see it in the picker.`,
+      okLabel: 'Deactivate',
+      danger: true,
+    }))
   ) {
     return
   }
@@ -173,10 +184,9 @@ const showDeactivated = ref(false)
       <div>
         <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">NC Disposition Types</h2>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          The disposition options reviewers pick when closing out a nonconformance.
-          Toggle <strong>Tracks cost</strong> for dispositions that generate Cost of NC
-          (Scrap / Rework / Repair / Return-to-Supplier). Scoped to this company —
-          changes only affect your tenant.
+          The disposition options reviewers pick when closing out a nonconformance. Toggle
+          <strong>Tracks cost</strong> for dispositions that generate Cost of NC (Scrap / Rework /
+          Repair / Return-to-Supplier). Scoped to this company — changes only affect your tenant.
         </p>
       </div>
       <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
@@ -185,14 +195,19 @@ const showDeactivated = ref(false)
       </BaseButton>
     </div>
 
-    <div v-if="!isOwner" class="tw:p-4 tw:bg-amber-50 tw:border-b tw:border-amber-200 tw:text-xs tw:text-amber-800">
+    <div
+      v-if="!isOwner"
+      class="tw:p-4 tw:bg-amber-50 tw:border-b tw:border-amber-200 tw:text-xs tw:text-amber-800"
+    >
       Only the company owner can edit shared lookup data. You can view the list below.
     </div>
 
     <div class="tw:p-4">
       <table class="tw:w-full tw:text-sm">
         <thead>
-          <tr class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider">
+          <tr
+            class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider"
+          >
             <th class="tw:px-3 tw:py-2">Name</th>
             <th class="tw:px-3 tw:py-2">Code</th>
             <th class="tw:px-3 tw:py-2 tw:text-center">Tracks Cost</th>
@@ -201,11 +216,7 @@ const showDeactivated = ref(false)
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="row in dispositions"
-            :key="row.id"
-            class="tw:border-b tw:border-divider"
-          >
+          <tr v-for="row in dispositions" :key="row.id" class="tw:border-b tw:border-divider">
             <td class="tw:px-3 tw:py-3">
               <div class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</div>
               <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">
@@ -213,7 +224,9 @@ const showDeactivated = ref(false)
               </div>
             </td>
             <td class="tw:px-3 tw:py-3">
-              <code class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary">
+              <code
+                class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary"
+              >
                 {{ row.code }}
               </code>
             </td>
@@ -248,7 +261,10 @@ const showDeactivated = ref(false)
             </td>
           </tr>
           <tr v-if="!dispositions.length">
-            <td colspan="5" class="tw:px-3 tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic">
+            <td
+              colspan="5"
+              class="tw:px-3 tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic"
+            >
               No active dispositions. Add one above.
             </td>
           </tr>
@@ -271,7 +287,10 @@ const showDeactivated = ref(false)
           >
             <div>
               <span class="tw:font-medium tw:text-secondary tw:line-through">{{ row.name }}</span>
-              <code class="tw:text-[10px] tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary">{{ row.code }}</code>
+              <code
+                class="tw:text-[10px] tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary"
+                >{{ row.code }}</code
+              >
             </div>
             <button
               v-if="isOwner"
@@ -286,7 +305,11 @@ const showDeactivated = ref(false)
       </div>
     </div>
 
-    <BaseDialog v-model="showEditDialog" :title="editing ? 'Edit Disposition' : 'Add Disposition'" maxWidth="md">
+    <BaseDialog
+      v-model="showEditDialog"
+      :title="editing ? 'Edit Disposition' : 'Add Disposition'"
+      maxWidth="md"
+    >
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
@@ -317,8 +340,8 @@ const showDeactivated = ref(false)
             @input="codeDirty = true"
           />
           <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            SCREAMING_SNAKE_CASE. Stable identifier saved on every NC row that uses this
-            disposition — cannot be changed later. We generate it from the name; click
+            SCREAMING_SNAKE_CASE. Stable identifier saved on every NC row that uses this disposition
+            — cannot be changed later. We generate it from the name; click
             <strong>Edit</strong> to override.
           </p>
         </div>
@@ -332,11 +355,15 @@ const showDeactivated = ref(false)
         </div>
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
           <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Display Order</p>
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+              Display Order
+            </p>
             <BaseTextInput v-model.number="form.displayOrder" type="number" :min="0" />
           </div>
           <div class="tw:flex tw:flex-col tw:gap-1">
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Tracks Cost</p>
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+              Tracks Cost
+            </p>
             <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer">
               <BaseSwitch v-model="form.tracksCost" />
               <span class="tw:text-xs tw:text-secondary">

@@ -15,7 +15,10 @@ const modelValue = defineModel({
   default: null,
 })
 
-const relatedStandards = useLiveQuery((db) => db.RelatedStandard.where().exec(), { initial: [] })
+const relatedStandards = useLiveQuery((db) => db.RelatedStandard.where().exec(), {
+  models: ['RelatedStandard'],
+  initial: [],
+})
 
 /**
  * Normalize model for easier handling

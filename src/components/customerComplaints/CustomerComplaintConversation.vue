@@ -1,5 +1,12 @@
 <script setup>
-import { IconSend, IconMail, IconUserCircle, IconMessage2, IconChevronDown, IconLock } from '@tabler/icons-vue'
+import {
+  IconSend,
+  IconMail,
+  IconUserCircle,
+  IconMessage2,
+  IconChevronDown,
+  IconLock,
+} from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
@@ -21,7 +28,8 @@ const messages = useLiveQueryWithDeps(
     const rows = await db.CustomerComplaintMessage.where('complaintId', complaintId).exec()
     return rows.sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['CustomerComplaintMessage'], initial: [] },
 )
 
 // Rich-text reply (BaseRichTextEditor holds HTML). The plain-text
@@ -67,7 +75,8 @@ const cannedResponses = useLiveQuery(
     const rows = await db.ComplaintCannedResponse.where().exec()
     return rows.sort((a, b) => a.name.localeCompare(b.name))
   },
-  { initial: [] },
+
+  { models: ['ComplaintCannedResponse'], initial: [] },
 )
 
 function substituteVariables(text) {
@@ -122,7 +131,13 @@ function trustedHtml(message) {
       >
         <div class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:mb-1">
           <component
-            :is="isNote(message) ? IconLock : message.direction === 'OUTBOUND' ? IconUserCircle : IconMail"
+            :is="
+              isNote(message)
+                ? IconLock
+                : message.direction === 'OUTBOUND'
+                  ? IconUserCircle
+                  : IconMail
+            "
             :size="14"
           />
           <span class="tw:font-medium">{{ senderLabel(message) }}</span>
@@ -216,7 +231,11 @@ function trustedHtml(message) {
           :disabled="(replyMode === 'PUBLIC_REPLY' && !customerEmail) || !replyPlainText || sending"
           @click="sendReply"
         >
-          <component :is="replyMode === 'INTERNAL_NOTE' ? IconLock : IconSend" :size="16" class="tw:mr-1" />
+          <component
+            :is="replyMode === 'INTERNAL_NOTE' ? IconLock : IconSend"
+            :size="16"
+            class="tw:mr-1"
+          />
           {{ sending ? 'Saving…' : replyMode === 'INTERNAL_NOTE' ? 'Add Note' : 'Send Reply' }}
         </BaseButton>
       </div>

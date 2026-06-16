@@ -11,8 +11,10 @@ const props = defineProps({
 
 const router = useRouter()
 
-const nc = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.Nonconformance.findByPk(id),
+const nc = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.Nonconformance.findByPk(id),
+  { models: ['Nonconformance'] },
 )
 
 const loading = computed(() => nc.value === undefined)
@@ -23,7 +25,6 @@ const breadcrumbs = computed(() => [
 ])
 
 // ─── Inline disposition auto-save ─────────────────────────────────────────────
-const isFirstLoad = ref(true)
 const canUpdate = computed(() => isAllowed(['nonconformances:update']))
 // Page-level fields (title, description, disposition, containment, etc.)
 // are owner-controlled. Anyone else with NC module access can READ the
@@ -38,22 +39,7 @@ const isEditable = computed(
     isOwner.value,
 )
 
-const debouncedSave = useDebounceFn(async () => {
-  if (!nc.value) return
-  await nc.value.save()
-}, 500)
-
-watch(
-  nc,
-  () => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (nc.value) debouncedSave()
-  },
-  { deep: true },
-)
+useAutoSave(nc)
 
 const saving = ref(false)
 const saveError = ref(null)
@@ -86,11 +72,10 @@ const incompleteStepCount = useLiveQueryWithDeps(
       instances.map((i) => db.WorkflowInstanceStep.where('workflowInstanceId', i.id).exec()),
     )
     const allSteps = stepLists.flat()
-    return allSteps.filter(
-      (s) => !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId),
-    ).length
+    return allSteps.filter((s) => !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId)).length
   },
-  { initial: 0 },
+
+  { models: ['WorkflowInstance', 'WorkflowInstanceStep'], initial: 0 },
 )
 
 const linkedCapaCount = useLiveQueryWithDeps(
@@ -100,12 +85,15 @@ const linkedCapaCount = useLiveQueryWithDeps(
     const rows = await db.Capa.where('[sourceType+sourceId]', ['NC', ncId]).exec()
     return rows.length
   },
-  { initial: 0 },
+
+  { models: ['Capa'], initial: 0 },
 )
 
 const ncDispositionType = useLiveQueryWithDeps(
   [() => nc.value?.dispositionTypeId],
+
   async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
+  { models: ['NcDispositionType'] },
 )
 
 const markCompleteBlockedReason = computed(() => {
@@ -227,22 +215,28 @@ const isOverdue = computed(() => {
   return nc.value.dueDate < DateTime.now()
 })
 
-const workflowInstance = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  const results = await db.WorkflowInstance.where('[resourceType+resourceId]', [
-    'Nonconformance',
-    id,
-  ]).exec()
-  return results.find((i) => i.statusId === 'IN_PROGRESS') || results[0] || null
-})
+const workflowInstance = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    const results = await db.WorkflowInstance.where('[resourceType+resourceId]', [
+      'Nonconformance',
+      id,
+    ]).exec()
+    return results.find((i) => i.statusId === 'IN_PROGRESS') || results[0] || null
+  },
+  { models: ['WorkflowInstance'] },
+)
 
 // Resolve the underlying Workflow id from the version so we can link to the
 // template (workflow-templates route is keyed by workflow id, not version id).
 const workflowVersion = useLiveQueryWithDeps(
   [() => workflowInstance.value?.workflowVersionId ?? nc.value?.workflowVersionId],
+
   async (db, [versionId]) => {
     if (!versionId) return null
     return db.WorkflowVersion.findByPk(versionId)
   },
+  { models: ['WorkflowVersion'] },
 )
 
 // ─── Inline-edit for cost fields ──────────────────────────────────────────────
@@ -256,11 +250,11 @@ const editingCredit = ref(false)
 // modern QMS products.
 const selectedDispositionType = useLiveQueryWithDeps(
   [() => nc.value?.dispositionTypeId],
+
   async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
+  { models: ['NcDispositionType'] },
 )
-const dispositionTracksCost = computed(
-  () => !!selectedDispositionType.value?.tracksCost,
-)
+const dispositionTracksCost = computed(() => !!selectedDispositionType.value?.tracksCost)
 
 const toast = useToast()
 
@@ -295,10 +289,7 @@ const convertSupplierId = ref(null)
 const converting = ref(false)
 const canConvertToSupplier = computed(
   () =>
-    nc.value &&
-    !nc.value.isSupplierFacing &&
-    nc.value.statusId === 'UNDER_REVIEW' &&
-    isOwner.value,
+    nc.value && !nc.value.isSupplierFacing && nc.value.statusId === 'UNDER_REVIEW' && isOwner.value,
 )
 function openConvertDialog() {
   convertSupplierId.value = nc.value?.supplierId ?? null
@@ -353,7 +344,8 @@ const allNcWorkflowInstanceIds = useLiveQueryWithDeps(
     ]).exec()
     return rows.map((r) => r.id)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstance'], initial: [] },
 )
 
 const allNcWorkflowInstanceStepIds = useLiveQueryWithDeps(
@@ -366,7 +358,8 @@ const allNcWorkflowInstanceStepIds = useLiveQueryWithDeps(
     )
     return lists.flat().map((s) => s.id)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 const auditIncludeEntities = computed(() => [
@@ -381,11 +374,13 @@ const auditIncludeEntities = computed(() => [
 // jump back to the inspection evidence. Lots are few; a scan is fine.
 const sourceLot = useLiveQueryWithDeps(
   [() => props.id],
+
   async (db, [ncId]) => {
     if (!ncId) return null
     const lots = await db.InspectionLot.where().exec()
     return lots.find((l) => l.ncId === ncId) ?? null
   },
+  { models: ['InspectionLot'] },
 )
 
 // ─── Linked CAPAs ─────────────────────────────────────────────────────────────
@@ -398,7 +393,8 @@ const linkedCapas = useLiveQueryWithDeps(
     if (!ncId) return []
     return db.Capa.where('[sourceType+sourceId]', ['NC', ncId]).exec()
   },
-  { initial: [] },
+
+  { models: ['Capa'], initial: [] },
 )
 
 function onCreateLinkedCapa() {
@@ -467,11 +463,7 @@ function onCreateLinkedChangeRequest() {
       </div>
     </SafeTeleport>
 
-    <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:w-8 tw:h-8 tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
-    </div>
+    <BaseSpinner v-if="loading" centered size="md" />
 
     <div v-else-if="nc" class="tw:overflow-y-auto tw:flex-1">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
@@ -533,14 +525,16 @@ function onCreateLinkedChangeRequest() {
                 class="tw:mb-2"
                 @blur="editingTitle = false"
               />
-              <div
+              <BaseClickableRow
                 v-else
                 class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
-                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                @click="isEditable && (editingTitle = true)"
+                :class="isEditable ? 'tw:hover:text-primary' : ''"
+                :disabled="!isEditable"
+                aria-label="Edit NC title"
+                @click="editingTitle = true"
               >
                 {{ nc.title }}
-              </div>
+              </BaseClickableRow>
               <div v-if="editingDescription && isEditable" class="nc-detail-editor tw:mb-4">
                 <BaseRichTextEditor
                   v-model="nc.description"
@@ -548,21 +542,27 @@ function onCreateLinkedChangeRequest() {
                   @blur="editingDescription = false"
                 />
               </div>
-              <div v-else class="tw:mb-4" @click="isEditable && (editingDescription = true)">
+              <BaseClickableRow
+                v-else
+                class="tw:mb-4"
+                :disabled="!isEditable"
+                aria-label="Edit NC description"
+                @click="editingDescription = true"
+              >
                 <div
                   v-if="nc.description"
                   class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:prose tw:max-w-none"
-                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                  :class="isEditable ? 'tw:hover:text-primary' : ''"
                   v-html="nc.description"
                 />
                 <p
                   v-else
                   class="tw:text-sm tw:text-secondary tw:leading-relaxed"
-                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                  :class="isEditable ? 'tw:hover:text-primary' : ''"
                 >
                   {{ isEditable ? 'Add a description…' : '—' }}
                 </p>
-              </div>
+              </BaseClickableRow>
 
               <!-- Required-at-create fields stay in the main view:
                    Severity, Type, Source, Detected. Optional metadata
@@ -578,13 +578,16 @@ function onCreateLinkedChangeRequest() {
                     :required="true"
                     @blur="editingSeverity = false"
                   />
-                  <span
+                  <BaseClickableRow
                     v-else
-                    :class="isEditable ? 'tw:cursor-pointer tw:hover:opacity-70' : ''"
-                    @click="isEditable && (editingSeverity = true)"
+                    tag="span"
+                    :class="isEditable ? 'tw:hover:opacity-70' : ''"
+                    :disabled="!isEditable"
+                    aria-label="Edit severity"
+                    @click="editingSeverity = true"
                   >
                     <NcSeverityBadgeById :severityId="nc.severityId" />
-                  </span>
+                  </BaseClickableRow>
                 </div>
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Type</div>
@@ -601,14 +604,17 @@ function onCreateLinkedChangeRequest() {
                     v-model="nc.detectedAt"
                     @blur="editingDetected = false"
                   />
-                  <span
+                  <BaseClickableRow
                     v-else
+                    tag="span"
                     class="tw:text-sm tw:font-medium"
-                    :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                    @click="isEditable && (editingDetected = true)"
+                    :class="isEditable ? 'tw:hover:text-primary' : ''"
+                    :disabled="!isEditable"
+                    aria-label="Edit detected date"
+                    @click="editingDetected = true"
                   >
                     {{ nc.detectedAt ? nc.detectedAt.formatDate('date') : '—' }}
-                  </span>
+                  </BaseClickableRow>
                 </div>
               </div>
 
@@ -702,9 +708,11 @@ function onCreateLinkedChangeRequest() {
                       autofocus
                       @blur="editingCost = false"
                     />
-                    <span
+                    <BaseClickableRow
                       v-else
-                      class="tw:text-sm tw:font-medium tw:cursor-pointer tw:hover:text-primary"
+                      tag="span"
+                      class="tw:text-sm tw:font-medium tw:hover:text-primary"
+                      aria-label="Edit cost of NC"
                       @click="editingCost = true"
                     >
                       {{
@@ -715,7 +723,7 @@ function onCreateLinkedChangeRequest() {
                             })
                           : '—'
                       }}
-                    </span>
+                    </BaseClickableRow>
                   </div>
                   <!-- Credit from Supplier — offsetting recovery when the
                        supplier reimburses the NC cost. Shown alongside
@@ -731,9 +739,11 @@ function onCreateLinkedChangeRequest() {
                       autofocus
                       @blur="editingCredit = false"
                     />
-                    <span
+                    <BaseClickableRow
                       v-else
-                      class="tw:text-sm tw:font-medium tw:cursor-pointer tw:hover:text-primary"
+                      tag="span"
+                      class="tw:text-sm tw:font-medium tw:hover:text-primary"
+                      aria-label="Edit credit from supplier"
                       @click="editingCredit = true"
                     >
                       {{
@@ -744,7 +754,7 @@ function onCreateLinkedChangeRequest() {
                             })
                           : '—'
                       }}
-                    </span>
+                    </BaseClickableRow>
                   </div>
                 </div>
 
@@ -822,7 +832,9 @@ function onCreateLinkedChangeRequest() {
               <div
                 class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+                <div
+                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+                >
                   Linked CAPAs
                 </div>
                 <div class="tw:flex tw:gap-2">
@@ -862,9 +874,7 @@ function onCreateLinkedChangeRequest() {
                   <CapaStatusBadgeById :statusId="linked.statusId" />
                 </RouterLink>
               </div>
-              <div v-else class="tw:text-sm tw:text-secondary tw:italic">
-                No CAPAs linked yet.
-              </div>
+              <div v-else class="tw:text-sm tw:text-secondary tw:italic">No CAPAs linked yet.</div>
             </div>
           </div>
 
@@ -944,7 +954,10 @@ function onCreateLinkedChangeRequest() {
                   <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
                     <DepartmentSelectMenu v-model="nc.departmentId" :required="true" />
                   </div>
-                  <DepartmentBadgeById v-else-if="nc.departmentId" :departmentId="nc.departmentId" />
+                  <DepartmentBadgeById
+                    v-else-if="nc.departmentId"
+                    :departmentId="nc.departmentId"
+                  />
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
               </div>
@@ -1001,18 +1014,21 @@ function onCreateLinkedChangeRequest() {
                     class="tw:w-36"
                     @blur="editingDueDate = false"
                   />
-                  <span
+                  <BaseClickableRow
                     v-else
+                    tag="span"
                     class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
                     :class="[
                       isOverdue ? 'tw:text-red-600' : '',
-                      isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : '',
+                      isEditable ? 'tw:hover:text-primary' : '',
                     ]"
-                    @click="isEditable && (editingDueDate = true)"
+                    :disabled="!isEditable"
+                    aria-label="Edit due date"
+                    @click="editingDueDate = true"
                   >
                     <span>{{ nc.dueDate ? nc.dueDate.formatDate('date') : '—' }}</span>
                     <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
-                  </span>
+                  </BaseClickableRow>
                 </div>
               </div>
 
@@ -1021,8 +1037,13 @@ function onCreateLinkedChangeRequest() {
                    ADDED — read-only mode keeps hiding empties. -->
               <div
                 v-if="
-                  isEditable || nc.supplierId || nc.productId || nc.qtyAffected ||
-                  nc.poNumber || nc.orderNumber || nc.lotNumber
+                  isEditable ||
+                  nc.supplierId ||
+                  nc.productId ||
+                  nc.qtyAffected ||
+                  nc.poNumber ||
+                  nc.orderNumber ||
+                  nc.lotNumber
                 "
                 class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col"
               >
@@ -1062,9 +1083,11 @@ function onCreateLinkedChangeRequest() {
                   <div v-else class="tw:flex tw:items-center tw:gap-2">
                     <span
                       class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5"
-                      :class="nc.isSupplierFacing
-                        ? 'tw:bg-violet-100 tw:text-violet-700'
-                        : 'tw:bg-gray-100 tw:text-secondary'"
+                      :class="
+                        nc.isSupplierFacing
+                          ? 'tw:bg-violet-100 tw:text-violet-700'
+                          : 'tw:bg-gray-100 tw:text-secondary'
+                      "
                     >
                       {{ nc.isSupplierFacing ? 'Supplier-facing' : 'Internal' }}
                     </span>
@@ -1096,8 +1119,18 @@ function onCreateLinkedChangeRequest() {
                 >
                   <span class="tw:text-xs tw:text-secondary tw:shrink-0">Qty affected</span>
                   <div v-if="isEditable" class="tw:flex tw:gap-1 tw:w-48">
-                    <BaseTextInput v-model.number="nc.qtyAffected" type="number" size="sm" class="tw:flex-1" />
-                    <BaseTextInput v-model="nc.unitOfMeasure" size="sm" placeholder="UOM" class="tw:w-16" />
+                    <BaseTextInput
+                      v-model.number="nc.qtyAffected"
+                      type="number"
+                      size="sm"
+                      class="tw:flex-1"
+                    />
+                    <BaseTextInput
+                      v-model="nc.unitOfMeasure"
+                      size="sm"
+                      placeholder="UOM"
+                      class="tw:w-16"
+                    />
                   </div>
                   <span v-else class="tw:text-sm tw:font-medium">
                     {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
@@ -1108,24 +1141,45 @@ function onCreateLinkedChangeRequest() {
                   class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
                 >
                   <span class="tw:text-xs tw:text-secondary tw:shrink-0">PO #</span>
-                  <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" class="tw:w-48" />
-                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.poNumber }}</span>
+                  <BaseTextInput
+                    v-if="isEditable"
+                    v-model="nc.poNumber"
+                    size="sm"
+                    class="tw:w-48"
+                  />
+                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{
+                    nc.poNumber
+                  }}</span>
                 </div>
                 <div
                   v-if="isEditable || nc.orderNumber"
                   class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
                 >
                   <span class="tw:text-xs tw:text-secondary tw:shrink-0">Order #</span>
-                  <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" class="tw:w-48" />
-                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.orderNumber }}</span>
+                  <BaseTextInput
+                    v-if="isEditable"
+                    v-model="nc.orderNumber"
+                    size="sm"
+                    class="tw:w-48"
+                  />
+                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{
+                    nc.orderNumber
+                  }}</span>
                 </div>
                 <div
                   v-if="isEditable || nc.lotNumber"
                   class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
                 >
                   <span class="tw:text-xs tw:text-secondary tw:shrink-0">Lot #</span>
-                  <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" class="tw:w-48" />
-                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.lotNumber }}</span>
+                  <BaseTextInput
+                    v-if="isEditable"
+                    v-model="nc.lotNumber"
+                    size="sm"
+                    class="tw:w-48"
+                  />
+                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{
+                    nc.lotNumber
+                  }}</span>
                 </div>
               </div>
 
@@ -1214,12 +1268,12 @@ function onCreateLinkedChangeRequest() {
         >
           <div class="tw:shrink-0 tw:mt-0.5 tw:text-green-600 tw:font-bold">✓</div>
           <div class="tw:text-sm tw:text-green-800">
-            All gates are satisfied — every workflow step is complete, the
-            disposition is recorded with notes
+            All gates are satisfied — every workflow step is complete, the disposition is recorded
+            with notes
             <template v-if="nc?.capaRequired === true">, a CAPA is linked</template>
             <template v-if="ncDispositionType?.tracksCost">, and Cost of NC is entered</template>.
-            Approving signs the closure and transitions the NC to
-            <strong>Closed</strong> — this is the final action.
+            Approving signs the closure and transitions the NC to <strong>Closed</strong> — this is
+            the final action.
           </div>
         </div>
 
@@ -1239,9 +1293,8 @@ function onCreateLinkedChangeRequest() {
         >
           <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
           <div>
-            CFR 21 Part 11 — Approving and closing this NC is an attested
-            regulated action and requires an e-signature. You'll confirm
-            your identity on the next step.
+            CFR 21 Part 11 — Approving and closing this NC is an attested regulated action and
+            requires an e-signature. You'll confirm your identity on the next step.
           </div>
         </div>
 
@@ -1310,8 +1363,8 @@ function onCreateLinkedChangeRequest() {
     <!-- Delete draft NC -->
     <BaseDialog v-model="showDeleteDialog" title="Delete Draft NC" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Delete this draft nonconformance? This permanently removes the
-        record. Drafts have no audit history yet, so this is safe.
+        Delete this draft nonconformance? This permanently removes the record. Drafts have no audit
+        history yet, so this is safe.
       </p>
       <div
         v-if="saveError"
@@ -1333,14 +1386,14 @@ function onCreateLinkedChangeRequest() {
     <BaseDialog v-model="showConvertDialog" title="Convert to Supplier-Facing NC" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3">
         <p class="tw:text-sm tw:text-on-main">
-          Investigation points at a supplier? Converting keeps everything already
-          entered on this NC and re-routes the remaining workflow to the supplier:
+          Investigation points at a supplier? Converting keeps everything already entered on this NC
+          and re-routes the remaining workflow to the supplier:
         </p>
         <ul class="tw:text-xs tw:text-secondary tw:list-disc tw:pl-5 tw:space-y-1">
           <li>Completed steps and their history are untouched.</li>
           <li>
-            Open and upcoming non-approval steps are reassigned to the supplier's
-            portal user — previous assignees stay visible in step history as
+            Open and upcoming non-approval steps are reassigned to the supplier's portal user —
+            previous assignees stay visible in step history as
             <span class="tw:font-semibold">Reassigned</span>.
           </li>
           <li>Final approval steps remain internal.</li>

@@ -24,8 +24,7 @@ const toast = useToast()
 // spawned steps leave those NULL and inherit from the WorkflowStep. Read
 // the instance value first, fall back to the template.
 const requireEsignature = computed(
-  () =>
-    props.instanceStep?.requireEsignature ?? props.workflowStep?.requireEsignature ?? false,
+  () => props.instanceStep?.requireEsignature ?? props.workflowStep?.requireEsignature ?? false,
 )
 
 const capaRecord = useLiveQueryWithDeps(
@@ -55,7 +54,8 @@ const childInstanceSteps = useLiveQueryWithDeps(
     if (!parentInstanceStepId) return []
     return db.WorkflowInstanceStep.where('parentInstanceStepId', parentInstanceStepId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 const hasChildren = computed(() => childInstanceSteps.value.length > 0)
@@ -114,7 +114,8 @@ const stepRoles = useLiveQueryWithDeps(
     if (!stepId) return []
     return db.WorkflowStepRole.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStepRole'], initial: [] },
 )
 
 const reassignCandidates = useLiveQueryWithDeps(
@@ -129,7 +130,8 @@ const reassignCandidates = useLiveQueryWithDeps(
     const users = await Promise.all(userIds.map((id) => db.User.findByPk(id)))
     return users.filter(Boolean)
   },
-  { initial: [] },
+
+  { models: ['RoleOnUser', 'User'], initial: [] },
 )
 
 const currentUserId = computed(() => currentSession.value?.id)

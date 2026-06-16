@@ -12,7 +12,8 @@ const site = useLiveQueryWithDeps(
     if (!siteId) return null
     return db.Site.findByPk(siteId)
   },
-  { initial: null },
+
+  { models: ['Site'], initial: null },
 )
 </script>
 

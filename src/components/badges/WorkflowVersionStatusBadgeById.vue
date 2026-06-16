@@ -12,7 +12,8 @@ const status = useLiveQueryWithDeps(
     if (!statusId) return null
     return db.WorkflowVersionStatus.findByPk(statusId)
   },
-  { initial: null },
+
+  { models: ['WorkflowVersionStatus'], initial: null },
 )
 </script>
 

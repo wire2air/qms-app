@@ -27,21 +27,22 @@ const toast = useToast()
 const myRequests = useLiveQuery(
   async (db) => {
     const rows = await db.AssetRequest.where().exec()
-    return rows.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['AssetRequest'], initial: [] },
 )
 
 const allItems = useLiveQuery(
   async (db) => db.AssetRequestItem.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestItem'], initial: [] },
 )
 
 const allTypes = useLiveQuery(
   async (db) => db.AssetRequestType.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestType'], initial: [] },
 )
 
 const typeById = computed(() => {
@@ -57,7 +58,8 @@ function itemsFor(requestId) {
 }
 
 function itemLabel(item) {
-  if (item.assetRequestTypeId) return typeById.value.get(item.assetRequestTypeId)?.name || item.assetRequestTypeId
+  if (item.assetRequestTypeId)
+    return typeById.value.get(item.assetRequestTypeId)?.name || item.assetRequestTypeId
   return item.customTitle || 'Untitled request'
 }
 
@@ -165,7 +167,9 @@ function progressForRequest(req) {
           <p v-if="req.description" class="tw:text-xs tw:text-secondary tw:italic">
             {{ req.description }}
           </p>
-          <ul class="tw:flex tw:flex-col tw:divide-y tw:divide-divider tw:rounded tw:border tw:border-divider">
+          <ul
+            class="tw:flex tw:flex-col tw:divide-y tw:divide-divider tw:rounded tw:border tw:border-divider"
+          >
             <li
               v-for="item in itemsFor(req.id)"
               :key="item.id"

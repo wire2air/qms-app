@@ -16,6 +16,7 @@ const modelValue = defineModel({
 })
 
 const types = useLiveQuery((db) => db.ProductType.where().orderBy('displayOrder').exec(), {
+  models: ['ProductType'],
   initial: [],
 })
 

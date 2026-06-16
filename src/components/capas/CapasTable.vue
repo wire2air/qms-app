@@ -24,7 +24,7 @@ function isOverdue(row) {
 }
 
 const columns = [
-  { name: 'capaNumber', label: 'CAPA NUMBER', field: 'capaNumber', align: 'left', sortable: true },
+  { name: 'capaNumber', label: 'CAPA NUMBER', field: 'capaNumber', align: 'left', sortable: true, hideable: false },
   { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
   { name: 'priority', label: 'PRIORITY', field: 'priorityId', align: 'left', sortable: false },
   { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
@@ -75,7 +75,14 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
+  <BaseTable
+    v-model:pagination="pagination"
+    :rows="rows"
+    :columns="columns"
+    rowKey="id"
+    columnToggle
+    showDensityToggle
+  >
     <template #body-cell-capaNumber="{ row }">
       <RouterLink
         :to="getCompanyPath(`/capas/${row.id}`)"

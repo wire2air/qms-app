@@ -14,12 +14,14 @@ const template = useLiveQueryWithDeps(
     () => props.field?.riskAssessmentTemplateId,
     () => props.values?._templateId,
   ],
+
   async (db, [embedded, fieldId, valueId]) => {
     if (embedded?.config) return embedded
     const id = fieldId || valueId
     if (!id) return null
     return db.RiskAssessmentTemplate.findByPk(id)
   },
+  { models: ['RiskAssessmentTemplate'] },
 )
 
 const riskLevel = computed(() => {
@@ -65,9 +67,14 @@ const detectabilityLabel = computed(() => {
         {{ riskLevel.label }}
       </div>
       <div class="tw:flex tw:flex-col tw:flex-1 tw:min-w-0">
-        <span v-if="likelihoodLabel && severityLabel" class="tw:text-xs tw:font-medium tw:text-on-main">
+        <span
+          v-if="likelihoodLabel && severityLabel"
+          class="tw:text-xs tw:font-medium tw:text-on-main"
+        >
           {{ likelihoodLabel }} × {{ severityLabel }}
-          <template v-if="enableDetectability && detectabilityLabel"> × {{ detectabilityLabel }}</template>
+          <template v-if="enableDetectability && detectabilityLabel">
+            × {{ detectabilityLabel }}</template
+          >
           <template v-if="rpnScore"> = RPN {{ rpnScore }}</template>
         </span>
         <span v-if="values.notes" class="tw:text-xs tw:text-secondary">{{ values.notes }}</span>
@@ -76,7 +83,10 @@ const detectabilityLabel = computed(() => {
         v-if="rpnScore"
         class="tw:flex tw:flex-col tw:items-center tw:shrink-0 tw:bg-white/60 tw:rounded-lg tw:px-3 tw:py-1.5"
       >
-        <span class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">RPN</span>
+        <span
+          class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+          >RPN</span
+        >
         <span class="tw:text-xl tw:font-bold tw:text-on-main tw:leading-none">{{ rpnScore }}</span>
       </div>
     </div>

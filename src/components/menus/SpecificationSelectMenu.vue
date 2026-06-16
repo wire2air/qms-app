@@ -24,7 +24,8 @@ const specs = useLiveQueryWithDeps(
       })
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   },
-  { initial: [] },
+
+  { models: ['Specification'], initial: [] },
 )
 
 const items = computed(() =>
