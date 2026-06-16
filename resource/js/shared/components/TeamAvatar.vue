@@ -1,4 +1,6 @@
 <script setup>
+import { IconUsersGroup } from '@tabler/icons-vue'
+
 defineOptions({
   inheritAttrs: false,
 })
@@ -81,7 +83,7 @@ const initials = computed(() => {
         class="tw:w-full tw:h-full tw:rounded-2xl tw:object-cover"
       />
       <span v-else-if="initials" class="tw:uppercase">{{ initials }}</span>
-      <QIcon v-else name="groups" />
+      <IconUsersGroup v-else class="tw:size-1/2" />
     </div>
     <div
       v-if="showBadge"

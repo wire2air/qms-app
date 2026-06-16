@@ -1,35 +1,28 @@
 <script setup>
-import { IconSearch } from '@tabler/icons-vue'
-
 const filters = defineModel('filters', {
   type: Object,
   required: true,
 })
+
+const showClear = computed(
+  () => !!(filters.value.search || filters.value.productTypeId || filters.value.statusId),
+)
+
+function clearAll() {
+  filters.value = { search: '', productTypeId: null, statusId: null }
+}
 </script>
 
 <template>
-  <div class="tw:bg-main-hover tw:mb-2">
-    <div class="tw:flex tw:items-center tw:p-2 tw:gap-2">
-      <div class="tw:w-full tw:md:w-1/3">
-        <BaseTextInput
-          v-model="filters.search"
-          name="search"
-          placeholder="Search products..."
-          clearBtn
-        >
-          <template #icon>
-            <IconSearch :size="16" />
-          </template>
-        </BaseTextInput>
-      </div>
-
-      <div class="tw:w-full tw:md:w-1/5">
-        <ProductTypeSelectMenu v-model="filters.productTypeId" :required="false" />
-      </div>
-
-      <div class="tw:w-full tw:md:w-1/5">
-        <ProductStatusSelectMenu v-model="filters.statusId" :required="false" />
-      </div>
-    </div>
-  </div>
+  <BaseFilterBar
+    v-model:search="filters.search"
+    searchPlaceholder="Search products…"
+    :showClear="showClear"
+    @clear="clearAll"
+  >
+    <template #filters>
+      <ProductTypeSelectMenu v-model="filters.productTypeId" :required="false" />
+      <ProductStatusSelectMenu v-model="filters.statusId" :required="false" />
+    </template>
+  </BaseFilterBar>
 </template>

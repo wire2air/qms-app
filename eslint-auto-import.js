@@ -306,6 +306,7 @@ export default {
     "useStyleTag": true,
     "useSupported": true,
     "useSwipe": true,
+    "useTableFilters": true,
     "useTemplateRef": true,
     "useTemplateRefsList": true,
     "useTextDirection": true,

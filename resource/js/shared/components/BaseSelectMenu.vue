@@ -1,6 +1,6 @@
 <script setup>
 import { IconSearch } from '@tabler/icons-vue'
-import { computed, shallowRef } from 'vue'
+import { computed, shallowRef, useSlots } from 'vue'
 
 const props = defineProps({
   /** @type {import('vue').PropType<Array<{as?: string, id: string | number, name: string}>>} */
@@ -24,11 +24,36 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Optional field chrome — when any of these are set the component renders a
+  // label/instructions/error around the trigger. When none are set the wrapper
+  // is `display:contents`, so existing XSelectMenu wrappers are unaffected.
+  label: {
+    type: String,
+    default: null,
+  },
+  instructions: {
+    type: String,
+    default: null,
+  },
+  errorMsg: {
+    type: String,
+    default: null,
+  },
+  // 'sm' | 'md' — affects label/instruction sizing
+  size: {
+    type: String,
+    default: 'md',
+  },
 })
 
 const selected = defineModel({
   type: [String, Number, Array, null],
 })
+
+const slots = useSlots()
+const hasChrome = computed(
+  () => !!(props.label || props.instructions || props.errorMsg || slots.label),
+)
 
 const search = shallowRef('')
 
@@ -144,8 +169,27 @@ watch(
 </script>
 
 <template>
-  <BasePopover placement="bottom" :arrow="false" :flip="true">
-    <template #button>
+  <div :class="hasChrome ? 'tw:flex tw:flex-col tw:gap-1' : 'tw:contents'">
+    <label
+      v-if="label || slots.label"
+      class="tw:block tw:font-medium tw:text-on-main tw:dark:text-white"
+      :class="size === 'sm' ? 'tw:text-12' : 'tw:text-sm'"
+    >
+      <slot name="label">
+        {{ label }}
+        <span v-if="required" class="tw:text-red">*</span>
+      </slot>
+    </label>
+    <p
+      v-if="instructions"
+      class="tw:text-secondary"
+      :class="size === 'sm' ? 'tw:text-11' : 'tw:text-12'"
+    >
+      {{ instructions }}
+    </p>
+
+    <BasePopover placement="bottom" :arrow="false" :flip="true">
+      <template #button>
       <BaseBadge v-if="showNullable && isNullableSelected" selectable>
         {{ nullLabel }}
       </BaseBadge>
@@ -158,7 +202,7 @@ watch(
            narrow inline cell. Items truncate with a title tooltip past
            the panel width. -->
       <div
-        class="tw:w-80 tw:max-w-[90vw] tw:bg-white tw:rounded-xl tw:shadow-xl tw:border tw:border-divider tw:overflow-hidden"
+        class="tw:w-80 tw:max-w-[90vw] tw:bg-card tw:rounded-xl tw:shadow-floating tw:border tw:border-divider tw:overflow-hidden"
       >
         <!-- Search Header -->
         <div class="tw:p-3 tw:border-b tw:border-divider tw:bg-sidebar/50">
@@ -247,6 +291,15 @@ watch(
         <!-- Footer slot -->
         <slot name="footer" :close="close" />
       </div>
-    </template>
-  </BasePopover>
+      </template>
+    </BasePopover>
+
+    <p
+      v-if="errorMsg"
+      class="tw:text-12 tw:text-red-500"
+      :class="size === 'sm' ? 'tw:text-11' : 'tw:text-12'"
+    >
+      {{ errorMsg }}
+    </p>
+  </div>
 </template>

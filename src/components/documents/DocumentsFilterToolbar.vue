@@ -41,7 +41,6 @@ const filters = defineModel('filters', {
 
       <!-- Status Filter -->
       <div class="tw:w-full tw:md:w-1/5">
-        <label class="tw:block tw:mb-1 tw:text-md tw:font-medium tw:text-on-main"> Status: </label>
         <DocumentVersionStatusSelectMenu
           v-model="filters.statusId"
           label="Status"

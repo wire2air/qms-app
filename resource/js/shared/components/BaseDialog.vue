@@ -75,7 +75,7 @@ const maxWidthClass = {
             leaveTo="tw:opacity-0 tw:scale-95"
           >
             <DialogPanel
-              class="tw:w-full tw:transform tw:rounded-2xl tw:bg-sidebar tw:shadow-xl tw:transition-all tw:overflow-hidden"
+              class="tw:w-full tw:transform tw:rounded-2xl tw:bg-sidebar tw:shadow-overlay tw:transition-all tw:overflow-hidden"
               :class="maxWidthClass[resolvedSize]"
             >
               <!-- Header -->

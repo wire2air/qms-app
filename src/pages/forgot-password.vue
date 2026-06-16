@@ -99,11 +99,11 @@ defineOptions({
 .login-card {
   width: 100%;
   max-width: 420px;
-  background-color: $content-bg;
+  background-color: var(--card);
 }
 
 a {
-  color: $primary;
+  color: var(--primary);
   text-decoration: none;
 
   &:hover {

@@ -8,7 +8,6 @@
 
 import { createApp, h } from 'vue'
 import DynamicForm from '@/components/form/DynamicForm.js'
-import { Quasar } from 'quasar'
 import { DateTime } from 'luxon'
 
 /**
@@ -94,15 +93,6 @@ export async function exportRecordPDFsHTML(records, schema, templateName) {
             modelValue: record.payload || {},
             readonly: true,
           })
-        },
-      })
-
-      // Use Quasar
-      app.use(Quasar, {
-        config: {
-          brand: {
-            primary: '#136dec',
-          },
         },
       })
 

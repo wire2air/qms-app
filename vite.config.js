@@ -1,5 +1,4 @@
 import { defineConfig, loadEnv } from 'vite'
-import { quasar, transformAssetUrls } from '@quasar/vite-plugin'
 import { fileURLToPath } from 'url'
 import vue from '@vitejs/plugin-vue'
 import babel from 'vite-plugin-babel'
@@ -62,6 +61,18 @@ export default defineConfig(({ mode }) => {
     // Build target configuration
     build: {
       target: ['es2022', 'firefox115', 'chrome115', 'safari16'],
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return
+            // The rich-text editor (tiptap/prosemirror) is the heaviest vendor
+            // and only used on editor pages — isolate it into one shared,
+            // clearly-named chunk loaded on demand instead of being named after
+            // a random consumer.
+            if (id.includes('@tiptap') || id.includes('prosemirror')) return 'vendor-editor'
+          },
+        },
+      },
     },
 
     // Dev server configuration
@@ -89,22 +100,14 @@ export default defineConfig(({ mode }) => {
 
       // Vue Router with file-based routing
       VueRouter({
-        importMode: 'sync',
+        // 'async' → each page compiles to its own lazy chunk loaded on
+        // navigation, instead of being eagerly bundled into the main chunk.
+        importMode: 'async',
         dts: './typed-router.d.ts',
       }),
 
       // Vue plugin
-      vue({
-        template: {
-          transformAssetUrls,
-        },
-      }),
-
-      // Quasar plugin
-      quasar({
-        autoImportComponentCase: 'pascal',
-        sassVariables: fileURLToPath(new URL('./src/css/quasar.variables.scss', import.meta.url)),
-      }),
+      vue(),
 
       // Vue I18n
       VueI18nPlugin({

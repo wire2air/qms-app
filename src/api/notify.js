@@ -14,10 +14,11 @@
  * @example
  *   // In main.js or an app-level plugin:
  *   import { registerNotifyHandler } from '@/api'
- *   import { Notify } from 'quasar'
+ *   import { useToast } from '@shared/composables/useToast.js'
  *
+ *   const toast = useToast()
  *   registerNotifyHandler(({ type, message }) => {
- *     Notify.create({ type, message })
+ *     toast.notify({ type, message })
  *   })
  */
 

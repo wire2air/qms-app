@@ -1,5 +1,7 @@
 <script setup>
+import { h, defineAsyncComponent } from 'vue'
 import { IconShield, IconDownload, IconRefresh } from '@tabler/icons-vue'
+import BaseSpinner from '@shared/components/BaseSpinner.vue'
 
 const props = defineProps({
   // Single-entity mode: shows changes made TO this record.
@@ -20,6 +22,20 @@ const props = defineProps({
 })
 
 const model = defineModel({ type: Boolean, default: false })
+
+// Lazy-load the audit list: its subtree (AuditLogsItem → AuditLogEntityLink →
+// per-entity resolvers/badges) is a ~2.5 MB chunk. Async-loading it here means
+// it loads only when the dialog is actually opened — keeping it off the
+// critical path of the 8 entity detail pages that embed this dialog. A
+// centered spinner covers the (one-time, then cached) chunk download; `delay`
+// avoids flashing it when the chunk is already cached.
+const AuditListLoading = () =>
+  h('div', { class: 'tw:flex tw:justify-center tw:py-12' }, h(BaseSpinner, { size: 'md' }))
+const AuditLogsList = defineAsyncComponent({
+  loader: () => import('./AuditLogsList.vue'),
+  loadingComponent: AuditListLoading,
+  delay: 150,
+})
 
 const refreshKey = ref(0)
 
@@ -97,7 +113,17 @@ const performedByNames = useLiveQueryWithDeps(
 
 function exportCsv() {
   const nameMap = performedByNames.value ?? {}
-  const header = ['When', 'Action', 'Entity Type', 'Entity ID', 'Performed By', 'User ID', 'IP Address', 'Old Value', 'New Value']
+  const header = [
+    'When',
+    'Action',
+    'Entity Type',
+    'Entity ID',
+    'Performed By',
+    'User ID',
+    'IP Address',
+    'Old Value',
+    'New Value',
+  ]
   const rows = (logs.value ?? []).map((log) => [
     log.createdAt?.formatDate?.('datetime') ?? log.createdAt ?? '',
     log.action ?? '',
@@ -127,8 +153,7 @@ function exportCsv() {
     <div class="tw:p-5 tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:items-center tw:justify-between">
         <p class="tw:text-xs tw:text-secondary">
-          Tamper-evident record of changes.
-          Showing {{ logs?.length ?? 0 }} entries
+          Tamper-evident record of changes. Showing {{ logs?.length ?? 0 }} entries
           <template v-if="totalIncludedEntities > 1">
             across {{ totalIncludedEntities }} related records
           </template>

@@ -285,7 +285,7 @@ async function handleDelete() {
             <h4 class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary">
               JSON Configuration
             </h4>
-            <div class="tw:rounded-lg tw:bg-[#111827] tw:p-3 tw:overflow-hidden">
+            <div class="tw:rounded-lg tw:bg-code tw:p-3 tw:overflow-hidden">
               <pre
                 class="tw:text-[10px] tw:text-good tw:font-mono tw:leading-relaxed tw:whitespace-pre-wrap"
               ><code>{{ JSON.stringify(template.config, null, 2) }}</code></pre>

@@ -5,6 +5,7 @@ import { isAllowed } from '@/utils/currentSession.js'
 const showDialog = ref(false)
 const selectedProductId = ref(null)
 const confirmDelete = ref({ open: false, product: null })
+const confirmBulkDelete = ref({ open: false, rows: [] })
 
 const canCreateProduct = computed(() => isAllowed(['products:create']))
 const canUpdateProduct = computed(() => isAllowed(['products:update']))
@@ -48,6 +49,15 @@ async function confirmDeleteProduct() {
   await confirmDelete.value.product.delete()
   confirmDelete.value = { open: false, product: null }
 }
+
+function onBulkDelete(rows) {
+  confirmBulkDelete.value = { open: true, rows }
+}
+
+async function confirmBulkDeleteProducts() {
+  for (const product of confirmBulkDelete.value.rows) await product.delete()
+  confirmBulkDelete.value = { open: false, rows: [] }
+}
 </script>
 
 <template>
@@ -82,6 +92,7 @@ async function confirmDeleteProduct() {
       :canDelete="canDeleteProduct"
       @delete="onDeleteProduct"
       @edit="onEditProduct"
+      @bulkDelete="onBulkDelete"
     />
   </div>
 
@@ -95,5 +106,14 @@ async function confirmDeleteProduct() {
     :message="`Are you sure you want to delete '${confirmDelete.product?.name}' (${confirmDelete.product?.sku})? This cannot be undone.`"
     okLabel="Delete"
     @ok="confirmDeleteProduct"
+  />
+
+  <!-- Bulk Delete Confirm Dialog -->
+  <ConfirmDialog
+    v-model="confirmBulkDelete.open"
+    title="Delete Products"
+    :message="`Delete ${confirmBulkDelete.rows.length} selected item${confirmBulkDelete.rows.length === 1 ? '' : 's'}? This cannot be undone.`"
+    okLabel="Delete"
+    @ok="confirmBulkDeleteProducts"
   />
 </template>
