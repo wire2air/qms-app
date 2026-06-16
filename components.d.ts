@@ -274,7 +274,6 @@ declare module 'vue' {
     DepartmentsHome: typeof import('./src/components/departments/DepartmentsHome.vue')['default']
     DepartmentsIndex: typeof import('./src/components/departments/DepartmentsIndex.vue')['default']
     DepartmentsTable: typeof import('./src/components/departments/DepartmentsTable.vue')['default']
-    DialogCloseBtn: typeof import('./resource/js/shared/components/DialogCloseBtn.vue')['default']
     DocumentBadge: typeof import('./src/components/badges/DocumentBadge.vue')['default']
     DocumentBadgeById: typeof import('./src/components/badges/DocumentBadgeById.vue')['default']
     DocumentContentReadonly: typeof import('./src/components/documents/DocumentContentReadonly.vue')['default']

@@ -15,6 +15,7 @@ defineProps({
     <template #button>
       <slot name="trigger">
         <button
+          aria-label="More actions"
           class="tw:flex tw:items-center tw:justify-center tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-sidebar-hover tw:hover:text-on-sidebar tw:transition-colors tw:duration-150"
         >
           <IconDotsVertical :size="16" />

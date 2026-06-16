@@ -93,6 +93,7 @@ const maxWidthClass = {
                 </DialogTitle>
                 <button
                   v-if="!persistent"
+                  aria-label="Close dialog"
                   class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
                   @click="close"
                 >
