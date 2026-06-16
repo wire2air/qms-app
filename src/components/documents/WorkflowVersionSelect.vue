@@ -20,16 +20,19 @@ const selectedVersionId = defineModel({
 const workflows = useLiveQueryWithDeps(
   [() => props.moduleId],
   async (db, [moduleId]) => db.Workflow.where('moduleId', moduleId).exec(),
-  {
-    initial: [],
-  },
+
+  { models: ['Workflow'], initial: [] },
 )
 
 const versions = useLiveQuery(async (db) => db.WorkflowVersion.where().exec(), {
+  models: ['WorkflowVersion'],
   initial: [],
 })
 
-const steps = useLiveQuery(async (db) => db.WorkflowStep.where().exec(), { initial: [] })
+const steps = useLiveQuery(async (db) => db.WorkflowStep.where().exec(), {
+  models: ['WorkflowStep'],
+  initial: [],
+})
 
 const activeWorkflows = computed(() => {
   return workflows.value

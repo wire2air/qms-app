@@ -48,7 +48,8 @@ const templates = useLiveQueryWithDeps(
       .filter((t) => t.name.toLowerCase().includes(lower))
       .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['RiskAssessmentTemplate'], initial: [] },
 )
 
 function onEdit(template) {
@@ -78,17 +79,14 @@ function onDialogClose() {
     <!-- "New Template" header-action only on the Templates tab; the
          Hazard Categories tab has its own "Add Category" affordance. -->
     <SafeTeleport v-if="activeTab === 'templates'" to="#main-header-actions">
-      <BaseButton v-if="canCreate" @click="showCreateDialog = true">
-        New Template
-      </BaseButton>
+      <BaseButton v-if="canCreate" @click="showCreateDialog = true"> New Template </BaseButton>
     </SafeTeleport>
 
     <div class="tw:flex tw:items-center tw:justify-between">
       <div class="tw:flex tw:flex-col tw:gap-1">
         <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Risk Assessment Templates</div>
         <div class="tw:text-sm tw:text-secondary">
-          Configure risk matrices and the hazard categories used when finalising an
-          assessment.
+          Configure risk matrices and the hazard categories used when finalising an assessment.
         </div>
       </div>
     </div>
@@ -115,11 +113,7 @@ function onDialogClose() {
     <!-- Tab: Templates -->
     <template v-if="activeTab === 'templates'">
       <div class="tw:flex tw:items-center tw:gap-3">
-        <BaseTextInput
-          v-model="search"
-          placeholder="Search templates..."
-          class="tw:w-72"
-        />
+        <BaseTextInput v-model="search" placeholder="Search templates..." class="tw:w-72" />
       </div>
 
       <RiskAssessmentTemplatesTable

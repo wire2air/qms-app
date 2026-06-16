@@ -32,8 +32,10 @@ const emit = defineEmits(['reassign'])
 const toast = useToast()
 const currentUserId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
 
-const instanceStep = useLiveQueryWithDeps([() => props.instanceStepId], async (db, [id]) =>
-  id ? db.WorkflowInstanceStep.findByPk(id) : null,
+const instanceStep = useLiveQueryWithDeps(
+  [() => props.instanceStepId],
+  async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+  { models: ['WorkflowInstanceStep'] },
 )
 
 const assignments = useLiveQueryWithDeps(
@@ -42,7 +44,8 @@ const assignments = useLiveQueryWithDeps(
     if (!id) return []
     return db.UserOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['UserOnWorkflowInstanceStep'], initial: [] },
 )
 const activeAssigneeId = computed(() => {
   const active = assignments.value.find(
@@ -54,6 +57,7 @@ const activeAssigneeId = computed(() => {
 const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
 const currentUserTask = useLiveQueryWithDeps(
   [() => props.instanceStepId, () => currentUserId.value],
+
   async (db, [stepInstanceId, userId]) => {
     if (!stepInstanceId || !userId) return null
     const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
@@ -61,11 +65,10 @@ const currentUserTask = useLiveQueryWithDeps(
       stepInstanceId,
     ]).exec()
     return (
-      tasks.find(
-        (t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId),
-      ) || null
+      tasks.find((t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId)) || null
     )
   },
+  { models: ['TaskInstance'] },
 )
 const isAssignee = computed(() => !!currentUserTask.value)
 
@@ -224,10 +227,7 @@ function getStatusLabel(statusId) {
         >
           <IconArrowBackUp :size="14" class="tw:text-amber-600" />
         </div>
-        <div
-          v-else
-          class="tw:size-6 tw:rounded-full tw:border-2 tw:border-gray-300 tw:bg-white"
-        />
+        <div v-else class="tw:size-6 tw:rounded-full tw:border-2 tw:border-gray-300 tw:bg-white" />
       </div>
 
       <button
@@ -328,8 +328,8 @@ function getStatusLabel(statusId) {
 
     <BaseDialog v-model="showCancelDialog" title="Cancel Sub-task" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Cancel this sub-task? Any open assignment is closed; the parent
-        stage's completion check will treat it as done.
+        Cancel this sub-task? Any open assignment is closed; the parent stage's completion check
+        will treat it as done.
       </p>
       <BaseTextarea v-model="cancelReason" :rows="3" placeholder="Reason (optional)" />
       <template #footer="{ close }">

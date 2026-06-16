@@ -8,7 +8,8 @@ const modelValue = defineModel({ type: [String, Array, null], default: null })
 
 const issueTypes = useLiveQuery(
   (db) => db.NcIssueType.where().orderBy('displayOrder').exec(),
-  { initial: [] },
+
+  { models: ['NcIssueType'], initial: [] },
 )
 
 function getArray() {

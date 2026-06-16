@@ -36,9 +36,15 @@ const uploads = useLiveQueryWithDeps(
     const rows = await db.AuditEvidence.where('auditInstanceId', instanceId).exec()
     return rows.filter((r) => r.auditRequirementResponseId === scopeId)
   },
-  { initial: [] },
+
+  { models: ['AuditEvidence'], initial: [] },
 )
-const assetIdList = computed(() => uploads.value.map((u) => u.assetId).filter(Boolean).join(','))
+const assetIdList = computed(() =>
+  uploads.value
+    .map((u) => u.assetId)
+    .filter(Boolean)
+    .join(','),
+)
 const assetsById = useLiveQueryWithDeps(
   [() => assetIdList.value],
   async (db, [csv]) => {
@@ -49,7 +55,8 @@ const assetsById = useLiveQueryWithDeps(
     for (const a of rows) if (wanted.has(a.id)) map[a.id] = a
     return map
   },
-  { initial: {} },
+
+  { models: ['Asset'], initial: {} },
 )
 // Only audio attachments belong to the voice-notes list.
 const voiceNotes = computed(() =>
@@ -203,7 +210,9 @@ onUnmounted(() => {
         preload="none"
         class="tw:h-8 tw:flex-1 tw:min-w-0"
       />
-      <span v-else class="tw:text-xs tw:text-secondary tw:flex-1">{{ note.caption || 'Voice note' }}</span>
+      <span v-else class="tw:text-xs tw:text-secondary tw:flex-1">{{
+        note.caption || 'Voice note'
+      }}</span>
       <button
         v-if="!readonly"
         type="button"
@@ -217,13 +226,20 @@ onUnmounted(() => {
 
     <!-- Recorder -->
     <div v-if="!readonly" class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-      <BaseButton v-if="!recording && !recordedBlob" variant="outline" size="sm" @click="startRecording">
+      <BaseButton
+        v-if="!recording && !recordedBlob"
+        variant="outline"
+        size="sm"
+        @click="startRecording"
+      >
         <template #icon><IconMicrophone :size="15" /></template>
         Record voice note
       </BaseButton>
 
       <template v-else-if="recording">
-        <span class="tw:inline-flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-red-600">
+        <span
+          class="tw:inline-flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-red-600"
+        >
           <span class="tw:size-2 tw:rounded-full tw:bg-red-600 tw:animate-pulse" />
           Recording… {{ fmt(elapsed) }}
         </span>
@@ -235,8 +251,16 @@ onUnmounted(() => {
 
       <template v-else>
         <audio :src="recordedUrl" controls class="tw:h-8" />
-        <BaseButton variant="primary" size="sm" :loading="saving" :disabled="saving" @click="saveRecording">
-          <template #icon><IconLoader2 v-if="saving" :size="15" class="tw:animate-spin" /></template>
+        <BaseButton
+          variant="primary"
+          size="sm"
+          :loading="saving"
+          :disabled="saving"
+          @click="saveRecording"
+        >
+          <template #icon
+            ><IconLoader2 v-if="saving" :size="15" class="tw:animate-spin"
+          /></template>
           Save
         </BaseButton>
         <BaseButton variant="outline" size="sm" :disabled="saving" @click="clearRecorded">
@@ -245,6 +269,8 @@ onUnmounted(() => {
       </template>
     </div>
 
-    <p v-else-if="!voiceNotes.length" class="tw:text-xs tw:text-secondary tw:italic">No voice notes.</p>
+    <p v-else-if="!voiceNotes.length" class="tw:text-xs tw:text-secondary tw:italic">
+      No voice notes.
+    </p>
   </div>
 </template>

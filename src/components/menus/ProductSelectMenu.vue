@@ -22,7 +22,10 @@ const modelValue = defineModel({
   default: null,
 })
 
-const products = useLiveQuery(async (db) => db.Product.where().exec(), { initial: [] })
+const products = useLiveQuery(async (db) => db.Product.where().exec(), {
+  models: ['Product'],
+  initial: [],
+})
 
 const canCreateProduct = computed(() => props.allowCreate && isAllowed(['products:create']))
 

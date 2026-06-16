@@ -148,7 +148,10 @@ function applyActiveFilter(results, af) {
   return results
 }
 
-const allComplaints = useLiveQuery((db) => db.CustomerComplaint.where().exec(), { initial: [] })
+const allComplaints = useLiveQuery((db) => db.CustomerComplaint.where().exec(), {
+  models: ['CustomerComplaint'],
+  initial: [],
+})
 
 const complaints = useLiveQueryWithDeps(
   [() => JSON.stringify({ ...filters.value }), () => activeFilter.value],
@@ -161,7 +164,8 @@ const complaints = useLiveQueryWithDeps(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['CustomerComplaint'], initial: [] },
 )
 
 // Distinct custom-field keys across loaded tickets — feeds the

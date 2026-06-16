@@ -6,7 +6,10 @@ defineProps({
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
-const templates = useLiveQuery((db) => db.RcaTemplate.where().exec(), { initial: [] })
+const templates = useLiveQuery((db) => db.RcaTemplate.where().exec(), {
+  models: ['RcaTemplate'],
+  initial: [],
+})
 
 function getArray() {
   return Array.isArray(modelValue.value) ? modelValue.value : []
@@ -27,7 +30,9 @@ function getArray() {
               @clear="() => scope.clear(id)"
             />
           </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select RCA Templates</span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
+            >Select RCA Templates</span
+          >
         </template>
         <template v-else>
           <RcaTemplateBadgeById
@@ -37,7 +42,9 @@ function getArray() {
             selectable
             @clear="() => scope.clear(modelValue)"
           />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select RCA Template</span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
+            >Select RCA Template</span
+          >
         </template>
       </slot>
     </template>

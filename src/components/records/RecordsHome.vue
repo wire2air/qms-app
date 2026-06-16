@@ -18,7 +18,8 @@ const records = useLiveQueryWithDeps(
     const s = search.toLowerCase()
     return all.filter((r) => r.recordNumber?.toLowerCase().includes(s))
   },
-  { initial: [] },
+
+  { models: ['Record'], initial: [] },
 )
 
 const loading = computed(() => records.value === undefined)

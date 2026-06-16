@@ -19,7 +19,8 @@ const confirmDelete = ref(false)
 const memberships = useLiveQueryWithDeps(
   [() => props.group.id],
   async (db, [id]) => db.UserOnTeam.where('teamId', id).exec(),
-  { initial: [] },
+
+  { models: ['UserOnTeam'], initial: [] },
 )
 
 const memberCount = computed(() => memberships.value.length)

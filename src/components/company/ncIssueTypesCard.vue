@@ -21,7 +21,8 @@ const isOwner = computed(() => !!currentSession.value?.isOwner)
 
 const issueTypes = useLiveQuery(
   async (db) => db.NcIssueType.where().orderBy('displayOrder', 'asc').exec(),
-  { initial: [] },
+
+  { models: ['NcIssueType'], initial: [] },
 )
 
 const deactivated = useLiveQuery(
@@ -29,7 +30,8 @@ const deactivated = useLiveQuery(
     const all = await db.NcIssueType.where('id', undefined, { force: true }).exec()
     return all.filter((d) => d.deletedAt)
   },
-  { initial: [] },
+
+  { models: ['NcIssueType'], initial: [] },
 )
 
 // ─── Dialog state ────────────────────────────────────────────────────────────
@@ -175,9 +177,9 @@ const showDeactivated = ref(false)
       <div>
         <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">NC Issue Types</h2>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          The classification options shown on the NC intake form
-          (Out of Spec / Receiving / Missing Standard, plus any tenant
-          additions). Scoped to this company — changes only affect your tenant.
+          The classification options shown on the NC intake form (Out of Spec / Receiving / Missing
+          Standard, plus any tenant additions). Scoped to this company — changes only affect your
+          tenant.
         </p>
       </div>
       <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
@@ -190,8 +192,8 @@ const showDeactivated = ref(false)
       v-if="!isOwner"
       class="tw:p-4 tw:bg-amber-50 tw:border-b tw:border-amber-200 tw:text-xs tw:text-amber-800"
     >
-      Only the company owner (or someone with the "Manage NC Issue Types" permission)
-      can edit shared lookup data. You can view the list below.
+      Only the company owner (or someone with the "Manage NC Issue Types" permission) can edit
+      shared lookup data. You can view the list below.
     </div>
 
     <div class="tw:p-4">
@@ -207,11 +209,7 @@ const showDeactivated = ref(false)
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="row in issueTypes"
-            :key="row.id"
-            class="tw:border-b tw:border-divider"
-          >
+          <tr v-for="row in issueTypes" :key="row.id" class="tw:border-b tw:border-divider">
             <td class="tw:px-3 tw:py-3">
               <div class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</div>
               <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">
@@ -326,8 +324,8 @@ const showDeactivated = ref(false)
             @input="codeDirty = true"
           />
           <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            SCREAMING_SNAKE_CASE. Stable identifier saved on every NC row that uses this
-            issue type — cannot be changed later. We generate it from the name; click
+            SCREAMING_SNAKE_CASE. Stable identifier saved on every NC row that uses this issue type
+            — cannot be changed later. We generate it from the name; click
             <strong>Edit</strong> to override.
           </p>
         </div>

@@ -28,15 +28,18 @@ const toast = useToast()
 
 const requests = useLiveQuery(
   async (db) => db.AssetRequest.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequest'], initial: [] },
 )
 const items = useLiveQuery(
   async (db) => db.AssetRequestItem.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestItem'], initial: [] },
 )
 const types = useLiveQuery(
   async (db) => db.AssetRequestType.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestType'], initial: [] },
 )
 
 const requestById = computed(() => {

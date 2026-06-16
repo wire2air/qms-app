@@ -11,8 +11,10 @@ const props = defineProps({
 
 const router = useRouter()
 
-const nc = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.Nonconformance.findByPk(id),
+const nc = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.Nonconformance.findByPk(id),
+  { models: ['Nonconformance'] },
 )
 
 const loading = computed(() => nc.value === undefined)
@@ -70,11 +72,10 @@ const incompleteStepCount = useLiveQueryWithDeps(
       instances.map((i) => db.WorkflowInstanceStep.where('workflowInstanceId', i.id).exec()),
     )
     const allSteps = stepLists.flat()
-    return allSteps.filter(
-      (s) => !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId),
-    ).length
+    return allSteps.filter((s) => !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId)).length
   },
-  { initial: 0 },
+
+  { models: ['WorkflowInstance', 'WorkflowInstanceStep'], initial: 0 },
 )
 
 const linkedCapaCount = useLiveQueryWithDeps(
@@ -84,12 +85,15 @@ const linkedCapaCount = useLiveQueryWithDeps(
     const rows = await db.Capa.where('[sourceType+sourceId]', ['NC', ncId]).exec()
     return rows.length
   },
-  { initial: 0 },
+
+  { models: ['Capa'], initial: 0 },
 )
 
 const ncDispositionType = useLiveQueryWithDeps(
   [() => nc.value?.dispositionTypeId],
+
   async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
+  { models: ['NcDispositionType'] },
 )
 
 const markCompleteBlockedReason = computed(() => {
@@ -211,22 +215,28 @@ const isOverdue = computed(() => {
   return nc.value.dueDate < DateTime.now()
 })
 
-const workflowInstance = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  const results = await db.WorkflowInstance.where('[resourceType+resourceId]', [
-    'Nonconformance',
-    id,
-  ]).exec()
-  return results.find((i) => i.statusId === 'IN_PROGRESS') || results[0] || null
-})
+const workflowInstance = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    const results = await db.WorkflowInstance.where('[resourceType+resourceId]', [
+      'Nonconformance',
+      id,
+    ]).exec()
+    return results.find((i) => i.statusId === 'IN_PROGRESS') || results[0] || null
+  },
+  { models: ['WorkflowInstance'] },
+)
 
 // Resolve the underlying Workflow id from the version so we can link to the
 // template (workflow-templates route is keyed by workflow id, not version id).
 const workflowVersion = useLiveQueryWithDeps(
   [() => workflowInstance.value?.workflowVersionId ?? nc.value?.workflowVersionId],
+
   async (db, [versionId]) => {
     if (!versionId) return null
     return db.WorkflowVersion.findByPk(versionId)
   },
+  { models: ['WorkflowVersion'] },
 )
 
 // ─── Inline-edit for cost fields ──────────────────────────────────────────────
@@ -240,11 +250,11 @@ const editingCredit = ref(false)
 // modern QMS products.
 const selectedDispositionType = useLiveQueryWithDeps(
   [() => nc.value?.dispositionTypeId],
+
   async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
+  { models: ['NcDispositionType'] },
 )
-const dispositionTracksCost = computed(
-  () => !!selectedDispositionType.value?.tracksCost,
-)
+const dispositionTracksCost = computed(() => !!selectedDispositionType.value?.tracksCost)
 
 const toast = useToast()
 
@@ -279,10 +289,7 @@ const convertSupplierId = ref(null)
 const converting = ref(false)
 const canConvertToSupplier = computed(
   () =>
-    nc.value &&
-    !nc.value.isSupplierFacing &&
-    nc.value.statusId === 'UNDER_REVIEW' &&
-    isOwner.value,
+    nc.value && !nc.value.isSupplierFacing && nc.value.statusId === 'UNDER_REVIEW' && isOwner.value,
 )
 function openConvertDialog() {
   convertSupplierId.value = nc.value?.supplierId ?? null
@@ -337,7 +344,8 @@ const allNcWorkflowInstanceIds = useLiveQueryWithDeps(
     ]).exec()
     return rows.map((r) => r.id)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstance'], initial: [] },
 )
 
 const allNcWorkflowInstanceStepIds = useLiveQueryWithDeps(
@@ -350,7 +358,8 @@ const allNcWorkflowInstanceStepIds = useLiveQueryWithDeps(
     )
     return lists.flat().map((s) => s.id)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 const auditIncludeEntities = computed(() => [
@@ -365,11 +374,13 @@ const auditIncludeEntities = computed(() => [
 // jump back to the inspection evidence. Lots are few; a scan is fine.
 const sourceLot = useLiveQueryWithDeps(
   [() => props.id],
+
   async (db, [ncId]) => {
     if (!ncId) return null
     const lots = await db.InspectionLot.where().exec()
     return lots.find((l) => l.ncId === ncId) ?? null
   },
+  { models: ['InspectionLot'] },
 )
 
 // ─── Linked CAPAs ─────────────────────────────────────────────────────────────
@@ -382,7 +393,8 @@ const linkedCapas = useLiveQueryWithDeps(
     if (!ncId) return []
     return db.Capa.where('[sourceType+sourceId]', ['NC', ncId]).exec()
   },
-  { initial: [] },
+
+  { models: ['Capa'], initial: [] },
 )
 
 function onCreateLinkedCapa() {
@@ -820,7 +832,9 @@ function onCreateLinkedChangeRequest() {
               <div
                 class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+                <div
+                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+                >
                   Linked CAPAs
                 </div>
                 <div class="tw:flex tw:gap-2">
@@ -860,9 +874,7 @@ function onCreateLinkedChangeRequest() {
                   <CapaStatusBadgeById :statusId="linked.statusId" />
                 </RouterLink>
               </div>
-              <div v-else class="tw:text-sm tw:text-secondary tw:italic">
-                No CAPAs linked yet.
-              </div>
+              <div v-else class="tw:text-sm tw:text-secondary tw:italic">No CAPAs linked yet.</div>
             </div>
           </div>
 
@@ -942,7 +954,10 @@ function onCreateLinkedChangeRequest() {
                   <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
                     <DepartmentSelectMenu v-model="nc.departmentId" :required="true" />
                   </div>
-                  <DepartmentBadgeById v-else-if="nc.departmentId" :departmentId="nc.departmentId" />
+                  <DepartmentBadgeById
+                    v-else-if="nc.departmentId"
+                    :departmentId="nc.departmentId"
+                  />
                   <span v-else class="tw:text-sm tw:text-secondary">—</span>
                 </div>
               </div>
@@ -1022,8 +1037,13 @@ function onCreateLinkedChangeRequest() {
                    ADDED — read-only mode keeps hiding empties. -->
               <div
                 v-if="
-                  isEditable || nc.supplierId || nc.productId || nc.qtyAffected ||
-                  nc.poNumber || nc.orderNumber || nc.lotNumber
+                  isEditable ||
+                  nc.supplierId ||
+                  nc.productId ||
+                  nc.qtyAffected ||
+                  nc.poNumber ||
+                  nc.orderNumber ||
+                  nc.lotNumber
                 "
                 class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col"
               >
@@ -1063,9 +1083,11 @@ function onCreateLinkedChangeRequest() {
                   <div v-else class="tw:flex tw:items-center tw:gap-2">
                     <span
                       class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5"
-                      :class="nc.isSupplierFacing
-                        ? 'tw:bg-violet-100 tw:text-violet-700'
-                        : 'tw:bg-gray-100 tw:text-secondary'"
+                      :class="
+                        nc.isSupplierFacing
+                          ? 'tw:bg-violet-100 tw:text-violet-700'
+                          : 'tw:bg-gray-100 tw:text-secondary'
+                      "
                     >
                       {{ nc.isSupplierFacing ? 'Supplier-facing' : 'Internal' }}
                     </span>
@@ -1097,8 +1119,18 @@ function onCreateLinkedChangeRequest() {
                 >
                   <span class="tw:text-xs tw:text-secondary tw:shrink-0">Qty affected</span>
                   <div v-if="isEditable" class="tw:flex tw:gap-1 tw:w-48">
-                    <BaseTextInput v-model.number="nc.qtyAffected" type="number" size="sm" class="tw:flex-1" />
-                    <BaseTextInput v-model="nc.unitOfMeasure" size="sm" placeholder="UOM" class="tw:w-16" />
+                    <BaseTextInput
+                      v-model.number="nc.qtyAffected"
+                      type="number"
+                      size="sm"
+                      class="tw:flex-1"
+                    />
+                    <BaseTextInput
+                      v-model="nc.unitOfMeasure"
+                      size="sm"
+                      placeholder="UOM"
+                      class="tw:w-16"
+                    />
                   </div>
                   <span v-else class="tw:text-sm tw:font-medium">
                     {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
@@ -1109,24 +1141,45 @@ function onCreateLinkedChangeRequest() {
                   class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
                 >
                   <span class="tw:text-xs tw:text-secondary tw:shrink-0">PO #</span>
-                  <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" class="tw:w-48" />
-                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.poNumber }}</span>
+                  <BaseTextInput
+                    v-if="isEditable"
+                    v-model="nc.poNumber"
+                    size="sm"
+                    class="tw:w-48"
+                  />
+                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{
+                    nc.poNumber
+                  }}</span>
                 </div>
                 <div
                   v-if="isEditable || nc.orderNumber"
                   class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
                 >
                   <span class="tw:text-xs tw:text-secondary tw:shrink-0">Order #</span>
-                  <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" class="tw:w-48" />
-                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.orderNumber }}</span>
+                  <BaseTextInput
+                    v-if="isEditable"
+                    v-model="nc.orderNumber"
+                    size="sm"
+                    class="tw:w-48"
+                  />
+                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{
+                    nc.orderNumber
+                  }}</span>
                 </div>
                 <div
                   v-if="isEditable || nc.lotNumber"
                   class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
                 >
                   <span class="tw:text-xs tw:text-secondary tw:shrink-0">Lot #</span>
-                  <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" class="tw:w-48" />
-                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.lotNumber }}</span>
+                  <BaseTextInput
+                    v-if="isEditable"
+                    v-model="nc.lotNumber"
+                    size="sm"
+                    class="tw:w-48"
+                  />
+                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{
+                    nc.lotNumber
+                  }}</span>
                 </div>
               </div>
 
@@ -1215,12 +1268,12 @@ function onCreateLinkedChangeRequest() {
         >
           <div class="tw:shrink-0 tw:mt-0.5 tw:text-green-600 tw:font-bold">✓</div>
           <div class="tw:text-sm tw:text-green-800">
-            All gates are satisfied — every workflow step is complete, the
-            disposition is recorded with notes
+            All gates are satisfied — every workflow step is complete, the disposition is recorded
+            with notes
             <template v-if="nc?.capaRequired === true">, a CAPA is linked</template>
             <template v-if="ncDispositionType?.tracksCost">, and Cost of NC is entered</template>.
-            Approving signs the closure and transitions the NC to
-            <strong>Closed</strong> — this is the final action.
+            Approving signs the closure and transitions the NC to <strong>Closed</strong> — this is
+            the final action.
           </div>
         </div>
 
@@ -1240,9 +1293,8 @@ function onCreateLinkedChangeRequest() {
         >
           <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
           <div>
-            CFR 21 Part 11 — Approving and closing this NC is an attested
-            regulated action and requires an e-signature. You'll confirm
-            your identity on the next step.
+            CFR 21 Part 11 — Approving and closing this NC is an attested regulated action and
+            requires an e-signature. You'll confirm your identity on the next step.
           </div>
         </div>
 
@@ -1311,8 +1363,8 @@ function onCreateLinkedChangeRequest() {
     <!-- Delete draft NC -->
     <BaseDialog v-model="showDeleteDialog" title="Delete Draft NC" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Delete this draft nonconformance? This permanently removes the
-        record. Drafts have no audit history yet, so this is safe.
+        Delete this draft nonconformance? This permanently removes the record. Drafts have no audit
+        history yet, so this is safe.
       </p>
       <div
         v-if="saveError"
@@ -1334,14 +1386,14 @@ function onCreateLinkedChangeRequest() {
     <BaseDialog v-model="showConvertDialog" title="Convert to Supplier-Facing NC" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3">
         <p class="tw:text-sm tw:text-on-main">
-          Investigation points at a supplier? Converting keeps everything already
-          entered on this NC and re-routes the remaining workflow to the supplier:
+          Investigation points at a supplier? Converting keeps everything already entered on this NC
+          and re-routes the remaining workflow to the supplier:
         </p>
         <ul class="tw:text-xs tw:text-secondary tw:list-disc tw:pl-5 tw:space-y-1">
           <li>Completed steps and their history are untouched.</li>
           <li>
-            Open and upcoming non-approval steps are reassigned to the supplier's
-            portal user — previous assignees stay visible in step history as
+            Open and upcoming non-approval steps are reassigned to the supplier's portal user —
+            previous assignees stay visible in step history as
             <span class="tw:font-semibold">Reassigned</span>.
           </li>
           <li>Final approval steps remain internal.</li>

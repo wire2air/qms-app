@@ -25,10 +25,14 @@ const form = ref({
 })
 
 // Load existing site if editing
-const site = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.Site.findByPk(id)
-})
+const site = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.Site.findByPk(id)
+  },
+  { models: ['Site'] },
+)
 
 // Code availability check using live query
 const codeAvailable = useLiveQueryWithDeps(
@@ -38,7 +42,8 @@ const codeAvailable = useLiveQueryWithDeps(
     const all = await db.Site.where().exec()
     return !all.some((s) => s.code === code && s.id !== id)
   },
-  { initial: true },
+
+  { models: ['Site'], initial: true },
 )
 
 const rules = computed(() => ({

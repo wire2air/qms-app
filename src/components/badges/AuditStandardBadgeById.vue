@@ -15,7 +15,11 @@ const standard = useLiveQueryWithDeps(
     if (!id) return null
     return db.AuditStandard.findByPk(id)
   },
-  { initial: () => (props.standardId ? { id: props.standardId } : null) },
+
+  {
+    models: ['AuditStandard'],
+    initial: () => (props.standardId ? { id: props.standardId } : null),
+  },
 )
 </script>
 

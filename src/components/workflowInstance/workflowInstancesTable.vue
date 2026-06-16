@@ -14,7 +14,8 @@ const instances = useLiveQueryWithDeps(
     if (statusId) results = results.filter((i) => i.statusId === statusId)
     return results
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstance'], initial: [] },
 )
 
 const documentMap = useLiveQueryWithDeps(
@@ -43,7 +44,8 @@ const documentMap = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['DocumentVersion', 'Document'], initial: {} },
 )
 
 const ncMap = useLiveQueryWithDeps(
@@ -57,7 +59,8 @@ const ncMap = useLiveQueryWithDeps(
     const ncs = await Promise.all(ids.map((id) => db.Nonconformance.findByPk(id)))
     return Object.fromEntries(ncs.filter(Boolean).map((nc) => [nc.id, nc]))
   },
-  { initial: {} },
+
+  { models: ['Nonconformance'], initial: {} },
 )
 
 const capaMap = useLiveQueryWithDeps(
@@ -68,7 +71,8 @@ const capaMap = useLiveQueryWithDeps(
     const capas = await Promise.all(ids.map((id) => db.Capa.findByPk(id)))
     return Object.fromEntries(capas.filter(Boolean).map((c) => [c.id, c]))
   },
-  { initial: {} },
+
+  { models: ['Capa'], initial: {} },
 )
 
 const moduleIdMap = useLiveQueryWithDeps(
@@ -94,7 +98,8 @@ const moduleIdMap = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['WorkflowVersion', 'Workflow'], initial: {} },
 )
 
 const activeStepNameMap = useLiveQueryWithDeps(
@@ -114,7 +119,8 @@ const activeStepNameMap = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['WorkflowInstanceStep'], initial: {} },
 )
 
 const filteredInstances = computed(() => {

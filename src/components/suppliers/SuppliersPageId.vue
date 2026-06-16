@@ -13,8 +13,10 @@ const route = useRoute()
 const router = useRouter()
 const canUpdate = computed(() => isAllowed(['suppliers:update']))
 
-const supplier = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.Supplier.findByPk(id),
+const supplier = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.Supplier.findByPk(id),
+  { models: ['Supplier'] },
 )
 
 const loading = computed(() => supplier.value === undefined)

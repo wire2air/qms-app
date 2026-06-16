@@ -35,7 +35,8 @@ const currentVersionMapById = useLiveQueryWithDeps(
     for (const v of versions) map[v.documentId] = v
     return map
   },
-  { initial: {} },
+
+  { models: ['DocumentVersion'], initial: {} },
 )
 
 const latestVersionMapById = useLiveQueryWithDeps(
@@ -54,7 +55,8 @@ const latestVersionMapById = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['DocumentVersion'], initial: {} },
 )
 
 const columns = computed(() => [

@@ -14,9 +14,13 @@ const props = defineProps({
 
 const canUpdateUser = computed(() => isAllowed(['users:update']))
 
-const user = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  return db.User.findByPk(id)
-})
+const user = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    return db.User.findByPk(id)
+  },
+  { models: ['User'] },
+)
 
 const loading = computed(() => user.value === undefined)
 
@@ -35,7 +39,8 @@ const roleAssignments = useLiveQueryWithDeps(
     if (!userId) return []
     return db.RoleOnUser.where('userId', userId).exec()
   },
-  { initial: [] },
+
+  { models: ['RoleOnUser'], initial: [] },
 )
 
 const assignedRoleIds = computed(() => roleAssignments.value.map((ra) => ra.roleId))

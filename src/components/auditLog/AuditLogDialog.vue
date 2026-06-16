@@ -108,7 +108,8 @@ const performedByNames = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 
 function exportCsv() {

@@ -16,7 +16,8 @@ const plans = useLiveQuery(
       .filter((p) => p.statusId === 'ACTIVE')
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   },
-  { initial: [] },
+
+  { models: ['SamplingPlan'], initial: [] },
 )
 const items = computed(() =>
   plans.value.map((p) => ({

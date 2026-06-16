@@ -3,7 +3,8 @@ import { IconBell } from '@tabler/icons-vue'
 
 const notifications = useLiveQuery(
   async (db) => db.Notification.where().orderBy('createdAt', 'desc').exec(),
-  { initial: [] },
+
+  { models: ['Notification'], initial: [] },
 )
 
 const unreadCount = computed(() => notifications.value.filter((n) => !n.isRead).length)

@@ -24,7 +24,10 @@ const filters = ref({
 // Round 0: query log_books directly. Variable names preserved at the
 // template binding level (logBookId, logBookById) so reading the view
 // stays consistent with the rest of the I&L module.
-const logBooks = useLiveQuery((db) => db.LogBook.where().exec(), { initial: [] })
+const logBooks = useLiveQuery((db) => db.LogBook.where().exec(), {
+  models: ['LogBook'],
+  initial: [],
+})
 const assignments = useLiveQueryWithDeps(
   [() => filters.value.logBookId, () => filters.value.active],
   async (db, [logBookId, active]) => {
@@ -34,7 +37,8 @@ const assignments = useLiveQueryWithDeps(
     if (active === 'inactive') rows = rows.filter((r) => r.active === false)
     return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['FormAssignment'], initial: [] },
 )
 
 const logBookById = computed(() => {

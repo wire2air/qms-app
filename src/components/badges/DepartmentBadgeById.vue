@@ -12,7 +12,8 @@ const department = useLiveQueryWithDeps(
     if (!departmentId) return null
     return db.Department.findByPk(departmentId)
   },
-  { initial: null },
+
+  { models: ['Department'], initial: null },
 )
 </script>
 

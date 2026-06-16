@@ -11,10 +11,14 @@ const props = defineProps({
 const toast = useToast()
 const router = useRouter()
 
-const template = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.FormTemplate.findByPk(id)
-})
+const template = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.FormTemplate.findByPk(id)
+  },
+  { models: ['FormTemplate'] },
+)
 
 const loading = computed(() => template.value === undefined)
 const isSaving = ref(false)

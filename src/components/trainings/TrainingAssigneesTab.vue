@@ -14,7 +14,8 @@ const trainingRoles = useLiveQueryWithDeps(
     if (!trainingId) return []
     return db.TrainingRole.where('trainingId', trainingId).exec()
   },
-  { initial: [] },
+
+  { models: ['TrainingRole'], initial: [] },
 )
 
 const trainingUsers = useLiveQueryWithDeps(
@@ -23,7 +24,8 @@ const trainingUsers = useLiveQueryWithDeps(
     if (!trainingId) return []
     return db.TrainingUser.where('trainingId', trainingId).exec()
   },
-  { initial: [] },
+
+  { models: ['TrainingUser'], initial: [] },
 )
 
 const roleIds = computed(() => trainingRoles.value.map((r) => r.roleId))
@@ -70,10 +72,6 @@ const userIds = computed(() => trainingUsers.value.map((u) => u.userId))
       </div>
     </div>
 
-    <TrainingAssigneesDialog
-      v-model="dialogOpen"
-      :trainingId="trainingId"
-      :canUpdate="canUpdate"
-    />
+    <TrainingAssigneesDialog v-model="dialogOpen" :trainingId="trainingId" :canUpdate="canUpdate" />
   </div>
 </template>

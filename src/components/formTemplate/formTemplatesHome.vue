@@ -83,7 +83,8 @@ const templates = useLiveQueryWithDeps(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['FormTemplate', 'SiteOnTemplate'], initial: [] },
 )
 
 const viewSwitches = [
@@ -123,8 +124,7 @@ async function confirmDeleteTemplate() {
       <div class="tw:flex tw:flex-col tw:gap-1">
         <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Form Templates</div>
         <div class="tw:text-sm tw:text-secondary">
-          Manage QMS form structure + the reusable option sets that picker fields draw
-          from.
+          Manage QMS form structure + the reusable option sets that picker fields draw from.
         </div>
       </div>
     </div>

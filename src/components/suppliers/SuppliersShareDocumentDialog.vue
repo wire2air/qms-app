@@ -23,7 +23,8 @@ const sharedDocs = useLiveQueryWithDeps(
       }),
     )
   },
-  { initial: [] },
+
+  { models: ['SupplierDocument', 'DocumentVersion', 'Document'], initial: [] },
 )
 
 // Only EFFECTIVE versions are shareable with suppliers — drafts /
@@ -33,10 +34,7 @@ const sharedDocs = useLiveQueryWithDeps(
 // because it was the newest revision.
 const allLatestVersions = useLiveQuery(
   async (db) => {
-    const versions = await db.DocumentVersion.where(
-      'statusId',
-      'EFFECTIVE',
-    ).exec()
+    const versions = await db.DocumentVersion.where('statusId', 'EFFECTIVE').exec()
     const resolved = await Promise.all(
       versions.map(async (v) => {
         const doc = await db.Document.findByPk(v.documentId)
@@ -46,7 +44,8 @@ const allLatestVersions = useLiveQuery(
     )
     return resolved.filter(Boolean)
   },
-  { initial: [] },
+
+  { models: ['DocumentVersion', 'Document'], initial: [] },
 )
 
 const selectedVersionId = ref(null)

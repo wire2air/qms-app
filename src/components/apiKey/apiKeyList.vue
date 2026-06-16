@@ -3,7 +3,10 @@ import { IconKey } from '@tabler/icons-vue'
 
 const emit = defineEmits(['create'])
 
-const apiKeys = useLiveQuery(async (db) => db.ApiKey.where().exec(), { initial: [] })
+const apiKeys = useLiveQuery(async (db) => db.ApiKey.where().exec(), {
+  models: ['ApiKey'],
+  initial: [],
+})
 </script>
 
 <template>

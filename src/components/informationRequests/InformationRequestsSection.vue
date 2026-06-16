@@ -35,7 +35,8 @@ const requests = useLiveQueryWithDeps(
     // Newest first.
     return rows.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))
   },
-  { initial: [] },
+
+  { models: ['InformationRequest'], initial: [] },
 )
 
 const userIds = computed(() => {
@@ -55,7 +56,8 @@ const usersMap = useLiveQueryWithDeps(
     const users = await Promise.all(ids.map((id) => db.User.findByPk(id)))
     return Object.fromEntries(users.filter(Boolean).map((u) => [u.id, u]))
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 
 function userLabel(id) {
@@ -198,9 +200,7 @@ function truncate(text, n = 80) {
         </BaseButton>
       </BaseClickableRow>
     </div>
-    <div v-else class="tw:text-sm tw:text-secondary tw:italic">
-      No information requests yet.
-    </div>
+    <div v-else class="tw:text-sm tw:text-secondary tw:italic">No information requests yet.</div>
 
     <InformationRequestDialog
       v-model="showDialog"

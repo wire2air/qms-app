@@ -28,7 +28,8 @@ const childSteps = useLiveQueryWithDeps(
     const rows = await db.WorkflowInstanceStep.where('parentInstanceStepId', parentId).exec()
     return rows.sort((a, b) => a.stepOrder - b.stepOrder)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 // Once the parent step is terminal (Mark Complete signed off,
@@ -37,7 +38,9 @@ const childSteps = useLiveQueryWithDeps(
 // Add Sub-task button on the parent still being active.
 const parentInstanceStep = useLiveQueryWithDeps(
   [() => props.parentInstanceStepId],
+
   async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+  { models: ['WorkflowInstanceStep'] },
 )
 const PARENT_TERMINAL_STATUSES = ['APPROVED', 'REJECTED', 'CANCELLED', 'SKIPPED']
 const isParentTerminal = computed(() =>
@@ -65,20 +68,15 @@ function openAdd() {
           {{ childSteps.length }}
         </span>
       </div>
-      <BaseButton
-        v-if="canAddSubTask"
-        variant="outline"
-        size="sm"
-        @click="openAdd"
-      >
+      <BaseButton v-if="canAddSubTask" variant="outline" size="sm" @click="openAdd">
         <template #icon><IconPlus :size="14" /></template>
         Add Sub-task
       </BaseButton>
     </div>
 
     <div v-if="!childSteps.length" class="tw:text-xs tw:text-secondary tw:italic">
-      No sub-tasks yet. Click "Add Sub-task" to add one (document update,
-      training assignment, supplier notification, validation, etc.).
+      No sub-tasks yet. Click "Add Sub-task" to add one (document update, training assignment,
+      supplier notification, validation, etc.).
     </div>
 
     <ChangeRequestWorkflowChildStep

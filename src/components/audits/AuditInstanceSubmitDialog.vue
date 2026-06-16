@@ -31,11 +31,10 @@ const steps = useLiveQueryWithDeps(
   [() => workflowVersionId.value],
   async (db, [versionId]) => {
     if (!versionId) return []
-    return db.WorkflowStep.where('workflowVersionId', versionId)
-      .orderBy('stepOrder', 'asc')
-      .exec()
+    return db.WorkflowStep.where('workflowVersionId', versionId).orderBy('stepOrder', 'asc').exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStep'], initial: [] },
 )
 
 const firstStepHasUser = computed(() => {
@@ -92,9 +91,8 @@ async function handleConfirm() {
           :moduleId="AUDIT_INSTANCE_MODULE.workflowVersionModuleId"
         />
         <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-          Pick the workflow that drives close-out approval. Defaults seed
-          a "Default Audit Close-Out" template (Lead Auditor review →
-          Quality Manager sign-off).
+          Pick the workflow that drives close-out approval. Defaults seed a "Default Audit
+          Close-Out" template (Lead Auditor review → Quality Manager sign-off).
         </p>
       </div>
 
@@ -113,11 +111,7 @@ async function handleConfirm() {
         />
         <div>
           <p class="tw:text-secondary tw:text-sm tw:mb-1">Comments (optional)</p>
-          <BaseTextarea
-            v-model="comments"
-            placeholder="Any context for reviewers?"
-            :rows="2"
-          />
+          <BaseTextarea v-model="comments" placeholder="Any context for reviewers?" :rows="2" />
         </div>
       </template>
     </div>

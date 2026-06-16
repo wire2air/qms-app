@@ -14,12 +14,7 @@
  * SupplierCertificateTypesCard.
  */
 
-import {
-  IconPlus,
-  IconPencil,
-  IconTrash,
-  IconRestore,
-} from '@tabler/icons-vue'
+import { IconPlus, IconPencil, IconTrash, IconRestore } from '@tabler/icons-vue'
 import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api'
 
@@ -32,7 +27,8 @@ const canManage = computed(
 
 const standardTypes = useLiveQuery(
   async (db) => db.AuditStandardType.where().orderBy('displayOrder', 'asc').exec(),
-  { initial: [] },
+
+  { models: ['AuditStandardType'], initial: [] },
 )
 
 const deactivated = useLiveQuery(
@@ -40,7 +36,8 @@ const deactivated = useLiveQuery(
     const all = await db.AuditStandardType.where('id', undefined, { force: true }).exec()
     return all.filter((c) => c.deletedAt)
   },
-  { initial: [] },
+
+  { models: ['AuditStandardType'], initial: [] },
 )
 
 const showEditDialog = ref(false)
@@ -182,10 +179,10 @@ const showDeactivated = ref(false)
       <div>
         <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Audit Standard Types</h2>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          Categories the admin picks when registering an audit standard in the library
-          (Internal Quality / Supplier Qualification / Certification Body / Process /
-          Warehouse). Seeded with 5 common types; rename or add tenant-specific types
-          below. Colour drives the badge styling across the standards list.
+          Categories the admin picks when registering an audit standard in the library (Internal
+          Quality / Supplier Qualification / Certification Body / Process / Warehouse). Seeded with
+          5 common types; rename or add tenant-specific types below. Colour drives the badge styling
+          across the standards list.
         </p>
       </div>
       <BaseButton v-if="canManage" variant="primary" size="sm" @click="openAdd">
@@ -215,11 +212,7 @@ const showDeactivated = ref(false)
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="row in standardTypes"
-            :key="row.id"
-            class="tw:border-b tw:border-divider"
-          >
+          <tr v-for="row in standardTypes" :key="row.id" class="tw:border-b tw:border-divider">
             <td class="tw:px-3 tw:py-3">
               <div class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</div>
               <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">
@@ -338,14 +331,12 @@ const showDeactivated = ref(false)
             @input="codeDirty = true"
           />
           <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            SCREAMING_SNAKE_CASE. Stable identifier saved on every
-            audit_standards row using this type — cannot be changed later.
+            SCREAMING_SNAKE_CASE. Stable identifier saved on every audit_standards row using this
+            type — cannot be changed later.
           </p>
         </div>
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Description
-          </p>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
           <BaseTextarea
             v-model="form.description"
             :rows="2"
@@ -354,9 +345,7 @@ const showDeactivated = ref(false)
         </div>
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
           <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-              Colour
-            </p>
+            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Colour</p>
             <BaseColorPicker v-model="form.color" allowNull />
             <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
               Used as the badge background tint. Leave empty for neutral grey.
@@ -372,12 +361,7 @@ const showDeactivated = ref(false)
       </div>
       <template #footer="{ close }">
         <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :loading="saving"
-          :disabled="saving"
-          @click="handleSave"
-        >
+        <BaseButton variant="primary" :loading="saving" :disabled="saving" @click="handleSave">
           {{ editing ? 'Save' : 'Add' }}
         </BaseButton>
       </template>

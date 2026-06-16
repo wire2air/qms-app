@@ -32,10 +32,14 @@ const isSubmitting = ref(false)
 const isEdit = computed(() => !!props.id)
 
 // Load existing option set if editing
-const optionSet = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.OptionSet.findByPk(id)
-})
+const optionSet = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.OptionSet.findByPk(id)
+  },
+  { models: ['OptionSet'] },
+)
 
 // Populate form when option set loads in edit mode
 watch(

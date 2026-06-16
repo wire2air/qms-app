@@ -17,7 +17,8 @@ const users = useLiveQuery(
     (await db.User.where().exec()).filter(
       (u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER',
     ),
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 
 const stepUsers = useLiveQueryWithDeps(
@@ -26,7 +27,8 @@ const stepUsers = useLiveQueryWithDeps(
     if (!stepId) return []
     return await db.WorkflowStepUser.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStepUser'], initial: [] },
 )
 
 const reviewerIds = computed(() => stepUsers.value.map((su) => su.userId))

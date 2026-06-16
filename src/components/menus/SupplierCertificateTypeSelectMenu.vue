@@ -8,7 +8,8 @@ const modelValue = defineModel({ type: [String, Array, null], default: null })
 
 const certificateTypes = useLiveQuery(
   (db) => db.SupplierCertificateType.where().orderBy('displayOrder').exec(),
-  { initial: [] },
+
+  { models: ['SupplierCertificateType'], initial: [] },
 )
 
 function getArray() {

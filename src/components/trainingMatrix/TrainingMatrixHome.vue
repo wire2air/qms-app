@@ -7,7 +7,10 @@ const canDelete = computed(() => isAllowed(['trainingMatrix:delete']))
 
 const toast = useToast()
 
-const rules = useLiveQuery((db) => db.TrainingMatrix.where().exec(), { initial: [] })
+const rules = useLiveQuery((db) => db.TrainingMatrix.where().exec(), {
+  models: ['TrainingMatrix'],
+  initial: [],
+})
 
 const groupedRows = computed(() => {
   const map = new Map()
@@ -53,10 +56,15 @@ async function handleRemoveRole(rule) {
 
     <div class="tw:flex tw:flex-col tw:gap-1">
       <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Training Matrix</div>
-      <div class="tw:text-sm tw:text-secondary">Define which trainings are automatically assigned when a user gets a role.</div>
+      <div class="tw:text-sm tw:text-secondary">
+        Define which trainings are automatically assigned when a user gets a role.
+      </div>
     </div>
 
-    <div v-if="!groupedRows.length" class="tw:text-sm tw:text-secondary tw:italic tw:p-6 tw:text-center">
+    <div
+      v-if="!groupedRows.length"
+      class="tw:text-sm tw:text-secondary tw:italic tw:p-6 tw:text-center"
+    >
       No rules yet. Click "Add Rule" to create one.
     </div>
 

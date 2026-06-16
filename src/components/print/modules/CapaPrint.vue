@@ -23,35 +23,51 @@ const props = defineProps({
   id: { type: String, default: null },
 })
 
-const capa = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.Capa.findByPk(id)
-})
+const capa = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.Capa.findByPk(id)
+  },
+  { models: ['Capa'] },
+)
 
-const workflowInstance = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  const results = await db.WorkflowInstance.where('[resourceType+resourceId]', ['Capa', id]).exec()
-  // Pick the most recent for the audit/print purposes
-  return (
-    results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))[0] ??
-    null
-  )
-})
+const workflowInstance = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    const results = await db.WorkflowInstance.where('[resourceType+resourceId]', [
+      'Capa',
+      id,
+    ]).exec()
+    // Pick the most recent for the audit/print purposes
+    return (
+      results.sort(
+        (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+      )[0] ?? null
+    )
+  },
+  { models: ['WorkflowInstance'] },
+)
 
 const workflowVersion = useLiveQueryWithDeps(
   [() => workflowInstance.value?.workflowVersionId ?? capa.value?.workflowVersionId],
+
   async (db, [versionId]) => {
     if (!versionId) return null
     return db.WorkflowVersion.findByPk(versionId)
   },
+  { models: ['WorkflowVersion'] },
 )
 
 const workflow = useLiveQueryWithDeps(
   [() => workflowVersion.value?.workflowId],
+
   async (db, [workflowId]) => {
     if (!workflowId) return null
     return db.Workflow.findByPk(workflowId)
   },
+  { models: ['Workflow'] },
 )
 
 // All steps under this CAPA's workflow instance (roots + children).
@@ -63,7 +79,8 @@ const allSteps = useLiveQueryWithDeps(
       .orderBy('stepNumber', 'asc')
       .exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 const rootSteps = computed(() => allSteps.value.filter((s) => !s.parentInstanceStepId))
@@ -86,7 +103,8 @@ const allAssignments = useLiveQueryWithDeps(
     )
     return fetched.flat()
   },
-  { initial: [] },
+
+  { models: ['UserOnWorkflowInstanceStep'], initial: [] },
 )
 
 function assigneeIdFor(stepId) {
@@ -108,7 +126,8 @@ const allRecords = useLiveQueryWithDeps(
     const all = await db.CapaRecord.where('capaId', id).exec()
     return all.filter((r) => r.submittedAt)
   },
-  { initial: [] },
+
+  { models: ['CapaRecord'], initial: [] },
 )
 
 function recordsForStep(stepId) {
@@ -137,7 +156,8 @@ const userMap = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 
 function userName(id) {
@@ -146,20 +166,30 @@ function userName(id) {
 
 // Resolve type / priority / site / department / source labels via their
 // respective stores. Each is a quick findByPk live query.
-const capaType = useLiveQueryWithDeps([() => capa.value?.typeId], async (db, [id]) =>
-  id ? db.CapaType.findByPk(id) : null,
+const capaType = useLiveQueryWithDeps(
+  [() => capa.value?.typeId],
+  async (db, [id]) => (id ? db.CapaType.findByPk(id) : null),
+  { models: ['CapaType'] },
 )
-const capaPriority = useLiveQueryWithDeps([() => capa.value?.priorityId], async (db, [id]) =>
-  id ? db.CapaPriority.findByPk(id) : null,
+const capaPriority = useLiveQueryWithDeps(
+  [() => capa.value?.priorityId],
+  async (db, [id]) => (id ? db.CapaPriority.findByPk(id) : null),
+  { models: ['CapaPriority'] },
 )
-const capaSite = useLiveQueryWithDeps([() => capa.value?.siteId], async (db, [id]) =>
-  id ? db.Site.findByPk(id) : null,
+const capaSite = useLiveQueryWithDeps(
+  [() => capa.value?.siteId],
+  async (db, [id]) => (id ? db.Site.findByPk(id) : null),
+  { models: ['Site'] },
 )
-const capaDepartment = useLiveQueryWithDeps([() => capa.value?.departmentId], async (db, [id]) =>
-  id ? db.Department.findByPk(id) : null,
+const capaDepartment = useLiveQueryWithDeps(
+  [() => capa.value?.departmentId],
+  async (db, [id]) => (id ? db.Department.findByPk(id) : null),
+  { models: ['Department'] },
 )
-const capaStatus = useLiveQueryWithDeps([() => capa.value?.statusId], async (db, [id]) =>
-  id ? db.CapaStatus.findByPk(id) : null,
+const capaStatus = useLiveQueryWithDeps(
+  [() => capa.value?.statusId],
+  async (db, [id]) => (id ? db.CapaStatus.findByPk(id) : null),
+  { models: ['CapaStatus'] },
 )
 
 // Effectiveness checks for the appendix.
@@ -170,7 +200,8 @@ const effectivenessChecks = useLiveQueryWithDeps(
     const all = await db.CapaEffectivenessCheck.where('capaId', id).exec()
     return all.sort((a, b) => (a.dueAt?.toMillis?.() ?? 0) - (b.dueAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['CapaEffectivenessCheck'], initial: [] },
 )
 
 const identifier = computed(() => capa.value?.capaNumber ?? '')
@@ -214,11 +245,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <PrintLayout
-    :status="capa?.statusId"
-    :identifier="identifier"
-    :auditEntities="auditEntities"
-  >
+  <PrintLayout :status="capa?.statusId" :identifier="identifier" :auditEntities="auditEntities">
     <template #title>
       <div class="capa-print-num">{{ capa?.capaNumber }}</div>
       <h1 class="capa-print-title">{{ capa?.title }}</h1>
@@ -265,7 +292,10 @@ onMounted(() => {
       <div v-if="workflow" class="capa-print-workflow">
         Workflow: <strong>{{ workflow.name }}</strong>
         <span v-if="workflowVersion">
-          (v{{ workflowVersion.versionLabel || `${workflowVersion.versionMajor ?? 1}.${workflowVersion.versionMinor ?? 0}` }})
+          (v{{
+            workflowVersion.versionLabel ||
+            `${workflowVersion.versionMajor ?? 1}.${workflowVersion.versionMinor ?? 0}`
+          }})
         </span>
       </div>
     </template>
@@ -291,8 +321,8 @@ onMounted(() => {
             <div class="capa-print-step-meta">
               <div class="capa-print-step-title">{{ step.name || 'Step' }}</div>
               <div class="capa-print-step-detail">
-                Status: <strong>{{ step.statusId }}</strong>
-                · Assignee: <strong>{{ userName(assigneeIdFor(step.id)) }}</strong>
+                Status: <strong>{{ step.statusId }}</strong> · Assignee:
+                <strong>{{ userName(assigneeIdFor(step.id)) }}</strong>
                 <template v-if="step.completedAt">
                   · Completed {{ fmtDateTime(step.completedAt) }}
                 </template>
@@ -304,11 +334,7 @@ onMounted(() => {
             <span v-html="step.description" />
           </div>
           <!-- Submitted form records -->
-          <div
-            v-for="record in recordsForStep(step.id)"
-            :key="record.id"
-            class="capa-print-record"
-          >
+          <div v-for="record in recordsForStep(step.id)" :key="record.id" class="capa-print-record">
             <div class="capa-print-record-head">
               <strong>{{ userName(record.userId) }}</strong>
               submitted {{ fmtDateTime(record.submittedAt) }}
@@ -330,8 +356,7 @@ onMounted(() => {
               <div class="capa-print-child-head">
                 <strong>{{ idx + 1 }}.{{ ci + 1 }}</strong>
                 {{ child.name || 'Sub-task' }}
-                · {{ child.statusId }}
-                · Assignee: {{ userName(assigneeIdFor(child.id)) }}
+                · {{ child.statusId }} · Assignee: {{ userName(assigneeIdFor(child.id)) }}
                 <template v-if="child.completedAt">
                   · Completed {{ fmtDateTime(child.completedAt) }}
                 </template>
@@ -430,8 +455,13 @@ onMounted(() => {
   margin-top: 10px;
 }
 
-.capa-print-body { font-size: 11px; }
-.capa-print-section { margin: 18px 0; break-inside: avoid-page; }
+.capa-print-body {
+  font-size: 11px;
+}
+.capa-print-section {
+  margin: 18px 0;
+  break-inside: avoid-page;
+}
 .capa-print-section > h2 {
   font-size: 14px;
   font-weight: 700;
@@ -440,8 +470,13 @@ onMounted(() => {
   border-bottom: 1px solid #e5e7eb;
   color: var(--print-accent, #111827);
 }
-.capa-print-paragraph { line-height: 1.5; }
-.capa-print-note { color: #6b7280; font-size: 10px; }
+.capa-print-paragraph {
+  line-height: 1.5;
+}
+.capa-print-note {
+  color: #6b7280;
+  font-size: 10px;
+}
 
 .capa-print-step {
   margin: 10px 0 14px;
@@ -468,8 +503,15 @@ onMounted(() => {
   justify-content: center;
   flex-shrink: 0;
 }
-.capa-print-step-title { font-weight: 700; font-size: 12px; }
-.capa-print-step-detail { color: #4b5563; font-size: 10px; margin-top: 2px; }
+.capa-print-step-title {
+  font-weight: 700;
+  font-size: 12px;
+}
+.capa-print-step-detail {
+  color: #4b5563;
+  font-size: 10px;
+  margin-top: 2px;
+}
 .capa-print-step-instructions {
   margin: 8px 0 4px 32px;
   font-size: 10.5px;
@@ -493,7 +535,10 @@ onMounted(() => {
   font-size: 10px;
   break-inside: avoid-page;
 }
-.capa-print-record-head { color: #4b5563; margin-bottom: 4px; }
+.capa-print-record-head {
+  color: #4b5563;
+  margin-bottom: 4px;
+}
 .capa-print-payload {
   width: 100%;
   border-collapse: collapse;
@@ -530,7 +575,9 @@ onMounted(() => {
   padding-left: 8px;
   border-left: 2px solid #e5e7eb;
 }
-.capa-print-child-head { font-size: 10.5px; }
+.capa-print-child-head {
+  font-size: 10.5px;
+}
 
 .capa-print-effectiveness {
   width: 100%;

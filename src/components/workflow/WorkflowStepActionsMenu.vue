@@ -31,8 +31,10 @@ const emit = defineEmits(['done'])
 const toast = useToast()
 const currentUserId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
 
-const instanceStep = useLiveQueryWithDeps([() => props.instanceStepId], async (db, [id]) =>
-  id ? db.WorkflowInstanceStep.findByPk(id) : null,
+const instanceStep = useLiveQueryWithDeps(
+  [() => props.instanceStepId],
+  async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+  { models: ['WorkflowInstanceStep'] },
 )
 
 const isApprovalStep = computed(() => instanceStep.value?.stepType === 'APPROVAL')
@@ -41,6 +43,7 @@ const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
 
 const currentUserTask = useLiveQueryWithDeps(
   [() => props.instanceStepId, () => currentUserId.value],
+
   async (db, [stepInstanceId, userId]) => {
     if (!stepInstanceId || !userId) return null
     const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
@@ -48,11 +51,10 @@ const currentUserTask = useLiveQueryWithDeps(
       stepInstanceId,
     ]).exec()
     return (
-      tasks.find(
-        (t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId),
-      ) || null
+      tasks.find((t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId)) || null
     )
   },
+  { models: ['TaskInstance'] },
 )
 
 const allowedOutcomes = useLiveQueryWithDeps(
@@ -61,7 +63,8 @@ const allowedOutcomes = useLiveQueryWithDeps(
     if (!stepId) return []
     return db.AllowedOutcomeOnStep.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['AllowedOutcomeOnStep'], initial: [] },
 )
 
 const canActOnStep = computed(() => ACTIONABLE_STATUSES.includes(currentUserTask.value?.statusId))
@@ -93,7 +96,7 @@ const comment = ref('')
 const actionLoading = ref(false)
 
 const pendingConfig = computed(() =>
-  pendingOutcomeId.value ? OUTCOME_CONFIG.value[pendingOutcomeId.value] ?? null : null,
+  pendingOutcomeId.value ? (OUTCOME_CONFIG.value[pendingOutcomeId.value] ?? null) : null,
 )
 const isRejectAction = computed(() => pendingOutcomeId.value === 'SEND_BACK')
 const confirmTitle = computed(() => pendingConfig.value?.label ?? 'Confirm')
@@ -104,8 +107,7 @@ const confirmTitle = computed(() => pendingConfig.value?.label ?? 'Confirm')
 // WorkflowStep.vue. If product later wants SEND_BACK signed too, add it
 // to this set.
 const ESIGN_GATED_OUTCOMES = new Set(['COMPLETE_AND_ADVANCE'])
-const needsEsignFor = (outcomeId) =>
-  props.requireEsignature && ESIGN_GATED_OUTCOMES.has(outcomeId)
+const needsEsignFor = (outcomeId) => props.requireEsignature && ESIGN_GATED_OUTCOMES.has(outcomeId)
 
 function onOutcomeClick(outcomeId) {
   if (!canActOnStep.value) return

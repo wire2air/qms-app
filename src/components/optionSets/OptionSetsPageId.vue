@@ -12,9 +12,13 @@ const props = defineProps({
 
 const router = useRouter()
 
-const optionSet = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  return db.OptionSet.findByPk(id)
-})
+const optionSet = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    return db.OptionSet.findByPk(id)
+  },
+  { models: ['OptionSet'] },
+)
 
 const loading = computed(() => optionSet.value === undefined)
 const canUpdate = computed(() => isAllowed(['optionSets:update']))

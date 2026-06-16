@@ -27,15 +27,11 @@ const findings = useLiveQueryWithDeps(
     const rows = await db.AuditFinding.where().exec()
     return rows.filter((f) => f.supplierId === supplierId)
   },
-  { initial: [] },
+
+  { models: ['AuditFinding'], initial: [] },
 )
 
-const OPEN_FINDING_STATUSES = new Set([
-  'OPEN',
-  'IN_REVIEW',
-  'IN_REMEDIATION',
-  'VERIFIED',
-])
+const OPEN_FINDING_STATUSES = new Set(['OPEN', 'IN_REVIEW', 'IN_REMEDIATION', 'VERIFIED'])
 
 const stats = computed(() => {
   const total = findings.value.length
@@ -112,7 +108,10 @@ function openFindingsInstance(f) {
 
       <!-- Recent findings list — newest 5, click-through to the
            parent audit. Empty state when the supplier is clean. -->
-      <div v-if="!recent.length" class="tw:py-4 tw:text-center tw:text-xs tw:text-secondary tw:italic">
+      <div
+        v-if="!recent.length"
+        class="tw:py-4 tw:text-center tw:text-xs tw:text-secondary tw:italic"
+      >
         No audit findings on file.
       </div>
       <div v-else class="tw:flex tw:flex-col tw:divide-y tw:divide-divider">

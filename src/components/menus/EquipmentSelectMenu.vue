@@ -35,7 +35,8 @@ const equipment = useLiveQuery(
       }))
       .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
   },
-  { initial: [] },
+
+  { models: ['Equipment'], initial: [] },
 )
 
 function getArray() {

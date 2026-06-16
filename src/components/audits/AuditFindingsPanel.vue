@@ -104,11 +104,10 @@ const findings = useLiveQueryWithDeps(
   async (db, [instanceId]) => {
     if (!instanceId) return []
     const rows = await db.AuditFinding.where('auditInstanceId', instanceId).exec()
-    return rows.sort(
-      (a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0),
-    )
+    return rows.sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['AuditFinding'], initial: [] },
 )
 
 const showDialog = ref(false)
@@ -338,9 +337,7 @@ function unlinkedKinds(finding) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3">
-    <div
-      class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider"
-    >
+    <div class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider">
       <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
         <IconBolt :size="14" class="tw:text-amber-600" />
         <span class="tw:font-medium">
@@ -390,8 +387,8 @@ function unlinkedKinds(finding) {
       v-if="!findings.length"
       class="tw:py-8 tw:text-center tw:text-sm tw:text-secondary tw:italic"
     >
-      No findings yet. Escalate from a non-conforming clause in the requirements panel,
-      or add one directly.
+      No findings yet. Escalate from a non-conforming clause in the requirements panel, or add one
+      directly.
     </div>
 
     <div v-else class="tw:flex tw:flex-col tw:divide-y tw:divide-divider">
@@ -429,10 +426,7 @@ function unlinkedKinds(finding) {
                 v-if="finding.categoryId"
                 :categoryId="finding.categoryId"
               />
-              <span
-                v-if="finding.processArea"
-                class="tw:text-[11px] tw:text-secondary tw:italic"
-              >
+              <span v-if="finding.processArea" class="tw:text-[11px] tw:text-secondary tw:italic">
                 {{ finding.processArea }}
               </span>
               <!-- Linked-record chips, surfaced in the collapsed row so users
@@ -496,7 +490,9 @@ function unlinkedKinds(finding) {
               v-if="!readonly && ['CLOSED', 'CANCELLED'].includes(finding.statusId)"
               type="button"
               class="tw:inline-flex tw:items-center tw:gap-1 tw:text-primary tw:hover:bg-main-hover tw:rounded tw:px-2 tw:py-1 tw:cursor-pointer tw:bg-transparent tw:border tw:border-divider tw:text-[11px] tw:font-medium"
-              :title="finding.statusId === 'CANCELLED' ? 'Re-instate this finding' : 'Reopen this finding'"
+              :title="
+                finding.statusId === 'CANCELLED' ? 'Re-instate this finding' : 'Reopen this finding'
+              "
               @click="setStatus(finding, 'OPEN')"
             >
               <IconArrowBackUp :size="14" /> Reopen
@@ -523,10 +519,7 @@ function unlinkedKinds(finding) {
         </div>
 
         <!-- Expanded: assignee, due date, scores, status transitions -->
-        <div
-          v-if="expanded[finding.id]"
-          class="tw:ml-7 tw:flex tw:flex-col tw:gap-2 tw:text-xs"
-        >
+        <div v-if="expanded[finding.id]" class="tw:ml-7 tw:flex tw:flex-col tw:gap-2 tw:text-xs">
           <div class="tw:grid tw:grid-cols-2 tw:gap-2">
             <div>
               <span class="tw:text-secondary">Severity:</span>
@@ -545,13 +538,21 @@ function unlinkedKinds(finding) {
             class="tw:flex tw:flex-col tw:gap-2 tw:rounded tw:border tw:border-divider tw:bg-main-hover/20 tw:p-2"
           >
             <div class="tw:flex tw:items-center tw:justify-between">
-              <span class="tw:text-[10px] tw:uppercase tw:font-semibold tw:tracking-wide tw:text-secondary">
+              <span
+                class="tw:text-[10px] tw:uppercase tw:font-semibold tw:tracking-wide tw:text-secondary"
+              >
                 CAPA / Response
               </span>
-              <span v-if="finding.completedAt" class="tw:text-[10px] tw:text-emerald-700 tw:font-medium">
+              <span
+                v-if="finding.completedAt"
+                class="tw:text-[10px] tw:text-emerald-700 tw:font-medium"
+              >
                 Completed {{ finding.completedAt.formatDate?.('date') }}
               </span>
-              <span v-else-if="isOverdue(finding)" class="tw:text-[10px] tw:text-red-700 tw:font-bold tw:uppercase">
+              <span
+                v-else-if="isOverdue(finding)"
+                class="tw:text-[10px] tw:text-red-700 tw:font-bold tw:uppercase"
+              >
                 Overdue
               </span>
             </div>
@@ -598,7 +599,9 @@ function unlinkedKinds(finding) {
                records show as clickable chips with an inline unlink; unlinked
                kinds surface as "+ Link" pills that open the picker. -->
           <div v-if="!supplierMode" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:items-center">
-            <p class="tw:text-[10px] tw:text-secondary tw:uppercase tw:font-semibold tw:tracking-wide tw:mr-1">
+            <p
+              class="tw:text-[10px] tw:text-secondary tw:uppercase tw:font-semibold tw:tracking-wide tw:mr-1"
+            >
               Linked:
             </p>
             <template v-for="cfg in SPAWN_KINDS">

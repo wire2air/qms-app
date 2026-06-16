@@ -3,10 +3,14 @@ const props = defineProps({
   sourceId: { type: String, default: null },
 })
 
-const source = useLiveQueryWithDeps([() => props.sourceId], async (db, [sourceId]) => {
-  if (!sourceId) return null
-  return db.NcSource.findByPk(sourceId)
-})
+const source = useLiveQueryWithDeps(
+  [() => props.sourceId],
+  async (db, [sourceId]) => {
+    if (!sourceId) return null
+    return db.NcSource.findByPk(sourceId)
+  },
+  { models: ['NcSource'] },
+)
 </script>
 
 <template>

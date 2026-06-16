@@ -15,7 +15,8 @@ const templates = useLiveQuery(
       .map((t) => ({ id: t.id, name: t.title || t.code }))
       .sort((a, b) => a.name.localeCompare(b.name))
   },
-  { initial: [] },
+
+  { models: ['FormTemplate'], initial: [] },
 )
 
 function getArray() {

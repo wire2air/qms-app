@@ -26,10 +26,12 @@ const taskInstances = useLiveQueryWithDeps(
     let results = await db.TaskInstance.where('assignedTo', userId).exec()
     if (statusId) results = results.filter((t) => t.statusId === statusId)
     if (taskKindId) results = results.filter((t) => t.taskKindId === taskKindId)
-    if (dateFrom || dateTo) results = results.filter((t) => dateInRange(t.createdAt, dateFrom, dateTo))
+    if (dateFrom || dateTo)
+      results = results.filter((t) => dateInRange(t.createdAt, dateFrom, dateTo))
     return results
   },
-  { initial: [] },
+
+  { models: ['TaskInstance'], initial: [] },
 )
 
 const documentMap = useLiveQueryWithDeps(
@@ -57,7 +59,8 @@ const documentMap = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['DocumentVersion', 'Document'], initial: {} },
 )
 
 const ncMap = useLiveQueryWithDeps(
@@ -71,7 +74,8 @@ const ncMap = useLiveQueryWithDeps(
     const ncs = await Promise.all(ids.map((id) => db.Nonconformance.findByPk(id)))
     return Object.fromEntries(ncs.filter(Boolean).map((nc) => [nc.id, nc]))
   },
-  { initial: {} },
+
+  { models: ['Nonconformance'], initial: {} },
 )
 
 const trainingAssigneeMap = useLiveQueryWithDeps(
@@ -83,7 +87,14 @@ const trainingAssigneeMap = useLiveQueryWithDeps(
     const ids = [...new Set(assigneeIds.filter(Boolean))]
     if (!ids.length) return {}
     const assignees = await Promise.all(ids.map((id) => db.TrainingAssignee.findByPk(id)))
-    const instanceIds = [...new Set(assignees.filter(Boolean).map((a) => a.trainingInstanceId).filter(Boolean))]
+    const instanceIds = [
+      ...new Set(
+        assignees
+          .filter(Boolean)
+          .map((a) => a.trainingInstanceId)
+          .filter(Boolean),
+      ),
+    ]
     const instances = await Promise.all(instanceIds.map((id) => db.TrainingInstance.findByPk(id)))
     const instanceById = Object.fromEntries(instances.filter(Boolean).map((i) => [i.id, i]))
     const map = {}
@@ -92,7 +103,8 @@ const trainingAssigneeMap = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['TrainingAssignee', 'TrainingInstance'], initial: {} },
 )
 
 // For TRAINING_VERIFICATION tasks, entityId is the TrainingInstance itself
@@ -107,7 +119,8 @@ const trainingInstanceMap = useLiveQueryWithDeps(
     const instances = await Promise.all(ids.map((id) => db.TrainingInstance.findByPk(id)))
     return Object.fromEntries(instances.filter(Boolean).map((i) => [i.id, i]))
   },
-  { initial: {} },
+
+  { models: ['TrainingInstance'], initial: {} },
 )
 
 const capaMap = useLiveQueryWithDeps(
@@ -118,15 +131,14 @@ const capaMap = useLiveQueryWithDeps(
     const capas = await Promise.all(ids.map((id) => db.Capa.findByPk(id)))
     return Object.fromEntries(capas.filter(Boolean).map((c) => [c.id, c]))
   },
-  { initial: {} },
+
+  { models: ['Capa'], initial: {} },
 )
 
 const changeRequestMap = useLiveQueryWithDeps(
   [
     () =>
-      taskInstances.value
-        .filter((i) => i.entityType === 'ChangeRequest')
-        .map((i) => i.entityId),
+      taskInstances.value.filter((i) => i.entityType === 'ChangeRequest').map((i) => i.entityId),
   ],
   async (db, [crIds]) => {
     const ids = [...new Set(crIds.filter(Boolean))]
@@ -134,7 +146,8 @@ const changeRequestMap = useLiveQueryWithDeps(
     const crs = await Promise.all(ids.map((id) => db.ChangeRequest.findByPk(id)))
     return Object.fromEntries(crs.filter(Boolean).map((c) => [c.id, c]))
   },
-  { initial: {} },
+
+  { models: ['ChangeRequest'], initial: {} },
 )
 
 // Approval tasks for a versioned AuditStandard — entityType
@@ -154,7 +167,12 @@ const auditStandardVersionMap = useLiveQueryWithDeps(
     if (!ids.length) return {}
     const versions = await Promise.all(ids.map((id) => db.AuditStandardVersion.findByPk(id)))
     const standardIds = [
-      ...new Set(versions.filter(Boolean).map((v) => v.auditStandardId).filter(Boolean)),
+      ...new Set(
+        versions
+          .filter(Boolean)
+          .map((v) => v.auditStandardId)
+          .filter(Boolean),
+      ),
     ]
     const standards = await Promise.all(standardIds.map((id) => db.AuditStandard.findByPk(id)))
     const standardById = Object.fromEntries(standards.filter(Boolean).map((s) => [s.id, s]))
@@ -164,7 +182,8 @@ const auditStandardVersionMap = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['AuditStandardVersion', 'AuditStandard'], initial: {} },
 )
 
 // Close-out review tasks for an AuditInstance — entityType
@@ -173,16 +192,19 @@ const auditStandardVersionMap = useLiveQueryWithDeps(
 const auditInstanceMap = useLiveQueryWithDeps(
   [
     () =>
-      taskInstances.value
-        .filter((i) => i.entityType === 'AuditInstance')
-        .map((i) => i.entityId),
+      taskInstances.value.filter((i) => i.entityType === 'AuditInstance').map((i) => i.entityId),
   ],
   async (db, [auditIds]) => {
     const ids = [...new Set(auditIds.filter(Boolean))]
     if (!ids.length) return {}
     const audits = await Promise.all(ids.map((id) => db.AuditInstance.findByPk(id)))
     const standardIds = [
-      ...new Set(audits.filter(Boolean).map((a) => a.auditStandardId).filter(Boolean)),
+      ...new Set(
+        audits
+          .filter(Boolean)
+          .map((a) => a.auditStandardId)
+          .filter(Boolean),
+      ),
     ]
     const standards = await Promise.all(standardIds.map((id) => db.AuditStandard.findByPk(id)))
     const standardById = Object.fromEntries(standards.filter(Boolean).map((s) => [s.id, s]))
@@ -192,15 +214,14 @@ const auditInstanceMap = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['AuditInstance', 'AuditStandard'], initial: {} },
 )
 
 const logBookVersionMap = useLiveQueryWithDeps(
   [
     () =>
-      taskInstances.value
-        .filter((i) => i.entityType === 'LogBookVersion')
-        .map((i) => i.entityId),
+      taskInstances.value.filter((i) => i.entityType === 'LogBookVersion').map((i) => i.entityId),
   ],
   async (db, [versionIds]) => {
     const ids = [...new Set(versionIds.filter(Boolean))]
@@ -227,7 +248,8 @@ const logBookVersionMap = useLiveQueryWithDeps(
     }
     return out
   },
-  { initial: {} },
+
+  { models: ['LogBookVersion', 'LogBook', 'LogBookType'], initial: {} },
 )
 
 // Scheduled inspections / log collections (My Queue → unified inbox).
@@ -258,7 +280,8 @@ const assignmentInstanceMap = useLiveQueryWithDeps(
     }
     return out
   },
-  { initial: {} },
+
+  { models: ['AssignmentInstance', 'FormAssignment', 'LogBook', 'LogBookType'], initial: {} },
 )
 
 // QA Disposition tasks — entityId is the InspectionLot id.
@@ -273,16 +296,14 @@ const inspectionLotMap = useLiveQueryWithDeps(
     const lots = await Promise.all(ids.map((id) => db.InspectionLot.findByPk(id)))
     return Object.fromEntries(lots.filter(Boolean).map((l) => [l.id, l]))
   },
-  { initial: {} },
+
+  { models: ['InspectionLot'], initial: {} },
 )
 
 // Flagged log entries (entityType 'FieldRecord') — resolve the record →
 // log book for label / type / open-the-entry route.
 const fieldRecordMap = useLiveQueryWithDeps(
-  [
-    () =>
-      taskInstances.value.filter((i) => i.entityType === 'FieldRecord').map((i) => i.entityId),
-  ],
+  [() => taskInstances.value.filter((i) => i.entityType === 'FieldRecord').map((i) => i.entityId)],
   async (db, [recordIds]) => {
     const ids = [...new Set(recordIds.filter(Boolean))]
     if (!ids.length) return {}
@@ -299,7 +320,8 @@ const fieldRecordMap = useLiveQueryWithDeps(
     }
     return out
   },
-  { initial: {} },
+
+  { models: ['FieldRecord', 'LogBook', 'LogBookType'], initial: {} },
 )
 
 const filteredInstances = computed(() => {
@@ -525,10 +547,7 @@ async function onRfiTaskClick(row) {
   activeRfiEntityId.value = rfi.entityId
   if (rfi.statusId === 'OPEN' && rfi.recipientId === currentSession.value?.userId) {
     activeRfiMode.value = 'respond'
-  } else if (
-    rfi.statusId === 'RESPONDED' &&
-    rfi.requesterId === currentSession.value?.userId
-  ) {
+  } else if (rfi.statusId === 'RESPONDED' && rfi.requesterId === currentSession.value?.userId) {
     activeRfiMode.value = 'view' // shows Acknowledge button in this mode
   } else {
     activeRfiMode.value = 'view' // read-only thread
@@ -670,297 +689,311 @@ defineExpose({ exportCsv })
 
 <template>
   <div class="tw:contents">
-  <!-- Mobile / portrait-tablet: card list. Tap behaves like the table
+    <!-- Mobile / portrait-tablet: card list. Tap behaves like the table
        row (navigate via entityRoute, or open the RFI dialog). -->
-  <div class="tw:md:hidden tw:flex tw:flex-col tw:gap-2">
-    <component
-      :is="entityRoute(row) ? 'RouterLink' : 'div'"
-      v-for="row in sortedInstances"
-      :key="row.id"
-      :to="entityRoute(row) || undefined"
-      class="tw:block tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-3 tw:active:bg-main-hover tw:transition"
-      :class="row.sourceType === 'InformationRequest' ? 'tw:cursor-pointer' : ''"
-      @click="onRfiTaskClick(row)"
-    >
-      <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
-        <div class="tw:min-w-0 tw:flex-1">
-          <div class="tw:font-medium tw:text-on-main tw:truncate">{{ rowTitle(row) }}</div>
-          <div class="tw:text-[11px] tw:text-secondary tw:truncate tw:mt-0.5">
-            {{ EntityType[row.entityType] || row.entityType
-            }}<span v-if="rowSubtitle(row)"> · {{ rowSubtitle(row) }}</span>
-          </div>
-        </div>
-        <TrainingAssigneeStatusBadgeById
-          v-if="row.entityType === 'TrainingAssignee' && getTrainingAssigneeEntry(row)?.assignee"
-          :statusId="getTrainingAssigneeEntry(row).assignee.status"
-        />
-        <TaskInstanceStatusBadgeById v-else :statusId="row.statusId" :module="row.entityType" />
-      </div>
-      <div class="tw:mt-2 tw:text-[11px]">
-        <span v-if="row.completedAt" class="tw:text-green-600 tw:font-medium">
-          Completed {{ row.completedAt.formatDate('date') }}
-        </span>
-        <span
-          v-else-if="row.dueDate"
-          :class="isDuePast(row.dueDate) ? 'tw:text-red-500 tw:font-medium' : 'tw:text-secondary'"
-        >
-          Due {{ row.dueDate.formatDate('date') }}
-        </span>
-      </div>
-    </component>
-    <div
-      v-if="!filteredInstances.length"
-      class="tw:py-12 tw:text-center tw:text-sm tw:text-secondary"
-    >
-      No tasks.
-    </div>
-  </div>
-
-  <!-- Desktop / landscape: full table -->
-  <div class="tw:hidden tw:md:block">
-  <BaseTable
-    v-model:pagination="pagination"
-    :rows="filteredInstances"
-    :columns="columns"
-    rowKey="id"
-  >
-    <!-- Item Title -->
-    <template #body-cell-title="{ row }">
+    <div class="tw:md:hidden tw:flex tw:flex-col tw:gap-2">
       <component
         :is="entityRoute(row) ? 'RouterLink' : 'div'"
-        class="tw:flex tw:flex-col tw:group"
-        :class="row.sourceType === 'InformationRequest' ? 'tw:cursor-pointer' : ''"
+        v-for="row in sortedInstances"
+        :key="row.id"
         :to="entityRoute(row) || undefined"
+        class="tw:block tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-3 tw:active:bg-main-hover tw:transition"
+        :class="row.sourceType === 'InformationRequest' ? 'tw:cursor-pointer' : ''"
         @click="onRfiTaskClick(row)"
       >
-        <template v-if="row.entityType === 'TrainingAssignee'">
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-            {{ getTrainingAssigneeEntry(row)?.instance?.snapshot?.title || '—' }}
-          </span>
-        </template>
-        <template v-else-if="row.entityType === 'TrainingInstance'">
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-            {{ trainingInstanceMap[row.entityId]?.snapshot?.title || '—' }}
-          </span>
-          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-            Verification · {{ row.entityId.slice(0, 8) }}
-          </span>
-        </template>
-        <template v-else-if="row.entityType === 'Nonconformance'">
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-            {{ getNc(row)?.title || '—' }}
-          </span>
-          <div class="tw:flex tw:items-center tw:gap-1.5">
-            <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-              {{ getNc(row)?.ncNumber || '—' }}
-            </span>
-            <span
-              v-if="row.sourceType === 'InformationRequest'"
-              class="tw:text-[10px] tw:bg-blue-100 tw:text-blue-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-medium"
-            >
-              Information request
-            </span>
+        <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
+          <div class="tw:min-w-0 tw:flex-1">
+            <div class="tw:font-medium tw:text-on-main tw:truncate">{{ rowTitle(row) }}</div>
+            <div class="tw:text-[11px] tw:text-secondary tw:truncate tw:mt-0.5">
+              {{ EntityType[row.entityType] || row.entityType
+              }}<span v-if="rowSubtitle(row)"> · {{ rowSubtitle(row) }}</span>
+            </div>
           </div>
-        </template>
-        <template v-else-if="row.entityType === 'Capa'">
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-            {{ getCapa(row)?.title || '—' }}
+          <TrainingAssigneeStatusBadgeById
+            v-if="row.entityType === 'TrainingAssignee' && getTrainingAssigneeEntry(row)?.assignee"
+            :statusId="getTrainingAssigneeEntry(row).assignee.status"
+          />
+          <TaskInstanceStatusBadgeById v-else :statusId="row.statusId" :module="row.entityType" />
+        </div>
+        <div class="tw:mt-2 tw:text-[11px]">
+          <span v-if="row.completedAt" class="tw:text-green-600 tw:font-medium">
+            Completed {{ row.completedAt.formatDate('date') }}
           </span>
-          <div class="tw:flex tw:items-center tw:gap-1.5">
-            <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-              {{ getCapa(row)?.capaNumber || '—' }}
-            </span>
-            <span
-              v-if="row.sourceType === 'InformationRequest'"
-              class="tw:text-[10px] tw:bg-blue-100 tw:text-blue-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-medium"
-            >
-              Information request
-            </span>
-          </div>
-        </template>
-        <template v-else-if="row.entityType === 'ChangeRequest'">
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-            {{ getChangeRequest(row)?.title || '—' }}
+          <span
+            v-else-if="row.dueDate"
+            :class="isDuePast(row.dueDate) ? 'tw:text-red-500 tw:font-medium' : 'tw:text-secondary'"
+          >
+            Due {{ row.dueDate.formatDate('date') }}
           </span>
-          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-            {{ getChangeRequest(row)?.crNumber || '—' }}
-          </span>
-        </template>
-        <template v-else-if="row.entityType === 'LogBookVersion'">
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-            {{ logBookVersionMap[row.entityId]?.logBook?.title || 'Log book' }}
-          </span>
-          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-            {{ logBookVersionMap[row.entityId]?.logBook?.code || '—' }} · v{{
-              logBookVersionMap[row.entityId]?.version?.versionMajor ?? '?'
-            }}.{{ logBookVersionMap[row.entityId]?.version?.versionMinor ?? 0 }}
-          </span>
-        </template>
-        <template v-else-if="row.entityType === 'AssignmentInstance'">
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-            {{ assignmentInstanceMap[row.entityId]?.logBook?.title || 'Scheduled inspection' }}
-          </span>
-          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-            {{ assignmentInstanceMap[row.entityId]?.logBook?.code || 'Scheduled log / inspection' }}
-          </span>
-        </template>
-        <template v-else-if="row.entityType === 'FieldRecord'">
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-            {{ fieldRecordMap[row.entityId]?.logBook?.title || 'Flagged log entry' }}
-          </span>
-          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-            {{ fieldRecordMap[row.entityId]?.record?.recordNumber || 'Needs your attention' }}
-          </span>
-        </template>
-        <template v-else-if="row.entityType === 'AuditInstance'">
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-            {{ auditInstanceMap[row.entityId]?.standard?.name || 'Audit' }}
-          </span>
-          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-            {{ auditInstanceMap[row.entityId]?.audit?.auditNumber || '—' }}
-          </span>
-        </template>
-        <template v-else-if="row.entityType === 'AuditStandardVersion'">
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-            {{ auditStandardVersionMap[row.entityId]?.standard?.name || 'Audit Standard' }}
-          </span>
-          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-            {{
-              auditStandardVersionMap[row.entityId]?.version
-                ? `v${auditStandardVersionMap[row.entityId].version.versionMajor}.${auditStandardVersionMap[row.entityId].version.versionMinor}`
-                : '—'
-            }}
-          </span>
-        </template>
-        <template v-else-if="row.entityType === 'InspectionLot'">
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-            {{ inspectionLotMap[row.entityId]?.lotNumber || 'Inspection Lot' }}
-          </span>
-          <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-            {{ inspectionLotMap[row.entityId]?.inspectionPoint || '—' }}
-          </span>
-        </template>
-        <template v-else>
-          <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-            {{ getDocument(row)?.title || '—' }}
-          </span>
-          <div class="tw:flex tw:items-center tw:gap-1.5">
-            <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
-              {{ getDocument(row)?.docNumber || '—' }}
-            </span>
-            <template v-if="getVersion(row)">
-              <span class="tw:text-[10px] tw:text-secondary">·</span>
-              <span class="tw:text-[10px] tw:text-primary tw:font-mono tw:tracking-tight">
+        </div>
+      </component>
+      <div
+        v-if="!filteredInstances.length"
+        class="tw:py-12 tw:text-center tw:text-sm tw:text-secondary"
+      >
+        No tasks.
+      </div>
+    </div>
+
+    <!-- Desktop / landscape: full table -->
+    <div class="tw:hidden tw:md:block">
+      <BaseTable
+        v-model:pagination="pagination"
+        :rows="filteredInstances"
+        :columns="columns"
+        rowKey="id"
+      >
+        <!-- Item Title -->
+        <template #body-cell-title="{ row }">
+          <component
+            :is="entityRoute(row) ? 'RouterLink' : 'div'"
+            class="tw:flex tw:flex-col tw:group"
+            :class="row.sourceType === 'InformationRequest' ? 'tw:cursor-pointer' : ''"
+            :to="entityRoute(row) || undefined"
+            @click="onRfiTaskClick(row)"
+          >
+            <template v-if="row.entityType === 'TrainingAssignee'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ getTrainingAssigneeEntry(row)?.instance?.snapshot?.title || '—' }}
+              </span>
+            </template>
+            <template v-else-if="row.entityType === 'TrainingInstance'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ trainingInstanceMap[row.entityId]?.snapshot?.title || '—' }}
+              </span>
+              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                Verification · {{ row.entityId.slice(0, 8) }}
+              </span>
+            </template>
+            <template v-else-if="row.entityType === 'Nonconformance'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ getNc(row)?.title || '—' }}
+              </span>
+              <div class="tw:flex tw:items-center tw:gap-1.5">
+                <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                  {{ getNc(row)?.ncNumber || '—' }}
+                </span>
+                <span
+                  v-if="row.sourceType === 'InformationRequest'"
+                  class="tw:text-[10px] tw:bg-blue-100 tw:text-blue-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-medium"
+                >
+                  Information request
+                </span>
+              </div>
+            </template>
+            <template v-else-if="row.entityType === 'Capa'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ getCapa(row)?.title || '—' }}
+              </span>
+              <div class="tw:flex tw:items-center tw:gap-1.5">
+                <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                  {{ getCapa(row)?.capaNumber || '—' }}
+                </span>
+                <span
+                  v-if="row.sourceType === 'InformationRequest'"
+                  class="tw:text-[10px] tw:bg-blue-100 tw:text-blue-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-medium"
+                >
+                  Information request
+                </span>
+              </div>
+            </template>
+            <template v-else-if="row.entityType === 'ChangeRequest'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ getChangeRequest(row)?.title || '—' }}
+              </span>
+              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                {{ getChangeRequest(row)?.crNumber || '—' }}
+              </span>
+            </template>
+            <template v-else-if="row.entityType === 'LogBookVersion'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ logBookVersionMap[row.entityId]?.logBook?.title || 'Log book' }}
+              </span>
+              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                {{ logBookVersionMap[row.entityId]?.logBook?.code || '—' }} · v{{
+                  logBookVersionMap[row.entityId]?.version?.versionMajor ?? '?'
+                }}.{{ logBookVersionMap[row.entityId]?.version?.versionMinor ?? 0 }}
+              </span>
+            </template>
+            <template v-else-if="row.entityType === 'AssignmentInstance'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ assignmentInstanceMap[row.entityId]?.logBook?.title || 'Scheduled inspection' }}
+              </span>
+              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
                 {{
-                  getVersion(row).versionLabel
-                    ? `v${getVersion(row).versionLabel}`
-                    : `v${getVersion(row).versionMajor}.${getVersion(row).versionMinor}`
+                  assignmentInstanceMap[row.entityId]?.logBook?.code || 'Scheduled log / inspection'
                 }}
               </span>
             </template>
-          </div>
-        </template>
+            <template v-else-if="row.entityType === 'FieldRecord'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ fieldRecordMap[row.entityId]?.logBook?.title || 'Flagged log entry' }}
+              </span>
+              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                {{ fieldRecordMap[row.entityId]?.record?.recordNumber || 'Needs your attention' }}
+              </span>
+            </template>
+            <template v-else-if="row.entityType === 'AuditInstance'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ auditInstanceMap[row.entityId]?.standard?.name || 'Audit' }}
+              </span>
+              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                {{ auditInstanceMap[row.entityId]?.audit?.auditNumber || '—' }}
+              </span>
+            </template>
+            <template v-else-if="row.entityType === 'AuditStandardVersion'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ auditStandardVersionMap[row.entityId]?.standard?.name || 'Audit Standard' }}
+              </span>
+              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                {{
+                  auditStandardVersionMap[row.entityId]?.version
+                    ? `v${auditStandardVersionMap[row.entityId].version.versionMajor}.${auditStandardVersionMap[row.entityId].version.versionMinor}`
+                    : '—'
+                }}
+              </span>
+            </template>
+            <template v-else-if="row.entityType === 'InspectionLot'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ inspectionLotMap[row.entityId]?.lotNumber || 'Inspection Lot' }}
+              </span>
+              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                {{ inspectionLotMap[row.entityId]?.inspectionPoint || '—' }}
+              </span>
+            </template>
+            <template v-else>
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ getDocument(row)?.title || '—' }}
+              </span>
+              <div class="tw:flex tw:items-center tw:gap-1.5">
+                <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                  {{ getDocument(row)?.docNumber || '—' }}
+                </span>
+                <template v-if="getVersion(row)">
+                  <span class="tw:text-[10px] tw:text-secondary">·</span>
+                  <span class="tw:text-[10px] tw:text-primary tw:font-mono tw:tracking-tight">
+                    {{
+                      getVersion(row).versionLabel
+                        ? `v${getVersion(row).versionLabel}`
+                        : `v${getVersion(row).versionMajor}.${getVersion(row).versionMinor}`
+                    }}
+                  </span>
+                </template>
+              </div>
+            </template>
 
-        <!-- Task comment subline. Renders for ANY entity type when a
+            <!-- Task comment subline. Renders for ANY entity type when a
              task has a populated comment — typically the back-to-owner
              REVIEW task minted after all sub-tasks complete (handler
              onComplete), or an ACTION task with reviewer context.
              Gives the assignee a one-line "why" without having to open
              the detail page. -->
-        <span
-          v-if="row.comment"
-          class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-0.5 tw:line-clamp-2"
-        >
-          {{ row.comment }}
-        </span>
-      </component>
-    </template>
+            <span
+              v-if="row.comment"
+              class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-0.5 tw:line-clamp-2"
+            >
+              {{ row.comment }}
+            </span>
+          </component>
+        </template>
 
-    <!-- Type -->
-    <template #body-cell-type="{ row }">
-      <span v-if="row.entityType === 'TrainingAssignee' || row.entityType === 'TrainingInstance'" class="tw:text-sm tw:text-secondary">—</span>
-      <NcTypeBadgeById
-        v-else-if="row.entityType === 'Nonconformance' && getNc(row)?.typeId"
-        :typeId="getNc(row).typeId"
-      />
-      <CapaTypeBadgeById
-        v-else-if="row.entityType === 'Capa' && getCapa(row)?.typeId"
-        :typeId="getCapa(row).typeId"
-      />
-      <DocumentTypeBadgeById
-        v-else-if="getDocument(row)?.documentTypeId"
-        :documentTypeId="getDocument(row).documentTypeId"
-        :iconOnly="false"
-      />
-      <span
-        v-else-if="row.entityType === 'LogBookVersion' && logBookVersionMap[row.entityId]?.typeLabel"
-        class="tw:text-sm tw:text-on-main"
-      >
-        {{ logBookVersionMap[row.entityId].typeLabel }}
-      </span>
-      <span
-        v-else-if="row.entityType === 'AssignmentInstance' && assignmentInstanceMap[row.entityId]?.typeLabel"
-        class="tw:text-sm tw:text-on-main"
-      >
-        {{ assignmentInstanceMap[row.entityId].typeLabel }}
-      </span>
-      <span
-        v-else-if="row.entityType === 'FieldRecord' && fieldRecordMap[row.entityId]?.typeLabel"
-        class="tw:text-sm tw:text-on-main"
-      >
-        {{ fieldRecordMap[row.entityId].typeLabel }}
-      </span>
-      <span v-else-if="row.entityType === 'AuditInstance'" class="tw:text-sm tw:text-on-main">
-        {{ auditProgramLabel(auditInstanceMap[row.entityId]?.audit?.programTypeId) }}
-      </span>
-      <span v-else-if="row.entityType === 'AuditStandardVersion'" class="tw:text-sm tw:text-on-main">
-        Standard Approval
-      </span>
-      <span v-else-if="row.entityType === 'InspectionLot'" class="tw:text-sm tw:text-on-main">
-        QA Disposition
-      </span>
-      <span v-else class="tw:text-sm tw:text-secondary">—</span>
-    </template>
+        <!-- Type -->
+        <template #body-cell-type="{ row }">
+          <span
+            v-if="row.entityType === 'TrainingAssignee' || row.entityType === 'TrainingInstance'"
+            class="tw:text-sm tw:text-secondary"
+            >—</span
+          >
+          <NcTypeBadgeById
+            v-else-if="row.entityType === 'Nonconformance' && getNc(row)?.typeId"
+            :typeId="getNc(row).typeId"
+          />
+          <CapaTypeBadgeById
+            v-else-if="row.entityType === 'Capa' && getCapa(row)?.typeId"
+            :typeId="getCapa(row).typeId"
+          />
+          <DocumentTypeBadgeById
+            v-else-if="getDocument(row)?.documentTypeId"
+            :documentTypeId="getDocument(row).documentTypeId"
+            :iconOnly="false"
+          />
+          <span
+            v-else-if="
+              row.entityType === 'LogBookVersion' && logBookVersionMap[row.entityId]?.typeLabel
+            "
+            class="tw:text-sm tw:text-on-main"
+          >
+            {{ logBookVersionMap[row.entityId].typeLabel }}
+          </span>
+          <span
+            v-else-if="
+              row.entityType === 'AssignmentInstance' &&
+              assignmentInstanceMap[row.entityId]?.typeLabel
+            "
+            class="tw:text-sm tw:text-on-main"
+          >
+            {{ assignmentInstanceMap[row.entityId].typeLabel }}
+          </span>
+          <span
+            v-else-if="row.entityType === 'FieldRecord' && fieldRecordMap[row.entityId]?.typeLabel"
+            class="tw:text-sm tw:text-on-main"
+          >
+            {{ fieldRecordMap[row.entityId].typeLabel }}
+          </span>
+          <span v-else-if="row.entityType === 'AuditInstance'" class="tw:text-sm tw:text-on-main">
+            {{ auditProgramLabel(auditInstanceMap[row.entityId]?.audit?.programTypeId) }}
+          </span>
+          <span
+            v-else-if="row.entityType === 'AuditStandardVersion'"
+            class="tw:text-sm tw:text-on-main"
+          >
+            Standard Approval
+          </span>
+          <span v-else-if="row.entityType === 'InspectionLot'" class="tw:text-sm tw:text-on-main">
+            QA Disposition
+          </span>
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </template>
 
-    <!-- Due Date / Completed -->
-    <template #body-cell-dueDate="{ row }">
-      <span v-if="row.completedAt" class="tw:text-sm tw:font-medium tw:text-green-600">
-        Completed {{ row.completedAt.formatDate('date') }}
-      </span>
-      <span
-        v-else
-        class="tw:text-sm tw:font-medium"
-        :class="isDuePast(row.dueDate) ? 'tw:text-red-500' : 'tw:text-on-main'"
-      >
-        {{ row.dueDate ? row.dueDate.formatDate('date') : '—' }}
-      </span>
-    </template>
+        <!-- Due Date / Completed -->
+        <template #body-cell-dueDate="{ row }">
+          <span v-if="row.completedAt" class="tw:text-sm tw:font-medium tw:text-green-600">
+            Completed {{ row.completedAt.formatDate('date') }}
+          </span>
+          <span
+            v-else
+            class="tw:text-sm tw:font-medium"
+            :class="isDuePast(row.dueDate) ? 'tw:text-red-500' : 'tw:text-on-main'"
+          >
+            {{ row.dueDate ? row.dueDate.formatDate('date') : '—' }}
+          </span>
+        </template>
 
-    <!-- Status -->
-    <template #body-cell-status="{ row }">
-      <TrainingAssigneeStatusBadgeById
-        v-if="row.entityType === 'TrainingAssignee' && getTrainingAssigneeEntry(row)?.assignee"
-        :statusId="getTrainingAssigneeEntry(row).assignee.status"
-      />
-      <TaskInstanceStatusBadgeById v-else :statusId="row.statusId" :module="row.entityType" />
-    </template>
+        <!-- Status -->
+        <template #body-cell-status="{ row }">
+          <TrainingAssigneeStatusBadgeById
+            v-if="row.entityType === 'TrainingAssignee' && getTrainingAssigneeEntry(row)?.assignee"
+            :statusId="getTrainingAssigneeEntry(row).assignee.status"
+          />
+          <TaskInstanceStatusBadgeById v-else :statusId="row.statusId" :module="row.entityType" />
+        </template>
 
-    <!-- Created -->
-    <template #body-cell-createdAt="{ row }">
-      <span class="tw:text-sm tw:text-secondary">{{ row.createdAt?.formatDate('date') }}</span>
-    </template>
-  </BaseTable>
-  </div>
+        <!-- Created -->
+        <template #body-cell-createdAt="{ row }">
+          <span class="tw:text-sm tw:text-secondary">{{ row.createdAt?.formatDate('date') }}</span>
+        </template>
+      </BaseTable>
+    </div>
 
-  <!-- RFI dialog — opens inline when an Information Request task row is
+    <!-- RFI dialog — opens inline when an Information Request task row is
        clicked. Mounted once at the table level, parameterized per click. -->
-  <InformationRequestDialog
-    v-if="activeRfiEntityType && activeRfiEntityId"
-    v-model="showRfiDialog"
-    :mode="activeRfiMode"
-    :entityType="activeRfiEntityType"
-    :entityId="activeRfiEntityId"
-    :rfiId="activeRfiId"
-  />
+    <InformationRequestDialog
+      v-if="activeRfiEntityType && activeRfiEntityId"
+      v-model="showRfiDialog"
+      :mode="activeRfiMode"
+      :entityType="activeRfiEntityType"
+      :entityId="activeRfiEntityId"
+      :rfiId="activeRfiId"
+    />
   </div>
 </template>

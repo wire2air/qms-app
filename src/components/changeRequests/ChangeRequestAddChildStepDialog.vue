@@ -38,7 +38,9 @@ const submitting = ref(false)
 // Implementation stage seeded for that role).
 const parentInstanceStep = useLiveQueryWithDeps(
   [() => props.parentInstanceStepId],
+
   async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+  { models: ['WorkflowInstanceStep'] },
 )
 const parentTemplateRoles = useLiveQueryWithDeps(
   [() => parentInstanceStep.value?.stepId],
@@ -46,7 +48,8 @@ const parentTemplateRoles = useLiveQueryWithDeps(
     if (!stepId) return []
     return db.WorkflowStepRole.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStepRole'], initial: [] },
 )
 const parentAdHocRoles = useLiveQueryWithDeps(
   [() => props.parentInstanceStepId],
@@ -54,7 +57,8 @@ const parentAdHocRoles = useLiveQueryWithDeps(
     if (!id) return []
     return db.RoleOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['RoleOnWorkflowInstanceStep'], initial: [] },
 )
 const inheritedRoleIds = computed(() => {
   const ids = new Set()

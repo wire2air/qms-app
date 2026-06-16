@@ -17,7 +17,8 @@ const modelValue = defineModel({
 
 const statuses = useLiveQuery(
   (db) => db.DocumentVersionStatus.where().orderBy('displayOrder').exec(),
-  { initial: [] },
+
+  { models: ['DocumentVersionStatus'], initial: [] },
 )
 
 function getArray() {

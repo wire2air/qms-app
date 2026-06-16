@@ -9,7 +9,8 @@ const category = useLiveQueryWithDeps(
     if (!id) return null
     return db.AuditFindingCategory.findByPk(id)
   },
-  { initial: null },
+
+  { models: ['AuditFindingCategory'], initial: null },
 )
 </script>
 

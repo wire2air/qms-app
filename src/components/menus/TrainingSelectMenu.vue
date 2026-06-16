@@ -13,7 +13,8 @@ const trainings = useLiveQuery(
     db.Training.where()
       .exec()
       .then((all) => all.filter((t) => t.status === 'ACTIVE' && !t.sourceDocumentId)),
-  { initial: [] },
+
+  { models: ['Training'], initial: [] },
 )
 
 function getArray() {

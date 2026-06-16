@@ -21,13 +21,21 @@ const props = defineProps({
   },
 })
 
-const document = useLiveQueryWithDeps([() => props.documentId], async (db, [id]) => {
-  return db.Document.findByPk(id)
-})
+const document = useLiveQueryWithDeps(
+  [() => props.documentId],
+  async (db, [id]) => {
+    return db.Document.findByPk(id)
+  },
+  { models: ['Document'] },
+)
 
-const currentVersion = useLiveQueryWithDeps([() => props.versionId], async (db, [id]) => {
-  return id ? db.DocumentVersion.findByPk(id) : null
-})
+const currentVersion = useLiveQueryWithDeps(
+  [() => props.versionId],
+  async (db, [id]) => {
+    return id ? db.DocumentVersion.findByPk(id) : null
+  },
+  { models: ['DocumentVersion'] },
+)
 
 const canEdit = computed(
   () =>

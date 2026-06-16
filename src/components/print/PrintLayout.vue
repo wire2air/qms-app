@@ -33,10 +33,13 @@ const props = defineProps({
   showAudit: { type: Boolean, default: true },
 })
 
-const company = useLiveQuery(async (db) => {
-  const all = await db.Company.where().exec()
-  return all[0] ?? null
-})
+const company = useLiveQuery(
+  async (db) => {
+    const all = await db.Company.where().exec()
+    return all[0] ?? null
+  },
+  { models: ['Company'] },
+)
 
 const branding = computed(() => {
   const settings = company.value?.settings ?? {}
@@ -46,9 +49,7 @@ const branding = computed(() => {
     name: company.value?.name ?? '—',
     address: ps.address || settings.address || settings.companyAddress || null,
     code: company.value?.code,
-    footerText:
-      ps.footerText ||
-      'Verify the current effective version before use.',
+    footerText: ps.footerText || 'Verify the current effective version before use.',
     accentColor: ps.accentColor || null,
   }
 })
@@ -59,7 +60,8 @@ const accentStyle = computed(() =>
 
 const statusClass = computed(() => {
   const s = (props.status ?? '').toUpperCase()
-  if (s === 'EFFECTIVE' || s === 'VERIFIED' || s === 'COMPLETED' || s === 'CLOSED') return 'print-status-effective'
+  if (s === 'EFFECTIVE' || s === 'VERIFIED' || s === 'COMPLETED' || s === 'CLOSED')
+    return 'print-status-effective'
   if (s === 'DRAFT' || s === 'REJECTED' || s === 'OPEN') return 'print-status-draft'
   if (s === 'IN_REVIEW' || s === 'APPROVED' || s === 'IN_PROGRESS') return 'print-status-review'
   if (s === 'SUPERSEDED' || s === 'ARCHIVED' || s === 'CANCELLED') return 'print-status-archived'
@@ -87,7 +89,8 @@ const auditLogs = useLiveQueryWithDeps(
       .sort((a, b) => (b.performedAt?.toMillis?.() ?? 0) - (a.performedAt?.toMillis?.() ?? 0))
       .slice(0, 30)
   },
-  { initial: [] },
+
+  { models: ['AuditLog'], initial: [] },
 )
 
 const performerIds = computed(() => [
@@ -105,7 +108,8 @@ const performers = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 
 const signatures = computed(() =>
@@ -209,119 +213,127 @@ onBeforeUnmount(() => {
        `tw:print:hidden`, so it disappears during print. -->
   <Teleport to="#print-portal">
     <div class="print-root" :style="accentStyle">
-    <!-- Toolbar — hidden when printing -->
-    <div class="print-toolbar tw:no-print">
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <button
-          class="tw:flex tw:items-center tw:gap-1.5 tw:rounded tw:bg-primary tw:text-white tw:px-3 tw:py-1.5 tw:text-sm tw:font-medium tw:hover:bg-primary/90"
-          @click="reprint"
-        >
-          <IconPrinter :size="14" /> Print
-        </button>
-        <button
-          class="tw:flex tw:items-center tw:gap-1.5 tw:rounded tw:border tw:border-divider tw:px-3 tw:py-1.5 tw:text-sm tw:text-secondary tw:hover:bg-main-hover"
-          @click="close"
-        >
-          <IconX :size="14" /> Close
-        </button>
+      <!-- Toolbar — hidden when printing -->
+      <div class="print-toolbar tw:no-print">
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <button
+            class="tw:flex tw:items-center tw:gap-1.5 tw:rounded tw:bg-primary tw:text-white tw:px-3 tw:py-1.5 tw:text-sm tw:font-medium tw:hover:bg-primary/90"
+            @click="reprint"
+          >
+            <IconPrinter :size="14" /> Print
+          </button>
+          <button
+            class="tw:flex tw:items-center tw:gap-1.5 tw:rounded tw:border tw:border-divider tw:px-3 tw:py-1.5 tw:text-sm tw:text-secondary tw:hover:bg-main-hover"
+            @click="close"
+          >
+            <IconX :size="14" /> Close
+          </button>
+        </div>
+        <div class="tw:text-xs tw:text-secondary">
+          Use your browser's Print dialog → "Save as PDF" for a controlled PDF.
+        </div>
       </div>
-      <div class="tw:text-xs tw:text-secondary">
-        Use your browser's Print dialog → "Save as PDF" for a controlled PDF.
-      </div>
-    </div>
 
-    <article class="print-page">
-      <!-- Company header (every printout looks identical here) -->
-      <header class="print-header">
-        <div class="print-header-logo">
-          <img
-            v-if="branding.logoUrl"
-            :src="branding.logoUrl"
-            :alt="`${branding.name} logo`"
-            class="print-logo-img"
-          />
-          <div v-else class="print-logo-fallback">
-            <IconBuilding :size="40" />
-            <span>Company Logo</span>
+      <article class="print-page">
+        <!-- Company header (every printout looks identical here) -->
+        <header class="print-header">
+          <div class="print-header-logo">
+            <img
+              v-if="branding.logoUrl"
+              :src="branding.logoUrl"
+              :alt="`${branding.name} logo`"
+              class="print-logo-img"
+            />
+            <div v-else class="print-logo-fallback">
+              <IconBuilding :size="40" />
+              <span>Company Logo</span>
+            </div>
           </div>
-        </div>
-        <div class="print-header-text">
-          <div class="print-company-name">{{ branding.name }}</div>
-          <div v-if="branding.address" class="print-company-meta">{{ branding.address }}</div>
-          <div v-if="branding.code" class="print-company-meta">{{ branding.code }}</div>
-        </div>
-        <div v-if="status" class="print-status-block">
-          <span class="print-status-badge" :class="statusClass">{{ status }}</span>
-        </div>
-      </header>
+          <div class="print-header-text">
+            <div class="print-company-name">{{ branding.name }}</div>
+            <div v-if="branding.address" class="print-company-meta">{{ branding.address }}</div>
+            <div v-if="branding.code" class="print-company-meta">{{ branding.code }}</div>
+          </div>
+          <div v-if="status" class="print-status-block">
+            <span class="print-status-badge" :class="statusClass">{{ status }}</span>
+          </div>
+        </header>
 
-      <!-- Module-specific title / meta -->
-      <section v-if="$slots.title" class="print-title-section">
-        <slot name="title" />
-      </section>
+        <!-- Module-specific title / meta -->
+        <section v-if="$slots.title" class="print-title-section">
+          <slot name="title" />
+        </section>
 
-      <!-- Module-specific body -->
-      <section class="print-body-section">
-        <slot />
-      </section>
+        <!-- Module-specific body -->
+        <section class="print-body-section">
+          <slot />
+        </section>
 
-      <!-- Approvals & Signatures -->
-      <section v-if="showAudit && signatures.length > 0" class="print-signatures">
-        <h2>Approvals &amp; Signatures</h2>
-        <table class="print-sig-table">
-          <thead>
-            <tr><th>Action</th><th>Signed by</th><th>Date</th><th>IP</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="(sig, i) in signatures" :key="i">
-              <td>{{ sig.action }}</td>
-              <td>{{ sig.who }}</td>
-              <td>{{ fmtAuditTime(sig.when) }}</td>
-              <td>{{ sig.ip ?? '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+        <!-- Approvals & Signatures -->
+        <section v-if="showAudit && signatures.length > 0" class="print-signatures">
+          <h2>Approvals &amp; Signatures</h2>
+          <table class="print-sig-table">
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Signed by</th>
+                <th>Date</th>
+                <th>IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(sig, i) in signatures" :key="i">
+                <td>{{ sig.action }}</td>
+                <td>{{ sig.who }}</td>
+                <td>{{ fmtAuditTime(sig.when) }}</td>
+                <td>{{ sig.ip ?? '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
 
-      <!-- Audit history -->
-      <section v-if="showAudit && auditLogs.length > 0" class="print-audit">
-        <h2>Recent Audit History</h2>
-        <table class="print-audit-table">
-          <thead>
-            <tr><th>When</th><th>Who</th><th>What</th><th>Target</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="(log, i) in auditLogs.slice(0, 10)" :key="i">
-              <td>{{ fmtAuditTime(log.performedAt) }}</td>
-              <td>{{ performers[log.performedBy] ?? '—' }}</td>
-              <td>{{ log.action }}</td>
-              <td>{{ log.entityType }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+        <!-- Audit history -->
+        <section v-if="showAudit && auditLogs.length > 0" class="print-audit">
+          <h2>Recent Audit History</h2>
+          <table class="print-audit-table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Who</th>
+                <th>What</th>
+                <th>Target</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(log, i) in auditLogs.slice(0, 10)" :key="i">
+                <td>{{ fmtAuditTime(log.performedAt) }}</td>
+                <td>{{ performers[log.performedBy] ?? '—' }}</td>
+                <td>{{ log.action }}</td>
+                <td>{{ log.entityType }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
 
-      <!-- Footer — every printed controlled copy needs: status + approval +
+        <!-- Footer — every printed controlled copy needs: status + approval +
            print provenance. Auditors scan these lines to confirm a copy is
            valid at the time of inspection. -->
-      <footer class="print-footer">
-        <div v-if="statusFooterLine" class="print-footer-status">
-          {{ statusFooterLine }}
-        </div>
-        <div v-if="latestApproval" class="print-footer-approval">
-          Approved by {{ latestApproval.who }} on {{ fmtAuditTime(latestApproval.when) }}
-        </div>
-        <div class="print-footer-provenance">
-          {{ branding.name }}{{ identifier ? ` · ${identifier}` : '' }}
-        </div>
-        <div class="print-footer-provenance">
-          Printed by {{ printedBy }} · {{ generatedAt }}
-        </div>
-        <div v-if="branding.footerText" class="print-footer-disclaimer">
-          {{ branding.footerText }}
-        </div>
-      </footer>
-    </article>
+        <footer class="print-footer">
+          <div v-if="statusFooterLine" class="print-footer-status">
+            {{ statusFooterLine }}
+          </div>
+          <div v-if="latestApproval" class="print-footer-approval">
+            Approved by {{ latestApproval.who }} on {{ fmtAuditTime(latestApproval.when) }}
+          </div>
+          <div class="print-footer-provenance">
+            {{ branding.name }}{{ identifier ? ` · ${identifier}` : '' }}
+          </div>
+          <div class="print-footer-provenance">Printed by {{ printedBy }} · {{ generatedAt }}</div>
+          <div v-if="branding.footerText" class="print-footer-disclaimer">
+            {{ branding.footerText }}
+          </div>
+        </footer>
+      </article>
     </div>
   </Teleport>
 </template>
@@ -401,7 +413,9 @@ onBeforeUnmount(() => {
   font-size: 11px;
   color: #4b5563;
 }
-.print-status-block { text-align: right; }
+.print-status-block {
+  text-align: right;
+}
 .print-status-badge {
   display: inline-block;
   padding: 4px 10px;
@@ -411,39 +425,63 @@ onBeforeUnmount(() => {
   letter-spacing: 0.5px;
   border: 1.5px solid currentColor;
 }
-.print-status-effective { color: #047857; background: #d1fae5; }
-.print-status-draft     { color: #92400e; background: #fef3c7; }
-.print-status-review    { color: #1d4ed8; background: #dbeafe; }
-.print-status-archived  { color: #6b7280; background: #f3f4f6; }
-.print-status-default   { color: #374151; background: #f3f4f6; }
+.print-status-effective {
+  color: #047857;
+  background: #d1fae5;
+}
+.print-status-draft {
+  color: #92400e;
+  background: #fef3c7;
+}
+.print-status-review {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+.print-status-archived {
+  color: #6b7280;
+  background: #f3f4f6;
+}
+.print-status-default {
+  color: #374151;
+  background: #f3f4f6;
+}
 
-.print-title-section { margin: 20px 0 24px; }
-.print-body-section { margin: 0; }
+.print-title-section {
+  margin: 20px 0 24px;
+}
+.print-body-section {
+  margin: 0;
+}
 
-.print-signatures, .print-audit {
+.print-signatures,
+.print-audit {
   margin-top: 24px;
   break-inside: avoid-page;
 }
-.print-signatures h2, .print-audit h2 {
+.print-signatures h2,
+.print-audit h2 {
   font-size: 14px;
   font-weight: 700;
   margin: 0 0 8px;
   padding-bottom: 4px;
   border-bottom: 1px solid #e5e7eb;
 }
-.print-sig-table, .print-audit-table {
+.print-sig-table,
+.print-audit-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 10px;
 }
-.print-sig-table th, .print-audit-table th {
+.print-sig-table th,
+.print-audit-table th {
   background: #f9fafb;
   text-align: left;
   padding: 5px 8px;
   border: 1px solid #e5e7eb;
   font-weight: 600;
 }
-.print-sig-table td, .print-audit-table td {
+.print-sig-table td,
+.print-audit-table td {
   padding: 5px 8px;
   border: 1px solid #e5e7eb;
 }
@@ -483,15 +521,23 @@ onBeforeUnmount(() => {
      content can paginate past the viewport. #app is `tw:print:hidden` and
      the print-root is teleported into #print-portal (sibling of #app), so
      no other shell overrides are needed. */
-  html, body {
+  html,
+  body {
     background: white !important;
     margin: 0;
     padding: 0;
     height: auto !important;
     overflow: visible !important;
   }
-  .print-root { position: static; padding: 0; background: white; }
-  .print-toolbar, .tw\:no-print { display: none !important; }
+  .print-root {
+    position: static;
+    padding: 0;
+    background: white;
+  }
+  .print-toolbar,
+  .tw\:no-print {
+    display: none !important;
+  }
   .print-page {
     max-width: none;
     margin: 0;

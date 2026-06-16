@@ -36,7 +36,8 @@ const rows = useLiveQueryWithDeps(
       return ta - tb
     })
   },
-  { initial: [] },
+
+  { models: ['Workflow'], initial: [] },
 )
 
 const workflowMetaMap = useLiveQueryWithDeps(
@@ -58,7 +59,8 @@ const workflowMetaMap = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['WorkflowVersion', 'WorkflowStep'], initial: {} },
 )
 
 function navigateToWorkflow(row) {

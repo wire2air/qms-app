@@ -12,7 +12,8 @@ const supplier = useLiveQueryWithDeps(
     if (!supplierId) return null
     return db.Supplier.findByPk(supplierId)
   },
-  { initial: null },
+
+  { models: ['Supplier'], initial: null },
 )
 </script>
 

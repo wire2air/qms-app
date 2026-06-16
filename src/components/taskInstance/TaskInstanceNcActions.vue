@@ -106,7 +106,8 @@ const stepRoles = useLiveQueryWithDeps(
     if (!stepId) return []
     return db.WorkflowStepRole.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStepRole'], initial: [] },
 )
 
 const reassignCandidates = useLiveQueryWithDeps(
@@ -121,7 +122,8 @@ const reassignCandidates = useLiveQueryWithDeps(
     const users = await Promise.all(userIds.map((id) => db.User.findByPk(id)))
     return users.filter(Boolean)
   },
-  { initial: [] },
+
+  { models: ['RoleOnUser', 'User'], initial: [] },
 )
 
 const currentUserId = computed(() => currentSession.value?.id)

@@ -10,7 +10,17 @@
  * the response (and its checklist / interviewees / notes) saves. Once a result
  * exists, edits auto-save (debounced).
  */
-import { IconChevronDown, IconChevronRight, IconX, IconUser, IconPlus, IconList, IconNotebook, IconGavel, IconListCheck } from '@tabler/icons-vue'
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconX,
+  IconUser,
+  IconPlus,
+  IconList,
+  IconNotebook,
+  IconGavel,
+  IconListCheck,
+} from '@tabler/icons-vue'
 import { canUseAi } from '@/utils/currentSession'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
@@ -33,7 +43,8 @@ const responsesById = useLiveQueryWithDeps(
     const rows = await db.AuditRequirementResponse.where('auditInstanceId', instanceId).exec()
     return Object.fromEntries(rows.map((r) => [r.requirementId, r]))
   },
-  { initial: {} },
+
+  { models: ['AuditRequirementResponse'], initial: {} },
 )
 
 const RESULTS = [
@@ -125,7 +136,8 @@ function goToStep(reqId) {
   if (!isDesktop.value) railOpen.value = false
 }
 function prevStep() {
-  if (currentIndex.value > 0) currentReqId.value = orderedSteps.value[currentIndex.value - 1].requirementId
+  if (currentIndex.value > 0)
+    currentReqId.value = orderedSteps.value[currentIndex.value - 1].requirementId
 }
 function nextStep() {
   if (currentIndex.value < orderedSteps.value.length - 1)
@@ -142,7 +154,7 @@ const progress = computed(() => {
   // Only leaf clauses (actual requirements) count toward completion — parent /
   // section headers are exempt, matching the close-out gate. Assessed = carries
   // a verdict; in-progress responses (#27) don't count.
-  const leaves = clauses.value.filter((c) => !(childrenByParent.value[c.requirementId]?.length))
+  const leaves = clauses.value.filter((c) => !childrenByParent.value[c.requirementId]?.length)
   const total = leaves.length
   if (!total) return { done: 0, total: 0, pct: 0 }
   const done = leaves.filter((c) => responsesById.value[c.requirementId]?.resultId).length
@@ -230,7 +242,11 @@ async function ensureResponse() {
 // Per-item conformance ratings. Each list has its own vocabulary; severity
 // (Major/Minor/OFI) stays the clause-level Result, not a per-item choice.
 const QUESTION_STATUSES = [
-  { id: 'CONFORM', name: 'Conform', active: 'tw:bg-emerald-600 tw:text-white tw:border-emerald-600' },
+  {
+    id: 'CONFORM',
+    name: 'Conform',
+    active: 'tw:bg-emerald-600 tw:text-white tw:border-emerald-600',
+  },
   { id: 'NONCONFORM', name: 'Nonconform', active: 'tw:bg-red-600 tw:text-white tw:border-red-600' },
   { id: 'NA', name: 'N/A', active: 'tw:bg-gray-400 tw:text-white tw:border-gray-400' },
 ]
@@ -240,7 +256,11 @@ const OBSERVATION_STATUSES = [
   { id: 'NA', name: 'N/A', active: 'tw:bg-gray-400 tw:text-white tw:border-gray-400' },
 ]
 const EVIDENCE_STATUSES = [
-  { id: 'PROVIDED', name: 'Provided', active: 'tw:bg-emerald-600 tw:text-white tw:border-emerald-600' },
+  {
+    id: 'PROVIDED',
+    name: 'Provided',
+    active: 'tw:bg-emerald-600 tw:text-white tw:border-emerald-600',
+  },
   { id: 'PARTIAL', name: 'Partial', active: 'tw:bg-amber-500 tw:text-white tw:border-amber-500' },
   { id: 'MISSING', name: 'Missing', active: 'tw:bg-red-600 tw:text-white tw:border-red-600' },
   { id: 'NA', name: 'N/A', active: 'tw:bg-gray-400 tw:text-white tw:border-gray-400' },
@@ -286,7 +306,11 @@ const clauseSummary = computed(() => {
   const empty = { parts: [], flags: 0, assessed: 0, suggested: null }
   if (!cl) return empty
   const stat = (field, id) => currentBuffer.value?.[field]?.[id]?.status
-  let nonconform = 0, missing = 0, partial = 0, concern = 0, assessed = 0
+  let nonconform = 0,
+    missing = 0,
+    partial = 0,
+    concern = 0,
+    assessed = 0
   for (const q of cl.questions || []) {
     const s = stat('questionChecklist', q.id)
     if (s) assessed++
@@ -385,7 +409,11 @@ function summarizeFinding() {
   for (const e of cl.evidenceItems || []) {
     const s = stat('evidenceChecklist', e.id)
     if (s === 'MISSING' || s === 'PARTIAL')
-      flagged.push({ tag: s === 'MISSING' ? 'Missing' : 'Partial', text: e.text, note: noteOf('evidenceChecklist', e.id) })
+      flagged.push({
+        tag: s === 'MISSING' ? 'Missing' : 'Partial',
+        text: e.text,
+        note: noteOf('evidenceChecklist', e.id),
+      })
   }
   for (const o of cl.observations || []) {
     if (stat('observationChecklist', o.id) === 'CONCERN')
@@ -396,7 +424,9 @@ function summarizeFinding() {
   if (flagged.length) {
     html.push('<p><strong>Findings:</strong></p><ul>')
     for (const f of flagged) {
-      html.push(`<li>[${f.tag}] ${escapeHtml(f.text)}${f.note ? ` — ${escapeHtml(f.note)}` : ''}</li>`)
+      html.push(
+        `<li>[${f.tag}] ${escapeHtml(f.text)}${f.note ? ` — ${escapeHtml(f.note)}` : ''}</li>`,
+      )
     }
     html.push('</ul>')
   } else {
@@ -409,27 +439,28 @@ function summarizeFinding() {
   setComments(html.join('\n'))
   toast.success('Summary added to Finding Notes — review and edit.')
 }
-
 </script>
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3">
     <!-- Progress header -->
-    <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:pb-3 tw:border-b tw:border-divider">
+    <div
+      class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:pb-3 tw:border-b tw:border-divider"
+    >
       <div class="tw:flex tw:items-center tw:gap-3">
         <!-- Clause-list toggle — collapses/expands the rail on every screen. -->
-        <BaseButton
-          v-if="clauses.length"
-          variant="outline"
-          size="sm"
-          @click="railOpen = !railOpen"
-        >
+        <BaseButton v-if="clauses.length" variant="outline" size="sm" @click="railOpen = !railOpen">
           <template #icon><IconList :size="16" /></template>
           {{ railOpen ? 'Hide clauses' : 'Clauses' }}
         </BaseButton>
-        <div class="tw:text-sm tw:font-medium">{{ progress.done }} / {{ progress.total }} assessed</div>
+        <div class="tw:text-sm tw:font-medium">
+          {{ progress.done }} / {{ progress.total }} assessed
+        </div>
         <div class="tw:w-32 tw:h-2 tw:bg-main-hover tw:rounded-full tw:overflow-hidden">
-          <div class="tw:h-full tw:bg-primary tw:transition-all" :style="{ width: progress.pct + '%' }" />
+          <div
+            class="tw:h-full tw:bg-primary tw:transition-all"
+            :style="{ width: progress.pct + '%' }"
+          />
         </div>
         <div class="tw:text-xs tw:text-secondary">{{ progress.pct }}%</div>
       </div>
@@ -438,7 +469,10 @@ function summarizeFinding() {
       </span>
     </div>
 
-    <div v-if="!clauses.length" class="tw:py-12 tw:text-center tw:text-sm tw:text-secondary tw:italic">
+    <div
+      v-if="!clauses.length"
+      class="tw:py-12 tw:text-center tw:text-sm tw:text-secondary tw:italic"
+    >
       No clauses on this audit.
     </div>
 
@@ -470,11 +504,21 @@ function summarizeFinding() {
           <button
             type="button"
             class="tw:flex-1 tw:min-w-0 tw:text-left tw:py-1.5 tw:pr-2 tw:cursor-pointer tw:border-0 tw:flex tw:items-center tw:gap-1.5"
-            :class="currentReqId === row.requirementId ? 'tw:bg-primary/10' : 'tw:bg-transparent tw:hover:bg-main-hover'"
+            :class="
+              currentReqId === row.requirementId
+                ? 'tw:bg-primary/10'
+                : 'tw:bg-transparent tw:hover:bg-main-hover'
+            "
             @click="goToStep(row.requirementId)"
           >
-            <code class="tw:text-[10px] tw:font-mono tw:text-secondary">{{ row.clauseNumber }}</code>
-            <span class="tw:text-xs tw:truncate" :class="row.depth === 0 ? 'tw:font-semibold' : ''">{{ row.title }}</span>
+            <code class="tw:text-[10px] tw:font-mono tw:text-secondary">{{
+              row.clauseNumber
+            }}</code>
+            <span
+              class="tw:text-xs tw:truncate"
+              :class="row.depth === 0 ? 'tw:font-semibold' : ''"
+              >{{ row.title }}</span
+            >
             <span
               v-if="responsesById[row.requirementId]?.resultId"
               class="tw:ml-auto tw:size-1.5 tw:rounded-full tw:bg-emerald-500 tw:shrink-0"
@@ -495,31 +539,58 @@ function summarizeFinding() {
         <div class="tw:flex tw:items-start tw:justify-between tw:gap-3">
           <div class="tw:min-w-0">
             <div class="tw:flex tw:items-center tw:gap-2">
-              <code class="tw:text-xs tw:font-mono tw:text-secondary">{{ currentClause.clauseNumber }}</code>
-              <h3 class="tw:text-base tw:font-semibold tw:text-on-main">{{ currentClause.title }}</h3>
+              <code class="tw:text-xs tw:font-mono tw:text-secondary">{{
+                currentClause.clauseNumber
+              }}</code>
+              <h3 class="tw:text-base tw:font-semibold tw:text-on-main">
+                {{ currentClause.title }}
+              </h3>
               <span
                 v-if="currentClause.riskWeight && currentClause.riskWeight !== 1"
                 class="tw:text-[10px] tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-semibold"
                 title="Risk weight"
-              >×{{ currentClause.riskWeight }}</span>
+                >×{{ currentClause.riskWeight }}</span
+              >
             </div>
           </div>
           <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
-            <span class="tw:text-xs tw:text-secondary">{{ currentIndex + 1 }} / {{ orderedSteps.length }}</span>
-            <BaseButton variant="outline" size="sm" :disabled="currentIndex <= 0" @click="prevStep">Prev</BaseButton>
-            <BaseButton variant="outline" size="sm" :disabled="currentIndex >= orderedSteps.length - 1" @click="nextStep">Next</BaseButton>
+            <span class="tw:text-xs tw:text-secondary"
+              >{{ currentIndex + 1 }} / {{ orderedSteps.length }}</span
+            >
+            <BaseButton variant="outline" size="sm" :disabled="currentIndex <= 0" @click="prevStep"
+              >Prev</BaseButton
+            >
+            <BaseButton
+              variant="outline"
+              size="sm"
+              :disabled="currentIndex >= orderedSteps.length - 1"
+              @click="nextStep"
+              >Next</BaseButton
+            >
           </div>
         </div>
 
         <!-- Guidance panels -->
         <div class="tw:grid tw:grid-cols-1 tw:gap-3">
           <div v-if="currentClause.description" class="tw:bg-main-hover/40 tw:rounded tw:p-3">
-            <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-0.5">Description</p>
-            <p class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">{{ currentClause.description }}</p>
+            <p
+              class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-0.5"
+            >
+              Description
+            </p>
+            <p class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">
+              {{ currentClause.description }}
+            </p>
           </div>
           <div v-if="currentClause.guidance" class="tw:bg-blue-50 tw:rounded tw:p-3">
-            <p class="tw:text-[11px] tw:font-semibold tw:text-blue-700 tw:uppercase tw:tracking-wide tw:mb-0.5">Guidance</p>
-            <p class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">{{ currentClause.guidance }}</p>
+            <p
+              class="tw:text-[11px] tw:font-semibold tw:text-blue-700 tw:uppercase tw:tracking-wide tw:mb-0.5"
+            >
+              Guidance
+            </p>
+            <p class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">
+              {{ currentClause.guidance }}
+            </p>
           </div>
           <!-- Expected Evidence is rendered as the checklist below (#24); the
                legacy free-text block is intentionally not shown to avoid
@@ -528,9 +599,18 @@ function summarizeFinding() {
 
         <!-- People / roles to interview (guidance from the standard) -->
         <div v-if="currentClause.peopleToInterview?.length">
-          <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">People / roles to interview</p>
+          <p
+            class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1"
+          >
+            People / roles to interview
+          </p>
           <div class="tw:flex tw:flex-wrap tw:gap-1.5">
-            <span v-for="(role, ri) in currentClause.peopleToInterview" :key="ri" class="tw:text-xs tw:bg-main-hover tw:rounded tw:px-2 tw:py-0.5">{{ role }}</span>
+            <span
+              v-for="(role, ri) in currentClause.peopleToInterview"
+              :key="ri"
+              class="tw:text-xs tw:bg-main-hover tw:rounded tw:px-2 tw:py-0.5"
+              >{{ role }}</span
+            >
           </div>
         </div>
 
@@ -552,7 +632,9 @@ function summarizeFinding() {
               class="tw:flex tw:items-center tw:gap-2 tw:text-left tw:rounded tw:px-2 tw:py-1.5 tw:bg-white tw:border tw:border-divider tw:hover:border-primary tw:cursor-pointer"
               @click="goToStep(child.requirementId)"
             >
-              <code class="tw:text-[10px] tw:font-mono tw:text-secondary tw:shrink-0">{{ child.clauseNumber }}</code>
+              <code class="tw:text-[10px] tw:font-mono tw:text-secondary tw:shrink-0">{{
+                child.clauseNumber
+              }}</code>
               <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{ child.title }}</span>
               <span
                 v-if="responsesById[child.requirementId]?.resultId"
@@ -577,12 +659,18 @@ function summarizeFinding() {
           v-if="!currentHasChildren"
           class="tw:border tw:border-slate-200 tw:rounded-lg tw:overflow-hidden tw:bg-slate-50/40"
         >
-          <div class="tw:bg-slate-100 tw:px-3 tw:py-2 tw:border-b tw:border-slate-200 tw:flex tw:items-center tw:justify-between tw:gap-2">
+          <div
+            class="tw:bg-slate-100 tw:px-3 tw:py-2 tw:border-b tw:border-slate-200 tw:flex tw:items-center tw:justify-between tw:gap-2"
+          >
             <div class="tw:flex tw:items-center tw:gap-1.5 tw:min-w-0">
               <IconNotebook :size="14" class="tw:text-slate-600 tw:shrink-0" />
-              <p class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-slate-600 tw:truncate">
+              <p
+                class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-slate-600 tw:truncate"
+              >
                 Auditor's Notebook
-                <span class="tw:font-normal tw:normal-case tw:text-slate-500">— private, not shared in the finding</span>
+                <span class="tw:font-normal tw:normal-case tw:text-slate-500"
+                  >— private, not shared in the finding</span
+                >
               </p>
             </div>
             <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
@@ -610,20 +698,47 @@ function summarizeFinding() {
                  Expected Evidence (records to collect). Each item: tick + note. -->
             <div
               v-for="cl in [
-                { items: currentClause.questions, field: 'questionChecklist', label: 'Questions', statuses: QUESTION_STATUSES },
-                { items: currentClause.observations, field: 'observationChecklist', label: 'Observations', statuses: OBSERVATION_STATUSES },
-                { items: currentClause.evidenceItems, field: 'evidenceChecklist', label: 'Expected Evidence', statuses: EVIDENCE_STATUSES },
+                {
+                  items: currentClause.questions,
+                  field: 'questionChecklist',
+                  label: 'Questions',
+                  statuses: QUESTION_STATUSES,
+                },
+                {
+                  items: currentClause.observations,
+                  field: 'observationChecklist',
+                  label: 'Observations',
+                  statuses: OBSERVATION_STATUSES,
+                },
+                {
+                  items: currentClause.evidenceItems,
+                  field: 'evidenceChecklist',
+                  label: 'Expected Evidence',
+                  statuses: EVIDENCE_STATUSES,
+                },
               ]"
               :key="cl.field"
             >
               <template v-if="visibleItems(cl.field, cl.items).length">
-                <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">{{ cl.label }}</p>
+                <p
+                  class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5"
+                >
+                  {{ cl.label }}
+                </p>
                 <div class="tw:flex tw:flex-col tw:gap-2">
-                  <div v-for="item in visibleItems(cl.field, cl.items)" :key="item.id" class="tw:flex tw:flex-col tw:gap-1.5 tw:border tw:border-divider tw:rounded tw:p-2 tw:bg-white">
+                  <div
+                    v-for="item in visibleItems(cl.field, cl.items)"
+                    :key="item.id"
+                    class="tw:flex tw:flex-col tw:gap-1.5 tw:border tw:border-divider tw:rounded tw:p-2 tw:bg-white"
+                  >
                     <!-- Text + status on one row; the status group wraps below
                          the text on a narrow (mobile) screen. -->
-                    <div class="tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-x-3 tw:gap-y-1">
-                      <p class="tw:text-sm tw:text-on-main tw:flex-1 tw:min-w-48">{{ item.text }}</p>
+                    <div
+                      class="tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-x-3 tw:gap-y-1"
+                    >
+                      <p class="tw:text-sm tw:text-on-main tw:flex-1 tw:min-w-48">
+                        {{ item.text }}
+                      </p>
                       <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:shrink-0">
                         <button
                           v-for="st in cl.statuses"
@@ -631,9 +746,15 @@ function summarizeFinding() {
                           type="button"
                           class="tw:text-[10px] tw:font-semibold tw:rounded tw:px-2 tw:py-0.5 tw:border tw:cursor-pointer tw:transition-colors"
                           :disabled="readonly"
-                          :class="checklistState(cl.field, item.id).status === st.id ? st.active : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:border-primary tw:hover:text-primary'"
+                          :class="
+                            checklistState(cl.field, item.id).status === st.id
+                              ? st.active
+                              : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:border-primary tw:hover:text-primary'
+                          "
                           @click="setChecklistStatus(cl.field, item.id, st.id)"
-                        >{{ st.name }}</button>
+                        >
+                          {{ st.name }}
+                        </button>
                       </div>
                     </div>
                     <BaseTextInput
@@ -643,7 +764,12 @@ function summarizeFinding() {
                       placeholder="Note (optional)"
                       @update:modelValue="(v) => setChecklistNote(cl.field, item.id, v)"
                     />
-                    <p v-else-if="checklistState(cl.field, item.id).note" class="tw:text-xs tw:text-secondary tw:italic">{{ checklistState(cl.field, item.id).note }}</p>
+                    <p
+                      v-else-if="checklistState(cl.field, item.id).note"
+                      class="tw:text-xs tw:text-secondary tw:italic"
+                    >
+                      {{ checklistState(cl.field, item.id).note }}
+                    </p>
                   </div>
                 </div>
               </template>
@@ -651,8 +777,15 @@ function summarizeFinding() {
 
             <!-- People interviewed (hybrid) -->
             <div>
-              <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">People interviewed</p>
-              <div v-if="currentBuffer?.peopleInterviewed?.length" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:mb-2">
+              <p
+                class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1"
+              >
+                People interviewed
+              </p>
+              <div
+                v-if="currentBuffer?.peopleInterviewed?.length"
+                class="tw:flex tw:flex-wrap tw:gap-1.5 tw:mb-2"
+              >
                 <span
                   v-for="(p, pi) in currentBuffer.peopleInterviewed"
                   :key="pi"
@@ -661,13 +794,20 @@ function summarizeFinding() {
                   <template v-if="p.userId">
                     <IconUser :size="12" /><UserBadgeById :userId="p.userId" />
                   </template>
-                  <template v-else>{{ p.name }}<span v-if="p.title" class="tw:text-secondary"> — {{ p.title }}</span></template>
+                  <template v-else
+                    >{{ p.name
+                    }}<span v-if="p.title" class="tw:text-secondary">
+                      — {{ p.title }}</span
+                    ></template
+                  >
                   <button
                     v-if="!readonly"
                     type="button"
                     class="tw:text-secondary tw:hover:text-red-600 tw:rounded tw:cursor-pointer tw:bg-transparent tw:border-0"
                     @click="removeInterviewee(pi)"
-                  ><IconX :size="12" /></button>
+                  >
+                    <IconX :size="12" />
+                  </button>
                 </span>
               </div>
               <div v-if="!readonly" class="tw:flex tw:flex-col tw:gap-2">
@@ -677,18 +817,43 @@ function summarizeFinding() {
                        audits interview internal staff. Mirrors the auditee picker. -->
                   <UserSelectMenu
                     v-model="pickUserId"
-                    :kind="auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'"
-                    :supplierId="auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null"
+                    :kind="
+                      auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'
+                    "
+                    :supplierId="
+                      auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null
+                    "
                     nullLabel="Select a user…"
                     class="tw:flex-1"
                   />
-                  <BaseButton variant="outline" size="sm" :disabled="!pickUserId" @click="addUserInterviewee">Add</BaseButton>
+                  <BaseButton
+                    variant="outline"
+                    size="sm"
+                    :disabled="!pickUserId"
+                    @click="addUserInterviewee"
+                    >Add</BaseButton
+                  >
                 </div>
                 <!-- Or add manually -->
                 <div class="tw:flex tw:items-center tw:gap-2">
-                  <BaseTextInput v-model="manualName" size="sm" placeholder="Name" class="tw:flex-1" />
-                  <BaseTextInput v-model="manualTitle" size="sm" placeholder="Title (optional)" class="tw:flex-1" />
-                  <BaseButton variant="outline" size="sm" :disabled="!manualName.trim()" @click="addManualInterviewee">
+                  <BaseTextInput
+                    v-model="manualName"
+                    size="sm"
+                    placeholder="Name"
+                    class="tw:flex-1"
+                  />
+                  <BaseTextInput
+                    v-model="manualTitle"
+                    size="sm"
+                    placeholder="Title (optional)"
+                    class="tw:flex-1"
+                  />
+                  <BaseButton
+                    variant="outline"
+                    size="sm"
+                    :disabled="!manualName.trim()"
+                    @click="addManualInterviewee"
+                  >
                     <template #icon><IconPlus :size="14" /></template>
                     Add
                   </BaseButton>
@@ -699,7 +864,11 @@ function summarizeFinding() {
             <!-- Evidence & photos — scoped to this clause's response. Available
                  before a verdict (#27): the first attach materialises the response. -->
             <div>
-              <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Evidence &amp; Photos</p>
+              <p
+                class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1"
+              >
+                Evidence &amp; Photos
+              </p>
               <AuditEvidencePanel
                 v-if="currentResponse?.id"
                 :auditInstance="auditInstance"
@@ -708,18 +877,29 @@ function summarizeFinding() {
                 :readonly="readonly"
               />
               <div v-else-if="!readonly" class="tw:flex tw:items-center tw:gap-2">
-                <BaseButton variant="outline" size="sm" :loading="saving[currentReqId]" @click="ensureResponse">
+                <BaseButton
+                  variant="outline"
+                  size="sm"
+                  :loading="saving[currentReqId]"
+                  @click="ensureResponse"
+                >
                   <template #icon><IconPlus :size="14" /></template>
                   Add evidence / photo
                 </BaseButton>
-                <span class="tw:text-xs tw:text-secondary tw:italic">Saved against this clause as you capture.</span>
+                <span class="tw:text-xs tw:text-secondary tw:italic"
+                  >Saved against this clause as you capture.</span
+                >
               </div>
               <p v-else class="tw:text-xs tw:text-secondary tw:italic">No evidence captured.</p>
             </div>
 
             <!-- Voice notes — record spoken notes for this clause (#2). -->
             <div>
-              <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Voice Notes</p>
+              <p
+                class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1"
+              >
+                Voice Notes
+              </p>
               <AuditVoiceNotesPanel
                 :auditInstance="auditInstance"
                 :scopeId="currentResponse?.id ?? null"
@@ -730,7 +910,11 @@ function summarizeFinding() {
 
             <!-- Auditor Notes — private free-form notebook (dictate-to-text). -->
             <div>
-              <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1">Auditor Notes</p>
+              <p
+                class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1"
+              >
+                Auditor Notes
+              </p>
               <BaseRichTextEditor
                 :modelValue="currentBuffer?.auditorNotes"
                 :editable="!readonly"
@@ -754,17 +938,25 @@ function summarizeFinding() {
           v-if="!currentHasChildren"
           class="tw:border tw:border-blue-200 tw:rounded-lg tw:overflow-hidden tw:bg-blue-50/30"
         >
-          <div class="tw:bg-blue-50 tw:px-3 tw:py-2 tw:border-b tw:border-blue-200 tw:flex tw:items-center tw:gap-1.5">
+          <div
+            class="tw:bg-blue-50 tw:px-3 tw:py-2 tw:border-b tw:border-blue-200 tw:flex tw:items-center tw:gap-1.5"
+          >
             <IconGavel :size="14" class="tw:text-blue-700 tw:shrink-0" />
             <p class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-blue-700">
               Result &amp; Finding
-              <span class="tw:font-normal tw:normal-case tw:text-blue-700/70">— shared in the finding / report</span>
+              <span class="tw:font-normal tw:normal-case tw:text-blue-700/70"
+                >— shared in the finding / report</span
+              >
             </p>
           </div>
           <div class="tw:p-3 tw:flex tw:flex-col tw:gap-4">
             <!-- Verdict -->
             <div>
-              <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">Result</p>
+              <p
+                class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5"
+              >
+                Result
+              </p>
               <!-- Roll-up of the notebook ratings — what to address + a
                    non-binding suggested verdict. The auditor still decides. -->
               <div
@@ -785,14 +977,22 @@ function summarizeFinding() {
                   type="button"
                   class="tw:text-[11px] tw:font-semibold tw:rounded tw:px-2.5 tw:py-1 tw:cursor-pointer tw:border tw:transition-colors"
                   :disabled="readonly || saving[currentReqId]"
-                  :class="currentResponse?.resultId === r.id
-                    ? 'tw:bg-primary tw:text-white tw:border-primary'
-                    : 'tw:bg-white tw:text-on-main tw:border-divider tw:hover:border-primary tw:hover:text-primary'"
+                  :class="
+                    currentResponse?.resultId === r.id
+                      ? 'tw:bg-primary tw:text-white tw:border-primary'
+                      : 'tw:bg-white tw:text-on-main tw:border-divider tw:hover:border-primary tw:hover:text-primary'
+                  "
                   @click="pickResult(r.id)"
-                >{{ r.name }}</button>
+                >
+                  {{ r.name }}
+                </button>
               </div>
-              <p v-if="!currentResponse?.resultId" class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-                Work through your notebook above, then pick a result to record the verdict. Everything saves as you go.
+              <p
+                v-if="!currentResponse?.resultId"
+                class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1"
+              >
+                Work through your notebook above, then pick a result to record the verdict.
+                Everything saves as you go.
               </p>
             </div>
 
@@ -800,7 +1000,11 @@ function summarizeFinding() {
                  an NC result this seeds the auto-finding description. -->
             <div>
               <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:mb-1">
-                <p class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">Finding Notes</p>
+                <p
+                  class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide"
+                >
+                  Finding Notes
+                </p>
                 <!-- Deterministic: extract flagged items + notes. No AI. -->
                 <button
                   v-if="!readonly"

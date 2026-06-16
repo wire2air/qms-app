@@ -13,17 +13,23 @@ const props = defineProps({
   customerId: { type: String, default: null },
 })
 
-const customer = useLiveQueryWithDeps([() => props.customerId], async (db, [id]) => {
-  if (!id) return null
-  return db.Customer.findByPk(id)
-})
+const customer = useLiveQueryWithDeps(
+  [() => props.customerId],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.Customer.findByPk(id)
+  },
+  { models: ['Customer'] },
+)
 
 const organization = useLiveQueryWithDeps(
   [() => customer.value?.organizationId],
+
   async (db, [orgId]) => {
     if (!orgId) return null
     return db.CustomerOrganization.findByPk(orgId)
   },
+  { models: ['CustomerOrganization'] },
 )
 
 // Previous complaints from the same customer (excluding this one).
@@ -37,15 +43,14 @@ const history = useLiveQueryWithDeps(
       .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
       .slice(0, 8)
   },
-  { initial: [] },
+
+  { models: ['CustomerComplaint'], initial: [] },
 )
 </script>
 
 <template>
   <div v-if="customerId" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-    <div
-      class="tw:flex tw:items-center tw:gap-2 tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
-    >
+    <div class="tw:flex tw:items-center tw:gap-2 tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
       <IconUser :size="16" class="tw:text-primary" />
       <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
         Customer Profile
@@ -80,7 +85,9 @@ const history = useLiveQueryWithDeps(
           <CustomerComplaintStatusBadgeById :statusId="prev.statusId" class="tw:shrink-0" />
         </RouterLink>
       </div>
-      <p v-else class="tw:text-xs tw:text-secondary tw:italic">First complaint from this customer.</p>
+      <p v-else class="tw:text-xs tw:text-secondary tw:italic">
+        First complaint from this customer.
+      </p>
     </div>
   </div>
 </template>

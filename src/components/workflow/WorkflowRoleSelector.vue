@@ -8,7 +8,10 @@ const props = defineProps({
 
 const search = ref('')
 
-const roles = useLiveQuery((db) => db.Role.where('statusId', 'ACTIVE').exec(), { initial: [] })
+const roles = useLiveQuery((db) => db.Role.where('statusId', 'ACTIVE').exec(), {
+  models: ['Role'],
+  initial: [],
+})
 
 const stepRoles = useLiveQueryWithDeps(
   [() => props.stepId],
@@ -16,7 +19,8 @@ const stepRoles = useLiveQueryWithDeps(
     if (!stepId) return []
     return await db.WorkflowStepRole.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStepRole'], initial: [] },
 )
 
 const roleIds = computed(() => stepRoles.value.map((sr) => sr.roleId))

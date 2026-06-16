@@ -15,24 +15,18 @@ const assignments = useLiveQueryWithDeps(
     if (!id) return []
     return db.UserOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['UserOnWorkflowInstanceStep'], initial: [] },
 )
 
 const activeAssignees = computed(() =>
-  assignments.value.filter((a) =>
-    ['ASSIGNED', 'PENDING'].includes(a.statusId),
-  ),
+  assignments.value.filter((a) => ['ASSIGNED', 'PENDING'].includes(a.statusId)),
 )
 </script>
 
 <template>
   <div class="tw:flex tw:items-center tw:gap-1">
-    <UserAvatarById
-      v-for="a in activeAssignees"
-      :key="a.id"
-      :userId="a.userId"
-      class="tw:size-7"
-    />
+    <UserAvatarById v-for="a in activeAssignees" :key="a.id" :userId="a.userId" class="tw:size-7" />
     <span v-if="!activeAssignees.length" class="tw:text-xs tw:text-secondary tw:italic">
       Unassigned
     </span>

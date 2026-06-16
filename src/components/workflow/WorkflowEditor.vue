@@ -1,5 +1,12 @@
 <script setup>
-import { IconHistory, IconLock, IconCheck, IconArchive, IconRestore, IconTrash } from '@tabler/icons-vue'
+import {
+  IconHistory,
+  IconLock,
+  IconCheck,
+  IconArchive,
+  IconRestore,
+  IconTrash,
+} from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
@@ -54,8 +61,10 @@ watch(
 )
 
 // --- Live data ---
-const workflow = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.Workflow.findByPk(id),
+const workflow = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.Workflow.findByPk(id),
+  { models: ['Workflow'] },
 )
 
 // CC mirrors CAPA's authoring capabilities — full step config (outcomes,
@@ -75,9 +84,7 @@ const showFormSchema = computed(() =>
 const showAllowChildSteps = computed(() =>
   MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId),
 )
-const showChildSteps = computed(() =>
-  MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId),
-)
+const showChildSteps = computed(() => MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId))
 // Workflow templates assign approvers by ROLE only. The specific
 // reviewer (a named user) is chosen by the owner when the workflow is
 // attached to an entity and submitted (the reviewer-per-step picker
@@ -108,7 +115,8 @@ const versions = useLiveQueryWithDeps(
       return b.versionMinor - a.versionMinor
     })
   },
-  { initial: [] },
+
+  { models: ['WorkflowVersion'], initial: [] },
 )
 
 const steps = useLiveQueryWithDeps(
@@ -117,7 +125,8 @@ const steps = useLiveQueryWithDeps(
     if (!versionId) return []
     return db.WorkflowStep.where('workflowVersionId', versionId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStep'], initial: [] },
 )
 
 watch(

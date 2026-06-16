@@ -33,7 +33,8 @@ const steps = useLiveQueryWithDeps(
     if (!versionId) return []
     return db.WorkflowStep.where('workflowVersionId', versionId).orderBy('stepOrder', 'asc').exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStep'], initial: [] },
 )
 
 const firstStepHasUser = computed(() => {
@@ -92,7 +93,11 @@ async function handleConfirm() {
         />
         <div>
           <p class="tw:text-secondary tw:text-sm tw:mb-1">Change summary (optional)</p>
-          <BaseTextarea v-model="changeSummary" placeholder="What changed in this version?" :rows="2" />
+          <BaseTextarea
+            v-model="changeSummary"
+            placeholder="What changed in this version?"
+            :rows="2"
+          />
         </div>
       </template>
     </div>

@@ -34,6 +34,7 @@ watch(
 const templateSearch = ref('')
 
 const templates = useLiveQuery(async (db) => db.FormTemplate.where('statusId', 'ACTIVE').exec(), {
+  models: ['FormTemplate'],
   initial: [],
 })
 

@@ -21,7 +21,8 @@ const groups = useLiveQueryWithDeps(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['Team'], initial: [] },
 )
 
 const loading = computed(() => groups.value === undefined)

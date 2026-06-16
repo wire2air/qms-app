@@ -28,7 +28,8 @@ const fkOptionSet = useLiveQueryWithDeps(
     if (!optionSetId) return null
     return db.OptionSet.findByPk(optionSetId)
   },
-  { initial: null },
+
+  { models: ['OptionSet'], initial: null },
 )
 
 const computedOptions = computed(() => {

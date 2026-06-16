@@ -9,7 +9,11 @@ const template = useLiveQueryWithDeps(
     if (!id) return null
     return db.RiskAssessmentTemplate.findByPk(id)
   },
-  { initial: () => (props.templateId ? { id: props.templateId } : null) },
+
+  {
+    models: ['RiskAssessmentTemplate'],
+    initial: () => (props.templateId ? { id: props.templateId } : null),
+  },
 )
 </script>
 

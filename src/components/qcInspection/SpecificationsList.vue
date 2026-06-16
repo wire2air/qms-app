@@ -57,7 +57,8 @@ const specs = useLiveQueryWithDeps(
     if (from || to) rows = rows.filter((s) => dateInRange(s.createdAt, from, to))
     return rows.sort((a, b) => (a.name || '').localeCompare(b.name || '') || b.version - a.version)
   },
-  { initial: [] },
+
+  { models: ['Specification'], initial: [] },
 )
 
 function openSpec(id) {
@@ -126,11 +127,17 @@ function exportCsv() {
           >
             <td class="tw:px-4 tw:py-2.5 tw:font-medium tw:text-on-main">
               {{ s.name }}
-              <span v-if="s.code" class="tw:text-xs tw:text-secondary tw:font-mono">· {{ s.code }}</span>
+              <span v-if="s.code" class="tw:text-xs tw:text-secondary tw:font-mono"
+                >· {{ s.code }}</span
+              >
             </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ MATERIAL_LABELS[s.materialKind] || s.materialKind }}</td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
+              {{ MATERIAL_LABELS[s.materialKind] || s.materialKind }}
+            </td>
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">v{{ s.version }}</td>
-            <td class="tw:px-4 tw:py-2.5"><SpecificationStatusBadgeById :statusId="s.statusId" /></td>
+            <td class="tw:px-4 tw:py-2.5">
+              <SpecificationStatusBadgeById :statusId="s.statusId" />
+            </td>
             <td class="tw:px-4 tw:py-2.5 tw:text-right" @click.stop>
               <BaseButton
                 v-if="canApprove && s.statusId === 'DRAFT'"

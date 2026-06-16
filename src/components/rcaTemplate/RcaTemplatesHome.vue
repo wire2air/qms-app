@@ -41,13 +41,17 @@ const templates = useLiveQueryWithDeps(
   [() => search.value],
   async (db, [q]) => {
     const results = await db.RcaTemplate.where().exec()
-    if (!q) return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    if (!q)
+      return results.sort(
+        (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+      )
     const lower = q.toLowerCase()
     return results
       .filter((t) => t.name.toLowerCase().includes(lower))
       .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['RcaTemplate'], initial: [] },
 )
 
 function onEdit(template) {
@@ -78,17 +82,15 @@ function onDialogClose() {
          tab. The Categories tab has its own "Add Category" button inside
          the card. -->
     <SafeTeleport v-if="activeTab === 'templates'" to="#main-header-actions">
-      <BaseButton v-if="canCreate" @click="showCreateDialog = true">
-        New Template
-      </BaseButton>
+      <BaseButton v-if="canCreate" @click="showCreateDialog = true"> New Template </BaseButton>
     </SafeTeleport>
 
     <div class="tw:flex tw:items-center tw:justify-between">
       <div class="tw:flex tw:flex-col tw:gap-1">
         <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">RCA Templates</div>
         <div class="tw:text-sm tw:text-secondary">
-          Pre-configure Root Cause Analysis frameworks and the categories supplier /
-          analysts pick when finalising an analysis.
+          Pre-configure Root Cause Analysis frameworks and the categories supplier / analysts pick
+          when finalising an analysis.
         </div>
       </div>
     </div>
@@ -115,11 +117,7 @@ function onDialogClose() {
     <!-- Tab: Templates -->
     <template v-if="activeTab === 'templates'">
       <div class="tw:flex tw:items-center tw:gap-3">
-        <BaseTextInput
-          v-model="search"
-          placeholder="Search templates..."
-          class="tw:w-72"
-        />
+        <BaseTextInput v-model="search" placeholder="Search templates..." class="tw:w-72" />
       </div>
 
       <RcaTemplatesTable
@@ -134,11 +132,7 @@ function onDialogClose() {
     <!-- Tab: Categories — per-tenant root_cause_categories admin. -->
     <RootCauseCategoriesCard v-else-if="activeTab === 'categories'" />
 
-    <RcaTemplateDialog
-      v-model="showCreateDialog"
-      :template="editTemplate"
-      @close="onDialogClose"
-    />
+    <RcaTemplateDialog v-model="showCreateDialog" :template="editTemplate" @close="onDialogClose" />
 
     <ConfirmDialog
       v-model="confirmDelete.open"

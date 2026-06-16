@@ -10,7 +10,11 @@ const status = useLiveQueryWithDeps(
     if (!statusId) return null
     return db.DocumentVersionStatus.findByPk(statusId)
   },
-  { initial: () => (props.statusId ? { id: props.statusId } : null) },
+
+  {
+    models: ['DocumentVersionStatus'],
+    initial: () => (props.statusId ? { id: props.statusId } : null),
+  },
 )
 </script>
 

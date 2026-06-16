@@ -34,22 +34,23 @@ const assetRequests = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db, [supplierId]) => {
     const rows = await db.AssetRequest.where('supplierId', supplierId).exec()
-    return rows.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['AssetRequest'], initial: [] },
 )
 
 const allItems = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db) => db.AssetRequestItem.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestItem'], initial: [] },
 )
 
 const allTypes = useLiveQuery(
   async (db) => db.AssetRequestType.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestType'], initial: [] },
 )
 
 const typeById = computed(() => {
@@ -132,7 +133,8 @@ async function removeItem(item) {
 const contacts = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db, [supplierId]) => db.SupplierContact.where('supplierId', supplierId).exec(),
-  { initial: [] },
+
+  { models: ['SupplierContact'], initial: [] },
 )
 
 // ─── Dialogs ──────────────────────────────────────────────────────────────────

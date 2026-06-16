@@ -24,7 +24,8 @@ const roles = useLiveQueryWithDeps(
     const roleResults = await Promise.all(assignments.map((ra) => db.Role.findByPk(ra.roleId)))
     return roleResults.filter(Boolean)
   },
-  { initial: [] },
+
+  { models: ['RoleOnUser', 'Role'], initial: [] },
 )
 
 const roleNames = computed(() => {

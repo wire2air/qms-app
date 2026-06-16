@@ -33,7 +33,8 @@ const departments = useLiveQueryWithDeps(
     if (siteId) return await db.Department.where('siteId', siteId).exec()
     return await db.Department.where().exec()
   },
-  { initial: [] },
+
+  { models: ['Department'], initial: [] },
 )
 
 const canCreateDepartment = computed(() => props.allowCreate && isAllowed(['departments:create']))

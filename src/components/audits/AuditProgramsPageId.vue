@@ -11,13 +11,7 @@
  * fresh; we never call .save() on the model itself because the BE
  * runs zod cross-field invariants the SyncEngine would skip.
  */
-import {
-  IconArrowBack,
-  IconCalendarTime,
-  IconUsers,
-  IconPlus,
-  IconTrash,
-} from '@tabler/icons-vue'
+import { IconArrowBack, IconCalendarTime, IconUsers, IconPlus, IconTrash } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPCs (not entity CRUD) — see CLAUDE.md rule #4 exception.
@@ -30,8 +24,10 @@ const props = defineProps({
 const toast = useToast()
 const router = useRouter()
 
-const program = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.AuditProgram.findByPk(id),
+const program = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.AuditProgram.findByPk(id),
+  { models: ['AuditProgram'] },
 )
 const loading = computed(() => program.value === undefined)
 
@@ -121,10 +117,8 @@ const debouncedSave = useDebounceFn(async () => {
       programTypeId: p.programTypeId,
       auditStandardId: p.auditStandardId || null,
       frequencyId: p.frequencyId,
-      daysInterval:
-        p.frequencyId === 'EVERY_X_DAYS' ? Number(p.daysInterval) || null : null,
-      cronExpression:
-        p.frequencyId === 'CUSTOM_RECURRENCE' ? p.cronExpression || null : null,
+      daysInterval: p.frequencyId === 'EVERY_X_DAYS' ? Number(p.daysInterval) || null : null,
+      cronExpression: p.frequencyId === 'CUSTOM_RECURRENCE' ? p.cronExpression || null : null,
       nextDueDate: nextDueDateStr.value || null,
       managerUserId: p.managerUserId || null,
       departmentId: p.departmentId || null,
@@ -159,7 +153,8 @@ const auditors = useLiveQueryWithDeps(
       return (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0)
     })
   },
-  { initial: [] },
+
+  { models: ['AuditProgramAuditor'], initial: [] },
 )
 
 const showAddAuditorDialog = ref(false)
@@ -191,10 +186,9 @@ async function toggleAuditorRole(auditor) {
   if (!isEditable.value) return
   const nextRole = auditor.roleOnAudit === 'LEAD' ? 'TEAM' : 'LEAD'
   try {
-    await patch(
-      `/v1/services/auditPrograms/${props.id}/auditors/${auditor.id}`,
-      { roleOnAudit: nextRole },
-    )
+    await patch(`/v1/services/auditPrograms/${props.id}/auditors/${auditor.id}`, {
+      roleOnAudit: nextRole,
+    })
   } catch (e) {
     toast.error(e.message || 'Failed to update role')
   }
@@ -342,7 +336,9 @@ async function handleDelete() {
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Manager</div>
                   <UserSelectMenu v-if="isEditable" v-model="program.managerUserId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">{{ program.managerUserId || '—' }}</span>
+                  <span v-else class="tw:text-sm tw:text-secondary">{{
+                    program.managerUserId || '—'
+                  }}</span>
                 </div>
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Department</div>
@@ -401,11 +397,7 @@ async function handleDelete() {
                 </div>
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Next Due</div>
-                  <BaseTextInput
-                    v-if="isEditable"
-                    v-model="nextDueDateStr"
-                    type="date"
-                  />
+                  <BaseTextInput v-if="isEditable" v-model="nextDueDateStr" type="date" />
                   <span v-else class="tw:text-sm">
                     {{ program.nextDueDate ? program.nextDueDate.formatDate('date') : '—' }}
                   </span>
@@ -443,14 +435,16 @@ async function handleDelete() {
               <div
                 class="tw:text-[11px] tw:text-secondary tw:italic tw:pt-3 tw:border-t tw:border-divider tw:mt-3"
               >
-                The daily generator mints an Audit when nextDueDate ≤ today.
-                Pausing a program stops new audits; existing audits keep running.
+                The daily generator mints an Audit when nextDueDate ≤ today. Pausing a program stops
+                new audits; existing audits keep running.
               </div>
             </div>
 
             <!-- Auditor pool card -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
+              <div
+                class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+              >
                 <div
                   class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:flex tw:items-center tw:gap-2"
                 >
@@ -576,13 +570,17 @@ async function handleDelete() {
             :required="true"
           />
           <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            LEAD users rotate into AuditInstance.leadAuditorUserId at generate-time.
-            TEAM users go onto AuditTeamMember.
+            LEAD users rotate into AuditInstance.leadAuditorUserId at generate-time. TEAM users go
+            onto AuditTeamMember.
           </p>
         </div>
       </div>
       <template #footer>
-        <BaseButton variant="outline" :disabled="addingAuditor" @click="showAddAuditorDialog = false">
+        <BaseButton
+          variant="outline"
+          :disabled="addingAuditor"
+          @click="showAddAuditorDialog = false"
+        >
           Cancel
         </BaseButton>
         <BaseButton
@@ -598,9 +596,9 @@ async function handleDelete() {
 
     <BaseDialog v-model="showDeleteDialog" title="Archive Program" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Archive <strong>{{ program?.name }}</strong>?
-        Existing audit instances spawned from this program stay intact; the
-        generator just stops minting new ones.
+        Archive <strong>{{ program?.name }}</strong
+        >? Existing audit instances spawned from this program stay intact; the generator just stops
+        minting new ones.
       </p>
       <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
         <BaseButton variant="outline" :disabled="deleting" @click="showDeleteDialog = false">

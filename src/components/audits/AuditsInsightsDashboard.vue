@@ -29,14 +29,24 @@ const router = useRouter()
 
 // ── Source live queries (each runs once + flows into the widgets) ───
 
-const programs = useLiveQuery(async (db) => db.AuditProgram.where().exec(), { initial: [] })
-const instances = useLiveQuery(async (db) => db.AuditInstance.where().exec(), { initial: [] })
-const findings = useLiveQuery(async (db) => db.AuditFinding.where().exec(), { initial: [] })
+const programs = useLiveQuery(async (db) => db.AuditProgram.where().exec(), {
+  models: ['AuditProgram'],
+  initial: [],
+})
+const instances = useLiveQuery(async (db) => db.AuditInstance.where().exec(), {
+  models: ['AuditInstance'],
+  initial: [],
+})
+const findings = useLiveQuery(async (db) => db.AuditFinding.where().exec(), {
+  models: ['AuditFinding'],
+  initial: [],
+})
 const findingCategories = useLiveQuery(
   async (db) => db.AuditFindingCategory.where().exec(),
-  { initial: [] },
+
+  { models: ['AuditFindingCategory'], initial: [] },
 )
-const users = useLiveQuery(async (db) => db.User.where().exec(), { initial: [] })
+const users = useLiveQuery(async (db) => db.User.where().exec(), { models: ['User'], initial: [] })
 
 // ── 1) Stat strip ───────────────────────────────────────────────────
 
@@ -47,12 +57,7 @@ const inFlightAudits = computed(
   () => instances.value.filter((i) => IN_FLIGHT_STATUSES.has(i.statusId)).length,
 )
 
-const OPEN_FINDING_STATUSES = new Set([
-  'OPEN',
-  'IN_REVIEW',
-  'IN_REMEDIATION',
-  'VERIFIED',
-])
+const OPEN_FINDING_STATUSES = new Set(['OPEN', 'IN_REVIEW', 'IN_REMEDIATION', 'VERIFIED'])
 const openFindings = computed(
   () => findings.value.filter((f) => OPEN_FINDING_STATUSES.has(f.statusId)).length,
 )
@@ -73,9 +78,7 @@ const auditsDueIn30d = computed(() => {
 
 // ── 2) Findings by category — open only ────────────────────────────
 
-const categoryNameById = computed(
-  () => new Map(findingCategories.value.map((c) => [c.id, c.name])),
-)
+const categoryNameById = computed(() => new Map(findingCategories.value.map((c) => [c.id, c.name])))
 
 const findingsByCategory = computed(() => {
   const buckets = new Map()
@@ -156,10 +159,7 @@ const upcomingAudits = computed(() => {
       const dt = i.scheduledDate.startOf?.('day') ?? null
       return dt && dt >= today
     })
-    .sort(
-      (a, b) =>
-        (a.scheduledDate?.toMillis?.() ?? 0) - (b.scheduledDate?.toMillis?.() ?? 0),
-    )
+    .sort((a, b) => (a.scheduledDate?.toMillis?.() ?? 0) - (b.scheduledDate?.toMillis?.() ?? 0))
     .slice(0, 10)
 })
 
@@ -185,8 +185,12 @@ function openFindingsInstance(f) {
   <div class="tw:flex tw:flex-col tw:gap-4">
     <!-- 1. Stat strip -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3">
-        <div class="tw:size-10 tw:rounded-lg tw:bg-blue-100 tw:flex tw:items-center tw:justify-center tw:text-blue-700">
+      <div
+        class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3"
+      >
+        <div
+          class="tw:size-10 tw:rounded-lg tw:bg-blue-100 tw:flex tw:items-center tw:justify-center tw:text-blue-700"
+        >
           <IconCalendarTime :size="20" />
         </div>
         <div class="tw:flex tw:flex-col">
@@ -196,8 +200,12 @@ function openFindingsInstance(f) {
           </span>
         </div>
       </div>
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3">
-        <div class="tw:size-10 tw:rounded-lg tw:bg-amber-100 tw:flex tw:items-center tw:justify-center tw:text-amber-700">
+      <div
+        class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3"
+      >
+        <div
+          class="tw:size-10 tw:rounded-lg tw:bg-amber-100 tw:flex tw:items-center tw:justify-center tw:text-amber-700"
+        >
           <IconChecklist :size="20" />
         </div>
         <div class="tw:flex tw:flex-col">
@@ -207,8 +215,12 @@ function openFindingsInstance(f) {
           </span>
         </div>
       </div>
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3">
-        <div class="tw:size-10 tw:rounded-lg tw:bg-red-100 tw:flex tw:items-center tw:justify-center tw:text-red-700">
+      <div
+        class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3"
+      >
+        <div
+          class="tw:size-10 tw:rounded-lg tw:bg-red-100 tw:flex tw:items-center tw:justify-center tw:text-red-700"
+        >
           <IconBolt :size="20" />
         </div>
         <div class="tw:flex tw:flex-col">
@@ -218,8 +230,12 @@ function openFindingsInstance(f) {
           </span>
         </div>
       </div>
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3">
-        <div class="tw:size-10 tw:rounded-lg tw:bg-emerald-100 tw:flex tw:items-center tw:justify-center tw:text-emerald-700">
+      <div
+        class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3"
+      >
+        <div
+          class="tw:size-10 tw:rounded-lg tw:bg-emerald-100 tw:flex tw:items-center tw:justify-center tw:text-emerald-700"
+        >
           <IconChartBar :size="20" />
         </div>
         <div class="tw:flex tw:flex-col">
@@ -234,7 +250,9 @@ function openFindingsInstance(f) {
     <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-2 tw:gap-3">
       <!-- 2. Findings by category -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3">
+        <div
+          class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3"
+        >
           Open Findings by Category
         </div>
         <div
@@ -261,7 +279,9 @@ function openFindingsInstance(f) {
 
       <!-- 3. Findings by type -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3">
+        <div
+          class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3"
+        >
           Open Findings by Type
         </div>
         <div class="tw:flex tw:flex-col tw:gap-2">
@@ -283,7 +303,9 @@ function openFindingsInstance(f) {
 
       <!-- 4. Lead auditor backlog -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2">
+        <div
+          class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
+        >
           <IconUsers :size="14" />
           Lead Auditor Backlog
         </div>
@@ -311,7 +333,9 @@ function openFindingsInstance(f) {
 
       <!-- 5. Upcoming audits -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2">
+        <div
+          class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
+        >
           <IconCalendarTime :size="14" />
           Upcoming Audits
         </div>
@@ -331,10 +355,7 @@ function openFindingsInstance(f) {
           >
             <div class="tw:flex tw:flex-col tw:gap-0.5 tw:min-w-0 tw:flex-1">
               <code class="tw:text-xs tw:font-mono tw:text-secondary">{{ i.auditNumber }}</code>
-              <AuditStandardBadgeById
-                v-if="i.auditStandardId"
-                :standardId="i.auditStandardId"
-              />
+              <AuditStandardBadgeById v-if="i.auditStandardId" :standardId="i.auditStandardId" />
             </div>
             <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
               <span class="tw:text-xs">{{ i.scheduledDate?.formatDate?.('date') ?? '—' }}</span>
@@ -347,7 +368,9 @@ function openFindingsInstance(f) {
 
     <!-- 6. Recent findings — full-width across the bottom -->
     <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-      <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2">
+      <div
+        class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
+      >
         <IconBolt :size="14" />
         Recent Findings
       </div>

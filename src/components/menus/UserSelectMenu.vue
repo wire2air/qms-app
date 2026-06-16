@@ -69,7 +69,8 @@ const users = useLiveQueryWithDeps(
       .filter((u) => (departmentId ? u.departmentId === departmentId : true))
       .map((user) => ({ id: user.id, name: `${user.firstName} ${user.lastName}` }))
   },
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 
 const roleById = useLiveQuery(
@@ -77,7 +78,8 @@ const roleById = useLiveQuery(
     const roles = await db.Role.where().exec()
     return Object.fromEntries(roles.map((r) => [r.id, r]))
   },
-  { initial: {} },
+
+  { models: ['Role'], initial: {} },
 )
 
 const roleIdsOnUsers = useLiveQuery(
@@ -90,7 +92,8 @@ const roleIdsOnUsers = useLiveQuery(
     })
     return map
   },
-  { initial: {} },
+
+  { models: ['RoleOnUser'], initial: {} },
 )
 
 const rolesByUserId = computed(() => {

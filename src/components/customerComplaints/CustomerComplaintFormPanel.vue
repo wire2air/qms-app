@@ -46,11 +46,13 @@ watch(
 // Snapshot schema wins; legacy tickets fall back to the live template.
 const liveSchema = useLiveQueryWithDeps(
   [() => form.value?.formTemplateId],
+
   async (db, [templateId]) => {
     if (!templateId) return null
     const template = await db.FormTemplate.findByPk(templateId, { force: true })
     return template?.schema ?? null
   },
+  { models: ['FormTemplate'] },
 )
 
 const schema = computed(() => props.formSnapshot?.schema ?? liveSchema.value ?? null)
@@ -102,9 +104,7 @@ function removeAttribute(key) {
     v-if="formId || hasCustomValues || editable"
     class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
   >
-    <div
-      class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-    >
+    <div class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
       <IconForms :size="16" class="tw:text-primary" />
       <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
         <template v-if="formId">
@@ -118,11 +118,7 @@ function removeAttribute(key) {
     </div>
 
     <!-- Schema-backed values: editable for agents, readonly otherwise. -->
-    <DynamicForm
-      v-if="schema && editable"
-      v-model="editValues"
-      :fields="schema"
-    >
+    <DynamicForm v-if="schema && editable" v-model="editValues" :fields="schema">
       <template #footer><span /></template>
     </DynamicForm>
     <DynamicForm

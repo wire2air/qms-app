@@ -14,12 +14,15 @@ const props = defineProps({
 const toast = useToast()
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const instance = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.TrainingInstance.findByPk(id),
+const instance = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.TrainingInstance.findByPk(id),
+  { models: ['TrainingInstance'] },
 )
 
 const myAssignee = useLiveQueryWithDeps(
   [() => props.id, () => currentSession.value?.userId],
+
   async (db, [instanceId, userId]) => {
     if (!userId) return null
     const results = await db.TrainingAssignee.where('[trainingInstanceId+userId]', [
@@ -28,6 +31,7 @@ const myAssignee = useLiveQueryWithDeps(
     ]).exec()
     return results[0] ?? null
   },
+  { models: ['TrainingAssignee'] },
 )
 
 const loading = computed(() => instance.value === undefined)

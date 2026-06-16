@@ -17,13 +17,23 @@ const pending = useLiveQuery(
       (a, b) => (b.version.updatedAt?.toMillis?.() ?? 0) - (a.version.updatedAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['DocumentVersion', 'Document'], initial: [] },
 )
 </script>
 
 <template>
-  <DashboardWidgetCard title="Documents Pending Approval" :count="pending.length" linkTo="/documents">
-    <BaseEmptyState v-if="!pending.length" dense :icon="IconCircleCheck" title="Nothing awaiting approval" />
+  <DashboardWidgetCard
+    title="Documents Pending Approval"
+    :count="pending.length"
+    linkTo="/documents"
+  >
+    <BaseEmptyState
+      v-if="!pending.length"
+      dense
+      :icon="IconCircleCheck"
+      title="Nothing awaiting approval"
+    />
     <RouterLink
       v-for="p in pending.slice(0, 5)"
       :key="p.version.id"
@@ -35,7 +45,9 @@ const pending = useLiveQuery(
           {{ p.doc?.title || 'Document' }}
         </div>
         <div class="tw:text-xs tw:text-secondary tw:font-mono">
-          {{ p.doc?.docNumber }} · v{{ p.version.versionLabel || `${p.version.versionMajor}.${p.version.versionMinor}` }}
+          {{ p.doc?.docNumber }} · v{{
+            p.version.versionLabel || `${p.version.versionMajor}.${p.version.versionMinor}`
+          }}
         </div>
       </div>
     </RouterLink>
