@@ -221,9 +221,7 @@ const breadcrumbs = computed(() => [
 
     <!-- Loading overlay -->
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
     </div>
 
     <!-- Scrollable content -->
@@ -261,10 +259,7 @@ const breadcrumbs = computed(() => [
                   <label class="tw:text-sm tw:font-medium"
                     >Document Prefix <span class="tw:text-red">*</span></label
                   >
-                  <div
-                    v-if="checkingPrefix"
-                    class="tw:size-3 tw:animate-spin tw:rounded-full tw:border tw:border-primary tw:border-t-transparent"
-                  />
+                  <BaseSpinner v-if="checkingPrefix" size="xs" />
                   <IconCircleCheck
                     v-else-if="prefixAvailable === true"
                     :size="16"

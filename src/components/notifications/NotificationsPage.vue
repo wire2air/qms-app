@@ -74,9 +74,7 @@ async function handleMarkAllRead() {
 
     <!-- Loading -->
     <div v-if="loading" class="tw:flex tw:justify-center tw:py-16">
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      ></div>
+      <BaseSpinner size="lg" />
     </div>
 
     <!-- Empty state -->

@@ -470,9 +470,7 @@ function handleSubmit(data, done) {
                     @click="submit"
                   >
                     <span v-if="isSubmitting" class="tw:inline-flex tw:items-center tw:gap-2">
-                      <span
-                        class="tw:size-3.5 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:inline-block"
-                      ></span>
+                      <BaseSpinner size="sm" color="white" />
                       Submitting...
                     </span>
                     <span v-else>Submit</span>

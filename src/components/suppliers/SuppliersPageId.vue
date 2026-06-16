@@ -82,9 +82,7 @@ const activeTab = computed({
 
     <SafeTeleport to="#main-header-actions">
       <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary">
-        <div
-          class="tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-primary tw:border-t-transparent"
-        />
+        <BaseSpinner size="sm" />
         Saving...
       </div>
       <p v-else-if="saveError" class="tw:text-sm tw:text-red-500">{{ saveError }}</p>
@@ -92,9 +90,7 @@ const activeTab = computed({
 
     <!-- Loading State -->
     <div v-if="loading" class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:py-16">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:size-12 tw:border-4 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
       <div class="tw:text-sm tw:text-secondary tw:mt-3">Loading supplier...</div>
     </div>
 

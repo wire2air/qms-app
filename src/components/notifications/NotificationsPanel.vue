@@ -49,9 +49,7 @@ function handleViewAll() {
 
     <!-- Loading -->
     <div v-if="loading" class="tw:flex tw:justify-center tw:py-8">
-      <div
-        class="tw:size-8 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      ></div>
+      <BaseSpinner size="md" />
     </div>
 
     <!-- Empty state -->

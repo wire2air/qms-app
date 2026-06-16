@@ -136,9 +136,7 @@ watch(
         class="tw:max-h-100 tw:overflow-y-auto custom-scrollbar tw:border tw:border-divider tw:rounded-lg"
       >
         <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:py-12">
-          <div
-            class="tw:size-8 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-          ></div>
+          <BaseSpinner size="md" />
         </div>
 
         <BaseEmptyState
@@ -201,10 +199,7 @@ watch(
         :disabled="loading"
         @click="saveUserAssignments"
       >
-        <span
-          v-if="loading"
-          class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:mr-2"
-        ></span>
+        <BaseSpinner v-if="loading" size="sm" color="white" class="tw:mr-2" />
         Save Assignments
       </button>
     </template>

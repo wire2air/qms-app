@@ -218,9 +218,7 @@ watch(
   <div class="tw:flex tw:flex-col tw:h-full">
     <!-- Loading State -->
     <div v-if="loading && !role" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      ></div>
+      <BaseSpinner size="lg" />
     </div>
 
     <!-- Error State -->
@@ -266,10 +264,7 @@ watch(
               :disabled="loading"
               @click="saveChanges"
             >
-              <span
-                v-if="loading"
-                class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent"
-              ></span>
+              <BaseSpinner v-if="loading" size="sm" color="white" class="tw:mr-1" />
               Save Changes
             </button>
           </template>

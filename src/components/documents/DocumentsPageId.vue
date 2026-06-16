@@ -377,11 +377,7 @@ async function handleNewVersionConfirm(changeControl) {
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
     <!-- Loading State -->
-    <div v-if="!document" class="tw:flex tw:items-center tw:justify-center tw:min-h-screen">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:size-12 tw:border-4 tw:border-primary tw:border-t-transparent"
-      />
-    </div>
+    <BaseSpinner v-if="!document" centered size="lg" />
 
     <!-- Main Content -->
     <div v-else class="tw:flex tw:flex-col">

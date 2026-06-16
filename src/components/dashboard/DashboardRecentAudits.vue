@@ -3,6 +3,7 @@
  * Audits — in-flight first (not CLOSED), most recently touched on top.
  */
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { IconCircleCheck } from '@tabler/icons-vue'
 
 const audits = useLiveQuery(
   async (db) => {
@@ -17,9 +18,7 @@ const audits = useLiveQuery(
 
 <template>
   <DashboardWidgetCard title="Audits" :count="audits.length" linkTo="/audits/instances">
-    <div v-if="!audits.length" class="tw:px-4 tw:py-6 tw:text-center tw:text-sm tw:text-secondary">
-      No audits in progress.
-    </div>
+    <BaseEmptyState v-if="!audits.length" dense :icon="IconCircleCheck" title="No audits in progress" />
     <RouterLink
       v-for="a in audits.slice(0, 5)"
       :key="a.id"

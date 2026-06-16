@@ -147,9 +147,7 @@ function backToEnter() {
 <template>
   <BaseDialog v-model="show" title="Sign with your PIN" maxWidth="md" persistent>
     <div v-if="checking" class="tw:flex tw:justify-center tw:py-8">
-      <div
-        class="tw:size-8 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="md" />
     </div>
 
     <template v-else>

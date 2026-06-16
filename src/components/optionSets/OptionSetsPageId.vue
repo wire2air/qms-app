@@ -96,9 +96,7 @@ async function confirmDelete() {
 
     <!-- Loading State -->
     <div v-if="loading" class="tw:flex tw:justify-center tw:py-12">
-      <div
-        class="tw:size-10 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
     </div>
 
     <!-- Content -->

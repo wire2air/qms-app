@@ -107,12 +107,6 @@ async function handleActivate() {
         >
       </div>
 
-      <!-- <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-        <WIcon icon="verified_user"  class="tw:text-secondary" />
-        <span class="tw:text-secondary tw:italic">
-          {{ role.securityLevel || 'High Security Level' }}
-        </span>
-      </div> -->
     </div>
   </div>
 

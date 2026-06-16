@@ -23,6 +23,7 @@ import OptionSetOptionGroup from '@/components/common/OptionSetOptionGroup.vue'
 import BaseChecklist from '@shared/components/BaseChecklist.vue'
 import { useValidator } from '@shared/composables/validator.js'
 import BasePhoto from '@shared/components/BasePhoto.vue'
+import BaseSpinner from '@shared/components/BaseSpinner.vue'
 import BaseUploader from '@/components/common/BaseUploader.vue'
 import { required } from '@vuelidate/validators'
 import { getFormComponent } from './formComponentRegistry.js'
@@ -751,12 +752,7 @@ export default defineComponent({
               class:
                 'tw:absolute tw:inset-0 tw:bg-white/70 tw:flex tw:items-center tw:justify-center tw:z-10',
             },
-            [
-              h('div', {
-                class:
-                  'tw:size-10 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent',
-              }),
-            ],
+            [h(BaseSpinner, { size: 'lg' })],
           ),
         )
       }

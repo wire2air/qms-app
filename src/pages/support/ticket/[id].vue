@@ -114,9 +114,7 @@ async function submitRating() {
     <div class="tw:max-w-2xl tw:mx-auto">
       <!-- Loading -->
       <div v-if="loading" class="tw:flex tw:justify-center tw:py-20">
-        <div
-          class="tw:animate-spin tw:rounded-full tw:w-8 tw:h-8 tw:border-2 tw:border-blue-600 tw:border-t-transparent"
-        />
+        <BaseSpinner size="md" />
       </div>
 
       <!-- Bad / expired link -->
