@@ -188,10 +188,7 @@ async function submitForm() {
           :disabled="loadingMicrosoft"
           @click="loginWithGoogle"
         >
-          <span
-            v-if="loadingGoogle"
-            class="tw:size-5 tw:animate-spin tw:rounded-full tw:border-2 tw:border-slate-400 tw:border-t-transparent tw:inline-block"
-          ></span>
+          <BaseSpinner v-if="loadingGoogle" size="sm" color="secondary" />
           <template v-else>
             <svg class="tw:size-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path
@@ -220,10 +217,7 @@ async function submitForm() {
           :disabled="loadingGoogle"
           @click="loginWithMicrosoft"
         >
-          <span
-            v-if="loadingMicrosoft"
-            class="tw:size-5 tw:animate-spin tw:rounded-full tw:border-2 tw:border-slate-400 tw:border-t-transparent tw:inline-block"
-          ></span>
+          <BaseSpinner v-if="loadingMicrosoft" size="sm" color="secondary" />
           <template v-else>
             <svg class="tw:size-5" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
               <rect x="1" y="1" width="10" height="10" fill="#f25022" />
@@ -319,9 +313,7 @@ async function submitForm() {
               v-if="loadingLogin"
               class="tw:inline-flex tw:items-center tw:gap-2 tw:justify-center"
             >
-              <span
-                class="tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:inline-block"
-              ></span>
+              <BaseSpinner size="sm" color="white" />
               {{ isSignup ? 'Signing up...' : 'Signing in...' }}
             </span>
             <span v-else>{{ isSignup ? 'Sign up with email' : 'Sign in' }}</span>

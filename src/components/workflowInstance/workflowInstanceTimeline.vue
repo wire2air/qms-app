@@ -78,9 +78,7 @@ function stepState(step) {
     <h2 class="tw:text-lg tw:font-bold tw:text-on-main tw:px-1">Workflow</h2>
 
     <div v-if="loading" class="tw:flex tw:justify-center tw:py-12">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:h-8 tw:w-8 tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="md" />
     </div>
 
     <div

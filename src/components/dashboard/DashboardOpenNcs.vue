@@ -3,6 +3,7 @@
  * Open nonconformances — newest first, severity badge per row.
  */
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { IconCircleCheck } from '@tabler/icons-vue'
 
 const ncs = useLiveQuery(
   async (db) => {
@@ -17,9 +18,7 @@ const ncs = useLiveQuery(
 
 <template>
   <DashboardWidgetCard title="Open Nonconformances" :count="ncs.length" linkTo="/nonconformances">
-    <div v-if="!ncs.length" class="tw:px-4 tw:py-6 tw:text-center tw:text-sm tw:text-secondary">
-      No open NCs.
-    </div>
+    <BaseEmptyState v-if="!ncs.length" dense :icon="IconCircleCheck" title="No open nonconformances" />
     <RouterLink
       v-for="nc in ncs.slice(0, 5)"
       :key="nc.id"

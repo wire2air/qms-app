@@ -330,9 +330,7 @@ const editingDescription = ref(false)
     </SafeTeleport>
 
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:w-8 tw:h-8 tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="md" />
     </div>
 
     <div v-else-if="cr" class="tw:overflow-y-auto tw:flex-1">

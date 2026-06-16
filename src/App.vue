@@ -118,11 +118,12 @@ onMounted(async () => {
        via the catch block in onMounted (nuke local IDB + reload, gated
        to one shot per session). No modal/panel here — kept the UX
        quiet on purpose. -->
-  <div v-if="loading" class="fixed-full flex flex-center bg-dark" style="z-index: 9999">
+  <div
+    v-if="loading"
+    class="tw:fixed tw:inset-0 tw:z-[9999] tw:flex tw:items-center tw:justify-center tw:bg-[#101822]"
+  >
     <div class="tw:text-center">
-      <div
-        class="tw:size-20 tw:animate-spin tw:rounded-full tw:border-4 tw:border-white tw:border-t-transparent"
-      ></div>
+      <BaseSpinner :size="72" color="white" class="tw:mx-auto" />
       <div class="tw:text-lg tw:font-semibold tw:text-white tw:mt-4">Loading...</div>
     </div>
   </div>

@@ -198,10 +198,7 @@ watch(model, (newVal) => {
           :disabled="processing"
           @click="save"
         >
-          <span
-            v-if="processing"
-            class="tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent"
-          />
+          <BaseSpinner v-if="processing" size="sm" color="white" />
           <IconDeviceFloppy v-else :size="18" />
           Save
         </button>

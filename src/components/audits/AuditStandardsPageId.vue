@@ -384,9 +384,7 @@ async function handleRemoveSourceFile() {
     </SafeTeleport>
 
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:size-12 tw:border-4 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
     </div>
 
     <BaseEmptyState

@@ -85,9 +85,7 @@ function cancelEditTitle() {
       v-if="loading"
       class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:h-full tw:p-5"
     >
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
       <div class="tw:text-sm tw:text-secondary tw:mt-3">Loading template...</div>
     </div>
 
@@ -125,9 +123,7 @@ function cancelEditTitle() {
         v-if="isSaving"
         class="tw:absolute tw:inset-0 tw:bg-main/60 tw:flex tw:flex-col tw:items-center tw:justify-center tw:z-10"
       >
-        <div
-          class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-        />
+        <BaseSpinner size="lg" />
         <div class="tw:text-sm tw:text-secondary tw:mt-4">Saving...</div>
       </div>
     </template>

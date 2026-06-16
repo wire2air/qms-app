@@ -355,9 +355,10 @@ function goBack() {
                   </label>
                   <div class="tw:relative">
                     <BaseTextInput v-model="form.code" placeholder="e.g. SUP-2024-001" />
-                    <div
+                    <BaseSpinner
                       v-if="isChecking"
-                      class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2 tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-primary tw:border-t-transparent"
+                      size="sm"
+                      class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2"
                     />
                   </div>
                   <p v-if="codeError" class="tw:text-xs tw:text-bad tw:mt-1">{{ codeError }}</p>
@@ -584,10 +585,7 @@ function goBack() {
         <div class="tw:flex tw:items-center tw:gap-4">
           <BaseButton variant="secondary" :disabled="saving" @click="goBack"> Cancel </BaseButton>
           <BaseButton :disabled="saving" @click="saveSupplier">
-            <div
-              v-if="saving"
-              class="tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-white tw:border-t-transparent"
-            />
+            <BaseSpinner v-if="saving" size="sm" color="white" />
             <span>{{ saving ? 'Saving...' : 'Submit for Onboarding' }}</span>
           </BaseButton>
         </div>

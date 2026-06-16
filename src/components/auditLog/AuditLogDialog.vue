@@ -145,7 +145,7 @@ function exportCsv() {
       </div>
 
       <div v-if="loading" class="tw:flex tw:justify-center tw:py-12">
-        <div class="tw:size-8 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent" />
+        <BaseSpinner size="md" />
       </div>
 
       <AuditLogsList v-else-if="logs?.length" :logs="logs" />

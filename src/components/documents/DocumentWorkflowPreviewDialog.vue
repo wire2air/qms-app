@@ -169,9 +169,7 @@ async function confirm() {
   <BaseDialog v-model="show" title="Submit for Review" maxWidth="lg" persistent>
     <div class="tw:max-h-[60vh] tw:overflow-auto">
       <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:py-12">
-        <div
-          class="tw:animate-spin tw:rounded-full tw:size-10 tw:border-4 tw:border-primary tw:border-t-transparent"
-        />
+        <BaseSpinner size="lg" />
       </div>
 
       <div v-else class="tw:space-y-4">

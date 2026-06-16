@@ -343,10 +343,7 @@ function prevStep() {
             <div class="tw:relative">
               <BaseTextInput v-model="templateForm.code" name="code" placeholder="e.g. QUA, AUD" />
               <div class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2">
-                <div
-                  v-if="templateForm.isChecking"
-                  class="tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-                />
+                <BaseSpinner v-if="templateForm.isChecking" size="sm" />
                 <IconCheck
                   v-else-if="templateForm.isAvailable === true"
                   :size="16"

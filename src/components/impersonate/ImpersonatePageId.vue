@@ -101,9 +101,7 @@ function loadMore() {
       v-if="companyUsersLoading && companyUsers.length === 0"
       class="tw:flex tw:justify-center tw:p-8"
     >
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      ></div>
+      <BaseSpinner size="lg" />
     </div>
 
     <BaseEmptyState
@@ -122,10 +120,7 @@ function loadMore() {
           :disabled="companyUsersLoading"
           @click="loadMore"
         >
-          <span
-            v-if="companyUsersLoading"
-            class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent tw:mr-2"
-          ></span>
+          <BaseSpinner v-if="companyUsersLoading" size="sm" class="tw:mr-2" />
           Load More
         </button>
       </div>

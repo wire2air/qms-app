@@ -4,6 +4,7 @@
  * (awaiting QA disposition).
  */
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { IconCircleCheck } from '@tabler/icons-vue'
 
 const lots = useLiveQuery(
   async (db) => {
@@ -18,9 +19,7 @@ const lots = useLiveQuery(
 
 <template>
   <DashboardWidgetCard title="QC Inspection Lots" :count="lots.length" linkTo="/qc-inspection">
-    <div v-if="!lots.length" class="tw:px-4 tw:py-6 tw:text-center tw:text-sm tw:text-secondary">
-      No lots in progress.
-    </div>
+    <BaseEmptyState v-if="!lots.length" dense :icon="IconCircleCheck" title="No lots in progress" />
     <RouterLink
       v-for="l in lots.slice(0, 5)"
       :key="l.id"

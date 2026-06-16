@@ -102,9 +102,7 @@ function goToLogin() {
   <div class="tw:w-full tw:max-w-sm">
     <!-- Loading state -->
     <div v-if="validating" class="tw:text-center tw:py-12">
-      <div
-        class="tw:size-10 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent tw:mx-auto"
-      ></div>
+      <BaseSpinner size="lg" class="tw:mx-auto" />
       <div class="tw:text-secondary tw:mt-4">Validating invitation...</div>
     </div>
 
@@ -182,9 +180,7 @@ function goToLogin() {
             @click="handleSubmit"
           >
             <span v-if="loading" class="tw:inline-flex tw:items-center tw:justify-center tw:gap-2">
-              <span
-                class="tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:inline-block"
-              ></span>
+              <BaseSpinner size="sm" color="white" />
               Accepting...
             </span>
             <span v-else>Accept Invitation</span>

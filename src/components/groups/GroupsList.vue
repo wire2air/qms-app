@@ -19,9 +19,7 @@ defineProps({
 
 <template>
   <div v-if="loading" class="tw:flex tw:justify-center tw:p-4">
-    <div
-      class="tw:size-8 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-    />
+    <BaseSpinner size="md" />
   </div>
 
   <BaseEmptyState v-else-if="groups.length === 0" :icon="IconUsersGroup" title="No groups found" />

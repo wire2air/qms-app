@@ -121,10 +121,7 @@ function goToWorkspace() {
       </div>
 
       <button class="ws-submit tw:group" :disabled="loading" @click="goToWorkspace">
-        <span
-          v-if="loading"
-          class="tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:inline-block"
-        ></span>
+        <BaseSpinner v-if="loading" size="sm" color="white" />
         <template v-else>
           <span>Continue</span>
           <IconArrowRight
@@ -181,10 +178,7 @@ function goToWorkspace() {
           :disabled="forgotLoading"
           @click="sendWorkspaceLinks"
         >
-          <span
-            v-if="forgotLoading"
-            class="tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:inline-block"
-          ></span>
+          <BaseSpinner v-if="forgotLoading" size="sm" color="white" />
           {{ forgotLoading ? 'Sending...' : 'Send link' }}
         </button>
       </template>

@@ -137,9 +137,7 @@ async function handleDelete() {
     <div class="tw:grow tw:flex tw:flex-col tw:min-w-0 tw:overflow-hidden">
       <!-- Loading State -->
       <div v-if="loading" class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:h-full">
-        <div
-          class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-        />
+        <BaseSpinner size="lg" />
         <div class="tw:text-sm tw:text-on-main tw:mt-4">Loading template...</div>
       </div>
 

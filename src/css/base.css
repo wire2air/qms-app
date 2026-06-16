@@ -37,6 +37,22 @@
 
   --color-placeholder: var(--placeholder);
 
+  /* Surface — card (= raised panel surface; flips white→dark via --sidebar) */
+  --color-card: var(--card);
+
+  /* Text on the main surface (aliases used widely by Base inputs) */
+  --color-main-text: var(--main-text);
+  --color-main-text-muted: var(--main-text-muted);
+  --color-main-text-hover: var(--main-text-hover);
+  --color-main-unselected: var(--main-unselected);
+
+  /* Text on a primary surface */
+  --color-primary-text: var(--primary-text);
+
+  /* Legacy grey aliases (carried over from the Quasar grey scale) */
+  --color-grey-4: var(--grey-4);
+  --color-grey-5: var(--grey-5);
+
   /* Semantic Colors (theme-responsive via tokens.css) */
   --color-bad: var(--bad);
   --color-good: var(--good);
@@ -118,6 +134,22 @@
     --divider: #e5e7eb;
 
     --placeholder: #9ca3af;
+
+    /* Card surface = white panel in light mode */
+    --card: var(--sidebar);
+
+    /* Input/text aliases (resolve the *-main-text family) */
+    --main-text: var(--on-main);
+    --main-text-muted: var(--secondary);
+    --main-text-hover: var(--secondary);
+    --main-unselected: var(--main);
+
+    /* Text on primary surfaces */
+    --primary-text: var(--on-primary);
+
+    /* Legacy grey scale → neutral aliases */
+    --grey-4: var(--color-neutral-400);
+    --grey-5: var(--secondary);
   }
 
   .dark {
@@ -150,6 +182,22 @@
     /* Divider / Border */
     --divider: #2d3748;
     --placeholder: #9ca3af;
+
+    /* Card surface = dark panel (= sidebar) in dark mode */
+    --card: var(--sidebar);
+
+    /* Input/text aliases (resolve the *-main-text family) */
+    --main-text: var(--on-main);
+    --main-text-muted: var(--secondary);
+    --main-text-hover: var(--secondary);
+    --main-unselected: var(--main-hover);
+
+    /* Text on primary surfaces */
+    --primary-text: var(--on-primary);
+
+    /* Legacy grey scale → neutral aliases */
+    --grey-4: var(--color-neutral-400);
+    --grey-5: var(--secondary);
   }
 
   /* Global Scrollbar */

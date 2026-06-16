@@ -15,9 +15,7 @@ defineProps({
 <template>
   <div class="tw:flex-1 tw:overflow-y-auto tw:space-y-4">
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:py-12">
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      ></div>
+      <BaseSpinner size="lg" />
     </div>
 
     <BaseEmptyState

@@ -84,9 +84,7 @@ async function onConfirm() {
     <div class="tw:p-4 tw:space-y-4">
       <!-- Loading -->
       <div v-if="loading" class="tw:flex tw:justify-center tw:py-8">
-        <div
-          class="tw:animate-spin tw:rounded-full tw:size-8 tw:border-4 tw:border-primary tw:border-t-transparent"
-        />
+        <BaseSpinner size="md" />
       </div>
 
       <template v-else-if="assetRequest">
@@ -180,10 +178,7 @@ async function onConfirm() {
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
       <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
       <BaseButton v-if="action === 'accept'" :disabled="submitting" @click="onConfirm">
-        <div
-          v-if="submitting"
-          class="tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-white tw:border-t-transparent"
-        />
+        <BaseSpinner v-if="submitting" size="sm" color="white" />
         <span>{{ submitting ? 'Confirming...' : 'Confirm Accept' }}</span>
       </BaseButton>
       <BaseButton
@@ -191,10 +186,7 @@ async function onConfirm() {
         :disabled="!reviewNote.trim() || submitting"
         @click="onConfirm"
       >
-        <div
-          v-if="submitting"
-          class="tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-white tw:border-t-transparent"
-        />
+        <BaseSpinner v-if="submitting" size="sm" color="white" />
         <span>{{ submitting ? 'Confirming...' : 'Confirm Reject' }}</span>
       </BaseButton>
     </div>

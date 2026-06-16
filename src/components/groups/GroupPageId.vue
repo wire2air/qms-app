@@ -169,9 +169,7 @@ function copyToClipboard(text) {
           v-if="isSaving"
           class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary"
         >
-          <div
-            class="tw:size-3 tw:animate-spin tw:rounded-full tw:border tw:border-primary tw:border-t-transparent"
-          />
+          <BaseSpinner size="xs" />
           Saving...
         </div>
       </div>
@@ -182,9 +180,7 @@ function copyToClipboard(text) {
       v-if="loading"
       class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:flex-1 tw:py-8"
     >
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="lg" />
       <div class="tw:text-sm tw:text-secondary tw:mt-3">Loading team...</div>
     </div>
 

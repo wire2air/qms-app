@@ -3,6 +3,7 @@
  * Document versions under review — resolved to the parent document title.
  */
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { IconCircleCheck } from '@tabler/icons-vue'
 
 const pending = useLiveQuery(
   async (db) => {
@@ -22,9 +23,7 @@ const pending = useLiveQuery(
 
 <template>
   <DashboardWidgetCard title="Documents Pending Approval" :count="pending.length" linkTo="/documents">
-    <div v-if="!pending.length" class="tw:px-4 tw:py-6 tw:text-center tw:text-sm tw:text-secondary">
-      Nothing awaiting approval.
-    </div>
+    <BaseEmptyState v-if="!pending.length" dense :icon="IconCircleCheck" title="Nothing awaiting approval" />
     <RouterLink
       v-for="p in pending.slice(0, 5)"
       :key="p.version.id"

@@ -58,9 +58,7 @@ onMounted(() => {
     <div class="tw:flex-1 tw:max-w-360 tw:mx-auto tw:px-6 tw:py-8 tw:w-full">
       <!-- Loading -->
       <div v-if="loading" class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:py-24">
-        <div
-          class="tw:animate-spin tw:rounded-full tw:size-10 tw:border-2 tw:border-primary tw:border-t-transparent"
-        />
+        <BaseSpinner size="lg" />
         <p class="tw:text-secondary tw:mt-4">Loading document...</p>
       </div>
 

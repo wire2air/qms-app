@@ -127,6 +127,7 @@ declare module 'vue' {
     BasePopover: typeof import('./resource/js/shared/components/BasePopover.vue')['default']
     BaseRichTextEditor: typeof import('./src/components/editor/BaseRichTextEditor.vue')['default']
     BaseSelectMenu: typeof import('./resource/js/shared/components/BaseSelectMenu.vue')['default']
+    BaseSpinner: typeof import('./resource/js/shared/components/BaseSpinner.vue')['default']
     BaseSwitch: typeof import('./resource/js/shared/components/BaseSwitch.vue')['default']
     BaseSwitcher: typeof import('./resource/js/shared/components/BaseSwitcher.vue')['default']
     BaseTable: typeof import('./resource/js/shared/components/BaseTable.vue')['default']
@@ -624,7 +625,6 @@ declare module 'vue' {
     SuppliersUsersTab: typeof import('./src/components/suppliers/SuppliersUsersTab.vue')['default']
     SuspendedEmailsHome: typeof import('./src/components/customerComplaints/SuspendedEmailsHome.vue')['default']
     Switchback: typeof import('./resource/js/shared/components/Switchback.vue')['default']
-    TableSkeletonLoader: typeof import('./resource/js/shared/components/loader/TableSkeletonLoader.vue')['default']
     TableToolbar: typeof import('./src/components/editor/TableToolbar.vue')['default']
     TaskActionBar: typeof import('./src/components/taskInstance/TaskActionBar.vue')['default']
     TaskInstanceCapaActions: typeof import('./src/components/taskInstance/TaskInstanceCapaActions.vue')['default']
@@ -707,7 +707,6 @@ declare module 'vue' {
     WEmptyState: typeof import('./resource/js/shared/components/common/WEmptyState.vue')['default']
     WExportBtn: typeof import('./resource/js/shared/components/button/WExportBtn.js')['default']
     WField: typeof import('./resource/js/shared/components/input/WField.js')['default']
-    WFileItem: typeof import('./src/components/common/WFileItem.vue')['default']
     WForm: typeof import('./resource/js/shared/components/Form/WForm.js')['default']
     WhyTreeAnalysis: typeof import('./src/components/form/tools/rca/WhyTreeAnalysis.vue')['default']
     WIcon: typeof import('./resource/js/shared/components/icon/WIcon.js')['default']
@@ -781,6 +780,5 @@ declare module 'vue' {
     WTabPanels: typeof import('./resource/js/shared/components/tabs/WTabPanels.js')['default']
     WTabs: typeof import('./resource/js/shared/components/tabs/WTabs.js')['default']
     WTimeSelect: typeof import('./resource/js/shared/components/input/WTimeSelect.vue')['default']
-    WUploader: typeof import('./src/components/common/WUploader.vue')['default']
   }
 }

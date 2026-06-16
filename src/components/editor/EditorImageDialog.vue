@@ -169,10 +169,7 @@ defineExpose({ open })
         :disabled="processing"
         @click="confirm"
       >
-        <span
-          v-if="processing"
-          class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent"
-        ></span>
+        <BaseSpinner v-if="processing" size="sm" color="white" />
         <IconCheck v-else :size="18" />
         Insert Image
       </button>

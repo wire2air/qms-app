@@ -687,10 +687,7 @@ const templateSchema = computed(() => {
                           :disabled="submitting || (flagOnSubmit && !flagNotes.trim())"
                           @click="handleSubmit(formData)"
                         >
-                          <span
-                            v-if="submitting"
-                            class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:mr-2"
-                          ></span>
+                          <BaseSpinner v-if="submitting" size="sm" color="white" class="tw:mr-2" />
                           {{ requiresSignatureAtSubmit ? 'Sign &amp; Submit' : 'Save Record' }}
                         </button>
                       </div>
