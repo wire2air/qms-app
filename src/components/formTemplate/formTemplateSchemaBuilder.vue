@@ -106,15 +106,16 @@ function cancelEditTitle() {
               @blur="saveTitle"
             />
           </div>
-          <div
+          <BaseClickableRow
             v-else
-            class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:hover:text-primary tw:transition-colors"
+            class="tw:flex tw:items-center tw:gap-2 tw:hover:text-primary tw:transition-colors"
+            aria-label="Edit schema title"
             @click="startEditTitle"
           >
             <span class="tw:text-secondary">Edit Schema:</span>
             <span class="tw:font-bold">{{ template.title }}</span>
             <IconEdit :size="14" class="tw:text-secondary" />
-          </div>
+          </BaseClickableRow>
         </template>
       </FormBuilder>
 

@@ -11,12 +11,14 @@ const props = defineProps({
   size: {
     type: String,
     default: null,
-    validator: (v) => !v || ['sm', 'md', 'lg', 'xl', '2xl', '3xl', 'full'].includes(v),
+    validator: (v) =>
+      !v || ['sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', 'full'].includes(v),
   },
   maxWidth: {
     type: String,
     default: '2xl',
-    validator: (v) => ['sm', 'md', 'lg', 'xl', '2xl', '3xl', 'full'].includes(v),
+    validator: (v) =>
+      ['sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', 'full'].includes(v),
   },
   persistent: {
     type: Boolean,
@@ -43,6 +45,9 @@ const maxWidthClass = {
   xl: 'tw:max-w-xl',
   '2xl': 'tw:max-w-2xl',
   '3xl': 'tw:max-w-3xl',
+  '4xl': 'tw:max-w-4xl',
+  '5xl': 'tw:max-w-5xl',
+  '6xl': 'tw:max-w-6xl',
   full: 'tw:max-w-full',
 }
 </script>
@@ -75,19 +80,20 @@ const maxWidthClass = {
             leaveTo="tw:opacity-0 tw:scale-95"
           >
             <DialogPanel
-              class="tw:w-full tw:transform tw:rounded-2xl tw:bg-sidebar tw:shadow-overlay tw:transition-all tw:overflow-hidden"
+              class="tw:flex tw:max-h-[90vh] tw:w-full tw:transform tw:flex-col tw:rounded-2xl tw:bg-sidebar tw:shadow-overlay tw:transition-all tw:overflow-hidden"
               :class="maxWidthClass[resolvedSize]"
             >
               <!-- Header -->
               <div
                 v-if="title || $slots.title"
-                class="tw:flex tw:items-center tw:justify-between tw:px-6 tw:pt-5 tw:pb-4 tw:border-b tw:border-divider"
+                class="tw:flex tw:shrink-0 tw:items-center tw:justify-between tw:px-6 tw:pt-5 tw:pb-4 tw:border-b tw:border-divider"
               >
                 <DialogTitle as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
                   <slot name="title">{{ title }}</slot>
                 </DialogTitle>
                 <button
                   v-if="!persistent"
+                  aria-label="Close dialog"
                   class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
                   @click="close"
                 >
@@ -95,15 +101,15 @@ const maxWidthClass = {
                 </button>
               </div>
 
-              <!-- Body -->
-              <div class="tw:px-6 tw:py-5">
+              <!-- Body (the only scrollable region; header/footer stay pinned) -->
+              <div class="tw:min-h-0 tw:flex-1 tw:overflow-y-auto tw:px-6 tw:py-5">
                 <slot :close="close" />
               </div>
 
               <!-- Footer -->
               <div
                 v-if="$slots.footer"
-                class="tw:flex tw:items-center tw:justify-end tw:gap-3 tw:px-6 tw:py-4 tw:border-t tw:border-divider tw:bg-main"
+                class="tw:flex tw:shrink-0 tw:items-center tw:justify-end tw:gap-3 tw:px-6 tw:py-4 tw:border-t tw:border-divider tw:bg-main"
               >
                 <slot name="footer" :close="close" />
               </div>

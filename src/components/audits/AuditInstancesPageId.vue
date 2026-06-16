@@ -619,14 +619,16 @@ watch(auditTabs, (tabs) => {
                     placeholder="What's in scope for this audit?"
                     @blur="editingScope = false"
                   />
-                  <div
+                  <BaseClickableRow
                     v-else
                     class="tw:text-sm tw:whitespace-pre-line tw:text-on-main"
                     :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                    :disabled="!isEditable"
+                    aria-label="Edit audit scope"
                     @click="isEditable && (editingScope = true)"
                   >
                     {{ auditInstance.scope || (isEditable ? 'Add scope…' : '—') }}
-                  </div>
+                  </BaseClickableRow>
                 </div>
                 <div>
                   <p
@@ -641,14 +643,16 @@ watch(auditTabs, (tabs) => {
                     placeholder="What outcomes does this audit need to produce?"
                     @blur="editingObjectives = false"
                   />
-                  <div
+                  <BaseClickableRow
                     v-else
                     class="tw:text-sm tw:whitespace-pre-line tw:text-on-main"
                     :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                    :disabled="!isEditable"
+                    aria-label="Edit audit objectives"
                     @click="isEditable && (editingObjectives = true)"
                   >
                     {{ auditInstance.objectives || (isEditable ? 'Add objectives…' : '—') }}
-                  </div>
+                  </BaseClickableRow>
                 </div>
               </div>
             </div>

@@ -107,7 +107,12 @@ function handleClick() {
 </script>
 
 <template>
-  <div :class="containerClass" @click.prevent.stop="handleClick">
+  <BaseClickableRow
+    :class="containerClass"
+    :disabled="!fileUrl"
+    :aria-label="fileUrl ? `Open ${fileName}` : fileName"
+    @click.prevent.stop="handleClick"
+  >
     <!-- Uploading State with Progress Bar -->
     <div v-if="state === 'uploading'" class="tw:flex tw:flex-col tw:gap-2 tw:p-3">
       <div class="tw:flex tw:items-center tw:justify-between tw:gap-3">
@@ -187,5 +192,5 @@ function handleClick() {
         <component :is="deleteIcon" :size="16" />
       </BaseButton>
     </div>
-  </div>
+  </BaseClickableRow>
 </template>

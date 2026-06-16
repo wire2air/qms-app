@@ -35,12 +35,7 @@ const canManageTemplates = computed(() => isAllowed(['qcInspection:template:writ
 
 <template>
   <div class="tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconTestPipe class="tw:text-primary tw:size-6" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">QC Inspection</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconTestPipe" title="QC Inspection" />
 
     <div class="tw:flex tw:flex-col tw:gap-5 tw:max-w-7xl">
       <div class="tw:flex tw:flex-col tw:gap-1">

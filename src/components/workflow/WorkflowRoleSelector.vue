@@ -84,17 +84,18 @@ async function removeRole(roleId) {
 
     <!-- Role List -->
     <div class="tw:max-h-48 tw:overflow-y-auto tw:space-y-1">
-      <div
+      <BaseClickableRow
         v-for="role in filteredRoles"
         :key="role.id"
+        :disabled="!canUpdate"
+        :aria-label="`Toggle role ${role.name}`"
         class="tw:flex tw:items-center tw:gap-3 tw:p-2 tw:rounded-lg tw:transition-colors"
         :class="[
           roleIds.includes(role.id)
             ? 'tw:bg-primary/10 tw:border tw:border-primary/20'
             : 'tw:hover:bg-main-hover',
-          canUpdate ? 'tw:cursor-pointer' : 'tw:cursor-default',
         ]"
-        @click="canUpdate && toggleRole(role.id)"
+        @click="toggleRole(role.id)"
       >
         <BaseCheckbox
           :modelValue="roleIds.includes(role.id)"
@@ -108,7 +109,7 @@ async function removeRole(roleId) {
             {{ role.description }}
           </div>
         </div>
-      </div>
+      </BaseClickableRow>
 
       <BaseEmptyState v-if="filteredRoles.length === 0" dense title="No roles found" />
     </div>

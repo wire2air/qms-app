@@ -74,9 +74,7 @@ function goLogs() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-4 tw:overflow-y-auto tw:max-w-2xl tw:mx-auto tw:w-full">
-    <SafeTeleport to="#main-header-title">
-      <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-on-sidebar">Logging</h2>
-    </SafeTeleport>
+    <PageHeader title="Logging" />
 
     <!-- My Tasks -->
     <button

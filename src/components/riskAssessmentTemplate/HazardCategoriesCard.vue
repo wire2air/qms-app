@@ -23,6 +23,7 @@ import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api'
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const canManage = computed(
   () => !!currentSession.value?.isOwner || isAllowed(['hazardCategories:manage']),
@@ -141,9 +142,12 @@ async function handleSave() {
 
 async function handleDeactivate(row) {
   if (
-    !window.confirm(
-      `Deactivate "${row.name}"? Historical risk_assessments rows referencing this category will keep their denormalized label + colour; new assessments won't see it in the picker.`,
-    )
+    !(await confirm({
+      title: 'Deactivate category',
+      message: `Deactivate "${row.name}"? Historical risk_assessments rows referencing this category will keep their denormalized label + colour; new assessments won't see it in the picker.`,
+      okLabel: 'Deactivate',
+      danger: true,
+    }))
   ) {
     return
   }

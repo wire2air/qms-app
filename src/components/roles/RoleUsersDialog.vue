@@ -147,10 +147,11 @@ watch(
         />
 
         <div v-else class="tw:divide-y tw:divide-divider">
-          <div
+          <BaseClickableRow
             v-for="user in filteredUsers"
             :key="user.id"
-            class="tw:flex tw:items-center tw:px-4 tw:py-3 tw:hover:bg-sidebar/20 tw:transition-colors tw:cursor-pointer"
+            class="tw:flex tw:items-center tw:px-4 tw:py-3 tw:hover:bg-sidebar/20 tw:transition-colors"
+            :aria-label="`Toggle selection for ${user.firstName} ${user.lastName}`"
             @click="toggleUserSelection(user.id)"
           >
             <BaseCheckbox
@@ -176,7 +177,7 @@ watch(
             >
               Currently Assigned
             </div>
-          </div>
+          </BaseClickableRow>
         </div>
       </div>
 

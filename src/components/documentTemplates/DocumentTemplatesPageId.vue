@@ -38,32 +38,12 @@ const canArchive = computed(() => isAllowed(['document-templates:delete']))
 // to make changes again.
 const canEdit = computed(() => canUpdate.value && template.value?.statusId === 'DRAFT')
 
-const isFirstLoad = ref(true)
 const editingName = ref(false)
 const showPublishConfirm = ref(false)
 const showArchiveConfirm = ref(false)
 const showUnarchiveConfirm = ref(false)
 
-const debouncedSave = useDebounceFn(async () => {
-  if (!template.value) return
-  try {
-    await template.value.save()
-  } catch (err) {
-    toast.error(err)
-  }
-}, 500)
-
-watch(
-  template,
-  (t) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (t) debouncedSave()
-  },
-  { deep: true },
-)
+useAutoSave(template, { onError: (err) => toast.error(err) })
 
 const breadcrumbs = computed(() => [
   { label: 'Document Templates', to: getCompanyPath('/document-templates') },

@@ -19,6 +19,7 @@ const props = defineProps({
 })
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const users = useLiveQueryWithDeps(
   [() => props.supplierId],
@@ -82,7 +83,14 @@ function canCancelInvite(u) {
 async function cancelInvite(u) {
   if (!canCancelInvite(u)) return
   const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email
-  if (!confirm(`Cancel the invitation for ${name}? They won't be able to use the link anymore.`)) {
+  if (
+    !(await confirm({
+      title: 'Cancel invitation',
+      message: `Cancel the invitation for ${name}? They won't be able to use the link anymore.`,
+      okLabel: 'Cancel invitation',
+      danger: true,
+    }))
+  ) {
     return
   }
   try {

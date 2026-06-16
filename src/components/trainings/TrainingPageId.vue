@@ -41,34 +41,9 @@ const canUnpublish = computed(() =>
 )
 
 // ─── Auto-save ─────────────────────────────────────────────────────────────────
-const isFirstLoad = ref(true)
-const isSaving = ref(false)
-const saveError = ref(null)
-
-const debouncedSave = useDebounceFn(async () => {
-  if (!training.value) return
-  isSaving.value = true
-  saveError.value = null
-  try {
-    await training.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  training,
-  () => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (training.value && canUpdate.value && isEditable.value) debouncedSave()
-  },
-  { deep: true },
-)
+const { isSaving } = useAutoSave(training, {
+  enabled: () => canUpdate.value && isEditable.value,
+})
 
 // ─── Status actions ────────────────────────────────────────────────────────────
 const actionLoading = ref(false)

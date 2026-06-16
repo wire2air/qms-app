@@ -558,10 +558,11 @@ const templateSchema = computed(() => {
 
               <!-- Template List -->
               <div v-else class="tw:flex tw:flex-col tw:gap-2">
-                <div
+                <BaseClickableRow
                   v-for="template in filteredTemplates"
                   :key="template.id"
-                  class="tw:cursor-pointer tw:bg-sidebar tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:transition-all tw:hover:shadow-md tw:hover:border-primary/30"
+                  class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:transition-all tw:hover:shadow-md tw:hover:border-primary/30"
+                  :aria-label="`Select template ${template.title}`"
                   @click="selectTemplate(template)"
                 >
                   <div class="tw:flex tw:items-center tw:gap-3">
@@ -574,7 +575,7 @@ const templateSchema = computed(() => {
                     <div class="tw:flex-1" />
                     <IconChevronRight :size="24" class="tw:text-secondary" />
                   </div>
-                </div>
+                </BaseClickableRow>
               </div>
             </div>
           </div>

@@ -92,12 +92,7 @@ watch(
 
 <template>
   <div class="tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconSettings class="tw:text-primary tw:size-6" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Company Settings</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconSettings" title="Company Settings" />
 
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
       <BaseSpinner size="lg" />

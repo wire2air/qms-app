@@ -192,6 +192,19 @@ const computedDisabled = computed(() => {
 
 const buttonRef = ref()
 
+// a11y: an icon-only button has no text, so it needs an accessible name.
+// Warn in dev if neither aria-label nor title is supplied.
+if (import.meta.env.DEV) {
+  onMounted(() => {
+    if (props.iconOnly && !attr['aria-label'] && !attr['title']) {
+      console.warn(
+        '[BaseButton] iconOnly button is missing an accessible name — add aria-label or title.',
+        buttonRef.value,
+      )
+    }
+  })
+}
+
 defineExpose({
   buttonRef,
 })

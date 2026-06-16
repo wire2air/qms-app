@@ -173,10 +173,12 @@ const instances = useLiveQueryWithDeps(
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="row in instances"
             :key="row.id"
-            class="tw:border-b tw:border-divider tw:hover:bg-main-hover/40 tw:cursor-pointer"
+            tag="tr"
+            class="tw:border-b tw:border-divider tw:hover:bg-main-hover/40"
+            :aria-label="`Open audit ${row.auditNumber || row.id.slice(0, 8)}`"
             @click="openDetail(row)"
           >
             <td class="tw:px-4 tw:py-3 tw:font-mono tw:text-xs">
@@ -207,7 +209,7 @@ const instances = useLiveQueryWithDeps(
             <td class="tw:px-4 tw:py-3">
               <AuditInstanceStatusBadgeById :statusId="row.statusId" />
             </td>
-          </tr>
+          </BaseClickableRow>
         </tbody>
       </table>
     </div>

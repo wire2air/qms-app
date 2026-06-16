@@ -21,6 +21,7 @@ const props = defineProps({
 })
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 // ── Request line items ─────────────────────────────────────────────
 const requests = useLiveQueryWithDeps(
@@ -72,7 +73,15 @@ function openAsset(u) {
 }
 async function removeUpload(u) {
   if (props.readonly) return
-  if (!confirm('Remove this document from the audit?')) return
+  if (
+    !(await confirm({
+      title: 'Remove document',
+      message: 'Remove this document from the audit?',
+      okLabel: 'Remove',
+      danger: true,
+    }))
+  )
+    return
   try {
     await del(`/v1/services/auditEvidence/${u.id}`)
     toast.success('Document removed')
@@ -108,7 +117,15 @@ async function addRequest() {
 }
 async function removeRequest(request) {
   if (!props.canManageRequests) return
-  if (!confirm(`Remove the request "${request.title}"? Uploaded files are kept as add-ons.`)) return
+  if (
+    !(await confirm({
+      title: 'Remove request',
+      message: `Remove the request "${request.title}"? Uploaded files are kept as add-ons.`,
+      okLabel: 'Remove',
+      danger: true,
+    }))
+  )
+    return
   try {
     await request.delete()
     toast.success('Request removed')

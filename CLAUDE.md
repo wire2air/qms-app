@@ -13,12 +13,12 @@ Non-negotiable in new and touched code. Migration sections below show what to re
 5. **`function` keyword.** Define functions with `function foo() {}`, not `const foo = () => {}`.
 6. **`defineModel` for v-model.** Don't use the computed-getter/setter pattern.
 7. **Tailwind has a `tw:` prefix.** Always: `tw:flex tw:gap-4 tw:rounded-lg`.
-8. **No `<form>` elements.** Use `<div>` wrappers with click/change handlers.
+8. **No `<form>` elements.** Use `<div>` wrappers with click/change handlers. **But a clickable element must be keyboard-operable** — never `<div class="tw:cursor-pointer" @click>` (not focusable, ignores Enter/Space, no role; fails WCAG 2.1.1/4.1.2). For a clickable row/card/cell use `BaseClickableRow` (renders a `RouterLink` via its `to` prop for nav, or a focusable `role="button"` that fires `click` on Enter/Space); always give it an `aria-label`. Nested actions inside it must `@click.stop`. For a single inline action, use a real `<button>`.
 9. **PascalCase component usage** in templates, never kebab-case.
 10. **Dates are luxon `DateTime`.** The axios response transformer already converts backend dates to `DateTime` instances. Format with the project-wide `dt.formatDate()` — never `.toFormat()`, `.toISO()`, or any ad-hoc formatting in components.
 11. **Soft deletes are automatic.** Never manually filter `!record.deletedAt` — the syncEngine excludes soft-deleted records from queries by default. Use `{ force: true }` only when you explicitly need them (e.g. computing the next version number).
 12. **`useLiveMutation` for creates** — don't call `db.Model.create()` + `save()` directly inside a component method.
-13. **Use `Base*` first.** `BaseTextInput`, `BaseTextarea`, `BaseColorPicker`, `BaseDialog`, `BaseTable`, `BaseSelectMenu`, etc. live in `resource/js/shared/components/`. Reuse before building.
+13. **Use `Base*` first.** `BaseTextInput`, `BaseTextarea`, `BaseColorPicker`, `BaseDialog`, `BaseTable`, `BaseSelectMenu`, `BaseClickableRow`, etc. live in `resource/js/shared/components/`. Reuse before building.
 14. **Reuse before adding** — especially badges and select menus, which follow the [triad pattern](#component-pattern-badge-triad-xbadge--xbadgebyid--xselectmenu).
 
 ### Feature component naming

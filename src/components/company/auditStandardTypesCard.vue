@@ -24,6 +24,7 @@ import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api'
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const canManage = computed(
   () => !!currentSession.value?.isOwner || isAllowed(['auditStandardTypes:manage']),
@@ -142,9 +143,12 @@ async function handleSave() {
 
 async function handleDeactivate(row) {
   if (
-    !window.confirm(
-      `Deactivate "${row.name}"? Existing audit_standards referencing this category will keep their reference; new standards won't see it in the type picker.`,
-    )
+    !(await confirm({
+      title: 'Deactivate standard type',
+      message: `Deactivate "${row.name}"? Existing audit_standards referencing this category will keep their reference; new standards won't see it in the type picker.`,
+      okLabel: 'Deactivate',
+      danger: true,
+    }))
   ) {
     return
   }

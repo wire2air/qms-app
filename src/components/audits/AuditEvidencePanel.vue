@@ -26,6 +26,7 @@ const props = defineProps({
 
 const toast = useToast()
 const router = useRouter()
+const { confirm } = useConfirm()
 
 // ── Uploads (audit_evidence) ───────────────────────────────────────
 
@@ -122,7 +123,15 @@ function openLink(link) {
 
 async function removeUpload(upload) {
   if (props.readonly) return
-  if (!confirm('Remove this evidence file from the audit?')) return
+  if (
+    !(await confirm({
+      title: 'Remove evidence',
+      message: 'Remove this evidence file from the audit?',
+      okLabel: 'Remove',
+      danger: true,
+    }))
+  )
+    return
   try {
     await del(`/v1/services/auditEvidence/${upload.id}`)
     toast.success('Evidence removed')
@@ -133,7 +142,15 @@ async function removeUpload(upload) {
 
 async function removeLink(link) {
   if (props.readonly) return
-  if (!confirm('Unlink this record from the audit?')) return
+  if (
+    !(await confirm({
+      title: 'Unlink record',
+      message: 'Unlink this record from the audit?',
+      okLabel: 'Unlink',
+      danger: true,
+    }))
+  )
+    return
   try {
     await del(`/v1/services/auditEvidenceLinks/${link.id}`)
     toast.success('Evidence unlinked')

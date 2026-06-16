@@ -140,10 +140,12 @@ async function confirmDelete() {
                   <!-- Option Content -->
                   <div class="tw:flex-1">
                     <!-- Display Mode -->
-                    <div
+                    <BaseClickableRow
                       v-if="editingOptionIndex !== idx"
-                      class="tw:text-base tw:px-2 tw:py-1 tw:rounded-lg tw:transition-all tw:duration-200 tw:text-on-main tw:flex tw:items-center tw:justify-between tw:cursor-pointer tw:hover:bg-main-hover"
-                      @click="canUpdate && startEditOption(idx)"
+                      class="tw:text-base tw:px-2 tw:py-1 tw:rounded-lg tw:transition-all tw:duration-200 tw:text-on-main tw:flex tw:items-center tw:justify-between tw:hover:bg-main-hover"
+                      :disabled="!canUpdate"
+                      :aria-label="`Edit option ${opt || 'Empty option'}`"
+                      @click="startEditOption(idx)"
                     >
                       <span>{{ opt || 'Empty option' }}</span>
                       <IconEdit
@@ -151,7 +153,7 @@ async function confirmDelete() {
                         :size="18"
                         class="tw:text-secondary tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity"
                       />
-                    </div>
+                    </BaseClickableRow>
 
                     <!-- Edit Mode -->
                     <BaseTextInput

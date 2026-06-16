@@ -291,14 +291,15 @@ onMounted(() => {
             <label class="tw:block tw:text-sm tw:font-medium tw:text-on-sidebar tw:mb-2">
               Upload Document *
             </label>
-            <div
+            <BaseClickableRow
               v-if="!selectedFile"
-              class="tw:border-2 tw:border-dashed tw:border-gray-300 tw:rounded-lg tw:p-8 tw:text-center tw:cursor-pointer tw:hover:border-primary"
+              class="tw:border-2 tw:border-dashed tw:border-gray-300 tw:rounded-lg tw:p-8 tw:text-center tw:hover:border-primary"
+              aria-label="Select a file to upload"
               @click="$refs.legacyFileInput.click()"
             >
               <IconUpload :size="48" class="tw:text-secondary tw:mx-auto" />
               <p class="tw:text-secondary tw:mt-2">Click to select a file</p>
-            </div>
+            </BaseClickableRow>
             <div
               v-else
               class="tw:border tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3"

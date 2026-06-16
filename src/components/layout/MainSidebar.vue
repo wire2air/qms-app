@@ -49,6 +49,7 @@ import {
 } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { useSidebar } from '@/composables/useSidebar'
+import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
 
 const { visible, isDesktop, closeMobile } = useSidebar()
 const route = useRoute()
@@ -62,11 +63,16 @@ watch(
   },
 )
 
-// Track expanded state for grouped nav items
-const expandedGroups = ref({})
+// Track expanded state for grouped nav items — persisted per company so a
+// collapsed group stays collapsed across navigation and reloads.
+const expandedGroups = useCompanyLocalStorage('sidebar-groups', {})
 
 function toggleGroup(label) {
-  expandedGroups.value[label] = !(expandedGroups.value[label] ?? true)
+  // Reassign (not mutate-in-place) so the localStorage-backed ref persists.
+  expandedGroups.value = {
+    ...expandedGroups.value,
+    [label]: !(expandedGroups.value[label] ?? true),
+  }
 }
 
 function isGroupExpanded(label) {

@@ -414,14 +414,16 @@ async function handleRemoveSourceFile() {
                 class="tw:mb-2"
                 @blur="editingName = false"
               />
-              <div
+              <BaseClickableRow
                 v-else
                 class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
                 :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                :disabled="!isEditable"
+                aria-label="Edit standard name"
                 @click="isEditable && (editingName = true)"
               >
                 {{ standard.name }}
-              </div>
+              </BaseClickableRow>
 
               <div
                 v-if="editingDescription && isEditable"
@@ -434,17 +436,19 @@ async function handleRemoveSourceFile() {
                   @blur="editingDescription = false"
                 />
               </div>
-              <div
+              <BaseClickableRow
                 v-else
                 class="tw:mb-4 tw:text-sm tw:text-secondary tw:leading-relaxed"
                 :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                :disabled="!isEditable"
+                aria-label="Edit standard description"
                 @click="isEditable && (editingDescription = true)"
               >
                 {{
                   standard.description ||
                   (isEditable ? 'Add a description…' : '—')
                 }}
-              </div>
+              </BaseClickableRow>
 
               <div class="tw:grid tw:grid-cols-2 tw:gap-3">
                 <div class="tw:flex tw:flex-col tw:gap-1">

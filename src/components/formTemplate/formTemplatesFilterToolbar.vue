@@ -5,36 +5,56 @@ const filters = defineModel('filters', {
   type: Object,
   required: true,
 })
+
+function hasItems(v) {
+  return Array.isArray(v) ? v.length > 0 : !!v
+}
+
+const showClear = computed(
+  () =>
+    !!(
+      filters.value.search ||
+      hasItems(filters.value.documentTypeId) ||
+      hasItems(filters.value.siteId) ||
+      filters.value.statusId
+    ),
+)
+
+function clearAll() {
+  filters.value = {
+    ...filters.value,
+    search: '',
+    documentTypeId: null,
+    siteId: null,
+    statusId: null,
+  }
+}
 </script>
 
 <template>
-  <div class="tw:flex tw:items-center tw:gap-2 tw:p-2 tw:rounded-lg tw:bg-sidebar">
-    <SafeTeleport to="#main-header-search">
-      <BaseTextInput
-        v-model="filters.search"
-        name="search"
-        placeholder="Search templates by name or code..."
-        clearBtn
-        class="tw:flex-1 tw:max-w-md"
-      >
-        <template #icon>
-          <IconSearch :size="16" />
-        </template>
-      </BaseTextInput>
-    </SafeTeleport>
+  <!-- Scoped search stays in the app header (preserved placement) -->
+  <SafeTeleport to="#main-header-search">
+    <BaseTextInput
+      v-model="filters.search"
+      name="search"
+      placeholder="Search templates by name or code…"
+      clearBtn
+      class="tw:flex-1 tw:max-w-md"
+    >
+      <template #icon>
+        <IconSearch :size="16" />
+      </template>
+    </BaseTextInput>
+  </SafeTeleport>
 
-    <div class="tw:flex-1 tw:min-w-40">
+  <BaseFilterBar hideSearch :showClear="showClear" @clear="clearAll">
+    <template #filters>
       <DocumentTypeSelectMenu v-model="filters.documentTypeId" multiple />
-    </div>
-
-    <div class="tw:flex-1 tw:min-w-40">
       <SiteSelectMenu v-model="filters.siteId" :required="false" multiple />
-    </div>
-    <div class="tw:flex-1 tw:min-w-40">
       <FormTemplateStatusSelectMenu v-model="filters.statusId" />
-    </div>
-
-    <!-- Actions Slot -->
-    <slot name="actions" />
-  </div>
+    </template>
+    <template #actions>
+      <slot name="actions" />
+    </template>
+  </BaseFilterBar>
 </template>

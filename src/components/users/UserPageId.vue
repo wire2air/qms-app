@@ -26,34 +26,8 @@ const uploadingAvatar = ref(false)
 const sendingInvite = ref(false)
 const showRoleSelect = ref(false)
 const editingName = ref(false)
-const isSaving = ref(false)
-const saveError = ref(null)
-const isFirstLoad = ref(true)
 
-const debouncedSave = useDebounceFn(async () => {
-  if (!user.value) return
-  isSaving.value = true
-  saveError.value = null
-  try {
-    await user.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  user,
-  (u) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (u) debouncedSave()
-  },
-  { deep: true },
-)
+const { isSaving, saveError } = useAutoSave(user)
 
 const roleAssignments = useLiveQueryWithDeps(
   [() => props.id],
@@ -182,10 +156,11 @@ async function handleAvatarDelete() {
           <div
             class="tw:flex tw:flex-col tw:md:flex-row tw:items-center tw:md:items-start tw:gap-6"
           >
-            <div
+            <BaseClickableRow
               class="tw:relative tw:group"
-              :class="{ 'tw:cursor-pointer': canUpdateUser }"
-              @click="canUpdateUser ? openAvatarDialog() : null"
+              :disabled="!canUpdateUser"
+              aria-label="Change profile picture"
+              @click="openAvatarDialog"
             >
               <UserAvatar :user="user" :showBadge="true" class="tw:size-24" />
               <div
@@ -194,7 +169,7 @@ async function handleAvatarDelete() {
               >
                 <IconCamera :size="32" class="tw:text-white" />
               </div>
-            </div>
+            </BaseClickableRow>
             <div
               class="tw:flex tw:flex-col tw:items-center tw:md:items-start tw:text-center tw:md:text-left tw:pt-2"
             >

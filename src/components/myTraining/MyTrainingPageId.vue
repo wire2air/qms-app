@@ -366,10 +366,11 @@ const isLockedOut = computed(() => {
             Reference Documents
           </p>
           <div class="tw:flex tw:flex-col tw:gap-1">
-            <div
+            <BaseClickableRow
               v-for="docId in instance.snapshot.documentIds"
               :key="docId"
-              class="tw:flex tw:items-center tw:justify-between tw:p-2 tw:rounded-lg tw:border tw:border-divider tw:cursor-pointer tw:hover:bg-gray-50 tw:transition-colors"
+              class="tw:flex tw:items-center tw:justify-between tw:p-2 tw:rounded-lg tw:border tw:border-divider tw:hover:bg-gray-50 tw:transition-colors"
+              aria-label="View reference document"
               @click="openDocument(docId)"
             >
               <DocumentBadgeById :documentId="docId" />
@@ -379,7 +380,7 @@ const isLockedOut = computed(() => {
                 >
                 <IconCheck v-else :size="16" class="tw:text-green-500" />
               </div>
-            </div>
+            </BaseClickableRow>
           </div>
         </div>
 

@@ -83,12 +83,16 @@ const pagination = ref({
 <template>
   <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
     <template #body-cell-name="{ row }">
-      <div class="tw:flex tw:flex-col tw:cursor-pointer" @click="navigateToWorkflow(row)">
+      <BaseClickableRow
+        class="tw:flex tw:flex-col"
+        :aria-label="`Edit workflow ${row.name}`"
+        @click="navigateToWorkflow(row)"
+      >
         <span class="tw:font-bold tw:text-on-main">{{ row.name }}</span>
         <span v-if="row.description" class="tw:text-xs tw:text-secondary tw:line-clamp-1">
           {{ row.description }}
         </span>
-      </div>
+      </BaseClickableRow>
     </template>
 
     <template #body-cell-type="{ row }">

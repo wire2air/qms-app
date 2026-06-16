@@ -152,6 +152,7 @@ onMounted(async () => {
 
 <template>
   <BaseToastContainer />
+  <ConfirmDialogHost />
 
   <!-- Route navigation progress — feedback while async page chunks load -->
   <div

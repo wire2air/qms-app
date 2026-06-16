@@ -15,6 +15,7 @@ import { currentSession } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const isOwner = computed(() => !!currentSession.value?.isOwner)
 
@@ -135,9 +136,12 @@ async function handleSave() {
 
 async function handleDeactivate(row) {
   if (
-    !window.confirm(
-      `Deactivate "${row.name}"? Existing NC rows referencing this issue type will keep their reference; new NCs won't see it in the picker.`,
-    )
+    !(await confirm({
+      title: 'Deactivate issue type',
+      message: `Deactivate "${row.name}"? Existing NC rows referencing this issue type will keep their reference; new NCs won't see it in the picker.`,
+      okLabel: 'Deactivate',
+      danger: true,
+    }))
   ) {
     return
   }

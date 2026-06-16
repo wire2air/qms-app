@@ -7,11 +7,9 @@
 export {}
 declare global {
   const EffectScope: typeof import('vue').EffectScope
-  const FIELD_TYPES: typeof import('./src/composables/useFormBuilder.js').FIELD_TYPES
   const PdfImportLimitError: typeof import('./src/composables/usePdfImport.js').PdfImportLimitError
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
-  const buildCombinedDocumentPdf: typeof import('./src/composables/useDocumentCombinedPdf.js').buildCombinedDocumentPdf
   const computed: typeof import('vue').computed
   const computedAsync: typeof import('@vueuse/core').computedAsync
   const computedEager: typeof import('@vueuse/core').computedEager
@@ -20,7 +18,6 @@ declare global {
   const controlledComputed: typeof import('@vueuse/core').controlledComputed
   const controlledRef: typeof import('@vueuse/core').controlledRef
   const createApp: typeof import('vue').createApp
-  const createDisposableDirective: typeof import('@vueuse/core').createDisposableDirective
   const createEventHook: typeof import('@vueuse/core').createEventHook
   const createGlobalState: typeof import('@vueuse/core').createGlobalState
   const createInjectionState: typeof import('@vueuse/core').createInjectionState
@@ -89,31 +86,15 @@ declare global {
   const parsePdfAndExtractImages: typeof import('./src/composables/usePdfImport.js').parsePdfAndExtractImages
   const pausableWatch: typeof import('@vueuse/core').pausableWatch
   const provide: typeof import('vue').provide
-  const provideApiKeys: typeof import('./src/composables/useApiKeys.js').provideApiKeys
   const provideAuditLogs: typeof import('./src/composables/useAuditLogs.js').provideAuditLogs
   const provideAuth: typeof import('./src/composables/useAuth.js').provideAuth
-  const provideComments: typeof import('./src/composables/useComments.js').provideComments
-  const provideCompanySettings: typeof import('./src/composables/useCompanySettings.js').provideCompanySettings
   const provideDepartments: typeof import('./src/composables/useDepartments.js').provideDepartments
-  const provideDocumentMessages: typeof import('./src/composables/useDocumentMessages.js').provideDocumentMessages
-  const provideDocumentTemplates: typeof import('./src/composables/useDocumentTemplates.js').provideDocumentTemplates
-  const provideDocuments: typeof import('./src/composables/useDocuments.js').provideDocuments
-  const provideFormTemplates: typeof import('./src/composables/useFormTemplates.js').provideFormTemplates
-  const provideGroups: typeof import('./src/composables/useGroups.js').provideGroups
   const provideImpersonate: typeof import('./src/composables/useImpersonate.js').provideImpersonate
   const provideLocal: typeof import('@vueuse/core').provideLocal
-  const provideNotifications: typeof import('./src/composables/useNotifications.js').provideNotifications
-  const provideOptionSets: typeof import('./src/composables/useOptionSets.js').provideOptionSets
   const providePageInfo: typeof import('./src/composables/usePageInfo.js').providePageInfo
-  const providePageInfoForMeeting: typeof import('./src/composables/usePageInfo.js').providePageInfoForMeeting
-  const provideRecords: typeof import('./src/composables/useRecords.js').provideRecords
   const provideRoles: typeof import('./src/composables/useRoles.js').provideRoles
   const provideSites: typeof import('./src/composables/useSites.js').provideSites
-  const provideSuppliers: typeof import('./src/composables/useSuppliers.js').provideSuppliers
-  const provideTaskInstances: typeof import('./src/composables/useTaskInstances.js').provideTaskInstances
   const provideUsers: typeof import('./src/composables/useUsers.js').provideUsers
-  const provideWorkflowInstances: typeof import('./src/composables/useWorkflowInstances.js').provideWorkflowInstances
-  const provideWorkflowTemplates: typeof import('./src/composables/useWorkflowTemplates.js').provideWorkflowTemplates
   const reactify: typeof import('@vueuse/core').reactify
   const reactifyObject: typeof import('@vueuse/core').reactifyObject
   const reactive: typeof import('vue').reactive
@@ -131,7 +112,6 @@ declare global {
   const resolveComponent: typeof import('vue').resolveComponent
   const resolveRef: typeof import('@vueuse/core').resolveRef
   const selectAndUploadFile: typeof import('./src/composables/useFileUpload.js').selectAndUploadFile
-  const setPageInfo: typeof import('./src/composables/usePageInfo.js').setPageInfo
   const setProp: typeof import('./resource/js/shared/composables/object.js').setProp
   const shallowReactive: typeof import('vue').shallowReactive
   const shallowReadonly: typeof import('vue').shallowReadonly
@@ -159,7 +139,6 @@ declare global {
   const useActiveElement: typeof import('@vueuse/core').useActiveElement
   const useAiUsage: typeof import('./src/composables/useAiUsage.js').useAiUsage
   const useAnimate: typeof import('@vueuse/core').useAnimate
-  const useApiKeys: typeof import('./src/composables/useApiKeys.js').useApiKeys
   const useArrayDifference: typeof import('@vueuse/core').useArrayDifference
   const useArrayEvery: typeof import('@vueuse/core').useArrayEvery
   const useArrayFilter: typeof import('@vueuse/core').useArrayFilter
@@ -178,6 +157,7 @@ declare global {
   const useAuditLogs: typeof import('./src/composables/useAuditLogs.js').useAuditLogs
   const useAuditScoring: typeof import('./src/composables/useAuditScoring.js').useAuditScoring
   const useAuth: typeof import('./src/composables/useAuth.js').useAuth
+  const useAutoSave: typeof import('./resource/js/shared/composables/useAutoSave.js').useAutoSave
   const useBase64: typeof import('@vueuse/core').useBase64
   const useBattery: typeof import('@vueuse/core').useBattery
   const useBluetooth: typeof import('@vueuse/core').useBluetooth
@@ -192,10 +172,10 @@ declare global {
   const useClipboardItems: typeof import('@vueuse/core').useClipboardItems
   const useCloned: typeof import('@vueuse/core').useCloned
   const useColorMode: typeof import('@vueuse/core').useColorMode
-  const useComments: typeof import('./src/composables/useComments.js').useComments
   const useCompanyForm: typeof import('./src/composables/useCompanyForm.js').useCompanyForm
-  const useCompanySettings: typeof import('./src/composables/useCompanySettings.js').useCompanySettings
+  const useConfirm: typeof import('./resource/js/shared/composables/useConfirm.js').useConfirm
   const useConfirmDialog: typeof import('@vueuse/core').useConfirmDialog
+  const useConfirmState: typeof import('./resource/js/shared/composables/useConfirm.js').useConfirmState
   const useCountdown: typeof import('@vueuse/core').useCountdown
   const useCounter: typeof import('@vueuse/core').useCounter
   const useCssModule: typeof import('vue').useCssModule
@@ -215,8 +195,6 @@ declare global {
   const useDevicePixelRatio: typeof import('@vueuse/core').useDevicePixelRatio
   const useDevicesList: typeof import('@vueuse/core').useDevicesList
   const useDisplayMedia: typeof import('@vueuse/core').useDisplayMedia
-  const useDocumentMessages: typeof import('./src/composables/useDocumentMessages.js').useDocumentMessages
-  const useDocumentTemplates: typeof import('./src/composables/useDocumentTemplates.js').useDocumentTemplates
   const useDocumentVisibility: typeof import('@vueuse/core').useDocumentVisibility
   const useDocuments: typeof import('./src/composables/useDocuments.js').useDocuments
   const useDraggable: typeof import('@vueuse/core').useDraggable
@@ -238,12 +216,10 @@ declare global {
   const useFocus: typeof import('@vueuse/core').useFocus
   const useFocusWithin: typeof import('@vueuse/core').useFocusWithin
   const useFormBuilder: typeof import('./src/composables/useFormBuilder.js').useFormBuilder
-  const useFormTemplates: typeof import('./src/composables/useFormTemplates.js').useFormTemplates
   const useFps: typeof import('@vueuse/core').useFps
   const useFullscreen: typeof import('@vueuse/core').useFullscreen
   const useGamepad: typeof import('@vueuse/core').useGamepad
   const useGeolocation: typeof import('@vueuse/core').useGeolocation
-  const useGroups: typeof import('./src/composables/useGroups.js').useGroups
   const useId: typeof import('vue').useId
   const useIdle: typeof import('@vueuse/core').useIdle
   const useImage: typeof import('@vueuse/core').useImage
@@ -273,12 +249,10 @@ declare global {
   const useMutationObserver: typeof import('@vueuse/core').useMutationObserver
   const useNavigatorLanguage: typeof import('@vueuse/core').useNavigatorLanguage
   const useNetwork: typeof import('@vueuse/core').useNetwork
-  const useNotifications: typeof import('./src/composables/useNotifications.js').useNotifications
   const useNow: typeof import('@vueuse/core').useNow
   const useObjectUrl: typeof import('@vueuse/core').useObjectUrl
   const useOffsetPagination: typeof import('@vueuse/core').useOffsetPagination
   const useOnline: typeof import('@vueuse/core').useOnline
-  const useOptionSets: typeof import('./src/composables/useOptionSets.js').useOptionSets
   const usePageInfo: typeof import('./src/composables/usePageInfo.js').usePageInfo
   const usePageLeave: typeof import('@vueuse/core').usePageLeave
   const useParallax: typeof import('@vueuse/core').useParallax
@@ -296,7 +270,6 @@ declare global {
   const usePreferredReducedTransparency: typeof import('@vueuse/core').usePreferredReducedTransparency
   const usePrevious: typeof import('@vueuse/core').usePrevious
   const useRafFn: typeof import('@vueuse/core').useRafFn
-  const useRecords: typeof import('./src/composables/useRecords.js').useRecords
   const useRefHistory: typeof import('@vueuse/core').useRefHistory
   const useRender: typeof import('./resource/js/shared/composables/render.js').useRender
   const useResizeObserver: typeof import('@vueuse/core').useResizeObserver
@@ -323,12 +296,9 @@ declare global {
   const useStorage: typeof import('@vueuse/core').useStorage
   const useStorageAsync: typeof import('@vueuse/core').useStorageAsync
   const useStyleTag: typeof import('@vueuse/core').useStyleTag
-  const useSuppliers: typeof import('./src/composables/useSuppliers.js').useSuppliers
   const useSupported: typeof import('@vueuse/core').useSupported
   const useSwipe: typeof import('@vueuse/core').useSwipe
   const useTableFilters: typeof import('./resource/js/shared/composables/useTableFilters.js').useTableFilters
-  const useTaskInstances: typeof import('./src/composables/useTaskInstances.js').useTaskInstances
-  const useTemplateForm: typeof import('./src/composables/useTemplateForm.js').useTemplateForm
   const useTemplateRef: typeof import('vue').useTemplateRef
   const useTemplateRefsList: typeof import('@vueuse/core').useTemplateRefsList
   const useTextDirection: typeof import('@vueuse/core').useTextDirection
@@ -368,8 +338,6 @@ declare global {
   const useWindowFocus: typeof import('@vueuse/core').useWindowFocus
   const useWindowScroll: typeof import('@vueuse/core').useWindowScroll
   const useWindowSize: typeof import('@vueuse/core').useWindowSize
-  const useWorkflowInstances: typeof import('./src/composables/useWorkflowInstances.js').useWorkflowInstances
-  const useWorkflowTemplates: typeof import('./src/composables/useWorkflowTemplates.js').useWorkflowTemplates
   const watch: typeof import('vue').watch
   const watchArray: typeof import('@vueuse/core').watchArray
   const watchAtMost: typeof import('@vueuse/core').watchAtMost

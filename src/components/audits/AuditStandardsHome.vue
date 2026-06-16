@@ -152,10 +152,12 @@ function versionBadgeClass(versions) {
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="row in standards"
             :key="row.id"
-            class="tw:border-b tw:border-divider tw:hover:bg-main-hover/40 tw:cursor-pointer"
+            tag="tr"
+            class="tw:border-b tw:border-divider tw:hover:bg-main-hover/40"
+            :aria-label="`Open standard ${row.name}`"
             @click="openDetail(row)"
           >
             <td class="tw:px-4 tw:py-3 tw:font-medium tw:text-on-sidebar">
@@ -201,7 +203,7 @@ function versionBadgeClass(versions) {
                 <IconCopy :size="16" />
               </button>
             </td>
-          </tr>
+          </BaseClickableRow>
         </tbody>
       </table>
     </div>

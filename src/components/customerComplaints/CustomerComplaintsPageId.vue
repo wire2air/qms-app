@@ -37,30 +37,7 @@ const isTerminal = computed(() =>
 const isEditable = computed(() => complaint.value && !isTerminal.value && canUpdate.value)
 
 // ─── Inline edit auto-save (subject / description / priority / customer) ─────
-const isFirstLoad = ref(true)
-const saveError = ref(null)
-
-const debouncedSave = useDebounceFn(async () => {
-  if (!complaint.value) return
-  saveError.value = null
-  try {
-    await complaint.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  }
-}, 500)
-
-watch(
-  complaint,
-  () => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (complaint.value) debouncedSave()
-  },
-  { deep: true },
-)
+const { saveError } = useAutoSave(complaint)
 
 const editingSubject = ref(false)
 const editingDescription = ref(false)

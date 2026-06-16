@@ -26,6 +26,7 @@ const props = defineProps({
 })
 
 const canUpdate = computed(() => isAllowed(['suppliers:update']))
+const { confirm } = useConfirm()
 
 // ─── Live queries ─────────────────────────────────────────────────────────────
 
@@ -111,7 +112,16 @@ function toggleExpand(id) {
 }
 
 async function removeItem(item) {
-  if (!confirm(`Remove "${itemLabel(item)}" from this request?`)) return
+  if (
+    !(await confirm({
+      title: 'Remove item',
+      message: `Remove "${itemLabel(item)}" from this request?`,
+      okLabel: 'Remove',
+      danger: true,
+    }))
+  ) {
+    return
+  }
   try {
     await item.delete()
   } catch (err) {
@@ -224,8 +234,9 @@ function formatDate(value) {
     <div v-if="assetRequests.length" class="tw:divide-y tw:divide-divider">
       <div v-for="request in assetRequests" :key="request.id">
         <!-- Row header -->
-        <div
-          class="tw:p-4 tw:flex tw:items-start tw:gap-3 tw:hover:bg-main-hover tw:transition-colors tw:cursor-pointer"
+        <BaseClickableRow
+          class="tw:p-4 tw:flex tw:items-start tw:gap-3 tw:hover:bg-main-hover tw:transition-colors"
+          :aria-label="`Toggle details for asset request ${request.title}`"
           @click="toggleExpand(request.id)"
         >
           <component
@@ -311,7 +322,7 @@ function formatDate(value) {
               <IconTrash :size="16" />
             </button>
           </div>
-        </div>
+        </BaseClickableRow>
 
         <!-- Items detail -->
         <div

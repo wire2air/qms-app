@@ -82,8 +82,9 @@ const menuItems = computed(() => {
 </script>
 
 <template>
-  <div
-    class="tw:group tw:relative tw:bg-main tw:transition-all tw:cursor-pointer"
+  <BaseClickableRow
+    class="tw:group tw:relative tw:bg-main tw:transition-all"
+    :aria-label="`Select step ${step.name}`"
     :class="[
       isChild ? 'tw:p-3 tw:rounded-lg tw:border' : 'tw:p-4 tw:rounded-xl tw:border-2 tw:shadow-sm',
       isSelected
@@ -150,5 +151,5 @@ const menuItems = computed(() => {
         </BaseMenu>
       </div>
     </div>
-  </div>
+  </BaseClickableRow>
 </template>

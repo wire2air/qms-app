@@ -426,6 +426,7 @@ const scrollStyle = computed(() =>
         <div class="tw:flex tw:items-center tw:gap-1">
           <button
             :disabled="pagination.page <= 1"
+            aria-label="Previous page"
             class="tw:p-1.5 tw:rounded tw:hover:bg-main-hover tw:disabled:opacity-30 tw:disabled:cursor-not-allowed tw:transition-colors"
             @click="updatePagination({ page: pagination.page - 1 })"
           >
@@ -433,6 +434,7 @@ const scrollStyle = computed(() =>
           </button>
           <button
             :disabled="pagination.page >= totalPages"
+            aria-label="Next page"
             class="tw:p-1.5 tw:rounded tw:hover:bg-main-hover tw:disabled:opacity-30 tw:disabled:cursor-not-allowed tw:transition-colors"
             @click="updatePagination({ page: pagination.page + 1 })"
           >

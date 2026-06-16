@@ -144,12 +144,13 @@ async function onUnarchiveDocument(row) {
     <!-- Title Column -->
     <template #body-cell-title="{ row }">
       <div class="tw:flex tw:items-center tw:gap-2">
-        <div
-          class="tw:font-bold tw:text-on-main tw:cursor-pointer tw:hover:text-primary"
+        <BaseClickableRow
+          class="tw:font-bold tw:text-on-main tw:hover:text-primary"
+          :aria-label="`View ${row.title}`"
           @click="emit('view', row)"
         >
           {{ row.title }}
-        </div>
+        </BaseClickableRow>
         <span
           v-if="row.statusId === 'ARCHIVED'"
           class="tw:inline-flex tw:items-center tw:rounded tw:bg-amber-100 tw:px-1.5 tw:py-0.5 tw:text-xs tw:font-medium tw:text-amber-700 tw:ring-1 tw:ring-inset tw:ring-amber-600/20"

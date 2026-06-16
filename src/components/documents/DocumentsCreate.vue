@@ -334,12 +334,7 @@ function handlePdfImport(draft) {
 
 <template>
   <div class="tw:relative tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconFileText class="tw:text-primary tw:size-6" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Create Document</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconFileText" title="Create Document" />
 
     <!-- Scrollable content -->
     <div class="tw:flex-1 tw:overflow-y-auto tw:pb-24">

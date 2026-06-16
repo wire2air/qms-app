@@ -403,18 +403,19 @@ async function onSubmit() {
             :key="row.id"
             class="tw:flex tw:gap-0"
           >
-            <div
+            <BaseClickableRow
               v-for="col in form.config.severity"
               :key="col.id"
-              class="tw:w-20 tw:h-10 tw:shrink-0 tw:flex tw:items-center tw:justify-center tw:text-xs tw:font-semibold tw:cursor-pointer tw:border tw:border-white tw:rounded tw:transition-transform tw:select-none tw:hover:scale-105"
+              class="tw:w-20 tw:h-10 tw:shrink-0 tw:flex tw:items-center tw:justify-center tw:text-xs tw:font-semibold tw:border tw:border-white tw:rounded tw:transition-transform tw:select-none tw:hover:scale-105"
               :style="cellLevel(row.id, col.id)
                 ? { backgroundColor: cellLevel(row.id, col.id).bg, color: cellLevel(row.id, col.id).text }
                 : { backgroundColor: '#f3f4f6', color: '#9ca3af' }"
               :class="{ 'tw:scale-105 tw:shadow-md': cyclingCell === cellKey(row.id, col.id) }"
+              :aria-label="`Cycle risk level for likelihood ${row.label} and severity ${col.label}`"
               @click="cycleCell(row.id, col.id)"
             >
               {{ cellLevel(row.id, col.id)?.label ?? '—' }}
-            </div>
+            </BaseClickableRow>
           </div>
         </div>
       </div>

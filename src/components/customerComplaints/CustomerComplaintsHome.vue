@@ -17,6 +17,7 @@ import { DateTime } from 'luxon'
 
 const router = useRouter()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const canCreate = computed(() => isAllowed(['customerComplaints:create']))
 const canUpdate = computed(() => isAllowed(['customerComplaints:update']))
@@ -201,7 +202,7 @@ const selectedComplaints = computed(() =>
 )
 
 async function runBulk(action, params = {}, confirmMessage = null) {
-  if (confirmMessage && !window.confirm(confirmMessage)) return
+  if (confirmMessage && !(await confirm({ message: confirmMessage, danger: true }))) return
   bulkBusy.value = true
   try {
     const { updated, skipped } = await post('/v1/services/customerComplaints/bulk', {
@@ -303,13 +304,7 @@ function onNewComplaint() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
-          Customer Complaints
-        </h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader title="Customer Complaints" />
 
     <SafeTeleport to="#main-header-actions">
       <div class="tw:flex tw:items-center tw:gap-2">

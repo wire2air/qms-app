@@ -401,22 +401,24 @@ function prevStep() {
 
         <div class="tw:grid tw:grid-cols-2 tw:gap-4 tw:overflow-auto tw:max-h-125 tw:p-1">
           <!-- Blank Option -->
-          <div
-            class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:p-8 tw:border tw:border-divider tw:rounded-xl tw:cursor-pointer tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"
+          <BaseClickableRow
+            class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:p-8 tw:border tw:border-divider tw:rounded-xl tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"
             :class="{ 'tw:border-primary tw:bg-main-hover': selectedPreset === 'blank' }"
+            aria-label="Start from a blank form"
             @click="selectBlank"
           >
             <IconCirclePlus :size="48" class="tw:text-secondary/40" />
             <div class="tw:text-lg tw:font-bold tw:mt-4 tw:text-on-main">Blank Form</div>
             <div class="tw:text-xs tw:text-secondary tw:text-center">Start from a clean slate</div>
-          </div>
+          </BaseClickableRow>
 
           <!-- Presets -->
-          <div
+          <BaseClickableRow
             v-for="preset in QMS_TEMPLATES"
             :key="preset.code"
-            class="tw:flex tw:flex-col tw:p-4 tw:border tw:border-divider tw:rounded-xl tw:cursor-pointer tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"
+            class="tw:flex tw:flex-col tw:p-4 tw:border tw:border-divider tw:rounded-xl tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"
             :class="{ 'tw:border-primary tw:bg-main-hover': selectedPreset === preset.title }"
+            :aria-label="`Use template ${preset.title}`"
             @click="applyTemplate(preset)"
           >
             <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
@@ -433,7 +435,7 @@ function prevStep() {
                 <DynamicForm :fields="preset.schema" readonly :modelValue="{}" />
               </div>
             </div>
-          </div>
+          </BaseClickableRow>
         </div>
       </div>
     </div>

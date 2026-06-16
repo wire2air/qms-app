@@ -104,11 +104,7 @@ function onVerified() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Training Verification</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader title="Training Verification" />
 
     <!-- Top stats -->
     <div class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:justify-between">
@@ -143,11 +139,12 @@ function onVerified() {
         </p>
 
         <div v-else class="tw:flex tw:flex-col tw:gap-2">
-          <div
+          <BaseClickableRow
             v-for="row in filteredInstances"
             :key="row.instance.id"
-            class="tw:p-3 tw:rounded-lg tw:border tw:cursor-pointer tw:transition-colors"
+            class="tw:p-3 tw:rounded-lg tw:border tw:transition-colors"
             :class="selectedInstanceId === row.instance.id ? 'tw:border-primary tw:bg-blue-50' : 'tw:border-divider tw:hover:bg-gray-50'"
+            :aria-label="`Select training instance ${row.instance.snapshot?.title || ''}`"
             @click="selectedInstanceId = row.instance.id"
           >
             <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
@@ -164,7 +161,7 @@ function onVerified() {
               <span>/ {{ row.totalCount }} total</span>
               <span class="tw:ml-auto">Launched {{ row.instance.createdAt?.formatDate('date') }}</span>
             </div>
-          </div>
+          </BaseClickableRow>
         </div>
       </div>
 

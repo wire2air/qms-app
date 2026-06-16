@@ -510,10 +510,12 @@ async function newVersion() {
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="prev in versionHistory"
             :key="prev.id"
-            class="tw:border-t tw:border-divider tw:cursor-pointer tw:hover:bg-main-hover"
+            tag="tr"
+            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+            :aria-label="`Open specification version ${prev.version}`"
             @click="router.push(getCompanyPath(`/qc-inspection/specifications/${prev.id}`))"
           >
             <td class="tw:px-5 tw:py-2.5 tw:font-mono tw:font-medium tw:text-on-main">v{{ prev.version }}</td>
@@ -522,7 +524,7 @@ async function newVersion() {
             </td>
             <td class="tw:px-5 tw:py-2.5 tw:text-secondary">{{ prev.effectiveFrom?.formatDate('date') || '—' }}</td>
             <td class="tw:px-5 tw:py-2.5 tw:text-secondary">{{ prev.effectiveUntil?.formatDate('date') || '—' }}</td>
-          </tr>
+          </BaseClickableRow>
         </tbody>
       </table>
     </div>

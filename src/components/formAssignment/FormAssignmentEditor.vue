@@ -34,6 +34,7 @@ const emit = defineEmits(['saved', 'cancel'])
 
 const router = useRouter()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 // Lock the log book when we're scoped to one (embedded in its tab) — the
 // picker is hidden and the value can't be changed.
@@ -289,7 +290,14 @@ async function save() {
 
 async function archive() {
   if (!isEditing.value) return
-  if (!confirm('Archive this log book assignment? Existing instances stay; no new ones generate.')) {
+  if (
+    !(await confirm({
+      title: 'Archive Assignment',
+      message: 'Archive this log book assignment? Existing instances stay; no new ones generate.',
+      okLabel: 'Archive',
+      danger: true,
+    }))
+  ) {
     return
   }
   isSaving.value = true
@@ -325,13 +333,11 @@ function back() {
     <!-- Standalone-route chrome: title + actions teleported to the page
          header. Suppressed when embedded (the host tab owns the header). -->
     <template v-if="!embedded">
-      <SafeTeleport to="#main-header-title">
-        <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-          <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
-            {{ isEditing ? 'Edit Log Book Assignment' : 'New Log Book Assignment' }}
-          </h2>
-        </div>
-      </SafeTeleport>
+      <PageHeader>
+        <template #title>
+          {{ isEditing ? 'Edit Log Book Assignment' : 'New Log Book Assignment' }}
+        </template>
+      </PageHeader>
 
       <SafeTeleport to="#main-header-actions">
         <BaseButton variant="ghost" @click="back">
