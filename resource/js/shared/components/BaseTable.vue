@@ -5,6 +5,9 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconTableOff,
+  IconColumns,
+  IconLineHeight,
+  IconCheck,
 } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -14,6 +17,12 @@ const props = defineProps({
   rowKey: { type: String, default: 'id' },
   noDataLabel: { type: String, default: 'No data available' },
   hidePagination: { type: Boolean, default: false },
+  // --- Phase 3 opt-in enterprise features (all default to current behavior) ---
+  selectable: { type: Boolean, default: false }, // checkbox column + bulk-action bar
+  columnToggle: { type: Boolean, default: false }, // show/hide columns menu
+  showDensityToggle: { type: Boolean, default: false }, // comfortable/compact toggle
+  stickyHeader: { type: Boolean, default: true }, // header sticks on vertical scroll
+  maxHeight: { type: String, default: null }, // e.g. '60vh' → internal vertical scroll
 })
 
 const emit = defineEmits(['row-click'])
@@ -28,6 +37,23 @@ const pagination = defineModel('pagination', {
     total: null,
   }),
 })
+
+// Array of rowKey values. Opt-in via `selectable`; v-model:selected to read it.
+const selected = defineModel('selected', { type: Array, default: () => [] })
+// 'comfortable' | 'compact'. v-model:density optional; togglable in-table.
+const density = defineModel('density', { type: String, default: 'comfortable' })
+
+const slots = useSlots()
+
+// Columns hidden via the column-toggle menu (internal — by col.name).
+const hiddenCols = ref(new Set())
+const visibleColumns = computed(() => props.columns.filter((c) => !hiddenCols.value.has(c.name)))
+function toggleColumn(col) {
+  if (col.hideable === false) return
+  const next = new Set(hiddenCols.value)
+  next.has(col.name) ? next.delete(col.name) : next.add(col.name)
+  hiddenCols.value = next
+}
 
 const sortColumn = computed(() => pagination.value.sortBy ?? null)
 const sortDirection = computed(() => (pagination.value.descending ? 'desc' : 'asc'))
@@ -48,18 +74,31 @@ function getCellValue(row, col) {
   return row[col.field]
 }
 
+// Type-aware comparison: numbers numerically, luxon DateTime by millis,
+// everything else via locale compare with numeric collation.
+function compareValues(valA, valB) {
+  if (valA == null && valB == null) return 0
+  if (valA == null) return 1
+  if (valB == null) return -1
+  if (typeof valA === 'number' && typeof valB === 'number') return valA - valB
+  if (typeof valA?.toMillis === 'function' && typeof valB?.toMillis === 'function') {
+    return valA.toMillis() - valB.toMillis()
+  }
+  return String(valA).localeCompare(String(valB), undefined, { numeric: true })
+}
+
 const sortedRows = computed(() => {
   if (!sortColumn.value) return props.rows
   const col = props.columns.find((c) => c.name === sortColumn.value)
   if (!col || !col.sortable) return props.rows
+  const dir = sortDirection.value === 'asc' ? 1 : -1
   return [...props.rows].sort((a, b) => {
-    const valA = getCellValue(a, col)
-    const valB = getCellValue(b, col)
-    if (valA == null && valB == null) return 0
-    if (valA == null) return 1
-    if (valB == null) return -1
-    const cmp = String(valA).localeCompare(String(valB), undefined, { numeric: true })
-    return sortDirection.value === 'asc' ? cmp : -cmp
+    // Custom per-column comparator wins, if provided.
+    const cmp =
+      typeof col.sort === 'function'
+        ? col.sort(getCellValue(a, col), getCellValue(b, col), a, b)
+        : compareValues(getCellValue(a, col), getCellValue(b, col))
+    return cmp * dir
   })
 })
 
@@ -70,6 +109,33 @@ const paginatedRows = computed(() => {
   return sortedRows.value.slice(start, start + rowsPerPage)
 })
 
+// --- Selection -------------------------------------------------------------
+const pageRowKeys = computed(() => paginatedRows.value.map((r) => r[props.rowKey]))
+const allSelected = computed(
+  () => pageRowKeys.value.length > 0 && pageRowKeys.value.every((k) => selected.value.includes(k)),
+)
+const someSelected = computed(() => pageRowKeys.value.some((k) => selected.value.includes(k)))
+const isIndeterminate = computed(() => someSelected.value && !allSelected.value)
+
+function isRowSelected(row) {
+  return selected.value.includes(row[props.rowKey])
+}
+function toggleRow(row) {
+  const k = row[props.rowKey]
+  selected.value = selected.value.includes(k)
+    ? selected.value.filter((x) => x !== k)
+    : [...selected.value, k]
+}
+function toggleAll() {
+  if (allSelected.value) {
+    selected.value = selected.value.filter((k) => !pageRowKeys.value.includes(k))
+  } else {
+    const set = new Set([...selected.value, ...pageRowKeys.value])
+    selected.value = [...set]
+  }
+}
+
+// --- Layout helpers --------------------------------------------------------
 const totalPages = computed(() => {
   const { rowsPerPage, total: initialTotal } = pagination.value
   const total = initialTotal || props.rows.length
@@ -100,33 +166,137 @@ function tdAlignClass(align) {
   if (align === 'center') return 'tw:text-center tw:justify-center'
   return 'tw:text-left tw:justify-start'
 }
+
+const isCompact = computed(() => density.value === 'compact')
+const thPadY = computed(() => (isCompact.value ? 'tw:py-2' : 'tw:py-3'))
+const tdPadY = computed(() => (isCompact.value ? 'tw:py-1.5' : 'tw:py-3'))
+const stickyClass = computed(() => (props.stickyHeader ? 'tw:sticky tw:top-0 tw:z-1' : ''))
+
+const emptyColspan = computed(() => visibleColumns.value.length + (props.selectable ? 1 : 0))
+
+const hasToolbar = computed(
+  () =>
+    !!slots.toolbar ||
+    !!slots['toolbar-left'] ||
+    props.columnToggle ||
+    props.showDensityToggle ||
+    (props.selectable && selected.value.length > 0),
+)
+
+const scrollStyle = computed(() =>
+  props.maxHeight ? { maxHeight: props.maxHeight, overflowY: 'auto' } : null,
+)
 </script>
 
 <template>
   <div
-    class="tw:relative tw:w-full tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:shadow-sm tw:overflow-hidden tw:flex tw:flex-col"
+    class="tw:relative tw:w-full tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:shadow-raised tw:overflow-hidden tw:flex tw:flex-col"
   >
     <!-- Loading bar -->
     <div
       v-if="loading"
-      class="tw:absolute tw:top-0 tw:left-0 tw:right-0 tw:h-0.5 tw:overflow-hidden tw:z-10"
+      class="tw:absolute tw:top-0 tw:left-0 tw:right-0 tw:h-0.5 tw:overflow-hidden tw:z-20"
     >
       <div class="tw:h-full tw:w-2/5 tw:bg-primary tw:animate-slide" />
+    </div>
+
+    <!-- Toolbar (bulk actions / density / column toggle) — renders only when used -->
+    <div
+      v-if="hasToolbar"
+      class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:border-b tw:border-divider tw:bg-main tw:px-4 tw:py-2"
+    >
+      <div class="tw:flex tw:min-h-7 tw:items-center tw:gap-3">
+        <template v-if="selectable && selected.length > 0">
+          <span class="tw:text-sm tw:font-semibold tw:text-on-main">
+            {{ selected.length }} selected
+          </span>
+          <slot name="bulk-actions" :selected="selected" :clear="() => (selected = [])" />
+        </template>
+        <slot name="toolbar-left" />
+      </div>
+
+      <div class="tw:flex tw:items-center tw:gap-1">
+        <slot name="toolbar" />
+        <button
+          v-if="showDensityToggle"
+          class="tw:flex tw:items-center tw:gap-1.5 tw:rounded-md tw:px-2 tw:py-1.5 tw:text-xs tw:font-medium tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main tw:transition-colors"
+          :title="isCompact ? 'Comfortable rows' : 'Compact rows'"
+          @click="density = isCompact ? 'comfortable' : 'compact'"
+        >
+          <IconLineHeight :size="16" />
+          <span class="tw:hidden sm:tw:inline">{{ isCompact ? 'Compact' : 'Comfortable' }}</span>
+        </button>
+
+        <BasePopover v-if="columnToggle" placement="bottom-end">
+          <template #button>
+            <button
+              class="tw:flex tw:items-center tw:gap-1.5 tw:rounded-md tw:px-2 tw:py-1.5 tw:text-xs tw:font-medium tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main tw:transition-colors"
+              title="Columns"
+            >
+              <IconColumns :size="16" />
+              <span class="tw:hidden sm:tw:inline">Columns</span>
+            </button>
+          </template>
+          <template #content>
+            <div class="tw:w-52 tw:p-1">
+              <button
+                v-for="col in columns"
+                :key="col.name"
+                class="tw:flex tw:w-full tw:items-center tw:justify-between tw:gap-2 tw:rounded-md tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:transition-colors"
+                :class="
+                  col.hideable === false
+                    ? 'tw:cursor-not-allowed tw:opacity-50'
+                    : 'tw:hover:bg-main-hover'
+                "
+                @click="toggleColumn(col)"
+              >
+                <span class="tw:truncate">{{ col.label }}</span>
+                <IconCheck
+                  v-if="!hiddenCols.has(col.name)"
+                  :size="15"
+                  class="tw:shrink-0 tw:text-primary"
+                />
+              </button>
+            </div>
+          </template>
+        </BasePopover>
+      </div>
     </div>
 
     <!-- Scrollable container -->
     <div
       class="tw:overflow-x-auto tw:transition-opacity tw:duration-200"
       :class="loading ? 'tw:opacity-50 tw:pointer-events-none' : 'tw:opacity-100'"
+      :style="scrollStyle"
     >
       <table class="tw:w-full tw:min-w-125 tw:border-collapse tw:text-sm">
         <thead>
           <tr>
+            <!-- Selection header -->
             <th
-              v-for="col in columns"
+              v-if="selectable"
+              :class="[
+                'tw:w-10 tw:border-b tw:border-divider tw:bg-main tw:px-4 tw:text-center',
+                thPadY,
+                stickyClass,
+              ]"
+            >
+              <input
+                type="checkbox"
+                class="tw:size-4 tw:cursor-pointer tw:rounded tw:border-divider tw:accent-primary tw:align-middle"
+                :checked="allSelected"
+                :indeterminate.prop="isIndeterminate"
+                @change="toggleAll"
+              />
+            </th>
+
+            <th
+              v-for="col in visibleColumns"
               :key="col.name"
               :class="[
-                'tw:px-4 tw:py-3 tw:text-xs tw:font-bold tw:tracking-widest tw:uppercase tw:whitespace-nowrap tw:select-none tw:border-b tw:border-divider tw:bg-main tw:transition-colors tw:duration-150',
+                'tw:px-4 tw:text-xs tw:font-bold tw:tracking-widest tw:uppercase tw:whitespace-nowrap tw:select-none tw:border-b tw:border-divider tw:bg-main tw:transition-colors tw:duration-150',
+                thPadY,
+                stickyClass,
                 thAlignClass(col.align),
                 col.sortable ? 'tw:cursor-pointer tw:hover:bg-main-hover' : 'tw:cursor-default',
                 sortColumn === col.name
@@ -173,13 +343,30 @@ function tdAlignClass(align) {
               v-for="(row, rowIndex) in paginatedRows"
               :key="row[rowKey] ?? rowIndex"
               class="tw:border-b tw:border-divider last:tw:border-b-0 tw:transition-colors tw:duration-100 tw:hover:bg-sidebar-hover"
+              :class="isRowSelected(row) ? 'tw:bg-main-selected' : ''"
               @click.prevent="emit('row-click', row, rowIndex)"
             >
+              <!-- Selection cell -->
               <td
-                v-for="col in columns"
+                v-if="selectable"
+                class="tw:w-10 tw:px-4 tw:text-center tw:align-middle"
+                :class="tdPadY"
+                @click.stop
+              >
+                <input
+                  type="checkbox"
+                  class="tw:size-4 tw:cursor-pointer tw:rounded tw:border-divider tw:accent-primary tw:align-middle"
+                  :checked="isRowSelected(row)"
+                  @change="toggleRow(row)"
+                />
+              </td>
+
+              <td
+                v-for="col in visibleColumns"
                 :key="col.name"
                 :class="[
-                  'tw:whitespace-nowrap tw:px-4 tw:py-3 tw:text-on-main tw:align-middle tw:leading-snug',
+                  'tw:whitespace-nowrap tw:px-4 tw:text-on-main tw:align-middle tw:leading-snug',
+                  tdPadY,
                   tdAlignClass(col.align),
                 ]"
               >
@@ -207,7 +394,7 @@ function tdAlignClass(align) {
           </template>
 
           <tr v-else>
-            <td :colspan="columns.length" class="tw:px-4 tw:py-16 tw:text-center">
+            <td :colspan="emptyColspan" class="tw:px-4 tw:py-16 tw:text-center">
               <div class="tw:flex tw:flex-col tw:items-center tw:gap-3 tw:text-secondary">
                 <IconTableOff :size="40" class="tw:text-placeholder" />
                 <span class="tw:text-sm tw:font-medium">{{ noDataLabel }}</span>

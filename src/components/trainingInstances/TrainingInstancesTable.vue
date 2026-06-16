@@ -49,7 +49,7 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable :pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
+  <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
     <template #body-cell-title="{ row }">
       <RouterLink
         :to="getCompanyPath(`/training-instances/${row.id}`)"

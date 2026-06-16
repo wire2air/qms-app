@@ -719,7 +719,7 @@ defineExpose({ exportCsv })
   <!-- Desktop / landscape: full table -->
   <div class="tw:hidden tw:md:block">
   <BaseTable
-    :pagination="pagination"
+    v-model:pagination="pagination"
     :rows="filteredInstances"
     :columns="columns"
     rowKey="id"
