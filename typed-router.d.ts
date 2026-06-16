@@ -478,13 +478,6 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
-    '/table-test': RouteRecordInfo<
-      '/table-test',
-      '/table-test',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
     '/task-instances': RouteRecordInfo<
       '/task-instances',
       '/task-instances',
@@ -948,12 +941,6 @@ declare module 'vue-router/auto-routes' {
     'src/pages/support/ticket/[id].vue': {
       routes:
         | '/support/ticket/[id]'
-      views:
-        | never
-    }
-    'src/pages/table-test.vue': {
-      routes:
-        | '/table-test'
       views:
         | never
     }
