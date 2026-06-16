@@ -182,10 +182,11 @@ async function handleAvatarDelete() {
           <div
             class="tw:flex tw:flex-col tw:md:flex-row tw:items-center tw:md:items-start tw:gap-6"
           >
-            <div
+            <BaseClickableRow
               class="tw:relative tw:group"
-              :class="{ 'tw:cursor-pointer': canUpdateUser }"
-              @click="canUpdateUser ? openAvatarDialog() : null"
+              :disabled="!canUpdateUser"
+              aria-label="Change profile picture"
+              @click="openAvatarDialog"
             >
               <UserAvatar :user="user" :showBadge="true" class="tw:size-24" />
               <div
@@ -194,7 +195,7 @@ async function handleAvatarDelete() {
               >
                 <IconCamera :size="32" class="tw:text-white" />
               </div>
-            </div>
+            </BaseClickableRow>
             <div
               class="tw:flex tw:flex-col tw:items-center tw:md:items-start tw:text-center tw:md:text-left tw:pt-2"
             >

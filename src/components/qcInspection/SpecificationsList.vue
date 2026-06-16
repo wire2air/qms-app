@@ -116,10 +116,12 @@ function exportCsv() {
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="s in specs"
             :key="s.id"
-            class="tw:border-t tw:border-divider tw:cursor-pointer tw:hover:bg-main-hover"
+            tag="tr"
+            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+            :aria-label="`Open specification ${s.name}`"
             @click="openSpec(s.id)"
           >
             <td class="tw:px-4 tw:py-2.5 tw:font-medium tw:text-on-main">
@@ -139,7 +141,7 @@ function exportCsv() {
                 Approve
               </BaseButton>
             </td>
-          </tr>
+          </BaseClickableRow>
           <tr v-if="!specs.length">
             <td colspan="5" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
               No specifications yet.

@@ -64,13 +64,14 @@ async function handleCreate() {
     <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
       <!-- Connection type choice -->
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div
-          class="tw:rounded-xl tw:border-2 tw:p-4 tw:cursor-pointer tw:transition-all"
+        <BaseClickableRow
+          class="tw:rounded-xl tw:border-2 tw:p-4 tw:transition-all"
           :class="
             channelType === 'SYSTEM'
               ? 'tw:border-primary tw:bg-primary/5'
               : 'tw:border-divider tw:hover:border-primary/50'
           "
+          aria-label="Create system address"
           @click="channelType = 'SYSTEM'"
         >
           <div class="tw:flex tw:items-center tw:gap-2 tw:mb-1">
@@ -83,14 +84,15 @@ async function handleCreate() {
           <p class="tw:text-xs tw:font-mono tw:text-secondary tw:mt-1">
             support@{{ companyMailDomain }}
           </p>
-        </div>
-        <div
-          class="tw:rounded-xl tw:border-2 tw:p-4 tw:cursor-pointer tw:transition-all"
+        </BaseClickableRow>
+        <BaseClickableRow
+          class="tw:rounded-xl tw:border-2 tw:p-4 tw:transition-all"
           :class="
             channelType === 'FORWARDING'
               ? 'tw:border-primary tw:bg-primary/5'
               : 'tw:border-divider tw:hover:border-primary/50'
           "
+          aria-label="Connect external address"
           @click="channelType = 'FORWARDING'"
         >
           <div class="tw:flex tw:items-center tw:gap-2 tw:mb-1">
@@ -100,7 +102,7 @@ async function handleCreate() {
           <p class="tw:text-xs tw:text-secondary">
             Your own email (support@yourcompany.com) — forward it here, then verify.
           </p>
-        </div>
+        </BaseClickableRow>
       </div>
 
       <!-- Common: name -->

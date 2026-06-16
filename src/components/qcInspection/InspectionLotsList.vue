@@ -105,10 +105,12 @@ function exportCsv() {
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="l in lots"
             :key="l.id"
-            class="tw:border-t tw:border-divider tw:cursor-pointer tw:hover:bg-main-hover"
+            tag="tr"
+            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+            :aria-label="`Open inspection lot ${l.lotNumber}`"
             @click="openLot(l.id)"
           >
             <td class="tw:px-4 tw:py-2.5 tw:font-mono tw:text-on-main">{{ l.lotNumber }}</td>
@@ -134,7 +136,7 @@ function exportCsv() {
               </RouterLink>
               <span v-else class="tw:text-secondary">—</span>
             </td>
-          </tr>
+          </BaseClickableRow>
           <tr v-if="!lots.length">
             <td colspan="7" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">No inspection lots yet.</td>
           </tr>

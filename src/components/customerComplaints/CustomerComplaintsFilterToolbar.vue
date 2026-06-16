@@ -183,10 +183,12 @@ function clearAdvanced() {
       </button>
 
       <span v-if="savedViews.length" class="tw:text-divider">|</span>
-      <span
+      <BaseClickableRow
         v-for="view in savedViews"
         :key="view.id"
-        class="tw:group tw:inline-flex tw:items-center tw:gap-1 tw:px-3 tw:py-1 tw:rounded-full tw:text-xs tw:font-medium tw:border tw:border-divider tw:bg-white tw:text-secondary tw:hover:bg-main-hover tw:cursor-pointer"
+        tag="span"
+        class="tw:group tw:inline-flex tw:items-center tw:gap-1 tw:px-3 tw:py-1 tw:rounded-full tw:text-xs tw:font-medium tw:border tw:border-divider tw:bg-white tw:text-secondary tw:hover:bg-main-hover"
+        :aria-label="`Apply saved view ${view.name}`"
         @click="emit('applyView', view)"
       >
         <IconBookmark :size="12" />
@@ -198,7 +200,7 @@ function clearAdvanced() {
         >
           <IconTrash :size="12" />
         </button>
-      </span>
+      </BaseClickableRow>
 
       <button
         class="tw:flex tw:items-center tw:gap-1 tw:px-2 tw:py-1 tw:rounded-md tw:text-xs tw:text-secondary tw:hover:bg-main-hover"

@@ -78,10 +78,14 @@ function rowMenuItems(row) {
   <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
     <!-- Title Column -->
     <template #body-cell-title="{ row }">
-      <div class="tw:flex tw:flex-col tw:cursor-pointer" @click="navigateToTemplate(row)">
+      <BaseClickableRow
+        class="tw:flex tw:flex-col"
+        :to="getCompanyPath(`/templates/${row.id}`)"
+        :aria-label="`Open template ${row.title}`"
+      >
         <span class="tw:font-bold tw:text-on-main">{{ row.title }}</span>
         <span class="tw:text-xs tw:text-secondary">{{ row.code }}</span>
-      </div>
+      </BaseClickableRow>
     </template>
 
     <!-- Version Column -->

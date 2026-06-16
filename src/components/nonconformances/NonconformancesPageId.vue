@@ -529,14 +529,16 @@ function onCreateLinkedChangeRequest() {
                 class="tw:mb-2"
                 @blur="editingTitle = false"
               />
-              <div
+              <BaseClickableRow
                 v-else
                 class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
-                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                @click="isEditable && (editingTitle = true)"
+                :class="isEditable ? 'tw:hover:text-primary' : ''"
+                :disabled="!isEditable"
+                aria-label="Edit NC title"
+                @click="editingTitle = true"
               >
                 {{ nc.title }}
-              </div>
+              </BaseClickableRow>
               <div v-if="editingDescription && isEditable" class="nc-detail-editor tw:mb-4">
                 <BaseRichTextEditor
                   v-model="nc.description"
@@ -544,21 +546,27 @@ function onCreateLinkedChangeRequest() {
                   @blur="editingDescription = false"
                 />
               </div>
-              <div v-else class="tw:mb-4" @click="isEditable && (editingDescription = true)">
+              <BaseClickableRow
+                v-else
+                class="tw:mb-4"
+                :disabled="!isEditable"
+                aria-label="Edit NC description"
+                @click="editingDescription = true"
+              >
                 <div
                   v-if="nc.description"
                   class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:prose tw:max-w-none"
-                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                  :class="isEditable ? 'tw:hover:text-primary' : ''"
                   v-html="nc.description"
                 />
                 <p
                   v-else
                   class="tw:text-sm tw:text-secondary tw:leading-relaxed"
-                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                  :class="isEditable ? 'tw:hover:text-primary' : ''"
                 >
                   {{ isEditable ? 'Add a description…' : '—' }}
                 </p>
-              </div>
+              </BaseClickableRow>
 
               <!-- Required-at-create fields stay in the main view:
                    Severity, Type, Source, Detected. Optional metadata
@@ -574,13 +582,16 @@ function onCreateLinkedChangeRequest() {
                     :required="true"
                     @blur="editingSeverity = false"
                   />
-                  <span
+                  <BaseClickableRow
                     v-else
-                    :class="isEditable ? 'tw:cursor-pointer tw:hover:opacity-70' : ''"
-                    @click="isEditable && (editingSeverity = true)"
+                    tag="span"
+                    :class="isEditable ? 'tw:hover:opacity-70' : ''"
+                    :disabled="!isEditable"
+                    aria-label="Edit severity"
+                    @click="editingSeverity = true"
                   >
                     <NcSeverityBadgeById :severityId="nc.severityId" />
-                  </span>
+                  </BaseClickableRow>
                 </div>
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Type</div>
@@ -597,14 +608,17 @@ function onCreateLinkedChangeRequest() {
                     v-model="nc.detectedAt"
                     @blur="editingDetected = false"
                   />
-                  <span
+                  <BaseClickableRow
                     v-else
+                    tag="span"
                     class="tw:text-sm tw:font-medium"
-                    :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                    @click="isEditable && (editingDetected = true)"
+                    :class="isEditable ? 'tw:hover:text-primary' : ''"
+                    :disabled="!isEditable"
+                    aria-label="Edit detected date"
+                    @click="editingDetected = true"
                   >
                     {{ nc.detectedAt ? nc.detectedAt.formatDate('date') : '—' }}
-                  </span>
+                  </BaseClickableRow>
                 </div>
               </div>
 
@@ -698,9 +712,11 @@ function onCreateLinkedChangeRequest() {
                       autofocus
                       @blur="editingCost = false"
                     />
-                    <span
+                    <BaseClickableRow
                       v-else
-                      class="tw:text-sm tw:font-medium tw:cursor-pointer tw:hover:text-primary"
+                      tag="span"
+                      class="tw:text-sm tw:font-medium tw:hover:text-primary"
+                      aria-label="Edit cost of NC"
                       @click="editingCost = true"
                     >
                       {{
@@ -711,7 +727,7 @@ function onCreateLinkedChangeRequest() {
                             })
                           : '—'
                       }}
-                    </span>
+                    </BaseClickableRow>
                   </div>
                   <!-- Credit from Supplier — offsetting recovery when the
                        supplier reimburses the NC cost. Shown alongside
@@ -727,9 +743,11 @@ function onCreateLinkedChangeRequest() {
                       autofocus
                       @blur="editingCredit = false"
                     />
-                    <span
+                    <BaseClickableRow
                       v-else
-                      class="tw:text-sm tw:font-medium tw:cursor-pointer tw:hover:text-primary"
+                      tag="span"
+                      class="tw:text-sm tw:font-medium tw:hover:text-primary"
+                      aria-label="Edit credit from supplier"
                       @click="editingCredit = true"
                     >
                       {{
@@ -740,7 +758,7 @@ function onCreateLinkedChangeRequest() {
                             })
                           : '—'
                       }}
-                    </span>
+                    </BaseClickableRow>
                   </div>
                 </div>
 
@@ -997,18 +1015,21 @@ function onCreateLinkedChangeRequest() {
                     class="tw:w-36"
                     @blur="editingDueDate = false"
                   />
-                  <span
+                  <BaseClickableRow
                     v-else
+                    tag="span"
                     class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
                     :class="[
                       isOverdue ? 'tw:text-red-600' : '',
-                      isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : '',
+                      isEditable ? 'tw:hover:text-primary' : '',
                     ]"
-                    @click="isEditable && (editingDueDate = true)"
+                    :disabled="!isEditable"
+                    aria-label="Edit due date"
+                    @click="editingDueDate = true"
                   >
                     <span>{{ nc.dueDate ? nc.dueDate.formatDate('date') : '—' }}</span>
                     <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
-                  </span>
+                  </BaseClickableRow>
                 </div>
               </div>
 

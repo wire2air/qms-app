@@ -45,6 +45,7 @@ const props = defineProps({
 
 const router = useRouter()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const canUpdate = computed(() => isAllowed(['logBooks:update']))
 
@@ -243,7 +244,16 @@ async function saveDocLink() {
 }
 
 async function removeDocLink(link) {
-  if (!confirm('Remove this document link?')) return
+  if (
+    !(await confirm({
+      title: 'Remove document link',
+      message: 'Remove this document link?',
+      okLabel: 'Remove',
+      danger: true,
+    }))
+  ) {
+    return
+  }
   await link.delete()
 }
 
@@ -439,9 +449,12 @@ async function discardDraft() {
   const target = openDraft.value
   if (!canDiscardDraft.value || !target || discardingDraft.value) return
   if (
-    !confirm(
-      `Discard ${versionLabel(target)}? This permanently deletes the draft. The current effective version stays in use.`,
-    )
+    !(await confirm({
+      title: 'Discard draft',
+      message: `Discard ${versionLabel(target)}? This permanently deletes the draft. The current effective version stays in use.`,
+      okLabel: 'Discard',
+      danger: true,
+    }))
   ) {
     return
   }
@@ -458,7 +471,14 @@ async function discardDraft() {
 
 // ─── Archive / restore ─────────────────────────────────────────────
 async function archive() {
-  if (!confirm('Archive this log book? It will stop appearing as an option for new entries.')) {
+  if (
+    !(await confirm({
+      title: 'Archive log book',
+      message: 'Archive this log book? It will stop appearing as an option for new entries.',
+      okLabel: 'Archive',
+      danger: true,
+    }))
+  ) {
     return
   }
   try {
@@ -477,13 +497,7 @@ function back() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
-          {{ logBook?.title || 'Log Book' }}
-        </h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :title="logBook?.title || 'Log Book'" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton variant="ghost" @click="back">
@@ -1180,10 +1194,12 @@ function back() {
                 </tr>
               </thead>
               <tbody>
-                <tr
+                <BaseClickableRow
                   v-for="row in logBookAssignments"
                   :key="row.id"
-                  class="tw:border-t tw:border-divider tw:hover:bg-main-hover tw:cursor-pointer"
+                  tag="tr"
+                  class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+                  :aria-label="`Edit assignment: ${scheduleSummary(row)}`"
                   @click="goEditAssignment(row.id)"
                 >
                   <td class="tw:px-3 tw:py-2 tw:text-on-main">
@@ -1229,7 +1245,7 @@ function back() {
                       Edit
                     </button>
                   </td>
-                </tr>
+                </BaseClickableRow>
               </tbody>
             </table>
           </div>

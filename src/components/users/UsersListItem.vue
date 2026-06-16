@@ -38,8 +38,9 @@ function onClick() {
 </script>
 
 <template>
-  <div
-    class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:bg-sidebar tw:rounded-lg tw:border tw:border-divider tw:cursor-pointer tw:hover:border-primary/30 tw:transition-colors"
+  <BaseClickableRow
+    class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:bg-sidebar tw:rounded-lg tw:border tw:border-divider tw:hover:border-primary/30 tw:transition-colors"
+    :aria-label="`View ${user.firstName} ${user.lastName}`"
     @click="onClick"
   >
     <UserAvatar :user="user" class="tw:size-14" />
@@ -61,5 +62,5 @@ function onClick() {
         <IconTrash :size="14" />
       </button>
     </div>
-  </div>
+  </BaseClickableRow>
 </template>

@@ -113,12 +113,7 @@ function onUpdated() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconTool class="tw:text-primary" :size="22" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Equipment</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconTool" title="Equipment" :iconSize="22" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canCreate" variant="primary" @click="showCreateDialog = true">
@@ -212,12 +207,14 @@ function onUpdated() {
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="e in equipment"
             :key="e.id"
+            tag="tr"
+            :disabled="!canUpdate"
             class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-            :class="canUpdate ? 'tw:cursor-pointer' : ''"
-            @click="canUpdate && openEdit(e)"
+            :aria-label="`Edit ${e.name}`"
+            @click="openEdit(e)"
           >
             <td class="tw:px-3 tw:py-2">
               <div class="tw:font-medium tw:text-on-main">{{ e.name }}</div>
@@ -270,7 +267,7 @@ function onUpdated() {
               </span>
               <span v-else class="tw:text-secondary">—</span>
             </td>
-          </tr>
+          </BaseClickableRow>
         </tbody>
       </table>
     </div>

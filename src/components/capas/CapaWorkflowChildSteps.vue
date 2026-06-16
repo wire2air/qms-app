@@ -307,11 +307,12 @@ function getRowClass(child) {
       </BaseButton>
     </div>
 
-    <div
+    <BaseClickableRow
       v-for="child in childInstanceSteps"
       :key="child.id"
-      class="tw:flex tw:items-center tw:gap-3 tw:px-4 tw:py-3 tw:border tw:rounded-lg tw:cursor-pointer tw:hover:shadow-sm tw:transition-shadow"
+      class="tw:flex tw:items-center tw:gap-3 tw:px-4 tw:py-3 tw:border tw:rounded-lg tw:hover:shadow-sm tw:transition-shadow"
       :class="getRowClass(child)"
+      :aria-label="`Open step ${childStepLabel(child)} ${childTitle(child)}`"
       @click="openChild(child)"
     >
       <!-- Status icon -->
@@ -410,7 +411,7 @@ function getRowClass(child) {
           @reassign="(id) => emit('reassign', id)"
         />
       </div>
-    </div>
+    </BaseClickableRow>
 
     <BaseDialog v-model="dialogOpen" :title="dialogTitle" maxWidth="2xl">
       <WorkflowStepForm

@@ -161,17 +161,18 @@ function getUserDisplayName(user) {
           </div>
 
           <div class="tw:max-h-48 tw:overflow-y-auto tw:space-y-1">
-            <div
+            <BaseClickableRow
               v-for="role in filteredRoles"
               :key="role.id"
+              :disabled="!canUpdate"
+              :aria-label="`Toggle role ${role.name}`"
               class="tw:flex tw:items-center tw:gap-3 tw:p-2 tw:rounded-lg tw:transition-colors"
               :class="[
                 assignedRoleIds.includes(role.id)
                   ? 'tw:bg-primary/10 tw:border tw:border-primary/20'
                   : 'tw:hover:bg-main-hover',
-                canUpdate ? 'tw:cursor-pointer' : 'tw:cursor-default',
               ]"
-              @click="canUpdate && toggleRole(role.id)"
+              @click="toggleRole(role.id)"
             >
               <div
                 class="tw:w-4 tw:h-4 tw:rounded tw:border tw:flex tw:items-center tw:justify-center tw:shrink-0 tw:transition-colors"
@@ -187,7 +188,7 @@ function getUserDisplayName(user) {
                   {{ role.description }}
                 </div>
               </div>
-            </div>
+            </BaseClickableRow>
             <BaseEmptyState v-if="filteredRoles.length === 0" dense title="No roles found" />
           </div>
         </div>
@@ -206,17 +207,18 @@ function getUserDisplayName(user) {
           </div>
 
           <div class="tw:max-h-48 tw:overflow-y-auto tw:space-y-1">
-            <div
+            <BaseClickableRow
               v-for="user in filteredUsers"
               :key="user.id"
+              :disabled="!canUpdate"
+              :aria-label="`Toggle user ${getUserDisplayName(user)}`"
               class="tw:flex tw:items-center tw:gap-3 tw:p-2 tw:rounded-lg tw:transition-colors"
               :class="[
                 assignedUserIds.includes(user.id)
                   ? 'tw:bg-primary/10 tw:border tw:border-primary/20'
                   : 'tw:hover:bg-main-hover',
-                canUpdate ? 'tw:cursor-pointer' : 'tw:cursor-default',
               ]"
-              @click="canUpdate && toggleUser(user.id)"
+              @click="toggleUser(user.id)"
             >
               <div
                 class="tw:w-4 tw:h-4 tw:rounded tw:border tw:flex tw:items-center tw:justify-center tw:shrink-0 tw:transition-colors"
@@ -232,7 +234,7 @@ function getUserDisplayName(user) {
                 </div>
                 <div class="tw:text-xs tw:text-secondary tw:truncate">{{ user.email }}</div>
               </div>
-            </div>
+            </BaseClickableRow>
             <BaseEmptyState v-if="filteredUsers.length === 0" dense title="No users found" />
           </div>
         </div>

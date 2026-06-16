@@ -38,8 +38,9 @@ function menuItems() {
 </script>
 
 <template>
-  <div
-    class="tw:group tw:cursor-pointer tw:bg-sidebar tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:transition-all tw:hover:shadow-md tw:hover:border-primary/30"
+  <BaseClickableRow
+    class="tw:group tw:bg-sidebar tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:transition-all tw:hover:shadow-md tw:hover:border-primary/30"
+    :aria-label="`Open template ${template.title}`"
     @click="navigateToTemplate()"
   >
     <div class="tw:flex tw:items-center tw:justify-between">
@@ -78,5 +79,5 @@ function menuItems() {
         <BaseMenu :items="menuItems()" @click.stop />
       </div>
     </div>
-  </div>
+  </BaseClickableRow>
 </template>

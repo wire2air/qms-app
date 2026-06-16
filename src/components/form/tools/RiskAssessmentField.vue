@@ -344,10 +344,11 @@ onBeforeUnmount(() => {
                 :key="col.id"
                 class="tw:p-0.5"
               >
-                <div
+                <BaseClickableRow
+                  :disabled="readonly || disabled"
                   class="tw:w-[72px] tw:h-10 tw:flex tw:items-center tw:justify-center tw:text-xs tw:font-semibold tw:rounded tw:transition-all tw:select-none"
                   :class="[
-                    readonly || disabled ? 'tw:cursor-default' : 'tw:cursor-pointer tw:hover:opacity-80',
+                    readonly || disabled ? 'tw:cursor-default' : 'tw:hover:opacity-80',
                     isSelectedCell(row.id, col.id)
                       ? 'tw:ring-2 tw:ring-offset-1 tw:ring-primary tw:shadow-md tw:scale-105'
                       : '',
@@ -355,10 +356,11 @@ onBeforeUnmount(() => {
                   :style="cellLevel(row.id, col.id)
                     ? { backgroundColor: cellLevel(row.id, col.id).bg, color: cellLevel(row.id, col.id).text }
                     : { backgroundColor: '#f3f4f6', color: '#9ca3af' }"
+                  :aria-label="`Select risk: ${row.label} by ${col.label}`"
                   @click="selectCell(row.id, col.id)"
                 >
                   {{ cellLevel(row.id, col.id)?.label ?? '—' }}
-                </div>
+                </BaseClickableRow>
               </td>
             </tr>
           </tbody>

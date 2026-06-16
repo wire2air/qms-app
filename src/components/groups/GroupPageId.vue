@@ -202,9 +202,10 @@ function copyToClipboard(text) {
           >
             <div class="tw:flex tw:items-center tw:gap-6">
               <!-- Avatar -->
-              <div
+              <BaseClickableRow
                 class="tw:relative tw:group"
-                :class="{ 'tw:cursor-pointer': canUpdate }"
+                :disabled="!canUpdate"
+                aria-label="Change group avatar"
                 @click="openAvatarDialog"
               >
                 <TeamAvatar :team="group" class="tw:size-20" />
@@ -214,7 +215,7 @@ function copyToClipboard(text) {
                 >
                   <IconCamera :size="28" class="tw:text-white" />
                 </div>
-              </div>
+              </BaseClickableRow>
 
               <!-- Name & Leadership -->
               <div>

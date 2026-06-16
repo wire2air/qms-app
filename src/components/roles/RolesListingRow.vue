@@ -45,8 +45,9 @@ async function handleActivate() {
 </script>
 
 <template>
-  <div
-    class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:p-4 tw:hover:shadow-md tw:hover:border-primary/30 tw:transition-all tw:group tw:relative tw:cursor-pointer"
+  <BaseClickableRow
+    class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:p-4 tw:hover:shadow-md tw:hover:border-primary/30 tw:transition-all tw:group tw:relative"
+    :aria-label="`Open role ${role.name}`"
     @click="navigateToRole"
   >
     <div class="tw:flex tw:justify-between tw:items-start tw:gap-4">
@@ -108,7 +109,7 @@ async function handleActivate() {
       </div>
 
     </div>
-  </div>
+  </BaseClickableRow>
 
   <ConfirmDialog
     v-model="confirmDeactivate"

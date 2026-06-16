@@ -22,6 +22,7 @@ const props = defineProps({
 })
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const requirements = useLiveQueryWithDeps(
   [() => props.version?.id],
@@ -221,9 +222,12 @@ async function handleSave() {
 async function handleDelete(row) {
   if (props.readonly) return
   if (
-    !window.confirm(
-      `Delete clause ${row.clauseNumber} — "${row.title}"? This can be undone via the audit log within the same version.`,
-    )
+    !(await confirm({
+      title: 'Delete clause',
+      message: `Delete clause ${row.clauseNumber} — "${row.title}"? This can be undone via the audit log within the same version.`,
+      okLabel: 'Delete',
+      danger: true,
+    }))
   ) {
     return
   }
@@ -383,8 +387,10 @@ async function handleBulkEnrich() {
         :style="rowIndentStyle(row.id)"
         class="tw:border tw:border-divider tw:rounded-md tw:bg-main-hover/30"
       >
-        <div
+        <BaseClickableRow
           class="tw:flex tw:items-start tw:gap-3 tw:px-3 tw:py-2.5 tw:cursor-pointer tw:hover:bg-main-hover/60"
+          :aria-label="`${expandedIds.has(row.id) ? 'Collapse' : 'Expand'} clause ${row.clauseNumber}`"
+          :aria-expanded="expandedIds.has(row.id)"
           @click="toggleExpanded(row.id)"
         >
           <code
@@ -434,7 +440,7 @@ async function handleBulkEnrich() {
               <IconTrash :size="16" />
             </button>
           </div>
-        </div>
+        </BaseClickableRow>
 
         <!-- Expanded body — read view of every clause attribute, shown in
              both editable and readonly (EFFECTIVE) mode so reviewers can

@@ -113,12 +113,7 @@ function editWindowSummary(t) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconStack2 class="tw:text-primary" :size="22" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Log Books</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconStack2" title="Log Books" :iconSize="22" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canCreate" variant="primary" @click="openCreate('OPERATIONAL_LOG')">
@@ -238,10 +233,12 @@ function editWindowSummary(t) {
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="t in templates"
             :key="t.id"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover tw:cursor-pointer"
+            tag="tr"
+            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+            :aria-label="`Open log book ${t.title}`"
             @click="openTemplate(t.id)"
           >
             <td class="tw:px-3 tw:py-2">
@@ -284,7 +281,7 @@ function editWindowSummary(t) {
               </span>
               <span v-else class="tw:text-secondary">—</span>
             </td>
-          </tr>
+          </BaseClickableRow>
         </tbody>
       </table>
     </div>

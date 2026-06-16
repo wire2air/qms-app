@@ -170,10 +170,11 @@ function truncate(text, n = 80) {
     </div>
 
     <div v-if="requests.length" class="tw:flex tw:flex-col tw:gap-2">
-      <div
+      <BaseClickableRow
         v-for="rfi in requests"
         :key="rfi.id"
-        class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover tw:cursor-pointer"
+        class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
+        :aria-label="`Open information request: ${truncate(rfi.question)}`"
         @click="openRfi(rfi)"
       >
         <div class="tw:flex tw:flex-col tw:gap-1 tw:min-w-0">
@@ -195,7 +196,7 @@ function truncate(text, n = 80) {
         <BaseButton :variant="actionFor(rfi).variant" size="sm" @click.stop="openRfi(rfi)">
           {{ actionFor(rfi).label }}
         </BaseButton>
-      </div>
+      </BaseClickableRow>
     </div>
     <div v-else class="tw:text-sm tw:text-secondary tw:italic">
       No information requests yet.

@@ -748,11 +748,13 @@ function printList() {
           </tr>
         </thead>
         <tbody>
-          <tr
+          <BaseClickableRow
             v-for="row in records"
             :key="row.id"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover tw:cursor-pointer"
+            tag="tr"
+            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
             :class="selectedIds.has(row.id) ? 'tw:bg-primary/5' : ''"
+            :aria-label="`Open log entry ${row.recordNumber || row.id}`"
             @click="openRecord(row.id)"
           >
             <!-- Per-row bulk checkbox. Only reviewable rows
@@ -855,7 +857,7 @@ function printList() {
                 <span v-else class="tw:text-secondary">—</span>
               </template>
             </td>
-          </tr>
+          </BaseClickableRow>
         </tbody>
       </table>
       </div>

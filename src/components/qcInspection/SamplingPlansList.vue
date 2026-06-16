@@ -128,8 +128,10 @@ async function createNewVersion(plan) {
 
         <tbody v-for="p in plans" :key="p.id">
           <!-- Main row -->
-          <tr
-            class="tw:border-t tw:border-divider tw:cursor-pointer tw:hover:bg-main-hover tw:transition-colors"
+          <BaseClickableRow
+            tag="tr"
+            class="tw:border-t tw:border-divider tw:hover:bg-main-hover tw:transition-colors"
+            :aria-label="`Toggle details for sampling plan ${p.name}`"
             @click="toggleExpand(p.id)"
           >
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
@@ -182,7 +184,7 @@ async function createNewVersion(plan) {
                 </BaseButton>
               </div>
             </td>
-          </tr>
+          </BaseClickableRow>
 
           <!-- Expanded detail row -->
           <tr v-if="expandedId === p.id" class="tw:border-t tw:border-divider tw:bg-main-hover">
