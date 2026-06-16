@@ -240,7 +240,7 @@ const scrollStyle = computed(() =>
           <template #content>
             <div class="tw:w-52 tw:p-1">
               <button
-                v-for="col in columns"
+                v-for="col in columns.filter((c) => c.label && c.hideable !== false)"
                 :key="col.name"
                 class="tw:flex tw:w-full tw:items-center tw:justify-between tw:gap-2 tw:rounded-md tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:transition-colors"
                 :class="

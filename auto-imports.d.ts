@@ -326,6 +326,7 @@ declare global {
   const useSuppliers: typeof import('./src/composables/useSuppliers.js').useSuppliers
   const useSupported: typeof import('@vueuse/core').useSupported
   const useSwipe: typeof import('@vueuse/core').useSwipe
+  const useTableFilters: typeof import('./resource/js/shared/composables/useTableFilters.js').useTableFilters
   const useTaskInstances: typeof import('./src/composables/useTaskInstances.js').useTaskInstances
   const useTemplateForm: typeof import('./src/composables/useTemplateForm.js').useTemplateForm
   const useTemplateRef: typeof import('vue').useTemplateRef

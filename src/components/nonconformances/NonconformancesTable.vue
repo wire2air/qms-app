@@ -23,7 +23,7 @@ function isOverdue(row) {
 }
 
 const columns = [
-  { name: 'ncNumber', label: 'NC NUMBER', field: 'ncNumber', align: 'left', sortable: true },
+  { name: 'ncNumber', label: 'NC NUMBER', field: 'ncNumber', align: 'left', sortable: true, hideable: false },
   { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
   { name: 'severity', label: 'SEVERITY', field: 'severityId', align: 'left', sortable: false },
   { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
@@ -54,7 +54,14 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
+  <BaseTable
+    v-model:pagination="pagination"
+    :rows="rows"
+    :columns="columns"
+    rowKey="id"
+    columnToggle
+    showDensityToggle
+  >
     <template #body-cell-ncNumber="{ row }">
       <RouterLink
         :to="getCompanyPath(`/nonconformances/${row.id}`)"

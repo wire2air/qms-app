@@ -20,10 +20,13 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['delete', 'edit'])
+const emit = defineEmits(['delete', 'edit', 'bulkDelete'])
+
+const selected = ref([])
+const selectedRows = computed(() => props.rows.filter((r) => selected.value.includes(r.id)))
 
 const columns = [
-  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
+  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true, hideable: false },
   { name: 'sku', label: 'SKU', field: 'sku', align: 'left', sortable: true },
   { name: 'family', label: 'FAMILY', field: 'family', align: 'left', sortable: true },
   {
@@ -117,11 +120,36 @@ function downloadCsv(rows, cols) {
 
     <BaseTable
       v-model:pagination="pagination"
+      v-model:selected="selected"
       :rows="rows"
       :columns="columns"
       :loading="loading"
       rowKey="id"
+      selectable
+      columnToggle
+      showDensityToggle
     >
+      <template #bulk-actions="{ clear }">
+        <BaseButton variant="outline" size="sm" @click="downloadCsv(selectedRows, columns)">
+          <template #icon><IconDownload :size="14" /></template>
+          Export
+        </BaseButton>
+        <BaseButton
+          v-if="canDelete"
+          variant="danger"
+          size="sm"
+          @click="
+            () => {
+              emit('bulkDelete', selectedRows)
+              clear()
+            }
+          "
+        >
+          <template #icon><IconTrash :size="14" /></template>
+          Delete
+        </BaseButton>
+      </template>
+
       <template #body-cell-name="{ row }">
         <div class="tw:font-bold tw:text-on-main">{{ row.name }}</div>
       </template>

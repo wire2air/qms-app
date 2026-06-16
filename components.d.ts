@@ -121,6 +121,7 @@ declare module 'vue' {
     BaseDialog: typeof import('./resource/js/shared/components/BaseDialog.vue')['default']
     BaseEmptyState: typeof import('./resource/js/shared/components/BaseEmptyState.vue')['default']
     BaseFileItem: typeof import('./src/components/common/BaseFileItem.vue')['default']
+    BaseFilterBar: typeof import('./resource/js/shared/components/BaseFilterBar.vue')['default']
     BaseInlineSelect: typeof import('./resource/js/shared/components/BaseInlineSelect.vue')['default']
     BaseMenu: typeof import('./resource/js/shared/components/BaseMenu.vue')['default']
     BasePhoto: typeof import('./resource/js/shared/components/BasePhoto.vue')['default']
