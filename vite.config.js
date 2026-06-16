@@ -1,5 +1,4 @@
 import { defineConfig, loadEnv } from 'vite'
-import { quasar, transformAssetUrls } from '@quasar/vite-plugin'
 import { fileURLToPath } from 'url'
 import vue from '@vitejs/plugin-vue'
 import babel from 'vite-plugin-babel'
@@ -108,17 +107,7 @@ export default defineConfig(({ mode }) => {
       }),
 
       // Vue plugin
-      vue({
-        template: {
-          transformAssetUrls,
-        },
-      }),
-
-      // Quasar plugin
-      quasar({
-        autoImportComponentCase: 'pascal',
-        sassVariables: fileURLToPath(new URL('./src/css/quasar.variables.scss', import.meta.url)),
-      }),
+      vue(),
 
       // Vue I18n
       VueI18nPlugin({

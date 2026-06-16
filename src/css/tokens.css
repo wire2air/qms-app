@@ -418,17 +418,6 @@
     outline: none;
     box-shadow: var(--focus-ring);
   }
-
-  /* Quasar buttons & inputs have their own focus - enhance them */
-  .q-btn:focus-visible,
-  .q-field__control:focus-within {
-    box-shadow: var(--focus-ring);
-  }
-
-  /* Remove Quasar's default focus helper ripple when focused via keyboard */
-  .q-btn:focus-visible .q-focus-helper {
-    opacity: 0;
-  }
 }
 
 /* `tw:bg-white` surfaces become panel surfaces in dark mode. Done as an

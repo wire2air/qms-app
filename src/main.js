@@ -7,7 +7,6 @@ import VCalendar from 'v-calendar'
 
 import { createApp } from 'vue'
 import { createI18n } from 'vue-i18n'
-import { Quasar, Dialog, Loading } from 'quasar'
 import { useToast } from '@shared/composables/useToast.js'
 
 import App from './App.vue'
@@ -20,15 +19,6 @@ import { registerNotifyHandler, eventBus } from './api'
 import { ApiError } from './api/errors.js'
 import { isPublicRoute } from './constants/authRoutes.js'
 import { connectSocket, disconnectSocket } from './api/socket.js'
-
-// Import Quasar CSS
-import '@quasar/extras/roboto-font/roboto-font.css'
-import '@quasar/extras/material-icons/material-icons.css'
-import '@quasar/extras/material-symbols-outlined/material-symbols-outlined.css'
-import '@quasar/extras/material-symbols-rounded/material-symbols-rounded.css'
-
-// Import Quasar CSS
-import 'quasar/src/css/index.sass'
 
 // Import app CSS (TailwindCSS + custom theme)
 import './css/base.css'
@@ -58,15 +48,6 @@ const app = createApp(App)
 // Faro captures Vue component errors via app.config.errorHandler.
 installVueErrorHandler(app)
 
-// Use Quasar
-app.use(Quasar, {
-  plugins: {
-    Dialog,
-    Loading,
-  },
-  config: {},
-})
-
 // Use VCalendar
 app.use(VCalendar, {})
 
@@ -81,7 +62,7 @@ app.mount('#app')
 
 // ── API layer wiring ──────────────────────────────────────────────────────────
 
-// 1. Notification adapter — bridge API layer events to Quasar toasts
+// 1. Notification adapter — bridge API layer events to the Base toast system
 const toast = useToast()
 
 registerNotifyHandler(({ type, message, fields }) => {
