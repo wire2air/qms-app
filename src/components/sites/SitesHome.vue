@@ -51,12 +51,7 @@ async function confirmDeleteSite() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconMapPin class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Sites</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconMapPin" title="Sites" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canCreateSite" @click="openDialog()">

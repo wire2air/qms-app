@@ -61,12 +61,7 @@ function onDeleteSupplier(row) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconTruck class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Suppliers</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconTruck" title="Suppliers" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canCreateSupplier" @click="onCreateSupplier">

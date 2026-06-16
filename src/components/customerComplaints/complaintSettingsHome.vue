@@ -44,14 +44,7 @@ watch(
 
 <template>
   <div class="tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconHeadset class="tw:text-primary tw:size-6" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
-          Complaint Settings
-        </h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconHeadset" title="Complaint Settings" />
 
     <div class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
       <div class="tw:flex tw:flex-col tw:gap-1">

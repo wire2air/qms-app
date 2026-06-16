@@ -121,11 +121,7 @@ function onCreate() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Change Requests</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader title="Change Requests" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton variant="outline" :disabled="!changeRequests.length" @click="exportCsv">

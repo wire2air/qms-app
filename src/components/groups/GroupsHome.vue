@@ -29,12 +29,7 @@ const loading = computed(() => groups.value === undefined)
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconUsersGroup class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Groups</h2>
-      </div>
-    </SafeTeleport>
+    <PageHeader :icon="IconUsersGroup" title="Groups" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canCreateGroup" @click="showCreateDialog = true"> Create Group </BaseButton>
