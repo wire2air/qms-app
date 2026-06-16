@@ -1,6 +1,4 @@
 <script setup>
-import { IconSearch } from '@tabler/icons-vue'
-
 const filters = defineModel('filters', { type: Object, required: true })
 const activeFilter = defineModel('activeFilter', { type: String, required: true })
 
@@ -13,43 +11,53 @@ const filterPills = [
   { value: 'closed', label: 'Closed' },
   { value: 'cancelled', label: 'Cancelled' },
 ]
+
+const showClear = computed(
+  () =>
+    !!(
+      filters.value.search ||
+      filters.value.statusId ||
+      filters.value.priorityId ||
+      filters.value.typeId ||
+      filters.value.supplierId ||
+      filters.value.dateFrom ||
+      filters.value.dateTo
+    ),
+)
+
+function clearAll() {
+  filters.value.search = ''
+  filters.value.statusId = null
+  filters.value.priorityId = null
+  filters.value.typeId = null
+  filters.value.supplierId = null
+  filters.value.dateFrom = null
+  filters.value.dateTo = null
+}
 </script>
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-2">
-    <div class="tw:bg-main-hover tw:rounded-lg">
-      <div class="tw:flex tw:items-center tw:p-2 tw:gap-2 tw:flex-wrap">
-        <div class="tw:w-full tw:md:w-1/3 tw:relative">
-          <IconSearch
-            :size="16"
-            class="tw:absolute tw:left-2 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
-          />
-          <BaseTextInput
-            v-model="filters.search"
-            placeholder="Search CAPA number, title…"
-            class="tw:pl-7"
-          />
-        </div>
-        <div class="tw:w-full tw:md:w-1/6">
-          <CapaStatusSelectMenu v-model="filters.statusId" />
-        </div>
-        <div class="tw:w-full tw:md:w-1/6">
-          <CapaPrioritySelectMenu v-model="filters.priorityId" />
-        </div>
-        <div class="tw:w-full tw:md:w-1/6">
-          <CapaTypeSelectMenu v-model="filters.typeId" />
-        </div>
-        <div class="tw:w-full tw:md:w-auto">
-          <SupplierSelectMenu v-model="filters.supplierId" />
-        </div>
+    <BaseFilterBar
+      v-model:search="filters.search"
+      searchPlaceholder="Search CAPA number, title…"
+      :showClear="showClear"
+      @clear="clearAll"
+    >
+      <template #filters>
+        <CapaStatusSelectMenu v-model="filters.statusId" />
+        <CapaPrioritySelectMenu v-model="filters.priorityId" />
+        <CapaTypeSelectMenu v-model="filters.typeId" />
+        <SupplierSelectMenu v-model="filters.supplierId" />
         <DateRangeFilter
           :from="filters.dateFrom"
           :to="filters.dateTo"
           @update:from="(v) => (filters.dateFrom = v)"
           @update:to="(v) => (filters.dateTo = v)"
         />
-      </div>
-    </div>
+      </template>
+    </BaseFilterBar>
+
     <div class="tw:flex tw:gap-2 tw:flex-wrap tw:items-center">
       <button
         v-for="pill in filterPills"

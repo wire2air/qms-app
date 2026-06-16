@@ -1,27 +1,21 @@
 <script setup>
-import { IconSearch } from '@tabler/icons-vue'
-
 const filters = defineModel('filters', {
   type: Object,
   required: true,
 })
+
+const showClear = computed(() => !!filters.value.search)
+
+function clearAll() {
+  filters.value = { search: '' }
+}
 </script>
 
 <template>
-  <div class="tw:bg-main-hover tw:mb-2">
-    <div class="tw:flex tw:items-center tw:p-2 tw:gap-2">
-      <div class="tw:w-full tw:md:w-1/3">
-        <BaseTextInput
-          v-model="filters.search"
-          name="search"
-          placeholder="Search sites..."
-          clearBtn
-        >
-          <template #icon>
-            <IconSearch :size="16" />
-          </template>
-        </BaseTextInput>
-      </div>
-    </div>
-  </div>
+  <BaseFilterBar
+    v-model:search="filters.search"
+    searchPlaceholder="Search sites…"
+    :showClear="showClear"
+    @clear="clearAll"
+  />
 </template>
