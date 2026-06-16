@@ -157,6 +157,7 @@ declare global {
   const useAuditLogs: typeof import('./src/composables/useAuditLogs.js').useAuditLogs
   const useAuditScoring: typeof import('./src/composables/useAuditScoring.js').useAuditScoring
   const useAuth: typeof import('./src/composables/useAuth.js').useAuth
+  const useAutoSave: typeof import('./resource/js/shared/composables/useAutoSave.js').useAutoSave
   const useBase64: typeof import('@vueuse/core').useBase64
   const useBattery: typeof import('@vueuse/core').useBattery
   const useBluetooth: typeof import('@vueuse/core').useBluetooth

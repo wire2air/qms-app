@@ -26,34 +26,8 @@ const uploadingAvatar = ref(false)
 const sendingInvite = ref(false)
 const showRoleSelect = ref(false)
 const editingName = ref(false)
-const isSaving = ref(false)
-const saveError = ref(null)
-const isFirstLoad = ref(true)
 
-const debouncedSave = useDebounceFn(async () => {
-  if (!user.value) return
-  isSaving.value = true
-  saveError.value = null
-  try {
-    await user.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  user,
-  (u) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (u) debouncedSave()
-  },
-  { deep: true },
-)
+const { isSaving, saveError } = useAutoSave(user)
 
 const roleAssignments = useLiveQueryWithDeps(
   [() => props.id],

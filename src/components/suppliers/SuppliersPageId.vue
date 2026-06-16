@@ -24,34 +24,7 @@ const breadcrumbs = computed(() => [
   { label: supplier.value?.name || 'Loading...' },
 ])
 
-const isSaving = ref(false)
-const saveError = ref(null)
-const isFirstLoad = ref(true)
-
-const debouncedSave = useDebounceFn(async () => {
-  if (!supplier.value) return
-  isSaving.value = true
-  saveError.value = null
-  try {
-    await supplier.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  supplier,
-  (s) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (s) debouncedSave()
-  },
-  { deep: true },
-)
+const { isSaving, saveError } = useAutoSave(supplier)
 
 const tabs = [
   { value: 'overview', label: 'Overview' },

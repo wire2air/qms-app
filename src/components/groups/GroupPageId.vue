@@ -61,35 +61,8 @@ const breadcrumbItems = computed(() => [
 
 // ─── Auto-save ────────────────────────────────────────────────────────────────
 
-const isSaving = ref(false)
-const saveError = ref(null)
-const isFirstLoad = ref(true)
 const editingName = ref(false)
-
-const debouncedSave = useDebounceFn(async () => {
-  if (!group.value) return
-  isSaving.value = true
-  saveError.value = null
-  try {
-    await group.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  group,
-  (g) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (g) debouncedSave()
-  },
-  { deep: true },
-)
+const { isSaving, saveError } = useAutoSave(group)
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 

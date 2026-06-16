@@ -37,33 +37,9 @@ const isEditable = computed(
 )
 
 // Inline auto-save while DRAFT (mirrors NC + CAPA).
-const isFirstLoad = ref(true)
-const saving = ref(false)
-const saveError = ref(null)
-
-const debouncedSave = useDebounceFn(async () => {
-  if (!cr.value || cr.value.statusId !== 'DRAFT') return
-  saving.value = true
-  try {
-    await cr.value.save()
-  } catch (e) {
-    saveError.value = e.message || 'Failed to save'
-  } finally {
-    saving.value = false
-  }
-}, 500)
-
-watch(
-  cr,
-  () => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (cr.value && cr.value.statusId === 'DRAFT' && isOwner.value) debouncedSave()
-  },
-  { deep: true },
-)
+const { saveError } = useAutoSave(cr, {
+  enabled: () => cr.value?.statusId === 'DRAFT' && isOwner.value,
+})
 
 const workflowInstance = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
   const results = await db.WorkflowInstance.where('[resourceType+resourceId]', [

@@ -168,6 +168,7 @@ export default {
     "useAuditLogs": true,
     "useAuditScoring": true,
     "useAuth": true,
+    "useAutoSave": true,
     "useBase64": true,
     "useBattery": true,
     "useBluetooth": true,

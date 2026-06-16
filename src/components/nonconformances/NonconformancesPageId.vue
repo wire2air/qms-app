@@ -23,7 +23,6 @@ const breadcrumbs = computed(() => [
 ])
 
 // ─── Inline disposition auto-save ─────────────────────────────────────────────
-const isFirstLoad = ref(true)
 const canUpdate = computed(() => isAllowed(['nonconformances:update']))
 // Page-level fields (title, description, disposition, containment, etc.)
 // are owner-controlled. Anyone else with NC module access can READ the
@@ -38,22 +37,7 @@ const isEditable = computed(
     isOwner.value,
 )
 
-const debouncedSave = useDebounceFn(async () => {
-  if (!nc.value) return
-  await nc.value.save()
-}, 500)
-
-watch(
-  nc,
-  () => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (nc.value) debouncedSave()
-  },
-  { deep: true },
-)
+useAutoSave(nc)
 
 const saving = ref(false)
 const saveError = ref(null)

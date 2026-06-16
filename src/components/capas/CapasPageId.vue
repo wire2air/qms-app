@@ -20,7 +20,6 @@ const breadcrumbs = computed(() => [
   { label: capa.value?.capaNumber || capa.value?.title || 'Loading…' },
 ])
 
-const isFirstLoad = ref(true)
 const isEditable = computed(
   () =>
     capa.value &&
@@ -28,22 +27,7 @@ const isEditable = computed(
     capa.value.statusId !== 'CANCELLED',
 )
 
-const debouncedSave = useDebounceFn(async () => {
-  if (!capa.value) return
-  await capa.value.save()
-}, 500)
-
-watch(
-  capa,
-  () => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (capa.value) debouncedSave()
-  },
-  { deep: true },
-)
+useAutoSave(capa)
 
 const saving = ref(false)
 const saveError = ref(null)

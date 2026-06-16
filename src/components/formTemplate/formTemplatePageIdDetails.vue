@@ -2,7 +2,6 @@
 import { IconTrash, IconEdit, IconCode } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { useDebounceFn } from '@vueuse/core'
 
 const props = defineProps({
   id: {
@@ -39,32 +38,7 @@ const canDelete = computed(() => isAllowed(['formTemplates:delete']))
 const loading = computed(() => template.value === undefined)
 
 // Auto-save for template fields
-const isSaving = ref(false)
-const isFirstLoad = ref(true)
-
-const debouncedSave = useDebounceFn(async () => {
-  if (!template.value) return
-  isSaving.value = true
-  try {
-    await template.value.save()
-  } catch (err) {
-    toast.error(err.message || 'Failed to save')
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  template,
-  (t) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (t) debouncedSave()
-  },
-  { deep: true },
-)
+useAutoSave(template, { onError: (err) => toast.error(err.message || 'Failed to save') })
 
 // Site assignments (junction table — separate handler)
 const addSiteOnTemplate = useLiveMutation(async (db, { templateId, siteId }) => {

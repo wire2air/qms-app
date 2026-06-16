@@ -115,34 +115,7 @@ const CHANGE_TYPES = [
 ]
 
 // Auto-save the version on field edits.
-const isSaving = ref(false)
-const saveError = ref(null)
-const isFirstLoad = ref(true)
-
-const debouncedSave = useDebounceFn(async () => {
-  if (!version.value || !canUpdate.value) return
-  isSaving.value = true
-  saveError.value = null
-  try {
-    await version.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  version,
-  (v) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (v && canUpdate.value) debouncedSave()
-  },
-  { deep: true },
-)
+const { isSaving, saveError } = useAutoSave(version, { enabled: canUpdate })
 
 function toggleAffected(sectionId) {
   if (!version.value || !canUpdate.value) return
