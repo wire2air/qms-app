@@ -30,15 +30,19 @@ const props = defineProps({
   versionId: { type: String, default: null },
 })
 
-const version = useLiveQueryWithDeps([() => props.versionId], async (db, [id]) =>
-  id ? db.DocumentVersion.findByPk(id) : null,
+const version = useLiveQueryWithDeps(
+  [() => props.versionId],
+  async (db, [id]) => (id ? db.DocumentVersion.findByPk(id) : null),
+  { models: ['DocumentVersion'] },
 )
 
 // Document context — original doc creator (Document.userId) counts as an
 // owner, alongside the current revision's author (DocumentVersion.createdBy).
 // Both are allowed to edit change control during draft/review.
-const document = useLiveQueryWithDeps([() => props.documentId], async (db, [id]) =>
-  id ? db.Document.findByPk(id) : null,
+const document = useLiveQueryWithDeps(
+  [() => props.documentId],
+  async (db, [id]) => (id ? db.Document.findByPk(id) : null),
+  { models: ['Document'] },
 )
 
 // Collaborators have explicit edit access too — `users_on_documents`
@@ -53,7 +57,8 @@ const collaboratorRecords = useLiveQueryWithDeps(
     const rows = await db.UserOnDocument.where().exec()
     return rows.filter((r) => r.documentId === docId && !r.deletedAt)
   },
-  { initial: [] },
+
+  { models: ['UserOnDocument'], initial: [] },
 )
 
 const sections = useLiveQueryWithDeps(
@@ -63,7 +68,8 @@ const sections = useLiveQueryWithDeps(
     const rows = await db.DocumentSection.where('documentVersionId', vid).exec()
     return rows.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   },
-  { initial: [] },
+
+  { models: ['DocumentSection'], initial: [] },
 )
 
 // "Authorised editor" — owner, current revision author, or an explicit
@@ -188,7 +194,9 @@ const STATUS_LABEL = {
         <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">
           Reason for change
           <span v-if="!isInitial" class="tw:text-red-600">*</span>
-          <span class="tw:text-xs tw:font-normal tw:text-secondary tw:ml-1">(why this revision?)</span>
+          <span class="tw:text-xs tw:font-normal tw:text-secondary tw:ml-1"
+            >(why this revision?)</span
+          >
         </label>
         <BaseTextarea
           v-if="canUpdate"
@@ -232,10 +240,7 @@ const STATUS_LABEL = {
           Change type
           <span v-if="!isInitial" class="tw:text-red-600">*</span>
         </label>
-        <div
-          v-if="canUpdate"
-          class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-2"
-        >
+        <div v-if="canUpdate" class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-2">
           <button
             v-for="opt in CHANGE_TYPES"
             :key="opt.value"
@@ -252,7 +257,10 @@ const STATUS_LABEL = {
             <span class="tw:text-xs tw:mt-1 tw:leading-snug">{{ opt.description }}</span>
           </button>
         </div>
-        <div v-else class="tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider tw:text-sm">
+        <div
+          v-else
+          class="tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider tw:text-sm"
+        >
           {{ version.changeType || '—' }}
         </div>
       </div>
@@ -311,7 +319,9 @@ const STATUS_LABEL = {
       </div>
 
       <!-- Regulatory impact -->
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider">
+      <div
+        class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
+      >
         <label
           class="tw:flex tw:items-start tw:gap-3"
           :class="canUpdate ? 'tw:cursor-pointer' : ''"
@@ -324,7 +334,9 @@ const STATUS_LABEL = {
             :disabled="!canUpdate"
           />
           <div class="tw:flex tw:flex-col tw:gap-0.5">
-            <span class="tw:text-sm tw:font-medium tw:text-on-sidebar tw:flex tw:items-center tw:gap-1.5">
+            <span
+              class="tw:text-sm tw:font-medium tw:text-on-sidebar tw:flex tw:items-center tw:gap-1.5"
+            >
               <IconShieldCheck :size="14" /> Regulatory impact
             </span>
             <span class="tw:text-xs tw:text-secondary">
@@ -379,7 +391,8 @@ const STATUS_LABEL = {
     >
       <IconAlertTriangle :size="16" class="tw:mt-0.5 tw:flex-none" />
       <div>
-        Regulatory impact is flagged — notes are required. The save will fail until you fill them in.
+        Regulatory impact is flagged — notes are required. The save will fail until you fill them
+        in.
       </div>
     </div>
   </div>

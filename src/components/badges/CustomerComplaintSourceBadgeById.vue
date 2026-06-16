@@ -9,7 +9,11 @@ const source = useLiveQueryWithDeps(
     if (!sourceId) return null
     return db.CustomerComplaintSource.findByPk(sourceId)
   },
-  { initial: () => (props.sourceId ? { id: props.sourceId } : null) },
+
+  {
+    models: ['CustomerComplaintSource'],
+    initial: () => (props.sourceId ? { id: props.sourceId } : null),
+  },
 )
 </script>
 

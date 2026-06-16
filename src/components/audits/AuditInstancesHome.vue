@@ -106,7 +106,8 @@ const instances = useLiveQueryWithDeps(
         (i.scope || '').toLowerCase().includes(lower),
     )
   },
-  { initial: [] },
+
+  { models: ['AuditInstance'], initial: [] },
 )
 </script>
 
@@ -153,8 +154,8 @@ const instances = useLiveQueryWithDeps(
       <IconChecklist :size="40" class="tw:opacity-50" />
       <div class="tw:text-base tw:font-semibold">No audits yet</div>
       <div class="tw:text-sm tw:text-center tw:max-w-md">
-        Audits are minted by the daily generator from active programs.
-        Create a program with a next-due date to see your first audit.
+        Audits are minted by the daily generator from active programs. Create a program with a
+        next-due date to see your first audit.
       </div>
     </div>
 

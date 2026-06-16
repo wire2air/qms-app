@@ -10,7 +10,14 @@
  * Files are AuditEvidence rows at audit scope (no finding/response). A request
  * is "Provided" once ≥1 file points at it via auditDocumentRequestId.
  */
-import { IconFile, IconTrash, IconExternalLink, IconUpload, IconPlus, IconCheck } from '@tabler/icons-vue'
+import {
+  IconFile,
+  IconTrash,
+  IconExternalLink,
+  IconUpload,
+  IconPlus,
+  IconCheck,
+} from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { del } from '@/api'
 
@@ -31,7 +38,8 @@ const requests = useLiveQueryWithDeps(
     const rows = await db.AuditDocumentRequest.where('auditInstanceId', id).exec()
     return rows.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
   },
-  { initial: [] },
+
+  { models: ['AuditDocumentRequest'], initial: [] },
 )
 
 // ── Audit-scope evidence (uploads not bound to a finding/response) ──
@@ -42,9 +50,15 @@ const uploads = useLiveQueryWithDeps(
     const rows = await db.AuditEvidence.where('auditInstanceId', id).exec()
     return rows.filter((r) => !r.auditFindingId && !r.auditRequirementResponseId)
   },
-  { initial: [] },
+
+  { models: ['AuditEvidence'], initial: [] },
 )
-const assetIdList = computed(() => uploads.value.map((u) => u.assetId).filter(Boolean).join(','))
+const assetIdList = computed(() =>
+  uploads.value
+    .map((u) => u.assetId)
+    .filter(Boolean)
+    .join(','),
+)
 const assetsById = useLiveQueryWithDeps(
   [() => assetIdList.value],
   async (db, [csv]) => {
@@ -55,7 +69,8 @@ const assetsById = useLiveQueryWithDeps(
     for (const a of rows) if (wanted.has(a.id)) map[a.id] = a
     return map
   },
-  { initial: {} },
+
+  { models: ['Asset'], initial: {} },
 )
 
 function filesFor(requestId) {
@@ -188,7 +203,10 @@ function openUpload(requestId) {
         </div>
 
         <!-- Files provided against this request -->
-        <div v-if="filesFor(req.id).length" class="tw:mt-2 tw:flex tw:flex-col tw:divide-y tw:divide-divider">
+        <div
+          v-if="filesFor(req.id).length"
+          class="tw:mt-2 tw:flex tw:flex-col tw:divide-y tw:divide-divider"
+        >
           <div
             v-for="u in filesFor(req.id)"
             :key="u.id"
@@ -234,7 +252,13 @@ function openUpload(requestId) {
         class="tw:flex-1"
         @keyup.enter="addRequest"
       />
-      <BaseButton variant="outline" size="sm" :loading="adding" :disabled="!newTitle.trim()" @click="addRequest">
+      <BaseButton
+        variant="outline"
+        size="sm"
+        :loading="adding"
+        :disabled="!newTitle.trim()"
+        @click="addRequest"
+      >
         <template #icon><IconPlus :size="14" /></template>
         Add
       </BaseButton>

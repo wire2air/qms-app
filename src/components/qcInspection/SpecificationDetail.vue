@@ -21,23 +21,35 @@ const showEsign = ref(false)
 
 const canManage = computed(() => isAllowed(['qcInspection:spec:write']))
 
-const spec = useLiveQueryWithDeps([() => props.id], async (db, [id]) => db.Specification.findByPk(id))
+const spec = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.Specification.findByPk(id),
+  { models: ['Specification'] },
+)
 
 const creator = useLiveQueryWithDeps(
   [() => spec.value?.createdBy],
+
   async (db, [userId]) => (userId ? db.User.findByPk(userId) : null),
+  { models: ['User'] },
 )
 const approver = useLiveQueryWithDeps(
   [() => spec.value?.approvedByUserId],
+
   async (db, [userId]) => (userId ? db.User.findByPk(userId) : null),
+  { models: ['User'] },
 )
 const product = useLiveQueryWithDeps(
   [() => spec.value?.productId],
+
   async (db, [productId]) => (productId ? db.Product.findByPk(productId) : null),
+  { models: ['Product'] },
 )
 const productType = useLiveQueryWithDeps(
   [() => spec.value?.productTypeId],
+
   async (db, [typeId]) => (typeId ? db.ProductType.findByPk(typeId) : null),
+  { models: ['ProductType'] },
 )
 
 // Walk parentSpecificationId chain to build version history
@@ -55,7 +67,8 @@ const versionHistory = useLiveQueryWithDeps(
     }
     return history
   },
-  { initial: [] },
+
+  { models: ['Specification'], initial: [] },
 )
 
 const characteristics = useLiveQueryWithDeps(
@@ -64,13 +77,19 @@ const characteristics = useLiveQueryWithDeps(
     const rows = await db.SpecificationCharacteristic.where('specificationId', id).exec()
     return rows.sort((a, b) => a.sortOrder - b.sortOrder)
   },
-  { initial: [] },
+
+  { models: ['SpecificationCharacteristic'], initial: [] },
 )
 
 const isDraft = computed(() => spec.value?.statusId === 'DRAFT')
 const canEditDraft = computed(() => isDraft.value && canManage.value)
 
-const MATERIAL_LABELS = { RAW: 'Raw material', PACKAGING: 'Packaging', BULK: 'Bulk', FINISHED: 'Finished good' }
+const MATERIAL_LABELS = {
+  RAW: 'Raw material',
+  PACKAGING: 'Packaging',
+  BULK: 'Bulk',
+  FINISHED: 'Finished good',
+}
 const MATERIAL_ITEMS = Object.entries(MATERIAL_LABELS).map(([id, name]) => ({ id, name }))
 const TEST_TYPES = ['NUMERIC', 'PASS_FAIL', 'TEXT']
 
@@ -176,7 +195,7 @@ async function saveDraft() {
         targetValue: c.testType === 'NUMERIC' ? (c.targetValue ?? null) : null,
         lsl: c.testType === 'NUMERIC' ? (c.lsl ?? null) : null,
         usl: c.testType === 'NUMERIC' ? (c.usl ?? null) : null,
-        uom: c.testType === 'NUMERIC' ? (c.uom || null) : null,
+        uom: c.testType === 'NUMERIC' ? c.uom || null : null,
         isCritical: c.isCritical ?? false,
         requiresInstrument: c.requiresInstrument ?? false,
         testMethod: c.testMethod?.trim() || null,
@@ -222,7 +241,10 @@ async function newVersion() {
   if (acting.value) return
   acting.value = true
   try {
-    const { specification } = await post(`/v1/services/qcInspection/specifications/${props.id}/version`, {})
+    const { specification } = await post(
+      `/v1/services/qcInspection/specifications/${props.id}/version`,
+      {},
+    )
     toast.success(`Draft v${specification.version} created`)
     router.push(getCompanyPath(`/qc-inspection/specifications/${specification.id}`))
   } catch (err) {
@@ -272,25 +294,44 @@ async function newVersion() {
         >
           Save
         </BaseButton>
-        <BaseButton v-if="isDraft" variant="outline" size="sm" :loading="acting" @click="showEsign = true">
+        <BaseButton
+          v-if="isDraft"
+          variant="outline"
+          size="sm"
+          :loading="acting"
+          @click="showEsign = true"
+        >
           Approve
         </BaseButton>
-        <BaseButton v-if="spec.statusId === 'EFFECTIVE'" variant="outline" size="sm" :loading="acting" @click="newVersion">
+        <BaseButton
+          v-if="spec.statusId === 'EFFECTIVE'"
+          variant="outline"
+          size="sm"
+          :loading="acting"
+          @click="newVersion"
+        >
           New version
         </BaseButton>
       </div>
     </div>
 
     <!-- Draft edit notice -->
-    <div v-if="isDraft" class="tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded-lg tw:px-4 tw:py-2 tw:text-sm tw:text-amber-800">
+    <div
+      v-if="isDraft"
+      class="tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded-lg tw:px-4 tw:py-2 tw:text-sm tw:text-amber-800"
+    >
       This specification is a draft — all fields below are editable. Approve when ready.
     </div>
 
     <!-- Two-column: characteristics left, overview right -->
     <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-5 tw:items-start">
       <!-- Characteristics (2/3) -->
-      <div class="tw:lg:col-span-2 tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-        <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between">
+      <div
+        class="tw:lg:col-span-2 tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden"
+      >
+        <div
+          class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
+        >
           <h3 class="tw:font-bold tw:text-on-main">Characteristics</h3>
           <BaseButton v-if="canEditDraft" variant="outline" size="sm" @click="addCharacteristic">
             <template #icon><IconPlus :size="14" /></template>
@@ -308,23 +349,33 @@ async function newVersion() {
             <div class="tw:flex tw:items-end tw:gap-3 tw:flex-wrap">
               <div class="tw:flex-1 tw:min-w-40">
                 <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Test name</label>
-                <BaseTextInput v-model="c.name" size="sm" placeholder="e.g. pH, Appearance" @update:modelValue="markCharsDirty" />
+                <BaseTextInput
+                  v-model="c.name"
+                  size="sm"
+                  placeholder="e.g. pH, Appearance"
+                  @update:modelValue="markCharsDirty"
+                />
               </div>
               <div class="tw:w-36">
                 <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Type</label>
                 <BaseInlineSelect
                   v-model="c.testType"
-                  :items="TEST_TYPES.map(t => ({ id: t, name: t }))"
+                  :items="TEST_TYPES.map((t) => ({ id: t, name: t }))"
                   :required="true"
                   class="tw:w-full"
                   @update:modelValue="markCharsDirty"
                 />
               </div>
-              <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
+              <label
+                class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap"
+              >
                 <BaseCheckbox v-model="c.isCritical" @update:modelValue="markCharsDirty" /> Critical
               </label>
-              <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
-                <BaseCheckbox v-model="c.requiresInstrument" @update:modelValue="markCharsDirty" /> Instrument
+              <label
+                class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap"
+              >
+                <BaseCheckbox v-model="c.requiresInstrument" @update:modelValue="markCharsDirty" />
+                Instrument
               </label>
               <button
                 type="button"
@@ -337,23 +388,45 @@ async function newVersion() {
             <div v-if="c.testType === 'NUMERIC'" class="tw:flex tw:flex-wrap tw:gap-3 tw:mt-2">
               <div class="tw:w-24">
                 <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">LSL (min)</label>
-                <BaseTextInput v-model.number="c.lsl" type="number" size="sm" @update:modelValue="markCharsDirty" />
+                <BaseTextInput
+                  v-model.number="c.lsl"
+                  type="number"
+                  size="sm"
+                  @update:modelValue="markCharsDirty"
+                />
               </div>
               <div class="tw:w-24">
                 <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Target</label>
-                <BaseTextInput v-model.number="c.targetValue" type="number" size="sm" @update:modelValue="markCharsDirty" />
+                <BaseTextInput
+                  v-model.number="c.targetValue"
+                  type="number"
+                  size="sm"
+                  @update:modelValue="markCharsDirty"
+                />
               </div>
               <div class="tw:w-24">
                 <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">USL (max)</label>
-                <BaseTextInput v-model.number="c.usl" type="number" size="sm" @update:modelValue="markCharsDirty" />
+                <BaseTextInput
+                  v-model.number="c.usl"
+                  type="number"
+                  size="sm"
+                  @update:modelValue="markCharsDirty"
+                />
               </div>
               <div class="tw:w-24">
                 <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">UOM</label>
-                <BaseTextInput v-model="c.uom" size="sm" placeholder="e.g. pH, %" @update:modelValue="markCharsDirty" />
+                <BaseTextInput
+                  v-model="c.uom"
+                  size="sm"
+                  placeholder="e.g. pH, %"
+                  @update:modelValue="markCharsDirty"
+                />
               </div>
             </div>
             <div class="tw:mt-2">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Test method / instrument requirements</label>
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1"
+                >Test method / instrument requirements</label
+              >
               <BaseTextInput
                 v-model="c.testMethod"
                 size="sm"
@@ -362,7 +435,10 @@ async function newVersion() {
               />
             </div>
           </div>
-          <div v-if="!editedChars.length" class="tw:px-5 tw:py-6 tw:text-center tw:text-secondary tw:italic tw:border-t tw:border-divider">
+          <div
+            v-if="!editedChars.length"
+            class="tw:px-5 tw:py-6 tw:text-center tw:text-secondary tw:italic tw:border-t tw:border-divider"
+          >
             No characteristics yet — click Add to get started.
           </div>
         </template>
@@ -382,17 +458,26 @@ async function newVersion() {
               <tr v-for="c in characteristics" :key="c.id" class="tw:border-t tw:border-divider">
                 <td class="tw:px-5 tw:py-2.5 tw:font-medium tw:text-on-main">
                   {{ c.name }}
-                  <span v-if="c.isCritical" class="tw:text-[10px] tw:text-red-600 tw:font-semibold">CRITICAL</span>
-                  <div v-if="c.testMethod" class="tw:text-[11px] tw:text-secondary tw:font-normal tw:mt-0.5">
+                  <span v-if="c.isCritical" class="tw:text-[10px] tw:text-red-600 tw:font-semibold"
+                    >CRITICAL</span
+                  >
+                  <div
+                    v-if="c.testMethod"
+                    class="tw:text-[11px] tw:text-secondary tw:font-normal tw:mt-0.5"
+                  >
                     {{ c.testMethod }}
                   </div>
                 </td>
                 <td class="tw:px-5 tw:py-2.5 tw:text-secondary">{{ c.testType }}</td>
                 <td class="tw:px-5 tw:py-2.5 tw:text-secondary">{{ limitText(c) }}</td>
-                <td class="tw:px-5 tw:py-2.5 tw:text-secondary">{{ c.requiresInstrument ? 'Required' : '—' }}</td>
+                <td class="tw:px-5 tw:py-2.5 tw:text-secondary">
+                  {{ c.requiresInstrument ? 'Required' : '—' }}
+                </td>
               </tr>
               <tr v-if="!characteristics.length">
-                <td colspan="4" class="tw:px-5 tw:py-6 tw:text-center tw:text-secondary tw:italic">No characteristics.</td>
+                <td colspan="4" class="tw:px-5 tw:py-6 tw:text-center tw:text-secondary tw:italic">
+                  No characteristics.
+                </td>
               </tr>
             </tbody>
           </table>
@@ -400,7 +485,9 @@ async function newVersion() {
       </div>
 
       <!-- Overview (1/3) -->
-      <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:divide-y tw:divide-divider">
+      <div
+        class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:divide-y tw:divide-divider"
+      >
         <div class="tw:px-4 tw:py-3">
           <h3 class="tw:font-semibold tw:text-on-main tw:text-sm">Overview</h3>
         </div>
@@ -416,7 +503,13 @@ async function newVersion() {
           <!-- Code -->
           <div>
             <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Code</div>
-            <BaseTextInput v-if="canEditDraft" v-model="header.code" size="sm" placeholder="e.g. SPEC-001" @update:modelValue="markHeaderDirty" />
+            <BaseTextInput
+              v-if="canEditDraft"
+              v-model="header.code"
+              size="sm"
+              placeholder="e.g. SPEC-001"
+              @update:modelValue="markHeaderDirty"
+            />
             <div v-else class="tw:text-on-main tw:font-mono">{{ spec.code || '—' }}</div>
           </div>
           <!-- Material kind -->
@@ -430,7 +523,9 @@ async function newVersion() {
               class="tw:w-full"
               @update:modelValue="markHeaderDirty"
             />
-            <div v-else class="tw:text-on-main">{{ MATERIAL_LABELS[spec.materialKind] || spec.materialKind }}</div>
+            <div v-else class="tw:text-on-main">
+              {{ MATERIAL_LABELS[spec.materialKind] || spec.materialKind }}
+            </div>
           </div>
           <!-- Scope -->
           <div>
@@ -438,7 +533,10 @@ async function newVersion() {
             <template v-if="canEditDraft">
               <BaseInlineSelect
                 v-model="header.scope"
-                :items="[{ id: 'product', name: 'Specific product' }, { id: 'productType', name: 'Product type' }]"
+                :items="[
+                  { id: 'product', name: 'Specific product' },
+                  { id: 'productType', name: 'Product type' },
+                ]"
                 :required="true"
                 class="tw:w-full tw:mb-2"
                 @update:modelValue="markHeaderDirty"
@@ -459,21 +557,30 @@ async function newVersion() {
             <template v-else>
               <div v-if="product" class="tw:text-on-main">
                 {{ product.name }}
-                <span v-if="product.sku" class="tw:text-xs tw:text-secondary tw:font-mono">· {{ product.sku }}</span>
+                <span v-if="product.sku" class="tw:text-xs tw:text-secondary tw:font-mono"
+                  >· {{ product.sku }}</span
+                >
               </div>
-              <div v-else-if="productType" class="tw:text-on-main">{{ productType.name }} <span class="tw:text-xs tw:text-secondary">(product type)</span></div>
+              <div v-else-if="productType" class="tw:text-on-main">
+                {{ productType.name }}
+                <span class="tw:text-xs tw:text-secondary">(product type)</span>
+              </div>
               <div v-else class="tw:text-secondary">—</div>
             </template>
           </div>
           <!-- Created -->
           <div>
             <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Created</div>
-            <div class="tw:text-on-main">{{ spec.createdAt?.formatDate('date') || '—' }} · {{ userName(creator) }}</div>
+            <div class="tw:text-on-main">
+              {{ spec.createdAt?.formatDate('date') || '—' }} · {{ userName(creator) }}
+            </div>
           </div>
           <!-- Approved -->
           <div v-if="spec.approvedAt">
             <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Approved</div>
-            <div class="tw:text-on-main">{{ spec.approvedAt?.formatDate('date') }} · {{ userName(approver) }}</div>
+            <div class="tw:text-on-main">
+              {{ spec.approvedAt?.formatDate('date') }} · {{ userName(approver) }}
+            </div>
           </div>
           <!-- Effective window -->
           <div v-if="spec.effectiveFrom">
@@ -487,8 +594,16 @@ async function newVersion() {
           <!-- Notes -->
           <div>
             <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Notes</div>
-            <BaseTextarea v-if="canEditDraft" v-model="header.notes" :rows="3" placeholder="Optional notes" @update:modelValue="markHeaderDirty" />
-            <div v-else-if="spec.notes" class="tw:text-on-main tw:whitespace-pre-wrap">{{ spec.notes }}</div>
+            <BaseTextarea
+              v-if="canEditDraft"
+              v-model="header.notes"
+              :rows="3"
+              placeholder="Optional notes"
+              @update:modelValue="markHeaderDirty"
+            />
+            <div v-else-if="spec.notes" class="tw:text-on-main tw:whitespace-pre-wrap">
+              {{ spec.notes }}
+            </div>
             <div v-else class="tw:text-secondary">—</div>
           </div>
         </div>
@@ -496,7 +611,10 @@ async function newVersion() {
     </div>
 
     <!-- Version history -->
-    <div v-if="versionHistory.length" class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
+    <div
+      v-if="versionHistory.length"
+      class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden"
+    >
       <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover">
         <h3 class="tw:font-bold tw:text-on-main">Version History</h3>
       </div>
@@ -518,12 +636,18 @@ async function newVersion() {
             :aria-label="`Open specification version ${prev.version}`"
             @click="router.push(getCompanyPath(`/qc-inspection/specifications/${prev.id}`))"
           >
-            <td class="tw:px-5 tw:py-2.5 tw:font-mono tw:font-medium tw:text-on-main">v{{ prev.version }}</td>
+            <td class="tw:px-5 tw:py-2.5 tw:font-mono tw:font-medium tw:text-on-main">
+              v{{ prev.version }}
+            </td>
             <td class="tw:px-5 tw:py-2.5">
               <SpecificationStatusBadgeById :statusId="prev.statusId" />
             </td>
-            <td class="tw:px-5 tw:py-2.5 tw:text-secondary">{{ prev.effectiveFrom?.formatDate('date') || '—' }}</td>
-            <td class="tw:px-5 tw:py-2.5 tw:text-secondary">{{ prev.effectiveUntil?.formatDate('date') || '—' }}</td>
+            <td class="tw:px-5 tw:py-2.5 tw:text-secondary">
+              {{ prev.effectiveFrom?.formatDate('date') || '—' }}
+            </td>
+            <td class="tw:px-5 tw:py-2.5 tw:text-secondary">
+              {{ prev.effectiveUntil?.formatDate('date') || '—' }}
+            </td>
           </BaseClickableRow>
         </tbody>
       </table>

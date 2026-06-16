@@ -1,5 +1,11 @@
 <script setup>
-import { IconAlertCircle, IconClock, IconCircleCheck, IconShieldCheck, IconDownload } from '@tabler/icons-vue'
+import {
+  IconAlertCircle,
+  IconClock,
+  IconCircleCheck,
+  IconShieldCheck,
+  IconDownload,
+} from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { dateInRange } from '@/utils/listFilters.js'
@@ -29,8 +35,10 @@ watch(
   () => route.query.supplierId,
   (v) => (filters.value.supplierId = v || null),
 )
-const filterSupplier = useLiveQueryWithDeps([() => filters.value.supplierId], async (db, [id]) =>
-  id ? db.Supplier.findByPk(id) : null,
+const filterSupplier = useLiveQueryWithDeps(
+  [() => filters.value.supplierId],
+  async (db, [id]) => (id ? db.Supplier.findByPk(id) : null),
+  { models: ['Supplier'] },
 )
 function clearSupplierFilter() {
   filters.value.supplierId = null
@@ -88,7 +96,7 @@ function applyActiveFilter(results, af) {
   return results
 }
 
-const allCapas = useLiveQuery((db) => db.Capa.where().exec(), { initial: [] })
+const allCapas = useLiveQuery((db) => db.Capa.where().exec(), { models: ['Capa'], initial: [] })
 
 const capas = useLiveQueryWithDeps(
   [
@@ -106,12 +114,14 @@ const capas = useLiveQueryWithDeps(
     results = applyFilters(results, search, statusId, priorityId, typeId)
     results = applyActiveFilter(results, af)
     if (supplierId) results = results.filter((r) => r.supplierId === supplierId)
-    if (dateFrom || dateTo) results = results.filter((r) => dateInRange(r.createdAt, dateFrom, dateTo))
+    if (dateFrom || dateTo)
+      results = results.filter((r) => dateInRange(r.createdAt, dateFrom, dateTo))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['Capa'], initial: [] },
 )
 
 const stats = computed(() => {
@@ -237,7 +247,9 @@ function onCreateCapa() {
       v-if="supplierFilter"
       class="tw:flex tw:items-center tw:gap-2 tw:mb-3 tw:text-sm tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-blue-800 tw:rounded-lg tw:px-3 tw:py-2"
     >
-      <span>Filtered by supplier: <strong>{{ filterSupplier?.name || '…' }}</strong></span>
+      <span
+        >Filtered by supplier: <strong>{{ filterSupplier?.name || '…' }}</strong></span
+      >
       <button
         type="button"
         class="tw:ml-auto tw:text-blue-700 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-xs tw:font-medium"

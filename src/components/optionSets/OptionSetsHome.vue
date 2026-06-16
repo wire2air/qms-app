@@ -27,7 +27,8 @@ const optionSets = useLiveQueryWithDeps(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['OptionSet'], initial: [] },
 )
 
 function openDialog(id = null) {

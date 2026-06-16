@@ -48,7 +48,8 @@ const roleCount = useLiveQueryWithDeps(
     const all = await db.WorkflowStepRole.where().exec()
     return all.filter((sr) => sr.stepId === stepId).length
   },
-  { initial: 0 },
+
+  { models: ['WorkflowStepRole'], initial: 0 },
 )
 
 const userCount = useLiveQueryWithDeps(
@@ -58,7 +59,8 @@ const userCount = useLiveQueryWithDeps(
     const all = await db.WorkflowStepUser.where().exec()
     return all.filter((su) => su.stepId === stepId).length
   },
-  { initial: 0 },
+
+  { models: ['WorkflowStepUser'], initial: 0 },
 )
 
 const approverLabel = computed(() => {

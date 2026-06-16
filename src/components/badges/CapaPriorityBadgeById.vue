@@ -3,10 +3,14 @@ const props = defineProps({
   priorityId: { type: String, default: null },
 })
 
-const priority = useLiveQueryWithDeps([() => props.priorityId], async (db, [priorityId]) => {
-  if (!priorityId) return null
-  return db.CapaPriority.findByPk(priorityId)
-})
+const priority = useLiveQueryWithDeps(
+  [() => props.priorityId],
+  async (db, [priorityId]) => {
+    if (!priorityId) return null
+    return db.CapaPriority.findByPk(priorityId)
+  },
+  { models: ['CapaPriority'] },
+)
 </script>
 
 <template>

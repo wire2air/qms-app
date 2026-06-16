@@ -16,6 +16,7 @@ const modelValue = defineModel({
 })
 
 const modules = useLiveQuery((db) => db.Module.where().orderBy('displayOrder').exec(), {
+  models: ['Module'],
   initial: [],
 })
 

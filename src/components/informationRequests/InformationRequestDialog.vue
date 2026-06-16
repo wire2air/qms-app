@@ -35,12 +35,15 @@ const responseDraft = ref('')
 // party responded while the dialog was open) flow in.
 const rfi = useLiveQueryWithDeps(
   [() => props.rfiId],
+
   async (db, [id]) => (id ? db.InformationRequest.findByPk(id) : null),
+  { models: ['InformationRequest'] },
 )
 
 // Resolve the entity owner for the "send to" hint shown in create mode.
 const recipient = useLiveQueryWithDeps(
   [() => props.entityType, () => props.entityId, () => rfi.value?.recipientId],
+
   async (db, [entityType, entityId, rfiRecipientId]) => {
     // In respond/view, the RFI already names the recipient.
     if (rfiRecipientId) return db.User.findByPk(rfiRecipientId)
@@ -55,11 +58,14 @@ const recipient = useLiveQueryWithDeps(
     }
     return null
   },
+  { models: ['User', 'Nonconformance', 'Capa'] },
 )
 
 const requester = useLiveQueryWithDeps(
   [() => rfi.value?.requesterId],
+
   async (db, [id]) => (id ? db.User.findByPk(id) : null),
+  { models: ['User'] },
 )
 
 function userLabel(u) {
@@ -149,9 +155,9 @@ async function handleAcknowledge() {
         >
           <IconQuestionMark :size="20" class="tw:text-blue-600 tw:shrink-0 tw:mt-0.5" />
           <div class="tw:text-sm tw:text-blue-800">
-            Ask <strong>{{ userLabel(recipient) }}</strong> for clarification
-            on this record. They'll get a task in their inbox and respond
-            here. You'll get a follow-up task once they reply.
+            Ask <strong>{{ userLabel(recipient) }}</strong> for clarification on this record.
+            They'll get a task in their inbox and respond here. You'll get a follow-up task once
+            they reply.
           </div>
         </div>
         <div>
@@ -212,9 +218,7 @@ async function handleAcknowledge() {
             {{ rfi.response }}
           </p>
         </div>
-        <div v-else class="tw:text-xs tw:text-secondary tw:italic">
-          Awaiting response.
-        </div>
+        <div v-else class="tw:text-xs tw:text-secondary tw:italic">Awaiting response.</div>
       </template>
     </div>
 

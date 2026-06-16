@@ -21,9 +21,16 @@ const editingPlan = ref(null)
 const expandedId = ref(null)
 
 const canApprove = computed(() => isAllowed(['qcInspection:plan:approve']))
-const canCreate = computed(() => isAllowed(['qcInspection:standards:write']) || isAllowed(['qcInspection:plan:create']))
+const canCreate = computed(
+  () => isAllowed(['qcInspection:standards:write']) || isAllowed(['qcInspection:plan:create']),
+)
 
-const POINT_LABELS = { INCOMING: 'Incoming', IN_PROCESS: 'In-process', FINAL: 'Final', OUTGOING: 'Outgoing' }
+const POINT_LABELS = {
+  INCOMING: 'Incoming',
+  IN_PROCESS: 'In-process',
+  FINAL: 'Final',
+  OUTGOING: 'Outgoing',
+}
 
 // Main list: only ACTIVE + DRAFT (hide SUPERSEDED / ARCHIVED)
 const plans = useLiveQuery(
@@ -33,7 +40,8 @@ const plans = useLiveQuery(
       .filter((p) => p.statusId === 'ACTIVE' || p.statusId === 'DRAFT')
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   },
-  { initial: [] },
+
+  { models: ['SamplingPlan'], initial: [] },
 )
 
 // All superseded plans — used to build per-plan version histories in the expanded row
@@ -42,10 +50,14 @@ const supersededPlans = useLiveQuery(
     const rows = await db.SamplingPlan.where().exec()
     return rows.filter((p) => p.statusId === 'SUPERSEDED' || p.statusId === 'ARCHIVED')
   },
-  { initial: [] },
+
+  { models: ['SamplingPlan'], initial: [] },
 )
 
-const standards = useLiveQuery(async (db) => db.SamplingStandard.where().exec(), { initial: [] })
+const standards = useLiveQuery(async (db) => db.SamplingStandard.where().exec(), {
+  models: ['SamplingStandard'],
+  initial: [],
+})
 const standardName = (code) => standards.value.find((s) => s.id === code)?.name || code || '—'
 
 // Walk parentPlanId chain upward from a given plan to find its superseded predecessors
@@ -135,15 +147,26 @@ async function createNewVersion(plan) {
             @click="toggleExpand(p.id)"
           >
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
-              <component :is="expandedId === p.id ? IconChevronDown : IconChevronRight" :size="14" />
+              <component
+                :is="expandedId === p.id ? IconChevronDown : IconChevronRight"
+                :size="14"
+              />
             </td>
             <td class="tw:px-4 tw:py-2.5 tw:font-medium tw:text-on-main">
               {{ p.name }}
-              <span v-if="p.version > 1" class="tw:text-[10px] tw:text-secondary tw:font-normal tw:ml-1">v{{ p.version }}</span>
+              <span
+                v-if="p.version > 1"
+                class="tw:text-[10px] tw:text-secondary tw:font-normal tw:ml-1"
+                >v{{ p.version }}</span
+              >
             </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ POINT_LABELS[p.inspectionPoint] || p.inspectionPoint }}</td>
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
-              <template v-if="p.planType === 'STANDARD'">{{ standardName(p.standardCode) }} · {{ p.inspectionLevel }}</template>
+              {{ POINT_LABELS[p.inspectionPoint] || p.inspectionPoint }}
+            </td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
+              <template v-if="p.planType === 'STANDARD'"
+                >{{ standardName(p.standardCode) }} · {{ p.inspectionLevel }}</template
+              >
               <template v-else>Custom table</template>
             </td>
             <td class="tw:px-4 tw:py-2.5">
@@ -153,7 +176,8 @@ async function createNewVersion(plan) {
                   'tw:bg-amber-100 tw:text-amber-700': p.statusId === 'DRAFT',
                   'tw:bg-green-100 tw:text-green-700': p.statusId === 'ACTIVE',
                 }"
-              >{{ p.statusId }}</span>
+                >{{ p.statusId }}</span
+              >
             </td>
             <td class="tw:px-4 tw:py-2.5 tw:text-right" @click.stop>
               <div class="tw:flex tw:items-center tw:justify-end tw:gap-2">
@@ -190,26 +214,35 @@ async function createNewVersion(plan) {
           <tr v-if="expandedId === p.id" class="tw:border-t tw:border-divider tw:bg-main-hover">
             <td colspan="6" class="tw:px-6 tw:py-4">
               <div class="tw:flex tw:flex-col tw:gap-4">
-
                 <!-- AQL table (STANDARD plans) -->
                 <div v-if="p.planType === 'STANDARD' && p.severityAqls?.length">
-                  <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold tw:mb-2">AQL by Severity</div>
+                  <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold tw:mb-2">
+                    AQL by Severity
+                  </div>
                   <div class="tw:flex tw:flex-wrap tw:gap-2">
                     <div
                       v-for="sa in p.severityAqls"
                       :key="sa.severity"
                       class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:px-3 tw:py-1.5 tw:text-center"
                     >
-                      <div class="tw:text-[10px] tw:text-secondary tw:uppercase">{{ sa.severity }}</div>
-                      <div class="tw:font-semibold tw:text-on-main tw:text-sm">AQL {{ sa.aql }}%</div>
+                      <div class="tw:text-[10px] tw:text-secondary tw:uppercase">
+                        {{ sa.severity }}
+                      </div>
+                      <div class="tw:font-semibold tw:text-on-main tw:text-sm">
+                        AQL {{ sa.aql }}%
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 <!-- Custom table rows -->
                 <div v-if="p.planType === 'CUSTOM' && p.customPlanTable?.rows?.length">
-                  <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold tw:mb-2">Custom Plan Table</div>
-                  <table class="tw:text-xs tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
+                  <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold tw:mb-2">
+                    Custom Plan Table
+                  </div>
+                  <table
+                    class="tw:text-xs tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden"
+                  >
                     <thead class="tw:bg-white tw:text-secondary tw:uppercase">
                       <tr>
                         <th class="tw:text-left tw:px-3 tw:py-1.5">Severity</th>
@@ -219,8 +252,14 @@ async function createNewVersion(plan) {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="row in p.customPlanTable.rows" :key="row.severityLabel" class="tw:border-t tw:border-divider">
-                        <td class="tw:px-3 tw:py-1.5 tw:font-medium tw:text-on-main">{{ row.severityLabel }}</td>
+                      <tr
+                        v-for="row in p.customPlanTable.rows"
+                        :key="row.severityLabel"
+                        class="tw:border-t tw:border-divider"
+                      >
+                        <td class="tw:px-3 tw:py-1.5 tw:font-medium tw:text-on-main">
+                          {{ row.severityLabel }}
+                        </td>
                         <td class="tw:px-3 tw:py-1.5">{{ row.sampleSize }}</td>
                         <td class="tw:px-3 tw:py-1.5 tw:text-green-700">≤ {{ row.accept }}</td>
                         <td class="tw:px-3 tw:py-1.5 tw:text-red-700">≥ {{ row.reject }}</td>
@@ -251,21 +290,28 @@ async function createNewVersion(plan) {
 
                 <!-- Version history (predecessors via parentPlanId chain) -->
                 <div v-if="getPredecessors(p).length">
-                  <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold tw:mb-2">Version History</div>
+                  <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold tw:mb-2">
+                    Version History
+                  </div>
                   <div class="tw:flex tw:flex-col tw:gap-1">
                     <div
                       v-for="prev in getPredecessors(p)"
                       :key="prev.id"
                       class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary tw:py-1 tw:border-b tw:border-divider tw:last:border-0"
                     >
-                      <span class="tw:font-mono tw:font-medium tw:text-on-main">v{{ prev.version }}</span>
+                      <span class="tw:font-mono tw:font-medium tw:text-on-main"
+                        >v{{ prev.version }}</span
+                      >
                       <span>{{ prev.name }}</span>
-                      <span v-if="prev.planType === 'STANDARD'">· {{ standardName(prev.standardCode) }} {{ prev.inspectionLevel }}</span>
-                      <span class="tw:ml-auto tw:text-[10px]">superseded {{ prev.effectiveUntil?.formatDate('date') }}</span>
+                      <span v-if="prev.planType === 'STANDARD'"
+                        >· {{ standardName(prev.standardCode) }} {{ prev.inspectionLevel }}</span
+                      >
+                      <span class="tw:ml-auto tw:text-[10px]"
+                        >superseded {{ prev.effectiveUntil?.formatDate('date') }}</span
+                      >
                     </div>
                   </div>
                 </div>
-
               </div>
             </td>
           </tr>
@@ -273,7 +319,9 @@ async function createNewVersion(plan) {
 
         <tbody v-if="!plans.length">
           <tr>
-            <td colspan="6" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">No sampling plans yet.</td>
+            <td colspan="6" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
+              No sampling plans yet.
+            </td>
           </tr>
         </tbody>
       </table>

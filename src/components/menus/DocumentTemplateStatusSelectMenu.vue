@@ -12,6 +12,7 @@ const modelValue = defineModel({
 })
 
 const statuses = useLiveQuery(async (db) => db.DocumentTemplateStatus.where().exec(), {
+  models: ['DocumentTemplateStatus'],
   initial: [],
 })
 </script>

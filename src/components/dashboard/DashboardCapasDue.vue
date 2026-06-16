@@ -17,7 +17,8 @@ const capas = useLiveQuery(
         return da - dbb
       })
   },
-  { initial: [] },
+
+  { models: ['Capa'], initial: [] },
 )
 
 function isOverdue(c) {

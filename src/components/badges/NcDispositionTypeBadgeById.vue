@@ -12,7 +12,8 @@ const dispositionType = useLiveQueryWithDeps(
     if (!dispositionTypeId) return null
     return db.NcDispositionType.findByPk(dispositionTypeId)
   },
-  { initial: null },
+
+  { models: ['NcDispositionType'], initial: null },
 )
 </script>
 

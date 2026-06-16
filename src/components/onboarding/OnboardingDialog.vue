@@ -11,7 +11,8 @@ const users = useLiveQuery(
   async (db) => {
     return await db.User.where().exec()
   },
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 const showCreateUserDialog = ref(false)
 const currentUserId = computed(() => currentSession.value?.userId)

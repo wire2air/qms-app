@@ -18,10 +18,14 @@ const presetNcId = computed(() => {
   return typeof q === 'string' ? q : null
 })
 
-const sourceNc = useLiveQueryWithDeps([() => presetNcId.value], async (db, [id]) => {
-  if (!id) return null
-  return db.Nonconformance.findByPk(id)
-})
+const sourceNc = useLiveQueryWithDeps(
+  [() => presetNcId.value],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.Nonconformance.findByPk(id)
+  },
+  { models: ['Nonconformance'] },
+)
 
 // Audit-finding spawn deep link. When the user clicks 'Spawn → New
 // CAPA' on an audit finding, this page opens with ?findingId=<id>.
@@ -37,17 +41,24 @@ const presetFindingIds = computed(() => {
   const ids = []
   if (typeof single === 'string' && single) ids.push(single)
   if (typeof multi === 'string' && multi) {
-    ids.push(...multi.split(',').map((s) => s.trim()).filter(Boolean))
+    ids.push(
+      ...multi
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
   }
   return [...new Set(ids)]
 })
 const presetFindingId = computed(() => presetFindingIds.value[0] ?? null)
 const sourceFinding = useLiveQueryWithDeps(
   [() => presetFindingId.value],
+
   async (db, [id]) => {
     if (!id) return null
     return db.AuditFinding.findByPk(id)
   },
+  { models: ['AuditFinding'] },
 )
 
 const form = ref({
@@ -208,10 +219,7 @@ async function handleReviewersConfirmed(reviewers) {
   <div class="tw:flex tw:flex-col tw:h-full">
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs
-        :items="[
-          { label: 'CAPAs', to: getCompanyPath('/capas') },
-          { label: 'Create CAPA' },
-        ]"
+        :items="[{ label: 'CAPAs', to: getCompanyPath('/capas') }, { label: 'Create CAPA' }]"
       />
     </SafeTeleport>
 
@@ -344,8 +352,8 @@ async function handleReviewersConfirmed(reviewers) {
                 <div>
                   <div class="tw:text-sm tw:text-on-main">Supplier-facing CAPA</div>
                   <div class="tw:text-[11px] tw:text-secondary">
-                    Workflow steps will be reviewed by users from the selected supplier (you'll
-                    pick the specific reviewer per step at submit). Lockable once submitted.
+                    Workflow steps will be reviewed by users from the selected supplier (you'll pick
+                    the specific reviewer per step at submit). Lockable once submitted.
                   </div>
                 </div>
               </label>

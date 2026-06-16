@@ -15,14 +15,17 @@ const toast = useToast()
 const canManage = computed(() => isAllowed(['trainingInstances:manage']))
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const instance = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.TrainingInstance.findByPk(id),
+const instance = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.TrainingInstance.findByPk(id),
+  { models: ['TrainingInstance'] },
 )
 
 const allAssignees = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [instanceId]) => db.TrainingAssignee.where('trainingInstanceId', instanceId).exec(),
-  { initial: [] },
+
+  { models: ['TrainingAssignee'], initial: [] },
 )
 
 const loading = computed(() => instance.value === undefined)
@@ -424,7 +427,9 @@ function closeAssessmentReview() {
               </span>
             </span>
             <span>
-              Attempts: {{ reviewAssignee.attemptCount ?? 0 }}/{{ instance.snapshot?.maxAttempts ?? 1 }}
+              Attempts: {{ reviewAssignee.attemptCount ?? 0 }}/{{
+                instance.snapshot?.maxAttempts ?? 1
+              }}
             </span>
           </div>
         </div>

@@ -13,10 +13,14 @@ const props = defineProps({
 const toast = useToast()
 const router = useRouter()
 
-const template = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.FormTemplate.findByPk(id)
-})
+const template = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.FormTemplate.findByPk(id)
+  },
+  { models: ['FormTemplate'] },
+)
 
 const siteAssignments = useLiveQueryWithDeps(
   [() => props.id],
@@ -24,7 +28,8 @@ const siteAssignments = useLiveQueryWithDeps(
     if (!id) return []
     return db.SiteOnTemplate.where('templateId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['SiteOnTemplate'], initial: [] },
 )
 
 const assignedSiteIds = computed(() => siteAssignments.value.map((s) => s.siteId))

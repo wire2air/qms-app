@@ -14,7 +14,10 @@ const tab = ref('roles')
 // ─── Roles ────────────────────────────────────────────────────────────────────
 
 const roleSearch = ref('')
-const roles = useLiveQuery((db) => db.Role.where('statusId', 'ACTIVE').exec(), { initial: [] })
+const roles = useLiveQuery((db) => db.Role.where('statusId', 'ACTIVE').exec(), {
+  models: ['Role'],
+  initial: [],
+})
 
 const trainingRoles = useLiveQueryWithDeps(
   [() => props.trainingId],
@@ -22,7 +25,8 @@ const trainingRoles = useLiveQueryWithDeps(
     if (!trainingId) return []
     return db.TrainingRole.where('trainingId', trainingId).exec()
   },
-  { initial: [] },
+
+  { models: ['TrainingRole'], initial: [] },
 )
 
 const assignedRoleIds = computed(() => trainingRoles.value.map((r) => r.roleId))
@@ -62,7 +66,8 @@ async function toggleRole(roleId) {
 const userSearch = ref('')
 const users = useLiveQuery(
   async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 
 const trainingUsers = useLiveQueryWithDeps(
@@ -71,7 +76,8 @@ const trainingUsers = useLiveQueryWithDeps(
     if (!trainingId) return []
     return db.TrainingUser.where('trainingId', trainingId).exec()
   },
-  { initial: [] },
+
+  { models: ['TrainingUser'], initial: [] },
 )
 
 const assignedUserIds = computed(() => trainingUsers.value.map((u) => u.userId))
@@ -176,11 +182,17 @@ function getUserDisplayName(user) {
             >
               <div
                 class="tw:w-4 tw:h-4 tw:rounded tw:border tw:flex tw:items-center tw:justify-center tw:shrink-0 tw:transition-colors"
-                :class="assignedRoleIds.includes(role.id)
-                  ? 'tw:bg-primary tw:border-primary'
-                  : 'tw:border-divider'"
+                :class="
+                  assignedRoleIds.includes(role.id)
+                    ? 'tw:bg-primary tw:border-primary'
+                    : 'tw:border-divider'
+                "
               >
-                <IconCheck v-if="assignedRoleIds.includes(role.id)" :size="10" class="tw:text-white" />
+                <IconCheck
+                  v-if="assignedRoleIds.includes(role.id)"
+                  :size="10"
+                  class="tw:text-white"
+                />
               </div>
               <div class="tw:flex-1 tw:min-w-0">
                 <div class="tw:text-sm tw:font-medium tw:text-on-main">{{ role.name }}</div>
@@ -222,11 +234,17 @@ function getUserDisplayName(user) {
             >
               <div
                 class="tw:w-4 tw:h-4 tw:rounded tw:border tw:flex tw:items-center tw:justify-center tw:shrink-0 tw:transition-colors"
-                :class="assignedUserIds.includes(user.id)
-                  ? 'tw:bg-primary tw:border-primary'
-                  : 'tw:border-divider'"
+                :class="
+                  assignedUserIds.includes(user.id)
+                    ? 'tw:bg-primary tw:border-primary'
+                    : 'tw:border-divider'
+                "
               >
-                <IconCheck v-if="assignedUserIds.includes(user.id)" :size="10" class="tw:text-white" />
+                <IconCheck
+                  v-if="assignedUserIds.includes(user.id)"
+                  :size="10"
+                  class="tw:text-white"
+                />
               </div>
               <div class="tw:flex-1 tw:min-w-0">
                 <div class="tw:text-sm tw:font-medium tw:text-on-main">

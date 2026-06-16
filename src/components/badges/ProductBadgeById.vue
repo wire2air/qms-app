@@ -12,7 +12,8 @@ const product = useLiveQueryWithDeps(
     if (!productId) return null
     return db.Product.findByPk(productId)
   },
-  { initial: null },
+
+  { models: ['Product'], initial: null },
 )
 </script>
 

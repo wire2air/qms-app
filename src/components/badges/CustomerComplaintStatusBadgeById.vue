@@ -9,7 +9,11 @@ const status = useLiveQueryWithDeps(
     if (!statusId) return null
     return db.CustomerComplaintStatus.findByPk(statusId)
   },
-  { initial: () => (props.statusId ? { id: props.statusId } : null) },
+
+  {
+    models: ['CustomerComplaintStatus'],
+    initial: () => (props.statusId ? { id: props.statusId } : null),
+  },
 )
 </script>
 

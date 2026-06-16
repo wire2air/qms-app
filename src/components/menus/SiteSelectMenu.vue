@@ -22,7 +22,7 @@ const modelValue = defineModel({
   default: null,
 })
 
-const sites = useLiveQuery((db) => db.Site.where().exec(), { initial: [] })
+const sites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
 
 const canCreateSite = computed(() => props.allowCreate && isAllowed(['sites:create']))
 

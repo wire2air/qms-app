@@ -26,7 +26,8 @@ const allDocuments = useLiveQueryWithDeps(
     if (departmentId) q = q.where('departmentId', departmentId)
     return q.exec()
   },
-  { initial: [] },
+
+  { models: ['Document'], initial: [] },
 )
 
 const currentVersionStatusByDocId = useLiveQueryWithDeps(
@@ -41,7 +42,8 @@ const currentVersionStatusByDocId = useLiveQueryWithDeps(
     for (const v of versions) map[v.documentId] = v.statusId
     return map
   },
-  { initial: {} },
+
+  { models: ['DocumentVersion'], initial: {} },
 )
 
 const latestVersionStatusByDocId = useLiveQueryWithDeps(
@@ -62,7 +64,8 @@ const latestVersionStatusByDocId = useLiveQueryWithDeps(
     for (const [docId, v] of Object.entries(map)) statusMap[docId] = v.statusId
     return statusMap
   },
-  { initial: {} },
+
+  { models: ['DocumentVersion'], initial: {} },
 )
 
 const documents = computed(() => {
@@ -86,6 +89,7 @@ const documents = computed(() => {
 })
 
 const allDocumentsForStats = useLiveQuery(async (db) => db.Document.where().exec(), {
+  models: ['Document'],
   initial: [],
 })
 

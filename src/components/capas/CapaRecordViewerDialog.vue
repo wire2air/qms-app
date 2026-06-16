@@ -18,17 +18,23 @@ const capaRecord = useLiveQueryWithDeps(
   },
 )
 
-const submitter = useLiveQueryWithDeps([() => capaRecord.value?.userId], async (db, [userId]) => {
-  if (!userId) return null
-  return db.User.findByPk(userId)
-})
+const submitter = useLiveQueryWithDeps(
+  [() => capaRecord.value?.userId],
+  async (db, [userId]) => {
+    if (!userId) return null
+    return db.User.findByPk(userId)
+  },
+  { models: ['User'] },
+)
 
 const instanceStep = useLiveQueryWithDeps(
   [() => capaRecord.value?.workflowInstanceStepId],
+
   async (db, [id]) => {
     if (!id) return null
     return db.WorkflowInstanceStep.findByPk(id)
   },
+  { models: ['WorkflowInstanceStep'] },
 )
 
 const hasSchema = computed(

@@ -52,12 +52,12 @@ const fkOptionSet = useLiveQueryWithDeps(
     if (!optionSetId) return null
     return db.OptionSet.findByPk(optionSetId)
   },
-  { initial: null },
+
+  { models: ['OptionSet'], initial: null },
 )
 
 const computedItems = computed(() => {
-  const rawOptions =
-    props.optionSet?.options ?? fkOptionSet.value?.options ?? props.options ?? []
+  const rawOptions = props.optionSet?.options ?? fkOptionSet.value?.options ?? props.options ?? []
   return rawOptions.map((opt) => {
     if (typeof opt === 'string') return { id: opt, name: opt }
     // Support both {label, value} (Quasar format) and {id, name} format

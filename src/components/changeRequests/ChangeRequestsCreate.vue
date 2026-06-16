@@ -24,18 +24,22 @@ const presetSourceId = computed(() => {
 
 const sourceNc = useLiveQueryWithDeps(
   [() => presetSourceType.value, () => presetSourceId.value],
+
   async (db, [type, id]) => {
     if (type !== 'NC' || !id) return null
     return db.Nonconformance.findByPk(id)
   },
+  { models: ['Nonconformance'] },
 )
 
 const sourceCapa = useLiveQueryWithDeps(
   [() => presetSourceType.value, () => presetSourceId.value],
+
   async (db, [type, id]) => {
     if (type !== 'CAPA' || !id) return null
     return db.Capa.findByPk(id)
   },
+  { models: ['Capa'] },
 )
 
 // Audit-finding spawn deep link. When 'Spawn → New CR' on a finding,
@@ -47,10 +51,12 @@ const presetFindingId = computed(() => {
 })
 const sourceFinding = useLiveQueryWithDeps(
   [() => presetFindingId.value],
+
   async (db, [id]) => {
     if (!id) return null
     return db.AuditFinding.findByPk(id)
   },
+  { models: ['AuditFinding'] },
 )
 
 const form = ref({
@@ -121,7 +127,8 @@ const workflows = useLiveQuery(
     const all = await db.Workflow.where().exec()
     return all.filter((w) => w.moduleId === 'CHANGE_CONTROL' && w.statusId === 'ACTIVE')
   },
-  { initial: [] },
+
+  { models: ['Workflow'], initial: [] },
 )
 const activeWorkflowVersions = useLiveQueryWithDeps(
   [() => workflows.value.map((w) => w.id).join(',')],
@@ -130,14 +137,13 @@ const activeWorkflowVersions = useLiveQueryWithDeps(
     const ids = idsStr.split(',')
     const versions = await Promise.all(
       ids.map((id) =>
-        db.WorkflowVersion.where('workflowId', id)
-          .orderBy('createdAt', 'desc')
-          .first(),
+        db.WorkflowVersion.where('workflowId', id).orderBy('createdAt', 'desc').first(),
       ),
     )
     return versions.filter((v) => v?.statusId === 'PUBLISHED')
   },
-  { initial: [] },
+
+  { models: ['WorkflowVersion'], initial: [] },
 )
 
 const workflowVersionOptions = computed(() =>
@@ -233,7 +239,9 @@ async function handleSubmit() {
           </div>
         </div>
 
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4">
+        <div
+          class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4"
+        >
           <div class="tw:flex tw:flex-col tw:gap-1">
             <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
               Title <span class="tw:text-red-500">*</span>
@@ -378,7 +386,8 @@ async function handleSubmit() {
                 Requires effectiveness check
               </div>
               <div class="tw:text-xs tw:text-secondary">
-                Track post-implementation verification. CAPA-style — recommended for MAJOR or CRITICAL changes.
+                Track post-implementation verification. CAPA-style — recommended for MAJOR or
+                CRITICAL changes.
               </div>
             </div>
           </label>

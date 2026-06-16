@@ -49,7 +49,8 @@ const openReviewTask = useLiveQueryWithDeps(
       ) ?? null
     )
   },
-  { initial: null },
+
+  { models: ['TaskInstance'], initial: null },
 )
 
 function toDateTime(value) {

@@ -18,7 +18,8 @@ const resolvedTemplate = useLiveQueryWithDeps(
     if (!templateId) return null
     return db.DocumentTemplate.findByPk(templateId)
   },
-  { initial: null },
+
+  { models: ['DocumentTemplate'], initial: null },
 )
 
 watch(resolvedTemplate, (template) => {

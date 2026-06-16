@@ -19,7 +19,8 @@ const steps = useLiveQueryWithDeps(
     if (!vId) return []
     return db.WorkflowStep.where('workflowVersionId', vId).orderBy('stepOrder').exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStep'], initial: [] },
 )
 
 // Tree helpers (used when showChildSteps = true)

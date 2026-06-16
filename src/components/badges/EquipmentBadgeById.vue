@@ -9,12 +9,11 @@ const equipment = useLiveQueryWithDeps(
     if (!equipmentId) return null
     return db.Equipment.findByPk(equipmentId)
   },
+
   // Initial-load fallback so the badge renders the id immediately
   // while IDB resolves — matches the SiteBadgeById pattern's intent
   // by giving EquipmentBadge a minimal object to display.
-  {
-    initial: () => (props.equipmentId ? { id: props.equipmentId } : null),
-  },
+  { models: ['Equipment'], initial: () => (props.equipmentId ? { id: props.equipmentId } : null) },
 )
 </script>
 

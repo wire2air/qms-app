@@ -12,13 +12,19 @@ const ncs = useLiveQuery(
       .filter((n) => n.statusId !== 'CLOSED')
       .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['Nonconformance'], initial: [] },
 )
 </script>
 
 <template>
   <DashboardWidgetCard title="Open Nonconformances" :count="ncs.length" linkTo="/nonconformances">
-    <BaseEmptyState v-if="!ncs.length" dense :icon="IconCircleCheck" title="No open nonconformances" />
+    <BaseEmptyState
+      v-if="!ncs.length"
+      dense
+      :icon="IconCircleCheck"
+      title="No open nonconformances"
+    />
     <RouterLink
       v-for="nc in ncs.slice(0, 5)"
       :key="nc.id"

@@ -8,16 +8,20 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
-const record = useLiveQueryWithDeps([() => props.recordId], async (db, [id]) =>
-  db.Record.findByPk(id),
+const record = useLiveQueryWithDeps(
+  [() => props.recordId],
+  async (db, [id]) => db.Record.findByPk(id),
+  { models: ['Record'] },
 )
 
 const template = useLiveQueryWithDeps(
   [() => record.value?.templateId],
+
   async (db, [templateId]) => {
     if (!templateId) return null
     return db.FormTemplate.findByPk(templateId)
   },
+  { models: ['FormTemplate'] },
 )
 
 const loading = computed(() => record.value === undefined || template.value === undefined)

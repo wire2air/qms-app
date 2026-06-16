@@ -16,6 +16,7 @@ const modelValue = defineModel({
 })
 
 const statuses = useLiveQuery((db) => db.ProductStatus.where().orderBy('displayOrder').exec(), {
+  models: ['ProductStatus'],
   initial: [],
 })
 

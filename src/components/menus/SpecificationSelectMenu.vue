@@ -15,7 +15,8 @@ const specs = useLiveQuery(
       .filter((s) => s.statusId === 'EFFECTIVE')
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   },
-  { initial: [] },
+
+  { models: ['Specification'], initial: [] },
 )
 const items = computed(() =>
   specs.value.map((s) => ({

@@ -15,7 +15,8 @@ const responses = useLiveQuery(
     const rows = await db.ComplaintCannedResponse.where().exec()
     return rows.sort((a, b) => a.name.localeCompare(b.name))
   },
-  { initial: [] },
+
+  { models: ['ComplaintCannedResponse'], initial: [] },
 )
 
 const showEditDialog = ref(false)
@@ -116,10 +117,7 @@ async function handleDelete(response) {
 
     <p class="tw:text-sm tw:text-secondary tw:mb-4">
       Saved replies agents insert from the ticket reply box. Use placeholders:
-      <code
-        v-for="(ph, i) in PLACEHOLDERS"
-        :key="ph"
-        class="tw:font-mono tw:text-xs"
+      <code v-for="(ph, i) in PLACEHOLDERS" :key="ph" class="tw:font-mono tw:text-xs"
         >{{ ph }}{{ i < PLACEHOLDERS.length - 1 ? ', ' : '' }}</code
       >
       — substituted at insert time.

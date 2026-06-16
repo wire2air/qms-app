@@ -69,7 +69,8 @@ const supplierUsers = useLiveQueryWithDeps(
     const rows = await db.User.where('supplierId', supplierId).exec()
     return rows.filter((u) => u.kind === 'EXTERNAL_SUPPLIER')
   },
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 function userLabel(u) {
   return [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id
@@ -81,7 +82,8 @@ const editingRecipients = useLiveQueryWithDeps(
     if (!requestId) return []
     return db.AssetRequestOnUser.where('assetRequestId', requestId).exec()
   },
-  { initial: [] },
+
+  { models: ['AssetRequestOnUser'], initial: [] },
 )
 
 watch(show, async (val) => {
@@ -139,7 +141,9 @@ function removeAdHoc(tempId) {
 }
 
 const totalItems = computed(
-  () => form.value.selectedTypeIds.length + form.value.adHocItems.filter((i) => i.customTitle.trim()).length,
+  () =>
+    form.value.selectedTypeIds.length +
+    form.value.adHocItems.filter((i) => i.customTitle.trim()).length,
 )
 
 const canSubmit = computed(() => {

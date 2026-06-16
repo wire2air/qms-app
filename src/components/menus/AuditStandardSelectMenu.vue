@@ -18,7 +18,8 @@ const standards = useLiveQuery(
     db.AuditStandard.where()
       .exec()
       .then((rows) => rows.sort((a, b) => (a.name || '').localeCompare(b.name || ''))),
-  { initial: [] },
+
+  { models: ['AuditStandard'], initial: [] },
 )
 
 function getArray() {

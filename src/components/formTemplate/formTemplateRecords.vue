@@ -25,10 +25,14 @@ const props = defineProps({
 
 const toast = useToast()
 
-const template = useLiveQueryWithDeps([() => props.templateId], async (db, [id]) => {
-  if (!id) return null
-  return db.FormTemplate.findByPk(id)
-})
+const template = useLiveQueryWithDeps(
+  [() => props.templateId],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.FormTemplate.findByPk(id)
+  },
+  { models: ['FormTemplate'] },
+)
 
 const templateRecords = useLiveQueryWithDeps(
   [() => props.templateId],
@@ -36,7 +40,8 @@ const templateRecords = useLiveQueryWithDeps(
     if (!id) return []
     return db.Record.where('templateId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['Record'], initial: [] },
 )
 
 const recordsLoading = computed(() => templateRecords.value === undefined)

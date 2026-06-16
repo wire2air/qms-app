@@ -29,7 +29,8 @@ const products = useLiveQueryWithDeps(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['Product'], initial: [] },
 )
 
 function openDialog(id = null) {

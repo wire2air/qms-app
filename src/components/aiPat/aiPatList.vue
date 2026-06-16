@@ -5,7 +5,8 @@ const emit = defineEmits(['create'])
 
 const tokens = useLiveQuery(
   async (db) => db.AiPat.where().orderBy('createdAt', 'desc').exec(),
-  { initial: [] },
+
+  { models: ['AiPat'], initial: [] },
 )
 </script>
 

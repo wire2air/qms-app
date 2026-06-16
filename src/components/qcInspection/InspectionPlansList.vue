@@ -20,15 +20,34 @@ const plans = useLiveQuery(
     const rows = await db.QcInspectionTemplate.where().exec()
     return rows.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   },
-  { initial: [] },
+
+  { models: ['QcInspectionTemplate'], initial: [] },
 )
 
-const products = useLiveQuery(async (db) => db.Product.where().exec(), { initial: [] })
-const productTypes = useLiveQuery(async (db) => db.ProductType.where().exec(), { initial: [] })
-const specs = useLiveQuery(async (db) => db.Specification.where().exec(), { initial: [] })
-const samplingPlans = useLiveQuery(async (db) => db.SamplingPlan.where().exec(), { initial: [] })
-const workflows = useLiveQuery(async (db) => db.Workflow.where().exec(), { initial: [] })
-const workflowVersions = useLiveQuery(async (db) => db.WorkflowVersion.where().exec(), { initial: [] })
+const products = useLiveQuery(async (db) => db.Product.where().exec(), {
+  models: ['Product'],
+  initial: [],
+})
+const productTypes = useLiveQuery(async (db) => db.ProductType.where().exec(), {
+  models: ['ProductType'],
+  initial: [],
+})
+const specs = useLiveQuery(async (db) => db.Specification.where().exec(), {
+  models: ['Specification'],
+  initial: [],
+})
+const samplingPlans = useLiveQuery(async (db) => db.SamplingPlan.where().exec(), {
+  models: ['SamplingPlan'],
+  initial: [],
+})
+const workflows = useLiveQuery(async (db) => db.Workflow.where().exec(), {
+  models: ['Workflow'],
+  initial: [],
+})
+const workflowVersions = useLiveQuery(async (db) => db.WorkflowVersion.where().exec(), {
+  models: ['WorkflowVersion'],
+  initial: [],
+})
 
 function scopeLabel(t) {
   if (t.productId) {
@@ -64,7 +83,8 @@ function startEdit(plan) {
   <div class="tw:flex tw:flex-col tw:gap-3">
     <div class="tw:flex tw:items-center tw:justify-between tw:gap-2">
       <div class="tw:text-sm tw:text-secondary">
-        {{ plans.length }} inspection plan(s) — lots for a matching product + point auto-resolve their spec &amp; sampling
+        {{ plans.length }} inspection plan(s) — lots for a matching product + point auto-resolve
+        their spec &amp; sampling
       </div>
       <BaseButton v-if="canManage" variant="primary" size="sm" @click="showCreate = true">
         <template #icon><IconPlus :size="16" /></template>
@@ -89,16 +109,25 @@ function startEdit(plan) {
         <tbody>
           <tr v-for="t in plans" :key="t.id" class="tw:border-t tw:border-divider">
             <td class="tw:px-4 tw:py-2.5 tw:font-medium tw:text-on-main">{{ t.name }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ POINT_LABELS[t.inspectionPoint] || t.inspectionPoint }}</td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
+              {{ POINT_LABELS[t.inspectionPoint] || t.inspectionPoint }}
+            </td>
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ scopeLabel(t) }}</td>
             <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ specName(t.specificationId) }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ samplingName(t.samplingPlanId) }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ workflowName(t.workflowVersionId) }}</td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
+              {{ samplingName(t.samplingPlanId) }}
+            </td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
+              {{ workflowName(t.workflowVersionId) }}
+            </td>
             <td class="tw:px-4 tw:py-2.5">
               <span
                 class="tw:text-[11px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
-                :class="t.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-200 tw:text-gray-600'"
-              >{{ t.active ? 'ACTIVE' : 'INACTIVE' }}</span>
+                :class="
+                  t.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-200 tw:text-gray-600'
+                "
+                >{{ t.active ? 'ACTIVE' : 'INACTIVE' }}</span
+              >
             </td>
             <td class="tw:px-4 tw:py-2.5 tw:text-right">
               <BaseButton v-if="canManage" variant="outline" size="sm" @click="startEdit(t)">
@@ -110,8 +139,8 @@ function startEdit(plan) {
             <td colspan="8" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary">
               <p class="tw:font-medium tw:text-on-main tw:mb-1">No inspection plans yet.</p>
               <p class="tw:text-xs tw:italic">
-                Create one to bind a Specification + Sampling Plan to a product (or product type) and inspection
-                point — new lots will pick them up automatically.
+                Create one to bind a Specification + Sampling Plan to a product (or product type)
+                and inspection point — new lots will pick them up automatically.
               </p>
             </td>
           </tr>

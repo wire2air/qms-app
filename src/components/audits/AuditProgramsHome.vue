@@ -33,7 +33,8 @@ const programs = useLiveQueryWithDeps(
     const lower = q.toLowerCase()
     return sorted.filter((p) => (p.name || '').toLowerCase().includes(lower))
   },
-  { initial: [] },
+
+  { models: ['AuditProgram'], initial: [] },
 )
 
 const FREQUENCY_LABELS = {
@@ -90,8 +91,8 @@ function typeBadgeClass(typeId) {
       <IconCalendarTime :size="40" class="tw:opacity-50" />
       <div class="tw:text-base tw:font-semibold">No programs yet</div>
       <div class="tw:text-sm tw:text-center tw:max-w-md">
-        A program defines a recurring schedule. The daily worker mints an Audit
-        whenever the program hits its frequency window.
+        A program defines a recurring schedule. The daily worker mints an Audit whenever the program
+        hits its frequency window.
       </div>
     </div>
 
@@ -137,7 +138,10 @@ function typeBadgeClass(typeId) {
             </td>
             <td class="tw:px-4 tw:py-3 tw:text-xs">
               {{ FREQUENCY_LABELS[row.frequencyId] || row.frequencyId }}
-              <span v-if="row.frequencyId === 'EVERY_X_DAYS' && row.daysInterval" class="tw:text-secondary">
+              <span
+                v-if="row.frequencyId === 'EVERY_X_DAYS' && row.daysInterval"
+                class="tw:text-secondary"
+              >
                 ({{ row.daysInterval }}d)
               </span>
             </td>
@@ -154,7 +158,11 @@ function typeBadgeClass(typeId) {
             <td class="tw:px-4 tw:py-3">
               <span
                 class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
-                :class="row.active ? 'tw:bg-emerald-100 tw:text-emerald-700' : 'tw:bg-gray-100 tw:text-gray-600'"
+                :class="
+                  row.active
+                    ? 'tw:bg-emerald-100 tw:text-emerald-700'
+                    : 'tw:bg-gray-100 tw:text-gray-600'
+                "
               >
                 {{ row.active ? 'Active' : 'Paused' }}
               </span>

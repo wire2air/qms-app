@@ -7,6 +7,7 @@ defineProps({
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
 const items = useLiveQuery((db) => db.CapaStatus.where().orderBy('displayOrder').exec(), {
+  models: ['CapaStatus'],
   initial: [],
 })
 
@@ -16,7 +17,13 @@ function getArray() {
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="items" :required="required" :multiple="multiple" nullLabel="— All statuses —">
+  <BaseSelectMenu
+    v-model="modelValue"
+    :items="items"
+    :required="required"
+    :multiple="multiple"
+    nullLabel="— All statuses —"
+  >
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <template v-if="multiple">

@@ -13,8 +13,10 @@ const props = defineProps({
 const router = useRouter()
 const toast = useToast()
 
-const complaint = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.CustomerComplaint.findByPk(id),
+const complaint = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.CustomerComplaint.findByPk(id),
+  { models: ['CustomerComplaint'] },
 )
 
 const loading = computed(() => complaint.value === undefined)
@@ -29,9 +31,7 @@ const canConvert = computed(
   () => isAllowed(['customerComplaints:update']) && isAllowed(['nonconformances:create']),
 )
 
-const isTerminal = computed(() =>
-  ['CLOSED', 'CONVERTED_TO_NC'].includes(complaint.value?.statusId),
-)
+const isTerminal = computed(() => ['CLOSED', 'CONVERTED_TO_NC'].includes(complaint.value?.statusId))
 // Closed/converted complaints are immutable — a customer reply (or an
 // explicit Reopen) is the only way back.
 const isEditable = computed(() => complaint.value && !isTerminal.value && canUpdate.value)
@@ -94,7 +94,8 @@ const ncLinks = useLiveQueryWithDeps(
       complaintId,
     ]).exec()
   },
-  { initial: [] },
+
+  { models: ['NcSourceLink'], initial: [] },
 )
 
 const linkedNcIdList = computed(() => ncLinks.value.map((l) => l.ncId).join(','))
@@ -106,7 +107,8 @@ const linkedNcs = useLiveQueryWithDeps(
     const rows = await Promise.all(ids.map((id) => db.Nonconformance.findByPk(id)))
     return rows.filter(Boolean)
   },
-  { initial: [] },
+
+  { models: ['Nonconformance'], initial: [] },
 )
 
 // ─── Audit log ────────────────────────────────────────────────────────────────
@@ -377,7 +379,9 @@ const auditIncludeEntities = computed(() => [
                   <span class="tw:text-xs tw:text-secondary">First response due</span>
                   <span
                     class="tw:text-sm tw:font-medium"
-                    :class="complaint.slaFirstResponseDueAt < DateTime.now() ? 'tw:text-red-600' : ''"
+                    :class="
+                      complaint.slaFirstResponseDueAt < DateTime.now() ? 'tw:text-red-600' : ''
+                    "
                   >
                     {{ complaint.slaFirstResponseDueAt.formatDate('datetime') }}
                   </span>
@@ -395,10 +399,7 @@ const auditIncludeEntities = computed(() => [
             </div>
 
             <!-- Customer profile + history (requester layer) -->
-            <CustomerComplaintCustomerPanel
-              :complaintId="id"
-              :customerId="complaint.customerId"
-            />
+            <CustomerComplaintCustomerPanel :complaintId="id" :customerId="complaint.customerId" />
 
             <!-- Customer details -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
@@ -505,11 +506,7 @@ const auditIncludeEntities = computed(() => [
       </div>
       <template #footer="{ close }">
         <BaseButton variant="outline" :disabled="acting" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :disabled="!assignUserId || acting"
-          @click="handleAssign"
-        >
+        <BaseButton variant="primary" :disabled="!assignUserId || acting" @click="handleAssign">
           Assign
         </BaseButton>
       </template>
@@ -519,14 +516,10 @@ const auditIncludeEntities = computed(() => [
     <BaseDialog v-model="showCloseDialog" title="Close Complaint" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
         <p class="tw:text-sm tw:text-on-main">
-          Closing marks this complaint as done. If the customer replies by email, the ticket
-          reopens automatically.
+          Closing marks this complaint as done. If the customer replies by email, the ticket reopens
+          automatically.
         </p>
-        <BaseTextarea
-          v-model="closeComment"
-          :rows="3"
-          placeholder="Closing comment (optional)…"
-        />
+        <BaseTextarea v-model="closeComment" :rows="3" placeholder="Closing comment (optional)…" />
       </div>
       <template #footer="{ close }">
         <BaseButton variant="outline" :disabled="acting" @click="close">Cancel</BaseButton>

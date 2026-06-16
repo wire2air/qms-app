@@ -52,8 +52,10 @@ const resource = useLiveQueryWithDeps([() => props.resourceId], async (db, [id])
   id ? db[props.module.resourceModel.modelName].findByPk(id) : null,
 )
 
-const instanceStep = useLiveQueryWithDeps([() => props.instanceStepId], async (db, [id]) =>
-  id ? db.WorkflowInstanceStep.findByPk(id) : null,
+const instanceStep = useLiveQueryWithDeps(
+  [() => props.instanceStepId],
+  async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+  { models: ['WorkflowInstanceStep'] },
 )
 
 // APPROVAL steps render no form — pure approve/reject. Suppress here
@@ -94,6 +96,7 @@ const submittedRecords = computed(() => records.value.filter((r) => r.submittedA
 const ACTIONABLE_TASK_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
 const currentUserTask = useLiveQueryWithDeps(
   [() => props.instanceStepId, () => currentUserId.value],
+
   async (db, [stepInstanceId, userId]) => {
     if (!stepInstanceId || !userId) return null
     const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
@@ -103,11 +106,10 @@ const currentUserTask = useLiveQueryWithDeps(
     const userApprovalTasks = tasks.filter(
       (t) => t.assignedTo === userId && t.taskKindId === 'APPROVAL',
     )
-    const actionable = userApprovalTasks.find((t) =>
-      ACTIONABLE_TASK_STATUSES.includes(t.statusId),
-    )
+    const actionable = userApprovalTasks.find((t) => ACTIONABLE_TASK_STATUSES.includes(t.statusId))
     return actionable ?? userApprovalTasks[0] ?? null
   },
+  { models: ['TaskInstance'] },
 )
 
 const isEditable = computed(() => currentUserTask.value?.statusId === 'ASSIGNED')
@@ -312,7 +314,8 @@ const usersMap = useLiveQueryWithDeps(
     const users = await Promise.all(ids.map((id) => db.User.findByPk(id)))
     return Object.fromEntries(users.filter(Boolean).map((u) => [u.id, u]))
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 
 function getUserName(userId) {

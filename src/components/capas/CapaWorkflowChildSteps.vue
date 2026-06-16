@@ -56,7 +56,6 @@ function openAddDialog() {
   addDialogOpen.value = true
 }
 
-
 // All children (template-spawned or ad-hoc) carry parentInstanceStepId pointing
 // at this parent's instance row. One indexed lookup, no WorkflowStep fetch.
 const childInstanceSteps = useLiveQueryWithDeps(
@@ -69,7 +68,8 @@ const childInstanceSteps = useLiveQueryWithDeps(
     ).exec()
     return all.sort((a, b) => a.stepOrder - b.stepOrder)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 // Template-spawned children store the policy flag on the WorkflowStep
@@ -78,14 +78,21 @@ const childInstanceSteps = useLiveQueryWithDeps(
 // WorkflowStepActionsMenu — without it, Mark Complete would skip the
 // e-sign gate. Mirrors the fallback in WorkflowStep.vue.
 const stepDefinitionsById = useLiveQueryWithDeps(
-  [() => childInstanceSteps.value.map((s) => s.stepId).filter(Boolean).join(',')],
+  [
+    () =>
+      childInstanceSteps.value
+        .map((s) => s.stepId)
+        .filter(Boolean)
+        .join(','),
+  ],
   async (db, [idsStr]) => {
     if (!idsStr) return {}
     const ids = [...new Set(idsStr.split(','))]
     const rows = await Promise.all(ids.map((id) => db.WorkflowStep.findByPk(id)))
     return Object.fromEntries(rows.filter(Boolean).map((r) => [r.id, r]))
   },
-  { initial: {} },
+
+  { models: ['WorkflowStep'], initial: {} },
 )
 
 function requireEsignatureFor(child) {
@@ -125,7 +132,8 @@ const tasksByChildStepId = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['TaskInstance'], initial: {} },
 )
 
 // Current user's submitted CapaRecord (if any) per child step. We use this
@@ -153,7 +161,8 @@ const submittedRecordsByChildStepId = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['CapaRecord'], initial: {} },
 )
 
 function childHasForm(child) {
@@ -227,7 +236,8 @@ const childAssignments = useLiveQueryWithDeps(
     )
     return fetched.flat()
   },
-  { initial: [] },
+
+  { models: ['UserOnWorkflowInstanceStep'], initial: [] },
 )
 
 // Resolve the "currently assigned" user from UserOnWorkflowInstanceStep

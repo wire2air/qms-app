@@ -5,7 +5,9 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const router = useRouter()
 
-const documentTemplates = useLiveQuery(async (db) => db.DocumentTemplate.where().exec())
+const documentTemplates = useLiveQuery(async (db) => db.DocumentTemplate.where().exec(), {
+  models: ['DocumentTemplate'],
+})
 const loading = computed(() => documentTemplates.value === undefined)
 
 const canCreate = computed(() => isAllowed(['document-templates:create']))

@@ -30,7 +30,8 @@ export function useAuditScoring(auditInstanceId) {
       if (!id) return []
       return db.AuditRequirementResponse.where('auditInstanceId', id).exec()
     },
-    { initial: [] },
+
+    { models: ['AuditRequirementResponse'], initial: [] },
   )
 
   const scoring = computed(() => {

@@ -27,7 +27,8 @@ const trainings = useLiveQuery(
       .filter((t) => t.status === 'ACTIVE' && !t.sourceDocumentId)
       .sort((a, b) => a.title?.localeCompare(b.title ?? '') ?? 0)
   },
-  { initial: [] },
+
+  { models: ['Training'], initial: [] },
 )
 
 // Already-assigned role IDs for the currently selected training
@@ -38,7 +39,8 @@ const existingRoleIds = useLiveQueryWithDeps(
     const rules = await db.TrainingMatrix.where().exec()
     return rules.filter((r) => r.trainingId === trainingId).map((r) => r.roleId)
   },
-  { initial: [] },
+
+  { models: ['TrainingMatrix'], initial: [] },
 )
 
 const allRoles = useLiveQuery(
@@ -46,7 +48,8 @@ const allRoles = useLiveQuery(
     const all = await db.Role.where('statusId', 'ACTIVE').exec()
     return all.sort((a, b) => a.name?.localeCompare(b.name ?? '') ?? 0)
   },
-  { initial: [] },
+
+  { models: ['Role'], initial: [] },
 )
 
 const availableRoles = computed(() => {
@@ -109,15 +112,16 @@ async function handleAdd() {
           <option :value="null">— Select a role —</option>
           <option v-for="r in availableRoles" :key="r.id" :value="r.id">{{ r.name }}</option>
         </select>
-        <p v-if="newTrainingId && !availableRoles.length" class="tw:text-xs tw:text-secondary tw:italic tw:mt-1">
+        <p
+          v-if="newTrainingId && !availableRoles.length"
+          class="tw:text-xs tw:text-secondary tw:italic tw:mt-1"
+        >
           All roles already mapped to this training.
         </p>
       </div>
       <div class="tw:flex tw:justify-end tw:gap-2">
         <BaseButton variant="secondary" @click="model = false">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="saving" @click="handleAdd">
-          Add Rule
-        </BaseButton>
+        <BaseButton variant="primary" :loading="saving" @click="handleAdd"> Add Rule </BaseButton>
       </div>
     </div>
   </BaseDialog>

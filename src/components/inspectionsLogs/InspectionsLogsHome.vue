@@ -30,10 +30,19 @@ const canCreateTemplate = computed(() => isAllowed(['formTemplates:create']))
 
 // Round 1: scope the "Awaiting review" stat tile to the user's
 // supervised log books (the digest queue in #2 reads the same shape).
-const allLogBooks = useLiveQuery((db) => db.LogBook.where().exec(), { initial: [] })
+const allLogBooks = useLiveQuery((db) => db.LogBook.where().exec(), {
+  models: ['LogBook'],
+  initial: [],
+})
 
-const allInstances = useLiveQuery((db) => db.AssignmentInstance.where().exec(), { initial: [] })
-const allRecords = useLiveQuery((db) => db.FieldRecord.where().exec(), { initial: [] })
+const allInstances = useLiveQuery((db) => db.AssignmentInstance.where().exec(), {
+  models: ['AssignmentInstance'],
+  initial: [],
+})
+const allRecords = useLiveQuery((db) => db.FieldRecord.where().exec(), {
+  models: ['FieldRecord'],
+  initial: [],
+})
 
 const stats = computed(() => {
   const now = DateTime.now()
@@ -50,9 +59,7 @@ const stats = computed(() => {
   // Admins with fieldRecords:read_all see the global count via the
   // Pending Review page's "view all" toggle.
   const mySupervisedIds = new Set(
-    allLogBooks.value
-      .filter((lb) => lb.supervisorUserId === userId)
-      .map((lb) => lb.id),
+    allLogBooks.value.filter((lb) => lb.supervisorUserId === userId).map((lb) => lb.id),
   )
   const underReview = allRecords.value.filter(
     (r) => r.statusId === 'UNDER_REVIEW' && mySupervisedIds.has(r.logBookId),
@@ -196,8 +203,8 @@ function go(path) {
             <div class="tw:font-semibold tw:text-on-main">Log Books</div>
           </div>
           <div class="tw:text-sm tw:text-secondary">
-            Build and manage your log book templates. Operational logs auto-lock after a short
-            edit window; controlled records require e-signature and reviewer approval.
+            Build and manage your log book templates. Operational logs auto-lock after a short edit
+            window; controlled records require e-signature and reviewer approval.
           </div>
         </button>
 
@@ -216,8 +223,8 @@ function go(path) {
             <div class="tw:font-semibold tw:text-on-main">Log Book Assignments</div>
           </div>
           <div class="tw:text-sm tw:text-secondary">
-            Plan who fills which log book, when (cron + timezone), and where (site). The
-            scheduler materialises assignment instances in a 24-hour look-ahead.
+            Plan who fills which log book, when (cron + timezone), and where (site). The scheduler
+            materialises assignment instances in a 24-hour look-ahead.
           </div>
         </button>
 
@@ -254,8 +261,8 @@ function go(path) {
             <div class="tw:font-semibold tw:text-on-main">Logs</div>
           </div>
           <div class="tw:text-sm tw:text-secondary">
-            Every log entry submitted across your log books. Filter by form to scope into a
-            specific log book.
+            Every log entry submitted across your log books. Filter by form to scope into a specific
+            log book.
             <span v-if="canReview" class="tw:text-xs tw:text-secondary tw:italic tw:block tw:mt-1">
               Filter by status to find entries awaiting review.
             </span>

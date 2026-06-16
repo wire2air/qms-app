@@ -4,8 +4,9 @@ import { DateTime } from 'luxon'
 
 const filter = ref('all') // 'all' | 'unread'
 
-const allNotifications = useLiveQuery(async (db) =>
-  db.Notification.where().orderBy('createdAt', 'desc').exec(),
+const allNotifications = useLiveQuery(
+  async (db) => db.Notification.where().orderBy('createdAt', 'desc').exec(),
+  { models: ['Notification'] },
 )
 
 const loading = computed(() => allNotifications.value === undefined)

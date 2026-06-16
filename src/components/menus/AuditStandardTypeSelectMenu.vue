@@ -8,7 +8,8 @@ const modelValue = defineModel({ type: [String, Array, null], default: null })
 
 const standardTypes = useLiveQuery(
   (db) => db.AuditStandardType.where().orderBy('displayOrder').exec(),
-  { initial: [] },
+
+  { models: ['AuditStandardType'], initial: [] },
 )
 
 function getArray() {

@@ -20,6 +20,7 @@ const modelValue = defineModel({
 })
 
 const allRoles = useLiveQuery(async (db) => db.Role.where('statusId', 'ACTIVE').exec(), {
+  models: ['Role'],
   initial: [],
 })
 

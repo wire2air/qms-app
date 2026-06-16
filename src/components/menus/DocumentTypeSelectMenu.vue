@@ -16,6 +16,7 @@ const modelValue = defineModel({
 })
 
 const documentTypes = useLiveQuery((db) => db.DocumentType.where().orderBy('displayOrder').exec(), {
+  models: ['DocumentType'],
   initial: [],
 })
 

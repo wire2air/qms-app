@@ -42,7 +42,8 @@ const workflowInstanceSteps = useLiveQueryWithDeps(
     }
     return [...latestByStepId.values()].sort((a, b) => a.stepNumber - b.stepNumber)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 function openReassignDialog(instanceStepId) {

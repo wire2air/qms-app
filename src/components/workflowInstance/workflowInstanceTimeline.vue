@@ -20,6 +20,7 @@ const props = defineProps({
 // WorkflowStep template fetch.
 const stepEntries = useLiveQueryWithDeps(
   [() => props.workflowInstanceId],
+
   async (db, [workflowInstanceId]) => {
     if (!workflowInstanceId) return []
     const instanceSteps = await db.WorkflowInstanceStep.where(
@@ -59,6 +60,7 @@ const stepEntries = useLiveQueryWithDeps(
     })
     return entries
   },
+  { models: ['WorkflowInstanceStep'] },
 )
 
 const loading = computed(() => stepEntries.value === undefined)

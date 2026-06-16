@@ -16,6 +16,7 @@ const modelValue = defineModel({
 })
 
 const types = useLiveQuery((db) => db.AssetRequestType.where().orderBy('displayOrder').exec(), {
+  models: ['AssetRequestType'],
   initial: [],
 })
 

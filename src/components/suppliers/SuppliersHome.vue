@@ -33,7 +33,8 @@ const suppliers = useLiveQueryWithDeps(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['Supplier'], initial: [] },
 )
 
 const confirmDialog = ref(null)

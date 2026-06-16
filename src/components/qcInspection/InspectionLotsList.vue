@@ -30,11 +30,17 @@ const lots = useLiveQueryWithDeps(
     const rows = await db.InspectionLot.where().exec()
     let filtered = point ? rows.filter((l) => l.inspectionPoint === point) : rows
     if (from || to) filtered = filtered.filter((l) => dateInRange(l.createdAt, from, to))
-    return filtered.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    return filtered.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )
   },
-  { initial: [] },
+
+  { models: ['InspectionLot'], initial: [] },
 )
-const products = useLiveQuery(async (db) => db.Product.where().exec(), { initial: [] })
+const products = useLiveQuery(async (db) => db.Product.where().exec(), {
+  models: ['Product'],
+  initial: [],
+})
 const productName = (id) => products.value.find((p) => p.id === id)?.name || '—'
 
 function openLot(id) {
@@ -114,16 +120,27 @@ function exportCsv() {
             @click="openLot(l.id)"
           >
             <td class="tw:px-4 tw:py-2.5 tw:font-mono tw:text-on-main">{{ l.lotNumber }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ POINT_LABELS[l.inspectionPoint] || l.inspectionPoint }}</td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
+              {{ POINT_LABELS[l.inspectionPoint] || l.inspectionPoint }}
+            </td>
             <td class="tw:px-4 tw:py-2.5">{{ productName(l.productId) }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ l.sampleSize ?? '—' }}<span v-if="l.quantity"> / {{ l.quantity }}</span></td>
-            <td class="tw:px-4 tw:py-2.5"><InspectionLotStatusBadgeById :statusId="l.statusId" /></td>
+            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
+              {{ l.sampleSize ?? '—' }}<span v-if="l.quantity"> / {{ l.quantity }}</span>
+            </td>
+            <td class="tw:px-4 tw:py-2.5">
+              <InspectionLotStatusBadgeById :statusId="l.statusId" />
+            </td>
             <td class="tw:px-4 tw:py-2.5">
               <span
                 v-if="l.disposition"
                 class="tw:text-[11px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
-                :class="l.disposition === 'RELEASE' ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-red-100 tw:text-red-700'"
-              >{{ l.disposition }}</span>
+                :class="
+                  l.disposition === 'RELEASE'
+                    ? 'tw:bg-green-100 tw:text-green-700'
+                    : 'tw:bg-red-100 tw:text-red-700'
+                "
+                >{{ l.disposition }}</span
+              >
               <span v-else class="tw:text-secondary">—</span>
             </td>
             <td class="tw:px-4 tw:py-2.5" @click.stop>
@@ -138,7 +155,9 @@ function exportCsv() {
             </td>
           </BaseClickableRow>
           <tr v-if="!lots.length">
-            <td colspan="7" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">No inspection lots yet.</td>
+            <td colspan="7" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
+              No inspection lots yet.
+            </td>
           </tr>
         </tbody>
       </table>

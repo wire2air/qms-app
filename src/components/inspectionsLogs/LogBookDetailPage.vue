@@ -49,17 +49,22 @@ const { confirm } = useConfirm()
 
 const canUpdate = computed(() => isAllowed(['logBooks:update']))
 
-const logBook = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.LogBook.findByPk(id)
-})
+const logBook = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.LogBook.findByPk(id)
+  },
+  { models: ['LogBook'] },
+)
 
 const logBookTypes = useLiveQuery(
   async (db) => {
     const rows = await db.LogBookType.where().exec()
     return rows.sort((a, b) => (a.sequence ?? 100) - (b.sequence ?? 100))
   },
-  { initial: [] },
+
+  { models: ['LogBookType'], initial: [] },
 )
 
 const siteLinks = useLiveQueryWithDeps(
@@ -68,7 +73,8 @@ const siteLinks = useLiveQueryWithDeps(
     if (!id) return []
     return db.SiteOnLogBook.where('logBookId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['SiteOnLogBook'], initial: [] },
 )
 const assignedSiteIds = computed(() => siteLinks.value.map((s) => s.siteId))
 
@@ -78,10 +84,14 @@ const documentLinks = useLiveQueryWithDeps(
     if (!id) return []
     return db.LogBookDocumentLink.where('logBookId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['LogBookDocumentLink'], initial: [] },
 )
 
-const documents = useLiveQuery((db) => db.Document.where().exec(), { initial: [] })
+const documents = useLiveQuery((db) => db.Document.where().exec(), {
+  models: ['Document'],
+  initial: [],
+})
 const documentById = computed(() => new Map(documents.value.map((d) => [d.id, d])))
 
 const loading = computed(() => logBook.value === undefined)
@@ -136,9 +146,7 @@ const derivedClassification = computed(() =>
 // The record-ID naming convention (code prefix) is editable only while the
 // log book is still a draft (no effective version yet). Once effective the
 // code is frozen so live record numbers stay consistent.
-const canEditPrefix = computed(
-  () => canUpdate.value && !logBook.value?.currentEffectiveVersionId,
-)
+const canEditPrefix = computed(() => canUpdate.value && !logBook.value?.currentEffectiveVersionId)
 
 const debouncedSave = useDebounceFn(async () => {
   // canEditDetails (not just canUpdate) so an effective book never silently
@@ -277,11 +285,10 @@ const logBookAssignments = useLiveQueryWithDeps(
   async (db, [logBookId]) => {
     if (!logBookId) return []
     const rows = await db.FormAssignment.where('logBookId', logBookId).exec()
-    return rows.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['FormAssignment'], initial: [] },
 )
 
 function scheduleSummary(plan) {
@@ -351,7 +358,8 @@ const versions = useLiveQueryWithDeps(
         (b.versionMinor ?? 0) - (a.versionMinor ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['LogBookVersion'], initial: [] },
 )
 
 const effectiveVersionId = computed(() => logBook.value?.currentEffectiveVersionId || null)
@@ -359,8 +367,8 @@ const hasEffectiveVersion = computed(() => !!effectiveVersionId.value)
 const effectiveVersion = computed(
   () => versions.value.find((v) => v.id === effectiveVersionId.value) || null,
 )
-const openDraft = computed(() =>
-  versions.value.find((v) => ['DRAFT', 'REJECTED'].includes(v.statusId)) || null,
+const openDraft = computed(
+  () => versions.value.find((v) => ['DRAFT', 'REJECTED'].includes(v.statusId)) || null,
 )
 const versionUnderReview = computed(
   () => versions.value.find((v) => v.statusId === 'UNDER_REVIEW') || null,
@@ -541,10 +549,7 @@ function back() {
               : 'tw:bg-amber-50 tw:text-amber-700 tw:border-amber-200'
           "
         >
-          <IconShieldCheck
-            v-if="logBook.recordClassification === 'CONTROLLED_RECORD'"
-            :size="10"
-          />
+          <IconShieldCheck v-if="logBook.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
           {{ logBook.recordClassification?.replace('_', ' ') }}
         </span>
       </div>
@@ -636,15 +641,24 @@ function back() {
                   <span class="tw:font-mono tw:text-on-main">{{ logBook.code }}</span>
                   <span v-if="effectiveVersion"> · {{ versionLabel(effectiveVersion) }}</span>
                 </template>
-                <template v-else>No effective version yet — entries can't be logged until one is approved.</template>
+                <template v-else
+                  >No effective version yet — entries can't be logged until one is
+                  approved.</template
+                >
               </div>
             </div>
             <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-              <span v-if="openDraft" class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary">
+              <span
+                v-if="openDraft"
+                class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary"
+              >
                 {{ versionLabel(openDraft) }}
                 <LogBookVersionStatusBadge :statusId="openDraft.statusId" />
               </span>
-              <span v-else-if="versionUnderReview" class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary">
+              <span
+                v-else-if="versionUnderReview"
+                class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary"
+              >
                 {{ versionLabel(versionUnderReview) }}
                 <LogBookVersionStatusBadge :statusId="versionUnderReview.statusId" />
               </span>
@@ -652,7 +666,9 @@ function back() {
                 Owner:
                 <UserBadgeById v-if="logBook.ownerUserId" :userId="logBook.ownerUserId" />
                 <span v-else>—</span>
-                <span v-if="isOwner" class="tw:text-[10px] tw:font-semibold tw:text-primary">(you)</span>
+                <span v-if="isOwner" class="tw:text-[10px] tw:font-semibold tw:text-primary"
+                  >(you)</span
+                >
               </span>
             </div>
           </div>
@@ -704,7 +720,9 @@ function back() {
               </div>
             </div>
             <details class="tw:bg-white tw:rounded tw:border tw:border-amber-200">
-              <summary class="tw:cursor-pointer tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:text-on-main">
+              <summary
+                class="tw:cursor-pointer tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:text-on-main"
+              >
                 Review form schema ({{ versionUnderReview.schema?.length ?? 0 }} fields)
               </summary>
               <div class="tw:p-4 tw:border-t tw:border-amber-200">
@@ -942,7 +960,11 @@ function back() {
           </div>
           <div class="tw:flex tw:flex-col tw:gap-2">
             <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
-              <input v-model="draft.signatureRequired" type="checkbox" :disabled="!canEditDetails" />
+              <input
+                v-model="draft.signatureRequired"
+                type="checkbox"
+                :disabled="!canEditDetails"
+              />
               <span>Require e-signature on submit</span>
             </label>
             <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
@@ -1031,9 +1053,7 @@ function back() {
             :disabled="!canEditDetails"
             @update:modelValue="handleSitesChange"
           />
-          <div class="tw:text-xs tw:text-secondary">
-            Leave empty to allow all sites.
-          </div>
+          <div class="tw:text-xs tw:text-secondary">Leave empty to allow all sites.</div>
         </section>
 
         <!-- Document links -->
@@ -1042,11 +1062,7 @@ function back() {
             <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">
               Document links ({{ documentLinks.length }})
             </h3>
-            <BaseButton
-              v-if="canUpdate"
-              variant="ghost"
-              @click="showAddDocDialog = true"
-            >
+            <BaseButton v-if="canUpdate" variant="ghost" @click="showAddDocDialog = true">
               Link a document
             </BaseButton>
           </div>
@@ -1096,9 +1112,7 @@ function back() {
           class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:flex tw:items-start tw:gap-4"
         >
           <div class="tw:flex-1">
-            <h3 class="tw:text-sm tw:font-semibold tw:text-on-main tw:mb-1">
-              Log book schema
-            </h3>
+            <h3 class="tw:text-sm tw:font-semibold tw:text-on-main tw:mb-1">Log book schema</h3>
             <p class="tw:text-sm tw:text-secondary">
               {{
                 (logBook.schema?.length ?? 0) > 0
@@ -1161,9 +1175,9 @@ function back() {
             <div>
               <div class="tw:text-base tw:font-semibold tw:text-on-main">Assignments</div>
               <div class="tw:text-xs tw:text-secondary">
-                Who fills this log book, when (cron + timezone), and where (site). Recurring
-                plans materialise an instance per assignee per occurrence; ad-hoc plans surface
-                the form in users' available list.
+                Who fills this log book, when (cron + timezone), and where (site). Recurring plans
+                materialise an instance per assignee per occurrence; ad-hoc plans surface the form
+                in users' available list.
               </div>
             </div>
             <BaseButton v-if="canAssign" variant="primary" @click="goCreateAssignment">
@@ -1213,12 +1227,11 @@ function back() {
                   </td>
                   <td class="tw:px-3 tw:py-2 tw:text-on-main">
                     <RoleBadgeById v-if="row.assignedRoleId" :roleId="row.assignedRoleId" />
-                    <div v-else-if="row.assignedUserIds?.length" class="tw:flex tw:flex-wrap tw:gap-1">
-                      <UserBadgeById
-                        v-for="uid in row.assignedUserIds"
-                        :key="uid"
-                        :userId="uid"
-                      />
+                    <div
+                      v-else-if="row.assignedUserIds?.length"
+                      class="tw:flex tw:flex-wrap tw:gap-1"
+                    >
+                      <UserBadgeById v-for="uid in row.assignedUserIds" :key="uid" :userId="uid" />
                     </div>
                     <span v-else class="tw:text-secondary">—</span>
                   </td>

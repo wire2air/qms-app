@@ -80,18 +80,22 @@ const canVoidNow = computed(() => canVoid.value && record.value?.statusId !== 'V
 
 const record = useLiveQueryWithDeps(
   [() => props.recordId],
+
   async (db, [id]) => {
     if (!id) return null
     return db.FieldRecord.findByPk(id)
   },
+  { models: ['FieldRecord'] },
 )
 
 const currentRevision = useLiveQueryWithDeps(
   [() => record.value?.currentRevisionId],
+
   async (db, [rid]) => {
     if (!rid) return null
     return db.FieldRecordRevision.findByPk(rid)
   },
+  { models: ['FieldRecordRevision'] },
 )
 
 /**
@@ -108,7 +112,8 @@ const revisions = useLiveQueryWithDeps(
     const rows = await db.FieldRecordRevision.where('fieldRecordId', id).exec()
     return rows.sort((a, b) => (a.revisionNumber ?? 0) - (b.revisionNumber ?? 0))
   },
-  { initial: [] },
+
+  { models: ['FieldRecordRevision'], initial: [] },
 )
 
 /**
@@ -170,10 +175,12 @@ const flagHistory = computed(() => {
 
 const template = useLiveQueryWithDeps(
   [() => record.value?.logBookId],
+
   async (db, [tid]) => {
     if (!tid) return null
     return db.LogBook.findByPk(tid)
   },
+  { models: ['LogBook'] },
 )
 
 // Prefer the schema snapshot stored on the record (frozen at submit
@@ -240,7 +247,8 @@ const flags = useLiveQueryWithDeps(
     const rows = await db.FieldRecordFlag.where('fieldRecordId', id).exec()
     return rows.sort((a, b) => (b.flaggedAt?.toMillis?.() ?? 0) - (a.flaggedAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['FieldRecordFlag'], initial: [] },
 )
 const openFlags = computed(() => flags.value.filter((f) => !f.resolvedAt))
 
@@ -251,7 +259,13 @@ const openFlags = computed(() => flags.value.filter((f) => !f.resolvedAt))
  * lets one live query cover all the rows on screen.
  */
 const flagAttachmentsByFlag = useLiveQueryWithDeps(
-  [() => flags.value.map((f) => f.attachmentIds || []).flat().join(',')],
+  [
+    () =>
+      flags.value
+        .map((f) => f.attachmentIds || [])
+        .flat()
+        .join(','),
+  ],
   async (db) => {
     const allIds = [...new Set(flags.value.flatMap((f) => f.attachmentIds || []))]
     if (allIds.length === 0) return {}
@@ -263,7 +277,8 @@ const flagAttachmentsByFlag = useLiveQueryWithDeps(
     }
     return grouped
   },
-  { initial: {} },
+
+  { models: ['Asset'], initial: {} },
 )
 
 function attachmentsForFlag(flagId) {
@@ -630,10 +645,7 @@ function close() {
             : 'tw:bg-amber-50 tw:text-amber-700 tw:border-amber-200'
         "
       >
-        <IconShieldCheck
-          v-if="record.recordClassification === 'CONTROLLED_RECORD'"
-          :size="12"
-        />
+        <IconShieldCheck v-if="record.recordClassification === 'CONTROLLED_RECORD'" :size="12" />
         {{ classificationLabel }}
       </span>
       <span
@@ -654,10 +666,7 @@ function close() {
         >
           <div>
             <div class="tw:font-bold tw:uppercase tw:text-secondary">Submitted by</div>
-            <UserBadgeById
-              v-if="record?.submittedByUserId"
-              :userId="record.submittedByUserId"
-            />
+            <UserBadgeById v-if="record?.submittedByUserId" :userId="record.submittedByUserId" />
             <span v-else class="tw:text-secondary">—</span>
           </div>
           <div>
@@ -748,7 +757,9 @@ function close() {
           class="tw:bg-white tw:rounded-lg tw:border tw:border-amber-200 tw:p-4"
         >
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
-            <h3 class="tw:text-sm tw:font-bold tw:text-amber-900 tw:flex tw:items-center tw:gap-1.5">
+            <h3
+              class="tw:text-sm tw:font-bold tw:text-amber-900 tw:flex tw:items-center tw:gap-1.5"
+            >
               <IconAlertTriangle :size="16" />
               Open flags ({{ openFlags.length }})
             </h3>
@@ -766,7 +777,9 @@ function close() {
                 {{ f.severity }}
               </span>
               <div class="tw:flex-1 tw:min-w-0">
-                <div class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
+                <div
+                  class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:flex-wrap"
+                >
                   <span>by</span>
                   <UserBadgeById :userId="f.flaggedByUserId" />
                   <span>·</span>
@@ -854,7 +867,9 @@ function close() {
                     {{ rev.reviewOutcome }}
                   </span>
                 </div>
-                <div class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
+                <div
+                  class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:flex-wrap"
+                >
                   <span>by</span>
                   <UserBadgeById :userId="rev.authorUserId" />
                   <span>·</span>
@@ -899,9 +914,11 @@ function close() {
                 <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap tw:mb-1">
                   <span
                     class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5"
-                    :class="ev.kind === 'raised'
-                      ? 'tw:bg-orange-100 tw:text-orange-700'
-                      : 'tw:bg-teal-100 tw:text-teal-700'"
+                    :class="
+                      ev.kind === 'raised'
+                        ? 'tw:bg-orange-100 tw:text-orange-700'
+                        : 'tw:bg-teal-100 tw:text-teal-700'
+                    "
                   >
                     {{ ev.kind === 'raised' ? 'Flag raised' : 'Flag resolved' }}
                   </span>
@@ -913,7 +930,9 @@ function close() {
                     {{ ev.severity }}
                   </span>
                 </div>
-                <div class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
+                <div
+                  class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:flex-wrap"
+                >
                   <span>by</span>
                   <UserBadgeById :userId="ev.actorUserId" />
                   <span>·</span>
@@ -1096,11 +1115,13 @@ function close() {
         v-if="showAmendDialog"
         class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
-        <div class="tw:bg-white tw:rounded-lg tw:max-w-2xl tw:w-full tw:p-5 tw:m-3 tw:max-h-[90vh] tw:flex tw:flex-col">
+        <div
+          class="tw:bg-white tw:rounded-lg tw:max-w-2xl tw:w-full tw:p-5 tw:m-3 tw:max-h-[90vh] tw:flex tw:flex-col"
+        >
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-1">Amend entry</h3>
           <p class="tw:text-xs tw:text-secondary tw:mb-3">
-            The original revision stays in the history. A new ADMIN_AMENDMENT revision is
-            appended with your reason and e-signature.
+            The original revision stays in the history. A new ADMIN_AMENDMENT revision is appended
+            with your reason and e-signature.
           </p>
 
           <div class="tw:flex-1 tw:overflow-y-auto tw:mb-3">
@@ -1110,7 +1131,9 @@ function close() {
               :fields="schemaFields"
               :loading="isSavingAmend"
             />
-            <label class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mt-4 tw:mb-1">
+            <label
+              class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mt-4 tw:mb-1"
+            >
               Reason for change <span class="tw:text-bad">*</span>
             </label>
             <textarea
@@ -1155,7 +1178,9 @@ function close() {
             Voiding marks the entry as superseded but keeps it (and all revisions) in the audit
             trail. This action requires an e-signature.
           </p>
-          <label class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mb-1">
+          <label
+            class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mb-1"
+          >
             Reason <span class="tw:text-bad">*</span>
           </label>
           <textarea
@@ -1194,8 +1219,12 @@ function close() {
         v-if="showFlagDialog"
         class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
-        <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3 tw:max-h-[90vh] tw:overflow-y-auto">
-          <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-1 tw:flex tw:items-center tw:gap-2">
+        <div
+          class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3 tw:max-h-[90vh] tw:overflow-y-auto"
+        >
+          <h3
+            class="tw:text-base tw:font-bold tw:text-on-main tw:mb-1 tw:flex tw:items-center tw:gap-2"
+          >
             <IconFlag :size="18" class="tw:text-amber-600" />
             Flag this entry
           </h3>
@@ -1213,7 +1242,9 @@ function close() {
               <option value="CRITICAL">Critical — escalates now</option>
             </select>
           </div>
-          <label class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mb-1">
+          <label
+            class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mb-1"
+          >
             Notes <span class="tw:text-bad">*</span>
           </label>
           <textarea
@@ -1223,7 +1254,9 @@ function close() {
             placeholder="What's wrong with this entry? Detail helps your supervisor act faster."
           ></textarea>
           <div class="tw:mt-3">
-            <label class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mb-1">
+            <label
+              class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mb-1"
+            >
               Photo evidence (optional)
             </label>
             <BasePhoto
@@ -1300,9 +1333,6 @@ function close() {
     <!-- E-sig prompt — shared by Review, Amend, and Void. The
          pendingEsignAction ref tells onEsignVerified which submit path
          to call. -->
-    <WorkflowInstanceEsignAuthDialog
-      v-model="showEsignDialog"
-      @verified="onEsignVerified"
-    />
+    <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
   </div>
 </template>

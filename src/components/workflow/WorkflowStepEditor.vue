@@ -34,10 +34,14 @@ const props = defineProps({
 // Flip to true when steps 3–6 of the Adobe Sign integration land.
 const ADOBE_ESIGN_READY = false
 
-const step = useLiveQueryWithDeps([() => props.stepId], async (db, [stepId]) => {
-  if (!stepId) return null
-  return await db.WorkflowStep.findByPk(stepId)
-})
+const step = useLiveQueryWithDeps(
+  [() => props.stepId],
+  async (db, [stepId]) => {
+    if (!stepId) return null
+    return await db.WorkflowStep.findByPk(stepId)
+  },
+  { models: ['WorkflowStep'] },
+)
 
 const debouncedStepSave = useDebounceFn(async () => {
   if (!step.value || !props.canUpdate) return
@@ -60,7 +64,8 @@ const stepRoles = useLiveQueryWithDeps(
     if (!stepId) return []
     return await db.WorkflowStepRole.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStepRole'], initial: [] },
 )
 
 const stepUsers = useLiveQueryWithDeps(
@@ -69,7 +74,8 @@ const stepUsers = useLiveQueryWithDeps(
     if (!stepId) return []
     return await db.WorkflowStepUser.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStepUser'], initial: [] },
 )
 
 const roleIds = computed(() => stepRoles.value.map((sr) => sr.roleId))
@@ -84,7 +90,8 @@ const showUsersInline = computed(() => props.stepApproversTab !== 'roles')
 
 const allOutcomes = useLiveQuery(
   async (db) => db.WorkflowStepOutcome.where().orderBy('displayOrder', 'asc').exec(),
-  { initial: [] },
+
+  { models: ['WorkflowStepOutcome'], initial: [] },
 )
 
 const allowedOutcomes = useLiveQueryWithDeps(
@@ -93,7 +100,8 @@ const allowedOutcomes = useLiveQueryWithDeps(
     if (!stepId) return []
     return await db.AllowedOutcomeOnStep.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['AllowedOutcomeOnStep'], initial: [] },
 )
 
 const allowedOutcomeIds = computed(() => new Set(allowedOutcomes.value.map((o) => o.outcomeId)))
@@ -301,7 +309,10 @@ watch(
               <span class="tw:text-xs tw:font-semibold tw:text-on-main">Require Comments</span>
             </label>
             <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
-              <BaseSwitch v-model="step.requireEsignature" :disabled="!canUpdate || step.adobeEsignRequired" />
+              <BaseSwitch
+                v-model="step.requireEsignature"
+                :disabled="!canUpdate || step.adobeEsignRequired"
+              />
               <span class="tw:text-xs tw:font-semibold tw:text-on-main">Require E-signature</span>
             </label>
           </div>
@@ -313,21 +324,26 @@ watch(
                supplier submit) ships — flip ADOBE_ESIGN_READY then. -->
           <div class="tw:flex tw:justify-between" :class="ADOBE_ESIGN_READY ? '' : 'tw:opacity-50'">
             <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
-              <BaseSwitch v-model="step.adobeEsignRequired" :disabled="!canUpdate || !ADOBE_ESIGN_READY" />
+              <BaseSwitch
+                v-model="step.adobeEsignRequired"
+                :disabled="!canUpdate || !ADOBE_ESIGN_READY"
+              />
               <span class="tw:text-xs tw:font-semibold tw:text-on-main">Adobe e-signature</span>
             </label>
             <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
-              <BaseSwitch v-model="step.externalSupplier" :disabled="!canUpdate || !ADOBE_ESIGN_READY" />
-              <span class="tw:text-xs tw:font-semibold tw:text-on-main">External (supplier) signers</span>
+              <BaseSwitch
+                v-model="step.externalSupplier"
+                :disabled="!canUpdate || !ADOBE_ESIGN_READY"
+              />
+              <span class="tw:text-xs tw:font-semibold tw:text-on-main"
+                >External (supplier) signers</span
+              >
             </label>
           </div>
           <p v-if="!ADOBE_ESIGN_READY" class="tw:text-[11px] tw:text-secondary tw:-mt-1">
             Adobe e-signature is coming soon (connect it in Company Settings → Integrations).
           </p>
-          <p
-            v-else-if="step.adobeEsignRequired"
-            class="tw:text-[11px] tw:text-secondary tw:-mt-1"
-          >
+          <p v-else-if="step.adobeEsignRequired" class="tw:text-[11px] tw:text-secondary tw:-mt-1">
             Signs via your connected Adobe Acrobat Sign account (Company Settings → Integrations).
             All selected signers must sign before the step completes.
           </p>

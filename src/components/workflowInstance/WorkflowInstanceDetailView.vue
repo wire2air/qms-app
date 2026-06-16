@@ -9,10 +9,14 @@ const props = defineProps({
 
 const router = useRouter()
 
-const instance = useLiveQueryWithDeps([() => props.instanceId], async (db, [instanceId]) => {
-  if (!instanceId) return null
-  return db.WorkflowInstance.findByPk(instanceId)
-})
+const instance = useLiveQueryWithDeps(
+  [() => props.instanceId],
+  async (db, [instanceId]) => {
+    if (!instanceId) return null
+    return db.WorkflowInstance.findByPk(instanceId)
+  },
+  { models: ['WorkflowInstance'] },
+)
 
 const steps = useLiveQueryWithDeps(
   [() => props.instanceId],
@@ -22,47 +26,58 @@ const steps = useLiveQueryWithDeps(
       .orderBy('stepNumber')
       .exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 const documentVersion = useLiveQueryWithDeps(
   [() => instance.value?.resourceType, () => instance.value?.resourceId],
+
   async (db, [resourceType, resourceId]) => {
     if (!resourceId || resourceType !== 'DocumentVersion') return null
     return db.DocumentVersion.findByPk(resourceId)
   },
+  { models: ['DocumentVersion'] },
 )
 
 const doc = useLiveQueryWithDeps(
   [() => documentVersion.value?.documentId],
+
   async (db, [documentId]) => {
     if (!documentId) return null
     return db.Document.findByPk(documentId)
   },
+  { models: ['Document'] },
 )
 
 const nc = useLiveQueryWithDeps(
   [() => instance.value?.resourceType, () => instance.value?.resourceId],
+
   async (db, [resourceType, resourceId]) => {
     if (!resourceId || resourceType !== 'Nonconformance') return null
     return db.Nonconformance.findByPk(resourceId)
   },
+  { models: ['Nonconformance'] },
 )
 
 const workflowVersion = useLiveQueryWithDeps(
   [() => instance.value?.workflowVersionId],
+
   async (db, [wvId]) => {
     if (!wvId) return null
     return db.WorkflowVersion.findByPk(wvId)
   },
+  { models: ['WorkflowVersion'] },
 )
 
 const instanceStatus = useLiveQueryWithDeps(
   [() => instance.value?.statusId],
+
   async (db, [statusId]) => {
     if (!statusId) return null
     return db.WorkflowInstanceStatus.findByPk(statusId)
   },
+  { models: ['WorkflowInstanceStatus'] },
 )
 
 const loading = computed(() => instance.value === undefined)

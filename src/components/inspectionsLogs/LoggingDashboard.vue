@@ -33,10 +33,14 @@ const logBooks = useLiveQuery(
       .filter((lb) => lb.currentEffectiveVersionId)
       .sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
   },
-  { initial: [] },
+
+  { models: ['LogBook'], initial: [] },
 )
 
-const logBookTypes = useLiveQuery((db) => db.LogBookType.where().exec(), { initial: [] })
+const logBookTypes = useLiveQuery((db) => db.LogBookType.where().exec(), {
+  models: ['LogBookType'],
+  initial: [],
+})
 const typeNameById = computed(() => new Map(logBookTypes.value.map((t) => [t.id, t.name])))
 function typeLabel(lb) {
   return (
@@ -58,7 +62,8 @@ const openTaskCount = useLiveQueryWithDeps(
         ['AssignmentInstance', 'FieldRecord'].includes(t.entityType),
     ).length
   },
-  { initial: 0 },
+
+  { models: ['TaskInstance'], initial: 0 },
 )
 
 function fill(lb) {
@@ -73,7 +78,9 @@ function goLogs() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-4 tw:overflow-y-auto tw:max-w-2xl tw:mx-auto tw:w-full">
+  <div
+    class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-4 tw:overflow-y-auto tw:max-w-2xl tw:mx-auto tw:w-full"
+  >
     <PageHeader title="Logging" />
 
     <!-- My Tasks -->
@@ -82,12 +89,16 @@ function goLogs() {
       class="tw:flex tw:items-center tw:gap-3 tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:text-left tw:active:bg-main-hover tw:transition"
       @click="goTasks"
     >
-      <div class="tw:w-11 tw:h-11 tw:rounded-lg tw:bg-emerald-50 tw:text-emerald-600 tw:flex tw:items-center tw:justify-center tw:shrink-0">
+      <div
+        class="tw:w-11 tw:h-11 tw:rounded-lg tw:bg-emerald-50 tw:text-emerald-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+      >
         <IconChecklist :size="24" />
       </div>
       <div class="tw:flex-1 tw:min-w-0">
         <div class="tw:font-semibold tw:text-on-main">My Tasks</div>
-        <div class="tw:text-xs tw:text-secondary">Scheduled inspections + flagged entries assigned to you</div>
+        <div class="tw:text-xs tw:text-secondary">
+          Scheduled inspections + flagged entries assigned to you
+        </div>
       </div>
       <span
         v-if="openTaskCount > 0"
@@ -104,7 +115,9 @@ function goLogs() {
       class="tw:flex tw:items-center tw:gap-3 tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:text-left tw:active:bg-main-hover tw:transition"
       @click="goLogs"
     >
-      <div class="tw:w-11 tw:h-11 tw:rounded-lg tw:bg-purple-50 tw:text-purple-600 tw:flex tw:items-center tw:justify-center tw:shrink-0">
+      <div
+        class="tw:w-11 tw:h-11 tw:rounded-lg tw:bg-purple-50 tw:text-purple-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+      >
         <IconList :size="24" />
       </div>
       <div class="tw:flex-1 tw:min-w-0">
@@ -137,7 +150,9 @@ function goLogs() {
           class="tw:flex tw:items-center tw:gap-3 tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:text-left tw:active:bg-main-hover tw:transition tw:disabled:opacity-50"
           @click="fill(lb)"
         >
-          <div class="tw:w-11 tw:h-11 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0">
+          <div
+            class="tw:w-11 tw:h-11 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+          >
             <IconShieldCheck v-if="lb.recordClassification === 'CONTROLLED_RECORD'" :size="22" />
             <IconClipboardList v-else :size="22" />
           </div>

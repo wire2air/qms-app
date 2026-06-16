@@ -6,16 +6,22 @@ const props = defineProps({
 
 const instanceStep = useLiveQueryWithDeps(
   [() => props.instanceStepId],
+
   async (db, [instanceStepId]) => {
     if (!instanceStepId) return null
     return db.WorkflowInstanceStep.findByPk(instanceStepId)
   },
+  { models: ['WorkflowInstanceStep'] },
 )
 
-const step = useLiveQueryWithDeps([() => instanceStep.value?.stepId], async (db, [stepId]) => {
-  if (!stepId) return null
-  return db.WorkflowStep.findByPk(stepId)
-})
+const step = useLiveQueryWithDeps(
+  [() => instanceStep.value?.stepId],
+  async (db, [stepId]) => {
+    if (!stepId) return null
+    return db.WorkflowStep.findByPk(stepId)
+  },
+  { models: ['WorkflowStep'] },
+)
 
 const tasks = useLiveQueryWithDeps(
   [() => props.instanceStepId],
@@ -27,7 +33,8 @@ const tasks = useLiveQueryWithDeps(
     ]).exec()
     return tasks.filter((t) => t.statusId !== 'ASSIGNED') // Filter out unclaimed tasks
   },
-  { initial: [] },
+
+  { models: ['TaskInstance'], initial: [] },
 )
 
 const usersMap = useLiveQueryWithDeps(
@@ -38,7 +45,8 @@ const usersMap = useLiveQueryWithDeps(
     const users = await Promise.all(ids.map((id) => db.User.findByPk(id)))
     return Object.fromEntries(users.filter(Boolean).map((u) => [u.id, u]))
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 </script>
 
