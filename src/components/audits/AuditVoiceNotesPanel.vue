@@ -26,6 +26,7 @@ const props = defineProps({
 })
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 // ── Existing audio attachments for this response ────────────────────────────
 const uploads = useLiveQueryWithDeps(
@@ -163,7 +164,15 @@ async function saveRecording() {
 
 async function removeNote(note) {
   if (props.readonly) return
-  if (!confirm('Delete this voice note?')) return
+  if (
+    !(await confirm({
+      title: 'Delete voice note',
+      message: 'Delete this voice note?',
+      okLabel: 'Delete',
+      danger: true,
+    }))
+  )
+    return
   try {
     await del(`/v1/services/auditEvidence/${note.id}`)
     toast.success('Voice note deleted')

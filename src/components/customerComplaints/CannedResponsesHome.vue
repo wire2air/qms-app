@@ -8,6 +8,7 @@ import { IconMessage2, IconPlus, IconPencil, IconTrash } from '@tabler/icons-vue
  * substituted when the agent inserts the response into a reply.
  */
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const responses = useLiveQuery(
   async (db) => {
@@ -79,7 +80,15 @@ async function handleSave() {
 }
 
 async function handleDelete(response) {
-  if (!window.confirm(`Delete "${response.name}"?`)) return
+  if (
+    !(await confirm({
+      title: 'Delete Canned Response',
+      message: `Delete "${response.name}"?`,
+      okLabel: 'Delete',
+      danger: true,
+    }))
+  )
+    return
   try {
     await response.delete()
   } catch (e) {

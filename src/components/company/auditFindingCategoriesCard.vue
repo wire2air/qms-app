@@ -24,6 +24,7 @@ import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api'
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const canManage = computed(
   () => !!currentSession.value?.isOwner || isAllowed(['auditFindingCategories:manage']),
@@ -142,9 +143,12 @@ async function handleSave() {
 
 async function handleDeactivate(row) {
   if (
-    !window.confirm(
-      `Deactivate "${row.name}"? Existing audit_findings referencing this category will keep their reference; new findings won't see it in the picker.`,
-    )
+    !(await confirm({
+      title: 'Deactivate category',
+      message: `Deactivate "${row.name}"? Existing audit_findings referencing this category will keep their reference; new findings won't see it in the picker.`,
+      okLabel: 'Deactivate',
+      danger: true,
+    }))
   ) {
     return
   }

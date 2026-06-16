@@ -41,6 +41,7 @@ const props = defineProps({
 })
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 // #7 — supplier audits replace the NC/CAPA/link actions with a CAPA/Response
 // + expected completion + complete/overdue workflow. Close stays auditor-only.
@@ -186,7 +187,15 @@ async function setStatus(finding, statusId) {
 
 async function removeFinding(finding) {
   if (props.readonly) return
-  if (!confirm(`Delete finding ${finding.findingNumber}?`)) return
+  if (
+    !(await confirm({
+      title: 'Delete finding',
+      message: `Delete finding ${finding.findingNumber}?`,
+      okLabel: 'Delete',
+      danger: true,
+    }))
+  )
+    return
   try {
     await del(`/v1/services/auditFindings/${finding.id}`)
     toast.success('Finding deleted')
@@ -300,7 +309,15 @@ async function unlinkSpawn(finding, kind) {
   if (props.readonly) return
   const cfg = KIND_BY_ID[kind]
   if (!cfg) return
-  if (!confirm(`Unlink the ${cfg.label} from finding ${finding.findingNumber}?`)) return
+  if (
+    !(await confirm({
+      title: 'Unlink record',
+      message: `Unlink the ${cfg.label} from finding ${finding.findingNumber}?`,
+      okLabel: 'Unlink',
+      danger: true,
+    }))
+  )
+    return
   try {
     await post(`/v1/services/auditFindings/${finding.id}/unlink`, { kind })
     toast.success(`${cfg.label} unlinked`)

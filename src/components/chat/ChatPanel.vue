@@ -21,6 +21,7 @@ import { useChatStream } from '@/composables/useChatStream'
  */
 
 const panel = useChatPanel()
+const { confirm } = useConfirm()
 
 // Cmd-K / Ctrl-K toggles the panel globally.
 useEventListener('keydown', (e) => {
@@ -83,7 +84,15 @@ function handleNewChat() {
 }
 
 async function handleDeleteThread(thread) {
-  if (!confirm(`Delete "${thread.title || 'this conversation'}"?`)) return
+  if (
+    !(await confirm({
+      title: 'Delete Conversation',
+      message: `Delete "${thread.title || 'this conversation'}"?`,
+      okLabel: 'Delete',
+      danger: true,
+    }))
+  )
+    return
   if (panel.activeThreadId.value === thread.id) panel.startNew()
   await thread.delete()
 }

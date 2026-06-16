@@ -26,6 +26,7 @@ import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api'
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const canManage = computed(
   () => !!currentSession.value?.isOwner || isAllowed(['supplierCertificateTypes:manage']),
@@ -144,9 +145,12 @@ async function handleSave() {
 
 async function handleDeactivate(row) {
   if (
-    !window.confirm(
-      `Deactivate "${row.name}"? Existing supplier_assets rows referencing this category will keep their is_certificate + expires_at; new uploads won't see it in the picker.`,
-    )
+    !(await confirm({
+      title: 'Deactivate certificate type',
+      message: `Deactivate "${row.name}"? Existing supplier_assets rows referencing this category will keep their is_certificate + expires_at; new uploads won't see it in the picker.`,
+      okLabel: 'Deactivate',
+      danger: true,
+    }))
   ) {
     return
   }

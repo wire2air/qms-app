@@ -44,7 +44,7 @@ function handleClose() {
       :title="recordTitle"
       :loading="loading"
       readonly
-      maxWidth="900px"
+      maxWidth="4xl"
       @close="handleClose"
     />
   </div>

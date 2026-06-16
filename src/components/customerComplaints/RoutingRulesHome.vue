@@ -10,6 +10,7 @@ import { get, post, put, del } from '@/api'
  * evaluated on ticket created / customer reply, in position order.
  */
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const loading = ref(true)
 const rules = ref([])
@@ -198,7 +199,15 @@ async function toggleRuleState(rule) {
 }
 
 async function handleDelete(rule) {
-  if (!window.confirm(`Delete rule "${rule.name}"?`)) return
+  if (
+    !(await confirm({
+      title: 'Delete Routing Rule',
+      message: `Delete rule "${rule.name}"?`,
+      okLabel: 'Delete',
+      danger: true,
+    }))
+  )
+    return
   try {
     const data = await del(`/v1/services/customerComplaints/routingRules/${rule.id}`)
     rules.value = data.rules ?? []

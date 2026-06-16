@@ -8,6 +8,7 @@ const props = defineProps({
 })
 
 const toast = useToast()
+const { confirm } = useConfirm()
 const route = useRoute()
 const router = useRouter()
 
@@ -212,7 +213,7 @@ async function handleDeleteDraft() {
   const message = onlyVersion
     ? `Delete workflow '${workflow.value?.name}'? It has never been published.`
     : 'Discard this draft version? It has never been published and will be removed.'
-  if (!confirm(message)) return
+  if (!(await confirm({ message, danger: true }))) return
   workflowStatusBusy.value = true
   try {
     if (onlyVersion) {
