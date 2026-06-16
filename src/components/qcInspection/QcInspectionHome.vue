@@ -16,6 +16,7 @@ const tabs = [
   { id: 'specifications', label: 'Specifications' },
   { id: 'sampling-plans', label: 'Sampling Plans' },
   { id: 'aql-standards', label: 'AQL Standards' },
+  { id: 'test-library', label: 'Test Library' },
 ]
 const validTabIds = new Set(tabs.map((t) => t.id))
 const activeTab = ref(validTabIds.has(route.query.tab) ? route.query.tab : 'lots')
@@ -31,6 +32,7 @@ const canCreateLots = computed(() => isAllowed(['qcInspection:lot:create']))
 const canManagePlans = computed(() => isAllowed(['qcInspection:plan:create']))
 const canManageStandards = computed(() => isAllowed(['qcInspection:standards:write']))
 const canManageTemplates = computed(() => isAllowed(['qcInspection:template:write']))
+const canManageDefects = computed(() => isAllowed(['qcInspection:catalog:write']))
 </script>
 
 <template>
@@ -72,6 +74,7 @@ const canManageTemplates = computed(() => isAllowed(['qcInspection:template:writ
       <InspectionPlansList v-else-if="activeTab === 'inspection-plans'" :canManage="canManageTemplates" />
       <SamplingPlansList v-else-if="activeTab === 'sampling-plans'" :canManage="canManagePlans" />
       <AqlStandardsList v-else-if="activeTab === 'aql-standards'" :canManage="canManageStandards" />
+      <DefectCatalogList v-else-if="activeTab === 'test-library'" :canManage="canManageDefects" />
     </div>
   </div>
 </template>

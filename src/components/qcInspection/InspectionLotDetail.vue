@@ -70,9 +70,15 @@ function userName(user) {
 const POINT_LABELS = { INCOMING: 'Incoming', IN_PROCESS: 'In-process', FINAL: 'Final', OUTGOING: 'Outgoing' }
 
 const characteristics = computed(() => lot.value?.specSnapshot?.characteristics ?? [])
+// Single-result (LOT) mode is the sampleIndex=1 row. Prefer it so that a lot
+// which also has per-sample rows (mode was toggled) doesn't pick an arbitrary
+// sample's value — that caused saved values to "flip back" on re-sync.
 const resultByChar = computed(() => {
   const m = new Map()
-  for (const r of results.value) m.set(r.characteristicId, r)
+  for (const r of results.value) {
+    const existing = m.get(r.characteristicId)
+    if (!existing || r.sampleIndex === 1) m.set(r.characteristicId, r)
+  }
   return m
 })
 
@@ -115,6 +121,51 @@ const isLocked = computed(() =>
 const isUnderReview = computed(() => lot.value?.statusId === 'UNDER_REVIEW')
 const isAdverse = computed(() => ADVERSE_STATUSES.includes(lot.value?.statusId))
 
+// Capture mode: 'LOT' (one value per characteristic) or 'SAMPLE' (a value per
+// sampled unit). SAMPLE needs a resolved sample size (from a sampling plan).
+// The mode is only switchable while actively capturing (pre-COMPLETED), since
+// updateLot freezes reference fields once the lot leaves DRAFT/PENDING/IN_PROGRESS.
+const isSampleMode = computed(() => lot.value?.captureMode === 'SAMPLE')
+const canSampleCapture = computed(() => (lot.value?.sampleSize ?? 0) > 1)
+const isCapturing = computed(() => ['DRAFT', 'PENDING', 'IN_PROGRESS'].includes(lot.value?.statusId))
+const sampleGridRef = ref(null)
+const savingMode = ref(false)
+async function setCaptureMode(mode) {
+  if (savingMode.value || lot.value?.captureMode === mode) return
+  if (mode === 'SAMPLE' && !canSampleCapture.value) return
+  savingMode.value = true
+  try {
+    await patch(`/v1/services/qcInspection/lots/${props.id}`, { captureMode: mode })
+  } catch (err) {
+    toast.error(err?.message || 'Failed to switch capture mode')
+  } finally {
+    savingMode.value = false
+  }
+}
+
+// Characteristics that carry a test method — shown as a read-only instructions
+// reference above the per-sample grid (instructions are per-characteristic).
+const charsWithInstructions = computed(() => characteristics.value.filter((c) => c.testMethod))
+
+// Per-severity accept/reject (Ac/Re) from the lot's sampling snapshot — drives
+// the attributes/defects panel. Empty unless a STANDARD sampling plan resolved it.
+const lotPerSeverity = computed(() => lot.value?.samplingSnapshot?.perSeverity ?? [])
+
+// Failing characteristic results counted as defects of their defect class —
+// folded into the Defects panel's per-severity tally (combined with logged defects).
+const characteristicFails = computed(() => {
+  const classById = new Map(
+    characteristics.value.map((c) => [c.id, c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')]),
+  )
+  const byClass = {}
+  for (const r of results.value) {
+    if (r.outcome !== 'FAIL') continue
+    const cls = classById.get(r.characteristicId) || 'MAJOR'
+    byClass[cls] = (byClass[cls] ?? 0) + 1
+  }
+  return byClass
+})
+
 function limitText(c) {
   if (c.testType !== 'NUMERIC') return ''
   const parts = []
@@ -128,15 +179,23 @@ async function saveResults() {
   if (saving.value) return
   saving.value = true
   try {
-    const payload = characteristics.value.map((c) => ({
-      characteristicId: c.id,
-      sampleIndex: 1,
-      valueNumeric: c.testType === 'NUMERIC' ? entries.value[c.id]?.valueNumeric ?? null : null,
-      valueText: c.testType === 'TEXT' ? entries.value[c.id]?.valueText || null : null,
-      valueBool: c.testType === 'PASS_FAIL' ? entries.value[c.id]?.valueBool ?? null : null,
-      equipmentId: c.requiresInstrument ? entries.value[c.id]?.equipmentId ?? null : null,
-      notes: entries.value[c.id]?.notes || null,
-    }))
+    // SAMPLE mode: one row per (characteristic, sample) from the grid. LOT
+    // mode: one row per characteristic at sampleIndex 1 (the simplified model).
+    const payload = isSampleMode.value
+      ? sampleGridRef.value?.buildPayload() ?? []
+      : characteristics.value.map((c) => ({
+          characteristicId: c.id,
+          sampleIndex: 1,
+          valueNumeric: c.testType === 'NUMERIC' ? entries.value[c.id]?.valueNumeric ?? null : null,
+          valueText: c.testType === 'TEXT' ? entries.value[c.id]?.valueText || null : null,
+          valueBool: c.testType === 'PASS_FAIL' ? entries.value[c.id]?.valueBool ?? null : null,
+          equipmentId: c.requiresInstrument ? entries.value[c.id]?.equipmentId ?? null : null,
+          notes: entries.value[c.id]?.notes || null,
+        }))
+    if (!payload.length) {
+      toast.error('Enter at least one value before saving')
+      return
+    }
     await post(`/v1/services/qcInspection/lots/${props.id}/results`, { results: payload })
     toast.success('Results saved')
   } catch (err) {
@@ -343,10 +402,39 @@ async function saveDispositionNotes() {
 
     <!-- Two-column: results on left, overview on right -->
     <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_35fr] tw:gap-5 tw:items-start">
+      <!-- Left column: results (variables) + defects (attributes) -->
+      <div class="tw:flex tw:flex-col tw:gap-5">
       <!-- Results capture grid -->
       <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-        <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between">
-          <h3 class="tw:font-bold tw:text-on-main">Results</h3>
+        <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
+          <div class="tw:flex tw:items-center tw:gap-3">
+            <h3 class="tw:font-bold tw:text-on-main">Results</h3>
+            <div
+              v-if="canExecute && isCapturing"
+              class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden tw:text-xs tw:font-medium"
+            >
+              <button
+                type="button"
+                class="tw:px-2.5 tw:py-1 tw:border-0 tw:cursor-pointer"
+                :class="!isSampleMode ? 'tw:bg-primary tw:text-white' : 'tw:bg-transparent tw:text-secondary tw:hover:text-on-main'"
+                @click="setCaptureMode('LOT')"
+              >
+                Single result
+              </button>
+              <button
+                type="button"
+                class="tw:px-2.5 tw:py-1 tw:border-0 tw:border-l tw:border-divider"
+                :class="[
+                  isSampleMode ? 'tw:bg-primary tw:text-white' : 'tw:bg-transparent tw:text-secondary tw:hover:text-on-main',
+                  canSampleCapture ? 'tw:cursor-pointer' : 'tw:opacity-40 tw:cursor-not-allowed',
+                ]"
+                :title="canSampleCapture ? '' : 'Add a sampling plan so a sample size is resolved, then per-sample entry unlocks.'"
+                @click="setCaptureMode('SAMPLE')"
+              >
+                Per sample<span v-if="lot.sampleSize"> (n={{ lot.sampleSize }})</span>
+              </button>
+            </div>
+          </div>
           <BaseButton
             v-if="canExecute && !isLocked"
             variant="primary"
@@ -358,7 +446,35 @@ async function saveDispositionNotes() {
             Save results
           </BaseButton>
         </div>
-        <table class="tw:w-full tw:text-sm">
+
+        <!-- Per-sample data sheet -->
+        <div v-if="isSampleMode" class="tw:p-4 tw:flex tw:flex-col tw:gap-4">
+          <div v-if="charsWithInstructions.length" class="tw:flex tw:flex-col tw:gap-2">
+            <div
+              v-for="c in charsWithInstructions"
+              :key="c.id"
+              class="tw:bg-blue-50/40 tw:rounded-lg tw:p-3 tw:border tw:border-blue-100"
+            >
+              <div class="tw:text-[10px] tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wide tw:mb-1.5">
+                {{ c.name }} — Instructions
+              </div>
+              <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
+            </div>
+          </div>
+          <InspectionSampleGrid
+            v-if="characteristics.length"
+            ref="sampleGridRef"
+            :characteristics="characteristics"
+            :sampleSize="lot.sampleSize"
+            :results="results"
+            :readonly="isLocked || !canExecute"
+          />
+          <p v-else class="tw:text-center tw:text-secondary tw:py-6">
+            No specification linked to this lot — switch to Single result and pick a Specification via Edit.
+          </p>
+        </div>
+
+        <table v-else class="tw:w-full tw:text-sm">
           <thead class="tw:text-secondary tw:text-xs tw:uppercase">
             <tr>
               <th class="tw:text-left tw:px-5 tw:py-2">Test</th>
@@ -374,7 +490,7 @@ async function saveDispositionNotes() {
               <tr class="tw:border-t tw:border-divider">
                 <td class="tw:px-5 tw:py-2.5 tw:font-medium tw:text-on-main tw:align-middle">
                   {{ c.name }}
-                  <span v-if="c.isCritical" class="tw:ml-1 tw:text-[10px] tw:text-red-600 tw:font-semibold tw:uppercase">Critical</span>
+                  <DefectSeverityBadgeById :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')" class="tw:ml-1 tw:text-[10px]" />
                 </td>
                 <td class="tw:px-5 tw:py-2.5 tw:text-secondary tw:text-xs tw:align-middle">{{ limitText(c) || '—' }}</td>
                 <td class="tw:px-5 tw:py-2.5 tw:align-middle">
@@ -450,6 +566,16 @@ async function saveDispositionNotes() {
           </tbody>
         </table>
       </div>
+
+      <!-- Attributes (defect) inspection — additive; shown when a standard
+           sampling plan resolved per-severity accept/reject numbers. -->
+      <InspectionDefectsPanel
+        v-if="lotPerSeverity.length"
+        :perSeverity="lotPerSeverity"
+        :characteristicFails="characteristicFails"
+      />
+      </div>
+      <!-- /left column -->
 
       <!-- Overview panel (1/3 width on desktop) -->
       <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:divide-y tw:divide-divider">

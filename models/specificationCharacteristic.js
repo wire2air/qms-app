@@ -25,6 +25,8 @@ export class SpecificationCharacteristic extends BaseModel {
   @Property({ type: Number }) usl = /** @type {Number} */ (null)
   @Property({ type: String }) uom = /** @type {String} */ (null)
   @Property({ type: Boolean }) isCritical = false
+  // Defect class for attributes inspection: CRITICAL | MAJOR | MINOR.
+  @Property({ type: String }) defectClass = 'MAJOR'
   @Property({ type: Boolean }) requiresInstrument = false
   @Property({ type: String }) testMethod = /** @type {String} */ (null)
   @Property({ type: Number }) sortOrder = 0

@@ -120,7 +120,7 @@ watch(
       lsl: c.lsl ?? null,
       usl: c.usl ?? null,
       uom: c.uom ?? '',
-      isCritical: c.isCritical ?? false,
+      defectClass: c.defectClass ?? (c.isCritical ? 'CRITICAL' : 'MAJOR'),
       requiresInstrument: c.requiresInstrument ?? false,
       testMethod: c.testMethod ?? '',
       sortOrder: c.sortOrder ?? 0,
@@ -144,9 +144,27 @@ function addCharacteristic() {
     lsl: null,
     usl: null,
     uom: '',
-    isCritical: false,
+    defectClass: 'MAJOR',
     requiresInstrument: false,
     testMethod: '',
+    sortOrder: editedChars.value.length,
+  })
+  charsDirty.value = true
+}
+// Pre-fill a characteristic from a Test Library entry (overridable).
+function addFromLibrary(t) {
+  editedChars.value.push({
+    id: null,
+    name: t.name ?? '',
+    code: t.code ?? '',
+    testType: t.testType || 'PASS_FAIL',
+    targetValue: t.targetValue ?? null,
+    lsl: t.lsl ?? null,
+    usl: t.usl ?? null,
+    uom: t.uom ?? '',
+    defectClass: t.defaultSeverity || 'MAJOR',
+    requiresInstrument: !!t.requiresInstrument,
+    testMethod: t.testMethod ?? '',
     sortOrder: editedChars.value.length,
   })
   charsDirty.value = true
@@ -177,7 +195,8 @@ async function saveDraft() {
         lsl: c.testType === 'NUMERIC' ? (c.lsl ?? null) : null,
         usl: c.testType === 'NUMERIC' ? (c.usl ?? null) : null,
         uom: c.testType === 'NUMERIC' ? (c.uom || null) : null,
-        isCritical: c.isCritical ?? false,
+        defectClass: c.defectClass || 'MAJOR',
+        isCritical: c.defectClass === 'CRITICAL',
         requiresInstrument: c.requiresInstrument ?? false,
         testMethod: c.testMethod?.trim() || null,
         sortOrder: i,
@@ -292,10 +311,16 @@ async function newVersion() {
       <div class="tw:lg:col-span-2 tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
         <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between">
           <h3 class="tw:font-bold tw:text-on-main">Characteristics</h3>
-          <BaseButton v-if="canEditDraft" variant="outline" size="sm" @click="addCharacteristic">
-            <template #icon><IconPlus :size="14" /></template>
-            Add
-          </BaseButton>
+          <div v-if="canEditDraft" class="tw:flex tw:items-center tw:gap-3">
+            <TestLibraryAddMenu
+              :productTypeId="header.scope === 'productType' ? header.productTypeId : null"
+              @pick="addFromLibrary"
+            />
+            <BaseButton variant="outline" size="sm" @click="addCharacteristic">
+              <template #icon><IconPlus :size="14" /></template>
+              Add
+            </BaseButton>
+          </div>
         </div>
 
         <!-- DRAFT: editable rows -->
@@ -320,9 +345,10 @@ async function newVersion() {
                   @update:modelValue="markCharsDirty"
                 />
               </div>
-              <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
-                <BaseCheckbox v-model="c.isCritical" @update:modelValue="markCharsDirty" /> Critical
-              </label>
+              <div class="tw:w-32">
+                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Defect class</label>
+                <DefectSeveritySelectMenu v-model="c.defectClass" :required="true" @update:modelValue="markCharsDirty" />
+              </div>
               <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
                 <BaseCheckbox v-model="c.requiresInstrument" @update:modelValue="markCharsDirty" /> Instrument
               </label>
@@ -382,7 +408,7 @@ async function newVersion() {
               <tr v-for="c in characteristics" :key="c.id" class="tw:border-t tw:border-divider">
                 <td class="tw:px-5 tw:py-2.5 tw:font-medium tw:text-on-main">
                   {{ c.name }}
-                  <span v-if="c.isCritical" class="tw:text-[10px] tw:text-red-600 tw:font-semibold">CRITICAL</span>
+                  <DefectSeverityBadgeById :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')" class="tw:ml-1 tw:text-[10px]" />
                   <div v-if="c.testMethod" class="tw:mt-1">
                     <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
                   </div>

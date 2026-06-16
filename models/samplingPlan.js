@@ -22,6 +22,9 @@ export class SamplingPlan extends BaseModel {
   @Property({ type: String, required: true }) planType = 'STANDARD'
   @Property({ type: String }) standardCode = /** @type {String} */ (null)
   @Property({ type: String }) inspectionLevel = /** @type {String} */ (null)
+  // Z1.4 switching state (selects the AQL table); distinct from defect class.
+  @Property({ type: String }) switchingState = 'NORMAL'
+  // [{ severity: CRITICAL|MAJOR|MINOR, aql }] — AQL per defect class.
   @Property({ type: Object }) severityAqls = /** @type {Object} */ (null)
   @Property({ type: Object }) customPlanTable = /** @type {Object} */ (null)
   @Property({ type: String }) statusId = 'DRAFT'

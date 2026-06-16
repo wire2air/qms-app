@@ -49,9 +49,23 @@ function addCharacteristic() {
     lsl: null,
     usl: null,
     uom: '',
-    isCritical: false,
+    defectClass: 'MAJOR',
     requiresInstrument: false,
     testMethod: '',
+  })
+}
+// Pre-fill a characteristic from a Test Library entry (overridable).
+function addFromLibrary(t) {
+  form.value.characteristics.push({
+    name: t.name ?? '',
+    testType: t.testType || 'PASS_FAIL',
+    targetValue: t.targetValue ?? null,
+    lsl: t.lsl ?? null,
+    usl: t.usl ?? null,
+    uom: t.uom ?? '',
+    defectClass: t.defaultSeverity || 'MAJOR',
+    requiresInstrument: !!t.requiresInstrument,
+    testMethod: t.testMethod ?? '',
   })
 }
 function removeCharacteristic(i) {
@@ -84,7 +98,8 @@ async function onSave() {
         lsl: c.testType === 'NUMERIC' ? c.lsl : null,
         usl: c.testType === 'NUMERIC' ? c.usl : null,
         uom: c.testType === 'NUMERIC' ? c.uom?.trim() || null : null,
-        isCritical: !!c.isCritical,
+        defectClass: c.defectClass || 'MAJOR',
+        isCritical: c.defectClass === 'CRITICAL',
         requiresInstrument: !!c.requiresInstrument,
         testMethod: c.testMethod || null,
         sortOrder: i,
@@ -140,9 +155,15 @@ async function onSave() {
       <div>
         <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
           <label class="tw:text-sm tw:font-semibold">Characteristics (tests) <span class="tw:text-bad">*</span></label>
-          <BaseButton variant="secondary" size="sm" @click="addCharacteristic">
-            <IconPlus :size="14" /> Add test
-          </BaseButton>
+          <div class="tw:flex tw:items-center tw:gap-3">
+            <TestLibraryAddMenu
+              :productTypeId="form.scope === 'productType' ? form.productTypeId : null"
+              @pick="addFromLibrary"
+            />
+            <BaseButton variant="secondary" size="sm" @click="addCharacteristic">
+              <IconPlus :size="14" /> Add test
+            </BaseButton>
+          </div>
         </div>
         <div v-if="!form.characteristics.length" class="tw:text-xs tw:text-secondary tw:italic tw:py-2">
           Add at least one test (e.g. pH 5.0–6.0, Appearance pass/fail).
@@ -161,9 +182,10 @@ async function onSave() {
               <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Type</label>
               <BaseInlineSelect v-model="c.testType" :items="TEST_TYPES" :required="true" />
             </div>
-            <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
-              <BaseCheckbox v-model="c.isCritical" /> Critical
-            </label>
+            <div class="tw:w-32">
+              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Defect class</label>
+              <DefectSeveritySelectMenu v-model="c.defectClass" :required="true" />
+            </div>
             <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
               <BaseCheckbox v-model="c.requiresInstrument" /> Instrument
             </label>

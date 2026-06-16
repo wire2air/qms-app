@@ -27,7 +27,20 @@ const POINTS = [
   { id: 'OUTGOING', name: 'Outgoing (OQC)' },
 ]
 const LEVELS = ['S-1', 'S-2', 'S-3', 'S-4', 'I', 'II', 'III'].map((id) => ({ id, name: id }))
-const SEVERITIES = ['NORMAL', 'TIGHTENED', 'REDUCED'].map((id) => ({ id, name: id }))
+// Defect classes — one AQL each (Z1.4 convention: Critical tight, Minor loose).
+const DEFECT_CLASSES = [
+  { id: 'CRITICAL', name: 'Critical' },
+  { id: 'MAJOR', name: 'Major' },
+  { id: 'MINOR', name: 'Minor' },
+]
+// Z1.4 switching state — selects which accept/reject table is used.
+const SWITCHING_STATES = ['NORMAL', 'TIGHTENED', 'REDUCED'].map((id) => ({ id, name: id }))
+// AQL % columns that exist in the seeded Z1.4 tables — picking an unseeded
+// value (e.g. 0.065) fails to resolve a plan cell, so offer only these.
+const AQL_OPTIONS = [0.4, 0.65, 1.0, 1.5, 2.5, 4.0, 6.5, 10, 15, 25].map((v) => ({
+  id: v,
+  name: `${v}%`,
+}))
 
 const standards = useLiveQuery(async (db) => db.SamplingStandard.where().exec(), { initial: [] })
 const standardItems = computed(() =>
@@ -49,9 +62,14 @@ function seedFromPlan(plan) {
     inspectionPoint: plan.inspectionPoint ?? 'INCOMING',
     standardCode: plan.standardCode ?? null,
     inspectionLevel: plan.inspectionLevel ?? 'II',
+    switchingState: plan.switchingState ?? 'NORMAL',
     severityAqls: Array.isArray(plan.severityAqls) && plan.severityAqls.length
       ? plan.severityAqls.map((r) => ({ severity: r.severity, aql: r.aql }))
-      : [{ severity: 'NORMAL', aql: 2.5 }],
+      : [
+          { severity: 'CRITICAL', aql: 0.4 },
+          { severity: 'MAJOR', aql: 1.0 },
+          { severity: 'MINOR', aql: 2.5 },
+        ],
     previewLotSize: 1000,
   }
 }
@@ -69,7 +87,12 @@ function reset() {
         inspectionPoint: 'INCOMING',
         standardCode: null,
         inspectionLevel: 'II',
-        severityAqls: [{ severity: 'NORMAL', aql: 2.5 }],
+        switchingState: 'NORMAL',
+        severityAqls: [
+          { severity: 'CRITICAL', aql: 0.4 },
+          { severity: 'MAJOR', aql: 1.0 },
+          { severity: 'MINOR', aql: 2.5 },
+        ],
         previewLotSize: 1000,
       }
   preview.value = null
@@ -79,7 +102,7 @@ watch(show, (v) => { if (v) reset() })
 watch(() => props.editPlan, (plan) => { if (show.value && plan) reset() })
 
 function addAql() {
-  form.value.severityAqls.push({ severity: 'NORMAL', aql: 1.0 })
+  form.value.severityAqls.push({ severity: 'MAJOR', aql: 1.0 })
 }
 function addCustomRow() {
   form.value.customRows.push({ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 })
@@ -118,7 +141,7 @@ async function runPreview() {
     preview.value = await post('/v1/services/qcInspection/samplingPlans/preview', {
       standardCode: form.value.standardCode,
       inspectionLevel: form.value.inspectionLevel,
-      switchingState: 'NORMAL',
+      switchingState: form.value.switchingState || 'NORMAL',
       lotSize: Number(form.value.previewLotSize) || 0,
       severityAqls: form.value.severityAqls,
     })
@@ -145,6 +168,7 @@ async function onSave() {
         : {
             standardCode: f.standardCode,
             inspectionLevel: f.inspectionLevel,
+            switchingState: f.switchingState,
             severityAqls: f.severityAqls,
           }),
     }
@@ -273,15 +297,23 @@ async function onSave() {
             <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection level</label>
             <BaseInlineSelect v-model="form.inspectionLevel" :items="LEVELS" :required="true" class="tw:w-full" />
           </div>
+          <div>
+            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Switching state</label>
+            <BaseInlineSelect v-model="form.switchingState" :items="SWITCHING_STATES" :required="true" class="tw:w-full" />
+          </div>
         </div>
 
         <div>
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
-            <label class="tw:text-sm tw:font-medium">Severity → AQL %</label>
+            <label class="tw:text-sm tw:font-medium">Defect class → AQL %</label>
             <BaseButton variant="text-link" size="sm" @click="addAql">
-              <IconPlus :size="14" /> Add severity
+              <IconPlus :size="14" /> Add class
             </BaseButton>
           </div>
+          <p class="tw:text-[11px] tw:text-secondary tw:mb-2">
+            One AQL per defect class — the accept/reject limits attributes inspection checks the
+            defect tally against. (Critical is usually tightest.)
+          </p>
           <div class="tw:flex tw:flex-col tw:gap-2">
             <div
               v-for="(row, i) in form.severityAqls"
@@ -289,12 +321,12 @@ async function onSave() {
               class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
             >
               <div class="tw:flex-1">
-                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Severity</label>
-                <BaseInlineSelect v-model="row.severity" :items="SEVERITIES" :required="true" class="tw:w-full" />
+                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Defect class</label>
+                <BaseInlineSelect v-model="row.severity" :items="DEFECT_CLASSES" :required="true" class="tw:w-full" />
               </div>
               <div class="tw:w-36">
                 <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">AQL %</label>
-                <BaseTextInput v-model.number="row.aql" type="number" placeholder="e.g. 2.5" size="sm" />
+                <BaseInlineSelect v-model="row.aql" :items="AQL_OPTIONS" :required="true" class="tw:w-full" />
               </div>
               <button
                 type="button"
