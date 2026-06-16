@@ -141,17 +141,17 @@ export default [
      * arbitrary-value classes (e.g. tw:bg-[#1e293b], tw:text-[#4ade80]) within
      * component code. These bypass the token system and break dark mode.
      * Use a token instead: tw:bg-card, tw:text-primary, tw:border-divider, etc.
-     * See src/css/tokens.css.
+     * See src/css/tokens.css. For an intentionally theme-independent dark
+     * surface (code blocks, dark-asset previews) use tw:bg-code.
      *
-     * Kept at "warn" deliberately — a handful of legacy violations remain
-     * (FishboneAnalysis, risk matrices); promoting to "error" once those are
-     * migrated will then prevent any new drift. The much larger arbitrary
-     * font-size cleanup (tw:text-[11px] ×400+) is tracked separately.
+     * Promoted to "error" — the scope is at zero violations, so this now
+     * prevents any new drift. The larger arbitrary font-size cleanup
+     * (tw:text-[11px] ×400+) is tracked separately and not enforced here.
      */
     files: ['src/components/**/*.{vue,js}', 'resource/js/shared/components/**/*.{vue,js}'],
     rules: {
       'vue/no-restricted-syntax': [
-        'warn',
+        'error',
         {
           selector: 'VLiteral[value=/-\\[#[0-9a-fA-F]{3,8}\\]/]',
           message:
@@ -159,7 +159,7 @@ export default [
         },
       ],
       'no-restricted-syntax': [
-        'warn',
+        'error',
         {
           selector: 'Literal[value=/-\\[#[0-9a-fA-F]{3,8}\\]/]',
           message:

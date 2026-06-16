@@ -146,7 +146,7 @@ function handleDarkDelete() {
           <div class="tw:flex tw:flex-col tw:gap-4">
             <div
               class="tw:size-32 tw:rounded-xl tw:border-2 tw:border-dashed tw:border-divider tw:flex tw:flex-col tw:items-center tw:justify-center tw:gap-2 tw:text-secondary"
-              :class="company.companyDarkIconUrl ? 'tw:bg-main-hover' : 'tw:bg-[#101822]'"
+              :class="company.companyDarkIconUrl ? 'tw:bg-main-hover' : 'tw:bg-code'"
             >
               <img
                 v-if="company.companyDarkIconUrl"

@@ -100,6 +100,11 @@
   --color-changes-600: var(--color-changes-600);
   --color-changes-700: var(--color-changes-700);
 
+  /* Code / dark-surface token — intentionally dark in BOTH themes (code &
+   * JSON blocks, terminals, dark-asset previews). Deliberately NOT remapped by
+   * the dark palette inversion, so it stays dark in light mode too. */
+  --color-code: #111827;
+
   /* Elevation scale (3-tier) — generates tw:shadow-flat|raised|floating|overlay.
    * flat: borders only · raised: cards/list rows · floating: menus/popovers ·
    * overlay: dialogs. Black-alpha shadows read subtly on dark surfaces; the
