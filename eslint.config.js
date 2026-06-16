@@ -135,5 +135,39 @@ export default [
     rules: { 'no-console': 'off' }, // Disable the rule here
   },
 
+  {
+    /**
+     * Design-system guardrail: forbid hardcoded hex colors inside Tailwind
+     * arbitrary-value classes (e.g. tw:bg-[#1e293b], tw:text-[#4ade80]) within
+     * component code. These bypass the token system and break dark mode.
+     * Use a token instead: tw:bg-card, tw:text-primary, tw:border-divider, etc.
+     * See src/css/tokens.css.
+     *
+     * Kept at "warn" deliberately — a handful of legacy violations remain
+     * (FishboneAnalysis, risk matrices); promoting to "error" once those are
+     * migrated will then prevent any new drift. The much larger arbitrary
+     * font-size cleanup (tw:text-[11px] ×400+) is tracked separately.
+     */
+    files: ['src/components/**/*.{vue,js}', 'resource/js/shared/components/**/*.{vue,js}'],
+    rules: {
+      'vue/no-restricted-syntax': [
+        'warn',
+        {
+          selector: 'VLiteral[value=/-\\[#[0-9a-fA-F]{3,8}\\]/]',
+          message:
+            'Hardcoded hex in a Tailwind class bypasses the design tokens and breaks dark mode. Use a token (tw:bg-card, tw:text-primary, tw:border-divider…). See src/css/tokens.css.',
+        },
+      ],
+      'no-restricted-syntax': [
+        'warn',
+        {
+          selector: 'Literal[value=/-\\[#[0-9a-fA-F]{3,8}\\]/]',
+          message:
+            'Hardcoded hex in a Tailwind class bypasses the design tokens and breaks dark mode. Use a token (tw:bg-card, tw:text-primary, tw:border-divider…). See src/css/tokens.css.',
+        },
+      ],
+    },
+  },
+
   prettierSkipFormatting,
 ]

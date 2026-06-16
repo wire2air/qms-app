@@ -99,6 +99,15 @@
   --color-changes-500: var(--color-changes-500);
   --color-changes-600: var(--color-changes-600);
   --color-changes-700: var(--color-changes-700);
+
+  /* Elevation scale (3-tier) — generates tw:shadow-flat|raised|floating|overlay.
+   * flat: borders only · raised: cards/list rows · floating: menus/popovers ·
+   * overlay: dialogs. Black-alpha shadows read subtly on dark surfaces; the
+   * existing hairline ring on overlays keeps separation there. */
+  --shadow-flat: none;
+  --shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-floating: 0 4px 16px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-overlay: 0 12px 40px rgba(0, 0, 0, 0.15);
 }
 
 @layer base {

@@ -127,6 +127,7 @@ declare module 'vue' {
     BasePopover: typeof import('./resource/js/shared/components/BasePopover.vue')['default']
     BaseRichTextEditor: typeof import('./src/components/editor/BaseRichTextEditor.vue')['default']
     BaseSelectMenu: typeof import('./resource/js/shared/components/BaseSelectMenu.vue')['default']
+    BaseSkeleton: typeof import('./resource/js/shared/components/BaseSkeleton.vue')['default']
     BaseSpinner: typeof import('./resource/js/shared/components/BaseSpinner.vue')['default']
     BaseSwitch: typeof import('./resource/js/shared/components/BaseSwitch.vue')['default']
     BaseSwitcher: typeof import('./resource/js/shared/components/BaseSwitcher.vue')['default']
