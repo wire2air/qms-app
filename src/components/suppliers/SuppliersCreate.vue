@@ -294,7 +294,7 @@ function goBack() {
 
     <!-- Scrollable content -->
     <div class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
-      <div class="tw:max-w-5xl tw:mx-auto tw:px-6 tw:py-8">
+      <div class="tw:px-6 tw:py-8">
         <!-- Breadcrumbs -->
         <div class="tw:mb-4 tw:flex tw:items-center tw:text-sm tw:text-secondary tw:gap-1">
           <BaseClickableRow
@@ -546,7 +546,7 @@ function goBack() {
     <div
       class="tw:sticky tw:bottom-0 tw:w-full tw:bg-main/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-50"
     >
-      <div class="tw:max-w-5xl tw:mx-auto tw:flex tw:items-center tw:justify-between">
+      <div class="tw:flex tw:items-center tw:justify-between">
         <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary">
           <span class="tw:w-2 tw:h-2 tw:rounded-full tw:bg-warning tw:animate-pulse" />
           Unsaved changes

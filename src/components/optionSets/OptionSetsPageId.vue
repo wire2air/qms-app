@@ -106,7 +106,7 @@ async function confirmDelete() {
     </div>
 
     <!-- Content -->
-    <div v-else class="tw:flex tw:flex-col tw:gap-4 tw:max-w-5xl tw:mx-auto">
+    <div v-else class="tw:flex tw:flex-col tw:gap-4">
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
         <!-- Main Content -->
         <div class="tw:md:col-span-2 tw:flex tw:flex-col tw:gap-8">

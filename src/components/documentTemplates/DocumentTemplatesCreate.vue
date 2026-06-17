@@ -230,7 +230,7 @@ function goBack() {
 
     <!-- Scrollable content -->
     <div v-else class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
-      <div class="tw:max-w-5xl tw:mx-auto tw:px-6 tw:py-8">
+      <div class="tw:px-6 tw:py-8">
         <div class="tw:space-y-6">
           <!-- Basic Information -->
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
@@ -358,7 +358,7 @@ function goBack() {
     <div
       class="tw:relative tw:bottom-0 tw:right-0 tw:w-full tw:bg-main/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-50"
     >
-      <div class="tw:max-w-5xl tw:mx-auto tw:flex tw:items-center tw:justify-between">
+      <div class="tw:flex tw:items-center tw:justify-between">
         <button
           class="tw:px-4 tw:py-2 tw:text-sm tw:text-secondary tw:hover:text-on-sidebar tw:transition-colors"
           :disabled="saving"

@@ -345,7 +345,7 @@ async function newVersion() {
   <div
     v-if="spec && header"
     class="tw:flex tw:flex-col tw:gap-5"
-    :class="embedded ? '' : 'tw:p-5 tw:max-w-6xl tw:mx-auto'"
+    :class="embedded ? '' : 'tw:p-5'"
   >
     <!-- Embedded (in the product page): a back link to the item's spec list.
          Standalone (QC module route): a module breadcrumb + record trail. -->

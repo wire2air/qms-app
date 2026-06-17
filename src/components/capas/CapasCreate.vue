@@ -224,7 +224,7 @@ async function handleReviewersConfirmed(reviewers) {
     </PageHeader>
 
     <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
-      <div class="tw:max-w-3xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">
+      <div class="tw:p-6 tw:flex tw:flex-col tw:gap-4">
         <!-- Source NC chip -->
         <div
           v-if="sourceNc"

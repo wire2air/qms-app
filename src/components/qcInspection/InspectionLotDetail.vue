@@ -348,7 +348,7 @@ async function saveDispositionNotes() {
 </script>
 
 <template>
-  <div v-if="lot" class="tw:p-5 tw:max-w-7xl tw:mx-auto tw:flex tw:flex-col tw:gap-5">
+  <div v-if="lot" class="tw:p-5 tw:flex tw:flex-col tw:gap-5">
     <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap tw:text-sm">
       <BaseBreadcrumbs :items="moduleCrumbs" />
       <RecordTrailBreadcrumb />

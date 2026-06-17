@@ -330,6 +330,13 @@ function handlePdfImport(draft) {
   activeTab.value = 'content'
   toast.success('PDF imported — review each section before saving.')
 }
+
+const docTabs = [
+  { value: 'properties', label: 'Properties', icon: IconInfoCircle },
+  { value: 'changeControl', label: 'Change Control', icon: IconHistory },
+  { value: 'content', label: 'Content', icon: IconArticle },
+  { value: 'training', label: 'Training Assessment', icon: IconSchool },
+]
 </script>
 
 <template>
@@ -357,92 +364,28 @@ function handlePdfImport(draft) {
 
     <!-- Scrollable content -->
     <div class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
-      <div class="tw:max-w-4xl tw:mx-auto tw:px-6 tw:py-8">
-        <!-- Header -->
-        <div class="tw:mb-8">
-          <!-- Tabs Navigation -->
-          <div class="tw:flex tw:border-b tw:border-divider">
-            <button
-              :class="[
-                'tw:px-6 tw:py-3 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors',
-                activeTab === 'properties'
-                  ? 'tw:border-primary tw:text-primary'
-                  : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar',
-              ]"
-              @click="activeTab = 'properties'"
-            >
-              <IconInfoCircle :size="18" /> Properties
-            </button>
-            <button
-              :class="[
-                'tw:px-6 tw:py-3 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors',
-                activeTab === 'changeControl'
-                  ? 'tw:border-primary tw:text-primary'
-                  : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar',
-              ]"
-              @click="activeTab = 'changeControl'"
-            >
-              <IconHistory :size="18" /> Change Control
-            </button>
-            <button
-              :class="[
-                'tw:px-6 tw:py-3 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors',
-                activeTab === 'content'
-                  ? 'tw:border-primary tw:text-primary'
-                  : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar',
-              ]"
-              @click="activeTab = 'content'"
-            >
-              <IconArticle :size="18" /> Content
-            </button>
-            <button
-              :class="[
-                'tw:px-6 tw:py-3 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors',
-                activeTab === 'training'
-                  ? 'tw:border-primary tw:text-primary'
-                  : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar',
-              ]"
-              @click="activeTab = 'training'"
-            >
-              <IconSchool :size="18" /> Training Assessment
-            </button>
-          </div>
-        </div>
-
-        <!-- Tab Content -->
-        <div class="tw:space-y-6">
-          <!-- Properties Tab -->
-          <DocumentsCreateProperties
-            v-show="activeTab === 'properties'"
-            v-model="form"
-            v-model:selectedTemplate="selectedTemplate"
-          />
-
-          <!-- Change Control Tab -->
-          <DocumentsCreateChangeControl
-            v-show="activeTab === 'changeControl'"
-            :form="form"
-          />
-
-          <!-- Content Tab -->
-          <DocumentsCreateContent
-            v-show="activeTab === 'content'"
-            :form="form"
-            :selectedTemplate="selectedTemplate"
-          />
-
-          <!-- Training Assessment Tab -->
-          <DocumentsCreateTraining v-show="activeTab === 'training'" v-model="form.trainingConfig" />
-        </div>
-      </div>
+      <BaseTabs v-model="activeTab" :tabs="docTabs" ariaLabel="Create document">
+        <!-- keepAlive: panels stay mounted so form state survives tab switches -->
+        <BaseTabPanel value="properties" keepAlive class="tw:pt-6">
+          <DocumentsCreateProperties v-model="form" v-model:selectedTemplate="selectedTemplate" />
+        </BaseTabPanel>
+        <BaseTabPanel value="changeControl" keepAlive class="tw:pt-6">
+          <DocumentsCreateChangeControl :form="form" />
+        </BaseTabPanel>
+        <BaseTabPanel value="content" keepAlive class="tw:pt-6">
+          <DocumentsCreateContent :form="form" :selectedTemplate="selectedTemplate" />
+        </BaseTabPanel>
+        <BaseTabPanel value="training" keepAlive class="tw:pt-6">
+          <DocumentsCreateTraining v-model="form.trainingConfig" />
+        </BaseTabPanel>
+      </BaseTabs>
     </div>
 
     <!-- Sticky Footer Action Bar -->
     <div
       class="tw:absolute tw:bottom-0 tw:left-0 tw:right-0 tw:bg-sidebar/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-50"
     >
-      <div class="tw:max-w-4xl tw:mx-auto tw:flex tw:items-center tw:justify-between">
-        <div class="tw:flex tw:items-center tw:gap-4 tw:text-secondary tw:text-sm"></div>
+      <div class="tw:flex tw:items-center tw:justify-end">
         <div class="tw:flex tw:items-center tw:gap-4">
           <BaseButton variant="danger" :isLoading="saving" @click="cancel"> Cancel </BaseButton>
           <BaseButton variant="secondary" :isLoading="saving" @click="saveDraft">

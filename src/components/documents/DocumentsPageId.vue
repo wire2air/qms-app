@@ -391,7 +391,7 @@ async function handleNewVersionConfirm(changeControl) {
       <!-- Toolbar Section -->
       <div class="tw:bg-sidebar tw:border-b tw:border-divider tw:sticky tw:top-0 tw:z-10">
         <div
-          class="tw:max-w-360 tw:mx-auto tw:px-6 tw:py-4 tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-4"
+          class="tw:py-4 tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-4"
         >
           <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-3">
             <AskAiButton

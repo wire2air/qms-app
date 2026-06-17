@@ -141,7 +141,7 @@ async function handleAvatarDelete() {
 
     <!-- Content -->
     <div v-else class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:p-8">
-      <div class="tw:max-w-5xl tw:mx-auto tw:space-y-6">
+      <div class="tw:space-y-6">
         <!-- Saving Indicator -->
         <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary">
           <BaseSpinner size="xs" />

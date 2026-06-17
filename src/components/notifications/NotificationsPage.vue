@@ -31,10 +31,15 @@ const markAllAsRead = useLiveMutation(async (db) => {
 async function handleMarkAllRead() {
   await markAllAsRead()
 }
+
+const filterTabs = [
+  { value: 'all', label: 'All' },
+  { value: 'unread', label: 'Unread' },
+]
 </script>
 
 <template>
-  <div class="tw:max-w-3xl tw:mx-auto tw:px-4 tw:py-6">
+  <div class="tw:py-6">
     <!-- Page header -->
     <BaseSectionHeader title="Notifications" :level="1" size="section-title" class="tw:mb-6">
       <template v-if="unreadCount > 0" #subtitle> {{ unreadCount }} unread </template>
@@ -51,24 +56,7 @@ async function handleMarkAllRead() {
     </BaseSectionHeader>
 
     <!-- Filter tabs -->
-    <div class="tw:flex tw:gap-1 tw:mb-4 tw:border-b tw:border-divider">
-      <button
-        v-for="tab in [
-          { id: 'all', label: 'All' },
-          { id: 'unread', label: 'Unread' },
-        ]"
-        :key="tab.id"
-        class="tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:border-b-2 tw:transition-colors tw:bg-transparent tw:cursor-pointer"
-        :class="
-          filter === tab.id
-            ? 'tw:border-primary tw:text-primary'
-            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'
-        "
-        @click="filter = tab.id"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
+    <BaseTabs v-model="filter" :tabs="filterTabs" ariaLabel="Notification filter" class="tw:mb-4" />
 
     <!-- Loading -->
     <div v-if="loading" class="tw:flex tw:justify-center tw:py-16">
