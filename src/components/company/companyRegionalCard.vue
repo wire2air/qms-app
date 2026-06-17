@@ -65,9 +65,9 @@ const firstDayOfWeekOptions = [
         hint="Used for timestamps and scheduling"
       />
 
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">First Day of Week</label>
+      <BaseField v-slot="{ id: fieldId }" label="First Day of Week" hint="Used for calendar views">
         <select
+          :id="fieldId"
           v-model.number="company.defaultFirstDayOfWeek"
           class="tw:w-full tw:px-3 tw:py-2 tw:text-sm tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:text-on-main tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary"
         >
@@ -75,8 +75,7 @@ const firstDayOfWeekOptions = [
             {{ opt.label }}
           </option>
         </select>
-        <p class="tw:text-xs tw:text-secondary">Used for calendar views</p>
-      </div>
+      </BaseField>
     </div>
   </div>
 </template>
