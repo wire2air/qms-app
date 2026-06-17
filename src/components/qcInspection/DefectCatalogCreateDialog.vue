@@ -123,59 +123,50 @@ async function save() {
 <template>
   <BaseDialog v-model="open" :title="editDefect ? 'Edit test' : 'Add test'" maxWidth="md">
     <div class="tw:flex tw:flex-col tw:gap-4 tw:py-1">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">Name <span class="tw:text-red-500">*</span></label>
-        <BaseTextInput v-model="form.name" placeholder="e.g. pH, Appearance" />
-      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Name" required>
+        <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. pH, Appearance" />
+      </BaseField>
       <div class="tw:grid tw:grid-cols-3 tw:gap-3">
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Code <span class="tw:text-red-500">*</span></label>
-          <BaseTextInput v-model="form.code" placeholder="PH" :disabled="!!editDefect" />
-        </div>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Type <span class="tw:text-red-500">*</span></label>
+        <BaseField v-slot="{ id: fieldId }" label="Code" required>
+          <BaseTextInput :id="fieldId" v-model="form.code" placeholder="PH" :disabled="!!editDefect" />
+        </BaseField>
+        <BaseField label="Type" required>
           <BaseInlineSelect v-model="form.testType" :items="TEST_TYPES" :required="true" />
-        </div>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Severity <span class="tw:text-red-500">*</span></label>
+        </BaseField>
+        <BaseField label="Severity" required>
           <DefectSeveritySelectMenu v-model="form.defaultSeverity" :required="true" />
-        </div>
+        </BaseField>
       </div>
 
       <!-- NUMERIC defaults -->
       <div v-if="form.testType === 'NUMERIC'" class="tw:flex tw:flex-wrap tw:gap-3 tw:items-end">
-        <div class="tw:w-24">
-          <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Target</label>
-          <BaseTextInput v-model.number="form.targetValue" type="number" size="sm" />
-        </div>
-        <div class="tw:w-24">
-          <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">LSL (≥)</label>
-          <BaseTextInput v-model.number="form.lsl" type="number" size="sm" />
-        </div>
-        <div class="tw:w-24">
-          <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">USL (≤)</label>
-          <BaseTextInput v-model.number="form.usl" type="number" size="sm" />
-        </div>
-        <div class="tw:w-24">
-          <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">UOM</label>
-          <BaseTextInput v-model="form.uom" size="sm" placeholder="mm" />
-        </div>
+        <BaseField v-slot="{ id: fieldId }" label="Target" class="tw:w-24">
+          <BaseTextInput :id="fieldId" v-model.number="form.targetValue" type="number" size="sm" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="LSL (≥)" class="tw:w-24">
+          <BaseTextInput :id="fieldId" v-model.number="form.lsl" type="number" size="sm" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="USL (≤)" class="tw:w-24">
+          <BaseTextInput :id="fieldId" v-model.number="form.usl" type="number" size="sm" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="UOM" class="tw:w-24">
+          <BaseTextInput :id="fieldId" v-model="form.uom" size="sm" placeholder="mm" />
+        </BaseField>
         <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
           <BaseCheckbox v-model="form.requiresInstrument" /> Instrument
         </label>
       </div>
 
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">Method / instructions</label>
-        <BaseTextarea v-model="form.testMethod" :rows="2" placeholder="How is this test performed?" />
-      </div>
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">
+      <BaseField v-slot="{ id: fieldId }" label="Method / instructions">
+        <BaseTextarea :id="fieldId" v-model="form.testMethod" :rows="2" placeholder="How is this test performed?" />
+      </BaseField>
+      <BaseField label="Applies to product types">
+        <template #label>
           Applies to product types
           <span class="tw:font-normal tw:text-secondary">(optional — blank = all)</span>
-        </label>
+        </template>
         <ProductTypeSelectMenu v-model="form.applicableProductTypeIds" multiple />
-      </div>
+      </BaseField>
       <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:select-none">
         <BaseCheckbox v-model="form.active" />
         <span class="tw:text-sm tw:text-on-main">Active</span>

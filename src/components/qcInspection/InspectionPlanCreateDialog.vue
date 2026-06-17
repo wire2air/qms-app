@@ -112,63 +112,55 @@ async function onSave() {
 
       <!-- ── Basic info ───────────────────────────────────────────────── -->
       <div class="tw:flex tw:flex-col tw:gap-3">
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Plan name <span class="tw:text-bad">*</span></label>
-          <BaseTextInput v-model="form.name" placeholder="e.g. Incoming — Raw Materials" />
-        </div>
+        <BaseField v-slot="{ id: fieldId }" label="Plan name" required>
+          <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. Incoming — Raw Materials" />
+        </BaseField>
         <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-          <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection point</label>
+          <BaseField label="Inspection point">
             <BaseInlineSelect v-model="form.inspectionPoint" :items="POINTS" :required="true" class="tw:w-full" />
-          </div>
-          <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Scope</label>
+          </BaseField>
+          <BaseField label="Scope">
             <BaseInlineSelect
               v-model="form.scope"
               :items="[{ id: 'product', name: 'Specific product' }, { id: 'productType', name: 'Product type' }]"
               :required="true"
               class="tw:w-full"
             />
-          </div>
+          </BaseField>
         </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
-            {{ form.scope === 'product' ? 'Product' : 'Product type' }} <span class="tw:text-bad">*</span>
-          </label>
+        <BaseField required>
+          <template #label>
+            {{ form.scope === 'product' ? 'Product' : 'Product type' }}
+          </template>
           <ProductSelectMenu v-if="form.scope === 'product'" v-model="form.productId" class="tw:w-full" />
           <ProductTypeSelectMenu v-else v-model="form.productTypeId" class="tw:w-full" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Description</label>
-          <BaseTextarea v-model="form.description" :rows="2" placeholder="optional" />
-        </div>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Description">
+          <BaseTextarea :id="fieldId" v-model="form.description" :rows="2" placeholder="optional" />
+        </BaseField>
       </div>
 
       <hr class="tw:border-divider" />
 
       <!-- ── Bindings ──────────────────────────────────────────────────── -->
       <div class="tw:flex tw:flex-col tw:gap-3">
-        <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">What gets applied to lots</p>
+        <BaseText variant="overline">What gets applied to lots</BaseText>
         <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-          <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Specification</label>
+          <BaseField label="Specification">
             <SpecificationSelectMenu v-model="form.specificationId" class="tw:w-full" />
-          </div>
-          <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Sampling Plan</label>
+          </BaseField>
+          <BaseField label="Sampling Plan">
             <SamplingPlanSelectMenu v-model="form.samplingPlanId" class="tw:w-full" />
-          </div>
+          </BaseField>
         </div>
         <!-- Email-only notifications on disposition. Grants no access. -->
         <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-          <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Notify groups when PASSED</label>
+          <BaseField label="Notify groups when PASSED">
             <GroupSelectMenu v-model="form.notifyGroupIdsOnPass" multiple class="tw:w-full" />
-          </div>
-          <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Notify groups when FAILED</label>
+          </BaseField>
+          <BaseField label="Notify groups when FAILED">
             <GroupSelectMenu v-model="form.notifyGroupIdsOnFail" multiple class="tw:w-full" />
-          </div>
+          </BaseField>
         </div>
         <p class="tw:text-xs tw:text-secondary tw:-mt-1">
           Group members receive an email only — this does not assign tasks or grant access.
@@ -183,9 +175,9 @@ async function onSave() {
 
       <!-- ── Disposition workflow ──────────────────────────────────────── -->
       <div>
-        <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-3">
+        <BaseText variant="overline" class="tw:block tw:mb-3">
           Disposition workflow <span class="tw:text-bad">*</span>
-        </p>
+        </BaseText>
         <WorkflowVersionSelect v-model="form.workflowVersionId" moduleId="QC_INSPECTION" dense />
       </div>
 
