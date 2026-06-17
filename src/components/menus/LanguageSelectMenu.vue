@@ -25,7 +25,7 @@ const items = computed(() => [
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="items" :required="required">
+  <BaseSelectMenu v-model="modelValue" :items="items" nullLabel="— All languages —" :required="required">
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <LanguageBadge

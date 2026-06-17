@@ -21,6 +21,7 @@ function getArray() {
   <BaseSelectMenu
     v-model="modelValue"
     :items="issueTypes"
+    nullLabel="— All issue types —"
     :required="required"
     :multiple="multiple"
   >

@@ -38,7 +38,7 @@ function getArray() {
               @clear="() => scope.clear(id)"
             />
           </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Forms</span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">— All forms —</span>
         </template>
         <template v-else>
           <FormTemplateBadgeById
@@ -49,7 +49,7 @@ function getArray() {
             @clear="() => scope.clear(modelValue)"
           />
           <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select Dynamic Form
+            — All forms —
           </span>
         </template>
       </slot>

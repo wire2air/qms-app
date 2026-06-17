@@ -23,7 +23,7 @@ function getArray() {
     :items="priorities"
     :required="required"
     :multiple="multiple"
-    nullLabel="— Select priority —"
+    nullLabel="— All priorities —"
   >
     <template #button="scope">
       <slot name="button" v-bind="scope">

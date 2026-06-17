@@ -31,7 +31,7 @@ function getArray() {
             />
           </div>
           <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
-            >Select Risk Assessment Templates</span
+            >— All risk assessment templates —</span
           >
         </template>
         <template v-else>
@@ -43,7 +43,7 @@ function getArray() {
             @clear="() => scope.clear(modelValue)"
           />
           <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
-            >Select Risk Assessment Template</span
+            >— All risk assessment templates —</span
           >
         </template>
       </slot>

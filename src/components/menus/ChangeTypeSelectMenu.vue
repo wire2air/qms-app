@@ -23,7 +23,7 @@ function getArray() {
     :items="changeTypes"
     :required="required"
     :multiple="multiple"
-    nullLabel="— Select change type —"
+    nullLabel="— All change types —"
   >
     <template #button="scope">
       <slot name="button" v-bind="scope">

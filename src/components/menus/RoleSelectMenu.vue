@@ -50,7 +50,7 @@ function getArray() {
               @clear="() => scope.clear(roleId)"
             />
           </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Roles </span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> — All roles — </span>
         </template>
 
         <!-- SINGLE MODE -->
@@ -62,7 +62,7 @@ function getArray() {
             selectable
             @clear="() => scope.clear(modelValue)"
           />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Role </span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> — All roles — </span>
         </template>
       </slot>
     </template>

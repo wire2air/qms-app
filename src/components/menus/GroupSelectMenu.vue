@@ -37,7 +37,7 @@ function getArray() {
               @clear="() => scope.clear(teamId)"
             />
           </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Groups </span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> — All groups — </span>
         </template>
 
         <!-- SINGLE MODE -->
@@ -49,7 +49,7 @@ function getArray() {
             selectable
             @clear="() => scope.clear(modelValue)"
           />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Group </span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> — All groups — </span>
         </template>
       </slot>
     </template>

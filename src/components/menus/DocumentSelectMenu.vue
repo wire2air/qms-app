@@ -61,7 +61,7 @@ defineExpose({
               />
             </div>
             <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
-              >Select Documents</span
+              >— All documents —</span
             >
           </template>
           <template v-else>
@@ -73,7 +73,7 @@ defineExpose({
               @clear="() => scope.clear(modelValue)"
             />
             <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
-              >Select Document</span
+              >— All documents —</span
             >
           </template>
         </div>
