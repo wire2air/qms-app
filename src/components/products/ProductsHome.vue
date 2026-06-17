@@ -113,23 +113,16 @@ async function restoreProduct(product) {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <PageHeader :icon="IconPackage" title="Item Master" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateProduct" @click="openDialog()"> Add New Item </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Item Master</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage your organization's items — raw materials, components, intermediates, and finished
-          goods.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconPackage"
+      title="Item Master"
+      subtitle="Manage your organization's items — raw materials, components, intermediates, and finished goods."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreateProduct" @click="openDialog()"> Add New Item </BaseButton>
+      </template>
+    </PageHeader>
 
     <ProductsFilterToolbar v-model:filters="filters" />
 

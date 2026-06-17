@@ -37,20 +37,28 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <BasePage width="narrow" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs
-        :items="[
-          { label: 'Training Library', to: getCompanyPath('/trainings') },
-          { label: 'New Training' },
-        ]"
-      />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="secondary" :disabled="saving" @click="router.push(getCompanyPath('/trainings'))">Cancel</BaseButton>
-      <BaseButton variant="primary" :loading="saving" @click="handleSubmit">Create Training</BaseButton>
-    </SafeTeleport>
+  <BasePage width="standard" fullHeight>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs
+          :items="[
+            { label: 'Training Library', to: getCompanyPath('/trainings') },
+            { label: 'New Training' },
+          ]"
+        />
+      </template>
+      <template #actions>
+        <BaseButton
+          variant="secondary"
+          :disabled="saving"
+          @click="router.push(getCompanyPath('/trainings'))"
+          >Cancel</BaseButton
+        >
+        <BaseButton variant="primary" :loading="saving" @click="handleSubmit"
+          >Create Training</BaseButton
+        >
+      </template>
+    </PageHeader>
 
     <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:max-w-xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">

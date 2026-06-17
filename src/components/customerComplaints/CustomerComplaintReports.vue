@@ -110,24 +110,20 @@ const BREAKDOWN_SECTIONS = [
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <PageHeader :icon="IconChartBar" title="Complaint Reports" />
-
-    <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:flex-wrap">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Reports</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Ticket volume, response performance and satisfaction across the support queue.
-        </div>
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconChartBar"
+      title="Complaint Reports"
+      subtitle="Ticket volume, response performance and satisfaction across the support queue."
+    >
+      <template #actions>
         <BaseSelectMenu v-model="rangeDays" :items="RANGES" :required="true" />
         <BaseButton variant="outline" @click="router.push(getCompanyPath('/customer-complaints'))">
           <IconArrowLeft :size="16" class="tw:mr-1" />
           Back to tickets
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Headline metrics -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-5 tw:gap-3">

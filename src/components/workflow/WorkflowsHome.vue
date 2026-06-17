@@ -25,24 +25,18 @@ function handleWorkflowCreated(workflow) {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <PageHeader :icon="IconSitemap" title="Workflows" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateWorkflow" @click="showCreateDialog = true">
-        Create Workflow
-      </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Workflows</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Design and manage multi-step workflow sequences for Documents and NCs.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconSitemap"
+      title="Workflows"
+      subtitle="Design and manage multi-step workflow sequences for Documents and NCs."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreateWorkflow" @click="showCreateDialog = true">
+          Create Workflow
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <WorkflowsFilterToolbar v-model:filters="filters">
       <template #actions>

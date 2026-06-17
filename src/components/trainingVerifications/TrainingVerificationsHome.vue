@@ -114,7 +114,7 @@ function onVerified() {
 </script>
 
 <template>
-  <BasePage width="wide" density="compact" fullHeight>
+  <BasePage width="standard" fullHeight>
     <PageHeader title="Training Verification" />
 
     <!-- Top stats -->

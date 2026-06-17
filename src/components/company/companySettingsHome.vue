@@ -93,7 +93,11 @@ watch(
 
 <template>
   <BasePage width="standard">
-    <PageHeader :icon="IconSettings" title="Company Settings" />
+    <PageHeader
+      :icon="IconSettings"
+      title="Company Settings"
+      subtitle="Manage organization profile, branding, regional preferences, defaults, and print customization."
+    />
 
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:py-20">
       <BaseSpinner size="lg" />
@@ -104,14 +108,6 @@ watch(
     </div>
 
     <template v-else>
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Company Settings</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage organization profile, branding, regional preferences, defaults, and print
-          customization.
-        </div>
-      </div>
-
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Company settings">
         <!-- Tab: General -->
         <BaseTabPanel value="general">

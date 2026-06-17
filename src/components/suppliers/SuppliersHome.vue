@@ -61,24 +61,18 @@ function onDeleteSupplier(row) {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <PageHeader :icon="IconTruck" title="Suppliers" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateSupplier" @click="onCreateSupplier">
-        <span>Create New Supplier</span>
-      </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Suppliers</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage and evaluate your global network of manufacturing partners.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconTruck"
+      title="Suppliers"
+      subtitle="Manage and evaluate your global network of manufacturing partners."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreateSupplier" @click="onCreateSupplier">
+          <span>Create New Supplier</span>
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Stats Card -->
     <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-4 tw:gap-4">

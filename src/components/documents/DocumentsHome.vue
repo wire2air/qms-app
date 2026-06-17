@@ -116,25 +116,19 @@ function navigateToDetail(row) {
 </script>
 
 <template>
-  <BasePage width="wide" density="compact">
-    <PageHeader :icon="IconFileDescription" title="Documents" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" @click="navigateToCreate">
-        <IconPlus :size="16" class="tw:mr-1" />
-        Create Document
-      </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Documents</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage controlled documents, versions, and approvals.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconFileDescription"
+      title="Documents"
+      subtitle="Manage controlled documents, versions, and approvals."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreate" @click="navigateToCreate">
+          <IconPlus :size="16" class="tw:mr-1" />
+          Create Document
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Stats Cards -->
     <DocumentsStatsCards :stats="stats" :total="statsTotal" />

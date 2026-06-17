@@ -211,17 +211,17 @@ function goBack() {
   router.push(getCompanyPath('/document-templates'))
 }
 
-const breadcrumbs = computed(() => [
-  { label: 'Document Templates', to: getCompanyPath('/document-templates') },
-  { label: isEditMode.value ? 'Edit' : 'Create' },
-])
 </script>
 
 <template>
-  <BasePage width="narrow" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
+  <BasePage width="standard" fullHeight>
+    <PageHeader :title="pageTitle">
+      <template #subtitle>
+        Define the lifecycle, metadata, and structural components for your organization's formal
+        documents.
+      </template>
+    </PageHeader>
+
 
     <!-- Loading overlay -->
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
@@ -230,17 +230,7 @@ const breadcrumbs = computed(() => [
 
     <!-- Scrollable content -->
     <div v-else class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
-      <div class="tw:max-w-5xl tw:mx-auto tw:px-6 tw:py-8">
-        <div class="tw:mb-8">
-          <h1 class="tw:text-3xl tw:font-black tw:text-on-sidebar tw:tracking-tight">
-            {{ pageTitle }}
-          </h1>
-          <p class="tw:text-secondary tw:mt-2">
-            Define the lifecycle, metadata, and structural components for your organization's formal
-            documents.
-          </p>
-        </div>
-
+      <div class="tw:px-6 tw:py-8">
         <div class="tw:space-y-6">
           <!-- Basic Information -->
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
@@ -368,7 +358,7 @@ const breadcrumbs = computed(() => [
     <div
       class="tw:relative tw:bottom-0 tw:right-0 tw:w-full tw:bg-main/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-50"
     >
-      <div class="tw:max-w-5xl tw:mx-auto tw:flex tw:items-center tw:justify-between">
+      <div class="tw:flex tw:items-center tw:justify-between">
         <button
           class="tw:px-4 tw:py-2 tw:text-sm tw:text-secondary tw:hover:text-on-sidebar tw:transition-colors"
           :disabled="saving"

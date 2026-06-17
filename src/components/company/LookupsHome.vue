@@ -29,17 +29,13 @@ watch(
 
 <template>
   <BasePage width="standard">
-    <PageHeader :icon="IconList" title="Lookups" />
+    <PageHeader
+      :icon="IconList"
+      title="Lookups"
+      subtitle="Shared master data — dispositions, issue types, certificate types and audit categories used across the QMS."
+    />
 
     <div class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Lookups</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Shared master data — dispositions, issue types, certificate types and audit categories
-          used across the QMS.
-        </div>
-      </div>
-
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Lookups">
         <BaseTabPanel value="nc-dispositions"><NcDispositionTypesCard /></BaseTabPanel>
         <BaseTabPanel value="nc-issue-types"><NcIssueTypesCard /></BaseTabPanel>

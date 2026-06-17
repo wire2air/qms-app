@@ -1,6 +1,5 @@
 <script setup>
 import { IconCamera, IconBuilding, IconUserPlus, IconCopy } from '@tabler/icons-vue'
-import { getCompanyPath } from '@/utils/routeHelpers'
 import { isAllowed } from '@/utils/currentSession'
 import { uploadFile } from '@/utils/uploadService.js'
 
@@ -58,10 +57,6 @@ const filteredUsers = computed(() => {
 
 // ─── Breadcrumbs ──────────────────────────────────────────────────────────────
 
-const breadcrumbItems = computed(() => [
-  { label: 'Groups', to: getCompanyPath('/groups') },
-  { label: group.value?.name || 'Loading...' },
-])
 
 // ─── Auto-save ────────────────────────────────────────────────────────────────
 
@@ -135,13 +130,9 @@ function copyToClipboard(text) {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbItems" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard">
+    <PageHeader v-if="group" :icon="IconBuilding" :title="group.name || 'Team'">
+      <template #actions>
         <div
           v-if="isSaving"
           class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary"
@@ -149,8 +140,9 @@ function copyToClipboard(text) {
           <BaseSpinner size="xs" />
           Saving...
         </div>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
+
 
     <!-- Loading State -->
     <div
@@ -163,7 +155,7 @@ function copyToClipboard(text) {
 
     <!-- Content -->
     <div v-else-if="group" class="tw:overflow-y-auto">
-      <div class="tw:max-w-5xl tw:mx-auto tw:p-8 tw:space-y-8">
+      <div class="tw:p-8 tw:space-y-8">
         <!-- Error Banner -->
         <div
           v-if="saveError"

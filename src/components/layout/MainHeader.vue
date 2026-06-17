@@ -56,24 +56,29 @@ async function resetSync() {
   <header
     class="tw:sticky tw:top-0 tw:z-10 tw:border-b tw:border-divider tw:bg-sidebar/80 tw:backdrop-blur-md tw:pe-4 tw:ps-2 tw:py-3"
   >
-    <div class="tw:flex tw:flex-nowrap tw:items-center tw:justify-between tw:gap-4 tw:flex-1">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:flex-1 tw:max-w-2xl">
+    <div class="tw:flex tw:flex-nowrap tw:items-center tw:gap-4">
+      <!-- Left zone: sidebar toggle + the page title (teleported by PageHeader) -->
+      <div class="tw:flex tw:min-w-0 tw:shrink tw:items-center tw:gap-2">
         <button
-          class="tw:p-2 tw:rounded-full tw:text-primary tw:hover:bg-main-hover tw:transition-colors"
+          class="tw:p-2 tw:rounded-full tw:text-primary tw:hover:bg-main-hover tw:transition-colors tw:shrink-0"
           @click="toggleSidebar"
         >
           <IconMenu2 :size="20" />
         </button>
 
-        <div id="main-header-title" />
+        <div id="main-header-title" class="tw:min-w-0" />
+      </div>
 
-        <div id="main-header-search" class="tw:w-full">
+      <!-- Center zone: global search, centered between title and actions -->
+      <div class="tw:flex tw:flex-1 tw:justify-center">
+        <div id="main-header-search" class="tw:w-full tw:max-w-xl">
           <GlobalSearch />
         </div>
       </div>
 
-      <div class="tw:flex tw:items-center tw:gap-4">
-        <div id="main-header-actions" />
+      <!-- Right zone: page actions (teleported by PageHeader) + global controls -->
+      <div class="tw:flex tw:shrink-0 tw:items-center tw:gap-4">
+        <div id="main-header-actions" class="tw:flex tw:items-center tw:gap-2" />
         <ThemeToggle :size="20" />
         <button
           v-if="canUseAi"

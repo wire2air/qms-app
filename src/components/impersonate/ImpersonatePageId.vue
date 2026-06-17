@@ -35,20 +35,18 @@ function loadMore() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <RouterLink
-          :to="getCompanyPath('/admin/impersonate')"
-          class="tw:text-secondary tw:hover:text-primary"
-        >
-          <IconArrowLeft :size="24" />
-        </RouterLink>
-        <div class="tw:text-lg tw:font-bold tw:text-on-main">
-          {{ companyDetail?.name || 'Company' }}
-        </div>
-      </div>
-    </SafeTeleport>
+  <BasePage width="standard">
+    <RouterLink
+      :to="getCompanyPath('/admin/impersonate')"
+      class="tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary tw:hover:text-primary"
+    >
+      <IconArrowLeft :size="16" />
+      Back
+    </RouterLink>
+
+    <PageHeader>
+      <template #title>{{ companyDetail?.name || 'Company' }}</template>
+    </PageHeader>
 
     <SafeTeleport to="#main-header-search">
       <div class="tw:relative tw:w-full">

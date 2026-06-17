@@ -6,38 +6,64 @@ import PageHeader from './PageHeader.vue'
 const StubIcon = { name: 'StubIcon', render: () => h('svg', { 'data-icon': 'true' }) }
 
 describe('PageHeader', () => {
-  let target, actionsTarget
+  let title, actions
   beforeEach(() => {
-    target = document.createElement('div')
-    target.id = 'main-header-title'
-    actionsTarget = document.createElement('div')
-    actionsTarget.id = 'main-header-actions'
-    document.body.append(target, actionsTarget)
+    title = document.createElement('div')
+    title.id = 'main-header-title'
+    actions = document.createElement('div')
+    actions.id = 'main-header-actions'
+    document.body.append(title, actions)
   })
   afterEach(() => {
-    target.remove()
-    actionsTarget.remove()
+    title.remove()
+    actions.remove()
   })
 
-  it('teleports the icon + title into #main-header-title', async () => {
-    mount(PageHeader, { props: { icon: StubIcon, title: 'Departments' }, attachTo: document.body })
-    await nextTick() // SafeTeleport gates teleport behind onMounted
+  it('teleports the icon + title (as an h1) into #main-header-title', async () => {
+    mount(PageHeader, { props: { icon: StubIcon, title: 'Users' }, attachTo: document.body })
+    await nextTick() // SafeTeleport gates the teleport behind onMounted
     await nextTick()
-    expect(target.textContent).toContain('Departments')
-    expect(target.querySelector('[data-icon]')).not.toBeNull()
-    const h2 = target.querySelector('h2')
-    expect(h2).not.toBeNull()
+    expect(title.textContent).toContain('Users')
+    expect(title.querySelector('[data-icon]')).not.toBeNull()
+    expect(title.querySelector('h1')).not.toBeNull()
   })
 
-  it('renders title via slot and teleports actions into #main-header-actions', async () => {
+  it('renders the title via the #title slot', async () => {
     mount(PageHeader, {
       props: { title: 'ignored' },
-      slots: { title: 'Custom Title', actions: '<button>New</button>' },
+      slots: { title: 'Custom Title' },
       attachTo: document.body,
     })
     await nextTick()
     await nextTick()
-    expect(target.textContent).toContain('Custom Title')
-    expect(actionsTarget.textContent).toContain('New')
+    expect(title.textContent).toContain('Custom Title')
+  })
+
+  it('teleports actions into #main-header-actions', async () => {
+    mount(PageHeader, {
+      props: { title: 'X' },
+      slots: { actions: '<button>New</button>' },
+      attachTo: document.body,
+    })
+    await nextTick()
+    await nextTick()
+    expect(actions.textContent).toContain('New')
+  })
+
+  it('does not teleport an actions block when no actions slot is given', async () => {
+    mount(PageHeader, { props: { title: 'X' }, attachTo: document.body })
+    await nextTick()
+    await nextTick()
+    expect(actions.textContent).toBe('')
+  })
+
+  it('accepts a subtitle prop without rendering it in the bar', async () => {
+    mount(PageHeader, {
+      props: { title: 'X', subtitle: 'should not appear' },
+      attachTo: document.body,
+    })
+    await nextTick()
+    await nextTick()
+    expect(title.textContent).not.toContain('should not appear')
   })
 })

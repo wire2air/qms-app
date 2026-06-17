@@ -3,16 +3,11 @@ const filters = ref({ search: '', statusId: null })
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <!-- Header teleports -->
-    <SafeTeleport to="#main-header-title">
-      <div>
-        <div class="tw:text-xl tw:font-bold tw:text-on-main">Approvals Inbox</div>
-        <div class="tw:text-xs tw:text-secondary tw:hidden tw:sm:block">
-          Review and authorize pending quality management tasks.
-        </div>
-      </div>
-    </SafeTeleport>
+  <BasePage width="standard">
+    <PageHeader
+      title="Approvals Inbox"
+      subtitle="Review and authorize pending quality management tasks."
+    />
 
     <!-- Filter toolbar -->
     <WorkflowInstancesFilterToolbar v-model:filters="filters" />

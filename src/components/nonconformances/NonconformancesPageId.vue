@@ -421,56 +421,57 @@ function onCreateLinkedChangeRequest() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
+  <BasePage width="standard" fullHeight>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs :items="breadcrumbs" />
+      </template>
+      <template #actions>
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <!-- Action buttons (left): lifecycle transitions for the NC. -->
+          <BaseButton
+            v-if="isOwner && nc?.statusId === 'DRAFT'"
+            variant="primary"
+            :disabled="saving"
+            @click="openOpenDialog"
+            >Open NC</BaseButton
+          >
+          <BaseButton
+            v-if="isOwner && nc && !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId)"
+            variant="primary"
+            :disabled="!canMarkComplete || completing"
+            :title="markCompleteBlockedReason || undefined"
+            @click="openMarkCompleteDialog"
+          >
+            {{ completing ? 'Closing…' : 'Approve and Close' }}
+          </BaseButton>
+          <BaseButton
+            v-if="isOwner && nc?.statusId === 'DRAFT'"
+            variant="outline"
+            :disabled="deleting"
+            @click="showDeleteDialog = true"
+            >Delete</BaseButton
+          >
 
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <!-- Action buttons (left): lifecycle transitions for the NC. -->
-        <BaseButton
-          v-if="isOwner && nc?.statusId === 'DRAFT'"
-          variant="primary"
-          :disabled="saving"
-          @click="openOpenDialog"
-          >Open NC</BaseButton
-        >
-        <BaseButton
-          v-if="isOwner && nc && !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId)"
-          variant="primary"
-          :disabled="!canMarkComplete || completing"
-          :title="markCompleteBlockedReason || undefined"
-          @click="openMarkCompleteDialog"
-        >
-          {{ completing ? 'Closing…' : 'Approve and Close' }}
-        </BaseButton>
-        <BaseButton
-          v-if="isOwner && nc?.statusId === 'DRAFT'"
-          variant="outline"
-          :disabled="deleting"
-          @click="showDeleteDialog = true"
-          >Delete</BaseButton
-        >
-
-        <!-- Utility buttons (right): always rightmost, parity with CAPA. -->
-        <BaseButton v-if="nc?.id" variant="secondary" @click="openPrintView">
-          <IconPrinter :size="20" class="tw:mr-1" />
-          Print
-        </BaseButton>
-        <BaseButton v-if="nc?.id" variant="secondary" @click="showAuditLog = true">
-          <IconClipboardList :size="20" class="tw:mr-1" />
-          Audit Log
-        </BaseButton>
-        <AskAiButton
-          v-if="nc?.id"
-          entityType="Nonconformance"
-          :entityId="nc.id"
-          :entityTitle="nc.title"
-          :entityNumber="nc.ncNumber"
-        />
-      </div>
-    </SafeTeleport>
+          <!-- Utility buttons (right): always rightmost, parity with CAPA. -->
+          <BaseButton v-if="nc?.id" variant="secondary" @click="openPrintView">
+            <IconPrinter :size="20" class="tw:mr-1" />
+            Print
+          </BaseButton>
+          <BaseButton v-if="nc?.id" variant="secondary" @click="showAuditLog = true">
+            <IconClipboardList :size="20" class="tw:mr-1" />
+            Audit Log
+          </BaseButton>
+          <AskAiButton
+            v-if="nc?.id"
+            entityType="Nonconformance"
+            :entityId="nc.id"
+            :entityTitle="nc.title"
+            :entityNumber="nc.ncNumber"
+          />
+        </div>
+      </template>
+    </PageHeader>
 
     <BaseSpinner v-if="loading" centered size="md" />
 

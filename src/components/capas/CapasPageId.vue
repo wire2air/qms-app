@@ -27,11 +27,6 @@ watch(
 
 const loading = computed(() => capa.value === undefined)
 
-const breadcrumbs = computed(() => [
-  { label: 'CAPAs', to: getCompanyPath('/capas') },
-  { label: capa.value?.capaNumber || capa.value?.title || 'Loading…' },
-])
-
 const isEditable = computed(
   () => capa.value && capa.value.statusId !== 'CLOSED' && capa.value.statusId !== 'CANCELLED',
 )
@@ -373,13 +368,10 @@ function onCreateLinkedChangeRequest() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard" fullHeight>
+    <PageHeader :icon="IconClipboardList">
+      <template #title>{{ capa?.capaNumber || capa?.title || 'CAPA' }}</template>
+      <template #actions>
         <AskAiButton
           v-if="capa?.id"
           entityType="Capa"
@@ -434,8 +426,8 @@ function onCreateLinkedChangeRequest() {
         >
           Create Change Request
         </BaseButton>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
 
     <BaseSpinner v-if="loading" centered size="md" />
 

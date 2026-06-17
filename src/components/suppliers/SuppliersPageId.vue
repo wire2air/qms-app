@@ -50,18 +50,19 @@ const activeTab = computed({
 </script>
 
 <template>
-  <BasePage width="standard" density="compact" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary">
-        <BaseSpinner size="sm" />
-        Saving...
-      </div>
-      <p v-else-if="saveError" class="tw:text-sm tw:text-red-500">{{ saveError }}</p>
-    </SafeTeleport>
+  <BasePage width="standard" fullHeight>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs :items="breadcrumbs" />
+      </template>
+      <template #actions>
+        <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary">
+          <BaseSpinner size="sm" />
+          Saving...
+        </div>
+        <p v-else-if="saveError" class="tw:text-sm tw:text-red-500">{{ saveError }}</p>
+      </template>
+    </PageHeader>
 
     <!-- Loading State -->
     <div v-if="loading" class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:py-16">
@@ -71,7 +72,7 @@ const activeTab = computed({
 
     <!-- Content -->
     <div v-else-if="supplier" class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto">
-      <div class="tw:max-w-5xl tw:mx-auto tw:p-8 tw:space-y-8">
+      <div class="tw:p-8 tw:space-y-8">
         <!-- Header Section -->
         <section
           class="tw:flex tw:flex-col tw:md:flex-row tw:md:items-center tw:justify-between tw:gap-4"

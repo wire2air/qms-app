@@ -209,36 +209,23 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <BasePage width="narrow" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs
-        :items="[
-          { label: 'Change Requests', to: getCompanyPath('/change-requests') },
-          { label: 'New Change Request' },
-        ]"
-      />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:gap-2">
+  <BasePage width="standard" fullHeight>
+    <PageHeader
+      title="New Change Request"
+      subtitle="Create a draft. You'll pick reviewers and open the CR on the next page."
+    >
+      <template #actions>
         <BaseButton variant="outline" @click="router.push(getCompanyPath('/change-requests'))">
           Cancel
         </BaseButton>
         <BaseButton variant="primary" :disabled="saving" @click="handleSubmit">
           {{ saving ? 'Creating…' : 'Create Draft' }}
         </BaseButton>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
 
     <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
-      <div class="tw:p-5 tw:max-w-4xl tw:mx-auto tw:flex tw:flex-col tw:gap-4">
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">New Change Request</div>
-          <div class="tw:text-sm tw:text-secondary">
-            Create a draft. You'll pick reviewers and open the CR on the next page.
-          </div>
-        </div>
-
+      <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <div
           class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4"
         >

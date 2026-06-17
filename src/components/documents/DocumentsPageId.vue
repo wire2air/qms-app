@@ -168,10 +168,6 @@ const hasActiveTaskOnSelected = computed(
   () => !!activeTaskVersionId.value && selectedVersion.value?.id === activeTaskVersionId.value,
 )
 
-const breadcrumbs = computed(() => [
-  { label: 'Documents', to: getCompanyPath('/documents') },
-  { label: document.value ? document.value.title : 'Loading...' },
-])
 
 // workflow preview dialog state
 const showPreviewDialog = ref(false)
@@ -377,10 +373,16 @@ async function handleNewVersionConfirm(changeControl) {
        be at least 100vh tall, which interacted with the sticky toolbar and
        could make the document body unreachable on shorter viewports. The
        App.vue overflow-auto wrapper already owns the scroll. -->
-  <BasePage width="standard" density="compact">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
+  <BasePage width="standard">
+    <PageHeader v-if="document" :icon="IconFileDescription">
+      <template #title>
+        {{ document.title }}
+        <span v-if="document.docNumber" class="tw:text-secondary tw:font-normal">
+          {{ document.docNumber }}
+        </span>
+      </template>
+    </PageHeader>
+
     <!-- Loading State -->
     <BaseSpinner v-if="!document" centered size="lg" />
 
@@ -389,7 +391,7 @@ async function handleNewVersionConfirm(changeControl) {
       <!-- Toolbar Section -->
       <div class="tw:bg-sidebar tw:border-b tw:border-divider tw:sticky tw:top-0 tw:z-10">
         <div
-          class="tw:max-w-360 tw:mx-auto tw:px-6 tw:py-4 tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-4"
+          class="tw:py-4 tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-4"
         >
           <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-3">
             <AskAiButton

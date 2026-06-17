@@ -81,24 +81,25 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <BasePage width="narrow" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs
-        :items="[
-          { label: 'Customer Complaints', to: getCompanyPath('/customer-complaints') },
-          { label: 'New Complaint' },
-        ]"
-      />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="primary" :disabled="saving || uploading" @click="handleSubmit">
-        {{ saving ? 'Creating…' : 'Create Complaint' }}
-      </BaseButton>
-    </SafeTeleport>
+  <BasePage width="standard" fullHeight>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs
+          :items="[
+            { label: 'Customer Complaints', to: getCompanyPath('/customer-complaints') },
+            { label: 'New Complaint' },
+          ]"
+        />
+      </template>
+      <template #actions>
+        <BaseButton variant="primary" :disabled="saving || uploading" @click="handleSubmit">
+          {{ saving ? 'Creating…' : 'Create Complaint' }}
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
-      <div class="tw:max-w-3xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">
+      <div class="tw:p-6 tw:flex tw:flex-col tw:gap-4">
         <!-- Complaint details -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
           <BaseText

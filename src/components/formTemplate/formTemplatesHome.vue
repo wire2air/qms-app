@@ -107,26 +107,23 @@ async function confirmDeleteTemplate() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <PageHeader :icon="IconStack2" title="Form Templates" />
-
-    <!-- "Create New Template" only on the Templates tab; Option Sets
-         tab has its own create affordance inside the embedded panel. -->
-    <SafeTeleport v-if="activeTab === 'templates'" to="#main-header-actions">
-      <BaseButton v-if="canCreateTemplate" @click="showCreateDialog = true">
-        Create New Template
-      </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Form Templates</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage QMS form structure + the reusable option sets that picker fields draw from.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconStack2"
+      title="Form Templates"
+      subtitle="Manage QMS form structure + the reusable option sets that picker fields draw from."
+    >
+      <!-- "Create New Template" only on the Templates tab; Option Sets
+           tab has its own create affordance inside the embedded panel. -->
+      <template #actions>
+        <BaseButton
+          v-if="activeTab === 'templates' && canCreateTemplate"
+          @click="showCreateDialog = true"
+        >
+          Create New Template
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Tabs -->
     <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Form template sections">

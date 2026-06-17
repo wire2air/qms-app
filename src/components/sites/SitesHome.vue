@@ -51,24 +51,18 @@ async function confirmDeleteSite() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <PageHeader :icon="IconMapPin" title="Sites" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateSite" @click="openDialog()">
-        <span>Create New Site</span>
-      </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Sites</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage your organization's physical locations and sites.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconMapPin"
+      title="Sites"
+      subtitle="Manage your organization's physical locations and sites."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreateSite" @click="openDialog()">
+          <span>Create New Site</span>
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <SitesFilterToolbar v-model:filters="filters" />
 

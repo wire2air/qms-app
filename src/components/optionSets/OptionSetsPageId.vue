@@ -83,20 +83,22 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
-
-    <SafeTeleport v-if="canUpdate" to="#main-header-actions">
-      <button
-        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:bg-red-50 tw:text-red-600 tw:rounded-lg tw:text-sm tw:font-medium tw:hover:bg-red-100 tw:transition-colors"
-        @click="confirmDelete"
-      >
-        <IconTrash :size="16" />
-        Delete
-      </button>
-    </SafeTeleport>
+  <BasePage width="standard">
+    <PageHeader title="Edit Option Set">
+      <template #subtitle>
+        <BaseBreadcrumbs :items="breadcrumbs" />
+      </template>
+      <template #actions>
+        <button
+          v-if="canUpdate"
+          class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:bg-red-50 tw:text-red-600 tw:rounded-lg tw:text-sm tw:font-medium tw:hover:bg-red-100 tw:transition-colors"
+          @click="confirmDelete"
+        >
+          <IconTrash :size="16" />
+          Delete
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- Loading State -->
     <div v-if="loading" class="tw:flex tw:justify-center tw:py-12">
@@ -104,12 +106,7 @@ async function confirmDelete() {
     </div>
 
     <!-- Content -->
-    <div v-else class="tw:flex tw:flex-col tw:gap-4 tw:max-w-5xl tw:mx-auto">
-      <!-- Header -->
-      <div class="tw:flex tw:items-center tw:px-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-main">Edit Option Set</div>
-      </div>
-
+    <div v-else class="tw:flex tw:flex-col tw:gap-4">
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
         <!-- Main Content -->
         <div class="tw:md:col-span-2 tw:flex tw:flex-col tw:gap-8">

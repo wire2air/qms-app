@@ -344,7 +344,7 @@ function libraryAssigneeStats(instanceId) {
 </script>
 
 <template>
-  <div class="tw:max-w-360 tw:mx-auto tw:px-6 tw:py-8 tw:w-full tw:flex tw:flex-col tw:gap-5">
+  <div class="tw:py-8 tw:w-full tw:flex tw:flex-col tw:gap-5">
     <!-- Edit-in-place training config for DRAFT / REJECTED / CHANGES_REQUESTED versions -->
     <div v-if="isEditable && selectedVersion?.trainingConfig" class="tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">

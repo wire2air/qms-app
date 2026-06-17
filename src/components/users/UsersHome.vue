@@ -48,16 +48,11 @@ const loading = computed(() => users.value === undefined)
 
 <template>
   <BasePage width="standard">
-    <PageHeader :icon="IconUsers" title="Users" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateUser" @click="showCreateDialog = true"> Create User </BaseButton>
-    </SafeTeleport>
-
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Users</div>
-      <div class="tw:text-sm tw:text-secondary">Manage your organization's users.</div>
-    </div>
+    <PageHeader :icon="IconUsers" title="Users" subtitle="Manage your organization's users.">
+      <template #actions>
+        <BaseButton v-if="canCreateUser" @click="showCreateDialog = true">Create User</BaseButton>
+      </template>
+    </PageHeader>
 
     <UsersFilterToolbar v-model:filters="filters" />
 
