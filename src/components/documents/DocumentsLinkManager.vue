@@ -198,20 +198,14 @@ function getLinkTypeBadgeClass(linkType) {
     <!-- Add Link Dialog -->
     <BaseDialog v-model="showAddDialog" title="Add Document Link" persistent>
       <div class="tw:space-y-4">
-        <div>
-          <label class="tw:block tw:mb-1 tw:text-sm tw:font-medium tw:text-on-main"
-            >Target Document</label
-          >
+        <BaseField label="Target Document">
           <BaseSelectMenu
             v-model="linkForm.targetDocumentId"
             :items="availableDocuments"
             :required="true"
           />
-        </div>
-        <div>
-          <label class="tw:block tw:mb-1 tw:text-sm tw:font-medium tw:text-on-main"
-            >Link Type</label
-          >
+        </BaseField>
+        <BaseField label="Link Type">
           <BaseSelectMenu
             v-model="linkForm.linkType"
             :items="[
@@ -223,7 +217,7 @@ function getLinkTypeBadgeClass(linkType) {
             ]"
             :required="true"
           />
-        </div>
+        </BaseField>
       </div>
       <template #footer>
         <div class="tw:flex tw:justify-end tw:gap-2">

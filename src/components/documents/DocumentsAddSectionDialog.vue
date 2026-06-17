@@ -89,8 +89,7 @@ async function handleAddSection() {
       </BaseTextInput>
 
       <!-- Section Type -->
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">Section Type</label>
+      <BaseField label="Section Type">
         <div class="tw:flex tw:gap-3">
           <button
             type="button"
@@ -119,7 +118,7 @@ async function handleAddSection() {
             Attachments
           </button>
         </div>
-      </div>
+      </BaseField>
     </div>
 
     <template #footer="{ close }">

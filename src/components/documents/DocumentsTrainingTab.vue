@@ -348,13 +348,13 @@ function libraryAssigneeStats(instanceId) {
     <!-- Edit-in-place training config for DRAFT / REJECTED / CHANGES_REQUESTED versions -->
     <div v-if="isEditable && selectedVersion?.trainingConfig" class="tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
+        <BaseText variant="overline">
           Training config for this version
           <span class="tw:font-normal tw:text-on-sidebar tw:ml-1">
             (v{{ selectedVersion.versionMajor }}.{{ selectedVersion.versionMinor }} ·
             {{ selectedVersion.statusId }})
           </span>
-        </p>
+        </BaseText>
         <div class="tw:flex tw:items-center tw:gap-3">
           <button
             v-if="canGenerateQuestions"
@@ -484,11 +484,9 @@ function libraryAssigneeStats(instanceId) {
 
       <!-- Assignees list -->
       <div class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5">
-        <h3
-          class="tw:text-sm tw:font-bold tw:text-on-sidebar tw:mb-3 tw:flex tw:items-center tw:gap-2"
-        >
+        <BaseText as="h3" weight="bold" class="tw:mb-3 tw:flex tw:items-center tw:gap-2">
           <IconUsers :size="16" /> Assignees ({{ assignees.length }})
-        </h3>
+        </BaseText>
         <div v-if="!assignees.length" class="tw:text-sm tw:text-secondary tw:italic">
           No assignees on this instance.
         </div>
@@ -527,7 +525,7 @@ function libraryAssigneeStats(instanceId) {
         v-if="allInstances.length > 1"
         class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5"
       >
-        <h3 class="tw:text-sm tw:font-bold tw:text-on-sidebar tw:mb-3">Training History</h3>
+        <BaseText as="h3" weight="bold" class="tw:mb-3">Training History</BaseText>
         <p class="tw:text-xs tw:text-secondary tw:mb-3">
           Each document revision (or retraining triggered by the manager) launches a new instance.
         </p>
@@ -559,9 +557,9 @@ function libraryAssigneeStats(instanceId) {
          WHO completed WHICH training on this document and when. -->
     <div v-if="libraryInstances.length" class="tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:flex-col tw:gap-1">
-        <h3 class="tw:text-sm tw:font-bold tw:text-on-sidebar">
+        <BaseText as="h3" weight="bold">
           Library Training Referencing This Document
-        </h3>
+        </BaseText>
         <p class="tw:text-xs tw:text-secondary">
           Trainings from the Training Library that include this document as a reference. Each
           instance shows its assignees and completion status.
@@ -579,11 +577,11 @@ function libraryAssigneeStats(instanceId) {
           class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:no-underline"
         >
           <div class="tw:flex tw:flex-col tw:gap-1 tw:min-w-0 tw:flex-1">
-            <h4 class="tw:text-base tw:font-semibold tw:text-on-sidebar tw:truncate">
+            <BaseText as="h4" weight="semibold" truncate>
               {{
                 inst.snapshot?.title || trainingsById[inst.trainingId]?.title || 'Untitled training'
               }}
-            </h4>
+            </BaseText>
             <p class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
               <span class="tw:flex tw:items-center tw:gap-1">
                 <IconCalendar :size="12" /> Launched {{ inst.createdAt?.formatDate('date') }}
@@ -633,13 +631,11 @@ function libraryAssigneeStats(instanceId) {
 
         <!-- Assignees list (same row layout as the auto-training section) -->
         <div>
-          <h5
-            class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-2 tw:flex tw:items-center tw:gap-2"
-          >
+          <BaseText variant="overline" class="tw:mb-2 tw:flex tw:items-center tw:gap-2">
             <IconUsers :size="14" /> Assignees ({{
               (libraryAssigneesByInstance[inst.id] ?? []).length
             }})
-          </h5>
+          </BaseText>
           <div
             v-if="!(libraryAssigneesByInstance[inst.id] ?? []).length"
             class="tw:text-sm tw:text-secondary tw:italic"

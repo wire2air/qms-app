@@ -68,34 +68,39 @@ const CHANGE_TYPES = [
       </div>
 
       <!-- Change reason -->
-      <div class="tw:flex tw:flex-col tw:gap-1.5">
-        <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">
+      <BaseField>
+        <template #label>
           Reason for change
           <span class="tw:text-xs tw:font-normal tw:text-secondary">(why this revision?)</span>
-        </label>
-        <BaseTextarea
-          v-model="form.changeReason"
-          :rows="2"
-          placeholder="e.g. Initial release. Replaces legacy procedure PROC-OLD-014."
-        />
-      </div>
+        </template>
+        <template #default="{ id: fieldId }">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="form.changeReason"
+            :rows="2"
+            placeholder="e.g. Initial release. Replaces legacy procedure PROC-OLD-014."
+          />
+        </template>
+      </BaseField>
 
       <!-- Description of change -->
-      <div class="tw:flex tw:flex-col tw:gap-1.5">
-        <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">
+      <BaseField>
+        <template #label>
           Description of change
           <span class="tw:text-xs tw:font-normal tw:text-secondary">(what changed?)</span>
-        </label>
-        <BaseTextarea
-          v-model="form.changeSummary"
-          :rows="3"
-          placeholder="Summarise the substantive changes a reviewer should focus on."
-        />
-      </div>
+        </template>
+        <template #default="{ id: fieldId }">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="form.changeSummary"
+            :rows="3"
+            placeholder="Summarise the substantive changes a reviewer should focus on."
+          />
+        </template>
+      </BaseField>
 
       <!-- Change type -->
-      <div class="tw:flex tw:flex-col tw:gap-2">
-        <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">Change type</label>
+      <BaseField label="Change type">
         <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-2">
           <button
             v-for="opt in CHANGE_TYPES"
@@ -113,7 +118,7 @@ const CHANGE_TYPES = [
             <span class="tw:text-xs tw:mt-1 tw:leading-snug">{{ opt.description }}</span>
           </button>
         </div>
-      </div>
+      </BaseField>
 
       <!-- Regulatory impact -->
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider">
@@ -134,17 +139,20 @@ const CHANGE_TYPES = [
           </div>
         </label>
 
-        <div v-if="form.regulatoryImpact" class="tw:flex tw:flex-col tw:gap-1.5">
-          <label class="tw:text-xs tw:font-medium tw:text-secondary">
-            Regulatory impact notes
-            <span class="tw:text-red-600">*</span>
-          </label>
+        <BaseField
+          v-if="form.regulatoryImpact"
+          v-slot="{ id: fieldId }"
+          label="Regulatory impact notes"
+          required
+          size="xs"
+        >
           <BaseTextarea
+            :id="fieldId"
             v-model="form.regulatoryImpactNotes"
             :rows="2"
             placeholder="Which standard / submission is affected? What changed?"
           />
-        </div>
+        </BaseField>
       </div>
     </section>
   </div>

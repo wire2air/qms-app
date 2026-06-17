@@ -116,10 +116,13 @@ watch(
     <div class="tw:sticky tw:top-24 tw:space-y-6">
       <!-- Properties Card -->
       <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:p-5">
-        <h4 class="ds-label tw:text-secondary tw:mb-4 tw:flex tw:items-center tw:justify-between">
+        <BaseText
+          variant="overline"
+          class="tw:mb-4 tw:flex tw:items-center tw:justify-between"
+        >
           Properties
           <IconSettings class="tw:size-4" />
-        </h4>
+        </BaseText>
         <div class="tw:space-y-3">
           <!-- ID + Owner -->
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
@@ -262,7 +265,7 @@ watch(
 
       <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:p-5">
         <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
-          <h4 class="ds-label tw:text-secondary">Workflow</h4>
+          <BaseText variant="overline">Workflow</BaseText>
           <button
             v-if="canEdit"
             class="tw:text-xs tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:transition-colors"
@@ -319,14 +322,14 @@ watch(
 
       <!-- Approval Workflow Timeline (live) -->
       <div v-if="currentVersion.workflowInstanceId" class="tw:space-y-4">
-        <h4 class="ds-label tw:text-secondary tw:px-1">Workflow Timeline</h4>
+        <BaseText variant="overline" class="tw:block tw:px-1">Workflow Timeline</BaseText>
         <WorkflowInstanceTimeline :workflowInstanceId="currentVersion.workflowInstanceId" />
       </div>
 
       <!-- Table of Contents Card -->
       <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:p-5">
         <div class="tw:flex tw:items-center tw:justify-between tw:mb-4">
-          <h4 class="ds-label tw:text-secondary">Table of Contents</h4>
+          <BaseText variant="overline">Table of Contents</BaseText>
         </div>
         <nav class="tw:space-y-1">
           <a

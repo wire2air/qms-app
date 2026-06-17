@@ -154,30 +154,29 @@ function regenerate() {
           saving — nothing is persisted automatically.
         </div>
 
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Topic</label>
+        <BaseField
+          v-slot="{ id: fieldId }"
+          label="Topic"
+          hint="Be specific. A focused topic produces a focused draft."
+        >
           <textarea
+            :id="fieldId"
             v-model="input.topic"
             rows="3"
             placeholder="e.g. Equipment calibration procedure for analytical balances used in QC labs."
             class="tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:px-3 tw:py-2 tw:text-sm tw:text-on-main tw:placeholder-placeholder tw:focus:outline-none tw:focus:border-primary tw:focus:ring-1 tw:focus:ring-primary tw:transition-colors tw:leading-relaxed"
           />
-          <p class="tw:text-xs tw:text-secondary">
-            Be specific. A focused topic produces a focused draft.
-          </p>
-        </div>
+        </BaseField>
 
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">
-            Additional context (optional)
-          </label>
+        <BaseField v-slot="{ id: fieldId }" label="Additional context" optional>
           <textarea
+            :id="fieldId"
             v-model="input.additionalContext"
             rows="3"
             placeholder="Specific equipment models, regulatory references, internal terminology…"
             class="tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:px-3 tw:py-2 tw:text-sm tw:text-on-main tw:placeholder-placeholder tw:focus:outline-none tw:focus:border-primary tw:focus:ring-1 tw:focus:ring-primary tw:transition-colors tw:leading-relaxed"
           />
-        </div>
+        </BaseField>
 
         <div
           v-if="input.documentTypeId || input.departmentName"
@@ -229,23 +228,17 @@ function regenerate() {
         </div>
 
         <div class="tw:flex tw:flex-col tw:gap-1">
-          <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
-            Title
-          </div>
+          <BaseText variant="overline">Title</BaseText>
           <div class="tw:text-lg tw:font-bold tw:text-on-main">{{ result.title }}</div>
         </div>
 
         <div class="tw:flex tw:flex-col tw:gap-1">
-          <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
-            Summary
-          </div>
+          <BaseText variant="overline">Summary</BaseText>
           <div class="tw:text-sm tw:text-on-main tw:leading-relaxed">{{ result.description }}</div>
         </div>
 
         <div class="tw:flex tw:flex-col tw:gap-2">
-          <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
-            Sections ({{ result.sections.length }})
-          </div>
+          <BaseText variant="overline">Sections ({{ result.sections.length }})</BaseText>
           <div class="tw:flex tw:flex-col tw:gap-2 tw:max-h-96 tw:overflow-y-auto">
             <div
               v-for="(section, i) in result.sections"
