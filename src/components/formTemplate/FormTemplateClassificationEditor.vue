@@ -125,7 +125,7 @@ const NEXT_ENTRY_SCOPES = [
   <div class="tw:space-y-5">
     <div class="tw:flex tw:items-center tw:justify-between">
       <div>
-        <h4 class="tw:text-sm tw:font-semibold tw:text-on-main">Inspections &amp; Logs</h4>
+        <BaseText as="h4" variant="body" weight="semibold">Inspections &amp; Logs</BaseText>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
           Classification, edit window, review gate, and signature requirements.
         </p>
@@ -139,10 +139,7 @@ const NEXT_ENTRY_SCOPES = [
     </div>
 
     <!-- Classification -->
-    <div>
-      <label class="tw:block tw:text-xs tw:font-semibold tw:text-secondary tw:mb-1.5">
-        Record classification
-      </label>
+    <BaseField label="Record classification">
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-2">
         <button
           v-for="opt in CLASSIFICATIONS"
@@ -161,14 +158,11 @@ const NEXT_ENTRY_SCOPES = [
           <div class="tw:text-[11px] tw:text-secondary tw:mt-0.5">{{ opt.hint }}</div>
         </button>
       </div>
-    </div>
+    </BaseField>
 
     <template v-if="!isUtility">
       <!-- Edit window -->
-      <div>
-        <label class="tw:block tw:text-xs tw:font-semibold tw:text-secondary tw:mb-1.5">
-          Edit window
-        </label>
+      <BaseField label="Edit window">
         <select
           v-model="draft.editWindow.mode"
           :disabled="!canEdit"
@@ -193,8 +187,7 @@ const NEXT_ENTRY_SCOPES = [
           />
         </div>
 
-        <div v-if="draft.editWindow.mode === 'UNTIL_NEXT_ENTRY'" class="tw:mt-2">
-          <label class="tw:text-[11px] tw:text-secondary tw:block tw:mb-1">Scope</label>
+        <BaseField v-if="draft.editWindow.mode === 'UNTIL_NEXT_ENTRY'" label="Scope" class="tw:mt-2">
           <select
             v-model="draft.editWindow.scope"
             :disabled="!canEdit"
@@ -205,8 +198,8 @@ const NEXT_ENTRY_SCOPES = [
               {{ s.label }} — {{ s.hint }}
             </option>
           </select>
-        </div>
-      </div>
+        </BaseField>
+      </BaseField>
 
       <!-- Review config -->
       <div>
@@ -220,9 +213,9 @@ const NEXT_ENTRY_SCOPES = [
           <span class="tw:text-on-main">Reviewer approval required</span>
         </label>
         <div v-if="draft.review.required" class="tw:mt-2 tw:space-y-2 tw:pl-6">
-          <div>
-            <label class="tw:text-[11px] tw:text-secondary tw:block tw:mb-1">Reviewer role</label>
+          <BaseField v-slot="{ id: fieldId }" label="Reviewer role">
             <input
+              :id="fieldId"
               v-model="draft.review.reviewerRole"
               type="text"
               placeholder="e.g. QA_REVIEWER (role id)"
@@ -230,10 +223,10 @@ const NEXT_ENTRY_SCOPES = [
               class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-1.5 tw:text-sm"
               @blur="save"
             />
-          </div>
-          <div>
-            <label class="tw:text-[11px] tw:text-secondary tw:block tw:mb-1">SLA (hours)</label>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="SLA (hours)">
             <input
+              :id="fieldId"
               v-model.number="draft.review.slaHours"
               type="number"
               min="1"
@@ -242,7 +235,7 @@ const NEXT_ENTRY_SCOPES = [
               class="tw:w-32 tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-2 tw:py-1 tw:text-sm"
               @blur="save"
             />
-          </div>
+          </BaseField>
           <label class="tw:flex tw:items-center tw:gap-2 tw:text-xs">
             <input
               v-model="draft.review.rejectionCreatesFollowup"
