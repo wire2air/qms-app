@@ -18,7 +18,12 @@ const items = computed(() => [
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="items" :required="required">
+  <BaseSelectMenu
+    v-model="modelValue"
+    :items="items"
+    nullLabel="— All statuses —"
+    :required="required"
+  >
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <UserStatusBadgeById

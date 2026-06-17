@@ -285,14 +285,13 @@ const previewRows = computed(() => parsedRows.value.slice(0, 5))
     </div>
 
     <template #footer="{ close }">
-      <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-      <BaseButton
+      <BaseDialogFooter
+        :submitLabel="`Import ${parsedRows.length > 0 ? `${parsedRows.length} Products` : 'Products'}`"
+        :loading="isImporting"
         :disabled="!parsedRows.length || isImporting"
-        :isLoading="isImporting"
-        @click="handleImport"
-      >
-        Import {{ parsedRows.length > 0 ? `${parsedRows.length} Products` : 'Products' }}
-      </BaseButton>
+        @cancel="close"
+        @submit="handleImport"
+      />
     </template>
   </BaseDialog>
 </template>

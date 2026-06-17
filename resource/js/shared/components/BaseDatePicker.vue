@@ -1,6 +1,6 @@
 <script setup>
 import { DateTime } from 'luxon'
-import { IconChevronDown } from '@tabler/icons-vue'
+import { IconCalendar, IconChevronDown } from '@tabler/icons-vue'
 
 const props = defineProps({
   firstDayOfWeek: {
@@ -58,7 +58,7 @@ const nativeDate = computed({
           'tw:border-primary tw:bg-sidebar-hover tw:ring-2 tw:ring-primary/20': open,
         }"
       >
-        <WIcon name="calendar_today" size="16px" />
+        <IconCalendar :size="16" />
 
         <span class="tw:whitespace-nowrap tw:text-sm">
           {{ modelValue ? modelValue.formatDate('date') : 'Select date' }}

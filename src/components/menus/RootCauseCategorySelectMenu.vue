@@ -23,7 +23,7 @@ function getArray() {
     :items="categories"
     :required="required"
     :multiple="multiple"
-    nullLabel="— Select —"
+    nullLabel="— All categories —"
   >
     <template #button="scope">
       <slot name="button" v-bind="scope">

@@ -37,12 +37,11 @@ defineProps({
             <p v-else class="tw:text-sm tw:text-secondary">Not assessed</p>
           </template>
         </div>
-        <div>
-          <label class="ds-label-sm tw:text-secondary tw:block tw:mb-1">Last Assessment</label>
-          <p class="tw:text-sm tw:font-medium tw:text-on-main">
-            {{ supplier.lastEvaluationDate?.formatDate('date') || 'Not evaluated' }}
-          </p>
-        </div>
+        <BaseDetailField
+          label="Last Assessment"
+          :value="supplier.lastEvaluationDate?.formatDate('date')"
+          empty="Not evaluated"
+        />
       </div>
     </div>
   </div>

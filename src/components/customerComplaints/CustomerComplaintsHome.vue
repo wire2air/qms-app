@@ -516,25 +516,22 @@ function onNewComplaint() {
     <!-- Bulk assign dialog -->
     <BaseDialog v-model="showBulkAssignDialog" title="Assign Tickets" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Assign to agent</label>
+        <BaseField label="Assign to agent">
           <UserSelectMenu v-model="bulkAssignUserId" />
-        </div>
+        </BaseField>
         <div class="tw:text-center tw:text-xs tw:text-secondary">— or —</div>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Assign to group</label>
+        <BaseField label="Assign to group">
           <GroupSelectMenu v-model="bulkAssignTeamId" />
-        </div>
+        </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="bulkBusy" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :disabled="(!bulkAssignUserId && !bulkAssignTeamId) || bulkBusy"
-          @click="handleBulkAssign"
-        >
-          Assign
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Assign"
+          :loading="bulkBusy"
+          :disabled="!bulkAssignUserId && !bulkAssignTeamId"
+          @cancel="close"
+          @submit="handleBulkAssign"
+        />
       </template>
     </BaseDialog>
   </div>

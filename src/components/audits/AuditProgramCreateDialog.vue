@@ -125,96 +125,78 @@ async function handleSave({ navigate }) {
 <template>
   <BaseDialog :modelValue="modelValue" title="New Audit Program" maxWidth="lg" @update:modelValue="close">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Name <span class="tw:text-red-500">*</span>
-        </p>
-        <BaseTextInput v-model="form.name" placeholder="e.g. Annual Internal Quality Audit" />
-      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Name" required>
+        <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. Annual Internal Quality Audit" />
+      </BaseField>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Type <span class="tw:text-red-500">*</span>
-          </p>
+        <BaseField label="Type" required>
           <BaseInlineSelect v-model="form.programTypeId" :items="PROGRAM_TYPES" :required="true" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Frequency <span class="tw:text-red-500">*</span>
-          </p>
+        </BaseField>
+        <BaseField label="Frequency" required>
           <BaseInlineSelect v-model="form.frequencyId" :items="FREQUENCIES" :required="true" />
-        </div>
+        </BaseField>
       </div>
 
       <!-- Frequency-conditional fields. Hidden when the gate is off so the
            form doesn't carry stale interval / cron data into the save. -->
-      <div v-if="daysRequired">
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Days Interval <span class="tw:text-red-500">*</span>
-        </p>
-        <BaseTextInput v-model="form.daysInterval" type="number" placeholder="e.g. 90" />
-        <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-          The daily generator will mint a new audit every N days.
-        </p>
-      </div>
-      <div v-if="cronRequired">
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Cron Expression <span class="tw:text-red-500">*</span>
-        </p>
-        <BaseTextInput v-model="form.cronExpression" placeholder="0 0 1 */3 *" />
+      <BaseField
+        v-if="daysRequired"
+        v-slot="{ id: fieldId }"
+        label="Days Interval"
+        required
+        hint="The daily generator will mint a new audit every N days."
+      >
+        <BaseTextInput :id="fieldId" v-model="form.daysInterval" type="number" placeholder="e.g. 90" />
+      </BaseField>
+      <BaseField v-if="cronRequired" v-slot="{ id: fieldId }" label="Cron Expression" required>
+        <BaseTextInput :id="fieldId" v-model="form.cronExpression" placeholder="0 0 1 */3 *" />
         <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
           Standard 5-field cron. Example: <code>0 0 1 */3 *</code> = midnight on the 1st of every 3rd month.
         </p>
-      </div>
+      </BaseField>
 
       <!-- Standard on its own row — names like '21 CFR Part 820 (US FDA QSR)'
            don't truncate or shove the Manager chip when given full width. -->
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Standard</p>
+      <BaseField label="Standard">
         <AuditStandardSelectMenu v-model="form.auditStandardId" />
-      </div>
+      </BaseField>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Manager</p>
+        <BaseField label="Manager">
           <UserSelectMenu v-model="form.managerUserId" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Department</p>
+        </BaseField>
+        <BaseField label="Department">
           <DepartmentSelectMenu v-model="form.departmentId" />
-        </div>
+        </BaseField>
       </div>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Site</p>
+        <BaseField label="Site">
           <SiteSelectMenu v-model="form.siteId" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Next Due</p>
-          <BaseTextInput v-model="form.nextDueDate" type="date" />
-        </div>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Next Due">
+          <BaseTextInput :id="fieldId" v-model="form.nextDueDate" type="date" />
+        </BaseField>
       </div>
 
-      <div v-if="supplierRequired">
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Supplier <span class="tw:text-red-500">*</span>
-        </p>
+      <BaseField
+        v-if="supplierRequired"
+        label="Supplier"
+        required
+        hint="Required for Supplier-type programs. Audits minted from this program scope to this supplier."
+      >
         <SupplierSelectMenu v-model="form.supplierId" :required="true" />
-        <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-          Required for Supplier-type programs. Audits minted from this program scope to this supplier.
-        </p>
-      </div>
+      </BaseField>
 
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
+      <BaseField v-slot="{ id: fieldId }" label="Description">
         <BaseTextarea
+          :id="fieldId"
           v-model="form.description"
           :rows="3"
           placeholder="Optional scope / context for this program"
         />
-      </div>
+      </BaseField>
     </div>
     <template #footer>
       <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>

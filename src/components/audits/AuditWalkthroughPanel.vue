@@ -542,9 +542,9 @@ function summarizeFinding() {
               <code class="tw:text-xs tw:font-mono tw:text-secondary">{{
                 currentClause.clauseNumber
               }}</code>
-              <h3 class="tw:text-base tw:font-semibold tw:text-on-main">
+              <BaseText as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
                 {{ currentClause.title }}
-              </h3>
+              </BaseText>
               <span
                 v-if="currentClause.riskWeight && currentClause.riskWeight !== 1"
                 class="tw:text-[10px] tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-semibold"
@@ -573,11 +573,7 @@ function summarizeFinding() {
         <!-- Guidance panels -->
         <div class="tw:grid tw:grid-cols-1 tw:gap-3">
           <div v-if="currentClause.description" class="tw:bg-main-hover/40 tw:rounded tw:p-3">
-            <p
-              class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-0.5"
-            >
-              Description
-            </p>
+            <BaseText variant="overline" class="tw:block tw:mb-0.5">Description</BaseText>
             <p class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">
               {{ currentClause.description }}
             </p>
@@ -599,11 +595,7 @@ function summarizeFinding() {
 
         <!-- People / roles to interview (guidance from the standard) -->
         <div v-if="currentClause.peopleToInterview?.length">
-          <p
-            class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1"
-          >
-            People / roles to interview
-          </p>
+          <BaseText variant="overline" class="tw:block tw:mb-1">People / roles to interview</BaseText>
           <div class="tw:flex tw:flex-wrap tw:gap-1.5">
             <span
               v-for="(role, ri) in currentClause.peopleToInterview"
@@ -720,11 +712,7 @@ function summarizeFinding() {
               :key="cl.field"
             >
               <template v-if="visibleItems(cl.field, cl.items).length">
-                <p
-                  class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5"
-                >
-                  {{ cl.label }}
-                </p>
+                <BaseText variant="overline" class="tw:block tw:mb-1.5">{{ cl.label }}</BaseText>
                 <div class="tw:flex tw:flex-col tw:gap-2">
                   <div
                     v-for="item in visibleItems(cl.field, cl.items)"
@@ -777,11 +765,7 @@ function summarizeFinding() {
 
             <!-- People interviewed (hybrid) -->
             <div>
-              <p
-                class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1"
-              >
-                People interviewed
-              </p>
+              <BaseText variant="overline" class="tw:block tw:mb-1">People interviewed</BaseText>
               <div
                 v-if="currentBuffer?.peopleInterviewed?.length"
                 class="tw:flex tw:flex-wrap tw:gap-1.5 tw:mb-2"
@@ -864,11 +848,7 @@ function summarizeFinding() {
             <!-- Evidence & photos — scoped to this clause's response. Available
                  before a verdict (#27): the first attach materialises the response. -->
             <div>
-              <p
-                class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1"
-              >
-                Evidence &amp; Photos
-              </p>
+              <BaseText variant="overline" class="tw:block tw:mb-1">Evidence &amp; Photos</BaseText>
               <AuditEvidencePanel
                 v-if="currentResponse?.id"
                 :auditInstance="auditInstance"
@@ -895,11 +875,7 @@ function summarizeFinding() {
 
             <!-- Voice notes — record spoken notes for this clause (#2). -->
             <div>
-              <p
-                class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1"
-              >
-                Voice Notes
-              </p>
+              <BaseText variant="overline" class="tw:block tw:mb-1">Voice Notes</BaseText>
               <AuditVoiceNotesPanel
                 :auditInstance="auditInstance"
                 :scopeId="currentResponse?.id ?? null"
@@ -910,11 +886,7 @@ function summarizeFinding() {
 
             <!-- Auditor Notes — private free-form notebook (dictate-to-text). -->
             <div>
-              <p
-                class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1"
-              >
-                Auditor Notes
-              </p>
+              <BaseText variant="overline" class="tw:block tw:mb-1">Auditor Notes</BaseText>
               <BaseRichTextField
                 :modelValue="currentBuffer?.auditorNotes"
                 :editable="!readonly"
@@ -952,11 +924,7 @@ function summarizeFinding() {
           <div class="tw:p-3 tw:flex tw:flex-col tw:gap-4">
             <!-- Verdict -->
             <div>
-              <p
-                class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5"
-              >
-                Result
-              </p>
+              <BaseText variant="overline" class="tw:block tw:mb-1.5">Result</BaseText>
               <!-- Roll-up of the notebook ratings — what to address + a
                    non-binding suggested verdict. The auditor still decides. -->
               <div
@@ -1000,11 +968,7 @@ function summarizeFinding() {
                  an NC result this seeds the auto-finding description. -->
             <div>
               <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:mb-1">
-                <p
-                  class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide"
-                >
-                  Finding Notes
-                </p>
+                <BaseText variant="overline">Finding Notes</BaseText>
                 <!-- Deterministic: extract flagged items + notes. No AI. -->
                 <button
                   v-if="!readonly"

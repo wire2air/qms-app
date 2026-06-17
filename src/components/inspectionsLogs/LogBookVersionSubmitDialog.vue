@@ -91,28 +91,25 @@ async function handleConfirm() {
           :stepIndex="index"
           :required="index === 0"
         />
-        <div>
-          <p class="tw:text-secondary tw:text-sm tw:mb-1">Change summary (optional)</p>
+        <BaseField v-slot="{ id: fieldId }" label="Change summary" optional>
           <BaseTextarea
+            :id="fieldId"
             v-model="changeSummary"
             placeholder="What changed in this version?"
             :rows="2"
           />
-        </div>
+        </BaseField>
       </template>
     </div>
 
     <template #footer="{ close }">
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :disabled="!workflowVersionId || !firstStepHasUser || submitting"
-          @click="handleConfirm"
-        >
-          {{ submitting ? 'Submitting…' : 'Submit' }}
-        </BaseButton>
-      </div>
+      <BaseDialogFooter
+        submitLabel="Submit"
+        :loading="submitting"
+        :disabled="!workflowVersionId || !firstStepHasUser"
+        @cancel="close"
+        @submit="handleConfirm"
+      />
     </template>
   </BaseDialog>
 </template>

@@ -104,11 +104,12 @@ function updateRowColClass(value) {
       <ConfigState v-model:field="field" />
 
       <div v-if="hasTypeSettings" class="tw:mb-4 tw:last:mb-0">
-        <div
-          class="tw:font-semibold tw:text-xs tw:uppercase tw:tracking-wide tw:text-secondary tw:mb-3 tw:pb-2 tw:border-b tw:border-divider"
+        <BaseText
+          variant="overline"
+          class="tw:block tw:mb-3 tw:pb-2 tw:border-b tw:border-divider"
         >
           {{ field.type }} Settings
-        </div>
+        </BaseText>
 
         <!-- Number/Slider Settings -->
         <template v-if="isNumberType">
@@ -190,36 +191,35 @@ function updateRowColClass(value) {
         <!-- RCA Settings -->
         <template v-if="field.type === 'rca'">
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-2">
-              <label class="tw:text-sm tw:font-medium tw:text-on-main">RCA Template</label>
+            <BaseField
+              label="RCA Template"
+              hint="The template defines branch labels and analysis structure. Users add causes during investigation."
+            >
               <RcaTemplateSelectMenu v-model="field.rcaTemplateId" :required="true" />
-              <p class="tw:text-xs tw:text-secondary">
-                The template defines branch labels and analysis structure. Users add causes during investigation.
-              </p>
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-on-main">Problem Source Field</label>
+            </BaseField>
+            <BaseField
+              v-slot="{ id: fieldId }"
+              label="Problem Source Field"
+              hint="Field name in this form whose value appears as the problem statement in the fishbone diagram."
+            >
               <BaseTextInput
+                :id="fieldId"
                 v-model="field.problemField"
                 placeholder="e.g. problemDescription"
                 size="sm"
               />
-              <p class="tw:text-xs tw:text-secondary">
-                Field name in this form whose value appears as the problem statement in the fishbone diagram.
-              </p>
-            </div>
+            </BaseField>
           </div>
         </template>
 
         <!-- Risk Assessment Settings -->
         <template v-if="field.type === 'riskAssessment'">
-          <div class="tw:flex tw:flex-col tw:gap-2">
-            <label class="tw:text-sm tw:font-medium tw:text-on-main">Risk Assessment Template</label>
+          <BaseField
+            label="Risk Assessment Template"
+            hint="The template defines the likelihood/severity matrix and risk level colors."
+          >
             <RiskAssessmentTemplateSelectMenu v-model="field.riskAssessmentTemplateId" :required="true" />
-            <p class="tw:text-xs tw:text-secondary">
-              The template defines the likelihood/severity matrix and risk level colors.
-            </p>
-          </div>
+          </BaseField>
         </template>
 
         <!-- Instructions Settings — full TipTap editor on field.html.
@@ -228,9 +228,8 @@ function updateRowColClass(value) {
              by the document body field, so behaviour matches across
              the app. -->
         <template v-if="field.type === 'instructions'">
-          <div class="tw:flex tw:flex-col tw:gap-2">
-            <label class="tw:text-sm tw:font-medium tw:text-on-main">Content</label>
-            <p class="tw:text-xs tw:text-secondary">
+          <BaseField label="Content">
+            <p class="tw:text-xs tw:text-secondary tw:mb-2">
               Tip: type
               <span class="tw:font-mono tw:bg-main tw:rounded tw:px-1">#</span>
               to mention a document and create a clickable link.
@@ -238,7 +237,7 @@ function updateRowColClass(value) {
             <div class="tw:border tw:border-divider tw:rounded-md tw:overflow-hidden">
               <BaseRichTextEditor v-model="field.html" />
             </div>
-          </div>
+          </BaseField>
         </template>
       </div>
 

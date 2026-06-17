@@ -709,9 +709,9 @@ function close() {
              discard cleanly. -->
         <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
-            <h3 class="tw:text-sm tw:font-bold tw:text-on-main">
+            <BaseText as="h3" class="tw:text-sm tw:font-bold tw:text-on-main">
               {{ isEditing ? 'Edit entry' : 'Record content' }}
-            </h3>
+            </BaseText>
             <div v-if="isEditing" class="tw:flex tw:items-center tw:gap-2">
               <button
                 type="button"
@@ -831,7 +831,7 @@ function close() {
           class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4"
         >
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
-            <h3 class="tw:text-sm tw:font-bold tw:text-on-main">Revision history</h3>
+            <BaseText as="h3" class="tw:text-sm tw:font-bold tw:text-on-main">Revision history</BaseText>
             <span class="tw:text-xs tw:text-secondary">
               {{ revisions.length }} {{ revisions.length === 1 ? 'entry' : 'entries' }}
             </span>
@@ -1131,17 +1131,20 @@ function close() {
               :fields="schemaFields"
               :loading="isSavingAmend"
             />
-            <label
-              class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mt-4 tw:mb-1"
+            <BaseField
+              v-slot="{ id: reasonId }"
+              label="Reason for change"
+              required
+              class="tw:mt-4"
             >
-              Reason for change <span class="tw:text-bad">*</span>
-            </label>
-            <textarea
-              v-model="amendComment"
-              rows="3"
-              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
-              placeholder="Why is this entry being changed? (audit trail)"
-            ></textarea>
+              <textarea
+                :id="reasonId"
+                v-model="amendComment"
+                rows="3"
+                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
+                placeholder="Why is this entry being changed? (audit trail)"
+              ></textarea>
+            </BaseField>
           </div>
 
           <div class="tw:flex tw:justify-end tw:gap-2">
@@ -1178,17 +1181,15 @@ function close() {
             Voiding marks the entry as superseded but keeps it (and all revisions) in the audit
             trail. This action requires an e-signature.
           </p>
-          <label
-            class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mb-1"
-          >
-            Reason <span class="tw:text-bad">*</span>
-          </label>
-          <textarea
-            v-model="voidReason"
-            rows="3"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
-            placeholder="Why is this entry being voided?"
-          ></textarea>
+          <BaseField v-slot="{ id: reasonId }" label="Reason" required>
+            <textarea
+              :id="reasonId"
+              v-model="voidReason"
+              rows="3"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
+              placeholder="Why is this entry being voided?"
+            ></textarea>
+          </BaseField>
           <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-3">
             <button
               type="button"
@@ -1242,23 +1243,16 @@ function close() {
               <option value="CRITICAL">Critical — escalates now</option>
             </select>
           </div>
-          <label
-            class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mb-1"
-          >
-            Notes <span class="tw:text-bad">*</span>
-          </label>
-          <textarea
-            v-model="flagNotes"
-            rows="4"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
-            placeholder="What's wrong with this entry? Detail helps your supervisor act faster."
-          ></textarea>
-          <div class="tw:mt-3">
-            <label
-              class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mb-1"
-            >
-              Photo evidence (optional)
-            </label>
+          <BaseField v-slot="{ id: notesId }" label="Notes" required>
+            <textarea
+              :id="notesId"
+              v-model="flagNotes"
+              rows="4"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
+              placeholder="What's wrong with this entry? Detail helps your supervisor act faster."
+            ></textarea>
+          </BaseField>
+          <BaseField label="Photo evidence" optional class="tw:mt-3">
             <BasePhoto
               v-model="flagPhoto"
               mode="both"
@@ -1267,7 +1261,7 @@ function close() {
               placeholder="Add photo"
               previewSize="120px"
             />
-          </div>
+          </BaseField>
           <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-3">
             <button
               type="button"

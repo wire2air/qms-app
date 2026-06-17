@@ -31,7 +31,7 @@ function getArray() {
             />
           </div>
           <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
-            >Select RCA Templates</span
+            >— All RCA templates —</span
           >
         </template>
         <template v-else>
@@ -43,7 +43,7 @@ function getArray() {
             @clear="() => scope.clear(modelValue)"
           />
           <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
-            >Select RCA Template</span
+            >— All RCA templates —</span
           >
         </template>
       </slot>

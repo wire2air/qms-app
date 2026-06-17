@@ -153,11 +153,9 @@ function cancel() {
       </div>
 
       <!-- Change reason (required) -->
-      <div class="tw:flex tw:flex-col tw:gap-1.5">
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
-          Reason for change <span class="tw:text-red-600">*</span>
-        </label>
+      <BaseField v-slot="{ id: fieldId }" label="Reason for change" required>
         <BaseTextarea
+          :id="fieldId"
           v-model="draft.changeReason"
           :rows="2"
           placeholder="e.g. New calibration interval required by Method SOP-014 revision 4."
@@ -165,13 +163,10 @@ function cancel() {
         <p v-if="submitted && errors.changeReason" class="tw:text-xs tw:text-red-600">
           {{ errors.changeReason }}
         </p>
-      </div>
+      </BaseField>
 
       <!-- Change type (required) -->
-      <div class="tw:flex tw:flex-col tw:gap-2">
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
-          Change type <span class="tw:text-red-600">*</span>
-        </label>
+      <BaseField label="Change type" required>
         <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-2">
           <button
             v-for="opt in CHANGE_TYPES"
@@ -192,27 +187,30 @@ function cancel() {
         <p v-if="submitted && errors.changeType" class="tw:text-xs tw:text-red-600">
           {{ errors.changeType }}
         </p>
-      </div>
+      </BaseField>
 
       <!-- Description of change (optional) -->
-      <div class="tw:flex tw:flex-col tw:gap-1.5">
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
+      <BaseField>
+        <template #label>
           Description of change
           <span class="tw:text-xs tw:font-normal tw:text-secondary">(what reviewers should focus on)</span>
-        </label>
-        <BaseTextarea
-          v-model="draft.changeSummary"
-          :rows="3"
-          placeholder="Summarise the substantive content changes in this revision."
-        />
-      </div>
+        </template>
+        <template #default="{ id: fieldId }">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="draft.changeSummary"
+            :rows="3"
+            placeholder="Summarise the substantive content changes in this revision."
+          />
+        </template>
+      </BaseField>
 
       <!-- Affected sections (optional) -->
-      <div v-if="baselineSections.length" class="tw:flex tw:flex-col tw:gap-1.5">
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
+      <BaseField v-if="baselineSections.length">
+        <template #label>
           Affected sections
           <span class="tw:text-xs tw:font-normal tw:text-secondary">(optional — reviewer focus)</span>
-        </label>
+        </template>
         <div class="tw:max-h-40 tw:overflow-y-auto tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:p-2 tw:flex tw:flex-col tw:gap-1">
           <label
             v-for="section in baselineSections"
@@ -228,7 +226,7 @@ function cancel() {
             <span class="tw:text-sm">{{ (section.order ?? '?') }}. {{ section.title || '(untitled)' }}</span>
           </label>
         </div>
-      </div>
+      </BaseField>
 
       <!-- Regulatory impact -->
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider">
@@ -249,11 +247,15 @@ function cancel() {
           </div>
         </label>
 
-        <div v-if="draft.regulatoryImpact" class="tw:flex tw:flex-col tw:gap-1.5">
-          <label class="tw:text-xs tw:font-medium tw:text-secondary">
-            Regulatory impact notes <span class="tw:text-red-600">*</span>
-          </label>
+        <BaseField
+          v-if="draft.regulatoryImpact"
+          v-slot="{ id: fieldId }"
+          label="Regulatory impact notes"
+          required
+          size="xs"
+        >
           <BaseTextarea
+            :id="fieldId"
             v-model="draft.regulatoryImpactNotes"
             :rows="2"
             placeholder="Which standard / submission is affected? What changed?"
@@ -261,13 +263,12 @@ function cancel() {
           <p v-if="submitted && errors.regulatoryImpactNotes" class="tw:text-xs tw:text-red-600">
             {{ errors.regulatoryImpactNotes }}
           </p>
-        </div>
+        </BaseField>
       </div>
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" @click="cancel">Cancel</BaseButton>
-      <BaseButton @click="confirm">Create Revision</BaseButton>
+      <BaseDialogFooter submitLabel="Create Revision" @cancel="cancel" @submit="confirm" />
     </template>
   </BaseDialog>
 </template>

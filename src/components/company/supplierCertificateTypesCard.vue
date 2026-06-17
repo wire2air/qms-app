@@ -175,23 +175,20 @@ const showDeactivated = ref(false)
   <div
     class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
+    <BaseSectionHeader
+      title="Supplier Certificate Types"
+      subtitle="Categories the admin picks when uploading a supplier certificate (ISO 9001 / 13485 / AS9100 / FDA 21 CFR 820 / Insurance / etc.). The cert row's expiry date drives the daily reminder worker — colour drives the badge styling across the supplier panel and dashboards."
+      :level="2"
+      size="section-title"
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover"
     >
-      <div>
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Supplier Certificate Types</h2>
-        <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          Categories the admin picks when uploading a supplier certificate (ISO 9001 / 13485 /
-          AS9100 / FDA 21 CFR 820 / Insurance / etc.). The cert row's expiry date drives the daily
-          reminder worker — colour drives the badge styling across the supplier panel and
-          dashboards.
-        </p>
-      </div>
-      <BaseButton v-if="canManage" variant="primary" size="sm" @click="openAdd">
-        <template #icon><IconPlus :size="16" /></template>
-        Add Certificate Type
-      </BaseButton>
-    </div>
+      <template #actions>
+        <BaseButton v-if="canManage" variant="primary" size="sm" @click="openAdd">
+          <template #icon><IconPlus :size="16" /></template>
+          Add Certificate Type
+        </BaseButton>
+      </template>
+    </BaseSectionHeader>
 
     <div
       v-if="!canManage"
@@ -304,12 +301,9 @@ const showDeactivated = ref(false)
       maxWidth="md"
     >
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Name <span class="tw:text-red-500">*</span>
-          </p>
-          <BaseTextInput v-model="form.name" placeholder="e.g. NADCAP" />
-        </div>
+        <BaseField v-slot="{ id: fieldId }" label="Name" required>
+          <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. NADCAP" />
+        </BaseField>
         <div v-if="!editing">
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
             <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
@@ -337,35 +331,31 @@ const showDeactivated = ref(false)
             type — cannot be changed later.
           </p>
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
+        <BaseField v-slot="{ id: fieldId }" label="Description">
           <BaseTextarea
+            :id="fieldId"
             v-model="form.description"
             :rows="2"
             placeholder="Optional description shown alongside the option in the picker"
           />
-        </div>
+        </BaseField>
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-          <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Colour</p>
+          <BaseField label="Colour" hint="Used as the badge background tint. Leave empty for neutral grey.">
             <BaseColorPicker v-model="form.color" allowNull />
-            <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-              Used as the badge background tint. Leave empty for neutral grey.
-            </p>
-          </div>
-          <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-              Display Order
-            </p>
-            <BaseTextInput v-model.number="form.displayOrder" type="number" :min="0" />
-          </div>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Display Order">
+            <BaseTextInput :id="fieldId" v-model.number="form.displayOrder" type="number" :min="0" />
+          </BaseField>
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="saving" :disabled="saving" @click="handleSave">
-          {{ editing ? 'Save' : 'Add' }}
-        </BaseButton>
+        <BaseDialogFooter
+          :submitLabel="editing ? 'Save' : 'Add'"
+          :loading="saving"
+          :disabled="saving"
+          @cancel="close"
+          @submit="handleSave"
+        />
       </template>
     </BaseDialog>
   </div>

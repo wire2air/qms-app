@@ -87,10 +87,7 @@ async function onSubmit() {
         <p class="tw:text-sm tw:font-medium tw:text-on-main">{{ request.title }}</p>
       </div>
 
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Upload Document
-        </label>
+      <BaseField label="Upload Document">
         <div
           v-if="selectedFile"
           class="tw:flex tw:items-center tw:gap-2 tw:p-2 tw:border tw:border-divider tw:rounded-lg"
@@ -122,7 +119,7 @@ async function onSubmit() {
             <span>{{ uploading ? 'Uploading...' : 'Upload' }}</span>
           </BaseButton>
         </div>
-      </div>
+      </BaseField>
     </div>
 
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">

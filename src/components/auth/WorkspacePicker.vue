@@ -89,9 +89,7 @@ function goToWorkspace() {
     </div>
 
     <div class="tw:pt-7 tw:flex tw:flex-col tw:gap-4">
-      <div class="tw:flex tw:flex-col tw:gap-1.5">
-        <label class="tw:text-sm tw:font-semibold tw:text-on-main">Workspace</label>
-
+      <BaseField v-slot="{ id: fieldId }" label="Workspace" hint="Enter your company workspace name.">
         <!-- Single unified control: org icon, slug input, and the domain suffix
              all share one border. The suffix is quiet inline text, not a box. -->
         <div class="ws-field tw:group">
@@ -101,6 +99,7 @@ function goToWorkspace() {
             <IconBuilding :size="18" :stroke="1.75" />
           </span>
           <input
+            :id="fieldId"
             v-model="subdomain"
             type="text"
             autocapitalize="none"
@@ -116,9 +115,7 @@ function goToWorkspace() {
             {{ domainSuffix }}
           </span>
         </div>
-
-        <p class="tw:text-xs tw:text-secondary tw:mt-0.5">Enter your company workspace name.</p>
-      </div>
+      </BaseField>
 
       <button class="ws-submit tw:group" :disabled="loading" @click="goToWorkspace">
         <BaseSpinner v-if="loading" size="sm" color="white" />
@@ -149,9 +146,9 @@ function goToWorkspace() {
           Enter the email you sign in with and we'll send you a link to each of your workspaces.
         </p>
 
-        <div class="tw:flex tw:flex-col tw:gap-1.5">
-          <label class="tw:text-sm tw:font-semibold tw:text-on-main">Email</label>
+        <BaseField v-slot="{ id: fieldId }" label="Email">
           <BaseTextInput
+            :id="fieldId"
             v-model="forgotEmail"
             type="email"
             placeholder="you@company.com"
@@ -162,7 +159,7 @@ function goToWorkspace() {
               <IconMail :size="16" class="tw:text-secondary" />
             </template>
           </BaseTextInput>
-        </div>
+        </BaseField>
       </div>
 
       <template #footer="{ close }">

@@ -204,19 +204,22 @@ function close() {
     </div>
 
     <div class="tw:flex tw:flex-col tw:gap-4">
-      <div>
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
-          Name <span class="tw:text-bad">*</span>
-        </label>
-        <BaseTextInput v-model="name" placeholder="e.g. Freezer #3, Calibration probe T-001" />
-      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Name" required>
+        <BaseTextInput
+          :id="fieldId"
+          v-model="name"
+          placeholder="e.g. Freezer #3, Calibration probe T-001"
+        />
+      </BaseField>
 
-      <div>
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
-          Code <span class="tw:text-bad">*</span>
-        </label>
+      <BaseField v-slot="{ id: fieldId }" label="Code" required>
         <div class="tw:relative">
-          <BaseTextInput v-model="code" placeholder="e.g. EQ-001" :disabled="isEditing" />
+          <BaseTextInput
+            :id="fieldId"
+            v-model="code"
+            placeholder="e.g. EQ-001"
+            :disabled="isEditing"
+          />
           <div class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2">
             <IconCheck v-if="isCodeAvailable === true" :size="16" class="tw:text-green-600" />
             <IconCircleX v-else-if="isCodeAvailable === false" :size="16" class="tw:text-bad" />
@@ -226,12 +229,12 @@ function close() {
           Unique identifier (e.g. asset tag). Used in audit reports and log book references.
           <span v-if="isEditing"> Locked after creation to keep audit references stable.</span>
         </div>
-      </div>
+      </BaseField>
 
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">Category</label>
+        <BaseField v-slot="{ id: fieldId }" label="Category">
           <select
+            :id="fieldId"
             v-model="category"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
           >
@@ -242,10 +245,10 @@ function close() {
             <option value="SENSOR">Sensor</option>
             <option value="OTHER">Other</option>
           </select>
-        </div>
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">Status</label>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Status">
           <select
+            :id="fieldId"
             v-model="statusId"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
           >
@@ -253,73 +256,52 @@ function close() {
             <option value="OUT_OF_SERVICE">Out of service</option>
             <option value="RETIRED">Retired</option>
           </select>
-        </div>
+        </BaseField>
       </div>
 
-      <div>
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">Description</label>
-        <BaseTextarea v-model="description" :rows="2" placeholder="Optional context" />
-      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Description">
+        <BaseTextarea :id="fieldId" v-model="description" :rows="2" placeholder="Optional context" />
+      </BaseField>
 
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-3">
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Manufacturer
-          </label>
-          <BaseTextInput v-model="manufacturer" />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Model
-          </label>
-          <BaseTextInput v-model="model" />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Serial number
-          </label>
-          <BaseTextInput v-model="serialNumber" />
-        </div>
+        <BaseField v-slot="{ id: fieldId }" label="Manufacturer">
+          <BaseTextInput :id="fieldId" v-model="manufacturer" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Model">
+          <BaseTextInput :id="fieldId" v-model="model" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Serial number">
+          <BaseTextInput :id="fieldId" v-model="serialNumber" />
+        </BaseField>
       </div>
 
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Site <span class="tw:text-bad">*</span>
-          </label>
+        <BaseField label="Site" required>
           <SiteSelectMenu v-model="siteId" :required="true" />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Department (optional)
-          </label>
+        </BaseField>
+        <BaseField label="Department" optional>
           <DepartmentSelectMenu v-model="departmentId" />
           <div class="tw:text-[11px] tw:text-secondary tw:mt-1">
             Calibration reminders escalate to the department's supervisor.
           </div>
-        </div>
+        </BaseField>
       </div>
 
-      <div>
-        <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-          Owner / custodian (optional)
-        </label>
+      <BaseField label="Owner / custodian" optional>
         <UserSelectMenu v-model="ownerUserId" />
         <div class="tw:text-[11px] tw:text-secondary tw:mt-1">
           The responsible person — notified first about calibration. Falls back to the department
           supervisor.
         </div>
-      </div>
+      </BaseField>
 
-      <div>
-        <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-          Location (free text)
-        </label>
+      <BaseField v-slot="{ id: fieldId }" label="Location (free text)">
         <BaseTextInput
+          :id="fieldId"
           v-model="locationText"
           placeholder="e.g. Rack 3, Bay B; Lab 2; East wall freezer"
         />
-      </div>
+      </BaseField>
 
       <!-- Calibration program. requiresCalibration flags the instrument as
            calibration-tracked (drives the daily due reminder); the interval
@@ -352,54 +334,48 @@ function close() {
            side when statusId flips to RETIRED, but you can also set
            it manually for accurate historical dates. -->
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Installed
-          </label>
+        <BaseField v-slot="{ id: fieldId }" label="Installed">
           <input
+            :id="fieldId"
             v-model="installedAt"
             type="date"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
           />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Retired
-          </label>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Retired">
           <input
+            :id="fieldId"
             v-model="retiredAt"
             type="date"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
           />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Next calibration due
-          </label>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Next calibration due">
           <input
+            :id="fieldId"
             v-model="nextCalibrationDue"
             type="date"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
           />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Next PM due
-          </label>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Next PM due">
           <input
+            :id="fieldId"
             v-model="nextPmDue"
             type="date"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
           />
-        </div>
+        </BaseField>
       </div>
 
-      <div>
-        <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-          Notes
-        </label>
-        <BaseTextarea v-model="notes" :rows="2" placeholder="Internal notes about this equipment" />
-      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Notes">
+        <BaseTextarea
+          :id="fieldId"
+          v-model="notes"
+          :rows="2"
+          placeholder="Internal notes about this equipment"
+        />
+      </BaseField>
     </div>
 
     <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-6">

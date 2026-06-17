@@ -122,21 +122,23 @@ async function setPrimary(contact) {
   <div
     class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:overflow-hidden"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
-    >
-      <div class="tw:flex tw:items-center tw:gap-3">
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-gray-100 tw:flex tw:items-center tw:justify-center"
-        >
-          <IconMail :size="20" class="tw:text-secondary" />
-        </div>
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Contacts</h3>
-      </div>
-      <BaseButton v-if="canUpdate && !draft" variant="text-link" size="sm" @click="addContact">
-        <IconPlus :size="14" />
-        Add Contact
-      </BaseButton>
+    <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
+      <BaseSectionHeader
+        title="Contacts"
+        :icon="IconMail"
+        iconVariant="boxed"
+        iconColor="gray"
+        :iconSize="20"
+        :level="3"
+        size="section-title"
+      >
+        <template v-if="canUpdate && !draft" #actions>
+          <BaseButton variant="text-link" size="sm" @click="addContact">
+            <IconPlus :size="14" />
+            Add Contact
+          </BaseButton>
+        </template>
+      </BaseSectionHeader>
     </div>
     <div class="tw:p-6">
       <div v-if="contacts.length || draft" class="tw:space-y-4">
@@ -160,9 +162,9 @@ async function setPrimary(contact) {
                 <IconStarFilled v-if="contact.isPrimary" :size="16" />
                 <IconStar v-else :size="16" />
               </button>
-              <span class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wide">
+              <BaseText variant="overline">
                 {{ contact.isPrimary ? 'Primary' : 'Contact' }}
-              </span>
+              </BaseText>
             </div>
             <button
               v-if="canUpdate && contacts.length > 1"
@@ -248,9 +250,7 @@ async function setPrimary(contact) {
           class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:border tw:border-primary/40 tw:rounded-lg tw:bg-primary/5"
         >
           <div class="tw:flex tw:items-center tw:justify-between">
-            <span class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wide"
-              >New Contact</span
-            >
+            <BaseText variant="overline">New Contact</BaseText>
             <button
               class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-red-500"
               @click="cancelDraft"

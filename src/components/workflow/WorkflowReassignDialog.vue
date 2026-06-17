@@ -172,10 +172,7 @@ defineExpose({ open })
 
 <template>
   <BaseDialog v-model="showDialog" title="Reassign Task" maxWidth="md">
-    <div class="tw:mb-4">
-      <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-2">
-        Select new reviewer <span class="tw:text-red-500">*</span>
-      </label>
+    <BaseField label="Select new reviewer" required class="tw:mb-4">
       <div class="tw:flex tw:flex-col tw:gap-2">
         <label
           v-for="user in reassignCandidates"
@@ -235,7 +232,7 @@ defineExpose({ open })
           No active internal users in your company.
         </p>
       </div>
-    </div>
+    </BaseField>
     <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
       <BaseButton variant="outline" @click="showDialog = false">Cancel</BaseButton>
       <BaseButton

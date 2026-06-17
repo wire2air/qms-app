@@ -189,27 +189,22 @@ async function handleSave() {
   >
     <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">
-            Form name <span class="tw:text-red-500">*</span>
-          </label>
-          <BaseTextInput v-model="draft.name" placeholder="Product Complaint Form" />
-        </div>
-        <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
+        <BaseField v-slot="{ id: fieldId }" label="Form name" required>
+          <BaseTextInput :id="fieldId" v-model="draft.name" placeholder="Product Complaint Form" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Description" class="tw:col-span-2">
           <BaseTextarea
+            :id="fieldId"
             v-model="draft.description"
             :rows="2"
             placeholder="Internal note about what this form is for…"
           />
-        </div>
+        </BaseField>
       </div>
 
       <!-- System fields -->
       <div class="tw:flex tw:flex-col tw:gap-2">
-        <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-          System fields
-        </div>
+        <BaseText variant="overline">System fields</BaseText>
         <div class="tw:rounded-lg tw:border tw:border-divider tw:divide-y tw:divide-divider">
           <div
             class="tw:flex tw:items-center tw:px-3 tw:py-2 tw:text-xs tw:font-semibold tw:text-secondary"
@@ -249,9 +244,7 @@ async function handleSave() {
 
       <!-- Custom fields — the form's own embedded schema -->
       <div class="tw:flex tw:flex-col tw:gap-2">
-        <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-          Custom fields
-        </div>
+        <BaseText variant="overline">Custom fields</BaseText>
 
         <!-- Empty state: Start Blank / Use Template (copies fields) -->
         <div
@@ -260,7 +253,7 @@ async function handleSave() {
         >
           <IconForms :size="32" class="tw:text-secondary tw:opacity-40" />
           <div>
-            <p class="tw:font-semibold tw:text-on-main tw:text-sm">No custom fields yet</p>
+            <BaseText as="h3" weight="semibold">No custom fields yet</BaseText>
             <p class="tw:text-xs tw:text-secondary tw:mt-1">
               Start from scratch or copy fields from an existing form template. The form owns its
               fields — later template edits won't affect it.
@@ -300,34 +293,31 @@ async function handleSave() {
 
       <!-- Branding -->
       <div class="tw:flex tw:flex-col tw:gap-2">
-        <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-          Public page branding
-        </div>
+        <BaseText variant="overline">Public page branding</BaseText>
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Header title</label>
+          <BaseField v-slot="{ id: fieldId }" label="Header title">
             <BaseTextInput
+              :id="fieldId"
               v-model="draft.branding.headerTitle"
               placeholder="Defaults to the form name"
             />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Footer text</label>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Footer text">
             <BaseTextInput
+              :id="fieldId"
               v-model="draft.branding.footerText"
               placeholder="e.g. We respond within 1 business day"
             />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Intro text</label>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Intro text" class="tw:col-span-2">
             <BaseTextarea
+              :id="fieldId"
               v-model="draft.branding.introText"
               :rows="2"
               placeholder="Shown above the form — tell customers what to include…"
             />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Logo</label>
+          </BaseField>
+          <BaseField label="Logo" class="tw:col-span-2">
             <div class="tw:flex tw:items-center tw:gap-2">
               <img
                 v-if="draft.branding.logoUrl"
@@ -349,17 +339,14 @@ async function handleSave() {
                 {{ uploadingLogo ? 'Uploading…' : 'Upload' }}
               </BaseButton>
             </div>
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Header color</label>
+          </BaseField>
+          <BaseField label="Header color">
             <BaseColorPicker v-model="draft.branding.primaryColor" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Page background</label>
+          </BaseField>
+          <BaseField label="Page background">
             <BaseColorPicker v-model="draft.branding.backgroundColor" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Font</label>
+          </BaseField>
+          <BaseField label="Font" class="tw:col-span-2">
             <BaseSelectMenu
               v-model="draft.branding.font"
               :items="[
@@ -370,7 +357,7 @@ async function handleSave() {
                 { id: '\'Trebuchet MS\', sans-serif', name: 'Trebuchet' },
               ]"
             />
-          </div>
+          </BaseField>
         </div>
       </div>
     </div>

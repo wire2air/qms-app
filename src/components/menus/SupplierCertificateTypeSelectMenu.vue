@@ -23,7 +23,7 @@ function getArray() {
     :items="certificateTypes"
     :required="required"
     :multiple="multiple"
-    nullLabel="— Select —"
+    nullLabel="— All certificate types —"
   >
     <template #button="scope">
       <slot name="button" v-bind="scope">

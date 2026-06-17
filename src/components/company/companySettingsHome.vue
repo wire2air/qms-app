@@ -62,19 +62,20 @@ const canManageCompany = computed(() => isAllowed(['company:manage']))
 
 const tabs = computed(() => {
   const base = [
-    { id: 'general', label: 'General', icon: IconInfoCircle },
-    { id: 'defaults', label: 'Defaults', icon: IconAdjustments },
-    { id: 'print', label: 'Print', icon: IconPrinter },
+    { value: 'general', label: 'General', icon: IconInfoCircle },
+    { value: 'defaults', label: 'Defaults', icon: IconAdjustments },
+    { value: 'print', label: 'Print', icon: IconPrinter },
   ]
-  if (canManageCompany.value) base.push({ id: 'integrations', label: 'Integrations', icon: IconPlug })
-  if (canManageAi.value) base.push({ id: 'ai', label: 'AI', icon: IconSparkles })
+  if (canManageCompany.value)
+    base.push({ value: 'integrations', label: 'Integrations', icon: IconPlug })
+  if (canManageAi.value) base.push({ value: 'ai', label: 'AI', icon: IconSparkles })
   return base
 })
 // Honor ?tab=<id> deep-links. Lookups moved to the standalone /lookups page
 // (2026-06-12) — redirect old ?tab=lookups bookmarks there.
 const route = useRoute()
 const router = useRouter()
-const validTabIds = computed(() => new Set(tabs.value.map((t) => t.id)))
+const validTabIds = computed(() => new Set(tabs.value.map((t) => t.value)))
 const initialTab = validTabIds.value.has(route.query.tab) ? route.query.tab : 'general'
 const activeTab = ref(initialTab)
 watch(
@@ -111,53 +112,42 @@ watch(
         </div>
       </div>
 
-      <!-- Tabs -->
-      <div class="tw:flex tw:border-b tw:border-divider">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          class="tw:px-5 tw:py-2.5 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors"
-          :class="activeTab === tab.id
-            ? 'tw:border-primary tw:text-primary'
-            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'"
-          @click="activeTab = tab.id"
-        >
-          <component :is="tab.icon" :size="16" /> {{ tab.label }}
-        </button>
-      </div>
+      <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Company settings">
+        <!-- Tab: General -->
+        <BaseTabPanel value="general">
+          <div class="tw:flex tw:flex-col tw:gap-8">
+            <CompanyInfoCard />
 
-      <!-- Tab: General -->
-      <div v-if="activeTab === 'general'" class="tw:flex tw:flex-col tw:gap-8">
-        <CompanyInfoCard />
-
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-8">
-          <div class="tw:lg:col-span-2 tw:flex tw:flex-col tw:gap-8">
-            <CompanyBrandingCard />
-            <CompanyRegionalCard />
+            <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-8">
+              <div class="tw:lg:col-span-2 tw:flex tw:flex-col tw:gap-8">
+                <CompanyBrandingCard />
+                <CompanyRegionalCard />
+              </div>
+              <CompanyMetadataCard />
+            </div>
           </div>
-          <CompanyMetadataCard />
-        </div>
-      </div>
+        </BaseTabPanel>
 
-      <!-- Tab: Defaults -->
-      <div v-else-if="activeTab === 'defaults'">
-        <CompanyDefaultsCard />
-      </div>
+        <!-- Tab: Defaults -->
+        <BaseTabPanel value="defaults">
+          <CompanyDefaultsCard />
+        </BaseTabPanel>
 
-      <!-- Tab: Print -->
-      <div v-else-if="activeTab === 'print'">
-        <CompanyPrintCard />
-      </div>
+        <!-- Tab: Print -->
+        <BaseTabPanel value="print">
+          <CompanyPrintCard />
+        </BaseTabPanel>
 
-      <!-- Tab: Integrations — connected third-party accounts (Adobe Sign). -->
-      <div v-else-if="activeTab === 'integrations'">
-        <CompanyIntegrationsCard />
-      </div>
+        <!-- Tab: Integrations — connected third-party accounts (Adobe Sign). -->
+        <BaseTabPanel value="integrations">
+          <CompanyIntegrationsCard />
+        </BaseTabPanel>
 
-      <!-- Tab: AI — only present when the user has ai:manage. -->
-      <div v-else-if="activeTab === 'ai'">
-        <CompanyAiProfileCard />
-      </div>
+        <!-- Tab: AI — only present when the user has ai:manage. -->
+        <BaseTabPanel value="ai">
+          <CompanyAiProfileCard />
+        </BaseTabPanel>
+      </BaseTabs>
     </div>
   </div>
 </template>

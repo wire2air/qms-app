@@ -44,7 +44,7 @@ const scheme = computed(() => SCHEME_MAP[props.tone] || SCHEME_MAP.default)
       >
         <IconGripVertical :size="15" />
       </span>
-      <div class="tw:text-sm tw:font-bold" :class="scheme.title">{{ title }}</div>
+      <BaseText as="h3" weight="bold" :class="scheme.title">{{ title }}</BaseText>
       <span
         v-if="count !== null"
         class="tw:text-[11px] tw:font-bold tw:px-2 tw:py-0.5 tw:rounded-full"

@@ -187,9 +187,9 @@ watch(
 
       <!-- Provider + model -->
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Provider</p>
+        <BaseField v-slot="{ id: fieldId }" label="Provider">
           <select
+            :id="fieldId"
             v-model="profile.provider"
             :disabled="!canManage"
             class="tw:w-full tw:border tw:border-divider tw:rounded tw:px-2 tw:py-1.5 tw:text-sm"
@@ -197,10 +197,10 @@ watch(
             <option :value="null">— None —</option>
             <option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.label }}</option>
           </select>
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Model</p>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Model">
           <select
+            :id="fieldId"
             v-model="profile.model"
             :disabled="!canManage || !profile.provider"
             class="tw:w-full tw:border tw:border-divider tw:rounded tw:px-2 tw:py-1.5 tw:text-sm"
@@ -208,30 +208,26 @@ watch(
             <option :value="null">— Pick a provider first —</option>
             <option v-for="m in availableModels" :key="m.id" :value="m.id">{{ m.label }}</option>
           </select>
-        </div>
+        </BaseField>
       </div>
 
       <!-- Token cap + regulated mode -->
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Daily token cap
-          </p>
+        <BaseField
+          v-slot="{ id: fieldId }"
+          label="Daily token cap"
+          hint="Soft cap on combined input + output tokens per day across the tenant. Leave blank for no cap."
+        >
           <BaseTextInput
+            :id="fieldId"
             v-model="profile.dailyTokenCap"
             type="number"
             min="0"
             placeholder="No cap"
             :disabled="!canManage"
           />
-          <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            Soft cap on combined input + output tokens per day across the tenant. Leave blank for no cap.
-          </p>
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Regulated mode
-          </p>
+        </BaseField>
+        <BaseField label="Regulated mode">
           <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:cursor-pointer">
             <input
               v-model="profile.regulatedMode"
@@ -240,52 +236,47 @@ watch(
             />
             <span>Disable model fallbacks; require explicit human approval for any AI-assisted controlled-record change.</span>
           </label>
-        </div>
+        </BaseField>
       </div>
 
       <!-- Redaction -->
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Payload redaction
-        </p>
+      <BaseField
+        v-slot="{ id: fieldId }"
+        label="Payload redaction"
+        hint="Controls how aggressively user-supplied content is redacted before being logged into ai_job_payloads."
+      >
         <select
+          :id="fieldId"
           v-model="profile.redactionMode"
           :disabled="!canManage"
           class="tw:w-full tw:border tw:border-divider tw:rounded tw:px-2 tw:py-1.5 tw:text-sm"
         >
           <option v-for="m in REDACTION_MODES" :key="m.id" :value="m.id">{{ m.label }}</option>
         </select>
-        <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-          Controls how aggressively user-supplied content is redacted before being logged into ai_job_payloads.
-        </p>
-      </div>
+      </BaseField>
 
       <!-- Retention -->
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Message retention (days)
-          </p>
+        <BaseField v-slot="{ id: fieldId }" label="Message retention (days)">
           <BaseTextInput
+            :id="fieldId"
             v-model="profile.messageRetentionDays"
             type="number"
             min="0"
             max="365"
             :disabled="!canManage"
           />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Payload retention (days)
-          </p>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Payload retention (days)">
           <BaseTextInput
+            :id="fieldId"
             v-model="profile.payloadRetentionDays"
             type="number"
             min="0"
             max="365"
             :disabled="!canManage"
           />
-        </div>
+        </BaseField>
       </div>
 
       <div class="tw:flex tw:justify-end">

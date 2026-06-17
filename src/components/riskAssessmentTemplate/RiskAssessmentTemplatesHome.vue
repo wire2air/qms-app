@@ -6,24 +6,20 @@ import { isAllowed } from '@/utils/currentSession.js'
 // the per-tenant hazard_categories lookup admin (new with the RA
 // reportability spike). Deep-linkable via ?tab=hazards.
 const tabs = [
-  { id: 'templates', label: 'Templates', icon: IconFileSettings },
-  { id: 'hazards', label: 'Hazard Categories', icon: IconAlertTriangle },
+  { value: 'templates', label: 'Templates', icon: IconFileSettings },
+  { value: 'hazards', label: 'Hazard Categories', icon: IconAlertTriangle },
 ]
 const route = useRoute()
 const router = useRouter()
-const validTabIds = new Set(tabs.map((t) => t.id))
-const initialTab = validTabIds.has(route.query.tab) ? route.query.tab : 'templates'
-const activeTab = ref(initialTab)
-watch(
-  () => route.query.tab,
-  (v) => {
-    if (v && validTabIds.has(v)) activeTab.value = v
+const validTabIds = new Set(tabs.map((t) => t.value))
+const activeTab = computed({
+  get() {
+    return validTabIds.has(route.query.tab) ? route.query.tab : 'templates'
   },
-)
-function setTab(id) {
-  activeTab.value = id
-  router.replace({ query: { ...route.query, tab: id } })
-}
+  set(id) {
+    router.replace({ query: { ...route.query, tab: id } })
+  },
+})
 
 const showCreateDialog = ref(false)
 const editTemplate = ref(null)
@@ -94,39 +90,31 @@ function onDialogClose() {
     <!-- Tabs — Templates (CRUD on risk_assessment_templates) vs Hazard
          Categories (admin on hazard_categories, the per-tenant lookup
          used by the RA widget finalize step). -->
-    <div class="tw:flex tw:border-b tw:border-divider">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        class="tw:px-5 tw:py-2.5 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors tw:bg-transparent tw:cursor-pointer"
-        :class="
-          activeTab === tab.id
-            ? 'tw:border-primary tw:text-primary'
-            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'
-        "
-        @click="setTab(tab.id)"
-      >
-        <component :is="tab.icon" :size="16" /> {{ tab.label }}
-      </button>
-    </div>
+    <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Risk assessment settings">
+      <div class="tw:mt-6">
+        <!-- Tab: Templates -->
+        <BaseTabPanel value="templates">
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <div class="tw:flex tw:items-center tw:gap-3">
+              <BaseTextInput v-model="search" placeholder="Search templates..." class="tw:w-72" />
+            </div>
 
-    <!-- Tab: Templates -->
-    <template v-if="activeTab === 'templates'">
-      <div class="tw:flex tw:items-center tw:gap-3">
-        <BaseTextInput v-model="search" placeholder="Search templates..." class="tw:w-72" />
+            <RiskAssessmentTemplatesTable
+              :rows="templates"
+              :canUpdate="canUpdate"
+              :canDelete="canDelete"
+              @edit="onEdit"
+              @delete="onDelete"
+            />
+          </div>
+        </BaseTabPanel>
+
+        <!-- Tab: Hazard Categories — per-tenant hazard_categories admin. -->
+        <BaseTabPanel value="hazards">
+          <HazardCategoriesCard />
+        </BaseTabPanel>
       </div>
-
-      <RiskAssessmentTemplatesTable
-        :rows="templates"
-        :canUpdate="canUpdate"
-        :canDelete="canDelete"
-        @edit="onEdit"
-        @delete="onDelete"
-      />
-    </template>
-
-    <!-- Tab: Hazard Categories — per-tenant hazard_categories admin. -->
-    <HazardCategoriesCard v-else-if="activeTab === 'hazards'" />
+    </BaseTabs>
 
     <RiskAssessmentTemplateDialog
       v-model="showCreateDialog"

@@ -58,9 +58,7 @@ async function handleDelete(row) {
     >
       <div class="tw:flex tw:items-center tw:gap-2">
         <IconMailPause :size="18" class="tw:text-primary" />
-        <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-          Suspended Emails
-        </div>
+        <BaseText variant="overline">Suspended Emails</BaseText>
       </div>
       <BaseButton variant="outline" size="sm" :disabled="loading" @click="load">
         <IconRefresh :size="14" class="tw:mr-1" />

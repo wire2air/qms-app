@@ -44,7 +44,7 @@ defineEmits(['remove'])
       chipClass,
     ]"
   >
-    <span :class="['tw:font-medium tw:text-on-main', size === 'sm' ? 'tw:text-xs' : 'tw:text-xs']">
+    <span :class="['tw:font-medium tw:text-on-main', size === 'sm' ? 'tw:text-xs' : 'tw:text-sm']">
       <slot>{{ label }}</slot>
     </span>
 

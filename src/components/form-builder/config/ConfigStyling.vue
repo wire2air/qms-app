@@ -9,11 +9,12 @@ const field = defineModel('field', {
 
 <template>
   <div class="tw:mb-4 tw:last:mb-0">
-    <div
-      class="tw:font-semibold tw:text-xs tw:uppercase tw:tracking-wide tw:text-secondary tw:mb-2 tw:pb-2 tw:border-b tw:border-divider"
+    <BaseText
+      variant="overline"
+      class="tw:block tw:mb-2 tw:pb-2 tw:border-b tw:border-divider"
     >
       Styling
-    </div>
+    </BaseText>
 
     <div
       class="tw:mb-3 tw:text-xs tw:text-on-sidebar tw:bg-main-selected tw:p-2 tw:rounded tw:border tw:border-primary/20"

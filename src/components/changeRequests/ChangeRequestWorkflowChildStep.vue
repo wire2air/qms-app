@@ -296,11 +296,9 @@ function getStatusLabel(statusId) {
       v-if="expanded && instanceStep.description"
       class="tw:px-4 tw:pb-4 tw:pt-3 tw:border-t tw:border-divider"
     >
-      <div
-        class="tw:text-[11px] tw:text-secondary tw:font-medium tw:mb-1 tw:uppercase tw:tracking-wider"
-      >
+      <BaseText variant="overline" weight="medium" class="tw:block tw:mb-1">
         Instructions
-      </div>
+      </BaseText>
       <div
         class="tw:text-sm tw:text-on-main tw:leading-relaxed"
         v-html="instanceStep.description"
@@ -312,15 +310,21 @@ function getStatusLabel(statusId) {
         Confirm completion of <strong>{{ instanceStep.name }}</strong
         >.
       </p>
-      <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1">
-        Comment (optional)
-      </label>
-      <BaseTextarea v-model="completeComment" :rows="3" placeholder="What you did…" />
+      <BaseField v-slot="{ id: fieldId }" label="Comment" optional>
+        <BaseTextarea
+          :id="fieldId"
+          v-model="completeComment"
+          :rows="3"
+          placeholder="What you did…"
+        />
+      </BaseField>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="completing" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="completing" @click="handleCompleteSubmit">
-          {{ requireEsignature ? 'Sign & Complete' : 'Mark Complete' }}
-        </BaseButton>
+        <BaseDialogFooter
+          :submitLabel="requireEsignature ? 'Sign & Complete' : 'Mark Complete'"
+          :loading="completing"
+          @cancel="close"
+          @submit="handleCompleteSubmit"
+        />
       </template>
     </BaseDialog>
 
@@ -333,10 +337,14 @@ function getStatusLabel(statusId) {
       </p>
       <BaseTextarea v-model="cancelReason" :rows="3" placeholder="Reason (optional)" />
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="cancelling" @click="close">Back</BaseButton>
-        <BaseButton variant="danger" :loading="cancelling" @click="handleCancelStep">
-          Cancel Sub-task
-        </BaseButton>
+        <BaseDialogFooter
+          cancelLabel="Back"
+          submitLabel="Cancel Sub-task"
+          submitVariant="danger"
+          :loading="cancelling"
+          @cancel="close"
+          @submit="handleCancelStep"
+        />
       </template>
     </BaseDialog>
   </div>

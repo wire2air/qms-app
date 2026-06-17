@@ -104,7 +104,7 @@ const typeConfig = {
       :class="[
         'tw:shrink-0 tw:p-0.5 tw:rounded-md tw:transition-colors tw:cursor-pointer',
         typeConfig[type]?.icon_color || typeConfig.info.icon_color,
-        'hover:tw:bg-black/5',
+        'tw:hover:bg-black/5',
       ]"
       @click="emit('dismiss', id)"
     >

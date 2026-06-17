@@ -461,9 +461,7 @@ function activityLabel(statusId) {
       v-if="activity.length"
       class="tw:flex tw:flex-col tw:gap-2 tw:mb-4 tw:pb-4 tw:border-b tw:border-divider"
     >
-      <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">
-        Activity
-      </p>
+      <BaseText variant="overline">Activity</BaseText>
       <div v-for="row in activity" :key="row.id" class="tw:flex tw:items-start tw:gap-2">
         <UserBadgeById v-if="row.who" :userId="row.who" />
         <div class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:min-w-0">
@@ -519,27 +517,24 @@ function activityLabel(statusId) {
             downstream steps stay where they are. Use this when the step is no longer needed.
           </div>
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Reason (optional)
-          </p>
+        <BaseField v-slot="{ id: fieldId }" label="Reason" optional>
           <BaseTextarea
+            :id="fieldId"
             v-model="cancelReason"
             :rows="3"
             placeholder="Why is this step being cancelled?"
           />
-        </div>
+        </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="cancelling" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="danger"
+        <BaseDialogFooter
+          submitLabel="Cancel Step"
+          submitVariant="danger"
           :loading="cancelling"
           :disabled="cancelling"
-          @click="handleCancelStep"
-        >
-          Cancel Step
-        </BaseButton>
+          @cancel="close"
+          @submit="handleCancelStep"
+        />
       </template>
     </BaseDialog>
 
@@ -556,27 +551,23 @@ function activityLabel(statusId) {
             log.
           </div>
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Feedback / Reason
-          </p>
+        <BaseField v-slot="{ id: fieldId }" label="Feedback / Reason">
           <BaseTextarea
+            :id="fieldId"
             v-model="reopenReason"
             :rows="3"
             placeholder="What needs to be revised on this step?"
           />
-        </div>
+        </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="reopening" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Reopen Step"
           :loading="reopening"
           :disabled="!reopenReason.trim() || reopening"
-          @click="handleReopen"
-        >
-          Reopen Step
-        </BaseButton>
+          @cancel="close"
+          @submit="handleReopen"
+        />
       </template>
     </BaseDialog>
   </div>

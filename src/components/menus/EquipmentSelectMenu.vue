@@ -12,7 +12,7 @@
 const props = defineProps({
   required: { type: Boolean, default: false },
   multiple: { type: Boolean, default: false },
-  nullLabel: { type: String, default: 'All' },
+  nullLabel: { type: String, default: '— All equipment —' },
   includeRetired: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
 })
@@ -66,7 +66,7 @@ function getArray() {
             />
           </div>
           <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select equipment
+            — All equipment —
           </span>
         </template>
         <template v-else>
@@ -78,7 +78,7 @@ function getArray() {
             @clear="() => scope.clear(modelValue)"
           />
           <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select equipment
+            — All equipment —
           </span>
         </template>
       </slot>

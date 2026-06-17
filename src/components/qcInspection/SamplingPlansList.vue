@@ -237,9 +237,9 @@ async function createNewVersion(plan) {
               <div class="tw:flex tw:flex-col tw:gap-4">
                 <!-- AQL table (STANDARD plans) -->
                 <div v-if="p.planType === 'STANDARD' && p.severityAqls?.length">
-                  <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold tw:mb-2">
+                  <BaseText variant="overline" class="tw:block tw:mb-2">
                     AQL by Severity
-                  </div>
+                  </BaseText>
                   <div class="tw:flex tw:flex-wrap tw:gap-2">
                     <div
                       v-for="sa in p.severityAqls"
@@ -258,9 +258,9 @@ async function createNewVersion(plan) {
 
                 <!-- Custom table rows -->
                 <div v-if="p.planType === 'CUSTOM' && p.customPlanTable?.rows?.length">
-                  <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold tw:mb-2">
+                  <BaseText variant="overline" class="tw:block tw:mb-2">
                     Custom Plan Table
-                  </div>
+                  </BaseText>
                   <table
                     class="tw:text-xs tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden"
                   >
@@ -311,9 +311,9 @@ async function createNewVersion(plan) {
 
                 <!-- Version history (predecessors via parentPlanId chain) -->
                 <div v-if="getPredecessors(p).length">
-                  <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold tw:mb-2">
+                  <BaseText variant="overline" class="tw:block tw:mb-2">
                     Version History
-                  </div>
+                  </BaseText>
                   <div class="tw:flex tw:flex-col tw:gap-1">
                     <div
                       v-for="prev in getPredecessors(p)"

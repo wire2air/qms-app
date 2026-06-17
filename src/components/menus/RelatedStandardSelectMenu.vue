@@ -32,6 +32,7 @@ function getArray() {
   <BaseSelectMenu
     v-model="modelValue"
     :items="relatedStandards"
+    nullLabel="— All standards —"
     :required="required"
     :multiple="multiple"
   >

@@ -141,30 +141,22 @@ async function handleSubmit() {
   <div class="tw:contents">
     <BaseDialog v-model="isOpen" title="Add Implementation Sub-task" maxWidth="2xl">
       <div class="tw:flex tw:flex-col tw:gap-4">
-        <div>
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-            Sub-task name <span class="tw:text-red-500">*</span>
-          </label>
+        <BaseField v-slot="{ id: fieldId }" label="Sub-task name" required>
           <BaseTextInput
+            :id="fieldId"
             v-model="form.name"
             placeholder="e.g. Update SOP-001, Assign training, Notify supplier"
           />
-        </div>
-        <div>
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-            Instructions
-          </label>
+        </BaseField>
+        <BaseField label="Instructions">
           <div class="dialog-description-editor">
             <BaseRichTextEditor
               v-model="form.description"
               placeholder="What does the assignee need to do?"
             />
           </div>
-        </div>
-        <div>
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-            SLA: Due in (days)
-          </label>
+        </BaseField>
+        <BaseField label="SLA: Due in (days)">
           <div class="tw:flex tw:items-center tw:gap-2">
             <BaseTextInput
               v-model.number="form.slaDays"
@@ -177,7 +169,7 @@ async function handleSubmit() {
               Business days from activation
             </span>
           </div>
-        </div>
+        </BaseField>
         <div class="tw:flex tw:justify-between tw:gap-6">
           <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
             <BaseSwitch v-model="form.requireComments" />
@@ -188,21 +180,15 @@ async function handleSubmit() {
             <span class="tw:text-xs tw:font-semibold tw:text-on-main">Require E-signature</span>
           </label>
         </div>
-        <div>
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-            Assignee <span class="tw:text-red-500">*</span>
-          </label>
+        <BaseField label="Assignee" required>
           <UserSelectMenu
             v-model="form.assigneeUserId"
             :required="true"
             :roleIdsFilter="inheritedRoleIds"
           />
-        </div>
+        </BaseField>
 
-        <div>
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-            Form
-          </label>
+        <BaseField label="Form">
           <div
             v-if="!hasFormSchema"
             class="tw:border tw:border-dashed tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:flex-col tw:gap-3"
@@ -246,18 +232,17 @@ async function handleSubmit() {
               <DynamicForm :fields="form.formSchema" :modelValue="{}" readonly />
             </div>
           </div>
-        </div>
+        </BaseField>
       </div>
 
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="submitting" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :disabled="!form.name || !form.assigneeUserId || submitting"
-          @click="handleSubmit"
-        >
-          {{ submitting ? 'Adding…' : 'Add Sub-task' }}
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Add Sub-task"
+          :loading="submitting"
+          :disabled="!form.name || !form.assigneeUserId"
+          @cancel="close"
+          @submit="handleSubmit"
+        />
       </template>
     </BaseDialog>
 

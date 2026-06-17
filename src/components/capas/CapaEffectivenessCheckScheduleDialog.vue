@@ -50,23 +50,19 @@ async function handleSubmit() {
         Pick the date the CAPA owner should be reminded to verify the corrective and preventive
         actions are still effective.
       </p>
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">
-          Due date <span class="tw:text-red-500">*</span>
-        </label>
+      <BaseField label="Due date" required>
         <BaseDatePicker v-model="dueAt" />
-      </div>
+      </BaseField>
     </div>
 
     <template #footer>
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="outline" :disabled="saving" @click="isOpen = false">
-          Cancel
-        </BaseButton>
-        <BaseButton variant="primary" :disabled="!dueAt || saving" @click="handleSubmit">
-          {{ saving ? 'Scheduling…' : 'Schedule' }}
-        </BaseButton>
-      </div>
+      <BaseDialogFooter
+        submitLabel="Schedule"
+        :loading="saving"
+        :disabled="!dueAt"
+        @cancel="isOpen = false"
+        @submit="handleSubmit"
+      />
     </template>
   </BaseDialog>
 </template>

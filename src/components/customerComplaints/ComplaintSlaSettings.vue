@@ -90,17 +90,19 @@ const FIELDS = [
   <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:max-w-2xl">
     <div class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
       <IconClockHour4 :size="18" class="tw:text-primary" />
-      <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-        SLA &amp; Lifecycle
-      </div>
+      <BaseText variant="overline">SLA &amp; Lifecycle</BaseText>
     </div>
 
     <div class="tw:flex tw:flex-col tw:gap-4">
-      <div v-for="field in FIELDS" :key="field.key" class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium">{{ field.label }}</label>
-        <BaseTextInput v-model="draft[field.key]" type="number" class="tw:w-32" />
-        <p class="tw:text-xs tw:text-secondary">{{ field.hint }}</p>
-      </div>
+      <BaseField
+        v-for="field in FIELDS"
+        :key="field.key"
+        v-slot="{ id: fieldId }"
+        :label="field.label"
+        :hint="field.hint"
+      >
+        <BaseTextInput :id="fieldId" v-model="draft[field.key]" type="number" class="tw:w-32" />
+      </BaseField>
 
       <div class="tw:flex tw:justify-end tw:pt-2 tw:border-t tw:border-divider">
         <BaseButton variant="primary" :disabled="saving || !company" @click="handleSave">

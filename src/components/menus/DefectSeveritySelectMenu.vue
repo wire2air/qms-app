@@ -20,6 +20,7 @@ function getArray() {
   <BaseSelectMenu
     v-model="modelValue"
     :items="SEVERITIES"
+    nullLabel="— All severities —"
     :required="required"
     :multiple="multiple"
     :hideNullOption="required"

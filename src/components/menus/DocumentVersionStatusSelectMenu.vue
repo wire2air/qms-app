@@ -31,7 +31,13 @@ function getStatus(id) {
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="statuses" :required="required" :multiple="multiple">
+  <BaseSelectMenu
+    v-model="modelValue"
+    :items="statuses"
+    nullLabel="— All statuses —"
+    :required="required"
+    :multiple="multiple"
+  >
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <!-- MULTIPLE MODE -->

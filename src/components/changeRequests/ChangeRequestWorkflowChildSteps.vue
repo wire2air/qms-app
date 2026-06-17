@@ -59,7 +59,7 @@ function openAdd() {
 <template>
   <div class="tw:mt-4 tw:flex tw:flex-col tw:gap-2">
     <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-      <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+      <BaseText variant="overline">
         Sub-tasks
         <span
           v-if="childSteps.length"
@@ -67,7 +67,7 @@ function openAdd() {
         >
           {{ childSteps.length }}
         </span>
-      </div>
+      </BaseText>
       <BaseButton v-if="canAddSubTask" variant="outline" size="sm" @click="openAdd">
         <template #icon><IconPlus :size="14" /></template>
         Add Sub-task

@@ -132,6 +132,10 @@
 @layer base {
   :root,
   .light {
+    /* Render native controls (date/time inputs + their picker, selects,
+     * scrollbars) in the matching scheme. Without this the browser paints
+     * native UI light even in dark mode (e.g. a near-invisible date picker). */
+    color-scheme: light;
     /* Main */
     --main: #f6f7f8;
     --on-main: #111418;
@@ -184,6 +188,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     /* Main */
     --main: #101822;
     --on-main: #ffffff;

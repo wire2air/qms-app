@@ -105,9 +105,7 @@ async function handleDelete(response) {
     >
       <div class="tw:flex tw:items-center tw:gap-2">
         <IconMessage2 :size="18" class="tw:text-primary" />
-        <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-          Canned Responses
-        </div>
+        <BaseText variant="overline">Canned Responses</BaseText>
       </div>
       <BaseButton variant="primary" size="sm" @click="onCreate">
         <IconPlus :size="16" class="tw:mr-1" />
@@ -151,26 +149,22 @@ async function handleDelete(response) {
       maxWidth="lg"
     >
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">
-            Name <span class="tw:text-red-500">*</span>
-          </label>
-          <BaseTextInput v-model="draft.name" placeholder="e.g. Refund Response" />
-        </div>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">
-            Content <span class="tw:text-red-500">*</span>
-          </label>
+        <BaseField v-slot="{ id: fieldId }" label="Name" required>
+          <BaseTextInput :id="fieldId" v-model="draft.name" placeholder="e.g. Refund Response" />
+        </BaseField>
+        <BaseField label="Content" required>
           <div class="canned-editor">
             <BaseRichTextEditor v-model="draft.bodyHtml" :placeholder="editorPlaceholder" />
           </div>
-        </div>
+        </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :disabled="saving" @click="handleSave">
-          {{ saving ? 'Saving…' : 'Save' }}
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Save"
+          :loading="saving"
+          @cancel="close"
+          @submit="handleSave"
+        />
       </template>
     </BaseDialog>
   </div>

@@ -504,11 +504,7 @@ function onCreateLinkedChangeRequest() {
               <div
                 class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                <div
-                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-                >
-                  NC Details
-                </div>
+                <BaseText variant="overline">NC Details</BaseText>
                 <!-- At-a-glance indicator of which assignee pool the
                      workflow draws from. Always visible (not just on
                      the DRAFT preview), so you can spot a mislabeled
@@ -610,11 +606,9 @@ function onCreateLinkedChangeRequest() {
 
               <!-- Immediate containment action -->
               <div class="tw:flex tw:flex-col tw:gap-1 tw:mt-4">
-                <label
-                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-                >
+                <BaseText variant="overline" class="tw:block">
                   Immediate containment action
-                </label>
+                </BaseText>
                 <BaseRichTextField
                   v-model="nc.immediateContainmentAction"
                   :editable="isEditable"
@@ -646,22 +640,19 @@ function onCreateLinkedChangeRequest() {
 
             <!-- Disposition card -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
                 Disposition
-              </div>
+              </BaseText>
 
               <template v-if="isEditable">
                 <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-                  <div class="tw:flex tw:flex-col tw:gap-1">
-                    <label class="tw:text-sm tw:font-medium tw:text-secondary"> Disposition </label>
+                  <BaseField label="Disposition">
                     <NcDispositionTypeSelectMenu v-model="nc.dispositionTypeId" :required="false" />
-                  </div>
-                  <div class="tw:flex tw:flex-col tw:gap-1">
-                    <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                      CAPA required?
-                    </label>
+                  </BaseField>
+                  <BaseField label="CAPA required?">
                     <div class="tw:flex tw:gap-2">
                       <BaseButton
                         class="tw:flex-1 tw:justify-center"
@@ -676,7 +667,7 @@ function onCreateLinkedChangeRequest() {
                         >No</BaseButton
                       >
                     </div>
-                  </div>
+                  </BaseField>
                   <!-- Cost of NC — disposition-driven. Shows + becomes
                        required only when the picked disposition has
                        tracks_cost=true (Scrap / Rework / RTS / Regrade). -->
@@ -742,16 +733,14 @@ function onCreateLinkedChangeRequest() {
                   </div>
                 </div>
 
-                <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
-                  <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                    Disposition notes
-                  </label>
+                <BaseField v-slot="{ id: fieldId }" label="Disposition notes" class="tw:col-span-2">
                   <BaseTextarea
+                    :id="fieldId"
                     v-model="nc.dispositionNotes"
                     placeholder="Justify your disposition decision and CAPA choice…"
                     :rows="3"
                   />
-                </div>
+                </BaseField>
               </template>
 
               <template v-else>
@@ -816,11 +805,7 @@ function onCreateLinkedChangeRequest() {
               <div
                 class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                <div
-                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-                >
-                  Linked CAPAs
-                </div>
+                <BaseText variant="overline">Linked CAPAs</BaseText>
                 <div class="tw:flex tw:gap-2">
                   <BaseButton
                     v-if="canCreateChangeRequest"
@@ -886,11 +871,12 @@ function onCreateLinkedChangeRequest() {
                  Severity / Detected are NOT duplicated here — they live
                  in the main grid alongside Type + Source. -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
               >
                 Overview
-              </div>
+              </BaseText>
 
               <!-- Identification -->
               <div class="tw:flex tw:flex-col">
@@ -1192,11 +1178,12 @@ function onCreateLinkedChangeRequest() {
               v-if="nc.workflowVersionId || workflowInstance"
               class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4"
             >
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
               >
                 NC workflow
-              </div>
+              </BaseText>
 
               <!-- Active workflow instance -->
               <div v-if="workflowInstance">
@@ -1285,15 +1272,12 @@ function onCreateLinkedChangeRequest() {
         <p v-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</p>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="completing" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Sign & Close"
           :loading="completing"
-          :disabled="completing"
-          @click="handleMarkCompleteClick"
-        >
-          Sign &amp; Close
-        </BaseButton>
+          @cancel="close"
+          @submit="handleMarkCompleteClick"
+        />
       </template>
     </BaseDialog>
 
@@ -1325,15 +1309,12 @@ function onCreateLinkedChangeRequest() {
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Open NC"
           :loading="saving"
-          :disabled="saving"
-          @click="handleSubmitForReview"
-        >
-          Open NC
-        </BaseButton>
+          @cancel="close"
+          @submit="handleSubmitForReview"
+        />
       </template>
     </BaseDialog>
 
@@ -1383,15 +1364,13 @@ function onCreateLinkedChangeRequest() {
           <li>Final approval steps remain internal.</li>
           <li>The NC stays open; nothing restarts.</li>
         </ul>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
-            Supplier <span class="tw:text-bad">*</span>
-          </label>
+        <BaseField
+          label="Supplier"
+          required
+          hint="The supplier needs at least one active portal user."
+        >
           <SupplierSelectMenu v-model="convertSupplierId" class="tw:w-full" />
-          <p class="tw:text-xs tw:text-secondary tw:mt-1">
-            The supplier needs at least one active portal user.
-          </p>
-        </div>
+        </BaseField>
       </div>
       <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-4 tw:mt-2 tw:border-t tw:border-divider">
         <BaseButton variant="outline" :disabled="converting" @click="showConvertDialog = false">

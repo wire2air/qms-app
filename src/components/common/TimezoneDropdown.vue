@@ -33,8 +33,7 @@ const timezoneItems = computed(() => {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-1">
-    <label v-if="props.label" class="tw:text-sm tw:font-medium">{{ props.label }}</label>
+  <BaseField :label="props.label" :hint="props.hint">
     <BaseSelectMenu v-model="model" :items="timezoneItems" :required="true">
       <template #button>
         <BaseBadge v-if="model" class="tw:text-sm tw:text-on-sidebar tw:font-medium">
@@ -43,6 +42,5 @@ const timezoneItems = computed(() => {
         <span v-else class="tw:text-sm tw:text-placeholder tw:font-medium"> Select Timezone </span>
       </template>
     </BaseSelectMenu>
-    <span v-if="props.hint" class="tw:text-xs tw:text-secondary">{{ props.hint }}</span>
-  </div>
+  </BaseField>
 </template>

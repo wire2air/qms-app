@@ -39,14 +39,18 @@ async function onClone() {
         Creates an editable copy of <strong>{{ sourceName }}</strong> for your company. The original
         standard stays unchanged; you can adjust the cloned sample sizes / accept-reject values.
       </p>
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Custom standard name <span class="tw:text-bad">*</span></label>
-        <BaseTextInput v-model="name" placeholder="e.g. Acme Tightened Z1.4" />
-      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Custom standard name" required>
+        <BaseTextInput :id="fieldId" v-model="name" placeholder="e.g. Acme Tightened Z1.4" />
+      </BaseField>
     </div>
-    <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
-      <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
-      <BaseButton :disabled="!name.trim() || saving" :loading="saving" @click="onClone">Clone</BaseButton>
-    </div>
+    <template #footer>
+      <BaseDialogFooter
+        submitLabel="Clone"
+        :loading="saving"
+        :disabled="!name.trim()"
+        @cancel="show = false"
+        @submit="onClone"
+      />
+    </template>
   </BaseDialog>
 </template>

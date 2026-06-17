@@ -94,9 +94,9 @@ async function handleConvert() {
     <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
       <!-- Which complaints feed the NC -->
       <div class="tw:flex tw:flex-col tw:gap-1">
-        <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+        <BaseText variant="overline">
           Converting {{ complaints.length }} complaint{{ complaints.length === 1 ? '' : 's' }}
-        </p>
+        </BaseText>
         <div class="tw:flex tw:flex-wrap tw:gap-1.5">
           <span
             v-for="c in complaints"
@@ -113,38 +113,22 @@ async function handleConvert() {
       </div>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">
-            NC title <span class="tw:text-red-500">*</span>
-          </label>
-          <BaseTextInput v-model="form.title" placeholder="Title for the new NC…" />
-        </div>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">
-            Site <span class="tw:text-red-500">*</span>
-          </label>
+        <BaseField v-slot="{ id: fieldId }" label="NC title" required class="tw:col-span-2">
+          <BaseTextInput :id="fieldId" v-model="form.title" placeholder="Title for the new NC…" />
+        </BaseField>
+        <BaseField label="Site" required>
           <SiteSelectMenu v-model="form.siteId" required />
-        </div>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">
-            Department <span class="tw:text-red-500">*</span>
-          </label>
+        </BaseField>
+        <BaseField label="Department" required>
           <DepartmentSelectMenu v-model="form.departmentId" :siteId="form.siteId" required />
-        </div>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">NC Type</label>
+        </BaseField>
+        <BaseField label="NC Type">
           <NcTypeSelectMenu v-model="form.typeId" required />
-        </div>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">
-            Owner <span class="tw:text-red-500">*</span>
-          </label>
+        </BaseField>
+        <BaseField label="Owner" required>
           <UserSelectMenu v-model="form.ownerId" required />
-        </div>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">
-            Severity <span class="tw:text-red-500">*</span>
-          </label>
+        </BaseField>
+        <BaseField label="Severity" required>
           <div class="tw:flex tw:gap-2">
             <BaseButton
               v-for="sev in ['MINOR', 'MAJOR', 'CRITICAL']"
@@ -156,31 +140,27 @@ async function handleConvert() {
               {{ sev.charAt(0) + sev.slice(1).toLowerCase() }}
             </BaseButton>
           </div>
-        </div>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">
-            Detected date <span class="tw:text-red-500">*</span>
-          </label>
+        </BaseField>
+        <BaseField label="Detected date" required>
           <BaseDatePicker v-model="form.detectedAt" />
-        </div>
+        </BaseField>
       </div>
 
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">
-          NC workflow <span class="tw:text-red-500">*</span>
-        </label>
+      <BaseField label="NC workflow" required>
         <WorkflowVersionSelect
           v-model="form.workflowVersionId"
           moduleId="NON_CONFORMANCE"
           dense
         />
-      </div>
+      </BaseField>
     </div>
     <template #footer="{ close }">
-      <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-      <BaseButton variant="primary" :disabled="saving" @click="handleConvert">
-        {{ saving ? 'Converting…' : 'Create NC' }}
-      </BaseButton>
+      <BaseDialogFooter
+        submitLabel="Create NC"
+        :loading="saving"
+        @cancel="close"
+        @submit="handleConvert"
+      />
     </template>
   </BaseDialog>
 </template>

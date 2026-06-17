@@ -1,13 +1,10 @@
 <script setup>
-import { micromark } from 'micromark'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { IconX } from '@tabler/icons-vue'
 
 // --- Props & models ---
 const props = defineProps({
-  modelValue: {
-    type: [String, Number],
-    default: '',
-  },
   label: {
     type: String,
     default: '',
@@ -27,6 +24,11 @@ const props = defineProps({
   name: {
     type: String,
     default: '',
+  },
+  // Control id — pair with a <label for> (e.g. BaseField provides this).
+  id: {
+    type: String,
+    default: undefined,
   },
   errorMsg: {
     type: String,
@@ -102,24 +104,32 @@ const props = defineProps({
 })
 
 // --- Emits ---
-const emit = defineEmits(['update:modelValue', 'blur', 'focus'])
+defineEmits(['blur', 'focus'])
+
+const model = defineModel({ type: [String, Number], default: '' })
 
 // --- Use ---
 const slots = useSlots()
 
 // --- Vars ---
 const inputEl = ref(null)
+// Stable id for label↔input pairing + aria wiring. Falls back to `name`, then
+// a generated id, so existing `label`+`name` usages get a working `for`/`id`.
+const generatedId = useId()
+const inputId = computed(() => props.id || props.name || generatedId)
+const errId = computed(() => `${inputId.value}-error`)
+
 // --- Handlers ---
 function focus() {
   inputEl.value?.focus()
 }
 
 const showClearBtn = computed(() => {
-  return props.clearBtn && Boolean(props.modelValue)
+  return props.clearBtn && Boolean(model.value)
 })
 
 function clear() {
-  emit('update:modelValue', '')
+  model.value = ''
 }
 
 // --- Watchers & computed ---
@@ -147,6 +157,15 @@ const cssClass = computed(() => {
 
   if (props.inputClass) c += ' ' + props.inputClass
   return c
+})
+
+// Render the optional markdown `instructions` to sanitized HTML (links open in
+// a new tab). marked + DOMPurify (project deps) — replaces the micromark dep
+// and closes the unsanitized-v-html XSS gap.
+const renderedInstructions = computed(() => {
+  if (!props.instructions) return ''
+  const html = DOMPurify.sanitize(marked.parse(props.instructions, { async: false }))
+  return html.replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" ')
 })
 
 // --- Lifecycle hooks & related ---
@@ -177,7 +196,7 @@ defineExpose({
           'tw:mr-2': labelLeft,
           'tw:ml-2': labelRight,
         }"
-        :for="name"
+        :for="inputId"
       >
         <slot name="label">
           {{ label }}
@@ -191,7 +210,7 @@ defineExpose({
           'tw:text-14 tw:mb-4': size === 'md',
           'tw:text-12': size === 'sm',
         }"
-        v-html="micromark(instructions).replace('href=', 'target=\'_blank\' href=')"
+        v-html="renderedInstructions"
       />
     </div>
     <div class="tw:relative tw:w-full">
@@ -203,13 +222,16 @@ defineExpose({
         <slot name="icon" />
       </div>
       <input
+        :id="inputId"
         ref="inputEl"
         :class="cssClass"
         :name="name"
-        :value="modelValue"
+        :value="model"
         :placeholder="placeholder"
         :disabled="disabled"
         :aria-disabled="disabled"
+        :aria-invalid="errorMsg ? 'true' : undefined"
+        :aria-describedby="errorMsg ? errId : undefined"
         :type="type"
         :required="required"
         :min="min"
@@ -218,7 +240,7 @@ defineExpose({
         :pattern="pattern"
         dir="auto"
         autocomplete="off"
-        @input="$emit('update:modelValue', $event.target.value)"
+        @input="model = $event.target.value"
         @blur="$emit('blur', $event)"
         @focus="$emit('focus', $event)"
       />
@@ -232,6 +254,6 @@ defineExpose({
       </BaseButton>
     </div>
 
-    <p v-if="errorMsg" class="tw:text-14 tw:mt-2 tw:text-red">{{ errorMsg }}</p>
+    <BaseErrorText v-if="errorMsg" :id="errId" class="tw:mt-2">{{ errorMsg }}</BaseErrorText>
   </div>
 </template>

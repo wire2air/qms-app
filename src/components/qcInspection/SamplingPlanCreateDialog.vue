@@ -217,24 +217,19 @@ async function onSave() {
     <div class="tw:p-5 tw:flex tw:flex-col tw:gap-5">
       <!-- ── Basic info ───────────────────────────────────────────────── -->
       <div class="tw:flex tw:flex-col tw:gap-3">
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1"
-            >Plan name <span class="tw:text-bad">*</span></label
-          >
-          <BaseTextInput v-model="form.name" placeholder="e.g. Finished Goods AQL 2.5" />
-        </div>
+        <BaseField v-slot="{ id: fieldId }" label="Plan name" required>
+          <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. Finished Goods AQL 2.5" />
+        </BaseField>
         <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
-          <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection point</label>
+          <BaseField label="Inspection point">
             <BaseInlineSelect
               v-model="form.inspectionPoint"
               :items="POINTS"
               :required="true"
               class="tw:w-full"
             />
-          </div>
-          <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Scope</label>
+          </BaseField>
+          <BaseField label="Scope">
             <BaseInlineSelect
               v-model="form.scope"
               :items="[
@@ -244,9 +239,8 @@ async function onSave() {
               :required="true"
               class="tw:w-full"
             />
-          </div>
-          <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Plan type</label>
+          </BaseField>
+          <BaseField label="Plan type">
             <BaseInlineSelect
               v-model="form.planType"
               :items="[
@@ -256,20 +250,19 @@ async function onSave() {
               :required="true"
               class="tw:w-full"
             />
-          </div>
+          </BaseField>
         </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
+        <BaseField required>
+          <template #label>
             {{ form.scope === 'product' ? 'Product' : 'Product type' }}
-            <span class="tw:text-bad">*</span>
-          </label>
+          </template>
           <ProductSelectMenu
             v-if="form.scope === 'product'"
             v-model="form.productId"
             class="tw:w-full"
           />
           <ProductTypeSelectMenu v-else v-model="form.productTypeId" class="tw:w-full" />
-        </div>
+        </BaseField>
       </div>
 
       <hr class="tw:border-divider" />
@@ -278,7 +271,7 @@ async function onSave() {
            severity, no AQL standard lookup. ─────────────────────────────── -->
       <div v-if="form.planType === 'CUSTOM'" class="tw:flex tw:flex-col tw:gap-3">
         <div class="tw:flex tw:items-center tw:justify-between">
-          <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">Custom plan table</p>
+          <BaseText variant="overline">Custom plan table</BaseText>
           <BaseButton variant="text-link" size="sm" @click="addCustomRow">
             <IconPlus :size="14" /> Add row
           </BaseButton>
@@ -293,22 +286,18 @@ async function onSave() {
             :key="i"
             class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
           >
-            <div class="tw:flex-1">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Severity label</label>
-              <BaseTextInput v-model="row.severityLabel" size="sm" placeholder="e.g. NORMAL, CRITICAL" />
-            </div>
-            <div class="tw:w-28">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Sample size</label>
-              <BaseTextInput v-model.number="row.sampleSize" type="number" size="sm" />
-            </div>
-            <div class="tw:w-24">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Accept ≤</label>
-              <BaseTextInput v-model.number="row.accept" type="number" size="sm" />
-            </div>
-            <div class="tw:w-24">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Reject ≥</label>
-              <BaseTextInput v-model.number="row.reject" type="number" size="sm" />
-            </div>
+            <BaseField v-slot="{ id: fieldId }" label="Severity label" class="tw:flex-1">
+              <BaseTextInput :id="fieldId" v-model="row.severityLabel" size="sm" placeholder="e.g. NORMAL, CRITICAL" />
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="Sample size" class="tw:w-28">
+              <BaseTextInput :id="fieldId" v-model.number="row.sampleSize" type="number" size="sm" />
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="Accept ≤" class="tw:w-24">
+              <BaseTextInput :id="fieldId" v-model.number="row.accept" type="number" size="sm" />
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="Reject ≥" class="tw:w-24">
+              <BaseTextInput :id="fieldId" v-model.number="row.reject" type="number" size="sm" />
+            </BaseField>
             <button
               type="button"
               class="tw:p-1.5 tw:mt-4 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
@@ -322,12 +311,9 @@ async function onSave() {
 
       <!-- ── Sampling configuration (STANDARD) ─────────────────────────── -->
       <div v-if="form.planType === 'STANDARD'" class="tw:flex tw:flex-col tw:gap-3">
-        <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">Sampling configuration</p>
+        <BaseText variant="overline">Sampling configuration</BaseText>
         <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-          <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1"
-              >AQL standard <span class="tw:text-bad">*</span></label
-            >
+          <BaseField label="AQL standard" required>
             <BaseInlineSelect
               v-model="form.standardCode"
               :items="standardItems"
@@ -335,20 +321,18 @@ async function onSave() {
               placeholder="Select standard…"
               class="tw:w-full"
             />
-          </div>
-          <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection level</label>
+          </BaseField>
+          <BaseField label="Inspection level">
             <BaseInlineSelect
               v-model="form.inspectionLevel"
               :items="LEVELS"
               :required="true"
               class="tw:w-full"
             />
-          </div>
-          <div>
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Switching state</label>
+          </BaseField>
+          <BaseField label="Switching state">
             <BaseInlineSelect v-model="form.switchingState" :items="SWITCHING_STATES" :required="true" class="tw:w-full" />
-          </div>
+          </BaseField>
         </div>
 
         <div>
@@ -368,14 +352,12 @@ async function onSave() {
               :key="i"
               class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
             >
-              <div class="tw:flex-1">
-                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Defect class</label>
+              <BaseField label="Defect class" class="tw:flex-1">
                 <BaseInlineSelect v-model="row.severity" :items="DEFECT_CLASSES" :required="true" class="tw:w-full" />
-              </div>
-              <div class="tw:w-36">
-                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">AQL %</label>
+              </BaseField>
+              <BaseField label="AQL %" class="tw:w-36">
                 <BaseInlineSelect v-model="row.aql" :items="AQL_OPTIONS" :required="true" class="tw:w-full" />
-              </div>
+              </BaseField>
               <button
                 type="button"
                 class="tw:p-1.5 tw:mt-4 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
@@ -392,17 +374,17 @@ async function onSave() {
 
       <!-- ── Live preview (STANDARD only — custom tables ARE the plan) ──── -->
       <div v-if="form.planType === 'STANDARD'">
-        <p class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-3">Sample-size preview</p>
+        <BaseText variant="overline" class="tw:block tw:mb-3">Sample-size preview</BaseText>
         <div class="tw:flex tw:items-end tw:gap-3">
-          <div class="tw:w-40">
-            <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Lot size</label>
+          <BaseField v-slot="{ id: fieldId }" label="Lot size" class="tw:w-40">
             <BaseTextInput
+              :id="fieldId"
               v-model.number="form.previewLotSize"
               type="number"
               size="sm"
               placeholder="e.g. 1000"
             />
-          </div>
+          </BaseField>
           <BaseButton
             variant="outline"
             size="sm"
@@ -432,11 +414,14 @@ async function onSave() {
       </div>
     </div>
 
-    <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
-      <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
-      <BaseButton :disabled="!canSubmit || saving" :loading="saving" @click="onSave">
-        {{ isEdit ? 'Save changes' : 'Create draft' }}
-      </BaseButton>
-    </div>
+    <template #footer>
+      <BaseDialogFooter
+        :submitLabel="isEdit ? 'Save changes' : 'Create draft'"
+        :loading="saving"
+        :disabled="!canSubmit"
+        @cancel="show = false"
+        @submit="onSave"
+      />
+    </template>
   </BaseDialog>
 </template>

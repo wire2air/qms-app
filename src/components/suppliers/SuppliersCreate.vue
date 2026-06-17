@@ -336,24 +336,19 @@ function goBack() {
                 <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Basic Information</h2>
               </div>
               <div class="tw:p-6 tw:flex tw:flex-col tw:gap-4">
-                <div>
-                  <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
-                    Supplier Name <span class="tw:text-bad">*</span>
-                  </label>
+                <BaseField v-slot="{ id: fieldId }" label="Supplier Name" required>
                   <BaseTextInput
+                    :id="fieldId"
                     v-model="form.name"
                     placeholder="e.g. Global Logistics Corp"
                     @blur="onNameBlur"
                   />
                   <p v-if="nameError" class="tw:text-xs tw:text-bad tw:mt-1">{{ nameError }}</p>
-                </div>
+                </BaseField>
 
-                <div>
-                  <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
-                    Supplier Code <span class="tw:text-bad">*</span>
-                  </label>
+                <BaseField v-slot="{ id: fieldId }" label="Supplier Code" required>
                   <div class="tw:relative">
-                    <BaseTextInput v-model="form.code" placeholder="e.g. SUP-2024-001" />
+                    <BaseTextInput :id="fieldId" v-model="form.code" placeholder="e.g. SUP-2024-001" />
                     <BaseSpinner
                       v-if="isChecking"
                       size="sm"
@@ -364,17 +359,14 @@ function goBack() {
                   <p v-else-if="isAvailable === true" class="tw:text-xs tw:text-green-600 tw:mt-1">
                     Code available
                   </p>
-                </div>
+                </BaseField>
 
-                <div>
-                  <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
-                    Category <span class="tw:text-bad">*</span>
-                  </label>
+                <BaseField label="Category" required>
                   <SupplierCategorySelectMenu v-model="form.category" :required="true" />
                   <p v-if="categoryError" class="tw:text-xs tw:text-bad tw:mt-1">
                     {{ categoryError }}
                   </p>
-                </div>
+                </BaseField>
               </div>
             </div>
 
@@ -388,11 +380,7 @@ function goBack() {
               </div>
               <div class="tw:p-6 tw:flex tw:flex-col tw:gap-4">
                 <div v-if="form.contacts.length > 0" class="tw:space-y-3">
-                  <div
-                    class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary tw:tracking-wide"
-                  >
-                    Contacts
-                  </div>
+                  <BaseText variant="overline">Contacts</BaseText>
                   <div
                     v-for="(contact, index) in form.contacts"
                     :key="index"
@@ -436,29 +424,24 @@ function goBack() {
               <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Registered Address</h2>
             </div>
             <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-4">
-              <div class="tw:md:col-span-2">
-                <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Street Address</label>
-                <BaseTextInput v-model="form.streetAddress" placeholder="123 Industrial Parkway" />
-              </div>
-              <div>
-                <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">City</label>
-                <BaseTextInput v-model="form.city" placeholder="New York" />
-              </div>
-              <div>
-                <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">State/Province</label>
-                <BaseTextInput v-model="form.stateProvince" placeholder="NY" />
-              </div>
-              <div>
-                <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Zip/Postal Code</label>
-                <BaseTextInput v-model="form.zipPostalCode" placeholder="10001" />
-              </div>
-              <div>
-                <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Country</label>
-                <select v-model="form.country" class="tw:w-full">
+              <BaseField v-slot="{ id: fieldId }" label="Street Address" class="tw:md:col-span-2">
+                <BaseTextInput :id="fieldId" v-model="form.streetAddress" placeholder="123 Industrial Parkway" />
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="City">
+                <BaseTextInput :id="fieldId" v-model="form.city" placeholder="New York" />
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="State/Province">
+                <BaseTextInput :id="fieldId" v-model="form.stateProvince" placeholder="NY" />
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="Zip/Postal Code">
+                <BaseTextInput :id="fieldId" v-model="form.zipPostalCode" placeholder="10001" />
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="Country">
+                <select :id="fieldId" v-model="form.country" class="tw:w-full">
                   <option :value="null">-- Select country --</option>
                   <option v-for="opt in countryOptions" :key="opt" :value="opt">{{ opt }}</option>
                 </select>
-              </div>
+              </BaseField>
             </div>
           </div>
 
@@ -486,11 +469,7 @@ function goBack() {
                 <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Risk Assessment</h2>
               </div>
               <div class="tw:p-6">
-                <div
-                  class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary tw:tracking-wide tw:mb-3"
-                >
-                  Self-Declared Risk Level
-                </div>
+                <BaseText variant="overline" class="tw:block tw:mb-3">Self-Declared Risk Level</BaseText>
                 <SupplierRiskLevelSelectMenu v-model="form.riskLevel" />
               </div>
             </div>
@@ -507,8 +486,7 @@ function goBack() {
               </div>
               <div class="tw:p-6 tw:space-y-6">
                 <!-- Certificates -->
-                <div>
-                  <label class="tw:block tw:text-sm tw:font-medium tw:mb-2">Certificates</label>
+                <BaseField label="Certificates">
                   <div v-if="certificateFiles.length" class="tw:mb-2 tw:space-y-1">
                     <div
                       v-for="(file, i) in certificateFiles"
@@ -534,11 +512,10 @@ function goBack() {
                       @change="onCertificateChange"
                     />
                   </label>
-                </div>
+                </BaseField>
 
                 <!-- Licenses -->
-                <div>
-                  <label class="tw:block tw:text-sm tw:font-medium tw:mb-2">Licenses</label>
+                <BaseField label="Licenses">
                   <div v-if="licenseFiles.length" class="tw:mb-2 tw:space-y-1">
                     <div
                       v-for="(file, i) in licenseFiles"
@@ -564,7 +541,7 @@ function goBack() {
                       @change="onLicenseChange"
                     />
                   </label>
-                </div>
+                </BaseField>
               </div>
             </div>
           </div>

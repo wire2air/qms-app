@@ -527,17 +527,15 @@ watch(steps, () => {
 
       <!-- Global Settings -->
       <div class="tw:flex tw:flex-col tw:bg-main tw:border-b tw:border-divider tw:px-6 tw:py-4">
-        <div>
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-            Workflow Name
-          </label>
+        <BaseField v-slot="{ id: fieldId }" label="Workflow Name">
           <BaseTextInput
+            :id="fieldId"
             v-model="workflow.name"
             name="name"
             placeholder="e.g. Global SOP Multi-Stage Workflow"
             :disabled="!canUpdate"
           />
-        </div>
+        </BaseField>
 
         <BaseTextarea
           v-model="workflow.description"

@@ -42,20 +42,16 @@ const CHANGE_TYPES = [
     <section
       class="tw:bg-sidebar tw:rounded-2xl tw:shadow-sm tw:border tw:border-divider tw:p-6 tw:flex tw:flex-col tw:gap-6"
     >
-      <header class="tw:flex tw:items-start tw:gap-3">
-        <div
-          class="tw:flex tw:items-center tw:justify-center tw:w-10 tw:h-10 tw:rounded-lg tw:bg-primary/10 tw:text-primary"
-        >
-          <IconHistory :size="22" />
-        </div>
-        <div>
-          <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Change Control</h2>
-          <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-            Capture why this revision was made. Required for revisions after v1.0; optional on the
-            initial release.
-          </p>
-        </div>
-      </header>
+      <BaseSectionHeader
+        title="Change Control"
+        subtitle="Capture why this revision was made. Required for revisions after v1.0; optional on the initial release."
+        :icon="IconHistory"
+        iconVariant="boxed"
+        iconColor="primary"
+        :iconSize="22"
+        :level="2"
+        size="section-title"
+      />
 
       <div
         class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-blue-900 tw:text-xs"
@@ -68,34 +64,39 @@ const CHANGE_TYPES = [
       </div>
 
       <!-- Change reason -->
-      <div class="tw:flex tw:flex-col tw:gap-1.5">
-        <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">
+      <BaseField>
+        <template #label>
           Reason for change
           <span class="tw:text-xs tw:font-normal tw:text-secondary">(why this revision?)</span>
-        </label>
-        <BaseTextarea
-          v-model="form.changeReason"
-          :rows="2"
-          placeholder="e.g. Initial release. Replaces legacy procedure PROC-OLD-014."
-        />
-      </div>
+        </template>
+        <template #default="{ id: fieldId }">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="form.changeReason"
+            :rows="2"
+            placeholder="e.g. Initial release. Replaces legacy procedure PROC-OLD-014."
+          />
+        </template>
+      </BaseField>
 
       <!-- Description of change -->
-      <div class="tw:flex tw:flex-col tw:gap-1.5">
-        <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">
+      <BaseField>
+        <template #label>
           Description of change
           <span class="tw:text-xs tw:font-normal tw:text-secondary">(what changed?)</span>
-        </label>
-        <BaseTextarea
-          v-model="form.changeSummary"
-          :rows="3"
-          placeholder="Summarise the substantive changes a reviewer should focus on."
-        />
-      </div>
+        </template>
+        <template #default="{ id: fieldId }">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="form.changeSummary"
+            :rows="3"
+            placeholder="Summarise the substantive changes a reviewer should focus on."
+          />
+        </template>
+      </BaseField>
 
       <!-- Change type -->
-      <div class="tw:flex tw:flex-col tw:gap-2">
-        <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">Change type</label>
+      <BaseField label="Change type">
         <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-2">
           <button
             v-for="opt in CHANGE_TYPES"
@@ -113,7 +114,7 @@ const CHANGE_TYPES = [
             <span class="tw:text-xs tw:mt-1 tw:leading-snug">{{ opt.description }}</span>
           </button>
         </div>
-      </div>
+      </BaseField>
 
       <!-- Regulatory impact -->
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider">
@@ -134,17 +135,20 @@ const CHANGE_TYPES = [
           </div>
         </label>
 
-        <div v-if="form.regulatoryImpact" class="tw:flex tw:flex-col tw:gap-1.5">
-          <label class="tw:text-xs tw:font-medium tw:text-secondary">
-            Regulatory impact notes
-            <span class="tw:text-red-600">*</span>
-          </label>
+        <BaseField
+          v-if="form.regulatoryImpact"
+          v-slot="{ id: fieldId }"
+          label="Regulatory impact notes"
+          required
+          size="xs"
+        >
           <BaseTextarea
+            :id="fieldId"
             v-model="form.regulatoryImpactNotes"
             :rows="2"
             placeholder="Which standard / submission is affected? What changed?"
           />
-        </div>
+        </BaseField>
       </div>
     </section>
   </div>

@@ -190,7 +190,9 @@ async function onSubmit() {
         </template>
       </div>
 
-      <SiteSelectMenu v-model="form.siteId" :required="true" />
+      <BaseField label="Site" size="sm" :required="true">
+        <SiteSelectMenu v-model="form.siteId" :required="true" />
+      </BaseField>
 
       <div>
         <label class="tw:text-sm tw:font-medium tw:text-on-main tw:block tw:mb-1">Supervisor</label>
@@ -210,10 +212,12 @@ async function onSubmit() {
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" @click="open = false"> Cancel </BaseButton>
-      <BaseButton :disabled="isSubmitting" @click="onSubmit">
-        {{ isEdit ? 'Update Department' : 'Create Department' }}
-      </BaseButton>
+      <BaseDialogFooter
+        :submitLabel="isEdit ? 'Update Department' : 'Create Department'"
+        :loading="isSubmitting"
+        @cancel="open = false"
+        @submit="onSubmit"
+      />
     </template>
   </BaseDialog>
 </template>

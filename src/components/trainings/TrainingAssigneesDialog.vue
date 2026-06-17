@@ -155,16 +155,13 @@ function getUserDisplayName(user) {
       <div class="tw:p-6">
         <!-- Role Selector -->
         <div v-show="tab === 'roles'" class="tw:space-y-4">
-          <div>
-            <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-              Select Roles
-            </label>
-            <BaseTextInput v-model="roleSearch" placeholder="Search roles...">
+          <BaseField v-slot="{ id: fieldId }" label="Select Roles">
+            <BaseTextInput :id="fieldId" v-model="roleSearch" placeholder="Search roles...">
               <template #icon>
                 <IconSearch :size="18" class="tw:text-secondary" />
               </template>
             </BaseTextInput>
-          </div>
+          </BaseField>
 
           <div class="tw:max-h-48 tw:overflow-y-auto tw:space-y-1">
             <BaseClickableRow
@@ -207,16 +204,17 @@ function getUserDisplayName(user) {
 
         <!-- User Selector -->
         <div v-show="tab === 'users'" class="tw:space-y-4">
-          <div>
-            <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-              Select Users
-            </label>
-            <BaseTextInput v-model="userSearch" placeholder="Search users by name or email...">
+          <BaseField v-slot="{ id: fieldId }" label="Select Users">
+            <BaseTextInput
+              :id="fieldId"
+              v-model="userSearch"
+              placeholder="Search users by name or email..."
+            >
               <template #icon>
                 <IconSearch :size="18" class="tw:text-secondary" />
               </template>
             </BaseTextInput>
-          </div>
+          </BaseField>
 
           <div class="tw:max-h-48 tw:overflow-y-auto tw:space-y-1">
             <BaseClickableRow

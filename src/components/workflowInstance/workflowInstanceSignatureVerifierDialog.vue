@@ -95,10 +95,13 @@ const maskedEmail = computed(() => {
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
-      <BaseButton :isLoading="props.actionLoading" :disabled="!isComplete" @click="confirm">
-        Verify
-      </BaseButton>
+      <BaseDialogFooter
+        submitLabel="Verify"
+        :loading="props.actionLoading"
+        :disabled="!isComplete"
+        @cancel="show = false"
+        @submit="confirm"
+      />
     </template>
   </BaseDialog>
 </template>

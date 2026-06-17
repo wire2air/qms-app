@@ -136,53 +136,40 @@ async function onSave() {
       </div>
 
       <!-- Product on its own row — the select shows SKU + name and needs the width. -->
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Product <span class="tw:text-bad">*</span></label>
+      <BaseField label="Product" required>
         <ProductSelectMenu v-model="form.productId" class="tw:w-full" :disabled="identityLocked" nullLabel="— Select Product —" />
-      </div>
+      </BaseField>
 
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Inspection point</label>
+        <BaseField label="Inspection point">
           <BaseInlineSelect v-model="form.inspectionPoint" :items="POINTS" :required="true" :disabled="identityLocked" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Supplier</label>
+        </BaseField>
+        <BaseField label="Supplier">
           <SupplierSelectMenu v-model="form.supplierId" :disabled="identityLocked" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Default instrument</label>
+        </BaseField>
+        <BaseField label="Default instrument" hint="Used for tests that require an instrument unless a row picks its own. Calibration is checked at capture.">
           <EquipmentSelectMenu v-model="form.equipmentId" />
-          <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            Used for tests that require an instrument unless a row picks its own. Calibration is checked at capture.
-          </p>
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Lot quantity</label>
-          <BaseTextInput v-model.number="form.quantity" type="number" placeholder="for sample-size calc" :disabled="identityLocked" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Batch / Lot ref</label>
-          <BaseTextInput v-model="form.batchNumber" placeholder="optional" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">PO #</label>
-          <BaseTextInput v-model="form.poNumber" placeholder="optional" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Receipt #</label>
-          <BaseTextInput v-model="form.receiptNumber" placeholder="optional" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Work order</label>
-          <BaseTextInput v-model="form.workOrder" placeholder="optional" />
-        </div>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Lot quantity">
+          <BaseTextInput :id="fieldId" v-model.number="form.quantity" type="number" placeholder="for sample-size calc" :disabled="identityLocked" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Batch / Lot ref">
+          <BaseTextInput :id="fieldId" v-model="form.batchNumber" placeholder="optional" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="PO #">
+          <BaseTextInput :id="fieldId" v-model="form.poNumber" placeholder="optional" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Receipt #">
+          <BaseTextInput :id="fieldId" v-model="form.receiptNumber" placeholder="optional" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Work order">
+          <BaseTextInput :id="fieldId" v-model="form.workOrder" placeholder="optional" />
+        </BaseField>
       </div>
 
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Notes</label>
-        <BaseTextarea v-model="form.notes" :rows="2" placeholder="optional" />
-      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Notes">
+        <BaseTextarea :id="fieldId" v-model="form.notes" :rows="2" placeholder="optional" />
+      </BaseField>
 
       <!-- Email-only group notifications on disposition -->
       <div class="tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
@@ -192,14 +179,12 @@ async function onSave() {
         </div>
         <div class="tw:p-3 tw:flex tw:flex-col tw:gap-3">
           <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-            <div>
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Notify groups when PASSED</label>
+            <BaseField label="Notify groups when PASSED">
               <GroupSelectMenu v-model="form.notifyGroupIdsOnPass" multiple class="tw:w-full" />
-            </div>
-            <div>
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Notify groups when FAILED</label>
+            </BaseField>
+            <BaseField label="Notify groups when FAILED">
               <GroupSelectMenu v-model="form.notifyGroupIdsOnFail" multiple class="tw:w-full" />
-            </div>
+            </BaseField>
           </div>
           <p class="tw:text-xs tw:text-secondary">
             Email only — no tasks are created and no access is granted.
@@ -215,23 +200,24 @@ async function onSave() {
           <span class="tw:text-xs tw:text-secondary">— "Auto Resolve from Plan" uses the inspection plan's defaults</span>
         </div>
         <div class="tw:p-3 tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-          <div>
-            <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Specification</label>
+          <BaseField label="Specification">
             <SpecificationSelectMenu v-model="form.specificationId" :productId="form.productId" class="tw:w-full" />
-          </div>
-          <div>
-            <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Sampling Plan</label>
+          </BaseField>
+          <BaseField label="Sampling Plan">
             <SamplingPlanSelectMenu v-model="form.samplingPlanId" :productId="form.productId" :inspectionPoint="form.inspectionPoint" class="tw:w-full" />
-          </div>
+          </BaseField>
         </div>
       </div>
     </div>
 
-    <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
-      <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
-      <BaseButton :disabled="!canSubmit || saving" :loading="saving" @click="onSave">
-        {{ isEdit ? 'Save changes' : 'Create' }}
-      </BaseButton>
-    </div>
+    <template #footer>
+      <BaseDialogFooter
+        :submitLabel="isEdit ? 'Save changes' : 'Create'"
+        :loading="saving"
+        :disabled="!canSubmit"
+        @cancel="show = false"
+        @submit="onSave"
+      />
+    </template>
   </BaseDialog>
 </template>

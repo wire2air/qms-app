@@ -131,12 +131,9 @@ function resetForm() {
 
         <div class="tw:grid tw:grid-cols-2 tw:gap-4">
           <!-- Module -->
-          <div>
-            <label class="tw:block tw:text-xs tw:font-semibold tw:text-secondary tw:mb-1.5">
-              Module <span class="tw:text-bad">*</span>
-            </label>
+          <BaseField label="Module" required>
             <ModuleSelectMenu v-model="form.moduleId" required />
-          </div>
+          </BaseField>
         </div>
 
         <!-- Description -->
@@ -149,10 +146,13 @@ function resetForm() {
     </div>
 
     <template #footer="{ close }">
-      <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-      <BaseButton :isLoading="loading" :disabled="!isFormValid" @click="handleSubmit">
-        Create Workflow
-      </BaseButton>
+      <BaseDialogFooter
+        submitLabel="Create Workflow"
+        :loading="loading"
+        :disabled="!isFormValid"
+        @cancel="close"
+        @submit="handleSubmit"
+      />
     </template>
   </BaseDialog>
 </template>

@@ -73,17 +73,17 @@ onMounted(() => {
 
 <template>
   <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden tw:max-w-2xl">
-    <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-3">
-      <div class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-gray-100 tw:flex tw:items-center tw:justify-center">
-        <IconPlug :size="20" class="tw:text-secondary" />
-      </div>
-      <div>
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Adobe Acrobat Sign</h3>
-        <p class="tw:text-xs tw:text-secondary">
-          E-sign controlled documents through your own Adobe account.
-        </p>
-      </div>
-    </div>
+    <BaseSectionHeader
+      title="Adobe Acrobat Sign"
+      subtitle="E-sign controlled documents through your own Adobe account."
+      :icon="IconPlug"
+      iconVariant="boxed"
+      iconColor="gray"
+      :iconSize="20"
+      :level="3"
+      size="section-title"
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover"
+    />
 
     <div class="tw:p-6">
       <div v-if="loading" class="tw:text-sm tw:text-secondary">Loading…</div>

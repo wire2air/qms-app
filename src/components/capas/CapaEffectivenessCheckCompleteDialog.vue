@@ -75,10 +75,7 @@ async function handleSubmit() {
         Confirm the CAPA is working — the corrective and preventive actions are preventing the issue
         from recurring. This requires e-signature verification.
       </p>
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">
-          Outcome <span class="tw:text-red-500">*</span>
-        </label>
+      <BaseField label="Outcome" required>
         <div class="tw:flex tw:gap-3">
           <label class="tw:flex tw:items-center tw:gap-2">
             <input
@@ -99,32 +96,25 @@ async function handleSubmit() {
             <span class="tw:text-sm">Not Effective</span>
           </label>
         </div>
-      </div>
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">
-          Verification Notes <span class="tw:text-red-500">*</span>
-        </label>
+      </BaseField>
+      <BaseField v-slot="{ id: fieldId }" label="Verification Notes" required>
         <BaseTextarea
+          :id="fieldId"
           v-model="comments"
           placeholder="What did you verify? Any residual risks?"
           :rows="4"
         />
-      </div>
+      </BaseField>
     </div>
 
     <template #footer>
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="outline" :disabled="saving" @click="isOpen = false">
-          Cancel
-        </BaseButton>
-        <BaseButton
-          variant="primary"
-          :disabled="!outcome || !comments?.trim() || saving"
-          @click="handleSubmit"
-        >
-          {{ saving ? 'Completing…' : 'Mark Complete' }}
-        </BaseButton>
-      </div>
+      <BaseDialogFooter
+        submitLabel="Mark Complete"
+        :loading="saving"
+        :disabled="!outcome || !comments?.trim()"
+        @cancel="isOpen = false"
+        @submit="handleSubmit"
+      />
     </template>
   </BaseDialog>
 

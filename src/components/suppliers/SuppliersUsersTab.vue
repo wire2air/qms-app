@@ -108,7 +108,7 @@ async function cancelInvite(u) {
   <div class="tw:flex tw:flex-col tw:gap-3">
     <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:flex-wrap">
       <div>
-        <h3 class="tw:text-base tw:font-semibold tw:text-on-main">Supplier users</h3>
+        <BaseText as="h3" weight="semibold">Supplier users</BaseText>
         <p class="tw:text-xs tw:text-secondary">
           People at the supplier who can log in to the supplier dashboard, participate in document
           approvals, and act on CAPAs / NCs assigned to them. Distinct from Contacts (notification
@@ -185,31 +185,19 @@ async function cancelInvite(u) {
     <BaseDialog v-model="showInvite" title="Invite supplier user" size="md">
       <div class="tw:flex tw:flex-col tw:gap-3">
         <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              First name <span class="tw:text-bad">*</span>
-            </label>
-            <BaseTextInput v-model="invite.firstName" />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Last name
-            </label>
-            <BaseTextInput v-model="invite.lastName" />
-          </div>
+          <BaseField v-slot="{ id: fieldId }" label="First name" required>
+            <BaseTextInput :id="fieldId" v-model="invite.firstName" />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Last name">
+            <BaseTextInput :id="fieldId" v-model="invite.lastName" />
+          </BaseField>
         </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Email <span class="tw:text-bad">*</span>
-          </label>
-          <BaseTextInput v-model="invite.email" type="email" placeholder="user@supplier.example" />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Job title
-          </label>
-          <BaseTextInput v-model="invite.jobTitle" placeholder="Quality Manager, Sales Lead, …" />
-        </div>
+        <BaseField v-slot="{ id: fieldId }" label="Email" required>
+          <BaseTextInput :id="fieldId" v-model="invite.email" type="email" placeholder="user@supplier.example" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Job title">
+          <BaseTextInput :id="fieldId" v-model="invite.jobTitle" placeholder="Quality Manager, Sales Lead, …" />
+        </BaseField>
         <p class="tw:text-[11px] tw:text-secondary tw:italic">
           They'll get an invitation email to set their password. Role / data-access assignment lands
           in the next step — for now an invited user has read-only access only to records explicitly
@@ -217,12 +205,12 @@ async function cancelInvite(u) {
         </p>
       </div>
       <template #footer>
-        <div class="tw:flex tw:justify-end tw:gap-2">
-          <BaseButton variant="secondary" @click="showInvite = false">Cancel</BaseButton>
-          <BaseButton variant="primary" :loading="isInviting" @click="submitInvite">
-            Send invitation
-          </BaseButton>
-        </div>
+        <BaseDialogFooter
+          submitLabel="Send invitation"
+          :loading="isInviting"
+          @cancel="showInvite = false"
+          @submit="submitInvite"
+        />
       </template>
     </BaseDialog>
   </div>

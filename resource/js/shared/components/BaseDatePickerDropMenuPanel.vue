@@ -2,6 +2,7 @@
 import { DateTime } from 'luxon'
 import { useMutationObserver } from '@vueuse/core'
 import { IconChevronDown } from '@tabler/icons-vue'
+import { isDark } from '@/utils/theme.js'
 
 const props = defineProps({
   firstDayOfWeek: {
@@ -189,6 +190,7 @@ const orderedQuarters = computed(() => {
     <VDatePicker
       v-model="internalSelectedDate"
       mode="date"
+      :isDark="isDark"
       :minDate="props.minDate"
       :maxDate="props.maxDate"
       :firstDayOfWeek="firstDayOfWeek"

@@ -52,25 +52,19 @@ async function onSubmit() {
       <!-- Main Content -->
       <div class="tw:col-span-12 tw:sm:col-span-8 tw:p-4">
         <div class="tw:flex tw:flex-col tw:gap-3">
-          <div>
-            <label class="tw:block tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">
-              Group Name <span class="tw:text-red-500">*</span>
-            </label>
+          <BaseField v-slot="{ id: fieldId }" label="Group Name" required>
             <BaseTextInput
+              :id="fieldId"
               v-model="form.name"
               name="name"
               placeholder="e.g. Quality Assurance Team"
             />
-          </div>
+          </BaseField>
 
-          <div>
-            <label class="tw:block tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">
-              Members
-            </label>
+          <BaseField label="Members">
             <UserSelectMenu v-model="form.userIds" multiple />
-          </div>
+          </BaseField>
 
-          <p v-if="saveError" class="tw:text-sm tw:text-red-600">{{ saveError }}</p>
         </div>
       </div>
 
@@ -94,15 +88,14 @@ async function onSubmit() {
     </div>
 
     <template #footer>
-      <button
-        class="tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:text-secondary tw:hover:text-on-main tw:transition-colors"
-        @click="open = false"
-      >
-        Cancel
-      </button>
-      <BaseButton :disabled="isSubmitting || !form.name.trim()" @click="onSubmit">
-        {{ isSubmitting ? 'Creating...' : 'Create Group' }}
-      </BaseButton>
+      <BaseDialogFooter
+        submitLabel="Create Group"
+        :loading="isSubmitting"
+        :disabled="!form.name.trim()"
+        :error="saveError"
+        @cancel="open = false"
+        @submit="onSubmit"
+      />
     </template>
   </BaseDialog>
 </template>

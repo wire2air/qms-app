@@ -86,9 +86,7 @@ async function handleDelete() {
     >
       <div class="tw:flex tw:items-center tw:gap-2">
         <IconForms :size="18" class="tw:text-primary" />
-        <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-          Complaint Forms
-        </div>
+        <BaseText variant="overline">Complaint Forms</BaseText>
       </div>
       <BaseButton variant="primary" size="sm" @click="onCreate">
         <IconPlus :size="16" class="tw:mr-1" />
@@ -132,10 +130,13 @@ async function handleDelete() {
         their data and reporting reference.
       </p>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="deleting" @click="close">Cancel</BaseButton>
-        <BaseButton variant="danger" :disabled="deleting" @click="handleDelete">
-          {{ deleting ? 'Deleting…' : 'Delete' }}
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Delete"
+          submitVariant="danger"
+          :loading="deleting"
+          @cancel="close"
+          @submit="handleDelete"
+        />
       </template>
     </BaseDialog>
   </div>

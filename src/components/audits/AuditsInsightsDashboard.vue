@@ -195,9 +195,7 @@ function openFindingsInstance(f) {
         </div>
         <div class="tw:flex tw:flex-col">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ activePrograms }}</span>
-          <span class="tw:text-xs tw:text-secondary tw:uppercase tw:tracking-wider">
-            Active Programs
-          </span>
+          <BaseText variant="overline">Active Programs</BaseText>
         </div>
       </div>
       <div
@@ -210,9 +208,7 @@ function openFindingsInstance(f) {
         </div>
         <div class="tw:flex tw:flex-col">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ inFlightAudits }}</span>
-          <span class="tw:text-xs tw:text-secondary tw:uppercase tw:tracking-wider">
-            In-Flight Audits
-          </span>
+          <BaseText variant="overline">In-Flight Audits</BaseText>
         </div>
       </div>
       <div
@@ -225,9 +221,7 @@ function openFindingsInstance(f) {
         </div>
         <div class="tw:flex tw:flex-col">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ openFindings }}</span>
-          <span class="tw:text-xs tw:text-secondary tw:uppercase tw:tracking-wider">
-            Open Findings
-          </span>
+          <BaseText variant="overline">Open Findings</BaseText>
         </div>
       </div>
       <div
@@ -240,9 +234,7 @@ function openFindingsInstance(f) {
         </div>
         <div class="tw:flex tw:flex-col">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ auditsDueIn30d }}</span>
-          <span class="tw:text-xs tw:text-secondary tw:uppercase tw:tracking-wider">
-            Due in 30 Days
-          </span>
+          <BaseText variant="overline">Due in 30 Days</BaseText>
         </div>
       </div>
     </div>
@@ -250,11 +242,12 @@ function openFindingsInstance(f) {
     <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-2 tw:gap-3">
       <!-- 2. Findings by category -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <div
-          class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3"
+        <BaseText
+          variant="overline"
+          class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-3"
         >
           Open Findings by Category
-        </div>
+        </BaseText>
         <div
           v-if="!findingsByCategory.length"
           class="tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic"
@@ -279,11 +272,12 @@ function openFindingsInstance(f) {
 
       <!-- 3. Findings by type -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <div
-          class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3"
+        <BaseText
+          variant="overline"
+          class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-3"
         >
           Open Findings by Type
-        </div>
+        </BaseText>
         <div class="tw:flex tw:flex-col tw:gap-2">
           <div v-for="row in findingsByType" :key="row.id" class="tw:flex tw:flex-col tw:gap-1">
             <div class="tw:flex tw:items-center tw:justify-between tw:text-xs">
@@ -303,12 +297,13 @@ function openFindingsInstance(f) {
 
       <!-- 4. Lead auditor backlog -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <div
-          class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
+        <BaseText
+          variant="overline"
+          class="tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
         >
           <IconUsers :size="14" />
           Lead Auditor Backlog
-        </div>
+        </BaseText>
         <div
           v-if="!leadBacklog.length"
           class="tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic"
@@ -333,12 +328,13 @@ function openFindingsInstance(f) {
 
       <!-- 5. Upcoming audits -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <div
-          class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
+        <BaseText
+          variant="overline"
+          class="tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
         >
           <IconCalendarTime :size="14" />
           Upcoming Audits
-        </div>
+        </BaseText>
         <div
           v-if="!upcomingAudits.length"
           class="tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic"
@@ -368,12 +364,13 @@ function openFindingsInstance(f) {
 
     <!-- 6. Recent findings — full-width across the bottom -->
     <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-      <div
-        class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
+      <BaseText
+        variant="overline"
+        class="tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
       >
         <IconBolt :size="14" />
         Recent Findings
-      </div>
+      </BaseText>
       <div
         v-if="!recentFindings.length"
         class="tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic"

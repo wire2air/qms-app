@@ -107,16 +107,14 @@ function decrementReviewMonths() {
     class="tw:bg-sidebar tw:rounded-2xl tw:shadow-sm tw:border tw:border-divider tw:p-8 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6"
   >
     <!-- Document Template -->
-    <div class="tw:space-y-2">
-      <label class="tw:text-sm tw:font-medium tw:text-secondary">Document Template</label>
+    <BaseField label="Document Template">
       <DocumentTemplateSelectMenu v-model="form.documentTemplateId" />
-    </div>
+    </BaseField>
 
     <!-- Document Type -->
-    <div class="tw:space-y-2">
-      <label class="tw:text-sm tw:font-medium tw:text-secondary">Document Type *</label>
+    <BaseField label="Document Type" required>
       <DocumentTypeSelectMenu v-model="form.documentTypeId" :required="true" />
-    </div>
+    </BaseField>
 
     <!-- Document Title -->
     <div class="tw:space-y-2">
@@ -130,10 +128,9 @@ function decrementReviewMonths() {
     </div>
 
     <!-- Related Standard -->
-    <div class="tw:space-y-2">
-      <label class="tw:text-sm tw:font-medium tw:text-secondary">Related Standard</label>
+    <BaseField label="Related Standard">
       <RelatedStandardSelectMenu v-model="form.relatedStandardId" />
-    </div>
+    </BaseField>
 
     <!-- Document Prefix -->
     <div class="tw:space-y-2">
@@ -151,26 +148,22 @@ function decrementReviewMonths() {
     </div>
 
     <!-- Effective Date -->
-    <div class="tw:space-y-2">
-      <label class="tw:text-sm tw:font-medium tw:text-secondary">Effective Date</label>
+    <BaseField label="Effective Date">
       <BaseDatePicker v-model="form.effectiveDate" />
-    </div>
+    </BaseField>
 
     <!-- Site -->
-    <div class="tw:space-y-2">
-      <label class="tw:text-sm tw:font-medium tw:text-secondary">Site *</label>
+    <BaseField label="Site" required>
       <SiteSelectMenu v-model="form.siteId" :required="true" />
-    </div>
+    </BaseField>
 
     <!-- Department -->
-    <div class="tw:space-y-2">
-      <label class="tw:text-sm tw:font-medium tw:text-secondary">Department *</label>
+    <BaseField label="Department" required>
       <DepartmentSelectMenu v-model="form.departmentId" :required="true" />
-    </div>
+    </BaseField>
 
     <!-- Periodic Review Frequency -->
-    <div class="tw:space-y-2">
-      <label class="tw:text-sm tw:font-medium tw:text-secondary">Periodic Review Frequency</label>
+    <BaseField label="Periodic Review Frequency">
       <div class="tw:flex tw:items-center tw:gap-3">
         <div
           class="tw:flex tw:items-center tw:border tw:border-divider tw:rounded-xl tw:overflow-hidden tw:bg-sidebar-hover"
@@ -197,7 +190,7 @@ function decrementReviewMonths() {
         </div>
         <span class="tw:text-sm tw:font-medium tw:text-secondary">months</span>
       </div>
-    </div>
+    </BaseField>
 
     <!-- Auto Effective on Approval -->
     <div
@@ -211,8 +204,7 @@ function decrementReviewMonths() {
     </div>
 
     <!-- Tags (full width) -->
-    <div class="tw:md:col-span-2 tw:space-y-2">
-      <label class="tw:text-sm tw:font-medium tw:text-secondary">Tags</label>
+    <BaseField label="Tags" class="tw:md:col-span-2">
       <div
         class="tw:flex tw:flex-wrap tw:gap-2 tw:p-3 tw:bg-sidebar-hover tw:border tw:border-divider tw:rounded-xl"
       >
@@ -234,12 +226,11 @@ function decrementReviewMonths() {
           @keyup.enter="addTag"
         />
       </div>
-    </div>
+    </BaseField>
 
     <!-- Workflow (full width) -->
-    <div class="tw:md:col-span-2 tw:space-y-2">
-      <label class="tw:text-sm tw:font-medium tw:text-secondary">Workflow</label>
+    <BaseField label="Workflow" class="tw:md:col-span-2">
       <WorkflowVersionSelect v-model="form.workflowVersionId" moduleId="APPROVAL" />
-    </div>
+    </BaseField>
   </div>
 </template>

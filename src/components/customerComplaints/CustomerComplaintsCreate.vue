@@ -101,29 +101,30 @@ async function handleSubmit() {
       <div class="tw:max-w-3xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">
         <!-- Complaint details -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
             Complaint details
-          </div>
+          </BaseText>
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Subject <span class="tw:text-red-500">*</span>
-              </label>
-              <BaseTextInput v-model="form.subject" placeholder="Short summary of the complaint…" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
+            <BaseField v-slot="{ id: fieldId }" label="Subject" required>
+              <BaseTextInput
+                :id="fieldId"
+                v-model="form.subject"
+                placeholder="Short summary of the complaint…"
+              />
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="Description">
               <BaseTextarea
+                :id="fieldId"
                 v-model="form.description"
                 placeholder="Describe the complaint in the customer's words…"
                 :rows="5"
               />
-            </div>
+            </BaseField>
             <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <label class="tw:text-sm tw:font-medium tw:text-secondary">Source</label>
+              <BaseField label="Source">
                 <div class="tw:flex tw:gap-2">
                   <BaseButton
                     v-for="s in ['WEB', 'PHONE', 'OTHER']"
@@ -135,9 +136,8 @@ async function handleSubmit() {
                     {{ s.charAt(0) + s.slice(1).toLowerCase() }}
                   </BaseButton>
                 </div>
-              </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <label class="tw:text-sm tw:font-medium tw:text-secondary">Priority</label>
+              </BaseField>
+              <BaseField label="Priority">
                 <div class="tw:flex tw:gap-2">
                   <BaseButton
                     v-for="p in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']"
@@ -149,39 +149,45 @@ async function handleSubmit() {
                     {{ p.charAt(0) + p.slice(1).toLowerCase() }}
                   </BaseButton>
                 </div>
-              </div>
+              </BaseField>
             </div>
           </div>
         </div>
 
         <!-- Customer details -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
             Customer details
-          </div>
+          </BaseText>
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Name</label>
-              <BaseTextInput v-model="form.customerName" placeholder="Customer contact name" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Email</label>
+            <BaseField v-slot="{ id: fieldId }" label="Name">
               <BaseTextInput
+                :id="fieldId"
+                v-model="form.customerName"
+                placeholder="Customer contact name"
+              />
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="Email">
+              <BaseTextInput
+                :id="fieldId"
                 v-model="form.customerEmail"
                 type="email"
                 placeholder="customer@example.com"
               />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Company</label>
-              <BaseTextInput v-model="form.customerCompany" placeholder="Customer company" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Phone</label>
-              <BaseTextInput v-model="form.customerPhone" placeholder="Phone number" />
-            </div>
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="Company">
+              <BaseTextInput
+                :id="fieldId"
+                v-model="form.customerCompany"
+                placeholder="Customer company"
+              />
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="Phone">
+              <BaseTextInput :id="fieldId" v-model="form.customerPhone" placeholder="Phone number" />
+            </BaseField>
           </div>
         </div>
 
@@ -190,11 +196,7 @@ async function handleSubmit() {
           <div
             class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
-            <div
-              class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-            >
-              Attachments
-            </div>
+            <BaseText variant="overline">Attachments</BaseText>
             <BaseButton variant="outline" size="sm" :disabled="uploading" @click="onPickFiles">
               <IconPaperclip :size="16" class="tw:mr-1" />
               {{ uploading ? 'Uploading…' : 'Add files' }}

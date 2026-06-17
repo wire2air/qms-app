@@ -29,6 +29,7 @@ function getArray() {
   <BaseSelectMenu
     v-model="modelValue"
     :items="documentTypes"
+    nullLabel="— All types —"
     :required="required"
     :multiple="multiple"
   >

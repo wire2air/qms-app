@@ -76,7 +76,7 @@ async function toggleCollaborator(userId) {
 <template>
   <div class="tw:pt-4 tw:border-t tw:border-divider">
     <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
-      <label class="ds-label tw:block">Collaborators</label>
+      <BaseText variant="overline" class="tw:block">Collaborators</BaseText>
 
       <BaseSelectMenu
         v-if="canEdit"

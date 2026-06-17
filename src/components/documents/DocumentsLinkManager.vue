@@ -145,13 +145,14 @@ function getLinkTypeBadgeClass(linkType) {
 
 <template>
   <div class="tw:p-6">
-    <div class="tw:flex tw:items-center tw:justify-between tw:mb-4">
-      <h3 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Document Links</h3>
-      <BaseButton variant="outline" @click="openAddDialog">
-        <IconLinkPlus :size="16" class="tw:mr-1" />
-        Add Link
-      </BaseButton>
-    </div>
+    <BaseSectionHeader title="Document Links" :level="3" size="section-title" class="tw:mb-4">
+      <template #actions>
+        <BaseButton variant="outline" @click="openAddDialog">
+          <IconLinkPlus :size="16" class="tw:mr-1" />
+          Add Link
+        </BaseButton>
+      </template>
+    </BaseSectionHeader>
 
     <!-- Links List -->
     <div v-if="links.length > 0" class="tw:space-y-2">
@@ -198,20 +199,14 @@ function getLinkTypeBadgeClass(linkType) {
     <!-- Add Link Dialog -->
     <BaseDialog v-model="showAddDialog" title="Add Document Link" persistent>
       <div class="tw:space-y-4">
-        <div>
-          <label class="tw:block tw:mb-1 tw:text-sm tw:font-medium tw:text-on-main"
-            >Target Document</label
-          >
+        <BaseField label="Target Document">
           <BaseSelectMenu
             v-model="linkForm.targetDocumentId"
             :items="availableDocuments"
             :required="true"
           />
-        </div>
-        <div>
-          <label class="tw:block tw:mb-1 tw:text-sm tw:font-medium tw:text-on-main"
-            >Link Type</label
-          >
+        </BaseField>
+        <BaseField label="Link Type">
           <BaseSelectMenu
             v-model="linkForm.linkType"
             :items="[
@@ -223,15 +218,15 @@ function getLinkTypeBadgeClass(linkType) {
             ]"
             :required="true"
           />
-        </div>
+        </BaseField>
       </div>
       <template #footer>
-        <div class="tw:flex tw:justify-end tw:gap-2">
-          <BaseButton variant="outline" @click="showAddDialog = false">Cancel</BaseButton>
-          <BaseButton :disabled="!linkForm.targetDocumentId" @click="onAddLink"
-            >Add Link</BaseButton
-          >
-        </div>
+        <BaseDialogFooter
+          submitLabel="Add Link"
+          :disabled="!linkForm.targetDocumentId"
+          @cancel="showAddDialog = false"
+          @submit="onAddLink"
+        />
       </template>
     </BaseDialog>
 

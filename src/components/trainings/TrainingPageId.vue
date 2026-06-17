@@ -127,6 +127,13 @@ const showAddMatrixDialog = ref(false)
 
 // ─── Tabs ──────────────────────────────────────────────────────────────────────
 const activeTab = ref('details')
+const tabs = [
+  { value: 'details', label: 'Details' },
+  { value: 'material', label: 'Material' },
+  { value: 'assessment', label: 'Assessment' },
+  { value: 'assignees', label: 'Assignees' },
+  { value: 'instances', label: 'Instances' },
+]
 </script>
 
 <template>
@@ -213,48 +220,39 @@ const activeTab = ref('details')
     </div>
 
     <!-- Tabs -->
-    <div class="tw:flex tw:gap-1 tw:border-b tw:border-divider">
-      <button
-        v-for="tab in [
-          { id: 'details', label: 'Details' },
-          { id: 'material', label: 'Material' },
-          { id: 'assessment', label: 'Assessment' },
-          { id: 'assignees', label: 'Assignees' },
-          { id: 'instances', label: 'Instances' },
-        ]"
-        :key="tab.id"
-        class="tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:transition-colors tw:border-b-2 tw:-mb-px"
-        :class="
-          activeTab === tab.id
-            ? 'tw:border-primary tw:text-primary'
-            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'
-        "
-        @click="activeTab = tab.id"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
+    <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Training sections">
+      <div class="tw:mt-6">
+        <BaseTabPanel value="details">
+          <div class="tw:flex tw:flex-col tw:gap-4 tw:max-w-xl">
+            <TrainingDetailsTab :training="training" :editable="isEditable && canUpdate" />
+          </div>
+        </BaseTabPanel>
 
-    <!-- Tab Panels -->
-    <div v-if="activeTab === 'details'" class="tw:flex tw:flex-col tw:gap-4 tw:max-w-xl">
-      <TrainingDetailsTab :training="training" :editable="isEditable && canUpdate" />
-    </div>
+        <BaseTabPanel value="material">
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <TrainingMaterialTab :training="training" :editable="isEditable && canUpdate" />
+          </div>
+        </BaseTabPanel>
 
-    <div v-else-if="activeTab === 'material'" class="tw:flex tw:flex-col tw:gap-4">
-      <TrainingMaterialTab :training="training" :editable="isEditable && canUpdate" />
-    </div>
+        <BaseTabPanel value="assessment">
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <TrainingAssessmentEditor :training="training" :editable="isEditable && canUpdate" />
+          </div>
+        </BaseTabPanel>
 
-    <div v-else-if="activeTab === 'assessment'" class="tw:flex tw:flex-col tw:gap-4">
-      <TrainingAssessmentEditor :training="training" :editable="isEditable && canUpdate" />
-    </div>
+        <BaseTabPanel value="assignees">
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <TrainingAssigneesTab :trainingId="training.id" :canUpdate="isEditable && canUpdate" />
+          </div>
+        </BaseTabPanel>
 
-    <div v-else-if="activeTab === 'assignees'" class="tw:flex tw:flex-col tw:gap-4">
-      <TrainingAssigneesTab :trainingId="training.id" :canUpdate="isEditable && canUpdate" />
-    </div>
-
-    <div v-else-if="activeTab === 'instances'" class="tw:flex tw:flex-col tw:gap-4">
-      <TrainingInstancesTab :trainingId="training.id" />
-    </div>
+        <BaseTabPanel value="instances">
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <TrainingInstancesTab :trainingId="training.id" />
+          </div>
+        </BaseTabPanel>
+      </div>
+    </BaseTabs>
 
     <!-- Launch dialog -->
     <TrainingLaunchDialog
@@ -283,10 +281,14 @@ const activeTab = ref('details')
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="actionLoading" @click="handlePublish">
-          <IconCircleCheck :size="16" class="tw:mr-1" /> Publish
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Publish"
+          :loading="actionLoading"
+          @cancel="close"
+          @submit="handlePublish"
+        >
+          <template #submitIcon><IconCircleCheck :size="16" /></template>
+        </BaseDialogFooter>
       </template>
     </BaseDialog>
 
@@ -297,10 +299,15 @@ const activeTab = ref('details')
         >? This action cannot be undone.
       </p>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" @click="close">Cancel</BaseButton>
-        <BaseButton variant="danger" :loading="actionLoading" @click="handleDelete">
-          <IconTrash :size="16" class="tw:mr-1" /> Delete
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Delete"
+          submitVariant="danger"
+          :loading="actionLoading"
+          @cancel="close"
+          @submit="handleDelete"
+        >
+          <template #submitIcon><IconTrash :size="16" /></template>
+        </BaseDialogFooter>
       </template>
     </BaseDialog>
   </div>

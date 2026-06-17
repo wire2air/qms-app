@@ -460,17 +460,16 @@ async function newVersion() {
               New test — fill in &amp; Save
             </div>
             <div class="tw:flex tw:items-end tw:gap-3 tw:flex-wrap">
-              <div class="tw:flex-1 tw:min-w-40">
-                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Test name</label>
+              <BaseField v-slot="{ id: fieldId }" label="Test name" class="tw:flex-1 tw:min-w-40">
                 <BaseTextInput
+                  :id="fieldId"
                   v-model="c.name"
                   size="sm"
                   placeholder="e.g. pH, Appearance"
                   @update:modelValue="markCharsDirty"
                 />
-              </div>
-              <div class="tw:w-36">
-                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Type</label>
+              </BaseField>
+              <BaseField label="Type" class="tw:w-36">
                 <BaseInlineSelect
                   v-model="c.testType"
                   :items="TEST_TYPES.map((t) => ({ id: t, name: t }))"
@@ -478,11 +477,10 @@ async function newVersion() {
                   class="tw:w-full"
                   @update:modelValue="markCharsDirty"
                 />
-              </div>
-              <div class="tw:w-32">
-                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Defect class</label>
+              </BaseField>
+              <BaseField label="Defect class" class="tw:w-32">
                 <DefectSeveritySelectMenu v-model="c.defectClass" :required="true" @update:modelValue="markCharsDirty" />
-              </div>
+              </BaseField>
               <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
                 <BaseCheckbox v-model="c.requiresInstrument" @update:modelValue="markCharsDirty" /> Instrument
               </label>
@@ -495,59 +493,57 @@ async function newVersion() {
               </button>
             </div>
             <div v-if="c.testType === 'NUMERIC'" class="tw:flex tw:flex-wrap tw:gap-3 tw:mt-2">
-              <div class="tw:w-24">
-                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">LSL (min)</label>
+              <BaseField v-slot="{ id: fieldId }" label="LSL (min)" class="tw:w-24">
                 <BaseTextInput
+                  :id="fieldId"
                   v-model.number="c.lsl"
                   type="number"
                   size="sm"
                   @update:modelValue="markCharsDirty"
                 />
-              </div>
-              <div class="tw:w-24">
-                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Target</label>
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="Target" class="tw:w-24">
                 <BaseTextInput
+                  :id="fieldId"
                   v-model.number="c.targetValue"
                   type="number"
                   size="sm"
                   @update:modelValue="markCharsDirty"
                 />
-              </div>
-              <div class="tw:w-24">
-                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">USL (max)</label>
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="USL (max)" class="tw:w-24">
                 <BaseTextInput
+                  :id="fieldId"
                   v-model.number="c.usl"
                   type="number"
                   size="sm"
                   @update:modelValue="markCharsDirty"
                 />
-              </div>
-              <div class="tw:w-24">
-                <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">UOM</label>
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="UOM" class="tw:w-24">
                 <BaseTextInput
+                  :id="fieldId"
                   v-model="c.uom"
                   size="sm"
                   placeholder="e.g. pH, %"
                   @update:modelValue="markCharsDirty"
                 />
-              </div>
+              </BaseField>
             </div>
-            <div v-if="c.requiresInstrument" class="tw:mt-2 tw:w-72">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Preferred instrument</label>
+            <BaseField v-if="c.requiresInstrument" label="Preferred instrument" class="tw:mt-2 tw:w-72">
               <EquipmentSelectMenu
                 v-model="c.preferredEquipmentId"
                 nullLabel="— None (pick at capture) —"
                 @update:modelValue="markCharsDirty"
               />
-            </div>
-            <div class="tw:mt-2">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Test method / reference attachments</label>
+            </BaseField>
+            <BaseField label="Test method / reference attachments" class="tw:mt-2">
               <RichTextAttachments
                 v-model="c.testMethod"
                 placeholder="e.g. Calibrated micrometer, 0.001 mm resolution, 20°C"
                 @update:modelValue="markCharsDirty"
               />
-            </div>
+            </BaseField>
           </div>
           <div
             v-if="!editedChars.length"
@@ -604,7 +600,7 @@ async function newVersion() {
         class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:divide-y tw:divide-divider"
       >
         <div class="tw:px-4 tw:py-3">
-          <h3 class="tw:font-semibold tw:text-on-main tw:text-sm">Overview</h3>
+          <BaseText as="h3" weight="semibold">Overview</BaseText>
         </div>
         <div class="tw:px-4 tw:py-3 tw:space-y-3 tw:text-sm">
           <div>

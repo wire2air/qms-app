@@ -171,22 +171,15 @@ async function handleSave() {
       </div>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Type <span class="tw:text-red-500">*</span>
-          </p>
+        <BaseField label="Type" required>
           <BaseInlineSelect v-model="form.findingTypeId" :items="FINDING_TYPES" :required="true" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Category</p>
+        </BaseField>
+        <BaseField label="Category">
           <AuditFindingCategorySelectMenu v-model="form.categoryId" />
-        </div>
+        </BaseField>
       </div>
 
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Description <span class="tw:text-red-500">*</span>
-        </p>
+      <BaseField label="Description" required>
         <BaseRichTextEditor
           :modelValue="form.detailsHtml"
           placeholder="What was observed? Include the requirement reference + evidence summary."
@@ -198,36 +191,29 @@ async function handleSave() {
             <AiVoiceToTextButton v-if="canUseAi" :append="append" />
           </template>
         </BaseRichTextEditor>
-      </div>
+      </BaseField>
 
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Department</p>
+      <BaseField label="Department">
         <DepartmentSelectMenu v-model="form.departmentId" />
-      </div>
+      </BaseField>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Severity (1–10)
-          </p>
-          <BaseTextInput v-model="form.severityScore" type="number" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Risk (1–25)</p>
-          <BaseTextInput v-model="form.riskScore" type="number" />
-        </div>
+        <BaseField v-slot="{ id: fieldId }" label="Severity (1–10)">
+          <BaseTextInput :id="fieldId" v-model="form.severityScore" type="number" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Risk (1–25)">
+          <BaseTextInput :id="fieldId" v-model="form.riskScore" type="number" />
+        </BaseField>
       </div>
     </div>
     <template #footer>
-      <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-      <BaseButton
-        variant="primary"
+      <BaseDialogFooter
+        :submitLabel="isEdit ? 'Save Changes' : 'Create Finding'"
         :loading="saving"
-        :disabled="saving || !canSave"
-        @click="handleSave"
-      >
-        {{ isEdit ? 'Save Changes' : 'Create Finding' }}
-      </BaseButton>
+        :disabled="!canSave"
+        @cancel="close"
+        @submit="handleSave"
+      />
     </template>
   </BaseDialog>
 </template>

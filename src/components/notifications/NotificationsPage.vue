@@ -36,22 +36,19 @@ async function handleMarkAllRead() {
 <template>
   <div class="tw:max-w-3xl tw:mx-auto tw:px-4 tw:py-6">
     <!-- Page header -->
-    <div class="tw:flex tw:items-center tw:justify-between tw:mb-6">
-      <div>
-        <h1 class="tw:text-2xl tw:font-bold">Notifications</h1>
-        <p v-if="unreadCount > 0" class="tw:text-sm tw:text-gray-500 tw:mt-0.5">
-          {{ unreadCount }} unread
-        </p>
-      </div>
-      <button
-        v-if="unreadCount > 0"
-        class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:text-primary tw:font-medium tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline"
-        @click="handleMarkAllRead"
-      >
-        <IconCheck :size="16" />
-        Mark all as read
-      </button>
-    </div>
+    <BaseSectionHeader title="Notifications" :level="1" size="section-title" class="tw:mb-6">
+      <template v-if="unreadCount > 0" #subtitle> {{ unreadCount }} unread </template>
+      <template #actions>
+        <button
+          v-if="unreadCount > 0"
+          class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:text-primary tw:font-medium tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline"
+          @click="handleMarkAllRead"
+        >
+          <IconCheck :size="16" />
+          Mark all as read
+        </button>
+      </template>
+    </BaseSectionHeader>
 
     <!-- Filter tabs -->
     <div class="tw:flex tw:gap-1 tw:mb-4 tw:border-b tw:border-divider">

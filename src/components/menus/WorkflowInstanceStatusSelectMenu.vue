@@ -29,7 +29,13 @@ function getArray() {
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="items" :required="required" :multiple="multiple">
+  <BaseSelectMenu
+    v-model="modelValue"
+    :items="items"
+    nullLabel="— All statuses —"
+    :required="required"
+    :multiple="multiple"
+  >
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <template v-if="multiple">

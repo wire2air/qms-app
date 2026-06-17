@@ -242,36 +242,28 @@ async function handleSubmit() {
         <div
           class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4"
         >
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-              Title <span class="tw:text-red-500">*</span>
-            </label>
-            <BaseTextInput v-model="form.title" placeholder="Short summary of the change" />
-          </div>
+          <BaseField v-slot="{ id: fieldId }" label="Title" required>
+            <BaseTextInput
+              :id="fieldId"
+              v-model="form.title"
+              placeholder="Short summary of the change"
+            />
+          </BaseField>
 
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-              Description
-            </label>
+          <BaseField label="Description">
             <div class="create-cr-editor">
               <BaseRichTextEditor
                 v-model="form.description"
                 placeholder="What is being changed and why?"
               />
             </div>
-          </div>
+          </BaseField>
 
           <div class="tw:grid tw:grid-cols-2 tw:gap-4">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-                Change Type <span class="tw:text-red-500">*</span>
-              </label>
+            <BaseField label="Change Type" required>
               <ChangeTypeSelectMenu v-model="form.changeTypeId" :required="true" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-                Classification
-              </label>
+            </BaseField>
+            <BaseField label="Classification">
               <BaseSelectMenu
                 v-model="form.classification"
                 :items="CLASSIFICATIONS"
@@ -283,17 +275,11 @@ async function handleSubmit() {
                   </BaseBadge>
                 </template>
               </BaseSelectMenu>
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-                Priority <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Priority" required>
               <ChangeRequestPrioritySelectMenu v-model="form.priorityId" :required="true" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-                Workflow <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Workflow" required>
               <BaseSelectMenu
                 v-model="form.workflowVersionId"
                 :items="workflowVersionOptions"
@@ -309,75 +295,51 @@ async function handleSubmit() {
                   </span>
                 </template>
               </BaseSelectMenu>
-            </div>
+            </BaseField>
           </div>
 
           <div class="tw:grid tw:grid-cols-2 tw:gap-4">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-                Site <span class="tw:text-red-500">*</span>
-              </label>
+            <BaseField label="Site" required>
               <SiteSelectMenu v-model="form.siteId" :required="true" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-                Department <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Department" required>
               <DepartmentSelectMenu
                 v-model="form.departmentId"
                 :required="true"
                 :siteId="form.siteId"
               />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-                Owner <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Owner" required>
               <UserSelectMenu v-model="form.ownerId" :required="true" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-                Initiated <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Initiated" required>
               <BaseDatePicker v-model="form.initiatedAt" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-                Target Implementation Date
-              </label>
+            </BaseField>
+            <BaseField label="Target Implementation Date">
               <BaseDatePicker v-model="form.targetImplementationDate" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-                Due Date
-              </label>
+            </BaseField>
+            <BaseField label="Due Date">
               <BaseDatePicker v-model="form.dueDate" />
-            </div>
+            </BaseField>
           </div>
 
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-              Reason for Change
-            </label>
+          <BaseField label="Reason for Change">
             <div class="create-cr-editor">
               <BaseRichTextEditor
                 v-model="form.reasonForChange"
                 placeholder="What's driving this change? (audit finding, regulatory update, NC, supplier change, etc.)"
               />
             </div>
-          </div>
+          </BaseField>
 
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase">
-              Business Justification
-            </label>
+          <BaseField label="Business Justification">
             <div class="create-cr-editor">
               <BaseRichTextEditor
                 v-model="form.businessJustification"
                 placeholder="Why is this change worth the effort? Cost / quality / compliance impact."
               />
             </div>
-          </div>
+          </BaseField>
 
           <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
             <BaseSwitch v-model="form.requiresEffectivenessCheck" />

@@ -611,12 +611,9 @@ const templateSchema = computed(() => {
                 <div class="tw:p-4 tw:flex tw:flex-col tw:gap-4">
                   <!-- Document Type selector only applies to UTILITY records;
                        inspection records derive the doctype from their log book. -->
-                  <div v-if="!isInspectionRecord">
-                    <label class="tw:text-sm tw:font-medium tw:text-on-main">
-                      Document Type <span class="tw:text-bad">*</span>
-                    </label>
+                  <BaseField v-if="!isInspectionRecord" label="Document Type" required>
                     <DocumentTypeSelectMenu v-model="documentTypeId" required />
-                  </div>
+                  </BaseField>
                   <DynamicForm
                     v-model="formData"
                     :fields="templateSchema"

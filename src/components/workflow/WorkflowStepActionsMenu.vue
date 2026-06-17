@@ -219,8 +219,8 @@ const items = computed(() => {
     <BaseMenu :items="items" />
 
     <BaseDialog v-model="showConfirmDialog" :title="confirmTitle" maxWidth="md" persistent>
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
+      <BaseField :required="!!pendingConfig?.commentRequired">
+        <template #label>
           {{
             isRejectAction
               ? isApprovalStep
@@ -228,26 +228,30 @@ const items = computed(() => {
                 : 'Reason for sending back'
               : 'Comment'
           }}
-          <span v-if="pendingConfig?.commentRequired" class="tw:text-red-500">*</span>
-        </label>
-        <textarea
-          v-model="comment"
-          rows="3"
-          class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:text-on-main tw:text-sm tw:p-3 tw:resize-none tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
-          :placeholder="
-            isRejectAction
-              ? isApprovalStep
-                ? 'Why are you rejecting?'
-                : 'Why are you sending this back to the owner?'
-              : 'Add a comment…'
-          "
-        />
-      </div>
+        </template>
+        <template #default="{ id: fieldId }">
+          <textarea
+            :id="fieldId"
+            v-model="comment"
+            rows="3"
+            class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:text-on-main tw:text-sm tw:p-3 tw:resize-none tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
+            :placeholder="
+              isRejectAction
+                ? isApprovalStep
+                  ? 'Why are you rejecting?'
+                  : 'Why are you sending this back to the owner?'
+                : 'Add a comment…'
+            "
+          />
+        </template>
+      </BaseField>
       <template #footer="{ close }">
-        <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :isLoading="actionLoading" @click="onConfirmDialog">
-          Confirm
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Confirm"
+          :loading="actionLoading"
+          @cancel="close"
+          @submit="onConfirmDialog"
+        />
       </template>
     </BaseDialog>
 

@@ -8,14 +8,14 @@
 import { IconList } from '@tabler/icons-vue'
 
 const tabs = [
-  { id: 'nc-dispositions', label: 'NC Dispositions' },
-  { id: 'nc-issue-types', label: 'NC Issue Types' },
-  { id: 'product-families', label: 'Product Families' },
-  { id: 'supplier-certificate-types', label: 'Supplier Certificates' },
-  { id: 'audit-standard-types', label: 'Audit Standard Types' },
-  { id: 'audit-finding-categories', label: 'Audit Finding Categories' },
+  { value: 'nc-dispositions', label: 'NC Dispositions' },
+  { value: 'nc-issue-types', label: 'NC Issue Types' },
+  { value: 'product-families', label: 'Product Families' },
+  { value: 'supplier-certificate-types', label: 'Supplier Certificates' },
+  { value: 'audit-standard-types', label: 'Audit Standard Types' },
+  { value: 'audit-finding-categories', label: 'Audit Finding Categories' },
 ]
-const validTabIds = new Set(tabs.map((t) => t.id))
+const validTabIds = new Set(tabs.map((t) => t.value))
 
 const route = useRoute()
 const activeTab = ref(validTabIds.has(route.query.tab) ? route.query.tab : 'nc-dispositions')
@@ -40,27 +40,16 @@ watch(
         </div>
       </div>
 
-      <!-- Tabs -->
-      <div class="tw:flex tw:border-b tw:border-divider tw:overflow-x-auto">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          class="tw:px-5 tw:py-2.5 tw:border-b-2 tw:font-semibold tw:text-sm tw:whitespace-nowrap tw:transition-colors"
-          :class="activeTab === tab.id
-            ? 'tw:border-primary tw:text-primary'
-            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'"
-          @click="activeTab = tab.id"
-        >
-          {{ tab.label }}
-        </button>
-      </div>
-
-      <NcDispositionTypesCard v-if="activeTab === 'nc-dispositions'" />
-      <NcIssueTypesCard v-else-if="activeTab === 'nc-issue-types'" />
-      <ProductFamiliesCard v-else-if="activeTab === 'product-families'" />
-      <SupplierCertificateTypesCard v-else-if="activeTab === 'supplier-certificate-types'" />
-      <AuditStandardTypesCard v-else-if="activeTab === 'audit-standard-types'" />
-      <AuditFindingCategoriesCard v-else-if="activeTab === 'audit-finding-categories'" />
+      <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Lookups">
+        <BaseTabPanel value="nc-dispositions"><NcDispositionTypesCard /></BaseTabPanel>
+        <BaseTabPanel value="nc-issue-types"><NcIssueTypesCard /></BaseTabPanel>
+        <BaseTabPanel value="product-families"><ProductFamiliesCard /></BaseTabPanel>
+        <BaseTabPanel value="supplier-certificate-types">
+          <SupplierCertificateTypesCard />
+        </BaseTabPanel>
+        <BaseTabPanel value="audit-standard-types"><AuditStandardTypesCard /></BaseTabPanel>
+        <BaseTabPanel value="audit-finding-categories"><AuditFindingCategoriesCard /></BaseTabPanel>
+      </BaseTabs>
     </div>
   </div>
 </template>

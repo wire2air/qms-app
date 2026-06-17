@@ -93,15 +93,16 @@ async function send() {
 
 <template>
   <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-    <div
-      class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+    <BaseText
+      variant="overline"
+      class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
     >
       <IconCalendarEvent :size="14" />
       Audit Agenda
       <span v-if="sentAt" class="tw:font-normal tw:normal-case tw:text-secondary tw:inline-flex tw:items-center tw:gap-1">
         <IconCheck :size="12" class="tw:text-emerald-600" /> Sent {{ fmt(sentAt) }}
       </span>
-    </div>
+    </BaseText>
 
     <p class="tw:text-xs tw:text-secondary tw:mb-3">
       Select the clauses to include in the agenda emailed to the {{ recipientLabel.toLowerCase() }}.
@@ -131,15 +132,15 @@ async function send() {
       </div>
     </div>
 
-    <div class="tw:mb-3">
-      <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Agenda notes</p>
+    <BaseField v-slot="{ id: fieldId }" label="Agenda notes" class="tw:mb-3">
       <BaseTextarea
+        :id="fieldId"
         v-model="notes"
         :rows="3"
         :disabled="readonly"
         placeholder="Meeting time, opening/closing arrangements, site contacts, documents to prepare…"
       />
-    </div>
+    </BaseField>
 
     <!-- Requested documents — sent to the supplier with the agenda. -->
     <div class="tw:mb-3 tw:pt-3 tw:border-t tw:border-divider">

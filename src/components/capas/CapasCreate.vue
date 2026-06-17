@@ -246,27 +246,24 @@ async function handleReviewersConfirmed(reviewers) {
 
         <!-- Basic information -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
             Basic information
-          </div>
+          </BaseText>
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Title <span class="tw:text-red-500">*</span>
-              </label>
-              <BaseTextInput v-model="form.title" placeholder="Describe the CAPA…" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
+            <BaseField v-slot="{ id: fieldId }" label="Title" required>
+              <BaseTextInput :id="fieldId" v-model="form.title" placeholder="Describe the CAPA…" />
+            </BaseField>
+            <BaseField label="Description">
               <div class="create-capa-editor">
                 <BaseRichTextEditor
                   v-model="form.description"
                   placeholder="Provide context for the CAPA…"
                 />
               </div>
-            </div>
+            </BaseField>
             <SimilarRecordsPanel
               entityType="Capa"
               :searchInTypes="['Capa']"
@@ -277,40 +274,26 @@ async function handleReviewersConfirmed(reviewers) {
 
         <!-- Classification -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
             Classification
-          </div>
+          </BaseText>
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Site <span class="tw:text-red-500">*</span>
-              </label>
+            <BaseField label="Site" required>
               <SiteSelectMenu v-model="form.siteId" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Department <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Department" required>
               <DepartmentSelectMenu v-model="form.departmentId" :siteId="form.siteId" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                CAPA Type <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="CAPA Type" required>
               <CapaTypeSelectMenu v-model="form.typeId" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Source <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Source" required>
               <CapaSourceSelectMenu v-model="form.sourceType" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Priority <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Priority" required>
               <div class="tw:flex tw:gap-2">
                 <BaseButton
                   v-for="p in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']"
@@ -322,28 +305,17 @@ async function handleReviewersConfirmed(reviewers) {
                   {{ p.charAt(0) + p.slice(1).toLowerCase() }}
                 </BaseButton>
               </div>
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Initiated date <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Initiated date" required>
               <BaseDatePicker v-model="form.initiatedAt" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Due date</label>
+            </BaseField>
+            <BaseField label="Due date">
               <BaseDatePicker v-model="form.dueDate" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2 tw:md:col-span-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Owner <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Owner" required class="tw:col-span-2 tw:md:col-span-1">
               <UserSelectMenu v-model="form.ownerId" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Supplier
-                <span v-if="form.isSupplierFacing" class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Supplier" :required="form.isSupplierFacing" class="tw:col-span-2">
               <SupplierSelectMenu v-model="form.supplierId" :required="form.isSupplierFacing" />
               <label
                 class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
@@ -357,17 +329,18 @@ async function handleReviewersConfirmed(reviewers) {
                   </div>
                 </div>
               </label>
-            </div>
+            </BaseField>
           </div>
         </div>
 
         <!-- Workflow -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
             Workflow
-          </div>
+          </BaseText>
           <WorkflowReviewerPickerDialog
             ref="workflowPickerRef"
             v-model="form.workflowVersionId"

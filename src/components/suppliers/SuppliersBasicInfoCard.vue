@@ -17,21 +17,19 @@ defineProps({
   <div
     class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:overflow-hidden"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-3"
-    >
-      <div
-        class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-primary/10 tw:flex tw:items-center tw:justify-center"
-      >
-        <IconInfoCircle :size="20" class="tw:text-primary" />
-      </div>
-      <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Basic Information</h3>
+    <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
+      <BaseSectionHeader
+        title="Basic Information"
+        :icon="IconInfoCircle"
+        iconVariant="boxed"
+        iconColor="primary"
+        :iconSize="20"
+        :level="3"
+        size="section-title"
+      />
     </div>
     <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-y-6 tw:gap-x-12">
-      <div>
-        <label class="ds-label-sm tw:text-secondary tw:block tw:mb-1">Supplier Code</label>
-        <p class="tw:text-sm tw:font-medium tw:text-on-main">{{ supplier.code }}</p>
-      </div>
+      <BaseDetailField label="Supplier Code" :value="supplier.code" />
       <div>
         <label class="ds-label-sm tw:text-secondary tw:block tw:mb-1">Category</label>
         <SupplierCategorySelectMenu v-if="canUpdate" v-model="supplier.category" :required="true" />
@@ -40,12 +38,10 @@ defineProps({
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </template>
       </div>
-      <div>
-        <label class="ds-label-sm tw:text-secondary tw:block tw:mb-1">Created Date</label>
-        <p class="tw:text-sm tw:font-medium tw:text-on-main">
-          {{ supplier.createdAt?.formatDate('date') || '—' }}
-        </p>
-      </div>
+      <BaseDetailField
+        label="Created Date"
+        :value="supplier.createdAt?.formatDate('date')"
+      />
       <div>
         <label class="ds-label-sm tw:text-secondary tw:block tw:mb-1">Country</label>
         <BaseTextInput v-if="canUpdate" v-model="supplier.country" placeholder="Country" />

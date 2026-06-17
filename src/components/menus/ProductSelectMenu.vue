@@ -17,7 +17,7 @@ const props = defineProps({
   },
   nullLabel: {
     type: String,
-    default: undefined,
+    default: '— All items —',
   },
 })
 
@@ -110,7 +110,7 @@ function getArray() {
                 />
               </div>
               <BaseBadge v-else class="tw:text-sm tw:font-medium tw:text-placeholder" selectable>
-                Select Items
+                — All items —
               </BaseBadge>
             </template>
 
@@ -124,7 +124,7 @@ function getArray() {
                 @clear="() => scope.clear(modelValue)"
               />
               <BaseBadge v-else class="tw:text-sm tw:font-medium tw:text-placeholder" selectable>
-                Select Item
+                — All items —
               </BaseBadge>
             </template>
           </slot>

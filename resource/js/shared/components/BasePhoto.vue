@@ -51,9 +51,24 @@ const previewUrl = ref(null)
 const cameraError = ref(null)
 const uploading = ref(false)
 
+// Memoize the blob URL for a raw File and revoke the previous one, so we don't
+// leak a new object URL on every recompute (a computed must stay side-effect-free).
+const fileObjectUrl = ref(null)
+watch(
+  modelValue,
+  (val) => {
+    if (fileObjectUrl.value) {
+      URL.revokeObjectURL(fileObjectUrl.value)
+      fileObjectUrl.value = null
+    }
+    if (val instanceof File) fileObjectUrl.value = URL.createObjectURL(val)
+  },
+  { immediate: true },
+)
+
 const displayUrl = computed(() => {
   if (modelValue.value instanceof File) {
-    return URL.createObjectURL(modelValue.value)
+    return fileObjectUrl.value
   }
   if (typeof modelValue.value === 'string' && modelValue.value) {
     return modelValue.value
@@ -198,6 +213,9 @@ onBeforeUnmount(() => {
   stopCamera()
   if (previewUrl.value) {
     URL.revokeObjectURL(previewUrl.value)
+  }
+  if (fileObjectUrl.value) {
+    URL.revokeObjectURL(fileObjectUrl.value)
   }
 })
 

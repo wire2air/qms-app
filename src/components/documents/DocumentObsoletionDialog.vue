@@ -106,17 +106,15 @@ function cancel() {
         </div>
       </div>
 
-      <div class="tw:flex tw:flex-col tw:gap-1.5">
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
-          Reason for obsoletion <span class="tw:text-red-600">*</span>
-        </label>
+      <BaseField v-slot="{ id: fieldId }" label="Reason for obsoletion" required>
         <BaseTextarea
+          :id="fieldId"
           v-model="reason"
           :rows="4"
           placeholder="e.g. Superseded by SOP-NEW-104. Calibration procedure no longer applies — ISO 17025 clause 6.4.7 changed."
         />
         <p v-if="reasonError" class="tw:text-xs tw:text-red-600">{{ reasonError }}</p>
-      </div>
+      </BaseField>
 
       <div
         v-if="error"
@@ -127,10 +125,13 @@ function cancel() {
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" :disabled="saving" @click="cancel">Cancel</BaseButton>
-      <BaseButton variant="danger" :disabled="saving" @click="confirm">
-        {{ saving ? 'Archiving…' : 'Archive Document' }}
-      </BaseButton>
+      <BaseDialogFooter
+        submitLabel="Archive Document"
+        submitVariant="danger"
+        :loading="saving"
+        @cancel="cancel"
+        @submit="confirm"
+      />
     </template>
   </BaseDialog>
 </template>

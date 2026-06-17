@@ -12,11 +12,12 @@ const hasState = computed(() => !NO_STATE_TYPES.has(field.value.type))
 
 <template>
   <div v-if="hasState" class="tw:mb-4 tw:last:mb-0">
-    <div
-      class="tw:font-semibold tw:text-xs tw:uppercase tw:tracking-wide tw:text-secondary tw:mb-2 tw:pb-2 tw:border-b tw:border-divider"
+    <BaseText
+      variant="overline"
+      class="tw:block tw:mb-2 tw:pb-2 tw:border-b tw:border-divider"
     >
       State
-    </div>
+    </BaseText>
 
     <div class="tw:grid tw:grid-cols-3 tw:gap-2">
       <BaseCheckbox v-model="field.required">Required</BaseCheckbox>

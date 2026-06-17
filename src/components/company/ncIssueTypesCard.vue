@@ -171,22 +171,20 @@ const showDeactivated = ref(false)
   <div
     class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
+    <BaseSectionHeader
+      title="NC Issue Types"
+      subtitle="The classification options shown on the NC intake form (Out of Spec / Receiving / Missing Standard, plus any tenant additions). Scoped to this company — changes only affect your tenant."
+      :level="2"
+      size="section-title"
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover"
     >
-      <div>
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">NC Issue Types</h2>
-        <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          The classification options shown on the NC intake form (Out of Spec / Receiving / Missing
-          Standard, plus any tenant additions). Scoped to this company — changes only affect your
-          tenant.
-        </p>
-      </div>
-      <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
-        <template #icon><IconPlus :size="16" /></template>
-        Add Issue Type
-      </BaseButton>
-    </div>
+      <template #actions>
+        <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
+          <template #icon><IconPlus :size="16" /></template>
+          Add Issue Type
+        </BaseButton>
+      </template>
+    </BaseSectionHeader>
 
     <div
       v-if="!isOwner"
@@ -295,12 +293,9 @@ const showDeactivated = ref(false)
       maxWidth="md"
     >
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Name <span class="tw:text-red-500">*</span>
-          </p>
-          <BaseTextInput v-model="form.name" placeholder="e.g. Out of Spec" />
-        </div>
+        <BaseField v-slot="{ id: fieldId }" label="Name" required>
+          <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. Out of Spec" />
+        </BaseField>
         <div v-if="!editing">
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
             <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
@@ -329,26 +324,26 @@ const showDeactivated = ref(false)
             <strong>Edit</strong> to override.
           </p>
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
+        <BaseField v-slot="{ id: fieldId }" label="Description">
           <BaseTextarea
+            :id="fieldId"
             v-model="form.description"
             :rows="2"
             placeholder="Optional description shown alongside the option in the picker"
           />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Display Order
-          </p>
-          <BaseTextInput v-model.number="form.displayOrder" type="number" :min="0" />
-        </div>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Display Order">
+          <BaseTextInput :id="fieldId" v-model.number="form.displayOrder" type="number" :min="0" />
+        </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="saving" :disabled="saving" @click="handleSave">
-          {{ editing ? 'Save' : 'Add' }}
-        </BaseButton>
+        <BaseDialogFooter
+          :submitLabel="editing ? 'Save' : 'Add'"
+          :loading="saving"
+          :disabled="saving"
+          @cancel="close"
+          @submit="handleSave"
+        />
       </template>
     </BaseDialog>
   </div>

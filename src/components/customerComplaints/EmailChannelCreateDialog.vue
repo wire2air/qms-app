@@ -106,21 +106,25 @@ async function handleCreate() {
       </div>
 
       <!-- Common: name -->
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">Name</label>
+      <BaseField v-slot="{ id: fieldId }" label="Name">
         <BaseTextInput
+          :id="fieldId"
           v-model="form.name"
           placeholder="e.g. Customer Support, Quality Complaints…"
         />
-      </div>
+      </BaseField>
 
       <!-- SYSTEM: address prefix on the tenant mail subdomain -->
-      <div v-if="channelType === 'SYSTEM'" class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">
-          Address prefix <span class="tw:text-red-500">*</span>
-        </label>
+      <BaseField
+        v-if="channelType === 'SYSTEM'"
+        v-slot="{ id: fieldId }"
+        label="Address prefix"
+        required
+        hint="Emails sent to this address become support tickets. No verification required."
+      >
         <div class="tw:flex tw:items-center tw:gap-2">
           <BaseTextInput
+            :id="fieldId"
             v-model="form.localPart"
             placeholder="support, sales, complaints…"
             class="tw:flex-1"
@@ -130,33 +134,33 @@ async function handleCreate() {
             @{{ companyMailDomain }}
           </span>
         </div>
-        <p class="tw:text-xs tw:text-secondary">
-          Emails sent to this address become support tickets. No verification required.
-        </p>
-      </div>
+      </BaseField>
 
       <!-- FORWARDING: the tenant's public address -->
-      <div v-else class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">
-          Your support email address <span class="tw:text-red-500">*</span>
-        </label>
+      <BaseField
+        v-else
+        v-slot="{ id: fieldId }"
+        label="Your support email address"
+        required
+        hint="We'll generate a forwarding address for it. The address creates tickets only after forwarding is set up and verified."
+      >
         <BaseTextInput
+          :id="fieldId"
           v-model="form.publicEmail"
           type="email"
           placeholder="support@yourcompany.com"
           @keyup.enter="handleCreate"
         />
-        <p class="tw:text-xs tw:text-secondary">
-          We'll generate a forwarding address for it. The address creates tickets only after
-          forwarding is set up and verified.
-        </p>
-      </div>
+      </BaseField>
     </div>
     <template #footer="{ close }">
-      <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-      <BaseButton variant="primary" :disabled="!canSubmit || saving" @click="handleCreate">
-        {{ saving ? 'Creating…' : channelType === 'SYSTEM' ? 'Create Address' : 'Connect Address' }}
-      </BaseButton>
+      <BaseDialogFooter
+        :submitLabel="channelType === 'SYSTEM' ? 'Create Address' : 'Connect Address'"
+        :loading="saving"
+        :disabled="!canSubmit"
+        @cancel="close"
+        @submit="handleCreate"
+      />
     </template>
   </BaseDialog>
 </template>

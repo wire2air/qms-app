@@ -267,9 +267,7 @@ function openUpload(requestId) {
     <!-- Additional documents (not tied to a specific request) -->
     <div class="tw:border-t tw:border-divider tw:pt-3">
       <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
-        <span class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-          Additional documents
-        </span>
+        <BaseText variant="overline">Additional documents</BaseText>
         <BaseButton v-if="!readonly" variant="outline" size="sm" @click="openUpload(null)">
           <template #icon><IconUpload :size="14" /></template>
           Upload

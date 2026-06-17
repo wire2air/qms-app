@@ -70,6 +70,7 @@ function getArray() {
       <BaseSelectMenu
         v-model="modelValue"
         :items="departments"
+        nullLabel="— All departments —"
         :required="required"
         :multiple="multiple"
       >

@@ -24,15 +24,16 @@ const primary = computed(() => contacts.value.find((c) => c.isPrimary) || contac
   <div
     class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:overflow-hidden"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-3"
-    >
-      <div
-        class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-gray-100 tw:flex tw:items-center tw:justify-center"
-      >
-        <IconUser :size="20" class="tw:text-secondary" />
-      </div>
-      <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Primary Contact</h3>
+    <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
+      <BaseSectionHeader
+        title="Primary Contact"
+        :icon="IconUser"
+        iconVariant="boxed"
+        iconColor="gray"
+        :iconSize="20"
+        :level="3"
+        size="section-title"
+      />
     </div>
     <div class="tw:p-6">
       <div v-if="primary" class="tw:flex tw:flex-col tw:gap-2">
