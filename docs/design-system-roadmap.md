@@ -71,14 +71,14 @@ The foundation everything else consumes. **CSS variables, not `.ts`.**
 - [ ] Stories (deferred to Phase 1 Storybook setup).
 - [ ] Retire `.ds-label`/`.ds-label-sm` utilities → tracked as a Phase 7 Bucket-B follow-up.
 
-## Phase 3 — BaseField  🚧 PARTIAL  `M–L` · risk: medium ⭐
+## Phase 3 — BaseField  ✅ DONE  `M–L` · risk: medium ⭐
 
 The enterprise field wrapper — `<BaseField label required hint error><BaseInput/></BaseField>`.
 
-- [x] `BaseField` composes `BaseLabel`+`BaseHelperText`+`BaseErrorText`; owns generated `id` + `for`/`aria-describedby`/`aria-invalid` (+ added `id` prop to `BaseTextInput`). 8 unit tests.
-- [ ] Migrate `BaseTextInput`/`BaseTextarea` to `defineModel`; route chrome through `BaseField`.
-- [ ] One `focus-visible` ring token + `motion-reduce` across primitives.
-- [ ] Story + a11y check.
+- [x] `BaseField` composes `BaseLabel`+`BaseHelperText`+`BaseErrorText`; owns generated `id` + `for`/`aria-describedby`/`aria-invalid` (+ `id` prop on `BaseTextInput`). 8 unit tests.
+- [x] `BaseTextInput`/`BaseTextarea` → `defineModel`; stable id wired to `<label for>` ↔ input id; `aria-invalid`/`aria-describedby` + error routed through `BaseErrorText` (`role=alert`). 6 unit tests.
+- [x] `focus-visible` ring (BaseCheckbox peer-focus, BaseSwitch → primary) + `motion-reduce` (BaseSpinner, BaseSkeleton) + skeleton dark-mode bg.
+- [ ] Stories (deferred to Phase 1 Storybook setup) + visual a11y check on dev server.
 
 ## Phase 4 — Core Controls: harden + fill gaps  ⬜  `L` · risk: medium
 
