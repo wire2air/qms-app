@@ -62,20 +62,20 @@ The foundation everything else consumes. **CSS variables, not `.ts`.**
 
 **Goal:** one place to change any visual decision; tooling to see every component.
 
-## Phase 2 — Typography Foundation  🚧 IN PROGRESS  `M` · risk: low
+## Phase 2 — Typography Foundation  ✅ DONE (components)  `M` · risk: low
 
-> Pulled forward (the `--text-*` tokens are already wired, so no token blocker). `BaseLabel.help` uses a native `title` until `BaseTooltip` lands in Phase 5.
+> Built + committed. `BaseLabel.help` uses a native `title` until `BaseTooltip` lands in Phase 5.
 
-- [ ] `typography/typography.js` variant→token map (maps to wired `--text-*` + semantic colors).
-- [ ] `BaseHeading` (semantic `level` + visual `as`), `BaseText`, `BaseCaption`, `BaseLabel`, `BaseHelperText`, `BaseErrorText` + barrel + tests + **stories**.
-- [ ] Retire `.ds-label`/`.ds-label-sm` utilities.
-- [ ] No raw `text-sm`/`text-lg`/`font-bold`/`text-red` in *new* code (sweep is Phase 7).
+- [x] `typography/typography.js` variant→token map (wired `--text-*` + semantic colors) + `overline` variant.
+- [x] `BaseHeading` (semantic `level` + visual `as`), `BaseText`, `BaseCaption`, `BaseLabel`, `BaseHelperText`, `BaseErrorText` — 25 unit tests, eslint clean.
+- [ ] Stories (deferred to Phase 1 Storybook setup).
+- [ ] Retire `.ds-label`/`.ds-label-sm` utilities → tracked as a Phase 7 Bucket-B follow-up.
 
-## Phase 3 — BaseField  ⬜  `M–L` · risk: medium ⭐
+## Phase 3 — BaseField  🚧 PARTIAL  `M–L` · risk: medium ⭐
 
 The enterprise field wrapper — `<BaseField label required hint error><BaseInput/></BaseField>`.
 
-- [ ] `BaseField` composes `BaseLabel`+`BaseHelperText`+`BaseErrorText`; owns generated `id` + `for`/`aria-describedby`/`aria-invalid`.
+- [x] `BaseField` composes `BaseLabel`+`BaseHelperText`+`BaseErrorText`; owns generated `id` + `for`/`aria-describedby`/`aria-invalid` (+ added `id` prop to `BaseTextInput`). 8 unit tests.
 - [ ] Migrate `BaseTextInput`/`BaseTextarea` to `defineModel`; route chrome through `BaseField`.
 - [ ] One `focus-visible` ring token + `motion-reduce` across primitives.
 - [ ] Story + a11y check.
@@ -103,12 +103,15 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [ ] Merge `BaseChip` → `BaseBadge`; extract `BaseRailItem` behind `BaseStepper`+`BaseTimeline`; `BaseBreadcrumbs` → `nav/ol/aria-current`.
 - [ ] Stories + a11y.
 
-## Phase 7 — App-Wide Refactor / Sweep  ⬜  `XL` · risk: medium
+## Phase 7 — App-Wide Refactor / Sweep  🚧 IN PROGRESS  `XL` · risk: medium
 
-> **Last** — all primitives now exist. Batched by domain, verified per batch.
-- [ ] Replace `<label>` → `BaseLabel`/`BaseField`; `<h1..6>` → `BaseHeading`; `<p>`/`text-[Npx]`/`text-sm` → `BaseText`/`BaseCaption`; error `<p>` → `BaseErrorText`.
-- [ ] Replace raw `<select>`/`<input>`/clickable `<div>` → the hardened Base controls.
-- [ ] Retire the ~417 `text-[Npx]` magic numbers.
+> **Label/eyebrow/heading sweep LARGELY DONE** — ~380 raw `<label>` → `BaseField`, section eyebrows → `BaseText overline`, small section headings → `BaseText as=hN`, across ~22 domains + `src/pages` (NC, suppliers, qcInspection, documents, customerComplaints, inspectionsLogs, capas, workflow, changeRequests, formTemplate, equipment, formAssignment, company, groups, users, roles, form, form-builder, editor, taskInstance, records, products, auth, audits, rcaTemplate, …). Every commit lint-clean; ~155 `<label>` remain, all intentional leaves (below).
+- [x] Raw `<label>` field blocks → `BaseField`; eyebrows → `BaseText overline`; small headings → `BaseText`.
+- [ ] **Bucket B follow-up — retire `ds-label`/`ds-label-sm` → `BaseLabel`** (~20 labels; mostly suppliers cards). Cosmetically fine today (already a DS utility); converting unifies on `BaseLabel`.
+- [ ] **Bucket B follow-up — read-only field captions → `BaseCaption`** (~95: `<label>`/`<div class="text-xs text-secondary">` above read-only values, inline-edit grid cells, composite-control captions; mostly suppliers / documents / detail-page rails).
+- [ ] _Intentional leaves (do NOT convert):_ ~25 checkbox/switch/radio-wrapping `<label>`s; `<th>` table headers; `BaseCheckbox`-nested question labels.
+- [ ] Replace raw `<select>`/`<input>`/clickable `<div>` → hardened Base controls (after Phase 4/5).
+- [ ] Retire the ~417 `text-[Npx]` magic numbers (separate token task; heading/label-related ones already folded into the sweep above).
 - [ ] **CI guardrail:** fail on `text-[\d+px]` and on raw `<label` / `<h[1-6]` in `src/` outside DS components.
 
 ## Phase 8 — Advanced Components  ⬜  `XL` · risk: med (mostly lazy-loaded)
