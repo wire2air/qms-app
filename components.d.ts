@@ -105,6 +105,7 @@ declare module 'vue' {
     AuditVoiceNotesPanel: typeof import('./src/components/audits/AuditVoiceNotesPanel.vue')['default']
     AuditWalkthroughPanel: typeof import('./src/components/audits/AuditWalkthroughPanel.vue')['default']
     BaseBadge: typeof import('./resource/js/shared/components/BaseBadge.vue')['default']
+    'BaseBadge.spec': typeof import('./resource/js/shared/components/BaseBadge.spec.js')['default']
     BaseBreadcrumbs: typeof import('./resource/js/shared/components/BaseBreadcrumbs.vue')['default']
     BaseButton: typeof import('./resource/js/shared/components/BaseButton.vue')['default']
     BaseCaption: typeof import('./resource/js/shared/components/typography/BaseCaption.vue')['default']
