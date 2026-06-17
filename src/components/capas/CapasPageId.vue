@@ -437,11 +437,7 @@ function onCreateLinkedChangeRequest() {
               <div
                 class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                <div
-                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-                >
-                  CAPA Details
-                </div>
+                <BaseText variant="overline">CAPA Details</BaseText>
                 <!-- At-a-glance indicator of which assignee pool the
                      workflow draws from. Mirrors the NC chip — a CAPA
                      spawned from a supplier NC inherits both
@@ -701,10 +697,7 @@ function onCreateLinkedChangeRequest() {
         </div>
 
         <!-- Gate 2: effectiveness check date -->
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">
-            Effectiveness Check Date <span class="tw:text-red-500">*</span>
-          </p>
+        <BaseField label="Effectiveness Check Date" required>
           <p class="tw:text-xs tw:text-secondary tw:mb-2">
             When should the corrective action's effectiveness be verified? Industry standard is 90
             days from close.
@@ -737,19 +730,17 @@ function onCreateLinkedChangeRequest() {
           <p v-if="closeEffectivenessDate" class="tw:text-xs tw:text-secondary tw:mt-2">
             Will schedule for: <strong>{{ closeEffectivenessDate.formatDate('date') }}</strong>
           </p>
-        </div>
+        </BaseField>
 
         <!-- Optional closure comments -->
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Closure Comments (optional)
-          </p>
+        <BaseField v-slot="{ id: fieldId }" label="Closure Comments" optional>
           <BaseTextarea
+            :id="fieldId"
             v-model="closeComments"
             :rows="3"
             placeholder="Summary of the corrective action and verification of completion"
           />
-        </div>
+        </BaseField>
 
         <!-- CFR 21 Part 11 notice -->
         <div
@@ -803,14 +794,14 @@ function onCreateLinkedChangeRequest() {
             below is recorded on the row and in the audit log.
           </div>
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Reason</p>
+        <BaseField v-slot="{ id: fieldId }" label="Reason">
           <BaseTextarea
+            :id="fieldId"
             v-model="cancelReason"
             :rows="3"
             placeholder="Why is this CAPA being cancelled?"
           />
-        </div>
+        </BaseField>
         <!-- CFR 21 Part 11 notice -->
         <div
           class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800"
