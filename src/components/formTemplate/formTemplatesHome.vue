@@ -107,7 +107,7 @@ async function confirmDeleteTemplate() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconStack2" title="Form Templates" />
 
     <!-- "Create New Template" only on the Templates tab; Option Sets
@@ -162,7 +162,7 @@ async function confirmDeleteTemplate() {
         </BaseTabPanel>
       </div>
     </BaseTabs>
-  </div>
+  </BasePage>
 
   <!-- Create Template Dialog -->
   <FormTemplateCreateTemplate v-model="showCreateDialog" @next="handleTemplateCreated" />

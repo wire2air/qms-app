@@ -376,7 +376,7 @@ watch(auditTabs, (tabs) => {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="standard" density="compact" fullHeight>
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
@@ -485,7 +485,7 @@ watch(auditTabs, (tabs) => {
       description="This audit could not be found."
     />
 
-    <div v-else class="tw:overflow-y-auto tw:flex-1">
+    <div v-else class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_320px] tw:gap-4 tw:items-start">
           <div class="tw:flex tw:flex-col tw:gap-4">
@@ -1051,5 +1051,5 @@ watch(auditTabs, (tabs) => {
           : []
       "
     />
-  </div>
+  </BasePage>
 </template>

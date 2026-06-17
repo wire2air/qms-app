@@ -28,7 +28,7 @@ watch(
 </script>
 
 <template>
-  <div class="tw:p-5">
+  <BasePage width="standard">
     <PageHeader :icon="IconList" title="Lookups" />
 
     <div class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
@@ -51,5 +51,5 @@ watch(
         <BaseTabPanel value="audit-finding-categories"><AuditFindingCategoriesCard /></BaseTabPanel>
       </BaseTabs>
     </div>
-  </div>
+  </BasePage>
 </template>

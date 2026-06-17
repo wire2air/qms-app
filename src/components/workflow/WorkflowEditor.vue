@@ -388,6 +388,8 @@ watch(steps, () => {
 </script>
 
 <template>
+  <!-- Full-canvas editor: exempt from BasePage (a designer surface that fills the
+       viewport with its own panes/scroll, not a content page). See CLAUDE.md "Page layout". -->
   <div class="tw:flex tw:flex-col tw:h-full tw:overflow-hidden">
     <!-- Loading State -->
     <div v-if="!workflow" class="tw:flex tw:items-center tw:justify-center tw:h-full">

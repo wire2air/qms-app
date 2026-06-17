@@ -35,7 +35,7 @@ function loadMore() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:p-6 tw:max-w-4xl tw:mx-auto">
+  <BasePage width="standard" density="compact">
     <SafeTeleport to="#main-header-title">
       <div class="tw:flex tw:items-center tw:gap-2">
         <RouterLink
@@ -125,5 +125,5 @@ function loadMore() {
         </button>
       </div>
     </template>
-  </div>
+  </BasePage>
 </template>

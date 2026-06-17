@@ -61,7 +61,7 @@ function onDeleteSupplier(row) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconTruck" title="Suppliers" />
 
     <SafeTeleport to="#main-header-actions">
@@ -110,7 +110,7 @@ function onDeleteSupplier(row) {
       @delete="onDeleteSupplier"
       @edit="onEditSupplier"
     />
-  </div>
+  </BasePage>
 
   <ConfirmDialog
     v-if="confirmDialog"

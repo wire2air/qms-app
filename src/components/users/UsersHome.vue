@@ -47,28 +47,22 @@ const loading = computed(() => users.value === undefined)
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:overflow-hidden tw:h-full tw:p-5">
+  <BasePage width="standard">
     <PageHeader :icon="IconUsers" title="Users" />
 
     <SafeTeleport to="#main-header-actions">
       <BaseButton v-if="canCreateUser" @click="showCreateDialog = true"> Create User </BaseButton>
     </SafeTeleport>
 
-    <div class="">
-      <div class="tw:flex tw:flex-col tw:gap-3">
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Users</div>
-          <div class="tw:text-sm tw:text-secondary">Manage your organization's users.</div>
-        </div>
-
-        <UsersFilterToolbar v-model:filters="filters" />
-      </div>
+    <div class="tw:flex tw:flex-col tw:gap-1">
+      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Users</div>
+      <div class="tw:text-sm tw:text-secondary">Manage your organization's users.</div>
     </div>
 
-    <div class="tw:flex tw:flex-col tw:flex-1 tw:gap-5 tw:overflow-auto">
-      <UsersList :users="users || []" :loading="loading" />
-    </div>
+    <UsersFilterToolbar v-model:filters="filters" />
+
+    <UsersList :users="users || []" :loading="loading" />
 
     <UsersCreateUserDialog v-model="showCreateDialog" />
-  </div>
+  </BasePage>
 </template>

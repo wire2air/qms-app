@@ -129,7 +129,7 @@ function onCreate() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader title="Change Requests" />
 
     <SafeTeleport to="#main-header-actions">
@@ -228,5 +228,5 @@ function onCreate() {
       :canUpdate="canUpdate"
       @edit="(row) => router.push(getCompanyPath(`/change-requests/${row.id}`))"
     />
-  </div>
+  </BasePage>
 </template>

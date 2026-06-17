@@ -51,7 +51,7 @@ async function confirmDeleteSite() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconMapPin" title="Sites" />
 
     <SafeTeleport to="#main-header-actions">
@@ -79,7 +79,7 @@ async function confirmDeleteSite() {
       @delete="onDeleteSite"
       @edit="onEditSite"
     />
-  </div>
+  </BasePage>
 
   <!-- Create/Edit Site Dialog -->
   <SitesCreateUpdateDialog v-if="showDialog" :id="selectedSiteId" v-model="showDialog" />

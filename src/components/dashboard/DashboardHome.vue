@@ -103,7 +103,7 @@ async function saveEnabled(ids) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:min-h-screen tw:bg-main tw:p-5 tw:gap-5">
+  <BasePage width="wide">
     <!-- Page Header -->
     <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
       <div>
@@ -143,7 +143,7 @@ async function saveEnabled(ids) {
       :enabledIds="enabledIds"
       @save="saveEnabled"
     />
-  </div>
+  </BasePage>
 </template>
 
 <style scoped>

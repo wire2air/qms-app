@@ -14,7 +14,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconShield" title="Roles Administration" />
 
     <SafeTeleport to="#main-header-actions">
@@ -60,7 +60,7 @@ onMounted(() => {
 
     <!-- Roles List -->
     <RolesList :roles="roles" :loading="loading" />
-  </div>
+  </BasePage>
 
   <!-- Create Role Dialog -->
   <RoleCreateDialog v-model="showCreateDialog" />

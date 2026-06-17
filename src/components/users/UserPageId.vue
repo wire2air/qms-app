@@ -113,7 +113,7 @@ async function handleAvatarDelete() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="standard" density="compact" fullHeight>
     <!-- Breadcrumbs Teleport -->
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbItems" />
@@ -143,7 +143,7 @@ async function handleAvatarDelete() {
     </div>
 
     <!-- Content -->
-    <div v-else class="tw:flex-1 tw:overflow-y-auto tw:p-8">
+    <div v-else class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:p-8">
       <div class="tw:max-w-5xl tw:mx-auto tw:space-y-6">
         <!-- Saving Indicator -->
         <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary">
@@ -411,5 +411,5 @@ async function handleAvatarDelete() {
       :performedBy="props.id"
       :title="`Audit Log — ${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Audit Log'"
     />
-  </div>
+  </BasePage>
 </template>

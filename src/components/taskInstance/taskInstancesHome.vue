@@ -20,7 +20,7 @@ const subtitle = computed(() => {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="wide" density="compact">
     <SafeTeleport to="#main-header-title">
       <div>
         <div class="tw:text-xl tw:font-bold tw:text-on-main">{{ title }}</div>
@@ -49,5 +49,5 @@ const subtitle = computed(() => {
         />
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

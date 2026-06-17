@@ -43,7 +43,7 @@ watch(
 </script>
 
 <template>
-  <div class="tw:p-5">
+  <BasePage width="standard">
     <PageHeader :icon="IconHeadset" title="Complaint Settings" />
 
     <div class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
@@ -90,5 +90,5 @@ watch(
         </div>
       </BaseTabs>
     </div>
-  </div>
+  </BasePage>
 </template>

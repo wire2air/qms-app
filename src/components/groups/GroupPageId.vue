@@ -135,7 +135,7 @@ function copyToClipboard(text) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="standard" density="compact">
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbItems" />
     </SafeTeleport>
@@ -365,5 +365,5 @@ function copyToClipboard(text) {
       @save="handleAvatarSave"
       @delete="handleAvatarDelete"
     />
-  </div>
+  </BasePage>
 </template>

@@ -78,9 +78,7 @@ function goLogs() {
 </script>
 
 <template>
-  <div
-    class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-4 tw:overflow-y-auto tw:max-w-2xl tw:mx-auto tw:w-full"
-  >
+  <BasePage width="narrow" density="compact">
     <PageHeader title="Logging" />
 
     <!-- My Tasks -->
@@ -165,5 +163,5 @@ function goLogs() {
         </button>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

@@ -29,7 +29,7 @@ const loading = computed(() => groups.value === undefined)
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconUsersGroup" title="Groups" />
 
     <SafeTeleport to="#main-header-actions">
@@ -51,5 +51,5 @@ const loading = computed(() => groups.value === undefined)
     <GroupsList :groups="groups" :loading="loading" :canDelete="canDeleteGroup" />
 
     <GroupsCreateDialog v-model="showCreateDialog" />
-  </div>
+  </BasePage>
 </template>

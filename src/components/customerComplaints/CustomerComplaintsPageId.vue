@@ -120,7 +120,7 @@ const auditIncludeEntities = computed(() => [
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="standard" density="compact" fullHeight>
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
@@ -198,7 +198,7 @@ const auditIncludeEntities = computed(() => [
       <BaseSpinner size="md" />
     </div>
 
-    <div v-else-if="complaint" class="tw:overflow-y-auto tw:flex-1">
+    <div v-else-if="complaint" class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <div
           v-if="saveError"
@@ -546,5 +546,5 @@ const auditIncludeEntities = computed(() => [
       :includeEntities="auditIncludeEntities"
       :title="`Audit Log — ${complaint?.complaintNumber ?? 'Complaint'}`"
     />
-  </div>
+  </BasePage>
 </template>

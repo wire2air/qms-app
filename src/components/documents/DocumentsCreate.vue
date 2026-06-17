@@ -333,11 +333,11 @@ function handlePdfImport(draft) {
 </script>
 
 <template>
-  <div class="tw:relative tw:flex tw:flex-col tw:h-full">
+  <BasePage width="narrow" fullHeight class="tw:relative">
     <PageHeader :icon="IconFileText" title="Create Document" />
 
     <!-- Scrollable content -->
-    <div class="tw:flex-1 tw:overflow-y-auto tw:pb-24">
+    <div class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
       <div class="tw:max-w-4xl tw:mx-auto tw:px-6 tw:py-8">
         <!-- Header -->
         <div class="tw:mb-8">
@@ -470,5 +470,5 @@ function handlePdfImport(draft) {
 
     <!-- PDF import dialog — extract text + images and structure with AI -->
     <DocumentImportPdfDialog v-model="showImportDialog" @apply="handlePdfImport" />
-  </div>
+  </BasePage>
 </template>

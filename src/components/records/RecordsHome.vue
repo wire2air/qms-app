@@ -55,7 +55,7 @@ function onRecordCreated() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="wide" density="compact">
     <PageHeader :icon="IconFolderOpen" title="Records" />
 
     <!-- Page Header -->
@@ -90,7 +90,7 @@ function onRecordCreated() {
 
     <!-- Add Record Dialog -->
     <AddRecordDialog v-model="showAddDialog" @created="onRecordCreated" />
-  </div>
+  </BasePage>
 </template>
 
 <style scoped lang="scss">

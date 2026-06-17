@@ -148,7 +148,7 @@ function onCreateCapa() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader title="CAPAs" />
 
     <SafeTeleport to="#main-header-actions">
@@ -267,5 +267,5 @@ function onCreateCapa() {
       :canDelete="canDelete"
       @edit="(row) => router.push(getCompanyPath(`/capas/${row.id}`))"
     />
-  </div>
+  </BasePage>
 </template>

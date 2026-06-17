@@ -377,7 +377,7 @@ async function handleNewVersionConfirm(changeControl) {
        be at least 100vh tall, which interacted with the sticky toolbar and
        could make the document body unreachable on shorter viewports. The
        App.vue overflow-auto wrapper already owns the scroll. -->
-  <div class="tw:bg-main">
+  <BasePage width="standard" density="compact">
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
@@ -626,5 +626,5 @@ async function handleNewVersionConfirm(changeControl) {
         @confirm="handleNewVersionConfirm"
       />
     </div>
-  </div>
+  </BasePage>
 </template>

@@ -66,7 +66,7 @@ function goEdit(id) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader title="Log Book Assignments" />
 
     <SafeTeleport to="#main-header-actions">
@@ -191,5 +191,5 @@ function goEdit(id) {
         </tbody>
       </table>
     </div>
-  </div>
+  </BasePage>
 </template>

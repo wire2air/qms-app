@@ -399,9 +399,9 @@ function handleSubmit(data, done) {
 </script>
 
 <template>
-  <div class="tw:p-5 tw:bg-main tw:min-h-screen">
+  <BasePage width="wide">
     <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between tw:mb-12">
+    <div class="tw:flex tw:items-center tw:justify-between">
       <div>
         <div class="tw:text-3xl tw:font-bold tw:text-on-main">Form Templates</div>
         <div class="tw:text-sm tw:text-secondary">
@@ -572,7 +572,7 @@ function handleSubmit(data, done) {
         </div>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>
 
 <style lang="scss" scoped>

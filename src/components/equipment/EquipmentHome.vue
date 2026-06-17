@@ -135,7 +135,7 @@ async function recordCalibration(e) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
+  <BasePage width="wide" density="compact">
     <PageHeader :icon="IconTool" title="Equipment" :iconSize="22" />
 
     <SafeTeleport to="#main-header-actions">
@@ -318,5 +318,5 @@ async function recordCalibration(e) {
       :equipment="editingEquipment"
       @updated="onUpdated"
     />
-  </div>
+  </BasePage>
 </template>

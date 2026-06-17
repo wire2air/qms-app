@@ -285,11 +285,11 @@ function goBack() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="narrow" fullHeight>
     <PageHeader :icon="IconTruck" title="New Supplier Onboarding" />
 
     <!-- Scrollable content -->
-    <div class="tw:flex-1 tw:overflow-y-auto tw:pb-24">
+    <div class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
       <div class="tw:max-w-5xl tw:mx-auto tw:px-6 tw:py-8">
         <!-- Breadcrumbs -->
         <div class="tw:mb-4 tw:flex tw:items-center tw:text-sm tw:text-secondary tw:gap-1">
@@ -567,5 +567,5 @@ function goBack() {
         </div>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

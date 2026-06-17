@@ -280,7 +280,7 @@ const isLockedOut = computed(() => {
   >
     You are not assigned to this training.
   </div>
-  <div v-else class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
+  <BasePage v-else width="standard" density="compact">
     <SafeTeleport to="#main-header-title">
       <div class="tw:flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary">
         <RouterLink :to="getCompanyPath('/tasks')" class="tw:hover:text-primary"
@@ -563,5 +563,5 @@ const isLockedOut = computed(() => {
       :versionId="viewingVersionId"
     />
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
-  </div>
+  </BasePage>
 </template>

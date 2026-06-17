@@ -26,7 +26,7 @@ function navigateToCreate() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconFileDescription" title="Document Templates" />
 
     <SafeTeleport to="#main-header-actions">
@@ -53,5 +53,5 @@ function navigateToCreate() {
 
     <!-- Templates Table -->
     <DocumentTemplatesTable :rows="documentTemplates || []" :loading="loading" />
-  </div>
+  </BasePage>
 </template>

@@ -209,7 +209,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="narrow" fullHeight>
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs
         :items="[
@@ -230,7 +230,7 @@ async function handleSubmit() {
       </div>
     </SafeTeleport>
 
-    <div class="tw:overflow-y-auto tw:flex-1">
+    <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:p-5 tw:max-w-4xl tw:mx-auto tw:flex tw:flex-col tw:gap-4">
         <div class="tw:flex tw:flex-col tw:gap-1">
           <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">New Change Request</div>
@@ -356,7 +356,7 @@ async function handleSubmit() {
         </div>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>
 
 <style scoped>

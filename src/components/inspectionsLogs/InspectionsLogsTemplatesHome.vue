@@ -105,7 +105,7 @@ function editWindowSummary(t) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconStack2" title="Log Books" :iconSize="22" />
 
     <SafeTeleport to="#main-header-actions">
@@ -288,5 +288,5 @@ function editWindowSummary(t) {
       :initialClassification="pendingClassification"
       @created="onTemplateCreated"
     />
-  </div>
+  </BasePage>
 </template>

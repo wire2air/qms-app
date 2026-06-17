@@ -59,7 +59,7 @@ const STATUS_OPTIONS = [
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader title="Training Library" />
 
     <SafeTeleport to="#main-header-actions">
@@ -164,5 +164,5 @@ const STATUS_OPTIONS = [
     </div>
 
     <TrainingsTable :rows="trainings" :canUpdate="canUpdate" :canDelete="canDelete" />
-  </div>
+  </BasePage>
 </template>

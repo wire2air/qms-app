@@ -3,7 +3,7 @@ const filters = ref({ search: '', statusId: null })
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <!-- Header teleports -->
     <SafeTeleport to="#main-header-title">
       <div>
@@ -24,5 +24,5 @@ const filters = ref({ search: '', statusId: null })
         <WorkflowInstancesTable :search="filters.search" :statusId="filters.statusId" />
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

@@ -69,7 +69,7 @@ function onDialogClose() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconLayoutGrid" title="Risk Assessment Templates" />
 
     <!-- "New Template" header-action only on the Templates tab; the
@@ -129,5 +129,5 @@ function onDialogClose() {
       okLabel="Delete"
       @ok="confirmDeleteTemplate"
     />
-  </div>
+  </BasePage>
 </template>

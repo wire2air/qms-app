@@ -92,18 +92,18 @@ watch(
 </script>
 
 <template>
-  <div class="tw:p-5">
+  <BasePage width="standard">
     <PageHeader :icon="IconSettings" title="Company Settings" />
 
-    <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
+    <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:py-20">
       <BaseSpinner size="lg" />
     </div>
 
-    <div v-else-if="!company" class="tw:p-8 tw:text-center tw:text-secondary">
+    <div v-else-if="!company" class="tw:py-8 tw:text-center tw:text-secondary">
       Company not found.
     </div>
 
-    <div v-else class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
+    <template v-else>
       <div class="tw:flex tw:flex-col tw:gap-1">
         <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Company Settings</div>
         <div class="tw:text-sm tw:text-secondary">
@@ -148,6 +148,6 @@ watch(
           <CompanyAiProfileCard />
         </BaseTabPanel>
       </BaseTabs>
-    </div>
-  </div>
+    </template>
+  </BasePage>
 </template>
