@@ -44,7 +44,7 @@ function goBack() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
+  <BasePage width="standard" density="compact">
     <button
       class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:text-secondary tw:hover:text-on-sidebar tw:w-fit"
       @click="goBack"
@@ -139,5 +139,5 @@ function goBack() {
     </template>
 
     <ProductsCreateUpdateDialog v-if="showEdit" :id="props.id" v-model="showEdit" />
-  </div>
+  </BasePage>
 </template>

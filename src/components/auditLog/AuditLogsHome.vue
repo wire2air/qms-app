@@ -6,7 +6,7 @@ const { auditLogs, loading } = useAuditLogs()
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5">
+  <BasePage width="wide" density="compact">
     <SafeTeleport to="#main-header-title">
       <div>
         <div class="tw:text-xl tw:font-bold tw:text-on-main">Audit Logs</div>
@@ -36,5 +36,5 @@ const { auditLogs, loading } = useAuditLogs()
       description="Audit logs will appear here as actions are performed."
       dense
     />
-  </div>
+  </BasePage>
 </template>
