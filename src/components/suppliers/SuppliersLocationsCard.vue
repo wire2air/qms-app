@@ -249,9 +249,7 @@ async function setPrimary(loc) {
           class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:border tw:border-primary/40 tw:rounded-lg tw:bg-primary/5"
         >
           <div class="tw:flex tw:items-center tw:justify-between">
-            <span class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wide"
-              >New Location</span
-            >
+            <BaseText variant="overline">New Location</BaseText>
             <button
               class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-red-500"
               @click="cancelDraft"

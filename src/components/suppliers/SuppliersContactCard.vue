@@ -160,9 +160,9 @@ async function setPrimary(contact) {
                 <IconStarFilled v-if="contact.isPrimary" :size="16" />
                 <IconStar v-else :size="16" />
               </button>
-              <span class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wide">
+              <BaseText variant="overline">
                 {{ contact.isPrimary ? 'Primary' : 'Contact' }}
-              </span>
+              </BaseText>
             </div>
             <button
               v-if="canUpdate && contacts.length > 1"
@@ -248,9 +248,7 @@ async function setPrimary(contact) {
           class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:border tw:border-primary/40 tw:rounded-lg tw:bg-primary/5"
         >
           <div class="tw:flex tw:items-center tw:justify-between">
-            <span class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wide"
-              >New Contact</span
-            >
+            <BaseText variant="overline">New Contact</BaseText>
             <button
               class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-red-500"
               @click="cancelDraft"

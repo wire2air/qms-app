@@ -91,10 +91,7 @@ watch(open, (val) => {
 <template>
   <BaseDialog v-model="open" title="Share Document" maxWidth="sm">
     <div class="tw:p-4 tw:space-y-4">
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1 tw:ml-2">
-          Select Document
-        </label>
+      <BaseField label="Select Document">
         <BaseSelectMenu v-model="selectedVersionId" :items="availableItems" :required="true">
           <template #button="scope">
             <slot name="button" v-bind="scope">
@@ -107,7 +104,7 @@ watch(open, (val) => {
             </slot>
           </template>
         </BaseSelectMenu>
-      </div>
+      </BaseField>
     </div>
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
       <BaseButton variant="outline" @click="open = false">Cancel</BaseButton>

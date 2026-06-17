@@ -116,12 +116,12 @@ function progressForRequest(req) {
   <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
     <div class="tw:flex tw:items-center tw:gap-2">
       <IconUpload :size="18" class="tw:text-primary" />
-      <h2 class="tw:text-base tw:font-semibold tw:text-on-main">
+      <BaseText as="h2" weight="semibold">
         Asset Requests
         <span v-if="myRequests.length" class="tw:text-secondary tw:font-normal tw:text-sm">
           ({{ myRequests.length }})
         </span>
-      </h2>
+      </BaseText>
     </div>
 
     <p v-if="myRequests.length === 0" class="tw:text-xs tw:text-secondary tw:italic tw:py-2">
