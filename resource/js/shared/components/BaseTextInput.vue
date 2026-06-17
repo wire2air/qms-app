@@ -1,5 +1,6 @@
 <script setup>
-import { micromark } from 'micromark'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { IconX } from '@tabler/icons-vue'
 
 // --- Props & models ---
@@ -158,6 +159,15 @@ const cssClass = computed(() => {
   return c
 })
 
+// Render the optional markdown `instructions` to sanitized HTML (links open in
+// a new tab). marked + DOMPurify (project deps) — replaces the micromark dep
+// and closes the unsanitized-v-html XSS gap.
+const renderedInstructions = computed(() => {
+  if (!props.instructions) return ''
+  const html = DOMPurify.sanitize(marked.parse(props.instructions, { async: false }))
+  return html.replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" ')
+})
+
 // --- Lifecycle hooks & related ---
 onMounted(() => {
   if (props.autofocus) {
@@ -200,7 +210,7 @@ defineExpose({
           'tw:text-14 tw:mb-4': size === 'md',
           'tw:text-12': size === 'sm',
         }"
-        v-html="micromark(instructions).replace('href=', 'target=\'_blank\' href=')"
+        v-html="renderedInstructions"
       />
     </div>
     <div class="tw:relative tw:w-full">

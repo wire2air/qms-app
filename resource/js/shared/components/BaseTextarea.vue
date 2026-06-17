@@ -25,10 +25,6 @@ const props = defineProps({
     type: String,
     default: '',
   },
-  type: {
-    type: String,
-    default: 'text',
-  },
   errorMsg: {
     type: String,
     default: '',

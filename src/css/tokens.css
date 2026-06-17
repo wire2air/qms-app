@@ -357,36 +357,10 @@
      * ============================================== */
     --focus-ring: 0 0 0 2px var(--color-neutral-0, #fff), 0 0 0 4px var(--color-info-200, #bfdbfe);
 
-    /* ==============================================
-     * Spacing Scale (4px base)
-     * ============================================== */
-    --space-0: 0px;
-    --space-1: 4px;
-    --space-2: 8px;
-    --space-3: 12px;
-    --space-4: 16px;
-    --space-5: 20px;
-    --space-6: 24px;
-    --space-8: 32px;
-    --space-10: 40px;
-    --space-12: 48px;
-    --space-16: 64px;
-
-    /* ==============================================
-     * Component Heights
-     * ============================================== */
-    --height-btn: 40px;
-    --height-btn-sm: 32px;
-    --height-btn-mini: 28px;
-    --height-input: 40px;
-    --height-input-dense: 36px;
-    --height-table-row: 52px;
-    --height-table-row-compact: 40px;
-    --height-table-header: 44px;
-    --height-filter-bar: 52px;
-    --height-header: 56px;
-    --height-tab: 40px;
-    --height-nav-item: 40px;
+    /* Spacing & component-height scales removed (Phase 0) — they had zero
+     * var() consumers; Tailwind's gap-*/p-*/h-* utilities already cover them.
+     * If a wired `tw:h-btn`-style utility is ever needed, add it to base.css
+     * @theme (not here) so Tailwind emits it. */
 
     /* ==============================================
      * Border Radius & Typography — governed elsewhere, DO NOT re-add here
