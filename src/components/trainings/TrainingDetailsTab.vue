@@ -7,23 +7,34 @@ const props = defineProps({
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
-    <div>
-      <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Title</p>
-      <BaseTextInput v-if="editable" v-model="props.training.title" placeholder="Training title" />
+    <BaseField v-slot="{ id: fieldId }" label="Title">
+      <BaseTextInput
+        v-if="editable"
+        :id="fieldId"
+        v-model="props.training.title"
+        placeholder="Training title"
+      />
       <p v-else class="tw:text-sm tw:text-on-sidebar">{{ training.title || '—' }}</p>
-    </div>
+    </BaseField>
 
-    <div>
-      <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
-      <BaseTextarea v-if="editable" v-model="props.training.description" placeholder="Brief description" :rows="3" />
-      <p v-else class="tw:text-sm tw:text-on-sidebar tw:whitespace-pre-wrap">{{ training.description || '—' }}</p>
-    </div>
+    <BaseField v-slot="{ id: fieldId }" label="Description">
+      <BaseTextarea
+        v-if="editable"
+        :id="fieldId"
+        v-model="props.training.description"
+        placeholder="Brief description"
+        :rows="3"
+      />
+      <p v-else class="tw:text-sm tw:text-on-sidebar tw:whitespace-pre-wrap">
+        {{ training.description || '—' }}
+      </p>
+    </BaseField>
 
     <div class="tw:grid tw:grid-cols-3 tw:gap-4">
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Completion Due (days)</p>
+      <BaseField v-slot="{ id: fieldId }" label="Completion Due (days)">
         <BaseTextInput
           v-if="editable"
+          :id="fieldId"
           v-model.number="props.training.completionDueDays"
           type="number"
           placeholder="e.g. 14"
@@ -32,12 +43,12 @@ const props = defineProps({
         <p v-else class="tw:text-sm tw:text-on-sidebar">
           {{ training.completionDueDays ? `${training.completionDueDays} days` : 'No deadline' }}
         </p>
-      </div>
+      </BaseField>
 
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Passing Score (%)</p>
+      <BaseField v-slot="{ id: fieldId }" label="Passing Score (%)">
         <BaseTextInput
           v-if="editable"
+          :id="fieldId"
           v-model.number="props.training.passingScore"
           type="number"
           placeholder="70"
@@ -45,12 +56,12 @@ const props = defineProps({
           max="100"
         />
         <p v-else class="tw:text-sm tw:text-on-sidebar">{{ training.passingScore }}%</p>
-      </div>
+      </BaseField>
 
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Max Attempts</p>
+      <BaseField v-slot="{ id: fieldId }" label="Max Attempts">
         <BaseTextInput
           v-if="editable"
+          :id="fieldId"
           v-model.number="props.training.maxAttempts"
           type="number"
           placeholder="1"
@@ -58,15 +69,14 @@ const props = defineProps({
           max="10"
         />
         <p v-else class="tw:text-sm tw:text-on-sidebar">{{ training.maxAttempts ?? 1 }}</p>
-      </div>
+      </BaseField>
     </div>
 
-    <div>
-      <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Training Manager</p>
+    <BaseField label="Training Manager">
       <UserSelectMenu v-if="editable" v-model="props.training.managerId" nullLabel="No manager" />
       <UserBadgeById v-else-if="training.managerId" :userId="training.managerId" />
       <span v-else class="tw:text-sm tw:text-secondary">—</span>
-    </div>
+    </BaseField>
 
     <div class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:p-3 tw:rounded-lg tw:border tw:border-divider">
       <div>

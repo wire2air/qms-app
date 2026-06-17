@@ -82,7 +82,7 @@ const hasAssessment = computed({
     <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5">
       <div class="tw:flex tw:items-start tw:justify-between tw:gap-4">
         <div>
-          <h3 class="tw:text-base tw:font-bold tw:text-on-sidebar">Enable training for this document</h3>
+          <BaseText as="h3" weight="bold">Enable training for this document</BaseText>
           <p class="tw:text-sm tw:text-secondary tw:mt-1">
             When enabled, a training will be automatically launched for the selected employees each time
             this document becomes effective. They'll be required to read the document and (optionally) pass
@@ -99,7 +99,7 @@ const hasAssessment = computed({
         <div class="tw:flex tw:flex-col tw:gap-5">
           <!-- Assignees -->
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5">
-            <h4 class="tw:text-sm tw:font-bold tw:text-on-sidebar tw:mb-3">Who needs this training</h4>
+            <BaseText as="h4" weight="bold" class="tw:mb-3">Who needs this training</BaseText>
             <div class="tw:space-y-4">
               <div>
                 <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Roles</p>
@@ -116,7 +116,7 @@ const hasAssessment = computed({
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5">
             <div class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:mb-4">
               <div>
-                <h4 class="tw:text-sm tw:font-bold tw:text-on-sidebar">Assessment</h4>
+                <BaseText as="h4" weight="bold">Assessment</BaseText>
                 <p class="tw:text-xs tw:text-secondary tw:mt-1">
                   Quiz the trainee on the document content. Leave disabled for read-and-acknowledge only.
                 </p>

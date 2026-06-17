@@ -171,17 +171,16 @@ async function handleLink() {
 <template>
   <BaseDialog :modelValue="modelValue" title="Link Existing Record as Evidence" maxWidth="lg" @update:modelValue="close">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Record Type</p>
+      <BaseField label="Record Type">
         <BaseInlineSelect v-model="kindId" :items="KIND_CATALOG" :required="true" />
-      </div>
+      </BaseField>
 
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Search {{ activeKind?.label ?? 'records' }}
-        </p>
-        <BaseTextInput v-model="search" placeholder="Search by number or title…" />
-      </div>
+      <BaseField>
+        <template #label>Search {{ activeKind?.label ?? 'records' }}</template>
+        <template #default="{ id: fieldId }">
+          <BaseTextInput :id="fieldId" v-model="search" placeholder="Search by number or title…" />
+        </template>
+      </BaseField>
 
       <div
         v-if="!candidates.length"
@@ -224,14 +223,14 @@ async function handleLink() {
         </button>
       </div>
 
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Caption</p>
+      <BaseField v-slot="{ id: fieldId }" label="Caption">
         <BaseTextarea
+          :id="fieldId"
           v-model="caption"
           :rows="2"
           placeholder="What does this record prove?"
         />
-      </div>
+      </BaseField>
     </div>
     <template #footer>
       <BaseButton variant="outline" :disabled="linking" @click="close">Cancel</BaseButton>

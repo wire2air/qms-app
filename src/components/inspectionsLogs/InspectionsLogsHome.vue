@@ -184,9 +184,7 @@ function go(path) {
 
     <!-- Navigation cards -->
     <div>
-      <div class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary tw:mb-2">
-        Module sections
-      </div>
+      <BaseText variant="overline" class="tw:block tw:mb-2">Module sections</BaseText>
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:lg:grid-cols-4 tw:gap-3">
         <button
           v-if="canCreateTemplate"

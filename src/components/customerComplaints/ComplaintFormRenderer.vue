@@ -137,30 +137,28 @@ const logoUrl = computed(() => props.definition?.branding?.logoUrl || null)
       </p>
 
       <!-- System fields -->
-      <div
+      <BaseField
         v-for="field in visibleSystemFields"
         :key="field.key"
-        class="tw:flex tw:flex-col tw:gap-1"
+        v-slot="{ id: fieldId }"
+        :label="field.label"
+        :required="isRequired(field.key)"
+        :error="fieldErrors[field.key]"
       >
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">
-          {{ field.label }}
-          <span v-if="isRequired(field.key)" class="tw:text-red-500">*</span>
-        </label>
         <BaseTextarea
           v-if="field.type === 'textarea'"
+          :id="fieldId"
           v-model="values[field.key]"
           :rows="5"
           placeholder="Describe your issue in as much detail as possible…"
         />
         <BaseTextInput
           v-else
+          :id="fieldId"
           v-model="values[field.key]"
           :type="field.type === 'email' ? 'email' : 'text'"
         />
-        <p v-if="fieldErrors[field.key]" class="tw:text-xs tw:text-red-600">
-          {{ fieldErrors[field.key] }}
-        </p>
-      </div>
+      </BaseField>
 
       <!-- Custom fields (attached dynamic form schema) -->
       <div v-if="definition.schema" class="tw:border-t tw:border-divider tw:pt-4">

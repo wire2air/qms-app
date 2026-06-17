@@ -42,10 +42,6 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  show: {
-    type: [Boolean, undefined],
-    default: undefined,
-  },
   showContent: {
     type: Boolean,
     default: true,

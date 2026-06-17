@@ -28,7 +28,7 @@ export class Supplier extends BaseModel {
   @Property({ type: String }) country = ''
   @Property({ type: String }) riskLevel = ''
   @Property({ type: String }) statusId = 'PENDING'
-  @Property({ type: String }) lastEvaluationDate = null
+  @Property({ type: DateTime }) lastEvaluationDate = null
   // Company profile (A.1 / A.3 / A.4). `profile` JSONB holds the long-tail
   // employee counts / facility areas / alliances.
   @Property({ type: String }) website = ''

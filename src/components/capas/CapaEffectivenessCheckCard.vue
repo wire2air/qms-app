@@ -123,9 +123,7 @@ function openComplete() {
     <div
       class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
     >
-      <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-        Effectiveness Check
-      </div>
+      <BaseText variant="overline">Effectiveness Check</BaseText>
       <span v-if="savingInterval" class="tw:text-xs tw:text-secondary">Saving…</span>
     </div>
 
@@ -190,11 +188,7 @@ function openComplete() {
 
     <!-- ─── History (completed / renewed / cancelled rows) ─────────────── -->
     <div v-if="historyChecks.length" class="tw:mt-4">
-      <div
-        class="tw:text-[11px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mb-2"
-      >
-        History
-      </div>
+      <BaseText variant="overline" class="tw:block tw:mb-2">History</BaseText>
       <div class="tw:flex tw:flex-col tw:gap-2">
         <div
           v-for="check in historyChecks"

@@ -246,21 +246,19 @@ function close() {
 
     <div class="tw:flex tw:flex-col tw:gap-4">
       <!-- Title -->
-      <div>
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
-          Log Book Name <span class="tw:text-bad">*</span>
-        </label>
-        <BaseTextInput v-model="title" placeholder="e.g. Daily Warehouse Temperature Log" />
-      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Log Book Name" required>
+        <BaseTextInput
+          :id="fieldId"
+          v-model="title"
+          placeholder="e.g. Daily Warehouse Temperature Log"
+        />
+      </BaseField>
 
       <!-- Code prefix template — supports {DEPTCODE} / {TYPECODE}
            placeholders, resolved server-side from the selected
            Department + LogBookType. Defaults to FRM-{DEPTCODE}-{TYPECODE}. -->
-      <div>
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
-          Record Id Prefix <span class="tw:text-bad">*</span>
-        </label>
-        <BaseTextInput v-model="codePrefix" placeholder="FRM-{DEPTCODE}-{TYPECODE}" />
+      <BaseField v-slot="{ id: fieldId }" label="Record Id Prefix" required>
+        <BaseTextInput :id="fieldId" v-model="codePrefix" placeholder="FRM-{DEPTCODE}-{TYPECODE}" />
         <div class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:flex-col tw:gap-0.5">
           <div>
             Use
@@ -276,22 +274,24 @@ function close() {
             <span class="tw:font-mono tw:text-on-main">{{ resolvedCodePreview }}-0001</span>
           </div>
         </div>
-      </div>
+      </BaseField>
 
       <!-- Description -->
-      <div>
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">Description (optional)</label>
-        <BaseTextarea v-model="description" :rows="2" placeholder="What this log book is for" />
-      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Description" optional>
+        <BaseTextarea
+          :id="fieldId"
+          v-model="description"
+          :rows="2"
+          placeholder="What this log book is for"
+        />
+      </BaseField>
 
       <!-- Type + Supervisor (always visible — these are the load-bearing
            routing fields for the digest / approval flow). -->
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">
-            Type <span class="tw:text-bad">*</span>
-          </label>
+        <BaseField v-slot="{ id: fieldId }" label="Type" required>
           <select
+            :id="fieldId"
             v-model="logBookTypeId"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
           >
@@ -307,38 +307,33 @@ function close() {
             No categories loaded yet — the seeded global types sync on the next bootstrap. If this
             persists, hard-refresh the page to re-bootstrap IndexedDB.
           </div>
-        </div>
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">
-            Supervisor <span class="tw:text-bad">*</span>
-          </label>
+        </BaseField>
+        <BaseField
+          label="Supervisor"
+          required
+          hint="Who reviews submissions + gets daily digests + flag alerts."
+        >
           <UserSelectMenu v-model="supervisorUserId" />
-          <div class="tw:text-xs tw:text-secondary tw:mt-1">
-            Who reviews submissions + gets daily digests + flag alerts.
-          </div>
-        </div>
+        </BaseField>
       </div>
 
       <!-- Site availability + Department. Sites anchor the log book
            operationally; Department feeds {DEPTCODE} in the Record ID
            prefix, so it sits here (not buried in References). -->
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">
-            Sites <span class="tw:text-bad">*</span>
-          </label>
+        <BaseField
+          label="Sites"
+          required
+          hint="Pick at least one site where this log book can be filled."
+        >
           <SiteSelectMenu v-model="selectedSites" multiple />
-          <div class="tw:text-xs tw:text-secondary tw:mt-1">
-            Pick at least one site where this log book can be filled.
-          </div>
-        </div>
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">Department</label>
+        </BaseField>
+        <BaseField label="Department">
           <DepartmentSelectMenu v-model="departmentId" />
           <div class="tw:text-xs tw:text-secondary tw:mt-1">
             Feeds <span class="tw:font-mono">{DEPTCODE}</span> in the Record ID prefix.
           </div>
-        </div>
+        </BaseField>
       </div>
 
       <!-- References — equipment / location. Collapsed by default because
@@ -353,21 +348,20 @@ function close() {
           <component :is="showReferences ? IconChevronUp : IconChevronDown" :size="16" />
         </button>
         <div v-if="showReferences" class="tw:px-3 tw:pb-3 tw:pt-1 tw:flex tw:flex-col tw:gap-3">
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Equipment
-            </label>
+          <BaseField label="Equipment">
             <EquipmentSelectMenu v-model="equipmentId" />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Location
-            </label>
-            <BaseTextInput v-model="location" placeholder="e.g. Room 201, Cold Store, Line 3" />
-            <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-              Where this log is performed. Equipment covers the asset/line; this is the spot.
-            </p>
-          </div>
+          </BaseField>
+          <BaseField
+            v-slot="{ id: fieldId }"
+            label="Location"
+            hint="Where this log is performed. Equipment covers the asset/line; this is the spot."
+          >
+            <BaseTextInput
+              :id="fieldId"
+              v-model="location"
+              placeholder="e.g. Room 201, Cold Store, Line 3"
+            />
+          </BaseField>
         </div>
       </div>
 
@@ -382,50 +376,42 @@ function close() {
           <component :is="showCompliance ? IconChevronUp : IconChevronDown" :size="16" />
         </button>
         <div v-if="showCompliance" class="tw:px-3 tw:pb-3 tw:pt-1 tw:flex tw:flex-col tw:gap-3">
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Related standard
-            </label>
+          <BaseField label="Related standard">
             <RelatedStandardSelectMenu v-model="relatedStandardId" />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Regulatory citation
-            </label>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Regulatory citation">
             <BaseTextInput
+              :id="fieldId"
               v-model="regulatoryCitation"
               placeholder="e.g. ISO 9001 §7.5.3.2 / 21 CFR 211.184"
             />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Retention (months) — leave blank for indefinite
-            </label>
+          </BaseField>
+          <BaseField
+            v-slot="{ id: fieldId }"
+            label="Retention (months) — leave blank for indefinite"
+            hint="Captured for future archival. No automated cleanup yet."
+          >
             <input
+              :id="fieldId"
               v-model.number="retentionMonths"
               type="number"
               min="1"
               max="600"
               class="tw:w-40 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
             />
-            <div class="tw:text-xs tw:text-secondary tw:mt-1">
-              Captured for future archival. No automated cleanup yet.
-            </div>
-          </div>
+          </BaseField>
         </div>
       </div>
 
       <!-- Behavior settings — these define the policy. We derive the
            classification label from them at save time. -->
       <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:flex tw:flex-col tw:gap-3">
-        <div class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary">Entry policy</div>
+        <BaseText variant="overline">Entry policy</BaseText>
 
         <!-- Edit window -->
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Edit window
-          </label>
+        <BaseField v-slot="{ id: fieldId }" label="Edit window">
           <select
+            :id="fieldId"
             v-model="editWindowMode"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1.5 tw:text-sm"
           >
@@ -434,19 +420,22 @@ function close() {
             <option value="UNTIL_NEXT_ENTRY">Until next entry from the same user</option>
             <option value="UNTIL_REVIEW">Until reviewed</option>
           </select>
-          <div v-if="editWindowMode === 'TIME_WINDOW'" class="tw:mt-2">
-            <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">
-              Lock after (minutes)
-            </label>
+          <BaseField
+            v-if="editWindowMode === 'TIME_WINDOW'"
+            v-slot="{ id: minutesId }"
+            label="Lock after (minutes)"
+            class="tw:mt-2"
+          >
             <input
+              :id="minutesId"
               v-model.number="editWindowMinutes"
               type="number"
               min="1"
               max="2880"
               class="tw:w-32 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
             />
-          </div>
-        </div>
+          </BaseField>
+        </BaseField>
 
         <!-- E-sig + review -->
         <div class="tw:flex tw:flex-col tw:gap-2">

@@ -98,9 +98,9 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
 
     <!-- Linked findings + their failed requirements (this CAPA's slice only) -->
     <div v-show="expanded" class="tw:flex tw:flex-col tw:gap-3">
-      <div class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+      <BaseText variant="overline" class="tw:block">
         Findings this CAPA addresses ({{ origin.findings.length }})
-      </div>
+      </BaseText>
       <div
         v-for="f in origin.findings"
         :key="f.id"

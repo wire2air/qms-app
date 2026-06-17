@@ -153,9 +153,7 @@ function truncate(text, n = 80) {
     <div
       class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
     >
-      <div
-        class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-      >
+      <BaseText variant="overline" class="tw:flex tw:items-center tw:gap-2">
         <IconMessageCircle :size="14" />
         Information Requests
         <span
@@ -164,7 +162,7 @@ function truncate(text, n = 80) {
         >
           {{ requests.length }}
         </span>
-      </div>
+      </BaseText>
       <BaseButton v-if="canAsk" variant="outline" size="sm" @click="openAskDialog">
         <template #icon><IconQuestionMark :size="14" /></template>
         Ask

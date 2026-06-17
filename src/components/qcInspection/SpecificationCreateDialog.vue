@@ -120,37 +120,33 @@ async function onSave() {
   <BaseDialog v-model="show" title="New Specification" :persistent="true" size="3xl">
     <div class="tw:p-4 tw:space-y-4">
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Name <span class="tw:text-bad">*</span></label>
-          <BaseTextInput v-model="form.name" placeholder="e.g. Bulk Lotion Spec" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Code</label>
-          <BaseTextInput v-model="form.code" placeholder="optional" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Material kind</label>
+        <BaseField v-slot="{ id: fieldId }" label="Name" required>
+          <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. Bulk Lotion Spec" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Code">
+          <BaseTextInput :id="fieldId" v-model="form.code" placeholder="optional" />
+        </BaseField>
+        <BaseField label="Material kind">
           <BaseInlineSelect v-model="form.materialKind" :items="MATERIAL_KINDS" :required="true" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Scope</label>
+        </BaseField>
+        <BaseField label="Scope">
           <BaseInlineSelect
             v-model="form.scope"
             :items="[{ id: 'product', name: 'Specific product' }, { id: 'productType', name: 'Product type' }]"
             :required="true"
             class="tw:w-full"
           />
-        </div>
+        </BaseField>
       </div>
 
       <!-- Scope target on its own row (the select needs the width). -->
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
-          {{ form.scope === 'product' ? 'Product' : 'Product type' }} <span class="tw:text-bad">*</span>
-        </label>
+      <BaseField required>
+        <template #label>
+          {{ form.scope === 'product' ? 'Product' : 'Product type' }}
+        </template>
         <ProductSelectMenu v-if="form.scope === 'product'" v-model="form.productId" class="tw:w-full" />
         <ProductTypeSelectMenu v-else v-model="form.productTypeId" class="tw:w-full" />
-      </div>
+      </BaseField>
 
       <div>
         <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
@@ -174,18 +170,15 @@ async function onSave() {
           class="tw:p-3 tw:mb-2 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover"
         >
           <div class="tw:flex tw:items-end tw:gap-3">
-            <div class="tw:flex-1">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Test name</label>
-              <BaseTextInput v-model="c.name" placeholder="e.g. pH, Appearance" size="sm" />
-            </div>
-            <div class="tw:w-44">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Type</label>
+            <BaseField v-slot="{ id: fieldId }" label="Test name" class="tw:flex-1">
+              <BaseTextInput :id="fieldId" v-model="c.name" placeholder="e.g. pH, Appearance" size="sm" />
+            </BaseField>
+            <BaseField label="Type" class="tw:w-44">
               <BaseInlineSelect v-model="c.testType" :items="TEST_TYPES" :required="true" />
-            </div>
-            <div class="tw:w-32">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Defect class</label>
+            </BaseField>
+            <BaseField label="Defect class" class="tw:w-32">
               <DefectSeveritySelectMenu v-model="c.defectClass" :required="true" />
-            </div>
+            </BaseField>
             <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
               <BaseCheckbox v-model="c.requiresInstrument" /> Instrument
             </label>
@@ -198,30 +191,25 @@ async function onSave() {
             </button>
           </div>
           <div v-if="c.testType === 'NUMERIC'" class="tw:flex tw:flex-wrap tw:gap-3 tw:mt-3">
-            <div class="tw:w-28">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Target</label>
-              <BaseTextInput v-model.number="c.targetValue" type="number" size="sm" />
-            </div>
-            <div class="tw:w-28">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">LSL (min)</label>
-              <BaseTextInput v-model.number="c.lsl" type="number" size="sm" />
-            </div>
-            <div class="tw:w-28">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">USL (max)</label>
-              <BaseTextInput v-model.number="c.usl" type="number" size="sm" />
-            </div>
-            <div class="tw:w-28">
-              <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">UOM</label>
-              <BaseTextInput v-model="c.uom" placeholder="e.g. pH, %" size="sm" />
-            </div>
+            <BaseField v-slot="{ id: fieldId }" label="Target" class="tw:w-28">
+              <BaseTextInput :id="fieldId" v-model.number="c.targetValue" type="number" size="sm" />
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="LSL (min)" class="tw:w-28">
+              <BaseTextInput :id="fieldId" v-model.number="c.lsl" type="number" size="sm" />
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="USL (max)" class="tw:w-28">
+              <BaseTextInput :id="fieldId" v-model.number="c.usl" type="number" size="sm" />
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="UOM" class="tw:w-28">
+              <BaseTextInput :id="fieldId" v-model="c.uom" placeholder="e.g. pH, %" size="sm" />
+            </BaseField>
           </div>
-          <div class="tw:mt-3">
-            <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Test method / instrument requirements</label>
+          <BaseField label="Test method / instrument requirements" class="tw:mt-3">
             <RichTextAttachments
               v-model="c.testMethod"
               placeholder="e.g. Calibrated micrometer, 0.001 mm resolution, 20°C — attach reference images or spec sheets"
             />
-          </div>
+          </BaseField>
         </div>
       </div>
     </div>

@@ -52,9 +52,9 @@ const userIds = computed(() => trainingUsers.value.map((u) => u.userId))
 
     <div class="tw:border tw:border-divider tw:rounded-xl tw:p-6 tw:space-y-5">
       <div>
-        <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-          Assigned Roles
-        </label>
+        <BaseText variant="overline" weight="bold" class="tw:block tw:mb-2"
+          >Assigned Roles</BaseText
+        >
         <div v-if="roleIds.length > 0" class="tw:flex tw:flex-wrap tw:gap-2">
           <RoleBadgeById v-for="roleId in roleIds" :key="roleId" :roleId="roleId" />
         </div>
@@ -62,9 +62,9 @@ const userIds = computed(() => trainingUsers.value.map((u) => u.userId))
       </div>
 
       <div>
-        <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-          Assigned Users
-        </label>
+        <BaseText variant="overline" weight="bold" class="tw:block tw:mb-2"
+          >Assigned Users</BaseText
+        >
         <div v-if="userIds.length > 0" class="tw:flex tw:flex-wrap tw:gap-2">
           <UserBadgeById v-for="userId in userIds" :key="userId" :userId="userId" />
         </div>

@@ -617,7 +617,7 @@ async function saveDispositionNotes() {
         class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:divide-y tw:divide-divider"
       >
         <div class="tw:px-4 tw:py-3">
-          <h3 class="tw:font-semibold tw:text-on-main tw:text-sm">Overview</h3>
+          <BaseText as="h3" weight="semibold">Overview</BaseText>
         </div>
         <div class="tw:px-4 tw:py-3 tw:space-y-3 tw:text-sm">
           <!-- Status -->

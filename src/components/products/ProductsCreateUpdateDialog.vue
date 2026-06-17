@@ -173,15 +173,13 @@ watch(open, (val) => {
       />
 
       <div class="tw:flex tw:gap-4">
-        <div>
-          <label>Product Type</label>
+        <BaseField label="Product Type">
           <ProductTypeSelectMenu v-model="form.productTypeId" :required="true" />
-        </div>
+        </BaseField>
 
-        <div>
-          <label>Status</label>
+        <BaseField label="Status">
           <ProductStatusSelectMenu v-model="form.statusId" :required="true" />
-        </div>
+        </BaseField>
       </div>
 
       <BaseTextarea

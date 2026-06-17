@@ -85,7 +85,7 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
   >
     <div class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider">
       <div>
-        <h3 class="tw:text-sm tw:font-bold tw:text-on-main">Approval Workflow Plan</h3>
+        <BaseText as="h3" weight="bold">Approval Workflow Plan</BaseText>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
           Assign a reviewer to each approval step. The workflow launches with these assignments when
           you click <strong>Submit for Approval</strong>.

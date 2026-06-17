@@ -120,16 +120,14 @@ defineExpose({ open })
 
       <!-- Dimension Controls -->
       <div class="tw:flex tw:items-end tw:gap-3">
-        <div class="tw:flex-1">
-          <label class="tw:block tw:text-xs tw:font-medium tw:text-secondary tw:mb-1"
-            >Width (px)</label
-          >
+        <BaseField v-slot="{ id: fieldId }" label="Width (px)" class="tw:flex-1">
           <BaseTextInput
+            :id="fieldId"
             :modelValue="outputWidth"
             type="number"
             @update:modelValue="onWidthChange"
           />
-        </div>
+        </BaseField>
 
         <button
           :title="lockAspect ? 'Unlock aspect ratio' : 'Lock aspect ratio'"
@@ -141,16 +139,14 @@ defineExpose({ open })
           <IconLockOpen v-else :size="18" />
         </button>
 
-        <div class="tw:flex-1">
-          <label class="tw:block tw:text-xs tw:font-medium tw:text-secondary tw:mb-1"
-            >Height (px)</label
-          >
+        <BaseField v-slot="{ id: fieldId }" label="Height (px)" class="tw:flex-1">
           <BaseTextInput
+            :id="fieldId"
             :modelValue="outputHeight"
             type="number"
             @update:modelValue="onHeightChange"
           />
-        </div>
+        </BaseField>
       </div>
       <p class="tw:text-xs tw:text-secondary">
         Drag to crop. Adjust width and height to resize the output.

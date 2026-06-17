@@ -310,16 +310,14 @@ function prevStep() {
       <!-- Step 1: Metadata -->
       <div v-if="step === 1" class="tw:flex tw:flex-col tw:gap-4">
         <!-- Template Name -->
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main"
-            >Template Name <span class="tw:text-bad">*</span></label
-          >
+        <BaseField v-slot="{ id: fieldId }" label="Template Name" required>
           <BaseTextInput
+            :id="fieldId"
             v-model="templateForm.title"
             name="title"
             placeholder="e.g. Internal Quality Audit Checklist"
           />
-        </div>
+        </BaseField>
 
         <!-- Document Type & Code Row.
              Document Type is hidden in I&L mode — log books are auto-
@@ -329,19 +327,23 @@ function prevStep() {
           class="tw:grid tw:gap-4"
           :class="defaultClassification ? 'tw:grid-cols-1' : 'tw:grid-cols-2'"
         >
-          <div v-if="!defaultClassification">
-            <label class="tw:text-sm tw:font-medium tw:text-on-main"
-              >Document Type <span class="tw:text-bad">*</span></label
-            >
+          <BaseField v-if="!defaultClassification" label="Document Type" required>
             <DocumentTypeSelectMenu v-model="templateForm.documentTypeId" required />
-          </div>
+          </BaseField>
 
-          <div>
-            <label class="tw:text-sm tw:font-medium tw:text-on-main"
-              >Code <span class="tw:text-bad">*</span></label
-            >
+          <BaseField
+            v-slot="{ id: fieldId }"
+            label="Code"
+            required
+            hint="Used for Record ID generation."
+          >
             <div class="tw:relative">
-              <BaseTextInput v-model="templateForm.code" name="code" placeholder="e.g. QUA, AUD" />
+              <BaseTextInput
+                :id="fieldId"
+                v-model="templateForm.code"
+                name="code"
+                placeholder="e.g. QUA, AUD"
+              />
               <div class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2">
                 <BaseSpinner v-if="templateForm.isChecking" size="sm" />
                 <IconCheck
@@ -356,8 +358,7 @@ function prevStep() {
                 />
               </div>
             </div>
-            <div class="tw:text-xs tw:text-secondary tw:mt-1">Used for Record ID generation.</div>
-          </div>
+          </BaseField>
         </div>
 
         <!-- Training Configuration — hidden in I&L mode. Inspection &
@@ -366,9 +367,7 @@ function prevStep() {
              a record-entry one. Admin can still flip these on the
              template detail page if they need to. -->
         <div v-if="!defaultClassification" class="tw:bg-main-hover tw:p-3 tw:rounded-lg">
-          <div class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:mb-3">
-            Training Configuration
-          </div>
+          <BaseText variant="overline" class="tw:block tw:mb-3">Training Configuration</BaseText>
           <div class="tw:flex tw:flex-col tw:gap-3">
             <div class="tw:flex tw:justify-between tw:items-center">
               <span class="tw:text-sm tw:text-on-main">Training Required?</span>
@@ -386,10 +385,9 @@ function prevStep() {
         </div>
 
         <!-- Site Availability -->
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">Site Availability</label>
+        <BaseField label="Site Availability">
           <SiteSelectMenu v-model="templateForm.selectedSites" multiple />
-        </div>
+        </BaseField>
       </div>
 
       <!-- Step 2: Template Selection with Previews -->

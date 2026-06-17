@@ -53,14 +53,14 @@ function barStyle(i) {
     <span
       v-for="i in lines"
       :key="i"
-      class="tw:block tw:w-full tw:animate-pulse tw:bg-neutral-200"
+      class="tw:block tw:w-full tw:animate-pulse tw:motion-reduce:animate-none tw:bg-neutral-200 tw:dark:bg-neutral-700"
       :class="roundedClass"
       :style="barStyle(i - 1)"
     />
   </div>
   <span
     v-else
-    class="tw:block tw:animate-pulse tw:bg-neutral-200"
+    class="tw:block tw:animate-pulse tw:motion-reduce:animate-none tw:bg-neutral-200 tw:dark:bg-neutral-700"
     :class="[roundedClass, variant === 'text' ? 'tw:w-full' : '']"
     :style="barStyle(0)"
     role="status"

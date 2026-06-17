@@ -226,38 +226,35 @@ function safeParseJson(raw) {
 
       <!-- Identity -->
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Code</p>
+        <BaseField v-slot="{ id: fieldId }" label="Code" required>
           <BaseTextInput
+            :id="fieldId"
             v-model="code"
             placeholder="e.g. ISO-9001-INTERNAL"
             :required="true"
           />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Name</p>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Name" required>
           <BaseTextInput
+            :id="fieldId"
             v-model="name"
             placeholder="e.g. ISO 9001:2015 — internal interpretation"
             :required="true"
           />
-        </div>
+        </BaseField>
       </div>
 
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
+      <BaseField v-slot="{ id: fieldId }" label="Description">
         <BaseTextarea
+          :id="fieldId"
           v-model="description"
           :rows="2"
           placeholder="Short note about the source / scope of this import"
         />
-      </div>
+      </BaseField>
 
       <!-- License classification -->
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Content licence
-        </p>
+      <BaseField label="Content licence">
         <div class="tw:flex tw:flex-col tw:gap-2">
           <label
             v-for="lic in LICENSES"
@@ -278,7 +275,7 @@ function safeParseJson(raw) {
             </div>
           </label>
         </div>
-      </div>
+      </BaseField>
 
       <!-- License attestation, gated on CUSTOMER_LICENSED -->
       <div
@@ -300,21 +297,16 @@ function safeParseJson(raw) {
           imported.
         </label>
         <div class="tw:grid tw:grid-cols-2 tw:gap-2">
-          <div>
-            <p class="tw:text-[10px] tw:uppercase tw:text-secondary tw:mb-1">
-              Licence reference (optional)
-            </p>
+          <BaseField v-slot="{ id: fieldId }" label="Licence reference" optional>
             <BaseTextInput
+              :id="fieldId"
               v-model="customerLicenseReference"
               placeholder="e.g. ISO Online Browsing Platform subscription #…"
             />
-          </div>
-          <div>
-            <p class="tw:text-[10px] tw:uppercase tw:text-secondary tw:mb-1">
-              Licence expiry (optional)
-            </p>
-            <BaseTextInput v-model="customerLicenseExpiresAt" type="date" />
-          </div>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Licence expiry" optional>
+            <BaseTextInput :id="fieldId" v-model="customerLicenseExpiresAt" type="date" />
+          </BaseField>
         </div>
       </div>
 

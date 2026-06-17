@@ -160,16 +160,14 @@ async function handleAcknowledge() {
             they reply.
           </div>
         </div>
-        <div>
-          <label class="tw:block tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Your question <span class="tw:text-red-500">*</span>
-          </label>
+        <BaseField v-slot="{ id: fieldId }" label="Your question" required>
           <BaseTextarea
+            :id="fieldId"
             v-model="questionDraft"
             :rows="5"
             placeholder="What clarification do you need?"
           />
-        </div>
+        </BaseField>
       </template>
 
       <!-- ── RESPOND MODE ──────────────────────────────────────────── -->
@@ -184,16 +182,14 @@ async function handleAcknowledge() {
             {{ rfi?.question || '—' }}
           </p>
         </div>
-        <div>
-          <label class="tw:block tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Your response <span class="tw:text-red-500">*</span>
-          </label>
+        <BaseField v-slot="{ id: fieldId }" label="Your response" required>
           <BaseTextarea
+            :id="fieldId"
             v-model="responseDraft"
             :rows="5"
             placeholder="Provide the clarification…"
           />
-        </div>
+        </BaseField>
       </template>
 
       <!-- ── VIEW MODE ─────────────────────────────────────────────── -->

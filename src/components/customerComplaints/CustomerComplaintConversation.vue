@@ -116,11 +116,12 @@ function trustedHtml(message) {
 
 <template>
   <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-    <div
-      class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+    <BaseText
+      variant="overline"
+      class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
     >
       Conversation
-    </div>
+    </BaseText>
 
     <div v-if="messages.length" class="tw:flex tw:flex-col tw:gap-3">
       <div

@@ -190,33 +190,36 @@ const TYPE_LABEL = {
         </div>
 
         <div class="tw:grid tw:grid-cols-2 tw:gap-4">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">
-              How many questions?
-            </label>
+          <BaseField
+            v-slot="{ id: fieldId }"
+            label="How many questions?"
+            hint="1–10. AI may generate a couple extra so you have choice."
+          >
             <input
+              :id="fieldId"
               v-model.number="input.count"
               type="number"
               min="1"
               max="10"
               class="tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:px-3 tw:py-2 tw:text-sm tw:text-on-main tw:focus:outline-none tw:focus:border-primary tw:focus:ring-1 tw:focus:ring-primary"
             />
-            <p class="tw:text-xs tw:text-secondary">1–10. AI may generate a couple extra so you have choice.</p>
-          </div>
+          </BaseField>
         </div>
 
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">
-            Emphasis (optional)
-          </label>
+        <BaseField
+          v-slot="{ id: fieldId }"
+          label="Emphasis"
+          optional
+          hint="Leave blank and the AI picks the most important points."
+        >
           <textarea
+            :id="fieldId"
             v-model="input.emphasis"
             rows="2"
             placeholder="e.g. Focus on safety steps and accept/reject criteria. Skip the introductory scope section."
             class="tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:px-3 tw:py-2 tw:text-sm tw:text-on-main tw:placeholder-placeholder tw:focus:outline-none tw:focus:border-primary tw:focus:ring-1 tw:focus:ring-primary tw:leading-relaxed"
           />
-          <p class="tw:text-xs tw:text-secondary">Leave blank and the AI picks the most important points.</p>
-        </div>
+        </BaseField>
 
         <div
           v-if="error"

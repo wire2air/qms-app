@@ -120,32 +120,22 @@ function clearAll() {
       v-if="showAdvanced"
       class="tw:flex tw:items-end tw:p-2 tw:gap-2 tw:flex-wrap tw:rounded-lg tw:border tw:border-divider tw:bg-card"
     >
-      <div class="tw:flex tw:flex-col tw:gap-0.5">
-        <label class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">Form</label>
+      <BaseField label="Form" size="xs">
         <BaseSelectMenu v-model="filters.formId" :items="formOptions" />
-      </div>
-      <div class="tw:flex tw:flex-col tw:gap-0.5">
-        <label class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary"> Sentiment </label>
+      </BaseField>
+      <BaseField label="Sentiment" size="xs">
         <BaseSelectMenu v-model="filters.sentiment" :items="SENTIMENTS" />
-      </div>
-      <div class="tw:flex tw:flex-col tw:gap-0.5">
-        <label class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">Group</label>
+      </BaseField>
+      <BaseField label="Group" size="xs">
         <GroupSelectMenu v-model="filters.assignedTeamId" />
-      </div>
-      <div class="tw:flex tw:flex-col tw:gap-0.5">
-        <label class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">
-          Created from
-        </label>
+      </BaseField>
+      <BaseField label="Created from" size="xs">
         <BaseDatePicker v-model="filters.dateFrom" class="tw:w-36" />
-      </div>
-      <div class="tw:flex tw:flex-col tw:gap-0.5">
-        <label class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary"> Created to </label>
+      </BaseField>
+      <BaseField label="Created to" size="xs">
         <BaseDatePicker v-model="filters.dateTo" class="tw:w-36" />
-      </div>
-      <div v-if="customFieldKeys.length" class="tw:flex tw:flex-col tw:gap-0.5">
-        <label class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">
-          Custom field
-        </label>
+      </BaseField>
+      <BaseField v-if="customFieldKeys.length" label="Custom field" size="xs">
         <div class="tw:flex tw:gap-1">
           <BaseSelectMenu
             v-model="filters.customKey"
@@ -153,7 +143,7 @@ function clearAll() {
           />
           <BaseTextInput v-model="filters.customValue" placeholder="contains…" class="tw:w-32" />
         </div>
-      </div>
+      </BaseField>
       <button
         v-if="advancedActive"
         class="tw:flex tw:items-center tw:gap-1 tw:px-2 tw:py-1.5 tw:rounded-md tw:text-xs tw:text-secondary tw:hover:bg-main-hover"

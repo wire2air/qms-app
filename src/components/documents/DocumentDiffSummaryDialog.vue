@@ -142,12 +142,10 @@ watch(show, (open) => {
 
         <!-- Changed sections -->
         <div v-if="result.changedSections?.length">
-          <div
-            class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide tw:mb-2"
-          >
+          <BaseText variant="overline" class="tw:flex tw:items-center tw:gap-2 tw:mb-2">
             <IconPencil :size="14" />
             Changed ({{ result.changedSections.length }})
-          </div>
+          </BaseText>
           <div class="tw:flex tw:flex-col tw:gap-2">
             <div
               v-for="(s, i) in result.changedSections"

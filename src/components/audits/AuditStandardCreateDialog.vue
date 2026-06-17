@@ -103,12 +103,9 @@ async function handleSave({ navigate }) {
 <template>
   <BaseDialog :modelValue="modelValue" title="New Audit Standard" maxWidth="lg" @update:modelValue="close">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Name <span class="tw:text-red-500">*</span>
-        </p>
-        <BaseTextInput v-model="form.name" placeholder="e.g. ISO 9001:2015" />
-      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Name" required>
+        <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. ISO 9001:2015" />
+      </BaseField>
       <div>
         <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
@@ -133,18 +130,17 @@ async function handleSave({ navigate }) {
           Cannot be changed after creation — stamps onto every audit instance.
         </p>
       </div>
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Type</p>
+      <BaseField label="Type">
         <AuditStandardTypeSelectMenu v-model="form.auditStandardTypeId" />
-      </div>
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
+      </BaseField>
+      <BaseField v-slot="{ id: fieldId }" label="Description">
         <BaseTextarea
+          :id="fieldId"
           v-model="form.description"
           :rows="3"
           placeholder="Optional scope / context for this standard"
         />
-      </div>
+      </BaseField>
       <div class="tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:p-3 tw:text-xs tw:text-blue-800">
         <strong>What happens next:</strong> a v1.0 DRAFT version is created automatically.
         Add your clauses on the detail page, then submit for approval to make it EFFECTIVE

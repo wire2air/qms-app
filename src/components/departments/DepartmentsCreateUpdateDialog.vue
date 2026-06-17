@@ -186,7 +186,9 @@ async function onSubmit() {
         </template>
       </div>
 
-      <SiteSelectMenu v-model="form.siteId" :required="true" />
+      <BaseField label="Site" size="sm" :required="true">
+        <SiteSelectMenu v-model="form.siteId" :required="true" />
+      </BaseField>
 
       <BaseTextarea
         v-model="form.description"

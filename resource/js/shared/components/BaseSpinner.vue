@@ -56,7 +56,7 @@ const spinnerStyle = computed(() => ({
     class="tw:flex tw:h-full tw:w-full tw:items-center tw:justify-center"
   >
     <span
-      class="tw:inline-block tw:animate-spin tw:rounded-full tw:border-solid"
+      class="tw:inline-block tw:animate-spin tw:motion-reduce:animate-none tw:rounded-full tw:border-solid"
       :class="colorClass"
       :style="spinnerStyle"
       role="status"
@@ -65,7 +65,7 @@ const spinnerStyle = computed(() => ({
   </div>
   <span
     v-else
-    class="tw:inline-block tw:animate-spin tw:rounded-full tw:border-solid"
+    class="tw:inline-block tw:animate-spin tw:motion-reduce:animate-none tw:rounded-full tw:border-solid"
     :class="colorClass"
     :style="spinnerStyle"
     role="status"

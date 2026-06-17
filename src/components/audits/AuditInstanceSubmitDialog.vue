@@ -82,19 +82,16 @@ async function handleConfirm() {
 <template>
   <BaseDialog v-model="open" title="Submit Audit for Close-Out" maxWidth="lg" persistent>
     <div class="tw:space-y-3 tw:py-2">
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Close-Out Workflow <span class="tw:text-red-500">*</span>
-        </p>
+      <BaseField
+        label="Close-Out Workflow"
+        required
+        hint='Pick the workflow that drives close-out approval. Defaults seed a "Default Audit Close-Out" template (Lead Auditor review → Quality Manager sign-off).'
+      >
         <WorkflowVersionSelect
           v-model="workflowVersionId"
           :moduleId="AUDIT_INSTANCE_MODULE.workflowVersionModuleId"
         />
-        <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-          Pick the workflow that drives close-out approval. Defaults seed a "Default Audit
-          Close-Out" template (Lead Auditor review → Quality Manager sign-off).
-        </p>
-      </div>
+      </BaseField>
 
       <template v-if="workflowVersionId">
         <p class="tw:text-sm tw:text-secondary">
@@ -109,10 +106,9 @@ async function handleConfirm() {
           :stepIndex="index"
           :required="index === 0"
         />
-        <div>
-          <p class="tw:text-secondary tw:text-sm tw:mb-1">Comments (optional)</p>
-          <BaseTextarea v-model="comments" placeholder="Any context for reviewers?" :rows="2" />
-        </div>
+        <BaseField v-slot="{ id: fieldId }" label="Comments" optional>
+          <BaseTextarea :id="fieldId" v-model="comments" placeholder="Any context for reviewers?" :rows="2" />
+        </BaseField>
       </template>
     </div>
 

@@ -62,13 +62,9 @@ async function onSubmit() {
         <p class="tw:text-xs tw:mt-1">The selected reviewer will receive a task. On <strong>Approval</strong> the lot is released. On <strong>Rejection</strong> a Nonconformance is automatically raised.</p>
       </div>
 
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:mb-2">
-          QA Reviewer <span class="tw:text-bad">*</span>
-        </label>
+      <BaseField label="QA Reviewer" required hint="Defaults to you — change to assign to a different QA person.">
         <UserSelectMenu v-model="reviewerIds" :multiple="true" />
-        <p class="tw:text-[11px] tw:text-secondary tw:mt-1">Defaults to you — change to assign to a different QA person.</p>
-      </div>
+      </BaseField>
     </div>
 
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-5 tw:pb-5">

@@ -99,37 +99,27 @@ async function onSubmit() {
     <div class="tw:space-y-6">
       <!-- Document Details -->
       <section class="tw:space-y-4">
-        <h3 class="ds-label tw:text-secondary">Document Details</h3>
+        <BaseText variant="overline">Document Details</BaseText>
         <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
           <!-- Department -->
-          <div>
-            <label class="tw:block tw:mb-1 tw:text-sm tw:font-medium tw:text-on-main"
-              >Department</label
-            >
+          <BaseField label="Department">
             <DepartmentSelectMenu v-model="editForm.departmentId" :required="true" />
-          </div>
+          </BaseField>
 
           <!-- Effective Date -->
-          <div>
-            <label class="tw:block tw:mb-1 tw:text-sm tw:font-medium tw:text-on-main"
-              >Effective Date</label
-            >
+          <BaseField label="Effective Date">
             <BaseDatePicker v-model="editForm.effectiveDate" :required="false" />
-          </div>
+          </BaseField>
 
           <!-- Related Standard -->
-          <div>
-            <label class="tw:block tw:mb-1 tw:text-sm tw:font-medium tw:text-on-main"
-              >Related Standard</label
-            >
+          <BaseField label="Related Standard">
             <RelatedStandardSelectMenu v-model="editForm.relatedStandardId" />
-          </div>
+          </BaseField>
         </div>
 
         <!-- Review Settings -->
         <div class="tw:flex tw:flex-col tw:md:flex-row tw:md:items-center tw:gap-6 tw:mt-4">
-          <div class="tw:space-y-2">
-            <label class="tw:text-sm tw:font-semibold tw:text-on-sidebar">Periodic Review</label>
+          <BaseField label="Periodic Review">
             <div class="tw:flex tw:items-center tw:gap-3">
               <div
                 class="tw:flex tw:items-center tw:border tw:border-divider tw:rounded-xl tw:overflow-hidden tw:bg-sidebar-hover"
@@ -157,7 +147,7 @@ async function onSubmit() {
               </div>
               <span class="tw:text-sm tw:font-medium tw:text-secondary">months</span>
             </div>
-          </div>
+          </BaseField>
           <div
             class="tw:flex tw:items-center tw:gap-4 tw:py-3 tw:px-5 tw:bg-sidebar-hover tw:rounded-2xl tw:border tw:border-divider/50"
           >
@@ -172,7 +162,7 @@ async function onSubmit() {
 
       <!-- Metadata Tags -->
       <section class="tw:space-y-4">
-        <h3 class="ds-label tw:text-secondary">Metadata Tags</h3>
+        <BaseText variant="overline">Metadata Tags</BaseText>
         <div
           class="tw:flex tw:flex-wrap tw:gap-2 tw:p-3 tw:bg-sidebar-hover tw:border tw:border-divider tw:rounded-xl"
         >
@@ -198,7 +188,7 @@ async function onSubmit() {
 
       <!-- Approval Workflow -->
       <section class="tw:space-y-4">
-        <h3 class="ds-label tw:text-secondary">Approval Workflow</h3>
+        <BaseText variant="overline">Approval Workflow</BaseText>
         <WorkflowVersionSelect v-model="editForm.workflowVersionId" />
       </section>
     </div>

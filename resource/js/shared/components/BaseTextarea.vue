@@ -1,10 +1,6 @@
 <script setup>
 // --- Props & models ---
 const props = defineProps({
-  modelValue: {
-    type: String,
-    default: '',
-  },
   label: {
     type: String,
     default: '',
@@ -28,10 +24,6 @@ const props = defineProps({
   id: {
     type: String,
     default: '',
-  },
-  type: {
-    type: String,
-    default: 'text',
   },
   errorMsg: {
     type: String,
@@ -80,7 +72,9 @@ const props = defineProps({
 })
 
 // --- Emits ---
-const emit = defineEmits(['update:modelValue', 'focus', 'blur'])
+const emit = defineEmits(['focus', 'blur'])
+
+const model = defineModel({ type: String, default: '' })
 
 // --- Use ---
 const slots = useSlots()
@@ -88,6 +82,10 @@ const slots = useSlots()
 // --- Vars ---
 const inputEl = ref(undefined)
 const isFocused = ref(false)
+// Stable id for label↔textarea pairing + aria wiring (falls back to name).
+const generatedId = useId()
+const inputId = computed(() => props.id || props.name || generatedId)
+const errId = computed(() => `${inputId.value}-error`)
 
 function handleFocus() {
   isFocused.value = true
@@ -103,7 +101,7 @@ function focus() {
   inputEl.value?.focus()
 }
 
-const autosizeInput = computed(() => props.modelValue ?? '')
+const autosizeInput = computed(() => model.value ?? '')
 
 if (props.autosize) {
   useTextareaAutosize({
@@ -150,7 +148,7 @@ defineExpose({
         v-if="label || slots.label"
         class="tw:dark:text-white"
         :class="{ 'tw:inline-block': inline }"
-        :for="name"
+        :for="inputId"
       >
         <slot name="label">
           {{ label }}
@@ -172,7 +170,7 @@ defineExpose({
         class="tw:disabled:text-grey-5 tw:w-full tw:resize-none tw:rounded-xl tw:border-none tw:bg-transparent tw:focus:ring-0 tw:focus:outline-0 tw:disabled:cursor-not-allowed tw:transition-[border,box-shadow] tw:duration-300"
         :class="inputClass"
         :name="name"
-        :value="modelValue"
+        :value="model"
         :placeholder="placeholder"
         :disabled="disabled"
         :aria-disabled="disabled"
@@ -182,7 +180,7 @@ defineExpose({
         dir="auto"
         autocomplete="off"
         :maxlength="maxlength"
-        @input="$emit('update:modelValue', $event.target.value)"
+        @input="model = $event.target.value"
         @focus="handleFocus"
         @blur="handleBlur"
       />
@@ -190,25 +188,27 @@ defineExpose({
     </div>
     <textarea
       v-else
-      :id="id"
+      :id="inputId"
       ref="inputEl"
-      class="tw:disabled:text-grey-5 tw:w-full tw:resize-none tw:rounded-xl tw:bg-transparent tw:focus:ring-0 tw:focus:outline-0 tw:disabled:cursor-not-allowed tw:transition-[border,box-shadow] tw:duration-300"
+      class="tw:w-full tw:resize-none tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-3 tw:py-2 tw:text-sm tw:text-main-text tw:placeholder-main-text-muted tw:transition-[border-color,box-shadow] tw:duration-200 tw:focus:outline-none tw:focus:border-primary tw:focus:ring-2 tw:focus:ring-primary/30 tw:disabled:cursor-not-allowed tw:disabled:opacity-60 tw:disabled:bg-main-unselected tw:disabled:text-grey-5"
       :class="inputClass"
       :name="name"
-      :value="modelValue"
+      :value="model"
       :placeholder="placeholder"
       :disabled="disabled"
       :aria-disabled="disabled"
+      :aria-invalid="errorMsg ? 'true' : undefined"
+      :aria-describedby="errorMsg ? errId : undefined"
       :required="required"
       :rows="rows"
       :style="`min-height: ${minHeight}; max-height: ${maxHeight}; overflow-y: ${maxHeight !== 'none' ? 'auto' : 'hidden'}`"
       dir="auto"
       autocomplete="off"
       :maxlength="maxlength"
-      @input="$emit('update:modelValue', $event.target.value)"
+      @input="model = $event.target.value"
       @focus="handleFocus"
       @blur="handleBlur"
     />
-    <p v-if="errorMsg" class="tw:text-12 tw:mt-2 tw:text-red">{{ errorMsg }}</p>
+    <BaseErrorText v-if="errorMsg" :id="errId" class="tw:mt-2">{{ errorMsg }}</BaseErrorText>
   </div>
 </template>

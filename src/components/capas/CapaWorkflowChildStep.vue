@@ -458,11 +458,7 @@ async function performComplete(esign = null) {
            text from the BaseTextarea. v-html handles both — plain text
            with no tags renders as-is. -->
       <div v-if="instanceStep.description" class="tw:mb-3">
-        <div
-          class="tw:text-[11px] tw:text-secondary tw:font-medium tw:mb-1 tw:uppercase tw:tracking-wider"
-        >
-          Instructions
-        </div>
+        <BaseText variant="overline" class="tw:block tw:mb-1">Instructions</BaseText>
         <div
           class="tw:text-sm tw:text-on-main tw:leading-relaxed"
           v-html="instanceStep.description"
@@ -497,16 +493,14 @@ async function performComplete(esign = null) {
             parent stage's "all sub-tasks done" check will then treat this one as completed.
           </div>
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Reason (optional)
-          </p>
+        <BaseField v-slot="{ id: fieldId }" label="Reason" optional>
           <BaseTextarea
+            :id="fieldId"
             v-model="cancelReason"
             :rows="3"
             placeholder="Why is this sub-task being cancelled?"
           />
-        </div>
+        </BaseField>
       </div>
       <template #footer="{ close }">
         <BaseButton variant="secondary" :disabled="cancelling" @click="close">Cancel</BaseButton>
@@ -533,16 +527,14 @@ async function performComplete(esign = null) {
             recorded in the audit log.
           </div>
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Feedback / Reason
-          </p>
+        <BaseField v-slot="{ id: fieldId }" label="Feedback / Reason">
           <BaseTextarea
+            :id="fieldId"
             v-model="reopenReason"
             :rows="3"
             placeholder="What needs to be revised on this task?"
           />
-        </div>
+        </BaseField>
       </div>
       <template #footer="{ close }">
         <BaseButton variant="secondary" :disabled="reopening" @click="close">Cancel</BaseButton>

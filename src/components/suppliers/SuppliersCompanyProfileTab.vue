@@ -127,7 +127,7 @@ const ALLIANCE_ROWS = [
       </div>
       <div class="tw:p-6 tw:flex tw:flex-col tw:gap-5">
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">Workforce</p>
+          <BaseText variant="overline" class="tw:block tw:mb-2">Workforce</BaseText>
           <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-4">
             <div>
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">Total Employees</label>
@@ -142,7 +142,7 @@ const ALLIANCE_ROWS = [
           </div>
         </div>
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">Facility Area</p>
+          <BaseText variant="overline" class="tw:block tw:mb-2">Facility Area</BaseText>
           <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-4">
             <div v-for="[key, label] in AREA_FIELDS" :key="key">
               <label class="tw:block tw:text-xs tw:text-secondary tw:mb-1">{{ label }}</label>

@@ -166,14 +166,12 @@ async function handleDelete() {
       <div class="tw:p-6">
         <div class="tw:flex tw:items-center tw:gap-2 tw:mb-6 tw:text-on-sidebar">
           <IconCode :size="20" class="tw:text-primary" />
-          <h3 class="tw:text-base tw:font-bold">Metadata Properties</h3>
+          <BaseText as="h3" variant="subheading" weight="bold">Metadata Properties</BaseText>
         </div>
         <div class="tw:space-y-6">
           <!-- Template Identity -->
           <div class="tw:space-y-4">
-            <h4 class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary">
-              Template Identity
-            </h4>
+            <BaseText as="h4" variant="overline" class="tw:block">Template Identity</BaseText>
             <div class="tw:grid tw:gap-4">
               <div class="tw:space-y-1">
                 <label class="tw:text-xs tw:font-medium tw:text-secondary">ID</label>
@@ -183,17 +181,16 @@ async function handleDelete() {
                   {{ template.id }}
                 </div>
               </div>
-              <div class="tw:space-y-1">
-                <label class="tw:text-xs tw:font-medium tw:text-secondary">Internal Title</label>
-                <BaseTextInput v-if="canUpdate" v-model="template.title" size="sm" />
+              <BaseField v-slot="{ id: fieldId }" label="Internal Title">
+                <BaseTextInput v-if="canUpdate" :id="fieldId" v-model="template.title" size="sm" />
                 <div v-else class="tw:text-sm tw:font-medium tw:text-on-main">
                   {{ template.title }}
                 </div>
-              </div>
-              <div class="tw:space-y-1">
-                <label class="tw:text-xs tw:font-medium tw:text-secondary">Description</label>
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="Description">
                 <BaseTextarea
                   v-if="canUpdate"
+                  :id="fieldId"
                   v-model="template.description"
                   placeholder="Click to add description..."
                   size="sm"
@@ -201,15 +198,13 @@ async function handleDelete() {
                 <div v-else class="tw:text-sm tw:text-on-main tw:min-h-5">
                   {{ template.description || '—' }}
                 </div>
-              </div>
+              </BaseField>
             </div>
           </div>
 
           <!-- Classification -->
           <div class="tw:space-y-4 tw:pt-4 tw:border-t tw:border-divider">
-            <h4 class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary">
-              Classification
-            </h4>
+            <BaseText as="h4" variant="overline" class="tw:block">Classification</BaseText>
             <div class="tw:grid tw:gap-4">
               <div class="tw:space-y-1 tw:flex tw:flex-col">
                 <label class="tw:text-xs tw:font-medium tw:text-secondary">Template Code</label>
@@ -219,18 +214,16 @@ async function handleDelete() {
                   {{ template.code }}
                 </div>
               </div>
-              <div class="tw:space-y-1">
-                <label class="tw:text-xs tw:font-medium tw:text-secondary">Status</label>
+              <BaseField label="Status">
                 <FormTemplateStatusSelectMenu
                   v-if="canUpdate"
                   v-model="template.statusId"
                   required
                 />
                 <FormTemplateStatusBadgeById v-else :statusId="template.statusId" showDot />
-              </div>
+              </BaseField>
               <!-- Assigned Sites -->
-              <div class="tw:space-y-1">
-                <label class="tw:text-xs tw:font-medium tw:text-secondary">Assigned Sites</label>
+              <BaseField label="Assigned Sites">
                 <SiteSelectMenu
                   v-if="canUpdate"
                   multiple
@@ -247,7 +240,7 @@ async function handleDelete() {
                     No sites assigned
                   </span>
                 </div>
-              </div>
+              </BaseField>
             </div>
           </div>
 
@@ -261,9 +254,7 @@ async function handleDelete() {
             v-if="template.config && Object.keys(template.config).length"
             class="tw:space-y-4 tw:pt-4 tw:border-t tw:border-divider"
           >
-            <h4 class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary">
-              JSON Configuration
-            </h4>
+            <BaseText as="h4" variant="overline" class="tw:block">JSON Configuration</BaseText>
             <div class="tw:rounded-lg tw:bg-code tw:p-3 tw:overflow-hidden">
               <pre
                 class="tw:text-[10px] tw:text-good tw:font-mono tw:leading-relaxed tw:whitespace-pre-wrap"

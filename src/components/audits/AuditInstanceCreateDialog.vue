@@ -122,97 +122,77 @@ async function handleSave({ navigate }) {
 
       <!-- Standard on its own row — names like '21 CFR Part 820 (US FDA QSR)'
            don't truncate or shove the Type chip when given full width. -->
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Standard <span class="tw:text-red-500">*</span>
-        </p>
+      <BaseField label="Standard" required hint="Must have an EFFECTIVE version with at least one clause.">
         <AuditStandardSelectMenu v-model="form.auditStandardId" :required="true" />
-        <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-          Must have an EFFECTIVE version with at least one clause.
-        </p>
-      </div>
+      </BaseField>
 
       <!-- Two short fields pair on one row. -->
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Type <span class="tw:text-red-500">*</span>
-          </p>
+        <BaseField label="Type" required>
           <BaseInlineSelect v-model="form.programTypeId" :items="PROGRAM_TYPES" :required="true" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Scheduled Date <span class="tw:text-red-500">*</span>
-          </p>
-          <BaseTextInput v-model="form.scheduledDate" type="date" />
-        </div>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Scheduled Date" required>
+          <BaseTextInput :id="fieldId" v-model="form.scheduledDate" type="date" />
+        </BaseField>
       </div>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Lead Auditor</p>
+        <BaseField label="Lead Auditor">
           <UserSelectMenu v-model="form.leadAuditorUserId" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Team</p>
+        </BaseField>
+        <BaseField label="Team">
           <UserSelectMenu v-model="form.teamUserIds" :multiple="true" />
-        </div>
+        </BaseField>
       </div>
 
       <!-- Supplier + Auditee. For a supplier audit the auditee is one of the
            SUPPLIER's users (supplier selected first); for internal audits it's
            an internal user. Both get notified + read-only audit access. -->
       <div v-if="supplierRequired" class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Supplier <span class="tw:text-red-500">*</span>
-          </p>
+        <BaseField label="Supplier" required>
           <SupplierSelectMenu v-model="form.supplierId" :required="true" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+        </BaseField>
+        <BaseField>
+          <template #label>
             Auditee <span class="tw:font-normal tw:normal-case tw:text-secondary">(supplier contact)</span>
-          </p>
+          </template>
           <UserSelectMenu
             v-model="form.auditeeUserId"
             kind="EXTERNAL_SUPPLIER"
             :supplierId="form.supplierId"
           />
-        </div>
+        </BaseField>
       </div>
       <!-- Internal: Department + Auditee on one line; the auditee list is
            filtered to the chosen department. (Department is omitted for
            supplier audits — it has no meaning there.) -->
       <div v-else class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Department</p>
+        <BaseField label="Department">
           <DepartmentSelectMenu v-model="form.departmentId" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+        </BaseField>
+        <BaseField>
+          <template #label>
             Auditee <span class="tw:font-normal tw:normal-case tw:text-secondary">(notified; read-only)</span>
-          </p>
+          </template>
           <UserSelectMenu v-model="form.auditeeUserId" :departmentId="form.departmentId" />
-        </div>
+        </BaseField>
       </div>
 
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Site</p>
+      <BaseField label="Site">
         <SiteSelectMenu v-model="form.siteId" />
-      </div>
+      </BaseField>
 
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Scope</p>
-        <BaseTextarea v-model="form.scope" :rows="2" placeholder="What's in scope?" />
-      </div>
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Objectives</p>
+      <BaseField v-slot="{ id: fieldId }" label="Scope">
+        <BaseTextarea :id="fieldId" v-model="form.scope" :rows="2" placeholder="What's in scope?" />
+      </BaseField>
+      <BaseField v-slot="{ id: fieldId }" label="Objectives">
         <BaseTextarea
+          :id="fieldId"
           v-model="form.objectives"
           :rows="2"
           placeholder="What does this audit need to produce?"
         />
-      </div>
+      </BaseField>
     </div>
     <template #footer>
       <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>

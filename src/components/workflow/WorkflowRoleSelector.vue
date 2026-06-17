@@ -64,16 +64,17 @@ async function removeRole(roleId) {
 <template>
   <div class="tw:space-y-4">
     <!-- Search -->
-    <div>
-      <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-        Select Roles
-      </label>
-      <BaseTextInput v-model="search" placeholder="Search roles (e.g. Quality Manager...)">
+    <BaseField v-slot="{ id: fieldId }" label="Select Roles">
+      <BaseTextInput
+        :id="fieldId"
+        v-model="search"
+        placeholder="Search roles (e.g. Quality Manager...)"
+      >
         <template #icon>
           <IconSearch :size="18" class="tw:text-secondary" />
         </template>
       </BaseTextInput>
-    </div>
+    </BaseField>
 
     <!-- Selected Chips -->
     <div v-if="selectedRoles.length > 0" class="tw:flex tw:flex-wrap tw:gap-2">

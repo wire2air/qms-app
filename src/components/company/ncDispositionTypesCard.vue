@@ -311,12 +311,9 @@ const showDeactivated = ref(false)
       maxWidth="md"
     >
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Name <span class="tw:text-red-500">*</span>
-          </p>
-          <BaseTextInput v-model="form.name" placeholder="e.g. Donate to Training" />
-        </div>
+        <BaseField v-slot="{ id: fieldId }" label="Name" required>
+          <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. Donate to Training" />
+        </BaseField>
         <div v-if="!editing">
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
             <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
@@ -345,32 +342,26 @@ const showDeactivated = ref(false)
             <strong>Edit</strong> to override.
           </p>
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
+        <BaseField v-slot="{ id: fieldId }" label="Description">
           <BaseTextarea
+            :id="fieldId"
             v-model="form.description"
             :rows="2"
             placeholder="Optional description shown alongside the option in the picker"
           />
-        </div>
+        </BaseField>
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-          <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-              Display Order
-            </p>
-            <BaseTextInput v-model.number="form.displayOrder" type="number" :min="0" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-              Tracks Cost
-            </p>
+          <BaseField v-slot="{ id: fieldId }" label="Display Order">
+            <BaseTextInput :id="fieldId" v-model.number="form.displayOrder" type="number" :min="0" />
+          </BaseField>
+          <BaseField label="Tracks Cost">
             <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer">
               <BaseSwitch v-model="form.tracksCost" />
               <span class="tw:text-xs tw:text-secondary">
                 Require Cost of NC when this disposition is picked
               </span>
             </label>
-          </div>
+          </BaseField>
         </div>
       </div>
       <template #footer="{ close }">

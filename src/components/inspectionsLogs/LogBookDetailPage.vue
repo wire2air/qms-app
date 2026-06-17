@@ -634,7 +634,9 @@ function back() {
         <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
           <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:flex-wrap">
             <div>
-              <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Version &amp; approval</h3>
+              <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
+                Version &amp; approval
+              </BaseText>
               <div class="tw:text-xs tw:text-secondary tw:mt-0.5">
                 <template v-if="hasEffectiveVersion">
                   Effective:
@@ -799,25 +801,22 @@ function back() {
 
         <!-- Basics -->
         <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Basics</h3>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Title
-            </label>
-            <BaseTextInput v-model="draft.title" :disabled="!canEditDetails" />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Description
-            </label>
-            <BaseTextarea v-model="draft.description" :rows="2" :disabled="!canEditDetails" />
-          </div>
+          <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">Basics</BaseText>
+          <BaseField v-slot="{ id: fieldId }" label="Title">
+            <BaseTextInput :id="fieldId" v-model="draft.title" :disabled="!canEditDetails" />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Description">
+            <BaseTextarea
+              :id="fieldId"
+              v-model="draft.description"
+              :rows="2"
+              :disabled="!canEditDetails"
+            />
+          </BaseField>
           <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Category
-              </label>
+            <BaseField v-slot="{ id: fieldId }" label="Category">
               <select
+                :id="fieldId"
                 v-model="draft.logBookTypeId"
                 :disabled="!canEditDetails"
                 class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
@@ -825,27 +824,19 @@ function back() {
                 <option :value="null">— Uncategorised —</option>
                 <option v-for="t in logBookTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
               </select>
-            </div>
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Owner
-              </label>
+            </BaseField>
+            <BaseField
+              label="Owner"
+              hint="Owns the approval flow — submits versions for approval and manages drafts."
+            >
               <UserSelectMenu v-model="draft.ownerUserId" :disabled="!canEditDetails" />
-              <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-                Owns the approval flow — submits versions for approval and manages drafts.
-              </p>
-            </div>
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Supervisor
-              </label>
+            </BaseField>
+            <BaseField label="Supervisor">
               <UserSelectMenu v-model="draft.supervisorUserId" :disabled="!canEditDetails" />
-            </div>
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Status
-              </label>
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="Status">
               <select
+                :id="fieldId"
                 v-model="draft.statusId"
                 :disabled="!canEditDetails"
                 class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
@@ -854,12 +845,10 @@ function back() {
                 <option value="INACTIVE">Inactive</option>
                 <option value="ARCHIVED">Archived</option>
               </select>
-            </div>
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Notification mode
-              </label>
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="Notification mode">
               <select
+                :id="fieldId"
                 v-model="draft.notifyOnSubmit"
                 :disabled="!canEditDetails"
                 class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
@@ -868,16 +857,13 @@ function back() {
                 <option value="INSTANT">Instant (every submission)</option>
                 <option value="NONE">None</option>
               </select>
-            </div>
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Department
-              </label>
+            </BaseField>
+            <BaseField label="Department">
               <DepartmentSelectMenu v-model="draft.departmentId" :disabled="!canEditDetails" />
               <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
                 Feeds <span class="tw:font-mono">{DEPTCODE}</span> in the Record Id prefix.
               </p>
-            </div>
+            </BaseField>
           </div>
         </section>
 
@@ -885,30 +871,23 @@ function back() {
              convention. (Department lives in Basics — it feeds {DEPTCODE}
              alongside Sites.) -->
         <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">References</h3>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Equipment
-            </label>
+          <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">References</BaseText>
+          <BaseField label="Equipment">
             <EquipmentSelectMenu v-model="draft.equipmentId" :disabled="!canEditDetails" />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Location
-            </label>
+          </BaseField>
+          <BaseField
+            v-slot="{ id: fieldId }"
+            label="Location"
+            hint="Where this log is performed. Equipment covers the asset/line; this is the spot."
+          >
             <BaseTextInput
+              :id="fieldId"
               v-model="draft.location"
               :disabled="!canEditDetails"
               placeholder="e.g. Room 201, Cold Store, Line 3"
             />
-            <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-              Where this log is performed. Equipment covers the asset/line; this is the spot.
-            </p>
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Record Id Prefix
-            </label>
+          </BaseField>
+          <BaseField label="Record Id Prefix">
             <template v-if="canEditPrefix">
               <BaseTextInput v-model="draft.codePrefix" placeholder="FRM-{DEPTCODE}-{TYPECODE}" />
               <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
@@ -924,17 +903,15 @@ function back() {
                 Locked — the log book has an effective version, so record IDs stay consistent.
               </p>
             </template>
-          </div>
+          </BaseField>
         </section>
 
         <!-- Entry policy -->
         <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Entry policy</h3>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Edit window
-            </label>
+          <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">Entry policy</BaseText>
+          <BaseField v-slot="{ id: fieldId }" label="Edit window">
             <select
+              :id="fieldId"
               v-model="draft.editWindowMode"
               :disabled="!canEditDetails"
               class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
@@ -944,11 +921,14 @@ function back() {
               <option value="UNTIL_NEXT_ENTRY">Until next entry from the same user</option>
               <option value="UNTIL_REVIEW">Until reviewed</option>
             </select>
-            <div v-if="draft.editWindowMode === 'TIME_WINDOW'" class="tw:mt-2">
-              <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">
-                Lock after (minutes)
-              </label>
+            <BaseField
+              v-if="draft.editWindowMode === 'TIME_WINDOW'"
+              v-slot="{ id: minutesId }"
+              label="Lock after (minutes)"
+              class="tw:mt-2"
+            >
               <input
+                :id="minutesId"
                 v-model.number="draft.editWindowMinutes"
                 type="number"
                 min="1"
@@ -956,8 +936,8 @@ function back() {
                 :disabled="!canEditDetails"
                 class="tw:w-32 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
               />
-            </div>
-          </div>
+            </BaseField>
+          </BaseField>
           <div class="tw:flex tw:flex-col tw:gap-2">
             <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
               <input
@@ -984,7 +964,9 @@ function back() {
              parity: the chosen PUBLISHED workflow drives reviewer
              assignment + approve/reject via the generic engine. -->
         <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Approval workflow</h3>
+          <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
+            Approval workflow
+          </BaseText>
           <p class="tw:text-xs tw:text-secondary">
             New versions go through this workflow for approval before becoming effective. Design
             workflows under the <strong>Log Book</strong> module.
@@ -1008,31 +990,24 @@ function back() {
 
         <!-- Compliance -->
         <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Compliance</h3>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Related standard
-            </label>
+          <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">Compliance</BaseText>
+          <BaseField label="Related standard">
             <RelatedStandardSelectMenu
               v-model="draft.relatedStandardId"
               :disabled="!canEditDetails"
             />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Regulatory citation
-            </label>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Regulatory citation">
             <BaseTextInput
+              :id="fieldId"
               v-model="draft.regulatoryCitation"
               :disabled="!canEditDetails"
               placeholder="e.g. ISO 9001 §7.5.3.2"
             />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Retention (months)
-            </label>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Retention (months)">
             <input
+              :id="fieldId"
               v-model.number="draft.retentionMonths"
               type="number"
               min="1"
@@ -1041,12 +1016,12 @@ function back() {
               class="tw:w-40 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
             />
             <span class="tw:text-xs tw:text-secondary tw:ml-2">(blank = indefinite)</span>
-          </div>
+          </BaseField>
         </section>
 
         <!-- Sites -->
         <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Sites</h3>
+          <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">Sites</BaseText>
           <SiteSelectMenu
             :modelValue="assignedSiteIds"
             multiple
@@ -1059,9 +1034,9 @@ function back() {
         <!-- Document links -->
         <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
           <div class="tw:flex tw:items-center tw:justify-between">
-            <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">
+            <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
               Document links ({{ documentLinks.length }})
-            </h3>
+            </BaseText>
             <BaseButton v-if="canUpdate" variant="ghost" @click="showAddDocDialog = true">
               Link a document
             </BaseButton>
@@ -1112,7 +1087,9 @@ function back() {
           class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:flex tw:items-start tw:gap-4"
         >
           <div class="tw:flex-1">
-            <h3 class="tw:text-sm tw:font-semibold tw:text-on-main tw:mb-1">Log book schema</h3>
+            <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main tw:mb-1">
+              Log book schema
+            </BaseText>
             <p class="tw:text-sm tw:text-secondary">
               {{
                 (logBook.schema?.length ?? 0) > 0
@@ -1173,7 +1150,9 @@ function back() {
         <section v-else class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
           <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:mb-3">
             <div>
-              <div class="tw:text-base tw:font-semibold tw:text-on-main">Assignments</div>
+              <BaseText as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
+                Assignments
+              </BaseText>
               <div class="tw:text-xs tw:text-secondary">
                 Who fills this log book, when (cron + timezone), and where (site). Recurring plans
                 materialise an instance per assignee per occurrence; ad-hoc plans surface the form
@@ -1272,7 +1251,9 @@ function back() {
         <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
           <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:mb-3">
             <div>
-              <div class="tw:text-base tw:font-semibold tw:text-on-main">Versions</div>
+              <BaseText as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
+                Versions
+              </BaseText>
               <div class="tw:text-xs tw:text-secondary">
                 A version becomes effective once approved. Only the effective version is used for
                 new entries.
@@ -1424,31 +1405,30 @@ function back() {
       >
         <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-3">Link a document</h3>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Document
-          </label>
-          <div class="tw:mb-3">
+          <BaseField label="Document" class="tw:mb-3">
             <DocumentSelectMenu v-model="pendingDocId" hideNullOption />
-          </div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Relationship
-          </label>
-          <select
-            v-model="pendingRelType"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm tw:mb-3"
-          >
-            <option value="IMPLEMENTS">Implements — this log book operationalises the doc</option>
-            <option value="REFERENCES">References — the doc is cited but not implemented</option>
-            <option value="EVIDENCE_OF">Evidence of — entries serve as compliance evidence</option>
-          </select>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Notes (optional)
-          </label>
-          <textarea
-            v-model="pendingDocNotes"
-            rows="2"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-          ></textarea>
+          </BaseField>
+          <BaseField v-slot="{ id: relId }" label="Relationship" class="tw:mb-3">
+            <select
+              :id="relId"
+              v-model="pendingRelType"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            >
+              <option value="IMPLEMENTS">Implements — this log book operationalises the doc</option>
+              <option value="REFERENCES">References — the doc is cited but not implemented</option>
+              <option value="EVIDENCE_OF">
+                Evidence of — entries serve as compliance evidence
+              </option>
+            </select>
+          </BaseField>
+          <BaseField v-slot="{ id: notesId }" label="Notes" optional>
+            <textarea
+              :id="notesId"
+              v-model="pendingDocNotes"
+              rows="2"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            ></textarea>
+          </BaseField>
           <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-3">
             <button
               type="button"

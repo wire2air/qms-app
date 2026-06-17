@@ -65,9 +65,7 @@ async function handleVerify() {
           In your email provider, set up a forwarding rule:
         </p>
         <div class="tw:flex tw:flex-col tw:gap-1">
-          <span class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
-            Forward emails from
-          </span>
+          <BaseText variant="overline">Forward emails from</BaseText>
           <code
             class="tw:text-sm tw:font-mono tw:bg-gray-50 tw:border tw:border-divider tw:rounded-md tw:px-3 tw:py-2"
           >
@@ -78,7 +76,7 @@ async function handleVerify() {
           <IconArrowDown :size="18" />
         </div>
         <div class="tw:flex tw:flex-col tw:gap-1">
-          <span class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">To</span>
+          <BaseText variant="overline">To</BaseText>
           <div class="tw:flex tw:items-center tw:gap-2">
             <code
               class="tw:flex-1 tw:text-sm tw:font-mono tw:bg-gray-50 tw:border tw:border-divider tw:rounded-md tw:px-3 tw:py-2 tw:truncate"
@@ -96,7 +94,7 @@ async function handleVerify() {
       <div
         class="tw:bg-blue-50 tw:border tw:border-blue-200 tw:rounded-md tw:p-3 tw:text-sm tw:text-blue-800"
       >
-        <p class="tw:font-semibold tw:mb-1">How verification works</p>
+        <BaseText as="h3" weight="semibold" color="inherit" class="tw:mb-1">How verification works</BaseText>
         <p>
           Click <em>Send verification email</em> — we email a verification message to
           <span class="tw:font-mono">{{ channel.publicEmail }}</span

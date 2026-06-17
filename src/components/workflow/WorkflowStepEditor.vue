@@ -138,37 +138,30 @@ watch(
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6">
         <!-- Left Column -->
         <div class="tw:space-y-4">
-          <div>
-            <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-              Step Name
-            </label>
+          <BaseField v-slot="{ id: fieldId }" label="Step Name">
             <BaseTextInput
+              :id="fieldId"
               v-model="step.name"
               name="name"
               placeholder="e.g. Peer Review"
               :disabled="!canUpdate"
             />
-          </div>
-          <div>
-            <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-              Instructions
-            </label>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Instructions">
             <BaseTextarea
+              :id="fieldId"
               v-model="step.description"
               placeholder="What does the assignee need to do?"
               :disabled="!canUpdate"
               rows="3"
             />
-          </div>
+          </BaseField>
         </div>
 
         <!-- Right Column -->
         <div class="tw:space-y-6">
           <!-- Step Type — gates which downstream controls render -->
-          <div>
-            <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-3">
-              Step Type
-            </label>
+          <BaseField label="Step Type">
             <div class="tw:grid tw:grid-cols-2 tw:gap-3">
               <label
                 class="tw:relative tw:flex tw:flex-col tw:p-4 tw:border tw:rounded-xl tw:cursor-pointer tw:transition-all"
@@ -221,13 +214,13 @@ watch(
                 </span>
               </label>
             </div>
-          </div>
+          </BaseField>
 
           <!-- Rule — only meaningful for APPROVAL steps. -->
-          <div v-if="step.stepType === 'APPROVAL' && selectedApprovalRule === null">
-            <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-3">
-              Rule
-            </label>
+          <BaseField
+            v-if="step.stepType === 'APPROVAL' && selectedApprovalRule === null"
+            label="Rule"
+          >
             <div class="tw:grid tw:grid-cols-2 tw:gap-3">
               <label
                 class="tw:relative tw:flex tw:flex-col tw:p-4 tw:border tw:rounded-xl tw:cursor-pointer tw:transition-all"
@@ -280,15 +273,13 @@ watch(
                 </span>
               </label>
             </div>
-          </div>
+          </BaseField>
 
           <!-- SLA Days -->
-          <div>
-            <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-              SLA: Due in (days)
-            </label>
+          <BaseField v-slot="{ id: fieldId }" label="SLA: Due in (days)">
             <div class="tw:flex tw:items-center tw:gap-2">
               <BaseTextInput
+                :id="fieldId"
                 v-model.number="step.slaDays"
                 type="number"
                 placeholder="e.g. 5"
@@ -300,7 +291,7 @@ watch(
                 Business days from activation
               </span>
             </div>
-          </div>
+          </BaseField>
 
           <!-- Compliance Controls -->
           <div class="tw:flex tw:justify-between">
@@ -446,25 +437,19 @@ watch(
 
       <!-- Assigned Roles / Users (read-only display) -->
       <div class="tw:border tw:border-divider tw:rounded-xl tw:p-6 tw:space-y-5">
-        <div v-if="showRolesInline">
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-            Assigned Roles
-          </label>
+        <BaseField v-if="showRolesInline" label="Assigned Roles">
           <div v-if="roleIds.length > 0" class="tw:flex tw:flex-wrap tw:gap-2">
             <RoleBadgeById v-for="roleId in roleIds" :key="roleId" :roleId="roleId" />
           </div>
           <span v-else class="tw:text-sm tw:text-secondary">No roles assigned</span>
-        </div>
+        </BaseField>
 
-        <div v-if="showUsersInline">
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-            Assigned Users
-          </label>
+        <BaseField v-if="showUsersInline" label="Assigned Users">
           <div v-if="reviewerIds.length > 0" class="tw:flex tw:flex-wrap tw:gap-2">
             <UserBadgeById v-for="userId in reviewerIds" :key="userId" :userId="userId" />
           </div>
           <span v-else class="tw:text-sm tw:text-secondary">No users assigned</span>
-        </div>
+        </BaseField>
       </div>
 
       <!-- Approver hint — role assignment is OPTIONAL at the template

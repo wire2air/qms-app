@@ -258,27 +258,24 @@ async function handleReviewersConfirmed(reviewers) {
       <div class="tw:max-w-3xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">
         <!-- Basic information -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
             Basic information
-          </div>
+          </BaseText>
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Title <span class="tw:text-red-500">*</span>
-              </label>
-              <BaseTextInput v-model="form.title" placeholder="Describe the nonconformance…" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
+            <BaseField v-slot="{ id }" label="Title" required>
+              <BaseTextInput :id="id" v-model="form.title" placeholder="Describe the nonconformance…" />
+            </BaseField>
+            <BaseField label="Description">
               <div class="create-nc-editor">
                 <BaseRichTextEditor
                   v-model="form.description"
                   placeholder="Provide details about the nonconformance…"
                 />
               </div>
-            </div>
+            </BaseField>
             <SimilarRecordsPanel
               entityType="Nonconformance"
               :searchInTypes="['Nonconformance']"
@@ -289,44 +286,29 @@ async function handleReviewersConfirmed(reviewers) {
 
         <!-- Classification -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
             Classification
-          </div>
+          </BaseText>
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Site <span class="tw:text-red-500">*</span>
-              </label>
+            <BaseField label="Site" required>
               <SiteSelectMenu v-model="form.siteId" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Department <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Department" required>
               <DepartmentSelectMenu v-model="form.departmentId" :siteId="form.siteId" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                NC Type <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="NC Type" required>
               <NcTypeSelectMenu v-model="form.typeId" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Detection source <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Detection source" required>
               <NcSourceSelectMenu v-model="form.sourceId" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Issue type</label>
+            </BaseField>
+            <BaseField label="Issue type">
               <NcIssueTypeSelectMenu v-model="form.ncIssueTypeId" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Severity <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Severity" required>
               <div class="tw:flex tw:gap-2">
                 <BaseButton
                   v-for="sev in ['MINOR', 'MAJOR', 'CRITICAL']"
@@ -338,9 +320,8 @@ async function handleReviewersConfirmed(reviewers) {
                   {{ sev.charAt(0) + sev.slice(1).toLowerCase() }}
                 </BaseButton>
               </div>
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Priority</label>
+            </BaseField>
+            <BaseField label="Priority">
               <div class="tw:flex tw:gap-2">
                 <BaseButton
                   v-for="p in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']"
@@ -352,110 +333,89 @@ async function handleReviewersConfirmed(reviewers) {
                   {{ p.charAt(0) + p.slice(1).toLowerCase() }}
                 </BaseButton>
               </div>
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Detected date <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Detected date" required>
               <BaseDatePicker v-model="form.detectedAt" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Due date
-                <span class="tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
-              </label>
+            </BaseField>
+            <BaseField label="Due date" optional>
               <BaseDatePicker v-model="form.dueDate" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2 tw:md:col-span-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Owner <span class="tw:text-red-500">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Owner" required class="tw:col-span-2 tw:md:col-span-1">
               <UserSelectMenu v-model="form.ownerId" required />
-            </div>
+            </BaseField>
           </div>
         </div>
 
         <!-- Product & material -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
             Product & material
             <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
-          </div>
+          </BaseText>
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Product</label>
+            <BaseField label="Product">
               <ProductSelectMenu v-model="form.productId" :required="false" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Supplier
-                <span v-if="form.isSupplierFacing" class="tw:text-bad">*</span>
-              </label>
+            </BaseField>
+            <BaseField label="Supplier" :required="form.isSupplierFacing">
               <SupplierSelectMenu v-model="form.supplierId" :required="form.isSupplierFacing" />
-              <label
-                class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
-              >
+              <label class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none">
                 <BaseCheckbox v-model="form.isSupplierFacing" />
                 <div>
-                  <div class="tw:text-sm tw:text-on-main">Supplier-facing NC</div>
-                  <div class="tw:text-[11px] tw:text-secondary">
+                  <BaseText>Supplier-facing NC</BaseText>
+                  <BaseCaption class="tw:block">
                     Workflow steps will be reviewed by users from the selected supplier (you'll pick
                     the specific reviewer per step when you open the NC). Lockable once opened.
-                  </div>
+                  </BaseCaption>
                 </div>
               </label>
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Qty affected</label>
-              <BaseTextInput v-model="form.qtyAffected" type="number" placeholder="0" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Unit of measure</label>
-              <BaseTextInput v-model="form.unitOfMeasure" placeholder="e.g. sheets, units…" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">PO #</label>
-              <BaseTextInput v-model="form.poNumber" placeholder="Purchase order number" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Order #</label>
-              <BaseTextInput v-model="form.orderNumber" placeholder="Customer / sales order" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Lot #</label>
-              <BaseTextInput v-model="form.lotNumber" placeholder="Material / production lot" />
-            </div>
+            </BaseField>
+            <BaseField v-slot="{ id }" label="Qty affected">
+              <BaseTextInput :id="id" v-model="form.qtyAffected" type="number" placeholder="0" />
+            </BaseField>
+            <BaseField v-slot="{ id }" label="Unit of measure">
+              <BaseTextInput :id="id" v-model="form.unitOfMeasure" placeholder="e.g. sheets, units…" />
+            </BaseField>
+            <BaseField v-slot="{ id }" label="PO #">
+              <BaseTextInput :id="id" v-model="form.poNumber" placeholder="Purchase order number" />
+            </BaseField>
+            <BaseField v-slot="{ id }" label="Order #">
+              <BaseTextInput :id="id" v-model="form.orderNumber" placeholder="Customer / sales order" />
+            </BaseField>
+            <BaseField v-slot="{ id }" label="Lot #" class="tw:col-span-2">
+              <BaseTextInput :id="id" v-model="form.lotNumber" placeholder="Material / production lot" />
+            </BaseField>
           </div>
         </div>
 
         <!-- Notifications — email-only group fan-out on raise + close -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
             Notifications
             <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Notification groups</label>
+          </BaseText>
+          <BaseField
+            label="Notification groups"
+            hint="Members are emailed when this NC is raised and when it closes. Email only — no tasks are created and no access is granted."
+          >
             <GroupSelectMenu v-model="form.notifyGroupIds" multiple class="tw:w-full" />
-            <p class="tw:text-xs tw:text-secondary tw:mt-1">
-              Members are emailed when this NC is raised and when it closes. Email only — no tasks
-              are created and no access is granted.
-            </p>
-          </div>
+          </BaseField>
         </div>
 
         <!-- Immediate containment action -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
             Immediate containment action
             <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
-          </div>
+          </BaseText>
           <div class="create-nc-editor">
             <BaseRichTextEditor
               v-model="form.immediateContainmentAction"
@@ -466,12 +426,13 @@ async function handleReviewersConfirmed(reviewers) {
 
         <!-- Workflow -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
             Workflow
             <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
-          </div>
+          </BaseText>
           <WorkflowReviewerPickerDialog
             ref="workflowPickerRef"
             v-model="form.workflowVersionId"

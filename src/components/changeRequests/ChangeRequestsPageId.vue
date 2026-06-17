@@ -322,11 +322,12 @@ const editingDescription = ref(false)
           <div class="tw:flex tw:flex-col tw:gap-4">
             <!-- Details card -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
                 Change Request Details
-              </div>
+              </BaseText>
 
               <BaseTextInput
                 v-if="editingTitle && isEditable"
@@ -415,11 +416,12 @@ const editingDescription = ref(false)
 
             <!-- Reason + Justification -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
                 Reason &amp; Justification
-              </div>
+              </BaseText>
               <div class="tw:mb-4">
                 <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">
                   Reason for Change
@@ -483,11 +485,12 @@ const editingDescription = ref(false)
                  in the main "Change Request Details" grid because they're
                  required at create. -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
               >
                 Overview
-              </div>
+              </BaseText>
 
               <!-- Identification -->
               <div class="tw:flex tw:flex-col">
@@ -603,16 +606,14 @@ const editingDescription = ref(false)
           Cancelling permanently terminates this Change Request. The record stays in the audit log;
           you cannot re-open it.
         </p>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Reason <span class="tw:text-red-500">*</span>
-          </p>
+        <BaseField v-slot="{ id: fieldId }" label="Reason" required>
           <BaseTextarea
+            :id="fieldId"
             v-model="cancelReason"
             :rows="3"
             placeholder="Why is this Change Request being cancelled?"
           />
-        </div>
+        </BaseField>
         <p
           v-if="saveError"
           class="tw:text-xs tw:text-red-600 tw:bg-red-50 tw:border tw:border-red-200 tw:rounded-md tw:p-2"
@@ -646,16 +647,14 @@ const editingDescription = ref(false)
         >
           {{ closeBlockedReason }}
         </p>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Closure notes (optional)
-          </p>
+        <BaseField v-slot="{ id: fieldId }" label="Closure notes" optional>
           <BaseTextarea
+            :id="fieldId"
             v-model="closeComments"
             :rows="3"
             placeholder="Summary of the change outcome, lessons learned, etc."
           />
-        </div>
+        </BaseField>
         <p
           v-if="saveError"
           class="tw:text-xs tw:text-red-600 tw:bg-red-50 tw:border tw:border-red-200 tw:rounded-md tw:p-2"

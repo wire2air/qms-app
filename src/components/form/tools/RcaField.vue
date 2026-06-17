@@ -360,7 +360,7 @@ onBeforeUnmount(() => {
         <!-- Outcome -->
         <div class="tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:flex-col tw:gap-3">
           <div class="tw:flex tw:items-center tw:justify-between">
-            <div class="tw:text-sm tw:font-semibold tw:text-on-main">Root Causes</div>
+            <BaseText as="h4" weight="semibold">Root Causes</BaseText>
             <span
               v-if="chosenMethod === 'fishbone' && !isCompleted && !readonly && !disabled"
               class="tw:text-xs tw:text-secondary tw:italic"

@@ -208,19 +208,13 @@ async function onSave() {
   >
     <div class="tw:p-4 tw:space-y-4">
       <!-- Title -->
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Title <span class="tw:text-bad">*</span>
-        </label>
-        <BaseTextInput v-model="form.title" placeholder="What's this batch for?" />
-      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Title" required>
+        <BaseTextInput :id="fieldId" v-model="form.title" placeholder="What's this batch for?" />
+      </BaseField>
 
       <!-- Recipients = supplier portal users (#31). They get notified + respond
            in-portal. Add one via Locations & Contacts → "invite as portal user". -->
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Supplier Users <span class="tw:text-bad">*</span>
-        </label>
+      <BaseField label="Supplier Users" required>
         <div
           class="tw:space-y-1 tw:max-h-32 tw:overflow-y-auto tw:rounded-md tw:border tw:border-divider tw:p-2"
         >
@@ -242,14 +236,14 @@ async function onSave() {
             No portal users yet — add one via Locations &amp; Contacts ("invite as portal user").
           </p>
         </div>
-      </div>
+      </BaseField>
 
       <!-- Items (only on create — edit handles metadata only) -->
-      <div v-if="!editingRequest">
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Documents to request <span class="tw:text-bad">*</span>
+      <BaseField v-if="!editingRequest" required>
+        <template #label>
+          Documents to request
           <span class="tw:font-normal tw:text-secondary tw:ml-1">({{ totalItems }} selected)</span>
-        </label>
+        </template>
         <div
           class="tw:max-h-56 tw:overflow-y-auto tw:rounded-md tw:border tw:border-divider tw:p-2"
         >
@@ -285,7 +279,7 @@ async function onSave() {
             </span>
           </label>
         </div>
-      </div>
+      </BaseField>
 
       <!-- Ad-hoc items -->
       <div v-if="!editingRequest" class="tw:space-y-2">
@@ -331,29 +325,23 @@ async function onSave() {
 
       <!-- Dates -->
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">Due Date</label>
+        <BaseField label="Due Date">
           <BaseDatePicker v-model="form.dueDate" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-            Expiry Date
-          </label>
+        </BaseField>
+        <BaseField label="Expiry Date">
           <BaseDatePicker v-model="form.expiryDate" />
-        </div>
+        </BaseField>
       </div>
 
       <!-- Description -->
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Description
-        </label>
+      <BaseField v-slot="{ id: fieldId }" label="Description">
         <BaseTextarea
+          :id="fieldId"
           v-model="form.description"
           placeholder="Context shown to the supplier in the request email"
           :rows="2"
         />
-      </div>
+      </BaseField>
     </div>
 
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">

@@ -106,7 +106,7 @@ function removeAttribute(key) {
   >
     <div class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
       <IconForms :size="16" class="tw:text-primary" />
-      <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+      <BaseText variant="overline">
         <template v-if="formId">
           Submitted via {{ formName ?? 'web form' }}
           <span v-if="formVersion" class="tw:normal-case tw:font-normal">
@@ -114,7 +114,7 @@ function removeAttribute(key) {
           </span>
         </template>
         <template v-else>Custom attributes</template>
-      </div>
+      </BaseText>
     </div>
 
     <!-- Schema-backed values: editable for agents, readonly otherwise. -->

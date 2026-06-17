@@ -121,11 +121,7 @@ async function handleSave(schema) {
 
       <!-- Form preview -->
       <div class="tw:p-6 tw:bg-main-hover/30">
-        <p
-          class="tw:text-[10px] tw:font-bold tw:uppercase tw:text-secondary tw:mb-4 tw:tracking-wide"
-        >
-          Preview
-        </p>
+        <BaseText variant="overline" class="tw:block tw:mb-4">Preview</BaseText>
         <DynamicForm :fields="step.formSchema" :modelValue="{}" readonly />
       </div>
     </div>

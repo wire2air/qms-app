@@ -392,23 +392,17 @@ const parseProgressPct = computed(() => {
         </div>
 
         <div class="tw:flex tw:flex-col tw:gap-1">
-          <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
-            Title
-          </div>
+          <BaseText variant="overline">Title</BaseText>
           <div class="tw:text-lg tw:font-bold tw:text-on-main">{{ result.title }}</div>
         </div>
 
         <div class="tw:flex tw:flex-col tw:gap-1">
-          <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
-            Summary
-          </div>
+          <BaseText variant="overline">Summary</BaseText>
           <div class="tw:text-sm tw:text-on-main tw:leading-relaxed">{{ result.description }}</div>
         </div>
 
         <div class="tw:flex tw:flex-col tw:gap-2">
-          <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
-            Sections ({{ result.sections.length }})
-          </div>
+          <BaseText variant="overline">Sections ({{ result.sections.length }})</BaseText>
           <div class="tw:flex tw:flex-col tw:gap-2 tw:max-h-[55vh] tw:overflow-y-auto">
             <div
               v-for="(section, i) in result.sections"

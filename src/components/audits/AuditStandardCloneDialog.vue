@@ -76,21 +76,17 @@ async function handleClone({ navigate }) {
         Copies <strong>{{ standard?.name }}</strong> and all its clauses into a new standard as a
         v1.0 DRAFT. Give it a new code + name.
       </p>
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Name <span class="tw:text-red-500">*</span>
-        </p>
-        <BaseTextInput v-model="form.name" placeholder="e.g. Copy of ISO 9001:2015" />
-      </div>
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Code <span class="tw:text-red-500">*</span>
-        </p>
-        <BaseTextInput v-model="form.code" placeholder="ISO_9001_2015-COPY" />
-        <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-          Per-tenant unique. Cannot be changed after creation.
-        </p>
-      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Name" required>
+        <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. Copy of ISO 9001:2015" />
+      </BaseField>
+      <BaseField
+        v-slot="{ id: fieldId }"
+        label="Code"
+        required
+        hint="Per-tenant unique. Cannot be changed after creation."
+      >
+        <BaseTextInput :id="fieldId" v-model="form.code" placeholder="ISO_9001_2015-COPY" />
+      </BaseField>
     </div>
     <template #footer>
       <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>

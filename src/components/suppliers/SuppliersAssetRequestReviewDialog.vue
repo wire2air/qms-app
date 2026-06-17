@@ -98,11 +98,7 @@ async function onConfirm() {
 
         <!-- Uploaded document -->
         <div>
-          <p
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-2"
-          >
-            Submitted Document
-          </p>
+          <BaseText variant="overline" class="tw:block tw:mb-2">Submitted Document</BaseText>
           <div
             v-if="assetRequest.asset"
             class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:bg-main-hover tw:rounded-lg tw:border tw:border-divider"

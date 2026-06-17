@@ -91,11 +91,9 @@ async function handleUpload() {
 <template>
   <BaseDialog :modelValue="modelValue" :title="dialogTitle" maxWidth="md" @update:modelValue="close">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          File <span class="tw:text-red-500">*</span>
-        </p>
+      <BaseField v-slot="{ id: fieldId }" label="File" required>
         <input
+          :id="fieldId"
           type="file"
           class="tw:block tw:w-full tw:text-sm tw:text-secondary tw:file:mr-3 tw:file:py-1.5 tw:file:px-3 tw:file:rounded tw:file:border-0 tw:file:bg-primary tw:file:text-white tw:file:font-semibold tw:file:cursor-pointer tw:file:hover:bg-primary/90"
           @change="pickFile"
@@ -122,15 +120,15 @@ async function handleUpload() {
         >
           {{ file.name }} · {{ Math.round(file.size / 1024) }} KB
         </p>
-      </div>
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Caption</p>
+      </BaseField>
+      <BaseField v-slot="{ id: fieldId }" label="Caption">
         <BaseTextarea
+          :id="fieldId"
           v-model="caption"
           :rows="2"
           placeholder="What does this evidence show?"
         />
-      </div>
+      </BaseField>
     </div>
     <template #footer>
       <BaseButton variant="outline" :disabled="uploading" @click="close">Cancel</BaseButton>

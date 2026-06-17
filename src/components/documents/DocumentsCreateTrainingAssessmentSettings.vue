@@ -43,14 +43,12 @@ const retryLimitOptions = [
           </div>
           <BaseSwitch v-model="form.requiredCompletion" />
         </div>
-        <div class="tw:space-y-2">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Assessment Due Date</label>
+        <BaseField label="Assessment Due Date">
           <BaseDatePicker v-model="form.assessmentDueDate" />
-        </div>
-        <div class="tw:space-y-2">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Retry limit</label>
+        </BaseField>
+        <BaseField label="Retry limit">
           <BaseSelectMenu v-model="form.retryLimit" :items="retryLimitOptions" :required="true" />
-        </div>
+        </BaseField>
       </div>
       <div class="tw:mt-8 tw:pt-6 tw:border-t tw:border-divider">
         <div

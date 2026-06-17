@@ -70,15 +70,15 @@ function updateProbableCauses(val) {
     </div>
 
     <!-- Probable causes -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <label class="tw:text-sm tw:font-medium tw:text-on-main">Probable Causes</label>
+    <BaseField v-slot="{ id: fieldId }" label="Probable Causes">
       <BaseTextarea
+        :id="fieldId"
         :modelValue="modelValue.probableCauses ?? ''"
         placeholder="Based on the IS / IS NOT analysis, what are the probable causes?"
         :rows="3"
         :readonly="readonly"
         @update:modelValue="updateProbableCauses"
       />
-    </div>
+    </BaseField>
   </div>
 </template>

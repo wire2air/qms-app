@@ -589,7 +589,7 @@ async function handleExport(format) {
             <div
               class="tw:flex tw:justify-between tw:items-center tw:p-3 tw:border-b tw:border-divider"
             >
-              <span class="tw:text-sm tw:font-semibold tw:text-on-main">Show/Hide Columns</span>
+              <BaseText as="h4" variant="body" weight="semibold">Show/Hide Columns</BaseText>
               <button
                 class="tw:text-xs tw:text-primary tw:hover:underline"
                 @click="toggleAllColumns"

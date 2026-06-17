@@ -120,13 +120,7 @@ async function handleDelete() {
     >
       <div class="tw:flex tw:items-center tw:gap-2">
         <IconMailForward :size="18" class="tw:text-primary" />
-        <div class="tw:flex tw:flex-col">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-          >
-            Support Addresses
-          </div>
-        </div>
+        <BaseText variant="overline">Support Addresses</BaseText>
       </div>
       <BaseButton variant="primary" size="sm" @click="showCreateDialog = true">
         <IconPlus :size="16" class="tw:mr-1" />

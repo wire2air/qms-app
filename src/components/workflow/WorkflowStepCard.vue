@@ -110,9 +110,9 @@ const menuItems = computed(() => {
       <!-- Step Info -->
       <div class="tw:flex-1 tw:min-w-0">
         <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-          <h3 class="tw:text-sm tw:font-bold tw:text-on-main tw:truncate">
+          <BaseText as="h3" weight="bold" truncate>
             {{ step.name }}
-          </h3>
+          </BaseText>
           <span
             class="tw:text-[10px] tw:font-bold tw:px-1.5 tw:py-0.5 tw:rounded tw:shrink-0"
             :class="

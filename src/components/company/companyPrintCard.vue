@@ -101,12 +101,12 @@ function openPreview() {
     <div class="tw:p-6 tw:flex tw:flex-col tw:gap-8">
       <!-- Logo -->
       <div class="tw:flex tw:flex-col tw:gap-5">
-        <h3 class="tw:text-xs tw:font-bold tw:uppercase tw:tracking-widest tw:text-secondary">
-          Logo
-        </h3>
+        <BaseText variant="overline">Logo</BaseText>
         <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-[1fr_auto] tw:gap-6 tw:items-start">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Logo URL (override)</label>
+          <BaseField
+            label="Logo URL (override)"
+            hint="Falls back to the company icon set on the General tab, then to a &quot;Company Logo&quot; placeholder."
+          >
             <div class="tw:flex tw:gap-2">
               <BaseTextInput
                 v-model="company.settings.printSettings.logoUrl"
@@ -122,11 +122,7 @@ function openPreview() {
                 <IconRotate :size="14" />
               </button>
             </div>
-            <p class="tw:text-xs tw:text-secondary">
-              Falls back to the company icon set on the General tab, then to a "Company Logo"
-              placeholder.
-            </p>
-          </div>
+          </BaseField>
           <div class="tw:flex tw:flex-col tw:items-center tw:gap-1.5">
             <span class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
               Preview
@@ -156,32 +152,29 @@ function openPreview() {
 
       <!-- Address -->
       <div class="tw:flex tw:flex-col tw:gap-5">
-        <h3 class="tw:text-xs tw:font-bold tw:uppercase tw:tracking-widest tw:text-secondary">
-          Mailing Address
-        </h3>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Address</label>
+        <BaseText variant="overline">Mailing Address</BaseText>
+        <BaseField
+          v-slot="{ id: fieldId }"
+          label="Address"
+          hint="Printed under the company name in the document header."
+        >
           <BaseTextarea
+            :id="fieldId"
             v-model="company.settings.printSettings.address"
             placeholder="e.g. 123 Main St, Boston, MA 02110, USA"
             :rows="2"
           />
-          <p class="tw:text-xs tw:text-secondary">
-            Printed under the company name in the document header.
-          </p>
-        </div>
+        </BaseField>
       </div>
 
       <hr class="tw:border-divider" />
 
       <!-- Footer + accent -->
       <div class="tw:flex tw:flex-col tw:gap-5">
-        <h3 class="tw:text-xs tw:font-bold tw:uppercase tw:tracking-widest tw:text-secondary">
-          Page Footer
-        </h3>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Footer notice</label>
+        <BaseText variant="overline">Page Footer</BaseText>
+        <BaseField v-slot="{ id: fieldId }" label="Footer notice">
           <BaseTextInput
+            :id="fieldId"
             v-model="company.settings.printSettings.footerText"
             :placeholder="defaultFooterText"
           />
@@ -189,11 +182,13 @@ function openPreview() {
             Appears in the printed footer alongside status. Leave blank for the default:
             <em>“{{ defaultFooterText }}”</em>
           </p>
-        </div>
+        </BaseField>
 
         <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-[1fr_auto] tw:gap-6 tw:items-end">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Accent colour</label>
+          <BaseField
+            label="Accent colour"
+            hint="Used on the print header divider, footer rule, section headings, and document title."
+          >
             <div class="tw:flex tw:gap-2 tw:items-center">
               <input
                 v-model="company.settings.printSettings.accentColor"
@@ -214,10 +209,7 @@ function openPreview() {
                 <IconRotate :size="14" />
               </button>
             </div>
-            <p class="tw:text-xs tw:text-secondary">
-              Used on the print header divider, footer rule, section headings, and document title.
-            </p>
-          </div>
+          </BaseField>
         </div>
       </div>
 

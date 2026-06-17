@@ -36,7 +36,7 @@ declare global {
   const effectScope: typeof import('vue').effectScope
   const extendRef: typeof import('@vueuse/core').extendRef
   const forwardRefs: typeof import('./resource/js/shared/composables/forwardRef.js').forwardRefs
-  const getCurrentInstance: typeof import('./resource/js/shared/composables/render.js').getCurrentInstance
+  const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
   const getCurrentWatcher: typeof import('vue').getCurrentWatcher
   const getProp: typeof import('./resource/js/shared/composables/object.js').getProp

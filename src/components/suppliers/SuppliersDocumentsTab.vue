@@ -245,26 +245,18 @@ function formatSize(bytes) {
     <!-- Ad-hoc upload dialog -->
     <BaseDialog v-model="showUpload" title="Upload supplier document" size="md">
       <div class="tw:p-4 tw:flex tw:flex-col tw:gap-3">
-        <div>
-          <label class="tw:block tw:text-xs tw:font-semibold tw:text-secondary tw:mb-1">
-            Title <span class="tw:text-bad">*</span>
-          </label>
-          <BaseTextInput v-model="uploadForm.title" placeholder="e.g. ISO 9001 Certificate" />
-        </div>
-        <div>
-          <label class="tw:block tw:text-xs tw:font-semibold tw:text-secondary tw:mb-1">
-            Description (optional)
-          </label>
+        <BaseField v-slot="{ id: fieldId }" label="Title" required>
+          <BaseTextInput :id="fieldId" v-model="uploadForm.title" placeholder="e.g. ISO 9001 Certificate" />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Description" optional>
           <BaseTextarea
+            :id="fieldId"
             v-model="uploadForm.description"
             :rows="2"
             placeholder="What is this document, what does it cover, when was it issued?"
           />
-        </div>
-        <div>
-          <label class="tw:block tw:text-xs tw:font-semibold tw:text-secondary tw:mb-1">
-            File <span class="tw:text-bad">*</span>
-          </label>
+        </BaseField>
+        <BaseField label="File" required>
           <BaseClickableRow
             v-if="!uploadForm.file"
             class="tw:border-2 tw:border-dashed tw:border-divider tw:rounded-lg tw:p-6 tw:text-center tw:hover:border-primary tw:transition-colors"
@@ -297,7 +289,7 @@ function formatSize(bytes) {
             accept="image/*,application/pdf,.docx,.doc,.xlsx,.xls,.csv"
             @change="onFile"
           />
-        </div>
+        </BaseField>
       </div>
       <template #footer>
         <div class="tw:flex tw:justify-end tw:gap-2">

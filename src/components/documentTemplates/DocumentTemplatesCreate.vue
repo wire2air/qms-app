@@ -258,44 +258,42 @@ const breadcrumbs = computed(() => [
                 placeholder="e.g. Standard Operating Procedure"
                 :required="true"
               />
-              <div>
-                <div class="tw:flex tw:items-center tw:gap-2 tw:mb-1">
-                  <label class="tw:text-sm tw:font-medium"
-                    >Document Prefix <span class="tw:text-red">*</span></label
-                  >
-                  <BaseSpinner v-if="checkingPrefix" size="xs" />
-                  <IconCircleCheck
-                    v-else-if="prefixAvailable === true"
-                    :size="16"
-                    class="tw:text-green-600"
+              <BaseField
+                required
+                hint='Prefix for document numbers. Supports placeholders: {SITE_CODE}, {DEPARTMENT_CODE} (e.g. "DOC", "SOP-{SITE_CODE}").'
+              >
+                <template #label>
+                  <span class="tw:flex tw:items-center tw:gap-2">
+                    Document Prefix
+                    <BaseSpinner v-if="checkingPrefix" size="xs" />
+                    <IconCircleCheck
+                      v-else-if="prefixAvailable === true"
+                      :size="16"
+                      class="tw:text-green-600"
+                    />
+                    <IconCircleX
+                      v-else-if="prefixAvailable === false"
+                      :size="16"
+                      class="tw:text-red-500"
+                    />
+                  </span>
+                </template>
+                <template #default="{ id: fieldId }">
+                  <BaseTextInput
+                    :id="fieldId"
+                    :modelValue="form.prefix"
+                    placeholder="DOC"
+                    :required="true"
+                    @update:modelValue="onPrefixInput"
                   />
-                  <IconCircleX
-                    v-else-if="prefixAvailable === false"
-                    :size="16"
-                    class="tw:text-red-500"
-                  />
-                </div>
-                <BaseTextInput
-                  :modelValue="form.prefix"
-                  placeholder="DOC"
-                  :required="true"
-                  @update:modelValue="onPrefixInput"
-                />
-                <p class="tw:text-xs tw:text-secondary tw:mt-1">
-                  Prefix for document numbers. Supports placeholders: {SITE_CODE}, {DEPARTMENT_CODE}
-                  (e.g. "DOC", "SOP-{SITE_CODE}").
-                </p>
-              </div>
-              <div>
-                <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">Department</label>
+                </template>
+              </BaseField>
+              <BaseField label="Department">
                 <DepartmentSelectMenu v-model="form.departmentId" />
-              </div>
-              <div>
-                <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium"
-                  >Related Standard</label
-                >
+              </BaseField>
+              <BaseField label="Related Standard">
                 <RelatedStandardSelectMenu v-model="form.relatedStandardId" />
-              </div>
+              </BaseField>
             </div>
           </div>
 
