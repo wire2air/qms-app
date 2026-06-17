@@ -154,10 +154,13 @@ async function handleCreate() {
       </BaseField>
     </div>
     <template #footer="{ close }">
-      <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-      <BaseButton variant="primary" :disabled="!canSubmit || saving" @click="handleCreate">
-        {{ saving ? 'Creating…' : channelType === 'SYSTEM' ? 'Create Address' : 'Connect Address' }}
-      </BaseButton>
+      <BaseDialogFooter
+        :submitLabel="channelType === 'SYSTEM' ? 'Create Address' : 'Connect Address'"
+        :loading="saving"
+        :disabled="!canSubmit"
+        @cancel="close"
+        @submit="handleCreate"
+      />
     </template>
   </BaseDialog>
 </template>

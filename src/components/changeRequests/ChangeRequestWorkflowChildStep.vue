@@ -319,10 +319,12 @@ function getStatusLabel(statusId) {
         />
       </BaseField>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="completing" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="completing" @click="handleCompleteSubmit">
-          {{ requireEsignature ? 'Sign & Complete' : 'Mark Complete' }}
-        </BaseButton>
+        <BaseDialogFooter
+          :submitLabel="requireEsignature ? 'Sign & Complete' : 'Mark Complete'"
+          :loading="completing"
+          @cancel="close"
+          @submit="handleCompleteSubmit"
+        />
       </template>
     </BaseDialog>
 
@@ -335,10 +337,14 @@ function getStatusLabel(statusId) {
       </p>
       <BaseTextarea v-model="cancelReason" :rows="3" placeholder="Reason (optional)" />
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="cancelling" @click="close">Back</BaseButton>
-        <BaseButton variant="danger" :loading="cancelling" @click="handleCancelStep">
-          Cancel Sub-task
-        </BaseButton>
+        <BaseDialogFooter
+          cancelLabel="Back"
+          submitLabel="Cancel Sub-task"
+          submitVariant="danger"
+          :loading="cancelling"
+          @cancel="close"
+          @submit="handleCancelStep"
+        />
       </template>
     </BaseDialog>
   </div>

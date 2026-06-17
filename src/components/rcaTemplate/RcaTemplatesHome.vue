@@ -6,12 +6,12 @@ import { isAllowed } from '@/utils/currentSession.js'
 // per-tenant root_cause_categories lookup admin (new with the RCA
 // reportability spike). Deep-linkable via ?tab=categories.
 const tabs = [
-  { id: 'templates', label: 'Templates', icon: IconFileSettings },
-  { id: 'categories', label: 'Categories', icon: IconTags },
+  { value: 'templates', label: 'Templates', icon: IconFileSettings },
+  { value: 'categories', label: 'Categories', icon: IconTags },
 ]
 const route = useRoute()
 const router = useRouter()
-const validTabIds = new Set(tabs.map((t) => t.id))
+const validTabIds = new Set(tabs.map((t) => t.value))
 const initialTab = validTabIds.has(route.query.tab) ? route.query.tab : 'templates'
 const activeTab = ref(initialTab)
 watch(
@@ -20,12 +20,11 @@ watch(
     if (v && validTabIds.has(v)) activeTab.value = v
   },
 )
-function setTab(id) {
-  activeTab.value = id
+watch(activeTab, (id) => {
   // Mirror to the URL so refresh / share-link lands on the same tab.
   // Use replace so the tab toggle doesn't pollute back-button history.
-  router.replace({ query: { ...route.query, tab: id } })
-}
+  if (route.query.tab !== id) router.replace({ query: { ...route.query, tab: id } })
+})
 
 const showCreateDialog = ref(false)
 const editTemplate = ref(null)
@@ -98,39 +97,31 @@ function onDialogClose() {
     <!-- Tabs — Templates (CRUD on rca_templates) vs Categories (admin on
          root_cause_categories, the per-tenant lookup used by the RCA
          widget finalize step). -->
-    <div class="tw:flex tw:border-b tw:border-divider">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        class="tw:px-5 tw:py-2.5 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors tw:bg-transparent tw:cursor-pointer"
-        :class="
-          activeTab === tab.id
-            ? 'tw:border-primary tw:text-primary'
-            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'
-        "
-        @click="setTab(tab.id)"
-      >
-        <component :is="tab.icon" :size="16" /> {{ tab.label }}
-      </button>
-    </div>
+    <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="RCA Templates sections">
+      <div class="tw:mt-6">
+        <!-- Tab: Templates -->
+        <BaseTabPanel value="templates">
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <div class="tw:flex tw:items-center tw:gap-3">
+              <BaseTextInput v-model="search" placeholder="Search templates..." class="tw:w-72" />
+            </div>
 
-    <!-- Tab: Templates -->
-    <template v-if="activeTab === 'templates'">
-      <div class="tw:flex tw:items-center tw:gap-3">
-        <BaseTextInput v-model="search" placeholder="Search templates..." class="tw:w-72" />
+            <RcaTemplatesTable
+              :rows="templates"
+              :canUpdate="canUpdate"
+              :canDelete="canDelete"
+              @edit="onEdit"
+              @delete="onDelete"
+            />
+          </div>
+        </BaseTabPanel>
+
+        <!-- Tab: Categories — per-tenant root_cause_categories admin. -->
+        <BaseTabPanel value="categories">
+          <RootCauseCategoriesCard />
+        </BaseTabPanel>
       </div>
-
-      <RcaTemplatesTable
-        :rows="templates"
-        :canUpdate="canUpdate"
-        :canDelete="canDelete"
-        @edit="onEdit"
-        @delete="onDelete"
-      />
-    </template>
-
-    <!-- Tab: Categories — per-tenant root_cause_categories admin. -->
-    <RootCauseCategoriesCard v-else-if="activeTab === 'categories'" />
+    </BaseTabs>
 
     <RcaTemplateDialog v-model="showCreateDialog" :template="editTemplate" @close="onDialogClose" />
 

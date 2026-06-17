@@ -178,22 +178,24 @@ const showDeactivated = ref(false)
   <div
     class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
+    <BaseSectionHeader
+      title="NC Disposition Types"
+      :level="2"
+      size="section-title"
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover"
     >
-      <div>
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">NC Disposition Types</h2>
-        <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          The disposition options reviewers pick when closing out a nonconformance. Toggle
-          <strong>Tracks cost</strong> for dispositions that generate Cost of NC (Scrap / Rework /
-          Repair / Return-to-Supplier). Scoped to this company — changes only affect your tenant.
-        </p>
-      </div>
-      <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
-        <template #icon><IconPlus :size="16" /></template>
-        Add Disposition
-      </BaseButton>
-    </div>
+      <template #subtitle>
+        The disposition options reviewers pick when closing out a nonconformance. Toggle
+        <strong>Tracks cost</strong> for dispositions that generate Cost of NC (Scrap / Rework /
+        Repair / Return-to-Supplier). Scoped to this company — changes only affect your tenant.
+      </template>
+      <template #actions>
+        <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
+          <template #icon><IconPlus :size="16" /></template>
+          Add Disposition
+        </BaseButton>
+      </template>
+    </BaseSectionHeader>
 
     <div
       v-if="!isOwner"
@@ -365,10 +367,13 @@ const showDeactivated = ref(false)
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="saving" :disabled="saving" @click="handleSave">
-          {{ editing ? 'Save' : 'Add' }}
-        </BaseButton>
+        <BaseDialogFooter
+          :submitLabel="editing ? 'Save' : 'Add'"
+          :loading="saving"
+          :disabled="saving"
+          @cancel="close"
+          @submit="handleSave"
+        />
       </template>
     </BaseDialog>
   </div>

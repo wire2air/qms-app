@@ -268,8 +268,7 @@ function cancel() {
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" @click="cancel">Cancel</BaseButton>
-      <BaseButton @click="confirm">Create Revision</BaseButton>
+      <BaseDialogFooter submitLabel="Create Revision" @cancel="cancel" @submit="confirm" />
     </template>
   </BaseDialog>
 </template>

@@ -404,21 +404,25 @@ watch(
 
     <!-- Step Assignee -->
     <div class="tw:space-y-4">
-      <div class="tw:flex tw:items-center tw:justify-between">
-        <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
-          <IconUsers :size="22" />
-          <h2 class="tw:text-lg tw:font-bold tw:text-on-main">Step Assignees</h2>
-        </div>
-        <BaseButton
-          v-if="canUpdate"
-          variant="outline"
-          size="sm"
-          @click="assigneesDialogOpen = true"
-        >
-          <template #icon><IconEdit :size="14" /></template>
-          Manage Assignees
-        </BaseButton>
-      </div>
+      <BaseSectionHeader
+        title="Step Assignees"
+        :icon="IconUsers"
+        :iconSize="22"
+        :level="2"
+        size="section-title"
+      >
+        <template #actions>
+          <BaseButton
+            v-if="canUpdate"
+            variant="outline"
+            size="sm"
+            @click="assigneesDialogOpen = true"
+          >
+            <template #icon><IconEdit :size="14" /></template>
+            Manage Assignees
+          </BaseButton>
+        </template>
+      </BaseSectionHeader>
 
       <!-- Warning Callout -->
       <div

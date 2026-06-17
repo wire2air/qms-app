@@ -159,8 +159,12 @@ async function onSubmit() {
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" @click="open = false"> Cancel </BaseButton>
-      <BaseButton :disabled="isSubmitting" @click="onSubmit"> Create User </BaseButton>
+      <BaseDialogFooter
+        submitLabel="Create User"
+        :loading="isSubmitting"
+        @cancel="open = false"
+        @submit="onSubmit"
+      />
     </template>
   </BaseDialog>
 </template>

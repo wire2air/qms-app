@@ -172,10 +172,13 @@ async function handleDelete() {
         their history. Update any forwarding rules pointing at it.
       </p>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="deleting" @click="close">Cancel</BaseButton>
-        <BaseButton variant="danger" :disabled="deleting" @click="handleDelete">
-          {{ deleting ? 'Deleting…' : 'Delete' }}
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Delete"
+          submitVariant="danger"
+          :loading="deleting"
+          @cancel="close"
+          @submit="handleDelete"
+        />
       </template>
     </BaseDialog>
   </div>

@@ -504,10 +504,13 @@ const auditIncludeEntities = computed(() => [
         <UserSelectMenu v-model="assignUserId" required />
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="acting" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :disabled="!assignUserId || acting" @click="handleAssign">
-          Assign
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Assign"
+          :loading="acting"
+          :disabled="!assignUserId"
+          @cancel="close"
+          @submit="handleAssign"
+        />
       </template>
     </BaseDialog>
 
@@ -521,10 +524,12 @@ const auditIncludeEntities = computed(() => [
         <BaseTextarea v-model="closeComment" :rows="3" placeholder="Closing comment (optional)…" />
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="acting" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :disabled="acting" @click="handleClose">
-          Close Complaint
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Close Complaint"
+          :loading="acting"
+          @cancel="close"
+          @submit="handleClose"
+        />
       </template>
     </BaseDialog>
 

@@ -137,12 +137,12 @@ defineExpose({ submit })
     </div>
 
     <template #footer="{ close }">
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="outline" @click="handleCancel(close)">Cancel</BaseButton>
-        <BaseButton variant="primary" :disabled="!firstStepHasUser" @click="handleConfirm">
-          Confirm
-        </BaseButton>
-      </div>
+      <BaseDialogFooter
+        submitLabel="Confirm"
+        :disabled="!firstStepHasUser"
+        @cancel="handleCancel(close)"
+        @submit="handleConfirm"
+      />
     </template>
   </BaseDialog>
 </template>

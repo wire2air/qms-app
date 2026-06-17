@@ -45,28 +45,29 @@ const siteIds = computed(() => supplierSites.value.map((s) => s.siteId))
   <div
     class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:overflow-hidden"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
-    >
-      <div class="tw:flex tw:items-center tw:gap-3">
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-primary/10 tw:flex tw:items-center tw:justify-center"
-        >
-          <IconMapPin :size="20" class="tw:text-primary" />
-        </div>
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Associated Sites</h3>
-      </div>
-
-      <SiteSelectMenu
-        :modelValue="siteIds"
-        :required="true"
-        :multiple="true"
-        @update:modelValue="onAddSites"
+    <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
+      <BaseSectionHeader
+        title="Associated Sites"
+        :icon="IconMapPin"
+        iconVariant="boxed"
+        iconColor="primary"
+        :iconSize="20"
+        :level="3"
+        size="section-title"
       >
-        <template #button>
-          <BaseButton v-if="canUpdate" variant="text-link" size="sm"> + Add Site </BaseButton>
+        <template #actions>
+          <SiteSelectMenu
+            :modelValue="siteIds"
+            :required="true"
+            :multiple="true"
+            @update:modelValue="onAddSites"
+          >
+            <template #button>
+              <BaseButton v-if="canUpdate" variant="text-link" size="sm"> + Add Site </BaseButton>
+            </template>
+          </SiteSelectMenu>
         </template>
-      </SiteSelectMenu>
+      </BaseSectionHeader>
     </div>
     <div class="tw:p-6">
       <div v-if="supplierSites.length" class="tw:flex tw:flex-wrap tw:gap-2">

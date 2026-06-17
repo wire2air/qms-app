@@ -233,15 +233,13 @@ async function handleLink() {
       </BaseField>
     </div>
     <template #footer>
-      <BaseButton variant="outline" :disabled="linking" @click="close">Cancel</BaseButton>
-      <BaseButton
-        variant="primary"
+      <BaseDialogFooter
+        submitLabel="Link"
         :loading="linking"
-        :disabled="linking || !selectedTargetId"
-        @click="handleLink"
-      >
-        Link
-      </BaseButton>
+        :disabled="!selectedTargetId"
+        @cancel="close"
+        @submit="handleLink"
+      />
     </template>
   </BaseDialog>
 </template>

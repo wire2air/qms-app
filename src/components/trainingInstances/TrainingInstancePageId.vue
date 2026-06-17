@@ -387,15 +387,14 @@ function closeAssessmentReview() {
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="danger"
+        <BaseDialogFooter
+          submitLabel="Remove Assignee"
+          submitVariant="danger"
           :loading="removing"
           :disabled="!removeReason.trim()"
-          @click="handleRemoveAssignee"
-        >
-          Remove Assignee
-        </BaseButton>
+          @cancel="close"
+          @submit="handleRemoveAssignee"
+        />
       </template>
     </BaseDialog>
 
@@ -470,15 +469,17 @@ function closeAssessmentReview() {
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" @click="close">Keep Active</BaseButton>
-        <BaseButton
-          variant="danger"
+        <BaseDialogFooter
+          cancelLabel="Keep Active"
+          submitLabel="Cancel Instance"
+          submitVariant="danger"
           :loading="cancelling"
           :disabled="!cancelReason.trim()"
-          @click="handleCancel"
+          @cancel="close"
+          @submit="handleCancel"
         >
-          <IconBan :size="16" class="tw:mr-1" /> Cancel Instance
-        </BaseButton>
+          <template #submitIcon><IconBan :size="16" /></template>
+        </BaseDialogFooter>
       </template>
     </BaseDialog>
   </div>

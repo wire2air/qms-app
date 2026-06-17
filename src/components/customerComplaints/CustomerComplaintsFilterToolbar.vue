@@ -212,10 +212,12 @@ function clearAll() {
         />
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :disabled="!newViewName.trim()" @click="handleSaveView">
-          Save
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Save"
+          :disabled="!newViewName.trim()"
+          @cancel="close"
+          @submit="handleSaveView"
+        />
       </template>
     </BaseDialog>
   </div>

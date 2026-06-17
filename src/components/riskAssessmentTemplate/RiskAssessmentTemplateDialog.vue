@@ -484,19 +484,13 @@ async function onSubmit() {
     </div>
 
     <template #footer>
-      <button
-        class="tw:rounded-lg tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
-        @click="open = false"
-      >
-        Cancel
-      </button>
-      <button
-        class="tw:rounded-lg tw:bg-primary tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:text-white tw:hover:bg-primary/90 tw:transition-colors tw:disabled:opacity-50"
-        :disabled="!isValid || isSubmitting"
-        @click="onSubmit"
-      >
-        {{ isEdit ? 'Save Changes' : 'Create Template' }}
-      </button>
+      <BaseDialogFooter
+        :submitLabel="isEdit ? 'Save Changes' : 'Create Template'"
+        :loading="isSubmitting"
+        :disabled="!isValid"
+        @cancel="open = false"
+        @submit="onSubmit"
+      />
     </template>
   </BaseDialog>
 </template>

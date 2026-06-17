@@ -300,19 +300,16 @@ async function confirm() {
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" :disabled="submitting" @click="show = false">Cancel</BaseButton>
-      <BaseButton
-        variant="primary"
-        :disabled="submitting || !allStepsPicked"
-        :title="
-          !allStepsPicked
-            ? 'Pick at least one reviewer for each step before submitting.'
-            : undefined
+      <BaseDialogFooter
+        submitLabel="Submit for Review"
+        :loading="submitting"
+        :disabled="!allStepsPicked"
+        :submitTitle="
+          !allStepsPicked ? 'Pick at least one reviewer for each step before submitting.' : undefined
         "
-        @click="confirm"
-      >
-        {{ submitting ? 'Submitting…' : 'Submit for Review' }}
-      </BaseButton>
+        @cancel="show = false"
+        @submit="confirm"
+      />
     </template>
   </BaseDialog>
 </template>

@@ -491,17 +491,13 @@ async function handleReviewersConfirmed(reviewers) {
       </div>
 
       <template #footer="{ close }">
-        <div class="tw:flex tw:justify-end tw:gap-2">
-          <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-          <BaseButton
-            variant="primary"
-            :isLoading="saving"
-            :disabled="createCapa && !capaWorkflowVersionId"
-            @click="confirmSupplierRaise"
-          >
-            Raise NC{{ createCapa ? ' + 8D CAPA' : '' }}
-          </BaseButton>
-        </div>
+        <BaseDialogFooter
+          :submitLabel="`Raise NC${createCapa ? ' + 8D CAPA' : ''}`"
+          :loading="saving"
+          :disabled="createCapa && !capaWorkflowVersionId"
+          @cancel="close"
+          @submit="confirmSupplierRaise"
+        />
       </template>
     </BaseDialog>
   </div>

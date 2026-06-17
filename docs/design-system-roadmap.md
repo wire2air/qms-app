@@ -38,17 +38,28 @@
 
 ---
 
-## Phase 0 — Foundation Cleanup  ⬜  `S–M` · risk: low
+## Phase 0 — Foundation Cleanup  ✅ DONE (editor lazy-load deferred)  `S–M` · risk: low
 
-- [ ] Delete dead components: `Loader.vue`, `BaseDateTimeDropMenu` (0 consumers, verified). ⚠️ **`BaseDateTimePicker` is NOT dead** — `DynamicForm.js` imports it and renders `h(BaseDateTimePicker, …)`; keep it (it folds into the Phase 5 date consolidation instead).
-- [ ] Delete dead composables (`forwardRef.js`, `render.js`, `props.js` — 0 importers). Keep `validator.js` (16–17 importers).
-- [ ] Resolve dead tokens `--space-*`/`--height-*` (wire or delete — see Phase 1).
-- [ ] Fix `WIcon` → `IconCalendar` (`BaseDatePicker.vue:61`, 18 sites); fix `BaseChip` dead size branch, `BaseToast` `hover:tw:` order, `BasePopover` dead `show` prop, `BaseTextarea` dead `type` prop, `BasePhoto` object-URL leak.
-- [ ] Lazy-load `BaseRichTextEditor`; dev-gate its `console.*`; replace `--q-*` Quasar tokens.
-- [ ] Drop `micromark` (use `marked`+`dompurify`).
-- [ ] **Bundle analysis** (rollup-plugin-visualizer) — baseline before/after.
+- [x] Deleted dead components `Loader.vue`, `BaseDateTimeDropMenu` (verified 0 consumers). **`BaseDateTimePicker` kept** — used by `DynamicForm.js` (folds into Phase 5).
+- [x] Deleted dead composables `forwardRef.js` / `render.js` / `props.js`. Kept `validator.js`.
+- [x] Deleted dead tokens `--space-*` / `--height-*`.
+- [x] `WIcon` → `IconCalendar`; `BaseChip` size branch; `BaseToast` class-order; `BasePopover` dead `show`; `BaseTextarea` dead `type`; `BasePhoto` object-URL leak.
+- [x] Dropped `micromark` → `marked`+`dompurify` (sanitized).
+- [x] Dev-gated editor `console.warn`; **de-Quasared editor styles** (`--q-*` → project tokens — see Dark-mode below).
+- [x] Bundle baseline captured (build green; top chunk `vendor-editor` 535 KB / 177 KB gz).
+- [ ] **DEFERRED — Lazy-load `BaseRichTextEditor`** (the 535 KB chunk). Held for a browser smoke-test (`defineAsyncComponent` ref/expose forwarding across 23 call sites).
 
 **Goal:** clean, measured codebase.
+
+## Phase 0.5 — Dark-mode hardening (cross-cutting)  ✅ DONE  `S` · risk: low
+
+> Fixed at the common-component layer (so all usages benefit). Found via smoke-testing.
+- [x] `BaseTextarea` theme-aware chrome (was inheriting forms-plugin gray border).
+- [x] `BaseBadge` entity select triggers — theme-aware fill + `text-on-main` (status/colored triggers untouched).
+- [x] Rich-text editor de-Quasared (`--q-background→--sidebar` etc.; content was white in dark).
+- [x] `VDatePicker` `:isDark` binding (v-calendar dark theme; calendar numbers were invisible).
+- [x] **`color-scheme: light/dark`** in `base.css` — native date/time inputs + their picker, native `<select>`, scrollbars now render dark.
+- [x] `fix(suppliers)`: `lastEvaluationDate` → `DateTime` (pre-existing `formatDate` crash).
 
 ## Phase 1 — Design Tokens + Theme + Storybook (Foundation)  ⬜  `M–L` · risk: low ⭐
 
@@ -79,6 +90,20 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [x] `BaseTextInput`/`BaseTextarea` → `defineModel`; stable id wired to `<label for>` ↔ input id; `aria-invalid`/`aria-describedby` + error routed through `BaseErrorText` (`role=alert`). 6 unit tests.
 - [x] `focus-visible` ring (BaseCheckbox peer-focus, BaseSwitch → primary) + `motion-reduce` (BaseSpinner, BaseSkeleton) + skeleton dark-mode bg.
 - [ ] Stories (deferred to Phase 1 Storybook setup) + visual a11y check on dev server.
+
+## Phase 3.5 — Composition / layout primitives (whole-app sweep)  🚧 IN PROGRESS  `M–L` · risk: low
+
+> The `PageHeader`/`BaseLabel` tier — **compositions of primitives** that DRY copy-pasted page/layout markup across all 770 `.vue` files. Evidence + full list: audit [§15](./design-system-audit.md). Tier-1 (cheap, high-frequency, unblock the scaffolds) built first, with unit tests.
+
+- [x] **`BaseDetailField`** — read-only label-over-value pair (`—` fallback; not a `<label>`). 68-file pattern. 7 tests.
+- [x] **`BaseDialogFooter`** — standardized Cancel/Submit footer (loading/disabled/inline-error). ~118 dialogs. 6 tests.
+- [x] **`BaseFormDialog`** — `BaseDialog` + body + footer preset for create/edit dialogs. ~50–60 dialogs. 3 tests.
+- [x] **`BaseSectionHeader`** — title (+icon/subtitle) + actions card/section header. ~100+ blocks. 6 tests.
+- [x] **`BaseTabs` / `BaseTabPanel`** — accessible tabs (role=tablist/tab/tabpanel, roving tabindex, Arrow/Home/End). 14 hand-rolled bars, 0 ARIA. 9 tests. (Also closes the §3 `BaseTabs` gap.)
+- [ ] **Tier-2:** `BaseDescriptionList`/`BaseDescriptionItem` (`<dl>` metadata, ~20–30), `BaseListPage` (39+ `*Home.vue`), `BaseDetailPage` (30+ `*PageId.vue`), `BaseFieldRow` (~30).
+- [ ] **Tier-3:** `BaseQuickFilterPills` (3), `BaseAuditTrailRow` (~15–20).
+- [ ] **Adoption gaps (no new component):** finish `PageHeader` rollout (32 raw title / 55 raw actions — gated on `BaseDetailPage`); migrate `EquipmentHome`/`FormAssignmentsHome` off raw `<select>` → `BaseFilterBar`; consolidate ~84 hand-rolled delete dialogs onto `useConfirm`.
+- [ ] Stories + a11y for each (deferred to Phase 1 Storybook setup).
 
 ## Phase 4 — Core Controls: harden + fill gaps  ⬜  `L` · risk: medium
 
@@ -129,7 +154,7 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 
 ## Execution order
 
-`0 → 1 → 2 → 3 → 4 → 5 → 6 → 7`, then `8`, `9` as capacity allows.
+`0 → 1 → 2 → 3 → 3.5 → 4 → 5 → 6 → 7`, then `8`, `9` as capacity allows.
 Foundation (0–1) and the typography/field stack (2–3) are the critical path; overlays (5) can run in parallel with core controls (4); the big sweep (7) only starts once 2–6 land.
 
 **Outcome:** a CSS-variable-tokened, Storybook-documented, accessible, white-label-ready internal design system — shadcn/Ant/MUI-class, but native to this Vue 3 + Tailwind v4 stack.

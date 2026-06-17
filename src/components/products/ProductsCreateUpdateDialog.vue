@@ -193,10 +193,12 @@ watch(open, (val) => {
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" @click="open = false">Cancel</BaseButton>
-      <BaseButton :isLoading="isSubmitting" @click="onSubmit">
-        {{ isEdit ? 'Save Changes' : 'Create Product' }}
-      </BaseButton>
+      <BaseDialogFooter
+        :submitLabel="isEdit ? 'Save Changes' : 'Create Product'"
+        :loading="isSubmitting"
+        @cancel="open = false"
+        @submit="onSubmit"
+      />
     </template>
   </BaseDialog>
 </template>

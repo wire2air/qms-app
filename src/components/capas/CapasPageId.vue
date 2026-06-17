@@ -139,6 +139,9 @@ const incompleteStepCount = useLiveQueryWithDeps(
   { models: ['WorkflowInstanceStep'], initial: 0 },
 )
 const canClose = computed(() => incompleteStepCount.value === 0 && !!closeEffectivenessDate.value)
+
+// Why the "Sign & Close" action is blocked — surfaced as the submit button's
+// native tooltip via BaseDialogFooter's `submitTitle`.
 const closeDisabledReason = computed(() => {
   if (incompleteStepCount.value > 0) {
     return `${incompleteStepCount.value} workflow step${
@@ -756,16 +759,15 @@ function onCreateLinkedChangeRequest() {
         <p v-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</p>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="closing" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="danger"
+        <BaseDialogFooter
+          submitLabel="Sign & Close CAPA"
+          submitVariant="danger"
           :loading="closing"
-          :disabled="!canClose || closing"
-          :title="canClose ? undefined : closeDisabledReason"
-          @click="handleCloseCapa"
-        >
-          Sign &amp; Close CAPA
-        </BaseButton>
+          :disabled="!canClose"
+          :submitTitle="canClose ? undefined : closeDisabledReason"
+          @cancel="close"
+          @submit="handleCloseCapa"
+        />
       </template>
     </BaseDialog>
 
@@ -815,15 +817,15 @@ function onCreateLinkedChangeRequest() {
         <p v-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</p>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="cancelling" @click="close">Keep Open</BaseButton>
-        <BaseButton
-          variant="danger"
+        <BaseDialogFooter
+          cancelLabel="Keep Open"
+          submitLabel="Sign & Cancel CAPA"
+          submitVariant="danger"
           :loading="cancelling"
-          :disabled="!cancelReason.trim() || cancelling"
-          @click="handleCancelCapa"
-        >
-          Sign &amp; Cancel CAPA
-        </BaseButton>
+          :disabled="!cancelReason.trim()"
+          @cancel="close"
+          @submit="handleCancelCapa"
+        />
       </template>
     </BaseDialog>
 
@@ -847,15 +849,12 @@ function onCreateLinkedChangeRequest() {
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Open CAPA"
           :loading="saving"
-          :disabled="saving"
-          @click="handleSubmitForReview"
-        >
-          Open CAPA
-        </BaseButton>
+          @cancel="close"
+          @submit="handleSubmitForReview"
+        />
       </template>
     </BaseDialog>
 

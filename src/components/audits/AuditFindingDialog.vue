@@ -207,15 +207,13 @@ async function handleSave() {
       </div>
     </div>
     <template #footer>
-      <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-      <BaseButton
-        variant="primary"
+      <BaseDialogFooter
+        :submitLabel="isEdit ? 'Save Changes' : 'Create Finding'"
         :loading="saving"
-        :disabled="saving || !canSave"
-        @click="handleSave"
-      >
-        {{ isEdit ? 'Save Changes' : 'Create Finding' }}
-      </BaseButton>
+        :disabled="!canSave"
+        @cancel="close"
+        @submit="handleSave"
+      />
     </template>
   </BaseDialog>
 </template>

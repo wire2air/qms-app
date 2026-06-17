@@ -164,14 +164,13 @@ function onConfirmFeedback() {
       />
 
       <template #footer="{ close }">
-        <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-        <BaseButton
-          :variant="feedbackAction === 'REJECT' ? 'danger' : 'primary'"
-          :isLoading="actionLoading"
-          @click="onConfirmFeedback"
-        >
-          {{ feedbackAction === 'REJECT' ? 'Reject' : 'Request Changes' }}
-        </BaseButton>
+        <BaseDialogFooter
+          :submitLabel="feedbackAction === 'REJECT' ? 'Reject' : 'Request Changes'"
+          :submitVariant="feedbackAction === 'REJECT' ? 'danger' : 'primary'"
+          :loading="actionLoading"
+          @cancel="close"
+          @submit="onConfirmFeedback"
+        />
       </template>
     </BaseDialog>
 

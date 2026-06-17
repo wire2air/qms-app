@@ -422,10 +422,12 @@ async function handleDelete(rule) {
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :disabled="saving" @click="handleSave">
-          {{ saving ? 'Saving…' : 'Save Rule' }}
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Save Rule"
+          :loading="saving"
+          @cancel="close"
+          @submit="handleSave"
+        />
       </template>
     </BaseDialog>
   </div>

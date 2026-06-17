@@ -155,27 +155,28 @@ const STATUS_LABEL = {
   <div v-if="!version" class="tw:py-10 tw:text-secondary tw:text-center">Loading…</div>
   <div v-else class="tw:max-w-4xl tw:mx-auto tw:py-4 tw:flex tw:flex-col tw:gap-6">
     <section class="tw:bg-sidebar tw:rounded-2xl tw:shadow-sm tw:border tw:border-divider tw:p-6">
-      <header class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:mb-6">
-        <div class="tw:flex tw:items-start tw:gap-3">
-          <div
-            class="tw:flex tw:items-center tw:justify-center tw:w-10 tw:h-10 tw:rounded-lg tw:bg-primary/10 tw:text-primary"
-          >
-            <IconHistory :size="22" />
-          </div>
-          <div>
-            <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Change Control</h2>
-            <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-              v{{ version.versionMajor }}.{{ version.versionMinor }} ·
-              {{ STATUS_LABEL[version.statusId] || version.statusId }}
-              <span v-if="!canUpdate" class="tw:ml-1 tw:inline-flex tw:items-center tw:gap-0.5">
-                <IconLock :size="11" /> read-only
-              </span>
-            </p>
-          </div>
-        </div>
-        <span v-if="isSaving" class="tw:text-xs tw:text-secondary">Saving…</span>
-        <span v-else-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</span>
-      </header>
+      <BaseSectionHeader
+        title="Change Control"
+        :icon="IconHistory"
+        iconVariant="boxed"
+        iconColor="primary"
+        :iconSize="22"
+        :level="2"
+        size="section-title"
+        class="tw:mb-6"
+      >
+        <template #subtitle>
+          v{{ version.versionMajor }}.{{ version.versionMinor }} ·
+          {{ STATUS_LABEL[version.statusId] || version.statusId }}
+          <span v-if="!canUpdate" class="tw:ml-1 tw:inline-flex tw:items-center tw:gap-0.5">
+            <IconLock :size="11" /> read-only
+          </span>
+        </template>
+        <template #actions>
+          <span v-if="isSaving" class="tw:text-xs tw:text-secondary">Saving…</span>
+          <span v-else-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</span>
+        </template>
+      </BaseSectionHeader>
 
       <!-- v1.0 banner: optional fields -->
       <div

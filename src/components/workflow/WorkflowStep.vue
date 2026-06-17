@@ -527,15 +527,14 @@ function activityLabel(statusId) {
         </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="cancelling" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="danger"
+        <BaseDialogFooter
+          submitLabel="Cancel Step"
+          submitVariant="danger"
           :loading="cancelling"
           :disabled="cancelling"
-          @click="handleCancelStep"
-        >
-          Cancel Step
-        </BaseButton>
+          @cancel="close"
+          @submit="handleCancelStep"
+        />
       </template>
     </BaseDialog>
 
@@ -562,15 +561,13 @@ function activityLabel(statusId) {
         </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="reopening" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Reopen Step"
           :loading="reopening"
           :disabled="!reopenReason.trim() || reopening"
-          @click="handleReopen"
-        >
-          Reopen Step
-        </BaseButton>
+          @cancel="close"
+          @submit="handleReopen"
+        />
       </template>
     </BaseDialog>
   </div>

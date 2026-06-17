@@ -131,15 +131,13 @@ async function handleUpload() {
       </BaseField>
     </div>
     <template #footer>
-      <BaseButton variant="outline" :disabled="uploading" @click="close">Cancel</BaseButton>
-      <BaseButton
-        variant="primary"
+      <BaseDialogFooter
+        submitLabel="Upload"
         :loading="uploading"
         :disabled="!canUpload"
-        @click="handleUpload"
-      >
-        Upload
-      </BaseButton>
+        @cancel="close"
+        @submit="handleUpload"
+      />
     </template>
   </BaseDialog>
 </template>

@@ -592,10 +592,12 @@ const editingDescription = ref(false)
         </p>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="opening" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="opening" :disabled="opening" @click="handleOpenCr">
-          Submit for Approval
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Submit for Approval"
+          :loading="opening"
+          @cancel="close"
+          @submit="handleOpenCr"
+        />
       </template>
     </BaseDialog>
 
@@ -622,15 +624,15 @@ const editingDescription = ref(false)
         </p>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="cancelling" @click="close">Back</BaseButton>
-        <BaseButton
-          variant="danger"
+        <BaseDialogFooter
+          cancelLabel="Back"
+          submitLabel="Sign & Cancel"
+          submitVariant="danger"
           :loading="cancelling"
-          :disabled="!cancelReason.trim() || cancelling"
-          @click="handleCancelClick"
-        >
-          Sign &amp; Cancel
-        </BaseButton>
+          :disabled="!cancelReason.trim()"
+          @cancel="close"
+          @submit="handleCancelClick"
+        />
       </template>
     </BaseDialog>
 
@@ -663,15 +665,13 @@ const editingDescription = ref(false)
         </p>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="closing" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Sign & Close"
           :loading="closing"
-          :disabled="closing || !canClose"
-          @click="handleCloseClick"
-        >
-          Sign &amp; Close
-        </BaseButton>
+          :disabled="!canClose"
+          @cancel="close"
+          @submit="handleCloseClick"
+        />
       </template>
     </BaseDialog>
 

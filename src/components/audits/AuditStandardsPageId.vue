@@ -822,17 +822,13 @@ async function handleRemoveSourceFile() {
         </label>
       </div>
       <template #footer>
-        <BaseButton variant="outline" :disabled="attesting" @click="showAttestDialog = false">
-          Cancel
-        </BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Attest"
           :loading="attesting"
-          :disabled="attesting || !attestForm.acknowledged"
-          @click="confirmAttest"
-        >
-          Attest
-        </BaseButton>
+          :disabled="!attestForm.acknowledged"
+          @cancel="showAttestDialog = false"
+          @submit="confirmAttest"
+        />
       </template>
     </BaseDialog>
 

@@ -11,14 +11,14 @@ import { isAllowed } from '@/utils/currentSession.js'
 const route = useRoute()
 
 const tabs = [
-  { id: 'lots', label: 'Inspection Lots' },
-  { id: 'inspection-plans', label: 'Inspection Plans' },
-  { id: 'specifications', label: 'Specifications' },
-  { id: 'sampling-plans', label: 'Sampling Plans' },
-  { id: 'aql-standards', label: 'AQL Standards' },
-  { id: 'test-library', label: 'Test Library' },
+  { value: 'lots', label: 'Inspection Lots' },
+  { value: 'inspection-plans', label: 'Inspection Plans' },
+  { value: 'specifications', label: 'Specifications' },
+  { value: 'sampling-plans', label: 'Sampling Plans' },
+  { value: 'aql-standards', label: 'AQL Standards' },
+  { value: 'test-library', label: 'Test Library' },
 ]
-const validTabIds = new Set(tabs.map((t) => t.id))
+const validTabIds = new Set(tabs.map((t) => t.value))
 const activeTab = ref(validTabIds.has(route.query.tab) ? route.query.tab : 'lots')
 watch(
   () => route.query.tab,
@@ -48,28 +48,28 @@ const canManageDefects = computed(() => isAllowed(['qcInspection:catalog:write']
         </div>
       </div>
 
-      <div class="tw:flex tw:border-b tw:border-divider">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          class="tw:px-5 tw:py-2.5 tw:border-b-2 tw:font-semibold tw:text-sm tw:transition-colors"
-          :class="
-            activeTab === tab.id
-              ? 'tw:border-primary tw:text-primary'
-              : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'
-          "
-          @click="activeTab = tab.id"
-        >
-          {{ tab.label }}
-        </button>
-      </div>
-
-      <InspectionLotsList v-if="activeTab === 'lots'" :canCreate="canCreateLots" />
-      <SpecificationsList v-else-if="activeTab === 'specifications'" :canManage="canManageSpecs" />
-      <InspectionPlansList v-else-if="activeTab === 'inspection-plans'" :canManage="canManageTemplates" />
-      <SamplingPlansList v-else-if="activeTab === 'sampling-plans'" :canManage="canManagePlans" />
-      <AqlStandardsList v-else-if="activeTab === 'aql-standards'" :canManage="canManageStandards" />
-      <DefectCatalogList v-else-if="activeTab === 'test-library'" :canManage="canManageDefects" />
+      <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="QC Inspection sections">
+        <div class="tw:mt-6">
+          <BaseTabPanel value="lots">
+            <InspectionLotsList :canCreate="canCreateLots" />
+          </BaseTabPanel>
+          <BaseTabPanel value="inspection-plans">
+            <InspectionPlansList :canManage="canManageTemplates" />
+          </BaseTabPanel>
+          <BaseTabPanel value="specifications">
+            <SpecificationsList :canManage="canManageSpecs" />
+          </BaseTabPanel>
+          <BaseTabPanel value="sampling-plans">
+            <SamplingPlansList :canManage="canManagePlans" />
+          </BaseTabPanel>
+          <BaseTabPanel value="aql-standards">
+            <AqlStandardsList :canManage="canManageStandards" />
+          </BaseTabPanel>
+          <BaseTabPanel value="test-library">
+            <DefectCatalogList :canManage="canManageDefects" />
+          </BaseTabPanel>
+        </div>
+      </BaseTabs>
     </div>
   </div>
 </template>

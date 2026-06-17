@@ -556,3 +556,37 @@ shared/components/base/typography/
 
 **Phase F — composable extraction**
 - `useChecklistModel`, `useFileUploader`, consolidate the two `uploadFile`s, shared `CameraCaptureDialog`.
+
+---
+
+## 15. App-wide composition layer (whole-app sweep)
+
+> §1–§14 audit the **`Base*` primitive layer**. This section is a separate, whole-app sweep of all 770 `.vue` files for **copy-pasted page/layout/composition markup** — the tier that `PageHeader` (extracted from ~73 pages) and `BaseLabel` already live in. These are *compositions of primitives*, not primitives, so they're additive to §3's missing-primitive list.
+
+### 15.1 Net-new components (quantified)
+
+| Component | What it DRYs | Evidence (count) | Tier |
+|---|---|---|---|
+| **BaseDetailField** ✅ built | read-only "label-over-value" pair in detail views/side panels; `—` empty fallback. **NOT a `<label>`** (no control) — see §13.6 | `tw:text-secondary` + `mb-1` in **68 files**; e.g. `SuppliersBasicInfoCard.vue:32`, `ChangeRequestsPageId.vue:372` | 1 |
+| **BaseDialogFooter** ✅ built | the Cancel + Save/Submit footer row (loading/disabled/inline-error) | ~**118** `BaseDialog` `#footer` slots; e.g. `ProductsCreateUpdateDialog.vue:195` | 1 |
+| **BaseFormDialog** ✅ built | `BaseDialog` + body + `BaseDialogFooter` preset for create/edit dialogs | ~**50–60** form dialogs | 1 |
+| **BaseSectionHeader** ✅ built | "title (+icon/subtitle) left, actions right" card/section header | ~**100+** flex-between header blocks | 1 |
+| **BaseTabs / BaseTabPanel** ✅ built | accessible tabs (role=tablist/tab/tabpanel, roving tabindex, Arrow/Home/End) | **14** hand-rolled tab bars, **0** ARIA; `SuppliersPageId.vue`, `TrainingPageId.vue`, `AuditsHome.vue` | 1 |
+| **BaseDescriptionList / BaseDescriptionItem** | grouped `<dl>` metadata sections (subsection dividers) | ~20–30 files; `ChangeRequestsPageId.vue:495` | 2 |
+| **BaseListPage** | list/index shell: `PageHeader` + filter bar + table + empty/loading | 39+ `*Home.vue` | 2 |
+| **BaseDetailPage** | detail shell: breadcrumb teleport + `#main-header-actions` + loading + tabs | 30+ `*PageId.vue` | 2 |
+| **BaseFieldRow** | responsive multi-column form grid wrapper | ~30 files | 2 |
+| **BaseQuickFilterPills** | toggle-pill quick filters (NC/CAPA/Complaints toolbars) | 3 files | 3 |
+| **BaseAuditTrailRow** | "by {user} · {date}" actor/timestamp line | ~15–20 | 3 |
+
+Tier-1 (the five marked ✅) are cheap, high-frequency, and unblock the bigger Tier-2 scaffolds; they were built first (with unit tests). `BaseTabs` also covers the `BaseTabs` gap noted in §3.
+
+### 15.2 Adoption gaps (finish the migration — no new component)
+
+- **PageHeader** — 42 pages adopted, but **32** still hand-roll `#main-header-title` and **55** hand-roll `#main-header-actions`. Detail pages stalled because they need the (Tier-2) `BaseDetailPage` shell, not bare `PageHeader`.
+- **BaseFilterBar** bypassed by `EquipmentHome.vue`, `FormAssignmentsHome` (raw `<select>`).
+- **useConfirm** used by ~31 files, but ~84 hand-roll "Are you sure?" delete dialogs — consolidate onto `useConfirm` rather than adding a component.
+
+### 15.3 Relationship to §3
+
+§3's `BaseCard` / `BaseStatCard` / `BaseStatusState` / `BaseAvatar` are **primitives** (Phase 6) and remain there. Note: `UserAvatar`/`UserAvatarById` already cover **19** files — only `TeamAvatar` (2) + ~9 ad-hoc initials need folding into a future `BaseAvatar`, so it's lower-urgency than §3 implies.

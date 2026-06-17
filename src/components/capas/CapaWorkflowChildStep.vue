@@ -503,15 +503,13 @@ async function performComplete(esign = null) {
         </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="cancelling" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="danger"
+        <BaseDialogFooter
+          submitLabel="Cancel Task"
+          submitVariant="danger"
           :loading="cancelling"
-          :disabled="cancelling"
-          @click="handleCancelStep"
-        >
-          Cancel Task
-        </BaseButton>
+          @cancel="close"
+          @submit="handleCancelStep"
+        />
       </template>
     </BaseDialog>
 
@@ -537,15 +535,13 @@ async function performComplete(esign = null) {
         </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="reopening" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Reopen Task"
           :loading="reopening"
-          :disabled="!reopenReason.trim() || reopening"
-          @click="handleReopen"
-        >
-          Reopen Task
-        </BaseButton>
+          :disabled="!reopenReason.trim()"
+          @cancel="close"
+          @submit="handleReopen"
+        />
       </template>
     </BaseDialog>
   </div>

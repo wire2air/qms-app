@@ -994,17 +994,13 @@ watch(auditTabs, (tabs) => {
         </div>
       </div>
       <template #footer>
-        <BaseButton variant="outline" :disabled="addingMember" @click="showAddMemberDialog = false">
-          Cancel
-        </BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Add"
           :loading="addingMember"
-          :disabled="addingMember || !addMemberForm.userId"
-          @click="handleAddMember"
-        >
-          Add
-        </BaseButton>
+          :disabled="!addMemberForm.userId"
+          @cancel="showAddMemberDialog = false"
+          @submit="handleAddMember"
+        />
       </template>
     </BaseDialog>
 

@@ -236,14 +236,13 @@ async function handleSubmit() {
       </div>
 
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="submitting" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :disabled="!form.name || !form.assigneeUserId || submitting"
-          @click="handleSubmit"
-        >
-          {{ submitting ? 'Adding…' : 'Add Sub-task' }}
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Add Sub-task"
+          :loading="submitting"
+          :disabled="!form.name || !form.assigneeUserId"
+          @cancel="close"
+          @submit="handleSubmit"
+        />
       </template>
     </BaseDialog>
 

@@ -34,16 +34,14 @@ const userIds = computed(() => trainingUsers.value.map((u) => u.userId))
 
 <template>
   <div class="tw:space-y-4">
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
-        <IconUsers :size="22" />
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-main">Assignees</h2>
-      </div>
-      <BaseButton v-if="canUpdate" variant="outline" size="sm" @click="dialogOpen = true">
-        <template #icon><IconEdit :size="14" /></template>
-        Manage Assignees
-      </BaseButton>
-    </div>
+    <BaseSectionHeader title="Assignees" :icon="IconUsers" :level="2" size="section-title">
+      <template #actions>
+        <BaseButton v-if="canUpdate" variant="outline" size="sm" @click="dialogOpen = true">
+          <template #icon><IconEdit :size="14" /></template>
+          Manage Assignees
+        </BaseButton>
+      </template>
+    </BaseSectionHeader>
 
     <p class="tw:text-xs tw:text-secondary">
       All users with the assigned roles, plus directly assigned users, will receive this training

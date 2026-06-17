@@ -67,11 +67,14 @@ async function onSubmit() {
       </BaseField>
     </div>
 
-    <div class="tw:flex tw:justify-end tw:gap-2 tw:px-5 tw:pb-5">
-      <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
-      <BaseButton variant="primary" :disabled="!canSubmit || saving" :loading="saving" @click="onSubmit">
-        Submit for Disposition
-      </BaseButton>
-    </div>
+    <template #footer>
+      <BaseDialogFooter
+        submitLabel="Submit for Disposition"
+        :loading="saving"
+        :disabled="!canSubmit"
+        @cancel="show = false"
+        @submit="onSubmit"
+      />
+    </template>
   </BaseDialog>
 </template>

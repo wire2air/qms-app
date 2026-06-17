@@ -86,17 +86,17 @@ function openPreview() {
     v-if="company"
     class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
+    <BaseSectionHeader
+      title="Print Settings"
+      subtitle="Branding used by the centralised document printout (and other modules later)."
+      :level="2"
+      size="section-title"
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover"
     >
-      <div>
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Print Settings</h2>
-        <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          Branding used by the centralised document printout (and other modules later).
-        </p>
-      </div>
-      <CompanyCardSaveStatus :saving="isSaving" :error="saveError" />
-    </div>
+      <template #actions>
+        <CompanyCardSaveStatus :saving="isSaving" :error="saveError" />
+      </template>
+    </BaseSectionHeader>
 
     <div class="tw:p-6 tw:flex tw:flex-col tw:gap-8">
       <!-- Logo -->

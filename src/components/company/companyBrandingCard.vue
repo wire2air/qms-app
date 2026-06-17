@@ -89,12 +89,16 @@ function handleDarkDelete() {
     v-if="company"
     class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
+    <BaseSectionHeader
+      title="Branding"
+      :level="2"
+      size="section-title"
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover"
     >
-      <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Branding</h2>
-      <CompanyCardSaveStatus :saving="isSaving" :error="saveError" />
-    </div>
+      <template #actions>
+        <CompanyCardSaveStatus :saving="isSaving" :error="saveError" />
+      </template>
+    </BaseSectionHeader>
 
     <div class="tw:p-6">
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-8">

@@ -125,10 +125,13 @@ function cancel() {
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" :disabled="saving" @click="cancel">Cancel</BaseButton>
-      <BaseButton variant="danger" :disabled="saving" @click="confirm">
-        {{ saving ? 'Archiving…' : 'Archive Document' }}
-      </BaseButton>
+      <BaseDialogFooter
+        submitLabel="Archive Document"
+        submitVariant="danger"
+        :loading="saving"
+        @cancel="cancel"
+        @submit="confirm"
+      />
     </template>
   </BaseDialog>
 </template>
