@@ -1288,15 +1288,12 @@ function onCreateLinkedChangeRequest() {
         <p v-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</p>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="completing" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Sign & Close"
           :loading="completing"
-          :disabled="completing"
-          @click="handleMarkCompleteClick"
-        >
-          Sign &amp; Close
-        </BaseButton>
+          @cancel="close"
+          @submit="handleMarkCompleteClick"
+        />
       </template>
     </BaseDialog>
 
@@ -1328,15 +1325,12 @@ function onCreateLinkedChangeRequest() {
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Open NC"
           :loading="saving"
-          :disabled="saving"
-          @click="handleSubmitForReview"
-        >
-          Open NC
-        </BaseButton>
+          @cancel="close"
+          @submit="handleSubmitForReview"
+        />
       </template>
     </BaseDialog>
 

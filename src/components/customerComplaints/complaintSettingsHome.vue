@@ -21,17 +21,17 @@ import {
  *   routing         — trigger/rule engine (Phase 5)
  */
 const tabs = computed(() => [
-  { id: 'email-channels', label: 'Email Channels', icon: IconMailForward },
-  { id: 'forms', label: 'Forms', icon: IconForms },
-  { id: 'canned-responses', label: 'Canned Responses', icon: IconMessage2 },
-  { id: 'routing', label: 'Routing', icon: IconRoute },
-  { id: 'sla', label: 'SLA', icon: IconClockHour4 },
-  { id: 'suspended', label: 'Suspended Emails', icon: IconMailPause },
+  { value: 'email-channels', label: 'Email Channels', icon: IconMailForward },
+  { value: 'forms', label: 'Forms', icon: IconForms },
+  { value: 'canned-responses', label: 'Canned Responses', icon: IconMessage2 },
+  { value: 'routing', label: 'Routing', icon: IconRoute },
+  { value: 'sla', label: 'SLA', icon: IconClockHour4 },
+  { value: 'suspended', label: 'Suspended Emails', icon: IconMailPause },
 ])
 
 // Honor ?tab=<id> deep links (same pattern as Company Settings).
 const route = useRoute()
-const validTabIds = computed(() => new Set(tabs.value.map((t) => t.id)))
+const validTabIds = computed(() => new Set(tabs.value.map((t) => t.value)))
 const initialTab = validTabIds.value.has(route.query.tab) ? route.query.tab : 'email-channels'
 const activeTab = ref(initialTab)
 watch(
@@ -56,51 +56,39 @@ watch(
       </div>
 
       <!-- Tabs -->
-      <div class="tw:flex tw:border-b tw:border-divider">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          class="tw:px-5 tw:py-2.5 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors"
-          :class="
-            activeTab === tab.id
-              ? 'tw:border-primary tw:text-primary'
-              : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'
-          "
-          @click="activeTab = tab.id"
-        >
-          <component :is="tab.icon" :size="16" /> {{ tab.label }}
-        </button>
-      </div>
+      <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Complaint settings sections">
+        <div class="tw:mt-6">
+          <!-- Tab: Email Channels -->
+          <BaseTabPanel value="email-channels">
+            <EmailChannelsHome />
+          </BaseTabPanel>
 
-      <!-- Tab: Email Channels -->
-      <div v-if="activeTab === 'email-channels'">
-        <EmailChannelsHome />
-      </div>
+          <!-- Tab: Forms — public complaint intake forms -->
+          <BaseTabPanel value="forms">
+            <ComplaintFormsHome />
+          </BaseTabPanel>
 
-      <!-- Tab: Forms — public complaint intake forms -->
-      <div v-else-if="activeTab === 'forms'">
-        <ComplaintFormsHome />
-      </div>
+          <!-- Tab: Canned Responses — agent saved replies -->
+          <BaseTabPanel value="canned-responses">
+            <CannedResponsesHome />
+          </BaseTabPanel>
 
-      <!-- Tab: Canned Responses — agent saved replies -->
-      <div v-else-if="activeTab === 'canned-responses'">
-        <CannedResponsesHome />
-      </div>
+          <!-- Tab: Routing — ticket routing rules -->
+          <BaseTabPanel value="routing">
+            <RoutingRulesHome />
+          </BaseTabPanel>
 
-      <!-- Tab: Routing — ticket routing rules -->
-      <div v-else-if="activeTab === 'routing'">
-        <RoutingRulesHome />
-      </div>
+          <!-- Tab: SLA — response/resolution targets + lifecycle automation -->
+          <BaseTabPanel value="sla">
+            <ComplaintSlaSettings />
+          </BaseTabPanel>
 
-      <!-- Tab: SLA — response/resolution targets + lifecycle automation -->
-      <div v-else-if="activeTab === 'sla'">
-        <ComplaintSlaSettings />
-      </div>
-
-      <!-- Tab: Suspended — quarantined inbound mail -->
-      <div v-else-if="activeTab === 'suspended'">
-        <SuspendedEmailsHome />
-      </div>
+          <!-- Tab: Suspended — quarantined inbound mail -->
+          <BaseTabPanel value="suspended">
+            <SuspendedEmailsHome />
+          </BaseTabPanel>
+        </div>
+      </BaseTabs>
     </div>
   </div>
 </template>

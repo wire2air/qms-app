@@ -272,7 +272,13 @@ async function removeDocLink(link) {
 // drawers anchor against the FormBuilder's own bounding box; full-
 // screen gives them somewhere to land. The builder fires `save` from
 // its internal toolbar with the final schema; we PATCH and close.
-const activeTab = ref('details') // 'details' | 'schema' | 'assignments'
+const activeTab = ref('details') // 'details' | 'schema' | 'versions' | 'assignments'
+const tabs = [
+  { value: 'details', label: 'Details' },
+  { value: 'schema', label: 'Schema' },
+  { value: 'versions', label: 'Versions', icon: IconGitBranch },
+  { value: 'assignments', label: 'Assignments' },
+]
 
 // ─── Assignments tab data ────────────────────────────────────────────
 // Lists FormAssignment rows scoped to this log book. The full create /
@@ -555,79 +561,11 @@ function back() {
       </div>
 
       <!-- Tab strip -->
-      <div class="tw:flex tw:items-center tw:gap-1 tw:border-b tw:border-divider">
-        <button
-          type="button"
-          class="tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:border-b-2 tw:transition"
-          :class="
-            activeTab === 'details'
-              ? 'tw:border-primary tw:text-on-main'
-              : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'
-          "
-          @click="activeTab = 'details'"
-        >
-          Details
-        </button>
-        <button
-          type="button"
-          class="tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:border-b-2 tw:transition tw:flex tw:items-center tw:gap-1.5"
-          :class="
-            activeTab === 'schema'
-              ? 'tw:border-primary tw:text-on-main'
-              : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'
-          "
-          @click="activeTab = 'schema'"
-        >
-          Schema
-        </button>
-        <button
-          type="button"
-          class="tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:border-b-2 tw:transition tw:flex tw:items-center tw:gap-1.5"
-          :class="
-            activeTab === 'versions'
-              ? 'tw:border-primary tw:text-on-main'
-              : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'
-          "
-          @click="activeTab = 'versions'"
-        >
-          <IconGitBranch :size="14" />
-          Versions
-          <span
-            v-if="versions.length > 0"
-            class="tw:text-[10px] tw:bg-main tw:text-secondary tw:rounded tw:px-1.5 tw:py-0.5 tw:font-mono"
-          >
-            {{ versions.length }}
-          </span>
-          <span
-            v-if="!hasEffectiveVersion"
-            class="tw:text-[10px] tw:bg-amber-100 tw:text-amber-700 tw:rounded tw:px-1.5 tw:py-0.5 tw:font-semibold"
-            title="No effective version — this log book can't accept entries yet"
-          >
-            !
-          </span>
-        </button>
-        <button
-          type="button"
-          class="tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:border-b-2 tw:transition tw:flex tw:items-center tw:gap-1.5"
-          :class="
-            activeTab === 'assignments'
-              ? 'tw:border-primary tw:text-on-main'
-              : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'
-          "
-          @click="activeTab = 'assignments'"
-        >
-          Assignments
-          <span
-            v-if="logBookAssignments.length > 0"
-            class="tw:text-[10px] tw:bg-main tw:text-secondary tw:rounded tw:px-1.5 tw:py-0.5 tw:font-mono"
-          >
-            {{ logBookAssignments.length }}
-          </span>
-        </button>
-      </div>
-
-      <!-- Details tab -->
-      <div v-if="activeTab === 'details' && draft" class="tw:flex tw:flex-col tw:gap-4">
+      <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Log book sections">
+        <div class="tw:mt-6">
+          <!-- Details tab -->
+          <BaseTabPanel value="details">
+            <div v-if="draft" class="tw:flex tw:flex-col tw:gap-4">
         <!-- Version & approval — the controlled-flow control centre.
              Approver sees Approve/Reject; owner sees Submit / Discard /
              Create new version depending on the version state. -->
@@ -1071,18 +1009,20 @@ function back() {
             </div>
           </div>
         </section>
-      </div>
+            </div>
+          </BaseTabPanel>
 
-      <!-- Schema tab — opens the FormBuilder full-screen so its
-           palette + config drawers have somewhere to land. The inline
-           variant collapsed because the drawers anchor against the
-           builder's bounding box. Below the header card we render a
-           read-only preview of what the form actually looks like so
-           the author can see + skim the schema without entering the
-           builder. Same component the FieldRecordPreview uses for
-           rendering submitted entries — keeps the preview consistent
-           with the real submission view. -->
-      <div v-else-if="activeTab === 'schema'" class="tw:flex tw:flex-col tw:gap-3">
+          <!-- Schema tab — opens the FormBuilder full-screen so its
+               palette + config drawers have somewhere to land. The inline
+               variant collapsed because the drawers anchor against the
+               builder's bounding box. Below the header card we render a
+               read-only preview of what the form actually looks like so
+               the author can see + skim the schema without entering the
+               builder. Same component the FieldRecordPreview uses for
+               rendering submitted entries — keeps the preview consistent
+               with the real submission view. -->
+          <BaseTabPanel value="schema">
+            <div class="tw:flex tw:flex-col tw:gap-3">
         <section
           class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:flex tw:items-start tw:gap-4"
         >
@@ -1128,13 +1068,15 @@ function back() {
             <DynamicForm v-model="schemaPreviewData" :fields="logBook.schema" />
           </div>
         </section>
-      </div>
+            </div>
+          </BaseTabPanel>
 
-      <!-- Assignments tab — scoped view of FormAssignment rows that
-           target this log book. The full create / edit experience
-           still lives at /inspections-logs/form-assignments/* (we
-           route to it with the logBookId pre-filled). -->
-      <div v-else-if="activeTab === 'assignments'" class="tw:flex tw:flex-col tw:gap-3">
+          <!-- Assignments tab — scoped view of FormAssignment rows that
+               target this log book. The full create / edit experience
+               still lives at /inspections-logs/form-assignments/* (we
+               route to it with the logBookId pre-filled). -->
+          <BaseTabPanel value="assignments">
+            <div class="tw:flex tw:flex-col tw:gap-3">
         <!-- Inline create/edit — embedded editor scoped to this log book
              (no navigation to /form-assignments/*). -->
         <FormAssignmentEditor
@@ -1242,12 +1184,14 @@ function back() {
             </table>
           </div>
         </section>
-      </div>
+            </div>
+          </BaseTabPanel>
 
-      <!-- Versions tab — the controlled-version history + approval
-           actions. Submit hands a DRAFT to the attached workflow; New
-           draft branches a fresh editable version off the effective one. -->
-      <div v-else-if="activeTab === 'versions'" class="tw:flex tw:flex-col tw:gap-3">
+          <!-- Versions tab — the controlled-version history + approval
+               actions. Submit hands a DRAFT to the attached workflow; New
+               draft branches a fresh editable version off the effective one. -->
+          <BaseTabPanel value="versions">
+            <div class="tw:flex tw:flex-col tw:gap-3">
         <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
           <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:mb-3">
             <div>
@@ -1333,7 +1277,10 @@ function back() {
             </div>
           </div>
         </section>
-      </div>
+            </div>
+          </BaseTabPanel>
+        </div>
+      </BaseTabs>
     </template>
 
     <!-- Submit-for-approval dialog (reviewer-per-step picker). -->

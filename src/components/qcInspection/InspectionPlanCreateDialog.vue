@@ -183,11 +183,14 @@ async function onSave() {
 
     </div>
 
-    <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
-      <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
-      <BaseButton :disabled="!canSubmit || saving" :loading="saving" @click="onSave">
-        {{ isEdit ? 'Save changes' : 'Create plan' }}
-      </BaseButton>
-    </div>
+    <template #footer>
+      <BaseDialogFooter
+        :submitLabel="isEdit ? 'Save changes' : 'Create plan'"
+        :loading="saving"
+        :disabled="!canSubmit"
+        @cancel="show = false"
+        @submit="onSave"
+      />
+    </template>
   </BaseDialog>
 </template>

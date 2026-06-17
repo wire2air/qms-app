@@ -65,7 +65,6 @@ async function onSubmit() {
             <UserSelectMenu v-model="form.userIds" multiple />
           </BaseField>
 
-          <p v-if="saveError" class="tw:text-sm tw:text-red-600">{{ saveError }}</p>
         </div>
       </div>
 
@@ -89,15 +88,14 @@ async function onSubmit() {
     </div>
 
     <template #footer>
-      <button
-        class="tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:text-secondary tw:hover:text-on-main tw:transition-colors"
-        @click="open = false"
-      >
-        Cancel
-      </button>
-      <BaseButton :disabled="isSubmitting || !form.name.trim()" @click="onSubmit">
-        {{ isSubmitting ? 'Creating...' : 'Create Group' }}
-      </BaseButton>
+      <BaseDialogFooter
+        submitLabel="Create Group"
+        :loading="isSubmitting"
+        :disabled="!form.name.trim()"
+        :error="saveError"
+        @cancel="open = false"
+        @submit="onSubmit"
+      />
     </template>
   </BaseDialog>
 </template>

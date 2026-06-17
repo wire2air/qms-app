@@ -292,12 +292,12 @@ function formatSize(bytes) {
         </BaseField>
       </div>
       <template #footer>
-        <div class="tw:flex tw:justify-end tw:gap-2">
-          <BaseButton variant="secondary" @click="showUpload = false">Cancel</BaseButton>
-          <BaseButton variant="primary" :loading="uploading" @click="submitUpload">
-            Upload
-          </BaseButton>
-        </div>
+        <BaseDialogFooter
+          submitLabel="Upload"
+          :loading="uploading"
+          @cancel="showUpload = false"
+          @submit="submitUpload"
+        />
       </template>
     </BaseDialog>
   </div>

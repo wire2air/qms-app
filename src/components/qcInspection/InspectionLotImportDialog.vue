@@ -211,11 +211,14 @@ function downloadTemplate() {
       </div>
     </div>
 
-    <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
-      <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
-      <BaseButton :disabled="!validRows.length || importing" :loading="importing" @click="doImport">
-        Import {{ validRows.length || '' }} lot(s)
-      </BaseButton>
-    </div>
+    <template #footer>
+      <BaseDialogFooter
+        :submitLabel="`Import ${validRows.length || ''} lot(s)`"
+        :loading="importing"
+        :disabled="!validRows.length"
+        @cancel="show = false"
+        @submit="doImport"
+      />
+    </template>
   </BaseDialog>
 </template>

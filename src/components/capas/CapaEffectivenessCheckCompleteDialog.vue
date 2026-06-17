@@ -108,18 +108,13 @@ async function handleSubmit() {
     </div>
 
     <template #footer>
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="outline" :disabled="saving" @click="isOpen = false">
-          Cancel
-        </BaseButton>
-        <BaseButton
-          variant="primary"
-          :disabled="!outcome || !comments?.trim() || saving"
-          @click="handleSubmit"
-        >
-          {{ saving ? 'Completing…' : 'Mark Complete' }}
-        </BaseButton>
-      </div>
+      <BaseDialogFooter
+        submitLabel="Mark Complete"
+        :loading="saving"
+        :disabled="!outcome || !comments?.trim()"
+        @cancel="isOpen = false"
+        @submit="handleSubmit"
+      />
     </template>
   </BaseDialog>
 

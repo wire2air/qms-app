@@ -145,13 +145,14 @@ function getLinkTypeBadgeClass(linkType) {
 
 <template>
   <div class="tw:p-6">
-    <div class="tw:flex tw:items-center tw:justify-between tw:mb-4">
-      <h3 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Document Links</h3>
-      <BaseButton variant="outline" @click="openAddDialog">
-        <IconLinkPlus :size="16" class="tw:mr-1" />
-        Add Link
-      </BaseButton>
-    </div>
+    <BaseSectionHeader title="Document Links" :level="3" size="section-title" class="tw:mb-4">
+      <template #actions>
+        <BaseButton variant="outline" @click="openAddDialog">
+          <IconLinkPlus :size="16" class="tw:mr-1" />
+          Add Link
+        </BaseButton>
+      </template>
+    </BaseSectionHeader>
 
     <!-- Links List -->
     <div v-if="links.length > 0" class="tw:space-y-2">
@@ -220,12 +221,12 @@ function getLinkTypeBadgeClass(linkType) {
         </BaseField>
       </div>
       <template #footer>
-        <div class="tw:flex tw:justify-end tw:gap-2">
-          <BaseButton variant="outline" @click="showAddDialog = false">Cancel</BaseButton>
-          <BaseButton :disabled="!linkForm.targetDocumentId" @click="onAddLink"
-            >Add Link</BaseButton
-          >
-        </div>
+        <BaseDialogFooter
+          submitLabel="Add Link"
+          :disabled="!linkForm.targetDocumentId"
+          @cancel="showAddDialog = false"
+          @submit="onAddLink"
+        />
       </template>
     </BaseDialog>
 

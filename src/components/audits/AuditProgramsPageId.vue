@@ -577,21 +577,13 @@ async function handleDelete() {
         </div>
       </div>
       <template #footer>
-        <BaseButton
-          variant="outline"
-          :disabled="addingAuditor"
-          @click="showAddAuditorDialog = false"
-        >
-          Cancel
-        </BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Add"
           :loading="addingAuditor"
-          :disabled="addingAuditor || !addAuditorForm.userId"
-          @click="handleAddAuditor"
-        >
-          Add
-        </BaseButton>
+          :disabled="!addAuditorForm.userId"
+          @cancel="showAddAuditorDialog = false"
+          @submit="handleAddAuditor"
+        />
       </template>
     </BaseDialog>
 

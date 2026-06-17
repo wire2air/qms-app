@@ -87,14 +87,13 @@ async function handleSubmit() {
     </div>
 
     <template #footer>
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="outline" :disabled="saving" @click="isOpen = false">
-          Cancel
-        </BaseButton>
-        <BaseButton variant="primary" :disabled="!dueAt || saving" @click="handleSubmit">
-          {{ saving ? 'Renewing…' : 'Renew' }}
-        </BaseButton>
-      </div>
+      <BaseDialogFooter
+        submitLabel="Renew"
+        :loading="saving"
+        :disabled="!dueAt"
+        @cancel="isOpen = false"
+        @submit="handleSubmit"
+      />
     </template>
   </BaseDialog>
 

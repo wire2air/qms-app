@@ -159,10 +159,12 @@ async function handleDelete(response) {
         </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :disabled="saving" @click="handleSave">
-          {{ saving ? 'Saving…' : 'Save' }}
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Save"
+          :loading="saving"
+          @cancel="close"
+          @submit="handleSave"
+        />
       </template>
     </BaseDialog>
   </div>

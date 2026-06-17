@@ -43,9 +43,14 @@ async function onClone() {
         <BaseTextInput :id="fieldId" v-model="name" placeholder="e.g. Acme Tightened Z1.4" />
       </BaseField>
     </div>
-    <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
-      <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
-      <BaseButton :disabled="!name.trim() || saving" :loading="saving" @click="onClone">Clone</BaseButton>
-    </div>
+    <template #footer>
+      <BaseDialogFooter
+        submitLabel="Clone"
+        :loading="saving"
+        :disabled="!name.trim()"
+        @cancel="show = false"
+        @submit="onClone"
+      />
+    </template>
   </BaseDialog>
 </template>

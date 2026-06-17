@@ -49,10 +49,10 @@ const isEdit = computed(() => !!props.template)
 const isValid = computed(() => form.name.trim().length > 0)
 
 const TABS = [
-  { key: 'fishbone', label: 'Fishbone' },
-  { key: '5why', label: '5 Whys' },
-  { key: 'isnot', label: 'Is / Is Not' },
-  { key: 'whytree', label: 'Why Tree' },
+  { value: 'fishbone', label: 'Fishbone' },
+  { value: '5why', label: '5 Whys' },
+  { value: 'isnot', label: 'Is / Is Not' },
+  { value: 'whytree', label: 'Why Tree' },
 ]
 const activeTab = ref('fishbone')
 
@@ -175,70 +175,59 @@ async function onSubmit() {
         </p>
 
         <!-- Tab bar -->
-        <div class="tw:flex tw:border-b tw:border-divider tw:gap-1">
-          <button
-            v-for="tab in TABS"
-            :key="tab.key"
-            class="tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:border-b-2 tw:transition-colors tw:bg-transparent tw:cursor-pointer tw:-mb-px"
-            :class="activeTab === tab.key
-              ? 'tw:border-primary tw:text-primary'
-              : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'"
-            @click="activeTab = tab.key"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
+        <BaseTabs v-model="activeTab" :tabs="TABS" ariaLabel="Configure RCA methods">
+          <div class="tw:mt-6">
+            <!-- Fishbone: edit branches directly on the interactive diagram -->
+            <BaseTabPanel value="fishbone">
+              <FishboneAnalysis
+                v-model="fishboneEditValue"
+                :config="form.config.fishbone"
+                :branchesOnly="true"
+                problem="[Problem Statement]"
+              />
+            </BaseTabPanel>
 
-        <!-- Tab content -->
-        <div class="tw:pt-2">
-          <!-- Fishbone: edit branches directly on the interactive diagram -->
-          <FishboneAnalysis
-            v-if="activeTab === 'fishbone'"
-            v-model="fishboneEditValue"
-            :config="form.config.fishbone"
-            :branchesOnly="true"
-            problem="[Problem Statement]"
-          />
-
-          <!-- Other methods: standard config panel -->
-          <div v-else class="tw:max-h-80 tw:overflow-y-auto">
-            <RcaTemplateMethodConfig
-              v-if="activeTab === '5why'"
-              method="5why"
-              :config="form.config['5why']"
-              @update:config="(v) => (form.config['5why'] = v)"
-            />
-            <RcaTemplateMethodConfig
-              v-else-if="activeTab === 'isnot'"
-              method="isnot"
-              :config="form.config.isnot"
-              @update:config="(v) => (form.config.isnot = v)"
-            />
-            <RcaTemplateMethodConfig
-              v-else-if="activeTab === 'whytree'"
-              method="whytree"
-              :config="form.config.whytree"
-              @update:config="(v) => (form.config.whytree = v)"
-            />
+            <!-- Other methods: standard config panel -->
+            <BaseTabPanel value="5why">
+              <div class="tw:max-h-80 tw:overflow-y-auto">
+                <RcaTemplateMethodConfig
+                  method="5why"
+                  :config="form.config['5why']"
+                  @update:config="(v) => (form.config['5why'] = v)"
+                />
+              </div>
+            </BaseTabPanel>
+            <BaseTabPanel value="isnot">
+              <div class="tw:max-h-80 tw:overflow-y-auto">
+                <RcaTemplateMethodConfig
+                  method="isnot"
+                  :config="form.config.isnot"
+                  @update:config="(v) => (form.config.isnot = v)"
+                />
+              </div>
+            </BaseTabPanel>
+            <BaseTabPanel value="whytree">
+              <div class="tw:max-h-80 tw:overflow-y-auto">
+                <RcaTemplateMethodConfig
+                  method="whytree"
+                  :config="form.config.whytree"
+                  @update:config="(v) => (form.config.whytree = v)"
+                />
+              </div>
+            </BaseTabPanel>
           </div>
-        </div>
+        </BaseTabs>
       </div>
     </div>
 
     <template #footer>
-      <button
-        class="tw:rounded-lg tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
-        @click="open = false"
-      >
-        Cancel
-      </button>
-      <button
-        class="tw:rounded-lg tw:bg-primary tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:text-white tw:hover:bg-primary/90 tw:transition-colors tw:disabled:opacity-50"
-        :disabled="!isValid || isSubmitting"
-        @click="onSubmit"
-      >
-        {{ isEdit ? 'Save Changes' : 'Create Template' }}
-      </button>
+      <BaseDialogFooter
+        :submitLabel="isEdit ? 'Save Changes' : 'Create Template'"
+        :loading="isSubmitting"
+        :disabled="!isValid"
+        @cancel="open = false"
+        @submit="onSubmit"
+      />
     </template>
   </BaseDialog>
 </template>

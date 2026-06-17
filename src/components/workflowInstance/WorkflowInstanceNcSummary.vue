@@ -70,36 +70,27 @@ defineEmits(['viewNc'])
 
       <!-- Metadata grid -->
       <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-3 tw:gap-4">
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <span class="tw:text-xs tw:text-secondary">Severity</span>
+        <BaseDetailField label="Severity">
           <NcSeverityBadgeById v-if="nc?.severityId" :severityId="nc.severityId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </div>
+        </BaseDetailField>
 
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <span class="tw:text-xs tw:text-secondary">Type</span>
+        <BaseDetailField label="Type">
           <NcTypeBadgeById v-if="nc?.typeId" :typeId="nc.typeId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </div>
+        </BaseDetailField>
 
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <span class="tw:text-xs tw:text-secondary">Source</span>
+        <BaseDetailField label="Source">
           <NcSourceBadgeById v-if="nc?.sourceId" :sourceId="nc.sourceId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </div>
+        </BaseDetailField>
 
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <span class="tw:text-xs tw:text-secondary">Owner</span>
+        <BaseDetailField label="Owner">
           <UserBadgeById v-if="nc?.ownerId" :userId="nc.ownerId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </div>
+        </BaseDetailField>
 
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <span class="tw:text-xs tw:text-secondary">Detected</span>
-          <span class="tw:text-sm tw:font-medium tw:text-on-main">
-            {{ nc?.detectedAt?.formatDate('date') || '—' }}
-          </span>
-        </div>
+        <BaseDetailField label="Detected" :value="nc?.detectedAt?.formatDate('date')" />
       </div>
     </div>
   </div>

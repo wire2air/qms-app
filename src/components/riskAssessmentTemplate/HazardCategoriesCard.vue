@@ -359,10 +359,12 @@ const showDeactivated = ref(false)
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="saving" :disabled="saving" @click="handleSave">
-          {{ editing ? 'Save' : 'Add' }}
-        </BaseButton>
+        <BaseDialogFooter
+          :submitLabel="editing ? 'Save' : 'Add'"
+          :loading="saving"
+          @cancel="close"
+          @submit="handleSave"
+        />
       </template>
     </BaseDialog>
   </div>

@@ -155,10 +155,12 @@ async function handleConvert() {
       </BaseField>
     </div>
     <template #footer="{ close }">
-      <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-      <BaseButton variant="primary" :disabled="saving" @click="handleConvert">
-        {{ saving ? 'Converting…' : 'Create NC' }}
-      </BaseButton>
+      <BaseDialogFooter
+        submitLabel="Create NC"
+        :loading="saving"
+        @cancel="close"
+        @submit="handleConvert"
+      />
     </template>
   </BaseDialog>
 </template>

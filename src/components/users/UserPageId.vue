@@ -233,12 +233,7 @@ async function handleAvatarDelete() {
             <div class="tw:p-6 tw:space-y-6">
               <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-4">
                 <!-- Email -->
-                <div>
-                  <p class="tw:text-secondary tw:mb-1">Email Address</p>
-                  <p class="tw:text-sm tw:text-on-sidebar tw:font-medium">
-                    {{ user?.email }}
-                  </p>
-                </div>
+                <BaseDetailField label="Email Address" :value="user?.email" />
 
                 <!-- Language -->
                 <div>

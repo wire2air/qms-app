@@ -104,56 +104,39 @@ const activeTab = computed({
           </div>
         </section>
 
-        <!-- Tab Navigation -->
-        <div class="tw:flex tw:gap-8 tw:border-b tw:border-divider tw:overflow-x-auto">
-          <button
-            v-for="tab in tabs"
-            :key="tab.value"
-            class="tw:pb-3 tw:text-sm tw:font-medium tw:whitespace-nowrap tw:flex tw:items-center tw:gap-2 tw:transition-colors"
-            :class="
-              activeTab === tab.value
-                ? 'tw:text-primary tw:border-b-2 tw:border-primary tw:font-bold'
-                : 'tw:text-secondary tw:hover:text-on-main'
-            "
-            @click="activeTab = tab.value"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
-
-        <!-- Tab Content -->
-        <SuppliersOverview
-          v-if="activeTab === 'overview'"
-          :supplier="supplier"
-          :canUpdate="canUpdate"
-          :supplierId="props.id"
-        />
-        <SuppliersCompanyProfileTab
-          v-else-if="activeTab === 'company-profile'"
-          :supplier="supplier"
-          :canUpdate="canUpdate"
-        />
-        <SuppliersLocationsContactsTab
-          v-else-if="activeTab === 'locations'"
-          :supplierId="props.id"
-          :canUpdate="canUpdate"
-        />
-        <SuppliersUsersTab
-          v-else-if="activeTab === 'users'"
-          :supplierId="props.id"
-          :canUpdate="canUpdate"
-        />
-        <SuppliersPerformanceTab
-          v-else-if="activeTab === 'quality-records'"
-          :supplierId="props.id"
-          :canUpdate="canUpdate"
-        />
-        <SuppliersDocumentsTab v-else-if="activeTab === 'documents'" :supplier="supplier" />
-        <SuppliersAssetRequestsTab
-          v-else-if="activeTab === 'asset-requests'"
-          :supplierId="props.id"
-        />
-        <SuppliersEvaluationsTab v-else-if="activeTab === 'evaluations'" :supplier="supplier" />
+        <!-- Tab Navigation + Content -->
+        <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Supplier sections">
+          <div class="tw:mt-6">
+            <BaseTabPanel value="overview">
+              <SuppliersOverview
+                :supplier="supplier"
+                :canUpdate="canUpdate"
+                :supplierId="props.id"
+              />
+            </BaseTabPanel>
+            <BaseTabPanel value="company-profile">
+              <SuppliersCompanyProfileTab :supplier="supplier" :canUpdate="canUpdate" />
+            </BaseTabPanel>
+            <BaseTabPanel value="locations">
+              <SuppliersLocationsContactsTab :supplierId="props.id" :canUpdate="canUpdate" />
+            </BaseTabPanel>
+            <BaseTabPanel value="users">
+              <SuppliersUsersTab :supplierId="props.id" :canUpdate="canUpdate" />
+            </BaseTabPanel>
+            <BaseTabPanel value="quality-records">
+              <SuppliersPerformanceTab :supplierId="props.id" :canUpdate="canUpdate" />
+            </BaseTabPanel>
+            <BaseTabPanel value="documents">
+              <SuppliersDocumentsTab :supplier="supplier" />
+            </BaseTabPanel>
+            <BaseTabPanel value="asset-requests">
+              <SuppliersAssetRequestsTab :supplierId="props.id" />
+            </BaseTabPanel>
+            <BaseTabPanel value="evaluations">
+              <SuppliersEvaluationsTab :supplier="supplier" />
+            </BaseTabPanel>
+          </div>
+        </BaseTabs>
       </div>
     </div>
   </div>

@@ -13,10 +13,10 @@ const route = useRoute()
 // live next to the templates that consume them). The standalone
 // /option-sets route still works for back-compat.
 const tabs = [
-  { id: 'templates', label: 'Templates', icon: IconFileSettings },
-  { id: 'optionsets', label: 'Option Sets', icon: IconChecklist },
+  { value: 'templates', label: 'Templates', icon: IconFileSettings },
+  { value: 'optionsets', label: 'Option Sets', icon: IconChecklist },
 ]
-const validTabIds = new Set(tabs.map((t) => t.id))
+const validTabIds = new Set(tabs.map((t) => t.value))
 const initialTab = validTabIds.has(route.query.tab) ? route.query.tab : 'templates'
 const activeTab = ref(initialTab)
 watch(
@@ -25,10 +25,9 @@ watch(
     if (v && validTabIds.has(v)) activeTab.value = v
   },
 )
-function setTab(id) {
-  activeTab.value = id
-  router.replace({ query: { ...route.query, tab: id } })
-}
+watch(activeTab, (id) => {
+  if (route.query.tab !== id) router.replace({ query: { ...route.query, tab: id } })
+})
 
 const showCreateDialog = ref(false)
 const viewMode = useCompanyLocalStorage('templates-view-mode', 'list')
@@ -130,49 +129,39 @@ async function confirmDeleteTemplate() {
     </div>
 
     <!-- Tabs -->
-    <div class="tw:flex tw:border-b tw:border-divider">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        class="tw:px-5 tw:py-2.5 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors tw:bg-transparent tw:cursor-pointer"
-        :class="
-          activeTab === tab.id
-            ? 'tw:border-primary tw:text-primary'
-            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'
-        "
-        @click="setTab(tab.id)"
-      >
-        <component :is="tab.icon" :size="16" /> {{ tab.label }}
-      </button>
-    </div>
+    <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Form template sections">
+      <div class="tw:mt-6">
+        <!-- Tab: Templates -->
+        <BaseTabPanel value="templates">
+          <FormTemplatesFilterToolbar v-model:filters="filters">
+            <template #actions>
+              <BaseSwitcher v-model="viewMode" :switches="viewSwitches" />
+            </template>
+          </FormTemplatesFilterToolbar>
 
-    <!-- Tab: Templates -->
-    <template v-if="activeTab === 'templates'">
-      <FormTemplatesFilterToolbar v-model:filters="filters">
-        <template #actions>
-          <BaseSwitcher v-model="viewMode" :switches="viewSwitches" />
-        </template>
-      </FormTemplatesFilterToolbar>
+          <FormTemplatesTable
+            v-if="viewMode === 'table'"
+            :rows="templates"
+            :canUpdate="canUpdateTemplate"
+            :canDelete="canDeleteTemplate"
+            @delete="onDeleteTemplate"
+          />
+          <div v-else class="tw:flex-1 tw:overflow-y-auto">
+            <FormTemplatesList
+              :templates="templates"
+              :canDelete="canDeleteTemplate"
+              @delete="onDeleteTemplate"
+            />
+          </div>
+        </BaseTabPanel>
 
-      <FormTemplatesTable
-        v-if="viewMode === 'table'"
-        :rows="templates"
-        :canUpdate="canUpdateTemplate"
-        :canDelete="canDeleteTemplate"
-        @delete="onDeleteTemplate"
-      />
-      <div v-else class="tw:flex-1 tw:overflow-y-auto">
-        <FormTemplatesList
-          :templates="templates"
-          :canDelete="canDeleteTemplate"
-          @delete="onDeleteTemplate"
-        />
+        <!-- Tab: Option Sets — slim embedded surface (full /option-sets page
+             is still mounted at the standalone route for back-compat). -->
+        <BaseTabPanel value="optionsets">
+          <OptionSetsTab />
+        </BaseTabPanel>
       </div>
-    </template>
-
-    <!-- Tab: Option Sets — slim embedded surface (full /option-sets page
-         is still mounted at the standalone route for back-compat). -->
-    <OptionSetsTab v-else-if="activeTab === 'optionsets'" />
+    </BaseTabs>
   </div>
 
   <!-- Create Template Dialog -->

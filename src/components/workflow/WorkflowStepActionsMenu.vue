@@ -246,10 +246,12 @@ const items = computed(() => {
         </template>
       </BaseField>
       <template #footer="{ close }">
-        <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :isLoading="actionLoading" @click="onConfirmDialog">
-          Confirm
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Confirm"
+          :loading="actionLoading"
+          @cancel="close"
+          @submit="onConfirmDialog"
+        />
       </template>
     </BaseDialog>
 

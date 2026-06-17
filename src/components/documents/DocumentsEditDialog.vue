@@ -194,10 +194,12 @@ async function onSubmit() {
     </div>
 
     <template #footer>
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="outline" @click="open = false">Cancel</BaseButton>
-        <BaseButton :isLoading="isSubmitting" @click="onSubmit">Save Changes</BaseButton>
-      </div>
+      <BaseDialogFooter
+        submitLabel="Save Changes"
+        :loading="isSubmitting"
+        @cancel="open = false"
+        @submit="onSubmit"
+      />
     </template>
   </BaseDialog>
 </template>

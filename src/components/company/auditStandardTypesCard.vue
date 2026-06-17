@@ -173,23 +173,20 @@ const showDeactivated = ref(false)
   <div
     class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
+    <BaseSectionHeader
+      title="Audit Standard Types"
+      subtitle="Categories the admin picks when registering an audit standard in the library (Internal Quality / Supplier Qualification / Certification Body / Process / Warehouse). Seeded with 5 common types; rename or add tenant-specific types below. Colour drives the badge styling across the standards list."
+      :level="2"
+      size="section-title"
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover"
     >
-      <div>
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Audit Standard Types</h2>
-        <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          Categories the admin picks when registering an audit standard in the library (Internal
-          Quality / Supplier Qualification / Certification Body / Process / Warehouse). Seeded with
-          5 common types; rename or add tenant-specific types below. Colour drives the badge styling
-          across the standards list.
-        </p>
-      </div>
-      <BaseButton v-if="canManage" variant="primary" size="sm" @click="openAdd">
-        <template #icon><IconPlus :size="16" /></template>
-        Add Standard Type
-      </BaseButton>
-    </div>
+      <template #actions>
+        <BaseButton v-if="canManage" variant="primary" size="sm" @click="openAdd">
+          <template #icon><IconPlus :size="16" /></template>
+          Add Standard Type
+        </BaseButton>
+      </template>
+    </BaseSectionHeader>
 
     <div
       v-if="!canManage"
@@ -350,10 +347,13 @@ const showDeactivated = ref(false)
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="saving" :disabled="saving" @click="handleSave">
-          {{ editing ? 'Save' : 'Add' }}
-        </BaseButton>
+        <BaseDialogFooter
+          :submitLabel="editing ? 'Save' : 'Add'"
+          :loading="saving"
+          :disabled="saving"
+          @cancel="close"
+          @submit="handleSave"
+        />
       </template>
     </BaseDialog>
   </div>

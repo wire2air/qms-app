@@ -122,10 +122,12 @@ async function handleAddSection() {
     </div>
 
     <template #footer="{ close }">
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="text" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" @click="handleAddSection">Add Section</BaseButton>
-      </div>
+      <BaseDialogFooter
+        submitLabel="Add Section"
+        cancelVariant="text"
+        @cancel="close"
+        @submit="handleAddSection"
+      />
     </template>
   </BaseDialog>
 </template>

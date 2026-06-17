@@ -339,17 +339,13 @@ const remainingCount = computed(() =>
       </p>
     </div>
     <template #footer>
-      <BaseButton variant="outline" :disabled="importing" @click="replaceConfirm = null">
-        Cancel
-      </BaseButton>
-      <BaseButton
-        variant="danger"
+      <BaseDialogFooter
+        submitLabel="Archive existing & replace"
+        submitVariant="danger"
         :loading="importing"
-        :disabled="importing"
-        @click="confirmReplace"
-      >
-        Archive existing &amp; replace
-      </BaseButton>
+        @cancel="replaceConfirm = null"
+        @submit="confirmReplace"
+      />
     </template>
   </BaseDialog>
 </template>

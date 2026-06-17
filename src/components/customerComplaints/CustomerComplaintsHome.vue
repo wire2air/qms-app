@@ -525,14 +525,13 @@ function onNewComplaint() {
         </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="bulkBusy" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :disabled="(!bulkAssignUserId && !bulkAssignTeamId) || bulkBusy"
-          @click="handleBulkAssign"
-        >
-          Assign
-        </BaseButton>
+        <BaseDialogFooter
+          submitLabel="Assign"
+          :loading="bulkBusy"
+          :disabled="!bulkAssignUserId && !bulkAssignTeamId"
+          @cancel="close"
+          @submit="handleBulkAssign"
+        />
       </template>
     </BaseDialog>
   </div>

@@ -174,12 +174,12 @@ async function save() {
     </div>
 
     <template #footer="{ close }">
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :isLoading="saving" @click="save">
-          {{ editDefect ? 'Save' : 'Add test' }}
-        </BaseButton>
-      </div>
+      <BaseDialogFooter
+        :submitLabel="editDefect ? 'Save' : 'Add test'"
+        :loading="saving"
+        @cancel="close"
+        @submit="save"
+      />
     </template>
   </BaseDialog>
 </template>

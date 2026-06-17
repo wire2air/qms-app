@@ -211,14 +211,9 @@ function goBack() {
                 <span v-else class="tw:text-sm tw:text-secondary">—</span>
               </template>
             </div>
-            <div>
-              <p class="tw:text-secondary tw:mb-1">Created Date</p>
-              <p class="tw:text-on-sidebar">{{ template.createdAt?.formatDate('date') }}</p>
-            </div>
-            <div>
-              <p class="tw:text-secondary tw:mb-1">Last Modified</p>
-              <p class="tw:text-on-sidebar">{{ template.updatedAt?.formatDate('date') }}</p>
-            </div>
+            <BaseDetailField label="Created Date" :value="template.createdAt?.formatDate('date')" />
+            <BaseDetailField label="Last Modified" :value="template.updatedAt?.formatDate('date')" />
+
           </div>
         </div>
 

@@ -38,10 +38,13 @@ async function confirm() {
     <BaseTextarea v-model="form.comment" placeholder="Comment (required)" />
 
     <template #footer>
-      <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
-      <BaseButton :isLoading="actionLoading" :disabled="actionLoading" @click="confirm">
-        Request Changes
-      </BaseButton>
+      <BaseDialogFooter
+        submitLabel="Request Changes"
+        :loading="actionLoading"
+        :disabled="actionLoading"
+        @cancel="show = false"
+        @submit="confirm"
+      />
     </template>
   </BaseDialog>
 </template>

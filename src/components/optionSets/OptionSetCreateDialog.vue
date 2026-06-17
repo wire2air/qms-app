@@ -128,10 +128,12 @@ async function onSubmit() {
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" @click="open = false"> Cancel </BaseButton>
-      <BaseButton :disabled="isSubmitting" @click="onSubmit">
-        {{ isEdit ? 'Update' : 'Create Set' }}
-      </BaseButton>
+      <BaseDialogFooter
+        :submitLabel="isEdit ? 'Update' : 'Create Set'"
+        :disabled="isSubmitting"
+        @cancel="open = false"
+        @submit="onSubmit"
+      />
     </template>
   </BaseDialog>
 </template>

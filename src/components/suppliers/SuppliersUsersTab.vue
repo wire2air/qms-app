@@ -205,12 +205,12 @@ async function cancelInvite(u) {
         </p>
       </div>
       <template #footer>
-        <div class="tw:flex tw:justify-end tw:gap-2">
-          <BaseButton variant="secondary" @click="showInvite = false">Cancel</BaseButton>
-          <BaseButton variant="primary" :loading="isInviting" @click="submitInvite">
-            Send invitation
-          </BaseButton>
-        </div>
+        <BaseDialogFooter
+          submitLabel="Send invitation"
+          :loading="isInviting"
+          @cancel="showInvite = false"
+          @submit="submitInvite"
+        />
       </template>
     </BaseDialog>
   </div>

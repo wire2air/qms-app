@@ -18,28 +18,24 @@ import {
 // Insights / Standards / Programs / Instances — all live.
 
 const tabs = [
-  { id: 'insights', label: 'Insights', icon: IconChartBar },
-  { id: 'instances', label: 'Audits', icon: IconChecklist },
-  { id: 'programs', label: 'Audit Plan', icon: IconCalendarTime },
-  { id: 'calendar', label: 'Calendar', icon: IconCalendar },
-  { id: 'standards', label: 'Standards', icon: IconBook },
+  { value: 'insights', label: 'Insights', icon: IconChartBar },
+  { value: 'instances', label: 'Audits', icon: IconChecklist },
+  { value: 'programs', label: 'Audit Plan', icon: IconCalendarTime },
+  { value: 'calendar', label: 'Calendar', icon: IconCalendar },
+  { value: 'standards', label: 'Standards', icon: IconBook },
 ]
 
 const route = useRoute()
 const router = useRouter()
-const validTabIds = new Set(tabs.map((t) => t.id))
-const initialTab = validTabIds.has(route.query.tab) ? route.query.tab : 'insights'
-const activeTab = ref(initialTab)
-watch(
-  () => route.query.tab,
-  (v) => {
-    if (v && validTabIds.has(v)) activeTab.value = v
+const validTabIds = new Set(tabs.map((t) => t.value))
+const activeTab = computed({
+  get() {
+    return validTabIds.has(route.query.tab) ? route.query.tab : 'insights'
   },
-)
-function setTab(id) {
-  activeTab.value = id
-  router.replace({ query: { ...route.query, tab: id } })
-}
+  set(id) {
+    router.replace({ query: { ...route.query, tab: id } })
+  },
+})
 </script>
 
 <template>
@@ -59,26 +55,14 @@ function setTab(id) {
     <!-- Tabs — Standards (live; CRUD ships in this phase), Programs (next),
          Audits/Instances (next). The standards tab works today against
          the bootstrap-seeded "Internal Quality Audit" shell. -->
-    <div class="tw:flex tw:border-b tw:border-divider">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        class="tw:px-5 tw:py-2.5 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors tw:bg-transparent tw:cursor-pointer"
-        :class="
-          activeTab === tab.id
-            ? 'tw:border-primary tw:text-primary'
-            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'
-        "
-        @click="setTab(tab.id)"
-      >
-        <component :is="tab.icon" :size="16" /> {{ tab.label }}
-      </button>
-    </div>
-
-    <AuditsInsightsDashboard v-if="activeTab === 'insights'" />
-    <AuditStandardsHome v-else-if="activeTab === 'standards'" />
-    <AuditProgramsHome v-else-if="activeTab === 'programs'" />
-    <AuditInstancesHome v-else-if="activeTab === 'instances'" />
-    <AuditScheduleCalendar v-else-if="activeTab === 'calendar'" />
+    <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Audit sections">
+      <div class="tw:mt-6">
+        <BaseTabPanel value="insights"><AuditsInsightsDashboard /></BaseTabPanel>
+        <BaseTabPanel value="standards"><AuditStandardsHome /></BaseTabPanel>
+        <BaseTabPanel value="programs"><AuditProgramsHome /></BaseTabPanel>
+        <BaseTabPanel value="instances"><AuditInstancesHome /></BaseTabPanel>
+        <BaseTabPanel value="calendar"><AuditScheduleCalendar /></BaseTabPanel>
+      </div>
+    </BaseTabs>
   </div>
 </template>
