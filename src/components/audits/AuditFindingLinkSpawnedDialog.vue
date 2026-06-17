@@ -165,12 +165,12 @@ async function handleLink() {
         </template>
       </div>
 
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Search {{ config.pluralLabel }}
-        </p>
-        <BaseTextInput v-model="search" :placeholder="`Search by number or title…`" />
-      </div>
+      <BaseField>
+        <template #label>Search {{ config.pluralLabel }}</template>
+        <template #default="{ id: fieldId }">
+          <BaseTextInput :id="fieldId" v-model="search" :placeholder="`Search by number or title…`" />
+        </template>
+      </BaseField>
 
       <div
         v-if="!candidates.length"

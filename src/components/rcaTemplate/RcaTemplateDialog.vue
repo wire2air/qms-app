@@ -169,9 +169,7 @@ async function onSubmit() {
 
       <!-- All 4 method configs in tabs -->
       <div class="tw:flex tw:flex-col tw:gap-4">
-        <div class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
-          Configure Methods
-        </div>
+        <BaseText variant="overline">Configure Methods</BaseText>
         <p class="tw:text-xs tw:text-secondary tw:-mt-3">
           All four methods are always available. Set up the structure for each one — branches &amp; causes for Fishbone, prompts for 5 Whys, dimensions for Is/Is Not, and nodes for Fault Tree. The end user picks which method to use when filling the form.
         </p>

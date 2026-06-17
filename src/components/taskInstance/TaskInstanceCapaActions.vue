@@ -242,10 +242,7 @@ async function submitAction({ method, provider, token } = {}) {
     </template>
 
     <BaseDialog v-model="showConfirmDialog" :title="confirmTitle" maxWidth="md" persistent>
-      <div v-if="pendingConfig?.needsUser" class="tw:mb-4">
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Reassign to <span class="tw:text-red-500">*</span>
-        </label>
+      <BaseField v-if="pendingConfig?.needsUser" label="Reassign to" required class="tw:mb-4">
         <div class="tw:flex tw:flex-col tw:gap-2">
           <label
             v-for="user in filteredReassignCandidates"
@@ -274,19 +271,17 @@ async function submitAction({ method, provider, token } = {}) {
             No eligible users available for reassignment.
           </p>
         </div>
-      </div>
+      </BaseField>
 
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Comment {{ pendingConfig?.needsComment ? '(optional)' : '' }}
-        </label>
+      <BaseField v-slot="{ id: fieldId }" label="Comment" :optional="pendingConfig?.needsComment">
         <textarea
+          :id="fieldId"
           v-model="comment"
           rows="3"
           class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:text-on-main tw:text-sm tw:p-3 tw:resize-none tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
           placeholder="Add a comment…"
         />
-      </div>
+      </BaseField>
 
       <template #footer="{ close }">
         <BaseButton variant="outline" @click="close">Cancel</BaseButton>

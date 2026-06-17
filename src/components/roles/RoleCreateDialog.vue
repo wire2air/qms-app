@@ -115,10 +115,7 @@ async function handleSubmit() {
           class="tw:min-h-24"
         />
 
-        <div>
-          <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1"
-            >Copy From</label
-          >
+        <BaseField label="Copy From">
           <BaseSelectMenu
             v-model="form.copyFromRoleId"
             :items="
@@ -138,7 +135,7 @@ async function handleSubmit() {
               </span>
             </template>
           </BaseSelectMenu>
-        </div>
+        </BaseField>
 
         <div
           v-if="form.copyFromRoleId !== 'custom'"

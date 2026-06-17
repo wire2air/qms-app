@@ -118,15 +118,18 @@ function updateWhyTreeProblemPrompt(problemPrompt) {
 
   <!-- 5 Whys -->
   <div v-else-if="method === '5why'" class="tw:flex tw:flex-col tw:gap-4">
-    <div>
-      <label class="tw:text-sm tw:font-medium tw:text-on-main tw:block tw:mb-1">Problem Prompt</label>
+    <BaseField
+      v-slot="{ id: fieldId }"
+      label="Problem Prompt"
+      hint="Shown to users as the first question before the Whys."
+    >
       <BaseTextInput
+        :id="fieldId"
         :modelValue="config.problemPrompt ?? ''"
         placeholder="e.g. Describe what happened"
         @update:modelValue="updateProblemPrompt"
       />
-      <p class="tw:text-xs tw:text-secondary tw:mt-1">Shown to users as the first question before the Whys.</p>
-    </div>
+    </BaseField>
 
     <div>
       <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
@@ -212,17 +215,18 @@ function updateWhyTreeProblemPrompt(problemPrompt) {
 
   <!-- Why Tree -->
   <div v-else-if="method === 'whytree'" class="tw:flex tw:flex-col tw:gap-3">
-    <div>
-      <label class="tw:text-sm tw:font-medium tw:text-on-main tw:block tw:mb-1">Problem Prompt</label>
+    <BaseField
+      v-slot="{ id: fieldId }"
+      label="Problem Prompt"
+      hint="Shown to users as the label for their problem statement."
+    >
       <BaseTextInput
+        :id="fieldId"
         :modelValue="config.problemPrompt ?? ''"
         placeholder="e.g. Describe what happened"
         @update:modelValue="updateWhyTreeProblemPrompt"
       />
-      <p class="tw:text-xs tw:text-secondary tw:mt-1">
-        Shown to users as the label for their problem statement.
-      </p>
-    </div>
+    </BaseField>
     <p class="tw:text-xs tw:text-secondary tw:border tw:border-divider tw:rounded-lg tw:p-3">
       The causal tree is built by the investigator during the RCA — no pre-configuration needed.
       Users start by adding a "why" for the problem, then drill down until they reach root causes.

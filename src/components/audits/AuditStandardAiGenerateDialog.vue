@@ -200,27 +200,23 @@ const remainingCount = computed(() =>
       </div>
 
       <!-- Input -->
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Standard name
-        </p>
+      <BaseField v-slot="{ id: fieldId }" label="Standard name">
         <BaseTextInput
+          :id="fieldId"
           v-model="standardName"
           placeholder='e.g. "ISO 27001:2022", "SOC 2 Type II", "NIST SP 800-53 rev 5"'
           :required="true"
         />
-      </div>
+      </BaseField>
 
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-          Notes (optional)
-        </p>
+      <BaseField v-slot="{ id: fieldId }" label="Notes" optional>
         <BaseTextarea
+          :id="fieldId"
           v-model="notes"
           :rows="2"
           placeholder="Scope hints — sector, jurisdiction, version year if ambiguous, sections to emphasise…"
         />
-      </div>
+      </BaseField>
 
       <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:cursor-pointer">
         <input v-model="includeAnnexes" type="checkbox" />

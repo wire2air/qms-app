@@ -228,7 +228,7 @@ async function handleAvatarDelete() {
           <!-- Left Column: Personal Information -->
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
             <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
-              <h3 class="tw:text-base tw:font-bold tw:text-on-main">Personal Information</h3>
+              <BaseText as="h3" weight="bold">Personal Information</BaseText>
             </div>
             <div class="tw:p-6 tw:space-y-6">
               <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-4">
@@ -322,7 +322,7 @@ async function handleAvatarDelete() {
             <div
               class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:justify-between tw:items-center"
             >
-              <h3 class="tw:text-base tw:font-bold tw:text-on-main">Role Assignments</h3>
+              <BaseText as="h3" weight="bold">Role Assignments</BaseText>
               <div v-if="canUpdateUser">
                 <RoleSelectMenu
                   :modelValue="assignedRoleIds"

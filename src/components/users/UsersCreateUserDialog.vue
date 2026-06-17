@@ -124,30 +124,21 @@ async function onSubmit() {
             :required="true"
           />
 
-          <div>
-            <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
-              Roles <span class="tw:text-red">*</span>
-            </label>
+          <BaseField label="Roles" required>
             <RoleSelectMenu v-model="form.roleIds" :required="true" multiple />
-          </div>
+          </BaseField>
 
-          <div>
-            <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
-              Site <span class="tw:text-red">*</span>
-            </label>
+          <BaseField label="Site" required>
             <SiteSelectMenu v-model="form.siteId" :required="true" />
-          </div>
+          </BaseField>
 
-          <div>
-            <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
-              Department <span class="tw:text-red">*</span>
-            </label>
+          <BaseField label="Department" required>
             <DepartmentSelectMenu
               v-model="form.departmentId"
               :siteId="form.siteId"
               :required="true"
             />
-          </div>
+          </BaseField>
         </div>
       </div>
 

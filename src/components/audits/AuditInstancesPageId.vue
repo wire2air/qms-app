@@ -524,11 +524,7 @@ watch(auditTabs, (tabs) => {
               <div
                 class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                <div
-                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-                >
-                  Audit Details
-                </div>
+                <BaseText variant="overline">Audit Details</BaseText>
                 <AuditInstanceStatusBadgeById :statusId="auditInstance.statusId" />
               </div>
 
@@ -687,12 +683,13 @@ watch(auditTabs, (tabs) => {
               v-show="tab === 'requirements'"
               class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
             >
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              <BaseText
+                variant="overline"
+                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >
                 <IconClipboardList :size="14" />
                 Requirements
-              </div>
+              </BaseText>
               <AuditWalkthroughPanel :auditInstance="auditInstance" :readonly="!isEditable" />
             </div>
 
@@ -701,12 +698,13 @@ watch(auditTabs, (tabs) => {
               v-show="tab === 'findings'"
               class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
             >
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              <BaseText
+                variant="overline"
+                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >
                 <IconBolt :size="14" />
                 Findings
-              </div>
+              </BaseText>
               <AuditFindingsPanel
                 :auditInstance="auditInstance"
                 :readonly="!isEditable"
@@ -721,12 +719,13 @@ watch(auditTabs, (tabs) => {
               v-show="tab === 'ofi'"
               class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
             >
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              <BaseText
+                variant="overline"
+                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >
                 <IconBulb :size="14" />
                 Opportunities for Improvement
-              </div>
+              </BaseText>
               <AuditOfiPanel :auditInstance="auditInstance" />
             </div>
 
@@ -741,12 +740,13 @@ watch(auditTabs, (tabs) => {
               v-if="auditInstance.workflowInstanceId && tab === 'info'"
               class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
             >
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              <BaseText
+                variant="overline"
+                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >
                 <IconSend :size="14" />
                 Close-Out Workflow
-              </div>
+              </BaseText>
               <AuditInstanceWorkflowDetail
                 :auditInstanceId="auditInstance.id"
                 :workflowInstanceId="auditInstance.workflowInstanceId"
@@ -762,12 +762,13 @@ watch(auditTabs, (tabs) => {
             <div
               class="tw:hidden tw:lg:block tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
             >
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
+              <BaseText
+                variant="overline"
+                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
               >
                 <IconClipboardCheck :size="14" />
                 Conformance
-              </div>
+              </BaseText>
               <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
                 <div
                   class="tw:text-3xl tw:font-extrabold"
@@ -819,15 +820,13 @@ watch(auditTabs, (tabs) => {
               <div
                 class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                <div
-                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:flex tw:items-center tw:gap-2"
-                >
+                <BaseText variant="overline" class="tw:flex tw:items-center tw:gap-2">
                   <IconUsers :size="14" />
                   Audit Team
                   <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
                     {{ teamMembers.length }}
                   </span>
-                </div>
+                </BaseText>
                 <BaseButton
                   v-if="isEditable"
                   variant="outline"
@@ -881,11 +880,12 @@ watch(auditTabs, (tabs) => {
               </div>
             </div>
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
               >
                 Overview
-              </div>
+              </BaseText>
               <div class="tw:flex tw:flex-col">
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Audit Number</span>
@@ -938,12 +938,13 @@ watch(auditTabs, (tabs) => {
               v-if="auditInstance.auditProgramId"
               class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4"
             >
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
+              <BaseText
+                variant="overline"
+                class="tw:pb-2 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
               >
                 <IconChecklist :size="14" />
                 Spawned From
-              </div>
+              </BaseText>
               <p class="tw:text-xs tw:text-secondary tw:italic">
                 Minted by the daily generator off an audit program.
               </p>

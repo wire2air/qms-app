@@ -65,24 +65,22 @@ async function handleSubmit() {
         </div>
 
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">
-              Title <span class="tw:text-red-500">*</span>
-            </label>
+          <BaseField v-slot="{ id: fieldId }" label="Title" required>
             <BaseTextInput
+              :id="fieldId"
               v-model="title"
               placeholder="e.g. Fire Safety Procedures"
               @keyup.enter="handleSubmit"
             />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Description">
             <BaseTextarea
+              :id="fieldId"
               v-model="description"
               placeholder="Brief overview of what this training covers…"
               :rows="3"
             />
-          </div>
+          </BaseField>
         </div>
 
         <div class="tw:bg-blue-50 tw:border tw:border-blue-100 tw:rounded-lg tw:p-4 tw:text-sm tw:text-blue-700">

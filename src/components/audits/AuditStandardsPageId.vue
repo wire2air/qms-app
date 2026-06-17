@@ -402,11 +402,12 @@ async function handleRemoveSourceFile() {
           <div class="tw:flex tw:flex-col tw:gap-4">
             <!-- Details card -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
                 Standard Details
-              </div>
+              </BaseText>
 
               <BaseTextInput
                 v-if="editingName && isEditable"
@@ -480,14 +481,15 @@ async function handleRemoveSourceFile() {
               v-if="underReviewVersion"
               class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
             >
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              <BaseText
+                variant="overline"
+                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >
                 Approval Workflow
                 <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
                   v{{ underReviewVersion.versionMajor }}.{{ underReviewVersion.versionMinor }}
                 </span>
-              </div>
+              </BaseText>
               <AuditStandardVersionWorkflowDetail
                 :versionId="underReviewVersion.id"
                 :workflowInstanceId="underReviewVersion.workflowInstanceId"
@@ -500,9 +502,7 @@ async function handleRemoveSourceFile() {
               <div
                 class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                <div
-                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-                >
+                <BaseText variant="overline">
                   Requirements
                   <span
                     v-if="activeVersion"
@@ -510,7 +510,7 @@ async function handleRemoveSourceFile() {
                   >
                     v{{ activeVersion.versionMajor }}.{{ activeVersion.versionMinor }}
                   </span>
-                </div>
+                </BaseText>
                 <span
                   v-if="activeVersion"
                   class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
@@ -538,11 +538,12 @@ async function handleRemoveSourceFile() {
           <!-- Right column / Overview -->
           <div class="tw:flex tw:flex-col tw:gap-3">
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
               >
                 Overview
-              </div>
+              </BaseText>
               <div class="tw:flex tw:flex-col">
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Code</span>
@@ -629,12 +630,13 @@ async function handleRemoveSourceFile() {
                  auditors reference the source's normative guidance
                  since the imported requirements are structure-only. -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
+              <BaseText
+                variant="overline"
+                class="tw:pb-2 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
               >
                 <IconFile :size="14" />
                 Source Document
-              </div>
+              </BaseText>
 
               <div v-if="sourceAsset" class="tw:flex tw:flex-col tw:gap-2">
                 <a
@@ -703,12 +705,13 @@ async function handleRemoveSourceFile() {
               v-if="versions.length"
               class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4"
             >
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
+              <BaseText
+                variant="overline"
+                class="tw:pb-2 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
               >
                 <IconClipboardList :size="14" />
                 Versions
-              </div>
+              </BaseText>
               <div class="tw:flex tw:flex-col tw:gap-0.5">
                 <div
                   v-for="v in versions"

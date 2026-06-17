@@ -238,9 +238,9 @@ async function onEsignVerified(esign) {
 
     <!-- Competency criteria -->
     <div class="tw:border tw:border-divider tw:rounded-lg tw:p-4">
-      <p class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mb-3">
+      <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mb-3">
         Manager Competency Verification
-      </p>
+      </BaseText>
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
         <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">
           <input
@@ -289,14 +289,14 @@ async function onEsignVerified(esign) {
     </div>
 
     <!-- Notes -->
-    <div>
-      <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Manager Notes</p>
+    <BaseField v-slot="{ id: fieldId }" label="Manager Notes">
       <BaseTextarea
+        :id="fieldId"
         v-model="form.notes"
         :rows="3"
         placeholder="Add any observations or feedback..."
       />
-    </div>
+    </BaseField>
 
     <!-- Actions -->
     <div class="tw:flex tw:items-center tw:justify-between tw:pt-3 tw:border-t tw:border-divider">

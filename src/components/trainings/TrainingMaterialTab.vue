@@ -66,20 +66,18 @@ const LINK_TYPES = [
 <template>
   <div class="tw:flex tw:flex-col tw:gap-6">
     <!-- Instructions -->
-    <div>
-      <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">Instructions</p>
+    <BaseField label="Instructions">
       <BaseRichTextEditor
         v-model="props.training.instructions"
         :editable="editable"
         placeholder="Describe what the trainee needs to read or do..."
       />
-    </div>
+    </BaseField>
 
     <!-- Document Links -->
-    <div>
-      <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">Linked Documents</p>
+    <BaseField label="Linked Documents">
       <TrainingDocumentSelector :trainingId="training.id" :editable="editable" />
-    </div>
+    </BaseField>
 
     <!-- External Links -->
     <div>

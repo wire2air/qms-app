@@ -546,18 +546,12 @@ async function handleBulkEnrich() {
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
         <!-- Identity row — always visible across tabs. -->
         <div class="tw:grid tw:grid-cols-[150px_1fr] tw:gap-3">
-          <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-              Clause # <span class="tw:text-red-500">*</span>
-            </p>
-            <BaseTextInput v-model="form.clauseNumber" placeholder="7.2.1" />
-          </div>
-          <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-              Title <span class="tw:text-red-500">*</span>
-            </p>
-            <BaseTextInput v-model="form.title" placeholder="Personnel competency assessment" />
-          </div>
+          <BaseField v-slot="{ id: fieldId }" label="Clause #" required>
+            <BaseTextInput :id="fieldId" v-model="form.clauseNumber" placeholder="7.2.1" />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Title" required>
+            <BaseTextInput :id="fieldId" v-model="form.title" placeholder="Personnel competency assessment" />
+          </BaseField>
         </div>
 
         <!-- Tabs -->
@@ -646,10 +640,7 @@ async function handleBulkEnrich() {
           </div>
 
           <!-- People / roles to interview (free-text roles/titles). -->
-          <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-              People / roles to interview
-            </p>
+          <BaseField label="People / roles to interview">
             <div
               v-if="form.peopleToInterview.length"
               class="tw:flex tw:flex-wrap tw:gap-1.5 tw:mb-1.5"
@@ -680,59 +671,48 @@ async function handleBulkEnrich() {
                 Add
               </BaseButton>
             </div>
-          </div>
+          </BaseField>
         </div>
         <!-- /Audit checklists tab -->
 
         <!-- Tab: Clause details -->
         <div v-show="editTab === 'clause'" class="tw:flex tw:flex-col tw:gap-3">
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-                Department
-              </p>
+            <BaseField label="Department">
               <DepartmentSelectMenu v-model="form.departmentId" />
-            </div>
-            <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Category</p>
+            </BaseField>
+            <BaseField label="Category">
               <AuditFindingCategorySelectMenu v-model="form.categoryId" />
-            </div>
+            </BaseField>
           </div>
-          <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-              Description
-            </p>
+          <BaseField v-slot="{ id: fieldId }" label="Description">
             <BaseTextarea
+              :id="fieldId"
               v-model="form.description"
               :rows="4"
               placeholder="What the requirement says verbatim. Pasted from the standard text."
             />
-          </div>
-          <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Guidance</p>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Guidance">
             <BaseTextarea
+              :id="fieldId"
               v-model="form.guidance"
               :rows="3"
               placeholder="How to interpret / audit this requirement. Internal interpretation notes."
             />
-          </div>
+          </BaseField>
           <!-- Expected Evidence is now the checklist above (#24). -->
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-                Display Order
-              </p>
-              <BaseTextInput v-model.number="form.displayOrder" type="number" :min="0" />
-            </div>
-            <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-                Risk Weight
-              </p>
-              <BaseTextInput v-model.number="form.riskWeight" type="number" :min="1" :max="100" />
-              <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-                1–100. Reserved for risk-based auditing prioritisation.
-              </p>
-            </div>
+            <BaseField v-slot="{ id: fieldId }" label="Display Order">
+              <BaseTextInput :id="fieldId" v-model.number="form.displayOrder" type="number" :min="0" />
+            </BaseField>
+            <BaseField
+              v-slot="{ id: fieldId }"
+              label="Risk Weight"
+              hint="1–100. Reserved for risk-based auditing prioritisation."
+            >
+              <BaseTextInput :id="fieldId" v-model.number="form.riskWeight" type="number" :min="1" :max="100" />
+            </BaseField>
           </div>
         </div>
         <!-- /Clause details tab -->

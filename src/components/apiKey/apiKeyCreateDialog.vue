@@ -94,11 +94,9 @@ function resetAndClose() {
             label="Label"
             placeholder="e.g., Production deployment key"
           />
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Expires At</label>
+          <BaseField label="Expires At" hint="Leave empty for no expiration">
             <BaseDatePicker v-model="form.expiresAt" />
-            <p class="tw:text-xs tw:text-secondary">Leave empty for no expiration</p>
-          </div>
+          </BaseField>
         </div>
       </div>
     </template>

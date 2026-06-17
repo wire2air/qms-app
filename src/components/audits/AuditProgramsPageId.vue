@@ -269,11 +269,12 @@ async function handleDelete() {
           <div class="tw:flex tw:flex-col tw:gap-4">
             <!-- Details card -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
                 Program Details
-              </div>
+              </BaseText>
 
               <BaseTextInput
                 v-if="editingName && isEditable"
@@ -378,12 +379,13 @@ async function handleDelete() {
 
             <!-- Schedule card -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+              <BaseText
+                variant="overline"
+                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
               >
                 <IconCalendarTime :size="14" />
                 Schedule
-              </div>
+              </BaseText>
               <div class="tw:grid tw:grid-cols-2 tw:gap-3">
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Frequency</div>
@@ -445,15 +447,13 @@ async function handleDelete() {
               <div
                 class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
-                <div
-                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:flex tw:items-center tw:gap-2"
-                >
+                <BaseText variant="overline" class="tw:flex tw:items-center tw:gap-2">
                   <IconUsers :size="14" />
                   Auditor Pool
                   <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
                     {{ auditors.length }}
                   </span>
-                </div>
+                </BaseText>
                 <BaseButton
                   v-if="isEditable"
                   variant="outline"
@@ -511,11 +511,12 @@ async function handleDelete() {
           <!-- Right column / Overview -->
           <div class="tw:flex tw:flex-col tw:gap-3">
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
               >
                 Overview
-              </div>
+              </BaseText>
               <div class="tw:flex tw:flex-col">
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Active</span>

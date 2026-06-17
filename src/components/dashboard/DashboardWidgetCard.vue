@@ -16,7 +16,7 @@ defineProps({
 <template>
   <div class="tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:flex tw:flex-col">
     <div class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-3 tw:border-b tw:border-divider">
-      <div class="tw:text-sm tw:font-bold tw:text-on-main">{{ title }}</div>
+      <BaseText as="h3" weight="bold">{{ title }}</BaseText>
       <span
         v-if="count !== null"
         class="tw:text-[11px] tw:font-bold tw:px-2 tw:py-0.5 tw:rounded-full tw:bg-primary/10 tw:text-primary"

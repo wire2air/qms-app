@@ -288,9 +288,7 @@ onMounted(() => {
 
           <!-- Legacy single-file flow (used when items[] is empty) -->
           <div v-else>
-            <label class="tw:block tw:text-sm tw:font-medium tw:text-on-sidebar tw:mb-2">
-              Upload Document *
-            </label>
+            <BaseField label="Upload Document" required class="tw:mb-2" />
             <BaseClickableRow
               v-if="!selectedFile"
               class="tw:border-2 tw:border-dashed tw:border-gray-300 tw:rounded-lg tw:p-8 tw:text-center tw:hover:border-primary"

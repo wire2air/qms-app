@@ -78,9 +78,7 @@ const profileLink = computed(() => getCompanyPath(`/users/${props.user?.id}`))
     </div>
 
     <div v-if="roles.length" class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">
-        Roles
-      </div>
+      <BaseText variant="overline">Roles</BaseText>
       <div class="tw:flex tw:flex-wrap tw:gap-1">
         <BaseBadge
           v-for="role in roles"

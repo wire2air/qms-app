@@ -244,22 +244,14 @@ onBeforeUnmount(() => {
       <div
         class="tw:flex tw:flex-col tw:gap-3 tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-main-hover/30"
       >
-        <div class="tw:flex tw:flex-col tw:gap-1.5">
-          <label class="tw:text-xs tw:font-medium tw:text-secondary">
-            Hazard category
-            <span class="tw:text-red-500">*</span>
-          </label>
+        <BaseField label="Hazard category" required size="sm">
           <HazardCategorySelectMenu
             :modelValue="hazardCategoryId"
             :required="true"
             @update:modelValue="setHazardCategory"
           />
-        </div>
-        <div class="tw:flex tw:flex-col tw:gap-1.5">
-          <label class="tw:text-xs tw:font-medium tw:text-secondary">
-            Assessment type
-            <span class="tw:text-red-500">*</span>
-          </label>
+        </BaseField>
+        <BaseField label="Assessment type" required size="sm">
           <div class="tw:flex tw:gap-2">
             <button
               v-for="t in ['INITIAL', 'RESIDUAL']"
@@ -276,7 +268,7 @@ onBeforeUnmount(() => {
               {{ t === 'INITIAL' ? 'Initial (before mitigation)' : 'Residual (after mitigation)' }}
             </button>
           </div>
-        </div>
+        </BaseField>
       </div>
 
       <!-- Selected risk level display -->
@@ -420,16 +412,16 @@ onBeforeUnmount(() => {
            payload for backward compat; the label changed because the
            text now anchors the finalized assessment's rationale, not
            just freeform notes). -->
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-xs tw:font-medium tw:text-secondary">Justification</label>
+      <BaseField v-slot="{ id: fieldId }" label="Justification" size="sm">
         <BaseTextarea
+          :id="fieldId"
           :modelValue="notes"
           placeholder="Explain the rationale for this risk assessment — controls in place, what would change between initial and residual, etc."
           :rows="2"
           :readonly="readonly || disabled"
           @update:modelValue="updateNotes"
         />
-      </div>
+      </BaseField>
 
       <!-- Finalize. Mirrors RcaField's pattern — once clicked, the
            hazard / matrix / detectability / justification are frozen
