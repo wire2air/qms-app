@@ -84,16 +84,17 @@ async function removeUser(userId) {
 <template>
   <div class="tw:space-y-4">
     <!-- Search -->
-    <div>
-      <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-        Select Users
-      </label>
-      <BaseTextInput v-model="search" placeholder="Search users by name or email...">
+    <BaseField v-slot="{ id: fieldId }" label="Select Users">
+      <BaseTextInput
+        :id="fieldId"
+        v-model="search"
+        placeholder="Search users by name or email..."
+      >
         <template #icon>
           <IconSearch :size="18" class="tw:text-secondary" />
         </template>
       </BaseTextInput>
-    </div>
+    </BaseField>
 
     <!-- Selected Chips -->
     <div v-if="selectedUsers.length > 0" class="tw:flex tw:flex-wrap tw:gap-2">
