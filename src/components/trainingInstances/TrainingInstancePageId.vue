@@ -170,7 +170,7 @@ function closeAssessmentReview() {
   >
     Training instance not found.
   </div>
-  <div v-else class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
+  <BasePage v-else width="standard" density="compact">
     <SafeTeleport to="#main-header-title">
       <div class="tw:flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary">
         <RouterLink :to="getCompanyPath('/training-instances')" class="tw:hover:text-primary"
@@ -482,5 +482,5 @@ function closeAssessmentReview() {
         </BaseDialogFooter>
       </template>
     </BaseDialog>
-  </div>
+  </BasePage>
 </template>

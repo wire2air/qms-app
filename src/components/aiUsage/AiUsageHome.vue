@@ -17,7 +17,7 @@ function pickPeriod(days) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
+  <BasePage width="wide" density="compact">
     <PageHeader :icon="IconChartBar" title="AI Usage" />
 
     <SafeTeleport to="#main-header-actions">
@@ -124,5 +124,5 @@ function pickPeriod(days) {
       :loading="usage.jobsLoading.value"
       @page="usage.jobsOffset.value = $event"
     />
-  </div>
+  </BasePage>
 </template>

@@ -83,7 +83,7 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="tw:p-5">
+  <BasePage width="standard" density="compact">
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
@@ -237,5 +237,5 @@ async function confirmDelete() {
         </div>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

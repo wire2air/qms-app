@@ -43,7 +43,7 @@ const STATUS_OPTIONS = [
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader title="Training Instances" />
 
     <div class="tw:flex tw:flex-col tw:gap-1">
@@ -140,5 +140,5 @@ const STATUS_OPTIONS = [
         :showManager="true"
       />
     </div>
-  </div>
+  </BasePage>
 </template>

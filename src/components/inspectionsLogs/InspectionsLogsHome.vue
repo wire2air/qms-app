@@ -84,7 +84,7 @@ function go(path) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-5 tw:h-full tw:p-5 tw:overflow-y-auto">
+  <BasePage width="standard">
     <PageHeader>
       <template #title>Inspections &amp; Logs</template>
     </PageHeader>
@@ -268,5 +268,5 @@ function go(path) {
         </button>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

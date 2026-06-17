@@ -134,7 +134,7 @@ const breadcrumbs = computed(() => {
 </script>
 
 <template>
-  <div class="tw:min-h-screen tw:bg-main">
+  <BasePage width="standard" density="compact">
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs v-if="instance" :items="breadcrumbs" />
     </SafeTeleport>
@@ -191,5 +191,5 @@ const breadcrumbs = computed(() => {
     >
       <BaseEmptyState :icon="IconFileAlert" title="Workflow instance not found" />
     </div>
-  </div>
+  </BasePage>
 </template>

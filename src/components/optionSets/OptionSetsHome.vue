@@ -38,7 +38,7 @@ function openDialog(id = null) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconChecklist" title="Option Sets" />
 
     <SafeTeleport to="#main-header-actions">
@@ -58,7 +58,7 @@ function openDialog(id = null) {
     <OptionSetsFilterToolbar v-model:filters="filters" />
 
     <OptionSetsTable :rows="optionSets" :canDelete="canDeleteOptionSet" />
-  </div>
+  </BasePage>
 
   <!-- Create/Edit Option Set Dialog -->
   <OptionSetCreateDialog

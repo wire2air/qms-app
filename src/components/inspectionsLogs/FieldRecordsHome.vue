@@ -23,7 +23,7 @@ function goSubmit() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
+  <BasePage width="standard" density="compact">
     <PageHeader title="Logs" />
 
     <SafeTeleport to="#main-header-actions">
@@ -43,5 +43,5 @@ function goSubmit() {
     </div>
 
     <FieldRecordsList />
-  </div>
+  </BasePage>
 </template>

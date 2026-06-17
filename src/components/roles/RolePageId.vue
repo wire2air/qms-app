@@ -226,7 +226,7 @@ watch(
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="standard" density="compact" fullHeight>
     <!-- Loading State -->
     <div v-if="loading && !role" class="tw:flex tw:items-center tw:justify-center tw:h-full">
       <BaseSpinner size="lg" />
@@ -297,7 +297,9 @@ watch(
       </SafeTeleport>
 
       <!-- Scrollable Content -->
-      <div class="tw:flex-1 tw:overflow-y-auto custom-scrollbar tw:px-8 tw:py-6 tw:space-y-6">
+      <div
+        class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto custom-scrollbar tw:px-8 tw:py-6 tw:space-y-6"
+      >
         <!-- Role Info Card -->
         <section class="tw:bg-layer tw:rounded-xl tw:border tw:border-sidebar tw:p-6 tw:shadow-sm">
           <div class="tw:flex tw:flex-wrap tw:justify-between tw:items-start tw:gap-4">
@@ -428,5 +430,5 @@ watch(
       :assignedUsers="assignedUsers"
       @saved="fetchRoleData"
     />
-  </div>
+  </BasePage>
 </template>

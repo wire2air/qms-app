@@ -9,7 +9,7 @@ function openDialog() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconKey" title="API Keys" />
 
     <SafeTeleport to="#main-header-actions">
@@ -30,7 +30,7 @@ function openDialog() {
     </div>
 
     <ApiKeyList @create="openDialog" />
-  </div>
+  </BasePage>
 
   <ApiKeyCreateDialog v-model="showCreateDialog" />
 </template>

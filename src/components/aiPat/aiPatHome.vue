@@ -9,7 +9,7 @@ function openDialog() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconRobot" title="API Tokens" />
 
     <SafeTeleport to="#main-header-actions">
@@ -31,7 +31,7 @@ function openDialog() {
     </div>
 
     <AiPatList @create="openDialog" />
-  </div>
+  </BasePage>
 
   <AiPatCreateDialog v-model="showCreateDialog" />
 </template>

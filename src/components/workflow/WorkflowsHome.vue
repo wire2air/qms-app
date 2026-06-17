@@ -25,7 +25,7 @@ function handleWorkflowCreated(workflow) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconSitemap" title="Workflows" />
 
     <SafeTeleport to="#main-header-actions">
@@ -55,7 +55,7 @@ function handleWorkflowCreated(workflow) {
     <div v-else class="tw:flex-1 tw:overflow-y-auto">
       <WorkflowsList :filters="filters" />
     </div>
-  </div>
+  </BasePage>
 
   <!-- Create Dialog -->
   <WorkflowCreateDialog v-model="showCreateDialog" @created="handleWorkflowCreated" />

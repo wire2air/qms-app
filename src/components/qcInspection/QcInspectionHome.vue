@@ -36,7 +36,7 @@ const canManageDefects = computed(() => isAllowed(['qcInspection:catalog:write']
 </script>
 
 <template>
-  <div class="tw:p-5">
+  <BasePage width="wide">
     <PageHeader :icon="IconTestPipe" title="QC Inspection" />
 
     <div class="tw:flex tw:flex-col tw:gap-5 tw:max-w-7xl">
@@ -71,5 +71,5 @@ const canManageDefects = computed(() => isAllowed(['qcInspection:catalog:write']
         </div>
       </BaseTabs>
     </div>
-  </div>
+  </BasePage>
 </template>

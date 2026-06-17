@@ -114,7 +114,7 @@ function onVerified() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5">
+  <BasePage width="wide" density="compact" fullHeight>
     <PageHeader title="Training Verification" />
 
     <!-- Top stats -->
@@ -206,5 +206,5 @@ function onVerified() {
         </div>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

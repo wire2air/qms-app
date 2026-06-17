@@ -74,7 +74,7 @@ function onDialogClose() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconSitemap" title="RCA Templates" />
 
     <!-- The "New Template" header-action only makes sense on the Templates
@@ -132,5 +132,5 @@ function onDialogClose() {
       okLabel="Delete"
       @ok="confirmDeleteTemplate"
     />
-  </div>
+  </BasePage>
 </template>

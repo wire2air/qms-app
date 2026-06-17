@@ -65,6 +65,8 @@ Every authenticated app page's root is `<BasePage>` — the single owner of cont
 - **`density`**: `comfortable` (default, `gap-6`) · `compact` (`gap-4`).
 - **Reuse, don't rebuild:** toolbar → `BaseFilterBar`; tabs → `BaseTabs`; titled groups → `PageSection`; card grids → `ContentGrid`. There is no `PageToolbar`/`PageTabs` — those are `BaseFilterBar`/`BaseTabs`.
 - **No page-level horizontal scroll** — only bounded table wrappers (`tw:overflow-x-auto`) scroll.
+- **List/index pages use whole-page scroll** (no `fullHeight`) — `BaseTable`'s sticky header keeps columns visible. Reserve `fullHeight` for detail/create pages that already have an internal scroll region (sticky toolbar/footer + a `tw:flex-1 tw:min-h-0 tw:overflow-auto` body).
+- **Full-canvas editors/designers are exempt** (e.g. `WorkflowEditor`, `FormAssignmentEditor`, the form builder) — a surface that fills the viewport with its own panes/scroll is not a content page; keep its `tw:flex tw:flex-col tw:h-full tw:overflow-hidden` root, don't wrap it in `BasePage`. Public/auth pages are also out of scope.
 
 ---
 

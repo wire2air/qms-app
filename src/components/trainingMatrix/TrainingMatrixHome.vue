@@ -45,7 +45,7 @@ async function handleRemoveRole(rule) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="wide" density="compact">
     <PageHeader title="Training Matrix" />
 
     <SafeTeleport to="#main-header-actions">
@@ -97,5 +97,5 @@ async function handleRemoveRole(rule) {
     </div>
 
     <TrainingMatrixAddDialog v-model="showAddDialog" :trainingId="presetTrainingId" />
-  </div>
+  </BasePage>
 </template>
