@@ -8,6 +8,7 @@ describe('BaseBadge — select-trigger dark-mode fill', () => {
     const cls = w.classes()
     expect(cls).toContain('tw:bg-main-hover')
     expect(cls).toContain('tw:border-divider')
+    expect(cls).toContain('tw:text-on-main') // theme-aware text (white in dark)
     expect(cls).not.toContain('tw:border-current/20')
   })
 

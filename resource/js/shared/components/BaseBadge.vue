@@ -23,7 +23,9 @@ const isPlainTrigger = computed(() => !/tw:bg-/.test(String(attrs.class || '')))
     class="tw:inline-flex tw:items-center tw:gap-1.5 tw:px-3 tw:py-1 tw:rounded-full tw:border tw:text-sm tw:font-medium tw:w-fit tw:transition-all tw:duration-200"
     :class="[
       selectable && 'tw:cursor-pointer',
-      selectable && isPlainTrigger ? 'tw:bg-main-hover tw:border-divider' : 'tw:border-current/20',
+      selectable && isPlainTrigger
+        ? 'tw:bg-main-hover tw:border-divider tw:text-on-main'
+        : 'tw:border-current/20',
     ]"
   >
     <div
