@@ -28,6 +28,11 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // Control id — pair with a <label for> (e.g. BaseField provides this).
+  id: {
+    type: String,
+    default: undefined,
+  },
   errorMsg: {
     type: String,
     default: '',
@@ -203,6 +208,7 @@ defineExpose({
         <slot name="icon" />
       </div>
       <input
+        :id="id"
         ref="inputEl"
         :class="cssClass"
         :name="name"

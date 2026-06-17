@@ -46,6 +46,13 @@ describe('BaseText', () => {
   it('clamps to N lines via the explicit map', () => {
     expect(mount(BaseText, { props: { lines: 2 }, slots: { default: 'x' } }).html()).toContain('tw:line-clamp-2')
   })
+
+  it('renders the overline variant uppercase + tracked from the token map', () => {
+    const html = mount(BaseText, { props: { variant: 'overline' }, slots: { default: 'Section' } }).html()
+    expect(html).toContain('tw:uppercase')
+    expect(html).toContain('tw:tracking-wider')
+    expect(html).toContain('tw:text-caption')
+  })
 })
 
 describe('BaseLabel', () => {

@@ -29,6 +29,7 @@ const classes = computed(() => [
   props.weight ? FONT_WEIGHT[props.weight] : variant.value.weight,
   props.color ? TEXT_COLOR[props.color] : TEXT_COLOR[variant.value.color],
   variant.value.leading,
+  variant.value.extra,
   TEXT_ALIGN[props.align],
   props.truncate && 'tw:truncate',
   props.lines ? LINE_CLAMP[props.lines] : '',

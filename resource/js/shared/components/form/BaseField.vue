@@ -23,8 +23,9 @@ const props = defineProps({
   required: { type: Boolean, default: false },
   optional: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
-  // Label size (xs|sm|md|lg) — forwarded to BaseLabel.
-  size: { type: String, default: 'sm' },
+  // Label size (xs|sm|md|lg) — forwarded to BaseLabel. Form fields default to
+  // md (14px), the canonical form-label size.
+  size: { type: String, default: 'md' },
   // Help-icon tooltip text on the label.
   help: { type: String, default: '' },
   // Label subtitle/description.

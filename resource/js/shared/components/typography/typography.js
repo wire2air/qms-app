@@ -68,6 +68,16 @@ export const TEXT_VARIANT = {
     leading: '',
     color: 'error',
   },
+  // Section eyebrow / overline — uppercase, tracked. For card-section headers
+  // and field-group titles (replaces the ad-hoc text-xs uppercase pattern).
+  overline: {
+    tag: 'span',
+    size: 'tw:text-caption',
+    weight: 'tw:font-semibold',
+    leading: '',
+    color: 'secondary',
+    extra: 'tw:uppercase tw:tracking-wider',
+  },
 }
 
 // BaseHeading `level` (1–6) → the variant that sets its default visual size.
