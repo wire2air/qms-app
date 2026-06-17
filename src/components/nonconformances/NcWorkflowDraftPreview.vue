@@ -194,7 +194,7 @@ watch(
       class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-3"
     >
       <div class="tw:pb-3 tw:border-b tw:border-divider">
-        <h3 class="tw:text-sm tw:font-bold tw:text-on-main">Workflow</h3>
+        <BaseText as="h3" weight="bold">Workflow</BaseText>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
           {{
             hasWorkflow
@@ -220,7 +220,7 @@ watch(
     >
       <div class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider">
         <div>
-          <h3 class="tw:text-sm tw:font-bold tw:text-on-main tw:flex tw:items-center tw:gap-2">
+          <BaseText as="h3" weight="bold" class="tw:flex tw:items-center tw:gap-2">
             Workflow Plan
             <span
               v-if="nc.isSupplierFacing"
@@ -235,7 +235,7 @@ watch(
             >
               Internal
             </span>
-          </h3>
+          </BaseText>
           <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
             Assign a user to each step. The workflow launches with these assignments when you click
             <strong>Open NC</strong>.

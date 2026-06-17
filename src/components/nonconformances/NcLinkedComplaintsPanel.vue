@@ -37,11 +37,12 @@ const complaints = useLiveQueryWithDeps(
 
 <template>
   <div v-if="links.length" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-    <div
-      class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+    <BaseText
+      variant="overline"
+      class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
     >
       Linked Complaints
-    </div>
+    </BaseText>
     <div class="tw:flex tw:flex-col tw:gap-2">
       <RouterLink
         v-for="complaint in complaints"
