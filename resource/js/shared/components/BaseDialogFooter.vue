@@ -15,6 +15,7 @@
  *   </template>
  *
  * When an `error` is present it sits on the left while the buttons stay right.
+ * Pass a `#submitIcon` slot to render a leading icon inside the submit button.
  */
 defineProps({
   cancelLabel: { type: String, default: 'Cancel' },
@@ -25,6 +26,8 @@ defineProps({
   loading: { type: Boolean, default: false },
   // Disable the submit button (e.g. invalid form) without a spinner.
   disabled: { type: Boolean, default: false },
+  // Native tooltip on the submit button — typically the reason it's disabled.
+  submitTitle: { type: String, default: undefined },
   // Inline error message shown to the left of the buttons.
   error: { type: String, default: '' },
   // Hide the cancel button (rare — confirm-only flows).
@@ -53,8 +56,10 @@ defineEmits(['cancel', 'submit'])
         :variant="submitVariant"
         :isLoading="loading"
         :disabled="disabled"
+        :title="submitTitle"
         @click="$emit('submit')"
       >
+        <template v-if="$slots.submitIcon" #icon><slot name="submitIcon" /></template>
         {{ submitLabel }}
       </BaseButton>
     </div>

@@ -41,4 +41,14 @@ describe('BaseSectionHeader', () => {
     // only the icon/title column should be present (no second flex child)
     expect(w.findAll('button')).toHaveLength(0)
   })
+
+  it('renders the icon in a tinted box when iconVariant="boxed"', () => {
+    const w = mount(BaseSectionHeader, {
+      props: { title: 'X', icon: StubIcon, iconVariant: 'boxed' },
+    })
+    // the icon sits inside a rounded tinted container
+    const box = w.find('.tw\\:bg-primary\\/10')
+    expect(box.exists()).toBe(true)
+    expect(box.find('[data-icon]').exists()).toBe(true)
+  })
 })

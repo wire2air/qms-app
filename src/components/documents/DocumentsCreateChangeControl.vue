@@ -42,20 +42,16 @@ const CHANGE_TYPES = [
     <section
       class="tw:bg-sidebar tw:rounded-2xl tw:shadow-sm tw:border tw:border-divider tw:p-6 tw:flex tw:flex-col tw:gap-6"
     >
-      <header class="tw:flex tw:items-start tw:gap-3">
-        <div
-          class="tw:flex tw:items-center tw:justify-center tw:w-10 tw:h-10 tw:rounded-lg tw:bg-primary/10 tw:text-primary"
-        >
-          <IconHistory :size="22" />
-        </div>
-        <div>
-          <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Change Control</h2>
-          <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-            Capture why this revision was made. Required for revisions after v1.0; optional on the
-            initial release.
-          </p>
-        </div>
-      </header>
+      <BaseSectionHeader
+        title="Change Control"
+        subtitle="Capture why this revision was made. Required for revisions after v1.0; optional on the initial release."
+        :icon="IconHistory"
+        iconVariant="boxed"
+        iconColor="primary"
+        :iconSize="22"
+        :level="2"
+        size="section-title"
+      />
 
       <div
         class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-blue-900 tw:text-xs"

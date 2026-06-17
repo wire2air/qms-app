@@ -21,7 +21,9 @@
  * Icons are NOT auto-imported — pass the imported component on a tab's `icon`.
  */
 const props = defineProps({
-  // [{ value, label, icon?, disabled? }]
+  // [{ value, label, icon?, disabled?, badge?, indicator? }]
+  //   badge     — count pill after the label (string|number)
+  //   indicator — small attention dot (Boolean)
   tabs: { type: Array, required: true },
   // 'underline' (default) or 'pills'.
   variant: {
@@ -159,6 +161,20 @@ function tabClass(tab) {
       >
         <component :is="tab.icon" v-if="tab.icon" :size="16" aria-hidden="true" />
         {{ tab.label }}
+        <!-- Optional count pill (e.g. "Versions 3"). -->
+        <span
+          v-if="tab.badge != null && tab.badge !== ''"
+          class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-main-hover tw:px-1.5 tw:text-[10px] tw:font-bold tw:text-secondary"
+          :class="isActive(tab) && 'tw:bg-primary/10 tw:text-primary'"
+        >
+          {{ tab.badge }}
+        </span>
+        <!-- Optional attention dot (e.g. unresolved warning on a tab). -->
+        <span
+          v-if="tab.indicator"
+          class="tw:size-1.5 tw:rounded-full tw:bg-warning"
+          aria-hidden="true"
+        />
       </button>
     </div>
 

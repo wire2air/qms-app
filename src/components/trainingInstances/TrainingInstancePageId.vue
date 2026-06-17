@@ -477,7 +477,9 @@ function closeAssessmentReview() {
           :disabled="!cancelReason.trim()"
           @cancel="close"
           @submit="handleCancel"
-        />
+        >
+          <template #submitIcon><IconBan :size="16" /></template>
+        </BaseDialogFooter>
       </template>
     </BaseDialog>
   </div>

@@ -45,4 +45,13 @@ describe('BaseDialogFooter', () => {
     expect(w.text()).toContain('Something went wrong')
     expect(w.classes().join(' ')).toContain('tw:justify-between')
   })
+
+  it('renders a submitIcon slot inside the submit button', () => {
+    const w = mount(BaseDialogFooter, {
+      props: { submitLabel: 'Upload' },
+      slots: { submitIcon: '<svg data-test="submit-icon" />' },
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+    expect(w.find('[data-test="submit-icon"]').exists()).toBe(true)
+  })
 })

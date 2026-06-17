@@ -140,6 +140,18 @@ const incompleteStepCount = useLiveQueryWithDeps(
 )
 const canClose = computed(() => incompleteStepCount.value === 0 && !!closeEffectivenessDate.value)
 
+// Why the "Sign & Close" action is blocked — surfaced as the submit button's
+// native tooltip via BaseDialogFooter's `submitTitle`.
+const closeDisabledReason = computed(() => {
+  if (incompleteStepCount.value > 0) {
+    return `${incompleteStepCount.value} workflow step${
+      incompleteStepCount.value === 1 ? '' : 's'
+    } still open. Complete or skip them first.`
+  }
+  if (!closeEffectivenessDate.value) return 'Pick an effectiveness check date.'
+  return ''
+})
+
 function openPrintView() {
   if (!capa.value?.id) return
   // Centralised print: /<companyCode>/print?module=Capa&id=...
@@ -752,6 +764,7 @@ function onCreateLinkedChangeRequest() {
           submitVariant="danger"
           :loading="closing"
           :disabled="!canClose"
+          :submitTitle="canClose ? undefined : closeDisabledReason"
           @cancel="close"
           @submit="handleCloseCapa"
         />

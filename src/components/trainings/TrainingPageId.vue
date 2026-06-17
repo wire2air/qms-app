@@ -286,7 +286,9 @@ const tabs = [
           :loading="actionLoading"
           @cancel="close"
           @submit="handlePublish"
-        />
+        >
+          <template #submitIcon><IconCircleCheck :size="16" /></template>
+        </BaseDialogFooter>
       </template>
     </BaseDialog>
 
@@ -303,7 +305,9 @@ const tabs = [
           :loading="actionLoading"
           @cancel="close"
           @submit="handleDelete"
-        />
+        >
+          <template #submitIcon><IconTrash :size="16" /></template>
+        </BaseDialogFooter>
       </template>
     </BaseDialog>
   </div>

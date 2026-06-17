@@ -106,4 +106,25 @@ describe('BaseTabs', () => {
     const disabled = w.findAll('[role="tab"]')[2]
     expect(disabled.attributes('disabled')).toBeDefined()
   })
+
+  it('renders a per-tab badge (incl. 0) and an attention indicator dot', async () => {
+    const Badged = {
+      components: { BaseTabs },
+      data: () => ({
+        active: 'a',
+        tabs: [
+          { value: 'a', label: 'A', badge: 0 },
+          { value: 'b', label: 'B', badge: 5, indicator: true },
+        ],
+      }),
+      template: `<BaseTabs v-model="active" :tabs="tabs" ariaLabel="x" />`,
+    }
+    const w = mount(Badged)
+    await nextTick()
+    const tabs = w.findAll('[role="tab"]')
+    expect(tabs[0].text()).toContain('0') // badge 0 must render, not be dropped
+    expect(tabs[1].text()).toContain('5')
+    // the indicator dot is an aria-hidden span
+    expect(tabs[1].find('span[aria-hidden="true"]').exists()).toBe(true)
+  })
 })

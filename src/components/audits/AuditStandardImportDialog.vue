@@ -383,16 +383,15 @@ function safeParseJson(raw) {
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" :disabled="submitting" @click="close">Cancel</BaseButton>
-      <BaseButton
-        variant="primary"
+      <BaseDialogFooter
+        submitLabel="Import"
         :loading="submitting"
-        :disabled="submitting || !code.trim() || !name.trim() || !content.trim() || (requiresAttestation && !licenseAttested)"
-        @click="handleImport"
+        :disabled="!code.trim() || !name.trim() || !content.trim() || (requiresAttestation && !licenseAttested)"
+        @cancel="close"
+        @submit="handleImport"
       >
-        <template #icon><IconUpload :size="16" /></template>
-        Import
-      </BaseButton>
+        <template #submitIcon><IconUpload :size="16" /></template>
+      </BaseDialogFooter>
     </template>
   </BaseDialog>
 </template>

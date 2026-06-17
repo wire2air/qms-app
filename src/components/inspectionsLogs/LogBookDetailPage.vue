@@ -273,12 +273,6 @@ async function removeDocLink(link) {
 // screen gives them somewhere to land. The builder fires `save` from
 // its internal toolbar with the final schema; we PATCH and close.
 const activeTab = ref('details') // 'details' | 'schema' | 'versions' | 'assignments'
-const tabs = [
-  { value: 'details', label: 'Details' },
-  { value: 'schema', label: 'Schema' },
-  { value: 'versions', label: 'Versions', icon: IconGitBranch },
-  { value: 'assignments', label: 'Assignments' },
-]
 
 // ─── Assignments tab data ────────────────────────────────────────────
 // Lists FormAssignment rows scoped to this log book. The full create /
@@ -370,6 +364,22 @@ const versions = useLiveQueryWithDeps(
 
 const effectiveVersionId = computed(() => logBook.value?.currentEffectiveVersionId || null)
 const hasEffectiveVersion = computed(() => !!effectiveVersionId.value)
+
+// Tab strip — version/assignment counts and the "no effective version" warning
+// dot are surfaced via BaseTabs' badge/indicator (declared here so the reactive
+// counts above are in scope).
+const tabs = computed(() => [
+  { value: 'details', label: 'Details' },
+  { value: 'schema', label: 'Schema' },
+  {
+    value: 'versions',
+    label: 'Versions',
+    icon: IconGitBranch,
+    badge: versions.value.length || null,
+    indicator: !hasEffectiveVersion.value,
+  },
+  { value: 'assignments', label: 'Assignments', badge: logBookAssignments.value.length || null },
+])
 const effectiveVersion = computed(
   () => versions.value.find((v) => v.id === effectiveVersionId.value) || null,
 )

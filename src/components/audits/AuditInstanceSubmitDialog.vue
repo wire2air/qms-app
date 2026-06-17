@@ -113,16 +113,13 @@ async function handleConfirm() {
     </div>
 
     <template #footer="{ close }">
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
-          :disabled="!workflowVersionId || !firstStepHasUser || submitting"
-          @click="handleConfirm"
-        >
-          {{ submitting ? 'Submitting…' : 'Submit for Close-Out' }}
-        </BaseButton>
-      </div>
+      <BaseDialogFooter
+        submitLabel="Submit for Close-Out"
+        :loading="submitting"
+        :disabled="!workflowVersionId || !firstStepHasUser"
+        @cancel="close"
+        @submit="handleConfirm"
+      />
     </template>
   </BaseDialog>
 </template>
