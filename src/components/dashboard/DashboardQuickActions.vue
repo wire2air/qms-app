@@ -25,7 +25,7 @@ const actions = [
 </script>
 
 <template>
-  <DashboardWidgetCard title="Quick Actions">
+  <DashboardWidgetCard title="Quick Actions" tone="violet">
     <div class="tw:grid tw:grid-cols-2 tw:gap-2 tw:p-3">
       <RouterLink
         v-for="a in actions"

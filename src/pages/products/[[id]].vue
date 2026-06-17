@@ -5,5 +5,6 @@ defineOptions({
 </script>
 
 <template>
-  <ProductsIndex />
+  <ProductsIndex :id="$route.params.id" />
 </template>
+

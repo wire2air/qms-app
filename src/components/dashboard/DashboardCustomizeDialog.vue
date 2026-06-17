@@ -29,7 +29,10 @@ function save() {
 <template>
   <BaseDialog v-model="show" title="Customize Dashboard" size="md">
     <div class="tw:p-5 tw:flex tw:flex-col tw:gap-1">
-      <p class="tw:text-sm tw:text-secondary tw:mb-2">Choose what appears on your dashboard.</p>
+      <p class="tw:text-sm tw:text-secondary tw:mb-2">
+        Choose what appears on your dashboard. Tip: drag a panel by the grip in its header to
+        reorder it.
+      </p>
       <label
         v-for="w in widgets"
         :key="w.id"

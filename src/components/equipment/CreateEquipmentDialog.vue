@@ -36,7 +36,10 @@ const category = ref(null)
 const siteId = ref(null)
 const departmentId = ref(null)
 const supplierId = ref(null)
+const ownerUserId = ref(null)
 const statusId = ref('IN_SERVICE')
+const requiresCalibration = ref(false)
+const calibrationIntervalMonths = ref(null)
 const locationText = ref('')
 const notes = ref('')
 // Date fields — bound to <input type="date"> which speaks
@@ -91,7 +94,10 @@ watch(open, (isOpen) => {
   siteId.value = e?.siteId ?? null
   departmentId.value = e?.departmentId ?? null
   supplierId.value = e?.supplierId ?? null
+  ownerUserId.value = e?.ownerUserId ?? null
   statusId.value = e?.statusId ?? 'IN_SERVICE'
+  requiresCalibration.value = e?.requiresCalibration ?? false
+  calibrationIntervalMonths.value = e?.calibrationIntervalMonths ?? null
   locationText.value = e?.locationText ?? ''
   notes.value = e?.notes ?? ''
   installedAt.value = toDateInput(e?.installedAt)
@@ -128,7 +134,12 @@ function buildPayload() {
     siteId: siteId.value || null,
     departmentId: departmentId.value || null,
     supplierId: supplierId.value || null,
+    ownerUserId: ownerUserId.value || null,
     statusId: statusId.value,
+    requiresCalibration: requiresCalibration.value,
+    calibrationIntervalMonths: requiresCalibration.value
+      ? Number(calibrationIntervalMonths.value) || null
+      : null,
     locationText: locationText.value?.trim() || null,
     notes: notes.value?.trim() || null,
     // Dates: empty string from the date input → null; otherwise send
@@ -283,6 +294,20 @@ function close() {
             Department (optional)
           </label>
           <DepartmentSelectMenu v-model="departmentId" />
+          <div class="tw:text-[11px] tw:text-secondary tw:mt-1">
+            Calibration reminders escalate to the department's supervisor.
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
+          Owner / custodian (optional)
+        </label>
+        <UserSelectMenu v-model="ownerUserId" />
+        <div class="tw:text-[11px] tw:text-secondary tw:mt-1">
+          The responsible person — notified first about calibration. Falls back to the department
+          supervisor.
         </div>
       </div>
 
@@ -294,6 +319,30 @@ function close() {
           v-model="locationText"
           placeholder="e.g. Rack 3, Bay B; Lab 2; East wall freezer"
         />
+      </div>
+
+      <!-- Calibration program. requiresCalibration flags the instrument as
+           calibration-tracked (drives the daily due reminder); the interval
+           auto-computes the next due each time a calibration is recorded. -->
+      <div class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/40 tw:p-3 tw:flex tw:flex-col tw:gap-3">
+        <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:select-none">
+          <BaseCheckbox v-model="requiresCalibration" />
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">Requires calibration</span>
+        </label>
+        <div v-if="requiresCalibration" class="tw:w-48">
+          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
+            Calibration interval (months)
+          </label>
+          <BaseTextInput
+            v-model.number="calibrationIntervalMonths"
+            type="number"
+            min="1"
+            placeholder="e.g. 12"
+          />
+          <div class="tw:text-[11px] tw:text-secondary tw:mt-1">
+            Used to roll the next-due date forward when a calibration is recorded.
+          </div>
+        </div>
       </div>
 
       <!-- Lifecycle + maintenance dates. All optional. The list page

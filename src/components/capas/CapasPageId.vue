@@ -4,16 +4,26 @@ import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
+import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 const props = defineProps({
   id: { type: String, required: true },
 })
 
 const router = useRouter()
+const route = useRoute()
+const { visit: visitTrail } = useRecordTrail()
 
 const capa = useLiveQueryWithDeps([() => props.id], async (db, [id]) => db.Capa.findByPk(id), {
   models: ['Capa'],
 })
+watch(
+  capa,
+  (c) => {
+    if (c?.id) visitTrail({ type: 'CAPA', id: c.id, label: c.capaNumber, path: route.path })
+  },
+  { immediate: true },
+)
 
 const loading = computed(() => capa.value === undefined)
 
@@ -348,7 +358,6 @@ const sourceNc = useLiveQueryWithDeps(
 )
 
 const editingTitle = ref(false)
-const editingDescription = ref(false)
 
 // Cross-module shortcut: spawn a Change Request seeded from this CAPA.
 const canCreateChangeRequest = computed(() => isAllowed(['changeRequests:create']))
@@ -429,6 +438,7 @@ function onCreateLinkedChangeRequest() {
 
     <div v-else-if="capa" class="tw:overflow-y-auto tw:flex-1">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+        <RecordTrailBreadcrumb />
         <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_25fr] tw:gap-4 tw:items-start">
           <!-- Left column -->
           <div class="tw:flex tw:flex-col tw:gap-4">
@@ -481,28 +491,14 @@ function onCreateLinkedChangeRequest() {
                 {{ capa.title }}
               </div>
 
-              <div v-if="editingDescription && isEditable" class="capa-detail-editor tw:mb-4">
-                <BaseRichTextEditor
-                  v-model="capa.description"
-                  placeholder="Add a description…"
-                  @blur="editingDescription = false"
-                />
-              </div>
-              <div v-else class="tw:mb-4" @click="isEditable && (editingDescription = true)">
-                <div
-                  v-if="capa.description"
-                  class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:prose tw:max-w-none"
-                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                  v-html="capa.description"
-                />
-                <p
-                  v-else
-                  class="tw:text-sm tw:text-secondary tw:leading-relaxed"
-                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                >
-                  {{ isEditable ? 'Add a description…' : '—' }}
-                </p>
-              </div>
+              <BaseRichTextField
+                v-model="capa.description"
+                :editable="isEditable"
+                clickToEdit
+                clickToEditLabel="Add a description…"
+                placeholder="Add a description…"
+                class="tw:mb-4"
+              />
 
               <div class="tw:grid tw:grid-cols-3 tw:gap-3">
                 <div class="tw:flex tw:flex-col tw:gap-1">
@@ -891,10 +887,3 @@ function onCreateLinkedChangeRequest() {
     </BaseDialog>
   </div>
 </template>
-
-<style scoped>
-.capa-detail-editor :deep(.rich-text-editor-content) {
-  max-height: 12rem;
-  overflow-y: auto;
-}
-</style>

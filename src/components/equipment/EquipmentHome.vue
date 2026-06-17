@@ -1,6 +1,14 @@
 <script setup>
-import { IconTool, IconPlus, IconSearch, IconAlertCircle, IconCalendar } from '@tabler/icons-vue'
+import {
+  IconTool,
+  IconPlus,
+  IconSearch,
+  IconAlertCircle,
+  IconCalendar,
+  IconCalendarCheck,
+} from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { DateTime } from 'luxon'
 
 /**
@@ -14,6 +22,7 @@ import { DateTime } from 'luxon'
  */
 const canCreate = computed(() => isAllowed(['equipment:create']))
 const canUpdate = computed(() => isAllowed(['equipment:update']))
+const toast = useToast()
 
 const showCreateDialog = ref(false)
 
@@ -103,6 +112,25 @@ function onUpdated() {
   // SyncEngine handles the IDB write + live-query refresh — nothing
   // to do here beyond closing the dialog (which the dialog handles).
   editingEquipment.value = null
+}
+
+// ─── Record calibration (quick action) ────────────────────────────
+// Stamps "calibrated today" and rolls next_calibration_due forward by the
+// instrument's interval (server-side). Documentation of the event still goes
+// in the Calibration Log. Requires an interval to be set on the instrument.
+const recordingId = ref(null)
+async function recordCalibration(e) {
+  if (recordingId.value) return
+  recordingId.value = e.id
+  try {
+    // Action RPC — the synced row refreshes via the sync socket.
+    await post(`/v1/services/equipment/${e.id}/record-calibration`, {})
+    toast.success(`Calibration recorded for ${e.name}`)
+  } catch (err) {
+    toast.error(err?.message || 'Failed to record calibration')
+  } finally {
+    recordingId.value = null
+  }
 }
 </script>
 
@@ -196,6 +224,7 @@ function onUpdated() {
             <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Status</th>
             <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Next calibration</th>
             <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Next PM</th>
+            <th class="tw:px-3 tw:py-2"></th>
           </tr>
         </thead>
         <tbody>
@@ -262,6 +291,19 @@ function onUpdated() {
                 {{ fmtDate(e.nextPmDue) }}
               </span>
               <span v-else class="tw:text-secondary">—</span>
+            </td>
+            <td class="tw:px-3 tw:py-2 tw:text-right" @click.stop>
+              <button
+                v-if="canUpdate && e.requiresCalibration"
+                type="button"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:disabled:opacity-50"
+                :disabled="recordingId === e.id"
+                :title="'Mark calibrated today and roll the next-due date forward'"
+                @click="recordCalibration(e)"
+              >
+                <IconCalendarCheck :size="14" />
+                {{ recordingId === e.id ? 'Recording…' : 'Record calibration' }}
+              </button>
             </td>
           </BaseClickableRow>
         </tbody>

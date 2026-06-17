@@ -50,6 +50,10 @@ import {
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { useSidebar } from '@/composables/useSidebar'
 import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
+import { useRecordTrail } from '@/composables/useRecordTrail.js'
+
+// Leaving a record context via the left nav starts a fresh record trail.
+const { reset: resetTrail } = useRecordTrail()
 
 const { visible, isDesktop, closeMobile } = useSidebar()
 const route = useRoute()
@@ -467,6 +471,7 @@ const navItems = computed(() => {
         <RouterLink
           :to="getCompanyPath('/dashboard')"
           class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:-m-1 tw:p-1 tw:hover:bg-main-hover tw:transition-colors"
+          @click="resetTrail"
         >
           <div v-if="logoUrl">
             <img :src="logoUrl" alt="Company Logo" class="tw:w-10 tw:h-10 tw:rounded" />
@@ -517,6 +522,7 @@ const navItems = computed(() => {
                   :to="child.to"
                   class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:px-3 tw:py-2 tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:no-underline"
                   :class="isActive(child.to) ? 'tw:bg-main-selected tw:text-primary' : ''"
+                  @click="resetTrail"
                 >
                   <component :is="child.icon" :size="20" />
                   <span class="tw:text-sm tw:font-medium">{{ child.label }}</span>
@@ -531,6 +537,7 @@ const navItems = computed(() => {
               :to="item.to"
               class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:px-3 tw:py-2 tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:no-underline"
               :class="isActive(item.to) ? 'tw:bg-main-selected tw:text-primary!' : ''"
+              @click="resetTrail"
             >
               <component :is="item.icon" :size="24" />
               <span class="tw:text-sm tw:font-medium">{{ item.label }}</span>

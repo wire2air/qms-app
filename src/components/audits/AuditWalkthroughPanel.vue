@@ -915,7 +915,7 @@ function summarizeFinding() {
               >
                 Auditor Notes
               </p>
-              <BaseRichTextEditor
+              <BaseRichTextField
                 :modelValue="currentBuffer?.auditorNotes"
                 :editable="!readonly"
                 placeholder="Your private working notes for this clause — observations, leads to follow, reminders…"
@@ -926,7 +926,7 @@ function summarizeFinding() {
                   <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
                   <AiVoiceToTextButton v-if="canUseAi" :append="append" />
                 </template>
-              </BaseRichTextEditor>
+              </BaseRichTextField>
             </div>
           </div>
         </div>

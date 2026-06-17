@@ -19,7 +19,7 @@ const lots = useLiveQuery(
 </script>
 
 <template>
-  <DashboardWidgetCard title="QC Inspection Lots" :count="lots.length" linkTo="/qc-inspection">
+  <DashboardWidgetCard title="QC Inspection Lots" :count="lots.length" linkTo="/qc-inspection" tone="teal">
     <BaseEmptyState v-if="!lots.length" dense :icon="IconCircleCheck" title="No lots in progress" />
     <RouterLink
       v-for="l in lots.slice(0, 5)"

@@ -31,14 +31,29 @@ const products = useLiveQuery(async (db) => db.Product.where().exec(), {
   initial: [],
 })
 
+// Ids currently selected — kept visible in the list even if inactive, so the
+// dropdown doesn't drop an existing selection (BaseSelectMenu clears a value
+// that's not among its items).
+const selectedIds = computed(() =>
+  Array.isArray(modelValue.value)
+    ? modelValue.value
+    : modelValue.value
+      ? [modelValue.value]
+      : [],
+)
+
 // QMS users key off the SKU#, so the dropdown lists (and searches) each item
 // as "SKU - Item name". The selected chip renders via ProductBadge(ById) which
-// already leads with the SKU. id stays the product id.
+// already leads with the SKU. id stays the product id. Only ACTIVE items are
+// offered (plus any already-selected one), so retired/discontinued products
+// aren't pickable for new work.
 const productItems = computed(() =>
-  products.value.map((p) => ({
-    id: p.id,
-    name: p.sku ? `${p.sku} - ${p.name}` : p.name,
-  })),
+  products.value
+    .filter((p) => p.statusId === 'ACTIVE' || selectedIds.value.includes(p.id))
+    .map((p) => ({
+      id: p.id,
+      name: p.sku ? `${p.sku} - ${p.name}` : p.name,
+    })),
 )
 
 const canCreateProduct = computed(() => props.allowCreate && isAllowed(['products:create']))

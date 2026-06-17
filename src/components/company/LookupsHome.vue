@@ -10,6 +10,7 @@ import { IconList } from '@tabler/icons-vue'
 const tabs = [
   { id: 'nc-dispositions', label: 'NC Dispositions' },
   { id: 'nc-issue-types', label: 'NC Issue Types' },
+  { id: 'product-families', label: 'Product Families' },
   { id: 'supplier-certificate-types', label: 'Supplier Certificates' },
   { id: 'audit-standard-types', label: 'Audit Standard Types' },
   { id: 'audit-finding-categories', label: 'Audit Finding Categories' },
@@ -56,6 +57,7 @@ watch(
 
       <NcDispositionTypesCard v-if="activeTab === 'nc-dispositions'" />
       <NcIssueTypesCard v-else-if="activeTab === 'nc-issue-types'" />
+      <ProductFamiliesCard v-else-if="activeTab === 'product-families'" />
       <SupplierCertificateTypesCard v-else-if="activeTab === 'supplier-certificate-types'" />
       <AuditStandardTypesCard v-else-if="activeTab === 'audit-standard-types'" />
       <AuditFindingCategoriesCard v-else-if="activeTab === 'audit-finding-categories'" />

@@ -96,6 +96,29 @@ const tallies = computed(() => {
   return out
 })
 
+// Per-sample-unit verdict: a unit is defective (FAIL) if ANY of its
+// characteristics fail; PASS once at least one cell is evaluated and none fail.
+// This is the unit-level pass/fail that the AQL acceptance aggregates.
+function sampleOutcome(s) {
+  let anyFail = false
+  let anyEval = false
+  for (const c of props.characteristics) {
+    const o = cellOutcome(c, grid.value[s]?.[c.id])
+    if (o === 'FAIL') anyFail = true
+    if (o !== 'NA') anyEval = true
+  }
+  if (anyFail) return 'FAIL'
+  return anyEval ? 'PASS' : 'NA'
+}
+function unitBadgeClass(o) {
+  if (o === 'FAIL') return 'tw:bg-red-100 tw:text-red-700'
+  if (o === 'PASS') return 'tw:bg-green-100 tw:text-green-700'
+  return 'tw:bg-gray-100 tw:text-gray-500'
+}
+const defectiveUnits = computed(
+  () => sampleRows.value.filter((s) => sampleOutcome(s) === 'FAIL').length,
+)
+
 function cellClass(c, s) {
   const o = cellOutcome(c, grid.value[s]?.[c.id])
   if (o === 'PASS') return 'tw:border-green-300 tw:bg-green-50/40'
@@ -178,29 +201,31 @@ defineExpose({ buildPayload })
             :key="c.id"
             class="tw:px-3 tw:py-2 tw:text-left tw:border-b tw:border-r tw:border-divider tw:min-w-36 tw:align-top"
           >
-            <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
-              <div>
-                <div class="tw:font-semibold tw:text-on-main">
-                  {{ c.name }}
-                  <DefectSeverityBadgeById
-                    :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')"
-                    class="tw:ml-1 tw:text-[10px]"
-                  />
-                </div>
-                <div class="tw:text-[11px] tw:text-secondary tw:font-normal">
-                  {{ limitText(c) || '—' }}
-                </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:font-semibold tw:text-on-main">
+                {{ c.name }}
+                <DefectSeverityBadgeById
+                  :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')"
+                  class="tw:ml-1 tw:text-[10px]"
+                />
+              </div>
+              <div class="tw:text-[11px] tw:text-secondary tw:font-normal">
+                {{ limitText(c) || '—' }}
               </div>
               <button
-                v-if="!readonly"
+                v-if="!readonly && sampleSize > 1"
                 type="button"
-                title="Fill the first value down the column"
-                class="tw:shrink-0 tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0.5"
+                class="tw:mt-0.5 tw:inline-flex tw:items-center tw:gap-1 tw:self-start tw:text-[10px] tw:font-medium tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
                 @click="fillDown(c)"
               >
-                <IconArrowBarToDown :size="15" />
+                <IconArrowBarToDown :size="13" /> Fill ↓
               </button>
             </div>
+          </th>
+          <th
+            class="tw:px-3 tw:py-2 tw:text-left tw:text-xs tw:text-secondary tw:uppercase tw:border-b tw:border-divider tw:w-20"
+          >
+            Unit
           </th>
         </tr>
       </thead>
@@ -240,6 +265,16 @@ defineExpose({ buildPayload })
               @paste="(e) => onPaste(e, c, s)"
             />
           </td>
+          <td class="tw:px-3 tw:py-1.5 tw:border-r tw:border-divider/60 tw:text-center">
+            <span
+              v-if="sampleOutcome(s) !== 'NA'"
+              class="tw:text-[10px] tw:font-bold tw:px-2 tw:py-0.5 tw:rounded-full"
+              :class="unitBadgeClass(sampleOutcome(s))"
+            >
+              {{ sampleOutcome(s) === 'FAIL' ? 'FAIL' : 'PASS' }}
+            </span>
+            <span v-else class="tw:text-xs tw:text-secondary">—</span>
+          </td>
         </tr>
       </tbody>
       <tfoot class="tw:sticky tw:bottom-0 tw:bg-main-hover">
@@ -259,6 +294,11 @@ defineExpose({ buildPayload })
             <span :class="tallies[c.id].fail ? 'tw:text-red-700 tw:font-semibold' : 'tw:text-secondary'"
               >{{ tallies[c.id].fail }}✗</span
             >
+          </td>
+          <td class="tw:px-3 tw:py-2 tw:border-t tw:border-r tw:border-divider tw:text-xs tw:text-center">
+            <span :class="defectiveUnits ? 'tw:text-red-700 tw:font-semibold' : 'tw:text-secondary'">
+              {{ defectiveUnits }} def.
+            </span>
           </td>
         </tr>
       </tfoot>

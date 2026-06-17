@@ -6,14 +6,23 @@
  * server-side against the spec limits; capture is blocked when the instrument's
  * calibration has lapsed (CALIBRATION_EXPIRED).
  */
-import { IconArrowLeft, IconExternalLink, IconAlertTriangle } from '@tabler/icons-vue'
+import {
+  IconExternalLink,
+  IconAlertTriangle,
+  IconChevronRight,
+  IconChevronDown,
+} from '@tabler/icons-vue'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
+
+const { visit: visitTrail } = useRecordTrail()
 const saving = ref(false)
 const acting = ref(false)
 const showSubmit = ref(false)
@@ -28,6 +37,19 @@ const lot = useLiveQueryWithDeps(
   async (db, [id]) => db.InspectionLot.findByPk(id),
   { models: ['InspectionLot'] },
 )
+watch(
+  lot,
+  (l) => {
+    if (l?.id) visitTrail({ type: 'Lot', id: l.id, label: l.lotNumber, path: route.path })
+  },
+  { immediate: true },
+)
+
+// Module breadcrumb (replaces the ad-hoc "Back to QC Inspection" button).
+const moduleCrumbs = computed(() => [
+  { label: 'QC Inspection', to: getCompanyPath('/qc-inspection') },
+  { label: lot.value?.lotNumber || 'Lot' },
+])
 const results = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => db.InspectionResult.where('inspectionLotId', id).exec(),
@@ -35,24 +57,6 @@ const results = useLiveQueryWithDeps(
   { models: ['InspectionResult'], initial: [] },
 )
 
-const creator = useLiveQueryWithDeps(
-  [() => lot.value?.createdBy],
-
-  async (db, [userId]) => (userId ? db.User.findByPk(userId) : null),
-  { models: ['User'] },
-)
-const inspector = useLiveQueryWithDeps(
-  [() => lot.value?.assignedTo],
-
-  async (db, [userId]) => (userId ? db.User.findByPk(userId) : null),
-  { models: ['User'] },
-)
-const workflowInstance = useLiveQueryWithDeps(
-  [() => lot.value?.workflowInstanceId],
-
-  async (db, [wfId]) => (wfId ? db.WorkflowInstance.findByPk(wfId) : null),
-  { models: ['WorkflowInstance'] },
-)
 const product = useLiveQueryWithDeps(
   [() => lot.value?.productId],
 
@@ -79,11 +83,6 @@ const calibrationOverdue = computed(() => {
   return Boolean(due && due.toMillis() < Date.now())
 })
 
-function userName(user) {
-  if (!user) return '—'
-  return [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || '—'
-}
-
 const POINT_LABELS = {
   INCOMING: 'Incoming',
   IN_PROCESS: 'In-process',
@@ -105,8 +104,8 @@ const resultByChar = computed(() => {
 })
 
 // Local capture entries seeded from saved results. equipmentId is the
-// per-row instrument override (only used for requiresInstrument rows);
-// null = fall back to the lot-level default instrument.
+// per-row instrument: a saved value wins, else the test's preferred
+// instrument (from the spec snapshot), else null = the lot-level default.
 const entries = ref({})
 watch(
   [characteristics, results],
@@ -118,7 +117,7 @@ watch(
         valueNumeric: r?.valueNumeric ?? null,
         valueText: r?.valueText ?? '',
         valueBool: r?.valueBool ?? null,
-        equipmentId: r?.equipmentId ?? null,
+        equipmentId: r?.equipmentId ?? c.preferredEquipmentId ?? null,
         notes: r?.notes ?? '',
       }
     }
@@ -131,14 +130,8 @@ const anyRequiresInstrument = computed(() =>
   characteristics.value.some((c) => c.requiresInstrument),
 )
 
-// Terminal lot statuses mirror the QA disposition outcome (mapped from the
-// shared disposition lookup by the backend handler).
-const TERMINAL_STATUSES = ['RELEASED', 'USE_AS_IS', 'REGRADE', 'REWORK', 'RETURN_TO_SUPPLIER', 'REJECTED', 'HOLD', 'CLOSED']
 // Adverse outcomes that may warrant a nonconformance.
 const ADVERSE_STATUSES = ['REWORK', 'RETURN_TO_SUPPLIER', 'REJECTED', 'HOLD']
-const isLocked = computed(() =>
-  [...TERMINAL_STATUSES, 'UNDER_REVIEW'].includes(lot.value?.statusId),
-)
 const isUnderReview = computed(() => lot.value?.statusId === 'UNDER_REVIEW')
 const isAdverse = computed(() => ADVERSE_STATUSES.includes(lot.value?.statusId))
 
@@ -147,8 +140,18 @@ const isAdverse = computed(() => ADVERSE_STATUSES.includes(lot.value?.statusId))
 // The mode is only switchable while actively capturing (pre-COMPLETED), since
 // updateLot freezes reference fields once the lot leaves DRAFT/PENDING/IN_PROGRESS.
 const isSampleMode = computed(() => lot.value?.captureMode === 'SAMPLE')
+// Per-sample data was actually captured (any result on a unit beyond #1).
+const hasPerSampleResults = computed(() => results.value.some((r) => (r.sampleIndex ?? 1) > 1))
+// Render the per-sample data sheet when in SAMPLE mode OR when per-sample
+// results exist — so a completed/dispositioned lot keeps showing its data sheet
+// (read-only) regardless of how captureMode reads back after the transition.
+const showSampleGrid = computed(() => isSampleMode.value || hasPerSampleResults.value)
 const canSampleCapture = computed(() => (lot.value?.sampleSize ?? 0) > 1)
 const isCapturing = computed(() => ['DRAFT', 'PENDING', 'IN_PROGRESS'].includes(lot.value?.statusId))
+// Results are editable/saveable only while the lot is actively being captured
+// (DRAFT/PENDING/IN_PROGRESS). Once COMPLETED — and through review/disposition —
+// they're frozen: no Save button, inputs read-only.
+const canEditResults = computed(() => canExecute.value && isCapturing.value)
 const sampleGridRef = ref(null)
 const savingMode = ref(false)
 async function setCaptureMode(mode) {
@@ -168,21 +171,78 @@ async function setCaptureMode(mode) {
 // reference above the per-sample grid (instructions are per-characteristic).
 const charsWithInstructions = computed(() => characteristics.value.filter((c) => c.testMethod))
 
+// ── Collapsible detail (default collapsed) ──────────────────────────────────
+// Per-sample mode: the whole "Test instructions" block above the grid.
+const showSampleInstructions = ref(false)
+
+// Single-result table: per-characteristic Evidence & Instructions detail rows.
+const expandedDetail = ref(new Set())
+function toggleDetail(id) {
+  const s = new Set(expandedDetail.value)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
+  expandedDetail.value = s
+}
+function isDetailOpen(id) {
+  return expandedDetail.value.has(id)
+}
+function canCaptureEvidence(c) {
+  return canEditResults.value || !!entries.value[c.id]?.notes
+}
+function rowHasDetail(c) {
+  return canCaptureEvidence(c) || !!c.testMethod
+}
+function detailLabel(c) {
+  const ev = canCaptureEvidence(c)
+  const instr = !!c.testMethod
+  if (ev && instr) return 'Evidence & instructions'
+  if (ev) return 'Evidence & comments'
+  if (instr) return 'Instructions'
+  return 'Details'
+}
+
 // Per-severity accept/reject (Ac/Re) from the lot's sampling snapshot — drives
 // the attributes/defects panel. Empty unless a STANDARD sampling plan resolved it.
 const lotPerSeverity = computed(() => lot.value?.samplingSnapshot?.perSeverity ?? [])
 
-// Failing characteristic results counted as defects of their defect class —
-// folded into the Defects panel's per-severity tally (combined with logged defects).
-const characteristicFails = computed(() => {
+// Defective UNITS per defect class — drives the AQL Acceptance panel.
+//
+// Per the percent-defective AQL model (ANSI/ASQ Z1.4 · ISO 2859-1), acceptance
+// counts nonconforming UNITS, not individual nonconformities.
+//
+//  • PER-SAMPLE capture: a sampled unit is ONE defective for a class if ANY of
+//    its characteristics of that class fail. A unit failing six Major tests is
+//    still ONE Major defective. Classes are tallied independently.
+//
+//  • SINGLE-RESULT capture: the one judgment APPLIES TO THE WHOLE SAMPLE — there
+//    are no per-unit readings. A failing characteristic therefore means every
+//    inspected unit is defective for that class, so the count is the full sample
+//    size (n), which trips the class's reject number → REJECT. (A pass leaves
+//    the class at 0 → ACCEPT.)
+const defectiveUnitsByClass = computed(() => {
   const classById = new Map(
     characteristics.value.map((c) => [c.id, c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')]),
   )
   const byClass = {}
+
+  if (hasPerSampleResults.value) {
+    const unitsByClass = {} // class -> Set<sampleIndex>
+    for (const r of results.value) {
+      if (r.outcome !== 'FAIL') continue
+      const cls = classById.get(r.characteristicId) || 'MAJOR'
+      if (!unitsByClass[cls]) unitsByClass[cls] = new Set()
+      unitsByClass[cls].add(r.sampleIndex ?? 1)
+    }
+    for (const [cls, set] of Object.entries(unitsByClass)) byClass[cls] = set.size
+    return byClass
+  }
+
+  // Single-result mode: a class fails the whole sample → n defectives.
+  const n = Math.max(lot.value?.sampleSize ?? 0, 1)
   for (const r of results.value) {
     if (r.outcome !== 'FAIL') continue
     const cls = classById.get(r.characteristicId) || 'MAJOR'
-    byClass[cls] = (byClass[cls] ?? 0) + 1
+    byClass[cls] = n
   }
   return byClass
 })
@@ -202,7 +262,7 @@ async function saveResults() {
   try {
     // SAMPLE mode: one row per (characteristic, sample) from the grid. LOT
     // mode: one row per characteristic at sampleIndex 1 (the simplified model).
-    const payload = isSampleMode.value
+    const payload = showSampleGrid.value
       ? sampleGridRef.value?.buildPayload() ?? []
       : characteristics.value.map((c) => ({
           characteristicId: c.id,
@@ -289,13 +349,10 @@ async function saveDispositionNotes() {
 
 <template>
   <div v-if="lot" class="tw:p-5 tw:max-w-7xl tw:mx-auto tw:flex tw:flex-col tw:gap-5">
-    <button
-      type="button"
-      class="tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary tw:hover:text-on-main tw:bg-transparent tw:border-0 tw:cursor-pointer tw:self-start"
-      @click="router.push(getCompanyPath('/qc-inspection'))"
-    >
-      <IconArrowLeft :size="16" /> Back to QC Inspection
-    </button>
+    <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap tw:text-sm">
+      <BaseBreadcrumbs :items="moduleCrumbs" />
+      <RecordTrailBreadcrumb />
+    </div>
 
     <!-- Header -->
     <div class="tw:flex tw:items-start tw:justify-between tw:gap-4">
@@ -308,6 +365,19 @@ async function saveDispositionNotes() {
           {{ POINT_LABELS[lot.inspectionPoint] || lot.inspectionPoint }} · sample
           {{ lot.sampleSize ?? '—' }}<span v-if="lot.quantity"> of {{ lot.quantity }}</span>
           <span v-if="lot.qualityState"> · {{ lot.qualityState }}</span>
+        </div>
+        <!-- Key identifiers (overview panel removed from this page) -->
+        <div
+          v-if="product || supplier || lot.batchNumber || lot.poNumber || equipment"
+          class="tw:text-sm tw:text-secondary tw:mt-0.5 tw:flex tw:flex-wrap tw:items-center tw:gap-x-1.5 tw:gap-y-0.5"
+        >
+          <span v-if="product" class="tw:text-on-main tw:font-medium">
+            {{ product.name }}<span v-if="product.sku" class="tw:font-mono tw:font-normal tw:text-secondary"> · {{ product.sku }}</span>
+          </span>
+          <span v-if="supplier">· {{ supplier.name }}</span>
+          <span v-if="lot.batchNumber">· Batch {{ lot.batchNumber }}</span>
+          <span v-if="lot.poNumber">· PO {{ lot.poNumber }}</span>
+          <span v-if="equipment">· {{ equipment.name }}</span>
         </div>
       </div>
       <div class="tw:flex tw:items-center tw:gap-2">
@@ -435,10 +505,8 @@ async function saveDispositionNotes() {
       <InspectionLotDispositionAction v-if="canDispose" :lotId="lot.id" />
     </div>
 
-    <!-- Two-column: results on left, overview on right -->
-    <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_35fr] tw:gap-5 tw:items-start">
-      <!-- Left column: results (variables) + defects (attributes) -->
-      <div class="tw:flex tw:flex-col tw:gap-5">
+    <!-- Results (variables) + defects (attributes) — full width -->
+    <div class="tw:flex tw:flex-col tw:gap-5">
       <!-- Results capture grid -->
       <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
         <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
@@ -471,7 +539,7 @@ async function saveDispositionNotes() {
             </div>
           </div>
           <BaseButton
-            v-if="canExecute && !isLocked"
+            v-if="canEditResults"
             variant="primary"
             size="sm"
             :loading="saving"
@@ -483,17 +551,28 @@ async function saveDispositionNotes() {
         </div>
 
         <!-- Per-sample data sheet -->
-        <div v-if="isSampleMode" class="tw:p-4 tw:flex tw:flex-col tw:gap-4">
+        <div v-if="showSampleGrid" class="tw:p-4 tw:flex tw:flex-col tw:gap-4">
           <div v-if="charsWithInstructions.length" class="tw:flex tw:flex-col tw:gap-2">
-            <div
-              v-for="c in charsWithInstructions"
-              :key="c.id"
-              class="tw:bg-blue-50/40 tw:rounded-lg tw:p-3 tw:border tw:border-blue-100"
+            <button
+              type="button"
+              class="tw:inline-flex tw:items-center tw:gap-1.5 tw:self-start tw:text-xs tw:font-semibold tw:text-secondary tw:hover:text-on-main tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              @click="showSampleInstructions = !showSampleInstructions"
             >
-              <div class="tw:text-[10px] tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wide tw:mb-1.5">
-                {{ c.name }} — Instructions
+              <IconChevronDown v-if="showSampleInstructions" :size="14" />
+              <IconChevronRight v-else :size="14" />
+              Test instructions ({{ charsWithInstructions.length }})
+            </button>
+            <div v-if="showSampleInstructions" class="tw:flex tw:flex-col tw:gap-2">
+              <div
+                v-for="c in charsWithInstructions"
+                :key="c.id"
+                class="tw:bg-blue-50/40 tw:rounded-lg tw:p-3 tw:border tw:border-blue-100"
+              >
+                <div class="tw:text-[10px] tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wide tw:mb-1.5">
+                  {{ c.name }} — Instructions
+                </div>
+                <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
               </div>
-              <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
             </div>
           </div>
           <InspectionSampleGrid
@@ -502,7 +581,7 @@ async function saveDispositionNotes() {
             :characteristics="characteristics"
             :sampleSize="lot.sampleSize"
             :results="results"
-            :readonly="isLocked || !canExecute"
+            :readonly="!canEditResults"
           />
           <p v-else class="tw:text-center tw:text-secondary tw:py-6">
             No specification linked to this lot — switch to Single result and pick a Specification via Edit.
@@ -524,8 +603,25 @@ async function saveDispositionNotes() {
               <!-- ── Row 1: measurement entry ─────────────────────────── -->
               <tr class="tw:border-t tw:border-divider">
                 <td class="tw:px-5 tw:py-2.5 tw:font-medium tw:text-on-main tw:align-middle">
-                  {{ c.name }}
-                  <DefectSeverityBadgeById :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')" class="tw:ml-1 tw:text-[10px]" />
+                  <div class="tw:flex tw:items-center tw:gap-1.5">
+                    {{ c.name }}
+                    <DefectSeverityBadgeById :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')" class="tw:text-[10px]" />
+                  </div>
+                  <button
+                    v-if="rowHasDetail(c)"
+                    type="button"
+                    class="tw:mt-1 tw:inline-flex tw:items-center tw:gap-1 tw:text-[11px] tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                    @click="toggleDetail(c.id)"
+                  >
+                    <IconChevronDown v-if="isDetailOpen(c.id)" :size="12" />
+                    <IconChevronRight v-else :size="12" />
+                    {{ detailLabel(c) }}
+                    <span
+                      v-if="entries[c.id]?.notes"
+                      class="tw:w-1.5 tw:h-1.5 tw:rounded-full tw:bg-primary"
+                      title="Has captured notes"
+                    ></span>
+                  </button>
                 </td>
                 <td class="tw:px-5 tw:py-2.5 tw:text-secondary tw:text-xs tw:align-middle">{{ limitText(c) || '—' }}</td>
                 <td class="tw:px-5 tw:py-2.5 tw:align-middle">
@@ -535,7 +631,7 @@ async function saveDispositionNotes() {
                     type="number"
                     size="sm"
                     class="tw:w-32"
-                    :disabled="isLocked || !canExecute"
+                    :disabled="!canEditResults"
                   />
                   <BaseInlineSelect
                     v-else-if="c.testType === 'PASS_FAIL'"
@@ -550,7 +646,7 @@ async function saveDispositionNotes() {
                     v-model="entries[c.id].valueText"
                     size="sm"
                     placeholder="observation"
-                    :disabled="isLocked || !canExecute"
+                    :disabled="!canEditResults"
                   />
                 </td>
                 <td v-if="anyRequiresInstrument" class="tw:px-5 tw:py-2.5 tw:align-middle">
@@ -558,7 +654,7 @@ async function saveDispositionNotes() {
                     v-if="c.requiresInstrument"
                     v-model="entries[c.id].equipmentId"
                     :nullLabel="equipment ? `Lot default (${equipment.name})` : 'Select instrument'"
-                    :disabled="isLocked || !canExecute"
+                    :disabled="!canEditResults"
                     class="tw:w-44"
                   />
                   <span v-else class="tw:text-xs tw:text-secondary">—</span>
@@ -568,20 +664,20 @@ async function saveDispositionNotes() {
                 </td>
               </tr>
 
-              <!-- ── Row 2: evidence & comments ──────────────────────── -->
-              <tr v-if="canExecute && !isLocked || entries[c.id]?.notes" :key="`e-${c.id}`" class="tw:border-t tw:border-divider/50 tw:bg-sidebar/40">
+              <!-- ── Row 2: evidence & comments (collapsible) ────────── -->
+              <tr v-if="isDetailOpen(c.id) && canCaptureEvidence(c)" :key="`e-${c.id}`" class="tw:border-t tw:border-divider/50 tw:bg-sidebar/40">
                 <td :colspan="anyRequiresInstrument ? 5 : 4" class="tw:px-5 tw:py-2.5">
                   <div class="tw:text-[10px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">Evidence &amp; Comments</div>
                   <RichTextAttachments
                     v-model="entries[c.id].notes"
-                    :readonly="isLocked || !canExecute"
+                    :readonly="!canEditResults"
                     placeholder="Add observations, photos, voice notes or attach reference files…"
                   />
                 </td>
               </tr>
 
-              <!-- ── Row 3: instructions from spec ───────────────────── -->
-              <tr v-if="c.testMethod" :key="`i-${c.id}`" class="tw:border-t tw:border-divider/50 tw:bg-blue-50/40">
+              <!-- ── Row 3: instructions from spec (collapsible) ─────── -->
+              <tr v-if="isDetailOpen(c.id) && c.testMethod" :key="`i-${c.id}`" class="tw:border-t tw:border-divider/50 tw:bg-blue-50/40">
                 <td :colspan="anyRequiresInstrument ? 5 : 4" class="tw:px-5 tw:py-2.5">
                   <div class="tw:text-[10px] tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wide tw:mb-1.5">Instructions</div>
                   <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
@@ -607,137 +703,10 @@ async function saveDispositionNotes() {
       <InspectionDefectsPanel
         v-if="lotPerSeverity.length"
         :perSeverity="lotPerSeverity"
-        :characteristicFails="characteristicFails"
+        :defectiveUnits="defectiveUnitsByClass"
+        :sampleSize="lot.sampleSize"
+        :singleResult="!hasPerSampleResults"
       />
-      </div>
-      <!-- /left column -->
-
-      <!-- Overview panel (1/3 width on desktop) -->
-      <div
-        class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:divide-y tw:divide-divider"
-      >
-        <div class="tw:px-4 tw:py-3">
-          <h3 class="tw:font-semibold tw:text-on-main tw:text-sm">Overview</h3>
-        </div>
-        <div class="tw:px-4 tw:py-3 tw:space-y-3 tw:text-sm">
-          <!-- Status -->
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-1">Status</div>
-            <InspectionLotStatusBadgeById :statusId="lot.statusId" />
-          </div>
-          <!-- Inspection point -->
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Inspection Point</div>
-            <div class="tw:text-on-main tw:font-medium">
-              {{ POINT_LABELS[lot.inspectionPoint] || lot.inspectionPoint }}
-            </div>
-          </div>
-          <!-- Product -->
-          <div v-if="product">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Item</div>
-            <div class="tw:text-on-main">
-              {{ product.name }}
-              <span v-if="product.sku" class="tw:text-xs tw:text-secondary tw:font-mono"
-                >· {{ product.sku }}</span
-              >
-            </div>
-          </div>
-          <!-- Supplier -->
-          <div v-if="supplier">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Supplier</div>
-            <div class="tw:text-on-main">{{ supplier.name }}</div>
-          </div>
-          <!-- Batch -->
-          <div v-if="lot.batchNumber">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Batch #</div>
-            <div class="tw:text-on-main tw:font-mono">{{ lot.batchNumber }}</div>
-          </div>
-          <!-- PO -->
-          <div v-if="lot.poNumber">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">PO #</div>
-            <div class="tw:text-on-main tw:font-mono">{{ lot.poNumber }}</div>
-          </div>
-          <!-- Receipt -->
-          <div v-if="lot.receiptNumber">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Receipt #</div>
-            <div class="tw:text-on-main tw:font-mono">{{ lot.receiptNumber }}</div>
-          </div>
-          <!-- Work order -->
-          <div v-if="lot.workOrder">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Work Order</div>
-            <div class="tw:text-on-main tw:font-mono">{{ lot.workOrder }}</div>
-          </div>
-          <!-- Equipment -->
-          <div v-if="equipment">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Equipment</div>
-            <div class="tw:text-on-main">
-              {{ equipment.name }}
-              <span v-if="equipment.code" class="tw:text-xs tw:text-secondary tw:font-mono"
-                >· {{ equipment.code }}</span
-              >
-            </div>
-          </div>
-          <!-- Created -->
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Created</div>
-            <div class="tw:text-on-main">{{ lot.createdAt?.formatDate('date') || '—' }}</div>
-          </div>
-          <!-- Created by -->
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Created By</div>
-            <div class="tw:text-on-main">{{ userName(creator) }}</div>
-          </div>
-          <!-- Inspector -->
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Inspector</div>
-            <div class="tw:text-on-main">{{ userName(inspector) }}</div>
-          </div>
-          <!-- Quantity / sample -->
-          <div v-if="lot.quantity || lot.sampleSize">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Sample Size</div>
-            <div class="tw:text-on-main">
-              {{ lot.sampleSize ?? '—' }}<span v-if="lot.quantity"> of {{ lot.quantity }}</span>
-            </div>
-          </div>
-          <!-- Workflow -->
-          <div v-if="workflowInstance">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Workflow</div>
-            <span
-              class="tw:text-[11px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
-              :class="{
-                'tw:bg-amber-100 tw:text-amber-700': workflowInstance.statusId === 'IN_PROGRESS',
-                'tw:bg-green-100 tw:text-green-700': workflowInstance.statusId === 'COMPLETED',
-                'tw:bg-red-100 tw:text-red-700': workflowInstance.statusId === 'REJECTED',
-                'tw:bg-gray-100 tw:text-gray-600': ![
-                  'IN_PROGRESS',
-                  'COMPLETED',
-                  'REJECTED',
-                ].includes(workflowInstance.statusId),
-              }"
-              >{{ workflowInstance.statusId }}</span
-            >
-          </div>
-          <!-- Quality state -->
-          <div v-if="lot.qualityState">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Quality State</div>
-            <div class="tw:text-on-main tw:font-medium">{{ lot.qualityState }}</div>
-          </div>
-          <!-- Disposition -->
-          <div v-if="lot.dispositionTypeId">
-            <div class="tw:text-xs tw:text-secondary tw:mb-1">Disposition</div>
-            <NcDispositionTypeBadgeById :dispositionTypeId="lot.dispositionTypeId" />
-          </div>
-          <div v-if="lot.dispositionNotes">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Disposition Notes</div>
-            <div class="tw:text-on-main tw:whitespace-pre-wrap">{{ lot.dispositionNotes }}</div>
-          </div>
-          <!-- Notes -->
-          <div v-if="lot.notes">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Notes</div>
-            <div class="tw:text-on-main tw:whitespace-pre-wrap">{{ lot.notes }}</div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <InspectionLotSubmitDialog v-model="showSubmit" :lotId="props.id" />

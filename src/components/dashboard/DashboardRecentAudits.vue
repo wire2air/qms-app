@@ -18,7 +18,7 @@ const audits = useLiveQuery(
 </script>
 
 <template>
-  <DashboardWidgetCard title="Audits" :count="audits.length" linkTo="/audits/instances">
+  <DashboardWidgetCard title="Audits" :count="audits.length" linkTo="/audits/instances" tone="emerald">
     <BaseEmptyState
       v-if="!audits.length"
       dense

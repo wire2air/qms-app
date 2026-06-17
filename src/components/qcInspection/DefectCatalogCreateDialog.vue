@@ -29,6 +29,7 @@ function blank() {
     testType: 'PASS_FAIL',
     testMethod: '',
     requiresInstrument: false,
+    preferredEquipmentId: null,
     targetValue: null,
     lsl: null,
     usl: null,
@@ -51,6 +52,7 @@ watch(open, (isOpen) => {
         testType: d.testType ?? 'PASS_FAIL',
         testMethod: d.testMethod ?? '',
         requiresInstrument: d.requiresInstrument ?? false,
+        preferredEquipmentId: d.preferredEquipmentId ?? null,
         targetValue: d.targetValue ?? null,
         lsl: d.lsl ?? null,
         usl: d.usl ?? null,
@@ -95,6 +97,8 @@ async function save() {
       testType: form.value.testType,
       testMethod: form.value.testMethod.trim() || null,
       requiresInstrument: numeric ? form.value.requiresInstrument : false,
+      preferredEquipmentId:
+        numeric && form.value.requiresInstrument ? form.value.preferredEquipmentId || null : null,
       targetValue: numeric ? form.value.targetValue : null,
       lsl: numeric ? form.value.lsl : null,
       usl: numeric ? form.value.usl : null,
@@ -163,6 +167,18 @@ async function save() {
         <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
           <BaseCheckbox v-model="form.requiresInstrument" /> Instrument
         </label>
+      </div>
+
+      <!-- Preferred instrument — the default gauge for this measured test -->
+      <div
+        v-if="form.testType === 'NUMERIC' && form.requiresInstrument"
+        class="tw:flex tw:flex-col tw:gap-1"
+      >
+        <label class="tw:text-sm tw:font-medium tw:text-secondary">
+          Preferred instrument
+          <span class="tw:font-normal tw:text-secondary">(suggested gauge; drives the calibration check)</span>
+        </label>
+        <EquipmentSelectMenu v-model="form.preferredEquipmentId" nullLabel="— None (pick at capture) —" />
       </div>
 
       <div class="tw:flex tw:flex-col tw:gap-1">

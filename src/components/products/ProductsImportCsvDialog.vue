@@ -16,6 +16,14 @@ const open = defineModel({
 
 const toast = useToast()
 
+const families = useLiveQuery(async (db) => db.ProductFamily.where().exec(), {
+  models: ['ProductFamily'],
+  initial: [],
+})
+const familyByName = computed(
+  () => new Map(families.value.map((f) => [f.name.toLowerCase(), f.id])),
+)
+
 const fileInputRef = ref(null)
 const selectedFile = ref(null)
 const parsedRows = ref([])
@@ -130,7 +138,14 @@ async function handleImport() {
 
   isImporting.value = true
   try {
-    const results = await Promise.allSettled(parsedRows.value.map((row) => createProduct(row)))
+    const resolvedRows = parsedRows.value.map((row) => {
+      const r = { ...row }
+      if (r.productFamilyId) {
+        r.productFamilyId = familyByName.value.get(r.productFamilyId.toLowerCase()) ?? null
+      }
+      return r
+    })
+    const results = await Promise.allSettled(resolvedRows.map((row) => createProduct(row)))
 
     const fulfilled = results.filter((r) => r.status === 'fulfilled').length
     const rejected = results.filter((r) => r.status === 'rejected').length
@@ -178,7 +193,7 @@ const previewRows = computed(() => parsedRows.value.slice(0, 5))
         <div class="tw:text-center">
           <p class="tw:text-sm tw:font-medium tw:text-on-main">Click to select a CSV file</p>
           <p class="tw:text-xs tw:text-secondary tw:mt-1">
-            File must match the exported format: NAME, SKU, FAMILY, PRODUCT TYPE, STATUS
+            File must match the exported format: NAME, SKU, FAMILY, PRODUCT TYPE, STATUS. Family column matches by name.
           </p>
         </div>
         <input
@@ -259,7 +274,7 @@ const previewRows = computed(() => parsedRows.value.slice(0, 5))
                 <td class="tw:px-3 tw:py-2 tw:text-secondary tw:font-mono tw:text-xs">
                   {{ row.sku || '—' }}
                 </td>
-                <td class="tw:px-3 tw:py-2 tw:text-secondary">{{ row.family || '—' }}</td>
+                <td class="tw:px-3 tw:py-2 tw:text-secondary">{{ row.productFamilyId || '—' }}</td>
                 <td class="tw:px-3 tw:py-2 tw:text-secondary">{{ row.productTypeId || '—' }}</td>
                 <td class="tw:px-3 tw:py-2 tw:text-secondary">{{ row.statusId || '—' }}</td>
               </tr>

@@ -27,6 +27,7 @@ const pending = useLiveQuery(
     title="Documents Pending Approval"
     :count="pending.length"
     linkTo="/documents"
+    tone="indigo"
   >
     <BaseEmptyState
       v-if="!pending.length"

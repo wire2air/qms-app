@@ -18,7 +18,7 @@ const ncs = useLiveQuery(
 </script>
 
 <template>
-  <DashboardWidgetCard title="Open Nonconformances" :count="ncs.length" linkTo="/nonconformances">
+  <DashboardWidgetCard title="Open Nonconformances" :count="ncs.length" linkTo="/nonconformances" tone="rose">
     <BaseEmptyState
       v-if="!ncs.length"
       dense
