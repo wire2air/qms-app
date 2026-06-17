@@ -1,28 +1,39 @@
 <script setup>
 /**
- * Sampling-plan picker for the inspection-lot create form. Uses BaseInlineSelect
- * (safe default button — avoids the BaseSelectMenu invisible-trigger issue when
- * no #button slot is wired). Null = auto-resolve from inspection plan.
+ * Sampling-plan picker. When productId + inspectionPoint are provided the list
+ * is pre-filtered to plans for that product+point (or general plans with no
+ * productId for the same point). Null value = auto-resolve from the inspection
+ * plan.
  */
-defineProps({ required: { type: Boolean, default: false } })
+const props = defineProps({
+  required: { type: Boolean, default: false },
+  productId: { type: String, default: null },
+  inspectionPoint: { type: String, default: null },
+})
 const modelValue = defineModel({ type: [String, null], default: null })
 
 const POINT = { INCOMING: 'IQC', IN_PROCESS: 'IPQC', FINAL: 'FQC', OUTGOING: 'OQC' }
 
-const plans = useLiveQuery(
-  async (db) => {
-    const rows = await db.SamplingPlan.where().exec()
+const plans = useLiveQueryWithDeps(
+  [() => props.productId, () => props.inspectionPoint],
+  async (db, [productId, inspectionPoint]) => {
+    const rows = await db.SamplingPlan.where('statusId', 'ACTIVE').exec()
     return rows
-      .filter((p) => p.statusId === 'ACTIVE')
+      .filter((p) => {
+        if (inspectionPoint && p.inspectionPoint !== inspectionPoint) return false
+        if (!productId) return true
+        return p.productId === productId || p.productId === null
+      })
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   },
 
   { models: ['SamplingPlan'], initial: [] },
 )
+
 const items = computed(() =>
   plans.value.map((p) => ({
     id: p.id,
-    name: `${p.name} (${POINT[p.inspectionPoint] || p.inspectionPoint} · ${p.statusId})`,
+    name: `${p.name} (${POINT[p.inspectionPoint] || p.inspectionPoint})`,
   })),
 )
 </script>
@@ -32,8 +43,8 @@ const items = computed(() =>
     v-model="modelValue"
     :items="items"
     :required="required"
-    nullLabel="— Auto-resolve from plan —"
-    placeholder="— Auto-resolve from plan —"
+    nullLabel="Auto Resolve from Plan"
+    placeholder="Auto Resolve from Plan"
     class="tw:w-full"
   />
 </template>

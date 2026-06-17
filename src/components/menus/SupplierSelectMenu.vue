@@ -15,7 +15,7 @@ const modelValue = defineModel({
   default: null,
 })
 
-const suppliers = useLiveQuery((db) => db.Supplier.where().exec(), {
+const suppliers = useLiveQuery((db) => db.Supplier.where('statusId', 'APPROVED').exec(), {
   models: ['Supplier'],
   initial: [],
 })

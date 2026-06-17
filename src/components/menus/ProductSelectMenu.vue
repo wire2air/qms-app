@@ -15,6 +15,10 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  nullLabel: {
+    type: String,
+    default: undefined,
+  },
 })
 
 const modelValue = defineModel({
@@ -26,6 +30,16 @@ const products = useLiveQuery(async (db) => db.Product.where().exec(), {
   models: ['Product'],
   initial: [],
 })
+
+// QMS users key off the SKU#, so the dropdown lists (and searches) each item
+// as "SKU - Item name". The selected chip renders via ProductBadge(ById) which
+// already leads with the SKU. id stays the product id.
+const productItems = computed(() =>
+  products.value.map((p) => ({
+    id: p.id,
+    name: p.sku ? `${p.sku} - ${p.name}` : p.name,
+  })),
+)
 
 const canCreateProduct = computed(() => props.allowCreate && isAllowed(['products:create']))
 
@@ -62,9 +76,10 @@ function getArray() {
     <div class="tw:flex-1 tw:min-w-0">
       <BaseSelectMenu
         v-model="modelValue"
-        :items="products"
+        :items="productItems"
         :required="required"
         :multiple="multiple"
+        v-bind="nullLabel !== undefined ? { nullLabel } : {}"
       >
         <template #button="scope">
           <slot name="button" v-bind="scope">

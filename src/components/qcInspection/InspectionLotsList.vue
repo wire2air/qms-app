@@ -3,7 +3,7 @@
  * Inspection lots list — the QC execution queue. Reads live from the
  * SyncEngine; create/import/transition go through the qcInspection REST service.
  */
-import { IconPlus, IconDownload } from '@tabler/icons-vue'
+import { IconPlus, IconDownload, IconUpload } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { dateInRange } from '@/utils/listFilters.js'
 import { exportToCSV } from '@/utils/exportUtils.js'
@@ -12,6 +12,7 @@ defineProps({ canCreate: { type: Boolean, default: false } })
 
 const router = useRouter()
 const showCreate = ref(false)
+const showImport = ref(false)
 const pointFilter = ref(null)
 const dateFrom = ref('')
 const dateTo = ref('')
@@ -42,6 +43,8 @@ const products = useLiveQuery(async (db) => db.Product.where().exec(), {
   initial: [],
 })
 const productName = (id) => products.value.find((p) => p.id === id)?.name || '—'
+const dispositionTypes = useLiveQuery(async (db) => db.NcDispositionType.where().exec(), { initial: [] })
+const dispositionName = (id) => dispositionTypes.value.find((d) => d.id === id)?.name || ''
 
 function openLot(id) {
   router.push(getCompanyPath(`/qc-inspection/lots/${id}`))
@@ -57,7 +60,7 @@ function exportCsv() {
       { field: 'statusId', label: 'Status' },
       { field: 'sampleSize', label: 'Sample size' },
       { field: 'quantity', label: 'Quantity' },
-      { field: 'disposition', label: 'Disposition' },
+      { field: (r) => dispositionName(r.dispositionTypeId), label: 'Disposition' },
       { field: 'qualityState', label: 'Quality state' },
       { field: 'batchNumber', label: 'Batch' },
       { field: 'poNumber', label: 'PO' },
@@ -89,6 +92,10 @@ function exportCsv() {
         <BaseButton variant="outline" size="sm" :disabled="!lots.length" @click="exportCsv">
           <template #icon><IconDownload :size="16" /></template>
           Export
+        </BaseButton>
+        <BaseButton v-if="canCreate" variant="outline" size="sm" @click="showImport = true">
+          <template #icon><IconUpload :size="16" /></template>
+          Import CSV
         </BaseButton>
         <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreate = true">
           <template #icon><IconPlus :size="16" /></template>
@@ -131,16 +138,7 @@ function exportCsv() {
               <InspectionLotStatusBadgeById :statusId="l.statusId" />
             </td>
             <td class="tw:px-4 tw:py-2.5">
-              <span
-                v-if="l.disposition"
-                class="tw:text-[11px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
-                :class="
-                  l.disposition === 'RELEASE'
-                    ? 'tw:bg-green-100 tw:text-green-700'
-                    : 'tw:bg-red-100 tw:text-red-700'
-                "
-                >{{ l.disposition }}</span
-              >
+              <NcDispositionTypeBadgeById v-if="l.dispositionTypeId" :dispositionTypeId="l.dispositionTypeId" />
               <span v-else class="tw:text-secondary">—</span>
             </td>
             <td class="tw:px-4 tw:py-2.5" @click.stop>
@@ -164,5 +162,6 @@ function exportCsv() {
     </div>
 
     <InspectionLotCreateDialog v-model="showCreate" @created="(id) => openLot(id)" />
+    <InspectionLotImportDialog v-model="showImport" />
   </div>
 </template>

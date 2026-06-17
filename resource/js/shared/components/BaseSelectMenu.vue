@@ -18,7 +18,7 @@ const props = defineProps({
   },
   nullLabel: {
     type: String,
-    default: 'All',
+    default: '— Select —',
   },
   hideNullOption: {
     type: Boolean,

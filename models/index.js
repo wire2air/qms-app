@@ -25,6 +25,8 @@ import { Specification } from './specification'
 import { SpecificationCharacteristic } from './specificationCharacteristic'
 import { InspectionLot } from './inspectionLot'
 import { InspectionResult } from './inspectionResult'
+import { InspectionDefect } from './inspectionDefect'
+import { DefectCatalog } from './defectCatalog'
 import { SamplingStandard } from './samplingStandard'
 import { SamplingPlanTable } from './samplingPlanTable'
 import { SampleSizeCodeLetter } from './sampleSizeCodeLetter'
@@ -204,6 +206,8 @@ export const db = {
   SpecificationCharacteristic,
   InspectionLot,
   InspectionResult,
+  InspectionDefect,
+  DefectCatalog,
   SamplingStandard,
   SamplingPlanTable,
   SampleSizeCodeLetter,

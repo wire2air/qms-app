@@ -138,7 +138,7 @@ async function onSave() {
       <!-- Product on its own row — the select shows SKU + name and needs the width. -->
       <div>
         <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Product <span class="tw:text-bad">*</span></label>
-        <ProductSelectMenu v-model="form.productId" class="tw:w-full" :disabled="identityLocked" />
+        <ProductSelectMenu v-model="form.productId" class="tw:w-full" :disabled="identityLocked" nullLabel="— Select Product —" />
       </div>
 
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
@@ -207,21 +207,21 @@ async function onSave() {
         </div>
       </div>
 
-      <!-- Specification + Sampling Plan: auto-resolved from the inspection plan
-           (template) for this product + point; pick manually to override. -->
+      <!-- Specification + Sampling Plan: "Auto Resolve from Plan" = inspection
+           plan decides; picking a specific one overrides it for this lot. -->
       <div class="tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden" :class="identityLocked ? 'tw:opacity-60 tw:pointer-events-none' : ''">
         <div class="tw:px-4 tw:py-2.5 tw:bg-main-hover tw:flex tw:items-center tw:gap-2">
           <span class="tw:text-sm tw:font-medium tw:text-on-main">Specification &amp; Sampling Plan</span>
-          <span class="tw:text-xs tw:text-secondary">— auto-resolved from inspection plan unless you pick below</span>
+          <span class="tw:text-xs tw:text-secondary">— "Auto Resolve from Plan" uses the inspection plan's defaults</span>
         </div>
         <div class="tw:p-3 tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <div>
-            <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Specification (override)</label>
-            <SpecificationSelectMenu v-model="form.specificationId" class="tw:w-full" />
+            <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Specification</label>
+            <SpecificationSelectMenu v-model="form.specificationId" :productId="form.productId" class="tw:w-full" />
           </div>
           <div>
-            <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Sampling Plan (override)</label>
-            <SamplingPlanSelectMenu v-model="form.samplingPlanId" class="tw:w-full" />
+            <label class="tw:block tw:text-[11px] tw:text-secondary tw:mb-1">Sampling Plan</label>
+            <SamplingPlanSelectMenu v-model="form.samplingPlanId" :productId="form.productId" :inspectionPoint="form.inspectionPoint" class="tw:w-full" />
           </div>
         </div>
       </div>

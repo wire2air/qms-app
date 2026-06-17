@@ -1,0 +1,267 @@
+<script setup>
+/**
+ * Per-sample capture grid (captureMode === 'SAMPLE'). A classic inspection data
+ * sheet: one row per sampled unit (1…sampleSize), one column per characteristic
+ * with its spec in the header. The inspector enters a value per cell; each cell
+ * auto-evaluates against the spec limits (same rule the backend applies), and a
+ * footer tallies pass/fail per characteristic.
+ *
+ * State lives locally in `grid[sampleIndex][charId]`; the parent reads it via
+ * the exposed `buildPayload()` when the user clicks Save (one InspectionResult
+ * row per non-empty cell, keyed by sampleIndex — the backend upserts).
+ *
+ * Ergonomics for 80-unit lots: "Fill ↓" copies the first row down a column, and
+ * pasting a newline-separated column fills consecutive rows from the cell.
+ */
+import { IconArrowBarToDown } from '@tabler/icons-vue'
+
+const props = defineProps({
+  characteristics: { type: Array, required: true },
+  sampleSize: { type: Number, required: true },
+  results: { type: Array, default: () => [] },
+  readonly: { type: Boolean, default: false },
+})
+
+// grid[sampleIndex][charId] = { valueNumeric, valueText, valueBool }
+const grid = ref({})
+
+function blankCell() {
+  return { valueNumeric: null, valueText: '', valueBool: null }
+}
+
+function seed() {
+  const next = {}
+  for (let s = 1; s <= props.sampleSize; s += 1) {
+    next[s] = {}
+    for (const c of props.characteristics) next[s][c.id] = blankCell()
+  }
+  for (const r of props.results) {
+    if (r.sampleIndex == null || !next[r.sampleIndex]) continue
+    if (!next[r.sampleIndex][r.characteristicId]) continue
+    next[r.sampleIndex][r.characteristicId] = {
+      valueNumeric: r.valueNumeric ?? null,
+      valueText: r.valueText ?? '',
+      valueBool: r.valueBool ?? null,
+    }
+  }
+  grid.value = next
+}
+
+// Re-seed when the sample size, characteristics, or saved results change.
+watch([() => props.sampleSize, () => props.characteristics, () => props.results], seed, {
+  immediate: true,
+})
+
+const sampleRows = computed(() => Array.from({ length: props.sampleSize }, (_, i) => i + 1))
+
+function limitText(c) {
+  if (c.testType !== 'NUMERIC') return c.testType === 'PASS_FAIL' ? 'Pass / Fail' : ''
+  const parts = []
+  if (c.targetValue != null) parts.push(`target ${c.targetValue}`)
+  if (c.lsl != null) parts.push(`≥ ${c.lsl}`)
+  if (c.usl != null) parts.push(`≤ ${c.usl}`)
+  return [parts.join(', '), c.uom].filter(Boolean).join(' ')
+}
+
+// Mirror of inspectionResultService.evaluateOutcome.
+function cellOutcome(c, cell) {
+  if (!cell) return 'NA'
+  if (c.testType === 'NUMERIC') {
+    if (cell.valueNumeric == null || cell.valueNumeric === '') return 'NA'
+    const v = Number(cell.valueNumeric)
+    if (Number.isNaN(v)) return 'NA'
+    if (c.lsl != null && v < Number(c.lsl)) return 'FAIL'
+    if (c.usl != null && v > Number(c.usl)) return 'FAIL'
+    return 'PASS'
+  }
+  if (c.testType === 'PASS_FAIL') {
+    if (cell.valueBool == null) return 'NA'
+    return cell.valueBool ? 'PASS' : 'FAIL'
+  }
+  return cell.valueText?.trim() ? 'PASS' : 'NA'
+}
+
+const tallies = computed(() => {
+  const out = {}
+  for (const c of props.characteristics) {
+    let pass = 0
+    let fail = 0
+    for (let s = 1; s <= props.sampleSize; s += 1) {
+      const o = cellOutcome(c, grid.value[s]?.[c.id])
+      if (o === 'PASS') pass += 1
+      else if (o === 'FAIL') fail += 1
+    }
+    out[c.id] = { pass, fail }
+  }
+  return out
+})
+
+function cellClass(c, s) {
+  const o = cellOutcome(c, grid.value[s]?.[c.id])
+  if (o === 'PASS') return 'tw:border-green-300 tw:bg-green-50/40'
+  if (o === 'FAIL') return 'tw:border-red-300 tw:bg-red-50/50'
+  return 'tw:border-divider'
+}
+
+// Fill the first row's value down the whole column.
+function fillDown(c) {
+  if (props.readonly) return
+  const first = grid.value[1]?.[c.id]
+  if (!first) return
+  for (let s = 2; s <= props.sampleSize; s += 1) {
+    grid.value[s][c.id] = { ...first }
+  }
+}
+
+// Paste a newline-separated column → fill consecutive rows from this cell.
+function onPaste(e, c, startSample) {
+  const text = e.clipboardData?.getData('text') ?? ''
+  if (!text.includes('\n')) return // single value — let the input handle it
+  e.preventDefault()
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l !== '')
+  lines.forEach((line, i) => {
+    const s = startSample + i
+    if (s > props.sampleSize || !grid.value[s]?.[c.id]) return
+    if (c.testType === 'NUMERIC') grid.value[s][c.id].valueNumeric = line === '' ? null : Number(line)
+    else if (c.testType === 'PASS_FAIL')
+      grid.value[s][c.id].valueBool = /^(p|pass|y|yes|1|true)$/i.test(line)
+    else grid.value[s][c.id].valueText = line
+  })
+}
+
+function buildPayload() {
+  const payload = []
+  for (let s = 1; s <= props.sampleSize; s += 1) {
+    for (const c of props.characteristics) {
+      const cell = grid.value[s]?.[c.id]
+      if (!cell) continue
+      const hasValue =
+        (c.testType === 'NUMERIC' && cell.valueNumeric != null && cell.valueNumeric !== '') ||
+        (c.testType === 'PASS_FAIL' && cell.valueBool != null) ||
+        (c.testType === 'TEXT' && cell.valueText?.trim())
+      if (!hasValue) continue
+      payload.push({
+        characteristicId: c.id,
+        sampleIndex: s,
+        valueNumeric: c.testType === 'NUMERIC' ? Number(cell.valueNumeric) : null,
+        valueText: c.testType === 'TEXT' ? cell.valueText.trim() : null,
+        valueBool: c.testType === 'PASS_FAIL' ? cell.valueBool : null,
+      })
+    }
+  }
+  return payload
+}
+
+const PF_ITEMS = [
+  { id: true, name: 'Pass' },
+  { id: false, name: 'Fail' },
+]
+
+defineExpose({ buildPayload })
+</script>
+
+<template>
+  <div class="tw:overflow-auto tw:max-h-[32rem] tw:border tw:border-divider tw:rounded-lg">
+    <table class="tw:text-sm tw:border-collapse">
+      <thead class="tw:sticky tw:top-0 tw:z-10 tw:bg-main-hover">
+        <tr>
+          <th
+            class="tw:sticky tw:left-0 tw:z-20 tw:bg-main-hover tw:px-3 tw:py-2 tw:text-left tw:text-xs tw:text-secondary tw:uppercase tw:border-b tw:border-r tw:border-divider tw:w-16"
+          >
+            Sample
+          </th>
+          <th
+            v-for="c in characteristics"
+            :key="c.id"
+            class="tw:px-3 tw:py-2 tw:text-left tw:border-b tw:border-r tw:border-divider tw:min-w-36 tw:align-top"
+          >
+            <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
+              <div>
+                <div class="tw:font-semibold tw:text-on-main">
+                  {{ c.name }}
+                  <DefectSeverityBadgeById
+                    :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')"
+                    class="tw:ml-1 tw:text-[10px]"
+                  />
+                </div>
+                <div class="tw:text-[11px] tw:text-secondary tw:font-normal">
+                  {{ limitText(c) || '—' }}
+                </div>
+              </div>
+              <button
+                v-if="!readonly"
+                type="button"
+                title="Fill the first value down the column"
+                class="tw:shrink-0 tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0.5"
+                @click="fillDown(c)"
+              >
+                <IconArrowBarToDown :size="15" />
+              </button>
+            </div>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="s in sampleRows" :key="s" class="tw:border-b tw:border-divider/60">
+          <td
+            class="tw:sticky tw:left-0 tw:z-10 tw:bg-sidebar tw:px-3 tw:py-1.5 tw:text-xs tw:font-mono tw:text-secondary tw:border-r tw:border-divider tw:text-center"
+          >
+            {{ s }}
+          </td>
+          <td v-for="c in characteristics" :key="c.id" class="tw:px-2 tw:py-1 tw:border-r tw:border-divider/60">
+            <input
+              v-if="c.testType === 'NUMERIC'"
+              v-model.number="grid[s][c.id].valueNumeric"
+              type="number"
+              :disabled="readonly"
+              class="tw:w-24 tw:px-2 tw:py-1 tw:rounded tw:border tw:bg-white tw:text-on-main tw:outline-none focus:tw:border-primary"
+              :class="cellClass(c, s)"
+              @paste="(e) => onPaste(e, c, s)"
+            />
+            <BaseInlineSelect
+              v-else-if="c.testType === 'PASS_FAIL'"
+              :modelValue="grid[s][c.id].valueBool"
+              :items="PF_ITEMS"
+              :required="true"
+              class="tw:w-24"
+              @update:modelValue="(v) => (grid[s][c.id].valueBool = v)"
+            />
+            <input
+              v-else
+              v-model="grid[s][c.id].valueText"
+              type="text"
+              :disabled="readonly"
+              placeholder="observation"
+              class="tw:w-36 tw:px-2 tw:py-1 tw:rounded tw:border tw:bg-white tw:text-on-main tw:outline-none focus:tw:border-primary"
+              :class="cellClass(c, s)"
+              @paste="(e) => onPaste(e, c, s)"
+            />
+          </td>
+        </tr>
+      </tbody>
+      <tfoot class="tw:sticky tw:bottom-0 tw:bg-main-hover">
+        <tr>
+          <td
+            class="tw:sticky tw:left-0 tw:z-10 tw:bg-main-hover tw:px-3 tw:py-2 tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:border-t tw:border-r tw:border-divider"
+          >
+            Result
+          </td>
+          <td
+            v-for="c in characteristics"
+            :key="c.id"
+            class="tw:px-3 tw:py-2 tw:border-t tw:border-r tw:border-divider tw:text-xs"
+          >
+            <span class="tw:text-green-700 tw:font-semibold">{{ tallies[c.id].pass }}✓</span>
+            <span class="tw:mx-1 tw:text-secondary">/</span>
+            <span :class="tallies[c.id].fail ? 'tw:text-red-700 tw:font-semibold' : 'tw:text-secondary'"
+              >{{ tallies[c.id].fail }}✗</span
+            >
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</template>

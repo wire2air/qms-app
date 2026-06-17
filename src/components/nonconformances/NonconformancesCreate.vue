@@ -4,7 +4,8 @@ import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
 import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
-import { NC_MODULE } from '@/components/workflow/workflowModule.js'
+import WorkflowVersionSelect from '@/components/documents/WorkflowVersionSelect.vue'
+import { NC_MODULE, CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
 
 const router = useRouter()
@@ -12,6 +13,29 @@ const route = useRoute()
 const toast = useToast()
 const workflowPickerRef = ref(null)
 const saving = ref(false)
+
+// ── Supplier shortcut: raise NC + linked 8D CAPA in one go ────────────
+// For supplier-facing NCs the Submit button opens a small dialog asking
+// "Create a linked CAPA?" + a CAPA workflow (defaulted to the SCAR 8D).
+// The backend creates + auto-assigns + opens both records.
+const showCapaShortcut = ref(false)
+const createCapa = ref(true)
+const capaWorkflowVersionId = ref(null)
+
+const capaWorkflows = useLiveQuery(
+  async (db) => db.Workflow.where('moduleId', CAPA_MODULE.workflowVersionModuleId).exec(),
+  { initial: [] },
+)
+const capaVersions = useLiveQuery(async (db) => db.WorkflowVersion.where().exec(), { initial: [] })
+
+// Resolve the seeded "SCAR (Supplier 8D Response)" published version to default the picker.
+const scar8dVersionId = computed(() => {
+  const scar = capaWorkflows.value.find(
+    (w) => w.statusId === 'ACTIVE' && /scar|8d/i.test(w.name || ''),
+  )
+  if (!scar) return null
+  return capaVersions.value.find((v) => v.workflowId === scar.id && v.statusId === 'PUBLISHED')?.id ?? null
+})
 
 // ── Audit-finding spawn deep link ─────────────────────────────────
 // When the user clicks 'Spawn → New NC' on an audit finding, this
@@ -133,8 +157,54 @@ function handleSubmit() {
     return
   }
 
+  // Supplier-facing → shortcut dialog (Create CAPA? + workflow, auto-assigned
+  // + opened server-side). Internal NCs keep the manual per-step picker.
+  if (form.value.isSupplierFacing) {
+    createCapa.value = true
+    capaWorkflowVersionId.value = scar8dVersionId.value
+    showCapaShortcut.value = true
+    return
+  }
+
   // Open reviewer dialog (fire-and-forget, actual NC creation happens on confirm)
   workflowPickerRef.value.submit()
+}
+
+// Supplier shortcut confirm — POST the combined raise endpoint.
+async function confirmSupplierRaise() {
+  if (createCapa.value && !capaWorkflowVersionId.value) {
+    toast.notify({ type: 'negative', message: 'Pick a CAPA workflow' })
+    return
+  }
+  saving.value = true
+  try {
+    const { nonconformance, capa, opened } = await post(
+      '/v1/services/nonconformances/raise',
+      {
+        ...form.value,
+        createCapa: createCapa.value,
+        capaWorkflowVersionId: createCapa.value ? capaWorkflowVersionId.value : null,
+      },
+    )
+    if (!opened) {
+      toast.notify({
+        type: 'warning',
+        message:
+          'Created as Draft — invite a supplier portal user for this supplier, then Open the NC/CAPA to start the workflow.',
+      })
+    } else {
+      toast.notify({
+        type: 'positive',
+        message: capa ? `NC raised + ${capa.capaNumber} (8D) opened` : 'NC raised',
+      })
+    }
+    showCapaShortcut.value = false
+    router.push(getCompanyPath(`/nonconformances/${nonconformance.id}`))
+  } catch (e) {
+    toast.notify({ type: 'negative', message: e.message || 'Failed to raise NC' })
+  } finally {
+    saving.value = false
+  }
 }
 
 async function handleReviewersConfirmed(reviewers) {
@@ -411,9 +481,68 @@ async function handleReviewersConfirmed(reviewers) {
             :ownerId="form.ownerId"
             @submit="handleReviewersConfirmed"
           />
+          <p
+            v-if="form.isSupplierFacing"
+            class="tw:text-xs tw:text-secondary tw:mt-2"
+          >
+            Supplier-facing NCs are auto-assigned to the supplier's first portal user and
+            opened on Submit — you can reassign any step afterwards.
+          </p>
         </div>
       </div>
     </div>
+
+    <!-- Supplier shortcut: Create linked 8D CAPA? -->
+    <BaseDialog v-model="showCapaShortcut" title="Raise supplier NC" maxWidth="md" persistent>
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:py-1">
+        <div class="tw:flex tw:flex-col tw:gap-1.5">
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">Also create a linked CAPA?</span>
+          <div class="tw:flex tw:gap-2">
+            <BaseButton
+              class="tw:flex-1 tw:justify-center"
+              :variant="createCapa ? 'primary' : 'outline'"
+              @click="createCapa = true"
+              >Yes</BaseButton
+            >
+            <BaseButton
+              class="tw:flex-1 tw:justify-center"
+              :variant="!createCapa ? 'primary' : 'outline'"
+              @click="createCapa = false"
+              >No</BaseButton
+            >
+          </div>
+        </div>
+
+        <div v-if="createCapa" class="tw:flex tw:flex-col tw:gap-1.5">
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">CAPA workflow</span>
+          <WorkflowVersionSelect
+            v-model="capaWorkflowVersionId"
+            :moduleId="CAPA_MODULE.workflowVersionModuleId"
+            dense
+          />
+        </div>
+
+        <p class="tw:text-xs tw:text-secondary">
+          The NC{{ createCapa ? ' and the linked CAPA are' : ' is' }} created, assigned to the
+          supplier's first portal user (and your internal default approver), and opened
+          automatically. You can reassign or change anything afterwards.
+        </p>
+      </div>
+
+      <template #footer="{ close }">
+        <div class="tw:flex tw:justify-end tw:gap-2">
+          <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
+          <BaseButton
+            variant="primary"
+            :isLoading="saving"
+            :disabled="createCapa && !capaWorkflowVersionId"
+            @click="confirmSupplierRaise"
+          >
+            Raise NC{{ createCapa ? ' + 8D CAPA' : '' }}
+          </BaseButton>
+        </div>
+      </template>
+    </BaseDialog>
   </div>
 </template>
 
