@@ -367,9 +367,9 @@ function back() {
 
     <!-- Embedded chrome: an inline action bar at the top of the panel. -->
     <div v-else class="tw:flex tw:items-center tw:justify-between tw:gap-2">
-      <h3 class="tw:text-base tw:font-semibold tw:text-on-main">
+      <BaseText as="h3" variant="subheading">
         {{ isEditing ? 'Edit Assignment' : 'New Assignment' }}
-      </h3>
+      </BaseText>
       <div class="tw:flex tw:items-center tw:gap-2">
         <BaseButton variant="ghost" @click="back">Cancel</BaseButton>
         <BaseButton
@@ -397,7 +397,7 @@ function back() {
         v-if="!lockLogBook"
         class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:space-y-3"
       >
-        <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Log book</h3>
+        <BaseText as="h3" weight="semibold">Log book</BaseText>
         <div>
           <select
             v-model="form.logBookId"
@@ -419,7 +419,7 @@ function back() {
 
       <!-- Assignees -->
       <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:space-y-3">
-        <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Assignees</h3>
+        <BaseText as="h3" weight="semibold">Assignees</BaseText>
         <div class="tw:flex tw:items-center tw:gap-4">
           <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
             <input v-model="form.assigneeMode" type="radio" value="USERS" name="assigneeMode" />
@@ -431,30 +431,26 @@ function back() {
           </label>
         </div>
         <div v-if="form.assigneeMode === 'USERS'">
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Users
-          </label>
-          <UserSelectMenu v-model="form.assignedUserIds" :multiple="true" />
-          <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-            Click each user you want to assign — the menu stays open so you can pick multiple (e.g.
-            one per shift). All selected users get an instance per occurrence.
-          </p>
+          <BaseField
+            label="Users"
+            hint="Click each user you want to assign — the menu stays open so you can pick multiple (e.g. one per shift). All selected users get an instance per occurrence."
+          >
+            <UserSelectMenu v-model="form.assignedUserIds" :multiple="true" />
+          </BaseField>
         </div>
         <div v-else>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Role
-          </label>
-          <RoleSelectMenu v-model="form.assignedRoleId" :required="true" />
-          <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-            Members are resolved at instance generation time. Adding a user to the role tomorrow
-            gives them tomorrow's occurrences, not today's.
-          </p>
+          <BaseField
+            label="Role"
+            hint="Members are resolved at instance generation time. Adding a user to the role tomorrow gives them tomorrow's occurrences, not today's."
+          >
+            <RoleSelectMenu v-model="form.assignedRoleId" :required="true" />
+          </BaseField>
         </div>
       </div>
 
       <!-- Schedule -->
       <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:space-y-3">
-        <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Schedule</h3>
+        <BaseText as="h3" weight="semibold">Schedule</BaseText>
         <div class="tw:flex tw:items-center tw:gap-4">
           <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
             <input v-model="form.scheduleType" type="radio" value="RECURRING" name="scheduleType" />
@@ -469,37 +465,36 @@ function back() {
         <template v-if="form.scheduleType === 'RECURRING'">
           <CronPicker v-model="form.cron" v-model:frequency="frequency" :timezone="form.timezone" />
           <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Timezone (IANA)
-              </label>
+            <BaseField v-slot="{ id: fieldId }" label="Timezone (IANA)">
               <select
+                :id="fieldId"
                 v-model="form.timezone"
                 class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
               >
                 <option v-for="tz in timezoneOptions" :key="tz" :value="tz">{{ tz }}</option>
               </select>
-            </div>
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Window length ({{ unit }})
-              </label>
+            </BaseField>
+            <BaseField
+              v-slot="{ id: fieldId }"
+              :label="`Window length (${unit})`"
+              hint="How long the entry stays open after the scheduled time."
+            >
               <input
+                :id="fieldId"
                 v-model.number="windowDisplay"
                 type="number"
                 min="0"
                 step="0.5"
                 class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
               />
-              <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-                How long the entry stays open after the scheduled time.
-              </p>
-            </div>
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Start offset ({{ unit }})
-              </label>
+            </BaseField>
+            <BaseField
+              v-slot="{ id: fieldId }"
+              :label="`Start offset (${unit})`"
+              hint="Delay between dueAt and when the window opens. 0 = opens at dueAt."
+            >
               <input
+                :id="fieldId"
                 :value="fromMinutes(form.startOffsetMinutes, unit)"
                 type="number"
                 min="0"
@@ -507,30 +502,23 @@ function back() {
                 class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
                 @input="(e) => (form.startOffsetMinutes = toMinutes(e.target.value, unit))"
               />
-              <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-                Delay between dueAt and when the window opens. 0 = opens at dueAt.
-              </p>
-            </div>
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Grace ({{ unit }}, before MISSED)
-              </label>
+            </BaseField>
+            <BaseField
+              v-slot="{ id: fieldId }"
+              :label="`Grace (${unit}, before MISSED)`"
+              hint="How long after the window closes before the instance flips to MISSED."
+            >
               <input
+                :id="fieldId"
                 v-model.number="graceDisplay"
                 type="number"
                 min="0"
                 step="0.5"
                 class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
               />
-              <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-                How long after the window closes before the instance flips to MISSED.
-              </p>
-            </div>
+            </BaseField>
           </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              When the window closes unfilled
-            </label>
+          <BaseField label="When the window closes unfilled">
             <div
               class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden"
             >
@@ -567,7 +555,7 @@ function back() {
                 supervisor. For time-bound readings that can't be done late.
               </template>
             </p>
-          </div>
+          </BaseField>
         </template>
         <template v-else>
           <p class="tw:text-sm tw:text-secondary">
