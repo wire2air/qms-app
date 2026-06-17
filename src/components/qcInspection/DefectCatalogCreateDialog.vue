@@ -29,6 +29,7 @@ function blank() {
     testType: 'PASS_FAIL',
     testMethod: '',
     requiresInstrument: false,
+    preferredEquipmentId: null,
     targetValue: null,
     lsl: null,
     usl: null,
@@ -51,6 +52,7 @@ watch(open, (isOpen) => {
         testType: d.testType ?? 'PASS_FAIL',
         testMethod: d.testMethod ?? '',
         requiresInstrument: d.requiresInstrument ?? false,
+        preferredEquipmentId: d.preferredEquipmentId ?? null,
         targetValue: d.targetValue ?? null,
         lsl: d.lsl ?? null,
         usl: d.usl ?? null,
@@ -95,6 +97,8 @@ async function save() {
       testType: form.value.testType,
       testMethod: form.value.testMethod.trim() || null,
       requiresInstrument: numeric ? form.value.requiresInstrument : false,
+      preferredEquipmentId:
+        numeric && form.value.requiresInstrument ? form.value.preferredEquipmentId || null : null,
       targetValue: numeric ? form.value.targetValue : null,
       lsl: numeric ? form.value.lsl : null,
       usl: numeric ? form.value.usl : null,
@@ -156,6 +160,15 @@ async function save() {
           <BaseCheckbox v-model="form.requiresInstrument" /> Instrument
         </label>
       </div>
+
+      <!-- Preferred instrument — the default gauge for this measured test -->
+      <BaseField v-if="form.testType === 'NUMERIC' && form.requiresInstrument" label="Preferred instrument">
+        <template #label>
+          Preferred instrument
+          <span class="tw:font-normal tw:text-secondary">(suggested gauge; drives the calibration check)</span>
+        </template>
+        <EquipmentSelectMenu v-model="form.preferredEquipmentId" nullLabel="— None (pick at capture) —" />
+      </BaseField>
 
       <BaseField v-slot="{ id: fieldId }" label="Method / instructions">
         <BaseTextarea :id="fieldId" v-model="form.testMethod" :rows="2" placeholder="How is this test performed?" />

@@ -4,18 +4,28 @@ import { post } from '@/api'
 import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
+import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 const props = defineProps({
   id: { type: String, required: true },
 })
 
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
+const { visit: visitTrail } = useRecordTrail()
 
 const cr = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => db.ChangeRequest.findByPk(id),
   { models: ['ChangeRequest'] },
+)
+watch(
+  cr,
+  (c) => {
+    if (c?.id) visitTrail({ type: 'CR', id: c.id, label: c.crNumber, path: route.path })
+  },
+  { immediate: true },
 )
 const loading = computed(() => cr.value === undefined)
 
@@ -245,7 +255,6 @@ const sourceCapa = useLiveQueryWithDeps(
 
 // ─── Editing toggles for inline fields ───────────────────────────────────────
 const editingTitle = ref(false)
-const editingDescription = ref(false)
 </script>
 
 <template>
@@ -317,6 +326,7 @@ const editingDescription = ref(false)
 
     <div v-else-if="cr" class="tw:overflow-y-auto tw:flex-1">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+        <RecordTrailBreadcrumb />
         <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_25fr] tw:gap-4 tw:items-start">
           <!-- Left column -->
           <div class="tw:flex tw:flex-col tw:gap-4">
@@ -346,28 +356,14 @@ const editingDescription = ref(false)
                 {{ cr.title }}
               </div>
 
-              <div v-if="editingDescription && isEditable" class="cr-detail-editor tw:mb-4">
-                <BaseRichTextEditor
-                  v-model="cr.description"
-                  placeholder="Describe the change…"
-                  @blur="editingDescription = false"
-                />
-              </div>
-              <div v-else class="tw:mb-4" @click="isEditable && (editingDescription = true)">
-                <div
-                  v-if="cr.description"
-                  class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:prose tw:max-w-none"
-                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                  v-html="cr.description"
-                />
-                <p
-                  v-else
-                  class="tw:text-sm tw:text-secondary tw:leading-relaxed"
-                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                >
-                  {{ isEditable ? 'Add a description…' : '—' }}
-                </p>
-              </div>
+              <BaseRichTextField
+                v-model="cr.description"
+                :editable="isEditable"
+                clickToEdit
+                clickToEditLabel="Add a description…"
+                placeholder="Describe the change…"
+                class="tw:mb-4"
+              />
 
               <div class="tw:grid tw:grid-cols-3 tw:gap-3">
                 <div class="tw:flex tw:flex-col tw:gap-1">
@@ -426,35 +422,23 @@ const editingDescription = ref(false)
                 <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">
                   Reason for Change
                 </div>
-                <div v-if="isEditable" class="cr-detail-editor">
-                  <BaseRichTextEditor
-                    v-model="cr.reasonForChange"
-                    placeholder="What's driving this change?"
-                  />
-                </div>
-                <div
-                  v-else-if="cr.reasonForChange"
-                  class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:prose tw:max-w-none"
-                  v-html="cr.reasonForChange"
+                <BaseRichTextField
+                  v-model="cr.reasonForChange"
+                  :editable="isEditable"
+                  placeholder="What's driving this change?"
+                  textClass="tw:text-sm tw:text-on-main tw:leading-relaxed"
                 />
-                <p v-else class="tw:text-sm tw:text-secondary">—</p>
               </div>
               <div>
                 <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">
                   Business Justification
                 </div>
-                <div v-if="isEditable" class="cr-detail-editor">
-                  <BaseRichTextEditor
-                    v-model="cr.businessJustification"
-                    placeholder="Cost / quality / compliance impact"
-                  />
-                </div>
-                <div
-                  v-else-if="cr.businessJustification"
-                  class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:prose tw:max-w-none"
-                  v-html="cr.businessJustification"
+                <BaseRichTextField
+                  v-model="cr.businessJustification"
+                  :editable="isEditable"
+                  placeholder="Cost / quality / compliance impact"
+                  textClass="tw:text-sm tw:text-on-main tw:leading-relaxed"
                 />
-                <p v-else class="tw:text-sm tw:text-secondary">—</p>
               </div>
             </div>
 
@@ -700,10 +684,3 @@ const editingDescription = ref(false)
     />
   </div>
 </template>
-
-<style scoped>
-.cr-detail-editor :deep(.rich-text-editor-content) {
-  max-height: 12rem;
-  overflow-y: auto;
-}
-</style>

@@ -57,6 +57,7 @@ import { OptionSet } from './optionSet'
 import { Permission } from './permission'
 import { PermissionOnRole } from './permissionOnRole'
 import { Product } from './product'
+import { ProductFamily } from './productFamily'
 import { ProductStatus } from './productStatus'
 import { ProductType } from './productType'
 import { Record } from './record'
@@ -238,6 +239,7 @@ export const db = {
   Permission,
   PermissionOnRole,
   Product,
+  ProductFamily,
   ProductStatus,
   ProductType,
   Record,

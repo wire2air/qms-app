@@ -6,6 +6,12 @@
 import { IconPlus, IconTrash } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 
+const props = defineProps({
+  // When set, the spec is pre-scoped to this product: the scope/target
+  // pickers are hidden and the spec is created against this product.
+  lockProductId: { type: String, default: null },
+})
+
 const emit = defineEmits(['created'])
 const show = defineModel({ type: Boolean, default: false })
 const toast = useToast()
@@ -31,7 +37,7 @@ function reset() {
     code: '',
     materialKind: 'RAW',
     scope: 'product', // product | productType
-    productId: null,
+    productId: props.lockProductId ?? null,
     productTypeId: null,
     characteristics: [],
   }
@@ -42,7 +48,9 @@ watch(show, (v) => {
 })
 
 function addCharacteristic() {
-  form.value.characteristics.push({
+  // Prepend so the newest row is at the top, in view.
+  form.value.characteristics.unshift({
+    _key: crypto.randomUUID(),
     name: '',
     testType: 'NUMERIC',
     targetValue: null,
@@ -51,12 +59,16 @@ function addCharacteristic() {
     uom: '',
     defectClass: 'MAJOR',
     requiresInstrument: false,
+    preferredEquipmentId: null,
     testMethod: '',
   })
 }
-// Pre-fill a characteristic from a Test Library entry (overridable).
-function addFromLibrary(t) {
-  form.value.characteristics.push({
+// Pre-fill characteristics from Test Library entries (overridable). Accepts an
+// array (multi-select) and prepends them all, preserving pick order.
+function addFromLibrary(entries) {
+  const list = Array.isArray(entries) ? entries : [entries]
+  const mapped = list.map((t) => ({
+    _key: crypto.randomUUID(),
     name: t.name ?? '',
     testType: t.testType || 'PASS_FAIL',
     targetValue: t.targetValue ?? null,
@@ -65,8 +77,10 @@ function addFromLibrary(t) {
     uom: t.uom ?? '',
     defectClass: t.defaultSeverity || 'MAJOR',
     requiresInstrument: !!t.requiresInstrument,
+    preferredEquipmentId: t.preferredEquipmentId ?? null,
     testMethod: t.testMethod ?? '',
-  })
+  }))
+  form.value.characteristics.unshift(...mapped)
 }
 function removeCharacteristic(i) {
   form.value.characteristics.splice(i, 1)
@@ -101,6 +115,7 @@ async function onSave() {
         defectClass: c.defectClass || 'MAJOR',
         isCritical: c.defectClass === 'CRITICAL',
         requiresInstrument: !!c.requiresInstrument,
+        preferredEquipmentId: c.requiresInstrument ? c.preferredEquipmentId || null : null,
         testMethod: c.testMethod || null,
         sortOrder: i,
       })),
@@ -129,7 +144,7 @@ async function onSave() {
         <BaseField label="Material kind">
           <BaseInlineSelect v-model="form.materialKind" :items="MATERIAL_KINDS" :required="true" />
         </BaseField>
-        <BaseField label="Scope">
+        <BaseField v-if="!lockProductId" label="Scope">
           <BaseInlineSelect
             v-model="form.scope"
             :items="[{ id: 'product', name: 'Specific product' }, { id: 'productType', name: 'Product type' }]"
@@ -139,8 +154,9 @@ async function onSave() {
         </BaseField>
       </div>
 
-      <!-- Scope target on its own row (the select needs the width). -->
-      <BaseField required>
+      <!-- Scope target on its own row (the select needs the width). Hidden
+           when the dialog is opened pre-scoped to a product. -->
+      <BaseField v-if="!lockProductId" required>
         <template #label>
           {{ form.scope === 'product' ? 'Product' : 'Product type' }}
         </template>
@@ -166,7 +182,7 @@ async function onSave() {
         </div>
         <div
           v-for="(c, i) in form.characteristics"
-          :key="i"
+          :key="c._key || i"
           class="tw:p-3 tw:mb-2 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover"
         >
           <div class="tw:flex tw:items-end tw:gap-3">
@@ -204,6 +220,9 @@ async function onSave() {
               <BaseTextInput :id="fieldId" v-model="c.uom" placeholder="e.g. pH, %" size="sm" />
             </BaseField>
           </div>
+          <BaseField v-if="c.requiresInstrument" label="Preferred instrument" class="tw:mt-3 tw:w-72">
+            <EquipmentSelectMenu v-model="c.preferredEquipmentId" nullLabel="— None (pick at capture) —" />
+          </BaseField>
           <BaseField label="Test method / instrument requirements" class="tw:mt-3">
             <RichTextAttachments
               v-model="c.testMethod"

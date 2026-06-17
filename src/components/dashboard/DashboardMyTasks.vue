@@ -97,7 +97,7 @@ function isOverdue(t) {
 </script>
 
 <template>
-  <DashboardWidgetCard title="My Tasks" :count="tasks.length" linkTo="/task-instances">
+  <DashboardWidgetCard title="My Tasks" :count="tasks.length" linkTo="/task-instances" tone="blue">
     <BaseEmptyState v-if="!tasks.length" dense :icon="IconCircleCheck" title="You're all caught up" />
     <RouterLink
       v-for="{ task: t, route } in tasks.slice(0, 6)"

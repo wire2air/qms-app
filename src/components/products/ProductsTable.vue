@@ -1,5 +1,6 @@
 <script setup>
 import { IconEdit, IconTrash, IconDownload, IconUpload } from '@tabler/icons-vue'
+import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const props = defineProps({
   rows: {
@@ -22,13 +23,25 @@ const props = defineProps({
 
 const emit = defineEmits(['delete', 'edit', 'bulkDelete'])
 
+const router = useRouter()
+
+function openDetail(row) {
+  router.push(getCompanyPath(`/products/${row.id}`))
+}
+
+const families = useLiveQuery(async (db) => db.ProductFamily.where().exec(), {
+  models: ['ProductFamily'],
+  initial: [],
+})
+const familyMap = computed(() => new Map(families.value.map((f) => [f.id, f.name])))
+
 const selected = ref([])
 const selectedRows = computed(() => props.rows.filter((r) => selected.value.includes(r.id)))
 
 const columns = [
   { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true, hideable: false },
   { name: 'sku', label: 'SKU', field: 'sku', align: 'left', sortable: true },
-  { name: 'family', label: 'FAMILY', field: 'family', align: 'left', sortable: true },
+  { name: 'family', label: 'FAMILY', field: 'productFamilyId', align: 'left', sortable: false },
   {
     name: 'productType',
     label: 'PRODUCT TYPE',
@@ -84,7 +97,14 @@ function downloadCsv(rows, cols) {
 
   const header = exportCols.map((c) => escapeCsvValue(c.label)).join(',')
   const body = rows
-    .map((row) => exportCols.map((c) => escapeCsvValue(row[c.field])).join(','))
+    .map((row) =>
+      exportCols
+        .map((c) => {
+          if (c.field === 'productFamilyId') return escapeCsvValue(familyMap.value.get(row.productFamilyId) ?? '')
+          return escapeCsvValue(row[c.field])
+        })
+        .join(','),
+    )
     .join('\n')
 
   const csv = `${header}\n${body}`
@@ -128,6 +148,7 @@ function downloadCsv(rows, cols) {
       selectable
       columnToggle
       showDensityToggle
+      @rowClick="openDetail"
     >
       <template #bulk-actions="{ clear }">
         <BaseButton variant="outline" size="sm" @click="downloadCsv(selectedRows, columns)">
@@ -166,7 +187,8 @@ function downloadCsv(rows, cols) {
       </template>
 
       <template #body-cell-family="{ row }">
-        <span class="tw:text-sm tw:text-secondary">{{ row.family || '—' }}</span>
+        <ProductFamilyBadgeById v-if="row.productFamilyId" :productFamilyId="row.productFamilyId" />
+        <span v-else class="tw:text-sm tw:text-secondary">—</span>
       </template>
 
       <template #body-cell-productType="{ row }">

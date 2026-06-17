@@ -27,7 +27,7 @@ function isOverdue(c) {
 </script>
 
 <template>
-  <DashboardWidgetCard title="CAPAs Due" :count="capas.length" linkTo="/capas">
+  <DashboardWidgetCard title="CAPAs Due" :count="capas.length" linkTo="/capas" tone="amber">
     <BaseEmptyState v-if="!capas.length" dense :icon="IconCircleCheck" title="No open CAPAs" />
     <RouterLink
       v-for="c in capas.slice(0, 5)"

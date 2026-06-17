@@ -887,7 +887,7 @@ function summarizeFinding() {
             <!-- Auditor Notes — private free-form notebook (dictate-to-text). -->
             <div>
               <BaseText variant="overline" class="tw:block tw:mb-1">Auditor Notes</BaseText>
-              <BaseRichTextEditor
+              <BaseRichTextField
                 :modelValue="currentBuffer?.auditorNotes"
                 :editable="!readonly"
                 placeholder="Your private working notes for this clause — observations, leads to follow, reminders…"
@@ -898,7 +898,7 @@ function summarizeFinding() {
                   <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
                   <AiVoiceToTextButton v-if="canUseAi" :append="append" />
                 </template>
-              </BaseRichTextEditor>
+              </BaseRichTextField>
             </div>
           </div>
         </div>

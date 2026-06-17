@@ -270,6 +270,7 @@ declare global {
   const usePreferredReducedTransparency: typeof import('@vueuse/core').usePreferredReducedTransparency
   const usePrevious: typeof import('@vueuse/core').usePrevious
   const useRafFn: typeof import('@vueuse/core').useRafFn
+  const useRecordTrail: typeof import('./src/composables/useRecordTrail.js').useRecordTrail
   const useRefHistory: typeof import('@vueuse/core').useRefHistory
   const useRender: typeof import('./resource/js/shared/composables/render.js').useRender
   const useResizeObserver: typeof import('@vueuse/core').useResizeObserver

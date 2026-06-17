@@ -28,7 +28,7 @@ export class Product extends BaseModel {
   @Property({ type: String, required: true }) name = ''
   @Property({ type: String, required: true }) sku = ''
   @Property({ type: String }) description = ''
-  @Property({ type: String, required: true }) family = ''
+  @Property({ type: String }) productFamilyId = null
   @Property({ type: String, required: true }) productTypeId = ''
   @Property({ type: String, required: true }) statusId = 'ACTIVE'
   @Property({

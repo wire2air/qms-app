@@ -10,6 +10,7 @@ import { IconList } from '@tabler/icons-vue'
 const tabs = [
   { value: 'nc-dispositions', label: 'NC Dispositions' },
   { value: 'nc-issue-types', label: 'NC Issue Types' },
+  { value: 'product-families', label: 'Product Families' },
   { value: 'supplier-certificate-types', label: 'Supplier Certificates' },
   { value: 'audit-standard-types', label: 'Audit Standard Types' },
   { value: 'audit-finding-categories', label: 'Audit Finding Categories' },
@@ -42,6 +43,7 @@ watch(
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Lookups">
         <BaseTabPanel value="nc-dispositions"><NcDispositionTypesCard /></BaseTabPanel>
         <BaseTabPanel value="nc-issue-types"><NcIssueTypesCard /></BaseTabPanel>
+        <BaseTabPanel value="product-families"><ProductFamiliesCard /></BaseTabPanel>
         <BaseTabPanel value="supplier-certificate-types">
           <SupplierCertificateTypesCard />
         </BaseTabPanel>

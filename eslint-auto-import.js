@@ -273,6 +273,7 @@ export default {
     "usePreferredReducedTransparency": true,
     "usePrevious": true,
     "useRafFn": true,
+    "useRecordTrail": true,
     "useRefHistory": true,
     "useResizeObserver": true,
     "useRolePermissions": true,

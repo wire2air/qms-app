@@ -4,17 +4,27 @@ import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
+import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 const props = defineProps({
   id: { type: String, required: true },
 })
 
 const router = useRouter()
+const route = useRoute()
+const { visit: visitTrail } = useRecordTrail()
 
 const nc = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => db.Nonconformance.findByPk(id),
   { models: ['Nonconformance'] },
+)
+watch(
+  nc,
+  (n) => {
+    if (n?.id) visitTrail({ type: 'NC', id: n.id, label: n.ncNumber, path: route.path })
+  },
+  { immediate: true },
 )
 
 const loading = computed(() => nc.value === undefined)
@@ -317,7 +327,6 @@ async function confirmConvert() {
 
 // ─── Inline-edit for overview fields ──────────────────────────────────────────
 const editingTitle = ref(false)
-const editingDescription = ref(false)
 const editingSeverity = ref(false)
 const editingDetected = ref(false)
 const editingDueDate = ref(false)
@@ -467,6 +476,7 @@ function onCreateLinkedChangeRequest() {
 
     <div v-else-if="nc" class="tw:overflow-y-auto tw:flex-1">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+        <RecordTrailBreadcrumb />
         <!-- QC inspection origin — this NC was auto-raised by a rejected lot -->
         <div
           v-if="sourceLot"
@@ -531,34 +541,14 @@ function onCreateLinkedChangeRequest() {
               >
                 {{ nc.title }}
               </BaseClickableRow>
-              <div v-if="editingDescription && isEditable" class="nc-detail-editor tw:mb-4">
-                <BaseRichTextEditor
-                  v-model="nc.description"
-                  placeholder="Add a description…"
-                  @blur="editingDescription = false"
-                />
-              </div>
-              <BaseClickableRow
-                v-else
+              <BaseRichTextField
+                v-model="nc.description"
+                :editable="isEditable"
+                clickToEdit
+                clickToEditLabel="Add a description…"
+                placeholder="Add a description…"
                 class="tw:mb-4"
-                :disabled="!isEditable"
-                aria-label="Edit NC description"
-                @click="editingDescription = true"
-              >
-                <div
-                  v-if="nc.description"
-                  class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:prose tw:max-w-none"
-                  :class="isEditable ? 'tw:hover:text-primary' : ''"
-                  v-html="nc.description"
-                />
-                <p
-                  v-else
-                  class="tw:text-sm tw:text-secondary tw:leading-relaxed"
-                  :class="isEditable ? 'tw:hover:text-primary' : ''"
-                >
-                  {{ isEditable ? 'Add a description…' : '—' }}
-                </p>
-              </BaseClickableRow>
+              />
 
               <!-- Required-at-create fields stay in the main view:
                    Severity, Type, Source, Detected. Optional metadata
@@ -619,18 +609,12 @@ function onCreateLinkedChangeRequest() {
                 <BaseText variant="overline" class="tw:block">
                   Immediate containment action
                 </BaseText>
-                <div v-if="isEditable" class="nc-detail-editor">
-                  <BaseRichTextEditor
-                    v-model="nc.immediateContainmentAction"
-                    placeholder="Describe the immediate action taken to contain this nonconformance…"
-                  />
-                </div>
-                <div
-                  v-else-if="nc.immediateContainmentAction"
-                  class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:prose tw:max-w-none"
-                  v-html="nc.immediateContainmentAction"
+                <BaseRichTextField
+                  v-model="nc.immediateContainmentAction"
+                  :editable="isEditable"
+                  placeholder="Describe the immediate action taken to contain this nonconformance…"
+                  textClass="tw:text-sm tw:text-on-main tw:leading-relaxed"
                 />
-                <p v-else class="tw:text-sm tw:text-on-main tw:leading-relaxed">—</p>
               </div>
             </div>
 
@@ -1399,10 +1383,3 @@ function onCreateLinkedChangeRequest() {
     </BaseDialog>
   </div>
 </template>
-
-<style scoped>
-.nc-detail-editor :deep(.rich-text-editor-content) {
-  max-height: 12rem;
-  overflow-y: auto;
-}
-</style>

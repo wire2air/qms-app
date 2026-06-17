@@ -33,6 +33,8 @@ export class DefectCatalog extends BaseModel {
   @Property({ type: String }) testType = 'PASS_FAIL'
   @Property({ type: String }) testMethod = /** @type {String} */ (null)
   @Property({ type: Boolean }) requiresInstrument = false
+  // Preferred instrument for this test — copied onto the characteristic on pick.
+  @Property({ type: String }) preferredEquipmentId = /** @type {String} */ (null)
   @Property({ type: Number }) targetValue = /** @type {Number} */ (null)
   @Property({ type: Number }) lsl = /** @type {Number} */ (null)
   @Property({ type: Number }) usl = /** @type {Number} */ (null)

@@ -59,6 +59,8 @@ const RESOURCE_ROUTES = {
   Record: (id) => getCompanyPath(`/records/${id}`),
   WorkflowInstance: (id) => getCompanyPath(`/workflow-instances/${id}`),
   TaskInstance: (id) => getCompanyPath(`/task-instances/${id}`),
+  // Equipment has no detail page yet — land on the list (calibration reminders).
+  Equipment: () => getCompanyPath('/equipment'),
 }
 
 const resourcePath = computed(() => {

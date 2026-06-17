@@ -556,7 +556,7 @@ function unlinkedKinds(finding) {
                 Overdue
               </span>
             </div>
-            <BaseRichTextEditor
+            <BaseRichTextField
               :modelValue="responseValue(finding)"
               :editable="canRespond && !finding.completedAt"
               placeholder="Describe the corrective action / response…"

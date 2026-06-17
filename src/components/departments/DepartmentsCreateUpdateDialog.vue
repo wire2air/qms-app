@@ -22,6 +22,7 @@ const form = ref({
   code: '',
   siteId: null,
   description: '',
+  supervisorUserId: null,
 })
 
 // Load existing department if editing
@@ -67,6 +68,7 @@ watch(
         code: d.code,
         siteId: d.siteId,
         description: d.description || '',
+        supervisorUserId: d.supervisorUserId || null,
       }
     }
   },
@@ -76,7 +78,7 @@ watch(
 // Reset form when dialog closes
 watch(open, (val) => {
   if (!val) {
-    form.value = { name: '', code: '', siteId: null, description: '' }
+    form.value = { name: '', code: '', siteId: null, description: '', supervisorUserId: null }
   }
 })
 
@@ -128,6 +130,7 @@ async function onSubmit() {
         code: form.value.code,
         siteId: form.value.siteId,
         description: form.value.description,
+        supervisorUserId: form.value.supervisorUserId || null,
         displayOrder: await getDisplayOrder(),
       })
       emit('created', newDept)
@@ -135,6 +138,7 @@ async function onSubmit() {
       department.value.name = form.value.name
       department.value.siteId = form.value.siteId
       department.value.description = form.value.description
+      department.value.supervisorUserId = form.value.supervisorUserId || null
       await department.value.save()
       emit('updated', department.value)
     }
@@ -189,6 +193,15 @@ async function onSubmit() {
       <BaseField label="Site" size="sm" :required="true">
         <SiteSelectMenu v-model="form.siteId" :required="true" />
       </BaseField>
+
+      <div>
+        <label class="tw:text-sm tw:font-medium tw:text-on-main tw:block tw:mb-1">Supervisor</label>
+        <UserSelectMenu v-model="form.supervisorUserId" />
+        <div class="tw:text-[11px] tw:text-secondary tw:mt-1">
+          Accountable for this department — receives calibration / maintenance escalations for its
+          equipment.
+        </div>
+      </div>
 
       <BaseTextarea
         v-model="form.description"

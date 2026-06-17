@@ -8,6 +8,6 @@ defineProps({
 </script>
 
 <template>
-  <ProductsHome v-if="!id" />
-  <RouterView v-else :id="id" />
+  <ProductDetail v-if="id" :id="id" :key="id" />
+  <ProductsHome v-else />
 </template>

@@ -11,13 +11,36 @@ import { IconArrowLeft, IconPlus, IconTrash } from '@tabler/icons-vue'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
-const props = defineProps({ id: { type: String, required: true } })
+const props = defineProps({
+  id: { type: String, required: true },
+  // When embedded (e.g. inside the Item Master → Specifications tab) the
+  // component stays in place: back / version-history / new-version emit events
+  // instead of routing to the standalone QC Inspection page.
+  embedded: { type: Boolean, default: false },
+  // Label for the top back link — the embedding page sets it to reflect where
+  // the user came from (e.g. "Back to <Item> specifications").
+  backLabel: { type: String, default: 'Back to Specifications' },
+})
+const emit = defineEmits(['back', 'openSpec'])
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
+const { confirm } = useConfirm()
+const { visit: visitTrail } = useRecordTrail()
 const acting = ref(false)
 const saving = ref(false)
 const showEsign = ref(false)
+
+function goBack() {
+  if (props.embedded) emit('back')
+  else router.push(getCompanyPath('/qc-inspection?tab=specifications'))
+}
+function openSpec(id) {
+  if (props.embedded) emit('openSpec', id)
+  else router.push(getCompanyPath(`/qc-inspection/specifications/${id}`))
+}
 
 const canManage = computed(() => isAllowed(['qcInspection:spec:write']))
 
@@ -26,6 +49,23 @@ const spec = useLiveQueryWithDeps(
   async (db, [id]) => db.Specification.findByPk(id),
   { models: ['Specification'] },
 )
+
+// Standalone (not embedded in the product page): join the record trail and show
+// a module breadcrumb instead of an ad-hoc back button.
+watch(
+  spec,
+  (s) => {
+    if (s?.id && !props.embedded) {
+      visitTrail({ type: 'Spec', id: s.id, label: s.name || s.code, path: route.path })
+    }
+  },
+  { immediate: true },
+)
+const moduleCrumbs = computed(() => [
+  { label: 'QC Inspection', to: getCompanyPath('/qc-inspection') },
+  { label: 'Specifications', to: getCompanyPath('/qc-inspection?tab=specifications') },
+  { label: spec.value?.name || spec.value?.code || 'Specification' },
+])
 
 const creator = useLiveQueryWithDeps(
   [() => spec.value?.createdBy],
@@ -39,10 +79,12 @@ const approver = useLiveQueryWithDeps(
   async (db, [userId]) => (userId ? db.User.findByPk(userId) : null),
   { models: ['User'] },
 )
+// force:true so a spec still shows its linked item even if that item was
+// later soft-deleted (otherwise the Overview would just show "—").
 const product = useLiveQueryWithDeps(
   [() => spec.value?.productId],
 
-  async (db, [productId]) => (productId ? db.Product.findByPk(productId) : null),
+  async (db, [productId]) => (productId ? db.Product.findByPk(productId, { force: true }) : null),
   { models: ['Product'] },
 )
 const productType = useLiveQueryWithDeps(
@@ -141,6 +183,7 @@ watch(
       uom: c.uom ?? '',
       defectClass: c.defectClass ?? (c.isCritical ? 'CRITICAL' : 'MAJOR'),
       requiresInstrument: c.requiresInstrument ?? false,
+      preferredEquipmentId: c.preferredEquipmentId ?? null,
       testMethod: c.testMethod ?? '',
       sortOrder: c.sortOrder ?? 0,
     }))
@@ -154,8 +197,12 @@ function markCharsDirty() {
 const isDirty = computed(() => headerDirty.value || charsDirty.value)
 
 function addCharacteristic() {
-  editedChars.value.push({
+  // New rows go to the TOP so they're immediately visible (and flagged red
+  // until saved). _key is a stable client key so unshifting doesn't shuffle
+  // v-model bindings (index keys would).
+  editedChars.value.unshift({
     id: null,
+    _key: crypto.randomUUID(),
     name: '',
     code: '',
     testType: 'NUMERIC',
@@ -165,15 +212,19 @@ function addCharacteristic() {
     uom: '',
     defectClass: 'MAJOR',
     requiresInstrument: false,
+    preferredEquipmentId: null,
     testMethod: '',
-    sortOrder: editedChars.value.length,
+    sortOrder: 0,
   })
   charsDirty.value = true
 }
-// Pre-fill a characteristic from a Test Library entry (overridable).
-function addFromLibrary(t) {
-  editedChars.value.push({
+// Pre-fill characteristics from Test Library entries (overridable). Accepts an
+// array (multi-select) and prepends them all, preserving pick order.
+function addFromLibrary(entries) {
+  const list = Array.isArray(entries) ? entries : [entries]
+  const mapped = list.map((t) => ({
     id: null,
+    _key: crypto.randomUUID(),
     name: t.name ?? '',
     code: t.code ?? '',
     testType: t.testType || 'PASS_FAIL',
@@ -183,13 +234,28 @@ function addFromLibrary(t) {
     uom: t.uom ?? '',
     defectClass: t.defaultSeverity || 'MAJOR',
     requiresInstrument: !!t.requiresInstrument,
+    preferredEquipmentId: t.preferredEquipmentId ?? null,
     testMethod: t.testMethod ?? '',
-    sortOrder: editedChars.value.length,
-  })
+    sortOrder: 0,
+  }))
+  editedChars.value.unshift(...mapped)
   charsDirty.value = true
 }
 
-function removeCharacteristic(index) {
+async function removeCharacteristic(index) {
+  const c = editedChars.value[index]
+  // Confirm before removing a test that has content (a saved row or a row the
+  // user already named). A brand-new empty row is removed without a prompt.
+  const hasContent = c && (c.id != null || c.name?.trim())
+  if (hasContent) {
+    const ok = await confirm({
+      title: 'Remove test',
+      message: `Remove "${c.name?.trim() || 'this test'}" from the specification? It is removed when you Save.`,
+      okLabel: 'Remove',
+      danger: true,
+    })
+    if (!ok) return
+  }
   editedChars.value.splice(index, 1)
   charsDirty.value = true
 }
@@ -217,6 +283,7 @@ async function saveDraft() {
         defectClass: c.defectClass || 'MAJOR',
         isCritical: c.defectClass === 'CRITICAL',
         requiresInstrument: c.requiresInstrument ?? false,
+        preferredEquipmentId: c.requiresInstrument ? c.preferredEquipmentId || null : null,
         testMethod: c.testMethod?.trim() || null,
         sortOrder: i,
       })),
@@ -265,7 +332,7 @@ async function newVersion() {
       {},
     )
     toast.success(`Draft v${specification.version} created`)
-    router.push(getCompanyPath(`/qc-inspection/specifications/${specification.id}`))
+    openSpec(specification.id)
   } catch (err) {
     toast.error(err?.message || 'Could not create a new version')
   } finally {
@@ -275,14 +342,25 @@ async function newVersion() {
 </script>
 
 <template>
-  <div v-if="spec && header" class="tw:p-5 tw:max-w-6xl tw:mx-auto tw:flex tw:flex-col tw:gap-5">
+  <div
+    v-if="spec && header"
+    class="tw:flex tw:flex-col tw:gap-5"
+    :class="embedded ? '' : 'tw:p-5 tw:max-w-6xl tw:mx-auto'"
+  >
+    <!-- Embedded (in the product page): a back link to the item's spec list.
+         Standalone (QC module route): a module breadcrumb + record trail. -->
     <button
+      v-if="embedded"
       type="button"
       class="tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary tw:hover:text-on-main tw:bg-transparent tw:border-0 tw:cursor-pointer tw:self-start"
-      @click="router.push(getCompanyPath('/qc-inspection?tab=specifications'))"
+      @click="goBack"
     >
-      <IconArrowLeft :size="16" /> Back to Specifications
+      <IconArrowLeft :size="16" /> {{ backLabel }}
     </button>
+    <div v-else class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap tw:text-sm">
+      <BaseBreadcrumbs :items="moduleCrumbs" />
+      <RecordTrailBreadcrumb />
+    </div>
 
     <!-- Header -->
     <div class="tw:flex tw:items-start tw:justify-between tw:gap-4">
@@ -368,9 +446,19 @@ async function newVersion() {
         <template v-if="canEditDraft">
           <div
             v-for="(c, idx) in editedChars"
-            :key="idx"
-            class="tw:p-3 tw:border-t tw:border-divider"
+            :key="c.id || c._key"
+            class="tw:p-3 tw:border-t tw:transition-colors"
+            :class="c.id == null
+              ? 'tw:bg-red-50 tw:border-red-200'
+              : (idx % 2 === 1 ? 'tw:bg-main-hover tw:border-divider' : 'tw:border-divider')"
           >
+            <div
+              v-if="c.id == null"
+              class="tw:flex tw:items-center tw:gap-1.5 tw:mb-2 tw:text-[10px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-red-600"
+            >
+              <span class="tw:inline-block tw:w-1.5 tw:h-1.5 tw:rounded-full tw:bg-red-500"></span>
+              New test — fill in &amp; Save
+            </div>
             <div class="tw:flex tw:items-end tw:gap-3 tw:flex-wrap">
               <BaseField v-slot="{ id: fieldId }" label="Test name" class="tw:flex-1 tw:min-w-40">
                 <BaseTextInput
@@ -442,6 +530,13 @@ async function newVersion() {
                 />
               </BaseField>
             </div>
+            <BaseField v-if="c.requiresInstrument" label="Preferred instrument" class="tw:mt-2 tw:w-72">
+              <EquipmentSelectMenu
+                v-model="c.preferredEquipmentId"
+                nullLabel="— None (pick at capture) —"
+                @update:modelValue="markCharsDirty"
+              />
+            </BaseField>
             <BaseField label="Test method / reference attachments" class="tw:mt-2">
               <RichTextAttachments
                 v-model="c.testMethod"
@@ -461,8 +556,8 @@ async function newVersion() {
         <!-- Read-only table -->
         <template v-else>
           <table class="tw:w-full tw:text-sm">
-            <thead class="tw:text-secondary tw:text-xs tw:uppercase">
-              <tr>
+            <thead class="tw:text-secondary tw:text-xs tw:uppercase tw:bg-main-hover">
+              <tr class="tw:border-b tw:border-divider">
                 <th class="tw:text-left tw:px-5 tw:py-2">Test</th>
                 <th class="tw:text-left tw:px-5 tw:py-2">Type</th>
                 <th class="tw:text-left tw:px-5 tw:py-2">Spec</th>
@@ -470,7 +565,12 @@ async function newVersion() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="c in characteristics" :key="c.id" class="tw:border-t tw:border-divider">
+              <tr
+                v-for="(c, idx) in characteristics"
+                :key="c.id"
+                class="tw:border-t tw:border-divider tw:hover:bg-sidebar-selected tw:transition-colors"
+                :class="idx % 2 === 1 ? 'tw:bg-main-hover' : ''"
+              >
                 <td class="tw:px-5 tw:py-2.5 tw:font-medium tw:text-on-main">
                   {{ c.name }}
                   <DefectSeverityBadgeById :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')" class="tw:ml-1 tw:text-[10px]" />
@@ -481,7 +581,8 @@ async function newVersion() {
                 <td class="tw:px-5 tw:py-2.5 tw:text-secondary">{{ c.testType }}</td>
                 <td class="tw:px-5 tw:py-2.5 tw:text-secondary">{{ limitText(c) }}</td>
                 <td class="tw:px-5 tw:py-2.5 tw:text-secondary">
-                  {{ c.requiresInstrument ? 'Required' : '—' }}
+                  <EquipmentBadgeById v-if="c.preferredEquipmentId" :equipmentId="c.preferredEquipmentId" />
+                  <template v-else>{{ c.requiresInstrument ? 'Required' : '—' }}</template>
                 </td>
               </tr>
               <tr v-if="!characteristics.length">
@@ -570,6 +671,7 @@ async function newVersion() {
                 <span v-if="product.sku" class="tw:text-xs tw:text-secondary tw:font-mono"
                   >· {{ product.sku }}</span
                 >
+                <span v-if="product.deletedAt" class="tw:text-xs tw:text-bad tw:ml-1">(deleted)</span>
               </div>
               <div v-else-if="productType" class="tw:text-on-main">
                 {{ productType.name }}
@@ -644,7 +746,7 @@ async function newVersion() {
             tag="tr"
             class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
             :aria-label="`Open specification version ${prev.version}`"
-            @click="router.push(getCompanyPath(`/qc-inspection/specifications/${prev.id}`))"
+            @click="openSpec(prev.id)"
           >
             <td class="tw:px-5 tw:py-2.5 tw:font-mono tw:font-medium tw:text-on-main">
               v{{ prev.version }}

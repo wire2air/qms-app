@@ -338,11 +338,11 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/products': RouteRecordInfo<
-      '/products',
-      '/products',
-      Record<never, never>,
-      Record<never, never>,
+    '/products/[[id]]': RouteRecordInfo<
+      '/products/[[id]]',
+      '/products/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
       | never
     >,
     '/qc-inspection/': RouteRecordInfo<
@@ -824,9 +824,9 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/products.vue': {
+    'src/pages/products/[[id]].vue': {
       routes:
-        | '/products'
+        | '/products/[[id]]'
       views:
         | never
     }

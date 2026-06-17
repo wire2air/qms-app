@@ -29,6 +29,9 @@ export class SpecificationCharacteristic extends BaseModel {
   @Property({ type: String }) defectClass = 'MAJOR'
   @Property({ type: Boolean }) requiresInstrument = false
   @Property({ type: String }) testMethod = /** @type {String} */ (null)
+  // Preferred instrument (when requiresInstrument) — defaults the result-row
+  // equipment + drives the calibration gate.
+  @Property({ type: String }) preferredEquipmentId = /** @type {String} */ (null)
   @Property({ type: Number }) sortOrder = 0
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })

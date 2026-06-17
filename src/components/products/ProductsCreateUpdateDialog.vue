@@ -20,7 +20,7 @@ const open = defineModel({
 const form = ref({
   name: '',
   sku: '',
-  family: '',
+  productFamilyId: null,
   description: '',
   productTypeId: null,
   statusId: 'ACTIVE',
@@ -51,7 +51,6 @@ const skuAvailable = useLiveQueryWithDeps(
 const rules = computed(() => ({
   name: { required: helpers.withMessage('Required', required) },
   sku: { required: helpers.withMessage('Required', required) },
-  family: { required: helpers.withMessage('Required', required) },
   productTypeId: { required: helpers.withMessage('Required', required) },
   statusId: { required: helpers.withMessage('Required', required) },
 }))
@@ -69,7 +68,7 @@ watch(
       form.value = {
         name: p.name,
         sku: p.sku,
-        family: p.family,
+        productFamilyId: p.productFamilyId ?? null,
         description: p.description || '',
         productTypeId: p.productTypeId,
         statusId: p.statusId,
@@ -111,7 +110,7 @@ watch(open, (val) => {
     form.value = {
       name: '',
       sku: '',
-      family: '',
+      productFamilyId: null,
       description: '',
       productTypeId: null,
       statusId: 'ACTIVE',
@@ -163,14 +162,10 @@ watch(open, (val) => {
         </template>
       </div>
 
-      <BaseTextInput
-        v-model="form.family"
-        name="family"
-        label="Product Family"
-        placeholder="e.g. Fasteners"
-        :required="true"
-        :errorMsg="validator.$errors?.family?.[0]?.$message"
-      />
+      <div>
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Product Family</p>
+        <ProductFamilySelectMenu v-model="form.productFamilyId" nullLabel="— No family —" />
+      </div>
 
       <div class="tw:flex tw:gap-4">
         <BaseField label="Product Type">
