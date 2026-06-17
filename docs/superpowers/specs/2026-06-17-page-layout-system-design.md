@@ -1,7 +1,14 @@
 # Page Layout System — Design
 
 **Date:** 2026-06-17
-**Status:** Phase 0 implemented (foundation components + standards). Phases 1–3 are roadmap.
+**Status:** Phases 0–2 implemented — foundation built and all ~74 in-scope app pages migrated to `BasePage`. Phase 3 (lint guard) remains.
+
+**Settled rules (from migration):**
+- List/index pages use **whole-page scroll** (no `fullHeight`); `BaseTable`'s sticky header keeps columns visible.
+- Detail/create pages keep their **internal scroll region** (sticky toolbar/footer + `tw:flex-1 tw:min-h-0 tw:overflow-auto` body) via `fullHeight` + `min-h-0`.
+- **Full-canvas editors/designers are exempt** (e.g. `WorkflowEditor`, `FormAssignmentEditor`, the form builder): they fill the viewport with their own panes and keep a `tw:flex tw:flex-col tw:h-full tw:overflow-hidden` root.
+- Mobile-first narrow surfaces (e.g. `LoggingDashboard`) use `width="narrow"`.
+
 **Scope:** Authenticated app shell pages only. Auth/public pages (signin, signup, the public form filler, supplier portal) are explicitly out of scope and keep their centered-narrow layouts.
 
 ---
