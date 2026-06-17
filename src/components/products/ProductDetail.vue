@@ -44,7 +44,7 @@ function goBack() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
+  <BasePage width="standard">
     <button
       class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:text-secondary tw:hover:text-on-sidebar tw:w-fit"
       @click="goBack"
@@ -60,29 +60,22 @@ function goBack() {
 
     <template v-else>
       <!-- Header -->
-      <div class="tw:flex tw:items-start tw:justify-between tw:gap-4">
-        <div class="tw:flex tw:items-start tw:gap-3">
-          <div
-            class="tw:w-11 tw:h-11 tw:bg-primary/10 tw:text-primary tw:rounded-xl tw:flex tw:items-center tw:justify-center tw:shrink-0"
+      <PageHeader :icon="IconPackage">
+        <template #title>
+          {{ product.name }}
+          <span
+            class="tw:inline-flex tw:items-center tw:rounded tw:border tw:border-primary tw:px-2 tw:py-0.5 tw:text-xs tw:font-medium tw:text-primary"
+            >{{ product.sku }}</span
           >
-            <IconPackage class="tw:size-6" />
-          </div>
-          <div>
-            <h1 class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ product.name }}</h1>
-            <div class="tw:flex tw:items-center tw:gap-2 tw:mt-1">
-              <span
-                class="tw:inline-flex tw:items-center tw:rounded tw:border tw:border-primary tw:px-2 tw:py-0.5 tw:text-xs tw:font-medium tw:text-primary"
-                >{{ product.sku }}</span
-              >
-              <ProductStatusBadgeById v-if="product.statusId" :statusId="product.statusId" />
-            </div>
-          </div>
-        </div>
-        <BaseButton v-if="canUpdate" variant="outline" size="sm" @click="showEdit = true">
-          <template #icon><IconPencil :size="16" /></template>
-          Edit
-        </BaseButton>
-      </div>
+          <ProductStatusBadgeById v-if="product.statusId" :statusId="product.statusId" />
+        </template>
+        <template #actions>
+          <BaseButton v-if="canUpdate" variant="outline" size="sm" @click="showEdit = true">
+            <template #icon><IconPencil :size="16" /></template>
+            Edit
+          </BaseButton>
+        </template>
+      </PageHeader>
 
       <!-- Tabs -->
       <div class="tw:flex tw:border-b tw:border-divider">

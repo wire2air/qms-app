@@ -333,38 +333,33 @@ function handlePdfImport(draft) {
 </script>
 
 <template>
-  <BasePage width="narrow" fullHeight class="tw:relative">
-    <PageHeader :icon="IconFileText" title="Create Document" />
+  <BasePage width="standard" fullHeight class="tw:relative">
+    <PageHeader :icon="IconFileText" title="Create Document">
+      <template #actions>
+        <button
+          class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-divider tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-sidebar tw:transition-colors tw:font-medium tw:px-3 tw:py-1.5 tw:text-sm"
+          title="Import an existing PDF (SOP, work instruction, etc.) — extracts text + images and structures the content"
+          @click="showImportDialog = true"
+        >
+          <IconFileUpload :size="15" />
+          Import PDF
+        </button>
+        <button
+          class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-3 tw:py-1.5 tw:text-sm"
+          title="Use AI to draft an initial outline you can edit"
+          @click="showDraftDialog = true"
+        >
+          <IconSparkles :size="15" />
+          Draft with AI
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- Scrollable content -->
     <div class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
       <div class="tw:max-w-4xl tw:mx-auto tw:px-6 tw:py-8">
         <!-- Header -->
         <div class="tw:mb-8">
-          <div class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:mb-6">
-            <h1 class="tw:text-3xl tw:font-extrabold tw:text-on-sidebar">
-              Create New Document
-            </h1>
-            <div class="tw:flex tw:items-center tw:gap-2">
-              <button
-                class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-divider tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-sidebar tw:transition-colors tw:font-medium tw:px-3 tw:py-1.5 tw:text-sm"
-                title="Import an existing PDF (SOP, work instruction, etc.) — extracts text + images and structures the content"
-                @click="showImportDialog = true"
-              >
-                <IconFileUpload :size="15" />
-                Import PDF
-              </button>
-              <button
-                class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-3 tw:py-1.5 tw:text-sm"
-                title="Use AI to draft an initial outline you can edit"
-                @click="showDraftDialog = true"
-              >
-                <IconSparkles :size="15" />
-                Draft with AI
-              </button>
-            </div>
-          </div>
-
           <!-- Tabs Navigation -->
           <div class="tw:flex tw:border-b tw:border-divider">
             <button

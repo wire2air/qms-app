@@ -129,25 +129,21 @@ function onCreate() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <PageHeader title="Change Requests" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="outline" :disabled="!changeRequests.length" @click="exportCsv">
-        <IconDownload :size="16" class="tw:mr-1" />
-        Export
-      </BaseButton>
-      <BaseButton v-if="canCreate" variant="primary" @click="onCreate">
-        New Change Request
-      </BaseButton>
-    </SafeTeleport>
-
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Change Requests</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Plan, approve, implement, and verify the effectiveness of controlled changes.
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      title="Change Requests"
+      subtitle="Plan, approve, implement, and verify the effectiveness of controlled changes."
+    >
+      <template #actions>
+        <BaseButton variant="outline" :disabled="!changeRequests.length" @click="exportCsv">
+          <IconDownload :size="16" class="tw:mr-1" />
+          Export
+        </BaseButton>
+        <BaseButton v-if="canCreate" variant="primary" @click="onCreate">
+          New Change Request
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
       <div

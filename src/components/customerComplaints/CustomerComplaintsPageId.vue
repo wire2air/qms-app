@@ -120,13 +120,12 @@ const auditIncludeEntities = computed(() => [
 </script>
 
 <template>
-  <BasePage width="standard" density="compact" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard" fullHeight>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs :items="breadcrumbs" />
+      </template>
+      <template #actions>
         <!-- Lifecycle actions -->
         <BaseButton
           v-if="isEditable && !complaint.assignedTo"
@@ -191,8 +190,8 @@ const auditIncludeEntities = computed(() => [
           <IconClipboardList :size="20" class="tw:mr-1" />
           Audit Log
         </BaseButton>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
 
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
       <BaseSpinner size="md" />

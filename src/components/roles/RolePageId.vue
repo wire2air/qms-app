@@ -226,7 +226,7 @@ watch(
 </script>
 
 <template>
-  <BasePage width="standard" density="compact" fullHeight>
+  <BasePage width="standard" fullHeight>
     <!-- Loading State -->
     <div v-if="loading && !role" class="tw:flex tw:items-center tw:justify-center tw:h-full">
       <BaseSpinner size="lg" />
@@ -250,19 +250,19 @@ watch(
 
     <!-- Content -->
     <div v-else-if="role" class="tw:flex tw:flex-col tw:h-full tw:overflow-hidden">
-      <!-- Header Actions -->
-      <SafeTeleport to="#main-header-title">
-        <nav class="tw:flex tw:items-center tw:gap-1 tw:text-sm">
-          <RouterLink :to="breadcrumbItems[0].to" class="tw:text-secondary tw:hover:text-on-main">{{
-            breadcrumbItems[0].label
-          }}</RouterLink>
-          <span class="tw:text-secondary tw:mx-1">/</span>
-          <span class="tw:text-on-main tw:font-medium">{{ breadcrumbItems[1].label }}</span>
-        </nav>
-      </SafeTeleport>
-
-      <SafeTeleport to="#main-header-actions">
-        <div class="tw:flex tw:items-center tw:gap-3">
+      <PageHeader>
+        <template #title>
+          <nav class="tw:flex tw:items-center tw:gap-1 tw:text-sm">
+            <RouterLink
+              :to="breadcrumbItems[0].to"
+              class="tw:text-secondary tw:hover:text-on-main"
+              >{{ breadcrumbItems[0].label }}</RouterLink
+            >
+            <span class="tw:text-secondary tw:mx-1">/</span>
+            <span class="tw:text-on-main tw:font-medium">{{ breadcrumbItems[1].label }}</span>
+          </nav>
+        </template>
+        <template #actions>
           <template v-if="canUpdateRole">
             <button
               class="tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-secondary tw:bg-transparent tw:border tw:border-divider tw:rounded-lg tw:cursor-pointer tw:hover:bg-main-hover tw:transition-colors"
@@ -293,8 +293,8 @@ watch(
           >
             Deactivate
           </button>
-        </div>
-      </SafeTeleport>
+        </template>
+      </PageHeader>
 
       <!-- Scrollable Content -->
       <div

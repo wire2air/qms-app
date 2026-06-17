@@ -285,8 +285,12 @@ function goBack() {
 </script>
 
 <template>
-  <BasePage width="narrow" fullHeight>
-    <PageHeader :icon="IconTruck" title="New Supplier Onboarding" />
+  <BasePage width="standard" fullHeight>
+    <PageHeader
+      :icon="IconTruck"
+      title="New Supplier Onboarding"
+      subtitle="Complete the profile below to initiate the technical qualification and quality assurance audit for new supply partners."
+    />
 
     <!-- Scrollable content -->
     <div class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
@@ -302,17 +306,6 @@ function goBack() {
           >
           <IconChevronRight :size="14" />
           <span class="tw:text-on-sidebar tw:font-medium">Onboarding</span>
-        </div>
-
-        <!-- Page Header -->
-        <div class="tw:mb-8">
-          <h1 class="tw:text-3xl tw:font-black tw:text-on-sidebar tw:tracking-tight">
-            New Supplier Onboarding
-          </h1>
-          <p class="tw:text-secondary tw:mt-2 tw:max-w-2xl">
-            Complete the profile below to initiate the technical qualification and quality assurance
-            audit for new supply partners.
-          </p>
         </div>
 
         <!-- General error -->

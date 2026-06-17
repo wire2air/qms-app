@@ -307,11 +307,12 @@ function onNewComplaint() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <PageHeader title="Customer Complaints" />
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard">
+    <PageHeader
+      title="Customer Complaints"
+      subtitle="Manage customer complaint tickets from web, forms and email intake."
+    >
+      <template #actions>
         <BaseButton
           variant="secondary"
           @click="router.push(getCompanyPath('/customer-complaints/reports'))"
@@ -331,16 +332,8 @@ function onNewComplaint() {
         <BaseButton v-if="canCreate" variant="primary" @click="onNewComplaint">
           New Complaint
         </BaseButton>
-      </div>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Customer Complaints</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Manage customer complaint tickets from web, forms and email intake.
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Stat Cards -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">

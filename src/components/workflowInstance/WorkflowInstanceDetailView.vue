@@ -134,10 +134,12 @@ const breadcrumbs = computed(() => {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs v-if="instance" :items="breadcrumbs" />
-    </SafeTeleport>
+  <BasePage width="standard">
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs v-if="instance" :items="breadcrumbs" />
+      </template>
+    </PageHeader>
 
     <!-- Loading -->
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:min-h-[60vh]">

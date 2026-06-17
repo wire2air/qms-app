@@ -1,37 +1,44 @@
 <script setup>
 /**
- * PageHeader — the page title block teleported into the app header.
+ * PageHeader — the page's identity in the top app bar. It teleports an
+ * icon + title into the bar's left zone (#main-header-title) and any actions
+ * into the bar's right zone (#main-header-actions). The global search sits
+ * centered between the two zones (see MainHeader.vue).
  *
- * Replaces the copy-pasted
- *   <SafeTeleport to="#main-header-title">
- *     <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
- *       <IconX class="tw:text-primary" :size="24" />
- *       <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Title</h2>
- *     </div>
- *   </SafeTeleport>
- * found in ~73 page components.
+ * Render it (conventionally) as the FIRST child of <BasePage>; it produces no
+ * in-body output — everything teleports into MainHeader, so every page's title
+ * and actions land in the exact same place.
  *
- * Icons are NOT auto-imported — pass the imported component:
- *   <PageHeader :icon="IconBuilding" title="Departments" />
+ *   <PageHeader :icon="IconUsers" title="Users">
+ *     <template #actions><BaseButton @click="create">Create User</BaseButton></template>
+ *   </PageHeader>
  *
- * Optional #actions slot teleports into #main-header-actions (the header's
- * right-hand action area).
+ * `subtitle` is accepted for API stability (pages pass it) but intentionally not
+ * shown in the compact bar.
  */
 defineProps({
-  // An @tabler/icons-vue component, imported by the consumer.
+  // A @tabler/icons-vue component, imported by the consumer.
   icon: { type: [Object, Function], default: null },
   title: { type: String, default: '' },
-  iconSize: { type: Number, default: 24 },
+  // Accepted but not rendered in the compact top bar.
+  subtitle: { type: String, default: '' },
+  iconSize: { type: Number, default: 22 },
 })
 </script>
 
 <template>
   <SafeTeleport to="#main-header-title">
-    <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-      <component :is="icon" v-if="icon" class="tw:text-primary" :size="iconSize" />
-      <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
+    <div class="tw:flex tw:min-w-0 tw:items-center tw:gap-2 tw:text-on-sidebar">
+      <component
+        :is="icon"
+        v-if="icon"
+        :size="iconSize"
+        class="tw:shrink-0 tw:text-primary"
+        aria-hidden="true"
+      />
+      <h1 class="tw:truncate tw:text-lg tw:font-bold tw:tracking-tight">
         <slot name="title">{{ title }}</slot>
-      </h2>
+      </h1>
     </div>
   </SafeTeleport>
 

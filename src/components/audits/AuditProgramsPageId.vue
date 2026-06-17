@@ -36,12 +36,6 @@ const canDelete = computed(() => isAllowed(['auditPrograms:delete']))
 const isOwner = computed(() => !!currentSession.value?.isOwner)
 const isEditable = computed(() => canUpdate.value || isOwner.value)
 
-const breadcrumbs = computed(() => [
-  { label: 'Audits', to: getCompanyPath('/audits?tab=programs') },
-  { label: 'Programs', to: getCompanyPath('/audits?tab=programs') },
-  { label: program.value?.name || 'Loading…' },
-])
-
 // ─── Lookup-table labels (audit_program_types + audit_frequencies are
 //     static enums — no SyncEngine model, just inline maps). ─────
 const PROGRAM_TYPES = [
@@ -224,13 +218,10 @@ async function handleDelete() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard" fullHeight>
+    <PageHeader>
+      <template #title>{{ program?.name || 'Program' }}</template>
+      <template #actions>
         <BaseButton
           v-if="program"
           variant="outline"
@@ -249,8 +240,8 @@ async function handleDelete() {
         >
           Delete
         </BaseButton>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
 
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
       <BaseSpinner size="lg" />

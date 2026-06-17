@@ -113,15 +113,12 @@ async function handleAvatarDelete() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact" fullHeight>
-    <!-- Breadcrumbs Teleport -->
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbItems" />
-    </SafeTeleport>
-
-    <!-- Actions Teleport -->
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-3">
+  <BasePage width="standard" fullHeight>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs :items="breadcrumbItems" />
+      </template>
+      <template #actions>
         <BaseButton
           v-if="canUpdateUser && user && !user.inviteSent"
           variant="outline"
@@ -130,8 +127,8 @@ async function handleAvatarDelete() {
         >
           Send Invitation
         </BaseButton>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
 
     <!-- Loading State -->
     <div

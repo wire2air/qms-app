@@ -55,24 +55,23 @@ function onRecordCreated() {
 </script>
 
 <template>
-  <BasePage width="wide" density="compact">
-    <PageHeader :icon="IconFolderOpen" title="Records" />
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Records</div>
-        <div class="tw:text-sm tw:text-secondary">View and manage submitted records.</div>
-      </div>
-      <button
-        v-if="canCreateRecord"
-        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:bg-primary tw:text-white tw:font-bold tw:rounded-lg tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:cursor-pointer"
-        @click="showAddDialog = true"
-      >
-        <IconPlus :size="18" />
-        Add Record
-      </button>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconFolderOpen"
+      title="Records"
+      subtitle="View and manage submitted records."
+    >
+      <template #actions>
+        <button
+          v-if="canCreateRecord"
+          class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:bg-primary tw:text-white tw:font-bold tw:rounded-lg tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:cursor-pointer"
+          @click="showAddDialog = true"
+        >
+          <IconPlus :size="18" />
+          Add Record
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- Standalone records (legacy `records` table) -->
     <div class="tw:flex tw:items-center tw:justify-between tw:mt-2">

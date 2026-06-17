@@ -44,17 +44,13 @@ watch(
 
 <template>
   <BasePage width="standard">
-    <PageHeader :icon="IconHeadset" title="Complaint Settings" />
+    <PageHeader
+      :icon="IconHeadset"
+      title="Complaint Settings"
+      subtitle="Configure how customer complaints reach and move through your support queue — email channels, intake forms, and ticket fields."
+    />
 
     <div class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Complaint Settings</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Configure how customer complaints reach and move through your support queue — email
-          channels, intake forms, and ticket fields.
-        </div>
-      </div>
-
       <!-- Tabs -->
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Complaint settings sections">
         <div class="tw:mt-6">

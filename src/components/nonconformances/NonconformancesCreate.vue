@@ -34,7 +34,10 @@ const scar8dVersionId = computed(() => {
     (w) => w.statusId === 'ACTIVE' && /scar|8d/i.test(w.name || ''),
   )
   if (!scar) return null
-  return capaVersions.value.find((v) => v.workflowId === scar.id && v.statusId === 'PUBLISHED')?.id ?? null
+  return (
+    capaVersions.value.find((v) => v.workflowId === scar.id && v.statusId === 'PUBLISHED')?.id ??
+    null
+  )
 })
 
 // ── Audit-finding spawn deep link ─────────────────────────────────
@@ -178,14 +181,11 @@ async function confirmSupplierRaise() {
   }
   saving.value = true
   try {
-    const { nonconformance, capa, opened } = await post(
-      '/v1/services/nonconformances/raise',
-      {
-        ...form.value,
-        createCapa: createCapa.value,
-        capaWorkflowVersionId: createCapa.value ? capaWorkflowVersionId.value : null,
-      },
-    )
+    const { nonconformance, capa, opened } = await post('/v1/services/nonconformances/raise', {
+      ...form.value,
+      createCapa: createCapa.value,
+      capaWorkflowVersionId: createCapa.value ? capaWorkflowVersionId.value : null,
+    })
     if (!opened) {
       toast.notify({
         type: 'warning',
@@ -240,19 +240,20 @@ async function handleReviewersConfirmed(reviewers) {
 </script>
 
 <template>
-  <BasePage width="narrow" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs
-        :items="[
-          { label: 'Nonconformances', to: getCompanyPath('/nonconformances') },
-          { label: 'Raise NC' },
-        ]"
-      />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="primary" :disabled="saving" @click="handleSubmit">Submit</BaseButton>
-    </SafeTeleport>
+  <BasePage width="standard" fullHeight>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs
+          :items="[
+            { label: 'Nonconformances', to: getCompanyPath('/nonconformances') },
+            { label: 'Raise NC' },
+          ]"
+        />
+      </template>
+      <template #actions>
+        <BaseButton variant="primary" :disabled="saving" @click="handleSubmit">Submit</BaseButton>
+      </template>
+    </PageHeader>
 
     <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:max-w-3xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">
@@ -266,7 +267,11 @@ async function handleReviewersConfirmed(reviewers) {
           </BaseText>
           <div class="tw:flex tw:flex-col tw:gap-3">
             <BaseField v-slot="{ id }" label="Title" required>
-              <BaseTextInput :id="id" v-model="form.title" placeholder="Describe the nonconformance…" />
+              <BaseTextInput
+                :id="id"
+                v-model="form.title"
+                placeholder="Describe the nonconformance…"
+              />
             </BaseField>
             <BaseField label="Description">
               <div class="create-nc-editor">
@@ -361,7 +366,9 @@ async function handleReviewersConfirmed(reviewers) {
             </BaseField>
             <BaseField label="Supplier" :required="form.isSupplierFacing">
               <SupplierSelectMenu v-model="form.supplierId" :required="form.isSupplierFacing" />
-              <label class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none">
+              <label
+                class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
+              >
                 <BaseCheckbox v-model="form.isSupplierFacing" />
                 <div>
                   <BaseText>Supplier-facing NC</BaseText>
@@ -376,16 +383,28 @@ async function handleReviewersConfirmed(reviewers) {
               <BaseTextInput :id="id" v-model="form.qtyAffected" type="number" placeholder="0" />
             </BaseField>
             <BaseField v-slot="{ id }" label="Unit of measure">
-              <BaseTextInput :id="id" v-model="form.unitOfMeasure" placeholder="e.g. sheets, units…" />
+              <BaseTextInput
+                :id="id"
+                v-model="form.unitOfMeasure"
+                placeholder="e.g. sheets, units…"
+              />
             </BaseField>
             <BaseField v-slot="{ id }" label="PO #">
               <BaseTextInput :id="id" v-model="form.poNumber" placeholder="Purchase order number" />
             </BaseField>
             <BaseField v-slot="{ id }" label="Order #">
-              <BaseTextInput :id="id" v-model="form.orderNumber" placeholder="Customer / sales order" />
+              <BaseTextInput
+                :id="id"
+                v-model="form.orderNumber"
+                placeholder="Customer / sales order"
+              />
             </BaseField>
             <BaseField v-slot="{ id }" label="Lot #" class="tw:col-span-2">
-              <BaseTextInput :id="id" v-model="form.lotNumber" placeholder="Material / production lot" />
+              <BaseTextInput
+                :id="id"
+                v-model="form.lotNumber"
+                placeholder="Material / production lot"
+              />
             </BaseField>
           </div>
         </div>
@@ -442,12 +461,9 @@ async function handleReviewersConfirmed(reviewers) {
             :ownerId="form.ownerId"
             @submit="handleReviewersConfirmed"
           />
-          <p
-            v-if="form.isSupplierFacing"
-            class="tw:text-xs tw:text-secondary tw:mt-2"
-          >
-            Supplier-facing NCs are auto-assigned to the supplier's first portal user and
-            opened on Submit — you can reassign any step afterwards.
+          <p v-if="form.isSupplierFacing" class="tw:text-xs tw:text-secondary tw:mt-2">
+            Supplier-facing NCs are auto-assigned to the supplier's first portal user and opened on
+            Submit — you can reassign any step afterwards.
           </p>
         </div>
       </div>

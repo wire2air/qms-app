@@ -258,13 +258,12 @@ const editingTitle = ref(false)
 </script>
 
 <template>
-  <BasePage width="standard" density="compact" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard" fullHeight>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs :items="breadcrumbs" />
+      </template>
+      <template #actions>
         <!-- Lifecycle (left) -->
         <BaseButton
           v-if="isOwner && cr?.statusId === 'DRAFT'"
@@ -317,8 +316,8 @@ const editingTitle = ref(false)
           :entityTitle="cr.title"
           :entityNumber="cr.crNumber"
         />
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
 
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
       <BaseSpinner size="md" />

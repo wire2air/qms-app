@@ -38,22 +38,16 @@ function openDialog(id = null) {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <PageHeader :icon="IconChecklist" title="Option Sets" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateOptionSet" @click="openDialog()"> Create Option Set </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Option Sets</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage reusable sets of options for dropdowns, radios, and checklists.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconChecklist"
+      title="Option Sets"
+      subtitle="Manage reusable sets of options for dropdowns, radios, and checklists."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreateOptionSet" @click="openDialog()"> Create Option Set </BaseButton>
+      </template>
+    </PageHeader>
 
     <OptionSetsFilterToolbar v-model:filters="filters" />
 

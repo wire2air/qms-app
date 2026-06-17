@@ -78,7 +78,7 @@ function goLogs() {
 </script>
 
 <template>
-  <BasePage width="narrow" density="compact">
+  <BasePage width="standard">
     <PageHeader title="Logging" />
 
     <!-- My Tasks -->

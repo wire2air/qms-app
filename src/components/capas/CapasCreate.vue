@@ -216,16 +216,12 @@ async function handleReviewersConfirmed(reviewers) {
 </script>
 
 <template>
-  <BasePage width="narrow" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs
-        :items="[{ label: 'CAPAs', to: getCompanyPath('/capas') }, { label: 'Create CAPA' }]"
-      />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="primary" :disabled="saving" @click="handleSubmit">Submit</BaseButton>
-    </SafeTeleport>
+  <BasePage width="standard" fullHeight>
+    <PageHeader title="Create CAPA">
+      <template #actions>
+        <BaseButton variant="primary" :disabled="saving" @click="handleSubmit">Submit</BaseButton>
+      </template>
+    </PageHeader>
 
     <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:max-w-3xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">

@@ -168,10 +168,6 @@ const hasActiveTaskOnSelected = computed(
   () => !!activeTaskVersionId.value && selectedVersion.value?.id === activeTaskVersionId.value,
 )
 
-const breadcrumbs = computed(() => [
-  { label: 'Documents', to: getCompanyPath('/documents') },
-  { label: document.value ? document.value.title : 'Loading...' },
-])
 
 // workflow preview dialog state
 const showPreviewDialog = ref(false)
@@ -377,10 +373,16 @@ async function handleNewVersionConfirm(changeControl) {
        be at least 100vh tall, which interacted with the sticky toolbar and
        could make the document body unreachable on shorter viewports. The
        App.vue overflow-auto wrapper already owns the scroll. -->
-  <BasePage width="standard" density="compact">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
+  <BasePage width="standard">
+    <PageHeader v-if="document" :icon="IconFileDescription">
+      <template #title>
+        {{ document.title }}
+        <span v-if="document.docNumber" class="tw:text-secondary tw:font-normal">
+          {{ document.docNumber }}
+        </span>
+      </template>
+    </PageHeader>
+
     <!-- Loading State -->
     <BaseSpinner v-if="!document" centered size="lg" />
 

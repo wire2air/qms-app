@@ -399,16 +399,12 @@ function handleSubmit(data, done) {
 </script>
 
 <template>
-  <BasePage width="wide">
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div>
-        <div class="tw:text-3xl tw:font-bold tw:text-on-main">Form Templates</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Create and manage dynamic form templates for your organization.
-        </div>
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-3">
+  <BasePage width="standard">
+    <PageHeader
+      title="Form Templates"
+      subtitle="Create and manage dynamic form templates for your organization."
+    >
+      <template #actions>
         <label
           class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:text-sm tw:text-secondary"
         >
@@ -428,8 +424,8 @@ function handleSubmit(data, done) {
           <IconPlus :size="16" />
           New Template
         </button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <div class="tw:grid tw:grid-cols-12 tw:gap-8">
       <!-- Form Preview Section -->

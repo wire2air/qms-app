@@ -1,6 +1,4 @@
 <script setup>
-import { IconSearch } from '@tabler/icons-vue'
-
 const filters = defineModel('filters', {
   type: Object,
   required: true,
@@ -23,17 +21,7 @@ function clearAll() {
 
 <template>
   <!-- Scoped search stays in the app header (preserved placement) -->
-  <SafeTeleport to="#main-header-search">
-    <BaseTextInput
-      v-model="filters.search"
-      placeholder="Search by title or document number…"
-      class="tw:flex-1 tw:max-w-md"
-    >
-      <template #icon>
-        <IconSearch :size="18" class="tw:text-secondary" />
-      </template>
-    </BaseTextInput>
-  </SafeTeleport>
+  <SafeTeleport to="#main-header-search"> </SafeTeleport>
 
   <BaseFilterBar hideSearch :showClear="showClear" @clear="clearAll">
     <template #filters>

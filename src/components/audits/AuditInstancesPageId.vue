@@ -106,12 +106,6 @@ const docRequestReadonly = computed(
     !(isAuditee.value && !['CLOSED', 'CANCELLED'].includes(auditInstance.value?.statusId)),
 )
 
-const breadcrumbs = computed(() => [
-  { label: 'Audits', to: getCompanyPath('/audits?tab=instances') },
-  { label: 'Audits', to: getCompanyPath('/audits?tab=instances') },
-  { label: auditInstance.value?.auditNumber || 'Loading…' },
-])
-
 // ─── Inline auto-save (PATCH) ────────────────────────────────────
 const scheduledDateStr = ref('')
 const isFirstLoad = ref(true)
@@ -376,13 +370,10 @@ watch(auditTabs, (tabs) => {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard" fullHeight>
+    <PageHeader :icon="IconClipboardCheck">
+      <template #title>{{ auditInstance?.auditNumber || 'Audit' }}</template>
+      <template #actions>
         <BaseButton
           v-if="auditInstance"
           variant="outline"
@@ -474,8 +465,8 @@ watch(auditTabs, (tabs) => {
         >
           Delete
         </BaseButton>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
 
     <BaseSpinner v-if="loading" centered size="lg" />
 

@@ -53,12 +53,6 @@ const showCloneDialog = ref(false)
 const isOwner = computed(() => !!currentSession.value?.isOwner)
 const isEditable = computed(() => canUpdate.value || isOwner.value)
 
-const breadcrumbs = computed(() => [
-  { label: 'Audits', to: getCompanyPath('/audits?tab=standards') },
-  { label: 'Standards', to: getCompanyPath('/audits?tab=standards') },
-  { label: standard.value?.name || standard.value?.code || 'Loading…' },
-])
-
 // ─── Versions for this standard ─────────────────────────────────────
 const versions = useLiveQueryWithDeps(
   [() => props.id],
@@ -325,13 +319,10 @@ async function handleRemoveSourceFile() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact" fullHeight>
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard" fullHeight>
+    <PageHeader :icon="IconClipboardCheck">
+      <template #title>{{ standard?.name || standard?.code || 'Standard' }}</template>
+      <template #actions>
         <BaseButton
           v-if="standard"
           variant="outline"
@@ -382,8 +373,8 @@ async function handleRemoveSourceFile() {
         >
           Delete
         </BaseButton>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
 
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
       <BaseSpinner size="lg" />

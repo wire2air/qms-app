@@ -150,22 +150,16 @@ function onRaiseNc() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <PageHeader title="Nonconformances" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="outline" :disabled="!ncs.length" @click="exportCsv">
-        <IconDownload :size="16" class="tw:mr-1" />
-        Export
-      </BaseButton>
-      <BaseButton v-if="canCreate" variant="primary" @click="onRaiseNc">Raise NC</BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Nonconformances</div>
-      <div class="tw:text-sm tw:text-secondary">Track, investigate and close nonconformances.</div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader title="Nonconformances" subtitle="Track, investigate and close nonconformances.">
+      <template #actions>
+        <BaseButton variant="outline" :disabled="!ncs.length" @click="exportCsv">
+          <IconDownload :size="16" class="tw:mr-1" />
+          Export
+        </BaseButton>
+        <BaseButton v-if="canCreate" variant="primary" @click="onRaiseNc">Raise NC</BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Stat Cards -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">

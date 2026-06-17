@@ -148,24 +148,19 @@ function onCreateCapa() {
 </script>
 
 <template>
-  <BasePage width="standard" density="compact">
-    <PageHeader title="CAPAs" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="outline" :disabled="!capas.length" @click="exportCsv">
-        <IconDownload :size="16" class="tw:mr-1" />
-        Export
-      </BaseButton>
-      <BaseButton v-if="canCreate" variant="primary" @click="onCreateCapa">Create CAPA</BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">CAPAs</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Track corrective and preventive actions through to verification.
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      title="CAPAs"
+      subtitle="Track corrective and preventive actions through to verification."
+    >
+      <template #actions>
+        <BaseButton variant="outline" :disabled="!capas.length" @click="exportCsv">
+          <IconDownload :size="16" class="tw:mr-1" />
+          Export
+        </BaseButton>
+        <BaseButton v-if="canCreate" variant="primary" @click="onCreateCapa">Create CAPA</BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Stat Cards -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
