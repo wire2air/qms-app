@@ -44,7 +44,7 @@ function getArray() {
             />
           </div>
 
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Modules </span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> — All modules — </span>
         </template>
 
         <!-- SINGLE MODE -->
@@ -56,7 +56,7 @@ function getArray() {
             selectable
             @clear="() => scope.clear(modelValue)"
           />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Module </span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> — All modules — </span>
         </template>
       </slot>
     </template>

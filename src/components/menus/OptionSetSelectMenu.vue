@@ -18,7 +18,12 @@ const optionSets = useLiveQuery(async (db) => db.OptionSet.where().exec(), {
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="optionSets" :required="required">
+  <BaseSelectMenu
+    v-model="modelValue"
+    :items="optionSets"
+    nullLabel="— All option sets —"
+    :required="required"
+  >
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <OptionSetBadgeById

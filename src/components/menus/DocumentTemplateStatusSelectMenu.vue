@@ -18,7 +18,7 @@ const statuses = useLiveQuery(async (db) => db.DocumentTemplateStatus.where().ex
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="statuses" :required="required">
+  <BaseSelectMenu v-model="modelValue" :items="statuses" nullLabel="— All statuses —" :required="required">
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <DocumentTemplateStatusBadgeById

@@ -36,7 +36,7 @@ function getArray() {
               @clear="() => scope.clear(trainingId)"
             />
           </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Trainings</span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">— All trainings —</span>
         </template>
         <template v-else>
           <TrainingBadgeById
@@ -46,7 +46,7 @@ function getArray() {
             selectable
             @clear="() => scope.clear(modelValue)"
           />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Training</span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">— All trainings —</span>
         </template>
       </slot>
     </template>

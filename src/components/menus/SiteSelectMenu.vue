@@ -60,7 +60,13 @@ function getArray() {
 <template>
   <div class="tw:flex tw:items-center tw:gap-2">
     <div class="tw:flex-1 tw:min-w-0">
-      <BaseSelectMenu v-model="modelValue" :items="sites" :required="required" :multiple="multiple">
+      <BaseSelectMenu
+        v-model="modelValue"
+        :items="sites"
+        nullLabel="— All sites —"
+        :required="required"
+        :multiple="multiple"
+      >
         <template #button="scope">
           <slot name="button" v-bind="scope">
             <!-- MULTIPLE MODE -->
