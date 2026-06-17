@@ -294,7 +294,7 @@ function goBack() {
 
     <!-- Scrollable content -->
     <div class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
-      <div class="tw:px-6 tw:py-8">
+      <div class="tw:py-8">
         <!-- Breadcrumbs -->
         <div class="tw:mb-4 tw:flex tw:items-center tw:text-sm tw:text-secondary tw:gap-1">
           <BaseClickableRow

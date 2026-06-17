@@ -230,7 +230,7 @@ function goBack() {
 
     <!-- Scrollable content -->
     <div v-else class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
-      <div class="tw:px-6 tw:py-8">
+      <div class="tw:py-8">
         <div class="tw:space-y-6">
           <!-- Basic Information -->
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
