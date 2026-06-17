@@ -224,9 +224,7 @@ async function handleDelete(rule) {
     >
       <div class="tw:flex tw:items-center tw:gap-2">
         <IconRoute :size="18" class="tw:text-primary" />
-        <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-          Ticket Routing Rules
-        </div>
+        <BaseText variant="overline">Ticket Routing Rules</BaseText>
       </div>
       <BaseButton variant="primary" size="sm" @click="onCreate">
         <IconPlus :size="16" class="tw:mr-1" />
@@ -289,14 +287,14 @@ async function handleDelete(rule) {
     >
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">
-              Rule name <span class="tw:text-red-500">*</span>
-            </label>
-            <BaseTextInput v-model="draft.name" placeholder="e.g. Critical → QA Team" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Run when</label>
+          <BaseField v-slot="{ id: fieldId }" label="Rule name" required>
+            <BaseTextInput
+              :id="fieldId"
+              v-model="draft.name"
+              placeholder="e.g. Critical → QA Team"
+            />
+          </BaseField>
+          <BaseField label="Run when">
             <div class="tw:flex tw:flex-wrap tw:gap-2">
               <BaseButton
                 v-for="event in EVENTS"
@@ -308,15 +306,15 @@ async function handleDelete(rule) {
                 {{ event.name }}
               </BaseButton>
             </div>
-          </div>
+          </BaseField>
         </div>
 
         <!-- Conditions -->
         <div v-for="group in ['all', 'any']" :key="group" class="tw:flex tw:flex-col tw:gap-2">
           <div class="tw:flex tw:items-center tw:justify-between">
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase">
+            <BaseText variant="overline">
               {{ group === 'all' ? 'Match ALL of (AND)' : 'Match ANY of (OR)' }}
-            </label>
+            </BaseText>
             <BaseButton variant="outline" size="sm" @click="addCondition(group)">
               <IconPlus :size="12" class="tw:mr-1" /> Condition
             </BaseButton>
@@ -363,9 +361,7 @@ async function handleDelete(rule) {
         <!-- Actions -->
         <div class="tw:flex tw:flex-col tw:gap-2">
           <div class="tw:flex tw:items-center tw:justify-between">
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase">
-              Then (actions)
-            </label>
+            <BaseText variant="overline">Then (actions)</BaseText>
             <BaseButton variant="outline" size="sm" @click="addAction">
               <IconPlus :size="12" class="tw:mr-1" /> Action
             </BaseButton>

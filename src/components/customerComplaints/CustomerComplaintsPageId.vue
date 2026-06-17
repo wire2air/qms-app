@@ -212,11 +212,12 @@ const auditIncludeEntities = computed(() => [
           <div class="tw:flex tw:flex-col tw:gap-4">
             <!-- Ticket information -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
               >
                 Ticket information
-              </div>
+              </BaseText>
               <BaseTextInput
                 v-if="editingSubject && isEditable"
                 v-model="complaint.subject"
@@ -278,11 +279,12 @@ const auditIncludeEntities = computed(() => [
           <div class="tw:flex tw:flex-col tw:gap-3">
             <!-- Overview -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
               >
                 Overview
-              </div>
+              </BaseText>
               <div class="tw:flex tw:flex-col">
                 <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
                   <span class="tw:text-xs tw:text-secondary">Ticket number</span>
@@ -406,11 +408,7 @@ const auditIncludeEntities = computed(() => [
               <div
                 class="tw:flex tw:items-center tw:justify-between tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
               >
-                <div
-                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-                >
-                  Customer
-                </div>
+                <BaseText variant="overline">Customer</BaseText>
                 <button
                   v-if="isEditable"
                   class="tw:text-xs tw:text-primary tw:hover:underline"
@@ -462,11 +460,12 @@ const auditIncludeEntities = computed(() => [
 
             <!-- Linked NC -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
               >
                 Linked NC
-              </div>
+              </BaseText>
               <div v-if="linkedNcs.length" class="tw:flex tw:flex-col tw:gap-2">
                 <RouterLink
                   v-for="nc in linkedNcs"

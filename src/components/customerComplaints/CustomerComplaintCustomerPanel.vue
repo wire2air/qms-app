@@ -52,9 +52,7 @@ const history = useLiveQueryWithDeps(
   <div v-if="customerId" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
     <div class="tw:flex tw:items-center tw:gap-2 tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
       <IconUser :size="16" class="tw:text-primary" />
-      <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-        Customer Profile
-      </div>
+      <BaseText variant="overline">Customer Profile</BaseText>
     </div>
 
     <div class="tw:flex tw:flex-col tw:gap-1">

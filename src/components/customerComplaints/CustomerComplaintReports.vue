@@ -132,27 +132,27 @@ const BREAKDOWN_SECTIONS = [
     <!-- Headline metrics -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-5 tw:gap-3">
       <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-        <div class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Created</div>
+        <BaseText variant="overline">Created</BaseText>
         <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ metrics.created }}</div>
       </div>
       <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-        <div class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Resolved</div>
+        <BaseText variant="overline">Resolved</BaseText>
         <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ metrics.resolved }}</div>
       </div>
       <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-        <div class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Avg first response</div>
+        <BaseText variant="overline">Avg first response</BaseText>
         <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
           {{ formatHours(metrics.avgFirstResponse) }}
         </div>
       </div>
       <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-        <div class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Avg resolution</div>
+        <BaseText variant="overline">Avg resolution</BaseText>
         <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
           {{ formatHours(metrics.avgResolution) }}
         </div>
       </div>
       <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-        <div class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">CSAT</div>
+        <BaseText variant="overline">CSAT</BaseText>
         <div class="tw:flex tw:items-baseline tw:gap-1">
           <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
             {{ metrics.csatAvg != null ? metrics.csatAvg.toFixed(1) : '—' }}
@@ -168,9 +168,7 @@ const BREAKDOWN_SECTIONS = [
     <!-- Weekly trend -->
     <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5">
       <div class="tw:flex tw:items-center tw:justify-between tw:mb-4">
-        <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-          Created vs Resolved (weekly)
-        </div>
+        <BaseText variant="overline">Created vs Resolved (weekly)</BaseText>
         <div class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary">
           <span class="tw:flex tw:items-center tw:gap-1">
             <span class="tw:w-2.5 tw:h-2.5 tw:rounded-sm tw:bg-blue-500 tw:inline-block" />
@@ -208,11 +206,7 @@ const BREAKDOWN_SECTIONS = [
         :key="section.title"
         class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5"
       >
-        <div
-          class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mb-3"
-        >
-          {{ section.title }}
-        </div>
+        <BaseText variant="overline" class="tw:block tw:mb-3">{{ section.title }}</BaseText>
         <div v-if="section.data.value.length" class="tw:flex tw:flex-col tw:gap-2">
           <div v-for="row in section.data.value" :key="row.key" class="tw:flex tw:flex-col">
             <div class="tw:flex tw:items-center tw:justify-between tw:text-sm tw:mb-0.5">

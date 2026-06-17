@@ -87,9 +87,7 @@ function formatSize(bytes) {
     <div
       class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
     >
-      <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-        Attachments
-      </div>
+      <BaseText variant="overline">Attachments</BaseText>
       <BaseButton
         v-if="canUpdate"
         variant="outline"
