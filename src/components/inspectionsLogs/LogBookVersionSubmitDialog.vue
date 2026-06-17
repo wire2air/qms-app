@@ -91,14 +91,14 @@ async function handleConfirm() {
           :stepIndex="index"
           :required="index === 0"
         />
-        <div>
-          <p class="tw:text-secondary tw:text-sm tw:mb-1">Change summary (optional)</p>
+        <BaseField v-slot="{ id: fieldId }" label="Change summary" optional>
           <BaseTextarea
+            :id="fieldId"
             v-model="changeSummary"
             placeholder="What changed in this version?"
             :rows="2"
           />
-        </div>
+        </BaseField>
       </template>
     </div>
 

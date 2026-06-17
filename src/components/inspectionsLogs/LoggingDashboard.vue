@@ -129,9 +129,7 @@ function goLogs() {
 
     <!-- Log books to fill -->
     <div>
-      <div class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary tw:mb-2 tw:px-1">
-        Log a record
-      </div>
+      <BaseText variant="overline" class="tw:block tw:mb-2 tw:px-1">Log a record</BaseText>
 
       <div
         v-if="logBooks.length === 0"

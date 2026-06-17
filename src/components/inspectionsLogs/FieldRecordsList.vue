@@ -610,9 +610,7 @@ function printList() {
           v-if="showColumnPicker"
           class="tw:absolute tw:top-full tw:right-0 tw:mt-1 tw:z-20 tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:p-3 tw:min-w-64 tw:max-h-80 tw:overflow-y-auto"
         >
-          <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:mb-2 tw:uppercase">
-            Columns
-          </div>
+          <BaseText variant="overline" class="tw:block tw:mb-2">Columns</BaseText>
           <div v-if="scalarFields.length === 0" class="tw:text-xs tw:text-secondary">
             No scalar fields in this log book's schema.
           </div>
