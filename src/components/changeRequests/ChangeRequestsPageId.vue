@@ -233,25 +233,6 @@ const auditIncludeEntities = computed(() => [
   { entityType: 'WorkflowInstanceSteps', entityIds: allWfStepIds.value },
 ])
 
-// ─── Source link (originating record) ────────────────────────────────────────
-const sourceNc = useLiveQueryWithDeps(
-  [() => cr.value?.sourceType, () => cr.value?.sourceId],
-
-  async (db, [type, id]) => {
-    if (type !== 'NC' || !id) return null
-    return db.Nonconformance.findByPk(id)
-  },
-  { models: ['Nonconformance'] },
-)
-const sourceCapa = useLiveQueryWithDeps(
-  [() => cr.value?.sourceType, () => cr.value?.sourceId],
-
-  async (db, [type, id]) => {
-    if (type !== 'CAPA' || !id) return null
-    return db.Capa.findByPk(id)
-  },
-  { models: ['Capa'] },
-)
 
 // ─── Editing toggles for inline fields ───────────────────────────────────────
 const editingTitle = ref(false)
@@ -327,7 +308,7 @@ const editingTitle = ref(false)
     <div v-else-if="cr" class="tw:overflow-y-auto tw:flex-1">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <RecordTrailBreadcrumb />
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_25fr] tw:gap-4 tw:items-start">
+        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_16fr] tw:gap-4 tw:items-start">
           <!-- Left column -->
           <div class="tw:flex tw:flex-col tw:gap-4">
             <!-- Details card -->
@@ -386,28 +367,6 @@ const editingTitle = ref(false)
                 </div>
               </div>
 
-              <div
-                v-if="sourceNc || sourceCapa"
-                class="tw:mt-4 tw:pt-3 tw:border-t tw:border-divider"
-              >
-                <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-2">
-                  Originating record
-                </div>
-                <RouterLink
-                  v-if="sourceNc"
-                  :to="getCompanyPath(`/nonconformances/${sourceNc.id}`)"
-                  class="tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
-                >
-                  NC {{ sourceNc.ncNumber || sourceNc.title }}
-                </RouterLink>
-                <RouterLink
-                  v-if="sourceCapa"
-                  :to="getCompanyPath(`/capas/${sourceCapa.id}`)"
-                  class="tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
-                >
-                  CAPA {{ sourceCapa.capaNumber || sourceCapa.title }}
-                </RouterLink>
-              </div>
             </div>
 
             <!-- Reason + Justification -->
@@ -442,6 +401,10 @@ const editingTitle = ref(false)
               </div>
             </div>
 
+            <!-- Related records lineage (NC / finding → this CR). Self-hides
+                 when there are no links. -->
+            <RecordLineagePanel :id="id" type="ChangeRequest" />
+
             <!-- Raised-from-Audit context (scoped) — self-hides when this CR
                  wasn't spawned from an audit finding. -->
             <AuditOriginPanel entityType="ChangeRequest" :entityId="id" />
@@ -468,83 +431,72 @@ const editingTitle = ref(false)
                  Change Type / Classification / Priority / Initiated stay
                  in the main "Change Request Details" grid because they're
                  required at create. -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <BaseText
-                variant="overline"
-                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
-              >
-                Overview
-              </BaseText>
-
-              <!-- Identification -->
-              <div class="tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">CR number</span>
-                  <span class="tw:text-xs tw:font-mono tw:font-medium">
+            <BaseOverviewPanel>
+              <BaseDetailSection title="General">
+                <BaseDetailField label="CR number">
+                  <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
                     {{ cr.crNumber || '—' }}
-                  </span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Status</span>
+                  </BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Status">
                   <ChangeRequestStatusBadgeById :statusId="cr.statusId" />
-                </div>
-              </div>
+                </BaseDetailField>
+              </BaseDetailSection>
 
-              <!-- People & Location -->
-              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Owner</span>
-                  <UserBadgeById v-if="cr.ownerId" :userId="cr.ownerId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Site</span>
-                  <SiteBadgeById v-if="cr.siteId" :siteId="cr.siteId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Department</span>
-                  <DepartmentBadgeById v-if="cr.departmentId" :departmentId="cr.departmentId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-              </div>
+              <BaseDetailSection title="Ownership" divided>
+                <BaseDetailField label="Owner">
+                  <UserSelectMenu v-if="isEditable" v-model="cr.ownerId" :required="true" />
+                  <UserBadgeById v-else-if="cr.ownerId" :userId="cr.ownerId" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Site">
+                  <SiteSelectMenu v-if="isEditable" v-model="cr.siteId" :required="true" />
+                  <SiteBadgeById v-else-if="cr.siteId" :siteId="cr.siteId" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Department">
+                  <DepartmentSelectMenu v-if="isEditable" v-model="cr.departmentId" :required="true" />
+                  <DepartmentBadgeById v-else-if="cr.departmentId" :departmentId="cr.departmentId" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+              </BaseDetailSection>
 
-              <!-- Schedule -->
-              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Due date</span>
+              <BaseDetailSection title="Schedule" divided>
+                <BaseDetailField label="Due date">
+                  <BaseDatePicker v-if="isEditable" v-model="cr.dueDate" class="tw:w-full" />
                   <span
+                    v-else
                     class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
                     :class="isOverdue ? 'tw:text-red-600' : ''"
                   >
                     <span>{{ cr.dueDate ? cr.dueDate.formatDate('date') : '—' }}</span>
                     <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
                   </span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Target implementation</span>
-                  <span class="tw:text-sm tw:font-medium">
+                </BaseDetailField>
+                <BaseDetailField label="Target implementation">
+                  <BaseDatePicker
+                    v-if="isEditable"
+                    v-model="cr.targetImplementationDate"
+                    class="tw:w-full"
+                  />
+                  <BaseText v-else variant="body" weight="medium">
                     {{
                       cr.targetImplementationDate
                         ? cr.targetImplementationDate.formatDate('date')
                         : '—'
                     }}
-                  </span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Submitted</span>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ cr.submittedAt ? cr.submittedAt.formatDate('date') : '—' }}
-                  </span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Approved</span>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ cr.approvedAt ? cr.approvedAt.formatDate('date') : '—' }}
-                  </span>
-                </div>
-              </div>
-            </div>
+                  </BaseText>
+                </BaseDetailField>
+                <BaseDetailField
+                  label="Submitted"
+                  :value="cr.submittedAt ? cr.submittedAt.formatDate('date') : null"
+                />
+                <BaseDetailField
+                  label="Approved"
+                  :value="cr.approvedAt ? cr.approvedAt.formatDate('date') : null"
+                />
+              </BaseDetailSection>
+            </BaseOverviewPanel>
           </div>
         </div>
       </div>

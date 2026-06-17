@@ -170,6 +170,7 @@ import { Equipment } from './equipment'
 import { FieldRecordFlag } from './fieldRecordFlag'
 import { AssignmentInstance } from './assignmentInstance'
 import { AssignmentInstanceStatus } from './assignmentInstanceStatus'
+import { RecordLink } from './recordLink'
 // AI sidecar (see backend/ai/README.md, AI_PLAN.md §11). All AI models are
 // grouped here. Existing models stay AI-agnostic.
 import { AiPat } from './aiPat'
@@ -352,4 +353,5 @@ export const db = {
   FieldRecordFlag,
   AssignmentInstance,
   AssignmentInstanceStatus,
+  RecordLink,
 }

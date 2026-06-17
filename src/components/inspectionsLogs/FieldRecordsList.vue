@@ -52,7 +52,7 @@ function closeRecord() {
   selectedRecordId.value = null
 }
 
-const userId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
+const userId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
 const canReadAll = computed(() => isAllowed(['fieldRecords:read_all']))
 const canReview = computed(() => isAllowed(['fieldRecords:review']))
 const toast = useToast()

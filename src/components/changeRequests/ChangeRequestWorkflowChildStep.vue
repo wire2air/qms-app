@@ -30,7 +30,7 @@ const props = defineProps({
 const emit = defineEmits(['reassign'])
 
 const toast = useToast()
-const currentUserId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
+const currentUserId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
 
 const instanceStep = useLiveQueryWithDeps(
   [() => props.instanceStepId],

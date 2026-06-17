@@ -596,24 +596,15 @@ async function newVersion() {
       </div>
 
       <!-- Overview (1/3) -->
-      <div
-        class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:divide-y tw:divide-divider"
-      >
-        <div class="tw:px-4 tw:py-3">
-          <BaseText as="h3" weight="semibold">Overview</BaseText>
-        </div>
-        <div class="tw:px-4 tw:py-3 tw:space-y-3 tw:text-sm">
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-1">Status</div>
+      <BaseOverviewPanel tone="sidebar">
+        <BaseDetailSection title="General">
+          <BaseDetailField label="Status">
             <SpecificationStatusBadgeById :statusId="spec.statusId" />
-          </div>
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Version</div>
-            <div class="tw:text-on-main tw:font-mono">v{{ spec.version }}</div>
-          </div>
-          <!-- Code -->
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Code</div>
+          </BaseDetailField>
+          <BaseDetailField label="Version">
+            <BaseText variant="body" weight="medium" class="tw:font-mono">v{{ spec.version }}</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Code">
             <BaseTextInput
               v-if="canEditDraft"
               v-model="header.code"
@@ -621,11 +612,11 @@ async function newVersion() {
               placeholder="e.g. SPEC-001"
               @update:modelValue="markHeaderDirty"
             />
-            <div v-else class="tw:text-on-main tw:font-mono">{{ spec.code || '—' }}</div>
-          </div>
-          <!-- Material kind -->
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Material</div>
+            <BaseText v-else variant="body" weight="medium" class="tw:font-mono">
+              {{ spec.code || '—' }}
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Material">
             <BaseInlineSelect
               v-if="canEditDraft"
               v-model="header.materialKind"
@@ -634,13 +625,14 @@ async function newVersion() {
               class="tw:w-full"
               @update:modelValue="markHeaderDirty"
             />
-            <div v-else class="tw:text-on-main">
+            <BaseText v-else variant="body" weight="medium">
               {{ MATERIAL_LABELS[spec.materialKind] || spec.materialKind }}
-            </div>
-          </div>
-          <!-- Scope -->
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Applies To</div>
+            </BaseText>
+          </BaseDetailField>
+        </BaseDetailSection>
+
+        <BaseDetailSection title="Scope" divided>
+          <BaseDetailField label="Applies to">
             <template v-if="canEditDraft">
               <BaseInlineSelect
                 v-model="header.scope"
@@ -666,60 +658,59 @@ async function newVersion() {
               />
             </template>
             <template v-else>
-              <div v-if="product" class="tw:text-on-main">
+              <BaseText v-if="product" variant="body">
                 {{ product.name }}
                 <span v-if="product.sku" class="tw:text-xs tw:text-secondary tw:font-mono"
                   >· {{ product.sku }}</span
                 >
                 <span v-if="product.deletedAt" class="tw:text-xs tw:text-bad tw:ml-1">(deleted)</span>
-              </div>
-              <div v-else-if="productType" class="tw:text-on-main">
+              </BaseText>
+              <BaseText v-else-if="productType" variant="body">
                 {{ productType.name }}
                 <span class="tw:text-xs tw:text-secondary">(product type)</span>
-              </div>
-              <div v-else class="tw:text-secondary">—</div>
+              </BaseText>
+              <BaseText v-else color="secondary">—</BaseText>
             </template>
-          </div>
-          <!-- Created -->
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Created</div>
-            <div class="tw:text-on-main">
+          </BaseDetailField>
+        </BaseDetailSection>
+
+        <BaseDetailSection title="Lifecycle" divided>
+          <BaseDetailField label="Created">
+            <BaseText variant="body">
               {{ spec.createdAt?.formatDate('date') || '—' }} · {{ userName(creator) }}
-            </div>
-          </div>
-          <!-- Approved -->
-          <div v-if="spec.approvedAt">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Approved</div>
-            <div class="tw:text-on-main">
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField v-if="spec.approvedAt" label="Approved">
+            <BaseText variant="body">
               {{ spec.approvedAt?.formatDate('date') }} · {{ userName(approver) }}
-            </div>
-          </div>
-          <!-- Effective window -->
-          <div v-if="spec.effectiveFrom">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Effective From</div>
-            <div class="tw:text-on-main">{{ spec.effectiveFrom?.formatDate('date') }}</div>
-          </div>
-          <div v-if="spec.effectiveUntil">
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Effective Until</div>
-            <div class="tw:text-on-main">{{ spec.effectiveUntil?.formatDate('date') }}</div>
-          </div>
-          <!-- Notes -->
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Notes</div>
-            <BaseTextarea
-              v-if="canEditDraft"
-              v-model="header.notes"
-              :rows="3"
-              placeholder="Optional notes"
-              @update:modelValue="markHeaderDirty"
-            />
-            <div v-else-if="spec.notes" class="tw:text-on-main tw:whitespace-pre-wrap">
-              {{ spec.notes }}
-            </div>
-            <div v-else class="tw:text-secondary">—</div>
-          </div>
-        </div>
-      </div>
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField
+            v-if="spec.effectiveFrom"
+            label="Effective from"
+            :value="spec.effectiveFrom?.formatDate('date')"
+          />
+          <BaseDetailField
+            v-if="spec.effectiveUntil"
+            label="Effective until"
+            :value="spec.effectiveUntil?.formatDate('date')"
+          />
+        </BaseDetailSection>
+
+        <BaseDetailSection title="Notes" divided>
+          <BaseTextarea
+            v-if="canEditDraft"
+            v-model="header.notes"
+            :rows="3"
+            placeholder="Optional notes"
+            @update:modelValue="markHeaderDirty"
+          />
+          <BaseText v-else-if="spec.notes" variant="body" class="tw:whitespace-pre-wrap">
+            {{ spec.notes }}
+          </BaseText>
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailSection>
+      </BaseOverviewPanel>
     </div>
 
     <!-- Version history -->

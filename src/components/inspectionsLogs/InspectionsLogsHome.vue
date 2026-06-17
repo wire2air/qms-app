@@ -48,7 +48,7 @@ const stats = computed(() => {
   const now = DateTime.now()
   // currentSession exposes the user id as `.id` (preferred) with
   // `.userId` as a legacy fallback — match the rest of the app.
-  const userId = currentSession.value?.id ?? currentSession.value?.userId
+  const userId = currentSession.value?.userId ?? currentSession.value?.id
   const startOfWeek = now.startOf('week')
 
   const myDue = allInstances.value.filter(

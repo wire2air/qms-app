@@ -51,6 +51,18 @@ const isEditable = computed(
 
 useAutoSave(nc)
 
+// qtyAffected is DECIMAL on the backend → PostGraphile serializes it as a
+// BigFloat *string*. Bind it as a string (not v-model.number, which would set a
+// JS number and make the GraphQL mutation throw, blocking autosave for the
+// whole record). Empty → null so clearing the field doesn't send an invalid "".
+const qtyAffectedModel = computed({
+  get: () => nc.value?.qtyAffected ?? '',
+  set: (v) => {
+    if (!nc.value) return
+    nc.value.qtyAffected = v === '' || v === null || v === undefined ? null : String(v)
+  },
+})
+
 const saving = ref(false)
 const saveError = ref(null)
 
@@ -496,7 +508,7 @@ function onCreateLinkedChangeRequest() {
         </div>
 
         <!-- 2-column layout -->
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_25fr] tw:gap-4 tw:items-start">
+        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_16fr] tw:gap-4 tw:items-start">
           <!-- Left column -->
           <div class="tw:flex tw:flex-col tw:gap-4">
             <!-- NC Details card -->
@@ -617,6 +629,10 @@ function onCreateLinkedChangeRequest() {
                 />
               </div>
             </div>
+
+            <!-- Related records lineage (QC lot / complaint / finding → this NC
+                 → CAPA / CR). Self-hides when there are no links. -->
+            <RecordLineagePanel :id="id" type="Nonconformance" />
 
             <!-- Raised-from-Audit context (scoped) — self-hides when this NC
                  wasn't spawned from an audit finding. -->
@@ -870,25 +886,16 @@ function onCreateLinkedChangeRequest() {
                    → Source / Commerce → Related
                  Severity / Detected are NOT duplicated here — they live
                  in the main grid alongside Type + Source. -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <BaseText
-                variant="overline"
-                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
-              >
-                Overview
-              </BaseText>
-
-              <!-- Identification -->
-              <div class="tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">NC number</span>
-                  <span class="tw:text-xs tw:font-mono tw:font-medium">
+            <BaseOverviewPanel>
+              <!-- General -->
+              <BaseDetailSection title="General">
+                <BaseDetailField label="NC number">
+                  <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
                     {{ nc.ncNumber || '—' }}
-                  </span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Status</span>
-                  <div class="tw:flex tw:items-center tw:gap-1.5">
+                  </BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Status">
+                  <div class="tw:flex tw:items-center tw:gap-1.5 tw:flex-wrap">
                     <NcStatusBadgeById :statusId="nc.statusId" />
                     <BaseBadge
                       v-if="nc.markedCompleteAt"
@@ -898,55 +905,41 @@ function onCreateLinkedChangeRequest() {
                       Completed
                     </BaseBadge>
                   </div>
-                </div>
-              </div>
+                </BaseDetailField>
+              </BaseDetailSection>
 
-              <!-- People & Location -->
-              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2">
-                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Owner</span>
-                  <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
-                    <UserSelectMenu v-model="nc.ownerId" :required="true" />
-                  </div>
+              <!-- Ownership -->
+              <BaseDetailSection title="Ownership" divided>
+                <BaseDetailField label="Owner">
+                  <UserSelectMenu v-if="isEditable" v-model="nc.ownerId" :required="true" />
                   <UserBadgeById v-else-if="nc.ownerId" :userId="nc.ownerId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2">
-                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Site</span>
-                  <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
-                    <SiteSelectMenu v-model="nc.siteId" :required="true" />
-                  </div>
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Site">
+                  <SiteSelectMenu v-if="isEditable" v-model="nc.siteId" :required="true" />
                   <SiteBadgeById v-else-if="nc.siteId" :siteId="nc.siteId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2">
-                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Department</span>
-                  <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
-                    <DepartmentSelectMenu v-model="nc.departmentId" :required="true" />
-                  </div>
-                  <DepartmentBadgeById
-                    v-else-if="nc.departmentId"
-                    :departmentId="nc.departmentId"
-                  />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-              </div>
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Department">
+                  <DepartmentSelectMenu v-if="isEditable" v-model="nc.departmentId" :required="true" />
+                  <DepartmentBadgeById v-else-if="nc.departmentId" :departmentId="nc.departmentId" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+              </BaseDetailSection>
 
               <!-- Classification -->
-              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2">
-                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Priority</span>
-                  <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
-                    <BaseInlineSelect
-                      v-model="nc.priorityId"
-                      :items="[
-                        { id: 'LOW', name: 'Low' },
-                        { id: 'MEDIUM', name: 'Medium' },
-                        { id: 'HIGH', name: 'High' },
-                        { id: 'CRITICAL', name: 'Critical' },
-                      ]"
-                    />
-                  </div>
+              <BaseDetailSection title="Classification" divided>
+                <BaseDetailField label="Priority">
+                  <BaseInlineSelect
+                    v-if="isEditable"
+                    v-model="nc.priorityId"
+                    :items="[
+                      { id: 'LOW', name: 'Low' },
+                      { id: 'MEDIUM', name: 'Medium' },
+                      { id: 'HIGH', name: 'High' },
+                      { id: 'CRITICAL', name: 'Critical' },
+                    ]"
+                  />
                   <span
                     v-else-if="nc.priorityId"
                     class="tw:inline-flex tw:items-center tw:text-xs tw:font-semibold tw:rounded tw:px-2 tw:py-0.5"
@@ -959,29 +952,22 @@ function onCreateLinkedChangeRequest() {
                   >
                     {{ nc.priorityId.charAt(0) + nc.priorityId.slice(1).toLowerCase() }}
                   </span>
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2">
-                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Issue type</span>
-                  <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
-                    <NcIssueTypeSelectMenu v-model="nc.ncIssueTypeId" />
-                  </div>
-                  <NcIssueTypeBadgeById
-                    v-else-if="nc.ncIssueTypeId"
-                    :issueTypeId="nc.ncIssueTypeId"
-                  />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-              </div>
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Issue type">
+                  <NcIssueTypeSelectMenu v-if="isEditable" v-model="nc.ncIssueTypeId" />
+                  <NcIssueTypeBadgeById v-else-if="nc.ncIssueTypeId" :issueTypeId="nc.ncIssueTypeId" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+              </BaseDetailSection>
 
               <!-- Schedule -->
-              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Due date</span>
+              <BaseDetailSection title="Schedule" divided>
+                <BaseDetailField label="Due date">
                   <BaseDatePicker
                     v-if="editingDueDate && isEditable"
                     v-model="nc.dueDate"
-                    class="tw:w-36"
+                    class="tw:w-full"
                     @blur="editingDueDate = false"
                   />
                   <BaseClickableRow
@@ -999,13 +985,13 @@ function onCreateLinkedChangeRequest() {
                     <span>{{ nc.dueDate ? nc.dueDate.formatDate('date') : '—' }}</span>
                     <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
                   </BaseClickableRow>
-                </div>
-              </div>
+                </BaseDetailField>
+              </BaseDetailSection>
 
-              <!-- Source / Commerce. Editable rows always render so a
-                   missing value (e.g. PO# on a lot-spawned NC) can be
-                   ADDED — read-only mode keeps hiding empties. -->
-              <div
+              <!-- Product Impact / Commerce. Editable rows always render so a
+                   missing value (e.g. PO# on a lot-spawned NC) can be ADDED;
+                   read-only mode keeps hiding empties. -->
+              <BaseDetailSection
                 v-if="
                   isEditable ||
                   nc.supplierId ||
@@ -1015,42 +1001,30 @@ function onCreateLinkedChangeRequest() {
                   nc.orderNumber ||
                   nc.lotNumber
                 "
-                class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col"
+                title="Product impact"
+                divided
               >
-                <div
-                  v-if="isEditable || nc.supplierId"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Supplier</span>
-                  <div
+                <BaseDetailField v-if="isEditable || nc.supplierId" label="Supplier">
+                  <SupplierSelectMenu
                     v-if="isEditable && nc.statusId === 'DRAFT'"
-                    class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end"
-                  >
-                    <SupplierSelectMenu v-model="nc.supplierId" />
-                  </div>
+                    v-model="nc.supplierId"
+                  />
                   <SupplierBadgeById v-else-if="nc.supplierId" :supplierId="nc.supplierId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <!-- Supplier facing — free toggle while DRAFT; once OPEN,
-                     the owner can still CONVERT internal → supplier-facing
-                     (guided dialog; reassigns open steps to the supplier
-                     with full step history). -->
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2">
-                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Supplier facing</span>
-                  <div
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <!-- Supplier facing — free toggle while DRAFT; once OPEN the
+                     owner can still CONVERT internal → supplier-facing. -->
+                <BaseDetailField label="Supplier facing">
+                  <BaseInlineSelect
                     v-if="isEditable && nc.statusId === 'DRAFT'"
-                    class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end"
-                  >
-                    <BaseInlineSelect
-                      v-model="audienceModel"
-                      :items="[
-                        { id: 'INTERNAL', name: 'No — internal' },
-                        { id: 'SUPPLIER', name: 'Yes — supplier facing' },
-                      ]"
-                      :required="true"
-                    />
-                  </div>
-                  <div v-else class="tw:flex tw:items-center tw:gap-2">
+                    v-model="audienceModel"
+                    :items="[
+                      { id: 'INTERNAL', name: 'No — internal' },
+                      { id: 'SUPPLIER', name: 'Yes — supplier facing' },
+                    ]"
+                    :required="true"
+                  />
+                  <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
                     <span
                       class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5"
                       :class="
@@ -1069,28 +1043,16 @@ function onCreateLinkedChangeRequest() {
                       Convert…
                     </button>
                   </div>
-                </div>
-                <div
-                  v-if="isEditable || nc.productId"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Product</span>
-                  <div v-if="isEditable" class="tw:w-48 tw:min-w-0 tw:flex tw:justify-end">
-                    <ProductSelectMenu v-model="nc.productId" :allowCreate="false" />
-                  </div>
-                  <div v-else-if="nc.productId" class="tw:min-w-0 tw:flex tw:justify-end">
-                    <ProductBadgeById :productId="nc.productId" />
-                  </div>
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div
-                  v-if="isEditable || nc.qtyAffected"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Qty affected</span>
-                  <div v-if="isEditable" class="tw:flex tw:gap-1 tw:w-48">
+                </BaseDetailField>
+                <BaseDetailField v-if="isEditable || nc.productId" label="Product">
+                  <ProductSelectMenu v-if="isEditable" v-model="nc.productId" :allowCreate="false" />
+                  <ProductBadgeById v-else-if="nc.productId" :productId="nc.productId" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField v-if="isEditable || nc.qtyAffected" label="Qty affected">
+                  <div v-if="isEditable" class="tw:flex tw:gap-1">
                     <BaseTextInput
-                      v-model.number="nc.qtyAffected"
+                      v-model="qtyAffectedModel"
                       type="number"
                       size="sm"
                       class="tw:flex-1"
@@ -1102,63 +1064,36 @@ function onCreateLinkedChangeRequest() {
                       class="tw:w-16"
                     />
                   </div>
-                  <span v-else class="tw:text-sm tw:font-medium">
+                  <BaseText v-else variant="body" weight="medium">
                     {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
-                  </span>
-                </div>
-                <div
-                  v-if="isEditable || nc.poNumber"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">PO #</span>
-                  <BaseTextInput
-                    v-if="isEditable"
-                    v-model="nc.poNumber"
-                    size="sm"
-                    class="tw:w-48"
-                  />
-                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{
-                    nc.poNumber
-                  }}</span>
-                </div>
-                <div
-                  v-if="isEditable || nc.orderNumber"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Order #</span>
-                  <BaseTextInput
-                    v-if="isEditable"
-                    v-model="nc.orderNumber"
-                    size="sm"
-                    class="tw:w-48"
-                  />
-                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{
-                    nc.orderNumber
-                  }}</span>
-                </div>
-                <div
-                  v-if="isEditable || nc.lotNumber"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:gap-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary tw:shrink-0">Lot #</span>
-                  <BaseTextInput
-                    v-if="isEditable"
-                    v-model="nc.lotNumber"
-                    size="sm"
-                    class="tw:w-48"
-                  />
-                  <span v-else class="tw:text-sm tw:font-medium tw:font-mono">{{
-                    nc.lotNumber
-                  }}</span>
-                </div>
-              </div>
+                  </BaseText>
+                </BaseDetailField>
+                <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
+                  <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" />
+                  <BaseText v-else variant="body" weight="medium" class="tw:font-mono tw:break-words">
+                    {{ nc.poNumber }}
+                  </BaseText>
+                </BaseDetailField>
+                <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
+                  <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" />
+                  <BaseText v-else variant="body" weight="medium" class="tw:font-mono tw:break-words">
+                    {{ nc.orderNumber }}
+                  </BaseText>
+                </BaseDetailField>
+                <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
+                  <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" />
+                  <BaseText v-else variant="body" weight="medium" class="tw:font-mono tw:break-words">
+                    {{ nc.lotNumber }}
+                  </BaseText>
+                </BaseDetailField>
+              </BaseDetailSection>
 
               <!-- Related -->
-              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">CAPA</span>
-                  <span
-                    class="tw:text-sm tw:font-medium"
+              <BaseDetailSection title="Related" divided>
+                <BaseDetailField label="CAPA">
+                  <BaseText
+                    variant="body"
+                    weight="medium"
                     :class="nc.capaRequired === null ? 'tw:text-secondary tw:italic' : ''"
                   >
                     {{
@@ -1168,10 +1103,10 @@ function onCreateLinkedChangeRequest() {
                           ? 'Not required'
                           : 'Not yet decided'
                     }}
-                  </span>
-                </div>
-              </div>
-            </div>
+                  </BaseText>
+                </BaseDetailField>
+              </BaseDetailSection>
+            </BaseOverviewPanel>
 
             <!-- Workflow panel -->
             <div

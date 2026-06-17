@@ -537,24 +537,16 @@ async function handleRemoveSourceFile() {
 
           <!-- Right column / Overview -->
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <BaseText
-                variant="overline"
-                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
-              >
-                Overview
-              </BaseText>
-              <div class="tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Code</span>
+            <BaseOverviewPanel>
+              <BaseDetailSection title="General">
+                <BaseDetailField label="Code">
                   <code
                     class="tw:text-xs tw:font-mono tw:text-on-main tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
                   >
                     {{ standard.code }}
                   </code>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Status</span>
+                </BaseDetailField>
+                <BaseDetailField label="Status">
                   <BaseBadge
                     :class="
                       standard.statusId === 'ACTIVE'
@@ -566,63 +558,59 @@ async function handleRemoveSourceFile() {
                   >
                     {{ standard.statusId }}
                   </BaseBadge>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Content</span>
+                </BaseDetailField>
+                <BaseDetailField label="Content">
                   <AuditStandardContentLicenseBadgeById :licenseId="standard.contentLicense" />
-                </div>
-                <!-- Attested-by/at line — surfaces who confirmed the
-                     license and when. Shown only when stamped. -->
-                <div
-                  v-if="standard.customerLicenseAttestedAt"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2 tw:text-[10px] tw:text-secondary"
-                >
-                  <span>Attested</span>
-                  <span>
+                </BaseDetailField>
+                <BaseDetailField label="Versions">
+                  <BaseText variant="body" weight="medium">{{ versions.length }}</BaseText>
+                </BaseDetailField>
+                <BaseDetailField
+                  label="Created"
+                  :value="standard.createdAt ? standard.createdAt.formatDate('date') : null"
+                />
+              </BaseDetailSection>
+
+              <!-- License attestation — who confirmed the license + the attest
+                   CTA when content isn't yet customer-licensed. -->
+              <BaseDetailSection
+                v-if="
+                  standard.customerLicenseAttestedAt ||
+                  (isEditable && standard.contentLicense !== 'CUSTOMER_LICENSED')
+                "
+                title="License"
+                divided
+              >
+                <BaseDetailField v-if="standard.customerLicenseAttestedAt" label="Attested">
+                  <BaseText variant="body" class="tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
                     {{ standard.customerLicenseAttestedAt.formatDate?.('date') ?? '—' }}
                     <UserBadgeById
                       v-if="standard.customerLicenseAttestedBy"
                       :userId="standard.customerLicenseAttestedBy"
-                      class="tw:ml-1"
                     />
-                  </span>
-                </div>
-                <!-- Attest CTA — only when the content isn't already
-                     customer-licensed and the user can update. -->
-                <div
+                  </BaseText>
+                </BaseDetailField>
+                <button
                   v-if="isEditable && standard.contentLicense !== 'CUSTOMER_LICENSED'"
-                  class="tw:py-2 tw:border-t tw:border-divider tw:mt-1"
+                  type="button"
+                  class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:self-start"
+                  @click="showAttestDialog = true"
                 >
-                  <button
-                    type="button"
-                    class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
-                    @click="showAttestDialog = true"
-                  >
-                    {{
-                      standard.contentLicense === 'STRUCTURAL_SHELL'
-                        ? 'I have a license for the normative text →'
-                        : 'Attach a license →'
-                    }}
-                  </button>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Versions</span>
-                  <span class="tw:text-xs tw:font-medium">{{ versions.length }}</span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Created</span>
-                  <span class="tw:text-xs">
-                    {{ standard.createdAt ? standard.createdAt.formatDate('date') : '—' }}
-                  </span>
-                </div>
-                <div v-if="saving" class="tw:text-[11px] tw:text-secondary tw:italic tw:pt-1">
-                  Saving…
-                </div>
-                <div v-else-if="saveError" class="tw:text-[11px] tw:text-red-600 tw:pt-1">
-                  {{ saveError }}
-                </div>
+                  {{
+                    standard.contentLicense === 'STRUCTURAL_SHELL'
+                      ? 'I have a license for the normative text →'
+                      : 'Attach a license →'
+                  }}
+                </button>
+              </BaseDetailSection>
+
+              <div v-if="saving" class="tw:text-[11px] tw:text-secondary tw:italic tw:pt-2">
+                Saving…
               </div>
-            </div>
+              <div v-else-if="saveError" class="tw:text-[11px] tw:text-red-600 tw:pt-2">
+                {{ saveError }}
+              </div>
+            </BaseOverviewPanel>
 
             <!-- Source document — the original PDF / Excel / CSV the
                  structure was extracted from (or attached by hand for

@@ -44,7 +44,10 @@ const canReview = computed(() => isAllowed(['fieldRecords:review']))
 const canAmend = computed(() => isAllowed(['fieldRecords:amend']))
 const canVoid = computed(() => isAllowed(['fieldRecords:void']))
 
-const userId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
+// `currentSession.id` is NOT reliably the user id — the session object spreads
+// `...activeCompany` over it, so it ends up as the membership/company id. The
+// canonical user id is `userId` (what 50+ other components read).
+const userId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
 const isOwnRecord = computed(() => record.value?.submittedByUserId === userId.value)
 
 /**
@@ -785,7 +788,9 @@ function close() {
                   <span>·</span>
                   <span>{{ fmtDate(f.flaggedAt) }}</span>
                 </div>
-                <div class="tw:mt-1 tw:text-sm tw:text-on-main">{{ f.notes }}</div>
+                <div class="tw:mt-1 tw:text-sm tw:text-on-main">
+                  <RichTextAttachments :modelValue="f.notes" :readonly="true" />
+                </div>
                 <div
                   v-if="attachmentsForFlag(f.id).length > 0"
                   class="tw:mt-2 tw:flex tw:flex-wrap tw:gap-2"
@@ -942,7 +947,7 @@ function close() {
                   v-if="ev.body"
                   class="tw:mt-1 tw:text-xs tw:text-on-main tw:bg-main tw:rounded tw:px-2 tw:py-1"
                 >
-                  {{ ev.body }}
+                  <RichTextAttachments :modelValue="ev.body" :readonly="true" />
                 </div>
                 <div
                   v-if="ev.kind === 'raised' && attachmentsForFlag(ev.flagId).length > 0"

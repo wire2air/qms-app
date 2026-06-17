@@ -50,7 +50,7 @@ const emit = defineEmits(['created', 'close'])
 const model = defineModel({ type: Boolean, default: false })
 const toast = useToast()
 
-const userId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
+const userId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
 
 // Admins / planners can bypass the assignment gate so they can submit
 // any inspection template (e.g. for testing or a one-off entry).
@@ -308,20 +308,26 @@ const editWindow = computed(() => {
 // to a separate round once a reusable file-upload component exists.
 const flagOnSubmit = ref(false)
 const flagSeverity = ref('WARN')
+// RichTextAttachments encoded string: "<html>\n[qms-attachments]::[…]". Holds
+// the reason text + inline photos + attached files in one field.
 const flagNotes = ref('')
-// BaseUploader v-model: Array<asset> where each asset has { id, ... }.
-// We map .id → attachmentIds[] on the POST.
-const flagPhotos = ref([])
+
+// Has real content — strips tags/whitespace from the HTML part; any attached
+// file counts too. Gates the submit button + the flag POST.
+const flagHasContent = computed(() => {
+  const s = flagNotes.value || ''
+  const [htmlPart] = s.split('\n[qms-attachments]::')
+  const hasAttachments = s.includes('\n[qms-attachments]::')
+  const text = htmlPart.replace(/<[^>]*>/g, '').replace(/&nbsp;|&#160;/g, ' ').trim()
+  return text.length > 0 || hasAttachments
+})
 
 async function postFlagForRecord(recordId) {
-  if (!flagOnSubmit.value) return
-  const notes = flagNotes.value?.trim()
-  if (!notes) return // Skip silently — the UI requires notes when the toggle is on.
+  if (!flagOnSubmit.value || !flagHasContent.value) return
   try {
     await post(`/v1/services/fieldRecords/${recordId}/flag`, {
-      notes,
+      notes: flagNotes.value,
       severity: flagSeverity.value,
-      attachmentIds: flagPhotos.value.map((f) => f.id),
     })
   } catch (err) {
     // Don't fail the whole submission if the flag couldn't be raised —
@@ -432,7 +438,6 @@ function goBackToSelect() {
   flagOnSubmit.value = false
   flagSeverity.value = 'WARN'
   flagNotes.value = ''
-  flagPhotos.value = []
   documentTypeId.value = null
 }
 
@@ -653,22 +658,13 @@ const templateSchema = computed(() => {
                               <option value="CRITICAL">Critical — escalates now</option>
                             </select>
                           </div>
-                          <textarea
+                          <RichTextAttachments
                             v-model="flagNotes"
-                            rows="3"
-                            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
-                            placeholder="What's off about this entry? Adding detail helps your supervisor act faster."
-                          ></textarea>
-                          <BaseUploader
-                            v-model="flagPhotos"
-                            fileType="ASSET"
-                            accept="image/*"
-                            label="Photo evidence (optional)"
-                            :multiple="true"
+                            placeholder="What's off about this entry? Add detail, paste/drag photos or attach files to help your supervisor act faster."
                           />
                           <div class="tw:text-xs tw:text-secondary">
-                            Adding a photo helps your supervisor act faster. Critical flags send an
-                            immediate alert.
+                            Paste or drag a photo right into the box, or attach a file. Critical
+                            flags send an immediate alert.
                           </div>
                         </div>
                       </div>
@@ -682,7 +678,7 @@ const templateSchema = computed(() => {
                         </button>
                         <button
                           class="tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:disabled:opacity-50"
-                          :disabled="submitting || (flagOnSubmit && !flagNotes.trim())"
+                          :disabled="submitting || (flagOnSubmit && !flagHasContent)"
                           @click="handleSubmit(formData)"
                         >
                           <BaseSpinner v-if="submitting" size="sm" color="white" class="tw:mr-2" />

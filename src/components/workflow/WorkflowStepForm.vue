@@ -46,7 +46,7 @@ const props = defineProps({
 const emit = defineEmits(['done'])
 
 const toast = useToast()
-const currentUserId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
+const currentUserId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
 
 const resource = useLiveQueryWithDeps([() => props.resourceId], async (db, [id]) =>
   id ? db[props.module.resourceModel.modelName].findByPk(id) : null,

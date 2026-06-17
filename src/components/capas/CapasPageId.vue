@@ -348,18 +348,6 @@ function workflowVersionLabel(v) {
   return v.versionLabel || `${v.versionMajor ?? 1}.${v.versionMinor ?? 0}`
 }
 
-// Resolve the originating Nonconformance only when this CAPA was spawned
-// from one (source_type='NC' → source_id points at a Nonconformance row).
-const sourceNc = useLiveQueryWithDeps(
-  [() => capa.value?.sourceType, () => capa.value?.sourceId],
-
-  async (db, [sourceType, sourceId]) => {
-    if (sourceType !== 'NC' || !sourceId) return null
-    return db.Nonconformance.findByPk(sourceId)
-  },
-  { models: ['Nonconformance'] },
-)
-
 const editingTitle = ref(false)
 
 // Cross-module shortcut: spawn a Change Request seeded from this CAPA.
@@ -442,7 +430,7 @@ function onCreateLinkedChangeRequest() {
     <div v-else-if="capa" class="tw:overflow-y-auto tw:flex-1">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <RecordTrailBreadcrumb />
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_25fr] tw:gap-4 tw:items-start">
+        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_16fr] tw:gap-4 tw:items-start">
           <!-- Left column -->
           <div class="tw:flex tw:flex-col tw:gap-4">
             <!-- CAPA Details -->
@@ -518,17 +506,12 @@ function onCreateLinkedChangeRequest() {
                     {{ capa.initiatedAt?.formatDate('date') || '—' }}
                   </span>
                 </div>
-                <div v-if="sourceNc" class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Source NC</div>
-                  <RouterLink
-                    :to="getCompanyPath(`/nonconformances/${sourceNc.id}`)"
-                    class="tw:text-sm tw:font-mono tw:font-medium tw:text-primary tw:hover:underline"
-                  >
-                    {{ sourceNc.ncNumber }}
-                  </RouterLink>
-                </div>
               </div>
             </div>
+
+            <!-- Related records lineage (NC / complaint / finding → this CAPA).
+                 Self-hides when there are no links. -->
+            <RecordLineagePanel :id="id" type="Capa" />
 
             <!-- Raised-from-Audit context (scoped): audit header + only the
                  findings/failed requirements this CAPA addresses. Self-hides
@@ -566,62 +549,64 @@ function onCreateLinkedChangeRequest() {
 
           <!-- Right column -->
           <div class="tw:flex tw:flex-col tw:gap-4">
-            <!-- Meta card -->
-            <aside
-              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex! tw:flex-col tw:gap-4"
-            >
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">Number</div>
-                <div class="tw:text-sm tw:font-mono tw:text-on-main">{{ capa.capaNumber }}</div>
-              </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">Status</div>
-                <CapaStatusBadgeById :statusId="capa.statusId" />
-              </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">Owner</div>
-                <UserBadgeById :userId="capa.ownerId" />
-              </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">Site</div>
-                <SiteBadgeById :siteId="capa.siteId" />
-              </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">
-                  Department
-                </div>
-                <DepartmentBadgeById :departmentId="capa.departmentId" />
-              </div>
-              <div v-if="capa.supplierId" class="tw:flex tw:flex-col tw:gap-1">
-                <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">
-                  Supplier
-                </div>
-                <SupplierBadgeById :supplierId="capa.supplierId" />
-              </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">Due</div>
-                <span
-                  class="tw:text-sm tw:font-medium"
-                  :class="isOverdue ? 'tw:text-red-600' : 'tw:text-on-main'"
-                >
-                  {{ capa.dueDate?.formatDate('date') || '—' }}
-                </span>
-              </div>
-              <div v-if="capa.verifiedAt" class="tw:flex tw:flex-col tw:gap-1">
-                <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">
-                  Verified
-                </div>
-                <span class="tw:text-sm tw:text-on-main">
-                  {{ capa.verifiedAt.formatDate('dateTime') }}
-                </span>
-              </div>
-              <div v-if="capa.closedAt" class="tw:flex tw:flex-col tw:gap-1">
-                <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">Closed</div>
-                <span class="tw:text-sm tw:text-on-main">
-                  {{ capa.closedAt.formatDate('dateTime') }}
-                </span>
-              </div>
-            </aside>
+            <!-- Overview -->
+            <BaseOverviewPanel>
+              <BaseDetailSection title="General">
+                <BaseDetailField label="Number">
+                  <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
+                    {{ capa.capaNumber }}
+                  </BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Status">
+                  <CapaStatusBadgeById :statusId="capa.statusId" />
+                </BaseDetailField>
+              </BaseDetailSection>
+
+              <BaseDetailSection title="Ownership" divided>
+                <BaseDetailField label="Owner">
+                  <UserSelectMenu v-if="isEditable" v-model="capa.ownerId" :required="true" />
+                  <UserBadgeById v-else-if="capa.ownerId" :userId="capa.ownerId" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Site">
+                  <SiteSelectMenu v-if="isEditable" v-model="capa.siteId" :required="true" />
+                  <SiteBadgeById v-else-if="capa.siteId" :siteId="capa.siteId" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Department">
+                  <DepartmentSelectMenu v-if="isEditable" v-model="capa.departmentId" :required="true" />
+                  <DepartmentBadgeById v-else-if="capa.departmentId" :departmentId="capa.departmentId" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField v-if="capa.supplierId" label="Supplier">
+                  <SupplierBadgeById :supplierId="capa.supplierId" />
+                </BaseDetailField>
+              </BaseDetailSection>
+
+              <BaseDetailSection title="Schedule" divided>
+                <BaseDetailField label="Due">
+                  <BaseDatePicker v-if="isEditable" v-model="capa.dueDate" class="tw:w-full" />
+                  <BaseText
+                    v-else
+                    variant="body"
+                    weight="medium"
+                    :class="isOverdue ? 'tw:text-red-600' : ''"
+                  >
+                    {{ capa.dueDate?.formatDate('date') || '—' }}
+                  </BaseText>
+                </BaseDetailField>
+                <BaseDetailField
+                  v-if="capa.verifiedAt"
+                  label="Verified"
+                  :value="capa.verifiedAt.formatDate('dateTime')"
+                />
+                <BaseDetailField
+                  v-if="capa.closedAt"
+                  label="Closed"
+                  :value="capa.closedAt.formatDate('dateTime')"
+                />
+              </BaseDetailSection>
+            </BaseOverviewPanel>
 
             <!-- Workflow template card -->
             <RouterLink
