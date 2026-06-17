@@ -47,7 +47,7 @@ const loading = computed(() => users.value === undefined)
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
+  <BasePage width="standard">
     <PageHeader :icon="IconUsers" title="Users" />
 
     <SafeTeleport to="#main-header-actions">
@@ -61,9 +61,7 @@ const loading = computed(() => users.value === undefined)
 
     <UsersFilterToolbar v-model:filters="filters" />
 
-    <div class="tw:flex tw:flex-col tw:flex-1 tw:min-h-0 tw:gap-5 tw:overflow-auto">
-      <UsersList :users="users || []" :loading="loading" />
-    </div>
+    <UsersList :users="users || []" :loading="loading" />
 
     <UsersCreateUserDialog v-model="showCreateDialog" />
   </BasePage>

@@ -110,7 +110,7 @@ const BREAKDOWN_SECTIONS = [
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconChartBar" title="Complaint Reports" />
 
     <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:flex-wrap">
@@ -224,5 +224,5 @@ const BREAKDOWN_SECTIONS = [
         <p v-else class="tw:text-xs tw:text-secondary tw:italic">No data in range.</p>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

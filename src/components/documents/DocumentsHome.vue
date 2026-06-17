@@ -116,7 +116,7 @@ function navigateToDetail(row) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="wide" density="compact">
     <PageHeader :icon="IconFileDescription" title="Documents" />
 
     <SafeTeleport to="#main-header-actions">
@@ -148,5 +148,5 @@ function navigateToDetail(row) {
       :loading="allDocuments === undefined"
       @view="navigateToDetail"
     />
-  </div>
+  </BasePage>
 </template>

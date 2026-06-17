@@ -39,7 +39,7 @@ const activeTab = computed({
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconClipboardCheck" title="Audits" />
 
     <div class="tw:flex tw:items-center tw:justify-between">
@@ -64,5 +64,5 @@ const activeTab = computed({
         <BaseTabPanel value="calendar"><AuditScheduleCalendar /></BaseTabPanel>
       </div>
     </BaseTabs>
-  </div>
+  </BasePage>
 </template>

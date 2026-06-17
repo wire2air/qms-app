@@ -258,7 +258,7 @@ const editingTitle = ref(false)
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="standard" density="compact" fullHeight>
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
@@ -324,7 +324,7 @@ const editingTitle = ref(false)
       <BaseSpinner size="md" />
     </div>
 
-    <div v-else-if="cr" class="tw:overflow-y-auto tw:flex-1">
+    <div v-else-if="cr" class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <RecordTrailBreadcrumb />
         <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_25fr] tw:gap-4 tw:items-start">
@@ -682,5 +682,5 @@ const editingTitle = ref(false)
       :includeEntities="auditIncludeEntities"
       :title="`Audit Log — ${cr?.crNumber ?? 'Change Request'}`"
     />
-  </div>
+  </BasePage>
 </template>

@@ -421,7 +421,7 @@ function onCreateLinkedChangeRequest() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="standard" density="compact" fullHeight>
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
@@ -474,7 +474,7 @@ function onCreateLinkedChangeRequest() {
 
     <BaseSpinner v-if="loading" centered size="md" />
 
-    <div v-else-if="nc" class="tw:overflow-y-auto tw:flex-1">
+    <div v-else-if="nc" class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <RecordTrailBreadcrumb />
         <!-- QC inspection origin — this NC was auto-raised by a rejected lot -->
@@ -1381,5 +1381,5 @@ function onCreateLinkedChangeRequest() {
         </BaseButton>
       </div>
     </BaseDialog>
-  </div>
+  </BasePage>
 </template>

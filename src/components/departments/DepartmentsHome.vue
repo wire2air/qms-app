@@ -52,7 +52,7 @@ async function confirmDeleteDepartment() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconBuilding" title="Departments" />
 
     <SafeTeleport to="#main-header-actions">
@@ -80,7 +80,7 @@ async function confirmDeleteDepartment() {
       @delete="onDeleteDepartment"
       @edit="onEditDepartment"
     />
-  </div>
+  </BasePage>
 
   <!-- Create/Edit Department Dialog -->
   <DepartmentsCreateUpdateDialog

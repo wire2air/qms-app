@@ -50,7 +50,7 @@ const activeTab = computed({
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="standard" density="compact" fullHeight>
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
@@ -70,7 +70,7 @@ const activeTab = computed({
     </div>
 
     <!-- Content -->
-    <div v-else-if="supplier" class="tw:overflow-y-auto">
+    <div v-else-if="supplier" class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto">
       <div class="tw:max-w-5xl tw:mx-auto tw:p-8 tw:space-y-8">
         <!-- Header Section -->
         <section
@@ -139,5 +139,5 @@ const activeTab = computed({
         </BaseTabs>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

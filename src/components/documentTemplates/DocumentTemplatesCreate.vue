@@ -218,7 +218,7 @@ const breadcrumbs = computed(() => [
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="narrow" fullHeight>
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
@@ -229,7 +229,7 @@ const breadcrumbs = computed(() => [
     </div>
 
     <!-- Scrollable content -->
-    <div v-else class="tw:flex-1 tw:overflow-y-auto tw:pb-24">
+    <div v-else class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
       <div class="tw:max-w-5xl tw:mx-auto tw:px-6 tw:py-8">
         <div class="tw:mb-8">
           <h1 class="tw:text-3xl tw:font-black tw:text-on-sidebar tw:tracking-tight">
@@ -381,5 +381,5 @@ const breadcrumbs = computed(() => [
         </BaseButton>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

@@ -94,7 +94,7 @@ function goBack() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="standard" density="compact" fullHeight>
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs :items="breadcrumbs" />
     </SafeTeleport>
@@ -134,7 +134,7 @@ function goBack() {
     </div>
 
     <!-- Template Details -->
-    <div v-else-if="template" class="tw:flex-1 tw:overflow-y-auto tw:p-6">
+    <div v-else-if="template" class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:p-6">
       <div class="tw:max-w-5xl tw:mx-auto tw:space-y-6">
         <!-- Header -->
         <div class="tw:flex tw:items-start tw:justify-between">
@@ -315,5 +315,5 @@ function goBack() {
       okLabel="Unarchive"
       @ok="onUnarchive"
     />
-  </div>
+  </BasePage>
 </template>

@@ -113,7 +113,7 @@ async function restoreProduct(product) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader :icon="IconPackage" title="Item Master" />
 
     <SafeTeleport to="#main-header-actions">
@@ -174,7 +174,7 @@ async function restoreProduct(product) {
         </div>
       </div>
     </div>
-  </div>
+  </BasePage>
 
   <!-- Create/Edit Product Dialog -->
   <ProductsCreateUpdateDialog v-if="showDialog" :id="selectedProductId" v-model="showDialog" />

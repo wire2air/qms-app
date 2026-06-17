@@ -240,7 +240,7 @@ async function handleReviewersConfirmed(reviewers) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
+  <BasePage width="narrow" fullHeight>
     <SafeTeleport to="#main-header-title">
       <BaseBreadcrumbs
         :items="[
@@ -254,7 +254,7 @@ async function handleReviewersConfirmed(reviewers) {
       <BaseButton variant="primary" :disabled="saving" @click="handleSubmit">Submit</BaseButton>
     </SafeTeleport>
 
-    <div class="tw:overflow-y-auto tw:flex-1">
+    <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:max-w-3xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">
         <!-- Basic information -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
@@ -500,7 +500,7 @@ async function handleReviewersConfirmed(reviewers) {
         />
       </template>
     </BaseDialog>
-  </div>
+  </BasePage>
 </template>
 
 <style scoped>

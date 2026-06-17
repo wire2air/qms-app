@@ -150,7 +150,7 @@ function onRaiseNc() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
+  <BasePage width="standard" density="compact">
     <PageHeader title="Nonconformances" />
 
     <SafeTeleport to="#main-header-actions">
@@ -267,5 +267,5 @@ function onRaiseNc() {
       :canDelete="canDelete"
       @edit="(row) => router.push(getCompanyPath(`/nonconformances/${row.id}`))"
     />
-  </div>
+  </BasePage>
 </template>
