@@ -621,9 +621,10 @@ defineExpose({
 
 <style lang="scss" scoped>
 .tiptap-editor-wrapper {
-  border: 1px solid var(--q-divider, #e0e0e0);
+  border: 1px solid var(--divider);
   border-radius: 4px;
-  background: var(--q-background, #fff);
+  background: var(--sidebar);
+  color: var(--on-main);
   min-height: 100px;
   display: flex;
   flex-direction: column;
@@ -638,7 +639,7 @@ defineExpose({
 
 /* Force active button styling */
 :deep(.q-btn.tw\:bg-primary\!) {
-  background-color: var(--q-primary) !important;
+  background-color: var(--primary) !important;
   color: white !important;
 }
 
@@ -689,12 +690,12 @@ defineExpose({
 
   blockquote {
     padding-left: 1rem;
-    border-left: 3px solid var(--q-divider, #e0e0e0);
+    border-left: 3px solid var(--divider);
     font-style: italic;
   }
 
   code {
-    background: var(--q-background-secondary, #f5f5f5);
+    background: var(--main-hover);
     padding: 0.125rem 0.25rem;
     border-radius: 3px;
     font-family: 'Courier New', monospace;
@@ -702,8 +703,8 @@ defineExpose({
   }
 
   pre {
-    background: var(--q-dark, #1d1d1d);
-    color: var(--q-light, #f5f5f5);
+    background: #1e293b;
+    color: #f1f5f9;
     padding: 0.75rem 1rem;
     border-radius: 4px;
     overflow-x: auto;
@@ -718,24 +719,25 @@ defineExpose({
 
   mark {
     background: #fef08a;
+    color: #1f2937;
     padding: 0.125rem 0;
     border-radius: 2px;
   }
 
   a {
-    color: var(--q-primary, #1976d2);
+    color: var(--primary);
     text-decoration: underline;
     cursor: pointer;
     transition: color 0.2s;
 
     &:hover {
-      color: var(--q-primary-dark, #1565c0);
+      color: var(--primary-hover);
     }
   }
 
   hr {
     border: none;
-    border-top: 2px solid var(--q-divider, #e0e0e0);
+    border-top: 2px solid var(--divider);
     margin: 2rem 0;
   }
 
@@ -750,7 +752,7 @@ defineExpose({
     td,
     th {
       min-width: 1em;
-      border: 1px solid var(--q-divider, #e0e0e0);
+      border: 1px solid var(--divider);
       padding: 0.5rem 0.75rem;
       vertical-align: top;
       box-sizing: border-box;
@@ -764,7 +766,7 @@ defineExpose({
     th {
       font-weight: bold;
       text-align: left;
-      background-color: var(--q-background-secondary, #f5f5f5);
+      background-color: var(--main-hover);
     }
 
     .selectedCell:after {
@@ -785,7 +787,7 @@ defineExpose({
       top: 0;
       bottom: -2px;
       width: 4px;
-      background-color: var(--q-primary, #1976d2);
+      background-color: var(--primary);
       pointer-events: none;
     }
   }
@@ -793,13 +795,13 @@ defineExpose({
   p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
     float: left;
-    color: var(--q-secondary, #adb5bd);
+    color: var(--secondary);
     pointer-events: none;
     height: 0;
   }
 
   .mention-chip {
-    background: var(--q-main-hover, #f5f5f5);
+    background: var(--main-hover);
     padding: 0.125rem 0.5rem;
     border-radius: 9999px;
     font-size: 0.875rem;
