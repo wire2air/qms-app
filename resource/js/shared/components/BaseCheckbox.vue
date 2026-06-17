@@ -25,18 +25,18 @@ const checked = defineModel({
 <template>
   <label
     class="tw:relative tw:inline-flex tw:items-center tw:gap-2 tw:cursor-pointer tw:select-none"
-    :class="disabled ? 'tw:opacity-50 tw:cursor-not-allowed tw:pointer-events-none' : ''"
+    :class="disabled ? 'tw:opacity-60 tw:cursor-not-allowed tw:pointer-events-none' : ''"
   >
     <input
       v-model="checked"
       type="checkbox"
-      class="tw:sr-only"
+      class="tw:peer tw:sr-only"
       :disabled="disabled"
       :indeterminate="indeterminate"
     />
     <span
       :class="[
-        'tw:inline-flex tw:items-center tw:justify-center tw:h-4 tw:w-4 tw:shrink-0 tw:rounded tw:border tw:transition-colors tw:duration-150',
+        'tw:inline-flex tw:items-center tw:justify-center tw:h-4 tw:w-4 tw:shrink-0 tw:rounded tw:border tw:transition-colors tw:duration-150 tw:peer-focus-visible:ring-2 tw:peer-focus-visible:ring-primary/40 tw:peer-focus-visible:ring-offset-1',
         checked || indeterminate
           ? 'tw:bg-primary tw:border-primary'
           : 'tw:bg-sidebar tw:border-divider',
