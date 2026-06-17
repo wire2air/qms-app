@@ -195,9 +195,7 @@ function openFindingsInstance(f) {
         </div>
         <div class="tw:flex tw:flex-col">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ activePrograms }}</span>
-          <span class="tw:text-xs tw:text-secondary tw:uppercase tw:tracking-wider">
-            Active Programs
-          </span>
+          <BaseText variant="overline">Active Programs</BaseText>
         </div>
       </div>
       <div
@@ -210,9 +208,7 @@ function openFindingsInstance(f) {
         </div>
         <div class="tw:flex tw:flex-col">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ inFlightAudits }}</span>
-          <span class="tw:text-xs tw:text-secondary tw:uppercase tw:tracking-wider">
-            In-Flight Audits
-          </span>
+          <BaseText variant="overline">In-Flight Audits</BaseText>
         </div>
       </div>
       <div
@@ -225,9 +221,7 @@ function openFindingsInstance(f) {
         </div>
         <div class="tw:flex tw:flex-col">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ openFindings }}</span>
-          <span class="tw:text-xs tw:text-secondary tw:uppercase tw:tracking-wider">
-            Open Findings
-          </span>
+          <BaseText variant="overline">Open Findings</BaseText>
         </div>
       </div>
       <div
@@ -240,9 +234,7 @@ function openFindingsInstance(f) {
         </div>
         <div class="tw:flex tw:flex-col">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ auditsDueIn30d }}</span>
-          <span class="tw:text-xs tw:text-secondary tw:uppercase tw:tracking-wider">
-            Due in 30 Days
-          </span>
+          <BaseText variant="overline">Due in 30 Days</BaseText>
         </div>
       </div>
     </div>

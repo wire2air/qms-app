@@ -133,7 +133,7 @@ function updateWhyTreeProblemPrompt(problemPrompt) {
 
     <div>
       <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">Why Prompts</label>
+        <BaseLabel size="md">Why Prompts</BaseLabel>
         <button
           class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline"
           @click="addWhy"
@@ -173,7 +173,7 @@ function updateWhyTreeProblemPrompt(problemPrompt) {
   <!-- Is / Is Not -->
   <div v-else-if="method === 'isnot'" class="tw:flex tw:flex-col tw:gap-3">
     <div class="tw:flex tw:items-center tw:justify-between">
-      <label class="tw:text-sm tw:font-medium tw:text-on-main">Dimensions</label>
+      <BaseLabel size="md">Dimensions</BaseLabel>
       <button
         class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline"
         @click="addDimension"
