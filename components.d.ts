@@ -147,6 +147,7 @@ declare module 'vue' {
     BaseText: typeof import('./resource/js/shared/components/typography/BaseText.vue')['default']
     BaseTextarea: typeof import('./resource/js/shared/components/BaseTextarea.vue')['default']
     BaseTextInput: typeof import('./resource/js/shared/components/BaseTextInput.vue')['default']
+    'BaseTextInput.spec': typeof import('./resource/js/shared/components/BaseTextInput.spec.js')['default']
     BaseTimeline: typeof import('./resource/js/shared/components/BaseTimeline.vue')['default']
     BaseTimePicker: typeof import('./resource/js/shared/components/BaseTimePicker.vue')['default']
     BaseToast: typeof import('./resource/js/shared/components/BaseToast.vue')['default']
