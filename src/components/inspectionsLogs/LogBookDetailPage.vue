@@ -1359,7 +1359,7 @@ function back() {
       >
         <div
           v-if="showSchemaBuilder"
-          class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-9999"
+          class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-max"
         >
           <div class="tw:flex tw:flex-col tw:h-full tw:flex-nowrap">
             <!-- Header -->
@@ -1402,7 +1402,7 @@ function back() {
     <Teleport to="body">
       <div
         v-if="showAddDocDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
         <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-3">Link a document</h3>

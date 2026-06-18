@@ -611,7 +611,7 @@ function close() {
 </script>
 
 <template>
-  <div class="tw:fixed tw:inset-0 tw:z-50 tw:flex tw:flex-col tw:bg-main">
+  <div class="tw:fixed tw:inset-0 tw:z-modal tw:flex tw:flex-col tw:bg-main">
     <!-- Header -->
     <div class="tw:flex tw:items-center tw:gap-3 tw:px-5 tw:py-3 tw:border-b tw:border-divider">
       <button
@@ -1072,7 +1072,7 @@ function close() {
     <Teleport to="body">
       <div
         v-if="showCommentDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
         <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-2">
@@ -1113,7 +1113,7 @@ function close() {
     <Teleport to="body">
       <div
         v-if="showAmendDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
         <div
           class="tw:bg-white tw:rounded-lg tw:max-w-2xl tw:w-full tw:p-5 tw:m-3 tw:max-h-[90vh] tw:flex tw:flex-col"
@@ -1173,7 +1173,7 @@ function close() {
     <Teleport to="body">
       <div
         v-if="showVoidDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
         <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-1">Void entry</h3>
@@ -1218,7 +1218,7 @@ function close() {
     <Teleport to="body">
       <div
         v-if="showFlagDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
         <div
           class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3 tw:max-h-[90vh] tw:overflow-y-auto"
@@ -1289,7 +1289,7 @@ function close() {
     <Teleport to="body">
       <div
         v-if="showResolveDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
         <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-1">Resolve flag</h3>

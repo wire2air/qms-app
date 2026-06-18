@@ -75,14 +75,14 @@ async function handleDelete(msg) {
 <template>
   <!-- Backdrop -->
   <Transition name="fade">
-    <div v-if="model" class="tw:fixed tw:inset-0 tw:bg-black/30 tw:z-40" @click="model = false" />
+    <div v-if="model" class="tw:fixed tw:inset-0 tw:bg-black/30 tw:z-overlay" @click="model = false" />
   </Transition>
 
   <!-- Sidebar Panel -->
   <Transition name="slide-right">
     <aside
       v-if="model"
-      class="tw:fixed tw:top-0 tw:right-0 tw:h-full tw:w-100 tw:max-w-full tw:z-50 tw:flex! tw:flex-col tw:bg-sidebar tw:shadow-xl"
+      class="tw:fixed tw:top-0 tw:right-0 tw:h-full tw:w-100 tw:max-w-full tw:z-modal tw:flex! tw:flex-col tw:bg-sidebar tw:shadow-xl"
     >
       <!-- Header -->
       <div

@@ -356,7 +356,7 @@ function goBack() {
 
     <!-- Sticky Footer -->
     <div
-      class="tw:relative tw:bottom-0 tw:right-0 tw:w-full tw:bg-main/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-50"
+      class="tw:relative tw:bottom-0 tw:right-0 tw:w-full tw:bg-main/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-modal"
     >
       <div class="tw:flex tw:items-center tw:justify-between">
         <button

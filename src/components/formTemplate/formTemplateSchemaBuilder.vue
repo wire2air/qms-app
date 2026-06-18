@@ -126,7 +126,7 @@ function cancelEditTitle() {
       <!-- Saving Overlay -->
       <div
         v-if="isSaving"
-        class="tw:absolute tw:inset-0 tw:bg-main/60 tw:flex tw:flex-col tw:items-center tw:justify-center tw:z-10"
+        class="tw:absolute tw:inset-0 tw:bg-main/60 tw:flex tw:flex-col tw:items-center tw:justify-center tw:z-raised"
       >
         <BaseSpinner size="lg" />
         <div class="tw:text-sm tw:text-secondary tw:mt-4">Saving...</div>

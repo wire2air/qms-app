@@ -114,7 +114,7 @@ function onDuplicate() {
   >
     <!-- Field Controls (Top Right) -->
     <div
-      class="tw:absolute tw:top-2 tw:right-2 tw:flex tw:items-center tw:gap-1 tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:z-10"
+      class="tw:absolute tw:top-2 tw:right-2 tw:flex tw:items-center tw:gap-1 tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:z-raised"
       :class="{ 'tw:opacity-100': isSelected }"
     >
       <button

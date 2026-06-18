@@ -584,7 +584,7 @@ async function handleExport(format) {
           </button>
           <div
             v-if="showColumnMenu"
-            class="tw:absolute tw:right-0 tw:top-full tw:z-50 tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:min-w-64 tw:max-w-96 tw:max-h-80 tw:overflow-y-auto"
+            class="tw:absolute tw:right-0 tw:top-full tw:z-modal tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:min-w-64 tw:max-w-96 tw:max-h-80 tw:overflow-y-auto"
           >
             <div
               class="tw:flex tw:justify-between tw:items-center tw:p-3 tw:border-b tw:border-divider"
@@ -642,7 +642,7 @@ async function handleExport(format) {
           </button>
           <div
             v-if="showFilterMenu"
-            class="tw:absolute tw:right-0 tw:top-full tw:z-50 tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:shadow-lg"
+            class="tw:absolute tw:right-0 tw:top-full tw:z-modal tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:shadow-lg"
           >
             <FormTemplateRecordsAdvancedFilter v-model="advancedFilters" :columns="columns" />
           </div>

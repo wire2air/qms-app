@@ -389,7 +389,7 @@ async function handleNewVersionConfirm(changeControl) {
     <!-- Main Content -->
     <div v-else class="tw:flex tw:flex-col">
       <!-- Toolbar Section -->
-      <div class="tw:bg-sidebar tw:border-b tw:border-divider tw:sticky tw:top-0 tw:z-10">
+      <div class="tw:bg-sidebar tw:border-b tw:border-divider tw:sticky tw:top-0 tw:z-raised">
         <div
           class="tw:py-4 tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-4"
         >

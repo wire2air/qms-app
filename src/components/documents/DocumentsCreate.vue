@@ -383,7 +383,7 @@ const docTabs = [
 
     <!-- Sticky Footer Action Bar -->
     <div
-      class="tw:absolute tw:bottom-0 tw:left-0 tw:right-0 tw:bg-sidebar/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-50"
+      class="tw:absolute tw:bottom-0 tw:left-0 tw:right-0 tw:bg-sidebar/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-modal"
     >
       <div class="tw:flex tw:items-center tw:justify-end">
         <div class="tw:flex tw:items-center tw:gap-4">

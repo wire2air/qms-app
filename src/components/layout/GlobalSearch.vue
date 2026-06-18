@@ -179,7 +179,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKey))
     <!-- Results dropdown -->
     <div
       v-if="open && query.trim().length >= 2"
-      class="tw:absolute tw:left-0 tw:right-0 tw:mt-2 tw:max-h-[70vh] tw:overflow-y-auto tw:rounded-xl tw:border tw:border-divider tw:bg-main tw:shadow-lg tw:z-20"
+      class="tw:absolute tw:left-0 tw:right-0 tw:mt-2 tw:max-h-[70vh] tw:overflow-y-auto tw:rounded-xl tw:border tw:border-divider tw:bg-main tw:shadow-lg tw:z-dropdown"
     >
       <div v-if="loading && !results.length" class="tw:px-4 tw:py-6 tw:text-center tw:text-sm tw:text-secondary">
         Searching…

@@ -235,7 +235,7 @@ function copyJson() {
     <div class="tw:flex tw:flex-1 tw:flex-col tw:overflow-hidden">
       <!-- Header -->
       <header
-        class="tw:sticky tw:top-0 tw:z-20 tw:px-4 tw:py-2 tw:bg-sidebar tw:border-b tw:border-divider"
+        class="tw:sticky tw:top-0 tw:z-dropdown tw:px-4 tw:py-2 tw:bg-sidebar tw:border-b tw:border-divider"
       >
         <div class="tw:flex tw:items-center tw:justify-between">
           <div class="tw:flex tw:items-center tw:gap-3">

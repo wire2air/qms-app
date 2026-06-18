@@ -608,7 +608,7 @@ function printList() {
              Closed by clicking the toggle button again or outside. -->
         <div
           v-if="showColumnPicker"
-          class="tw:absolute tw:top-full tw:right-0 tw:mt-1 tw:z-20 tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:p-3 tw:min-w-64 tw:max-h-80 tw:overflow-y-auto"
+          class="tw:absolute tw:top-full tw:right-0 tw:mt-1 tw:z-dropdown tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:p-3 tw:min-w-64 tw:max-h-80 tw:overflow-y-auto"
         >
           <BaseText variant="overline" class="tw:block tw:mb-2">Columns</BaseText>
           <div v-if="scalarFields.length === 0" class="tw:text-xs tw:text-secondary">
@@ -878,7 +878,7 @@ function printList() {
     <Teleport to="body">
       <div
         v-if="canReview && selectedIds.size > 0"
-        class="tw:fixed tw:bottom-0 tw:left-0 tw:right-0 tw:bg-white tw:border-t tw:border-divider tw:shadow-lg tw:px-5 tw:py-3 tw:flex tw:items-center tw:gap-3 tw:z-40"
+        class="tw:fixed tw:bottom-0 tw:left-0 tw:right-0 tw:bg-white tw:border-t tw:border-divider tw:shadow-lg tw:px-5 tw:py-3 tw:flex tw:items-center tw:gap-3 tw:z-overlay"
       >
         <div class="tw:text-sm tw:text-on-main tw:font-medium">{{ selectedIds.size }} selected</div>
         <button
@@ -915,7 +915,7 @@ function printList() {
     <Teleport to="body">
       <div
         v-if="showBulkCommentDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
         <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-2">

@@ -129,7 +129,7 @@ function apply() {
 
     <div
       v-if="showMenu"
-      class="tw:absolute tw:right-0 tw:top-full tw:mt-1 tw:z-30 tw:w-52 tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:py-1"
+      class="tw:absolute tw:right-0 tw:top-full tw:mt-1 tw:z-sticky tw:w-52 tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:py-1"
     >
       <button
         v-for="o in OPS"
