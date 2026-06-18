@@ -1,15 +1,26 @@
 <script setup>
 import { IconX, IconChevronDown } from '@tabler/icons-vue'
 
-defineProps({
+const props = defineProps({
   clearable: { type: Boolean, default: false },
   // Accessible name for the clear button (rule #8 — it's a real <button>).
   clearLabel: { type: String, default: 'Remove' },
   selectable: { type: Boolean, default: false },
   showDot: { type: Boolean, default: false },
+  // 'sm' | 'md' (default). Folded in from the former BaseChip.
+  size: {
+    type: String,
+    default: 'md',
+    validator: (v) => ['sm', 'md'].includes(v),
+  },
 })
 
 const emit = defineEmits(['clear'])
+
+// Size affects padding + text only (md = the original badge metrics).
+const sizeClass = computed(() =>
+  props.size === 'sm' ? 'tw:px-2 tw:py-0.5 tw:text-xs' : 'tw:px-3 tw:py-1 tw:text-sm',
+)
 
 // Status badges bring their own color via a SCHEME_MAP `bg-*` class ($attrs);
 // entity badges (Site/Department/User/…) pass none. A select TRIGGER with no
@@ -22,8 +33,9 @@ const isPlainTrigger = computed(() => !/tw:bg-/.test(String(attrs.class || '')))
 
 <template>
   <div
-    class="tw:inline-flex tw:items-center tw:gap-1.5 tw:px-3 tw:py-1 tw:rounded-full tw:border tw:text-sm tw:font-medium tw:w-fit tw:transition-all tw:duration-200"
+    class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-full tw:border tw:font-medium tw:w-fit tw:transition-all tw:duration-200"
     :class="[
+      sizeClass,
       selectable && 'tw:cursor-pointer',
       selectable && isPlainTrigger
         ? 'tw:bg-main-hover tw:border-divider tw:text-on-main'

@@ -2,8 +2,6 @@
 import {
   IconCaretUpFilled,
   IconCaretDownFilled,
-  IconChevronLeft,
-  IconChevronRight,
   IconTableOff,
   IconColumns,
   IconLineHeight,
@@ -143,21 +141,6 @@ function toggleAll() {
 }
 
 // --- Layout helpers --------------------------------------------------------
-const totalPages = computed(() => {
-  const { rowsPerPage, total: initialTotal } = pagination.value
-  const total = initialTotal || props.rows.length
-  return rowsPerPage > 0 ? Math.ceil(total / rowsPerPage) : 1
-})
-
-const paginationLabel = computed(() => {
-  const { page, rowsPerPage, total: initialTotal } = pagination.value
-  const total = initialTotal || props.rows.length
-  if (total === 0) return '0-0 of 0'
-  const start = (page - 1) * rowsPerPage + 1
-  const end = Math.min(page * rowsPerPage, total)
-  return `${start}-${end} of ${total}`
-})
-
 function updatePagination(patch) {
   pagination.value = { ...pagination.value, ...patch }
 }
@@ -429,44 +412,16 @@ const scrollStyle = computed(() =>
       </table>
     </div>
 
-    <!-- Pagination Footer -->
-    <div
+    <!-- Pagination Footer (BasePagination — extracted so non-table lists reuse it) -->
+    <BasePagination
       v-if="!hidePagination"
-      class="tw:px-4 tw:py-3 tw:border-t tw:border-divider tw:bg-main tw:flex tw:items-center tw:justify-between sm:tw:justify-end tw:gap-6 tw:text-xs tw:text-secondary"
-    >
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <span>Rows per page:</span>
-        <select
-          :value="pagination.rowsPerPage"
-          class=""
-          @change="updatePagination({ rowsPerPage: parseInt($event.target.value), page: 1 })"
-        >
-          <option v-for="n in [5, 10, 25, 50]" :key="n" :value="n">{{ n }}</option>
-        </select>
-      </div>
-
-      <div class="tw:flex tw:items-center tw:gap-4">
-        <span class="tw:font-medium tw:text-on-main">{{ paginationLabel }}</span>
-        <div class="tw:flex tw:items-center tw:gap-1">
-          <button
-            :disabled="pagination.page <= 1"
-            aria-label="Previous page"
-            class="tw:p-1.5 tw:rounded tw:hover:bg-main-hover tw:disabled:opacity-30 tw:disabled:cursor-not-allowed tw:transition-colors"
-            @click="updatePagination({ page: pagination.page - 1 })"
-          >
-            <IconChevronLeft :size="16" />
-          </button>
-          <button
-            :disabled="pagination.page >= totalPages"
-            aria-label="Next page"
-            class="tw:p-1.5 tw:rounded tw:hover:bg-main-hover tw:disabled:opacity-30 tw:disabled:cursor-not-allowed tw:transition-colors"
-            @click="updatePagination({ page: pagination.page + 1 })"
-          >
-            <IconChevronRight :size="16" />
-          </button>
-        </div>
-      </div>
-    </div>
+      :page="pagination.page"
+      :rowsPerPage="pagination.rowsPerPage"
+      :total="pagination.total || rows.length"
+      class="tw:border-t tw:border-divider tw:bg-main tw:px-4 tw:py-3"
+      @update:page="updatePagination({ page: $event })"
+      @update:rowsPerPage="updatePagination({ rowsPerPage: $event, page: 1 })"
+    />
   </div>
 </template>
 
