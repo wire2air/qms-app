@@ -163,7 +163,10 @@ function onRaiseNc() {
 
     <!-- Page Header -->
     <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Nonconformances</div>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Nonconformances</div>
+        <HelpButton slug="KB/quality/nonconformances" :size="20" />
+      </div>
       <div class="tw:text-sm tw:text-secondary">Track, investigate and close nonconformances.</div>
     </div>
 

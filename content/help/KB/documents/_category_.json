@@ -1,0 +1,9 @@
+{
+  "label": "Document Control",
+  "position": 3,
+  "link": {
+    "type": "generated-index",
+    "title": "Document Control",
+    "description": "Controlled documents, versions, approvals, and templates."
+  }
+}

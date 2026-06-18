@@ -219,6 +219,20 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/help/': RouteRecordInfo<
+      '/help/',
+      '/help',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/help/[...slug]': RouteRecordInfo<
+      '/help/[...slug]',
+      '/help/:slug(.*)',
+      { slug: ParamValue<true> },
+      { slug: ParamValue<false> },
+      | never
+    >,
     '/inspections-logs/': RouteRecordInfo<
       '/inspections-logs/',
       '/inspections-logs',
@@ -719,6 +733,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/groups/[[id]].vue': {
       routes:
         | '/groups/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/help/index.vue': {
+      routes:
+        | '/help/'
+      views:
+        | never
+    }
+    'src/pages/help/[...slug].vue': {
+      routes:
+        | '/help/[...slug]'
       views:
         | never
     }

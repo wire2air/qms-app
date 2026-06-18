@@ -34,9 +34,12 @@ const breadcrumbs = computed(() => [
   { label: cr.value?.crNumber || cr.value?.title || 'Loading…' },
 ])
 
-const isOwner = computed(
-  () => cr.value?.ownerId && cr.value.ownerId === currentSession.value?.userId,
-)
+// Co-author model: the Responsible Party (ownerId) OR the Initiator (createdBy)
+// may drive owner-level actions on the CR. Mirrors CHANGE_REQUEST_MODULE_CONFIG.authorField.
+const isOwner = computed(() => {
+  const uid = currentSession.value?.userId
+  return !!uid && (cr.value?.ownerId === uid || cr.value?.createdBy === uid)
+})
 const canUpdate = computed(() => isAllowed(['changeRequests:update']))
 const canDelete = computed(() => isAllowed(['changeRequests:delete']))
 
@@ -444,7 +447,14 @@ const editingTitle = ref(false)
               </BaseDetailSection>
 
               <BaseDetailSection title="Ownership" divided>
-                <BaseDetailField label="Owner">
+                <!-- Initiator = who raised the change request (createdBy, immutable). -->
+                <BaseDetailField label="Initiator">
+                  <UserBadgeById v-if="cr.createdBy" :userId="cr.createdBy" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <!-- Responsible party = drives the CR to closure; default
+                     workflow assignment routes here. -->
+                <BaseDetailField label="Responsible party">
                   <UserSelectMenu v-if="isEditable" v-model="cr.ownerId" :required="true" />
                   <UserBadgeById v-else-if="cr.ownerId" :userId="cr.ownerId" />
                   <BaseText v-else color="secondary">—</BaseText>

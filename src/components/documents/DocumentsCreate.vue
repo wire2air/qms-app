@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-vue'
 import { required, minValue, helpers } from '@vuelidate/validators'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { currentSession } from '@/utils/currentSession.js'
 import { db } from '@models/index'
 
 const router = useRouter()
@@ -37,6 +38,10 @@ const DEFAULT_FORM = {
   documentTypeId: null,
   documentTemplateId: null,
   departmentId: null,
+  // Owner = accountable for the lifecycle (periodic review, effectiveness).
+  // Defaults to the creator (set below); the author can hand it to another user.
+  // Author is implicit = creator (set by the Document model on create).
+  ownerId: null,
   effectiveDate: null,
   sections: [],
   // Change control — optional on v1.0, required on every revision after.
@@ -56,9 +61,11 @@ const DEFAULT_FORM = {
   trainingConfig: { ...DEFAULT_TRAINING_CONFIG },
 }
 
-// Form data
+// Form data — owner defaults to the creating user (the author can reassign it
+// in the Properties tab before saving).
 const form = ref({
   ...DEFAULT_FORM,
+  ownerId: currentSession.value?.userId ?? null,
 })
 
 // Validation rules
@@ -154,6 +161,8 @@ const createDocument = useLiveMutation(async (db, formData) => {
     documentTemplateId: formData.documentTemplateId,
     departmentId: formData.departmentId,
     siteId: formData.siteId,
+    // Owner (accountable). Author defaults to the creator in the Document model.
+    userId: formData.ownerId || currentSession.value?.userId,
     prefix: formData.prefix,
     relatedStandardId: formData.relatedStandardId,
     periodicReviewMonths: formData.periodicReviewMonths,

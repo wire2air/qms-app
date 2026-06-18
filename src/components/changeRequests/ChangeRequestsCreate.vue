@@ -163,7 +163,7 @@ async function handleSubmit() {
     ['priorityId', 'Priority'],
     ['siteId', 'Site'],
     ['departmentId', 'Department'],
-    ['ownerId', 'Owner'],
+    ['ownerId', 'Responsible party'],
     ['initiatedAt', 'Initiated date'],
     ['workflowVersionId', 'Workflow'],
   ]) {
@@ -309,7 +309,11 @@ async function handleSubmit() {
                 :siteId="form.siteId"
               />
             </BaseField>
-            <BaseField label="Owner" required>
+            <BaseField
+              label="Responsible party"
+              required
+              hint="Drives the change request to closure. You remain the initiator."
+            >
               <UserSelectMenu v-model="form.ownerId" :required="true" />
             </BaseField>
             <BaseField label="Initiated" required>

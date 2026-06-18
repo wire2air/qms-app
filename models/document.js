@@ -6,7 +6,7 @@ import { DateTime } from 'luxon'
   primaryKey: 'id',
   syncField: 'updatedAt',
   customIndex: 'docNumber',
-  schemaVersion: 3,
+  schemaVersion: 4,
 })
 export class Document extends BaseModel {
   static paranoid = true // Enable soft deletes using deletedAt field
@@ -22,6 +22,13 @@ export class Document extends BaseModel {
       this.userId = currentSession.value?.userId || ''
     }
 
+    // Author = originator (the creator). Owner is `userId` and can be set to a
+    // different user via the create payload; the author always defaults to the
+    // current user. Null (not '') so the nullable-UUID GraphQL input accepts it.
+    if (!this.authorId) {
+      this.authorId = currentSession.value?.userId || null
+    }
+
     if (!this.id) {
       this.id = crypto.randomUUID()
     }
@@ -34,6 +41,8 @@ export class Document extends BaseModel {
   @Property({ type: String, required: true }) documentTypeId = ''
   @Property({ type: String }) documentTemplateId = ''
   @Property({ type: String, required: true }) userId = ''
+  // Owner = userId (accountable); author = originator (creator, reassignable).
+  @Property({ type: String }) authorId = /** @type {String|null} */ (null)
   @Property({ type: String, required: true }) siteId = ''
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: String, required: true }) companyId = ''

@@ -138,7 +138,7 @@ function handleSubmit() {
     return
   }
   if (!form.value.ownerId) {
-    toast.notify({ type: 'negative', message: 'Owner is required' })
+    toast.notify({ type: 'negative', message: 'Responsible party is required' })
     return
   }
   if (form.value.isSupplierFacing && !form.value.supplierId) {
@@ -340,7 +340,12 @@ async function handleReviewersConfirmed(reviewers) {
             <BaseField label="Due date" optional>
               <BaseDatePicker v-model="form.dueDate" />
             </BaseField>
-            <BaseField label="Owner" required class="tw:col-span-2 tw:md:col-span-1">
+            <BaseField
+              label="Responsible party"
+              required
+              hint="Drives the NC to closure. You remain the initiator."
+              class="tw:col-span-2 tw:md:col-span-1"
+            >
               <UserSelectMenu v-model="form.ownerId" required />
             </BaseField>
           </div>

@@ -2,6 +2,9 @@
 .thumbs.db
 node_modules
 
+# Generated Help Center bundle (built from content/help by scripts/build-help-content.mjs)
+src/content/help.generated.json
+
 # Quasar core related directories
 .quasar
 /dist

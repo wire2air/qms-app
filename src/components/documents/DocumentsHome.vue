@@ -129,7 +129,10 @@ function navigateToDetail(row) {
     <!-- Page Header -->
     <div class="tw:flex tw:items-center tw:justify-between">
       <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Documents</div>
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Documents</div>
+          <HelpButton slug="KB/documents/document-control" :size="20" />
+        </div>
         <div class="tw:text-sm tw:text-secondary">
           Manage controlled documents, versions, and approvals.
         </div>

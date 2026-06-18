@@ -179,9 +179,13 @@ async function onMarkCompleteEsignVerified({ method, provider, token }) {
   }
 }
 
-const isOwner = computed(
-  () => nc.value?.ownerId && nc.value.ownerId === currentSession.value?.userId,
-)
+// Co-author model: the Responsible Party (ownerId) OR the Initiator (createdBy)
+// may drive owner-level actions on the NC. The backend mirrors this via the
+// NC_MODULE_CONFIG authorField ('createdBy').
+const isOwner = computed(() => {
+  const uid = currentSession.value?.userId
+  return !!uid && (nc.value?.ownerId === uid || nc.value?.createdBy === uid)
+})
 
 // ─── Open NC (DRAFT → UNDER_REVIEW, kicks off workflow) ──────────────────────
 // "Open" matches the industry term (Greenlight Guru / ISO 13485 §10.2).
@@ -910,7 +914,14 @@ function onCreateLinkedChangeRequest() {
 
               <!-- Ownership -->
               <BaseDetailSection title="Ownership" divided>
-                <BaseDetailField label="Owner">
+                <!-- Initiator = who raised the NC (createdBy, immutable). -->
+                <BaseDetailField label="Initiator">
+                  <UserBadgeById v-if="nc.createdBy" :userId="nc.createdBy" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <!-- Responsible party = drives the NC to closure; effectiveness
+                     checks + default workflow assignment route here. -->
+                <BaseDetailField label="Responsible party">
                   <UserSelectMenu v-if="isEditable" v-model="nc.ownerId" :required="true" />
                   <UserBadgeById v-else-if="nc.ownerId" :userId="nc.ownerId" />
                   <BaseText v-else color="secondary">—</BaseText>

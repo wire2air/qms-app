@@ -172,9 +172,12 @@ function openPrintView() {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-const isOwner = computed(
-  () => capa.value?.ownerId && capa.value.ownerId === currentSession.value?.userId,
-)
+// Co-author model: the Responsible Party (ownerId) OR the Initiator (createdBy)
+// may drive owner-level actions on the CAPA. Mirrors CAPA_MODULE_CONFIG.authorField.
+const isOwner = computed(() => {
+  const uid = currentSession.value?.userId
+  return !!uid && (capa.value?.ownerId === uid || capa.value?.createdBy === uid)
+})
 
 function openCloseDialog() {
   saveError.value = null
@@ -563,7 +566,14 @@ function onCreateLinkedChangeRequest() {
               </BaseDetailSection>
 
               <BaseDetailSection title="Ownership" divided>
-                <BaseDetailField label="Owner">
+                <!-- Initiator = who raised the CAPA (createdBy, immutable). -->
+                <BaseDetailField label="Initiator">
+                  <UserBadgeById v-if="capa.createdBy" :userId="capa.createdBy" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <!-- Responsible party = drives the CAPA to closure; effectiveness
+                     checks + default workflow assignment route here. -->
+                <BaseDetailField label="Responsible party">
                   <UserSelectMenu v-if="isEditable" v-model="capa.ownerId" :required="true" />
                   <UserBadgeById v-else-if="capa.ownerId" :userId="capa.ownerId" />
                   <BaseText v-else color="secondary">—</BaseText>

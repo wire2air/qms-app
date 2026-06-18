@@ -1,0 +1,9 @@
+{
+  "label": "Quality Management",
+  "position": 2,
+  "link": {
+    "type": "generated-index",
+    "title": "Quality Management",
+    "description": "Nonconformances, CAPAs, change requests, root cause analysis, and risk."
+  }
+}

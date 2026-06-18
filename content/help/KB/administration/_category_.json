@@ -1,0 +1,9 @@
+{
+  "label": "Administration",
+  "position": 8,
+  "link": {
+    "type": "generated-index",
+    "title": "Administration",
+    "description": "Users, roles, sites, option sets, notifications, audit logs, and settings."
+  }
+}

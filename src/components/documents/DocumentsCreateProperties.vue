@@ -162,6 +162,12 @@ function decrementReviewMonths() {
       <DepartmentSelectMenu v-model="form.departmentId" :required="true" />
     </BaseField>
 
+    <!-- Owner — accountable for the document lifecycle (periodic review,
+         effectiveness). Defaults to you (the author); reassign to hand off. -->
+    <BaseField label="Owner" required hint="Accountable for review & effectiveness. You remain the author.">
+      <UserSelectMenu v-model="form.ownerId" :required="true" />
+    </BaseField>
+
     <!-- Periodic Review Frequency -->
     <BaseField label="Periodic Review Frequency">
       <div class="tw:flex tw:items-center tw:gap-3">
