@@ -58,6 +58,13 @@ function toggleColumn(col) {
 const sortColumn = computed(() => pagination.value.sortBy ?? null)
 const sortDirection = computed(() => (pagination.value.descending ? 'desc' : 'asc'))
 
+// WAI-ARIA sort state for the column header (only on sortable columns).
+function ariaSortFor(col) {
+  if (!col.sortable) return undefined
+  if (sortColumn.value !== col.name) return 'none'
+  return sortDirection.value === 'asc' ? 'ascending' : 'descending'
+}
+
 function handleSort(col) {
   if (!col.sortable) return
   const newDescending = sortColumn.value === col.name ? !pagination.value.descending : false
@@ -283,6 +290,7 @@ const scrollStyle = computed(() =>
             >
               <input
                 type="checkbox"
+                aria-label="Select all rows"
                 class="tw:size-4 tw:cursor-pointer tw:rounded tw:border-divider tw:accent-primary tw:align-middle"
                 :checked="allSelected"
                 :indeterminate.prop="isIndeterminate"
@@ -293,25 +301,40 @@ const scrollStyle = computed(() =>
             <th
               v-for="col in visibleColumns"
               :key="col.name"
+              scope="col"
+              :aria-sort="ariaSortFor(col)"
               :class="[
                 'tw:px-4 tw:text-xs tw:font-bold tw:tracking-widest tw:uppercase tw:whitespace-nowrap tw:select-none tw:border-b tw:border-divider tw:bg-main tw:transition-colors tw:duration-150',
                 thPadY,
                 stickyClass,
                 thAlignClass(col.align),
-                col.sortable ? 'tw:cursor-pointer tw:hover:bg-main-hover' : 'tw:cursor-default',
+                col.sortable ? 'tw:hover:bg-main-hover' : '',
                 sortColumn === col.name
                   ? 'tw:text-primary tw:bg-main-selected tw:hover:bg-main-selected'
                   : 'tw:text-secondary',
               ]"
-              @click="handleSort(col)"
             >
               <slot :name="'header-cell-' + col.name" :col="col">
-                <div
+                <!-- Sortable headers are real <button>s (keyboard-operable sort,
+                     rule #8); non-sortable headers are plain text. -->
+                <component
+                  :is="col.sortable ? 'button' : 'div'"
+                  :type="col.sortable ? 'button' : undefined"
                   class="tw:inline-flex tw:items-center tw:gap-1.5"
-                  :class="col.align === 'right' ? 'tw:flex-row-reverse' : ''"
+                  :class="[
+                    col.align === 'right' ? 'tw:flex-row-reverse' : '',
+                    col.sortable
+                      ? 'tw:cursor-pointer tw:rounded tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/40'
+                      : '',
+                  ]"
+                  @click="col.sortable && handleSort(col)"
                 >
                   <span>{{ col.label }}</span>
-                  <span v-if="col.sortable" class="tw:inline-flex tw:flex-col tw:gap-px">
+                  <span
+                    v-if="col.sortable"
+                    aria-hidden="true"
+                    class="tw:inline-flex tw:flex-col tw:gap-px"
+                  >
                     <IconCaretUpFilled
                       :size="8"
                       :class="[
@@ -331,7 +354,7 @@ const scrollStyle = computed(() =>
                       ]"
                     />
                   </span>
-                </div>
+                </component>
               </slot>
             </th>
           </tr>
@@ -355,6 +378,7 @@ const scrollStyle = computed(() =>
               >
                 <input
                   type="checkbox"
+                  aria-label="Select row"
                   class="tw:size-4 tw:cursor-pointer tw:rounded tw:border-divider tw:accent-primary tw:align-middle"
                   :checked="isRowSelected(row)"
                   @change="toggleRow(row)"

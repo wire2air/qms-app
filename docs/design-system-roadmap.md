@@ -105,13 +105,14 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [ ] **Adoption gaps (no new component):** finish `PageHeader` rollout (32 raw title / 55 raw actions — gated on `BaseDetailPage`); migrate `EquipmentHome`/`FormAssignmentsHome` off raw `<select>` → `BaseFilterBar`; consolidate ~84 hand-rolled delete dialogs onto `useConfirm`.
 - [ ] Stories + a11y for each (deferred to Phase 1 Storybook setup).
 
-## Phase 4 — Core Controls: harden + fill gaps  ⬜  `L` · risk: medium
+## Phase 4 — Core Controls: harden + fill gaps  🚧 IN PROGRESS  `L` · risk: medium
 
 > Most exist — this is **hardening + BaseField integration + a11y**, plus the few genuinely new.
-- [ ] Harden existing: `BaseButton`, `BaseTextInput`, `BaseTextarea`, `BaseSelectMenu`, `BaseCheckbox`, `BaseSwitch`, `BaseDatePicker`, `BaseOptionGroup` (fix `readonly≡disabled`, add `radiogroup`).
-- [ ] Fix rule-#8 violations: `BaseBadge` (clear/selectable), `BaseSwitcher`, `BaseStepper`, `BaseTable` rows/sort, `BaseUploader` dropzone.
-- [ ] **New:** `BaseRadio`, `BaseAutocomplete` (Combobox-based).
-- [ ] Stories + a11y for each.
+- [x] **Harden — `BaseOptionGroup`:** fixed `readonly≡disabled` (readonly stays focusable/submittable; the toggle is blocked via `@click.prevent` + the select() guard), added `role=radiogroup`/`group` + `aria-labelledby` (title no longer a stray `<label>`) + `aria-readonly`/`aria-disabled`, moved error/help to `text-bad`/`text-caption` tokens.
+- [x] **rule-#8 fixes:** `BaseBadge` clear-X → real `<button aria-label>` (102 consumers; `clear` emit unchanged); `BaseSwitcher` → WAI-ARIA radiogroup (role=radiogroup/radio, aria-checked, roving tabindex, Arrow/Home/End, dropped `cursor-pointer!`); `BaseStepper` → `<ol>` + `aria-current="step"` + decorative `aria-hidden` connectors + clickable steps as real `<button>`s; `BaseTable` headers → `scope="col"` + `aria-sort` + sortable headers as keyboard `<button>`s + checkbox `aria-label`s.
+- [x] **New: `BaseRadio`** — leaf radio (peer-focus pattern), the control `BaseOptionGroup`/`BaseChecklist` re-implement inline.
+- [ ] **Remaining:** `BaseAutocomplete` (Combobox-based — pairs with the Phase 5 HeadlessUI work); `BaseTable` clickable-row keyboard (needs a row-interaction-model decision — deferred, not a no-op across 50+ usages); `BaseUploader` dropzone (rule #8); BaseField integration for the remaining inputs; harden `BaseButton`/`BaseTextInput`/`BaseTextarea`/`BaseSelectMenu`/`BaseCheckbox`/`BaseSwitch`/`BaseDatePicker`.
+- [x] Stories + unit tests for each shipped item (BaseRadio story; BaseBadge/Switcher/Stepper/Table/OptionGroup specs; 34 new tests).
 
 ## Phase 5 — Overlay Components (a11y headline)  ⬜  `L` · risk: medium ⭐
 

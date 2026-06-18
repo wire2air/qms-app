@@ -3,14 +3,21 @@
  * BaseStepper — progress through an ordered set of steps (wizards, approval
  * overviews, multi-stage forms). Horizontal or vertical.
  *
- *   <BaseStepper v-model="current" :steps="steps" />            // horizontal
+ *   <BaseStepper v-model="current" :steps="steps" ariaLabel="Approval progress" />
  *   <BaseStepper v-model="current" :steps="steps" orientation="vertical" clickable>
  *     <template #content="{ step, index }">…</template>          // vertical body
  *   </BaseStepper>
  *
- * Each step: { title, description?, icon?, status? }. Status is derived from
- * position vs the current index (complete / current / upcoming) unless the step
- * sets an explicit status ('complete' | 'current' | 'upcoming' | 'error').
+ * Each step: { title, description?, icon?, status?, disabled? }. Status is
+ * derived from position vs the current index (complete / current / upcoming)
+ * unless the step sets an explicit status ('complete' | 'current' | 'upcoming'
+ * | 'error').
+ *
+ * A11y: rendered as an <ol> with aria-current="step" on the active step;
+ * connectors are decorative (aria-hidden). When `clickable`, each step is a real
+ * <button> (keyboard-operable, rule #8) rather than a clickable <div>.
+ *
+ * Icons are NOT auto-imported — pass imported @tabler/icons-vue components.
  */
 import { IconCheck, IconX } from '@tabler/icons-vue'
 
@@ -18,6 +25,8 @@ const props = defineProps({
   steps: { type: Array, default: () => [] },
   orientation: { type: String, default: 'horizontal' }, // 'horizontal' | 'vertical'
   clickable: { type: Boolean, default: false },
+  // Accessible name for the step list.
+  ariaLabel: { type: String, default: undefined },
 })
 
 const emit = defineEmits(['stepClick'])
@@ -50,6 +59,13 @@ function isError(step, index) {
   return statusOf(step, index) === 'error'
 }
 
+// The interactive element: a real <button> in clickable mode (disabled steps
+// render as <button disabled> so they're still announced), otherwise a plain
+// <div> (no fake role / tabindex).
+function stepTag() {
+  return props.clickable ? 'button' : 'div'
+}
+
 function onClick(step, index) {
   if (!props.clickable || step.disabled) return
   emit('stepClick', index)
@@ -59,53 +75,69 @@ function onClick(step, index) {
 
 <template>
   <!-- Horizontal -->
-  <div v-if="orientation === 'horizontal'" class="tw:flex tw:w-full tw:items-start">
+  <ol
+    v-if="orientation === 'horizontal'"
+    :aria-label="ariaLabel"
+    class="tw:flex tw:w-full tw:items-start tw:list-none"
+  >
     <template v-for="(step, index) in steps" :key="index">
-      <div
-        class="tw:flex tw:flex-col tw:items-center tw:gap-1.5 tw:text-center"
-        :class="clickable && !step.disabled ? 'tw:cursor-pointer' : ''"
-        @click="onClick(step, index)"
-      >
-        <div
-          class="tw:flex tw:size-8 tw:items-center tw:justify-center tw:rounded-full tw:border-2 tw:text-sm tw:font-semibold tw:transition-all"
-          :class="nodeClass(step, index)"
+      <li :aria-current="statusOf(step, index) === 'current' ? 'step' : undefined">
+        <component
+          :is="stepTag(step)"
+          :type="stepTag(step) === 'button' ? 'button' : undefined"
+          :disabled="stepTag(step) === 'button' ? step.disabled : undefined"
+          class="tw:flex tw:flex-col tw:items-center tw:gap-1.5 tw:text-center tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/40 tw:rounded-lg"
+          :class="clickable && !step.disabled ? 'tw:cursor-pointer' : ''"
+          @click="onClick(step, index)"
         >
-          <IconCheck v-if="isDone(step, index)" :size="16" />
-          <IconX v-else-if="isError(step, index)" :size="16" />
-          <component :is="step.icon" v-else-if="step.icon" :size="16" />
-          <span v-else>{{ index + 1 }}</span>
-        </div>
-        <div class="tw:max-w-28">
-          <div
-            class="tw:text-xs tw:font-semibold tw:leading-tight"
-            :class="
-              statusOf(step, index) === 'upcoming' ? 'tw:text-secondary' : 'tw:text-on-main'
-            "
+          <span
+            class="tw:flex tw:size-8 tw:items-center tw:justify-center tw:rounded-full tw:border-2 tw:text-sm tw:font-semibold tw:transition-all"
+            :class="nodeClass(step, index)"
           >
-            {{ step.title }}
-          </div>
-          <div v-if="step.description" class="tw:mt-0.5 tw:text-[11px] tw:text-secondary">
-            {{ step.description }}
-          </div>
-        </div>
-      </div>
+            <IconCheck v-if="isDone(step, index)" :size="16" />
+            <IconX v-else-if="isError(step, index)" :size="16" />
+            <component :is="step.icon" v-else-if="step.icon" :size="16" />
+            <span v-else>{{ index + 1 }}</span>
+          </span>
+          <span class="tw:max-w-28">
+            <span
+              class="tw:block tw:text-xs tw:font-semibold tw:leading-tight"
+              :class="statusOf(step, index) === 'upcoming' ? 'tw:text-secondary' : 'tw:text-on-main'"
+            >
+              {{ step.title }}
+            </span>
+            <span v-if="step.description" class="tw:mt-0.5 tw:block tw:text-[11px] tw:text-secondary">
+              {{ step.description }}
+            </span>
+          </span>
+        </component>
+      </li>
 
-      <!-- Connector -->
-      <div
+      <!-- Connector (decorative) -->
+      <li
         v-if="index < steps.length - 1"
+        aria-hidden="true"
         class="tw:mt-4 tw:h-0.5 tw:flex-1 tw:rounded-full tw:transition-colors"
         :class="index < current ? 'tw:bg-primary' : 'tw:bg-divider'"
       />
     </template>
-  </div>
+  </ol>
 
   <!-- Vertical -->
-  <div v-else class="tw:flex tw:flex-col">
-    <div v-for="(step, index) in steps" :key="index" class="tw:flex tw:gap-3">
+  <ol v-else :aria-label="ariaLabel" class="tw:flex tw:flex-col tw:list-none">
+    <li
+      v-for="(step, index) in steps"
+      :key="index"
+      class="tw:flex tw:gap-3"
+      :aria-current="statusOf(step, index) === 'current' ? 'step' : undefined"
+    >
       <!-- Rail -->
       <div class="tw:flex tw:flex-col tw:items-center">
-        <div
-          class="tw:flex tw:size-8 tw:shrink-0 tw:items-center tw:justify-center tw:rounded-full tw:border-2 tw:text-sm tw:font-semibold tw:transition-all"
+        <component
+          :is="stepTag(step)"
+          :type="stepTag(step) === 'button' ? 'button' : undefined"
+          :disabled="stepTag(step) === 'button' ? step.disabled : undefined"
+          class="tw:flex tw:size-8 tw:shrink-0 tw:items-center tw:justify-center tw:rounded-full tw:border-2 tw:text-sm tw:font-semibold tw:transition-all tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/40"
           :class="[nodeClass(step, index), clickable && !step.disabled ? 'tw:cursor-pointer' : '']"
           @click="onClick(step, index)"
         >
@@ -113,9 +145,10 @@ function onClick(step, index) {
           <IconX v-else-if="isError(step, index)" :size="16" />
           <component :is="step.icon" v-else-if="step.icon" :size="16" />
           <span v-else>{{ index + 1 }}</span>
-        </div>
+        </component>
         <div
           v-if="index < steps.length - 1"
+          aria-hidden="true"
           class="tw:w-0.5 tw:flex-1 tw:rounded-full"
           :class="index < current ? 'tw:bg-primary' : 'tw:bg-divider'"
         />
@@ -125,11 +158,7 @@ function onClick(step, index) {
       <div class="tw:flex-1 tw:pb-6">
         <div
           class="tw:text-sm tw:font-semibold"
-          :class="[
-            statusOf(step, index) === 'upcoming' ? 'tw:text-secondary' : 'tw:text-on-main',
-            clickable && !step.disabled ? 'tw:cursor-pointer' : '',
-          ]"
-          @click="onClick(step, index)"
+          :class="statusOf(step, index) === 'upcoming' ? 'tw:text-secondary' : 'tw:text-on-main'"
         >
           {{ step.title }}
         </div>
@@ -140,6 +169,6 @@ function onClick(step, index) {
           <slot name="content" :step="step" :index="index" />
         </div>
       </div>
-    </div>
-  </div>
+    </li>
+  </ol>
 </template>
