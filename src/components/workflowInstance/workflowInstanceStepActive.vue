@@ -145,9 +145,9 @@ const usersMap = useLiveQueryWithDeps(
               {{ usersMap[task.assignedTo]?.firstName }} {{ usersMap[task.assignedTo]?.lastName }}
               <span v-if="isCurrentUser(task)" class="tw:text-primary">(You)</span>
             </p>
-            <p class="ds-label-sm tw:text-secondary tw:truncate">
+            <BaseText variant="caption" truncate as="p">
               {{ usersMap[task.assignedTo]?.email }}
-            </p>
+            </BaseText>
           </div>
         </div>
         <TaskInstanceStatusBadgeById class="tw:shrink-0" :statusId="task.statusId" />

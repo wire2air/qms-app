@@ -9,7 +9,7 @@ defineProps({
 
 <template>
   <div class="tw:bg-primary/5 tw:rounded-xl tw:border tw:border-primary/10 tw:p-5">
-    <h4 class="ds-label tw:text-primary tw:mb-4">Instance Health</h4>
+    <BaseText variant="overline" as="h4" color="primary" class="tw:mb-4 tw:block">Instance Health</BaseText>
     <div class="tw:space-y-4">
       <div>
         <div class="tw:flex tw:justify-between tw:text-xs tw:mb-1.5">
@@ -25,11 +25,11 @@ defineProps({
       </div>
       <div class="tw:grid tw:grid-cols-2 tw:gap-4 tw:pt-2">
         <div class="tw:bg-sidebar tw:p-3 tw:rounded-lg tw:border tw:border-divider">
-          <p class="ds-label-sm tw:text-secondary">Elapsed</p>
+          <BaseText variant="overline" as="p">Elapsed</BaseText>
           <p class="tw:text-sm tw:font-bold tw:text-on-main">{{ elapsedTime }}</p>
         </div>
         <div class="tw:bg-sidebar tw:p-3 tw:rounded-lg tw:border tw:border-divider">
-          <p class="ds-label-sm tw:text-secondary">Steps</p>
+          <BaseText variant="overline" as="p">Steps</BaseText>
           <p class="tw:text-sm tw:font-bold tw:text-on-main">
             {{ completedSteps }} / {{ totalSteps }}
           </p>

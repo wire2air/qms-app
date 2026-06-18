@@ -100,9 +100,9 @@ const usersMap = useLiveQueryWithDeps(
             <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
               {{ usersMap[task.assignedTo]?.firstName }} {{ usersMap[task.assignedTo]?.lastName }}
             </p>
-            <p class="ds-label-sm tw:text-secondary tw:truncate">
+            <BaseText variant="caption" truncate as="p">
               {{ usersMap[task.assignedTo]?.email }}
-            </p>
+            </BaseText>
           </div>
         </div>
       </div>
