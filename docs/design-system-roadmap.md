@@ -100,7 +100,7 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [x] **`BaseFormDialog`** — `BaseDialog` + body + footer preset for create/edit dialogs. ~50–60 dialogs. 3 tests.
 - [x] **`BaseSectionHeader`** — title (+icon/subtitle) + actions card/section header. ~100+ blocks. 6 tests.
 - [x] **`BaseTabs` / `BaseTabPanel`** — accessible tabs (role=tablist/tab/tabpanel, roving tabindex, Arrow/Home/End). 14 hand-rolled bars, 0 ARIA. 9 tests. (Also closes the §3 `BaseTabs` gap.)
-- [ ] **Tier-2:** `BaseDescriptionList`/`BaseDescriptionItem` (`<dl>` metadata, ~20–30), `BaseListPage` (39+ `*Home.vue`), `BaseDetailPage` (30+ `*PageId.vue`), `BaseFieldRow` (~30).
+- [x] **Tier-2 built:** `BaseDescriptionList`/`BaseDescriptionItem` (semantic `<dl>/<dt>/<dd>`; inline/stacked, `divided`; ~20–30-file rail pattern; 14 tests), `BaseFieldRow` (responsive 1→N column form grid, mobile-collapsing; ~30 files; 6 tests), `BaseListPage` (`BasePage`+`PageHeader`+`#stats`/`#filters` slots + opt-in loading/empty; 39+ `*Home.vue`; 8 tests), `BaseDetailPage` (breadcrumb/title teleport + loading/not-found + internal-scroll body; 30+ `*PageId.vue`; 7 tests). *Adoption (sweeping pages onto them) tracked under Phase 7.*
 - [ ] **Tier-3:** `BaseQuickFilterPills` (3), `BaseAuditTrailRow` (~15–20).
 - [ ] **Adoption gaps (no new component):** finish `PageHeader` rollout (32 raw title / 55 raw actions — gated on `BaseDetailPage`); migrate `EquipmentHome`/`FormAssignmentsHome` off raw `<select>` → `BaseFilterBar`; consolidate ~84 hand-rolled delete dialogs onto `useConfirm`.
 - [ ] Stories + a11y for each (deferred to Phase 1 Storybook setup).
