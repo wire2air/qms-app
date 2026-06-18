@@ -81,7 +81,7 @@ async function removeDefect(d) {
             <td class="tw:px-4 tw:py-2.5"><DefectSeverityBadgeById :severityId="d.defaultSeverity" /></td>
             <td class="tw:px-4 tw:py-2.5">
               <span
-                class="tw:text-[10px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
+                class="tw:text-micro tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
                 :class="d.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-100 tw:text-gray-500'"
               >
                 {{ d.active ? 'Active' : 'Inactive' }}

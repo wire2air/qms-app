@@ -112,12 +112,12 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
             {{ f.findingNumber }}
           </span>
           <span
-            class="tw:text-[10px] tw:font-medium tw:rounded tw:px-1.5 tw:py-0.5"
+            class="tw:text-micro tw:font-medium tw:rounded tw:px-1.5 tw:py-0.5"
             :class="typeClass(f.findingTypeId)"
           >
             {{ RESULT_LABEL[f.findingTypeId] || f.findingTypeId }}
           </span>
-          <span class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary">
+          <span class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary">
             {{ f.statusId }}
           </span>
         </div>
@@ -131,7 +131,7 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
               {{ f.requirement.clauseNumber }}
             </span>
             <span
-              class="tw:text-[10px] tw:font-medium tw:rounded tw:px-1.5 tw:py-0.5"
+              class="tw:text-micro tw:font-medium tw:rounded tw:px-1.5 tw:py-0.5"
               :class="typeClass(f.requirement.resultId)"
             >
               {{ RESULT_LABEL[f.requirement.resultId] || f.requirement.resultId }}
@@ -147,7 +147,7 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
 
         <!-- Evidence captured against this finding (files + linked records). -->
         <div v-if="f.evidence && f.evidence.length" class="tw:flex tw:flex-col tw:gap-1">
-          <div class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+          <div class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
             Evidence ({{ f.evidence.length }})
           </div>
           <div class="tw:flex tw:flex-col tw:gap-1">

@@ -584,7 +584,7 @@ async function handleExport(format) {
           </button>
           <div
             v-if="showColumnMenu"
-            class="tw:absolute tw:right-0 tw:top-full tw:z-50 tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:min-w-64 tw:max-w-96 tw:max-h-80 tw:overflow-y-auto"
+            class="tw:absolute tw:right-0 tw:top-full tw:z-modal tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:min-w-64 tw:max-w-96 tw:max-h-80 tw:overflow-y-auto"
           >
             <div
               class="tw:flex tw:justify-between tw:items-center tw:p-3 tw:border-b tw:border-divider"
@@ -635,14 +635,14 @@ async function handleExport(format) {
             <IconFilter :size="18" />
             <span
               v-if="advancedFilters.length > 0"
-              class="tw:absolute tw:-top-1 tw:-right-1 tw:size-4 tw:rounded-full tw:bg-primary tw:text-white tw:text-[10px] tw:flex tw:items-center tw:justify-center"
+              class="tw:absolute tw:-top-1 tw:-right-1 tw:size-4 tw:rounded-full tw:bg-primary tw:text-white tw:text-micro tw:flex tw:items-center tw:justify-center"
             >
               {{ advancedFilters.length }}
             </span>
           </button>
           <div
             v-if="showFilterMenu"
-            class="tw:absolute tw:right-0 tw:top-full tw:z-50 tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:shadow-lg"
+            class="tw:absolute tw:right-0 tw:top-full tw:z-modal tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:shadow-lg"
           >
             <FormTemplateRecordsAdvancedFilter v-model="advancedFilters" :columns="columns" />
           </div>

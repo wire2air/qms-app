@@ -194,7 +194,7 @@ watch(
             </span>
             <span
               v-if="capa.isSupplierFacing && isApprovalStep(step)"
-              class="tw:text-[10px] tw:rounded tw:bg-amber-100 tw:text-amber-800 tw:px-1.5 tw:py-0.5"
+              class="tw:text-micro tw:rounded tw:bg-amber-100 tw:text-amber-800 tw:px-1.5 tw:py-0.5"
               title="Approval steps stay internal even on supplier-facing records."
             >
               Approval · Internal only

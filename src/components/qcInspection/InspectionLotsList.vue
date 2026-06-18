@@ -145,7 +145,7 @@ function exportCsv() {
               <RouterLink
                 v-if="l.ncId"
                 :to="getCompanyPath(`/nonconformances/${l.ncId}`)"
-                class="tw:text-[11px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full tw:bg-red-100 tw:text-red-700 tw:hover:bg-red-200"
+                class="tw:text-caption tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full tw:bg-red-100 tw:text-red-700 tw:hover:bg-red-200"
               >
                 NC raised
               </RouterLink>

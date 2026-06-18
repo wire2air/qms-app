@@ -129,7 +129,7 @@ function apply() {
 
     <div
       v-if="showMenu"
-      class="tw:absolute tw:right-0 tw:top-full tw:mt-1 tw:z-30 tw:w-52 tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:py-1"
+      class="tw:absolute tw:right-0 tw:top-full tw:mt-1 tw:z-sticky tw:w-52 tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:py-1"
     >
       <button
         v-for="o in OPS"
@@ -144,7 +144,7 @@ function apply() {
 
     <BaseDialog v-model="showDialog" :title="`AI assist — ${OP_LABEL[op] || ''}`" maxWidth="lg">
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <p class="tw:text-[11px] tw:text-secondary">
+        <p class="tw:text-caption tw:text-secondary">
           {{ mode === 'selection' ? 'Working on your selected text.' : 'No selection — working on the whole field.' }}
         </p>
 

@@ -150,7 +150,7 @@ function openComplete() {
           {{ preset.label }}
         </button>
       </div>
-      <p class="tw:text-[11px] tw:text-secondary">
+      <p class="tw:text-caption tw:text-secondary">
         Current preference: <strong>{{ capa.ecIntervalDays ?? 90 }} days after close</strong>. No
         verification task is created until the CAPA is closed.
       </p>
@@ -200,7 +200,7 @@ function openComplete() {
               <CapaEffectivenessCheckStatusBadgeById :statusId="check.statusId" />
               <span
                 v-if="check.outcome"
-                class="tw:text-[10px] tw:px-1.5 tw:py-0.5 tw:rounded-full tw:font-semibold"
+                class="tw:text-micro tw:px-1.5 tw:py-0.5 tw:rounded-full tw:font-semibold"
                 :class="OUTCOME_CLASSES[check.outcome]"
               >
                 {{ OUTCOME_LABELS[check.outcome] || check.outcome }}

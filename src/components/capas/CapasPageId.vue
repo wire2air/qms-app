@@ -452,14 +452,14 @@ function onCreateLinkedChangeRequest() {
                      non-APPROVAL steps. -->
                 <span
                   v-if="capa.isSupplierFacing"
-                  class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+                  class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
                   title="Supplier-facing: non-approval workflow steps draw from this CAPA's supplier users. Approval steps stay internal."
                 >
                   Supplier-facing
                 </span>
                 <span
                   v-else
-                  class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+                  class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
                 >
                   Internal
                 </span>

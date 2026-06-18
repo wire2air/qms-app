@@ -31,7 +31,7 @@ defineProps({
     <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-y-6 tw:gap-x-12">
       <BaseDetailField label="Supplier Code" :value="supplier.code" />
       <div>
-        <label class="ds-label-sm tw:text-secondary tw:block tw:mb-1">Category</label>
+        <BaseLabel color="secondary" class="tw:mb-1">Category</BaseLabel>
         <SupplierCategorySelectMenu v-if="canUpdate" v-model="supplier.category" :required="true" />
         <template v-else>
           <SupplierCategoryBadge v-if="supplier.category" :categoryId="supplier.category" />
@@ -43,14 +43,14 @@ defineProps({
         :value="supplier.createdAt?.formatDate('date')"
       />
       <div>
-        <label class="ds-label-sm tw:text-secondary tw:block tw:mb-1">Country</label>
+        <BaseLabel color="secondary" class="tw:mb-1">Country</BaseLabel>
         <BaseTextInput v-if="canUpdate" v-model="supplier.country" placeholder="Country" />
         <p v-else class="tw:text-sm tw:font-medium tw:text-on-main">
           {{ supplier.country || '—' }}
         </p>
       </div>
       <div>
-        <label class="ds-label-sm tw:text-secondary tw:block tw:mb-1">Street Address</label>
+        <BaseLabel color="secondary" class="tw:mb-1">Street Address</BaseLabel>
         <BaseTextInput
           v-if="canUpdate"
           v-model="supplier.streetAddress"
@@ -61,12 +61,12 @@ defineProps({
         </p>
       </div>
       <div>
-        <label class="ds-label-sm tw:text-secondary tw:block tw:mb-1">City</label>
+        <BaseLabel color="secondary" class="tw:mb-1">City</BaseLabel>
         <BaseTextInput v-if="canUpdate" v-model="supplier.city" placeholder="City" />
         <p v-else class="tw:text-sm tw:font-medium tw:text-on-main">{{ supplier.city || '—' }}</p>
       </div>
       <div>
-        <label class="ds-label-sm tw:text-secondary tw:block tw:mb-1">State / Province</label>
+        <BaseLabel color="secondary" class="tw:mb-1">State / Province</BaseLabel>
         <BaseTextInput
           v-if="canUpdate"
           v-model="supplier.stateProvince"
@@ -77,7 +77,7 @@ defineProps({
         </p>
       </div>
       <div>
-        <label class="ds-label-sm tw:text-secondary tw:block tw:mb-1">Zip / Postal Code</label>
+        <BaseLabel color="secondary" class="tw:mb-1">Zip / Postal Code</BaseLabel>
         <BaseTextInput
           v-if="canUpdate"
           v-model="supplier.zipPostalCode"

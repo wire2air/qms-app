@@ -114,7 +114,7 @@ function toggleRootCause(nodeId) {
       >
         <!-- Depth indicator -->
         <div
-          class="tw:shrink-0 tw:w-5 tw:h-5 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-[10px] tw:font-bold tw:border"
+          class="tw:shrink-0 tw:w-5 tw:h-5 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-micro tw:font-bold tw:border"
           :class="
             item.isRootCause
               ? 'tw:bg-amber-100 tw:text-amber-700 tw:border-amber-300'

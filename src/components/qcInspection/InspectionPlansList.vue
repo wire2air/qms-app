@@ -137,7 +137,7 @@ async function deletePlan(id) {
             </td>
             <td class="tw:px-4 tw:py-2.5">
               <span
-                class="tw:text-[11px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
+                class="tw:text-caption tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
                 :class="
                   t.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-200 tw:text-gray-600'
                 "

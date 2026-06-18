@@ -152,7 +152,7 @@ function progressForRequest(req) {
             </div>
           </div>
           <span
-            class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5"
+            class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
             :class="
               req.statusId === 'RECEIVED'
                 ? 'tw:bg-green-100 tw:text-green-700'
@@ -210,7 +210,7 @@ function progressForRequest(req) {
               </BaseButton>
               <span
                 v-else-if="item.statusId === 'RECEIVED'"
-                class="tw:text-[10px] tw:bg-green-100 tw:text-green-700 tw:rounded tw:px-1.5 tw:py-0.5"
+                class="tw:text-micro tw:bg-green-100 tw:text-green-700 tw:rounded tw:px-1.5 tw:py-0.5"
               >
                 Received
               </span>

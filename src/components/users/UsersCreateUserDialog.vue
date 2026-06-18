@@ -152,7 +152,7 @@ async function onSubmit() {
 
           <div class="tw:flex tw:gap-1">
             <BaseCheckbox v-model="form.inviteSent" label="Send Invite" />
-            <div class="tw:text-[10px] tw:text-secondary tw:ml-2">Send an email invitation.</div>
+            <div class="tw:text-micro tw:text-secondary tw:ml-2">Send an email invitation.</div>
           </div>
         </div>
       </div>

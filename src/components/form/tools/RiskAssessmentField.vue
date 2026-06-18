@@ -292,7 +292,7 @@ onBeforeUnmount(() => {
               × {{ selectedDetectability.label }}
             </template>
           </span>
-          <span v-if="!readonly && !disabled" class="tw:text-[11px] tw:text-secondary">
+          <span v-if="!readonly && !disabled" class="tw:text-caption tw:text-secondary">
             Click another cell to change selection
           </span>
         </div>
@@ -301,7 +301,7 @@ onBeforeUnmount(() => {
           class="tw:flex tw:flex-col tw:items-center tw:shrink-0 tw:bg-white/60 tw:rounded-lg tw:px-3 tw:py-1.5"
         >
           <span
-            class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+            class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
             >RPN</span
           >
           <span class="tw:text-xl tw:font-bold tw:text-on-main tw:leading-none">{{
@@ -322,17 +322,17 @@ onBeforeUnmount(() => {
           <thead>
             <tr>
               <th
-                class="tw:w-28 tw:text-[10px] tw:text-secondary tw:font-semibold tw:uppercase tw:text-right tw:pr-2 tw:pb-1"
+                class="tw:w-28 tw:text-micro tw:text-secondary tw:font-semibold tw:uppercase tw:text-right tw:pr-2 tw:pb-1"
               >
                 Likelihood ↓ / Severity →
               </th>
               <th
                 v-for="col in severity"
                 :key="col.id"
-                class="tw:text-[11px] tw:font-semibold tw:text-on-main tw:text-center tw:pb-1 tw:px-1 tw:min-w-[72px]"
+                class="tw:text-caption tw:font-semibold tw:text-on-main tw:text-center tw:pb-1 tw:px-1 tw:min-w-[72px]"
               >
                 {{ col.label }}
-                <div class="tw:text-[10px] tw:font-normal tw:text-secondary">
+                <div class="tw:text-micro tw:font-normal tw:text-secondary">
                   ({{ col.score ?? col.order }})
                 </div>
               </th>
@@ -341,10 +341,10 @@ onBeforeUnmount(() => {
           <tbody>
             <tr v-for="row in likelihood" :key="row.id">
               <td
-                class="tw:text-[11px] tw:font-semibold tw:text-on-main tw:text-right tw:pr-2 tw:py-0.5 tw:whitespace-nowrap"
+                class="tw:text-caption tw:font-semibold tw:text-on-main tw:text-right tw:pr-2 tw:py-0.5 tw:whitespace-nowrap"
               >
                 {{ row.label }}
-                <div class="tw:text-[10px] tw:font-normal tw:text-secondary">
+                <div class="tw:text-micro tw:font-normal tw:text-secondary">
                   ({{ row.score ?? row.order }})
                 </div>
               </td>
@@ -382,11 +382,11 @@ onBeforeUnmount(() => {
         <div class="tw:flex tw:items-center tw:gap-2">
           <label class="tw:text-xs tw:font-medium tw:text-secondary">Detectability</label>
           <span
-            class="tw:text-[10px] tw:text-secondary tw:bg-divider tw:rounded tw:px-1.5 tw:py-0.5"
+            class="tw:text-micro tw:text-secondary tw:bg-divider tw:rounded tw:px-1.5 tw:py-0.5"
             >FMEA</span
           >
         </div>
-        <p class="tw:text-[11px] tw:text-secondary tw:-mt-1">
+        <p class="tw:text-caption tw:text-secondary tw:-mt-1">
           How easily can this failure be detected? Lower score = easier to detect.
         </p>
         <div class="tw:flex tw:flex-wrap tw:gap-1.5">
@@ -403,7 +403,7 @@ onBeforeUnmount(() => {
             @click="selectDetectability(item.id)"
           >
             {{ item.label }}
-            <span class="tw:text-[10px] tw:opacity-60">({{ item.score ?? item.order }})</span>
+            <span class="tw:text-micro tw:opacity-60">({{ item.score ?? item.order }})</span>
           </button>
         </div>
       </div>

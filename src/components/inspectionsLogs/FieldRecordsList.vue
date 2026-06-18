@@ -608,7 +608,7 @@ function printList() {
              Closed by clicking the toggle button again or outside. -->
         <div
           v-if="showColumnPicker"
-          class="tw:absolute tw:top-full tw:right-0 tw:mt-1 tw:z-20 tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:p-3 tw:min-w-64 tw:max-h-80 tw:overflow-y-auto"
+          class="tw:absolute tw:top-full tw:right-0 tw:mt-1 tw:z-dropdown tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:p-3 tw:min-w-64 tw:max-h-80 tw:overflow-y-auto"
         >
           <BaseText variant="overline" class="tw:block tw:mb-2">Columns</BaseText>
           <div v-if="scalarFields.length === 0" class="tw:text-xs tw:text-secondary">
@@ -625,7 +625,7 @@ function printList() {
               @change="toggleColumn(f.name)"
             />
             <span class="tw:text-on-main">{{ f.label || f.name }}</span>
-            <span class="tw:text-[10px] tw:text-secondary tw:ml-auto tw:uppercase">
+            <span class="tw:text-micro tw:text-secondary tw:ml-auto tw:uppercase">
               {{ f.type }}
             </span>
           </label>
@@ -659,7 +659,7 @@ function printList() {
               <div class="tw:font-medium tw:text-on-main tw:truncate">
                 {{ isLogBookMode ? row.recordNumber || row.id : templateTitle(row) }}
               </div>
-              <div class="tw:text-[11px] tw:text-secondary tw:mt-0.5">
+              <div class="tw:text-caption tw:text-secondary tw:mt-0.5">
                 {{ fmtDate(row.submittedAt) }}
               </div>
             </div>
@@ -674,7 +674,7 @@ function printList() {
               </span>
               <span
                 v-if="openFlagCount(row.id) > 0"
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-orange-100 tw:text-orange-700 tw:border tw:border-orange-300"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-orange-100 tw:text-orange-700 tw:border tw:border-orange-300"
               >
                 <IconFlag :size="10" />
                 {{ openFlagCount(row.id) }}
@@ -779,7 +779,7 @@ function printList() {
               </td>
               <td v-if="!isLogBookMode" class="tw:px-3 tw:py-2">
                 <span
-                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
                   :class="classificationBadgeClass(row.recordClassification)"
                 >
                   <IconShieldCheck
@@ -805,7 +805,7 @@ function printList() {
                      flag notes / resolve. -->
                   <span
                     v-if="openFlagCount(row.id) > 0"
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-orange-100 tw:text-orange-700 tw:border tw:border-orange-300"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-orange-100 tw:text-orange-700 tw:border tw:border-orange-300"
                     :title="`${openFlagCount(row.id)} open flag${openFlagCount(row.id) === 1 ? '' : 's'}`"
                   >
                     <IconFlag :size="10" />
@@ -878,7 +878,7 @@ function printList() {
     <Teleport to="body">
       <div
         v-if="canReview && selectedIds.size > 0"
-        class="tw:fixed tw:bottom-0 tw:left-0 tw:right-0 tw:bg-white tw:border-t tw:border-divider tw:shadow-lg tw:px-5 tw:py-3 tw:flex tw:items-center tw:gap-3 tw:z-40"
+        class="tw:fixed tw:bottom-0 tw:left-0 tw:right-0 tw:bg-white tw:border-t tw:border-divider tw:shadow-lg tw:px-5 tw:py-3 tw:flex tw:items-center tw:gap-3 tw:z-overlay"
       >
         <div class="tw:text-sm tw:text-on-main tw:font-medium">{{ selectedIds.size }} selected</div>
         <button
@@ -915,7 +915,7 @@ function printList() {
     <Teleport to="body">
       <div
         v-if="showBulkCommentDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
         <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-2">

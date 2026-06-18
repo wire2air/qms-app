@@ -132,7 +132,7 @@ const NEXT_ENTRY_SCOPES = [
       </div>
       <span
         v-if="isSaving"
-        class="tw:text-[10px] tw:text-secondary tw:uppercase tw:tracking-wide"
+        class="tw:text-micro tw:text-secondary tw:uppercase tw:tracking-wide"
       >
         Saving…
       </span>
@@ -155,7 +155,7 @@ const NEXT_ENTRY_SCOPES = [
           @click="() => { draft.recordClassification = opt.id; save() }"
         >
           <div class="tw:text-sm tw:font-medium tw:text-on-main">{{ opt.label }}</div>
-          <div class="tw:text-[11px] tw:text-secondary tw:mt-0.5">{{ opt.hint }}</div>
+          <div class="tw:text-caption tw:text-secondary tw:mt-0.5">{{ opt.hint }}</div>
         </button>
       </div>
     </BaseField>
@@ -175,7 +175,7 @@ const NEXT_ENTRY_SCOPES = [
         </select>
 
         <div v-if="draft.editWindow.mode === 'TIME_WINDOW'" class="tw:mt-2">
-          <label class="tw:text-[11px] tw:text-secondary">Duration (minutes)</label>
+          <label class="tw:text-caption tw:text-secondary">Duration (minutes)</label>
           <input
             v-model.number="draft.editWindow.durationMinutes"
             type="number"
@@ -271,7 +271,7 @@ const NEXT_ENTRY_SCOPES = [
 
     <div
       v-if="!canEdit"
-      class="tw:text-[11px] tw:text-secondary tw:italic"
+      class="tw:text-caption tw:text-secondary tw:italic"
     >
       You need the <code>fieldRecords:classify_forms</code> permission to edit these settings.
     </div>

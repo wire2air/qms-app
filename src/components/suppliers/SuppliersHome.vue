@@ -106,7 +106,7 @@ function onDeleteSupplier(row) {
     />
   </BasePage>
 
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-if="confirmDialog"
     :modelValue="true"
     v-bind="confirmDialog"

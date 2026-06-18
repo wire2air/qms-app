@@ -119,7 +119,7 @@ function onDialogClose() {
       @close="onDialogClose"
     />
 
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="confirmDelete.open"
       title="Delete Risk Assessment Template"
       :message="`Are you sure you want to delete '${confirmDelete.template?.name}'? This cannot be undone.`"

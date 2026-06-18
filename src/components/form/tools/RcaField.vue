@@ -380,7 +380,7 @@ onBeforeUnmount(() => {
           >
             <div class="tw:flex tw:items-center tw:gap-2">
               <span
-                class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:px-2 tw:py-0.5 tw:rounded"
+                class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:px-2 tw:py-0.5 tw:rounded"
                 :class="
                   row.isPrimary ? 'tw:bg-primary tw:text-white' : 'tw:bg-divider tw:text-secondary'
                 "

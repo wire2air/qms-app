@@ -197,7 +197,7 @@ const hasAssessment = computed({
               </p>
               <UserSelectMenu v-model="config.managerId" nullLabel="Select a manager" />
               <p
-                class="tw:text-[11px] tw:mt-1"
+                class="tw:text-caption tw:mt-1"
                 :class="config.enabled && !config.managerId ? 'tw:text-red-600 tw:font-medium' : 'tw:text-secondary'"
               >
                 <template v-if="config.enabled && !config.managerId">
@@ -229,14 +229,14 @@ const hasAssessment = computed({
                   Manager Verification Required
                   <span class="tw:text-xs tw:font-normal tw:text-secondary">(For compliance)</span>
                 </label>
-                <p class="tw:text-[11px] tw:text-secondary">If off, the training closes automatically on completion.</p>
+                <p class="tw:text-caption tw:text-secondary">If off, the training closes automatically on completion.</p>
               </div>
               <BaseSwitch v-model="config.requireManagerVerification" />
             </div>
             <div class="tw:flex tw:items-start tw:justify-between">
               <div>
                 <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">Auto-launch on Effective</label>
-                <p class="tw:text-[11px] tw:text-secondary">Launch the training when this document becomes effective.</p>
+                <p class="tw:text-caption tw:text-secondary">Launch the training when this document becomes effective.</p>
               </div>
               <BaseSwitch v-model="config.autoLaunch" />
             </div>

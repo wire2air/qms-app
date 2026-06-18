@@ -184,7 +184,7 @@ watch(
                 >
                   ACTION
                 </span>
-                <span class="tw:text-[10px] tw:leading-tight tw:text-secondary">
+                <span class="tw:text-micro tw:leading-tight tw:text-secondary">
                   Work step. Form fields, optional sub-tasks. Assignee clicks Mark Complete.
                 </span>
               </label>
@@ -209,7 +209,7 @@ watch(
                 >
                   APPROVAL
                 </span>
-                <span class="tw:text-[10px] tw:leading-tight tw:text-secondary">
+                <span class="tw:text-micro tw:leading-tight tw:text-secondary">
                   Gate step. ALL or ANY approvers must sign. Comment-only — no form.
                 </span>
               </label>
@@ -243,7 +243,7 @@ watch(
                 >
                   ALL
                 </span>
-                <span class="tw:text-[10px] tw:leading-tight tw:text-secondary">
+                <span class="tw:text-micro tw:leading-tight tw:text-secondary">
                   All assigned tasks must be completed to advance.
                 </span>
               </label>
@@ -268,7 +268,7 @@ watch(
                 >
                   ANY
                 </span>
-                <span class="tw:text-[10px] tw:leading-tight tw:text-secondary">
+                <span class="tw:text-micro tw:leading-tight tw:text-secondary">
                   Only one task needs to be completed to advance.
                 </span>
               </label>
@@ -331,10 +331,10 @@ watch(
               >
             </label>
           </div>
-          <p v-if="!ADOBE_ESIGN_READY" class="tw:text-[11px] tw:text-secondary tw:-mt-1">
+          <p v-if="!ADOBE_ESIGN_READY" class="tw:text-caption tw:text-secondary tw:-mt-1">
             Adobe e-signature is coming soon (connect it in Company Settings → Integrations).
           </p>
-          <p v-else-if="step.adobeEsignRequired" class="tw:text-[11px] tw:text-secondary tw:-mt-1">
+          <p v-else-if="step.adobeEsignRequired" class="tw:text-caption tw:text-secondary tw:-mt-1">
             Signs via your connected Adobe Acrobat Sign account (Company Settings → Integrations).
             All selected signers must sign before the step completes.
           </p>

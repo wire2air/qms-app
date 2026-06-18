@@ -247,7 +247,7 @@ function editWindowSummary(t) {
             </td>
             <td class="tw:px-3 tw:py-2">
               <span
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
                 :class="classificationBadgeClass(t.recordClassification)"
               >
                 <IconShieldCheck v-if="t.recordClassification === 'CONTROLLED_RECORD'" :size="10" />

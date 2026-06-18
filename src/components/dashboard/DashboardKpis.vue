@@ -103,7 +103,7 @@ const cards = computed(() => [
         </div>
         <span
           v-if="card.sub"
-          class="tw:text-[11px] tw:font-bold tw:px-2 tw:py-0.5 tw:rounded-full tw:bg-bad/10 tw:text-bad"
+          class="tw:text-caption tw:font-bold tw:px-2 tw:py-0.5 tw:rounded-full tw:bg-bad/10 tw:text-bad"
         >
           {{ card.sub }}
         </span>

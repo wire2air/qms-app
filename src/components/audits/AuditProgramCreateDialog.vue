@@ -151,7 +151,7 @@ async function handleSave({ navigate }) {
       </BaseField>
       <BaseField v-if="cronRequired" v-slot="{ id: fieldId }" label="Cron Expression" required>
         <BaseTextInput :id="fieldId" v-model="form.cronExpression" placeholder="0 0 1 */3 *" />
-        <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
+        <p class="tw:text-caption tw:text-secondary tw:mt-1">
           Standard 5-field cron. Example: <code>0 0 1 */3 *</code> = midnight on the 1st of every 3rd month.
         </p>
       </BaseField>

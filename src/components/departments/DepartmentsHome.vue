@@ -84,7 +84,7 @@ async function confirmDeleteDepartment() {
   />
 
   <!-- Delete Confirm Dialog -->
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-model="confirmDelete.open"
     title="Delete Department"
     :message="`Are you sure you want to delete '${confirmDelete.department?.name}' (${confirmDelete.department?.code})? This cannot be undone.`"

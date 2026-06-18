@@ -128,7 +128,7 @@ async function pickAndUpload(item) {
       <div class="tw:text-right tw:text-xs tw:text-secondary tw:font-mono">
         <div>{{ requests.length }} request{{ requests.length === 1 ? '' : 's' }}</div>
         <div>{{ items.length }} item{{ items.length === 1 ? '' : 's' }} in IDB</div>
-        <div v-if="currentSession?.supplierId" class="tw:text-[10px]">
+        <div v-if="currentSession?.supplierId" class="tw:text-micro">
           supplier: {{ currentSession.supplierId.slice(0, 8) }}…
         </div>
       </div>
@@ -160,7 +160,7 @@ async function pickAndUpload(item) {
             <div v-if="itemSubtitle(item)" class="tw:text-xs tw:text-secondary">
               {{ itemSubtitle(item) }}
             </div>
-            <div class="tw:text-[11px] tw:text-secondary tw:mt-0.5">
+            <div class="tw:text-caption tw:text-secondary tw:mt-0.5">
               From request: <span class="tw:font-medium">{{ parentTitle(item) }}</span>
               <span v-if="parentDueDate(item)"> · due {{ parentDueDate(item) }}</span>
             </div>
@@ -204,7 +204,7 @@ async function pickAndUpload(item) {
           <IconCircleCheck :size="16" class="tw:text-green-600 tw:shrink-0 tw:mt-0.5" />
           <div class="tw:flex-1 tw:min-w-0">
             <div class="tw:font-medium tw:text-on-main">{{ itemLabel(item) }}</div>
-            <div class="tw:text-[11px] tw:text-secondary tw:mt-0.5">
+            <div class="tw:text-caption tw:text-secondary tw:mt-0.5">
               From request: <span class="tw:font-medium">{{ parentTitle(item) }}</span>
               <span v-if="item.uploadedAt"> · uploaded {{ item.uploadedAt.toRelative?.() }}</span>
             </div>
@@ -245,7 +245,7 @@ async function pickAndUpload(item) {
           <IconCircleMinus :size="16" class="tw:text-secondary tw:shrink-0 tw:mt-0.5" />
           <div class="tw:flex-1 tw:min-w-0">
             <div class="tw:font-medium tw:text-on-main">{{ itemLabel(item) }}</div>
-            <div class="tw:text-[11px] tw:text-secondary tw:mt-0.5">
+            <div class="tw:text-caption tw:text-secondary tw:mt-0.5">
               The client marked this one as not applicable.
             </div>
           </div>

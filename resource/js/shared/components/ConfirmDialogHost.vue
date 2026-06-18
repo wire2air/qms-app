@@ -19,7 +19,7 @@ function onDismiss(open) {
 </script>
 
 <template>
-  <ConfirmDialog
+  <BaseConfirmDialog
     :modelValue="state.open"
     :title="state.options.title"
     :message="state.options.message"

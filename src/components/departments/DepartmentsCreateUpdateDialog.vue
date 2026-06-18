@@ -197,7 +197,7 @@ async function onSubmit() {
       <div>
         <label class="tw:text-sm tw:font-medium tw:text-on-main tw:block tw:mb-1">Supervisor</label>
         <UserSelectMenu v-model="form.supervisorUserId" />
-        <div class="tw:text-[11px] tw:text-secondary tw:mt-1">
+        <div class="tw:text-caption tw:text-secondary tw:mt-1">
           Accountable for this department — receives calibration / maintenance escalations for its
           equipment.
         </div>

@@ -83,7 +83,7 @@ async function saveCell(cell) {
             <td class="tw:px-4 tw:py-2.5 tw:font-medium tw:text-on-main">{{ s.name }}</td>
             <td class="tw:px-4 tw:py-2.5">
               <span
-                class="tw:text-[10px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
+                class="tw:text-micro tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
                 :class="
                   s.companyId
                     ? 'tw:bg-blue-100 tw:text-blue-700'
@@ -190,7 +190,7 @@ async function saveCell(cell) {
           </tbody>
         </table>
       </div>
-      <p class="tw:text-[11px] tw:text-secondary tw:px-5 tw:py-2">
+      <p class="tw:text-caption tw:text-secondary tw:px-5 tw:py-2">
         <template v-if="selectedEditable">Edits save automatically. </template>
         Empty Sample/Ac/Re with an arrow cell means "use the arrowed code letter".
       </p>

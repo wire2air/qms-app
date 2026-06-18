@@ -181,7 +181,7 @@ function versionBadgeClass(versions) {
             </td>
             <td class="tw:px-4 tw:py-3">
               <span
-                class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+                class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
                 :class="versionBadgeClass(effectiveVersionByStandardId[row.id])"
               >
                 {{ versionLabel(effectiveVersionByStandardId[row.id]) }}

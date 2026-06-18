@@ -164,7 +164,7 @@ watch(
     <template v-else-if="profile">
       <div
         v-if="!canManage"
-        class="tw:rounded tw:bg-gray-50 tw:border tw:border-gray-200 tw:p-2 tw:text-[11px] tw:text-gray-700"
+        class="tw:rounded tw:bg-gray-50 tw:border tw:border-gray-200 tw:p-2 tw:text-caption tw:text-gray-700"
       >
         Read-only — you need the <code>ai:manage</code> permission to change these settings.
       </div>

@@ -257,18 +257,18 @@ const remainingCount = computed(() =>
           class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30 tw:p-3 tw:text-xs tw:flex tw:flex-col tw:gap-1"
         >
           <div class="tw:flex tw:items-center tw:gap-2">
-            <code class="tw:text-[11px] tw:font-mono tw:text-primary">
+            <code class="tw:text-caption tw:font-mono tw:text-primary">
               {{ preview.code }}
             </code>
             <span class="tw:text-secondary">·</span>
             <span class="tw:font-semibold tw:text-on-main">{{ preview.name }}</span>
             <span class="tw:text-secondary">·</span>
-            <span class="tw:text-[10px] tw:uppercase tw:tracking-wide tw:bg-gray-200 tw:text-gray-700 tw:px-1.5 tw:py-0.5 tw:rounded">
+            <span class="tw:text-micro tw:uppercase tw:tracking-wide tw:bg-gray-200 tw:text-gray-700 tw:px-1.5 tw:py-0.5 tw:rounded">
               {{ preview.contentLicense }}
             </span>
           </div>
           <div class="tw:text-secondary">{{ preview.description }}</div>
-          <div class="tw:text-[11px] tw:text-secondary tw:mt-1">
+          <div class="tw:text-caption tw:text-secondary tw:mt-1">
             {{ preview.clauses.length }} clause{{ preview.clauses.length === 1 ? '' : 's' }} generated
           </div>
         </div>
@@ -290,7 +290,7 @@ const remainingCount = computed(() =>
           </div>
           <div
             v-if="remainingCount > 0"
-            class="tw:px-3 tw:py-2 tw:text-[11px] tw:text-secondary tw:italic"
+            class="tw:px-3 tw:py-2 tw:text-caption tw:text-secondary tw:italic"
           >
             … and {{ remainingCount }} more.
           </div>

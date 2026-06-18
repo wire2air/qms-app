@@ -47,7 +47,7 @@ const scheme = computed(() => SCHEME_MAP[props.tone] || SCHEME_MAP.default)
       <BaseText as="h3" weight="bold" :class="scheme.title">{{ title }}</BaseText>
       <span
         v-if="count !== null"
-        class="tw:text-[11px] tw:font-bold tw:px-2 tw:py-0.5 tw:rounded-full"
+        class="tw:text-caption tw:font-bold tw:px-2 tw:py-0.5 tw:rounded-full"
         :class="scheme.count"
       >
         {{ count }}

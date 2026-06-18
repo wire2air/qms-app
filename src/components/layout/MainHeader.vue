@@ -54,7 +54,7 @@ async function resetSync() {
   </div>
 
   <header
-    class="tw:sticky tw:top-0 tw:z-10 tw:border-b tw:border-divider tw:bg-sidebar/80 tw:backdrop-blur-md tw:pe-4 tw:ps-2 tw:py-3"
+    class="tw:sticky tw:top-0 tw:z-raised tw:border-b tw:border-divider tw:bg-sidebar/80 tw:backdrop-blur-md tw:pe-4 tw:ps-2 tw:py-3"
   >
     <div class="tw:flex tw:flex-nowrap tw:items-center tw:gap-4">
       <!-- Left zone: sidebar toggle + the page title (teleported by PageHeader) -->

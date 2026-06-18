@@ -111,7 +111,7 @@ async function handleActivate() {
     </div>
   </BaseClickableRow>
 
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-model="confirmDeactivate"
     title="Deactivate Role"
     :message="`Are you sure you want to deactivate the role &quot;${role.name}&quot;? This will set its status to Inactive.`"
@@ -119,7 +119,7 @@ async function handleActivate() {
     @ok="handleDeactivate"
   />
 
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-model="confirmActivate"
     title="Activate Role"
     :message="`Are you sure you want to activate the role &quot;${role.name}&quot;?`"

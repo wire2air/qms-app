@@ -135,12 +135,12 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 
 > **Label/eyebrow/heading sweep LARGELY DONE** — ~380 raw `<label>` → `BaseField`, section eyebrows → `BaseText overline`, small section headings → `BaseText as=hN`, across ~22 domains + `src/pages` (NC, suppliers, qcInspection, documents, customerComplaints, inspectionsLogs, capas, workflow, changeRequests, formTemplate, equipment, formAssignment, company, groups, users, roles, form, form-builder, editor, taskInstance, records, products, auth, audits, rcaTemplate, …). Every commit lint-clean; ~155 `<label>` remain, all intentional leaves (below).
 - [x] Raw `<label>` field blocks → `BaseField`; eyebrows → `BaseText overline`; small headings → `BaseText`.
-- [ ] **Bucket B follow-up — retire `ds-label`/`ds-label-sm` → `BaseLabel`** (~20 labels; mostly suppliers cards). Cosmetically fine today (already a DS utility); converting unifies on `BaseLabel`.
-- [ ] **Bucket B follow-up — read-only field captions → `BaseCaption`** (~95: `<label>`/`<div class="text-xs text-secondary">` above read-only values, inline-edit grid cells, composite-control captions; mostly suppliers / documents / detail-page rails).
-- [ ] _Intentional leaves (do NOT convert):_ ~25 checkbox/switch/radio-wrapping `<label>`s; `<th>` table headers; `BaseCheckbox`-nested question labels.
+- [x] **`ConfirmDialog` → `BaseConfirmDialog`** rename (21 consumers + ConfirmDialogHost's render; host keeps its name). App build green.
+- [x] **z-index migration** — 42 ad-hoc `tw:z-<number>` across 25 feature files → the Phase-1 named tokens (`tw:z-raised…z-max`). Verified no-op (token values = the numbers); no raw `tw:z-N` left in `src/`.
+- [x] **CI guardrail shipped** — `npm run lint:ds` ([check-design-system.mjs](../scripts/check-design-system.mjs)) is a **regression ratchet**: counts raw `text-[Npx]` / `<label>` / `<h1-6>` in `src/` and fails only when a count rises above its baseline (362 / 153 / 127). Wired into `npm run lint`. Lower a baseline as you sweep; 0 = hard ban.
 - [ ] Replace raw `<select>`/`<input>`/clickable `<div>` → hardened Base controls (after Phase 4/5).
-- [ ] Retire the ~417 `text-[Npx]` magic numbers (separate token task; heading/label-related ones already folded into the sweep above).
-- [ ] **CI guardrail:** fail on `text-[\d+px]` and on raw `<label` / `<h[1-6]` in `src/` outside DS components.
+- [ ] **Retire the ~362 `text-[Npx]` magic numbers** + `ds-label`→`BaseLabel` (~22) + read-only captions→`BaseCaption` (~95). **Deferred — large mechanical sweeps (hundreds of edits) that need a dedicated, in-app-verified pass; the ratchet now prevents the counts from growing in the meantime.**
+- [ ] *Intentional leaves (do NOT convert):* ~25 checkbox/switch/radio-wrapping `<label>`s; `<th>` table headers; `BaseCheckbox`-nested question labels.
 
 ## Phase 8 — Advanced Components  ⬜  `XL` · risk: med (mostly lazy-loaded)
 

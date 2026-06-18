@@ -193,7 +193,7 @@ async function confirm() {
 
           <!-- Step circle indicator -->
           <div
-            class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-main tw:border-2 tw:border-divider tw:flex tw:items-center tw:justify-center tw:text-secondary tw:z-10 tw:text-xs tw:font-bold"
+            class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-main tw:border-2 tw:border-divider tw:flex tw:items-center tw:justify-center tw:text-secondary tw:z-raised tw:text-xs tw:font-bold"
           >
             {{ step.stepOrder }}
           </div>
@@ -225,7 +225,7 @@ async function confirm() {
 
             <div
               v-if="step.roleNames.length"
-              class="tw:text-[11px] tw:text-secondary tw:mb-2 tw:flex tw:flex-wrap tw:gap-1"
+              class="tw:text-caption tw:text-secondary tw:mb-2 tw:flex tw:flex-wrap tw:gap-1"
             >
               <span>Eligible roles:</span>
               <span

@@ -39,7 +39,7 @@ const retryLimitOptions = [
         <div class="tw:flex tw:items-center tw:justify-between">
           <div>
             <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">Required Completion</label>
-            <p class="tw:text-[11px] tw:text-secondary">Must pass before signing</p>
+            <p class="tw:text-caption tw:text-secondary">Must pass before signing</p>
           </div>
           <BaseSwitch v-model="form.requiredCompletion" />
         </div>
@@ -55,7 +55,7 @@ const retryLimitOptions = [
           class="tw:flex tw:items-center tw:gap-2 tw:text-primary tw:bg-primary/20 tw:p-3 tw:rounded-lg"
         >
           <IconInfoCircle class="tw:size-5 tw:shrink-0" />
-          <p class="tw:text-[12px] tw:leading-tight tw:font-medium">
+          <p class="tw:text-label tw:leading-tight tw:font-medium">
             Changes here will apply to all current trainees of this version.
           </p>
         </div>

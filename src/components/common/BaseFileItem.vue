@@ -130,7 +130,7 @@ function handleClick() {
             >
               {{ fileName }}
             </span>
-            <span class="tw:text-[10px] tw:text-secondary">
+            <span class="tw:text-micro tw:text-secondary">
               {{ formatFileSize(fileSize) }} • Uploading...
             </span>
           </div>
@@ -168,7 +168,7 @@ function handleClick() {
             {{ fileName }}
           </span>
           <div class="tw:flex tw:items-center tw:gap-1.5">
-            <span class="tw:text-[10px] tw:text-secondary tw:font-medium">
+            <span class="tw:text-micro tw:text-secondary tw:font-medium">
               {{ formatFileSize(fileSize) }}
             </span>
             <span

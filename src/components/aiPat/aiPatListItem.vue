@@ -115,7 +115,7 @@ const menuItems = computed(() => {
     </div>
   </div>
 
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-if="confirmDialog"
     :modelValue="true"
     v-bind="confirmDialog"

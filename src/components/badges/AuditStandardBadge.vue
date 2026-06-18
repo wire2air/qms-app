@@ -15,7 +15,7 @@ defineProps({
     <span class="tw:font-medium">{{ standard?.name || standard?.code || standard?.id || '—' }}</span>
     <code
       v-if="standard?.code && standard?.name"
-      class="tw:text-[10px] tw:ml-1 tw:text-blue-500"
+      class="tw:text-micro tw:ml-1 tw:text-blue-500"
     >
       {{ standard.code }}
     </code>

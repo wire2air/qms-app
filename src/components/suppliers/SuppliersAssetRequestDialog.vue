@@ -268,11 +268,11 @@ async function onSave() {
             />
             <span class="tw:text-sm tw:text-on-main tw:flex-1">
               {{ t.name }}
-              <span v-if="t.isTenantCustom" class="tw:text-[10px] tw:text-primary">(custom)</span>
+              <span v-if="t.isTenantCustom" class="tw:text-micro tw:text-primary">(custom)</span>
             </span>
             <span
               v-if="t.alreadyReceived"
-              class="tw:text-[10px] tw:bg-green-100 tw:text-green-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:inline-flex tw:items-center tw:gap-0.5"
+              class="tw:text-micro tw:bg-green-100 tw:text-green-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:inline-flex tw:items-center tw:gap-0.5"
             >
               <IconCircleCheck :size="10" />
               already on file
@@ -292,7 +292,7 @@ async function onSave() {
             Add ad-hoc item
           </BaseButton>
         </div>
-        <p class="tw:text-[11px] tw:text-secondary tw:italic">
+        <p class="tw:text-caption tw:text-secondary tw:italic">
           Use for one-off documents not in the master list. Add a tenant type if you'll need it
           again.
         </p>

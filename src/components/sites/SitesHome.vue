@@ -79,7 +79,7 @@ async function confirmDeleteSite() {
   <SitesCreateUpdateDialog v-if="showDialog" :id="selectedSiteId" v-model="showDialog" />
 
   <!-- Delete Confirm Dialog -->
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-model="confirmDelete.open"
     title="Delete Site"
     :message="`Are you sure you want to delete '${confirmDelete.site?.name}' (${confirmDelete.site?.code})? This cannot be undone.`"

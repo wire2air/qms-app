@@ -464,7 +464,7 @@ function summarizeFinding() {
         </div>
         <div class="tw:text-xs tw:text-secondary">{{ progress.pct }}%</div>
       </div>
-      <span v-if="readonly" class="tw:text-[11px] tw:text-secondary tw:italic tw:font-medium">
+      <span v-if="readonly" class="tw:text-caption tw:text-secondary tw:italic tw:font-medium">
         Read-only ({{ auditInstance.statusId }})
       </span>
     </div>
@@ -511,7 +511,7 @@ function summarizeFinding() {
             "
             @click="goToStep(row.requirementId)"
           >
-            <code class="tw:text-[10px] tw:font-mono tw:text-secondary">{{
+            <code class="tw:text-micro tw:font-mono tw:text-secondary">{{
               row.clauseNumber
             }}</code>
             <span
@@ -547,7 +547,7 @@ function summarizeFinding() {
               </BaseText>
               <span
                 v-if="currentClause.riskWeight && currentClause.riskWeight !== 1"
-                class="tw:text-[10px] tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-semibold"
+                class="tw:text-micro tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-semibold"
                 title="Risk weight"
                 >×{{ currentClause.riskWeight }}</span
               >
@@ -580,7 +580,7 @@ function summarizeFinding() {
           </div>
           <div v-if="currentClause.guidance" class="tw:bg-blue-50 tw:rounded tw:p-3">
             <p
-              class="tw:text-[11px] tw:font-semibold tw:text-blue-700 tw:uppercase tw:tracking-wide tw:mb-0.5"
+              class="tw:text-caption tw:font-semibold tw:text-blue-700 tw:uppercase tw:tracking-wide tw:mb-0.5"
             >
               Guidance
             </p>
@@ -624,7 +624,7 @@ function summarizeFinding() {
               class="tw:flex tw:items-center tw:gap-2 tw:text-left tw:rounded tw:px-2 tw:py-1.5 tw:bg-white tw:border tw:border-divider tw:hover:border-primary tw:cursor-pointer"
               @click="goToStep(child.requirementId)"
             >
-              <code class="tw:text-[10px] tw:font-mono tw:text-secondary tw:shrink-0">{{
+              <code class="tw:text-micro tw:font-mono tw:text-secondary tw:shrink-0">{{
                 child.clauseNumber
               }}</code>
               <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{ child.title }}</span>
@@ -657,7 +657,7 @@ function summarizeFinding() {
             <div class="tw:flex tw:items-center tw:gap-1.5 tw:min-w-0">
               <IconNotebook :size="14" class="tw:text-slate-600 tw:shrink-0" />
               <p
-                class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-slate-600 tw:truncate"
+                class="tw:text-caption tw:font-bold tw:uppercase tw:tracking-wide tw:text-slate-600 tw:truncate"
               >
                 Auditor's Notebook
                 <span class="tw:font-normal tw:normal-case tw:text-slate-500"
@@ -669,7 +669,7 @@ function summarizeFinding() {
               <button
                 v-if="notebookOpen && currentHasChecklistItems"
                 type="button"
-                class="tw:text-[10px] tw:font-medium tw:text-slate-600 tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                class="tw:text-micro tw:font-medium tw:text-slate-600 tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
                 @click="hideAnswered = !hideAnswered"
               >
                 {{ hideAnswered ? 'Show all' : 'Hide answered' }}
@@ -732,7 +732,7 @@ function summarizeFinding() {
                           v-for="st in cl.statuses"
                           :key="st.id"
                           type="button"
-                          class="tw:text-[10px] tw:font-semibold tw:rounded tw:px-2 tw:py-0.5 tw:border tw:cursor-pointer tw:transition-colors"
+                          class="tw:text-micro tw:font-semibold tw:rounded tw:px-2 tw:py-0.5 tw:border tw:cursor-pointer tw:transition-colors"
                           :disabled="readonly"
                           :class="
                             checklistState(cl.field, item.id).status === st.id
@@ -914,7 +914,7 @@ function summarizeFinding() {
             class="tw:bg-blue-50 tw:px-3 tw:py-2 tw:border-b tw:border-blue-200 tw:flex tw:items-center tw:gap-1.5"
           >
             <IconGavel :size="14" class="tw:text-blue-700 tw:shrink-0" />
-            <p class="tw:text-[11px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-blue-700">
+            <p class="tw:text-caption tw:font-bold tw:uppercase tw:tracking-wide tw:text-blue-700">
               Result &amp; Finding
               <span class="tw:font-normal tw:normal-case tw:text-blue-700/70"
                 >— shared in the finding / report</span
@@ -929,7 +929,7 @@ function summarizeFinding() {
                    non-binding suggested verdict. The auditor still decides. -->
               <div
                 v-if="clauseSummary.parts.length || clauseSummary.suggested"
-                class="tw:mb-2 tw:text-[11px] tw:flex tw:flex-wrap tw:gap-x-2 tw:gap-y-0.5"
+                class="tw:mb-2 tw:text-caption tw:flex tw:flex-wrap tw:gap-x-2 tw:gap-y-0.5"
               >
                 <span v-if="clauseSummary.parts.length" class="tw:text-red-700 tw:font-medium">
                   Flags: {{ clauseSummary.parts.join(' · ') }}
@@ -943,7 +943,7 @@ function summarizeFinding() {
                   v-for="r in RESULTS"
                   :key="r.id"
                   type="button"
-                  class="tw:text-[11px] tw:font-semibold tw:rounded tw:px-2.5 tw:py-1 tw:cursor-pointer tw:border tw:transition-colors"
+                  class="tw:text-caption tw:font-semibold tw:rounded tw:px-2.5 tw:py-1 tw:cursor-pointer tw:border tw:transition-colors"
                   :disabled="readonly || saving[currentReqId]"
                   :class="
                     currentResponse?.resultId === r.id
@@ -957,7 +957,7 @@ function summarizeFinding() {
               </div>
               <p
                 v-if="!currentResponse?.resultId"
-                class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1"
+                class="tw:text-caption tw:text-secondary tw:italic tw:mt-1"
               >
                 Work through your notebook above, then pick a result to record the verdict.
                 Everything saves as you go.
@@ -973,7 +973,7 @@ function summarizeFinding() {
                 <button
                   v-if="!readonly"
                   type="button"
-                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[11px] tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-caption tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:bg-transparent tw:border-0 tw:cursor-pointer"
                   title="Summarize the flagged items + notes into Finding Notes"
                   @click="summarizeFinding"
                 >

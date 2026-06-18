@@ -426,7 +426,7 @@ function unlinkedKinds(finding) {
                 v-if="finding.categoryId"
                 :categoryId="finding.categoryId"
               />
-              <span v-if="finding.processArea" class="tw:text-[11px] tw:text-secondary tw:italic">
+              <span v-if="finding.processArea" class="tw:text-caption tw:text-secondary tw:italic">
                 {{ finding.processArea }}
               </span>
               <!-- Linked-record chips, surfaced in the collapsed row so users
@@ -446,13 +446,13 @@ function unlinkedKinds(finding) {
               <!-- #7 — supplier-mode status chips: overdue / completed -->
               <span
                 v-if="supplierMode && isOverdue(finding)"
-                class="tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-red-100 tw:text-red-700"
+                class="tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-red-100 tw:text-red-700"
               >
                 Overdue
               </span>
               <span
                 v-else-if="supplierMode && finding.completedAt"
-                class="tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-emerald-100 tw:text-emerald-700"
+                class="tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-emerald-100 tw:text-emerald-700"
               >
                 Completed
               </span>
@@ -480,7 +480,7 @@ function unlinkedKinds(finding) {
             <button
               v-if="!readonly && !['CLOSED', 'CANCELLED'].includes(finding.statusId)"
               type="button"
-              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-emerald-700 tw:hover:bg-emerald-50 tw:rounded tw:px-2 tw:py-1 tw:cursor-pointer tw:bg-transparent tw:border tw:border-emerald-200 tw:text-[11px] tw:font-medium"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-emerald-700 tw:hover:bg-emerald-50 tw:rounded tw:px-2 tw:py-1 tw:cursor-pointer tw:bg-transparent tw:border tw:border-emerald-200 tw:text-caption tw:font-medium"
               title="Close this finding"
               @click="setStatus(finding, 'CLOSED')"
             >
@@ -489,7 +489,7 @@ function unlinkedKinds(finding) {
             <button
               v-if="!readonly && ['CLOSED', 'CANCELLED'].includes(finding.statusId)"
               type="button"
-              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-primary tw:hover:bg-main-hover tw:rounded tw:px-2 tw:py-1 tw:cursor-pointer tw:bg-transparent tw:border tw:border-divider tw:text-[11px] tw:font-medium"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-primary tw:hover:bg-main-hover tw:rounded tw:px-2 tw:py-1 tw:cursor-pointer tw:bg-transparent tw:border tw:border-divider tw:text-caption tw:font-medium"
               :title="
                 finding.statusId === 'CANCELLED' ? 'Re-instate this finding' : 'Reopen this finding'
               "
@@ -539,19 +539,19 @@ function unlinkedKinds(finding) {
           >
             <div class="tw:flex tw:items-center tw:justify-between">
               <span
-                class="tw:text-[10px] tw:uppercase tw:font-semibold tw:tracking-wide tw:text-secondary"
+                class="tw:text-micro tw:uppercase tw:font-semibold tw:tracking-wide tw:text-secondary"
               >
                 CAPA / Response
               </span>
               <span
                 v-if="finding.completedAt"
-                class="tw:text-[10px] tw:text-emerald-700 tw:font-medium"
+                class="tw:text-micro tw:text-emerald-700 tw:font-medium"
               >
                 Completed {{ finding.completedAt.formatDate?.('date') }}
               </span>
               <span
                 v-else-if="isOverdue(finding)"
-                class="tw:text-[10px] tw:text-red-700 tw:font-bold tw:uppercase"
+                class="tw:text-micro tw:text-red-700 tw:font-bold tw:uppercase"
               >
                 Overdue
               </span>
@@ -600,7 +600,7 @@ function unlinkedKinds(finding) {
                kinds surface as "+ Link" pills that open the picker. -->
           <div v-if="!supplierMode" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:items-center">
             <p
-              class="tw:text-[10px] tw:text-secondary tw:uppercase tw:font-semibold tw:tracking-wide tw:mr-1"
+              class="tw:text-micro tw:text-secondary tw:uppercase tw:font-semibold tw:tracking-wide tw:mr-1"
             >
               Linked:
             </p>
@@ -608,7 +608,7 @@ function unlinkedKinds(finding) {
               <span
                 v-if="isLinked(finding, cfg.id)"
                 :key="cfg.id"
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:bg-emerald-100 tw:text-emerald-700 tw:rounded tw:pl-2 tw:pr-1 tw:py-0.5"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:bg-emerald-100 tw:text-emerald-700 tw:rounded tw:pl-2 tw:pr-1 tw:py-0.5"
               >
                 <button
                   type="button"
@@ -639,7 +639,7 @@ function unlinkedKinds(finding) {
               :key="`new-${cfg.id}`"
               type="button"
               :disabled="readonly"
-              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-medium tw:bg-white tw:text-secondary tw:border tw:border-divider tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:hover:border-primary tw:hover:text-primary"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-medium tw:bg-white tw:text-secondary tw:border tw:border-divider tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:hover:border-primary tw:hover:text-primary"
               @click="newSpawned(finding, cfg.id)"
             >
               <IconPlus :size="10" /> New {{ cfg.label }}
@@ -649,7 +649,7 @@ function unlinkedKinds(finding) {
               :key="`link-${cfg.id}`"
               type="button"
               :disabled="readonly"
-              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-medium tw:bg-white tw:text-secondary tw:border tw:border-divider tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:hover:border-primary tw:hover:text-primary"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-medium tw:bg-white tw:text-secondary tw:border tw:border-divider tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:hover:border-primary tw:hover:text-primary"
               @click="openLinkDialog(finding, cfg.id)"
             >
               <IconLink :size="10" /> Link {{ cfg.label }}
@@ -676,7 +676,7 @@ function unlinkedKinds(finding) {
               v-for="t in allowedTransitions(finding.statusId)"
               :key="t.id"
               type="button"
-              class="tw:text-[10px] tw:font-semibold tw:rounded tw:px-2 tw:py-1 tw:cursor-pointer tw:border tw:border-divider tw:bg-white tw:text-on-main tw:hover:border-primary tw:hover:text-primary"
+              class="tw:text-micro tw:font-semibold tw:rounded tw:px-2 tw:py-1 tw:cursor-pointer tw:border tw:border-divider tw:bg-white tw:text-on-main tw:hover:border-primary tw:hover:text-primary"
               @click="setStatus(finding, t.id)"
             >
               {{ t.name }}
