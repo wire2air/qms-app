@@ -259,6 +259,7 @@ export default {
     "useOnline": true,
     "usePageInfo": true,
     "usePageLeave": true,
+    "usePagination": true,
     "useParallax": true,
     "useParentElement": true,
     "usePerformanceObserver": true,

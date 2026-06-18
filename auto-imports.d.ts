@@ -256,6 +256,7 @@ declare global {
   const useOnline: typeof import('@vueuse/core').useOnline
   const usePageInfo: typeof import('./src/composables/usePageInfo.js').usePageInfo
   const usePageLeave: typeof import('@vueuse/core').usePageLeave
+  const usePagination: typeof import('./resource/js/shared/composables/usePagination.js').usePagination
   const useParallax: typeof import('@vueuse/core').useParallax
   const useParentElement: typeof import('@vueuse/core').useParentElement
   const usePerformanceObserver: typeof import('@vueuse/core').usePerformanceObserver
