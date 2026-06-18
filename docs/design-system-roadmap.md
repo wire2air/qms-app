@@ -114,13 +114,14 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [ ] **Remaining:** `BaseAutocomplete` (Combobox-based — pairs with the Phase 5 HeadlessUI work); `BaseTable` clickable-row keyboard (needs a row-interaction-model decision — deferred, not a no-op across 50+ usages); `BaseUploader` dropzone (rule #8); BaseField integration for the remaining inputs; harden `BaseButton`/`BaseTextInput`/`BaseTextarea`/`BaseSelectMenu`/`BaseCheckbox`/`BaseSwitch`/`BaseDatePicker`.
 - [x] Stories + unit tests for each shipped item (BaseRadio story; BaseBadge/Switcher/Stepper/Table/OptionGroup specs; 34 new tests).
 
-## Phase 5 — Overlay Components (a11y headline)  ⬜  `L` · risk: medium ⭐
+## Phase 5 — Overlay Components (a11y headline)  🚧 IN PROGRESS  `L` · risk: medium ⭐
 
 > Moved *before* the app-wide refactor — the sweep depends on these.
-- [ ] Rebuild `BaseSelectMenu` on HeadlessUI **`Combobox`**, `BaseMenu` on **`Menu`** (free roles/keyboard/focus). Move auto-select logic out of the primitive.
-- [ ] Reduce `BasePopover` to a positioner; de-dupe portal branches; default `flip:true`.
-- [ ] **New:** `BaseTooltip` (floating-ui), `BaseDrawer` (BaseDialog variant). `BaseDialog` already strong — add `ariaLabel`/`initialFocus`.
-- [ ] Normalize toast taxonomy (`positive/negative` → `success/error`); rename `ConfirmDialog` → `BaseConfirmDialog`; fix live-region placement.
+- [x] **`BaseMenu` + `BaseSelectMenu` a11y.** Delivered the audit's headline outcome — **menu/listbox/option roles, `aria-selected`, `aria-activedescendant`, and full keyboard nav** (Arrow/Home/End/Enter, focus management) — **in place on the existing BasePopover foundation** rather than a ground-up HeadlessUI swap. Rationale: HeadlessUI `Menu`/`Combobox` don't do floating positioning (these get it from BasePopover) and a full swap would have to reimplement positioning *and* break the `#trigger`/`#button`/`#items`/`#item`/`#footer` slot contracts that ~25 `BaseMenu` + dozens of `XSelectMenu` consumers depend on — unacceptable without runtime verification. Auto-select logic left in place (entity wrappers rely on it); moving it out is a separate, consumer-affecting change. **⚠️ Needs in-browser verification before merge** (interactive keyboard/selection across real dropdowns).
+- [ ] Reduce `BasePopover` to a positioner; de-dupe portal branches; default `flip:true`. *(deferred — BasePopover is the positioning engine the above now lean on; refactor separately.)*
+- [x] **New: `BaseTooltip`** (floating-ui — hover+focus, role=tooltip + aria-describedby) and **`BaseDrawer`** (BaseDialog variant, slide-in). `BaseDialog` — added `ariaLabel` (title-less accessible name) + `initialFocus`.
+- [x] Normalized toast taxonomy (`positive/negative` → `success/error`, legacy aliased — zero break) + live-region a11y (errors assertive `alert`, rest polite `status`; dismiss `aria-label`). `ConfirmDialog` → `BaseConfirmDialog` rename **deferred to Phase 7** (it's ~24 auto-imported template consumers — a sweep, not a swap).
+- [ ] Stories + a11y for each shipped item (Tooltip/Drawer stories added; Menu/SelectMenu kept existing stories; ~39 new unit tests across the phase).
 
 ## Phase 6 — Data Components  ⬜  `L–XL` · risk: low–med
 

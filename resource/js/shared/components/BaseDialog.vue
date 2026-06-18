@@ -24,6 +24,18 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Accessible name for a title-less dialog (without it, a dialog opened with no
+  // DialogTitle has no accessible name — WCAG 4.1.2). Ignored when a title shows.
+  ariaLabel: {
+    type: String,
+    default: '',
+  },
+  // Element to focus on open (HeadlessUI initialFocus). Pass a template ref;
+  // defaults to the panel's first focusable element.
+  initialFocus: {
+    type: Object,
+    default: null,
+  },
 })
 
 const isOpen = defineModel({
@@ -54,7 +66,12 @@ const maxWidthClass = {
 
 <template>
   <TransitionRoot appear :show="isOpen" as="template">
-    <Dialog as="div" class="tw:relative tw:z-modal" @close="persistent ? null : close()">
+    <Dialog
+      as="div"
+      class="tw:relative tw:z-modal"
+      :initialFocus="initialFocus || undefined"
+      @close="persistent ? null : close()"
+    >
       <!-- Backdrop -->
       <TransitionChild
         as="template"
@@ -80,6 +97,7 @@ const maxWidthClass = {
             leaveTo="tw:opacity-0 tw:scale-95"
           >
             <DialogPanel
+              :aria-label="!title && !$slots.title && ariaLabel ? ariaLabel : undefined"
               class="tw:flex tw:max-h-[90vh] tw:w-full tw:transform tw:flex-col tw:rounded-2xl tw:bg-sidebar tw:shadow-overlay tw:transition-all tw:overflow-hidden"
               :class="maxWidthClass[resolvedSize]"
             >

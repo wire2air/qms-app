@@ -1,6 +1,6 @@
 import BaseToast from './BaseToast.vue'
 
-/** A single toast notification (positive / negative / warning / info) rendered with static props. */
+/** A single toast notification (success / error / warning / info) rendered with static props. */
 export default {
   title: 'Overlays/BaseToast',
   component: BaseToast,
@@ -8,7 +8,7 @@ export default {
   argTypes: {
     type: {
       control: 'select',
-      options: ['positive', 'negative', 'warning', 'info'],
+      options: ['success', 'error', 'warning', 'info'],
     },
     message: { control: 'text' },
     caption: { control: 'text' },
@@ -16,7 +16,7 @@ export default {
   },
   args: {
     id: 1,
-    type: 'positive',
+    type: 'success',
     message: 'Saved',
     caption: '',
     multiLine: false,
@@ -34,12 +34,12 @@ export const Default = {
 }
 
 export const Success = {
-  args: { type: 'positive', message: 'Changes saved', caption: 'Your edits are live.' },
+  args: { type: 'success', message: 'Changes saved', caption: 'Your edits are live.' },
   render: Default.render,
 }
 
 export const Error = {
-  args: { id: 2, type: 'negative', message: 'Save failed', caption: 'Please try again.' },
+  args: { id: 2, type: 'error', message: 'Save failed', caption: 'Please try again.' },
   render: Default.render,
 }
 
