@@ -110,7 +110,7 @@ function onRowClick(row) {
     </template>
   </BaseTable>
 
-  <ConfirmDialog
+  <BaseConfirmDialog
     :modelValue="openDeleteDialog"
     title="Delete Option Set"
     :message="`Are you sure you want to delete '${pendingDelete?.name}'? This cannot be undone.`"

@@ -165,7 +165,7 @@ async function confirmDeleteTemplate() {
   <FormTemplateCreateTemplate v-model="showCreateDialog" @next="handleTemplateCreated" />
 
   <!-- Delete Confirm Dialog -->
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-model="confirmDelete.open"
     title="Delete Template"
     :message="`Are you sure you want to delete '${confirmDelete.template?.title}' (${confirmDelete.template?.code})? This cannot be undone.`"

@@ -1,10 +1,10 @@
 import { ref } from 'vue'
-import ConfirmDialog from './ConfirmDialog.vue'
+import BaseConfirmDialog from './BaseConfirmDialog.vue'
 
 /** Confirm/cancel dialog wrapping BaseDialog (boolean v-model); emits ok / cancel. */
 export default {
-  title: 'Overlays/ConfirmDialog',
-  component: ConfirmDialog,
+  title: 'Overlays/BaseConfirmDialog',
+  component: BaseConfirmDialog,
   tags: ['autodocs'],
   argTypes: {
     okVariant: {
@@ -31,7 +31,7 @@ export default {
 
 export const Default = {
   render: (args) => ({
-    components: { ConfirmDialog },
+    components: { BaseConfirmDialog },
     setup() {
       const open = ref(false)
       return { args, open }
@@ -39,7 +39,7 @@ export const Default = {
     template: `
       <div>
         <button class="tw:rounded-lg tw:bg-primary tw:text-on-primary tw:px-3 tw:py-1.5 tw:text-sm" @click="open = true">Open confirm</button>
-        <ConfirmDialog v-bind="args" v-model="open" @ok="() => {}" @cancel="() => {}" />
+        <BaseConfirmDialog v-bind="args" v-model="open" @ok="() => {}" @cancel="() => {}" />
       </div>`,
   }),
 }

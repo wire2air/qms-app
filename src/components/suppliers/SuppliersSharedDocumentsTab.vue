@@ -124,7 +124,7 @@ function onRemoveDocument(entry) {
   <!-- Share Document Dialog -->
   <SuppliersShareDocumentDialog v-model="showShareDialog" :supplierId="props.supplierId" />
 
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-if="confirmDialog"
     :modelValue="true"
     v-bind="confirmDialog"

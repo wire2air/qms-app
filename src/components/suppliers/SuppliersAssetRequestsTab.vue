@@ -421,7 +421,7 @@ function formatDate(value) {
     />
   </div>
 
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-if="confirmDialog"
     :modelValue="true"
     v-bind="confirmDialog"

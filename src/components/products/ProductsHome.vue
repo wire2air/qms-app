@@ -173,7 +173,7 @@ async function restoreProduct(product) {
   <ProductsCreateUpdateDialog v-if="showDialog" :id="selectedProductId" v-model="showDialog" />
 
   <!-- Delete Confirm Dialog -->
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-model="confirmDelete.open"
     title="Delete Product"
     :message="`Delete '${confirmDelete.product?.name}' (${confirmDelete.product?.sku})? You can restore it later from the Deleted items section.`"
@@ -182,7 +182,7 @@ async function restoreProduct(product) {
   />
 
   <!-- Bulk Delete Confirm Dialog -->
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-model="confirmBulkDelete.open"
     title="Delete Products"
     :message="`Delete ${confirmBulkDelete.rows.length} selected item${confirmBulkDelete.rows.length === 1 ? '' : 's'}? This cannot be undone.`"

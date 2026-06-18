@@ -231,7 +231,7 @@ function getLinkTypeBadgeClass(linkType) {
     </BaseDialog>
 
     <!-- Confirm Remove Dialog -->
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="confirmRemove.open"
       title="Remove Link"
       message="Are you sure you want to remove this link?"

@@ -286,7 +286,7 @@ async function handleDelete() {
     </aside>
 
     <!-- Delete Confirmation -->
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="showDeleteConfirm"
       title="Delete Template"
       :message="`Are you sure you want to delete form template &quot;${template?.title}&quot; (${template?.code})? This action cannot be undone.`"

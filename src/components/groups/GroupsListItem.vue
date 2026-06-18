@@ -80,7 +80,7 @@ async function onConfirmDelete() {
     </div>
   </BaseClickableRow>
 
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-model="confirmDelete"
     title="Delete Group"
     :message="`Are you sure you want to delete '${group.name}'? This action cannot be undone.`"

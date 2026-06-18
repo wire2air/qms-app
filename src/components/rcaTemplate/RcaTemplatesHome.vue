@@ -121,7 +121,7 @@ function onDialogClose() {
 
     <RcaTemplateDialog v-model="showCreateDialog" :template="editTemplate" @close="onDialogClose" />
 
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="confirmDelete.open"
       title="Delete RCA Template"
       :message="`Are you sure you want to delete '${confirmDelete.template?.name}'? This cannot be undone.`"

@@ -431,7 +431,7 @@ function copyJson() {
     </BaseDialog>
 
     <!-- Clear Confirmation Dialog -->
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="showClearDialog"
       title="Clear Form?"
       message="Are you sure you want to clear all fields? This action will remove all current content and cannot be undone."

@@ -281,7 +281,7 @@ function goBack() {
       </button>
     </div>
 
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="showPublishConfirm"
       title="Publish template"
       message="Once you publish this template, it can be used in documents — but you won't be able to edit it after publishing. Continue?"
@@ -289,7 +289,7 @@ function goBack() {
       @ok="onPublish"
     />
 
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="showArchiveConfirm"
       title="Archive template"
       message="Once this template is archived, you won't be able to edit it or use it for new documents. Continue?"
@@ -297,7 +297,7 @@ function goBack() {
       @ok="onArchive"
     />
 
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="showUnarchiveConfirm"
       title="Unarchive template"
       message="This template will return to Draft status — it will be editable again, but you'll need to publish it before it can be used for new documents. Continue?"
