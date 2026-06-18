@@ -61,15 +61,15 @@
 - [x] **`color-scheme: light/dark`** in `base.css` — native date/time inputs + their picker, native `<select>`, scrollbars now render dark.
 - [x] `fix(suppliers)`: `lastEvaluationDate` → `DateTime` (pre-existing `formatDate` crash).
 
-## Phase 1 — Design Tokens + Theme + Storybook (Foundation)  ⬜  `M–L` · risk: low ⭐
+## Phase 1 — Design Tokens + Theme + Storybook (Foundation)  🚧 IN PROGRESS (Storybook remaining)  `M–L` · risk: low ⭐
 
 The foundation everything else consumes. **CSS variables, not `.ts`.**
 
-- [ ] **Tokens:** rationalize `tokens.css` + `base.css @theme` into the single source of truth. Finalize: spacing (wire or delete `--space-*`), control heights (wire `--height-*` → `tw:h-btn` or delete), radius (keep Tailwind-governed), elevation/shadows (already wired), z-index scale (add — currently ad-hoc), animation/duration tokens (add).
-- [ ] Document the token contract (one MD table: token → value → utility → usage).
-- [ ] Optional **generated `tokens.js`** (reads CSS vars) for JS consumers only (chart colors, canvas). Not hand-maintained; CSS stays canonical.
-- [ ] **Theme:** light/dark already wired ✅ → add **brand/tenant** layer: `[data-tenant]` scoped overrides of `--primary`/brand vars (white-label hook). Document how a tenant overrides tokens.
-- [ ] **Storybook 8 (`@storybook/vue3-vite`) + `addon-a11y`** stood up; CI builds it. (Optional: Chromatic for visual regression later.)
+- [x] **Tokens rationalized.** Added the **z-index scale** as `--z-*` tokens (`tokens.css`) exposed via `@utility` `tw:z-raised…z-max` (`base.css`) — Tailwind v4 has no `--z-index` namespace; values match existing ad-hoc numbers so adopting a name is a visual no-op. Adopted in `BaseDialog`/`BasePhoto` (`z-modal`) + `BaseToastContainer` (`z-toast`); remaining ~25 feature-file `z-N` usages migrate in Phase 7. Spacing/heights stay deleted; radius stays Tailwind-governed; shadows/typography already wired. **No `--duration-*`/`--ease-*` tokens** — almost everything uses the default `transition-colors`, so named motion tokens would be dead (documented convention instead: `duration-150/200/300` + `motion-reduce:*`).
+- [x] **Token contract documented** — [design-system-tokens.md](./design-system-tokens.md) (token → value(light/dark) → utility → usage; how-it's-wired; add-a-token checklist).
+- [x] **Brand/tenant hook** — documented `[data-tenant]` scoped `--primary` override mechanism (template kept commented in `tokens.css`; real selector added on tenant onboarding, no dead CSS).
+- [ ] Optional **generated `tokens.js`** (reads CSS vars) for JS consumers only (chart colors, canvas). Deferred — no JS-token consumer yet.
+- [ ] **Storybook 8 (`@storybook/vue3-vite`) + `addon-a11y`** stood up; CI builds it. (Optional: Chromatic for visual regression later.) — **the remaining blocker that unblocks every "stories deferred" item.**
 
 **Goal:** one place to change any visual decision; tooling to see every component.
 
