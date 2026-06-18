@@ -33,7 +33,7 @@ const RULES = [
   {
     id: 'no-raw-label',
     re: /<label\b/g,
-    baseline: 153,
+    baseline: 146,
     hint: 'raw <label> — route the field through BaseField / BaseLabel (id + for + ARIA)',
   },
   {
