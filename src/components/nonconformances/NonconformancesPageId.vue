@@ -939,6 +939,16 @@ function onCreateLinkedChangeRequest() {
                 </BaseDetailField>
               </BaseDetailSection>
 
+              <!-- Notify (cc) — groups/people emailed + in-app on status change -->
+              <BaseDetailSection title="Notify (cc)" divided>
+                <NotificationCcField
+                  v-model:groupIds="nc.notifyGroupIds"
+                  v-model:userIds="nc.notifyUserIds"
+                  :editable="isEditable"
+                  hint=""
+                />
+              </BaseDetailSection>
+
               <!-- Classification -->
               <BaseDetailSection title="Classification" divided>
                 <BaseDetailField label="Priority">

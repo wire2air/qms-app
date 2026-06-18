@@ -84,6 +84,9 @@ const form = ref({
   // assignee from supplier users (entity.supplierId) instead of the
   // internal role pool. Requires supplierId. Immutable post-DRAFT.
   isSupplierFacing: false,
+  // Per-record cc recipients (notification engine).
+  notifyGroupIds: [],
+  notifyUserIds: [],
 })
 
 // When the source finding loads, seed source = INTERNAL_AUDIT,
@@ -332,6 +335,21 @@ async function handleReviewersConfirmed(reviewers) {
               </label>
             </BaseField>
           </div>
+        </div>
+
+        <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
+        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          >
+            Notify (cc)
+            <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
+          </BaseText>
+          <NotificationCcField
+            v-model:groupIds="form.notifyGroupIds"
+            v-model:userIds="form.notifyUserIds"
+          />
         </div>
 
         <!-- Workflow -->

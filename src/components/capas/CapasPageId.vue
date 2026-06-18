@@ -585,6 +585,16 @@ function onCreateLinkedChangeRequest() {
                 </BaseDetailField>
               </BaseDetailSection>
 
+              <!-- Notify (cc) — groups/people emailed + in-app on status change -->
+              <BaseDetailSection title="Notify (cc)" divided>
+                <NotificationCcField
+                  v-model:groupIds="capa.notifyGroupIds"
+                  v-model:userIds="capa.notifyUserIds"
+                  :editable="isEditable"
+                  hint=""
+                />
+              </BaseDetailSection>
+
               <BaseDetailSection title="Schedule" divided>
                 <BaseDetailField label="Due">
                   <BaseDatePicker v-if="isEditable" v-model="capa.dueDate" class="tw:w-full" />

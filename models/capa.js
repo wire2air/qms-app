@@ -52,6 +52,8 @@ export class Capa extends BaseModel {
   // Reviewer map { workflowStepId: [userId, …] } held on the row from
   // create-time until submitCapaForReview consumes it to seed the workflow.
   @Property({ type: Object }) pendingReviewers = /** @type {Object} */ ({})
+  @Property({ type: Array }) notifyGroupIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyUserIds = /** @type {Array} */ ([])
   @Property({ type: String, required: true }) createdBy = ''
   @Property({ type: String, required: true }) updatedBy = ''
   @Property({ type: String }) supplierId = null

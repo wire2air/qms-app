@@ -45,6 +45,7 @@ export class Nonconformance extends BaseModel {
   // submitted; backend enforces.
   @Property({ type: Boolean }) isSupplierFacing = false
   @Property({ type: Array }) notifyGroupIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyUserIds = /** @type {Array} */ ([])
   // Top-section classification (added 2026-05-29). Independent of the
   // existing typeId — issue-type captures the discovery dimension
   // (out-of-spec / receiving / missing standard), typeId stays the

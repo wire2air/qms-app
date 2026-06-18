@@ -331,6 +331,13 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/notification-rules': RouteRecordInfo<
+      '/notification-rules',
+      '/notification-rules',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/notifications': RouteRecordInfo<
       '/notifications',
       '/notifications',
@@ -829,6 +836,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/nonconformances/[[id]].vue': {
       routes:
         | '/nonconformances/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/notification-rules.vue': {
+      routes:
+        | '/notification-rules'
       views:
         | never
     }

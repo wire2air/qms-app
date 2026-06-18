@@ -38,6 +38,7 @@ import {
   IconTool,
   IconTestPipe,
   IconHelpCircle,
+  IconBell,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { isDark } from '@/utils/theme.js'
@@ -297,6 +298,14 @@ const navItems = computed(() => {
           permissions: ['company:manage'],
           icon: IconAdjustments,
           to: getCompanyPath('/settings'),
+        },
+        {
+          // Config-driven notification engine (entity create / status-change →
+          // notify groups / people / owner / initiator over in-app + email).
+          label: 'Notifications',
+          permissions: ['company:manage'],
+          icon: IconBell,
+          to: getCompanyPath('/notification-rules'),
         },
         {
           // The Customer Complaint module's own admin hub (email

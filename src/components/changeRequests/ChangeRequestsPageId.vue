@@ -470,6 +470,16 @@ const editingTitle = ref(false)
                 </BaseDetailField>
               </BaseDetailSection>
 
+              <!-- Notify (cc) — groups/people emailed + in-app on status change -->
+              <BaseDetailSection title="Notify (cc)" divided>
+                <NotificationCcField
+                  v-model:groupIds="cr.notifyGroupIds"
+                  v-model:userIds="cr.notifyUserIds"
+                  :editable="isEditable"
+                  hint=""
+                />
+              </BaseDetailSection>
+
               <BaseDetailSection title="Schedule" divided>
                 <BaseDetailField label="Due date">
                   <BaseDatePicker v-if="isEditable" v-model="cr.dueDate" class="tw:w-full" />

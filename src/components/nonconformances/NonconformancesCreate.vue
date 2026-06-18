@@ -93,6 +93,7 @@ const form = ref({
   // Groups emailed when the NC is raised and when it closes. Email-only —
   // no tasks, no access granted (unlike workflow step assignment).
   notifyGroupIds: [],
+  notifyUserIds: [],
 })
 
 // When the source finding loads, seed the title / description /
@@ -414,21 +415,19 @@ async function handleReviewersConfirmed(reviewers) {
           </div>
         </div>
 
-        <!-- Notifications — email-only group fan-out on raise + close -->
+        <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
           <BaseText
             variant="overline"
             class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
           >
-            Notifications
+            Notify (cc)
             <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
           </BaseText>
-          <BaseField
-            label="Notification groups"
-            hint="Members are emailed when this NC is raised and when it closes. Email only — no tasks are created and no access is granted."
-          >
-            <GroupSelectMenu v-model="form.notifyGroupIds" multiple class="tw:w-full" />
-          </BaseField>
+          <NotificationCcField
+            v-model:groupIds="form.notifyGroupIds"
+            v-model:userIds="form.notifyUserIds"
+          />
         </div>
 
         <!-- Immediate containment action -->

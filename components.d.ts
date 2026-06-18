@@ -609,6 +609,8 @@ declare module 'vue' {
     NonconformancesIndex: typeof import('./src/components/nonconformances/NonconformancesIndex.vue')['default']
     NonconformancesPageId: typeof import('./src/components/nonconformances/NonconformancesPageId.vue')['default']
     NonconformancesTable: typeof import('./src/components/nonconformances/NonconformancesTable.vue')['default']
+    NotificationCcField: typeof import('./src/components/common/NotificationCcField.vue')['default']
+    NotificationRulesHome: typeof import('./src/components/notificationRules/NotificationRulesHome.vue')['default']
     NotificationsBell: typeof import('./src/components/notifications/NotificationsBell.vue')['default']
     NotificationsIndex: typeof import('./src/components/notifications/NotificationsIndex.vue')['default']
     NotificationsItem: typeof import('./src/components/notifications/NotificationsItem.vue')['default']
