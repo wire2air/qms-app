@@ -61,7 +61,7 @@
 - [x] **`color-scheme: light/dark`** in `base.css` — native date/time inputs + their picker, native `<select>`, scrollbars now render dark.
 - [x] `fix(suppliers)`: `lastEvaluationDate` → `DateTime` (pre-existing `formatDate` crash).
 
-## Phase 1 — Design Tokens + Theme + Storybook (Foundation)  🚧 IN PROGRESS (Storybook remaining)  `M–L` · risk: low ⭐
+## Phase 1 — Design Tokens + Theme + Storybook (Foundation)  ✅ DONE (tokens.js optional, deferred)  `M–L` · risk: low ⭐
 
 The foundation everything else consumes. **CSS variables, not `.ts`.**
 
@@ -69,7 +69,7 @@ The foundation everything else consumes. **CSS variables, not `.ts`.**
 - [x] **Token contract documented** — [design-system-tokens.md](./design-system-tokens.md) (token → value(light/dark) → utility → usage; how-it's-wired; add-a-token checklist).
 - [x] **Brand/tenant hook** — documented `[data-tenant]` scoped `--primary` override mechanism (template kept commented in `tokens.css`; real selector added on tenant onboarding, no dead CSS).
 - [ ] Optional **generated `tokens.js`** (reads CSS vars) for JS consumers only (chart colors, canvas). Deferred — no JS-token consumer yet.
-- [ ] **Storybook 8 (`@storybook/vue3-vite`) + `addon-a11y`** stood up; CI builds it. (Optional: Chromatic for visual regression later.) — **the remaining blocker that unblocks every "stories deferred" item.**
+- [x] **Storybook + `addon-a11y` stood up** (`storybook`/`@storybook/vue3-vite`/`@storybook/addon-a11y` **v10** — Storybook 8 predated Vite 7; v10 supports it). `.storybook/main.js` mirrors the app's Vite plumbing via `viteFinal` (Tailwind `tw:` prefix, AutoImport, `unplugin-vue-components`, the 5 aliases) so stories mount `Base*` exactly like the app; `preview.js` loads `base.css` + a light/dark **Theme toolbar**. Scripts: `pnpm storybook` / `pnpm build-storybook` (`build-storybook` green). **Seed stories:** `Foundations/Tokens` (colors/typography/elevation/z-index) + this-session's components (DescriptionList, FieldRow, QuickFilterPills, AuditTrailRow, SectionHeader, DetailField). Remaining `Base*` get stories incrementally (the "stories deferred" notes in Phases 2/3/3.5 are now unblocked). (Optional: Chromatic for visual regression later.)
 
 **Goal:** one place to change any visual decision; tooling to see every component.
 
