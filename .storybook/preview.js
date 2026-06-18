@@ -1,5 +1,8 @@
 // Load the full design system (Tailwind + tokens) into the preview iframe.
 import '../src/css/base.css'
+// Register the project's luxon DateTime.prototype.formatDate extension so date
+// components (and dt.formatDate usages) render exactly as they do in the app.
+import '../src/extensions/datetime.js'
 
 /**
  * Toggle the theme class on <html> so the .light / .dark token sets resolve,
