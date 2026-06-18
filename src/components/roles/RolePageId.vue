@@ -298,7 +298,7 @@ watch(
 
       <!-- Scrollable Content -->
       <div
-        class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto custom-scrollbar tw:px-8 tw:py-6 tw:space-y-6"
+        class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto custom-scrollbar tw:py-6 tw:space-y-6"
       >
         <!-- Role Info Card -->
         <section class="tw:bg-layer tw:rounded-xl tw:border tw:border-sidebar tw:p-6 tw:shadow-sm">

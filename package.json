@@ -7,7 +7,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "lint": "eslint \"./src*/**/*.{js,cjs,mjs,vue}\" \"./resource/**/*.{js,cjs,mjs,vue}\"",
+    "lint": "eslint \"./src*/**/*.{js,cjs,mjs,vue}\" \"./resource/**/*.{js,cjs,mjs,vue}\" && npm run lint:layout",
+    "lint:layout": "node scripts/check-page-layout.mjs",
     "format": "prettier --write \"**/*.{js,vue,scss,html,md,json}\" --ignore-path .gitignore",
     "test": "vitest run",
     "test:watch": "vitest",

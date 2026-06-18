@@ -147,7 +147,7 @@ const breadcrumbs = computed(() => {
     </div>
 
     <!-- Main Content -->
-    <div v-else-if="instance" class="tw:w-full tw:p-4 tw:lg:p-8">
+    <div v-else-if="instance" class="tw:w-full tw:py-4 tw:lg:py-8">
       <div class="tw:flex tw:flex-col tw:lg:grid tw:lg:grid-cols-12 tw:gap-8">
         <!-- ─── Main Column ─────────────────────────────────────────────── -->
         <div class="tw:lg:col-span-8 tw:space-y-6">

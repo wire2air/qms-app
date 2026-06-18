@@ -155,7 +155,7 @@ function copyToClipboard(text) {
 
     <!-- Content -->
     <div v-else-if="group" class="tw:overflow-y-auto">
-      <div class="tw:p-8 tw:space-y-8">
+      <div class="tw:py-8 tw:space-y-8">
         <!-- Error Banner -->
         <div
           v-if="saveError"

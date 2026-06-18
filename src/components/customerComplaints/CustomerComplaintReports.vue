@@ -196,7 +196,7 @@ const BREAKDOWN_SECTIONS = [
     </div>
 
     <!-- Breakdowns -->
-    <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:xl:grid-cols-3 tw:gap-3">
+    <ContentGrid min="18rem" gap="compact">
       <div
         v-for="section in BREAKDOWN_SECTIONS"
         :key="section.title"
@@ -219,6 +219,6 @@ const BREAKDOWN_SECTIONS = [
         </div>
         <p v-else class="tw:text-xs tw:text-secondary tw:italic">No data in range.</p>
       </div>
-    </div>
+    </ContentGrid>
   </BasePage>
 </template>

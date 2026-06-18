@@ -72,7 +72,7 @@ const activeTab = computed({
 
     <!-- Content -->
     <div v-else-if="supplier" class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto">
-      <div class="tw:p-8 tw:space-y-8">
+      <div class="tw:py-8 tw:space-y-8">
         <!-- Header Section -->
         <section
           class="tw:flex tw:flex-col tw:md:flex-row tw:md:items-center tw:justify-between tw:gap-4"
