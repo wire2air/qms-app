@@ -123,12 +123,13 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [x] Normalized toast taxonomy (`positive/negative` → `success/error`, legacy aliased — zero break) + live-region a11y (errors assertive `alert`, rest polite `status`; dismiss `aria-label`). `ConfirmDialog` → `BaseConfirmDialog` rename **deferred to Phase 7** (it's ~24 auto-imported template consumers — a sweep, not a swap).
 - [ ] Stories + a11y for each shipped item (Tooltip/Drawer stories added; Menu/SelectMenu kept existing stories; ~39 new unit tests across the phase).
 
-## Phase 6 — Data Components  ⬜  `L–XL` · risk: low–med
+## Phase 6 — Data Components  🚧 IN PROGRESS  `L–XL` · risk: low–med
 
-- [ ] `BaseTable`: skeleton loading + `manual`/server mode (fixes pagination correctness) + `scope`/`aria-sort` + virtualization hook (`@tanstack/vue-virtual`).
-- [ ] **New:** `BasePagination` (extract from table), `BaseStatCard`, `BaseCard`, unified `BaseStatusState` (empty/error/success/not-found).
-- [ ] Merge `BaseChip` → `BaseBadge`; extract `BaseRailItem` behind `BaseStepper`+`BaseTimeline`; `BaseBreadcrumbs` → `nav/ol/aria-current`.
-- [ ] Stories + a11y.
+- [x] **New: `BaseCard`** (surface primitive — rounded-xl/border/bg-card/padding), **`BaseStatCard`** (KPI tile: icon box + value + label + trend + loading skeleton, on BaseCard + ContentGrid), **`BaseStatusState`** (unified empty/error/success/not-found via `variant`), **`BasePagination`** (rows-per-page + range + prev/next as a labelled `<nav>`, extracted from BaseTable and now consumed by it).
+- [x] **`BaseBreadcrumbs` → `nav`/`ol`/`aria-current`** (22 consumers, additive — visual unchanged).
+- [x] **Merged `BaseChip` → `BaseBadge`** (added `size` prop; migrated the 2 workflow consumers; deleted BaseChip). `scope`/`aria-sort` for BaseTable headers already shipped in Phase 4.
+- [ ] **`BaseTable` skeleton + `manual`/server mode** — *deferred (owner asked to leave BaseTable alone this pass).* `@tanstack/vue-virtual` virtualization **declined** for now (no new dep). `BaseRailItem` dedup of `BaseStepper`/`BaseTimeline` **deferred** (both 0 consumers — pure internal cleanup).
+- [x] Stories + unit tests for each shipped item (~46 new tests across the phase; build-storybook green).
 
 ## Phase 7 — App-Wide Refactor / Sweep  🚧 IN PROGRESS  `XL` · risk: medium
 
