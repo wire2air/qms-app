@@ -65,6 +65,9 @@ Every authenticated app page's root is `<BasePage>` — the single owner of cont
 - **`density`**: `comfortable` (default, `gap-6`) · `compact` (`gap-4`).
 - **Reuse, don't rebuild:** toolbar → `BaseFilterBar`; tabs → `BaseTabs`; titled groups → `PageSection`; card grids → `ContentGrid`. There is no `PageToolbar`/`PageTabs` — those are `BaseFilterBar`/`BaseTabs`.
 - **No page-level horizontal scroll** — only bounded table wrappers (`tw:overflow-x-auto`) scroll.
+- **The page title lives in the top bar.** `PageHeader` teleports the icon+title to the bar's left and `#actions` to its right (search sits centered between). Don't hand-roll an in-body `tw:text-3xl` title block, and don't `SafeTeleport to="#main-header-title"`/`#main-header-actions` directly — use `PageHeader`.
+- **One width, no inner box.** Don't wrap page content in a bespoke `tw:max-w-* tw:mx-auto` box or add page-level padding inside `BasePage` — content fills `BasePage`'s width and shares one gutter. (Card/dialog padding is fine.)
+- **Enforced by `npm run lint:layout`** (runs as part of `npm run lint`) — flags bespoke `max-w` content boxes, direct header teleports, and `PageHeader` without `BasePage`. Genuine exceptions (full-canvas editors, public pages) live in the allowlist in `scripts/check-page-layout.mjs`.
 - **List/index pages use whole-page scroll** (no `fullHeight`) — `BaseTable`'s sticky header keeps columns visible. Reserve `fullHeight` for detail/create pages that already have an internal scroll region (sticky toolbar/footer + a `tw:flex-1 tw:min-h-0 tw:overflow-auto` body).
 - **Full-canvas editors/designers are exempt** (e.g. `WorkflowEditor`, `FormAssignmentEditor`, the form builder) — a surface that fills the viewport with its own panes/scroll is not a content page; keep its `tw:flex tw:flex-col tw:h-full tw:overflow-hidden` root, don't wrap it in `BasePage`. Public/auth pages are also out of scope.
 
