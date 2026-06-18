@@ -45,10 +45,6 @@ const showUnarchiveConfirm = ref(false)
 
 useAutoSave(template, { onError: (err) => toast.error(err) })
 
-const breadcrumbs = computed(() => [
-  { label: 'Document Templates', to: getCompanyPath('/document-templates') },
-  { label: template.value?.name || 'Template' },
-])
 
 async function onPublish() {
   if (!template.value) return
@@ -94,13 +90,37 @@ function goBack() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
+  <BasePage width="standard" fullHeight>
+    <PageHeader v-if="template">
+      <template #title>
+        <div class="tw:flex tw:items-center tw:gap-3">
+          <!-- Editable name -->
+          <template v-if="editingName && canEdit">
+            <BaseTextInput
+              v-model="template.name"
+              placeholder="Template Name"
+              size="sm"
+              @keyup.enter="editingName = false"
+              @blur="editingName = false"
+            />
+          </template>
+          <h1
+            v-else
+            class="tw:text-3xl tw:font-black tw:text-on-sidebar"
+            :class="{ 'tw:cursor-pointer tw:hover:text-primary': canEdit }"
+            @click="canEdit && (editingName = true)"
+          >
+            {{ template.name }}
+          </h1>
 
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-3">
+          <DocumentTemplateStatusBadgeById :statusId="template.statusId" />
+        </div>
+      </template>
+      <template #subtitle>
+        Document prefix:
+        <span class="tw:font-mono tw:font-bold">{{ template.prefix }}</span>
+      </template>
+      <template #actions>
         <button
           v-if="canUpdate && template?.statusId === 'DRAFT'"
           class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:bg-primary tw:text-white tw:text-sm tw:font-medium tw:hover:bg-primary/90 tw:transition-colors"
@@ -125,8 +145,9 @@ function goBack() {
           <IconArchiveOff :size="16" />
           Unarchive
         </button>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
+
 
     <!-- Loading State -->
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
@@ -134,40 +155,8 @@ function goBack() {
     </div>
 
     <!-- Template Details -->
-    <div v-else-if="template" class="tw:flex-1 tw:overflow-y-auto tw:p-6">
-      <div class="tw:max-w-5xl tw:mx-auto tw:space-y-6">
-        <!-- Header -->
-        <div class="tw:flex tw:items-start tw:justify-between">
-          <div>
-            <div class="tw:flex tw:items-center tw:gap-3 tw:mb-2">
-              <!-- Editable name -->
-              <template v-if="editingName && canEdit">
-                <BaseTextInput
-                  v-model="template.name"
-                  placeholder="Template Name"
-                  size="sm"
-                  @keyup.enter="editingName = false"
-                  @blur="editingName = false"
-                />
-              </template>
-              <h1
-                v-else
-                class="tw:text-3xl tw:font-black tw:text-on-sidebar"
-                :class="{ 'tw:cursor-pointer tw:hover:text-primary': canEdit }"
-                @click="canEdit && (editingName = true)"
-              >
-                {{ template.name }}
-              </h1>
-
-              <DocumentTemplateStatusBadgeById :statusId="template.statusId" />
-            </div>
-            <p class="tw:text-secondary">
-              Document prefix:
-              <span class="tw:font-mono tw:font-bold">{{ template.prefix }}</span>
-            </p>
-          </div>
-        </div>
-
+    <div v-else-if="template" class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:py-6">
+      <div class="tw:space-y-6">
         <!-- Basic Information Card -->
         <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
           <div
@@ -292,7 +281,7 @@ function goBack() {
       </button>
     </div>
 
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="showPublishConfirm"
       title="Publish template"
       message="Once you publish this template, it can be used in documents — but you won't be able to edit it after publishing. Continue?"
@@ -300,7 +289,7 @@ function goBack() {
       @ok="onPublish"
     />
 
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="showArchiveConfirm"
       title="Archive template"
       message="Once this template is archived, you won't be able to edit it or use it for new documents. Continue?"
@@ -308,12 +297,12 @@ function goBack() {
       @ok="onArchive"
     />
 
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="showUnarchiveConfirm"
       title="Unarchive template"
       message="This template will return to Draft status — it will be editable again, but you'll need to publish it before it can be used for new documents. Continue?"
       okLabel="Unarchive"
       @ok="onUnarchive"
     />
-  </div>
+  </BasePage>
 </template>

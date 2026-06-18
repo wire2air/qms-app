@@ -59,25 +59,22 @@ const STATUS_OPTIONS = [
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader title="Training Library" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton
-        v-if="canCreate"
-        variant="primary"
-        @click="router.push(getCompanyPath('/trainings/create'))"
-      >
-        <IconPlus :size="16" class="tw:mr-1" /> New Training
-      </BaseButton>
-    </SafeTeleport>
-
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Training Library</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Create and manage training programs for your team.
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconBook"
+      title="Training Library"
+      subtitle="Create and manage training programs for your team."
+    >
+      <template #actions>
+        <BaseButton
+          v-if="canCreate"
+          variant="primary"
+          @click="router.push(getCompanyPath('/trainings/create'))"
+        >
+          <IconPlus :size="16" class="tw:mr-1" /> New Training
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Stat Cards -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
@@ -164,5 +161,5 @@ const STATUS_OPTIONS = [
     </div>
 
     <TrainingsTable :rows="trainings" :canUpdate="canUpdate" :canDelete="canDelete" />
-  </div>
+  </BasePage>
 </template>

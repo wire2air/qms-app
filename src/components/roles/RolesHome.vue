@@ -14,29 +14,23 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader :icon="IconShield" title="Roles Administration" />
-
-    <SafeTeleport to="#main-header-actions">
-      <button
-        v-if="canCreateRole"
-        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:bg-primary tw:text-white tw:font-bold tw:rounded-lg tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:cursor-pointer"
-        @click="showCreateDialog = true"
-      >
-        <IconPlus :size="18" />
-        Create New Role
-      </button>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Roles Administration</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage and define granular permissions for JSON-driven metadata templates.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconShield"
+      title="Roles Administration"
+      subtitle="Manage and define granular permissions for JSON-driven metadata templates."
+    >
+      <template #actions>
+        <button
+          v-if="canCreateRole"
+          class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:bg-primary tw:text-white tw:font-bold tw:rounded-lg tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:cursor-pointer"
+          @click="showCreateDialog = true"
+        >
+          <IconPlus :size="18" />
+          Create New Role
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- Filter Toolbar -->
     <div class="tw:flex tw:items-center tw:gap-3">
@@ -60,7 +54,7 @@ onMounted(() => {
 
     <!-- Roles List -->
     <RolesList :roles="roles" :loading="loading" />
-  </div>
+  </BasePage>
 
   <!-- Create Role Dialog -->
   <RoleCreateDialog v-model="showCreateDialog" />

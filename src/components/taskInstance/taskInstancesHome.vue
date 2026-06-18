@@ -20,20 +20,15 @@ const subtitle = computed(() => {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div>
-        <div class="tw:text-xl tw:font-bold tw:text-on-main">{{ title }}</div>
-        <div class="tw:text-xs tw:text-secondary tw:hidden tw:sm:block">{{ subtitle }}</div>
-      </div>
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="outline" @click="tableRef?.exportCsv()">
-        <IconDownload :size="16" class="tw:mr-1" />
-        Export
-      </BaseButton>
-    </SafeTeleport>
+  <BasePage width="standard">
+    <PageHeader :title="title" :subtitle="subtitle">
+      <template #actions>
+        <BaseButton variant="outline" @click="tableRef?.exportCsv()">
+          <IconDownload :size="16" class="tw:mr-1" />
+          Export
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <TaskInstancesFilterToolbar v-model:filters="filters" />
 
@@ -49,5 +44,5 @@ const subtitle = computed(() => {
         />
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

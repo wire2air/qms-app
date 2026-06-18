@@ -387,7 +387,7 @@ function activityLabel(statusId) {
         <span class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
           {{ displayNumber ?? instanceStep.stepNumber }}. {{ instanceStep.name || 'Step' }}
         </span>
-        <BaseBadge class="tw:text-[10px]" :class="getStepStatusClass(instanceStep.statusId)">
+        <BaseBadge class="tw:text-micro" :class="getStepStatusClass(instanceStep.statusId)">
           {{ getStatusLabel(instanceStep.statusId) }}
         </BaseBadge>
       </div>
@@ -467,12 +467,12 @@ function activityLabel(statusId) {
         <div class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:min-w-0">
           <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
             <span
-              class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+              class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
               :class="activityChipClass(row.statusId)"
             >
               {{ activityLabel(row.statusId) }}
             </span>
-            <span class="tw:text-[10px] tw:text-secondary">
+            <span class="tw:text-micro tw:text-secondary">
               {{ row.at?.formatDate?.('date-time') ?? '' }}
             </span>
           </div>

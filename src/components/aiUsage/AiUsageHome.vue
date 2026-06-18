@@ -17,64 +17,60 @@ function pickPeriod(days) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
-    <PageHeader :icon="IconChartBar" title="AI Usage" />
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <!-- Scope toggle: only shown to admins -->
-        <div
-          v-if="usage.canViewAll.value"
-          class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:overflow-hidden"
-        >
-          <button
-            class="tw:flex tw:items-center tw:gap-1 tw:px-2.5 tw:py-1 tw:text-xs tw:font-medium tw:transition-colors"
-            :class="usage.scope.value === 'mine'
-              ? 'tw:bg-primary tw:text-white'
-              : 'tw:text-secondary tw:hover:bg-main-hover'"
-            @click="usage.scope.value = 'mine'"
-          >
-            <IconUser :size="13" /> Mine
-          </button>
-          <button
-            class="tw:flex tw:items-center tw:gap-1 tw:px-2.5 tw:py-1 tw:text-xs tw:font-medium tw:transition-colors"
-            :class="usage.scope.value === 'all'
-              ? 'tw:bg-primary tw:text-white'
-              : 'tw:text-secondary tw:hover:bg-main-hover'"
-            @click="usage.scope.value = 'all'"
-          >
-            <IconUsers :size="13" /> Everyone
-          </button>
-        </div>
-
-        <!-- Period toggle -->
-        <div class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:overflow-hidden">
-          <button
-            v-for="p in periods"
-            :key="p.days"
-            class="tw:px-2.5 tw:py-1 tw:text-xs tw:font-medium tw:transition-colors"
-            :class="activePeriodDays === p.days
-              ? 'tw:bg-primary tw:text-white'
-              : 'tw:text-secondary tw:hover:bg-main-hover'"
-            @click="pickPeriod(p.days)"
-          >
-            {{ p.label }}
-          </button>
-        </div>
-
-        <BaseButton variant="outline" size="sm" @click="usage.refresh">
-          <IconRefresh :size="14" class="tw:mr-1" /> Refresh
-        </BaseButton>
-      </div>
-    </SafeTeleport>
-
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">AI Usage</div>
-      <div class="tw:text-sm tw:text-secondary">
+  <BasePage width="standard">
+    <PageHeader :icon="IconChartBar" title="AI Usage">
+      <template #subtitle>
         {{ usage.scope.value === 'all' ? 'Across all users' : 'Your activity' }} ·
         {{ activePeriodDays }} days
-      </div>
-    </div>
+      </template>
+      <template #actions>
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <!-- Scope toggle: only shown to admins -->
+          <div
+            v-if="usage.canViewAll.value"
+            class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:overflow-hidden"
+          >
+            <button
+              class="tw:flex tw:items-center tw:gap-1 tw:px-2.5 tw:py-1 tw:text-xs tw:font-medium tw:transition-colors"
+              :class="usage.scope.value === 'mine'
+                ? 'tw:bg-primary tw:text-white'
+                : 'tw:text-secondary tw:hover:bg-main-hover'"
+              @click="usage.scope.value = 'mine'"
+            >
+              <IconUser :size="13" /> Mine
+            </button>
+            <button
+              class="tw:flex tw:items-center tw:gap-1 tw:px-2.5 tw:py-1 tw:text-xs tw:font-medium tw:transition-colors"
+              :class="usage.scope.value === 'all'
+                ? 'tw:bg-primary tw:text-white'
+                : 'tw:text-secondary tw:hover:bg-main-hover'"
+              @click="usage.scope.value = 'all'"
+            >
+              <IconUsers :size="13" /> Everyone
+            </button>
+          </div>
+
+          <!-- Period toggle -->
+          <div class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:overflow-hidden">
+            <button
+              v-for="p in periods"
+              :key="p.days"
+              class="tw:px-2.5 tw:py-1 tw:text-xs tw:font-medium tw:transition-colors"
+              :class="activePeriodDays === p.days
+                ? 'tw:bg-primary tw:text-white'
+                : 'tw:text-secondary tw:hover:bg-main-hover'"
+              @click="pickPeriod(p.days)"
+            >
+              {{ p.label }}
+            </button>
+          </div>
+
+          <BaseButton variant="outline" size="sm" @click="usage.refresh">
+            <IconRefresh :size="14" class="tw:mr-1" /> Refresh
+          </BaseButton>
+        </div>
+      </template>
+    </PageHeader>
 
     <AiUsageHeadline :overview="usage.overview.value" :loading="usage.overviewLoading.value" />
 
@@ -124,5 +120,5 @@ function pickPeriod(days) {
       :loading="usage.jobsLoading.value"
       @page="usage.jobsOffset.value = $event"
     />
-  </div>
+  </BasePage>
 </template>

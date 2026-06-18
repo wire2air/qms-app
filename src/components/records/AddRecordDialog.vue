@@ -475,7 +475,7 @@ const templateSchema = computed(() => {
       leaveFromClass="tw:translate-y-0"
       leaveToClass="tw:translate-y-full"
     >
-      <div v-if="model" class="tw:fixed tw:inset-0 tw:z-50 tw:flex tw:flex-col tw:bg-main">
+      <div v-if="model" class="tw:fixed tw:inset-0 tw:z-modal tw:flex tw:flex-col tw:bg-main">
         <div class="tw:flex tw:flex-col tw:h-full tw:flex-nowrap">
           <!-- Header -->
           <div class="tw:flex tw:items-center tw:border-b tw:border-divider tw:py-3 tw:px-4">

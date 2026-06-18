@@ -285,12 +285,16 @@ function goBack() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <PageHeader :icon="IconTruck" title="New Supplier Onboarding" />
+  <BasePage width="standard" fullHeight>
+    <PageHeader
+      :icon="IconTruck"
+      title="New Supplier Onboarding"
+      subtitle="Complete the profile below to initiate the technical qualification and quality assurance audit for new supply partners."
+    />
 
     <!-- Scrollable content -->
-    <div class="tw:flex-1 tw:overflow-y-auto tw:pb-24">
-      <div class="tw:max-w-5xl tw:mx-auto tw:px-6 tw:py-8">
+    <div class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
+      <div class="tw:py-8">
         <!-- Breadcrumbs -->
         <div class="tw:mb-4 tw:flex tw:items-center tw:text-sm tw:text-secondary tw:gap-1">
           <BaseClickableRow
@@ -302,17 +306,6 @@ function goBack() {
           >
           <IconChevronRight :size="14" />
           <span class="tw:text-on-sidebar tw:font-medium">Onboarding</span>
-        </div>
-
-        <!-- Page Header -->
-        <div class="tw:mb-8">
-          <h1 class="tw:text-3xl tw:font-black tw:text-on-sidebar tw:tracking-tight">
-            New Supplier Onboarding
-          </h1>
-          <p class="tw:text-secondary tw:mt-2 tw:max-w-2xl">
-            Complete the profile below to initiate the technical qualification and quality assurance
-            audit for new supply partners.
-          </p>
         </div>
 
         <!-- General error -->
@@ -551,9 +544,9 @@ function goBack() {
 
     <!-- Sticky Footer Action Bar -->
     <div
-      class="tw:sticky tw:bottom-0 tw:w-full tw:bg-main/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-50"
+      class="tw:sticky tw:bottom-0 tw:w-full tw:bg-main/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-modal"
     >
-      <div class="tw:max-w-5xl tw:mx-auto tw:flex tw:items-center tw:justify-between">
+      <div class="tw:flex tw:items-center tw:justify-between">
         <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary">
           <span class="tw:w-2 tw:h-2 tw:rounded-full tw:bg-warning tw:animate-pulse" />
           Unsaved changes
@@ -567,5 +560,5 @@ function goBack() {
         </div>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

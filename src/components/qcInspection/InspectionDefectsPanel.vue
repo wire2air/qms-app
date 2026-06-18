@@ -69,13 +69,13 @@ const verdict = computed(() => {
           </tr>
         </tbody>
       </table>
-      <p v-if="singleResult" class="tw:text-[11px] tw:text-secondary tw:mt-2">
+      <p v-if="singleResult" class="tw:text-caption tw:text-secondary tw:mt-2">
         <strong>Single-result inspection:</strong> the one judgment applies to the whole sample, so a
         failing test marks all {{ sampleSize ?? 'n' }} units defective for that class (→ reject).
         Switch to <strong>Per sample</strong> capture to accept/reject on individual defective units.
         Advisory — the QA reviewer records the final disposition.
       </p>
-      <p v-else class="tw:text-[11px] tw:text-secondary tw:mt-2">
+      <p v-else class="tw:text-caption tw:text-secondary tw:mt-2">
         Counts are <strong>defective units</strong> per class — a unit is one defective if any of
         its tests in that class fail (so a unit failing several tests still counts once), compared to
         the sampling plan's accept/reject numbers. Advisory — the QA reviewer records the final

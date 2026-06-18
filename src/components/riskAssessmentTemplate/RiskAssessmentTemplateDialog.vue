@@ -393,7 +393,7 @@ async function onSubmit() {
           </div>
 
           <!-- Severity axis label -->
-          <div class="tw:text-[10px] tw:text-secondary tw:text-center tw:mb-1 tw:uppercase tw:tracking-wide tw:font-semibold">
+          <div class="tw:text-micro tw:text-secondary tw:text-center tw:mb-1 tw:uppercase tw:tracking-wide tw:font-semibold">
             ← Severity →
           </div>
 

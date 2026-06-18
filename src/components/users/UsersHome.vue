@@ -47,28 +47,17 @@ const loading = computed(() => users.value === undefined)
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:overflow-hidden tw:h-full tw:p-5">
-    <PageHeader :icon="IconUsers" title="Users" />
+  <BasePage width="standard">
+    <PageHeader :icon="IconUsers" title="Users" subtitle="Manage your organization's users.">
+      <template #actions>
+        <BaseButton v-if="canCreateUser" @click="showCreateDialog = true">Create User</BaseButton>
+      </template>
+    </PageHeader>
 
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateUser" @click="showCreateDialog = true"> Create User </BaseButton>
-    </SafeTeleport>
+    <UsersFilterToolbar v-model:filters="filters" />
 
-    <div class="">
-      <div class="tw:flex tw:flex-col tw:gap-3">
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Users</div>
-          <div class="tw:text-sm tw:text-secondary">Manage your organization's users.</div>
-        </div>
-
-        <UsersFilterToolbar v-model:filters="filters" />
-      </div>
-    </div>
-
-    <div class="tw:flex tw:flex-col tw:flex-1 tw:gap-5 tw:overflow-auto">
-      <UsersList :users="users || []" :loading="loading" />
-    </div>
+    <UsersList :users="users || []" :loading="loading" />
 
     <UsersCreateUserDialog v-model="showCreateDialog" />
-  </div>
+  </BasePage>
 </template>

@@ -110,24 +110,20 @@ const BREAKDOWN_SECTIONS = [
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
-    <PageHeader :icon="IconChartBar" title="Complaint Reports" />
-
-    <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:flex-wrap">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Reports</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Ticket volume, response performance and satisfaction across the support queue.
-        </div>
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconChartBar"
+      title="Complaint Reports"
+      subtitle="Ticket volume, response performance and satisfaction across the support queue."
+    >
+      <template #actions>
         <BaseSelectMenu v-model="rangeDays" :items="RANGES" :required="true" />
         <BaseButton variant="outline" @click="router.push(getCompanyPath('/customer-complaints'))">
           <IconArrowLeft :size="16" class="tw:mr-1" />
           Back to tickets
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Headline metrics -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-5 tw:gap-3">
@@ -200,7 +196,7 @@ const BREAKDOWN_SECTIONS = [
     </div>
 
     <!-- Breakdowns -->
-    <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:xl:grid-cols-3 tw:gap-3">
+    <ContentGrid min="18rem" gap="compact">
       <div
         v-for="section in BREAKDOWN_SECTIONS"
         :key="section.title"
@@ -223,6 +219,6 @@ const BREAKDOWN_SECTIONS = [
         </div>
         <p v-else class="tw:text-xs tw:text-secondary tw:italic">No data in range.</p>
       </div>
-    </div>
-  </div>
+    </ContentGrid>
+  </BasePage>
 </template>

@@ -69,23 +69,20 @@ function onDialogClose() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader :icon="IconLayoutGrid" title="Risk Assessment Templates" />
-
-    <!-- "New Template" header-action only on the Templates tab; the
-         Hazard Categories tab has its own "Add Category" affordance. -->
-    <SafeTeleport v-if="activeTab === 'templates'" to="#main-header-actions">
-      <BaseButton v-if="canCreate" @click="showCreateDialog = true"> New Template </BaseButton>
-    </SafeTeleport>
-
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Risk Assessment Templates</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Configure risk matrices and the hazard categories used when finalising an assessment.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconLayoutGrid"
+      title="Risk Assessment Templates"
+      subtitle="Configure risk matrices and the hazard categories used when finalising an assessment."
+    >
+      <!-- "New Template" header-action only on the Templates tab; the
+           Hazard Categories tab has its own "Add Category" affordance. -->
+      <template #actions>
+        <BaseButton v-if="activeTab === 'templates' && canCreate" @click="showCreateDialog = true">
+          New Template
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Tabs — Templates (CRUD on risk_assessment_templates) vs Hazard
          Categories (admin on hazard_categories, the per-tenant lookup
@@ -122,12 +119,12 @@ function onDialogClose() {
       @close="onDialogClose"
     />
 
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="confirmDelete.open"
       title="Delete Risk Assessment Template"
       :message="`Are you sure you want to delete '${confirmDelete.template?.name}'? This cannot be undone.`"
       okLabel="Delete"
       @ok="confirmDeleteTemplate"
     />
-  </div>
+  </BasePage>
 </template>

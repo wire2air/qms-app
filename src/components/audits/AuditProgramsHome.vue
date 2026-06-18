@@ -130,7 +130,7 @@ function typeBadgeClass(typeId) {
             </td>
             <td class="tw:px-4 tw:py-3">
               <span
-                class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+                class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
                 :class="typeBadgeClass(row.programTypeId)"
               >
                 {{ TYPE_LABELS[row.programTypeId] || row.programTypeId }}
@@ -157,7 +157,7 @@ function typeBadgeClass(typeId) {
             </td>
             <td class="tw:px-4 tw:py-3">
               <span
-                class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+                class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
                 :class="
                   row.active
                     ? 'tw:bg-emerald-100 tw:text-emerald-700'

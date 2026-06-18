@@ -100,7 +100,7 @@ const menuItems = computed(() => {
       <div
         class="tw:mt-0.5 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:font-bold tw:shrink-0"
         :class="[
-          isChild ? 'tw:w-5 tw:h-5 tw:text-[10px]' : 'tw:w-6 tw:h-6 tw:text-xs',
+          isChild ? 'tw:w-5 tw:h-5 tw:text-micro' : 'tw:w-6 tw:h-6 tw:text-xs',
           isSelected ? 'tw:bg-primary tw:text-white' : 'tw:bg-main-hover tw:text-secondary',
         ]"
       >
@@ -114,7 +114,7 @@ const menuItems = computed(() => {
             {{ step.name }}
           </BaseText>
           <span
-            class="tw:text-[10px] tw:font-bold tw:px-1.5 tw:py-0.5 tw:rounded tw:shrink-0"
+            class="tw:text-micro tw:font-bold tw:px-1.5 tw:py-0.5 tw:rounded tw:shrink-0"
             :class="
               step.approvalRule === 'ALL'
                 ? 'tw:bg-primary/10 tw:text-primary'

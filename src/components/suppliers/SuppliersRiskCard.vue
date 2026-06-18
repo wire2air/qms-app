@@ -30,7 +30,7 @@ defineProps({
       </div>
       <div class="tw:p-6 tw:space-y-6">
         <div>
-          <label class="ds-label-sm tw:text-secondary tw:block tw:mb-2">Current Risk Level</label>
+          <BaseLabel color="secondary" class="tw:mb-2">Current Risk Level</BaseLabel>
           <SupplierRiskLevelSelectMenu v-if="canUpdate" v-model="supplier.riskLevel" />
           <template v-else>
             <SupplierRiskLevelBadge v-if="supplier.riskLevel" :riskLevelId="supplier.riskLevel" />

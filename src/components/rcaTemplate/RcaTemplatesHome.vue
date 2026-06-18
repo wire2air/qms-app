@@ -74,25 +74,21 @@ function onDialogClose() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader :icon="IconSitemap" title="RCA Templates" />
-
-    <!-- The "New Template" header-action only makes sense on the Templates
-         tab. The Categories tab has its own "Add Category" button inside
-         the card. -->
-    <SafeTeleport v-if="activeTab === 'templates'" to="#main-header-actions">
-      <BaseButton v-if="canCreate" @click="showCreateDialog = true"> New Template </BaseButton>
-    </SafeTeleport>
-
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">RCA Templates</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Pre-configure Root Cause Analysis frameworks and the categories supplier / analysts pick
-          when finalising an analysis.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconSitemap"
+      title="RCA Templates"
+      subtitle="Pre-configure Root Cause Analysis frameworks and the categories supplier / analysts pick when finalising an analysis."
+    >
+      <!-- The "New Template" header-action only makes sense on the Templates
+           tab. The Categories tab has its own "Add Category" button inside
+           the card. -->
+      <template #actions>
+        <BaseButton v-if="activeTab === 'templates' && canCreate" @click="showCreateDialog = true">
+          New Template
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Tabs — Templates (CRUD on rca_templates) vs Categories (admin on
          root_cause_categories, the per-tenant lookup used by the RCA
@@ -125,12 +121,12 @@ function onDialogClose() {
 
     <RcaTemplateDialog v-model="showCreateDialog" :template="editTemplate" @close="onDialogClose" />
 
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="confirmDelete.open"
       title="Delete RCA Template"
       :message="`Are you sure you want to delete '${confirmDelete.template?.name}'? This cannot be undone.`"
       okLabel="Delete"
       @ok="confirmDeleteTemplate"
     />
-  </div>
+  </BasePage>
 </template>

@@ -27,11 +27,6 @@ watch(
 
 const loading = computed(() => capa.value === undefined)
 
-const breadcrumbs = computed(() => [
-  { label: 'CAPAs', to: getCompanyPath('/capas') },
-  { label: capa.value?.capaNumber || capa.value?.title || 'Loading…' },
-])
-
 const isEditable = computed(
   () => capa.value && capa.value.statusId !== 'CLOSED' && capa.value.statusId !== 'CANCELLED',
 )
@@ -364,13 +359,10 @@ function onCreateLinkedChangeRequest() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard" fullHeight>
+    <PageHeader :icon="IconClipboardList">
+      <template #title>{{ capa?.capaNumber || capa?.title || 'CAPA' }}</template>
+      <template #actions>
         <AskAiButton
           v-if="capa?.id"
           entityType="Capa"
@@ -425,12 +417,12 @@ function onCreateLinkedChangeRequest() {
         >
           Create Change Request
         </BaseButton>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
 
     <BaseSpinner v-if="loading" centered size="md" />
 
-    <div v-else-if="capa" class="tw:overflow-y-auto tw:flex-1">
+    <div v-else-if="capa" class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <RecordTrailBreadcrumb />
         <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_16fr] tw:gap-4 tw:items-start">
@@ -451,14 +443,14 @@ function onCreateLinkedChangeRequest() {
                      non-APPROVAL steps. -->
                 <span
                   v-if="capa.isSupplierFacing"
-                  class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+                  class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
                   title="Supplier-facing: non-approval workflow steps draw from this CAPA's supplier users. Approval steps stay internal."
                 >
                   Supplier-facing
                 </span>
                 <span
                   v-else
-                  class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+                  class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
                 >
                   Internal
                 </span>
@@ -870,5 +862,5 @@ function onCreateLinkedChangeRequest() {
         </BaseButton>
       </div>
     </BaseDialog>
-  </div>
+  </BasePage>
 </template>

@@ -50,7 +50,7 @@ function open() {
 <template>
   <button
     type="button"
-    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-medium tw:bg-emerald-100 tw:text-emerald-700 tw:rounded tw:pl-1.5 tw:pr-1.5 tw:py-0.5 tw:cursor-pointer tw:border-0 tw:hover:bg-emerald-200"
+    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-medium tw:bg-emerald-100 tw:text-emerald-700 tw:rounded tw:pl-1.5 tw:pr-1.5 tw:py-0.5 tw:cursor-pointer tw:border-0 tw:hover:bg-emerald-200"
     :title="`Open linked ${kind}`"
     @click.stop="open"
   >

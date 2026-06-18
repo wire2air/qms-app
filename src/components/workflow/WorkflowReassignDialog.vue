@@ -198,7 +198,7 @@ defineExpose({ open })
               {{ [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email }}
               <span
                 v-if="isUserAlreadyAssigned(user.id)"
-                class="tw:text-[10px] tw:font-medium tw:text-secondary tw:ml-1"
+                class="tw:text-micro tw:font-medium tw:text-secondary tw:ml-1"
               >
                 (Currently assigned)
               </span>

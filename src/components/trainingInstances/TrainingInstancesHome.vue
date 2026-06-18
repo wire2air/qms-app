@@ -43,15 +43,12 @@ const STATUS_OPTIONS = [
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader title="Training Instances" />
-
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Training Instances</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Track launched trainings and assignee progress.
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconSchool"
+      title="Training Instances"
+      subtitle="Track launched trainings and assignee progress."
+    />
 
     <!-- Stat Cards -->
     <div class="tw:grid tw:grid-cols-3 tw:gap-3">
@@ -140,5 +137,5 @@ const STATUS_OPTIONS = [
         :showManager="true"
       />
     </div>
-  </div>
+  </BasePage>
 </template>

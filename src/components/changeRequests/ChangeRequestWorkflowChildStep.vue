@@ -240,7 +240,7 @@ function getStatusLabel(statusId) {
         <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
           {{ displayNumber }}. {{ instanceStep.name || 'Sub-task' }}
         </span>
-        <BaseBadge class="tw:text-[10px]" :class="getStepStatusClass(instanceStep.statusId)">
+        <BaseBadge class="tw:text-micro" :class="getStepStatusClass(instanceStep.statusId)">
           {{ getStatusLabel(instanceStep.statusId) }}
         </BaseBadge>
       </button>

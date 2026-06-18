@@ -174,7 +174,7 @@ watch(
       <div
         class="tw:rounded-full tw:flex tw:items-center tw:justify-center tw:font-bold tw:shrink-0"
         :class="[
-          isChild ? 'tw:w-5 tw:h-5 tw:text-[10px]' : 'tw:w-6 tw:h-6 tw:text-xs',
+          isChild ? 'tw:w-5 tw:h-5 tw:text-micro' : 'tw:w-6 tw:h-6 tw:text-xs',
           modelValue ? 'tw:bg-primary tw:text-white' : 'tw:bg-main-hover tw:text-secondary',
         ]"
       >
@@ -186,14 +186,14 @@ watch(
       </span>
       <span
         v-if="usesSupplierPicker"
-        class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5"
+        class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5"
         :title="`Candidates are active users at this ${module.displayName}'s supplier.`"
       >
         Supplier picker
       </span>
       <span
         v-else-if="isSupplierFacing && isApprovalStep"
-        class="tw:text-[10px] tw:rounded tw:bg-amber-50 tw:text-amber-700 tw:px-1.5 tw:py-0.5"
+        class="tw:text-micro tw:rounded tw:bg-amber-50 tw:text-amber-700 tw:px-1.5 tw:py-0.5"
         title="Approval steps stay internal even on supplier-facing records."
       >
         Approval · Internal only

@@ -36,18 +36,14 @@ const canManageDefects = computed(() => isAllowed(['qcInspection:catalog:write']
 </script>
 
 <template>
-  <div class="tw:p-5">
-    <PageHeader :icon="IconTestPipe" title="QC Inspection" />
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconTestPipe"
+      title="QC Inspection"
+      subtitle="Incoming, in-process, final and outgoing inspection — specifications, lots, results and disposition."
+    />
 
     <div class="tw:flex tw:flex-col tw:gap-5 tw:max-w-7xl">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">QC Inspection</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Incoming, in-process, final and outgoing inspection — specifications, lots, results and
-          disposition.
-        </div>
-      </div>
-
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="QC Inspection sections">
         <div class="tw:mt-6">
           <BaseTabPanel value="lots">
@@ -71,5 +67,5 @@ const canManageDefects = computed(() => isAllowed(['qcInspection:catalog:write']
         </div>
       </BaseTabs>
     </div>
-  </div>
+  </BasePage>
 </template>

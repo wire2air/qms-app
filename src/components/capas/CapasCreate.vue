@@ -216,19 +216,15 @@ async function handleReviewersConfirmed(reviewers) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs
-        :items="[{ label: 'CAPAs', to: getCompanyPath('/capas') }, { label: 'Create CAPA' }]"
-      />
-    </SafeTeleport>
+  <BasePage width="standard" fullHeight>
+    <PageHeader title="Create CAPA">
+      <template #actions>
+        <BaseButton variant="primary" :disabled="saving" @click="handleSubmit">Submit</BaseButton>
+      </template>
+    </PageHeader>
 
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="primary" :disabled="saving" @click="handleSubmit">Submit</BaseButton>
-    </SafeTeleport>
-
-    <div class="tw:overflow-y-auto tw:flex-1">
-      <div class="tw:max-w-3xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">
+    <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
+      <div class="tw:py-6 tw:flex tw:flex-col tw:gap-4">
         <!-- Source NC chip -->
         <div
           v-if="sourceNc"
@@ -328,7 +324,7 @@ async function handleReviewersConfirmed(reviewers) {
                 <BaseCheckbox v-model="form.isSupplierFacing" />
                 <div>
                   <div class="tw:text-sm tw:text-on-main">Supplier-facing CAPA</div>
-                  <div class="tw:text-[11px] tw:text-secondary">
+                  <div class="tw:text-caption tw:text-secondary">
                     Workflow steps will be reviewed by users from the selected supplier (you'll pick
                     the specific reviewer per step at submit). Lockable once submitted.
                   </div>
@@ -358,7 +354,7 @@ async function handleReviewersConfirmed(reviewers) {
         </div>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>
 
 <style scoped>

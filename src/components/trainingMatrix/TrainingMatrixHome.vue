@@ -45,21 +45,17 @@ async function handleRemoveRole(rule) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader title="Training Matrix" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" variant="primary" @click="openAddNew">
-        <IconPlus :size="16" class="tw:mr-1" /> Add Rule
-      </BaseButton>
-    </SafeTeleport>
-
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Training Matrix</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Define which trainings are automatically assigned when a user gets a role.
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      title="Training Matrix"
+      subtitle="Define which trainings are automatically assigned when a user gets a role."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreate" variant="primary" @click="openAddNew">
+          <IconPlus :size="16" class="tw:mr-1" /> Add Rule
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <div
       v-if="!groupedRows.length"
@@ -97,5 +93,5 @@ async function handleRemoveRole(rule) {
     </div>
 
     <TrainingMatrixAddDialog v-model="showAddDialog" :trainingId="presetTrainingId" />
-  </div>
+  </BasePage>
 </template>

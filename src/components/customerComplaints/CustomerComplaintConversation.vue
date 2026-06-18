@@ -144,7 +144,7 @@ function trustedHtml(message) {
           <span class="tw:font-medium">{{ senderLabel(message) }}</span>
           <BaseBadge
             v-if="isNote(message)"
-            class="tw:bg-amber-100 tw:text-amber-700 tw:text-[10px]"
+            class="tw:bg-amber-100 tw:text-amber-700 tw:text-micro"
           >
             Internal note
           </BaseBadge>

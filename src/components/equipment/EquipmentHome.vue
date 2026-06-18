@@ -135,23 +135,19 @@ async function recordCalibration(e) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
-    <PageHeader :icon="IconTool" title="Equipment" :iconSize="22" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" variant="primary" @click="showCreateDialog = true">
-        <IconPlus :size="16" />
-        New Equipment
-      </BaseButton>
-    </SafeTeleport>
-
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Equipment</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Instruments, machines, and other equipment tracked by the QMS. Log books reference equipment
-        for calibration, preventive maintenance, and equipment-specific routines.
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconTool"
+      title="Equipment"
+      subtitle="Instruments, machines, and other equipment tracked by the QMS. Log books reference equipment for calibration, preventive maintenance, and equipment-specific routines."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreate" variant="primary" @click="showCreateDialog = true">
+          <IconPlus :size="16" />
+          New Equipment
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
     <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
@@ -250,7 +246,7 @@ async function recordCalibration(e) {
             </td>
             <td class="tw:px-3 tw:py-2">
               <span
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:rounded tw:px-2 tw:py-0.5"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:rounded tw:px-2 tw:py-0.5"
                 :class="statusBadgeClass(e.statusId)"
               >
                 {{ e.statusId?.replace(/_/g, ' ') }}
@@ -318,5 +314,5 @@ async function recordCalibration(e) {
       :equipment="editingEquipment"
       @updated="onUpdated"
     />
-  </div>
+  </BasePage>
 </template>

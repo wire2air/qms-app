@@ -6,8 +6,10 @@
  *
  * @example
  *   const toast = useToast()
- *   toast.notify({ type: 'positive', message: 'Saved!' })
- *   toast.notify({ type: 'negative', message: 'Failed', timeout: 5000 })
+ *   toast.success('Saved!')
+ *   toast.error('Failed', { timeout: 5000 })
+ *   toast.notify({ type: 'success', message: 'Saved!' }) // success|error|warning|info
+ *   // Legacy positive/negative are still accepted and normalized to success/error.
  */
 
 import { ValidationError } from '@syncEngine/index'
@@ -21,7 +23,7 @@ const timers = new Map()
 
 /**
  * @typedef {Object} ToastOptions
- * @property {'positive'|'negative'|'warning'|'info'} type
+ * @property {'success'|'error'|'warning'|'info'|'positive'|'negative'} type  positive/negative are legacy aliases
  * @property {string} message
  * @property {string} [caption]
  * @property {'top'|'top-right'|'top-left'|'bottom'|'bottom-right'|'bottom-left'|'center'} [position='top']
@@ -46,8 +48,12 @@ const timers = new Map()
  * @param {ToastOptions} options
  * @returns {number} toast id (for programmatic dismiss)
  */
+// Legacy Quasar-shape aliases → canonical semantic types.
+const TYPE_ALIAS = { positive: 'success', negative: 'error' }
+
 function notify(options) {
-  const type = options.type || 'info'
+  const rawType = options.type || 'info'
+  const type = TYPE_ALIAS[rawType] || rawType
   const message = options.message || ''
   const caption = options.caption || ''
 
@@ -105,7 +111,7 @@ function dismiss(id) {
 }
 
 function success(message, options = {}) {
-  return notify({ ...options, type: 'positive', message })
+  return notify({ ...options, type: 'success', message })
 }
 
 function error(message, options = {}) {
@@ -115,7 +121,7 @@ function error(message, options = {}) {
     message = message.message
   }
 
-  return notify({ ...options, type: 'negative', message })
+  return notify({ ...options, type: 'error', message })
 }
 
 function warning(message, options = {}) {

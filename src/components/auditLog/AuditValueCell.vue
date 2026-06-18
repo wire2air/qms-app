@@ -94,14 +94,14 @@ function humanizeCode(str) {
     </span>
     <button
       v-if="isJson"
-      class="tw:text-[10px] tw:text-secondary tw:underline tw:underline-offset-2 tw:pt-0.5"
+      class="tw:text-micro tw:text-secondary tw:underline tw:underline-offset-2 tw:pt-0.5"
       @click.stop="showRaw = !showRaw"
     >
       {{ showRaw ? 'hide' : 'raw' }}
     </button>
     <pre
       v-if="isJson && showRaw"
-      class="tw:w-full tw:text-[10px] tw:bg-main tw:border tw:border-divider tw:rounded tw:p-2 tw:mt-1 tw:whitespace-pre-wrap tw:break-all tw:max-w-sm"
+      class="tw:w-full tw:text-micro tw:bg-main tw:border tw:border-divider tw:rounded tw:p-2 tw:mt-1 tw:whitespace-pre-wrap tw:break-all tw:max-w-sm"
       >{{ JSON.stringify(value, null, 2) }}</pre
     >
   </span>

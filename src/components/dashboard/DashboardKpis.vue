@@ -87,7 +87,7 @@ const cards = computed(() => [
 </script>
 
 <template>
-  <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-4 tw:gap-4">
+  <ContentGrid min="14rem">
     <RouterLink
       v-for="card in cards"
       :key="card.title"
@@ -103,7 +103,7 @@ const cards = computed(() => [
         </div>
         <span
           v-if="card.sub"
-          class="tw:text-[11px] tw:font-bold tw:px-2 tw:py-0.5 tw:rounded-full tw:bg-bad/10 tw:text-bad"
+          class="tw:text-caption tw:font-bold tw:px-2 tw:py-0.5 tw:rounded-full tw:bg-bad/10 tw:text-bad"
         >
           {{ card.sub }}
         </span>
@@ -111,5 +111,5 @@ const cards = computed(() => [
       <div class="tw:text-3xl tw:font-bold tw:text-on-main">{{ card.value }}</div>
       <div class="tw:text-sm tw:text-secondary">{{ card.title }}</div>
     </RouterLink>
-  </div>
+  </ContentGrid>
 </template>

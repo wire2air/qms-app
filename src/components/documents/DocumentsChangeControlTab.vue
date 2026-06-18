@@ -153,7 +153,7 @@ const STATUS_LABEL = {
 
 <template>
   <div v-if="!version" class="tw:py-10 tw:text-secondary tw:text-center">Loading…</div>
-  <div v-else class="tw:max-w-4xl tw:mx-auto tw:py-4 tw:flex tw:flex-col tw:gap-6">
+  <div v-else class="tw:py-4 tw:flex tw:flex-col tw:gap-6">
     <section class="tw:bg-sidebar tw:rounded-2xl tw:shadow-sm tw:border tw:border-divider tw:p-6">
       <BaseSectionHeader
         title="Change Control"
@@ -310,7 +310,7 @@ const STATUS_LABEL = {
               "
             >
               <span
-                class="tw:size-4 tw:rounded tw:border tw:border-divider tw:flex tw:items-center tw:justify-center tw:text-[10px]"
+                class="tw:size-4 tw:rounded tw:border tw:border-divider tw:flex tw:items-center tw:justify-center tw:text-micro"
                 :class="
                   (version.affectedSectionIds || []).includes(s.id)
                     ? 'tw:bg-primary tw:text-white tw:border-primary'

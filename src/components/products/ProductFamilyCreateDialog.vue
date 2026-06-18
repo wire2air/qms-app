@@ -75,7 +75,7 @@ async function handleSave() {
           </p>
           <button
             type="button"
-            class="tw:text-[11px] tw:text-primary tw:hover:underline"
+            class="tw:text-caption tw:text-primary tw:hover:underline"
             @click="codeEditable = !codeEditable"
           >
             {{ codeEditable ? 'Lock' : 'Edit' }}

@@ -84,30 +84,22 @@ function go(path) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-5 tw:h-full tw:p-5 tw:overflow-y-auto">
-    <PageHeader>
+  <BasePage width="standard">
+    <PageHeader
+      subtitle="Field records for routine inspections, environmental logs, gemba rounds and shift handovers. Records are immutable after the edit window closes."
+    >
       <template #title>Inspections &amp; Logs</template>
+      <template #actions>
+        <BaseButton
+          v-if="canCreateTemplate"
+          variant="primary"
+          @click="go('/inspections-logs/templates')"
+        >
+          <IconPlus :size="16" />
+          New Inspection Form
+        </BaseButton>
+      </template>
     </PageHeader>
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton
-        v-if="canCreateTemplate"
-        variant="primary"
-        @click="go('/inspections-logs/templates')"
-      >
-        <IconPlus :size="16" />
-        New Inspection Form
-      </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Inspections &amp; Logs</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Field records for routine inspections, environmental logs, gemba rounds and shift handovers.
-        Records are immutable after the edit window closes.
-      </div>
-    </div>
 
     <!-- Stat tiles -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
@@ -268,5 +260,5 @@ function go(path) {
         </button>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

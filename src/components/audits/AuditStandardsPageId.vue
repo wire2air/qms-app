@@ -53,12 +53,6 @@ const showCloneDialog = ref(false)
 const isOwner = computed(() => !!currentSession.value?.isOwner)
 const isEditable = computed(() => canUpdate.value || isOwner.value)
 
-const breadcrumbs = computed(() => [
-  { label: 'Audits', to: getCompanyPath('/audits?tab=standards') },
-  { label: 'Standards', to: getCompanyPath('/audits?tab=standards') },
-  { label: standard.value?.name || standard.value?.code || 'Loading…' },
-])
-
 // ─── Versions for this standard ─────────────────────────────────────
 const versions = useLiveQueryWithDeps(
   [() => props.id],
@@ -325,13 +319,10 @@ async function handleRemoveSourceFile() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard" fullHeight>
+    <PageHeader :icon="IconClipboardCheck">
+      <template #title>{{ standard?.name || standard?.code || 'Standard' }}</template>
+      <template #actions>
         <BaseButton
           v-if="standard"
           variant="outline"
@@ -382,8 +373,8 @@ async function handleRemoveSourceFile() {
         >
           Delete
         </BaseButton>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
 
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
       <BaseSpinner size="lg" />
@@ -395,7 +386,7 @@ async function handleRemoveSourceFile() {
       description="This audit standard could not be found."
     />
 
-    <div v-else class="tw:overflow-y-auto tw:flex-1">
+    <div v-else class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_280px] tw:gap-4 tw:items-start">
           <!-- Left column -->
@@ -513,7 +504,7 @@ async function handleRemoveSourceFile() {
                 </BaseText>
                 <span
                   v-if="activeVersion"
-                  class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+                  class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
                   :class="versionBadgeClass(activeVersion.statusId)"
                 >
                   {{ activeVersion.statusId }}
@@ -637,23 +628,23 @@ async function handleRemoveSourceFile() {
                   <IconDownload :size="14" class="tw:shrink-0 tw:mt-0.5" />
                   <span>{{ sourceAsset.originalFilename || sourceAsset.filename }}</span>
                 </a>
-                <div class="tw:text-[10px] tw:text-secondary tw:font-mono">
+                <div class="tw:text-micro tw:text-secondary tw:font-mono">
                   {{ sourceAsset.mimeType }} ·
                   {{ ((sourceAsset.fileSize || 0) / 1024).toFixed(1) }} KB
                 </div>
                 <div v-if="isEditable" class="tw:flex tw:gap-1 tw:mt-1">
                   <button
                     type="button"
-                    class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50"
+                    class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50"
                     :disabled="uploadingSourceFile"
                     @click="sourceFileInputRef?.click()"
                   >
                     {{ uploadingSourceFile ? 'Replacing…' : 'Replace' }}
                   </button>
-                  <span class="tw:text-[10px] tw:text-secondary">·</span>
+                  <span class="tw:text-micro tw:text-secondary">·</span>
                   <button
                     type="button"
-                    class="tw:text-[11px] tw:text-red-600 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50"
+                    class="tw:text-caption tw:text-red-600 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50"
                     :disabled="removingSourceFile"
                     @click="handleRemoveSourceFile"
                   >
@@ -664,13 +655,13 @@ async function handleRemoveSourceFile() {
               </div>
 
               <div v-else class="tw:flex tw:flex-col tw:gap-2">
-                <div class="tw:text-[11px] tw:text-secondary tw:italic">
+                <div class="tw:text-caption tw:text-secondary tw:italic">
                   No source document attached.
                 </div>
                 <button
                   v-if="isEditable"
                   type="button"
-                  class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50 tw:flex tw:items-center tw:gap-1"
+                  class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50 tw:flex tw:items-center tw:gap-1"
                   :disabled="uploadingSourceFile"
                   @click="sourceFileInputRef?.click()"
                 >
@@ -719,7 +710,7 @@ async function handleRemoveSourceFile() {
                         standard.workflowVersionId
                       "
                       type="button"
-                      class="tw:opacity-0 tw:group-hover:opacity-100 tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-[10px]"
+                      class="tw:opacity-0 tw:group-hover:opacity-100 tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-micro"
                       title="Submit for approval"
                       @click="openSubmitDialog(v.id)"
                     >
@@ -732,14 +723,14 @@ async function handleRemoveSourceFile() {
                         !!effectiveVersion
                       "
                       type="button"
-                      class="tw:opacity-0 tw:group-hover:opacity-100 tw:text-red-600 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-[10px]"
+                      class="tw:opacity-0 tw:group-hover:opacity-100 tw:text-red-600 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-micro"
                       title="Discard this draft"
                       @click="discardTarget = v"
                     >
                       <IconTrash :size="11" />
                     </button>
                     <span
-                      class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-1.5 tw:py-0.5 tw:shrink-0"
+                      class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-1.5 tw:py-0.5 tw:shrink-0"
                       :class="versionBadgeClass(v.statusId)"
                     >
                       {{ v.statusId }}
@@ -749,7 +740,7 @@ async function handleRemoveSourceFile() {
               </div>
               <div
                 v-if="!standard.workflowVersionId"
-                class="tw:text-[10px] tw:text-amber-700 tw:italic tw:pt-2 tw:border-t tw:border-divider tw:mt-2"
+                class="tw:text-micro tw:text-amber-700 tw:italic tw:pt-2 tw:border-t tw:border-divider tw:mt-2"
               >
                 No approval workflow attached. Drafts can't be submitted until one is set.
               </div>
@@ -882,5 +873,5 @@ async function handleRemoveSourceFile() {
           : []
       "
     />
-  </div>
+  </BasePage>
 </template>

@@ -113,7 +113,7 @@ async function handleSave({ navigate }) {
           </p>
           <button
             type="button"
-            class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
             @click="codeDirty = !codeDirty"
           >
             {{ codeDirty ? 'Auto-derive from name' : 'Override' }}
@@ -125,7 +125,7 @@ async function handleSave({ navigate }) {
           :disabled="!codeDirty"
           @input="codeDirty = true"
         />
-        <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
+        <p class="tw:text-caption tw:text-secondary tw:mt-1">
           Per-tenant unique. Industry codes (ISO-9001-2015, AS9100-D) work too.
           Cannot be changed after creation — stamps onto every audit instance.
         </p>

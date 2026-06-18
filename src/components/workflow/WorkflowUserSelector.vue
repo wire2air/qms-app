@@ -98,13 +98,16 @@ async function removeUser(userId) {
 
     <!-- Selected Chips -->
     <div v-if="selectedUsers.length > 0" class="tw:flex tw:flex-wrap tw:gap-2">
-      <BaseChip
+      <BaseBadge
         v-for="user in selectedUsers"
         :key="user.id"
-        :label="getUserDisplayName(user)"
-        :removable="canUpdate"
-        @remove="removeUser(user.id)"
-      />
+        class="tw:bg-main-hover tw:border-divider tw:text-on-main"
+        :clearable="canUpdate"
+        :clearLabel="`Remove ${getUserDisplayName(user)}`"
+        @clear="removeUser(user.id)"
+      >
+        {{ getUserDisplayName(user) }}
+      </BaseBadge>
     </div>
 
     <!-- User List -->

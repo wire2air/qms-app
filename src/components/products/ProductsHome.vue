@@ -113,23 +113,16 @@ async function restoreProduct(product) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader :icon="IconPackage" title="Item Master" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateProduct" @click="openDialog()"> Add New Item </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Item Master</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage your organization's items — raw materials, components, intermediates, and finished
-          goods.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconPackage"
+      title="Item Master"
+      subtitle="Manage your organization's items — raw materials, components, intermediates, and finished goods."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreateProduct" @click="openDialog()"> Add New Item </BaseButton>
+      </template>
+    </PageHeader>
 
     <ProductsFilterToolbar v-model:filters="filters" />
 
@@ -158,7 +151,7 @@ async function restoreProduct(product) {
         >
           <div class="tw:min-w-0">
             <span class="tw:font-medium tw:text-secondary tw:line-through">{{ p.name }}</span>
-            <code class="tw:text-[10px] tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary">{{ p.sku }}</code>
+            <code class="tw:text-micro tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary">{{ p.sku }}</code>
             <span v-if="p.deletedAt" class="tw:text-xs tw:text-secondary tw:ml-2">
               deleted {{ p.deletedAt.formatDate('date') }}
             </span>
@@ -174,13 +167,13 @@ async function restoreProduct(product) {
         </div>
       </div>
     </div>
-  </div>
+  </BasePage>
 
   <!-- Create/Edit Product Dialog -->
   <ProductsCreateUpdateDialog v-if="showDialog" :id="selectedProductId" v-model="showDialog" />
 
   <!-- Delete Confirm Dialog -->
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-model="confirmDelete.open"
     title="Delete Product"
     :message="`Delete '${confirmDelete.product?.name}' (${confirmDelete.product?.sku})? You can restore it later from the Deleted items section.`"
@@ -189,7 +182,7 @@ async function restoreProduct(product) {
   />
 
   <!-- Bulk Delete Confirm Dialog -->
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-model="confirmBulkDelete.open"
     title="Delete Products"
     :message="`Delete ${confirmBulkDelete.rows.length} selected item${confirmBulkDelete.rows.length === 1 ? '' : 's'}? This cannot be undone.`"

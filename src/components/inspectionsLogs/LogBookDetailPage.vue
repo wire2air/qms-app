@@ -520,45 +520,20 @@ function back() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
-    <PageHeader :title="logBook?.title || 'Log Book'" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="ghost" @click="back">
-        <IconArrowLeft :size="16" />
-        Back to Log Books
-      </BaseButton>
-      <BaseButton
-        v-if="canUpdate && logBook"
-        variant="ghost"
-        class="tw:text-red-600"
-        @click="archive"
-      >
-        Archive
-      </BaseButton>
-    </SafeTeleport>
-
-    <div v-if="loading" class="tw:py-12 tw:text-center tw:text-secondary">Loading…</div>
-    <div v-else-if="!logBook" class="tw:py-12 tw:text-center tw:text-secondary">
-      Log book not found.
-    </div>
-
-    <template v-else>
-      <!-- Header strip -->
-      <div class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:flex-wrap">
-        <div class="tw:flex-1 tw:min-w-0">
-          <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar tw:truncate">
-            {{ logBook.title }}
-          </div>
-          <div class="tw:flex tw:items-center tw:gap-2 tw:mt-1 tw:text-xs tw:text-secondary">
-            <span class="tw:font-mono tw:uppercase">{{ logBook.code }}</span>
-            <span>·</span>
-            <span>schema v{{ logBook.schemaVersion }}</span>
-            <span v-if="isSaving" class="tw:text-amber-600">· saving…</span>
-          </div>
-        </div>
+  <BasePage width="standard">
+    <PageHeader :title="logBook?.title || 'Log Book'">
+      <template v-if="logBook" #subtitle>
+        <span class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary">
+          <span class="tw:font-mono tw:uppercase">{{ logBook.code }}</span>
+          <span>·</span>
+          <span>schema v{{ logBook.schemaVersion }}</span>
+          <span v-if="isSaving" class="tw:text-amber-600">· saving…</span>
+        </span>
+      </template>
+      <template #actions>
         <span
-          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-1 tw:border"
+          v-if="logBook"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-1 tw:border"
           :class="
             logBook.recordClassification === 'CONTROLLED_RECORD'
               ? 'tw:bg-red-50 tw:text-red-700 tw:border-red-200'
@@ -568,457 +543,518 @@ function back() {
           <IconShieldCheck v-if="logBook.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
           {{ logBook.recordClassification?.replace('_', ' ') }}
         </span>
-      </div>
+        <BaseButton variant="ghost" @click="back">
+          <IconArrowLeft :size="16" />
+          Back to Log Books
+        </BaseButton>
+        <BaseButton
+          v-if="canUpdate && logBook"
+          variant="ghost"
+          class="tw:text-red-600"
+          @click="archive"
+        >
+          Archive
+        </BaseButton>
+      </template>
+    </PageHeader>
 
+    <div v-if="loading" class="tw:py-12 tw:text-center tw:text-secondary">Loading…</div>
+    <div v-else-if="!logBook" class="tw:py-12 tw:text-center tw:text-secondary">
+      Log book not found.
+    </div>
+
+    <template v-else>
       <!-- Tab strip -->
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Log book sections">
         <div class="tw:mt-6">
           <!-- Details tab -->
           <BaseTabPanel value="details">
             <div v-if="draft" class="tw:flex tw:flex-col tw:gap-4">
-        <!-- Version & approval — the controlled-flow control centre.
+              <!-- Version & approval — the controlled-flow control centre.
              Approver sees Approve/Reject; owner sees Submit / Discard /
              Create new version depending on the version state. -->
-        <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:flex-wrap">
-            <div>
-              <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
-                Version &amp; approval
-              </BaseText>
-              <div class="tw:text-xs tw:text-secondary tw:mt-0.5">
-                <template v-if="hasEffectiveVersion">
-                  Effective:
-                  <span class="tw:font-mono tw:text-on-main">{{ logBook.code }}</span>
-                  <span v-if="effectiveVersion"> · {{ versionLabel(effectiveVersion) }}</span>
-                </template>
-                <template v-else
-                  >No effective version yet — entries can't be logged until one is
-                  approved.</template
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+              >
+                <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:flex-wrap">
+                  <div>
+                    <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
+                      Version &amp; approval
+                    </BaseText>
+                    <div class="tw:text-xs tw:text-secondary tw:mt-0.5">
+                      <template v-if="hasEffectiveVersion">
+                        Effective:
+                        <span class="tw:font-mono tw:text-on-main">{{ logBook.code }}</span>
+                        <span v-if="effectiveVersion"> · {{ versionLabel(effectiveVersion) }}</span>
+                      </template>
+                      <template v-else
+                        >No effective version yet — entries can't be logged until one is
+                        approved.</template
+                      >
+                    </div>
+                  </div>
+                  <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+                    <span
+                      v-if="openDraft"
+                      class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary"
+                    >
+                      {{ versionLabel(openDraft) }}
+                      <LogBookVersionStatusBadge :statusId="openDraft.statusId" />
+                    </span>
+                    <span
+                      v-else-if="versionUnderReview"
+                      class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary"
+                    >
+                      {{ versionLabel(versionUnderReview) }}
+                      <LogBookVersionStatusBadge :statusId="versionUnderReview.statusId" />
+                    </span>
+                    <span class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary">
+                      Owner:
+                      <UserBadgeById v-if="logBook.ownerUserId" :userId="logBook.ownerUserId" />
+                      <span v-else>—</span>
+                      <span v-if="isOwner" class="tw:text-micro tw:font-semibold tw:text-primary"
+                        >(you)</span
+                      >
+                    </span>
+                  </div>
+                </div>
+
+                <!-- A) Approver — your approval is requested. -->
+                <div
+                  v-if="isReviewing"
+                  class="tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-3 tw:space-y-3"
                 >
-              </div>
-            </div>
-            <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-              <span
-                v-if="openDraft"
-                class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary"
-              >
-                {{ versionLabel(openDraft) }}
-                <LogBookVersionStatusBadge :statusId="openDraft.statusId" />
-              </span>
-              <span
-                v-else-if="versionUnderReview"
-                class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary"
-              >
-                {{ versionLabel(versionUnderReview) }}
-                <LogBookVersionStatusBadge :statusId="versionUnderReview.statusId" />
-              </span>
-              <span class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary">
-                Owner:
-                <UserBadgeById v-if="logBook.ownerUserId" :userId="logBook.ownerUserId" />
-                <span v-else>—</span>
-                <span v-if="isOwner" class="tw:text-[10px] tw:font-semibold tw:text-primary"
-                  >(you)</span
+                  <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
+                    <span class="tw:text-sm tw:font-semibold tw:text-amber-900">
+                      Your approval is requested — {{ versionLabel(versionUnderReview) }}
+                    </span>
+                    <TaskActionBar entityType="LogBookVersion" :entityId="versionUnderReview.id" />
+                  </div>
+                  <p v-if="versionUnderReview.changeSummary" class="tw:text-sm tw:text-amber-900">
+                    <span class="tw:font-semibold">Change summary:</span>
+                    {{ versionUnderReview.changeSummary }}
+                  </p>
+                  <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-2 tw:text-xs">
+                    <div class="tw:bg-white tw:rounded tw:p-2 tw:border tw:border-amber-200">
+                      <div class="tw:text-secondary">Classification</div>
+                      <div class="tw:font-medium tw:text-on-main">
+                        {{ versionUnderReview.recordClassification?.replace('_', ' ') }}
+                      </div>
+                    </div>
+                    <div class="tw:bg-white tw:rounded tw:p-2 tw:border tw:border-amber-200">
+                      <div class="tw:text-secondary">Edit window</div>
+                      <div class="tw:font-medium tw:text-on-main">
+                        {{ versionUnderReview.editWindowMode?.replace(/_/g, ' ')
+                        }}{{
+                          versionUnderReview.editWindowMode === 'TIME_WINDOW'
+                            ? ` (${versionUnderReview.editWindowMinutes ?? '?'}m)`
+                            : ''
+                        }}
+                      </div>
+                    </div>
+                    <div class="tw:bg-white tw:rounded tw:p-2 tw:border tw:border-amber-200">
+                      <div class="tw:text-secondary">E-signature</div>
+                      <div class="tw:font-medium tw:text-on-main">
+                        {{ versionUnderReview.signatureRequired ? 'Required' : 'Not required' }}
+                      </div>
+                    </div>
+                    <div class="tw:bg-white tw:rounded tw:p-2 tw:border tw:border-amber-200">
+                      <div class="tw:text-secondary">Reviewer approval</div>
+                      <div class="tw:font-medium tw:text-on-main">
+                        {{ versionUnderReview.reviewRequired ? 'Required' : 'Not required' }}
+                      </div>
+                    </div>
+                  </div>
+                  <details class="tw:bg-white tw:rounded tw:border tw:border-amber-200">
+                    <summary
+                      class="tw:cursor-pointer tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:text-on-main"
+                    >
+                      Review form schema ({{ versionUnderReview.schema?.length ?? 0 }} fields)
+                    </summary>
+                    <div class="tw:p-4 tw:border-t tw:border-amber-200">
+                      <DynamicForm
+                        v-if="(versionUnderReview.schema?.length ?? 0) > 0"
+                        v-model="reviewPreviewData"
+                        :fields="versionUnderReview.schema"
+                      />
+                      <div v-else class="tw:text-sm tw:text-secondary">No fields defined.</div>
+                    </div>
+                  </details>
+                </div>
+
+                <!-- B) Owner — an editable draft is open: submit or discard it. -->
+                <div
+                  v-else-if="openDraft && canManageVersion"
+                  class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap tw:bg-main-hover tw:rounded tw:p-3"
                 >
-              </span>
-            </div>
-          </div>
-
-          <!-- A) Approver — your approval is requested. -->
-          <div
-            v-if="isReviewing"
-            class="tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-3 tw:space-y-3"
-          >
-            <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
-              <span class="tw:text-sm tw:font-semibold tw:text-amber-900">
-                Your approval is requested — {{ versionLabel(versionUnderReview) }}
-              </span>
-              <TaskActionBar entityType="LogBookVersion" :entityId="versionUnderReview.id" />
-            </div>
-            <p v-if="versionUnderReview.changeSummary" class="tw:text-sm tw:text-amber-900">
-              <span class="tw:font-semibold">Change summary:</span>
-              {{ versionUnderReview.changeSummary }}
-            </p>
-            <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-2 tw:text-xs">
-              <div class="tw:bg-white tw:rounded tw:p-2 tw:border tw:border-amber-200">
-                <div class="tw:text-secondary">Classification</div>
-                <div class="tw:font-medium tw:text-on-main">
-                  {{ versionUnderReview.recordClassification?.replace('_', ' ') }}
+                  <div class="tw:text-sm tw:text-on-main">
+                    <template v-if="openDraft.statusId === 'REJECTED'">
+                      {{ versionLabel(openDraft) }} was rejected — edit it and resubmit, or discard
+                      it.
+                    </template>
+                    <template v-else>
+                      Editing draft {{ versionLabel(openDraft) }}. Submit it for approval when
+                      ready.
+                    </template>
+                  </div>
+                  <div class="tw:flex tw:items-center tw:gap-2">
+                    <BaseButton variant="primary" size="sm" @click="openSubmit(openDraft)">
+                      <IconSend :size="14" />
+                      Submit for approval
+                    </BaseButton>
+                    <BaseButton
+                      v-if="canDiscardDraft"
+                      variant="secondary"
+                      size="sm"
+                      :loading="discardingDraft"
+                      @click="discardDraft"
+                    >
+                      <IconTrash :size="14" />
+                      Discard draft
+                    </BaseButton>
+                  </div>
                 </div>
-              </div>
-              <div class="tw:bg-white tw:rounded tw:p-2 tw:border tw:border-amber-200">
-                <div class="tw:text-secondary">Edit window</div>
-                <div class="tw:font-medium tw:text-on-main">
-                  {{ versionUnderReview.editWindowMode?.replace(/_/g, ' ')
-                  }}{{
-                    versionUnderReview.editWindowMode === 'TIME_WINDOW'
-                      ? ` (${versionUnderReview.editWindowMinutes ?? '?'}m)`
-                      : ''
-                  }}
+
+                <!-- C) A version is under review (current user isn't the approver). -->
+                <div
+                  v-else-if="versionUnderReview"
+                  class="tw:bg-main-hover tw:rounded tw:p-3 tw:text-sm tw:text-secondary"
+                >
+                  {{ versionLabel(versionUnderReview) }} is awaiting approval.
                 </div>
-              </div>
-              <div class="tw:bg-white tw:rounded tw:p-2 tw:border tw:border-amber-200">
-                <div class="tw:text-secondary">E-signature</div>
-                <div class="tw:font-medium tw:text-on-main">
-                  {{ versionUnderReview.signatureRequired ? 'Required' : 'Not required' }}
+
+                <!-- D) Effective with no open draft — create a new version to change anything. -->
+                <div
+                  v-else-if="lockedAsEffective"
+                  class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap tw:bg-main-hover tw:rounded tw:p-3"
+                >
+                  <div class="tw:text-sm tw:text-secondary">
+                    This log book is effective and locked. Create a new version to change its schema
+                    or settings — the current version stays in use until the new one is approved.
+                  </div>
+                  <BaseButton
+                    v-if="canManageVersion"
+                    variant="primary"
+                    size="sm"
+                    :loading="creatingDraft"
+                    @click="createNewDraft"
+                  >
+                    <IconPlus :size="14" />
+                    Create new version
+                  </BaseButton>
                 </div>
-              </div>
-              <div class="tw:bg-white tw:rounded tw:p-2 tw:border tw:border-amber-200">
-                <div class="tw:text-secondary">Reviewer approval</div>
-                <div class="tw:font-medium tw:text-on-main">
-                  {{ versionUnderReview.reviewRequired ? 'Required' : 'Not required' }}
+              </section>
+
+              <!-- Basics -->
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+              >
+                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
+                  >Basics</BaseText
+                >
+                <BaseField v-slot="{ id: fieldId }" label="Title">
+                  <BaseTextInput :id="fieldId" v-model="draft.title" :disabled="!canEditDetails" />
+                </BaseField>
+                <BaseField v-slot="{ id: fieldId }" label="Description">
+                  <BaseTextarea
+                    :id="fieldId"
+                    v-model="draft.description"
+                    :rows="2"
+                    :disabled="!canEditDetails"
+                  />
+                </BaseField>
+                <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+                  <BaseField v-slot="{ id: fieldId }" label="Category">
+                    <select
+                      :id="fieldId"
+                      v-model="draft.logBookTypeId"
+                      :disabled="!canEditDetails"
+                      class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                    >
+                      <option :value="null">— Uncategorised —</option>
+                      <option v-for="t in logBookTypes" :key="t.id" :value="t.id">
+                        {{ t.name }}
+                      </option>
+                    </select>
+                  </BaseField>
+                  <BaseField
+                    label="Owner"
+                    hint="Owns the approval flow — submits versions for approval and manages drafts."
+                  >
+                    <UserSelectMenu v-model="draft.ownerUserId" :disabled="!canEditDetails" />
+                  </BaseField>
+                  <BaseField label="Supervisor">
+                    <UserSelectMenu v-model="draft.supervisorUserId" :disabled="!canEditDetails" />
+                  </BaseField>
+                  <BaseField v-slot="{ id: fieldId }" label="Status">
+                    <select
+                      :id="fieldId"
+                      v-model="draft.statusId"
+                      :disabled="!canEditDetails"
+                      class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                    >
+                      <option value="ACTIVE">Active</option>
+                      <option value="INACTIVE">Inactive</option>
+                      <option value="ARCHIVED">Archived</option>
+                    </select>
+                  </BaseField>
+                  <BaseField v-slot="{ id: fieldId }" label="Notification mode">
+                    <select
+                      :id="fieldId"
+                      v-model="draft.notifyOnSubmit"
+                      :disabled="!canEditDetails"
+                      class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                    >
+                      <option value="DIGEST">Digest (daily roll-up)</option>
+                      <option value="INSTANT">Instant (every submission)</option>
+                      <option value="NONE">None</option>
+                    </select>
+                  </BaseField>
+                  <BaseField label="Department">
+                    <DepartmentSelectMenu
+                      v-model="draft.departmentId"
+                      :disabled="!canEditDetails"
+                    />
+                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
+                      Feeds <span class="tw:font-mono">{DEPTCODE}</span> in the Record Id prefix.
+                    </p>
+                  </BaseField>
                 </div>
-              </div>
-            </div>
-            <details class="tw:bg-white tw:rounded tw:border tw:border-amber-200">
-              <summary
-                class="tw:cursor-pointer tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:text-on-main"
-              >
-                Review form schema ({{ versionUnderReview.schema?.length ?? 0 }} fields)
-              </summary>
-              <div class="tw:p-4 tw:border-t tw:border-amber-200">
-                <DynamicForm
-                  v-if="(versionUnderReview.schema?.length ?? 0) > 0"
-                  v-model="reviewPreviewData"
-                  :fields="versionUnderReview.schema"
-                />
-                <div v-else class="tw:text-sm tw:text-secondary">No fields defined.</div>
-              </div>
-            </details>
-          </div>
+              </section>
 
-          <!-- B) Owner — an editable draft is open: submit or discard it. -->
-          <div
-            v-else-if="openDraft && canManageVersion"
-            class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap tw:bg-main-hover tw:rounded tw:p-3"
-          >
-            <div class="tw:text-sm tw:text-on-main">
-              <template v-if="openDraft.statusId === 'REJECTED'">
-                {{ versionLabel(openDraft) }} was rejected — edit it and resubmit, or discard it.
-              </template>
-              <template v-else>
-                Editing draft {{ versionLabel(openDraft) }}. Submit it for approval when ready.
-              </template>
-            </div>
-            <div class="tw:flex tw:items-center tw:gap-2">
-              <BaseButton variant="primary" size="sm" @click="openSubmit(openDraft)">
-                <IconSend :size="14" />
-                Submit for approval
-              </BaseButton>
-              <BaseButton
-                v-if="canDiscardDraft"
-                variant="secondary"
-                size="sm"
-                :loading="discardingDraft"
-                @click="discardDraft"
-              >
-                <IconTrash :size="14" />
-                Discard draft
-              </BaseButton>
-            </div>
-          </div>
-
-          <!-- C) A version is under review (current user isn't the approver). -->
-          <div
-            v-else-if="versionUnderReview"
-            class="tw:bg-main-hover tw:rounded tw:p-3 tw:text-sm tw:text-secondary"
-          >
-            {{ versionLabel(versionUnderReview) }} is awaiting approval.
-          </div>
-
-          <!-- D) Effective with no open draft — create a new version to change anything. -->
-          <div
-            v-else-if="lockedAsEffective"
-            class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap tw:bg-main-hover tw:rounded tw:p-3"
-          >
-            <div class="tw:text-sm tw:text-secondary">
-              This log book is effective and locked. Create a new version to change its schema or
-              settings — the current version stays in use until the new one is approved.
-            </div>
-            <BaseButton
-              v-if="canManageVersion"
-              variant="primary"
-              size="sm"
-              :loading="creatingDraft"
-              @click="createNewDraft"
-            >
-              <IconPlus :size="14" />
-              Create new version
-            </BaseButton>
-          </div>
-        </section>
-
-        <!-- Basics -->
-        <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">Basics</BaseText>
-          <BaseField v-slot="{ id: fieldId }" label="Title">
-            <BaseTextInput :id="fieldId" v-model="draft.title" :disabled="!canEditDetails" />
-          </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Description">
-            <BaseTextarea
-              :id="fieldId"
-              v-model="draft.description"
-              :rows="2"
-              :disabled="!canEditDetails"
-            />
-          </BaseField>
-          <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-            <BaseField v-slot="{ id: fieldId }" label="Category">
-              <select
-                :id="fieldId"
-                v-model="draft.logBookTypeId"
-                :disabled="!canEditDetails"
-                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-              >
-                <option :value="null">— Uncategorised —</option>
-                <option v-for="t in logBookTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
-              </select>
-            </BaseField>
-            <BaseField
-              label="Owner"
-              hint="Owns the approval flow — submits versions for approval and manages drafts."
-            >
-              <UserSelectMenu v-model="draft.ownerUserId" :disabled="!canEditDetails" />
-            </BaseField>
-            <BaseField label="Supervisor">
-              <UserSelectMenu v-model="draft.supervisorUserId" :disabled="!canEditDetails" />
-            </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="Status">
-              <select
-                :id="fieldId"
-                v-model="draft.statusId"
-                :disabled="!canEditDetails"
-                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-              >
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-                <option value="ARCHIVED">Archived</option>
-              </select>
-            </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="Notification mode">
-              <select
-                :id="fieldId"
-                v-model="draft.notifyOnSubmit"
-                :disabled="!canEditDetails"
-                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-              >
-                <option value="DIGEST">Digest (daily roll-up)</option>
-                <option value="INSTANT">Instant (every submission)</option>
-                <option value="NONE">None</option>
-              </select>
-            </BaseField>
-            <BaseField label="Department">
-              <DepartmentSelectMenu v-model="draft.departmentId" :disabled="!canEditDetails" />
-              <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-                Feeds <span class="tw:font-mono">{DEPTCODE}</span> in the Record Id prefix.
-              </p>
-            </BaseField>
-          </div>
-        </section>
-
-        <!-- References — equipment / location + the record-ID naming
+              <!-- References — equipment / location + the record-ID naming
              convention. (Department lives in Basics — it feeds {DEPTCODE}
              alongside Sites.) -->
-        <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">References</BaseText>
-          <BaseField label="Equipment">
-            <EquipmentSelectMenu v-model="draft.equipmentId" :disabled="!canEditDetails" />
-          </BaseField>
-          <BaseField
-            v-slot="{ id: fieldId }"
-            label="Location"
-            hint="Where this log is performed. Equipment covers the asset/line; this is the spot."
-          >
-            <BaseTextInput
-              :id="fieldId"
-              v-model="draft.location"
-              :disabled="!canEditDetails"
-              placeholder="e.g. Room 201, Cold Store, Line 3"
-            />
-          </BaseField>
-          <BaseField label="Record Id Prefix">
-            <template v-if="canEditPrefix">
-              <BaseTextInput v-model="draft.codePrefix" placeholder="FRM-{DEPTCODE}-{TYPECODE}" />
-              <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-                Tokens <span class="tw:font-mono tw:text-on-main">{DEPTCODE}</span> /
-                <span class="tw:font-mono tw:text-on-main">{TYPECODE}</span> resolve from Department
-                + Log book type on save. Current:
-                <span class="tw:font-mono tw:text-on-main">{{ logBook.code }}</span>
-              </p>
-            </template>
-            <template v-else>
-              <div class="tw:font-mono tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
-              <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-                Locked — the log book has an effective version, so record IDs stay consistent.
-              </p>
-            </template>
-          </BaseField>
-        </section>
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+              >
+                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
+                  >References</BaseText
+                >
+                <BaseField label="Equipment">
+                  <EquipmentSelectMenu v-model="draft.equipmentId" :disabled="!canEditDetails" />
+                </BaseField>
+                <BaseField
+                  v-slot="{ id: fieldId }"
+                  label="Location"
+                  hint="Where this log is performed. Equipment covers the asset/line; this is the spot."
+                >
+                  <BaseTextInput
+                    :id="fieldId"
+                    v-model="draft.location"
+                    :disabled="!canEditDetails"
+                    placeholder="e.g. Room 201, Cold Store, Line 3"
+                  />
+                </BaseField>
+                <BaseField label="Record Id Prefix">
+                  <template v-if="canEditPrefix">
+                    <BaseTextInput
+                      v-model="draft.codePrefix"
+                      placeholder="FRM-{DEPTCODE}-{TYPECODE}"
+                    />
+                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
+                      Tokens <span class="tw:font-mono tw:text-on-main">{DEPTCODE}</span> /
+                      <span class="tw:font-mono tw:text-on-main">{TYPECODE}</span> resolve from
+                      Department + Log book type on save. Current:
+                      <span class="tw:font-mono tw:text-on-main">{{ logBook.code }}</span>
+                    </p>
+                  </template>
+                  <template v-else>
+                    <div class="tw:font-mono tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
+                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
+                      Locked — the log book has an effective version, so record IDs stay consistent.
+                    </p>
+                  </template>
+                </BaseField>
+              </section>
 
-        <!-- Entry policy -->
-        <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">Entry policy</BaseText>
-          <BaseField v-slot="{ id: fieldId }" label="Edit window">
-            <select
-              :id="fieldId"
-              v-model="draft.editWindowMode"
-              :disabled="!canEditDetails"
-              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-            >
-              <option value="NONE">None — lock immediately on submit</option>
-              <option value="TIME_WINDOW">Time window — lock after N minutes</option>
-              <option value="UNTIL_NEXT_ENTRY">Until next entry from the same user</option>
-              <option value="UNTIL_REVIEW">Until reviewed</option>
-            </select>
-            <BaseField
-              v-if="draft.editWindowMode === 'TIME_WINDOW'"
-              v-slot="{ id: minutesId }"
-              label="Lock after (minutes)"
-              class="tw:mt-2"
-            >
-              <input
-                :id="minutesId"
-                v-model.number="draft.editWindowMinutes"
-                type="number"
-                min="1"
-                max="2880"
-                :disabled="!canEditDetails"
-                class="tw:w-32 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-              />
-            </BaseField>
-          </BaseField>
-          <div class="tw:flex tw:flex-col tw:gap-2">
-            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
-              <input
-                v-model="draft.signatureRequired"
-                type="checkbox"
-                :disabled="!canEditDetails"
-              />
-              <span>Require e-signature on submit</span>
-            </label>
-            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
-              <input v-model="draft.reviewRequired" type="checkbox" :disabled="!canEditDetails" />
-              <span>Require reviewer approval before locking</span>
-            </label>
-          </div>
-          <div class="tw:bg-main-hover tw:rounded tw:p-2 tw:text-xs">
-            Saves as a
-            <strong>{{ derivedClassification.replace('_', ' ').toLowerCase() }} log book</strong>
-            based on the current settings.
-          </div>
-        </section>
+              <!-- Entry policy -->
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+              >
+                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
+                  >Entry policy</BaseText
+                >
+                <BaseField v-slot="{ id: fieldId }" label="Edit window">
+                  <select
+                    :id="fieldId"
+                    v-model="draft.editWindowMode"
+                    :disabled="!canEditDetails"
+                    class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                  >
+                    <option value="NONE">None — lock immediately on submit</option>
+                    <option value="TIME_WINDOW">Time window — lock after N minutes</option>
+                    <option value="UNTIL_NEXT_ENTRY">Until next entry from the same user</option>
+                    <option value="UNTIL_REVIEW">Until reviewed</option>
+                  </select>
+                  <BaseField
+                    v-if="draft.editWindowMode === 'TIME_WINDOW'"
+                    v-slot="{ id: minutesId }"
+                    label="Lock after (minutes)"
+                    class="tw:mt-2"
+                  >
+                    <input
+                      :id="minutesId"
+                      v-model.number="draft.editWindowMinutes"
+                      type="number"
+                      min="1"
+                      max="2880"
+                      :disabled="!canEditDetails"
+                      class="tw:w-32 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                    />
+                  </BaseField>
+                </BaseField>
+                <div class="tw:flex tw:flex-col tw:gap-2">
+                  <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
+                    <input
+                      v-model="draft.signatureRequired"
+                      type="checkbox"
+                      :disabled="!canEditDetails"
+                    />
+                    <span>Require e-signature on submit</span>
+                  </label>
+                  <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
+                    <input
+                      v-model="draft.reviewRequired"
+                      type="checkbox"
+                      :disabled="!canEditDetails"
+                    />
+                    <span>Require reviewer approval before locking</span>
+                  </label>
+                </div>
+                <div class="tw:bg-main-hover tw:rounded tw:p-2 tw:text-xs">
+                  Saves as a
+                  <strong
+                    >{{ derivedClassification.replace('_', ' ').toLowerCase() }} log book</strong
+                  >
+                  based on the current settings.
+                </div>
+              </section>
 
-        <!-- Approval workflow — versions of this log book are approved
+              <!-- Approval workflow — versions of this log book are approved
              through this workflow before they become effective. Document
              parity: the chosen PUBLISHED workflow drives reviewer
              assignment + approve/reject via the generic engine. -->
-        <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
-            Approval workflow
-          </BaseText>
-          <p class="tw:text-xs tw:text-secondary">
-            New versions go through this workflow for approval before becoming effective. Design
-            workflows under the <strong>Log Book</strong> module.
-          </p>
-          <WorkflowVersionSelect
-            v-if="canUpdate"
-            v-model="draft.workflowVersionId"
-            moduleId="LOG_BOOK"
-            dense
-          />
-          <div v-else-if="!draft.workflowVersionId" class="tw:text-sm tw:text-secondary">
-            No approval workflow attached.
-          </div>
-          <div
-            v-if="!draft.workflowVersionId"
-            class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
-          >
-            No workflow attached — versions can't be submitted for approval until one is set.
-          </div>
-        </section>
-
-        <!-- Compliance -->
-        <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">Compliance</BaseText>
-          <BaseField label="Related standard">
-            <RelatedStandardSelectMenu
-              v-model="draft.relatedStandardId"
-              :disabled="!canEditDetails"
-            />
-          </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Regulatory citation">
-            <BaseTextInput
-              :id="fieldId"
-              v-model="draft.regulatoryCitation"
-              :disabled="!canEditDetails"
-              placeholder="e.g. ISO 9001 §7.5.3.2"
-            />
-          </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Retention (months)">
-            <input
-              :id="fieldId"
-              v-model.number="draft.retentionMonths"
-              type="number"
-              min="1"
-              max="600"
-              :disabled="!canEditDetails"
-              class="tw:w-40 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-            />
-            <span class="tw:text-xs tw:text-secondary tw:ml-2">(blank = indefinite)</span>
-          </BaseField>
-        </section>
-
-        <!-- Sites -->
-        <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">Sites</BaseText>
-          <SiteSelectMenu
-            :modelValue="assignedSiteIds"
-            multiple
-            :disabled="!canEditDetails"
-            @update:modelValue="handleSitesChange"
-          />
-          <div class="tw:text-xs tw:text-secondary">Leave empty to allow all sites.</div>
-        </section>
-
-        <!-- Document links -->
-        <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
-          <div class="tw:flex tw:items-center tw:justify-between">
-            <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
-              Document links ({{ documentLinks.length }})
-            </BaseText>
-            <BaseButton v-if="canUpdate" variant="ghost" @click="showAddDocDialog = true">
-              Link a document
-            </BaseButton>
-          </div>
-          <div v-if="documentLinks.length === 0" class="tw:text-xs tw:text-secondary">
-            No documents linked. Use this to mark which SOPs / work instructions this log book
-            implements — useful in audits.
-          </div>
-          <div v-else class="tw:flex tw:flex-col tw:gap-1.5">
-            <div
-              v-for="link in documentLinks"
-              :key="link.id"
-              class="tw:flex tw:items-center tw:gap-3 tw:p-2 tw:bg-main tw:rounded"
-            >
-              <IconFileText :size="14" class="tw:text-secondary tw:shrink-0" />
-              <div class="tw:flex-1 tw:min-w-0">
-                <div class="tw:text-sm tw:text-on-main tw:truncate">
-                  {{ documentById.get(link.documentId)?.title ?? link.documentId }}
-                </div>
-                <div class="tw:text-xs tw:text-secondary">
-                  {{ link.relationshipType }}
-                  <span v-if="link.notes"> · {{ link.notes }}</span>
-                </div>
-              </div>
-              <button
-                v-if="canUpdate"
-                class="tw:text-xs tw:text-red-600 tw:hover:underline"
-                @click="removeDocLink(link)"
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
               >
-                Remove
-              </button>
-            </div>
-          </div>
-        </section>
+                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
+                  Approval workflow
+                </BaseText>
+                <p class="tw:text-xs tw:text-secondary">
+                  New versions go through this workflow for approval before becoming effective.
+                  Design workflows under the <strong>Log Book</strong> module.
+                </p>
+                <WorkflowVersionSelect
+                  v-if="canUpdate"
+                  v-model="draft.workflowVersionId"
+                  moduleId="LOG_BOOK"
+                  dense
+                />
+                <div v-else-if="!draft.workflowVersionId" class="tw:text-sm tw:text-secondary">
+                  No approval workflow attached.
+                </div>
+                <div
+                  v-if="!draft.workflowVersionId"
+                  class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
+                >
+                  No workflow attached — versions can't be submitted for approval until one is set.
+                </div>
+              </section>
+
+              <!-- Compliance -->
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+              >
+                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
+                  >Compliance</BaseText
+                >
+                <BaseField label="Related standard">
+                  <RelatedStandardSelectMenu
+                    v-model="draft.relatedStandardId"
+                    :disabled="!canEditDetails"
+                  />
+                </BaseField>
+                <BaseField v-slot="{ id: fieldId }" label="Regulatory citation">
+                  <BaseTextInput
+                    :id="fieldId"
+                    v-model="draft.regulatoryCitation"
+                    :disabled="!canEditDetails"
+                    placeholder="e.g. ISO 9001 §7.5.3.2"
+                  />
+                </BaseField>
+                <BaseField v-slot="{ id: fieldId }" label="Retention (months)">
+                  <input
+                    :id="fieldId"
+                    v-model.number="draft.retentionMonths"
+                    type="number"
+                    min="1"
+                    max="600"
+                    :disabled="!canEditDetails"
+                    class="tw:w-40 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                  />
+                  <span class="tw:text-xs tw:text-secondary tw:ml-2">(blank = indefinite)</span>
+                </BaseField>
+              </section>
+
+              <!-- Sites -->
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+              >
+                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
+                  >Sites</BaseText
+                >
+                <SiteSelectMenu
+                  :modelValue="assignedSiteIds"
+                  multiple
+                  :disabled="!canEditDetails"
+                  @update:modelValue="handleSitesChange"
+                />
+                <div class="tw:text-xs tw:text-secondary">Leave empty to allow all sites.</div>
+              </section>
+
+              <!-- Document links -->
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+              >
+                <div class="tw:flex tw:items-center tw:justify-between">
+                  <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
+                    Document links ({{ documentLinks.length }})
+                  </BaseText>
+                  <BaseButton v-if="canUpdate" variant="ghost" @click="showAddDocDialog = true">
+                    Link a document
+                  </BaseButton>
+                </div>
+                <div v-if="documentLinks.length === 0" class="tw:text-xs tw:text-secondary">
+                  No documents linked. Use this to mark which SOPs / work instructions this log book
+                  implements — useful in audits.
+                </div>
+                <div v-else class="tw:flex tw:flex-col tw:gap-1.5">
+                  <div
+                    v-for="link in documentLinks"
+                    :key="link.id"
+                    class="tw:flex tw:items-center tw:gap-3 tw:p-2 tw:bg-main tw:rounded"
+                  >
+                    <IconFileText :size="14" class="tw:text-secondary tw:shrink-0" />
+                    <div class="tw:flex-1 tw:min-w-0">
+                      <div class="tw:text-sm tw:text-on-main tw:truncate">
+                        {{ documentById.get(link.documentId)?.title ?? link.documentId }}
+                      </div>
+                      <div class="tw:text-xs tw:text-secondary">
+                        {{ link.relationshipType }}
+                        <span v-if="link.notes"> · {{ link.notes }}</span>
+                      </div>
+                    </div>
+                    <button
+                      v-if="canUpdate"
+                      class="tw:text-xs tw:text-red-600 tw:hover:underline"
+                      @click="removeDocLink(link)"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </section>
             </div>
           </BaseTabPanel>
 
@@ -1033,51 +1069,51 @@ function back() {
                with the real submission view. -->
           <BaseTabPanel value="schema">
             <div class="tw:flex tw:flex-col tw:gap-3">
-        <section
-          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:flex tw:items-start tw:gap-4"
-        >
-          <div class="tw:flex-1">
-            <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main tw:mb-1">
-              Log book schema
-            </BaseText>
-            <p class="tw:text-sm tw:text-secondary">
-              {{
-                (logBook.schema?.length ?? 0) > 0
-                  ? `${logBook.schema.length} field${logBook.schema.length === 1 ? '' : 's'} defined. Saving in the builder bumps schemaVersion (currently v${logBook.schemaVersion}).`
-                  : 'No fields yet. Open the builder to drag-and-drop the form structure.'
-              }}
-            </p>
-          </div>
-          <BaseButton
-            variant="primary"
-            :disabled="!canEditDetails || isSavingSchema"
-            @click="openSchemaBuilder"
-          >
-            <IconDeviceFloppy :size="16" />
-            {{ (logBook.schema?.length ?? 0) > 0 ? 'Edit schema' : 'Build schema' }}
-          </BaseButton>
-        </section>
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:flex tw:items-start tw:gap-4"
+              >
+                <div class="tw:flex-1">
+                  <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main tw:mb-1">
+                    Log book schema
+                  </BaseText>
+                  <p class="tw:text-sm tw:text-secondary">
+                    {{
+                      (logBook.schema?.length ?? 0) > 0
+                        ? `${logBook.schema.length} field${logBook.schema.length === 1 ? '' : 's'} defined. Saving in the builder bumps schemaVersion (currently v${logBook.schemaVersion}).`
+                        : 'No fields yet. Open the builder to drag-and-drop the form structure.'
+                    }}
+                  </p>
+                </div>
+                <BaseButton
+                  variant="primary"
+                  :disabled="!canEditDetails || isSavingSchema"
+                  @click="openSchemaBuilder"
+                >
+                  <IconDeviceFloppy :size="16" />
+                  {{ (logBook.schema?.length ?? 0) > 0 ? 'Edit schema' : 'Build schema' }}
+                </BaseButton>
+              </section>
 
-        <!-- Interactive preview pane — same DynamicForm a floor user
+              <!-- Interactive preview pane — same DynamicForm a floor user
              gets at submission time, wrapped in the FormBuilder's
              "Form Preview" card styling. No submit button: this is
              pure preview, nothing posts. Authors can fill fields to
              test conditional / required logic visually before opening
              the builder. -->
-        <section
-          v-if="(logBook.schema?.length ?? 0) > 0"
-          class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-2xl tw:shadow-xl tw:overflow-hidden"
-        >
-          <div class="tw:bg-main tw:px-5 tw:py-3 tw:border-b tw:border-divider">
-            <div class="tw:text-xl tw:font-bold tw:text-on-sidebar">Form Preview</div>
-            <div class="tw:text-xs tw:text-secondary tw:mt-0.5">
-              Preview only — nothing is saved. Use the "Edit schema" button to make changes.
-            </div>
-          </div>
-          <div class="tw:p-5">
-            <DynamicForm v-model="schemaPreviewData" :fields="logBook.schema" />
-          </div>
-        </section>
+              <section
+                v-if="(logBook.schema?.length ?? 0) > 0"
+                class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-2xl tw:shadow-xl tw:overflow-hidden"
+              >
+                <div class="tw:bg-main tw:px-5 tw:py-3 tw:border-b tw:border-divider">
+                  <div class="tw:text-xl tw:font-bold tw:text-on-sidebar">Form Preview</div>
+                  <div class="tw:text-xs tw:text-secondary tw:mt-0.5">
+                    Preview only — nothing is saved. Use the "Edit schema" button to make changes.
+                  </div>
+                </div>
+                <div class="tw:p-5">
+                  <DynamicForm v-model="schemaPreviewData" :fields="logBook.schema" />
+                </div>
+              </section>
             </div>
           </BaseTabPanel>
 
@@ -1087,113 +1123,119 @@ function back() {
                route to it with the logBookId pre-filled). -->
           <BaseTabPanel value="assignments">
             <div class="tw:flex tw:flex-col tw:gap-3">
-        <!-- Inline create/edit — embedded editor scoped to this log book
+              <!-- Inline create/edit — embedded editor scoped to this log book
              (no navigation to /form-assignments/*). -->
-        <FormAssignmentEditor
-          v-if="showAssignmentEditor"
-          :id="editingAssignmentId"
-          :key="editingAssignmentId || 'new'"
-          embedded
-          :logBookId="props.id"
-          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5"
-          @saved="onAssignmentSaved"
-          @cancel="showAssignmentEditor = false"
-        />
-        <section v-else class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-          <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:mb-3">
-            <div>
-              <BaseText as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
-                Assignments
-              </BaseText>
-              <div class="tw:text-xs tw:text-secondary">
-                Who fills this log book, when (cron + timezone), and where (site). Recurring plans
-                materialise an instance per assignee per occurrence; ad-hoc plans surface the form
-                in users' available list.
-              </div>
-            </div>
-            <BaseButton v-if="canAssign" variant="primary" @click="goCreateAssignment">
-              <IconPlus :size="16" />
-              New assignment
-            </BaseButton>
-          </div>
+              <FormAssignmentEditor
+                v-if="showAssignmentEditor"
+                :id="editingAssignmentId"
+                :key="editingAssignmentId || 'new'"
+                embedded
+                :logBookId="props.id"
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5"
+                @saved="onAssignmentSaved"
+                @cancel="showAssignmentEditor = false"
+              />
+              <section v-else class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
+                <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:mb-3">
+                  <div>
+                    <BaseText as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
+                      Assignments
+                    </BaseText>
+                    <div class="tw:text-xs tw:text-secondary">
+                      Who fills this log book, when (cron + timezone), and where (site). Recurring
+                      plans materialise an instance per assignee per occurrence; ad-hoc plans
+                      surface the form in users' available list.
+                    </div>
+                  </div>
+                  <BaseButton v-if="canAssign" variant="primary" @click="goCreateAssignment">
+                    <IconPlus :size="16" />
+                    New assignment
+                  </BaseButton>
+                </div>
 
-          <div
-            v-if="logBookAssignments.length === 0"
-            class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:py-8 tw:text-secondary"
-          >
-            <IconClipboardList :size="32" class="tw:opacity-60" />
-            <div class="tw:text-sm">No assignments yet.</div>
-            <div class="tw:text-xs tw:text-secondary">
-              Without an assignment, no one is scheduled to fill this log book.
-            </div>
-          </div>
-
-          <div v-else class="tw:overflow-hidden tw:rounded tw:border tw:border-divider">
-            <table class="tw:w-full tw:text-sm">
-              <thead class="tw:bg-main">
-                <tr class="tw:text-left">
-                  <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Schedule</th>
-                  <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Assignees</th>
-                  <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Status</th>
-                  <th class="tw:px-3 tw:py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                <BaseClickableRow
-                  v-for="row in logBookAssignments"
-                  :key="row.id"
-                  tag="tr"
-                  class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-                  :aria-label="`Edit assignment: ${scheduleSummary(row)}`"
-                  @click="goEditAssignment(row.id)"
+                <div
+                  v-if="logBookAssignments.length === 0"
+                  class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:py-8 tw:text-secondary"
                 >
-                  <td class="tw:px-3 tw:py-2 tw:text-on-main">
-                    <div>{{ scheduleSummary(row) }}</div>
-                    <div
-                      v-if="row.schedule?.type === 'RECURRING' && row.schedule?.timezone"
-                      class="tw:text-xs tw:text-secondary"
-                    >
-                      {{ row.schedule.timezone }}
-                    </div>
-                  </td>
-                  <td class="tw:px-3 tw:py-2 tw:text-on-main">
-                    <RoleBadgeById v-if="row.assignedRoleId" :roleId="row.assignedRoleId" />
-                    <div
-                      v-else-if="row.assignedUserIds?.length"
-                      class="tw:flex tw:flex-wrap tw:gap-1"
-                    >
-                      <UserBadgeById v-for="uid in row.assignedUserIds" :key="uid" :userId="uid" />
-                    </div>
-                    <span v-else class="tw:text-secondary">—</span>
-                  </td>
-                  <td class="tw:px-3 tw:py-2">
-                    <span
-                      class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:rounded tw:px-2 tw:py-0.5"
-                      :class="
-                        row.active
-                          ? 'tw:bg-green-100 tw:text-green-700'
-                          : 'tw:bg-gray-100 tw:text-gray-700'
-                      "
-                    >
-                      {{ row.active ? 'Active' : 'Inactive' }}
-                    </span>
-                  </td>
-                  <td class="tw:px-3 tw:py-2 tw:text-right" @click.stop>
-                    <button
-                      v-if="canAssign"
-                      type="button"
-                      class="tw:text-primary tw:text-xs tw:hover:underline tw:flex tw:items-center tw:gap-1 tw:ml-auto"
-                      @click="goEditAssignment(row.id)"
-                    >
-                      <IconEdit :size="14" />
-                      Edit
-                    </button>
-                  </td>
-                </BaseClickableRow>
-              </tbody>
-            </table>
-          </div>
-        </section>
+                  <IconClipboardList :size="32" class="tw:opacity-60" />
+                  <div class="tw:text-sm">No assignments yet.</div>
+                  <div class="tw:text-xs tw:text-secondary">
+                    Without an assignment, no one is scheduled to fill this log book.
+                  </div>
+                </div>
+
+                <div v-else class="tw:overflow-hidden tw:rounded tw:border tw:border-divider">
+                  <table class="tw:w-full tw:text-sm">
+                    <thead class="tw:bg-main">
+                      <tr class="tw:text-left">
+                        <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Schedule</th>
+                        <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">
+                          Assignees
+                        </th>
+                        <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Status</th>
+                        <th class="tw:px-3 tw:py-2" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <BaseClickableRow
+                        v-for="row in logBookAssignments"
+                        :key="row.id"
+                        tag="tr"
+                        class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+                        :aria-label="`Edit assignment: ${scheduleSummary(row)}`"
+                        @click="goEditAssignment(row.id)"
+                      >
+                        <td class="tw:px-3 tw:py-2 tw:text-on-main">
+                          <div>{{ scheduleSummary(row) }}</div>
+                          <div
+                            v-if="row.schedule?.type === 'RECURRING' && row.schedule?.timezone"
+                            class="tw:text-xs tw:text-secondary"
+                          >
+                            {{ row.schedule.timezone }}
+                          </div>
+                        </td>
+                        <td class="tw:px-3 tw:py-2 tw:text-on-main">
+                          <RoleBadgeById v-if="row.assignedRoleId" :roleId="row.assignedRoleId" />
+                          <div
+                            v-else-if="row.assignedUserIds?.length"
+                            class="tw:flex tw:flex-wrap tw:gap-1"
+                          >
+                            <UserBadgeById
+                              v-for="uid in row.assignedUserIds"
+                              :key="uid"
+                              :userId="uid"
+                            />
+                          </div>
+                          <span v-else class="tw:text-secondary">—</span>
+                        </td>
+                        <td class="tw:px-3 tw:py-2">
+                          <span
+                            class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:rounded tw:px-2 tw:py-0.5"
+                            :class="
+                              row.active
+                                ? 'tw:bg-green-100 tw:text-green-700'
+                                : 'tw:bg-gray-100 tw:text-gray-700'
+                            "
+                          >
+                            {{ row.active ? 'Active' : 'Inactive' }}
+                          </span>
+                        </td>
+                        <td class="tw:px-3 tw:py-2 tw:text-right" @click.stop>
+                          <button
+                            v-if="canAssign"
+                            type="button"
+                            class="tw:text-primary tw:text-xs tw:hover:underline tw:flex tw:items-center tw:gap-1 tw:ml-auto"
+                            @click="goEditAssignment(row.id)"
+                          >
+                            <IconEdit :size="14" />
+                            Edit
+                          </button>
+                        </td>
+                      </BaseClickableRow>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
             </div>
           </BaseTabPanel>
 
@@ -1202,91 +1244,93 @@ function back() {
                draft branches a fresh editable version off the effective one. -->
           <BaseTabPanel value="versions">
             <div class="tw:flex tw:flex-col tw:gap-3">
-        <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-          <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:mb-3">
-            <div>
-              <BaseText as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
-                Versions
-              </BaseText>
-              <div class="tw:text-xs tw:text-secondary">
-                A version becomes effective once approved. Only the effective version is used for
-                new entries.
-              </div>
-            </div>
-            <BaseButton
-              v-if="canUpdate && hasEffectiveVersion && !openDraft"
-              variant="primary"
-              :disabled="creatingDraft"
-              @click="createNewDraft"
-            >
-              <IconPlus :size="16" />
-              New draft
-            </BaseButton>
-          </div>
-
-          <div
-            v-if="!hasEffectiveVersion"
-            class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs tw:mb-3"
-          >
-            No effective version yet — this log book can't accept entries until a version is
-            approved.
-          </div>
-
-          <div
-            v-if="versions.length === 0"
-            class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:py-8 tw:text-secondary"
-          >
-            <IconGitBranch :size="32" class="tw:opacity-60" />
-            <div class="tw:text-sm">No versions yet.</div>
-          </div>
-
-          <div v-else class="tw:flex tw:flex-col tw:gap-2">
-            <div
-              v-for="v in versions"
-              :key="v.id"
-              class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:rounded tw:border tw:border-divider tw:p-3"
-              :class="v.id === effectiveVersionId ? 'tw:bg-green-50/40 tw:border-green-200' : ''"
-            >
-              <div class="tw:min-w-0">
-                <div class="tw:flex tw:items-center tw:gap-2">
-                  <span class="tw:font-mono tw:text-sm tw:font-semibold tw:text-on-main">
-                    {{ versionLabel(v) }}
-                  </span>
-                  <LogBookVersionStatusBadge :statusId="v.statusId" />
-                  <span
-                    v-if="v.id === effectiveVersionId"
-                    class="tw:text-[10px] tw:font-bold tw:uppercase tw:text-green-700"
+              <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
+                <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:mb-3">
+                  <div>
+                    <BaseText as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
+                      Versions
+                    </BaseText>
+                    <div class="tw:text-xs tw:text-secondary">
+                      A version becomes effective once approved. Only the effective version is used
+                      for new entries.
+                    </div>
+                  </div>
+                  <BaseButton
+                    v-if="canUpdate && hasEffectiveVersion && !openDraft"
+                    variant="primary"
+                    :disabled="creatingDraft"
+                    @click="createNewDraft"
                   >
-                    Current
-                  </span>
+                    <IconPlus :size="16" />
+                    New draft
+                  </BaseButton>
                 </div>
+
                 <div
-                  v-if="v.changeSummary"
-                  class="tw:text-xs tw:text-secondary tw:truncate tw:mt-0.5"
+                  v-if="!hasEffectiveVersion"
+                  class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs tw:mb-3"
                 >
-                  {{ v.changeSummary }}
+                  No effective version yet — this log book can't accept entries until a version is
+                  approved.
                 </div>
-              </div>
-              <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
-                <BaseButton
-                  v-if="canUpdate && ['DRAFT', 'REJECTED'].includes(v.statusId)"
-                  variant="primary"
-                  size="sm"
-                  @click="openSubmit(v)"
+
+                <div
+                  v-if="versions.length === 0"
+                  class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:py-8 tw:text-secondary"
                 >
-                  <IconSend :size="14" />
-                  Submit for approval
-                </BaseButton>
-                <span
-                  v-else-if="v.statusId === 'UNDER_REVIEW'"
-                  class="tw:text-xs tw:text-secondary tw:italic"
-                >
-                  Awaiting approval
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
+                  <IconGitBranch :size="32" class="tw:opacity-60" />
+                  <div class="tw:text-sm">No versions yet.</div>
+                </div>
+
+                <div v-else class="tw:flex tw:flex-col tw:gap-2">
+                  <div
+                    v-for="v in versions"
+                    :key="v.id"
+                    class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:rounded tw:border tw:border-divider tw:p-3"
+                    :class="
+                      v.id === effectiveVersionId ? 'tw:bg-green-50/40 tw:border-green-200' : ''
+                    "
+                  >
+                    <div class="tw:min-w-0">
+                      <div class="tw:flex tw:items-center tw:gap-2">
+                        <span class="tw:font-mono tw:text-sm tw:font-semibold tw:text-on-main">
+                          {{ versionLabel(v) }}
+                        </span>
+                        <LogBookVersionStatusBadge :statusId="v.statusId" />
+                        <span
+                          v-if="v.id === effectiveVersionId"
+                          class="tw:text-micro tw:font-bold tw:uppercase tw:text-green-700"
+                        >
+                          Current
+                        </span>
+                      </div>
+                      <div
+                        v-if="v.changeSummary"
+                        class="tw:text-xs tw:text-secondary tw:truncate tw:mt-0.5"
+                      >
+                        {{ v.changeSummary }}
+                      </div>
+                    </div>
+                    <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
+                      <BaseButton
+                        v-if="canUpdate && ['DRAFT', 'REJECTED'].includes(v.statusId)"
+                        variant="primary"
+                        size="sm"
+                        @click="openSubmit(v)"
+                      >
+                        <IconSend :size="14" />
+                        Submit for approval
+                      </BaseButton>
+                      <span
+                        v-else-if="v.statusId === 'UNDER_REVIEW'"
+                        class="tw:text-xs tw:text-secondary tw:italic"
+                      >
+                        Awaiting approval
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </BaseTabPanel>
         </div>
@@ -1315,7 +1359,7 @@ function back() {
       >
         <div
           v-if="showSchemaBuilder"
-          class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-9999"
+          class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-max"
         >
           <div class="tw:flex tw:flex-col tw:h-full tw:flex-nowrap">
             <!-- Header -->
@@ -1358,7 +1402,7 @@ function back() {
     <Teleport to="body">
       <div
         v-if="showAddDocDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
         <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-3">Link a document</h3>
@@ -1399,5 +1443,5 @@ function back() {
         </div>
       </div>
     </Teleport>
-  </div>
+  </BasePage>
 </template>

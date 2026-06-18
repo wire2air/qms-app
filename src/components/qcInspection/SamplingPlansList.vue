@@ -169,7 +169,7 @@ async function createNewVersion(plan) {
               {{ p.name }}
               <span
                 v-if="p.version > 1"
-                class="tw:text-[10px] tw:text-secondary tw:font-normal tw:ml-1"
+                class="tw:text-micro tw:text-secondary tw:font-normal tw:ml-1"
                 >v{{ p.version }}</span
               >
             </td>
@@ -184,7 +184,7 @@ async function createNewVersion(plan) {
             </td>
             <td class="tw:px-4 tw:py-2.5">
               <span
-                class="tw:text-[11px] tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
+                class="tw:text-caption tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
                 :class="{
                   'tw:bg-amber-100 tw:text-amber-700': p.statusId === 'DRAFT',
                   'tw:bg-green-100 tw:text-green-700': p.statusId === 'ACTIVE',
@@ -246,7 +246,7 @@ async function createNewVersion(plan) {
                       :key="sa.severity"
                       class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:px-3 tw:py-1.5 tw:text-center"
                     >
-                      <div class="tw:text-[10px] tw:text-secondary tw:uppercase">
+                      <div class="tw:text-micro tw:text-secondary tw:uppercase">
                         {{ sa.severity }}
                       </div>
                       <div class="tw:font-semibold tw:text-on-main tw:text-sm">
@@ -327,7 +327,7 @@ async function createNewVersion(plan) {
                       <span v-if="prev.planType === 'STANDARD'"
                         >· {{ standardName(prev.standardCode) }} {{ prev.inspectionLevel }}</span
                       >
-                      <span class="tw:ml-auto tw:text-[10px]"
+                      <span class="tw:ml-auto tw:text-micro"
                         >superseded {{ prev.effectiveUntil?.formatDate('date') }}</span
                       >
                     </div>

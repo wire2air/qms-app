@@ -174,7 +174,7 @@ function openUpload(requestId) {
             <div class="tw:flex tw:items-center tw:gap-2">
               <span class="tw:text-sm tw:font-medium tw:text-on-main">{{ req.title }}</span>
               <span
-                class="tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-1.5 tw:py-0.5 tw:inline-flex tw:items-center tw:gap-1"
+                class="tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-1.5 tw:py-0.5 tw:inline-flex tw:items-center tw:gap-1"
                 :class="
                   filesFor(req.id).length
                     ? 'tw:bg-emerald-100 tw:text-emerald-700'

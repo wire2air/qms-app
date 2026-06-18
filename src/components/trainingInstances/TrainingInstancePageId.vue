@@ -170,34 +170,34 @@ function closeAssessmentReview() {
   >
     Training instance not found.
   </div>
-  <div v-else class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary">
-        <RouterLink :to="getCompanyPath('/training-instances')" class="tw:hover:text-primary"
-          >Training Instances</RouterLink
+  <BasePage v-else width="standard">
+    <PageHeader>
+      <template #title>
+        <div class="tw:flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary">
+          <RouterLink :to="getCompanyPath('/training-instances')" class="tw:hover:text-primary"
+            >Training Instances</RouterLink
+          >
+          <IconChevronRight :size="14" />
+          <span class="tw:text-on-sidebar tw:font-medium">{{ instance.snapshot?.title }}</span>
+        </div>
+      </template>
+      <template #actions>
+        <BaseButton
+          v-if="canManage && ['ACTIVE', 'PENDING_VERIFICATION'].includes(instance.status)"
+          variant="secondary"
+          @click="openCancelDialog"
         >
-        <IconChevronRight :size="14" />
-        <span class="tw:text-on-sidebar tw:font-medium">{{ instance.snapshot?.title }}</span>
-      </div>
-    </SafeTeleport>
-
-    <SafeTeleport
-      v-if="canManage && ['ACTIVE', 'PENDING_VERIFICATION'].includes(instance.status)"
-      to="#main-header-actions"
-    >
-      <BaseButton variant="secondary" @click="openCancelDialog">
-        <IconBan :size="16" class="tw:mr-1" /> Cancel Instance
-      </BaseButton>
-    </SafeTeleport>
-
-    <SafeTeleport v-if="canManage && needsVerification" to="#main-header-actions">
-      <BaseButton
-        variant="primary"
-        @click="router.push(getCompanyPath(`/training-verifications/${id}`))"
-      >
-        Verify Training
-      </BaseButton>
-    </SafeTeleport>
+          <IconBan :size="16" class="tw:mr-1" /> Cancel Instance
+        </BaseButton>
+        <BaseButton
+          v-if="canManage && needsVerification"
+          variant="primary"
+          @click="router.push(getCompanyPath(`/training-verifications/${id}`))"
+        >
+          Verify Training
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Header -->
     <div class="tw:flex tw:items-start tw:justify-between">
@@ -482,5 +482,5 @@ function closeAssessmentReview() {
         </BaseDialogFooter>
       </template>
     </BaseDialog>
-  </div>
+  </BasePage>
 </template>

@@ -205,7 +205,7 @@ async function handleLink() {
                 {{ config.titleAccessor(row) }}
               </span>
             </div>
-            <div class="tw:text-[11px] tw:text-secondary">
+            <div class="tw:text-caption tw:text-secondary">
               {{ row.statusId || '—' }}
               <span v-if="row.createdAt"> · {{ row.createdAt.formatDate('date') }}</span>
             </div>

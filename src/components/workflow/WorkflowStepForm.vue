@@ -350,7 +350,7 @@ defineExpose({ submit: submitForm, saving })
       <div v-for="record in submittedRecords" :key="record.id" class="tw:mb-3">
         <div
           v-if="submittedRecords.length > 1"
-          class="tw:text-[11px] tw:text-secondary tw:font-medium tw:mb-2"
+          class="tw:text-caption tw:text-secondary tw:font-medium tw:mb-2"
         >
           {{ getUserName(record.userId) }}
         </div>
@@ -358,7 +358,7 @@ defineExpose({ submit: submitForm, saving })
       </div>
 
       <div v-if="currentUserRecord && !currentUserRecord.submittedAt">
-        <div class="tw:text-[11px] tw:text-amber-600 tw:font-medium tw:mb-2">
+        <div class="tw:text-caption tw:text-amber-600 tw:font-medium tw:mb-2">
           Your draft (not submitted)
         </div>
         <FormSchemaReadonlyView :fields="formSchema" :values="currentUserRecord.payload || {}" />

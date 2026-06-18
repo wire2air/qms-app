@@ -141,7 +141,7 @@ function versionLabel(version) {
               {{ entry.workflow.name }}
               <span
                 v-if="entry.workflow.isDefault"
-                class="tw:ml-1 tw:text-[10px] tw:font-semibold tw:px-1.5 tw:py-0.5 tw:rounded tw:bg-primary/10 tw:text-primary tw:align-middle"
+                class="tw:ml-1 tw:text-micro tw:font-semibold tw:px-1.5 tw:py-0.5 tw:rounded tw:bg-primary/10 tw:text-primary tw:align-middle"
               >
                 Default
               </span>
@@ -158,7 +158,7 @@ function versionLabel(version) {
         <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
           <span
             v-if="stepCount(entry.version.id)"
-            class="tw:bg-sidebar-hover tw:px-2 tw:py-1 tw:rounded tw:text-[10px] tw:font-bold tw:text-secondary tw:flex tw:items-center tw:gap-1"
+            class="tw:bg-sidebar-hover tw:px-2 tw:py-1 tw:rounded tw:text-micro tw:font-bold tw:text-secondary tw:flex tw:items-center tw:gap-1"
           >
             <IconList :size="12" />
             {{ stepCount(entry.version.id) }} Steps

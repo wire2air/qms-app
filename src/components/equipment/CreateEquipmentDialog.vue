@@ -281,7 +281,7 @@ function close() {
         </BaseField>
         <BaseField label="Department" optional>
           <DepartmentSelectMenu v-model="departmentId" />
-          <div class="tw:text-[11px] tw:text-secondary tw:mt-1">
+          <div class="tw:text-caption tw:text-secondary tw:mt-1">
             Calibration reminders escalate to the department's supervisor.
           </div>
         </BaseField>
@@ -289,7 +289,7 @@ function close() {
 
       <BaseField label="Owner / custodian" optional>
         <UserSelectMenu v-model="ownerUserId" />
-        <div class="tw:text-[11px] tw:text-secondary tw:mt-1">
+        <div class="tw:text-caption tw:text-secondary tw:mt-1">
           The responsible person — notified first about calibration. Falls back to the department
           supervisor.
         </div>
@@ -321,7 +321,7 @@ function close() {
             min="1"
             placeholder="e.g. 12"
           />
-          <div class="tw:text-[11px] tw:text-secondary tw:mt-1">
+          <div class="tw:text-caption tw:text-secondary tw:mt-1">
             Used to roll the next-due date forward when a calibration is recorded.
           </div>
         </div>

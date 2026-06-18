@@ -113,15 +113,12 @@ async function handleAvatarDelete() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <!-- Breadcrumbs Teleport -->
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbItems" />
-    </SafeTeleport>
-
-    <!-- Actions Teleport -->
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-3">
+  <BasePage width="standard" fullHeight>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs :items="breadcrumbItems" />
+      </template>
+      <template #actions>
         <BaseButton
           v-if="canUpdateUser && user && !user.inviteSent"
           variant="outline"
@@ -130,8 +127,8 @@ async function handleAvatarDelete() {
         >
           Send Invitation
         </BaseButton>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
 
     <!-- Loading State -->
     <div
@@ -143,8 +140,8 @@ async function handleAvatarDelete() {
     </div>
 
     <!-- Content -->
-    <div v-else class="tw:flex-1 tw:overflow-y-auto tw:p-8">
-      <div class="tw:max-w-5xl tw:mx-auto tw:space-y-6">
+    <div v-else class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:py-8">
+      <div class="tw:space-y-6">
         <!-- Saving Indicator -->
         <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary">
           <BaseSpinner size="xs" />
@@ -411,5 +408,5 @@ async function handleAvatarDelete() {
       :performedBy="props.id"
       :title="`Audit Log — ${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Audit Log'"
     />
-  </div>
+  </BasePage>
 </template>

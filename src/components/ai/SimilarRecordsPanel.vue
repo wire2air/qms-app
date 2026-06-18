@@ -162,7 +162,7 @@ function statusClass(statusId) {
             >
               {{ similarityPct(m.similarity) }}
             </span>
-            <span class="tw:text-[10px] tw:text-secondary">match</span>
+            <span class="tw:text-micro tw:text-secondary">match</span>
           </div>
           <div class="tw:flex-1 tw:min-w-0">
             <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">

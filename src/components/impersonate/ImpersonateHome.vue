@@ -20,10 +20,8 @@ function loadMore() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:p-6 tw:max-w-4xl tw:mx-auto">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:text-lg tw:font-bold tw:text-on-main">Impersonate</div>
-    </SafeTeleport>
+  <BasePage width="standard">
+    <PageHeader :icon="IconBuilding" title="Impersonate" />
 
     <SafeTeleport to="#main-header-search">
       <div class="tw:relative tw:w-full">
@@ -64,5 +62,5 @@ function loadMore() {
         </button>
       </div>
     </template>
-  </div>
+  </BasePage>
 </template>

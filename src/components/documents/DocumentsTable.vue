@@ -246,7 +246,7 @@ async function onUnarchiveDocument(row) {
   </BaseTable>
 
   <!-- Confirm Archive Dialog -->
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-model="confirmArchive.open"
     title="Confirm Archive"
     :message="`Are you sure you want to archive &quot;${confirmArchive.doc?.title}&quot; (${confirmArchive.doc?.docNumber})? This action will change the document status to Archived.`"

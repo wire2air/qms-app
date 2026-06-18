@@ -81,7 +81,7 @@ async function onSubmit() {
               <BaseCheckbox v-model="form.isLeadership" />
               <span class="tw:text-sm tw:font-medium tw:text-on-main">Leadership Team</span>
             </label>
-            <div class="tw:text-[10px] tw:text-secondary">Core management group.</div>
+            <div class="tw:text-micro tw:text-secondary">Core management group.</div>
           </div>
         </div>
       </div>

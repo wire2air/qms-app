@@ -84,7 +84,7 @@ const detectabilityLabel = computed(() => {
         class="tw:flex tw:flex-col tw:items-center tw:shrink-0 tw:bg-white/60 tw:rounded-lg tw:px-3 tw:py-1.5"
       >
         <span
-          class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+          class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
           >RPN</span
         >
         <span class="tw:text-xl tw:font-bold tw:text-on-main tw:leading-none">{{ rpnScore }}</span>

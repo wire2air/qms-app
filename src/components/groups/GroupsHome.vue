@@ -29,27 +29,23 @@ const loading = computed(() => groups.value === undefined)
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader :icon="IconUsersGroup" title="Groups" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateGroup" @click="showCreateDialog = true"> Create Group </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Groups</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage your organization's groups and team assignments.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconUsersGroup"
+      title="Groups"
+      subtitle="Manage your organization's groups and team assignments."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreateGroup" @click="showCreateDialog = true">
+          Create Group
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <GroupsFilterToolbar v-model:filters="filters" />
 
     <GroupsList :groups="groups" :loading="loading" :canDelete="canDeleteGroup" />
 
     <GroupsCreateDialog v-model="showCreateDialog" />
-  </div>
+  </BasePage>
 </template>

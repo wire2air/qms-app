@@ -72,7 +72,7 @@ const displayAction = computed(() => (resolvedEntity.value?.isChild ? 'UPDATE' :
             :contextLabel="resolvedEntity.label"
           />
           <span
-            class="tw:text-[10px] tw:px-1.5 tw:py-0.5 tw:rounded tw:bg-main tw:text-secondary tw:border tw:border-divider"
+            class="tw:text-micro tw:px-1.5 tw:py-0.5 tw:rounded tw:bg-main tw:text-secondary tw:border tw:border-divider"
           >
             {{ DISPLAY_TYPE_LABELS[resolvedEntity.displayType] || resolvedEntity.displayType }}
           </span>

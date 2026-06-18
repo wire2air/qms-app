@@ -90,7 +90,7 @@ function getArray() {
           <span>{{ item.name }}</span>
           <span
             v-if="item.statusId === 'OUT_OF_SERVICE'"
-            class="tw:text-[10px] tw:font-bold tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-1 tw:py-0.5"
+            class="tw:text-micro tw:font-bold tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-1 tw:py-0.5"
           >
             Out of service
           </span>

@@ -100,7 +100,7 @@ function viewAllCapas() {
             <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{
               a.displayMeta?.standardName || 'Audit'
             }}</span>
-            <span class="tw:text-[10px] tw:uppercase tw:font-semibold tw:text-secondary">{{
+            <span class="tw:text-micro tw:uppercase tw:font-semibold tw:text-secondary">{{
               a.statusId
             }}</span>
           </button>
@@ -133,7 +133,7 @@ function viewAllCapas() {
               n.ncNumber
             }}</span>
             <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{ n.title }}</span>
-            <span class="tw:text-[10px] tw:uppercase tw:font-semibold tw:text-secondary">{{
+            <span class="tw:text-micro tw:uppercase tw:font-semibold tw:text-secondary">{{
               n.statusId
             }}</span>
           </button>
@@ -173,7 +173,7 @@ function viewAllCapas() {
               c.capaNumber
             }}</span>
             <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{ c.title }}</span>
-            <span class="tw:text-[10px] tw:uppercase tw:font-semibold tw:text-secondary">{{
+            <span class="tw:text-micro tw:uppercase tw:font-semibold tw:text-secondary">{{
               c.statusId
             }}</span>
           </button>

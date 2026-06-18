@@ -116,7 +116,7 @@ async function handleUpload() {
         </button>
         <p
           v-if="file"
-          class="tw:text-[11px] tw:text-secondary tw:mt-1"
+          class="tw:text-caption tw:text-secondary tw:mt-1"
         >
           {{ file.name }} · {{ Math.round(file.size / 1024) }} KB
         </p>

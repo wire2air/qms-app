@@ -348,7 +348,7 @@ async function saveDispositionNotes() {
 </script>
 
 <template>
-  <div v-if="lot" class="tw:p-5 tw:max-w-7xl tw:mx-auto tw:flex tw:flex-col tw:gap-5">
+  <div v-if="lot" class="tw:p-5 tw:flex tw:flex-col tw:gap-5">
     <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap tw:text-sm">
       <BaseBreadcrumbs :items="moduleCrumbs" />
       <RecordTrailBreadcrumb />
@@ -568,7 +568,7 @@ async function saveDispositionNotes() {
                 :key="c.id"
                 class="tw:bg-blue-50/40 tw:rounded-lg tw:p-3 tw:border tw:border-blue-100"
               >
-                <div class="tw:text-[10px] tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wide tw:mb-1.5">
+                <div class="tw:text-micro tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wide tw:mb-1.5">
                   {{ c.name }} — Instructions
                 </div>
                 <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
@@ -605,12 +605,12 @@ async function saveDispositionNotes() {
                 <td class="tw:px-5 tw:py-2.5 tw:font-medium tw:text-on-main tw:align-middle">
                   <div class="tw:flex tw:items-center tw:gap-1.5">
                     {{ c.name }}
-                    <DefectSeverityBadgeById :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')" class="tw:text-[10px]" />
+                    <DefectSeverityBadgeById :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')" class="tw:text-micro" />
                   </div>
                   <button
                     v-if="rowHasDetail(c)"
                     type="button"
-                    class="tw:mt-1 tw:inline-flex tw:items-center tw:gap-1 tw:text-[11px] tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                    class="tw:mt-1 tw:inline-flex tw:items-center tw:gap-1 tw:text-caption tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
                     @click="toggleDetail(c.id)"
                   >
                     <IconChevronDown v-if="isDetailOpen(c.id)" :size="12" />
@@ -667,7 +667,7 @@ async function saveDispositionNotes() {
               <!-- ── Row 2: evidence & comments (collapsible) ────────── -->
               <tr v-if="isDetailOpen(c.id) && canCaptureEvidence(c)" :key="`e-${c.id}`" class="tw:border-t tw:border-divider/50 tw:bg-sidebar/40">
                 <td :colspan="anyRequiresInstrument ? 5 : 4" class="tw:px-5 tw:py-2.5">
-                  <div class="tw:text-[10px] tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">Evidence &amp; Comments</div>
+                  <div class="tw:text-micro tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">Evidence &amp; Comments</div>
                   <RichTextAttachments
                     v-model="entries[c.id].notes"
                     :readonly="!canEditResults"
@@ -679,7 +679,7 @@ async function saveDispositionNotes() {
               <!-- ── Row 3: instructions from spec (collapsible) ─────── -->
               <tr v-if="isDetailOpen(c.id) && c.testMethod" :key="`i-${c.id}`" class="tw:border-t tw:border-divider/50 tw:bg-blue-50/40">
                 <td :colspan="anyRequiresInstrument ? 5 : 4" class="tw:px-5 tw:py-2.5">
-                  <div class="tw:text-[10px] tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wide tw:mb-1.5">Instructions</div>
+                  <div class="tw:text-micro tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wide tw:mb-1.5">Instructions</div>
                   <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
                 </td>
               </tr>

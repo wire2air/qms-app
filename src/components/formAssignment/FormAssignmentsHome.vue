@@ -66,24 +66,18 @@ function goEdit(id) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5">
-    <PageHeader title="Log Book Assignments" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canAssign" variant="primary" @click="goCreate">
-        <IconPlus :size="16" />
-        New Assignment
-      </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Log Book Assignments</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Plan who fills which log book, when (cron + timezone), and where (site). The scheduler
-        materialises occurrences in a 24h look-ahead.
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      title="Log Book Assignments"
+      subtitle="Plan who fills which log book, when (cron + timezone), and where (site). The scheduler materialises occurrences in a 24h look-ahead."
+    >
+      <template #actions>
+        <BaseButton v-if="canAssign" variant="primary" @click="goCreate">
+          <IconPlus :size="16" />
+          New Assignment
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
     <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
@@ -191,5 +185,5 @@ function goEdit(id) {
         </tbody>
       </table>
     </div>
-  </div>
+  </BasePage>
 </template>

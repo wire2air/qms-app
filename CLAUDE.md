@@ -20,6 +20,7 @@ Non-negotiable in new and touched code. Migration sections below show what to re
 12. **`useLiveMutation` for creates** — don't call `db.Model.create()` + `save()` directly inside a component method.
 13. **Use `Base*` first.** `BaseTextInput`, `BaseTextarea`, `BaseColorPicker`, `BaseDialog`, `BaseTable`, `BaseSelectMenu`, `BaseClickableRow`, etc. live in `resource/js/shared/components/`. Reuse before building.
 14. **Reuse before adding** — especially badges and select menus, which follow the [triad pattern](#component-pattern-badge-triad-xbadge--xbadgebyid--xselectmenu).
+15. **Every page root is `<BasePage>`.** Never set page-level padding, max-width, or section gap by hand (no `tw:p-5`, no ad-hoc `tw:max-w-*`, no `tw:gap-3` at the page root). `BasePage` owns width/padding/rhythm. See [Page layout](#page-layout).
 
 ### Feature component naming
 
@@ -43,6 +44,32 @@ const props = defineProps({
 // required=true: auto-select first item
 </script>
 ```
+
+---
+
+## Page layout
+
+Every authenticated app page's root is `<BasePage>` — the single owner of content width, horizontal padding, and vertical rhythm. Pages never hand-pick `tw:p-5`, `tw:max-w-*`, or section `tw:gap-*`. Full design: [`docs/superpowers/specs/2026-06-17-page-layout-system-design.md`](docs/superpowers/specs/2026-06-17-page-layout-system-design.md).
+
+```vue
+<BasePage width="standard" :fullHeight="false">
+  <PageHeader :icon="IconUsers" title="Users"><template #actions>…</template></PageHeader>
+  <BaseFilterBar v-model:search="filters.search">…</BaseFilterBar>
+  <PageSection title="Members" :icon="IconUsers">…</PageSection>
+  <ContentGrid min="18rem">…stat cards…</ContentGrid>
+</BasePage>
+```
+
+- **`width`**: `narrow` (detail/forms, 48rem) · `standard` (default, lists, 80rem) · `wide` (dashboards/wide tables, 96rem) · `full` (escape hatch).
+- **`fullHeight`**: only when the page owns an internal scroll region (sticky table headers, kanban). Mark the scrolling child `tw:flex-1 tw:min-h-0 tw:overflow-auto`. Otherwise the shell scrolls.
+- **`density`**: `comfortable` (default, `gap-6`) · `compact` (`gap-4`).
+- **Reuse, don't rebuild:** toolbar → `BaseFilterBar`; tabs → `BaseTabs`; titled groups → `PageSection`; card grids → `ContentGrid`. There is no `PageToolbar`/`PageTabs` — those are `BaseFilterBar`/`BaseTabs`.
+- **No page-level horizontal scroll** — only bounded table wrappers (`tw:overflow-x-auto`) scroll.
+- **The page title lives in the top bar.** `PageHeader` teleports the icon+title to the bar's left and `#actions` to its right (search sits centered between). Don't hand-roll an in-body `tw:text-3xl` title block, and don't `SafeTeleport to="#main-header-title"`/`#main-header-actions` directly — use `PageHeader`.
+- **One width, no inner box.** Don't wrap page content in a bespoke `tw:max-w-* tw:mx-auto` box or add page-level padding inside `BasePage` — content fills `BasePage`'s width and shares one gutter. (Card/dialog padding is fine.)
+- **Enforced by `npm run lint:layout`** (runs as part of `npm run lint`) — flags bespoke `max-w` content boxes, direct header teleports, and `PageHeader` without `BasePage`. Genuine exceptions (full-canvas editors, public pages) live in the allowlist in `scripts/check-page-layout.mjs`.
+- **List/index pages use whole-page scroll** (no `fullHeight`) — `BaseTable`'s sticky header keeps columns visible. Reserve `fullHeight` for detail/create pages that already have an internal scroll region (sticky toolbar/footer + a `tw:flex-1 tw:min-h-0 tw:overflow-auto` body).
+- **Full-canvas editors/designers are exempt** (e.g. `WorkflowEditor`, `FormAssignmentEditor`, the form builder) — a surface that fills the viewport with its own panes/scroll is not a content page; keep its `tw:flex tw:flex-col tw:h-full tw:overflow-hidden` root, don't wrap it in `BasePage`. Public/auth pages are also out of scope.
 
 ---
 

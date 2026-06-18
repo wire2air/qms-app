@@ -23,25 +23,19 @@ function goSubmit() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
-    <PageHeader title="Logs" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canSubmit" variant="primary" @click="goSubmit">
-        <IconPlus :size="16" />
-        Submit a log
-      </BaseButton>
-    </SafeTeleport>
-
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Logs</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Every log entry submitted across your log books. Use the Form filter to scope into a
-        specific log book (e.g. daily temperature, gemba round). Entries are immutable after
-        the edit window closes.
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      title="Logs"
+      subtitle="Every log entry submitted across your log books. Use the Form filter to scope into a specific log book (e.g. daily temperature, gemba round). Entries are immutable after the edit window closes."
+    >
+      <template #actions>
+        <BaseButton v-if="canSubmit" variant="primary" @click="goSubmit">
+          <IconPlus :size="16" />
+          Submit a log
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <FieldRecordsList />
-  </div>
+  </BasePage>
 </template>

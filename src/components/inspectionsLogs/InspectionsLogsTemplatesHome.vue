@@ -105,25 +105,20 @@ function editWindowSummary(t) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
-    <PageHeader :icon="IconStack2" title="Log Books" :iconSize="22" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" variant="primary" @click="openCreate('OPERATIONAL_LOG')">
-        <IconPlus :size="16" />
-        New Log Book
-      </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page header -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Log Books</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Each log book defines the structure for a class of log entries (daily temperature, gemba
-        round, batch release). Operational log books auto-lock entries after a short edit window;
-        controlled-record log books require an e-signature and reviewer approval.
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconStack2"
+      title="Log Books"
+      :iconSize="22"
+      subtitle="Each log book defines the structure for a class of log entries (daily temperature, gemba round, batch release). Operational log books auto-lock entries after a short edit window; controlled-record log books require an e-signature and reviewer approval."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreate" variant="primary" @click="openCreate('OPERATIONAL_LOG')">
+          <IconPlus :size="16" />
+          New Log Book
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Quick-create cards (only when there are no templates yet, to nudge first-time users) -->
     <div
@@ -252,7 +247,7 @@ function editWindowSummary(t) {
             </td>
             <td class="tw:px-3 tw:py-2">
               <span
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
                 :class="classificationBadgeClass(t.recordClassification)"
               >
                 <IconShieldCheck v-if="t.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
@@ -288,5 +283,5 @@ function editWindowSummary(t) {
       :initialClassification="pendingClassification"
       @created="onTemplateCreated"
     />
-  </div>
+  </BasePage>
 </template>

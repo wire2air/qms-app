@@ -150,25 +150,22 @@ function onRaiseNc() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader title="Nonconformances" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="outline" :disabled="!ncs.length" @click="exportCsv">
-        <IconDownload :size="16" class="tw:mr-1" />
-        Export
-      </BaseButton>
-      <BaseButton v-if="canCreate" variant="primary" @click="onRaiseNc">Raise NC</BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Nonconformances</div>
-        <HelpButton slug="KB/quality/nonconformances" :size="20" />
-      </div>
-      <div class="tw:text-sm tw:text-secondary">Track, investigate and close nonconformances.</div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader title="Nonconformances" subtitle="Track, investigate and close nonconformances.">
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Nonconformances
+          <HelpButton slug="KB/quality/nonconformances" :size="16" />
+        </span>
+      </template>
+      <template #actions>
+        <BaseButton variant="outline" :disabled="!ncs.length" @click="exportCsv">
+          <IconDownload :size="16" class="tw:mr-1" />
+          Export
+        </BaseButton>
+        <BaseButton v-if="canCreate" variant="primary" @click="onRaiseNc">Raise NC</BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Stat Cards -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
@@ -270,5 +267,5 @@ function onRaiseNc() {
       :canDelete="canDelete"
       @edit="(row) => router.push(getCompanyPath(`/nonconformances/${row.id}`))"
     />
-  </div>
+  </BasePage>
 </template>

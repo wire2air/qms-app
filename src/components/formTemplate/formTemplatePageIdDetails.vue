@@ -257,7 +257,7 @@ async function handleDelete() {
             <BaseText as="h4" variant="overline" class="tw:block">JSON Configuration</BaseText>
             <div class="tw:rounded-lg tw:bg-code tw:p-3 tw:overflow-hidden">
               <pre
-                class="tw:text-[10px] tw:text-good tw:font-mono tw:leading-relaxed tw:whitespace-pre-wrap"
+                class="tw:text-micro tw:text-good tw:font-mono tw:leading-relaxed tw:whitespace-pre-wrap"
               ><code>{{ JSON.stringify(template.config, null, 2) }}</code></pre>
             </div>
           </div>
@@ -265,17 +265,17 @@ async function handleDelete() {
           <!-- System Info -->
           <div class="tw:p-4 tw:bg-main tw:rounded-lg">
             <div class="tw:flex tw:flex-col tw:gap-2">
-              <div class="tw:flex tw:justify-between tw:text-[11px]">
+              <div class="tw:flex tw:justify-between tw:text-caption">
                 <span class="tw:text-secondary">Last Modified</span>
                 <span class="tw:font-bold tw:text-on-main">{{ relativeUpdatedAt }}</span>
               </div>
 
-              <div class="tw:flex tw:justify-between tw:text-[11px]">
+              <div class="tw:flex tw:justify-between tw:text-caption">
                 <span class="tw:text-secondary">Created Date</span>
                 <span class="tw:font-bold tw:text-on-main">{{ formattedCreatedAt }}</span>
               </div>
 
-              <div class="tw:flex tw:justify-between tw:text-[11px]">
+              <div class="tw:flex tw:justify-between tw:text-caption">
                 <span class="tw:text-secondary">Version</span>
                 <span class="tw:font-bold tw:text-on-main">{{ template.version }}</span>
               </div>
@@ -286,7 +286,7 @@ async function handleDelete() {
     </aside>
 
     <!-- Delete Confirmation -->
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="showDeleteConfirm"
       title="Delete Template"
       :message="`Are you sure you want to delete form template &quot;${template?.title}&quot; (${template?.code})? This action cannot be undone.`"

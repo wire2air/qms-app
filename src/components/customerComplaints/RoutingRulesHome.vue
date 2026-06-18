@@ -257,12 +257,12 @@ async function handleDelete(rule) {
                   ? 'tw:bg-green-100 tw:text-green-700'
                   : 'tw:bg-gray-100 tw:text-gray-600'
               "
-              class="tw:text-[10px] tw:cursor-pointer"
+              class="tw:text-micro tw:cursor-pointer"
               @click="toggleRuleState(rule)"
             >
               {{ rule.stateId === 'ACTIVE' ? 'Active' : 'Disabled' }}
             </BaseBadge>
-            <span class="tw:text-[10px] tw:text-secondary">
+            <span class="tw:text-micro tw:text-secondary">
               on {{ rule.triggerEvents.join(', ') }}
             </span>
           </div>

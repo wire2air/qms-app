@@ -27,14 +27,14 @@ const show = computed(() => trail.value.length > 1)
         :to="entry.path"
         class="tw:inline-flex tw:items-center tw:gap-1 tw:px-1.5 tw:py-0.5 tw:rounded tw:text-secondary tw:hover:text-primary tw:hover:bg-main-hover tw:no-underline tw:transition-colors"
       >
-        <span v-if="entry.type" class="tw:text-[10px] tw:uppercase tw:tracking-wide tw:opacity-70">{{ entry.type }}</span>
+        <span v-if="entry.type" class="tw:text-micro tw:uppercase tw:tracking-wide tw:opacity-70">{{ entry.type }}</span>
         <span class="tw:font-medium">{{ entry.label || entry.id }}</span>
       </RouterLink>
       <span
         v-else
         class="tw:inline-flex tw:items-center tw:gap-1 tw:px-1.5 tw:py-0.5 tw:text-on-main tw:font-semibold"
       >
-        <span v-if="entry.type" class="tw:text-[10px] tw:uppercase tw:tracking-wide tw:opacity-70">{{ entry.type }}</span>
+        <span v-if="entry.type" class="tw:text-micro tw:uppercase tw:tracking-wide tw:opacity-70">{{ entry.type }}</span>
         {{ entry.label || entry.id }}
       </span>
     </template>

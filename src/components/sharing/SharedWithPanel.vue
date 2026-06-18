@@ -62,7 +62,7 @@ function viaLabel(s) {
       </h3>
     </div>
 
-    <p class="tw:text-[11px] tw:text-secondary tw:italic">
+    <p class="tw:text-caption tw:text-secondary tw:italic">
       Supplier users are granted read access automatically when a workflow step assigns them to this
       {{ entityType.toLowerCase() }}. Internal users with the relevant read permission don't need an
       explicit grant.
@@ -84,7 +84,7 @@ function viaLabel(s) {
           <UserBadgeById :userId="share.userId" />
         </div>
         <span
-          class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5 tw:inline-flex tw:items-center tw:gap-1"
+          class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:inline-flex tw:items-center tw:gap-1"
           :class="
             share.grantedVia === 'WORKFLOW_ASSIGNMENT'
               ? 'tw:bg-blue-50 tw:text-blue-700'

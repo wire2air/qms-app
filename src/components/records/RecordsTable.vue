@@ -130,7 +130,7 @@ const pagination = ref({
       leaveFromClass="tw:translate-x-0"
       leaveToClass="tw:translate-x-full"
     >
-      <div v-if="previewDialog" class="tw:fixed tw:inset-0 tw:z-50 tw:bg-sidebar">
+      <div v-if="previewDialog" class="tw:fixed tw:inset-0 tw:z-modal tw:bg-sidebar">
         <RecordPreview :recordId="selectedRecordId" @close="closePreview" />
       </div>
     </Transition>

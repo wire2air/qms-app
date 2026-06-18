@@ -26,22 +26,16 @@ function navigateToCreate() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader :icon="IconFileDescription" title="Document Templates" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" @click="navigateToCreate">Create Template</BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Document Templates</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Define document lifecycles, metadata, and structural components.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconFileDescription"
+      title="Document Templates"
+      subtitle="Define document lifecycles, metadata, and structural components."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreate" @click="navigateToCreate">Create Template</BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Stats Cards -->
     <DocumentTemplatesStatsCards
@@ -53,5 +47,5 @@ function navigateToCreate() {
 
     <!-- Templates Table -->
     <DocumentTemplatesTable :rows="documentTemplates || []" :loading="loading" />
-  </div>
+  </BasePage>
 </template>

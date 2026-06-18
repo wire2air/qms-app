@@ -5,7 +5,7 @@
  * the selection and the order are persisted on users.settings.dashboardWidgets
  * (§39, an ordered array of enabled ids), so it follows the user across devices.
  */
-import { IconAdjustmentsHorizontal } from '@tabler/icons-vue'
+import { IconAdjustmentsHorizontal, IconLayoutDashboard } from '@tabler/icons-vue'
 import { useSortable, moveArrayElement } from '@vueuse/integrations/useSortable'
 import { currentSession } from '@/utils/currentSession'
 import { useUserSettings } from '@/composables/useUserSettings'
@@ -103,20 +103,18 @@ async function saveEnabled(ids) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:min-h-screen tw:bg-main tw:p-5 tw:gap-5">
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
-      <div>
-        <div class="tw:text-3xl tw:font-bold tw:text-on-main">Dashboard</div>
-        <div class="tw:text-base tw:text-secondary">
-          Welcome back! Here's what's happening with {{ companyName }} today.
-        </div>
-      </div>
-      <BaseButton variant="outline" size="sm" @click="showCustomize = true">
-        <template #icon><IconAdjustmentsHorizontal :size="16" /></template>
-        Customize
-      </BaseButton>
-    </div>
+  <BasePage width="standard">
+    <PageHeader :icon="IconLayoutDashboard" title="Dashboard">
+      <template #subtitle>
+        Welcome back! Here's what's happening with {{ companyName }} today.
+      </template>
+      <template #actions>
+        <BaseButton variant="outline" size="sm" @click="showCustomize = true">
+          <template #icon><IconAdjustmentsHorizontal :size="16" /></template>
+          Customize
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- KPI row (full width) -->
     <DashboardKpis v-if="kpisOn" />
@@ -143,7 +141,7 @@ async function saveEnabled(ids) {
       :enabledIds="enabledIds"
       @save="saveEnabled"
     />
-  </div>
+  </BasePage>
 </template>
 
 <style scoped>

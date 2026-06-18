@@ -179,7 +179,7 @@ const pagination = ref({
           class="tw:flex tw:items-center tw:gap-2 tw:text-on-main tw:hover:text-primary"
         >
           <span class="tw:font-medium">{{ row.subject }}</span>
-          <BaseBadge v-if="row.isSpam" class="tw:bg-red-100 tw:text-red-700 tw:text-[10px]">
+          <BaseBadge v-if="row.isSpam" class="tw:bg-red-100 tw:text-red-700 tw:text-micro">
             Spam
           </BaseBadge>
         </RouterLink>

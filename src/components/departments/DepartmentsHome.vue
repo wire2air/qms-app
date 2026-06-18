@@ -52,24 +52,18 @@ async function confirmDeleteDepartment() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader :icon="IconBuilding" title="Departments" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateDepartment" @click="openDialog()">
-        Create New Department
-      </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Departments</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage departments within your organization's sites.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconBuilding"
+      title="Departments"
+      subtitle="Manage departments within your organization's sites."
+    >
+      <template #actions>
+        <BaseButton v-if="canCreateDepartment" @click="openDialog()">
+          Create New Department
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <DepartmentsFilterToolbar v-model:filters="filters" />
 
@@ -80,7 +74,7 @@ async function confirmDeleteDepartment() {
       @delete="onDeleteDepartment"
       @edit="onEditDepartment"
     />
-  </div>
+  </BasePage>
 
   <!-- Create/Edit Department Dialog -->
   <DepartmentsCreateUpdateDialog
@@ -90,7 +84,7 @@ async function confirmDeleteDepartment() {
   />
 
   <!-- Delete Confirm Dialog -->
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-model="confirmDelete.open"
     title="Delete Department"
     :message="`Are you sure you want to delete '${confirmDelete.department?.name}' (${confirmDelete.department?.code})? This cannot be undone.`"

@@ -37,22 +37,30 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs
-        :items="[
-          { label: 'Training Library', to: getCompanyPath('/trainings') },
-          { label: 'New Training' },
-        ]"
-      />
-    </SafeTeleport>
+  <BasePage width="standard" fullHeight>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs
+          :items="[
+            { label: 'Training Library', to: getCompanyPath('/trainings') },
+            { label: 'New Training' },
+          ]"
+        />
+      </template>
+      <template #actions>
+        <BaseButton
+          variant="secondary"
+          :disabled="saving"
+          @click="router.push(getCompanyPath('/trainings'))"
+          >Cancel</BaseButton
+        >
+        <BaseButton variant="primary" :loading="saving" @click="handleSubmit"
+          >Create Training</BaseButton
+        >
+      </template>
+    </PageHeader>
 
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="secondary" :disabled="saving" @click="router.push(getCompanyPath('/trainings'))">Cancel</BaseButton>
-      <BaseButton variant="primary" :loading="saving" @click="handleSubmit">Create Training</BaseButton>
-    </SafeTeleport>
-
-    <div class="tw:overflow-y-auto tw:flex-1">
+    <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:max-w-xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">
         <div class="tw:flex tw:items-center tw:gap-3">
           <div class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0">
@@ -94,5 +102,5 @@ async function handleSubmit() {
         </div>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

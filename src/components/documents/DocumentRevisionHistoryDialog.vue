@@ -181,7 +181,7 @@ const TYPE_CLASS = {
               <span v-else class="tw:text-secondary">—</span>
               <span
                 v-if="v.regulatoryImpact"
-                class="tw:ml-1.5 tw:inline-flex tw:items-center tw:gap-0.5 tw:rounded tw:bg-amber-100 tw:text-amber-800 tw:px-1.5 tw:py-0.5 tw:text-[10px] tw:font-semibold"
+                class="tw:ml-1.5 tw:inline-flex tw:items-center tw:gap-0.5 tw:rounded tw:bg-amber-100 tw:text-amber-800 tw:px-1.5 tw:py-0.5 tw:text-micro tw:font-semibold"
                 title="Regulatory impact flagged"
               >
                 <IconShieldCheck :size="10" /> REG

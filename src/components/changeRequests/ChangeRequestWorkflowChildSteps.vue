@@ -63,7 +63,7 @@ function openAdd() {
         Sub-tasks
         <span
           v-if="childSteps.length"
-          class="tw:text-[10px] tw:bg-gray-100 tw:text-gray-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:ml-1"
+          class="tw:text-micro tw:bg-gray-100 tw:text-gray-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:ml-1"
         >
           {{ childSteps.length }}
         </span>

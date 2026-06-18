@@ -437,60 +437,61 @@ function onCreateLinkedChangeRequest() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
+  <BasePage width="standard" fullHeight>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs :items="breadcrumbs" />
+      </template>
+      <template #actions>
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <!-- Action buttons (left): lifecycle transitions for the NC. -->
+          <BaseButton
+            v-if="isOwner && nc?.statusId === 'DRAFT'"
+            variant="primary"
+            :disabled="saving"
+            @click="openOpenDialog"
+            >Open NC</BaseButton
+          >
+          <BaseButton
+            v-if="isOwner && nc && !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId)"
+            variant="primary"
+            :disabled="!canMarkComplete || completing"
+            :title="markCompleteBlockedReason || undefined"
+            @click="openMarkCompleteDialog"
+          >
+            {{ completing ? 'Closing…' : 'Approve and Close' }}
+          </BaseButton>
+          <BaseButton
+            v-if="isOwner && nc?.statusId === 'DRAFT'"
+            variant="outline"
+            :disabled="deleting"
+            @click="showDeleteDialog = true"
+            >Delete</BaseButton
+          >
 
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <!-- Action buttons (left): lifecycle transitions for the NC. -->
-        <BaseButton
-          v-if="isOwner && nc?.statusId === 'DRAFT'"
-          variant="primary"
-          :disabled="saving"
-          @click="openOpenDialog"
-          >Open NC</BaseButton
-        >
-        <BaseButton
-          v-if="isOwner && nc && !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId)"
-          variant="primary"
-          :disabled="!canMarkComplete || completing"
-          :title="markCompleteBlockedReason || undefined"
-          @click="openMarkCompleteDialog"
-        >
-          {{ completing ? 'Closing…' : 'Approve and Close' }}
-        </BaseButton>
-        <BaseButton
-          v-if="isOwner && nc?.statusId === 'DRAFT'"
-          variant="outline"
-          :disabled="deleting"
-          @click="showDeleteDialog = true"
-          >Delete</BaseButton
-        >
-
-        <!-- Utility buttons (right): always rightmost, parity with CAPA. -->
-        <BaseButton v-if="nc?.id" variant="secondary" @click="openPrintView">
-          <IconPrinter :size="20" class="tw:mr-1" />
-          Print
-        </BaseButton>
-        <BaseButton v-if="nc?.id" variant="secondary" @click="showAuditLog = true">
-          <IconClipboardList :size="20" class="tw:mr-1" />
-          Audit Log
-        </BaseButton>
-        <AskAiButton
-          v-if="nc?.id"
-          entityType="Nonconformance"
-          :entityId="nc.id"
-          :entityTitle="nc.title"
-          :entityNumber="nc.ncNumber"
-        />
-      </div>
-    </SafeTeleport>
+          <!-- Utility buttons (right): always rightmost, parity with CAPA. -->
+          <BaseButton v-if="nc?.id" variant="secondary" @click="openPrintView">
+            <IconPrinter :size="20" class="tw:mr-1" />
+            Print
+          </BaseButton>
+          <BaseButton v-if="nc?.id" variant="secondary" @click="showAuditLog = true">
+            <IconClipboardList :size="20" class="tw:mr-1" />
+            Audit Log
+          </BaseButton>
+          <AskAiButton
+            v-if="nc?.id"
+            entityType="Nonconformance"
+            :entityId="nc.id"
+            :entityTitle="nc.title"
+            :entityNumber="nc.ncNumber"
+          />
+        </div>
+      </template>
+    </PageHeader>
 
     <BaseSpinner v-if="loading" centered size="md" />
 
-    <div v-else-if="nc" class="tw:overflow-y-auto tw:flex-1">
+    <div v-else-if="nc" class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <RecordTrailBreadcrumb />
         <!-- QC inspection origin — this NC was auto-raised by a rejected lot -->
@@ -527,14 +528,14 @@ function onCreateLinkedChangeRequest() {
                      supplier-facing NC at any lifecycle stage. -->
                 <span
                   v-if="nc.isSupplierFacing"
-                  class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+                  class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
                   title="Supplier-facing: non-approval workflow steps draw from this NC's supplier users. Approval steps stay internal."
                 >
                   Supplier-facing
                 </span>
                 <span
                   v-else
-                  class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+                  class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
                 >
                   Internal
                 </span>
@@ -903,7 +904,7 @@ function onCreateLinkedChangeRequest() {
                     <NcStatusBadgeById :statusId="nc.statusId" />
                     <BaseBadge
                       v-if="nc.markedCompleteAt"
-                      class="tw:text-[10px] tw:bg-emerald-100 tw:text-emerald-700"
+                      class="tw:text-micro tw:bg-emerald-100 tw:text-emerald-700"
                       title="Marked complete by owner — pending final close"
                     >
                       Completed
@@ -1037,7 +1038,7 @@ function onCreateLinkedChangeRequest() {
                   />
                   <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
                     <span
-                      class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5"
+                      class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
                       :class="
                         nc.isSupplierFacing
                           ? 'tw:bg-violet-100 tw:text-violet-700'
@@ -1048,7 +1049,7 @@ function onCreateLinkedChangeRequest() {
                     </span>
                     <button
                       v-if="canConvertToSupplier"
-                      class="tw:text-[11px] tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+                      class="tw:text-caption tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
                       @click="openConvertDialog"
                     >
                       Convert…
@@ -1327,5 +1328,5 @@ function onCreateLinkedChangeRequest() {
         </BaseButton>
       </div>
     </BaseDialog>
-  </div>
+  </BasePage>
 </template>

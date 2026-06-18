@@ -148,27 +148,25 @@ function onCreateCapa() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader title="CAPAs" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="outline" :disabled="!capas.length" @click="exportCsv">
-        <IconDownload :size="16" class="tw:mr-1" />
-        Export
-      </BaseButton>
-      <BaseButton v-if="canCreate" variant="primary" @click="onCreateCapa">Create CAPA</BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">CAPAs</div>
-        <HelpButton slug="KB/quality/capas" :size="20" />
-      </div>
-      <div class="tw:text-sm tw:text-secondary">
-        Track corrective and preventive actions through to verification.
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      title="CAPAs"
+      subtitle="Track corrective and preventive actions through to verification."
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          CAPAs
+          <HelpButton slug="KB/quality/capas" :size="16" />
+        </span>
+      </template>
+      <template #actions>
+        <BaseButton variant="outline" :disabled="!capas.length" @click="exportCsv">
+          <IconDownload :size="16" class="tw:mr-1" />
+          Export
+        </BaseButton>
+        <BaseButton v-if="canCreate" variant="primary" @click="onCreateCapa">Create CAPA</BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Stat Cards -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
@@ -270,5 +268,5 @@ function onCreateCapa() {
       :canDelete="canDelete"
       @edit="(row) => router.push(getCompanyPath(`/capas/${row.id}`))"
     />
-  </div>
+  </BasePage>
 </template>

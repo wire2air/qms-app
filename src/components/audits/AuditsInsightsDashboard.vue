@@ -393,7 +393,7 @@ function openFindingsInstance(f) {
             <div class="tw:flex tw:items-center tw:gap-1.5 tw:flex-wrap">
               <AuditFindingTypeBadgeById :typeId="f.findingTypeId" />
               <AuditFindingStatusBadgeById :statusId="f.statusId" />
-              <span class="tw:text-[11px] tw:text-secondary">
+              <span class="tw:text-caption tw:text-secondary">
                 {{ f.createdAt?.formatDate?.('date') ?? '' }}
               </span>
             </div>

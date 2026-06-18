@@ -39,18 +39,12 @@ const activeTab = computed({
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader :icon="IconClipboardCheck" title="Audits" />
-
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Audits</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage the standards library, recurring audit programs, and audit instances —
-          internal, external, and supplier.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconClipboardCheck"
+      title="Audits"
+      subtitle="Manage the standards library, recurring audit programs, and audit instances — internal, external, and supplier."
+    />
 
     <!-- Tabs — Standards (live; CRUD ships in this phase), Programs (next),
          Audits/Instances (next). The standards tab works today against
@@ -64,5 +58,5 @@ const activeTab = computed({
         <BaseTabPanel value="calendar"><AuditScheduleCalendar /></BaseTabPanel>
       </div>
     </BaseTabs>
-  </div>
+  </BasePage>
 </template>

@@ -280,28 +280,25 @@ const isLockedOut = computed(() => {
   >
     You are not assigned to this training.
   </div>
-  <div v-else class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary">
-        <RouterLink :to="getCompanyPath('/tasks')" class="tw:hover:text-primary"
-          >My Tasks</RouterLink
-        >
-        <IconChevronRight :size="14" />
-        <span class="tw:text-on-sidebar tw:font-medium">{{ instance.snapshot?.title }}</span>
-      </div>
-    </SafeTeleport>
+  <BasePage v-else width="standard">
+    <RouterLink
+      :to="getCompanyPath('/tasks')"
+      class="tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary tw:hover:text-primary"
+    >
+      <IconChevronRight :size="14" class="tw:rotate-180" />
+      My Tasks
+    </RouterLink>
 
-    <!-- Header -->
-    <div class="tw:flex tw:items-start tw:justify-between">
-      <div>
-        <h1 class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ instance.snapshot?.title }}</h1>
-        <div class="tw:flex tw:items-center tw:gap-2 tw:mt-1">
-          <TrainingAssigneeStatusBadgeById :statusId="myAssignee.status" />
-          <span v-if="instance.dueDate" class="tw:text-xs tw:text-secondary">
-            Due {{ instance.dueDate?.formatDate('date') }}
-          </span>
-        </div>
-      </div>
+    <PageHeader>
+      <template #title>{{ instance.snapshot?.title }}</template>
+    </PageHeader>
+
+    <!-- Status + due date -->
+    <div class="tw:flex tw:items-center tw:gap-2">
+      <TrainingAssigneeStatusBadgeById :statusId="myAssignee.status" />
+      <span v-if="instance.dueDate" class="tw:text-xs tw:text-secondary">
+        Due {{ instance.dueDate?.formatDate('date') }}
+      </span>
     </div>
 
     <!-- Stepper (Assessment step hidden when training has no questions) -->
@@ -563,5 +560,5 @@ const isLockedOut = computed(() => {
       :versionId="viewingVersionId"
     />
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
-  </div>
+  </BasePage>
 </template>

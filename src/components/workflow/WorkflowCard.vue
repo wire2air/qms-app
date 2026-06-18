@@ -25,7 +25,7 @@ defineEmits(['setDefault'])
             {{ workflow.name }}
             <span
               v-if="workflow.isDefault"
-              class="tw:ml-1 tw:text-[10px] tw:font-semibold tw:px-1.5 tw:py-0.5 tw:rounded tw:bg-primary/10 tw:text-primary tw:align-middle"
+              class="tw:ml-1 tw:text-micro tw:font-semibold tw:px-1.5 tw:py-0.5 tw:rounded tw:bg-primary/10 tw:text-primary tw:align-middle"
             >
               Default
             </span>

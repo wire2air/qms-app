@@ -265,7 +265,7 @@ watch(
               </p>
               <p
                 v-if="currentVersion.snapshotSha256"
-                class="tw:text-[10px] tw:font-mono tw:text-secondary tw:break-all"
+                class="tw:text-micro tw:font-mono tw:text-secondary tw:break-all"
                 :title="currentVersion.snapshotSha256"
               >
                 sha256: {{ currentVersion.snapshotSha256.slice(0, 16) }}…

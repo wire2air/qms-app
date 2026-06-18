@@ -237,7 +237,7 @@ const debouncedSaveComment = useDebounceFn(async () => {
       </p>
     </div>
 
-    <ConfirmDialog
+    <BaseConfirmDialog
       v-model="confirmDelete"
       title="Delete Section"
       :message="`Are you sure you want to delete '${section.title}'? This cannot be undone.`"

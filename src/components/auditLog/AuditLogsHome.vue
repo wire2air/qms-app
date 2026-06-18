@@ -6,15 +6,12 @@ const { auditLogs, loading } = useAuditLogs()
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div>
-        <div class="tw:text-xl tw:font-bold tw:text-on-main">Audit Logs</div>
-        <div class="tw:text-xs tw:text-secondary tw:hidden tw:sm:block tw:whitespace-nowrap">
-          Tamper-evident record of all system actions.
-        </div>
-      </div>
-    </SafeTeleport>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconShield"
+      title="Audit Logs"
+      subtitle="Tamper-evident record of all system actions."
+    />
 
     <div class="tw:bg-sidebar tw:p-3 tw:rounded-xl">
       <AuditLogsFilters />
@@ -36,5 +33,5 @@ const { auditLogs, loading } = useAuditLogs()
       description="Audit logs will appear here as actions are performed."
       dense
     />
-  </div>
+  </BasePage>
 </template>

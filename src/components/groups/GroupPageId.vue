@@ -1,6 +1,5 @@
 <script setup>
 import { IconCamera, IconBuilding, IconUserPlus, IconCopy } from '@tabler/icons-vue'
-import { getCompanyPath } from '@/utils/routeHelpers'
 import { isAllowed } from '@/utils/currentSession'
 import { uploadFile } from '@/utils/uploadService.js'
 
@@ -58,10 +57,6 @@ const filteredUsers = computed(() => {
 
 // ─── Breadcrumbs ──────────────────────────────────────────────────────────────
 
-const breadcrumbItems = computed(() => [
-  { label: 'Groups', to: getCompanyPath('/groups') },
-  { label: group.value?.name || 'Loading...' },
-])
 
 // ─── Auto-save ────────────────────────────────────────────────────────────────
 
@@ -135,13 +130,9 @@ function copyToClipboard(text) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbItems" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
+  <BasePage width="standard">
+    <PageHeader v-if="group" :icon="IconBuilding" :title="group.name || 'Team'">
+      <template #actions>
         <div
           v-if="isSaving"
           class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary"
@@ -149,8 +140,9 @@ function copyToClipboard(text) {
           <BaseSpinner size="xs" />
           Saving...
         </div>
-      </div>
-    </SafeTeleport>
+      </template>
+    </PageHeader>
+
 
     <!-- Loading State -->
     <div
@@ -163,7 +155,7 @@ function copyToClipboard(text) {
 
     <!-- Content -->
     <div v-else-if="group" class="tw:overflow-y-auto">
-      <div class="tw:max-w-5xl tw:mx-auto tw:p-8 tw:space-y-8">
+      <div class="tw:py-8 tw:space-y-8">
         <!-- Error Banner -->
         <div
           v-if="saveError"
@@ -303,7 +295,7 @@ function copyToClipboard(text) {
                     Members
                   </h3>
                   <span
-                    class="tw:text-[10px] tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
+                    class="tw:text-micro tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
                   >
                     {{ memberCount }}
                   </span>
@@ -365,5 +357,5 @@ function copyToClipboard(text) {
       @save="handleAvatarSave"
       @delete="handleAvatarDelete"
     />
-  </div>
+  </BasePage>
 </template>

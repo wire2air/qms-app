@@ -66,7 +66,7 @@ function onRemoveDocument(entry) {
         <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Shared Documents</h3>
         <span
           v-if="sharedDocs.length"
-          class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-gray-200 tw:text-gray-700 tw:px-2 tw:py-0.5 tw:text-[10px] tw:font-bold"
+          class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-gray-200 tw:text-gray-700 tw:px-2 tw:py-0.5 tw:text-micro tw:font-bold"
         >
           {{ sharedDocs.length }}
         </span>
@@ -124,7 +124,7 @@ function onRemoveDocument(entry) {
   <!-- Share Document Dialog -->
   <SuppliersShareDocumentDialog v-model="showShareDialog" :supplierId="props.supplierId" />
 
-  <ConfirmDialog
+  <BaseConfirmDialog
     v-if="confirmDialog"
     :modelValue="true"
     v-bind="confirmDialog"

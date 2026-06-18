@@ -116,28 +116,25 @@ function navigateToDetail(row) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <PageHeader :icon="IconFileDescription" title="Documents" />
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreate" @click="navigateToCreate">
-        <IconPlus :size="16" class="tw:mr-1" />
-        Create Document
-      </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:flex tw:items-center tw:gap-2">
-          <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Documents</div>
-          <HelpButton slug="KB/documents/document-control" :size="20" />
-        </div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage controlled documents, versions, and approvals.
-        </div>
-      </div>
-    </div>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconFileDescription"
+      title="Documents"
+      subtitle="Manage controlled documents, versions, and approvals."
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Documents
+          <HelpButton slug="KB/documents/document-control" :size="16" />
+        </span>
+      </template>
+      <template #actions>
+        <BaseButton v-if="canCreate" @click="navigateToCreate">
+          <IconPlus :size="16" class="tw:mr-1" />
+          Create Document
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Stats Cards -->
     <DocumentsStatsCards :stats="stats" :total="statsTotal" />
@@ -151,5 +148,5 @@ function navigateToDetail(row) {
       :loading="allDocuments === undefined"
       @view="navigateToDetail"
     />
-  </div>
+  </BasePage>
 </template>
