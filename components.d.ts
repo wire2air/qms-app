@@ -234,6 +234,7 @@ declare module 'vue' {
     BaseTimePicker: typeof import('./resource/js/shared/components/BaseTimePicker.vue')['default']
     'BaseTimePicker.stories': typeof import('./resource/js/shared/components/BaseTimePicker.stories.js')['default']
     BaseToast: typeof import('./resource/js/shared/components/BaseToast.vue')['default']
+    'BaseToast.spec': typeof import('./resource/js/shared/components/BaseToast.spec.js')['default']
     'BaseToast.stories': typeof import('./resource/js/shared/components/BaseToast.stories.js')['default']
     BaseToastContainer: typeof import('./resource/js/shared/components/BaseToastContainer.vue')['default']
     BaseTooltip: typeof import('./resource/js/shared/components/BaseTooltip.vue')['default']
