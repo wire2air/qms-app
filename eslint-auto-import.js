@@ -198,6 +198,7 @@ export default {
     "useDeviceOrientation": true,
     "useDevicePixelRatio": true,
     "useDevicesList": true,
+    "useDialog": true,
     "useDisplayMedia": true,
     "useDocumentVisibility": true,
     "useDocuments": true,
