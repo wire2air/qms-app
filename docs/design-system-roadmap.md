@@ -147,11 +147,12 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [ ] `RichTextEditor` (lazy, de-Quasar — relocate out of Base layer), `BaseFileUpload`/`useFileUploader`, image cropper, **Charts** (apexcharts, lazy), Markdown render, Signature pad, PDF viewer (pdfjs, lazy), Barcode/QR.
 - [ ] Each heavy dep lazy-loaded + measured against the Phase 0 bundle baseline.
 
-## Phase 9 — Composables  ⬜  `M` · risk: low
+## Phase 9 — Composables  🚧 IN PROGRESS  `M` · risk: low
 
-- [ ] New: `useDate` (wraps luxon + `dt.formatDate`), `useTable`, `usePagination`, `useFileUploader`, `useChecklistModel`.
-- [ ] Already exist (keep/standardize): `useConfirm`, `useToast` (=notification), `useDialog` (extract from BaseDialog), `useClipboard` (=VueUse).
-- [ ] Consolidate the two `uploadFile` contracts into one service; shared `CameraCaptureDialog`.
+- [x] **`useChecklistModel`** — extracted BaseChecklist's uniform-vs-nested value-shape state machine into a pure, unit-tested composable (audit §7; it was inline + unmountable to test). BaseChecklist consumes it (1:1, build-verified). 8 tests.
+- [x] **`usePagination`** — extracted BasePagination's math (total pages / range label / clamped nav / page-size reset) into a reusable composable; BasePagination consumes it (spec safety-net passes). 7 tests.
+- [ ] **Deferred:** `useDate` (near-dead — `dt.formatDate` is already a DateTime prototype method app-wide), `useTable` (would require refactoring BaseTable — out of scope), `useFileUploader` + consolidating the two `uploadFile` contracts (`useFileUpload.js` vs `uploadService.js`) + shared `CameraCaptureDialog` (a real refactor of untested upload components — needs a verified pass).
+- [ ] Already exist (keep/standardize): `useConfirm`, `useToast`, `useDialog` (extract from BaseDialog), `useClipboard` (=VueUse).
 
 ---
 
