@@ -115,4 +115,37 @@ describe('BaseOptionGroup', () => {
     expect(w.text()).toContain('Fruit')
     expect(w.text()).toContain('Pick one')
   })
+
+  it('exposes a radiogroup role for radio type, group for checkbox', () => {
+    const radio = mount(BaseOptionGroup, { props: { options: objOpts, type: 'radio' } })
+    expect(radio.find('[role="radiogroup"]').exists()).toBe(true)
+    const cb = mount(BaseOptionGroup, { props: { options: objOpts, type: 'checkbox' } })
+    expect(cb.find('[role="group"]').exists()).toBe(true)
+    expect(cb.find('[role="radiogroup"]').exists()).toBe(false)
+  })
+
+  it('associates the visible label with the group via aria-labelledby (not a stray <label>)', () => {
+    const w = mount(BaseOptionGroup, { props: { options: objOpts, label: 'Fruit', type: 'radio' } })
+    const group = w.find('[role="radiogroup"]')
+    const labelledby = group.attributes('aria-labelledby')
+    expect(labelledby).toBeTruthy()
+    expect(w.find(`#${labelledby}`).text()).toBe('Fruit')
+  })
+
+  it('readonly keeps inputs focusable (NOT disabled) but marks the group aria-readonly', () => {
+    const w = mount(BaseOptionGroup, {
+      props: { modelValue: 'apple', options: objOpts, type: 'radio', readonly: true },
+    })
+    // the readonly≡disabled bug: inputs must NOT carry the native disabled attr
+    expect(w.findAll('input').some((i) => i.element.disabled)).toBe(false)
+    expect(w.find('[role="radiogroup"]').attributes('aria-readonly')).toBe('true')
+  })
+
+  it('disabled marks the group aria-disabled and disables inputs', () => {
+    const w = mount(BaseOptionGroup, {
+      props: { options: objOpts, type: 'radio', disabled: true },
+    })
+    expect(w.find('[role="radiogroup"]').attributes('aria-disabled')).toBe('true')
+    expect(w.findAll('input').every((i) => i.element.disabled)).toBe(true)
+  })
 })

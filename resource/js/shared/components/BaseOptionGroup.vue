@@ -31,8 +31,18 @@ const props = defineProps({
 const model = defineModel({ type: [String, Number, Boolean, Array], default: undefined })
 
 const isMultiple = computed(() => ['checkbox', 'toggle'].includes(props.type))
-const isDisabled = computed(() => props.disabled || props.readonly)
+// `disabled` removes the control from focus + submission (native disabled);
+// `readonly` must NOT — it stays focusable/submittable but rejects changes.
+// `blocked` gates mutation + the muted visual for both.
+const blocked = computed(() => props.disabled || props.readonly)
 const helpText = computed(() => props.instructions || props.hint)
+const labelId = useId()
+
+// Block the native toggle for readonly (keeps the input focusable, unlike
+// disabled). select() also no-ops, so the controlled :checked never drifts.
+function onOptionClick(e) {
+  if (props.readonly && !props.disabled) e.preventDefault()
+}
 
 function getOptionValue(option) {
   if (typeof option === 'string') return option
@@ -52,7 +62,7 @@ function isChecked(value) {
 }
 
 function select(value) {
-  if (isDisabled.value) return
+  if (blocked.value) return
   if (isMultiple.value) {
     const arr = Array.isArray(model.value) ? [...model.value] : []
     const i = arr.indexOf(value)
@@ -79,33 +89,46 @@ watch(
 
 <template>
   <div>
-    <label v-if="label" class="tw:mb-2 tw:block tw:text-sm tw:font-medium tw:text-on-main">
+    <!-- Group title: a plain element (NOT a stray <label>, which would label
+         no single control) associated to the group via aria-labelledby. -->
+    <div
+      v-if="label"
+      :id="labelId"
+      class="tw:mb-2 tw:block tw:text-sm tw:font-medium tw:text-on-main"
+    >
       {{ label }}
-    </label>
+    </div>
 
-    <div :class="inline ? 'tw:flex tw:flex-wrap tw:gap-x-5 tw:gap-y-2' : 'tw:flex tw:flex-col tw:gap-2'">
+    <div
+      :role="isMultiple ? 'group' : 'radiogroup'"
+      :aria-labelledby="label ? labelId : undefined"
+      :aria-readonly="readonly || undefined"
+      :aria-disabled="disabled || undefined"
+      :class="inline ? 'tw:flex tw:flex-wrap tw:gap-x-5 tw:gap-y-2' : 'tw:flex tw:flex-col tw:gap-2'"
+    >
       <label
         v-for="option in options"
         :key="getOptionValue(option)"
         class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main"
-        :class="isDisabled ? 'tw:cursor-not-allowed tw:opacity-60' : 'tw:cursor-pointer'"
+        :class="blocked ? 'tw:cursor-not-allowed tw:opacity-60' : 'tw:cursor-pointer'"
       >
         <input
           :type="isMultiple ? 'checkbox' : 'radio'"
           :name="name"
           :value="getOptionValue(option)"
           :checked="isChecked(getOptionValue(option))"
-          :disabled="isDisabled"
+          :disabled="disabled"
           class="tw:size-4 tw:shrink-0 tw:accent-primary"
-          :class="isDisabled ? 'tw:cursor-not-allowed' : 'tw:cursor-pointer'"
+          :class="blocked ? 'tw:cursor-not-allowed' : 'tw:cursor-pointer'"
+          @click="onOptionClick"
           @change="select(getOptionValue(option))"
         />
         <span>{{ getOptionLabel(option) }}</span>
       </label>
     </div>
 
-    <p v-if="helpText" class="tw:mt-1.5 tw:text-xs tw:text-secondary">{{ helpText }}</p>
-    <p v-if="error && errorMessage" class="tw:mt-1.5 tw:text-xs tw:text-red-500">
+    <p v-if="helpText" class="tw:mt-1.5 tw:text-caption tw:text-secondary">{{ helpText }}</p>
+    <p v-if="error && errorMessage" class="tw:mt-1.5 tw:text-caption tw:text-bad">
       {{ errorMessage }}
     </p>
   </div>
