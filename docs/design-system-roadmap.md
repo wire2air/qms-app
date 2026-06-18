@@ -142,16 +142,20 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [ ] **Retire the ~362 `text-[Npx]` magic numbers** + `ds-label`→`BaseLabel` (~22) + read-only captions→`BaseCaption` (~95). **Deferred — large mechanical sweeps (hundreds of edits) that need a dedicated, in-app-verified pass; the ratchet now prevents the counts from growing in the meantime.**
 - [ ] *Intentional leaves (do NOT convert):* ~25 checkbox/switch/radio-wrapping `<label>`s; `<th>` table headers; `BaseCheckbox`-nested question labels.
 
-## Phase 8 — Advanced Components  ⬜  `XL` · risk: med (mostly lazy-loaded)
+## Phase 8 — Advanced Components  🚧 IN PROGRESS  `XL` · risk: med (mostly lazy-loaded)
 
-- [ ] `RichTextEditor` (lazy, de-Quasar — relocate out of Base layer), `BaseFileUpload`/`useFileUploader`, image cropper, **Charts** (apexcharts, lazy), Markdown render, Signature pad, PDF viewer (pdfjs, lazy), Barcode/QR.
-- [ ] Each heavy dep lazy-loaded + measured against the Phase 0 bundle baseline.
+- [x] **`BaseChart`** — lazy ApexCharts wrapper (`vue3-apexcharts`) with brand defaults; `defineAsyncComponent` keeps apexcharts (~140KB → its own chunk, confirmed) off non-chart routes. Story (line/bar/donut).
+- [x] **`BaseSignaturePad`** — draw-to-sign canvas (`signature_pad`); v-model = PNG data URL, HiDPI-scaled, `clear()`/`isEmpty()`. Story.
+- [x] **`BaseImageCropper`** — crop/zoom on the installed `vue-advanced-cropper`; emits cropped data URL. Story.
+- [ ] **Deferred (complex / blind-risk):** `BasePdfViewer` (pdfjs worker setup + existing `usePdfImport`), `RichTextEditor` lazy-load + relocate (23 call sites — `defineAsyncComponent` ref/expose forwarding), `BaseFileUpload`/`useFileUploader`, Markdown render, Barcode/QR.
+- [x] Each heavy dep lazy-loaded (verified apexcharts is a separate chunk; charts/signature/cropper components carry browser-verify notes — render to canvas/SVG, checked in Storybook not jsdom).
 
-## Phase 9 — Composables  ⬜  `M` · risk: low
+## Phase 9 — Composables  🚧 IN PROGRESS  `M` · risk: low
 
-- [ ] New: `useDate` (wraps luxon + `dt.formatDate`), `useTable`, `usePagination`, `useFileUploader`, `useChecklistModel`.
-- [ ] Already exist (keep/standardize): `useConfirm`, `useToast` (=notification), `useDialog` (extract from BaseDialog), `useClipboard` (=VueUse).
-- [ ] Consolidate the two `uploadFile` contracts into one service; shared `CameraCaptureDialog`.
+- [x] **`useChecklistModel`** — extracted BaseChecklist's uniform-vs-nested value-shape state machine into a pure, unit-tested composable (audit §7; it was inline + unmountable to test). BaseChecklist consumes it (1:1, build-verified). 8 tests.
+- [x] **`usePagination`** — extracted BasePagination's math (total pages / range label / clamped nav / page-size reset) into a reusable composable; BasePagination consumes it (spec safety-net passes). 7 tests.
+- [ ] **Deferred:** `useDate` (near-dead — `dt.formatDate` is already a DateTime prototype method app-wide), `useTable` (would require refactoring BaseTable — out of scope), `useFileUploader` + consolidating the two `uploadFile` contracts (`useFileUpload.js` vs `uploadService.js`) + shared `CameraCaptureDialog` (a real refactor of untested upload components — needs a verified pass).
+- [ ] Already exist (keep/standardize): `useConfirm`, `useToast`, `useDialog` (extract from BaseDialog), `useClipboard` (=VueUse).
 
 ---
 

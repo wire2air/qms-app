@@ -14,7 +14,7 @@ const props = defineProps({
 })
 
 const router = useRouter()
-const confirmDelete = ref(false)
+const { confirm } = useConfirm()
 
 const memberships = useLiveQueryWithDeps(
   [() => props.group.id],
@@ -29,9 +29,14 @@ function onClick() {
   router.push(getCompanyPath(`/groups/${props.group.id}`))
 }
 
-async function onConfirmDelete() {
-  await props.group.delete()
-  confirmDelete.value = false
+async function onDelete() {
+  const ok = await confirm({
+    title: 'Delete Group',
+    message: `Are you sure you want to delete '${props.group.name}'? This action cannot be undone.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (ok) await props.group.delete()
 }
 </script>
 
@@ -69,7 +74,7 @@ async function onConfirmDelete() {
           <template #items>
             <button
               class="tw:flex tw:items-center tw:gap-2 tw:w-full tw:px-3 tw:py-2 tw:text-sm tw:text-red-600 tw:hover:bg-red-50 tw:transition-colors"
-              @click="confirmDelete = true"
+              @click="onDelete"
             >
               <IconTrash :size="14" />
               Delete
@@ -79,12 +84,4 @@ async function onConfirmDelete() {
       </div>
     </div>
   </BaseClickableRow>
-
-  <BaseConfirmDialog
-    v-model="confirmDelete"
-    title="Delete Group"
-    :message="`Are you sure you want to delete '${group.name}'? This action cannot be undone.`"
-    okLabel="Delete"
-    @ok="onConfirmDelete"
-  />
 </template>

@@ -5,7 +5,7 @@ import { isAllowed } from '@/utils/currentSession.js'
 const showDialog = ref(false)
 const selectedSiteId = ref(null)
 
-const confirmDelete = ref({ open: false, site: null })
+const { confirm } = useConfirm()
 
 const canCreateSite = computed(() => isAllowed(['sites:create']))
 const canUpdateSite = computed(() => isAllowed(['sites:update']))
@@ -40,13 +40,14 @@ function onEditSite(row) {
   openDialog(row.id)
 }
 
-function onDeleteSite(row) {
-  confirmDelete.value = { open: true, site: row }
-}
-
-async function confirmDeleteSite() {
-  await confirmDelete.value.site.delete()
-  confirmDelete.value = { open: false, site: null }
+async function onDeleteSite(row) {
+  const ok = await confirm({
+    title: 'Delete Site',
+    message: `Are you sure you want to delete '${row.name}' (${row.code})? This cannot be undone.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (ok) await row.delete()
 }
 </script>
 
@@ -78,12 +79,4 @@ async function confirmDeleteSite() {
   <!-- Create/Edit Site Dialog -->
   <SitesCreateUpdateDialog v-if="showDialog" :id="selectedSiteId" v-model="showDialog" />
 
-  <!-- Delete Confirm Dialog -->
-  <BaseConfirmDialog
-    v-model="confirmDelete.open"
-    title="Delete Site"
-    :message="`Are you sure you want to delete '${confirmDelete.site?.name}' (${confirmDelete.site?.code})? This cannot be undone.`"
-    okLabel="Delete"
-    @ok="confirmDeleteSite"
-  />
 </template>

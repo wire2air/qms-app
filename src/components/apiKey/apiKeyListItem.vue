@@ -18,7 +18,7 @@ const expiresLabel = computed(() => {
   return props.apiKey.expiresAt ? props.apiKey.expiresAt.formatDate() : 'Never'
 })
 
-const confirmDialog = ref(null)
+const { confirm } = useConfirm()
 
 const menuItems = computed(() => {
   const items = []
@@ -26,31 +26,31 @@ const menuItems = computed(() => {
     items.push({
       name: 'Revoke',
       icon: IconBan,
-      click: () => {
-        confirmDialog.value = {
+      click: async () => {
+        const ok = await confirm({
           title: 'Revoke API Key',
           message: `Are you sure you want to revoke "${props.apiKey.name}"? This key will no longer be able to authenticate requests.`,
           okLabel: 'Revoke',
-          onOk: async () => {
-            props.apiKey.revoked = true
-            await props.apiKey.save()
-          },
-        }
+          danger: true,
+        })
+        if (!ok) return
+        props.apiKey.revoked = true
+        await props.apiKey.save()
       },
     })
   }
   items.push({
     name: 'Delete',
     icon: IconTrash,
-    click: () => {
-      confirmDialog.value = {
+    click: async () => {
+      const ok = await confirm({
         title: 'Delete API Key',
         message: `Are you sure you want to delete "${props.apiKey.name}"? This action cannot be undone.`,
         okLabel: 'Delete',
-        onOk: async () => {
-          await props.apiKey.delete()
-        },
-      }
+        danger: true,
+      })
+      if (!ok) return
+      await props.apiKey.delete()
     },
   })
   return items
@@ -100,12 +100,4 @@ const menuItems = computed(() => {
       </div>
     </div>
   </div>
-
-  <BaseConfirmDialog
-    v-if="confirmDialog"
-    :modelValue="true"
-    v-bind="confirmDialog"
-    @update:modelValue="confirmDialog = null"
-    @ok="confirmDialog?.onOk"
-  />
 </template>

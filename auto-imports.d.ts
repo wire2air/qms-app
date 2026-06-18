@@ -168,6 +168,7 @@ declare global {
   const useChatPanel: typeof import('./src/composables/useChatPanel.js').useChatPanel
   const useChatStream: typeof import('./src/composables/useChatStream.js').useChatStream
   const useChatThreads: typeof import('./src/composables/useChatThreads.js').useChatThreads
+  const useChecklistModel: typeof import('./resource/js/shared/composables/useChecklistModel.js').useChecklistModel
   const useClipboard: typeof import('@vueuse/core').useClipboard
   const useClipboardItems: typeof import('@vueuse/core').useClipboardItems
   const useCloned: typeof import('@vueuse/core').useCloned
@@ -194,6 +195,7 @@ declare global {
   const useDeviceOrientation: typeof import('@vueuse/core').useDeviceOrientation
   const useDevicePixelRatio: typeof import('@vueuse/core').useDevicePixelRatio
   const useDevicesList: typeof import('@vueuse/core').useDevicesList
+  const useDialog: typeof import('./resource/js/shared/composables/useDialog.js').useDialog
   const useDisplayMedia: typeof import('@vueuse/core').useDisplayMedia
   const useDocumentVisibility: typeof import('@vueuse/core').useDocumentVisibility
   const useDocuments: typeof import('./src/composables/useDocuments.js').useDocuments
@@ -255,6 +257,7 @@ declare global {
   const useOnline: typeof import('@vueuse/core').useOnline
   const usePageInfo: typeof import('./src/composables/usePageInfo.js').usePageInfo
   const usePageLeave: typeof import('@vueuse/core').usePageLeave
+  const usePagination: typeof import('./resource/js/shared/composables/usePagination.js').usePagination
   const useParallax: typeof import('@vueuse/core').useParallax
   const useParentElement: typeof import('@vueuse/core').useParentElement
   const usePerformanceObserver: typeof import('@vueuse/core').usePerformanceObserver

@@ -35,18 +35,16 @@ const showShareDialog = ref(false)
 
 // ─── Remove document ──────────────────────────────────────────────────────────
 
-const confirmDialog = ref(null)
+const { confirm } = useConfirm()
 
-function onRemoveDocument(entry) {
-  confirmDialog.value = {
+async function onRemoveDocument(entry) {
+  const ok = await confirm({
     title: 'Unshare Document',
     message: 'Are you sure you want to unshare this document from the supplier?',
     okLabel: 'Unshare',
-    onOk: async () => {
-      await entry.sd.delete()
-      confirmDialog.value = null
-    },
-  }
+    danger: true,
+  })
+  if (ok) await entry.sd.delete()
 }
 </script>
 
@@ -124,11 +122,4 @@ function onRemoveDocument(entry) {
   <!-- Share Document Dialog -->
   <SuppliersShareDocumentDialog v-model="showShareDialog" :supplierId="props.supplierId" />
 
-  <BaseConfirmDialog
-    v-if="confirmDialog"
-    :modelValue="true"
-    v-bind="confirmDialog"
-    @update:modelValue="confirmDialog = null"
-    @ok="confirmDialog?.onOk"
-  />
 </template>

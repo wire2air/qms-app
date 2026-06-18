@@ -39,15 +39,19 @@ const canArchive = computed(() => isAllowed(['document-templates:delete']))
 const canEdit = computed(() => canUpdate.value && template.value?.statusId === 'DRAFT')
 
 const editingName = ref(false)
-const showPublishConfirm = ref(false)
-const showArchiveConfirm = ref(false)
-const showUnarchiveConfirm = ref(false)
+const { confirm } = useConfirm()
 
 useAutoSave(template, { onError: (err) => toast.error(err) })
 
 
 async function onPublish() {
   if (!template.value) return
+  const ok = await confirm({
+    title: 'Publish template',
+    message: `Once you publish this template, it can be used in documents — but you won't be able to edit it after publishing. Continue?`,
+    okLabel: 'Publish',
+  })
+  if (!ok) return
   const lastStatus = template.value.statusId
   template.value.statusId = 'PUBLISHED'
   try {
@@ -61,6 +65,13 @@ async function onPublish() {
 
 async function onArchive() {
   if (!template.value) return
+  const ok = await confirm({
+    title: 'Archive template',
+    message: `Once this template is archived, you won't be able to edit it or use it for new documents. Continue?`,
+    okLabel: 'Archive',
+    danger: true,
+  })
+  if (!ok) return
   const lastStatus = template.value.statusId
   template.value.statusId = 'ARCHIVED'
   try {
@@ -74,6 +85,12 @@ async function onArchive() {
 
 async function onUnarchive() {
   if (!template.value) return
+  const ok = await confirm({
+    title: 'Unarchive template',
+    message: `This template will return to Draft status — it will be editable again, but you'll need to publish it before it can be used for new documents. Continue?`,
+    okLabel: 'Unarchive',
+  })
+  if (!ok) return
   const lastStatus = template.value.statusId
   template.value.statusId = 'DRAFT'
   try {
@@ -124,7 +141,7 @@ function goBack() {
         <button
           v-if="canUpdate && template?.statusId === 'DRAFT'"
           class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:bg-primary tw:text-white tw:text-sm tw:font-medium tw:hover:bg-primary/90 tw:transition-colors"
-          @click="showPublishConfirm = true"
+          @click="onPublish"
         >
           <IconSend :size="16" />
           Publish
@@ -132,7 +149,7 @@ function goBack() {
         <button
           v-if="canArchive && template?.statusId !== 'ARCHIVED'"
           class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:border tw:border-red-300 tw:text-red-600 tw:text-sm tw:font-medium tw:hover:bg-red-50 tw:transition-colors"
-          @click="showArchiveConfirm = true"
+          @click="onArchive"
         >
           <IconArchive :size="16" />
           Archive
@@ -140,7 +157,7 @@ function goBack() {
         <button
           v-if="canArchive && template?.statusId === 'ARCHIVED'"
           class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:border tw:border-primary tw:text-primary tw:text-sm tw:font-medium tw:hover:bg-primary/10 tw:transition-colors"
-          @click="showUnarchiveConfirm = true"
+          @click="onUnarchive"
         >
           <IconArchiveOff :size="16" />
           Unarchive
@@ -281,28 +298,5 @@ function goBack() {
       </button>
     </div>
 
-    <BaseConfirmDialog
-      v-model="showPublishConfirm"
-      title="Publish template"
-      message="Once you publish this template, it can be used in documents — but you won't be able to edit it after publishing. Continue?"
-      okLabel="Publish"
-      @ok="onPublish"
-    />
-
-    <BaseConfirmDialog
-      v-model="showArchiveConfirm"
-      title="Archive template"
-      message="Once this template is archived, you won't be able to edit it or use it for new documents. Continue?"
-      okLabel="Archive"
-      @ok="onArchive"
-    />
-
-    <BaseConfirmDialog
-      v-model="showUnarchiveConfirm"
-      title="Unarchive template"
-      message="This template will return to Draft status — it will be editable again, but you'll need to publish it before it can be used for new documents. Continue?"
-      okLabel="Unarchive"
-      @ok="onUnarchive"
-    />
   </BasePage>
 </template>

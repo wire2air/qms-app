@@ -80,59 +80,13 @@ const tableRows = computed(() =>
   (props.rows || []).map((row) => (typeof row === 'string' ? { label: row, value: row } : row)),
 )
 
-const hasUniformInputType = computed(() => {
-  if (props.columns.length === 0) return true
-  const firstType = props.columns[0].inputType || 'radio'
-  return props.columns.every((col) => (col.inputType || 'radio') === firstType)
-})
-
-function getRowValue(rowIndex) {
-  return modelValue.value[rowIndex]
-}
-
-function getCellValue(rowIndex, colValue, defaultValue = undefined) {
-  const rowData = modelValue.value[rowIndex]
-  if (rowData && typeof rowData === 'object') {
-    return rowData[colValue] ?? defaultValue
-  }
-  return defaultValue
-}
-
-function getValue(rowIndex, colValue, defaultValue = undefined) {
-  if (hasUniformInputType.value) {
-    return getRowValue(rowIndex) ?? defaultValue
-  }
-  return getCellValue(rowIndex, colValue, defaultValue)
-}
-
-function isCellSelected(rowIndex, colValue) {
-  return modelValue.value[rowIndex] === colValue
-}
-
-function handleSimpleCellChange(rowIndex, value) {
-  if (!isInteractive.value) return
-  const newValue = [...modelValue.value]
-  while (newValue.length <= rowIndex) newValue.push(null)
-  newValue[rowIndex] = value
-  modelValue.value = newValue
-}
-
-function handleNestedCellChange(rowIndex, colValue, value) {
-  if (!isInteractive.value) return
-  const newValue = [...modelValue.value]
-  while (newValue.length <= rowIndex) newValue.push({})
-  const currentRow = newValue[rowIndex] || {}
-  newValue[rowIndex] = { ...currentRow, [colValue]: value }
-  modelValue.value = newValue
-}
-
-function handleValueChange(rowIndex, colValue, value) {
-  if (hasUniformInputType.value) {
-    handleSimpleCellChange(rowIndex, value)
-  } else {
-    handleNestedCellChange(rowIndex, colValue, value)
-  }
-}
+// The uniform-vs-nested value-shape state machine lives in a unit-tested
+// composable (audit §7) — this component is just the table chrome over it.
+const { getRowValue, getCellValue, getValue, isCellSelected, handleValueChange } = useChecklistModel(
+  modelValue,
+  () => props.columns,
+  { interactive: () => isInteractive.value },
+)
 
 defineExpose({ getRowValue, getCellValue, isCellSelected })
 </script>

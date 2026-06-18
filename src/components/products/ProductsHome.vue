@@ -6,7 +6,7 @@ const toast = useToast()
 
 const showDialog = ref(false)
 const selectedProductId = ref(null)
-const confirmDelete = ref({ open: false, product: null })
+const { confirm } = useConfirm()
 const confirmBulkDelete = ref({ open: false, rows: [] })
 const showDeleted = ref(false)
 
@@ -56,19 +56,18 @@ function onEditProduct(row) {
   openDialog(row.id)
 }
 
-function onDeleteProduct(row) {
+async function onDeleteProduct(row) {
   if (productIdsWithSpecs.value.has(row.id)) {
-    toast.warning(
-      `"${row.name}" has linked specification(s). Delete or supersede them first.`,
-    )
+    toast.warning(`"${row.name}" has linked specification(s). Delete or supersede them first.`)
     return
   }
-  confirmDelete.value = { open: true, product: row }
-}
-
-async function confirmDeleteProduct() {
-  await confirmDelete.value.product.delete()
-  confirmDelete.value = { open: false, product: null }
+  const ok = await confirm({
+    title: 'Delete Product',
+    message: `Delete '${row.name}' (${row.sku})? You can restore it later from the Deleted items section.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (ok) await row.delete()
 }
 
 function onBulkDelete(rows) {
@@ -171,15 +170,6 @@ async function restoreProduct(product) {
 
   <!-- Create/Edit Product Dialog -->
   <ProductsCreateUpdateDialog v-if="showDialog" :id="selectedProductId" v-model="showDialog" />
-
-  <!-- Delete Confirm Dialog -->
-  <BaseConfirmDialog
-    v-model="confirmDelete.open"
-    title="Delete Product"
-    :message="`Delete '${confirmDelete.product?.name}' (${confirmDelete.product?.sku})? You can restore it later from the Deleted items section.`"
-    okLabel="Delete"
-    @ok="confirmDeleteProduct"
-  />
 
   <!-- Bulk Delete Confirm Dialog -->
   <BaseConfirmDialog
