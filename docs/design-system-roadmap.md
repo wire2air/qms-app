@@ -142,10 +142,13 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [ ] **Retire the ~362 `text-[Npx]` magic numbers** + `ds-label`→`BaseLabel` (~22) + read-only captions→`BaseCaption` (~95). **Deferred — large mechanical sweeps (hundreds of edits) that need a dedicated, in-app-verified pass; the ratchet now prevents the counts from growing in the meantime.**
 - [ ] *Intentional leaves (do NOT convert):* ~25 checkbox/switch/radio-wrapping `<label>`s; `<th>` table headers; `BaseCheckbox`-nested question labels.
 
-## Phase 8 — Advanced Components  ⬜  `XL` · risk: med (mostly lazy-loaded)
+## Phase 8 — Advanced Components  🚧 IN PROGRESS  `XL` · risk: med (mostly lazy-loaded)
 
-- [ ] `RichTextEditor` (lazy, de-Quasar — relocate out of Base layer), `BaseFileUpload`/`useFileUploader`, image cropper, **Charts** (apexcharts, lazy), Markdown render, Signature pad, PDF viewer (pdfjs, lazy), Barcode/QR.
-- [ ] Each heavy dep lazy-loaded + measured against the Phase 0 bundle baseline.
+- [x] **`BaseChart`** — lazy ApexCharts wrapper (`vue3-apexcharts`) with brand defaults; `defineAsyncComponent` keeps apexcharts (~140KB → its own chunk, confirmed) off non-chart routes. Story (line/bar/donut).
+- [x] **`BaseSignaturePad`** — draw-to-sign canvas (`signature_pad`); v-model = PNG data URL, HiDPI-scaled, `clear()`/`isEmpty()`. Story.
+- [x] **`BaseImageCropper`** — crop/zoom on the installed `vue-advanced-cropper`; emits cropped data URL. Story.
+- [ ] **Deferred (complex / blind-risk):** `BasePdfViewer` (pdfjs worker setup + existing `usePdfImport`), `RichTextEditor` lazy-load + relocate (23 call sites — `defineAsyncComponent` ref/expose forwarding), `BaseFileUpload`/`useFileUploader`, Markdown render, Barcode/QR.
+- [x] Each heavy dep lazy-loaded (verified apexcharts is a separate chunk; charts/signature/cropper components carry browser-verify notes — render to canvas/SVG, checked in Storybook not jsdom).
 
 ## Phase 9 — Composables  🚧 IN PROGRESS  `M` · risk: low
 
