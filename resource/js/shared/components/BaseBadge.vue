@@ -3,6 +3,8 @@ import { IconX, IconChevronDown } from '@tabler/icons-vue'
 
 defineProps({
   clearable: { type: Boolean, default: false },
+  // Accessible name for the clear button (rule #8 — it's a real <button>).
+  clearLabel: { type: String, default: 'Remove' },
   selectable: { type: Boolean, default: false },
   showDot: { type: Boolean, default: false },
 })
@@ -36,11 +38,15 @@ const isPlainTrigger = computed(() => !/tw:bg-/.test(String(attrs.class || '')))
       <slot name="icon" />
     </span>
     <slot />
-    <IconX
+    <button
       v-if="clearable"
-      class="tw:size-3.5 tw:shrink-0 tw:ml-0.5 tw:opacity-60 tw:hover:opacity-100 tw:cursor-pointer tw:transition-opacity"
+      type="button"
+      :aria-label="clearLabel"
+      class="tw:flex tw:shrink-0 tw:ml-0.5 tw:rounded-full tw:opacity-60 tw:hover:opacity-100 tw:transition-opacity tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/40"
       @click.prevent.stop="emit('clear')"
-    />
+    >
+      <IconX class="tw:size-3.5" />
+    </button>
     <IconChevronDown
       v-else-if="selectable"
       class="tw:size-3.5 tw:shrink-0 tw:ml-0.5 tw:opacity-60"

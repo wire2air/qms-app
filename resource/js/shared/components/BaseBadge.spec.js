@@ -2,6 +2,35 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import BaseBadge from './BaseBadge.vue'
 
+describe('BaseBadge — clearable (rule #8: keyboard-operable remove)', () => {
+  it('renders the clear affordance as a real <button> with an accessible name', () => {
+    const w = mount(BaseBadge, { props: { clearable: true }, slots: { default: 'San Jose' } })
+    const btn = w.find('button')
+    expect(btn.exists()).toBe(true)
+    expect(btn.attributes('type')).toBe('button')
+    expect(btn.attributes('aria-label')).toBe('Remove')
+  })
+
+  it('uses a custom clearLabel for the accessible name', () => {
+    const w = mount(BaseBadge, {
+      props: { clearable: true, clearLabel: 'Remove San Jose' },
+      slots: { default: 'San Jose' },
+    })
+    expect(w.find('button').attributes('aria-label')).toBe('Remove San Jose')
+  })
+
+  it('emits clear when the clear button is activated (click / native Enter+Space)', async () => {
+    const w = mount(BaseBadge, { props: { clearable: true }, slots: { default: 'San Jose' } })
+    await w.find('button').trigger('click')
+    expect(w.emitted('clear')).toHaveLength(1)
+  })
+
+  it('renders no clear button when not clearable', () => {
+    const w = mount(BaseBadge, { slots: { default: 'Active' } })
+    expect(w.find('button').exists()).toBe(false)
+  })
+})
+
 describe('BaseBadge — select-trigger dark-mode fill', () => {
   it('a plain (no-scheme) selectable trigger gets a theme-aware control fill', () => {
     const w = mount(BaseBadge, { props: { selectable: true }, slots: { default: 'San Jose' } })
