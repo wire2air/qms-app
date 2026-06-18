@@ -126,7 +126,7 @@ watch(
         <div class="tw:space-y-3">
           <!-- Document ID -->
           <div>
-            <label class="ds-label">Document ID</label>
+            <BaseLabel color="secondary">Document ID</BaseLabel>
             <p class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mt-1">
               {{ document.docNumber }}
             </p>
@@ -137,14 +137,14 @@ watch(
                Author is the originator. Both reassignable inline when editable. -->
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
             <div>
-              <label class="ds-label">Owner</label>
+              <BaseLabel color="secondary">Owner</BaseLabel>
               <div class="tw:mt-1">
                 <UserSelectMenu v-if="canEdit" v-model="document.userId" :required="true" />
                 <UserBadgeById v-else :userId="document.userId" />
               </div>
             </div>
             <div>
-              <label class="ds-label">Author</label>
+              <BaseLabel color="secondary">Author</BaseLabel>
               <div class="tw:mt-1">
                 <UserSelectMenu v-if="canEdit" v-model="document.authorId" :required="true" />
                 <UserBadgeById v-else-if="document.authorId" :userId="document.authorId" />
@@ -156,7 +156,7 @@ watch(
           <!-- Type + Status -->
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
             <div>
-              <label class="ds-label">Type</label>
+              <BaseLabel color="secondary">Type</BaseLabel>
               <div class="tw:mt-1">
                 <DocumentTypeSelectMenu v-if="canEdit" v-model="document.documentTypeId" required />
                 <DocumentTypeBadgeById
@@ -167,7 +167,7 @@ watch(
               </div>
             </div>
             <div>
-              <label class="ds-label">Status</label>
+              <BaseLabel color="secondary">Status</BaseLabel>
               <div class="tw:mt-1">
                 <DocumentVersionStatusBadgeById :statusId="currentVersion.statusId" />
               </div>
@@ -177,7 +177,7 @@ watch(
           <!-- Department + Related Standard -->
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
             <div>
-              <label class="ds-label">Department</label>
+              <BaseLabel color="secondary">Department</BaseLabel>
               <div class="tw:mt-1">
                 <DepartmentSelectMenu v-if="canEdit" v-model="document.departmentId" required />
                 <DepartmentBadgeById
@@ -188,7 +188,7 @@ watch(
               </div>
             </div>
             <div>
-              <label class="ds-label">Related Standard</label>
+              <BaseLabel color="secondary">Related Standard</BaseLabel>
               <div class="tw:mt-1">
                 <RelatedStandardSelectMenu v-if="canEdit" v-model="document.relatedStandardId" />
                 <RelatedStandardBadgeById
@@ -203,7 +203,7 @@ watch(
           <!-- Periodic Review + Auto-Effective -->
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
             <div>
-              <label class="ds-label">Periodic Review</label>
+              <BaseLabel color="secondary">Periodic Review</BaseLabel>
               <div v-if="canEdit" class="tw:flex tw:items-center tw:gap-1.5 tw:mt-1">
                 <input
                   v-model.number="document.periodicReviewMonths"
@@ -218,7 +218,7 @@ watch(
               </p>
             </div>
             <div>
-              <label class="ds-label">Auto-Effective</label>
+              <BaseLabel color="secondary">Auto-Effective</BaseLabel>
               <div class="tw:mt-1">
                 <BaseSwitch v-model="document.autoEffectiveOnApproval" :disabled="!canEdit" />
               </div>
@@ -227,7 +227,7 @@ watch(
 
           <!-- Effective Date (own row — date picker needs width) -->
           <div>
-            <label class="ds-label">Effective Date</label>
+            <BaseLabel color="secondary">Effective Date</BaseLabel>
             <div class="tw:mt-1">
               <BaseDatePicker
                 v-if="canEdit"
@@ -250,7 +250,7 @@ watch(
                tamper-evidence anchor so an auditor can verify the
                downloaded PDF against the stored sha256. -->
           <div v-if="currentVersion.snapshotStoragePath">
-            <label class="ds-label">Audit Snapshot</label>
+            <BaseLabel color="secondary">Audit Snapshot</BaseLabel>
             <div class="tw:mt-1 tw:flex tw:flex-col tw:gap-1">
               <a
                 :href="`/api/v1/files/${currentVersion.snapshotStoragePath}`"

@@ -20,25 +20,11 @@ const props = defineProps({
 const page = defineModel('page', { type: Number, default: 1 })
 const rowsPerPage = defineModel('rowsPerPage', { type: Number, default: 50 })
 
-const totalPages = computed(() =>
-  rowsPerPage.value > 0 ? Math.max(1, Math.ceil(props.total / rowsPerPage.value)) : 1,
-)
-
-const label = computed(() => {
-  if (props.total === 0) return '0-0 of 0'
-  const start = (page.value - 1) * rowsPerPage.value + 1
-  const end = Math.min(page.value * rowsPerPage.value, props.total)
-  return `${start}-${end} of ${props.total}`
-})
-
-function go(next) {
-  const target = Math.min(Math.max(1, next), totalPages.value)
-  if (target !== page.value) page.value = target
-}
+// Pagination math lives in a unit-tested composable, reusable by non-table lists.
+const { totalPages, label, go, setRowsPerPage } = usePagination(page, rowsPerPage, () => props.total)
 
 function changeSize(e) {
-  rowsPerPage.value = parseInt(e.target.value, 10)
-  page.value = 1
+  setRowsPerPage(parseInt(e.target.value, 10))
 }
 </script>
 

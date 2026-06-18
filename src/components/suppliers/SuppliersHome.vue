@@ -37,7 +37,7 @@ const suppliers = useLiveQueryWithDeps(
   { models: ['Supplier'], initial: [] },
 )
 
-const confirmDialog = ref(null)
+const { confirm } = useConfirm()
 
 function onCreateSupplier() {
   router.push(getCompanyPath('/suppliers/create'))
@@ -47,16 +47,14 @@ function onEditSupplier(row) {
   router.push(getCompanyPath(`/suppliers/${row.id}`))
 }
 
-function onDeleteSupplier(row) {
-  confirmDialog.value = {
+async function onDeleteSupplier(row) {
+  const ok = await confirm({
     title: 'Delete Supplier',
     message: `Are you sure you want to delete "${row.name}" (${row.code})? This cannot be undone.`,
     okLabel: 'Delete',
-    onOk: async () => {
-      await row.delete()
-      confirmDialog.value = null
-    },
-  }
+    danger: true,
+  })
+  if (ok) await row.delete()
 }
 </script>
 
@@ -105,12 +103,4 @@ function onDeleteSupplier(row) {
       @edit="onEditSupplier"
     />
   </BasePage>
-
-  <BaseConfirmDialog
-    v-if="confirmDialog"
-    :modelValue="true"
-    v-bind="confirmDialog"
-    @update:modelValue="confirmDialog = null"
-    @ok="confirmDialog?.onOk"
-  />
 </template>

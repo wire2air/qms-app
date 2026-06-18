@@ -67,10 +67,17 @@ async function handleSitesChange(newSiteIds) {
 }
 
 // Delete
-const showDeleteConfirm = ref(false)
+const { confirm } = useConfirm()
 
 async function handleDelete() {
   if (!template.value) return
+  const ok = await confirm({
+    title: 'Delete Template',
+    message: `Are you sure you want to delete form template "${template.value.title}" (${template.value.code})? This action cannot be undone.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
   try {
     await template.value.delete()
     toast.success('Form template deleted successfully')
@@ -90,7 +97,7 @@ async function handleDelete() {
           v-if="canDelete"
           variant="outline"
           class="tw:text-bad!"
-          @click="showDeleteConfirm = true"
+          @click="handleDelete"
         >
           <IconTrash :size="16" class="tw:mr-1" />
           Delete
@@ -285,14 +292,5 @@ async function handleDelete() {
       </div>
     </aside>
 
-    <!-- Delete Confirmation -->
-    <BaseConfirmDialog
-      v-model="showDeleteConfirm"
-      title="Delete Template"
-      :message="`Are you sure you want to delete form template &quot;${template?.title}&quot; (${template?.code})? This action cannot be undone.`"
-      confirmLabel="Delete"
-      variant="danger"
-      @confirm="handleDelete"
-    />
   </div>
 </template>

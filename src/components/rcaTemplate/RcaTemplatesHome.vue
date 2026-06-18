@@ -28,7 +28,7 @@ watch(activeTab, (id) => {
 
 const showCreateDialog = ref(false)
 const editTemplate = ref(null)
-const confirmDelete = ref({ open: false, template: null })
+const { confirm } = useConfirm()
 
 const canCreate = computed(() => isAllowed(['rcaTemplates:create']))
 const canUpdate = computed(() => isAllowed(['rcaTemplates:update']))
@@ -58,13 +58,14 @@ function onEdit(template) {
   showCreateDialog.value = true
 }
 
-function onDelete(template) {
-  confirmDelete.value = { open: true, template }
-}
-
-async function confirmDeleteTemplate() {
-  await confirmDelete.value.template.delete()
-  confirmDelete.value = { open: false, template: null }
+async function onDelete(template) {
+  const ok = await confirm({
+    title: 'Delete RCA Template',
+    message: `Are you sure you want to delete '${template.name}'? This cannot be undone.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (ok) await template.delete()
 }
 
 function onDialogClose() {
@@ -121,12 +122,5 @@ function onDialogClose() {
 
     <RcaTemplateDialog v-model="showCreateDialog" :template="editTemplate" @close="onDialogClose" />
 
-    <BaseConfirmDialog
-      v-model="confirmDelete.open"
-      title="Delete RCA Template"
-      :message="`Are you sure you want to delete '${confirmDelete.template?.name}'? This cannot be undone.`"
-      okLabel="Delete"
-      @ok="confirmDeleteTemplate"
-    />
   </BasePage>
 </template>

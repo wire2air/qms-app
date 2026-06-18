@@ -19,7 +19,7 @@ const toast = useToast()
 
 const canArchive = computed(() => isAllowed(['documents:delete']))
 
-const confirmArchive = ref({ open: false, doc: null })
+const { confirm } = useConfirm()
 
 // current EFFECTIVE version for each document
 const currentVersionMapById = useLiveQueryWithDeps(
@@ -109,17 +109,16 @@ function getVersionLabel(version) {
   return version.versionLabel || `${version.versionMajor}.${version.versionMinor}`
 }
 
-function onArchiveDocument(row) {
-  confirmArchive.value = { open: true, doc: row }
-}
-
-async function confirmArchiveDocument() {
-  const row = confirmArchive.value.doc
-  if (!row) return
+async function onArchiveDocument(row) {
+  const ok = await confirm({
+    title: 'Confirm Archive',
+    message: `Are you sure you want to archive "${row.title}" (${row.docNumber})? This action will change the document status to Archived.`,
+    okLabel: 'Archive',
+  })
+  if (!ok) return
   row.statusId = 'ARCHIVED'
   await row.save()
   toast.success('Document archived successfully')
-  confirmArchive.value = { open: false, doc: null }
 }
 
 async function onUnarchiveDocument(row) {
@@ -244,13 +243,4 @@ async function onUnarchiveDocument(row) {
       </div>
     </template>
   </BaseTable>
-
-  <!-- Confirm Archive Dialog -->
-  <BaseConfirmDialog
-    v-model="confirmArchive.open"
-    title="Confirm Archive"
-    :message="`Are you sure you want to archive &quot;${confirmArchive.doc?.title}&quot; (${confirmArchive.doc?.docNumber})? This action will change the document status to Archived.`"
-    okLabel="Archive"
-    @ok="confirmArchiveDocument"
-  />
 </template>

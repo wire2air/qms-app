@@ -18,14 +18,20 @@ const { deactivateRole, activateRole } = useRoles()
 const canUpdateRole = computed(() => isAllowed(['roles:update']))
 const isInactive = computed(() => props.role.statusId === 'INACTIVE')
 
-const confirmDeactivate = ref(false)
-const confirmActivate = ref(false)
+const { confirm } = useConfirm()
 
 function navigateToRole() {
   router.push(getCompanyPath(`/roles/${props.role.id}`))
 }
 
 async function handleDeactivate() {
+  const ok = await confirm({
+    title: 'Deactivate Role',
+    message: `Are you sure you want to deactivate the role "${props.role.name}"? This will set its status to Inactive.`,
+    okLabel: 'Deactivate',
+    danger: true,
+  })
+  if (!ok) return
   const success = await deactivateRole(props.role.id)
   if (success) {
     toast.success('Role deactivated successfully')
@@ -35,6 +41,12 @@ async function handleDeactivate() {
 }
 
 async function handleActivate() {
+  const ok = await confirm({
+    title: 'Activate Role',
+    message: `Are you sure you want to activate the role "${props.role.name}"?`,
+    okLabel: 'Activate',
+  })
+  if (!ok) return
   const success = await activateRole(props.role.id)
   if (success) {
     toast.success('Role activated successfully')
@@ -73,7 +85,7 @@ async function handleActivate() {
           <button
             v-if="isInactive"
             class="tw:group tw:flex tw:w-full tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-green-700 tw:transition-colors tw:hover:bg-main-hover tw:bg-transparent tw:border-0 tw:cursor-pointer"
-            @click="confirmActivate = true"
+            @click="handleActivate"
           >
             <IconCircleCheck :size="16" class="tw:shrink-0" />
             Activate Role
@@ -81,7 +93,7 @@ async function handleActivate() {
           <button
             v-else
             class="tw:group tw:flex tw:w-full tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-amber-700 tw:transition-colors tw:hover:bg-main-hover tw:bg-transparent tw:border-0 tw:cursor-pointer"
-            @click="confirmDeactivate = true"
+            @click="handleDeactivate"
           >
             <IconBan :size="16" class="tw:shrink-0" />
             Deactivate Role
@@ -110,20 +122,4 @@ async function handleActivate() {
 
     </div>
   </BaseClickableRow>
-
-  <BaseConfirmDialog
-    v-model="confirmDeactivate"
-    title="Deactivate Role"
-    :message="`Are you sure you want to deactivate the role &quot;${role.name}&quot;? This will set its status to Inactive.`"
-    okLabel="Deactivate"
-    @ok="handleDeactivate"
-  />
-
-  <BaseConfirmDialog
-    v-model="confirmActivate"
-    title="Activate Role"
-    :message="`Are you sure you want to activate the role &quot;${role.name}&quot;?`"
-    okLabel="Activate"
-    @ok="handleActivate"
-  />
 </template>

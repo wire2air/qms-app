@@ -5,7 +5,7 @@ import { isAllowed } from '@/utils/currentSession.js'
 const showDialog = ref(false)
 const selectedDepartmentId = ref(null)
 
-const confirmDelete = ref({ open: false, department: null })
+const { confirm } = useConfirm()
 
 const canCreateDepartment = computed(() => isAllowed(['departments:create']))
 const canUpdateDepartment = computed(() => isAllowed(['departments:update']))
@@ -41,13 +41,14 @@ function onEditDepartment(row) {
   openDialog(row.id)
 }
 
-function onDeleteDepartment(row) {
-  confirmDelete.value = { open: true, department: row }
-}
-
-async function confirmDeleteDepartment() {
-  await confirmDelete.value.department.delete()
-  confirmDelete.value = { open: false, department: null }
+async function onDeleteDepartment(row) {
+  const ok = await confirm({
+    title: 'Delete Department',
+    message: `Are you sure you want to delete '${row.name}' (${row.code})? This cannot be undone.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (ok) await row.delete()
 }
 </script>
 
@@ -81,14 +82,5 @@ async function confirmDeleteDepartment() {
     v-if="showDialog"
     :id="selectedDepartmentId"
     v-model="showDialog"
-  />
-
-  <!-- Delete Confirm Dialog -->
-  <BaseConfirmDialog
-    v-model="confirmDelete.open"
-    title="Delete Department"
-    :message="`Are you sure you want to delete '${confirmDelete.department?.name}' (${confirmDelete.department?.code})? This cannot be undone.`"
-    okLabel="Delete"
-    @ok="confirmDeleteDepartment"
   />
 </template>
