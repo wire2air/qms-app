@@ -31,6 +31,20 @@ describe('BaseBadge — clearable (rule #8: keyboard-operable remove)', () => {
   })
 })
 
+describe('BaseBadge — size (folded in from BaseChip)', () => {
+  it('defaults to md metrics', () => {
+    const cls = mount(BaseBadge, { slots: { default: 'X' } }).classes().join(' ')
+    expect(cls).toContain('tw:px-3')
+    expect(cls).toContain('tw:text-sm')
+  })
+
+  it('applies tighter metrics at size="sm"', () => {
+    const cls = mount(BaseBadge, { props: { size: 'sm' }, slots: { default: 'X' } }).classes().join(' ')
+    expect(cls).toContain('tw:px-2')
+    expect(cls).toContain('tw:text-xs')
+  })
+})
+
 describe('BaseBadge — select-trigger dark-mode fill', () => {
   it('a plain (no-scheme) selectable trigger gets a theme-aware control fill', () => {
     const w = mount(BaseBadge, { props: { selectable: true }, slots: { default: 'San Jose' } })

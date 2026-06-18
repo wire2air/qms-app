@@ -78,13 +78,16 @@ async function removeRole(roleId) {
 
     <!-- Selected Chips -->
     <div v-if="selectedRoles.length > 0" class="tw:flex tw:flex-wrap tw:gap-2">
-      <BaseChip
+      <BaseBadge
         v-for="role in selectedRoles"
         :key="role.id"
-        :label="role.name"
-        :removable="canUpdate"
-        @remove="removeRole(role.id)"
-      />
+        class="tw:bg-main-hover tw:border-divider tw:text-on-main"
+        :clearable="canUpdate"
+        :clearLabel="`Remove ${role.name}`"
+        @clear="removeRole(role.id)"
+      >
+        {{ role.name }}
+      </BaseBadge>
     </div>
 
     <!-- Role List -->
