@@ -168,6 +168,7 @@ declare global {
   const useChatPanel: typeof import('./src/composables/useChatPanel.js').useChatPanel
   const useChatStream: typeof import('./src/composables/useChatStream.js').useChatStream
   const useChatThreads: typeof import('./src/composables/useChatThreads.js').useChatThreads
+  const useChecklistModel: typeof import('./resource/js/shared/composables/useChecklistModel.js').useChecklistModel
   const useClipboard: typeof import('@vueuse/core').useClipboard
   const useClipboardItems: typeof import('@vueuse/core').useClipboardItems
   const useCloned: typeof import('@vueuse/core').useCloned

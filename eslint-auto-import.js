@@ -171,6 +171,7 @@ export default {
     "useChatPanel": true,
     "useChatStream": true,
     "useChatThreads": true,
+    "useChecklistModel": true,
     "useClipboard": true,
     "useClipboardItems": true,
     "useCloned": true,
