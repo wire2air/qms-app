@@ -23,7 +23,8 @@ const props = defineProps({
   optional: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
   error: { type: Boolean, default: false },
-  // Help text shown via an info icon (native title for now; BaseTooltip later).
+  // Help text shown via an info icon (BaseTooltip on hover/focus). A #help slot
+  // can supply richer content.
   help: { type: String, default: '' },
   // Subtitle rendered below the label text.
   description: { type: String, default: '' },
@@ -61,15 +62,20 @@ const colorClass = computed(() => {
       <span v-else-if="optional" class="tw:text-caption tw:font-normal tw:text-secondary">
         (optional)
       </span>
-      <!-- TODO(Phase 5): swap the native title for <BaseTooltip> once it lands. -->
-      <span
-        v-if="help"
-        class="tw:inline-flex tw:cursor-help tw:text-secondary"
-        :title="help"
-        aria-hidden="true"
-      >
-        <IconHelpCircle class="tw:size-3.5" />
-      </span>
+      <!-- Help icon → BaseTooltip (hover + keyboard focus). The trigger is a
+           real <button> so keyboard users can reach it; @click.stop.prevent
+           keeps clicking it from activating the label's associated control. -->
+      <BaseTooltip v-if="help || $slots.help" :content="help" class="tw:align-middle">
+        <button
+          type="button"
+          class="tw:inline-flex tw:cursor-help tw:rounded-full tw:text-secondary tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/40"
+          :aria-label="help || 'More information'"
+          @click.stop.prevent
+        >
+          <IconHelpCircle class="tw:size-3.5" />
+        </button>
+        <template v-if="$slots.help" #content><slot name="help" /></template>
+      </BaseTooltip>
     </span>
     <BaseText v-if="description || $slots.description" variant="caption" class="tw:mt-0.5 tw:block">
       <slot name="description">{{ description }}</slot>
