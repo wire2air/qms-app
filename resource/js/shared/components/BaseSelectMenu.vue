@@ -128,6 +128,68 @@ function isSelected(id) {
   return selected.value === id
 }
 
+// --- Listbox keyboard a11y -------------------------------------------------
+// Flat option list (the nullable "All" row, when shown, sits at index 0) drives
+// arrow-key navigation + aria-activedescendant. Roles/keyboard apply to the
+// DEFAULT item rendering; an #items override owns its own semantics.
+const baseId = useId()
+const listboxId = `${baseId}-listbox`
+const activeIndex = ref(0)
+
+const optionList = computed(() => {
+  const list = []
+  if (showNullable.value) list.push({ kind: 'null', id: '__null__' })
+  for (const item of filtered.value) list.push({ kind: 'item', id: item.id })
+  return list
+})
+
+function optionDomId(index) {
+  return `${baseId}-opt-${index}`
+}
+// DOM index of the i-th filtered item (offset by the nullable row if present).
+function itemIndex(i) {
+  return (showNullable.value ? 1 : 0) + i
+}
+const activeDescendant = computed(() =>
+  optionList.value.length ? optionDomId(activeIndex.value) : undefined,
+)
+
+// Reset the active option whenever the visible list changes.
+watch([search, filtered], () => {
+  activeIndex.value = 0
+})
+
+function onSearchKeydown(e, close) {
+  const list = optionList.value
+  if (!list.length) return
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault()
+      activeIndex.value = Math.min(activeIndex.value + 1, list.length - 1)
+      break
+    case 'ArrowUp':
+      e.preventDefault()
+      activeIndex.value = Math.max(activeIndex.value - 1, 0)
+      break
+    case 'Home':
+      e.preventDefault()
+      activeIndex.value = 0
+      break
+    case 'End':
+      e.preventDefault()
+      activeIndex.value = list.length - 1
+      break
+    case 'Enter': {
+      e.preventDefault()
+      const active = list[activeIndex.value]
+      if (!active) return
+      if (active.kind === 'null') toggleNullable(close)
+      else toggleSelection(active.id, close)
+      break
+    }
+  }
+}
+
 watch(
   () => props.items,
   (newItems) => {
@@ -215,7 +277,13 @@ watch(
               type="text"
               autofocus
               placeholder="Search..."
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded="true"
+              :aria-controls="listboxId"
+              :aria-activedescendant="activeDescendant"
               class="tw:w-full tw:pl-9 tw:pr-3 tw:py-2 tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:text-sm tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/20 tw:focus:border-primary tw:transition-all"
+              @keydown="(e) => onSearchKeydown(e, close)"
             />
           </div>
         </div>
@@ -235,17 +303,27 @@ watch(
           :isSelected="isSelected"
           :toggleSelection="toggleSelection"
         >
-          <div class="tw:max-h-64 tw:overflow-y-auto tw:p-1">
+          <div
+            :id="listboxId"
+            role="listbox"
+            :aria-multiselectable="multiple || undefined"
+            class="tw:max-h-64 tw:overflow-y-auto tw:p-1"
+          >
             <!-- Nullable "All" item -->
             <button
               v-if="showNullable"
+              :id="optionDomId(0)"
+              role="option"
+              :aria-selected="isNullableSelected"
               class="tw:w-full tw:flex tw:items-center tw:justify-between tw:px-3 tw:py-2.5 tw:rounded-lg tw:text-sm tw:transition-colors"
-              :class="
+              :class="[
                 isNullableSelected
                   ? 'tw:bg-primary/10 tw:text-primary'
-                  : 'tw:text-on-main tw:hover:bg-primary/5'
-              "
+                  : 'tw:text-on-main tw:hover:bg-primary/5',
+                activeIndex === 0 && 'tw:ring-2 tw:ring-inset tw:ring-primary/40',
+              ]"
               @click="toggleNullable(close)"
+              @mousemove="activeIndex = 0"
             >
               <span class="tw:font-medium">{{ nullLabel }}</span>
               <div
@@ -255,15 +333,20 @@ watch(
             </button>
 
             <button
-              v-for="item in filtered"
+              v-for="(item, i) in filtered"
+              :id="optionDomId(itemIndex(i))"
               :key="item.id"
+              role="option"
+              :aria-selected="isSelected(item.id)"
               class="tw:w-full tw:flex tw:items-center tw:justify-between tw:px-3 tw:py-2.5 tw:rounded-lg tw:text-sm tw:transition-colors"
-              :class="
+              :class="[
                 isSelected(item.id)
                   ? 'tw:bg-primary/10 tw:text-primary'
-                  : 'tw:text-on-main tw:hover:bg-primary/5'
-              "
+                  : 'tw:text-on-main tw:hover:bg-primary/5',
+                activeIndex === itemIndex(i) && 'tw:ring-2 tw:ring-inset tw:ring-primary/40',
+              ]"
               @click="toggleSelection(item.id, close)"
+              @mousemove="activeIndex = itemIndex(i)"
             >
               <span
                 class="tw:font-medium tw:text-start tw:min-w-0 tw:flex-1 tw:truncate"
