@@ -281,7 +281,7 @@ defineExpose({ openCamera, triggerFileInput, clearImage, capturePhoto })
     <!-- Camera dialog -->
     <div
       v-if="cameraDialogOpen"
-      class="tw:fixed tw:inset-0 tw:z-50 tw:bg-black/60 tw:flex tw:items-center tw:justify-center tw:p-4"
+      class="tw:fixed tw:inset-0 tw:z-modal tw:bg-black/60 tw:flex tw:items-center tw:justify-center tw:p-4"
       @click.self="closeCamera"
     >
       <div class="tw:bg-white tw:rounded-xl tw:overflow-hidden tw:w-full tw:max-w-sm tw:shadow-xl">

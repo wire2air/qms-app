@@ -54,7 +54,7 @@ const maxWidthClass = {
 
 <template>
   <TransitionRoot appear :show="isOpen" as="template">
-    <Dialog as="div" class="tw:relative tw:z-50" @close="persistent ? null : close()">
+    <Dialog as="div" class="tw:relative tw:z-modal" @close="persistent ? null : close()">
       <!-- Backdrop -->
       <TransitionChild
         as="template"

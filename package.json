@@ -15,7 +15,9 @@
     "test:e2e": "playwright test",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.4.0",
@@ -80,6 +82,8 @@
     "@eslint/js": "^9.0.0",
     "@intlify/unplugin-vue-i18n": "^11.1.1",
     "@playwright/test": "^1.61.0",
+    "@storybook/addon-a11y": "^10.4.6",
+    "@storybook/vue3-vite": "^10.4.6",
     "@tailwindcss/aspect-ratio": "^0.4.2",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/typography": "^0.5.19",
@@ -93,6 +97,7 @@
     "happy-dom": "^20.10.4",
     "postcss": "^8.5.8",
     "prettier": "^3.8.1",
+    "storybook": "^10.4.6",
     "unplugin-vue-router": "^0.19.2",
     "vite": "^7.3.2",
     "vite-plugin-babel": "^1.6.0",

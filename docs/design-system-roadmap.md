@@ -61,15 +61,15 @@
 - [x] **`color-scheme: light/dark`** in `base.css` — native date/time inputs + their picker, native `<select>`, scrollbars now render dark.
 - [x] `fix(suppliers)`: `lastEvaluationDate` → `DateTime` (pre-existing `formatDate` crash).
 
-## Phase 1 — Design Tokens + Theme + Storybook (Foundation)  ⬜  `M–L` · risk: low ⭐
+## Phase 1 — Design Tokens + Theme + Storybook (Foundation)  ✅ DONE (tokens.js optional, deferred)  `M–L` · risk: low ⭐
 
 The foundation everything else consumes. **CSS variables, not `.ts`.**
 
-- [ ] **Tokens:** rationalize `tokens.css` + `base.css @theme` into the single source of truth. Finalize: spacing (wire or delete `--space-*`), control heights (wire `--height-*` → `tw:h-btn` or delete), radius (keep Tailwind-governed), elevation/shadows (already wired), z-index scale (add — currently ad-hoc), animation/duration tokens (add).
-- [ ] Document the token contract (one MD table: token → value → utility → usage).
-- [ ] Optional **generated `tokens.js`** (reads CSS vars) for JS consumers only (chart colors, canvas). Not hand-maintained; CSS stays canonical.
-- [ ] **Theme:** light/dark already wired ✅ → add **brand/tenant** layer: `[data-tenant]` scoped overrides of `--primary`/brand vars (white-label hook). Document how a tenant overrides tokens.
-- [ ] **Storybook 8 (`@storybook/vue3-vite`) + `addon-a11y`** stood up; CI builds it. (Optional: Chromatic for visual regression later.)
+- [x] **Tokens rationalized.** Added the **z-index scale** as `--z-*` tokens (`tokens.css`) exposed via `@utility` `tw:z-raised…z-max` (`base.css`) — Tailwind v4 has no `--z-index` namespace; values match existing ad-hoc numbers so adopting a name is a visual no-op. Adopted in `BaseDialog`/`BasePhoto` (`z-modal`) + `BaseToastContainer` (`z-toast`); remaining ~25 feature-file `z-N` usages migrate in Phase 7. Spacing/heights stay deleted; radius stays Tailwind-governed; shadows/typography already wired. **No `--duration-*`/`--ease-*` tokens** — almost everything uses the default `transition-colors`, so named motion tokens would be dead (documented convention instead: `duration-150/200/300` + `motion-reduce:*`).
+- [x] **Token contract documented** — [design-system-tokens.md](./design-system-tokens.md) (token → value(light/dark) → utility → usage; how-it's-wired; add-a-token checklist).
+- [x] **Brand/tenant hook** — documented `[data-tenant]` scoped `--primary` override mechanism (template kept commented in `tokens.css`; real selector added on tenant onboarding, no dead CSS).
+- [ ] Optional **generated `tokens.js`** (reads CSS vars) for JS consumers only (chart colors, canvas). Deferred — no JS-token consumer yet.
+- [x] **Storybook + `addon-a11y` stood up** (`storybook`/`@storybook/vue3-vite`/`@storybook/addon-a11y` **v10** — Storybook 8 predated Vite 7; v10 supports it). `.storybook/main.js` mirrors the app's Vite plumbing via `viteFinal` (Tailwind `tw:` prefix, AutoImport, `unplugin-vue-components`, the 5 aliases) so stories mount `Base*` exactly like the app; `preview.js` loads `base.css` + a light/dark **Theme toolbar**. Scripts: `pnpm storybook` / `pnpm build-storybook` (`build-storybook` green). **Stories: ~all Base\* covered** — `Foundations/Tokens` (colors/typography/elevation/z-index) + Typography (6), Forms (incl. inputs, selects, date/time pickers), Primitives, Data, Navigation, Overlays, Layout, and the Composition tier — **52 `*.stories.js`**, all CSF3 + `autodocs`, lint-clean, build-green. `preview.js` also loads the `DateTime.prototype.formatDate` extension so date components render as in-app. **Intentionally skipped** (not meaningful in isolation): teleport-dependent page shells (`PageHeader`/`BaseListPage`/`BaseDetailPage`), global infra hosts (`ConfirmDialogHost`/`BaseToastContainer`), teleport utilities (`SafeTeleport`/`PrintTeleport`), and the audit-flagged dead date sub-components (`BaseDatePickerDropMenu(Panel)`). (Optional: Chromatic for visual regression later.) The "stories deferred" notes in Phases 2/3/3.5 are now resolved.
 
 **Goal:** one place to change any visual decision; tooling to see every component.
 
@@ -100,8 +100,8 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [x] **`BaseFormDialog`** — `BaseDialog` + body + footer preset for create/edit dialogs. ~50–60 dialogs. 3 tests.
 - [x] **`BaseSectionHeader`** — title (+icon/subtitle) + actions card/section header. ~100+ blocks. 6 tests.
 - [x] **`BaseTabs` / `BaseTabPanel`** — accessible tabs (role=tablist/tab/tabpanel, roving tabindex, Arrow/Home/End). 14 hand-rolled bars, 0 ARIA. 9 tests. (Also closes the §3 `BaseTabs` gap.)
-- [ ] **Tier-2:** `BaseDescriptionList`/`BaseDescriptionItem` (`<dl>` metadata, ~20–30), `BaseListPage` (39+ `*Home.vue`), `BaseDetailPage` (30+ `*PageId.vue`), `BaseFieldRow` (~30).
-- [ ] **Tier-3:** `BaseQuickFilterPills` (3), `BaseAuditTrailRow` (~15–20).
+- [x] **Tier-2 built:** `BaseDescriptionList`/`BaseDescriptionItem` (semantic `<dl>/<dt>/<dd>`; inline/stacked, `divided`; ~20–30-file rail pattern; 14 tests), `BaseFieldRow` (responsive 1→N column form grid, mobile-collapsing; ~30 files; 6 tests), `BaseListPage` (`BasePage`+`PageHeader`+`#stats`/`#filters` slots + opt-in loading/empty; 39+ `*Home.vue`; 8 tests), `BaseDetailPage` (breadcrumb/title teleport + loading/not-found + internal-scroll body; 30+ `*PageId.vue`; 7 tests). *Adoption (sweeping pages onto them) tracked under Phase 7.*
+- [x] **Tier-3 built:** `BaseQuickFilterPills` (single-select toggle pills as real `aria-pressed` buttons in a `role=group`; fixes the NC/CAPA/Complaints toolbars' zero-a11y `<button>` rows + dark-mode-breaking `bg-white`; 3 files; 7 tests), `BaseAuditTrailRow` ("by {actor} · {date}" line; actor via slot to stay decoupled from the user feature, date via `dt.formatDate`; ~15–20 sites; 7 tests). *Adoption tracked under Phase 7.*
 - [ ] **Adoption gaps (no new component):** finish `PageHeader` rollout (32 raw title / 55 raw actions — gated on `BaseDetailPage`); migrate `EquipmentHome`/`FormAssignmentsHome` off raw `<select>` → `BaseFilterBar`; consolidate ~84 hand-rolled delete dialogs onto `useConfirm`.
 - [ ] Stories + a11y for each (deferred to Phase 1 Storybook setup).
 

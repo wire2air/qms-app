@@ -357,6 +357,31 @@
      * ============================================== */
     --focus-ring: 0 0 0 2px var(--color-neutral-0, #fff), 0 0 0 4px var(--color-info-200, #bfdbfe);
 
+    /* ==============================================
+     * Z-Index Scale — the single stacking-order contract
+     * ==============================================
+     * Tailwind v4 has NO --z-index-* theme namespace (z utilities are
+     * z-<number> / z-[value] / z-(<var>)), so the scale lives here as tokens
+     * and base.css exposes named `tw:z-*` utilities via @utility. Values match
+     * the ad-hoc numbers already in use, so adopting a name is a visual no-op.
+     * Higher number = closer to the viewer. Use a NAME, never a raw z-<number>.
+     *   raised   10  — sticky table headers, raised cells/bars
+     *   dropdown 20  — in-flow select/menu panels
+     *   sticky   30  — sticky page toolbars / action bars
+     *   overlay  40  — modal & drawer backdrops
+     *   modal    50  — dialogs, drawers
+     *   popover  60  — popovers/menus that must sit above a dialog
+     *   toast   100  — toasts / global notifications
+     *   max    9999  — tooltips & top-most critical UI (last resort) */
+    --z-raised: 10;
+    --z-dropdown: 20;
+    --z-sticky: 30;
+    --z-overlay: 40;
+    --z-modal: 50;
+    --z-popover: 60;
+    --z-toast: 100;
+    --z-max: 9999;
+
     /* Spacing & component-height scales removed (Phase 0) — they had zero
      * var() consumers; Tailwind's gap / padding / height utilities cover them.
      * If a wired `tw:h-btn`-style utility is ever needed, add it to base.css
@@ -388,6 +413,26 @@
     outline: none;
     box-shadow: var(--focus-ring);
   }
+
+  /* ==============================================
+   * Brand / Tenant overrides (white-label hook)
+   * ==============================================
+   * Light/dark theming is already wired (.light / .dark above). To REBRAND for
+   * a tenant, scope brand-token overrides under a [data-tenant="…"] selector
+   * (set data-tenant on <html>); everything else inherits. Override only the
+   * brand tokens — primary + its hover/contrast — never the full palette.
+   *
+   *   [data-tenant='acme'] {
+   *     --primary: #7c3aed;
+   *     --primary-hover: #6d28d9;
+   *   }
+   *   [data-tenant='acme'].dark {
+   *     --primary: #a78bfa;
+   *     --primary-hover: #8b5cf6;
+   *   }
+   *
+   * Kept as a template (not shipped) on purpose: an inert [data-tenant] block is
+   * dead CSS. Add the real selector when a tenant is onboarded. */
 }
 
 /* `tw:bg-white` surfaces become panel surfaces in dark mode. Done as an
