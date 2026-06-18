@@ -19,13 +19,7 @@ const props = defineProps({
 
 const router = useRouter()
 
-const pendingDelete = shallowRef(null)
-const openDeleteDialog = computed({
-  get: () => pendingDelete.value !== null,
-  set: (val) => {
-    if (!val) pendingDelete.value = null
-  },
-})
+const { confirm } = useConfirm()
 
 const columns = [
   { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
@@ -61,16 +55,17 @@ function rowMenuItems(row) {
     {
       name: 'Delete',
       icon: IconTrash,
-      click: () => {
-        pendingDelete.value = row
+      click: async () => {
+        const ok = await confirm({
+          title: 'Delete Option Set',
+          message: `Are you sure you want to delete '${row.name}'? This cannot be undone.`,
+          okLabel: 'Delete',
+          danger: true,
+        })
+        if (ok) await row.delete()
       },
     },
   ]
-}
-
-async function executeDelete() {
-  await pendingDelete.value.delete()
-  pendingDelete.value = null
 }
 
 function onRowClick(row) {
@@ -109,12 +104,4 @@ function onRowClick(row) {
       </div>
     </template>
   </BaseTable>
-
-  <BaseConfirmDialog
-    :modelValue="openDeleteDialog"
-    title="Delete Option Set"
-    :message="`Are you sure you want to delete '${pendingDelete?.name}'? This cannot be undone.`"
-    okLabel="Delete"
-    @ok="executeDelete"
-  />
 </template>

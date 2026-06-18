@@ -15,7 +15,7 @@ const props = defineProps({
 
 const toast = useToast()
 
-const confirmRemove = ref({ open: false, link: null })
+const { confirm } = useConfirm()
 
 const links = useLiveQueryWithDeps(
   [() => props.versionId],
@@ -117,14 +117,15 @@ async function onAddLink() {
 }
 
 async function onDeleteLink(link) {
-  confirmRemove.value = { open: true, link }
-}
-
-async function confirmDeleteLink() {
-  if (!confirmRemove.value.link) return
-  await confirmRemove.value.link.delete()
+  const ok = await confirm({
+    title: 'Remove Link',
+    message: 'Are you sure you want to remove this link?',
+    okLabel: 'Remove',
+    danger: true,
+  })
+  if (!ok) return
+  await link.delete()
   toast.success('Link removed')
-  confirmRemove.value = { open: false, link: null }
 }
 
 function openAddDialog() {
@@ -229,14 +230,5 @@ function getLinkTypeBadgeClass(linkType) {
         />
       </template>
     </BaseDialog>
-
-    <!-- Confirm Remove Dialog -->
-    <BaseConfirmDialog
-      v-model="confirmRemove.open"
-      title="Remove Link"
-      message="Are you sure you want to remove this link?"
-      okLabel="Remove"
-      @ok="confirmDeleteLink"
-    />
   </div>
 </template>

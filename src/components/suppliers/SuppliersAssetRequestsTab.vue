@@ -170,18 +170,14 @@ function openReviewDialog(request) {
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
-const confirmDialog = ref(null)
-
-function onDeleteRequest(request) {
-  confirmDialog.value = {
+async function onDeleteRequest(request) {
+  const ok = await confirm({
     title: 'Delete Asset Request',
     message: `Are you sure you want to delete "${request.title}"?`,
     okLabel: 'Delete',
-    onOk: async () => {
-      await request.delete()
-      confirmDialog.value = null
-    },
-  }
+    danger: true,
+  })
+  if (ok) await request.delete()
 }
 
 function formatDate(value) {
@@ -420,12 +416,4 @@ function formatDate(value) {
       :assetRequestId="reviewingRequestId"
     />
   </div>
-
-  <BaseConfirmDialog
-    v-if="confirmDialog"
-    :modelValue="true"
-    v-bind="confirmDialog"
-    @update:modelValue="confirmDialog = null"
-    @ok="confirmDialog?.onOk"
-  />
 </template>

@@ -31,7 +31,7 @@ watch(activeTab, (id) => {
 
 const showCreateDialog = ref(false)
 const viewMode = useCompanyLocalStorage('templates-view-mode', 'list')
-const confirmDelete = ref({ open: false, template: null })
+const { confirm } = useConfirm()
 
 const canCreateTemplate = computed(() => isAllowed(['formTemplates:create']))
 const canUpdateTemplate = computed(() => isAllowed(['formTemplates:update']))
@@ -96,13 +96,14 @@ function handleTemplateCreated(template) {
   router.push({ path, query: { mode: 'schema' } })
 }
 
-function onDeleteTemplate(template) {
-  confirmDelete.value = { open: true, template }
-}
-
-async function confirmDeleteTemplate() {
-  await confirmDelete.value.template.delete()
-  confirmDelete.value = { open: false, template: null }
+async function onDeleteTemplate(template) {
+  const ok = await confirm({
+    title: 'Delete Template',
+    message: `Are you sure you want to delete '${template.title}' (${template.code})? This cannot be undone.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (ok) await template.delete()
 }
 </script>
 
@@ -164,12 +165,4 @@ async function confirmDeleteTemplate() {
   <!-- Create Template Dialog -->
   <FormTemplateCreateTemplate v-model="showCreateDialog" @next="handleTemplateCreated" />
 
-  <!-- Delete Confirm Dialog -->
-  <BaseConfirmDialog
-    v-model="confirmDelete.open"
-    title="Delete Template"
-    :message="`Are you sure you want to delete '${confirmDelete.template?.title}' (${confirmDelete.template?.code})? This cannot be undone.`"
-    okLabel="Delete"
-    @ok="confirmDeleteTemplate"
-  />
 </template>

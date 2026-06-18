@@ -55,7 +55,7 @@ const leftDrawerOpen = ref(false)
 const rightDrawerOpen = ref(false)
 const showPreview = ref(false)
 const showJsonDialog = ref(false)
-const showClearDialog = ref(false)
+const { confirm } = useConfirm()
 const previewData = ref({})
 
 const jsonContent = computed({
@@ -197,15 +197,16 @@ function onPreviewSubmit(data) {
   console.info('Form preview payload:', data)
 }
 
-function confirmClear() {
-  if (schema.value?.length > 0) {
-    showClearDialog.value = true
-  }
-}
-
-function doClear() {
-  clearSchema()
-  showClearDialog.value = false
+async function confirmClear() {
+  if (!(schema.value?.length > 0)) return
+  const ok = await confirm({
+    title: 'Clear Form?',
+    message:
+      'Are you sure you want to clear all fields? This action will remove all current content and cannot be undone.',
+    okLabel: 'Delete All',
+    danger: true,
+  })
+  if (ok) clearSchema()
 }
 
 function copyJson() {
@@ -431,14 +432,6 @@ function copyJson() {
     </BaseDialog>
 
     <!-- Clear Confirmation Dialog -->
-    <BaseConfirmDialog
-      v-model="showClearDialog"
-      title="Clear Form?"
-      message="Are you sure you want to clear all fields? This action will remove all current content and cannot be undone."
-      confirmLabel="Delete All"
-      variant="danger"
-      @confirm="doClear"
-    />
   </div>
 </template>
 

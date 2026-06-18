@@ -43,12 +43,17 @@ const canUpdateSection = computed(
 
 const canDeleteSection = computed(() => canUpdateSection.value && section.value?.isAddOn === true)
 
-const confirmDelete = ref(false)
+const { confirm } = useConfirm()
 
 async function deleteSection() {
   if (!section.value) return
-  await section.value.delete()
-  confirmDelete.value = false
+  const ok = await confirm({
+    title: 'Delete Section',
+    message: `Are you sure you want to delete '${section.value.title}'? This cannot be undone.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (ok) await section.value.delete()
 }
 
 // ── Auto-save on any change while the section is editable ──────
@@ -166,7 +171,7 @@ const debouncedSaveComment = useDebounceFn(async () => {
         v-if="canDeleteSection"
         class="tw:p-1.5 tw:rounded tw:text-red-400 tw:hover:text-red-600 tw:hover:bg-red-50 tw:transition-colors tw:print:hidden"
         title="Delete section"
-        @click="confirmDelete = true"
+        @click="deleteSection"
       >
         <IconTrash :size="16" />
       </button>
@@ -237,12 +242,5 @@ const debouncedSaveComment = useDebounceFn(async () => {
       </p>
     </div>
 
-    <BaseConfirmDialog
-      v-model="confirmDelete"
-      title="Delete Section"
-      :message="`Are you sure you want to delete '${section.title}'? This cannot be undone.`"
-      okLabel="Delete"
-      @ok="deleteSection"
-    />
   </div>
 </template>
