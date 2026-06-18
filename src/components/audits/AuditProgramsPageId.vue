@@ -426,7 +426,7 @@ async function handleDelete() {
                 </div>
               </div>
               <div
-                class="tw:text-[11px] tw:text-secondary tw:italic tw:pt-3 tw:border-t tw:border-divider tw:mt-3"
+                class="tw:text-caption tw:text-secondary tw:italic tw:pt-3 tw:border-t tw:border-divider tw:mt-3"
               >
                 The daily generator mints an Audit when nextDueDate ≤ today. Pausing a program stops
                 new audits; existing audits keep running.
@@ -472,7 +472,7 @@ async function handleDelete() {
                     <UserBadgeById :userId="auditor.userId" />
                     <button
                       type="button"
-                      class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:border-0"
+                      class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:border-0"
                       :class="
                         auditor.roleOnAudit === 'LEAD'
                           ? 'tw:bg-amber-100 tw:text-amber-700'
@@ -514,7 +514,7 @@ async function handleDelete() {
                   <BaseSwitch v-if="isEditable" v-model="program.active" />
                   <span
                     v-else
-                    class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+                    class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
                     :class="
                       program.active
                         ? 'tw:bg-emerald-100 tw:text-emerald-700'
@@ -530,10 +530,10 @@ async function handleDelete() {
                     {{ program.createdAt ? program.createdAt.formatDate('date') : '—' }}
                   </span>
                 </div>
-                <div v-if="saving" class="tw:text-[11px] tw:text-secondary tw:italic tw:pt-1">
+                <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-1">
                   Saving…
                 </div>
-                <div v-else-if="saveError" class="tw:text-[11px] tw:text-red-600 tw:pt-1">
+                <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-1">
                   {{ saveError }}
                 </div>
               </div>
@@ -561,7 +561,7 @@ async function handleDelete() {
             ]"
             :required="true"
           />
-          <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
+          <p class="tw:text-caption tw:text-secondary tw:mt-1">
             LEAD users rotate into AuditInstance.leadAuditorUserId at generate-time. TEAM users go
             onto AuditTeamMember.
           </p>

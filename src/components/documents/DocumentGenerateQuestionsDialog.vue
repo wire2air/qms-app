@@ -298,7 +298,7 @@ const TYPE_LABEL = {
                   {{ i + 1 }}. {{ q.text }}
                 </div>
                 <span
-                  class="tw:text-[10px] tw:font-medium tw:text-secondary tw:bg-main-hover tw:rounded tw:px-1.5 tw:py-0.5 tw:shrink-0 tw:uppercase tw:tracking-wide"
+                  class="tw:text-micro tw:font-medium tw:text-secondary tw:bg-main-hover tw:rounded tw:px-1.5 tw:py-0.5 tw:shrink-0 tw:uppercase tw:tracking-wide"
                 >
                   {{ TYPE_LABEL[q.type] ?? q.type }}
                 </span>

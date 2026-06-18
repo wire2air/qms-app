@@ -316,7 +316,7 @@ const selectedCount = computed(
                 :disabled="readonly"
                 @click="toggleSelected(col.topBranch.id, cause.id)"
               >
-                <span class="tw:flex-1 tw:truncate tw:font-medium tw:text-[11px]">{{ cause.text }}</span>
+                <span class="tw:flex-1 tw:truncate tw:font-medium tw:text-caption">{{ cause.text }}</span>
                 <template v-if="!readonly">
                   <span
                     v-if="cause.selected"
@@ -462,7 +462,7 @@ const selectedCount = computed(
                 :disabled="readonly"
                 @click="toggleSelected(col.botBranch.id, cause.id)"
               >
-                <span class="tw:flex-1 tw:truncate tw:font-medium tw:text-[11px]">{{ cause.text }}</span>
+                <span class="tw:flex-1 tw:truncate tw:font-medium tw:text-caption">{{ cause.text }}</span>
                 <template v-if="!readonly">
                   <span
                     v-if="cause.selected"

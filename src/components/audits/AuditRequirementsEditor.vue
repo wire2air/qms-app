@@ -344,7 +344,7 @@ async function handleBulkEnrich() {
         </div>
         <span
           v-if="canUseAi && emptyRowCount > 0"
-          class="tw:text-[11px] tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:px-1.5 tw:py-0.5"
+          class="tw:text-caption tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:px-1.5 tw:py-0.5"
         >
           {{ emptyRowCount }} missing guidance
         </span>
@@ -457,7 +457,7 @@ async function handleBulkEnrich() {
           class="tw:px-3 tw:py-3 tw:border-t tw:border-divider tw:flex tw:flex-col tw:gap-3 tw:bg-white"
         >
           <div v-if="row.description">
-            <div class="tw:text-[10px] tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
+            <div class="tw:text-micro tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
               Description
             </div>
             <div class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">
@@ -465,7 +465,7 @@ async function handleBulkEnrich() {
             </div>
           </div>
           <div v-if="row.guidance">
-            <div class="tw:text-[10px] tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
+            <div class="tw:text-micro tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
               Guidance
             </div>
             <div class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">
@@ -487,7 +487,7 @@ async function handleBulkEnrich() {
             :key="cl.label"
           >
             <div v-if="cl.items.length">
-              <div class="tw:text-[10px] tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
+              <div class="tw:text-micro tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
                 {{ cl.label }}
               </div>
               <ul class="tw:flex tw:flex-col tw:gap-1">
@@ -509,7 +509,7 @@ async function handleBulkEnrich() {
 
           <!-- People / roles to interview. -->
           <div v-if="row.peopleToInterview && row.peopleToInterview.length">
-            <div class="tw:text-[10px] tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
+            <div class="tw:text-micro tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
               People / roles to interview
             </div>
             <div class="tw:flex tw:flex-wrap tw:gap-1.5">

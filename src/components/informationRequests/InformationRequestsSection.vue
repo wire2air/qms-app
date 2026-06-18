@@ -158,7 +158,7 @@ function truncate(text, n = 80) {
         Information Requests
         <span
           v-if="requests.length"
-          class="tw:text-[10px] tw:bg-gray-100 tw:text-gray-700 tw:px-1.5 tw:py-0.5 tw:rounded"
+          class="tw:text-micro tw:bg-gray-100 tw:text-gray-700 tw:px-1.5 tw:py-0.5 tw:rounded"
         >
           {{ requests.length }}
         </span>
@@ -180,7 +180,7 @@ function truncate(text, n = 80) {
         <div class="tw:flex tw:flex-col tw:gap-1 tw:min-w-0">
           <div class="tw:flex tw:items-center tw:gap-2">
             <span
-              class="tw:text-[10px] tw:font-medium tw:rounded tw:px-1.5 tw:py-0.5"
+              class="tw:text-micro tw:font-medium tw:rounded tw:px-1.5 tw:py-0.5"
               :class="statusClass(rfi.statusId)"
             >
               {{ statusLabel(rfi.statusId) }}

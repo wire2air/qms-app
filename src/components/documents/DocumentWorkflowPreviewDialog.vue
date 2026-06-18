@@ -225,7 +225,7 @@ async function confirm() {
 
             <div
               v-if="step.roleNames.length"
-              class="tw:text-[11px] tw:text-secondary tw:mb-2 tw:flex tw:flex-wrap tw:gap-1"
+              class="tw:text-caption tw:text-secondary tw:mb-2 tw:flex tw:flex-wrap tw:gap-1"
             >
               <span>Eligible roles:</span>
               <span

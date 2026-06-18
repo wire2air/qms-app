@@ -82,7 +82,7 @@ function openFindingsInstance(f) {
       <div class="tw:grid tw:grid-cols-3 tw:gap-3">
         <div class="tw:flex tw:flex-col tw:items-center tw:p-2 tw:rounded-lg tw:bg-main-hover">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ stats.open }}</span>
-          <span class="tw:text-[10px] tw:text-secondary tw:uppercase tw:tracking-wider">Open</span>
+          <span class="tw:text-micro tw:text-secondary tw:uppercase tw:tracking-wider">Open</span>
         </div>
         <div
           class="tw:flex tw:flex-col tw:items-center tw:p-2 tw:rounded-lg"
@@ -94,13 +94,13 @@ function openFindingsInstance(f) {
           >
             {{ stats.majorOpen }}
           </span>
-          <span class="tw:text-[10px] tw:text-secondary tw:uppercase tw:tracking-wider">
+          <span class="tw:text-micro tw:text-secondary tw:uppercase tw:tracking-wider">
             Major NC
           </span>
         </div>
         <div class="tw:flex tw:flex-col tw:items-center tw:p-2 tw:rounded-lg tw:bg-main-hover">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ stats.last12m }}</span>
-          <span class="tw:text-[10px] tw:text-secondary tw:uppercase tw:tracking-wider">
+          <span class="tw:text-micro tw:text-secondary tw:uppercase tw:tracking-wider">
             Last 12 mo
           </span>
         </div>
@@ -122,7 +122,7 @@ function openFindingsInstance(f) {
           class="tw:flex tw:items-start tw:gap-2 tw:py-2 tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:bg-main-hover/40 tw:rounded tw:px-1"
           @click="openFindingsInstance(f)"
         >
-          <code class="tw:text-[10px] tw:font-mono tw:text-secondary tw:mt-0.5 tw:shrink-0">
+          <code class="tw:text-micro tw:font-mono tw:text-secondary tw:mt-0.5 tw:shrink-0">
             {{ f.findingNumber }}
           </code>
           <div class="tw:flex tw:flex-col tw:gap-0.5 tw:flex-1 tw:min-w-0">

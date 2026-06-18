@@ -410,7 +410,7 @@ function back() {
           </select>
           <p
             v-if="inspectionTemplates.length === 0"
-            class="tw:text-[11px] tw:text-red-600 tw:italic tw:mt-1"
+            class="tw:text-caption tw:text-red-600 tw:italic tw:mt-1"
           >
             No log books yet. Create one from the Log Books page and then come back to assign it.
           </p>
@@ -545,7 +545,7 @@ function back() {
                 Keep open until done
               </button>
             </div>
-            <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
+            <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
               <template v-if="form.onWindowExpire === 'KEEP_OPEN'">
                 The task stays overdue in the assignee's inbox until completed — nothing
                 auto-misses. For work that must be done regardless of lateness.

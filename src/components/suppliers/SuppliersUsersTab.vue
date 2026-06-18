@@ -198,7 +198,7 @@ async function cancelInvite(u) {
         <BaseField v-slot="{ id: fieldId }" label="Job title">
           <BaseTextInput :id="fieldId" v-model="invite.jobTitle" placeholder="Quality Manager, Sales Lead, …" />
         </BaseField>
-        <p class="tw:text-[11px] tw:text-secondary tw:italic">
+        <p class="tw:text-caption tw:text-secondary tw:italic">
           They'll get an invitation email to set their password. Role / data-access assignment lands
           in the next step — for now an invited user has read-only access only to records explicitly
           shared with them.

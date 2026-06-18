@@ -323,7 +323,7 @@ function safeParseJson(raw) {
             class="tw:flex tw:flex-col tw:gap-0.5 tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-primary/5"
           >
             <span class="tw:text-sm tw:font-semibold">{{ fmt.label }}</span>
-            <span class="tw:text-[11px] tw:text-secondary">{{ fmt.description }}</span>
+            <span class="tw:text-caption tw:text-secondary">{{ fmt.description }}</span>
           </div>
         </div>
       </div>
@@ -369,7 +369,7 @@ function safeParseJson(raw) {
              before submit. -->
         <div
           v-if="activeFormat?.requiredFields"
-          class="tw:rounded tw:bg-gray-50 tw:border tw:border-gray-200 tw:px-2 tw:py-1.5 tw:mb-2 tw:text-[11px] tw:text-gray-700 tw:font-mono tw:break-all"
+          class="tw:rounded tw:bg-gray-50 tw:border tw:border-gray-200 tw:px-2 tw:py-1.5 tw:mb-2 tw:text-caption tw:text-gray-700 tw:font-mono tw:break-all"
         >
           {{ activeFormat.requiredFields }}
         </div>
@@ -377,7 +377,7 @@ function safeParseJson(raw) {
           v-model="content"
           :rows="12"
           :placeholder="activeFormat?.sample ?? ''"
-          class="tw:font-mono tw:text-[12px]"
+          class="tw:font-mono tw:text-label"
         />
       </div>
     </div>

@@ -154,7 +154,7 @@ async function handleDelete(msg) {
                 {{ msg.body }}
               </p>
               <div
-                class="tw:text-[10px] tw:mt-1 tw:text-right"
+                class="tw:text-micro tw:mt-1 tw:text-right"
                 :class="msg.userId === currentUserId ? 'tw:text-white/60' : 'tw:text-secondary'"
               >
                 {{ msg.createdAt?.formatDate?.('datetime') || '' }}

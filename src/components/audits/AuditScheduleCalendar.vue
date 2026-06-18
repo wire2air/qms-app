@@ -190,7 +190,7 @@ const LEGEND = [
     <div class="tw:flex tw:items-center tw:gap-4 tw:flex-wrap">
       <div v-for="l in LEGEND" :key="l.tone" class="tw:flex tw:items-center tw:gap-1.5">
         <span class="tw:size-2.5 tw:rounded-full" :class="l.dot"></span>
-        <span class="tw:text-[11px] tw:text-secondary">{{ l.label }}</span>
+        <span class="tw:text-caption tw:text-secondary">{{ l.label }}</span>
       </div>
     </div>
 
@@ -240,17 +240,17 @@ const LEGEND = [
                   @click="openAudit(a)"
                 >
                   <div
-                    class="tw:font-mono tw:font-semibold tw:text-on-main tw:text-[10px] tw:truncate"
+                    class="tw:font-mono tw:font-semibold tw:text-on-main tw:text-micro tw:truncate"
                   >
                     {{ a.auditNumber || 'Audit' }}
                   </div>
                   <div
                     v-if="a.displayMeta?.standardName"
-                    class="tw:text-[10px] tw:font-medium tw:text-on-main tw:truncate"
+                    class="tw:text-micro tw:font-medium tw:text-on-main tw:truncate"
                   >
                     {{ a.displayMeta.standardName }}
                   </div>
-                  <div class="tw:text-[10px] tw:text-secondary tw:truncate">
+                  <div class="tw:text-micro tw:text-secondary tw:truncate">
                     {{ auditorName(a.leadAuditorUserId) }}
                   </div>
                 </button>

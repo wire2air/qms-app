@@ -127,6 +127,9 @@
   --text-caption: 11px;
   --text-badge: 11px;
   --text-table-header: 11px;
+  /* micro — the smallest step (dense meta text, tiny pills). Emits tw:text-micro;
+   * gives the 200+ ad-hoc text-[10px] usages a token (Phase 7 sweep). */
+  --text-micro: 10px;
 }
 
 @layer base {

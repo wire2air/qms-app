@@ -206,16 +206,16 @@ defineExpose({ buildPayload })
                 {{ c.name }}
                 <DefectSeverityBadgeById
                   :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')"
-                  class="tw:ml-1 tw:text-[10px]"
+                  class="tw:ml-1 tw:text-micro"
                 />
               </div>
-              <div class="tw:text-[11px] tw:text-secondary tw:font-normal">
+              <div class="tw:text-caption tw:text-secondary tw:font-normal">
                 {{ limitText(c) || '—' }}
               </div>
               <button
                 v-if="!readonly && sampleSize > 1"
                 type="button"
-                class="tw:mt-0.5 tw:inline-flex tw:items-center tw:gap-1 tw:self-start tw:text-[10px] tw:font-medium tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+                class="tw:mt-0.5 tw:inline-flex tw:items-center tw:gap-1 tw:self-start tw:text-micro tw:font-medium tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
                 @click="fillDown(c)"
               >
                 <IconArrowBarToDown :size="13" /> Fill ↓
@@ -268,7 +268,7 @@ defineExpose({ buildPayload })
           <td class="tw:px-3 tw:py-1.5 tw:border-r tw:border-divider/60 tw:text-center">
             <span
               v-if="sampleOutcome(s) !== 'NA'"
-              class="tw:text-[10px] tw:font-bold tw:px-2 tw:py-0.5 tw:rounded-full"
+              class="tw:text-micro tw:font-bold tw:px-2 tw:py-0.5 tw:rounded-full"
               :class="unitBadgeClass(sampleOutcome(s))"
             >
               {{ sampleOutcome(s) === 'FAIL' ? 'FAIL' : 'PASS' }}

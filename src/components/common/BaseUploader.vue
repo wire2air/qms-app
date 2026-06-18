@@ -267,13 +267,13 @@ defineExpose({
       <div class="tw:flex tw:items-center tw:gap-2">
         <span
           v-if="uploadedFiles?.length > 0"
-          class="tw:text-[10px] tw:font-medium tw:bg-good/10 tw:text-good tw:px-2 tw:py-0.5 tw:rounded-full"
+          class="tw:text-micro tw:font-medium tw:bg-good/10 tw:text-good tw:px-2 tw:py-0.5 tw:rounded-full"
         >
           {{ uploadedFiles?.length }} Uploaded
         </span>
         <span
           v-if="files?.length > 0"
-          class="tw:text-[10px] tw:font-medium tw:bg-primary/10 tw:text-primary tw:px-2 tw:py-0.5 tw:rounded-full"
+          class="tw:text-micro tw:font-medium tw:bg-primary/10 tw:text-primary tw:px-2 tw:py-0.5 tw:rounded-full"
         >
           {{ files?.length }} Pending
         </span>
@@ -339,7 +339,7 @@ defineExpose({
             Drop files here or
             <span class="tw:text-primary tw:hover:underline">browse</span>
           </p>
-          <p class="tw:text-[11px] tw:text-secondary">
+          <p class="tw:text-caption tw:text-secondary">
             {{
               accept
                 .split(',')

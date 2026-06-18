@@ -207,20 +207,20 @@ function formatDate(value) {
         <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Asset Requests</h3>
         <span
           v-if="summary.total"
-          class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-gray-200 tw:text-gray-700 tw:px-2 tw:py-0.5 tw:text-[10px] tw:font-bold"
+          class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-gray-200 tw:text-gray-700 tw:px-2 tw:py-0.5 tw:text-micro tw:font-bold"
         >
           {{ summary.total }}
         </span>
         <span
           v-if="summary.pending"
-          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-2 tw:py-0.5 tw:text-[10px] tw:font-bold"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-2 tw:py-0.5 tw:text-micro tw:font-bold"
         >
           <IconCircleDot :size="10" />
           {{ summary.pending }} pending
         </span>
         <span
           v-if="summary.overdue"
-          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-red-100 tw:text-red-700 tw:px-2 tw:py-0.5 tw:text-[10px] tw:font-bold"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-red-100 tw:text-red-700 tw:px-2 tw:py-0.5 tw:text-micro tw:font-bold"
         >
           <IconAlertTriangle :size="10" />
           {{ summary.overdue }} overdue
@@ -258,14 +258,14 @@ function formatDate(value) {
               <AssetRequestStatusBadgeById v-if="request.statusId" :statusId="request.statusId" />
               <span
                 v-if="isOverdue(request)"
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:rounded tw:bg-red-100 tw:text-red-700 tw:px-1.5 tw:py-0.5"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:rounded tw:bg-red-100 tw:text-red-700 tw:px-1.5 tw:py-0.5"
               >
                 <IconAlertTriangle :size="10" />
                 Overdue
               </span>
               <span
                 v-if="progressFor(request).total"
-                class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
+                class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
               >
                 {{ progressFor(request).received }} / {{ progressFor(request).total }} received
               </span>
@@ -362,25 +362,25 @@ function formatDate(value) {
                 <div v-if="item.customDescription" class="tw:text-xs tw:text-secondary">
                   {{ item.customDescription }}
                 </div>
-                <div v-if="item.uploadedAt" class="tw:text-[11px] tw:text-secondary tw:mt-0.5">
+                <div v-if="item.uploadedAt" class="tw:text-caption tw:text-secondary tw:mt-0.5">
                   Uploaded {{ item.uploadedAt.toRelative?.() }}
                 </div>
               </div>
               <span
                 v-if="item.statusId === 'RECEIVED'"
-                class="tw:text-[10px] tw:rounded tw:bg-green-100 tw:text-green-700 tw:px-1.5 tw:py-0.5"
+                class="tw:text-micro tw:rounded tw:bg-green-100 tw:text-green-700 tw:px-1.5 tw:py-0.5"
               >
                 Received
               </span>
               <span
                 v-else-if="item.statusId === 'SKIPPED'"
-                class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5"
+                class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5"
               >
                 Skipped
               </span>
               <span
                 v-else
-                class="tw:text-[10px] tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5"
+                class="tw:text-micro tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5"
               >
                 Pending
               </span>

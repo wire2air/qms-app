@@ -277,7 +277,7 @@ const showDeactivated = ref(false)
             <div>
               <span class="tw:font-medium tw:text-secondary tw:line-through">{{ row.name }}</span>
               <code
-                class="tw:text-[10px] tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary"
+                class="tw:text-micro tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary"
               >
                 {{ row.code }}
               </code>
@@ -317,7 +317,7 @@ const showDeactivated = ref(false)
             </p>
             <button
               type="button"
-              class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
               @click="codeEditable = !codeEditable"
             >
               {{ codeEditable ? 'Lock' : 'Edit' }}
@@ -329,7 +329,7 @@ const showDeactivated = ref(false)
             :disabled="!codeEditable"
             @input="codeDirty = true"
           />
-          <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
+          <p class="tw:text-caption tw:text-secondary tw:mt-1">
             SCREAMING_SNAKE_CASE. Stable identifier denormalized onto every risk_assessments row
             using this category — cannot be changed later.
           </p>
@@ -346,7 +346,7 @@ const showDeactivated = ref(false)
           <div>
             <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Colour</p>
             <BaseColorPicker v-model="form.color" allowNull />
-            <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
+            <p class="tw:text-caption tw:text-secondary tw:mt-1">
               Used as the badge background tint. Leave empty for neutral grey.
             </p>
           </div>

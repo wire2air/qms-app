@@ -454,7 +454,7 @@ async function newVersion() {
           >
             <div
               v-if="c.id == null"
-              class="tw:flex tw:items-center tw:gap-1.5 tw:mb-2 tw:text-[10px] tw:font-bold tw:uppercase tw:tracking-wide tw:text-red-600"
+              class="tw:flex tw:items-center tw:gap-1.5 tw:mb-2 tw:text-micro tw:font-bold tw:uppercase tw:tracking-wide tw:text-red-600"
             >
               <span class="tw:inline-block tw:w-1.5 tw:h-1.5 tw:rounded-full tw:bg-red-500"></span>
               New test — fill in &amp; Save
@@ -573,7 +573,7 @@ async function newVersion() {
               >
                 <td class="tw:px-5 tw:py-2.5 tw:font-medium tw:text-on-main">
                   {{ c.name }}
-                  <DefectSeverityBadgeById :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')" class="tw:ml-1 tw:text-[10px]" />
+                  <DefectSeverityBadgeById :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')" class="tw:ml-1 tw:text-micro" />
                   <div v-if="c.testMethod" class="tw:mt-1">
                     <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
                   </div>

@@ -638,7 +638,7 @@ function close() {
       </button>
       <span
         v-if="record?.recordClassification"
-        class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-1 tw:border"
+        class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-1 tw:border"
         :class="
           record.recordClassification === 'CONTROLLED_RECORD'
             ? 'tw:bg-red-50 tw:text-red-700 tw:border-red-200'
@@ -771,7 +771,7 @@ function close() {
               class="tw:flex tw:items-start tw:gap-3 tw:pb-3 tw:border-b tw:border-divider tw:last:border-b-0 tw:last:pb-0"
             >
               <span
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border tw:shrink-0 tw:mt-0.5"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border tw:shrink-0 tw:mt-0.5"
                 :class="flagSeverityClass(f.severity)"
               >
                 {{ f.severity }}
@@ -848,21 +848,21 @@ function close() {
               <div class="tw:flex-1 tw:min-w-0">
                 <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap tw:mb-1">
                   <span
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5"
                     :class="revisionTypeMeta(rev.revisionType).class"
                   >
                     {{ revisionTypeMeta(rev.revisionType).label }}
                   </span>
                   <span
                     v-if="rev.signatureId"
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-green-50 tw:text-green-700 tw:border tw:border-green-200"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-green-50 tw:text-green-700 tw:border tw:border-green-200"
                   >
                     <IconShieldCheck :size="10" />
                     E-signed
                   </span>
                   <span
                     v-if="rev.reviewOutcome"
-                    class="tw:text-[10px] tw:font-mono tw:text-secondary"
+                    class="tw:text-micro tw:font-mono tw:text-secondary"
                   >
                     {{ rev.reviewOutcome }}
                   </span>
@@ -913,7 +913,7 @@ function close() {
               <div class="tw:flex-1 tw:min-w-0">
                 <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap tw:mb-1">
                   <span
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5"
                     :class="
                       ev.kind === 'raised'
                         ? 'tw:bg-orange-100 tw:text-orange-700'
@@ -924,7 +924,7 @@ function close() {
                   </span>
                   <span
                     v-if="ev.severity"
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
                     :class="flagSeverityClass(ev.severity)"
                   >
                     {{ ev.severity }}

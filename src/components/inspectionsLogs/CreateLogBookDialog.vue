@@ -302,7 +302,7 @@ function close() {
           </select>
           <div
             v-if="logBookTypes.length === 0"
-            class="tw:text-[11px] tw:text-amber-700 tw:italic tw:mt-1"
+            class="tw:text-caption tw:text-amber-700 tw:italic tw:mt-1"
           >
             No categories loaded yet — the seeded global types sync on the next bootstrap. If this
             persists, hard-refresh the page to re-bootstrap IndexedDB.

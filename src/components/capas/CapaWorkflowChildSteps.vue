@@ -408,7 +408,7 @@ function getRowClass(child) {
           <IconCheck :size="14" />
           {{ completing === child.id ? 'Completing…' : 'Complete & Advance' }}
         </button>
-        <BaseBadge class="tw:text-[10px]" :class="getBadgeClass(child)">
+        <BaseBadge class="tw:text-micro" :class="getBadgeClass(child)">
           {{ getStatusLabel(child) }}
         </BaseBadge>
         <WorkflowStepActionsMenu

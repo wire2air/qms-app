@@ -319,7 +319,7 @@ async function handleReviewersConfirmed(reviewers) {
                 <BaseCheckbox v-model="form.isSupplierFacing" />
                 <div>
                   <div class="tw:text-sm tw:text-on-main">Supplier-facing CAPA</div>
-                  <div class="tw:text-[11px] tw:text-secondary">
+                  <div class="tw:text-caption tw:text-secondary">
                     Workflow steps will be reviewed by users from the selected supplier (you'll pick
                     the specific reviewer per step at submit). Lockable once submitted.
                   </div>

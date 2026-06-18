@@ -625,7 +625,7 @@ function printList() {
               @change="toggleColumn(f.name)"
             />
             <span class="tw:text-on-main">{{ f.label || f.name }}</span>
-            <span class="tw:text-[10px] tw:text-secondary tw:ml-auto tw:uppercase">
+            <span class="tw:text-micro tw:text-secondary tw:ml-auto tw:uppercase">
               {{ f.type }}
             </span>
           </label>
@@ -659,7 +659,7 @@ function printList() {
               <div class="tw:font-medium tw:text-on-main tw:truncate">
                 {{ isLogBookMode ? row.recordNumber || row.id : templateTitle(row) }}
               </div>
-              <div class="tw:text-[11px] tw:text-secondary tw:mt-0.5">
+              <div class="tw:text-caption tw:text-secondary tw:mt-0.5">
                 {{ fmtDate(row.submittedAt) }}
               </div>
             </div>
@@ -674,7 +674,7 @@ function printList() {
               </span>
               <span
                 v-if="openFlagCount(row.id) > 0"
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-orange-100 tw:text-orange-700 tw:border tw:border-orange-300"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-orange-100 tw:text-orange-700 tw:border tw:border-orange-300"
               >
                 <IconFlag :size="10" />
                 {{ openFlagCount(row.id) }}
@@ -779,7 +779,7 @@ function printList() {
               </td>
               <td v-if="!isLogBookMode" class="tw:px-3 tw:py-2">
                 <span
-                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
                   :class="classificationBadgeClass(row.recordClassification)"
                 >
                   <IconShieldCheck
@@ -805,7 +805,7 @@ function printList() {
                      flag notes / resolve. -->
                   <span
                     v-if="openFlagCount(row.id) > 0"
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-orange-100 tw:text-orange-700 tw:border tw:border-orange-300"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-orange-100 tw:text-orange-700 tw:border tw:border-orange-300"
                     :title="`${openFlagCount(row.id)} open flag${openFlagCount(row.id) === 1 ? '' : 's'}`"
                   >
                     <IconFlag :size="10" />

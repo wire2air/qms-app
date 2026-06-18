@@ -246,7 +246,7 @@ async function recordCalibration(e) {
             </td>
             <td class="tw:px-3 tw:py-2">
               <span
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:rounded tw:px-2 tw:py-0.5"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:rounded tw:px-2 tw:py-0.5"
                 :class="statusBadgeClass(e.statusId)"
               >
                 {{ e.statusId?.replace(/_/g, ' ') }}

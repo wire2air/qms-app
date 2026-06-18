@@ -371,7 +371,7 @@ function toggleWeekday(d) {
           max="31"
           class="tw:w-20 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
         />
-        <span class="tw:text-[11px] tw:text-secondary tw:italic">
+        <span class="tw:text-caption tw:text-secondary tw:italic">
           of the month (29–31 are skipped in shorter months)
         </span>
       </div>
@@ -403,7 +403,7 @@ function toggleWeekday(d) {
     <!-- Advanced mode — raw five fields. -->
     <div v-if="mode === MODE.ADVANCED" class="tw:grid tw:grid-cols-5 tw:gap-1.5">
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-[10px] tw:text-secondary tw:uppercase">Minute</span>
+        <span class="tw:text-micro tw:text-secondary tw:uppercase">Minute</span>
         <input
           type="text"
           :value="fields.minute"
@@ -412,7 +412,7 @@ function toggleWeekday(d) {
         />
       </div>
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-[10px] tw:text-secondary tw:uppercase">Hour</span>
+        <span class="tw:text-micro tw:text-secondary tw:uppercase">Hour</span>
         <input
           type="text"
           :value="fields.hour"
@@ -421,7 +421,7 @@ function toggleWeekday(d) {
         />
       </div>
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-[10px] tw:text-secondary tw:uppercase">Dom</span>
+        <span class="tw:text-micro tw:text-secondary tw:uppercase">Dom</span>
         <input
           type="text"
           :value="fields.dom"
@@ -430,7 +430,7 @@ function toggleWeekday(d) {
         />
       </div>
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-[10px] tw:text-secondary tw:uppercase">Month</span>
+        <span class="tw:text-micro tw:text-secondary tw:uppercase">Month</span>
         <input
           type="text"
           :value="fields.month"
@@ -439,7 +439,7 @@ function toggleWeekday(d) {
         />
       </div>
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-[10px] tw:text-secondary tw:uppercase">Dow</span>
+        <span class="tw:text-micro tw:text-secondary tw:uppercase">Dow</span>
         <input
           type="text"
           :value="fields.dow"
@@ -453,7 +453,7 @@ function toggleWeekday(d) {
       <span class="tw:text-on-main tw:font-bold">{{ modelValue || '—' }}</span>
       <span v-if="timezone" class="tw:text-secondary">({{ timezone }})</span>
     </div>
-    <div class="tw:text-[11px] tw:text-secondary tw:italic">
+    <div class="tw:text-caption tw:text-secondary tw:italic">
       Backend validates the expression on save; invalid syntax is rejected with a clear error.
     </div>
   </div>

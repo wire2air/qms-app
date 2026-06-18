@@ -161,7 +161,7 @@ function formatSize(bytes) {
         <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Documents</h3>
         <span
           v-if="documents.length"
-          class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-gray-200 tw:text-gray-700 tw:px-2 tw:py-0.5 tw:text-[10px] tw:font-bold"
+          class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-gray-200 tw:text-gray-700 tw:px-2 tw:py-0.5 tw:text-micro tw:font-bold"
           >{{ documents.length }}</span
         >
       </div>
@@ -189,14 +189,14 @@ function formatSize(bytes) {
             </p>
             <span
               v-if="d.row.requestId"
-              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:rounded tw:bg-blue-50 tw:text-blue-700 tw:px-1.5 tw:py-0.5"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:rounded tw:bg-blue-50 tw:text-blue-700 tw:px-1.5 tw:py-0.5"
             >
               <IconClipboardList :size="10" />
               via request
             </span>
             <span
               v-else
-              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:rounded tw:bg-amber-50 tw:text-amber-700 tw:px-1.5 tw:py-0.5"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:rounded tw:bg-amber-50 tw:text-amber-700 tw:px-1.5 tw:py-0.5"
             >
               <IconPaperclip :size="10" />
               ad-hoc

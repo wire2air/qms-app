@@ -224,14 +224,14 @@ watch(
             Workflow Plan
             <span
               v-if="nc.isSupplierFacing"
-              class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal"
+              class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal"
               :title="'Supplier-facing: non-approval steps pick from this NC’s supplier users.'"
             >
               Supplier-facing
             </span>
             <span
               v-else
-              class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal"
+              class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal"
             >
               Internal
             </span>
@@ -269,13 +269,13 @@ watch(
                  you can read each row in one glance. -->
               <span
                 v-if="isApprovalStep(step)"
-                class="tw:text-[10px] tw:rounded tw:bg-amber-50 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:font-mono tw:uppercase"
+                class="tw:text-micro tw:rounded tw:bg-amber-50 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:font-mono tw:uppercase"
               >
                 Approval
               </span>
               <span
                 v-else
-                class="tw:text-[10px] tw:rounded tw:bg-slate-100 tw:text-slate-600 tw:px-1.5 tw:py-0.5 tw:font-mono tw:uppercase"
+                class="tw:text-micro tw:rounded tw:bg-slate-100 tw:text-slate-600 tw:px-1.5 tw:py-0.5 tw:font-mono tw:uppercase"
               >
                 {{ step.stepType || 'Action' }}
               </span>
@@ -283,14 +283,14 @@ watch(
                  supplier-facing-NC-with-an-internal-picker case visible. -->
               <span
                 v-if="usesSupplierPickerFor(step)"
-                class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5"
+                class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5"
                 title="This step's picker is filtered to supplier users for this NC's supplier."
               >
                 Supplier picker
               </span>
               <span
                 v-else
-                class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-gray-700 tw:px-1.5 tw:py-0.5"
+                class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-gray-700 tw:px-1.5 tw:py-0.5"
                 :title="
                   nc.isSupplierFacing
                     ? 'Approval steps stay internal even on supplier-facing records.'

@@ -704,7 +704,7 @@ defineExpose({ exportCsv })
         <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
           <div class="tw:min-w-0 tw:flex-1">
             <div class="tw:font-medium tw:text-on-main tw:truncate">{{ rowTitle(row) }}</div>
-            <div class="tw:text-[11px] tw:text-secondary tw:truncate tw:mt-0.5">
+            <div class="tw:text-caption tw:text-secondary tw:truncate tw:mt-0.5">
               {{ EntityType[row.entityType] || row.entityType
               }}<span v-if="rowSubtitle(row)"> · {{ rowSubtitle(row) }}</span>
             </div>
@@ -715,7 +715,7 @@ defineExpose({ exportCsv })
           />
           <TaskInstanceStatusBadgeById v-else :statusId="row.statusId" :module="row.entityType" />
         </div>
-        <div class="tw:mt-2 tw:text-[11px]">
+        <div class="tw:mt-2 tw:text-caption">
           <span v-if="row.completedAt" class="tw:text-green-600 tw:font-medium">
             Completed {{ row.completedAt.formatDate('date') }}
           </span>
@@ -761,7 +761,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ trainingInstanceMap[row.entityId]?.snapshot?.title || '—' }}
               </span>
-              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
                 Verification · {{ row.entityId.slice(0, 8) }}
               </span>
             </template>
@@ -770,12 +770,12 @@ defineExpose({ exportCsv })
                 {{ getNc(row)?.title || '—' }}
               </span>
               <div class="tw:flex tw:items-center tw:gap-1.5">
-                <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
                   {{ getNc(row)?.ncNumber || '—' }}
                 </span>
                 <span
                   v-if="row.sourceType === 'InformationRequest'"
-                  class="tw:text-[10px] tw:bg-blue-100 tw:text-blue-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-medium"
+                  class="tw:text-micro tw:bg-blue-100 tw:text-blue-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-medium"
                 >
                   Information request
                 </span>
@@ -786,12 +786,12 @@ defineExpose({ exportCsv })
                 {{ getCapa(row)?.title || '—' }}
               </span>
               <div class="tw:flex tw:items-center tw:gap-1.5">
-                <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
                   {{ getCapa(row)?.capaNumber || '—' }}
                 </span>
                 <span
                   v-if="row.sourceType === 'InformationRequest'"
-                  class="tw:text-[10px] tw:bg-blue-100 tw:text-blue-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-medium"
+                  class="tw:text-micro tw:bg-blue-100 tw:text-blue-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-medium"
                 >
                   Information request
                 </span>
@@ -801,7 +801,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ getChangeRequest(row)?.title || '—' }}
               </span>
-              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
                 {{ getChangeRequest(row)?.crNumber || '—' }}
               </span>
             </template>
@@ -809,7 +809,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ logBookVersionMap[row.entityId]?.logBook?.title || 'Log book' }}
               </span>
-              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
                 {{ logBookVersionMap[row.entityId]?.logBook?.code || '—' }} · v{{
                   logBookVersionMap[row.entityId]?.version?.versionMajor ?? '?'
                 }}.{{ logBookVersionMap[row.entityId]?.version?.versionMinor ?? 0 }}
@@ -819,7 +819,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ assignmentInstanceMap[row.entityId]?.logBook?.title || 'Scheduled inspection' }}
               </span>
-              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
                 {{
                   assignmentInstanceMap[row.entityId]?.logBook?.code || 'Scheduled log / inspection'
                 }}
@@ -829,7 +829,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ fieldRecordMap[row.entityId]?.logBook?.title || 'Flagged log entry' }}
               </span>
-              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
                 {{ fieldRecordMap[row.entityId]?.record?.recordNumber || 'Needs your attention' }}
               </span>
             </template>
@@ -837,7 +837,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ auditInstanceMap[row.entityId]?.standard?.name || 'Audit' }}
               </span>
-              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
                 {{ auditInstanceMap[row.entityId]?.audit?.auditNumber || '—' }}
               </span>
             </template>
@@ -845,7 +845,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ auditStandardVersionMap[row.entityId]?.standard?.name || 'Audit Standard' }}
               </span>
-              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
                 {{
                   auditStandardVersionMap[row.entityId]?.version
                     ? `v${auditStandardVersionMap[row.entityId].version.versionMajor}.${auditStandardVersionMap[row.entityId].version.versionMinor}`
@@ -857,7 +857,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ inspectionLotMap[row.entityId]?.lotNumber || 'Inspection Lot' }}
               </span>
-              <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
                 {{ inspectionLotMap[row.entityId]?.inspectionPoint || '—' }}
               </span>
             </template>
@@ -866,12 +866,12 @@ defineExpose({ exportCsv })
                 {{ getDocument(row)?.title || '—' }}
               </span>
               <div class="tw:flex tw:items-center tw:gap-1.5">
-                <span class="tw:text-[10px] tw:text-secondary tw:font-mono tw:tracking-tight">
+                <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
                   {{ getDocument(row)?.docNumber || '—' }}
                 </span>
                 <template v-if="getVersion(row)">
-                  <span class="tw:text-[10px] tw:text-secondary">·</span>
-                  <span class="tw:text-[10px] tw:text-primary tw:font-mono tw:tracking-tight">
+                  <span class="tw:text-micro tw:text-secondary">·</span>
+                  <span class="tw:text-micro tw:text-primary tw:font-mono tw:tracking-tight">
                     {{
                       getVersion(row).versionLabel
                         ? `v${getVersion(row).versionLabel}`
@@ -890,7 +890,7 @@ defineExpose({ exportCsv })
              the detail page. -->
             <span
               v-if="row.comment"
-              class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-0.5 tw:line-clamp-2"
+              class="tw:text-caption tw:text-secondary tw:italic tw:mt-0.5 tw:line-clamp-2"
             >
               {{ row.comment }}
             </span>

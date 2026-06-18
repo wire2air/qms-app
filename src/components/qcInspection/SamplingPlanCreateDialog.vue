@@ -342,7 +342,7 @@ async function onSave() {
               <IconPlus :size="14" /> Add class
             </BaseButton>
           </div>
-          <p class="tw:text-[11px] tw:text-secondary tw:mb-2">
+          <p class="tw:text-caption tw:text-secondary tw:mb-2">
             One AQL per defect class — the accept/reject limits attributes inspection checks the
             defect tally against. (Critical is usually tightest.)
           </p>

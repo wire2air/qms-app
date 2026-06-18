@@ -302,7 +302,7 @@ function getChecklistColumnLabel(col) {
               :key="idx"
               class="tw:border tw:border-divider tw:rounded-md tw:p-3 tw:mb-2"
             >
-              <div class="tw:text-[11px] tw:text-secondary tw:font-medium tw:mb-2">
+              <div class="tw:text-caption tw:text-secondary tw:font-medium tw:mb-2">
                 #{{ idx + 1 }}
               </div>
               <FormSchemaReadonlyView :fields="field.template || []" :values="item || {}" />
@@ -314,7 +314,7 @@ function getChecklistColumnLabel(col) {
 
       <!-- Rating field (full-width) -->
       <div v-else-if="isRatingField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
         <div class="tw:flex tw:gap-0.5">
           <component
             :is="i <= (getFieldValue(field) || 0) ? IconStarFilled : IconStar"
@@ -328,7 +328,7 @@ function getChecklistColumnLabel(col) {
 
       <!-- HTML / textEditor field (full-width) -->
       <div v-else-if="isHtmlField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
         <div
           v-if="getFieldValue(field)"
           class="tw:text-sm tw:text-on-main tw:leading-relaxed"
@@ -342,7 +342,7 @@ function getChecklistColumnLabel(col) {
         v-else-if="field.type === 'textarea'"
         class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5"
       >
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
         <p class="tw:text-sm tw:text-on-main tw:leading-relaxed">
           {{ getFieldValue(field) || '—' }}
         </p>
@@ -350,7 +350,7 @@ function getChecklistColumnLabel(col) {
 
       <!-- File field (full-width) -->
       <div v-else-if="isFileField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
         <template v-if="Array.isArray(getFieldValue(field)) && getFieldValue(field).length">
           <a
             v-for="(file, fi) in getFieldValue(field)"
@@ -372,7 +372,7 @@ function getChecklistColumnLabel(col) {
 
       <!-- Photo field (full-width) -->
       <div v-else-if="isPhotoField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
         <img
           v-if="getPhotoUrl(field)"
           :src="getPhotoUrl(field)"
@@ -388,7 +388,7 @@ function getChecklistColumnLabel(col) {
 
       <!-- Checklist field (full-width) -->
       <div v-else-if="isChecklistField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
         <div class="tw:overflow-x-auto">
           <table class="tw:w-full tw:text-sm tw:border tw:border-divider tw:rounded">
             <thead class="tw:bg-main-hover">
@@ -445,7 +445,7 @@ function getChecklistColumnLabel(col) {
 
       <!-- Color picker — swatch + hex value (grid cell) -->
       <div v-else-if="isColorPickerField(field)" class="tw:flex tw:flex-col tw:gap-0.5">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
         <div v-if="getFieldValue(field)" class="tw:flex tw:items-center tw:gap-2">
           <span
             class="tw:inline-block tw:size-4 tw:rounded tw:border tw:border-divider tw:shrink-0"
@@ -460,7 +460,7 @@ function getChecklistColumnLabel(col) {
 
       <!-- Custom registered field (rca, riskAssessment, …) — full-width -->
       <div v-else-if="isCustomField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5">
-        <div v-if="field.label" class="tw:text-[11px] tw:text-secondary tw:font-medium">
+        <div v-if="field.label" class="tw:text-caption tw:text-secondary tw:font-medium">
           {{ field.label }}
         </div>
         <component
@@ -473,7 +473,7 @@ function getChecklistColumnLabel(col) {
 
       <!-- Standard field (grid cell) -->
       <div v-else-if="isRenderableField(field)" class="tw:flex tw:flex-col tw:gap-0.5">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
         <span class="tw:text-sm tw:font-medium tw:text-on-main">
           {{ formatDisplayValue(field, getFieldValue(field)) }}
         </span>

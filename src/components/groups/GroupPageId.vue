@@ -295,7 +295,7 @@ function copyToClipboard(text) {
                     Members
                   </h3>
                   <span
-                    class="tw:text-[10px] tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
+                    class="tw:text-micro tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
                   >
                     {{ memberCount }}
                   </span>

@@ -25,8 +25,10 @@ const RULES = [
   {
     id: 'no-raw-text-px',
     re: /text-\[[0-9]+px\]/g,
-    baseline: 362,
-    hint: 'raw text-[Npx] — use a --text-* token (tw:text-body/caption/…) or BaseText/BaseHeading',
+    // Swept 359 (10/11/12px → text-micro/caption/label, pixel-identical). The 3
+    // left are 8px/9px outliers with no token — tighten to 0 once decided.
+    baseline: 3,
+    hint: 'raw text-[Npx] — use a --text-* token (tw:text-micro/caption/label/body/…) or BaseText/BaseHeading',
   },
   {
     id: 'no-raw-label',

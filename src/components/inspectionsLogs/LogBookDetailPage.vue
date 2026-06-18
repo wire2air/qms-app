@@ -533,7 +533,7 @@ function back() {
       <template #actions>
         <span
           v-if="logBook"
-          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-1 tw:border"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-1 tw:border"
           :class="
             logBook.recordClassification === 'CONTROLLED_RECORD'
               ? 'tw:bg-red-50 tw:text-red-700 tw:border-red-200'
@@ -612,7 +612,7 @@ function back() {
                       Owner:
                       <UserBadgeById v-if="logBook.ownerUserId" :userId="logBook.ownerUserId" />
                       <span v-else>—</span>
-                      <span v-if="isOwner" class="tw:text-[10px] tw:font-semibold tw:text-primary"
+                      <span v-if="isOwner" class="tw:text-micro tw:font-semibold tw:text-primary"
                         >(you)</span
                       >
                     </span>
@@ -815,7 +815,7 @@ function back() {
                       v-model="draft.departmentId"
                       :disabled="!canEditDetails"
                     />
-                    <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
+                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
                       Feeds <span class="tw:font-mono">{DEPTCODE}</span> in the Record Id prefix.
                     </p>
                   </BaseField>
@@ -852,7 +852,7 @@ function back() {
                       v-model="draft.codePrefix"
                       placeholder="FRM-{DEPTCODE}-{TYPECODE}"
                     />
-                    <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
+                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
                       Tokens <span class="tw:font-mono tw:text-on-main">{DEPTCODE}</span> /
                       <span class="tw:font-mono tw:text-on-main">{TYPECODE}</span> resolve from
                       Department + Log book type on save. Current:
@@ -861,7 +861,7 @@ function back() {
                   </template>
                   <template v-else>
                     <div class="tw:font-mono tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
-                    <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
+                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
                       Locked — the log book has an effective version, so record IDs stay consistent.
                     </p>
                   </template>
@@ -1299,7 +1299,7 @@ function back() {
                         <LogBookVersionStatusBadge :statusId="v.statusId" />
                         <span
                           v-if="v.id === effectiveVersionId"
-                          class="tw:text-[10px] tw:font-bold tw:uppercase tw:text-green-700"
+                          class="tw:text-micro tw:font-bold tw:uppercase tw:text-green-700"
                         >
                           Current
                         </span>

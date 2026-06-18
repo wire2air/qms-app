@@ -512,14 +512,14 @@ function onCreateLinkedChangeRequest() {
                      supplier-facing NC at any lifecycle stage. -->
                 <span
                   v-if="nc.isSupplierFacing"
-                  class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+                  class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
                   title="Supplier-facing: non-approval workflow steps draw from this NC's supplier users. Approval steps stay internal."
                 >
                   Supplier-facing
                 </span>
                 <span
                   v-else
-                  class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+                  class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
                 >
                   Internal
                 </span>
@@ -893,7 +893,7 @@ function onCreateLinkedChangeRequest() {
                     <NcStatusBadgeById :statusId="nc.statusId" />
                     <BaseBadge
                       v-if="nc.markedCompleteAt"
-                      class="tw:text-[10px] tw:bg-emerald-100 tw:text-emerald-700"
+                      class="tw:text-micro tw:bg-emerald-100 tw:text-emerald-700"
                       title="Marked complete by owner — pending final close"
                     >
                       Completed
@@ -1053,7 +1053,7 @@ function onCreateLinkedChangeRequest() {
                   </div>
                   <div v-else class="tw:flex tw:items-center tw:gap-2">
                     <span
-                      class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5"
+                      class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
                       :class="
                         nc.isSupplierFacing
                           ? 'tw:bg-violet-100 tw:text-violet-700'
@@ -1064,7 +1064,7 @@ function onCreateLinkedChangeRequest() {
                     </span>
                     <button
                       v-if="canConvertToSupplier"
-                      class="tw:text-[11px] tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+                      class="tw:text-caption tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
                       @click="openConvertDialog"
                     >
                       Convert…

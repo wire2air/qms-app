@@ -310,7 +310,7 @@ const STATUS_LABEL = {
               "
             >
               <span
-                class="tw:size-4 tw:rounded tw:border tw:border-divider tw:flex tw:items-center tw:justify-center tw:text-[10px]"
+                class="tw:size-4 tw:rounded tw:border tw:border-divider tw:flex tw:items-center tw:justify-center tw:text-micro"
                 :class="
                   (version.affectedSectionIds || []).includes(s.id)
                     ? 'tw:bg-primary tw:text-white tw:border-primary'

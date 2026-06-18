@@ -372,12 +372,12 @@ async function performComplete(esign = null) {
         <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
           {{ displayNumber }}. {{ instanceStep.name || 'Step' }}
         </span>
-        <BaseBadge class="tw:text-[10px]" :class="getStepStatusClass(instanceStep.statusId)">
+        <BaseBadge class="tw:text-micro" :class="getStepStatusClass(instanceStep.statusId)">
           {{ getStatusLabel(instanceStep.statusId) }}
         </BaseBadge>
         <BaseBadge
           v-if="dueDate && instanceStep.statusId === 'IN_PROGRESS'"
-          class="tw:text-[10px]"
+          class="tw:text-micro"
           :class="
             overdue
               ? 'tw:bg-red-100 tw:text-red-700 tw:font-semibold'

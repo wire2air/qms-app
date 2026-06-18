@@ -180,7 +180,7 @@ function auditHref(a) {
             <IconExternalLink :size="12" class="tw:text-secondary" />
           </a>
           <span
-            class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
+            class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
           >
             {{ d.statusId }}
           </span>
@@ -217,7 +217,7 @@ function auditHref(a) {
             <IconExternalLink :size="12" class="tw:text-secondary" />
           </a>
           <span
-            class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
+            class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
           >
             {{ c.statusId }}
           </span>
@@ -254,7 +254,7 @@ function auditHref(a) {
             <IconExternalLink :size="12" class="tw:text-secondary" />
           </a>
           <span
-            class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
+            class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
           >
             {{ n.statusId }}
           </span>

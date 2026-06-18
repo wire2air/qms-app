@@ -68,12 +68,12 @@ const rootNode = computed(() => (props.config.nodes ?? []).find((n) => n.type ==
         >
           <div class="tw:flex tw:flex-col tw:shrink-0 tw:items-start tw:gap-0.5">
             <span
-              class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide"
+              class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide"
               :class="node.type === 'basic' ? 'tw:text-orange-500' : 'tw:text-blue-500'"
             >
               {{ node.type === 'basic' ? 'Basic' : 'Event' }}
             </span>
-            <span class="tw:text-[10px] tw:text-secondary">
+            <span class="tw:text-micro tw:text-secondary">
               Gate: {{ node.gate }}
             </span>
           </div>

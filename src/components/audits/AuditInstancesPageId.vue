@@ -433,7 +433,7 @@ watch(auditTabs, (tabs) => {
           Submit for Close-Out
           <span
             v-if="unassessedCount > 0 || findingsByStatus.open > 0"
-            class="tw:ml-1 tw:text-[10px] tw:opacity-80"
+            class="tw:ml-1 tw:text-micro tw:opacity-80"
           >
             ({{
               unassessedCount > 0
@@ -500,7 +500,7 @@ watch(auditTabs, (tabs) => {
                 {{ t.label }}
                 <span
                   v-if="t.count != null"
-                  class="tw:text-[10px] tw:font-normal tw:bg-main-hover tw:text-secondary tw:rounded tw:px-1.5 tw:py-0.5"
+                  class="tw:text-micro tw:font-normal tw:bg-main-hover tw:text-secondary tw:rounded tw:px-1.5 tw:py-0.5"
                 >
                   {{ t.count }}
                 </span>
@@ -768,7 +768,7 @@ watch(auditTabs, (tabs) => {
                   {{ scoring.conformancePct == null ? '—' : `${scoring.conformancePct}%` }}
                 </div>
                 <span
-                  class="tw:text-[10px] tw:font-bold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+                  class="tw:text-micro tw:font-bold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
                   :class="
                     scoring.pass
                       ? 'tw:bg-emerald-100 tw:text-emerald-700'
@@ -845,7 +845,7 @@ watch(auditTabs, (tabs) => {
                     <UserBadgeById :userId="member.userId" />
                     <button
                       type="button"
-                      class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:border-0"
+                      class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:border-0"
                       :class="
                         member.roleOnAudit === 'LEAD'
                           ? 'tw:bg-amber-100 tw:text-amber-700'
@@ -916,10 +916,10 @@ watch(auditTabs, (tabs) => {
                     }}
                   </span>
                 </div>
-                <div v-if="saving" class="tw:text-[11px] tw:text-secondary tw:italic tw:pt-1">
+                <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-1">
                   Saving…
                 </div>
-                <div v-else-if="saveError" class="tw:text-[11px] tw:text-red-600 tw:pt-1">
+                <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-1">
                   {{ saveError }}
                 </div>
               </div>
@@ -979,7 +979,7 @@ watch(auditTabs, (tabs) => {
             ]"
             :required="true"
           />
-          <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
+          <p class="tw:text-caption tw:text-secondary tw:mt-1">
             Promoting to LEAD demotes the current lead (if any).
           </p>
         </div>

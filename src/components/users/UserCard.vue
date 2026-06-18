@@ -57,7 +57,7 @@ const profileLink = computed(() => getCompanyPath(`/users/${props.user?.id}`))
         <UserStatusBadgeById
           v-if="user.userStatusId"
           :statusId="user.userStatusId"
-          class="tw:mt-1 tw:self-start tw:text-[10px]"
+          class="tw:mt-1 tw:self-start tw:text-micro"
         />
       </div>
     </div>
@@ -83,7 +83,7 @@ const profileLink = computed(() => getCompanyPath(`/users/${props.user?.id}`))
         <BaseBadge
           v-for="role in roles"
           :key="role.id"
-          class="tw:text-[10px] tw:bg-main-hover tw:text-on-main"
+          class="tw:text-micro tw:bg-main-hover tw:text-on-main"
         >
           {{ role.name }}
         </BaseBadge>
