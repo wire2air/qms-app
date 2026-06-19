@@ -16,6 +16,7 @@ export function useCompanyForm(props, isEdit = false) {
       code: '',
       defaultTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       plan: '',
+      invitationCode: '',
     }
   }
 
@@ -27,7 +28,10 @@ export function useCompanyForm(props, isEdit = false) {
     isValid: computed(() => {
       const nameValid = companyForm.name.trim().length > 0
       const codeValid = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(companyForm.code.trim())
-      return nameValid && codeValid
+      // The invitation code only gates new-company signup, not edits.
+      const invitationValid =
+        isEdit || /^[A-Z0-9]{8}$/.test((companyForm.invitationCode || '').trim().toUpperCase())
+      return nameValid && codeValid && invitationValid
     }),
   })
 
@@ -126,13 +130,26 @@ export function useCompanyForm(props, isEdit = false) {
       isSubmitting.value = true
       submitError.value = null
 
-      await put('/v1/services/signup', {
-        code: companyForm.code.trim(),
-        name: companyForm.name.trim(),
-        timeZone: companyForm.defaultTimeZone,
-        plan: companyForm.plan,
-        isClientCompany: props.isAddClient,
-      })
+      try {
+        await put(
+          '/v1/services/signup',
+          {
+            code: companyForm.code.trim(),
+            name: companyForm.name.trim(),
+            timeZone: companyForm.defaultTimeZone,
+            plan: companyForm.plan,
+            isClientCompany: props.isAddClient,
+            invitationCode: (companyForm.invitationCode || '').trim().toUpperCase(),
+          },
+          { showError: false },
+        )
+      } catch (error) {
+        // ApiError carries the backend's human-readable message (e.g. the
+        // invitation-code rejection) on `.message`.
+        submitError.value = error?.message || 'Failed to create organization. Please try again.'
+        isSubmitting.value = false
+        return
+      }
 
       fadeOut.value = true
       setTimeout(() => {

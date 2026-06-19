@@ -7,6 +7,7 @@ import {
   IconTag,
   IconLoader,
   IconCircleX,
+  IconKey,
 } from '@tabler/icons-vue'
 import LoginForm from '@/components/auth/LoginForm.vue'
 import TimezoneDropdown from '@/components/common/TimezoneDropdown.vue'
@@ -230,6 +231,32 @@ onMounted(async () => {
               label="Timezone"
               :disabled="isSubmitting"
             />
+
+            <!-- Invitation Code -->
+            <div>
+              <div class="tw:flex tw:items-center tw:gap-1.5 tw:mb-2 tw:text-sm tw:font-medium tw:text-on-main">
+                <IconKey :size="16" class="tw:text-secondary" />
+                Invitation Code
+              </div>
+              <BaseOtpInput
+                v-model="companyForm.invitationCode"
+                :length="8"
+                charset="alnum"
+                :disabled="isSubmitting"
+                :errorMsg="
+                  companyForm.invitationCode.length > 0 &&
+                  !/^[A-Z0-9]{8}$/.test(companyForm.invitationCode.toUpperCase())
+                    ? 'Invitation code must be 8 characters'
+                    : companyForm.submitted && !companyForm.invitationCode.trim()
+                      ? 'Invitation code is required'
+                      : ''
+                "
+              />
+              <p class="tw:text-xs tw:text-secondary tw:mt-2">
+                Don't have a code? Contact
+                <a href="mailto:info@qability.net" class="tw:text-primary">info@qability.net</a>
+              </p>
+            </div>
 
             <!-- Error Message -->
             <div v-if="submitError" class="tw:text-red-600 tw:text-xs">
