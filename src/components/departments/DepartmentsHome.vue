@@ -11,12 +11,18 @@ const canCreateDepartment = computed(() => isAllowed(['departments:create']))
 const canUpdateDepartment = computed(() => isAllowed(['departments:update']))
 const canDeleteDepartment = computed(() => isAllowed(['departments:delete']))
 
-// Filters — drives live query re-run
-const filters = ref({ search: '', siteId: null })
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty` are lazy getters that read `departments`.
+const list = useListLayout({
+  filters: { search: '', siteId: null },
+  total: () => departments.value.length,
+  empty: () => departments.value.length === 0,
+  syncUrl: true,
+})
 
 // Live query for departments
 const departments = useLiveQueryWithDeps(
-  [() => filters.value.search, () => filters.value.siteId],
+  [() => list.filters.value.search, () => list.filters.value.siteId],
   async (db, [search, siteId]) => {
     let results = await db.Department.where().exec()
     if (siteId) results = results.filter((d) => d.siteId === siteId)
@@ -53,20 +59,22 @@ async function onDeleteDepartment(row) {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      :icon="IconBuilding"
-      title="Departments"
-      subtitle="Manage departments within your organization's sites."
-    >
-      <template #actions>
-        <BaseButton v-if="canCreateDepartment" @click="openDialog()">
-          Create New Department
-        </BaseButton>
-      </template>
-    </PageHeader>
+  <BaseListLayout
+    title="Departments"
+    :icon="IconBuilding"
+    subtitle="Manage departments within your organization's sites."
+    :state="list.state.value"
+    :emptyTitle="list.hasActiveFilters.value ? 'No departments match your filters' : 'No departments yet'"
+  >
+    <template #actions>
+      <BaseButton v-if="canCreateDepartment" @click="openDialog()">
+        Create New Department
+      </BaseButton>
+    </template>
 
-    <DepartmentsFilterToolbar v-model:filters="filters" />
+    <template #filters>
+      <DepartmentsFilterToolbar v-model:filters="list.filters.value" />
+    </template>
 
     <DepartmentsTable
       :rows="departments"
@@ -75,12 +83,12 @@ async function onDeleteDepartment(row) {
       @delete="onDeleteDepartment"
       @edit="onEditDepartment"
     />
-  </BasePage>
 
-  <!-- Create/Edit Department Dialog -->
-  <DepartmentsCreateUpdateDialog
-    v-if="showDialog"
-    :id="selectedDepartmentId"
-    v-model="showDialog"
-  />
+    <!-- Create/Edit Department Dialog -->
+    <DepartmentsCreateUpdateDialog
+      v-if="showDialog"
+      :id="selectedDepartmentId"
+      v-model="showDialog"
+    />
+  </BaseListLayout>
 </template>

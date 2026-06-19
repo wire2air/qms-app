@@ -11,14 +11,22 @@ import { humanizeCron } from '@/utils/cronHumanize.js'
  *
  * Filters: by log book (form template), active state. No search on
  * name yet — the table is short enough that filters are sufficient.
+ *
+ * Built on the Enterprise Page Framework list template: `useListLayout`
+ * (filter state + URL sync + resolved content state) + `BaseListLayout`
+ * (header / filters / state region).
  */
 const router = useRouter()
 
 const canAssign = computed(() => isAllowed(['inspections:assign']))
 
-const filters = ref({
-  logBookId: null,
-  active: 'all', // 'all' | 'active' | 'inactive'
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty` are lazy getters that read `assignments`.
+const list = useListLayout({
+  filters: { logBookId: null, active: 'all' }, // active: 'all' | 'active' | 'inactive'
+  total: () => assignments.value.length,
+  empty: () => assignments.value.length === 0,
+  syncUrl: true,
 })
 
 // Round 0: query log_books directly. Variable names preserved at the
@@ -29,7 +37,7 @@ const logBooks = useLiveQuery((db) => db.LogBook.where().exec(), {
   initial: [],
 })
 const assignments = useLiveQueryWithDeps(
-  [() => filters.value.logBookId, () => filters.value.active],
+  [() => list.filters.value.logBookId, () => list.filters.value.active],
   async (db, [logBookId, active]) => {
     let rows = await db.FormAssignment.where().exec()
     if (logBookId) rows = rows.filter((r) => r.logBookId === logBookId)
@@ -66,61 +74,65 @@ function goEdit(id) {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      title="Log Book Assignments"
-      subtitle="Plan who fills which log book, when (cron + timezone), and where (site). The scheduler materialises occurrences in a 24h look-ahead."
-    >
-      <template #actions>
-        <BaseButton v-if="canAssign" variant="primary" @click="goCreate">
-          <IconPlus :size="16" />
-          New Assignment
-        </BaseButton>
-      </template>
-    </PageHeader>
-
-    <!-- Filters -->
-    <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <span class="tw:text-xs tw:text-secondary">Log book</span>
-        <select
-          v-model="filters.logBookId"
-          class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
-        >
-          <option :value="null">All</option>
-          <option v-for="t in logBooks" :key="t.id" :value="t.id">
-            {{ t.title }}
-          </option>
-        </select>
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <span class="tw:text-xs tw:text-secondary">Status</span>
-        <select
-          v-model="filters.active"
-          class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
-        >
-          <option value="all">All</option>
-          <option value="active">Active only</option>
-          <option value="inactive">Inactive only</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Empty state -->
-    <div
-      v-if="assignments.length === 0"
-      class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:gap-3 tw:py-16 tw:text-secondary"
-    >
-      <IconClipboardList :size="48" class="tw:opacity-60" />
-      <div class="tw:text-sm">No log book assignments yet.</div>
+  <BaseListLayout
+    title="Log Book Assignments"
+    subtitle="Plan who fills which log book, when (cron + timezone), and where (site). The scheduler materialises occurrences in a 24h look-ahead."
+    :state="list.state.value"
+    :emptyIcon="IconClipboardList"
+    :emptyTitle="
+      list.hasActiveFilters.value
+        ? 'No log book assignments match your filters'
+        : 'No log book assignments yet'
+    "
+  >
+    <template #actions>
       <BaseButton v-if="canAssign" variant="primary" @click="goCreate">
+        <IconPlus :size="16" />
+        New Assignment
+      </BaseButton>
+    </template>
+
+    <template #filters>
+      <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <span class="tw:text-xs tw:text-secondary">Log book</span>
+          <select
+            v-model="list.filters.value.logBookId"
+            class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
+          >
+            <option :value="null">All</option>
+            <option v-for="t in logBooks" :key="t.id" :value="t.id">
+              {{ t.title }}
+            </option>
+          </select>
+        </div>
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <span class="tw:text-xs tw:text-secondary">Status</span>
+          <select
+            v-model="list.filters.value.active"
+            class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
+          >
+            <option value="all">All</option>
+            <option value="active">Active only</option>
+            <option value="inactive">Inactive only</option>
+          </select>
+        </div>
+      </div>
+    </template>
+
+    <template #empty-action>
+      <BaseButton
+        v-if="canAssign && !list.hasActiveFilters.value"
+        variant="primary"
+        @click="goCreate"
+      >
         <IconPlus :size="16" />
         Create the first one
       </BaseButton>
-    </div>
+    </template>
 
     <!-- Table -->
-    <div v-else class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden">
+    <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden">
       <table class="tw:w-full tw:text-sm">
         <thead class="tw:bg-main">
           <tr class="tw:text-left">
@@ -185,5 +197,5 @@ function goEdit(id) {
         </tbody>
       </table>
     </div>
-  </BasePage>
+  </BaseListLayout>
 </template>

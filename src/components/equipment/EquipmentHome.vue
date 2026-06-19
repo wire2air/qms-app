@@ -2,7 +2,6 @@
 import {
   IconTool,
   IconPlus,
-  IconSearch,
   IconAlertCircle,
   IconCalendar,
   IconCalendarCheck,
@@ -16,9 +15,9 @@ import { DateTime } from 'luxon'
  * Filterable by status / category / site / department; admins with
  * `equipment:create` can add new records.
  *
- * Row-level editing is not in this round; minor inline edits
- * (location, notes) can land later via an inline-edit pattern. For now
- * the page is a focused catalog view + creation surface.
+ * Built on the Enterprise Page Framework list template: `useListLayout`
+ * (filter state + URL sync + pagination + resolved content state) +
+ * `BaseListLayout` (header / filters / state region) + `BaseTable`.
  */
 const canCreate = computed(() => isAllowed(['equipment:create']))
 const canUpdate = computed(() => isAllowed(['equipment:update']))
@@ -26,12 +25,20 @@ const toast = useToast()
 
 const showCreateDialog = ref(false)
 
-const search = ref('')
-const statusFilter = ref('IN_SERVICE') // default to in-service so retired equipment doesn't drown the list
-const categoryFilter = ref('all')
+// Default to in-service so retired equipment doesn't drown the list.
+const list = useListLayout({
+  filters: { search: '', status: 'IN_SERVICE', category: 'all' },
+  total: () => equipment.value.length,
+  empty: () => equipment.value.length === 0,
+  syncUrl: true,
+})
 
 const equipment = useLiveQueryWithDeps(
-  [() => search.value, () => statusFilter.value, () => categoryFilter.value],
+  [
+    () => list.filters.value.search,
+    () => list.filters.value.status,
+    () => list.filters.value.category,
+  ],
   async (db, [q, status, category]) => {
     let rows = await db.Equipment.where().exec()
     if (status !== 'all') rows = rows.filter((e) => e.statusId === status)
@@ -54,6 +61,16 @@ const equipment = useLiveQueryWithDeps(
 const sites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
 const siteById = computed(() => new Map(sites.value.map((s) => [s.id, s])))
 
+const columns = [
+  { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+  { name: 'category', label: 'Category', field: (r) => categoryLabel(r.category), align: 'left', sortable: true },
+  { name: 'site', label: 'Site', field: (r) => siteById.value.get(r.siteId)?.name ?? '—', align: 'left', sortable: true },
+  { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: true },
+  { name: 'nextCalibrationDue', label: 'Next calibration', field: 'nextCalibrationDue', align: 'left', sortable: true },
+  { name: 'nextPmDue', label: 'Next PM', field: 'nextPmDue', align: 'left', sortable: true },
+  { name: 'actions', label: '', align: 'right' },
+]
+
 function fmtDate(d) {
   if (!d) return null
   if (d.toFormat) return d.toFormat('LLL d, yyyy')
@@ -73,6 +90,12 @@ function overdue(d) {
   if (!d) return false
   const ms = d.toMillis ? d.toMillis() : new Date(d).getTime()
   return ms < DateTime.now().toMillis()
+}
+
+function dueClass(d) {
+  if (overdue(d)) return 'tw:text-red-700 tw:font-medium'
+  if (dueSoon(d)) return 'tw:text-amber-700'
+  return 'tw:text-secondary'
 }
 
 function categoryLabel(c) {
@@ -105,6 +128,7 @@ const showEditDialog = ref(false)
 const editingEquipment = ref(null)
 
 function openEdit(row) {
+  if (!canUpdate.value) return
   editingEquipment.value = row
   showEditDialog.value = true
 }
@@ -135,184 +159,127 @@ async function recordCalibration(e) {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      :icon="IconTool"
-      title="Equipment"
-      subtitle="Instruments, machines, and other equipment tracked by the QMS. Log books reference equipment for calibration, preventive maintenance, and equipment-specific routines."
-    >
-      <template #actions>
-        <BaseButton v-if="canCreate" variant="primary" @click="showCreateDialog = true">
-          <IconPlus :size="16" />
-          New Equipment
-        </BaseButton>
-      </template>
-    </PageHeader>
-
-    <!-- Filters -->
-    <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
-      <div class="tw:relative tw:flex-1 tw:max-w-md">
-        <IconSearch
-          :size="16"
-          class="tw:absolute tw:left-2.5 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
-        />
-        <BaseTextInput
-          v-model="search"
-          placeholder="Search by name, code, or serial…"
-          class="tw:pl-8"
-        />
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <span class="tw:text-xs tw:text-secondary">Status</span>
-        <select
-          v-model="statusFilter"
-          class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
-        >
-          <option value="all">All</option>
-          <option value="IN_SERVICE">In service</option>
-          <option value="OUT_OF_SERVICE">Out of service</option>
-          <option value="RETIRED">Retired</option>
-        </select>
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <span class="tw:text-xs tw:text-secondary">Category</span>
-        <select
-          v-model="categoryFilter"
-          class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
-        >
-          <option value="all">All</option>
-          <option value="INSTRUMENT">Instrument</option>
-          <option value="MACHINE">Machine</option>
-          <option value="VEHICLE">Vehicle</option>
-          <option value="SENSOR">Sensor</option>
-          <option value="OTHER">Other</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Empty -->
-    <div
-      v-if="equipment.length === 0"
-      class="tw:flex tw:flex-col tw:items-center tw:gap-3 tw:py-12 tw:text-secondary"
-    >
-      <IconTool :size="40" class="tw:opacity-60" />
-      <div class="tw:text-sm">
-        {{
-          search || statusFilter !== 'all' || categoryFilter !== 'all'
-            ? 'No equipment matches your filters.'
-            : 'No equipment yet.'
-        }}
-      </div>
+  <BaseListLayout
+    title="Equipment"
+    :icon="IconTool"
+    subtitle="Instruments, machines, and other equipment tracked by the QMS. Log books reference equipment for calibration, preventive maintenance, and equipment-specific routines."
+    :state="list.state.value"
+    :emptyIcon="IconTool"
+    :emptyTitle="list.hasActiveFilters.value ? 'No equipment matches your filters' : 'No equipment yet'"
+  >
+    <template #actions>
       <BaseButton v-if="canCreate" variant="primary" @click="showCreateDialog = true">
+        <IconPlus :size="16" />
+        New Equipment
+      </BaseButton>
+    </template>
+
+    <template #filters>
+      <BaseFilterBar
+        v-model:search="list.filters.value.search"
+        searchPlaceholder="Search by name, code, or serial…"
+        @clear="list.reset()"
+      >
+        <template #filters>
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <span class="tw:text-xs tw:text-secondary">Status</span>
+            <select v-model="list.filters.value.status">
+              <option value="all">All</option>
+              <option value="IN_SERVICE">In service</option>
+              <option value="OUT_OF_SERVICE">Out of service</option>
+              <option value="RETIRED">Retired</option>
+            </select>
+          </div>
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <span class="tw:text-xs tw:text-secondary">Category</span>
+            <select v-model="list.filters.value.category">
+              <option value="all">All</option>
+              <option value="INSTRUMENT">Instrument</option>
+              <option value="MACHINE">Machine</option>
+              <option value="VEHICLE">Vehicle</option>
+              <option value="SENSOR">Sensor</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+        </template>
+      </BaseFilterBar>
+    </template>
+
+    <template #empty-action>
+      <BaseButton v-if="canCreate && !list.hasActiveFilters.value" variant="primary" @click="showCreateDialog = true">
         <IconPlus :size="16" />
         Add the first one
       </BaseButton>
-    </div>
+    </template>
 
-    <!-- Table -->
-    <div v-else class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead class="tw:bg-main">
-          <tr class="tw:text-left">
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Name</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Category</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Site</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Status</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Next calibration</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Next PM</th>
-            <th class="tw:px-3 tw:py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <BaseClickableRow
-            v-for="e in equipment"
-            :key="e.id"
-            tag="tr"
-            :disabled="!canUpdate"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-            :aria-label="`Edit ${e.name}`"
-            @click="openEdit(e)"
-          >
-            <td class="tw:px-3 tw:py-2">
-              <div class="tw:font-medium tw:text-on-main">{{ e.name }}</div>
-              <div class="tw:text-xs tw:text-secondary tw:font-mono">
-                {{ e.code }}
-                <span v-if="e.serialNumber">· {{ e.serialNumber }}</span>
-              </div>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-on-main">{{ categoryLabel(e.category) }}</td>
-            <td class="tw:px-3 tw:py-2 tw:text-on-main">
-              {{ siteById.get(e.siteId)?.name ?? '—' }}
-            </td>
-            <td class="tw:px-3 tw:py-2">
-              <span
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:rounded tw:px-2 tw:py-0.5"
-                :class="statusBadgeClass(e.statusId)"
-              >
-                {{ e.statusId?.replace(/_/g, ' ') }}
-              </span>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-xs">
-              <span
-                v-if="e.nextCalibrationDue"
-                :class="
-                  overdue(e.nextCalibrationDue)
-                    ? 'tw:text-red-700 tw:font-medium'
-                    : dueSoon(e.nextCalibrationDue)
-                      ? 'tw:text-amber-700'
-                      : 'tw:text-secondary'
-                "
-                class="tw:inline-flex tw:items-center tw:gap-1"
-              >
-                <IconAlertCircle v-if="overdue(e.nextCalibrationDue)" :size="12" />
-                <IconCalendar v-else :size="12" />
-                {{ fmtDate(e.nextCalibrationDue) }}
-              </span>
-              <span v-else class="tw:text-secondary">—</span>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-xs">
-              <span
-                v-if="e.nextPmDue"
-                :class="
-                  overdue(e.nextPmDue)
-                    ? 'tw:text-red-700 tw:font-medium'
-                    : dueSoon(e.nextPmDue)
-                      ? 'tw:text-amber-700'
-                      : 'tw:text-secondary'
-                "
-                class="tw:inline-flex tw:items-center tw:gap-1"
-              >
-                <IconAlertCircle v-if="overdue(e.nextPmDue)" :size="12" />
-                <IconCalendar v-else :size="12" />
-                {{ fmtDate(e.nextPmDue) }}
-              </span>
-              <span v-else class="tw:text-secondary">—</span>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-right" @click.stop>
-              <button
-                v-if="canUpdate && e.requiresCalibration"
-                type="button"
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:disabled:opacity-50"
-                :disabled="recordingId === e.id"
-                :title="'Mark calibrated today and roll the next-due date forward'"
-                @click="recordCalibration(e)"
-              >
-                <IconCalendarCheck :size="14" />
-                {{ recordingId === e.id ? 'Recording…' : 'Record calibration' }}
-              </button>
-            </td>
-          </BaseClickableRow>
-        </tbody>
-      </table>
-    </div>
+    <BaseTable
+      v-model:pagination="list.pagination.value"
+      :rows="equipment"
+      :columns="columns"
+      rowKey="id"
+      @rowClick="openEdit"
+    >
+      <template #body-cell-name="{ row }">
+        <div class="tw:font-medium tw:text-on-main">{{ row.name }}</div>
+        <div class="tw:text-xs tw:text-secondary tw:font-mono">
+          {{ row.code }}
+          <span v-if="row.serialNumber">· {{ row.serialNumber }}</span>
+        </div>
+      </template>
+
+      <template #body-cell-status="{ row }">
+        <span
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:rounded tw:px-2 tw:py-0.5"
+          :class="statusBadgeClass(row.statusId)"
+        >
+          {{ row.statusId?.replace(/_/g, ' ') }}
+        </span>
+      </template>
+
+      <template #body-cell-nextCalibrationDue="{ row }">
+        <span
+          v-if="row.nextCalibrationDue"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs"
+          :class="dueClass(row.nextCalibrationDue)"
+        >
+          <IconAlertCircle v-if="overdue(row.nextCalibrationDue)" :size="12" />
+          <IconCalendar v-else :size="12" />
+          {{ fmtDate(row.nextCalibrationDue) }}
+        </span>
+        <span v-else class="tw:text-secondary">—</span>
+      </template>
+
+      <template #body-cell-nextPmDue="{ row }">
+        <span
+          v-if="row.nextPmDue"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs"
+          :class="dueClass(row.nextPmDue)"
+        >
+          <IconAlertCircle v-if="overdue(row.nextPmDue)" :size="12" />
+          <IconCalendar v-else :size="12" />
+          {{ fmtDate(row.nextPmDue) }}
+        </span>
+        <span v-else class="tw:text-secondary">—</span>
+      </template>
+
+      <template #body-cell-actions="{ row }">
+        <button
+          v-if="canUpdate && row.requiresCalibration"
+          type="button"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:disabled:opacity-50"
+          :disabled="recordingId === row.id"
+          title="Mark calibrated today and roll the next-due date forward"
+          @click.stop="recordCalibration(row)"
+        >
+          <IconCalendarCheck :size="14" />
+          {{ recordingId === row.id ? 'Recording…' : 'Record calibration' }}
+        </button>
+      </template>
+    </BaseTable>
 
     <CreateEquipmentDialog v-model="showCreateDialog" @created="onCreated" />
     <!-- Same component, edit mode. The dialog seeds its draft from
          the `equipment` prop when set. -->
-    <CreateEquipmentDialog
-      v-model="showEditDialog"
-      :equipment="editingEquipment"
-      @updated="onUpdated"
-    />
-  </BasePage>
+    <CreateEquipmentDialog v-model="showEditDialog" :equipment="editingEquipment" @updated="onUpdated" />
+  </BaseListLayout>
 </template>

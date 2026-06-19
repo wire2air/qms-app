@@ -19,29 +19,39 @@ const canCreate = computed(() => isAllowed(['capas:create']))
 const canUpdate = computed(() => isAllowed(['capas:update']))
 const canDelete = computed(() => isAllowed(['capas:delete']))
 
-const filters = ref({
-  search: '',
-  statusId: null,
-  priorityId: null,
-  typeId: null,
-  supplierId: route.query.supplierId || null,
-  dateFrom: '',
-  dateTo: '',
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty` are lazy getters that read `capas`.
+const list = useListLayout({
+  filters: {
+    search: '',
+    statusId: null,
+    priorityId: null,
+    typeId: null,
+    supplierId: route.query.supplierId || null,
+    dateFrom: '',
+    dateTo: '',
+  },
+  total: () => capas.value.length,
+  empty: () => capas.value.length === 0,
+  syncUrl: true,
 })
+
+// Quick-filter pill selection. Kept separate from `list.filters` because the
+// CapasFilterToolbar exposes it via its own `v-model:activeFilter`.
 const activeFilter = ref('all_open')
 
 // Supplier deep-link: /capas?supplierId=… prefilters to one supplier.
 watch(
   () => route.query.supplierId,
-  (v) => (filters.value.supplierId = v || null),
+  (v) => (list.filters.value.supplierId = v || null),
 )
 const filterSupplier = useLiveQueryWithDeps(
-  [() => filters.value.supplierId],
+  [() => list.filters.value.supplierId],
   async (db, [id]) => (id ? db.Supplier.findByPk(id) : null),
   { models: ['Supplier'] },
 )
 function clearSupplierFilter() {
-  filters.value.supplierId = null
+  list.filters.value.supplierId = null
   const q = { ...route.query }
   delete q.supplierId
   router.replace({ query: q })
@@ -100,14 +110,14 @@ const allCapas = useLiveQuery((db) => db.Capa.where().exec(), { models: ['Capa']
 
 const capas = useLiveQueryWithDeps(
   [
-    () => filters.value.search,
-    () => filters.value.statusId,
-    () => filters.value.priorityId,
-    () => filters.value.typeId,
+    () => list.filters.value.search,
+    () => list.filters.value.statusId,
+    () => list.filters.value.priorityId,
+    () => list.filters.value.typeId,
     () => activeFilter.value,
-    () => filters.value.supplierId,
-    () => filters.value.dateFrom,
-    () => filters.value.dateTo,
+    () => list.filters.value.supplierId,
+    () => list.filters.value.dateFrom,
+    () => list.filters.value.dateTo,
   ],
   async (db, [search, statusId, priorityId, typeId, af, supplierId, dateFrom, dateTo]) => {
     let results = await db.Capa.where().exec()
@@ -148,119 +158,124 @@ function onCreateCapa() {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      title="CAPAs"
-      subtitle="Track corrective and preventive actions through to verification."
-    >
-      <template #title>
-        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
-          CAPAs
-          <HelpButton slug="KB/quality/capas" :size="16" />
-        </span>
-      </template>
-      <template #actions>
-        <BaseButton variant="outline" :disabled="!capas.length" @click="exportCsv">
-          <IconDownload :size="16" class="tw:mr-1" />
-          Export
-        </BaseButton>
-        <BaseButton v-if="canCreate" variant="primary" @click="onCreateCapa">Create CAPA</BaseButton>
-      </template>
-    </PageHeader>
+  <BaseListLayout
+    title="CAPAs"
+    subtitle="Track corrective and preventive actions through to verification."
+    :state="list.state.value"
+    :emptyTitle="list.hasActiveFilters.value ? 'No CAPAs match your filters' : 'No CAPAs yet'"
+  >
+    <template #title>
+      <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+        CAPAs
+        <HelpButton slug="KB/quality/capas" :size="16" />
+      </span>
+    </template>
+
+    <template #actions>
+      <BaseButton variant="outline" :disabled="!capas.length" @click="exportCsv">
+        <IconDownload :size="16" class="tw:mr-1" />
+        Export
+      </BaseButton>
+      <BaseButton v-if="canCreate" variant="primary" @click="onCreateCapa">Create CAPA</BaseButton>
+    </template>
 
     <!-- Stat Cards -->
-    <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
+    <template #stats>
+      <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
         <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
         >
-          <IconAlertCircle :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Open CAPAs
-          </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.open }}</div>
-        </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-red-50 tw:text-red-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconClock :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Overdue
-          </div>
           <div
-            class="tw:text-2xl tw:font-black"
-            :class="stats.overdue > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
+            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
           >
-            {{ stats.overdue }}
+            <IconAlertCircle :size="20" />
+          </div>
+          <div>
+            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+              Open CAPAs
+            </div>
+            <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.open }}</div>
           </div>
         </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
         <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
         >
-          <IconShieldCheck :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Critical open
-          </div>
           <div
-            class="tw:text-2xl tw:font-black"
-            :class="stats.criticalOpen > 0 ? 'tw:text-amber-600' : 'tw:text-on-sidebar'"
+            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-red-50 tw:text-red-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
           >
-            {{ stats.criticalOpen }}
+            <IconClock :size="20" />
+          </div>
+          <div>
+            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+              Overdue
+            </div>
+            <div
+              class="tw:text-2xl tw:font-black"
+              :class="stats.overdue > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
+            >
+              {{ stats.overdue }}
+            </div>
           </div>
         </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
         <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-green-50 tw:text-green-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
         >
-          <IconCircleCheck :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Closed this month
+          <div
+            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+          >
+            <IconShieldCheck :size="20" />
           </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
-            {{ stats.closedThisMonth }}
+          <div>
+            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+              Critical open
+            </div>
+            <div
+              class="tw:text-2xl tw:font-black"
+              :class="stats.criticalOpen > 0 ? 'tw:text-amber-600' : 'tw:text-on-sidebar'"
+            >
+              {{ stats.criticalOpen }}
+            </div>
+          </div>
+        </div>
+        <div
+          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
+        >
+          <div
+            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-green-50 tw:text-green-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+          >
+            <IconCircleCheck :size="20" />
+          </div>
+          <div>
+            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+              Closed this month
+            </div>
+            <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
+              {{ stats.closedThisMonth }}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
 
-    <div
-      v-if="supplierFilter"
-      class="tw:flex tw:items-center tw:gap-2 tw:mb-3 tw:text-sm tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-blue-800 tw:rounded-lg tw:px-3 tw:py-2"
-    >
-      <span
-        >Filtered by supplier: <strong>{{ filterSupplier?.name || '…' }}</strong></span
+    <template #filters>
+      <div
+        v-if="supplierFilter"
+        class="tw:flex tw:items-center tw:gap-2 tw:mb-3 tw:text-sm tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-blue-800 tw:rounded-lg tw:px-3 tw:py-2"
       >
-      <button
-        type="button"
-        class="tw:ml-auto tw:text-blue-700 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-xs tw:font-medium"
-        @click="clearSupplierFilter"
-      >
-        Clear
-      </button>
-    </div>
+        <span
+          >Filtered by supplier: <strong>{{ filterSupplier?.name || '…' }}</strong></span
+        >
+        <button
+          type="button"
+          class="tw:ml-auto tw:text-blue-700 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-xs tw:font-medium"
+          @click="clearSupplierFilter"
+        >
+          Clear
+        </button>
+      </div>
 
-    <CapasFilterToolbar v-model:filters="filters" v-model:activeFilter="activeFilter" />
+      <CapasFilterToolbar v-model:filters="list.filters.value" v-model:activeFilter="activeFilter" />
+    </template>
 
     <CapasTable
       :rows="capas"
@@ -268,5 +283,5 @@ function onCreateCapa() {
       :canDelete="canDelete"
       @edit="(row) => router.push(getCompanyPath(`/capas/${row.id}`))"
     />
-  </BasePage>
+  </BaseListLayout>
 </template>

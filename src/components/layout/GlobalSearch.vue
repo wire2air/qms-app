@@ -134,20 +134,16 @@ function onKeydown(e) {
   }
 }
 
-// '/' focuses search from anywhere (unless the user is already typing in a
-// field). ⌘K stays reserved for the AI assistant.
-function onGlobalKey(e) {
-  if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
-  const tag = document.activeElement?.tagName
-  const editable = document.activeElement?.isContentEditable
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || editable) return
-  e.preventDefault()
-  inputEl.value?.focus()
-}
+// '/' focuses search from anywhere (the text-field guard is built into
+// useHotkeys). ⌘K/⌘P now open the command palette; AI is on ⌘J.
+useHotkeys({
+  keys: '/',
+  description: 'Focus search',
+  group: 'Global',
+  handler: () => inputEl.value?.focus(),
+})
 
 onClickOutside(rootEl, () => close())
-onMounted(() => window.addEventListener('keydown', onGlobalKey))
-onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKey))
 </script>
 
 <template>

@@ -24,10 +24,20 @@ const canCreateProduct = computed(() => isAllowed(['products:create']))
 const canUpdateProduct = computed(() => isAllowed(['products:update']))
 const canDeleteProduct = computed(() => isAllowed(['products:delete']))
 
-const filters = ref({ search: '', productTypeId: null, statusId: null, productFamilyId: null })
+const list = useListLayout({
+  filters: { search: '', productTypeId: null, statusId: null, productFamilyId: null },
+  total: () => products.value.length,
+  empty: () => products.value.length === 0,
+  syncUrl: true,
+})
 
 const products = useLiveQueryWithDeps(
-  [() => filters.value.search, () => filters.value.productTypeId, () => filters.value.statusId, () => filters.value.productFamilyId],
+  [
+    () => list.filters.value.search,
+    () => list.filters.value.productTypeId,
+    () => list.filters.value.statusId,
+    () => list.filters.value.productFamilyId,
+  ],
   async (db, [search, productTypeId, statusId, productFamilyId]) => {
     let results = await db.Product.where().exec()
     if (productTypeId) results = results.filter((p) => p.productTypeId === productTypeId)
@@ -112,18 +122,21 @@ async function restoreProduct(product) {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      :icon="IconPackage"
-      title="Item Master"
-      subtitle="Manage your organization's items — raw materials, components, intermediates, and finished goods."
-    >
-      <template #actions>
-        <BaseButton v-if="canCreateProduct" @click="openDialog()"> Add New Item </BaseButton>
-      </template>
-    </PageHeader>
+  <BaseListLayout
+    title="Item Master"
+    :icon="IconPackage"
+    subtitle="Manage your organization's items — raw materials, components, intermediates, and finished goods."
+    :state="list.state.value"
+    :emptyIcon="IconPackage"
+    :emptyTitle="list.hasActiveFilters.value ? 'No items match your filters' : 'No items yet'"
+  >
+    <template #actions>
+      <BaseButton v-if="canCreateProduct" @click="openDialog()"> Add New Item </BaseButton>
+    </template>
 
-    <ProductsFilterToolbar v-model:filters="filters" />
+    <template #filters>
+      <ProductsFilterToolbar v-model:filters="list.filters.value" />
+    </template>
 
     <ProductsTable
       :rows="products"
@@ -166,17 +179,17 @@ async function restoreProduct(product) {
         </div>
       </div>
     </div>
-  </BasePage>
 
-  <!-- Create/Edit Product Dialog -->
-  <ProductsCreateUpdateDialog v-if="showDialog" :id="selectedProductId" v-model="showDialog" />
+    <!-- Create/Edit Product Dialog -->
+    <ProductsCreateUpdateDialog v-if="showDialog" :id="selectedProductId" v-model="showDialog" />
 
-  <!-- Bulk Delete Confirm Dialog -->
-  <BaseConfirmDialog
-    v-model="confirmBulkDelete.open"
-    title="Delete Products"
-    :message="`Delete ${confirmBulkDelete.rows.length} selected item${confirmBulkDelete.rows.length === 1 ? '' : 's'}? This cannot be undone.`"
-    okLabel="Delete"
-    @ok="confirmBulkDeleteProducts"
-  />
+    <!-- Bulk Delete Confirm Dialog -->
+    <BaseConfirmDialog
+      v-model="confirmBulkDelete.open"
+      title="Delete Products"
+      :message="`Delete ${confirmBulkDelete.rows.length} selected item${confirmBulkDelete.rows.length === 1 ? '' : 's'}? This cannot be undone.`"
+      okLabel="Delete"
+      @ok="confirmBulkDeleteProducts"
+    />
+  </BaseListLayout>
 </template>

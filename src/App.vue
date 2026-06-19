@@ -10,6 +10,13 @@ const pageInfo = ref({
 })
 providePageInfo(pageInfo)
 
+// B7 — route-metadata: keep document.title in sync with the route (registry in
+// src/router/routeMeta.js). Unmatched routes fall back to the bare app name.
+useRouteMeta()
+
+// C4 — register "Go to X" navigation commands for the ⌘K/⌘P palette.
+useNavigationCommands()
+
 const route = useRoute()
 const openRoutes = ['/form']
 const loading = ref(true)
@@ -153,6 +160,8 @@ onMounted(async () => {
 <template>
   <BaseToastContainer />
   <ConfirmDialogHost />
+  <HotkeyHelp />
+  <BaseCommandPalette />
 
   <!-- Route navigation progress — feedback while async page chunks load -->
   <div

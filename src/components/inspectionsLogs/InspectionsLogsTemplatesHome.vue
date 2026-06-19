@@ -1,5 +1,5 @@
 <script setup>
-import { IconStack2, IconPlus, IconShieldCheck, IconClock, IconSearch } from '@tabler/icons-vue'
+import { IconStack2, IconPlus, IconShieldCheck, IconClock } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
@@ -15,6 +15,10 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
  *
  * Falls back to the existing /templates/:id detail page for editing —
  * no duplicate UI for schema / classification editing here.
+ *
+ * Built on the Enterprise Page Framework list template: `useListLayout`
+ * (filter state + URL sync + resolved content state) + `BaseListLayout`
+ * (header / filters / state region).
  */
 const router = useRouter()
 
@@ -23,9 +27,14 @@ const canCreate = computed(() => isAllowed(['formTemplates:create']))
 const showCreateDialog = ref(false)
 const pendingClassification = ref('OPERATIONAL_LOG')
 
-const search = ref('')
-const classificationFilter = ref('all') // 'all' | 'OPERATIONAL_LOG' | 'CONTROLLED_RECORD'
-const typeFilter = ref('all') // 'all' | <logBookTypeId>
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty` are lazy getters that read `templates`.
+const list = useListLayout({
+  filters: { search: '', classification: 'all', type: 'all' },
+  total: () => templates.value.length,
+  empty: () => templates.value.length === 0,
+  syncUrl: true,
+})
 
 // Catalog for the type chip + filter dropdown. Globals + tenant
 // additions; the SyncEngine SELECT policy includes both.
@@ -47,7 +56,11 @@ function typeName(id) {
 // db.LogBook only ever contains OPERATIONAL_LOG / CONTROLLED_RECORD
 // rows by construction.
 const templates = useLiveQueryWithDeps(
-  [() => search.value, () => classificationFilter.value, () => typeFilter.value],
+  [
+    () => list.filters.value.search,
+    () => list.filters.value.classification,
+    () => list.filters.value.type,
+  ],
   async (db, [q, cls, type]) => {
     let rows = await db.LogBook.where().exec()
     if (cls !== 'all') rows = rows.filter((t) => t.recordClassification === cls)
@@ -105,113 +118,101 @@ function editWindowSummary(t) {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      :icon="IconStack2"
-      title="Log Books"
-      :iconSize="22"
-      subtitle="Each log book defines the structure for a class of log entries (daily temperature, gemba round, batch release). Operational log books auto-lock entries after a short edit window; controlled-record log books require an e-signature and reviewer approval."
-    >
-      <template #actions>
-        <BaseButton v-if="canCreate" variant="primary" @click="openCreate('OPERATIONAL_LOG')">
-          <IconPlus :size="16" />
-          New Log Book
-        </BaseButton>
-      </template>
-    </PageHeader>
+  <BaseListLayout
+    title="Log Books"
+    :icon="IconStack2"
+    subtitle="Each log book defines the structure for a class of log entries (daily temperature, gemba round, batch release). Operational log books auto-lock entries after a short edit window; controlled-record log books require an e-signature and reviewer approval."
+    :state="list.state.value"
+    :emptyIcon="IconStack2"
+    :emptyTitle="list.hasActiveFilters.value ? 'No log books match your filters' : 'No log books yet'"
+  >
+    <template #actions>
+      <BaseButton v-if="canCreate" variant="primary" @click="openCreate('OPERATIONAL_LOG')">
+        <IconPlus :size="16" />
+        New Log Book
+      </BaseButton>
+    </template>
 
-    <!-- Quick-create cards (only when there are no templates yet, to nudge first-time users) -->
-    <div
-      v-if="canCreate && templates.length === 0"
-      class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3"
-    >
-      <button
-        type="button"
-        class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-        @click="openCreate('OPERATIONAL_LOG')"
+    <template #filters>
+      <BaseFilterBar
+        v-model:search="list.filters.value.search"
+        searchPlaceholder="Search by title or code…"
+        @clear="list.reset()"
       >
-        <div class="tw:flex tw:items-center tw:gap-3 tw:mb-2">
-          <div
-            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center"
-          >
-            <IconClock :size="22" />
+        <template #filters>
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <span class="tw:text-xs tw:text-secondary">Type</span>
+            <select
+              v-model="list.filters.value.classification"
+              class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
+            >
+              <option value="all">All</option>
+              <option value="OPERATIONAL_LOG">Operational</option>
+              <option value="CONTROLLED_RECORD">Controlled</option>
+            </select>
           </div>
-          <div class="tw:font-semibold tw:text-on-main">Operational Log Book</div>
-        </div>
-        <div class="tw:text-sm tw:text-secondary">
-          For routine field entries (temperature checks, gemba rounds, daily walk-throughs). Log
-          entries auto-lock 15 minutes after submission — no reviewer required. Fast to fill.
-        </div>
-      </button>
-      <button
-        type="button"
-        class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-        @click="openCreate('CONTROLLED_RECORD')"
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <span class="tw:text-xs tw:text-secondary">Category</span>
+            <select
+              v-model="list.filters.value.type"
+              class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm tw:max-w-xs"
+            >
+              <option value="all">All categories</option>
+              <option v-for="t in logBookTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+          </div>
+        </template>
+      </BaseFilterBar>
+    </template>
+
+    <!-- Quick-create cards as the empty action when there are no log books yet
+         (no active filters) — nudges first-time users to pick a classification. -->
+    <template #empty-action>
+      <div
+        v-if="canCreate && !list.hasActiveFilters.value"
+        class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3"
       >
-        <div class="tw:flex tw:items-center tw:gap-3 tw:mb-2">
-          <div
-            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-red-50 tw:text-red-600 tw:flex tw:items-center tw:justify-center"
-          >
-            <IconShieldCheck :size="22" />
+        <button
+          type="button"
+          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
+          @click="openCreate('OPERATIONAL_LOG')"
+        >
+          <div class="tw:flex tw:items-center tw:gap-3 tw:mb-2">
+            <div
+              class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center"
+            >
+              <IconClock :size="22" />
+            </div>
+            <div class="tw:font-semibold tw:text-on-main">Operational Log Book</div>
           </div>
-          <div class="tw:font-semibold tw:text-on-main">Controlled Log Book</div>
-        </div>
-        <div class="tw:text-sm tw:text-secondary">
-          For regulated records (batch release, deviations, calibrations). Each entry requires an
-          e-signature on submit and a second-person review before locking.
-        </div>
-      </button>
-    </div>
-
-    <!-- Filters -->
-    <div
-      v-if="templates.length > 0 || classificationFilter !== 'all' || search"
-      class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap"
-    >
-      <div class="tw:relative tw:flex-1 tw:max-w-md">
-        <IconSearch
-          :size="16"
-          class="tw:absolute tw:left-2.5 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
-        />
-        <BaseTextInput v-model="search" placeholder="Search by title or code…" class="tw:pl-8" />
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <span class="tw:text-xs tw:text-secondary">Type</span>
-        <select
-          v-model="classificationFilter"
-          class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
+          <div class="tw:text-sm tw:text-secondary">
+            For routine field entries (temperature checks, gemba rounds, daily walk-throughs). Log
+            entries auto-lock 15 minutes after submission — no reviewer required. Fast to fill.
+          </div>
+        </button>
+        <button
+          type="button"
+          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
+          @click="openCreate('CONTROLLED_RECORD')"
         >
-          <option value="all">All</option>
-          <option value="OPERATIONAL_LOG">Operational</option>
-          <option value="CONTROLLED_RECORD">Controlled</option>
-        </select>
+          <div class="tw:flex tw:items-center tw:gap-3 tw:mb-2">
+            <div
+              class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-red-50 tw:text-red-600 tw:flex tw:items-center tw:justify-center"
+            >
+              <IconShieldCheck :size="22" />
+            </div>
+            <div class="tw:font-semibold tw:text-on-main">Controlled Log Book</div>
+          </div>
+          <div class="tw:text-sm tw:text-secondary">
+            For regulated records (batch release, deviations, calibrations). Each entry requires an
+            e-signature on submit and a second-person review before locking.
+          </div>
+        </button>
       </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <span class="tw:text-xs tw:text-secondary">Category</span>
-        <select
-          v-model="typeFilter"
-          class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm tw:max-w-xs"
-        >
-          <option value="all">All categories</option>
-          <option v-for="t in logBookTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Empty state when filters yield nothing -->
-    <div
-      v-if="templates.length === 0 && (search || classificationFilter !== 'all')"
-      class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:py-10 tw:text-secondary"
-    >
-      <IconStack2 :size="36" class="tw:opacity-60" />
-      <div class="tw:text-sm">No log books match your filters.</div>
-    </div>
+    </template>
 
     <!-- Log books list -->
-    <div
-      v-else-if="templates.length > 0"
-      class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden"
-    >
+    <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden">
       <table class="tw:w-full tw:text-sm">
         <thead class="tw:bg-main">
           <tr class="tw:text-left">
@@ -283,5 +284,5 @@ function editWindowSummary(t) {
       :initialClassification="pendingClassification"
       @created="onTemplateCreated"
     />
-  </BasePage>
+  </BaseListLayout>
 </template>

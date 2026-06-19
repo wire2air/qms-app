@@ -26,20 +26,30 @@ const canConvert = computed(
   () => isAllowed(['customerComplaints:update']) && isAllowed(['nonconformances:create']),
 )
 
-const filters = ref({
-  search: '',
-  statusId: null,
-  priorityId: null,
-  sourceId: null,
-  assignedTo: null,
-  assignedTeamId: null,
-  formId: null,
-  sentiment: null,
-  dateFrom: null,
-  dateTo: null,
-  customKey: null,
-  customValue: '',
+// Filters + resolved content state. Declared before the live query because
+// `total`/`empty`/`loading` are lazy getters that read `complaints`.
+// `activeFilter` (quick-filter view) stays a separate ref — it has its own
+// v-model contract on the toolbar and feeds saved views independently.
+const list = useListLayout({
+  filters: {
+    search: '',
+    statusId: null,
+    priorityId: null,
+    sourceId: null,
+    assignedTo: null,
+    assignedTeamId: null,
+    formId: null,
+    sentiment: null,
+    dateFrom: null,
+    dateTo: null,
+    customKey: null,
+    customValue: '',
+  },
+  total: () => complaints.value.length,
+  loading: () => complaints.value === undefined,
+  empty: () => complaints.value.length === 0,
 })
+const filters = list.filters
 const activeFilter = ref('all_open')
 
 // ─── Saved views (per-user, localStorage — personal like column prefs) ──────
@@ -307,35 +317,39 @@ function onNewComplaint() {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      title="Customer Complaints"
-      subtitle="Manage customer complaint tickets from web, forms and email intake."
-    >
-      <template #actions>
-        <BaseButton
-          variant="secondary"
-          @click="router.push(getCompanyPath('/customer-complaints/reports'))"
-        >
-          <IconChartBar :size="18" class="tw:mr-1" />
-          Reports
-        </BaseButton>
-        <BaseMenu :items="exportMenuItems">
-          <template #trigger>
-            <BaseButton variant="secondary">
-              <IconDownload :size="18" class="tw:mr-1" />
-              Export
-              <IconChevronDown :size="14" class="tw:ml-1" />
-            </BaseButton>
-          </template>
-        </BaseMenu>
-        <BaseButton v-if="canCreate" variant="primary" @click="onNewComplaint">
-          New Complaint
-        </BaseButton>
-      </template>
-    </PageHeader>
+  <BaseListLayout
+    title="Customer Complaints"
+    :icon="IconHeadset"
+    subtitle="Manage customer complaint tickets from web, forms and email intake."
+    :state="list.state.value"
+    :emptyIcon="IconHeadset"
+    :emptyTitle="list.hasActiveFilters.value ? 'No complaints match your filters' : 'No complaints yet'"
+    :selectedCount="selectedIds.length"
+  >
+    <template #actions>
+      <BaseButton
+        variant="secondary"
+        @click="router.push(getCompanyPath('/customer-complaints/reports'))"
+      >
+        <IconChartBar :size="18" class="tw:mr-1" />
+        Reports
+      </BaseButton>
+      <BaseMenu :items="exportMenuItems">
+        <template #trigger>
+          <BaseButton variant="secondary">
+            <IconDownload :size="18" class="tw:mr-1" />
+            Export
+            <IconChevronDown :size="14" class="tw:ml-1" />
+          </BaseButton>
+        </template>
+      </BaseMenu>
+      <BaseButton v-if="canCreate" variant="primary" @click="onNewComplaint">
+        New Complaint
+      </BaseButton>
+    </template>
 
     <!-- Stat Cards -->
+    <template #stats>
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
       <div
         class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
@@ -405,27 +419,23 @@ function onNewComplaint() {
         </div>
       </div>
     </div>
+    </template>
 
-    <CustomerComplaintsFilterToolbar
-      v-model:filters="filters"
-      v-model:activeFilter="activeFilter"
-      :formOptions="formOptions"
-      :customFieldKeys="customFieldKeys"
-      :savedViews="savedViews"
-      @saveView="saveCurrentView"
-      @applyView="applySavedView"
-      @deleteView="deleteSavedView"
-    />
+    <template #filters>
+      <CustomerComplaintsFilterToolbar
+        v-model:filters="filters"
+        v-model:activeFilter="activeFilter"
+        :formOptions="formOptions"
+        :customFieldKeys="customFieldKeys"
+        :savedViews="savedViews"
+        @saveView="saveCurrentView"
+        @applyView="applySavedView"
+        @deleteView="deleteSavedView"
+      />
+    </template>
 
     <!-- Bulk action bar -->
-    <div
-      v-if="selectedIds.length"
-      class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap tw:bg-blue-50 tw:border tw:border-blue-200 tw:rounded-lg tw:px-3 tw:py-2"
-    >
-      <span class="tw:text-sm tw:font-semibold tw:text-blue-800">
-        {{ selectedIds.length }} selected
-      </span>
-      <div class="tw:flex-1" />
+    <template #bulk-actions>
       <BaseButton
         v-if="canConvert && activeFilter !== 'spam'"
         variant="primary"
@@ -489,7 +499,7 @@ function onNewComplaint() {
       >
         Delete
       </BaseButton>
-    </div>
+    </template>
 
     <CustomerComplaintsTable
       v-model:selected="selectedIds"
@@ -527,5 +537,5 @@ function onNewComplaint() {
         />
       </template>
     </BaseDialog>
-  </BasePage>
+  </BaseListLayout>
 </template>

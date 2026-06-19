@@ -1,8 +1,28 @@
 <script setup>
-import { IconSearch, IconBuilding } from '@tabler/icons-vue'
+import { IconBuilding } from '@tabler/icons-vue'
 import { useImpersonate } from '@/composables/useImpersonate.js'
 
 const { companies, loading, search, fetchCompanies, hasMore } = useImpersonate()
+
+// Filters + resolved content state. Declared before the debounced watcher so its
+// lazy getters read the axios-backed `companies`/`loading` refs. Rows come from an
+// action/REST endpoint (not a syncEngine live query), so `state` is wired from the
+// composable's own refs.
+const list = useListLayout({
+  filters: { search: '' },
+  total: () => companies.value.length,
+  loading: () => loading.value && companies.value.length === 0,
+  empty: () => !loading.value && companies.value.length === 0,
+})
+
+// Keep the shared `useImpersonate.search` (consumed by fetchCompanies and the
+// injected company list) in sync with the layout's filter state.
+watch(
+  () => list.filters.value.search,
+  (q) => {
+    search.value = q
+  },
+)
 
 const debouncedSearch = refDebounced(search, 400)
 
@@ -20,47 +40,32 @@ function loadMore() {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader :icon="IconBuilding" title="Impersonate" />
-
-    <SafeTeleport to="#main-header-search">
-      <div class="tw:relative tw:w-full">
-        <IconSearch
-          :size="18"
-          class="tw:absolute tw:left-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
-        />
-        <BaseTextInput
-          v-model="search"
-          placeholder="Search companies..."
-          class="tw:w-full tw:pl-9"
-        />
-      </div>
-    </SafeTeleport>
-
-    <div v-if="loading && companies.length === 0" class="tw:flex tw:justify-center tw:p-8">
-      <BaseSpinner size="lg" />
-    </div>
-
-    <BaseEmptyState
-      v-else-if="companies.length === 0"
-      :icon="IconBuilding"
-      title="No companies found"
-      dense
-    />
-
-    <template v-else>
-      <ImpersonateCompanyList />
-
-      <div v-if="hasMore" class="tw:flex tw:justify-center tw:py-4">
-        <button
-          class="tw:text-sm tw:font-medium tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline tw:disabled:opacity-50"
-          :disabled="loading"
-          @click="loadMore"
-        >
-          <BaseSpinner v-if="loading" size="sm" class="tw:mr-2" />
-          Load More
-        </button>
-      </div>
+  <BaseListLayout
+    title="Impersonate"
+    :icon="IconBuilding"
+    :state="list.state.value"
+    :emptyIcon="IconBuilding"
+    emptyTitle="No companies found"
+  >
+    <template #filters>
+      <BaseFilterBar
+        v-model:search="list.filters.value.search"
+        searchPlaceholder="Search companies..."
+        @clear="list.reset()"
+      />
     </template>
-  </BasePage>
+
+    <ImpersonateCompanyList />
+
+    <div v-if="hasMore" class="tw:flex tw:justify-center tw:py-4">
+      <button
+        class="tw:text-sm tw:font-medium tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline tw:disabled:opacity-50"
+        :disabled="loading"
+        @click="loadMore"
+      >
+        <BaseSpinner v-if="loading" size="sm" class="tw:mr-2" />
+        Load More
+      </button>
+    </div>
+  </BaseListLayout>
 </template>

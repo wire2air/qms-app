@@ -11,6 +11,7 @@ declare global {
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
   const bucketActions: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').bucketActions
+  const buildBreadcrumbs: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').buildBreadcrumbs
   const computed: typeof import('vue').computed
   const computedAsync: typeof import('@vueuse/core').computedAsync
   const computedEager: typeof import('@vueuse/core').computedEager
@@ -31,18 +32,27 @@ declare global {
   const customRef: typeof import('vue').customRef
   const debouncedRef: typeof import('@vueuse/core').debouncedRef
   const debouncedWatch: typeof import('@vueuse/core').debouncedWatch
+  const decodeSort: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').decodeSort
   const defineAsyncComponent: typeof import('vue').defineAsyncComponent
   const defineComponent: typeof import('vue').defineComponent
   const eagerComputed: typeof import('@vueuse/core').eagerComputed
   const effectScope: typeof import('vue').effectScope
+  const encodeSort: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').encodeSort
+  const eventToChord: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').eventToChord
   const extendRef: typeof import('@vueuse/core').extendRef
+  const fillPattern: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').fillPattern
+  const filterCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').filterCommands
+  const filtersToQuery: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').filtersToQuery
+  const formatChordParts: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').formatChordParts
   const forwardRefs: typeof import('./resource/js/shared/composables/forwardRef.js').forwardRefs
+  const fuzzyScore: typeof import('./resource/js/shared/composables/commandHelpers.js').fuzzyScore
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
   const getCurrentWatcher: typeof import('vue').getCurrentWatcher
   const getProp: typeof import('./resource/js/shared/composables/object.js').getProp
   const getPropValue: typeof import('./resource/js/shared/composables/props.js').getPropValue
   const getPropValueFn: typeof import('./resource/js/shared/composables/props.js').getPropValueFn
+  const groupCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').groupCommands
   const h: typeof import('vue').h
   const hDir: typeof import('./resource/js/shared/composables/render.js').hDir
   const hMergeSlot: typeof import('./resource/js/shared/composables/render.js').hMergeSlot
@@ -62,7 +72,10 @@ declare global {
   const isShallow: typeof import('vue').isShallow
   const makeDestructurable: typeof import('@vueuse/core').makeDestructurable
   const markRaw: typeof import('vue').markRaw
+  const matchChord: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').matchChord
+  const matchPattern: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').matchPattern
   const nextTick: typeof import('vue').nextTick
+  const normalizeChord: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').normalizeChord
   const onActivated: typeof import('vue').onActivated
   const onBeforeMount: typeof import('vue').onBeforeMount
   const onBeforeRouteLeave: typeof import('vue-router').onBeforeRouteLeave
@@ -96,6 +109,7 @@ declare global {
   const provideRoles: typeof import('./src/composables/useRoles.js').provideRoles
   const provideSites: typeof import('./src/composables/useSites.js').provideSites
   const provideUsers: typeof import('./src/composables/useUsers.js').provideUsers
+  const queryToFilters: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').queryToFilters
   const reactify: typeof import('@vueuse/core').reactify
   const reactifyObject: typeof import('@vueuse/core').reactifyObject
   const reactive: typeof import('vue').reactive
@@ -110,14 +124,18 @@ declare global {
   const refManualReset: typeof import('@vueuse/core').refManualReset
   const refThrottled: typeof import('@vueuse/core').refThrottled
   const refWithControl: typeof import('@vueuse/core').refWithControl
+  const registerCommands: typeof import('./resource/js/shared/composables/useCommandRegistry.js').registerCommands
   const resolveComponent: typeof import('vue').resolveComponent
   const resolveDetailState: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').resolveDetailState
+  const resolveListState: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').resolveListState
   const resolveRef: typeof import('@vueuse/core').resolveRef
+  const resolveRouteMeta: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').resolveRouteMeta
   const selectAndUploadFile: typeof import('./src/composables/useFileUpload.js').selectAndUploadFile
   const setProp: typeof import('./resource/js/shared/composables/object.js').setProp
   const shallowReactive: typeof import('vue').shallowReactive
   const shallowReadonly: typeof import('vue').shallowReadonly
   const shallowRef: typeof import('vue').shallowRef
+  const shouldIgnoreTarget: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').shouldIgnoreTarget
   const syncRef: typeof import('@vueuse/core').syncRef
   const syncRefs: typeof import('@vueuse/core').syncRefs
   const templateRef: typeof import('@vueuse/core').templateRef
@@ -175,6 +193,8 @@ declare global {
   const useClipboardItems: typeof import('@vueuse/core').useClipboardItems
   const useCloned: typeof import('@vueuse/core').useCloned
   const useColorMode: typeof import('@vueuse/core').useColorMode
+  const useCommandRegistry: typeof import('./resource/js/shared/composables/useCommandRegistry.js').useCommandRegistry
+  const useCommands: typeof import('./resource/js/shared/composables/useCommandRegistry.js').useCommands
   const useCompanyForm: typeof import('./src/composables/useCompanyForm.js').useCompanyForm
   const useConfirm: typeof import('./resource/js/shared/composables/useConfirm.js').useConfirm
   const useConfirmDialog: typeof import('@vueuse/core').useConfirmDialog
@@ -226,6 +246,8 @@ declare global {
   const useGamepad: typeof import('@vueuse/core').useGamepad
   const useGeolocation: typeof import('@vueuse/core').useGeolocation
   const useHelpContent: typeof import('./src/composables/useHelpContent.js').useHelpContent
+  const useHotkeyRegistry: typeof import('./resource/js/shared/composables/useHotkeys.js').useHotkeyRegistry
+  const useHotkeys: typeof import('./resource/js/shared/composables/useHotkeys.js').useHotkeys
   const useId: typeof import('vue').useId
   const useIdle: typeof import('@vueuse/core').useIdle
   const useImage: typeof import('@vueuse/core').useImage
@@ -237,6 +259,7 @@ declare global {
   const useKeyModifier: typeof import('@vueuse/core').useKeyModifier
   const useLastChanged: typeof import('@vueuse/core').useLastChanged
   const useLink: typeof import('vue-router').useLink
+  const useListLayout: typeof import('./resource/js/shared/composables/useListLayout.js').useListLayout
   const useLiveMutation: typeof import('./src/composables/useLiveQuery.js').useLiveMutation
   const useLiveQuery: typeof import('./src/composables/useLiveQuery.js').useLiveQuery
   const useLiveQueryWithDeps: typeof import('./src/composables/useLiveQuery.js').useLiveQueryWithDeps
@@ -253,6 +276,7 @@ declare global {
   const useMouseInElement: typeof import('@vueuse/core').useMouseInElement
   const useMousePressed: typeof import('@vueuse/core').useMousePressed
   const useMutationObserver: typeof import('@vueuse/core').useMutationObserver
+  const useNavigationCommands: typeof import('./src/composables/useNavigationCommands.js').useNavigationCommands
   const useNavigatorLanguage: typeof import('@vueuse/core').useNavigatorLanguage
   const useNetwork: typeof import('@vueuse/core').useNetwork
   const useNow: typeof import('@vueuse/core').useNow
@@ -284,6 +308,7 @@ declare global {
   const useRolePermissions: typeof import('./src/composables/useRolePermissions.js').useRolePermissions
   const useRoles: typeof import('./src/composables/useRoles.js').useRoles
   const useRoute: typeof import('vue-router').useRoute
+  const useRouteMeta: typeof import('./src/composables/useRouteMeta.js').useRouteMeta
   const useRouter: typeof import('vue-router').useRouter
   const useSSRWidth: typeof import('@vueuse/core').useSSRWidth
   const useScreenOrientation: typeof import('@vueuse/core').useScreenOrientation

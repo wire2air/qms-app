@@ -2,6 +2,13 @@
 import { IconBell } from '@tabler/icons-vue'
 import { NOTIFICATION_ENTITIES } from '@/utils/notificationEntities.js'
 
+// Resolved content state. One card renders per notification entity (a static
+// set), so this list is never empty — the layout stays in the `ready` state.
+const list = useListLayout({
+  total: () => NOTIFICATION_ENTITIES.length,
+  empty: () => NOTIFICATION_ENTITIES.length === 0,
+})
+
 // Company DEFAULT cc recipients — one row per entity. The worker merges these
 // with each record's own notify list. Empty default = nothing fires unless a
 // record names recipients.
@@ -53,13 +60,12 @@ function userIdsOf(entityType) {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      :icon="IconBell"
-      title="Notification defaults"
-      subtitle="Default groups/people cc'd on every record of a type. Per-record lists add to these."
-    />
-
+  <BaseListLayout
+    title="Notification defaults"
+    :icon="IconBell"
+    subtitle="Default groups/people cc'd on every record of a type. Per-record lists add to these."
+    :state="list.state.value"
+  >
     <div class="tw:flex tw:flex-col tw:gap-4">
       <div
         v-for="entity in NOTIFICATION_ENTITIES"
@@ -75,5 +81,5 @@ function userIdsOf(entityType) {
         />
       </div>
     </div>
-  </BasePage>
+  </BaseListLayout>
 </template>

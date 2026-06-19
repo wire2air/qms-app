@@ -1,9 +1,10 @@
 <script setup>
 /**
  * BaseStatusState — a centered icon + title + description + action block for the
- * empty / error / success / not-found states (audit §3: one component with a
- * `variant`, not four near-identical files). Each variant supplies a default
- * icon + title + tint; override any of them per use.
+ * empty / error / success / notfound / denied / offline / maintenance states
+ * (audit §3 + Enterprise Page Framework G0: one component with a `variant`, not
+ * N near-identical files). Each variant supplies a default icon + title + tint;
+ * override any of them per use.
  *
  *   <BaseStatusState variant="empty" description="No documents match your filters." />
  *   <BaseStatusState variant="error" title="Couldn't load" description="…">
@@ -12,13 +13,22 @@
  *
  * (BaseEmptyState remains for the bare empty case; this is the superset.)
  */
-import { IconSearchOff, IconAlertTriangle, IconCircleCheck, IconFileOff } from '@tabler/icons-vue'
+import {
+  IconSearchOff,
+  IconAlertTriangle,
+  IconCircleCheck,
+  IconFileOff,
+  IconLock,
+  IconWifiOff,
+  IconTool,
+} from '@tabler/icons-vue'
 
 const props = defineProps({
   variant: {
     type: String,
     default: 'empty',
-    validator: (v) => ['empty', 'error', 'success', 'notfound'].includes(v),
+    validator: (v) =>
+      ['empty', 'error', 'success', 'notfound', 'denied', 'offline', 'maintenance'].includes(v),
   },
   // Overrides for the variant defaults.
   icon: { type: [Object, Function], default: null },
@@ -33,6 +43,9 @@ const VARIANT = {
   error: { icon: IconAlertTriangle, title: 'Something went wrong', tint: 'tw:text-bad' },
   success: { icon: IconCircleCheck, title: 'All done', tint: 'tw:text-good' },
   notfound: { icon: IconFileOff, title: 'Not found', tint: 'tw:text-secondary' },
+  denied: { icon: IconLock, title: "You don't have access", tint: 'tw:text-warn' },
+  offline: { icon: IconWifiOff, title: "You're offline", tint: 'tw:text-secondary' },
+  maintenance: { icon: IconTool, title: 'Down for maintenance', tint: 'tw:text-secondary' },
 }
 
 const cfg = computed(() => VARIANT[props.variant] || VARIANT.empty)

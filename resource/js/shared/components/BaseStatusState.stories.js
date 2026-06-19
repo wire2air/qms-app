@@ -1,15 +1,18 @@
 import BaseStatusState from './BaseStatusState.vue'
 
 /**
- * BaseStatusState — empty / error / success / not-found states in one component
- * (variant-driven default icon + title + tint).
+ * BaseStatusState — empty / error / success / notfound / denied / offline /
+ * maintenance states in one component (variant-driven default icon + title + tint).
  */
 export default {
   title: 'Feedback/BaseStatusState',
   component: BaseStatusState,
   tags: ['autodocs'],
   argTypes: {
-    variant: { control: 'inline-radio', options: ['empty', 'error', 'success', 'notfound'] },
+    variant: {
+      control: 'inline-radio',
+      options: ['empty', 'error', 'success', 'notfound', 'denied', 'offline', 'maintenance'],
+    },
     dense: { control: 'boolean' },
   },
   args: { variant: 'empty', description: '', dense: false },
@@ -30,3 +33,6 @@ export const Empty = { render, args: { description: 'No documents match your fil
 export const Error = { render, args: { variant: 'error', description: "We couldn't load this list." } }
 export const Success = { render, args: { variant: 'success', description: 'Everything is up to date.' } }
 export const NotFound = { render, args: { variant: 'notfound', description: 'That record no longer exists.' } }
+export const PermissionDenied = { render, args: { variant: 'denied', description: 'Ask an administrator for access to this module.' } }
+export const Offline = { render, args: { variant: 'offline', description: 'Reconnect to sync the latest changes.' } }
+export const Maintenance = { render, args: { variant: 'maintenance', description: "We'll be back shortly." } }
