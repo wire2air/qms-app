@@ -45,10 +45,17 @@ function defaultForm() {
 const form = ref(defaultForm())
 const saving = ref(false)
 
+// Admin-defined custom fields — held locally, persisted after the audit exists.
+const customFieldsData = ref({})
+const customFieldsRef = ref(null)
+
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) form.value = defaultForm()
+    if (open) {
+      form.value = defaultForm()
+      customFieldsData.value = {}
+    }
   },
 )
 
@@ -79,6 +86,10 @@ async function handleSave({ navigate }) {
     toast.warning('Fill the required fields first')
     return
   }
+  if ((await customFieldsRef.value?.validate()) === false) {
+    toast.warning('Complete the required fields under Additional information')
+    return
+  }
   saving.value = true
   try {
     const result = await post('/v1/services/auditInstances', {
@@ -95,6 +106,12 @@ async function handleSave({ navigate }) {
       auditeeUserId: form.value.auditeeUserId || null,
     })
     const auditInstance = result?.auditInstance
+    // Persist custom fields against the new audit (best-effort).
+    try {
+      if (auditInstance?.id) await customFieldsRef.value?.persist(auditInstance.id)
+    } catch (cfErr) {
+      toast.warning(cfErr?.message || 'Audit created, but custom fields could not be saved — add them on the audit page')
+    }
     toast.success(`Audit ${auditInstance?.auditNumber} created`)
     emit('created', auditInstance)
     close()
@@ -193,6 +210,13 @@ async function handleSave({ navigate }) {
           placeholder="What does this audit need to produce?"
         />
       </BaseField>
+
+      <!-- Admin-defined custom fields. Self-hides when none configured. -->
+      <CustomFieldsCreateSection
+        ref="customFieldsRef"
+        v-model="customFieldsData"
+        entityType="AuditInstance"
+      />
     </div>
     <template #footer>
       <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>

@@ -635,6 +635,10 @@ function onCreateLinkedChangeRequest() {
               </div>
             </div>
 
+            <!-- Admin-defined custom fields (Settings → Custom Fields), right
+                 after the details card. Self-hides when none are configured. -->
+            <CustomFieldsCard entityType="Nonconformance" :entityId="id" :editable="isEditable" />
+
             <!-- Related records lineage (QC lot / complaint / finding → this NC
                  → CAPA / CR). Self-hides when there are no links. -->
             <RecordLineagePanel :id="id" type="Nonconformance" />

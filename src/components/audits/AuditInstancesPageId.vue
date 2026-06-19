@@ -659,6 +659,15 @@ watch(auditTabs, (tabs) => {
               </div>
             </div>
 
+            <!-- Admin-defined custom fields (Information tab). Self-hides when
+                 none are configured for Audit. -->
+            <CustomFieldsCard
+              v-if="tab === 'info'"
+              entityType="AuditInstance"
+              :entityId="id"
+              :editable="isEditable"
+            />
+
             <!-- Agenda + embedded Document Request (#15/#2): select clauses +
                  requested docs, send to the supplier or the internal auditee. -->
             <AuditAgendaPanel

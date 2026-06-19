@@ -14,6 +14,8 @@ const tabs = [
   { value: 'supplier-certificate-types', label: 'Supplier Certificates' },
   { value: 'audit-standard-types', label: 'Audit Standard Types' },
   { value: 'audit-finding-categories', label: 'Audit Finding Categories' },
+  { value: 'event-categories', label: 'Event Categories' },
+  { value: 'event-severities', label: 'Event Severities' },
 ]
 const validTabIds = new Set(tabs.map((t) => t.value))
 
@@ -45,6 +47,8 @@ watch(
         </BaseTabPanel>
         <BaseTabPanel value="audit-standard-types"><AuditStandardTypesCard /></BaseTabPanel>
         <BaseTabPanel value="audit-finding-categories"><AuditFindingCategoriesCard /></BaseTabPanel>
+        <BaseTabPanel value="event-categories"><EventCategoriesCard /></BaseTabPanel>
+        <BaseTabPanel value="event-severities"><EventSeveritiesCard /></BaseTabPanel>
       </BaseTabs>
     </div>
   </BasePage>

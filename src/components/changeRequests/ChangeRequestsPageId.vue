@@ -416,6 +416,9 @@ const editingTitle = ref(false)
             :workflowInstanceId="workflowInstance.id"
             :isOwner="isOwner"
           />
+
+          <!-- Admin-defined custom fields. Self-hides when none configured. -->
+          <CustomFieldsCard entityType="ChangeRequest" :entityId="id" :editable="isEditable" />
         </div>
 
         <!-- Right column -->

@@ -221,6 +221,12 @@ const tabs = [
         <BaseTabPanel value="details">
           <div class="tw:flex tw:flex-col tw:gap-4 tw:max-w-xl">
             <TrainingDetailsTab :training="training" :editable="isEditable && canUpdate" />
+            <!-- Admin-defined custom fields. Self-hides when none configured. -->
+            <CustomFieldsCard
+              entityType="Training"
+              :entityId="training.id"
+              :editable="isEditable && canUpdate"
+            />
           </div>
         </BaseTabPanel>
 

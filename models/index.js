@@ -172,6 +172,14 @@ import { AssignmentInstance } from './assignmentInstance'
 import { AssignmentInstanceStatus } from './assignmentInstanceStatus'
 import { RecordLink } from './recordLink'
 import { NotificationRule } from './notificationRule'
+import { EntityFieldSet } from './entityFieldSet'
+import { EntityFieldValue } from './entityFieldValue'
+import { QualityEvent } from './qualityEvent'
+import { EventCategory } from './eventCategory'
+import { EventSeverity } from './eventSeverity'
+import { EventNote } from './eventNote'
+import { EventAttachment } from './eventAttachment'
+import { AutomationRule } from './automationRule'
 // AI sidecar (see backend/ai/README.md, AI_PLAN.md §11). All AI models are
 // grouped here. Existing models stay AI-agnostic.
 import { AiPat } from './aiPat'
@@ -356,4 +364,12 @@ export const db = {
   AssignmentInstanceStatus,
   RecordLink,
   NotificationRule,
+  EntityFieldSet,
+  EntityFieldValue,
+  QualityEvent,
+  EventCategory,
+  EventSeverity,
+  EventNote,
+  EventAttachment,
+  AutomationRule,
 }
