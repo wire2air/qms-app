@@ -10,6 +10,7 @@ declare global {
   const PdfImportLimitError: typeof import('./src/composables/usePdfImport.js').PdfImportLimitError
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
+  const bucketActions: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').bucketActions
   const computed: typeof import('vue').computed
   const computedAsync: typeof import('@vueuse/core').computedAsync
   const computedEager: typeof import('@vueuse/core').computedEager
@@ -110,6 +111,7 @@ declare global {
   const refThrottled: typeof import('@vueuse/core').refThrottled
   const refWithControl: typeof import('@vueuse/core').refWithControl
   const resolveComponent: typeof import('vue').resolveComponent
+  const resolveDetailState: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').resolveDetailState
   const resolveRef: typeof import('@vueuse/core').resolveRef
   const selectAndUploadFile: typeof import('./src/composables/useFileUpload.js').selectAndUploadFile
   const setProp: typeof import('./resource/js/shared/composables/object.js').setProp
@@ -191,6 +193,7 @@ declare global {
   const useDebounceFn: typeof import('@vueuse/core').useDebounceFn
   const useDebouncedRefHistory: typeof import('@vueuse/core').useDebouncedRefHistory
   const useDepartments: typeof import('./src/composables/useDepartments.js').useDepartments
+  const useDetailLayout: typeof import('./resource/js/shared/composables/useDetailLayout.js').useDetailLayout
   const useDeviceMotion: typeof import('@vueuse/core').useDeviceMotion
   const useDeviceOrientation: typeof import('@vueuse/core').useDeviceOrientation
   const useDevicePixelRatio: typeof import('@vueuse/core').useDevicePixelRatio
