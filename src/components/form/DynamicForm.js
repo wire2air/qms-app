@@ -728,8 +728,15 @@ export default defineComponent({
       }
     }
 
-    // Expose submit for parent components to call via ref
-    expose({ submit })
+    // Validate-only: touch + run all rules, returning a boolean without
+    // emitting 'submit'. Lets a parent gate its own save on this form's
+    // validity (e.g. required custom fields on a create form).
+    async function validate() {
+      return await validator.value.$validate()
+    }
+
+    // Expose submit + validate for parent components to call via ref
+    expose({ submit, validate })
 
     return () => {
       const contents = []

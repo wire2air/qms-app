@@ -540,6 +540,9 @@ function onCreateLinkedChangeRequest() {
                  Only relevant on supplier-facing CAPAs — external access is
                  only ever granted on those, so hide the section otherwise. -->
             <SharedWithPanel v-if="capa?.isSupplierFacing" entityType="Capa" :entityId="id" />
+
+            <!-- Admin-defined custom fields. Self-hides when none configured. -->
+            <CustomFieldsCard entityType="Capa" :entityId="id" :editable="isEditable" />
           </div>
 
           <!-- Right column -->

@@ -26,6 +26,13 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  // Custom Fields module only: surfaces an optional free-text "Section"
+  // placement input in the field editor (stored on field.section). Off by
+  // default so the forms / workflow / complaint builders are unaffected.
+  showSectionPlacement: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['save', 'update:schema'])
@@ -397,7 +404,11 @@ function copyJson() {
               </button>
             </div>
             <div class="tw:flex tw:flex-col tw:grow tw:overflow-y-auto">
-              <FormFieldConfig v-model:field="selectedField" :path="selectedFieldPath" />
+              <FormFieldConfig
+                v-model:field="selectedField"
+                :path="selectedFieldPath"
+                :showSectionPlacement="showSectionPlacement"
+              />
             </div>
           </aside>
         </Transition>

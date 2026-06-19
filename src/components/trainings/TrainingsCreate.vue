@@ -9,6 +9,10 @@ const saving = ref(false)
 const title = ref('')
 const description = ref('')
 
+// Admin-defined custom fields — held locally, persisted after the training exists.
+const customFieldsData = ref({})
+const customFieldsRef = ref(null)
+
 const createTraining = useLiveMutation(async (db, payload) => {
   const training = db.Training.create(payload)
   await training.save()
@@ -20,6 +24,10 @@ async function handleSubmit() {
     toast.notify({ type: 'negative', message: 'Title is required' })
     return
   }
+  if ((await customFieldsRef.value?.validate()) === false) {
+    toast.notify({ type: 'negative', message: 'Complete the required fields under Additional information' })
+    return
+  }
   saving.value = true
   try {
     const training = await createTraining({
@@ -27,6 +35,15 @@ async function handleSubmit() {
       description: description.value.trim() || null,
     })
     if (!training?.id) throw new Error('Failed to create training')
+    // Persist custom fields against the new training (best-effort).
+    try {
+      await customFieldsRef.value?.persist(training.id)
+    } catch (cfErr) {
+      toast.notify({
+        type: 'warning',
+        message: cfErr?.message || 'Training created, but custom fields could not be saved — add them on the training page',
+      })
+    }
     router.push(getCompanyPath(`/trainings/${training.id}`))
   } catch (err) {
     toast.notify({ type: 'negative', message: err.message || 'Failed to create training' })
@@ -90,6 +107,13 @@ async function handleSubmit() {
             />
           </BaseField>
         </div>
+
+        <!-- Admin-defined custom fields. Self-hides when none configured. -->
+        <CustomFieldsCreateSection
+          ref="customFieldsRef"
+          v-model="customFieldsData"
+          entityType="Training"
+        />
 
         <div class="tw:bg-blue-50 tw:border tw:border-blue-100 tw:rounded-lg tw:p-4 tw:text-sm tw:text-blue-700">
           <p class="tw:font-medium tw:mb-1">What you can configure on the next page:</p>
