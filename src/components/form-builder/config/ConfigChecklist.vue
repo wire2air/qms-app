@@ -102,7 +102,7 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
     <div class="tw:flex tw:flex-col tw:gap-3">
-      <div class="ds-label-sm tw:text-secondary">Rows</div>
+      <BaseText as="div" variant="overline">Rows</BaseText>
       <div
         v-for="(row, index) in field.rows"
         :key="'row-' + index"
@@ -130,7 +130,7 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
     </div>
 
     <div class="tw:flex tw:flex-col tw:gap-3">
-      <div class="ds-label-sm tw:text-secondary">Columns</div>
+      <BaseText as="div" variant="overline">Columns</BaseText>
       <div
         v-for="(col, index) in field.columns"
         :key="'col-' + index"
@@ -176,9 +176,9 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
     <!-- Options for each Select/Dropdown column -->
     <template v-for="(col, colIndex) in selectColumns" :key="'col-options-' + colIndex">
       <div class="tw:flex tw:flex-col tw:gap-3">
-        <div class="ds-label-sm tw:text-secondary">
+        <BaseText as="div" variant="overline">
           Options for "{{ col.label || col.value || 'Column ' + (colIndex + 1) }}"
-        </div>
+        </BaseText>
         <div
           v-for="(option, optIndex) in col.options || []"
           :key="'col-' + colIndex + '-option-' + optIndex"

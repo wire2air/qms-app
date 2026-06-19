@@ -32,12 +32,14 @@ const canActOnStep = computed(() => myTask.value?.statusId === 'ASSIGNED')
     <div class="tw:p-5 tw:border-b tw:border-divider tw:flex tw:justify-between tw:items-start">
       <div class="tw:flex-1 tw:min-w-0 tw:pr-3">
         <div class="tw:flex tw:items-center tw:gap-2 tw:mb-1">
-          <span class="ds-label-sm tw:text-primary tw:bg-primary/10 tw:px-2 tw:py-0.5 tw:rounded">
+          <span
+            class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wide tw:text-primary tw:bg-primary/10 tw:px-2 tw:py-0.5 tw:rounded"
+          >
             Current Task
           </span>
-          <span class="ds-label-sm tw:text-secondary tw:font-mono">
+          <BaseText variant="overline" class="tw:font-mono">
             {{ doc?.docNumber || instance.id.slice(0, 8) }}
-          </span>
+          </BaseText>
         </div>
         <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:truncate">
           {{ doc?.title || '—' }}

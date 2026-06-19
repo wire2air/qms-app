@@ -137,73 +137,68 @@ const tabs = [
 </script>
 
 <template>
-  <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-64">
-    <BaseSpinner />
-  </div>
-  <div
-    v-else-if="!training"
-    class="tw:flex tw:items-center tw:justify-center tw:h-64 tw:text-secondary"
+  <BaseDetailPage
+    :loading="loading"
+    :notFound="!loading && !training"
+    notFoundTitle="Training not found"
+    width="standard"
+    :fullHeight="false"
   >
-    Training not found.
-  </div>
-  <BasePage v-else width="standard">
-    <PageHeader>
-      <template #title>
-        <div class="tw:flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary">
-          <RouterLink :to="getCompanyPath('/trainings')" class="tw:hover:text-primary"
-            >Training Library</RouterLink
+    <template #title>
+      <div class="tw:flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary">
+        <RouterLink :to="getCompanyPath('/trainings')" class="tw:hover:text-primary"
+          >Training Library</RouterLink
+        >
+        <IconChevronRight :size="14" />
+        <span class="tw:text-on-sidebar tw:font-medium">{{ training?.title }}</span>
+      </div>
+    </template>
+    <template v-if="training" #actions>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <span v-if="isSaving" class="tw:text-xs tw:text-secondary">Saving…</span>
+        <TrainingStatusBadgeById :statusId="training.status" />
+
+        <!-- DRAFT actions -->
+        <template v-if="canManage && training.status === 'DRAFT'">
+          <BaseButton
+            variant="primary"
+            :disabled="!training.managerId"
+            :title="training.managerId ? '' : 'A Training Manager is required before publishing'"
+            @click="showPublishConfirm = true"
           >
-          <IconChevronRight :size="14" />
-          <span class="tw:text-on-sidebar tw:font-medium">{{ training.title }}</span>
-        </div>
-      </template>
-      <template #actions>
-        <div class="tw:flex tw:items-center tw:gap-2">
-          <span v-if="isSaving" class="tw:text-xs tw:text-secondary">Saving…</span>
-          <TrainingStatusBadgeById :statusId="training.status" />
+            <IconCircleCheck :size="16" class="tw:mr-1" /> Publish
+          </BaseButton>
+          <BaseButton
+            variant="secondary"
+            :loading="actionLoading"
+            @click="showDeleteConfirm = true"
+          >
+            <IconTrash :size="16" class="tw:mr-1" /> Delete
+          </BaseButton>
+        </template>
 
-          <!-- DRAFT actions -->
-          <template v-if="canManage && training.status === 'DRAFT'">
-            <BaseButton
-              variant="primary"
-              :disabled="!training.managerId"
-              :title="training.managerId ? '' : 'A Training Manager is required before publishing'"
-              @click="showPublishConfirm = true"
-            >
-              <IconCircleCheck :size="16" class="tw:mr-1" /> Publish
-            </BaseButton>
-            <BaseButton
-              variant="secondary"
-              :loading="actionLoading"
-              @click="showDeleteConfirm = true"
-            >
-              <IconTrash :size="16" class="tw:mr-1" /> Delete
-            </BaseButton>
-          </template>
-
-          <!-- ACTIVE (Published) actions -->
-          <template v-if="canManage && training.status === 'ACTIVE'">
-            <BaseButton variant="primary" @click="showLaunchDialog = true">
-              <IconRocket :size="16" class="tw:mr-1" /> Launch
-            </BaseButton>
-            <BaseButton variant="secondary" @click="showAddMatrixDialog = true">
-              <IconLayoutGrid :size="16" class="tw:mr-1" /> Add to Training Matrix
-            </BaseButton>
-            <BaseButton
-              v-if="canUnpublish"
-              variant="secondary"
-              :loading="actionLoading"
-              @click="handleUnpublish"
-            >
-              <IconArrowBackUp :size="16" class="tw:mr-1" /> Unpublish
-            </BaseButton>
-            <BaseButton variant="secondary" :loading="actionLoading" @click="handleArchive">
-              <IconArchive :size="16" class="tw:mr-1" /> Archive
-            </BaseButton>
-          </template>
-        </div>
-      </template>
-    </PageHeader>
+        <!-- ACTIVE (Published) actions -->
+        <template v-if="canManage && training.status === 'ACTIVE'">
+          <BaseButton variant="primary" @click="showLaunchDialog = true">
+            <IconRocket :size="16" class="tw:mr-1" /> Launch
+          </BaseButton>
+          <BaseButton variant="secondary" @click="showAddMatrixDialog = true">
+            <IconLayoutGrid :size="16" class="tw:mr-1" /> Add to Training Matrix
+          </BaseButton>
+          <BaseButton
+            v-if="canUnpublish"
+            variant="secondary"
+            :loading="actionLoading"
+            @click="handleUnpublish"
+          >
+            <IconArrowBackUp :size="16" class="tw:mr-1" /> Unpublish
+          </BaseButton>
+          <BaseButton variant="secondary" :loading="actionLoading" @click="handleArchive">
+            <IconArchive :size="16" class="tw:mr-1" /> Archive
+          </BaseButton>
+        </template>
+      </div>
+    </template>
 
     <!-- Title -->
     <div class="tw:flex tw:items-center tw:gap-3">
@@ -311,5 +306,5 @@ const tabs = [
         </BaseDialogFooter>
       </template>
     </BaseDialog>
-  </BasePage>
+  </BaseDetailPage>
 </template>

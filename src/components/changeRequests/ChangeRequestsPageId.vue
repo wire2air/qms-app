@@ -236,296 +236,286 @@ const auditIncludeEntities = computed(() => [
   { entityType: 'WorkflowInstanceSteps', entityIds: allWfStepIds.value },
 ])
 
-
 // ─── Editing toggles for inline fields ───────────────────────────────────────
 const editingTitle = ref(false)
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
-    <PageHeader>
-      <template #title>
-        <BaseBreadcrumbs :items="breadcrumbs" />
-      </template>
-      <template #actions>
-        <!-- Lifecycle (left) -->
-        <BaseButton
-          v-if="isOwner && cr?.statusId === 'DRAFT'"
-          variant="primary"
-          :disabled="opening"
-          @click="openOpenDialog"
-        >
-          Submit for Approval
-        </BaseButton>
-        <BaseButton
-          v-if="isOwner && canClose"
-          variant="danger"
-          :disabled="closing"
-          @click="openCloseDialog"
-        >
-          Close
-        </BaseButton>
-        <BaseButton
-          v-if="
-            isOwner && cr && !['DRAFT', 'CLOSED', 'REJECTED', 'CANCELLED'].includes(cr.statusId)
-          "
-          variant="outline"
-          :disabled="cancelling"
-          @click="openCancelDialog"
-        >
-          Cancel
-        </BaseButton>
-        <BaseButton
-          v-if="isOwner && canDelete && cr?.statusId === 'DRAFT'"
-          variant="outline"
-          :disabled="deleting"
-          @click="showDeleteDialog = true"
-        >
-          Delete
-        </BaseButton>
+  <BaseDetailPage
+    :breadcrumbs="breadcrumbs"
+    :loading="loading"
+    :notFound="!loading && !cr"
+    notFoundTitle="Change Request not found"
+    notFoundDescription="This Change Request could not be found."
+    width="standard"
+  >
+    <template #actions>
+      <!-- Lifecycle (left) -->
+      <BaseButton
+        v-if="isOwner && cr?.statusId === 'DRAFT'"
+        variant="primary"
+        :disabled="opening"
+        @click="openOpenDialog"
+      >
+        Submit for Approval
+      </BaseButton>
+      <BaseButton
+        v-if="isOwner && canClose"
+        variant="danger"
+        :disabled="closing"
+        @click="openCloseDialog"
+      >
+        Close
+      </BaseButton>
+      <BaseButton
+        v-if="isOwner && cr && !['DRAFT', 'CLOSED', 'REJECTED', 'CANCELLED'].includes(cr.statusId)"
+        variant="outline"
+        :disabled="cancelling"
+        @click="openCancelDialog"
+      >
+        Cancel
+      </BaseButton>
+      <BaseButton
+        v-if="isOwner && canDelete && cr?.statusId === 'DRAFT'"
+        variant="outline"
+        :disabled="deleting"
+        @click="showDeleteDialog = true"
+      >
+        Delete
+      </BaseButton>
 
-        <!-- Utilities (right) -->
-        <BaseButton v-if="cr?.id" variant="secondary" @click="openPrintView">
-          <IconPrinter :size="20" class="tw:mr-1" />
-          Print
-        </BaseButton>
-        <BaseButton v-if="cr?.id" variant="secondary" @click="showAuditLog = true">
-          <IconClipboardList :size="20" class="tw:mr-1" />
-          Audit Log
-        </BaseButton>
-        <AskAiButton
-          v-if="cr?.id"
-          entityType="ChangeRequest"
-          :entityId="cr.id"
-          :entityTitle="cr.title"
-          :entityNumber="cr.crNumber"
-        />
-      </template>
-    </PageHeader>
+      <!-- Utilities (right) -->
+      <BaseButton v-if="cr?.id" variant="secondary" @click="openPrintView">
+        <IconPrinter :size="20" class="tw:mr-1" />
+        Print
+      </BaseButton>
+      <BaseButton v-if="cr?.id" variant="secondary" @click="showAuditLog = true">
+        <IconClipboardList :size="20" class="tw:mr-1" />
+        Audit Log
+      </BaseButton>
+      <AskAiButton
+        v-if="cr?.id"
+        entityType="ChangeRequest"
+        :entityId="cr.id"
+        :entityTitle="cr.title"
+        :entityNumber="cr.crNumber"
+      />
+    </template>
 
-    <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <BaseSpinner size="md" />
-    </div>
+    <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+      <RecordTrailBreadcrumb />
+      <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_16fr] tw:gap-4 tw:items-start">
+        <!-- Left column -->
+        <div class="tw:flex tw:flex-col tw:gap-4">
+          <!-- Details card -->
+          <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <BaseText
+              variant="overline"
+              class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+            >
+              Change Request Details
+            </BaseText>
 
-    <div v-else-if="cr" class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
-      <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-        <RecordTrailBreadcrumb />
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_16fr] tw:gap-4 tw:items-start">
-          <!-- Left column -->
-          <div class="tw:flex tw:flex-col tw:gap-4">
-            <!-- Details card -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <BaseText
-                variant="overline"
-                class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-              >
-                Change Request Details
-              </BaseText>
-
-              <BaseTextInput
-                v-if="editingTitle && isEditable"
-                v-model="cr.title"
-                placeholder="CR title"
-                autofocus
-                class="tw:mb-2"
-                @blur="editingTitle = false"
-              />
-              <div
-                v-else
-                class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
-                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                @click="isEditable && (editingTitle = true)"
-              >
-                {{ cr.title }}
-              </div>
-
-              <BaseRichTextField
-                v-model="cr.description"
-                :editable="isEditable"
-                clickToEdit
-                clickToEditLabel="Add a description…"
-                placeholder="Describe the change…"
-                class="tw:mb-4"
-              />
-
-              <div class="tw:grid tw:grid-cols-3 tw:gap-3">
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Change Type</div>
-                  <ChangeTypeBadgeById :changeTypeId="cr.changeTypeId" />
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Classification</div>
-                  <span class="tw:text-sm tw:font-medium">{{ cr.classification || '—' }}</span>
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Priority</div>
-                  <ChangeRequestPriorityBadgeById :priorityId="cr.priorityId" />
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Initiated</div>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ cr.initiatedAt ? cr.initiatedAt.formatDate('date') : '—' }}
-                  </span>
-                </div>
-              </div>
-
+            <BaseTextInput
+              v-if="editingTitle && isEditable"
+              v-model="cr.title"
+              placeholder="CR title"
+              autofocus
+              class="tw:mb-2"
+              @blur="editingTitle = false"
+            />
+            <div
+              v-else
+              class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
+              :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+              @click="isEditable && (editingTitle = true)"
+            >
+              {{ cr.title }}
             </div>
 
-            <!-- Reason + Justification -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <BaseText
-                variant="overline"
-                class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-              >
-                Reason &amp; Justification
-              </BaseText>
-              <div class="tw:mb-4">
-                <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">
-                  Reason for Change
-                </div>
-                <BaseRichTextField
-                  v-model="cr.reasonForChange"
-                  :editable="isEditable"
-                  placeholder="What's driving this change?"
-                  textClass="tw:text-sm tw:text-on-main tw:leading-relaxed"
-                />
+            <BaseRichTextField
+              v-model="cr.description"
+              :editable="isEditable"
+              clickToEdit
+              clickToEditLabel="Add a description…"
+              placeholder="Describe the change…"
+              class="tw:mb-4"
+            />
+
+            <div class="tw:grid tw:grid-cols-3 tw:gap-3">
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary">Change Type</div>
+                <ChangeTypeBadgeById :changeTypeId="cr.changeTypeId" />
               </div>
-              <div>
-                <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">
-                  Business Justification
-                </div>
-                <BaseRichTextField
-                  v-model="cr.businessJustification"
-                  :editable="isEditable"
-                  placeholder="Cost / quality / compliance impact"
-                  textClass="tw:text-sm tw:text-on-main tw:leading-relaxed"
-                />
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary">Classification</div>
+                <span class="tw:text-sm tw:font-medium">{{ cr.classification || '—' }}</span>
+              </div>
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary">Priority</div>
+                <ChangeRequestPriorityBadgeById :priorityId="cr.priorityId" />
+              </div>
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary">Initiated</div>
+                <span class="tw:text-sm tw:font-medium">
+                  {{ cr.initiatedAt ? cr.initiatedAt.formatDate('date') : '—' }}
+                </span>
               </div>
             </div>
-
-            <!-- Related records lineage (NC / finding → this CR). Self-hides
-                 when there are no links. -->
-            <RecordLineagePanel :id="id" type="ChangeRequest" />
-
-            <!-- Raised-from-Audit context (scoped) — self-hides when this CR
-                 wasn't spawned from an audit finding. -->
-            <AuditOriginPanel entityType="ChangeRequest" :entityId="id" />
-
-            <!-- Workflow: draft preview while DRAFT, live section after Open -->
-            <ChangeRequestWorkflowDraftPreview
-              v-if="!workflowInstance && cr.statusId === 'DRAFT'"
-              :crId="id"
-              :isOwner="isOwner"
-            />
-            <ChangeRequestWorkflowSection
-              v-else-if="workflowInstance"
-              :crId="id"
-              :workflowInstanceId="workflowInstance.id"
-              :isOwner="isOwner"
-            />
           </div>
 
-          <!-- Right column -->
-          <div class="tw:flex tw:flex-col tw:gap-3">
-            <!-- Overview side card. Grouped into subsections with quiet
+          <!-- Reason + Justification -->
+          <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <BaseText
+              variant="overline"
+              class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+            >
+              Reason &amp; Justification
+            </BaseText>
+            <div class="tw:mb-4">
+              <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">
+                Reason for Change
+              </div>
+              <BaseRichTextField
+                v-model="cr.reasonForChange"
+                :editable="isEditable"
+                placeholder="What's driving this change?"
+                textClass="tw:text-sm tw:text-on-main tw:leading-relaxed"
+              />
+            </div>
+            <div>
+              <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">
+                Business Justification
+              </div>
+              <BaseRichTextField
+                v-model="cr.businessJustification"
+                :editable="isEditable"
+                placeholder="Cost / quality / compliance impact"
+                textClass="tw:text-sm tw:text-on-main tw:leading-relaxed"
+              />
+            </div>
+          </div>
+
+          <!-- Related records lineage (NC / finding → this CR). Self-hides
+                 when there are no links. -->
+          <RecordLineagePanel :id="id" type="ChangeRequest" />
+
+          <!-- Raised-from-Audit context (scoped) — self-hides when this CR
+                 wasn't spawned from an audit finding. -->
+          <AuditOriginPanel entityType="ChangeRequest" :entityId="id" />
+
+          <!-- Workflow: draft preview while DRAFT, live section after Open -->
+          <ChangeRequestWorkflowDraftPreview
+            v-if="!workflowInstance && cr.statusId === 'DRAFT'"
+            :crId="id"
+            :isOwner="isOwner"
+          />
+          <ChangeRequestWorkflowSection
+            v-else-if="workflowInstance"
+            :crId="id"
+            :workflowInstanceId="workflowInstance.id"
+            :isOwner="isOwner"
+          />
+        </div>
+
+        <!-- Right column -->
+        <div class="tw:flex tw:flex-col tw:gap-3">
+          <!-- Overview side card. Grouped into subsections with quiet
                  dividers so the right rail stays scannable — same pattern
                  NC uses (Identification → People & Location → Schedule).
                  Change Type / Classification / Priority / Initiated stay
                  in the main "Change Request Details" grid because they're
                  required at create. -->
-            <BaseOverviewPanel>
-              <BaseDetailSection title="General">
-                <BaseDetailField label="CR number">
-                  <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
-                    {{ cr.crNumber || '—' }}
-                  </BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Status">
-                  <ChangeRequestStatusBadgeById :statusId="cr.statusId" />
-                </BaseDetailField>
-              </BaseDetailSection>
+          <BaseOverviewPanel>
+            <BaseDetailSection title="General">
+              <BaseDetailField label="CR number">
+                <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
+                  {{ cr.crNumber || '—' }}
+                </BaseText>
+              </BaseDetailField>
+              <BaseDetailField label="Status">
+                <ChangeRequestStatusBadgeById :statusId="cr.statusId" />
+              </BaseDetailField>
+            </BaseDetailSection>
 
-              <BaseDetailSection title="Ownership" divided>
-                <!-- Initiator = who raised the change request (createdBy, immutable). -->
-                <BaseDetailField label="Initiator">
-                  <UserBadgeById v-if="cr.createdBy" :userId="cr.createdBy" />
-                  <BaseText v-else color="secondary">—</BaseText>
-                </BaseDetailField>
-                <!-- Responsible party = drives the CR to closure; default
+            <BaseDetailSection title="Ownership" divided>
+              <!-- Initiator = who raised the change request (createdBy, immutable). -->
+              <BaseDetailField label="Initiator">
+                <UserBadgeById v-if="cr.createdBy" :userId="cr.createdBy" />
+                <BaseText v-else color="secondary">—</BaseText>
+              </BaseDetailField>
+              <!-- Responsible party = drives the CR to closure; default
                      workflow assignment routes here. -->
-                <BaseDetailField label="Responsible party">
-                  <UserSelectMenu v-if="isEditable" v-model="cr.ownerId" :required="true" />
-                  <UserBadgeById v-else-if="cr.ownerId" :userId="cr.ownerId" />
-                  <BaseText v-else color="secondary">—</BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Site">
-                  <SiteSelectMenu v-if="isEditable" v-model="cr.siteId" :required="true" />
-                  <SiteBadgeById v-else-if="cr.siteId" :siteId="cr.siteId" />
-                  <BaseText v-else color="secondary">—</BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Department">
-                  <DepartmentSelectMenu v-if="isEditable" v-model="cr.departmentId" :required="true" />
-                  <DepartmentBadgeById v-else-if="cr.departmentId" :departmentId="cr.departmentId" />
-                  <BaseText v-else color="secondary">—</BaseText>
-                </BaseDetailField>
-              </BaseDetailSection>
+              <BaseDetailField label="Responsible party">
+                <UserSelectMenu v-if="isEditable" v-model="cr.ownerId" :required="true" />
+                <UserBadgeById v-else-if="cr.ownerId" :userId="cr.ownerId" />
+                <BaseText v-else color="secondary">—</BaseText>
+              </BaseDetailField>
+              <BaseDetailField label="Site">
+                <SiteSelectMenu v-if="isEditable" v-model="cr.siteId" :required="true" />
+                <SiteBadgeById v-else-if="cr.siteId" :siteId="cr.siteId" />
+                <BaseText v-else color="secondary">—</BaseText>
+              </BaseDetailField>
+              <BaseDetailField label="Department">
+                <DepartmentSelectMenu
+                  v-if="isEditable"
+                  v-model="cr.departmentId"
+                  :required="true"
+                />
+                <DepartmentBadgeById v-else-if="cr.departmentId" :departmentId="cr.departmentId" />
+                <BaseText v-else color="secondary">—</BaseText>
+              </BaseDetailField>
+            </BaseDetailSection>
 
-              <!-- Notify (cc) — groups/people emailed + in-app on status change -->
-              <BaseDetailSection title="Notify (cc)" divided>
-                <NotificationCcField
-                  v-model:groupIds="cr.notifyGroupIds"
-                  v-model:userIds="cr.notifyUserIds"
-                  :editable="isEditable"
-                  hint=""
-                />
-              </BaseDetailSection>
+            <!-- Notify (cc) — groups/people emailed + in-app on status change -->
+            <BaseDetailSection title="Notify (cc)" divided>
+              <NotificationCcField
+                v-model:groupIds="cr.notifyGroupIds"
+                v-model:userIds="cr.notifyUserIds"
+                :editable="isEditable"
+                hint=""
+              />
+            </BaseDetailSection>
 
-              <BaseDetailSection title="Schedule" divided>
-                <BaseDetailField label="Due date">
-                  <BaseDatePicker v-if="isEditable" v-model="cr.dueDate" class="tw:w-full" />
-                  <span
-                    v-else
-                    class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
-                    :class="isOverdue ? 'tw:text-red-600' : ''"
-                  >
-                    <span>{{ cr.dueDate ? cr.dueDate.formatDate('date') : '—' }}</span>
-                    <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
-                  </span>
-                </BaseDetailField>
-                <BaseDetailField label="Target implementation">
-                  <BaseDatePicker
-                    v-if="isEditable"
-                    v-model="cr.targetImplementationDate"
-                    class="tw:w-full"
-                  />
-                  <BaseText v-else variant="body" weight="medium">
-                    {{
-                      cr.targetImplementationDate
-                        ? cr.targetImplementationDate.formatDate('date')
-                        : '—'
-                    }}
-                  </BaseText>
-                </BaseDetailField>
-                <BaseDetailField
-                  label="Submitted"
-                  :value="cr.submittedAt ? cr.submittedAt.formatDate('date') : null"
+            <BaseDetailSection title="Schedule" divided>
+              <BaseDetailField label="Due date">
+                <BaseDatePicker v-if="isEditable" v-model="cr.dueDate" class="tw:w-full" />
+                <span
+                  v-else
+                  class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
+                  :class="isOverdue ? 'tw:text-red-600' : ''"
+                >
+                  <span>{{ cr.dueDate ? cr.dueDate.formatDate('date') : '—' }}</span>
+                  <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
+                </span>
+              </BaseDetailField>
+              <BaseDetailField label="Target implementation">
+                <BaseDatePicker
+                  v-if="isEditable"
+                  v-model="cr.targetImplementationDate"
+                  class="tw:w-full"
                 />
-                <BaseDetailField
-                  label="Approved"
-                  :value="cr.approvedAt ? cr.approvedAt.formatDate('date') : null"
-                />
-              </BaseDetailSection>
-            </BaseOverviewPanel>
-          </div>
+                <BaseText v-else variant="body" weight="medium">
+                  {{
+                    cr.targetImplementationDate
+                      ? cr.targetImplementationDate.formatDate('date')
+                      : '—'
+                  }}
+                </BaseText>
+              </BaseDetailField>
+              <BaseDetailField
+                label="Submitted"
+                :value="cr.submittedAt ? cr.submittedAt.formatDate('date') : null"
+              />
+              <BaseDetailField
+                label="Approved"
+                :value="cr.approvedAt ? cr.approvedAt.formatDate('date') : null"
+              />
+            </BaseDetailSection>
+          </BaseOverviewPanel>
         </div>
       </div>
     </div>
-
-    <BaseEmptyState
-      v-else
-      title="Change Request not found"
-      description="This Change Request could not be found."
-    />
 
     <!-- Submit-for-Approval dialog -->
     <BaseDialog v-model="showOpenDialog" title="Submit for Approval" maxWidth="md">
@@ -653,5 +643,5 @@ const editingTitle = ref(false)
       :includeEntities="auditIncludeEntities"
       :title="`Audit Log — ${cr?.crNumber ?? 'Change Request'}`"
     />
-  </BasePage>
+  </BaseDetailPage>
 </template>

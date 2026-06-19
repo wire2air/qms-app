@@ -43,7 +43,7 @@ function removeAnswer(index) {
           :size="16"
           class="tw:text-secondary tw:cursor-grab tw:active:cursor-grabbing tw:hover:text-on-sidebar tw:transition-colors drag-handle"
         />
-        <span class="ds-label tw:text-on-sidebar"> Question 1 </span>
+        <BaseText variant="overline" color="inherit" class="tw:text-on-sidebar">Question 1</BaseText>
       </div>
 
       <BaseButton variant="danger" iconOnly size="xs">

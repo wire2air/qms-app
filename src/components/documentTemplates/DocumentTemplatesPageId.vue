@@ -4,7 +4,6 @@ import {
   IconSettings,
   IconArchive,
   IconArchiveOff,
-  IconArrowLeft,
   IconSend,
 } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
@@ -42,7 +41,6 @@ const editingName = ref(false)
 const { confirm } = useConfirm()
 
 useAutoSave(template, { onError: (err) => toast.error(err) })
-
 
 async function onPublish() {
   if (!template.value) return
@@ -100,203 +98,176 @@ async function onUnarchive() {
     toast.error(err)
   }
 }
-
-function goBack() {
-  router.push(getCompanyPath('/document-templates'))
-}
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
-    <PageHeader v-if="template">
-      <template #title>
-        <div class="tw:flex tw:items-center tw:gap-3">
-          <!-- Editable name -->
-          <template v-if="editingName && canEdit">
-            <BaseTextInput
-              v-model="template.name"
-              placeholder="Template Name"
-              size="sm"
-              @keyup.enter="editingName = false"
-              @blur="editingName = false"
-            />
-          </template>
-          <h1
-            v-else
-            class="tw:text-3xl tw:font-black tw:text-on-sidebar"
-            :class="{ 'tw:cursor-pointer tw:hover:text-primary': canEdit }"
-            @click="canEdit && (editingName = true)"
-          >
-            {{ template.name }}
-          </h1>
-
-          <DocumentTemplateStatusBadgeById :statusId="template.statusId" />
-        </div>
-      </template>
-      <template #subtitle>
-        Document prefix:
-        <span class="tw:font-mono tw:font-bold">{{ template.prefix }}</span>
-      </template>
-      <template #actions>
-        <button
-          v-if="canUpdate && template?.statusId === 'DRAFT'"
-          class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:bg-primary tw:text-white tw:text-sm tw:font-medium tw:hover:bg-primary/90 tw:transition-colors"
-          @click="onPublish"
+  <BaseDetailPage
+    :loading="loading"
+    :notFound="!loading && !template"
+    notFoundTitle="Template not found"
+    width="standard"
+  >
+    <template v-if="template" #title>
+      <div class="tw:flex tw:items-center tw:gap-3">
+        <!-- Editable name -->
+        <template v-if="editingName && canEdit">
+          <BaseTextInput
+            v-model="template.name"
+            placeholder="Template Name"
+            size="sm"
+            @keyup.enter="editingName = false"
+            @blur="editingName = false"
+          />
+        </template>
+        <h1
+          v-else
+          class="tw:text-3xl tw:font-black tw:text-on-sidebar"
+          :class="{ 'tw:cursor-pointer tw:hover:text-primary': canEdit }"
+          @click="canEdit && (editingName = true)"
         >
-          <IconSend :size="16" />
-          Publish
-        </button>
-        <button
-          v-if="canArchive && template?.statusId !== 'ARCHIVED'"
-          class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:border tw:border-red-300 tw:text-red-600 tw:text-sm tw:font-medium tw:hover:bg-red-50 tw:transition-colors"
-          @click="onArchive"
-        >
-          <IconArchive :size="16" />
-          Archive
-        </button>
-        <button
-          v-if="canArchive && template?.statusId === 'ARCHIVED'"
-          class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:border tw:border-primary tw:text-primary tw:text-sm tw:font-medium tw:hover:bg-primary/10 tw:transition-colors"
-          @click="onUnarchive"
-        >
-          <IconArchiveOff :size="16" />
-          Unarchive
-        </button>
-      </template>
-    </PageHeader>
+          {{ template.name }}
+        </h1>
 
-
-    <!-- Loading State -->
-    <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <BaseSpinner size="lg" />
-    </div>
+        <DocumentTemplateStatusBadgeById :statusId="template.statusId" />
+      </div>
+    </template>
+    <template #actions>
+      <button
+        v-if="canUpdate && template?.statusId === 'DRAFT'"
+        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:bg-primary tw:text-white tw:text-sm tw:font-medium tw:hover:bg-primary/90 tw:transition-colors"
+        @click="onPublish"
+      >
+        <IconSend :size="16" />
+        Publish
+      </button>
+      <button
+        v-if="canArchive && template?.statusId !== 'ARCHIVED'"
+        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:border tw:border-red-300 tw:text-red-600 tw:text-sm tw:font-medium tw:hover:bg-red-50 tw:transition-colors"
+        @click="onArchive"
+      >
+        <IconArchive :size="16" />
+        Archive
+      </button>
+      <button
+        v-if="canArchive && template?.statusId === 'ARCHIVED'"
+        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:border tw:border-primary tw:text-primary tw:text-sm tw:font-medium tw:hover:bg-primary/10 tw:transition-colors"
+        @click="onUnarchive"
+      >
+        <IconArchiveOff :size="16" />
+        Unarchive
+      </button>
+    </template>
 
     <!-- Template Details -->
-    <div v-else-if="template" class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:py-6">
-      <div class="tw:space-y-6">
-        <!-- Basic Information Card -->
-        <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-          <div
-            class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
-          >
-            <IconInfoCircle :size="22" class="tw:text-primary" />
-            <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Basic Information</h2>
-          </div>
-          <div class="tw:p-6 tw:grid tw:grid-cols-2 tw:gap-6">
-            <div>
-              <p class="tw:text-secondary tw:mb-1">Document Prefix</p>
-              <BaseTextInput
-                v-if="canEdit"
-                v-model="template.prefix"
-                placeholder="Prefix"
-                size="sm"
-              />
-              <p v-else class="tw:font-mono tw:font-bold tw:text-on-sidebar">
-                {{ template.prefix }}
-              </p>
-            </div>
-            <div>
-              <p class="tw:text-secondary tw:mb-1">Department</p>
-              <DepartmentSelectMenu v-if="canEdit" v-model="template.departmentId" />
-              <template v-else>
-                <DepartmentBadgeById
-                  v-if="template.departmentId"
-                  :departmentId="template.departmentId"
-                />
-                <span v-else class="tw:text-sm tw:text-secondary">—</span>
-              </template>
-            </div>
-            <div>
-              <p class="tw:text-secondary tw:mb-1">Related Standard</p>
-              <RelatedStandardSelectMenu v-if="canEdit" v-model="template.relatedStandardId" />
-              <template v-else>
-                <RelatedStandardBadgeById
-                  v-if="template.relatedStandardId"
-                  :relatedStandardId="template.relatedStandardId"
-                />
-                <span v-else class="tw:text-sm tw:text-secondary">—</span>
-              </template>
-            </div>
-            <BaseDetailField label="Created Date" :value="template.createdAt?.formatDate('date')" />
-            <BaseDetailField label="Last Modified" :value="template.updatedAt?.formatDate('date')" />
-
-          </div>
+    <div v-if="template" class="tw:py-6 tw:space-y-6">
+      <!-- Basic Information Card -->
+      <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
+        <div
+          class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
+        >
+          <IconInfoCircle :size="22" class="tw:text-primary" />
+          <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Basic Information</h2>
         </div>
-
-        <!-- Default Settings Card -->
-        <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-          <div
-            class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
-          >
-            <IconSettings :size="22" class="tw:text-primary" />
-            <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Default Settings</h2>
+        <div class="tw:p-6 tw:grid tw:grid-cols-2 tw:gap-6">
+          <div>
+            <p class="tw:text-secondary tw:mb-1">Document Prefix</p>
+            <BaseTextInput
+              v-if="canEdit"
+              v-model="template.prefix"
+              placeholder="Prefix"
+              size="sm"
+            />
+            <p v-else class="tw:font-mono tw:font-bold tw:text-on-sidebar">
+              {{ template.prefix }}
+            </p>
           </div>
-          <div class="tw:p-6 tw:grid tw:grid-cols-2 tw:md:grid-cols-3 tw:gap-6">
-            <div>
-              <p class="tw:text-secondary tw:mb-1">Training Available</p>
-              <BaseSwitch v-model="template.trainingAvailable" :disabled="!canEdit" />
-            </div>
-            <div>
-              <p class="tw:text-secondary tw:mb-1">Retraining on Version</p>
-              <BaseSwitch v-model="template.retrainingOnVersion" :disabled="!canEdit" />
-            </div>
-            <div>
-              <p class="tw:text-secondary tw:mb-1">Periodic Review</p>
-              <BaseTextInput
-                v-if="canEdit"
-                v-model="template.periodicReviewMonths"
-                type="number"
-                placeholder="Months"
+          <div>
+            <p class="tw:text-secondary tw:mb-1">Department</p>
+            <DepartmentSelectMenu v-if="canEdit" v-model="template.departmentId" />
+            <template v-else>
+              <DepartmentBadgeById
+                v-if="template.departmentId"
+                :departmentId="template.departmentId"
               />
-              <p v-else class="tw:text-on-sidebar">{{ template.periodicReviewMonths }} months</p>
-            </div>
-            <div>
-              <p class="tw:text-secondary tw:mb-1">Review Limit</p>
-              <BaseTextInput
-                v-if="canEdit"
-                v-model="template.reviewLimitDays"
-                type="number"
-                placeholder="Days"
-              />
-              <p v-else class="tw:text-on-sidebar">{{ template.reviewLimitDays }} days</p>
-            </div>
-            <div>
-              <p class="tw:text-secondary tw:mb-1">Approval Limit</p>
-              <BaseTextInput
-                v-if="canEdit"
-                v-model="template.approvalLimitDays"
-                type="number"
-                placeholder="Days"
-              />
-              <p v-else class="tw:text-on-sidebar">{{ template.approvalLimitDays }} days</p>
-            </div>
-            <div>
-              <p class="tw:text-secondary tw:mb-1">Auto Effective</p>
-              <BaseSwitch v-model="template.autoEffectiveOnApproval" :disabled="!canEdit" />
-            </div>
-            <div>
-              <p class="tw:text-secondary tw:mb-1">Show Section Titles</p>
-              <BaseSwitch v-model="template.showSectionTitles" :disabled="!canEdit" />
-            </div>
+              <span v-else class="tw:text-sm tw:text-secondary">—</span>
+            </template>
           </div>
+          <div>
+            <p class="tw:text-secondary tw:mb-1">Related Standard</p>
+            <RelatedStandardSelectMenu v-if="canEdit" v-model="template.relatedStandardId" />
+            <template v-else>
+              <RelatedStandardBadgeById
+                v-if="template.relatedStandardId"
+                :relatedStandardId="template.relatedStandardId"
+              />
+              <span v-else class="tw:text-sm tw:text-secondary">—</span>
+            </template>
+          </div>
+          <BaseDetailField label="Created Date" :value="template.createdAt?.formatDate('date')" />
+          <BaseDetailField label="Last Modified" :value="template.updatedAt?.formatDate('date')" />
         </div>
-
-        <!-- Sections Card -->
-        <DocumentSectionsEditor v-model="template.sections" :readonly="!canEdit" />
       </div>
-    </div>
 
-    <!-- Error State -->
-    <div v-else class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:h-full tw:gap-4">
-      <div class="tw:text-xl tw:text-secondary">Template not found</div>
-      <button
-        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:border tw:border-divider tw:text-sm tw:font-medium tw:hover:bg-main-hover tw:transition-colors"
-        @click="goBack"
-      >
-        <IconArrowLeft :size="16" />
-        Go Back
-      </button>
-    </div>
+      <!-- Default Settings Card -->
+      <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
+        <div
+          class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
+        >
+          <IconSettings :size="22" class="tw:text-primary" />
+          <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Default Settings</h2>
+        </div>
+        <div class="tw:p-6 tw:grid tw:grid-cols-2 tw:md:grid-cols-3 tw:gap-6">
+          <div>
+            <p class="tw:text-secondary tw:mb-1">Training Available</p>
+            <BaseSwitch v-model="template.trainingAvailable" :disabled="!canEdit" />
+          </div>
+          <div>
+            <p class="tw:text-secondary tw:mb-1">Retraining on Version</p>
+            <BaseSwitch v-model="template.retrainingOnVersion" :disabled="!canEdit" />
+          </div>
+          <div>
+            <p class="tw:text-secondary tw:mb-1">Periodic Review</p>
+            <BaseTextInput
+              v-if="canEdit"
+              v-model="template.periodicReviewMonths"
+              type="number"
+              placeholder="Months"
+            />
+            <p v-else class="tw:text-on-sidebar">{{ template.periodicReviewMonths }} months</p>
+          </div>
+          <div>
+            <p class="tw:text-secondary tw:mb-1">Review Limit</p>
+            <BaseTextInput
+              v-if="canEdit"
+              v-model="template.reviewLimitDays"
+              type="number"
+              placeholder="Days"
+            />
+            <p v-else class="tw:text-on-sidebar">{{ template.reviewLimitDays }} days</p>
+          </div>
+          <div>
+            <p class="tw:text-secondary tw:mb-1">Approval Limit</p>
+            <BaseTextInput
+              v-if="canEdit"
+              v-model="template.approvalLimitDays"
+              type="number"
+              placeholder="Days"
+            />
+            <p v-else class="tw:text-on-sidebar">{{ template.approvalLimitDays }} days</p>
+          </div>
+          <div>
+            <p class="tw:text-secondary tw:mb-1">Auto Effective</p>
+            <BaseSwitch v-model="template.autoEffectiveOnApproval" :disabled="!canEdit" />
+          </div>
+          <div>
+            <p class="tw:text-secondary tw:mb-1">Show Section Titles</p>
+            <BaseSwitch v-model="template.showSectionTitles" :disabled="!canEdit" />
+          </div>
+        </div>
+      </div>
 
-  </BasePage>
+      <!-- Sections Card -->
+      <DocumentSectionsEditor v-model="template.sections" :readonly="!canEdit" />
+    </div>
+  </BaseDetailPage>
 </template>

@@ -39,7 +39,10 @@ const RULES = [
   {
     id: 'no-raw-heading',
     re: /<h[1-6]\b/g,
-    baseline: 127,
+    // Tightened after the ds-label sweep retired several raw headings. Still
+    // includes the supplier-portal merge's un-swept src/pages/supplier/*
+    // headings — tracked debt to sweep to BaseHeading later.
+    baseline: 125,
     hint: 'raw <h1-6> — use BaseHeading (semantic level + visual size)',
   },
 ]

@@ -146,9 +146,9 @@ function onDuplicate() {
         <div class="tw:text-sm tw:font-bold tw:text-on-main tw:truncate">
           {{ field.label || field.name || field.type }}
         </div>
-        <div class="ds-label-sm tw:text-secondary/60">
+        <BaseText as="div" variant="overline" color="inherit" class="tw:text-secondary/60">
           {{ field.type }}
-        </div>
+        </BaseText>
       </div>
       <div class="tw:flex-1" />
       <IconGripVertical
@@ -201,7 +201,9 @@ function onDuplicate() {
           class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:py-4"
         >
           <IconCirclePlus :size="24" class="tw:text-secondary/20 tw:mb-1" />
-          <div class="ds-label-sm tw:text-secondary/40">Drop nested fields here</div>
+          <BaseText as="div" variant="overline" color="inherit" class="tw:text-secondary/40">
+            Drop nested fields here
+          </BaseText>
         </div>
       </div>
     </div>

@@ -172,7 +172,9 @@ defineExpose({ addStep })
   >
     <!-- Header -->
     <div class="tw:p-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between">
-      <h2 class="ds-label tw:text-on-main">Workflow Sequence</h2>
+      <BaseText as="h2" variant="overline" color="inherit" class="tw:text-on-main">
+        Workflow Sequence
+      </BaseText>
       <span
         class="tw:text-xs tw:font-medium tw:text-secondary tw:bg-main tw:px-2 tw:py-0.5 tw:rounded"
       >

@@ -1,11 +1,5 @@
 <script setup>
-import {
-  IconHistory,
-  IconAlertCircle,
-  IconArrowLeft,
-  IconSearch,
-  IconSquareCheck,
-} from '@tabler/icons-vue'
+import { IconHistory, IconSearch, IconSquareCheck } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { useRolePermissions } from '@/composables/useRolePermissions.js'
 import { useRoles } from '@/composables/useRoles.js'
@@ -226,80 +220,48 @@ watch(
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
-    <!-- Loading State -->
-    <div v-if="loading && !role" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <BaseSpinner size="lg" />
-    </div>
-
-    <!-- Error State -->
-    <div
-      v-else-if="error && !role"
-      class="tw:flex tw:items-center tw:justify-center tw:h-full tw:flex-col tw:gap-4"
-    >
-      <IconAlertCircle :size="48" class="tw:text-red-500" />
-      <div class="tw:text-lg tw:text-on-sidebar">{{ error }}</div>
+  <BaseDetailPage
+    :breadcrumbs="breadcrumbItems"
+    :loading="loading && !role"
+    :notFound="error && !role"
+    notFoundTitle="Role not found"
+    width="standard"
+  >
+    <template #actions>
+      <template v-if="canUpdateRole">
+        <button
+          class="tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-secondary tw:bg-transparent tw:border tw:border-divider tw:rounded-lg tw:cursor-pointer tw:hover:bg-main-hover tw:transition-colors"
+          @click="goBack"
+        >
+          Cancel
+        </button>
+        <button
+          class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:disabled:opacity-50"
+          :disabled="loading"
+          @click="saveChanges"
+        >
+          <BaseSpinner v-if="loading" size="sm" color="white" class="tw:mr-1" />
+          Save Changes
+        </button>
+      </template>
       <button
-        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:border tw:border-primary tw:text-primary tw:rounded-lg tw:bg-transparent tw:cursor-pointer tw:hover:bg-primary/5 tw:transition-colors"
-        @click="goBack"
+        v-if="role && canUpdateRole && isInactive"
+        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-green-700 tw:bg-transparent tw:border tw:border-green-600 tw:rounded-lg tw:cursor-pointer tw:hover:bg-green-50 tw:transition-colors"
+        @click="handleActivate"
       >
-        <IconArrowLeft :size="18" />
-        Go Back
+        Activate
       </button>
-    </div>
-
-    <!-- Content -->
-    <div v-else-if="role" class="tw:flex tw:flex-col tw:h-full tw:overflow-hidden">
-      <PageHeader>
-        <template #title>
-          <nav class="tw:flex tw:items-center tw:gap-1 tw:text-sm">
-            <RouterLink
-              :to="breadcrumbItems[0].to"
-              class="tw:text-secondary tw:hover:text-on-main"
-              >{{ breadcrumbItems[0].label }}</RouterLink
-            >
-            <span class="tw:text-secondary tw:mx-1">/</span>
-            <span class="tw:text-on-main tw:font-medium">{{ breadcrumbItems[1].label }}</span>
-          </nav>
-        </template>
-        <template #actions>
-          <template v-if="canUpdateRole">
-            <button
-              class="tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-secondary tw:bg-transparent tw:border tw:border-divider tw:rounded-lg tw:cursor-pointer tw:hover:bg-main-hover tw:transition-colors"
-              @click="goBack"
-            >
-              Cancel
-            </button>
-            <button
-              class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:disabled:opacity-50"
-              :disabled="loading"
-              @click="saveChanges"
-            >
-              <BaseSpinner v-if="loading" size="sm" color="white" class="tw:mr-1" />
-              Save Changes
-            </button>
-          </template>
-          <button
-            v-if="role && canUpdateRole && isInactive"
-            class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-green-700 tw:bg-transparent tw:border tw:border-green-600 tw:rounded-lg tw:cursor-pointer tw:hover:bg-green-50 tw:transition-colors"
-            @click="handleActivate"
-          >
-            Activate
-          </button>
-          <button
-            v-else-if="role && canUpdateRole && !isInactive"
-            class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-amber-700 tw:bg-transparent tw:border tw:border-amber-600 tw:rounded-lg tw:cursor-pointer tw:hover:bg-amber-50 tw:transition-colors"
-            @click="handleDeactivate"
-          >
-            Deactivate
-          </button>
-        </template>
-      </PageHeader>
-
-      <!-- Scrollable Content -->
-      <div
-        class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto custom-scrollbar tw:py-6 tw:space-y-6"
+      <button
+        v-else-if="role && canUpdateRole && !isInactive"
+        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-amber-700 tw:bg-transparent tw:border tw:border-amber-600 tw:rounded-lg tw:cursor-pointer tw:hover:bg-amber-50 tw:transition-colors"
+        @click="handleDeactivate"
       >
+        Deactivate
+      </button>
+    </template>
+
+    <template v-if="role">
+      <div class="tw:py-6 tw:space-y-6">
         <!-- Role Info Card -->
         <section class="tw:bg-layer tw:rounded-xl tw:border tw:border-sidebar tw:p-6 tw:shadow-sm">
           <div class="tw:flex tw:flex-wrap tw:justify-between tw:items-start tw:gap-4">
@@ -365,7 +327,7 @@ watch(
               </div>
             </div>
             <div class="tw:flex tw:flex-col tw:items-end tw:gap-3">
-              <div class="ds-label tw:text-secondary">Assigned Users</div>
+              <BaseText variant="overline">Assigned Users</BaseText>
               <div class="tw:flex tw:items-center tw:gap-2">
                 <div
                   class="tw:w-10 tw:h-10 tw:rounded-full tw:bg-primary/10 tw:flex tw:items-center tw:justify-center tw:text-sm tw:font-bold tw:text-primary"
@@ -419,7 +381,7 @@ watch(
           :canUpdateRole="canUpdateRole"
         />
       </div>
-    </div>
+    </template>
 
     <!-- Users Assignment Dialog -->
     <RoleUsersDialog
@@ -430,5 +392,5 @@ watch(
       :assignedUsers="assignedUsers"
       @saved="fetchRoleData"
     />
-  </BasePage>
+  </BaseDetailPage>
 </template>
