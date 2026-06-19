@@ -152,6 +152,12 @@ function onRaiseNc() {
 <template>
   <BasePage width="standard">
     <PageHeader title="Nonconformances" subtitle="Track, investigate and close nonconformances.">
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Nonconformances
+          <HelpButton slug="KB/quality/nonconformances" :size="16" />
+        </span>
+      </template>
       <template #actions>
         <BaseButton variant="outline" :disabled="!ncs.length" @click="exportCsv">
           <IconDownload :size="16" class="tw:mr-1" />

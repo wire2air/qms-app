@@ -219,6 +219,20 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/help/': RouteRecordInfo<
+      '/help/',
+      '/help',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/help/[...slug]': RouteRecordInfo<
+      '/help/[...slug]',
+      '/help/:slug(.*)',
+      { slug: ParamValue<true> },
+      { slug: ParamValue<false> },
+      | never
+    >,
     '/inspections-logs/': RouteRecordInfo<
       '/inspections-logs/',
       '/inspections-logs',
@@ -315,6 +329,13 @@ declare module 'vue-router/auto-routes' {
       '/nonconformances/:id?',
       { id?: ParamValueZeroOrOne<true> },
       { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/notification-rules': RouteRecordInfo<
+      '/notification-rules',
+      '/notification-rules',
+      Record<never, never>,
+      Record<never, never>,
       | never
     >,
     '/notifications': RouteRecordInfo<
@@ -722,6 +743,18 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/help/index.vue': {
+      routes:
+        | '/help/'
+      views:
+        | never
+    }
+    'src/pages/help/[...slug].vue': {
+      routes:
+        | '/help/[...slug]'
+      views:
+        | never
+    }
     'src/pages/inspections-logs/index.vue': {
       routes:
         | '/inspections-logs/'
@@ -803,6 +836,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/nonconformances/[[id]].vue': {
       routes:
         | '/nonconformances/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/notification-rules.vue': {
+      routes:
+        | '/notification-rules'
       views:
         | never
     }

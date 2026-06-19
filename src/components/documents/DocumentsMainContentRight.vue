@@ -124,17 +124,32 @@ watch(
           <IconSettings class="tw:size-4" />
         </BaseText>
         <div class="tw:space-y-3">
-          <!-- ID + Owner -->
+          <!-- Document ID -->
+          <div>
+            <BaseLabel color="secondary">Document ID</BaseLabel>
+            <p class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mt-1">
+              {{ document.docNumber }}
+            </p>
+          </div>
+
+          <!-- Owner + Author (co-author model): Owner is accountable for the
+               lifecycle (periodic review, effectiveness, default step assignee);
+               Author is the originator. Both reassignable inline when editable. -->
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
             <div>
-              <BaseLabel color="secondary">Document ID</BaseLabel>
-              <p class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mt-1">
-                {{ document.docNumber }}
-              </p>
+              <BaseLabel color="secondary">Owner</BaseLabel>
+              <div class="tw:mt-1">
+                <UserSelectMenu v-if="canEdit" v-model="document.userId" :required="true" />
+                <UserBadgeById v-else :userId="document.userId" />
+              </div>
             </div>
             <div>
-              <BaseLabel color="secondary">Owner</BaseLabel>
-              <div class="tw:mt-1"><UserBadgeById :userId="document.userId" /></div>
+              <BaseLabel color="secondary">Author</BaseLabel>
+              <div class="tw:mt-1">
+                <UserSelectMenu v-if="canEdit" v-model="document.authorId" :required="true" />
+                <UserBadgeById v-else-if="document.authorId" :userId="document.authorId" />
+                <span v-else class="tw:text-sm tw:text-secondary">—</span>
+              </div>
             </div>
           </div>
 

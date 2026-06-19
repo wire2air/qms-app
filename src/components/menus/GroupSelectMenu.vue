@@ -8,6 +8,13 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  // Empty-state placeholder, standardized to "— Select Group —" (matches
+  // Site/Department pickers). The dropdown still offers an "all" row when the
+  // menu isn't required.
+  nullLabel: {
+    type: String,
+    default: '— Select Group —',
+  },
 })
 
 const modelValue = defineModel({
@@ -37,7 +44,7 @@ function getArray() {
               @clear="() => scope.clear(teamId)"
             />
           </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> — All groups — </span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">{{ nullLabel }}</span>
         </template>
 
         <!-- SINGLE MODE -->
@@ -49,7 +56,7 @@ function getArray() {
             selectable
             @clear="() => scope.clear(modelValue)"
           />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> — All groups — </span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">{{ nullLabel }}</span>
         </template>
       </slot>
     </template>

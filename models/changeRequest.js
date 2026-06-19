@@ -49,6 +49,8 @@ export class ChangeRequest extends BaseModel {
   @Property({ type: DateTime }) cancelledAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) cancelledBy = /** @type {String} */ (null)
   @Property({ type: String }) cancelReason = /** @type {String} */ (null)
+  @Property({ type: Array }) notifyGroupIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyUserIds = /** @type {Array} */ ([])
   @Property({ type: String, required: true }) createdBy = ''
   @Property({ type: String, required: true }) updatedBy = ''
   @Property({ type: DateTime, required: true, timestamp: true })

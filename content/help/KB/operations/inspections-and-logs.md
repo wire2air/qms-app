@@ -1,0 +1,132 @@
+---
+id: inspections-and-logs
+title: Inspections & Logs
+sidebar_position: 1
+description: Build log books, schedule who fills them, complete entries from your task inbox, and review the records they produce.
+keywords: [inspections, log books, field records, assignments, scheduling, review]
+---
+
+# Inspections & Logs
+
+## Overview
+
+Inspections & Logs is where your team captures routine field entries: daily temperature
+checks, gemba rounds, shift handovers, cleaning logs, calibrations, and batch-release
+records. You build a **log book** to define what each entry looks like, optionally schedule
+**who** fills it and **when**, and every completed entry is saved as a permanent **log**
+(also called a field record). Once an entry's edit window closes, it locks and can no longer
+be quietly changed, which gives you a trustworthy audit trail.
+
+The module landing page shows four quick stat tiles (My queue, Awaiting your review, Missed
+this week, Submitted this week) and cards that take you into Log Books, Log Book Assignments,
+My Tasks, and Logs.
+
+## Key concepts
+
+### Log book classifications
+
+When you create a log book you choose how strict it is. This sets sensible defaults for
+edit windows, signatures, and review.
+
+| Classification | Best for | Edit window | E-signature | Reviewer approval |
+| --- | --- | --- | --- | --- |
+| Operational | Routine field entries (temperature, gemba, walk-throughs) | Auto-locks ~15 min after submit | Not required | Not required |
+| Controlled | Regulated records (batch release, deviations, calibrations) | Stays open until reviewed | Required on submit | Second-person review before locking |
+
+### Edit window options
+
+| Setting | What it means |
+| --- | --- |
+| Time window | Edits allowed for a set number of minutes after submit |
+| Until next entry | Edits allowed until the next entry is logged |
+| Until reviewed | Edits allowed until a reviewer signs off |
+| No edits after submit | The entry locks immediately |
+
+### Log (field record) statuses
+
+| Status | What it means |
+| --- | --- |
+| Submitted (in window) | Just entered; still editable until the window closes |
+| Completed | Locked; no further edits allowed |
+| Under review | Waiting for a supervisor or reviewer to approve or reject |
+| Approved | Reviewer accepted the entry |
+| Rejected | Reviewer sent it back |
+| Voided | Cancelled with a recorded reason; kept for the audit trail |
+
+### Assignment schedule types
+
+| Type | What it does |
+| --- | --- |
+| Recurring | Repeats on a schedule you set (frequency plus timezone) |
+| Ad-hoc | No schedule; the log book is available to fill on demand |
+
+## How to create a log book
+
+1. Open **Inspections & Logs** and select the **Log Books** card.
+2. Click **New Log Book** (or pick the Operational or Controlled quick-create card).
+3. In the dialog, give it a title, code, and category (for example Daily, Calibration,
+   Cleaning, Safety), then confirm the classification.
+4. After it's created you land on the new log book's detail page, opened to the **Schema**
+   tab. Add the fields people will fill in.
+5. On the **Details** tab, set the supervisor, edit-window behavior, whether a signature or
+   review is required, and any compliance references (related standard, regulatory citation,
+   retention). You can also link the log book to controlling documents (for example "this log
+   book implements SOP-001") so auditors can trace from a procedure to its evidence.
+
+:::tip
+Use the **Category** filter on the Log Books list to quickly find a log book by its type,
+and the **Type** filter to separate operational from controlled log books.
+:::
+
+### Controlled log book versions
+
+Controlled log books keep a controlled revision history on the **Versions** tab. A version
+moves through Draft, then Under review, then Effective; the new effective version supersedes
+the prior one. Submitting a draft routes it through your approval workflow, so attach a
+workflow on the Details tab before submitting.
+
+## How to schedule who fills a log book
+
+1. From the landing page, open **Log Book Assignments**, then click **New Assignment** (you
+   need the assignment permission). You can also add one from a log book's **Assignments** tab.
+2. Choose the log book this plan covers.
+3. Pick the schedule. For a recurring plan, set the frequency and timezone; for ad-hoc,
+   choose ad-hoc so it can be filled on demand.
+4. Assign it to specific people or to a role.
+5. Set the completion window and **grace** period. These scale with frequency (for example a
+   daily check defaults to a 4-hour window with 2 hours grace; a monthly check gets several
+   days). Choose what happens if the window and grace lapse unfilled — mark it missed or keep
+   it open.
+6. Make sure **Active** is on and save.
+
+The scheduler then creates upcoming occurrences automatically and drops each due entry into
+the assignee's task inbox. On the assignments list you can toggle a plan Active or Inactive
+and edit it at any time.
+
+## How to fill a log
+
+1. Scheduled inspections and log collections appear in **My Tasks** (your unified task
+   inbox), alongside approvals and reviews. Open a task and complete the form.
+2. To log something unprompted, use **Submit a log**, pick the log book, and fill it in.
+3. Submit. The entry is saved as a log. Operational entries lock after their short edit
+   window; controlled entries require your e-signature and then wait for review.
+
+:::note
+The old "My Queue" page now redirects to My Tasks, so all of your due inspections and logs
+live in one inbox.
+:::
+
+## How to review and find logs
+
+1. Open the **Logs** card to see every entry submitted across your log books. Filter by log
+   book or by status to narrow the list.
+2. To review entries waiting on you, use the **Awaiting your review** tile on the landing
+   page, or filter Logs to **Under review**.
+3. Tick the checkbox on the entries you want to act on, then choose **Approve** or **Reject**.
+   Both outcomes require your e-signature and let you add a comment in one step.
+
+:::warning
+Logs are immutable once their edit window closes. To correct a locked entry you amend or void
+it (with a reason) rather than overwriting it, so the original is preserved for the audit
+trail.
+:::

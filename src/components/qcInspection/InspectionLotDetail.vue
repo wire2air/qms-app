@@ -707,6 +707,9 @@ async function saveDispositionNotes() {
         :sampleSize="lot.sampleSize"
         :singleResult="!hasPerSampleResults"
       />
+
+      <!-- Related records lineage (this lot → NC it caused). Self-hides when none. -->
+      <RecordLineagePanel :id="props.id" type="InspectionLot" />
     </div>
 
     <InspectionLotSubmitDialog v-model="showSubmit" :lotId="props.id" />

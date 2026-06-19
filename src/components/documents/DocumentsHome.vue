@@ -122,6 +122,12 @@ function navigateToDetail(row) {
       title="Documents"
       subtitle="Manage controlled documents, versions, and approvals."
     >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Documents
+          <HelpButton slug="KB/documents/document-control" :size="16" />
+        </span>
+      </template>
       <template #actions>
         <BaseButton v-if="canCreate" @click="navigateToCreate">
           <IconPlus :size="16" class="tw:mr-1" />

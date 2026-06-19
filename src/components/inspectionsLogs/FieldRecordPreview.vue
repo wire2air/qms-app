@@ -44,7 +44,10 @@ const canReview = computed(() => isAllowed(['fieldRecords:review']))
 const canAmend = computed(() => isAllowed(['fieldRecords:amend']))
 const canVoid = computed(() => isAllowed(['fieldRecords:void']))
 
-const userId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
+// `currentSession.id` is NOT reliably the user id — the session object spreads
+// `...activeCompany` over it, so it ends up as the membership/company id. The
+// canonical user id is `userId` (what 50+ other components read).
+const userId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
 const isOwnRecord = computed(() => record.value?.submittedByUserId === userId.value)
 
 /**
@@ -730,6 +733,69 @@ function close() {
                 {{ isSavingEdit ? 'Saving…' : 'Save changes' }}
               </button>
             </div>
+            <!-- All record actions live on the card header so they sit
+                 together next to the content they act on. Edit = in-window
+                 (cheap, no esign); Amend = post-lock (esign + reason); Flag
+                 = any user; Void = permissioned; Reject/Approve = reviewer
+                 while UNDER_REVIEW. -->
+            <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap tw:justify-end">
+              <button
+                v-if="record && record.statusId !== 'VOIDED'"
+                type="button"
+                class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-amber-800 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:cursor-pointer tw:hover:bg-amber-100 tw:flex tw:items-center tw:gap-1.5"
+                @click="startFlag"
+              >
+                <IconFlag :size="14" />
+                Flag
+              </button>
+              <button
+                v-if="canEdit"
+                type="button"
+                class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-primary tw:bg-primary/10 tw:border tw:border-primary/30 tw:rounded tw:cursor-pointer tw:hover:bg-primary/20 tw:flex tw:items-center tw:gap-1.5"
+                @click="startEdit"
+              >
+                <IconPencil :size="14" />
+                Edit
+              </button>
+              <button
+                v-if="canAmendNow"
+                type="button"
+                class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-purple-800 tw:bg-purple-100 tw:border tw:border-purple-200 tw:rounded tw:cursor-pointer tw:hover:bg-purple-200 tw:flex tw:items-center tw:gap-1.5"
+                @click="startAmend"
+              >
+                <IconEdit :size="14" />
+                Amend
+              </button>
+              <button
+                v-if="canVoidNow"
+                type="button"
+                class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-red-700 tw:bg-red-50 tw:border tw:border-red-200 tw:rounded tw:cursor-pointer tw:hover:bg-red-100 tw:flex tw:items-center tw:gap-1.5"
+                @click="startVoid"
+              >
+                <IconTrash :size="14" />
+                Void
+              </button>
+              <template v-if="record?.statusId === 'UNDER_REVIEW' && canReview">
+                <button
+                  type="button"
+                  class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-white tw:bg-red-600 tw:border-0 tw:rounded tw:cursor-pointer tw:hover:bg-red-700 tw:flex tw:items-center tw:gap-1.5 tw:disabled:opacity-50"
+                  :disabled="isSubmittingReview"
+                  @click="startReview('REJECTED')"
+                >
+                  <IconCircleX :size="14" />
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-white tw:bg-green-600 tw:border-0 tw:rounded tw:cursor-pointer tw:hover:bg-green-700 tw:flex tw:items-center tw:gap-1.5 tw:disabled:opacity-50"
+                  :disabled="isSubmittingReview"
+                  @click="startReview('APPROVED')"
+                >
+                  <IconCircleCheck :size="14" />
+                  Approve
+                </button>
+              </template>
+            </div>
           </div>
           <DynamicForm
             v-if="isEditing && schemaFields.length > 0"
@@ -785,7 +851,9 @@ function close() {
                   <span>·</span>
                   <span>{{ fmtDate(f.flaggedAt) }}</span>
                 </div>
-                <div class="tw:mt-1 tw:text-sm tw:text-on-main">{{ f.notes }}</div>
+                <div class="tw:mt-1 tw:text-sm tw:text-on-main">
+                  <RichTextAttachments :modelValue="f.notes" :readonly="true" />
+                </div>
                 <div
                   v-if="attachmentsForFlag(f.id).length > 0"
                   class="tw:mt-2 tw:flex tw:flex-wrap tw:gap-2"
@@ -942,7 +1010,7 @@ function close() {
                   v-if="ev.body"
                   class="tw:mt-1 tw:text-xs tw:text-on-main tw:bg-main tw:rounded tw:px-2 tw:py-1"
                 >
-                  {{ ev.body }}
+                  <RichTextAttachments :modelValue="ev.body" :readonly="true" />
                 </div>
                 <div
                   v-if="ev.kind === 'raised' && attachmentsForFlag(ev.flagId).length > 0"
@@ -986,75 +1054,8 @@ function close() {
       </div>
     </div>
 
-    <!-- Footer / actions -->
-    <div
-      v-if="!isEditing"
-      class="tw:flex tw:items-center tw:gap-2 tw:px-5 tw:py-3 tw:border-t tw:border-divider tw:bg-card"
-    >
-      <!-- Flag button — open to any in-tenant user. Disabled while
-           the record is VOIDED (nothing to flag on a voided entry). -->
-      <button
-        v-if="record && record.statusId !== 'VOIDED'"
-        type="button"
-        class="tw:px-3 tw:py-2 tw:text-sm tw:rounded tw:bg-amber-50 tw:text-amber-800 tw:font-medium tw:hover:bg-amber-100 tw:transition tw:flex tw:items-center tw:gap-1.5 tw:border tw:border-amber-200"
-        @click="startFlag"
-      >
-        <IconFlag :size="16" />
-        Flag
-      </button>
-      <!-- Owner / admin actions (left side) -->
-      <button
-        v-if="canEdit"
-        type="button"
-        class="tw:px-3 tw:py-2 tw:text-sm tw:rounded tw:bg-main tw:text-on-main tw:font-medium tw:hover:bg-main-hover tw:transition tw:flex tw:items-center tw:gap-1.5 tw:border tw:border-divider"
-        @click="startEdit"
-      >
-        <IconPencil :size="16" />
-        Edit
-      </button>
-      <button
-        v-if="canAmendNow"
-        type="button"
-        class="tw:px-3 tw:py-2 tw:text-sm tw:rounded tw:bg-purple-100 tw:text-purple-800 tw:font-medium tw:hover:bg-purple-200 tw:transition tw:flex tw:items-center tw:gap-1.5"
-        @click="startAmend"
-      >
-        <IconEdit :size="16" />
-        Amend
-      </button>
-      <button
-        v-if="canVoidNow"
-        type="button"
-        class="tw:px-3 tw:py-2 tw:text-sm tw:rounded tw:bg-red-50 tw:text-red-700 tw:font-medium tw:hover:bg-red-100 tw:transition tw:flex tw:items-center tw:gap-1.5"
-        @click="startVoid"
-      >
-        <IconTrash :size="16" />
-        Void
-      </button>
-
-      <div class="tw:flex-1" />
-
-      <!-- Reviewer actions (right side) — same as before -->
-      <template v-if="record?.statusId === 'UNDER_REVIEW' && canReview">
-        <button
-          type="button"
-          class="tw:px-3 tw:py-2 tw:text-sm tw:rounded tw:bg-red-600 tw:text-white tw:font-medium tw:hover:bg-red-700 tw:transition tw:flex tw:items-center tw:gap-1.5"
-          :disabled="isSubmittingReview"
-          @click="startReview('REJECTED')"
-        >
-          <IconCircleX :size="16" />
-          Reject
-        </button>
-        <button
-          type="button"
-          class="tw:px-3 tw:py-2 tw:text-sm tw:rounded tw:bg-green-600 tw:text-white tw:font-medium tw:hover:bg-green-700 tw:transition tw:flex tw:items-center tw:gap-1.5"
-          :disabled="isSubmittingReview"
-          @click="startReview('APPROVED')"
-        >
-          <IconCircleCheck :size="16" />
-          Approve
-        </button>
-      </template>
-    </div>
+    <!-- All record actions now live on the Record content card header
+         (see above) so they sit together in one prominent place. -->
     <!-- Soft hint when the record is UNDER_REVIEW and the user doesn't
          have the review permission. Sits below the action footer so
          it explains the absence of Approve / Reject without breaking

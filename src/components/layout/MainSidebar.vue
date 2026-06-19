@@ -37,6 +37,8 @@ import {
   IconHeadset,
   IconTool,
   IconTestPipe,
+  IconHelpCircle,
+  IconBell,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { isDark } from '@/utils/theme.js'
@@ -296,6 +298,14 @@ const navItems = computed(() => {
           permissions: ['company:manage'],
           icon: IconAdjustments,
           to: getCompanyPath('/settings'),
+        },
+        {
+          // Config-driven notification engine (entity create / status-change →
+          // notify groups / people / owner / initiator over in-app + email).
+          label: 'Notifications',
+          permissions: ['company:manage'],
+          icon: IconBell,
+          to: getCompanyPath('/notification-rules'),
         },
         {
           // The Customer Complaint module's own admin hub (email
@@ -589,6 +599,15 @@ const navItems = computed(() => {
               >
                 <IconSettings :size="16" class="tw:text-secondary" />
                 Settings
+              </RouterLink>
+
+              <RouterLink
+                :to="getCompanyPath('/help')"
+                class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
+                @click="close()"
+              >
+                <IconHelpCircle :size="16" class="tw:text-secondary" />
+                Help Center
               </RouterLink>
 
               <div

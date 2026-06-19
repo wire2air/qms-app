@@ -1,0 +1,9 @@
+{
+  "label": "Training",
+  "position": 5,
+  "link": {
+    "type": "generated-index",
+    "title": "Training",
+    "description": "Training library, assignments, verification, and the training matrix."
+  }
+}

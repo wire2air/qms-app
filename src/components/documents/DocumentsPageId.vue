@@ -173,9 +173,21 @@ const hasActiveTaskOnSelected = computed(
 const showPreviewDialog = ref(false)
 
 // Permissions
-const isOwner = computed(
-  () => currentSession.value?.id === document.value?.userId || currentSession.value?.isOwner,
-)
+// Co-author model: the Owner (userId, accountable) OR the Author (authorId,
+// originator) OR a company owner may drive the document's content / version /
+// submit affordances. NOTE: the session user id is `userId` — `currentSession.id`
+// is overridden by the active-company spread (membership id), so comparing `.id`
+// here always failed and ownership silently fell back to company-owner only.
+const isOwnerOrAuthor = computed(() => {
+  const uid = currentSession.value?.userId
+  return (
+    (!!uid && (uid === document.value?.userId || uid === document.value?.authorId)) ||
+    currentSession.value?.isOwner === true
+  )
+})
+// Company owner only — matches the backend `setEffective` gate (manual
+// effective is a company-owner action, not a document-owner one).
+const isCompanyOwner = computed(() => currentSession.value?.isOwner === true)
 
 // Create New Draft is allowed when there's no version currently in flight.
 // "In flight" = a draft anyone is actively iterating on or has open for
@@ -196,11 +208,11 @@ const canCreate = computed(() => {
 const canEdit = computed(
   () => isAllowed(['documents:update']) && document.value?.statusId !== 'ARCHIVED',
 )
-const canDelete = computed(() => isAllowed(['documents:delete']) && isOwner.value)
+const canDelete = computed(() => isAllowed(['documents:delete']) && isOwnerOrAuthor.value)
 const canSubmitForReview = computed(
   () =>
     canEdit.value &&
-    isOwner.value &&
+    isOwnerOrAuthor.value &&
     ['DRAFT', 'REJECTED'].includes(selectedVersion.value?.statusId) &&
     !!document.value?.workflowVersionId &&
     document.value?.statusId !== 'ARCHIVED',
@@ -208,12 +220,12 @@ const canSubmitForReview = computed(
 const canCancelReview = computed(
   () =>
     canEdit.value &&
-    isOwner.value &&
+    isOwnerOrAuthor.value &&
     selectedVersion.value?.statusId === 'IN_REVIEW' &&
     selectedVersion.value?.workflowInstanceId,
 )
 const canSetEffective = computed(
-  () => isOwner.value && selectedVersion.value?.statusId === 'APPROVED',
+  () => isCompanyOwner.value && selectedVersion.value?.statusId === 'APPROVED',
 )
 
 const versionLabel = computed(() => {

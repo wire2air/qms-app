@@ -12,7 +12,7 @@ const props = defineProps({
   },
   nullLabel: {
     type: String,
-    default: '— All users —',
+    default: '— Select User —',
   },
   // Set true on admin screens that need to show inactive/invited users too
   includeInactive: {
@@ -156,7 +156,7 @@ function getArray() {
               Add
             </span>
           </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> — All users — </span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">{{ nullLabel }}</span>
         </template>
 
         <!-- SINGLE MODE -->
@@ -168,7 +168,7 @@ function getArray() {
             selectable
             @clear="() => scope.clear(modelValue)"
           />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> — All users — </span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">{{ nullLabel }}</span>
         </template>
       </slot>
     </template>

@@ -24,7 +24,7 @@ import { isAllowed, currentSession } from '@/utils/currentSession.js'
 const router = useRouter()
 
 const canSubmit = computed(() => isAllowed(['fieldRecords:create']))
-const userId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
+const userId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
 
 const logBooks = useLiveQuery(
   async (db) => {

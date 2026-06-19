@@ -23,23 +23,25 @@ const sizeClass = computed(() =>
 )
 
 // Status badges bring their own color via a SCHEME_MAP `bg-*` class ($attrs);
-// entity badges (Site/Department/User/…) pass none. A select TRIGGER with no
-// scheme would otherwise be a transparent pill with only a `current`-tinted
-// border — which reads as a washed-out light chip in dark mode. Give those a
-// theme-aware control fill instead. Display badges + scheme badges are untouched.
+// entity badges (Site/Department/User/…) pass none.
 const attrs = useAttrs()
 const isPlainTrigger = computed(() => !/tw:bg-/.test(String(attrs.class || '')))
+
+// A plain entity badge used as a SELECT TRIGGER (selectable, no color scheme)
+// renders the selected value as bare text + chevron — no oval pill wrapper, so
+// it reads as the value, not as another chip. Display badges and colored
+// status pills keep the rounded-full pill.
+const isGhostTrigger = computed(() => props.selectable && isPlainTrigger.value)
 </script>
 
 <template>
   <div
-    class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-full tw:border tw:font-medium tw:w-fit tw:transition-all tw:duration-200"
+    class="tw:inline-flex tw:items-center tw:gap-1.5 tw:font-medium tw:w-fit tw:transition-all tw:duration-200"
     :class="[
-      sizeClass,
       selectable && 'tw:cursor-pointer',
-      selectable && isPlainTrigger
-        ? 'tw:bg-main-hover tw:border-divider tw:text-on-main'
-        : 'tw:border-current/20',
+      isGhostTrigger
+        ? [size === 'sm' ? 'tw:text-xs' : 'tw:text-sm', 'tw:text-on-main']
+        : ['tw:rounded-full tw:border tw:border-current/20', sizeClass],
     ]"
   >
     <div

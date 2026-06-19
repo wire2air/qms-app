@@ -5,18 +5,29 @@ import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
+import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 const props = defineProps({
   id: { type: String, required: true },
 })
 
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
+const { visit: visitTrail } = useRecordTrail()
 
 const complaint = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => db.CustomerComplaint.findByPk(id),
   { models: ['CustomerComplaint'] },
+)
+watch(
+  complaint,
+  (c) => {
+    if (c?.id)
+      visitTrail({ type: 'Complaint', id: c.id, label: c.complaintNumber, path: route.path })
+  },
+  { immediate: true },
 )
 
 const loading = computed(() => complaint.value === undefined)
@@ -199,6 +210,7 @@ const auditIncludeEntities = computed(() => [
 
     <div v-else-if="complaint" class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+        <RecordTrailBreadcrumb />
         <div
           v-if="saveError"
           class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm"
@@ -206,7 +218,7 @@ const auditIncludeEntities = computed(() => [
           {{ saveError }}
         </div>
 
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_280px] tw:gap-4 tw:items-start">
+        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_196px] tw:gap-4 tw:items-start">
           <!-- Left column -->
           <div class="tw:flex tw:flex-col tw:gap-4">
             <!-- Ticket information -->
@@ -277,60 +289,46 @@ const auditIncludeEntities = computed(() => [
           <!-- Right column -->
           <div class="tw:flex tw:flex-col tw:gap-3">
             <!-- Overview -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <BaseText
-                variant="overline"
-                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
-              >
-                Overview
-              </BaseText>
-              <div class="tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Ticket number</span>
-                  <span class="tw:text-xs tw:font-mono tw:font-medium">
+            <BaseOverviewPanel>
+              <BaseDetailSection title="General">
+                <BaseDetailField label="Ticket number">
+                  <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
                     {{ complaint.complaintNumber || '—' }}
-                  </span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Status</span>
+                  </BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Status">
                   <CustomerComplaintStatusBadgeById :statusId="complaint.statusId" />
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Source</span>
+                </BaseDetailField>
+                <BaseDetailField label="Source">
                   <CustomerComplaintSourceBadgeById :sourceId="complaint.sourceId" />
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Priority</span>
+                </BaseDetailField>
+              </BaseDetailSection>
+
+              <BaseDetailSection title="Assignment" divided>
+                <BaseDetailField label="Priority">
                   <CustomerComplaintPrioritySelectMenu
                     v-if="isEditable"
                     v-model="complaint.priorityId"
                   />
-                  <template v-else>
-                    <CustomerComplaintPriorityBadgeById
-                      v-if="complaint.priorityId"
-                      :priorityId="complaint.priorityId"
-                    />
-                    <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                  </template>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Assigned to</span>
+                  <CustomerComplaintPriorityBadgeById
+                    v-else-if="complaint.priorityId"
+                    :priorityId="complaint.priorityId"
+                  />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Assigned to">
                   <UserBadgeById v-if="complaint.assignedTo" :userId="complaint.assignedTo" />
-                  <span v-else class="tw:text-sm tw:text-secondary tw:italic">Unassigned</span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Group</span>
+                  <BaseText v-else color="secondary" class="tw:italic">Unassigned</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Group">
                   <GroupSelectMenu v-if="isEditable" v-model="complaint.assignedTeamId" />
-                  <template v-else>
-                    <GroupBadgeById
-                      v-if="complaint.assignedTeamId"
-                      :teamId="complaint.assignedTeamId"
-                    />
-                    <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                  </template>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Sentiment</span>
+                  <GroupBadgeById
+                    v-else-if="complaint.assignedTeamId"
+                    :teamId="complaint.assignedTeamId"
+                  />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Sentiment">
                   <BaseSelectMenu
                     v-if="isEditable"
                     v-model="complaint.sentiment"
@@ -341,63 +339,48 @@ const auditIncludeEntities = computed(() => [
                       { id: 'URGENT', name: 'Urgent' },
                     ]"
                   />
-                  <template v-else>
-                    <CustomerComplaintSentimentBadgeById
-                      v-if="complaint.sentiment"
-                      :sentiment="complaint.sentiment"
-                    />
-                    <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                  </template>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Created</span>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ complaint.createdAt?.formatDate('datetime') }}
-                  </span>
-                </div>
-                <div
+                  <CustomerComplaintSentimentBadgeById
+                    v-else-if="complaint.sentiment"
+                    :sentiment="complaint.sentiment"
+                  />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+              </BaseDetailSection>
+
+              <BaseDetailSection title="Timeline" divided>
+                <BaseDetailField
+                  label="Created"
+                  :value="complaint.createdAt?.formatDate('datetime')"
+                />
+                <BaseDetailField
                   v-if="complaint.lastCustomerMessageAt"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary">Last customer reply</span>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ complaint.lastCustomerMessageAt.formatDate('datetime') }}
-                  </span>
-                </div>
-                <div
+                  label="Last customer reply"
+                  :value="complaint.lastCustomerMessageAt.formatDate('datetime')"
+                />
+                <BaseDetailField
                   v-if="complaint.closedAt"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary">Closed</span>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ complaint.closedAt.formatDate('datetime') }}
-                  </span>
-                </div>
-                <div
+                  label="Closed"
+                  :value="complaint.closedAt.formatDate('datetime')"
+                />
+                <BaseDetailField
                   v-if="complaint.slaFirstResponseDueAt && !complaint.firstResponseAt"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
+                  label="First response due"
                 >
-                  <span class="tw:text-xs tw:text-secondary">First response due</span>
-                  <span
-                    class="tw:text-sm tw:font-medium"
-                    :class="
-                      complaint.slaFirstResponseDueAt < DateTime.now() ? 'tw:text-red-600' : ''
-                    "
+                  <BaseText
+                    variant="body"
+                    weight="medium"
+                    :class="complaint.slaFirstResponseDueAt < DateTime.now() ? 'tw:text-red-600' : ''"
                   >
                     {{ complaint.slaFirstResponseDueAt.formatDate('datetime') }}
-                  </span>
-                </div>
-                <div
-                  v-if="complaint.csatRating"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary">Customer rating</span>
-                  <span class="tw:text-sm tw:font-medium" :title="complaint.csatComment || ''">
+                  </BaseText>
+                </BaseDetailField>
+                <BaseDetailField v-if="complaint.csatRating" label="Customer rating">
+                  <BaseText variant="body" weight="medium" :title="complaint.csatComment || ''">
                     {{ '★'.repeat(complaint.csatRating) }}{{ '☆'.repeat(5 - complaint.csatRating) }}
-                  </span>
-                </div>
-              </div>
-            </div>
+                  </BaseText>
+                </BaseDetailField>
+              </BaseDetailSection>
+            </BaseOverviewPanel>
 
             <!-- Customer profile + history (requester layer) -->
             <CustomerComplaintCustomerPanel :complaintId="id" :customerId="complaint.customerId" />

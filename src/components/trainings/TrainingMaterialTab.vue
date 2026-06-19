@@ -61,6 +61,15 @@ const LINK_TYPES = [
   { id: 'web', name: 'Web' },
   { id: 'youtube', name: 'YouTube' },
 ]
+
+// In-app Help Center links (e.g. the seeded "How to use Qability" course links)
+// open in the contextual HelpButton dialog instead of a new browser tab.
+function isHelpLink(url) {
+  return typeof url === 'string' && url.startsWith('/help/')
+}
+function helpSlug(url) {
+  return url.replace(/^\/help\//, '')
+}
 </script>
 
 <template>
@@ -120,6 +129,13 @@ const LINK_TYPES = [
               <option v-for="t in LINK_TYPES" :key="t.id" :value="t.id">{{ t.name }}</option>
             </select>
           </div>
+          <!-- In-app help article → contextual dialog; otherwise a normal link. -->
+          <HelpButton
+            v-else-if="isHelpLink(link.url)"
+            :slug="helpSlug(link.url)"
+            :label="link.title || 'Help article'"
+            class="tw:flex-1 tw:justify-start tw:text-primary"
+          />
           <a
             v-else
             :href="link.url"

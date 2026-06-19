@@ -153,6 +153,12 @@ function onCreateCapa() {
       title="CAPAs"
       subtitle="Track corrective and preventive actions through to verification."
     >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          CAPAs
+          <HelpButton slug="KB/quality/capas" :size="16" />
+        </span>
+      </template>
       <template #actions>
         <BaseButton variant="outline" :disabled="!capas.length" @click="exportCsv">
           <IconDownload :size="16" class="tw:mr-1" />

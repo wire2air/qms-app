@@ -77,6 +77,9 @@ const form = ref({
   sourceId: presetSourceId.value || null,
   workflowVersionId: null,
   requiresEffectivenessCheck: false,
+  // Per-record cc recipients (notification engine).
+  notifyGroupIds: [],
+  notifyUserIds: [],
 })
 
 // Seed title + site + department from the originating record so the
@@ -163,7 +166,7 @@ async function handleSubmit() {
     ['priorityId', 'Priority'],
     ['siteId', 'Site'],
     ['departmentId', 'Department'],
-    ['ownerId', 'Owner'],
+    ['ownerId', 'Responsible party'],
     ['initiatedAt', 'Initiated date'],
     ['workflowVersionId', 'Workflow'],
   ]) {
@@ -296,7 +299,11 @@ async function handleSubmit() {
                 :siteId="form.siteId"
               />
             </BaseField>
-            <BaseField label="Owner" required>
+            <BaseField
+              label="Responsible party"
+              required
+              hint="Drives the change request to closure. You remain the initiator."
+            >
               <UserSelectMenu v-model="form.ownerId" :required="true" />
             </BaseField>
             <BaseField label="Initiated" required>
@@ -340,6 +347,21 @@ async function handleSubmit() {
               </div>
             </div>
           </label>
+        </div>
+
+        <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
+        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+          >
+            Notify (cc)
+            <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
+          </BaseText>
+          <NotificationCcField
+            v-model:groupIds="form.notifyGroupIds"
+            v-model:userIds="form.notifyUserIds"
+          />
         </div>
       </div>
     </div>
