@@ -32,7 +32,9 @@ const formattedUpdatedAt = computed(() => company.value?.updatedAt?.formatDate?.
   <div v-if="company" class="tw:flex tw:flex-col tw:gap-6">
     <!-- System Information Card -->
     <div class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:p-6 tw:bg-sidebar">
-      <h3 class="ds-label tw:text-on-sidebar tw:mb-6">System Information</h3>
+      <BaseText as="h3" variant="overline" color="inherit" class="tw:text-on-sidebar tw:mb-6">
+        System Information
+      </BaseText>
       <div class="tw:flex tw:flex-col tw:gap-6">
         <div class="tw:flex tw:justify-between tw:items-center">
           <span class="tw:text-sm tw:text-secondary">Subscription</span>
@@ -56,9 +58,7 @@ const formattedUpdatedAt = computed(() => company.value?.updatedAt?.formatDate?.
 
         <div class="tw:border-t tw:border-divider tw:pt-4">
           <div class="tw:flex tw:flex-col tw:gap-1">
-            <span class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold"
-              >Created On</span
-            >
+            <BaseText variant="overline">Created On</BaseText>
             <p
               class="tw:text-sm tw:font-medium tw:text-on-sidebar tw:flex tw:items-center tw:gap-2"
             >
@@ -70,9 +70,7 @@ const formattedUpdatedAt = computed(() => company.value?.updatedAt?.formatDate?.
 
         <div class="tw:pt-2">
           <div class="tw:flex tw:flex-col tw:gap-1">
-            <span class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold"
-              >Last Updated</span
-            >
+            <BaseText variant="overline">Last Updated</BaseText>
             <p
               class="tw:text-sm tw:font-medium tw:text-on-sidebar tw:flex tw:items-center tw:gap-2"
             >

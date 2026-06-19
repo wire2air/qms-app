@@ -165,7 +165,7 @@ function versionLabel(version) {
           </span>
           <span
             v-if="selectedVersionId === entry.version.id"
-            class="ds-label-sm tw:px-2 tw:py-0.5 tw:bg-primary tw:text-white tw:rounded"
+            class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wide tw:px-2 tw:py-0.5 tw:bg-primary tw:text-white tw:rounded"
           >
             Selected
           </span>

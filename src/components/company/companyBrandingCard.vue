@@ -117,7 +117,7 @@ function handleDarkDelete() {
               />
               <template v-else>
                 <IconSun :size="48" class="tw:text-secondary tw:opacity-50" />
-                <span class="ds-label-sm tw:text-center tw:px-2"> No icon uploaded </span>
+                <BaseText variant="caption" class="tw:text-center tw:px-2">No icon uploaded</BaseText>
               </template>
             </div>
 
@@ -160,9 +160,7 @@ function handleDarkDelete() {
               />
               <template v-else>
                 <IconMoon :size="48" class="tw:text-gray-400" />
-                <span class="ds-label-sm tw:text-center tw:px-2 tw:text-gray-400">
-                  No icon uploaded
-                </span>
+                <BaseText variant="caption" class="tw:text-center tw:px-2">No icon uploaded</BaseText>
               </template>
             </div>
 

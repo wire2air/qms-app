@@ -125,9 +125,9 @@ function onFieldClick(fieldType) {
     <div class="tw:flex-1 tw:overflow-y-auto tw:px-3 tw:py-4 tw:flex tw:flex-col tw:gap-4">
       <template v-for="(categoryFields, category) in filteredFieldsByCategory" :key="category">
         <div class="tw:flex tw:flex-col tw:gap-3">
-          <div class="ds-label-sm tw:text-secondary">
+          <BaseText as="div" variant="overline">
             {{ CATEGORY_LABELS[category] }}
-          </div>
+          </BaseText>
 
           <div :ref="(el) => setCategoryRef(category, el)" class="tw:flex tw:flex-col tw:gap-2">
             <BaseClickableRow

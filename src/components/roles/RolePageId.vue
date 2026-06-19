@@ -365,7 +365,7 @@ watch(
               </div>
             </div>
             <div class="tw:flex tw:flex-col tw:items-end tw:gap-3">
-              <div class="ds-label tw:text-secondary">Assigned Users</div>
+              <BaseText variant="overline">Assigned Users</BaseText>
               <div class="tw:flex tw:items-center tw:gap-2">
                 <div
                   class="tw:w-10 tw:h-10 tw:rounded-full tw:bg-primary/10 tw:flex tw:items-center tw:justify-center tw:text-sm tw:font-bold tw:text-primary"

@@ -414,7 +414,7 @@ function copyJson() {
             <div
               class="tw:flex tw:items-center tw:justify-between tw:px-4 tw:py-2 tw:bg-divider/20 tw:border-b tw:border-divider"
             >
-              <div class="ds-label-sm tw:text-secondary">Schema Output</div>
+              <BaseText as="div" variant="overline">Schema Output</BaseText>
               <button
                 class="tw:flex tw:items-center tw:gap-1 tw:px-3 tw:py-1.5 tw:text-primary tw:rounded-lg tw:hover:bg-primary/10 tw:transition-colors tw:text-sm tw:font-medium"
                 @click="copyJson"

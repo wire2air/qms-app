@@ -584,7 +584,7 @@ async function handleRemoveSourceFile() {
                 <button
                   v-if="isEditable && standard.contentLicense !== 'CUSTOMER_LICENSED'"
                   type="button"
-                  class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:self-start"
+                  class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:self-start"
                   @click="showAttestDialog = true"
                 >
                   {{
@@ -595,10 +595,10 @@ async function handleRemoveSourceFile() {
                 </button>
               </BaseDetailSection>
 
-              <div v-if="saving" class="tw:text-[11px] tw:text-secondary tw:italic tw:pt-2">
+              <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-2">
                 Saving…
               </div>
-              <div v-else-if="saveError" class="tw:text-[11px] tw:text-red-600 tw:pt-2">
+              <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-2">
                 {{ saveError }}
               </div>
             </BaseOverviewPanel>
