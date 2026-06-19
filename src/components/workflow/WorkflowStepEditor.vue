@@ -466,9 +466,9 @@ watch(
         class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:px-1"
       >
         <IconAlertCircle :size="14" class="tw:text-secondary" />
-        <span class="ds-label-sm">
+        <BaseText variant="caption">
           No roles assigned — the submitter will be able to pick any active user for this step.
-        </span>
+        </BaseText>
       </div>
     </div>
 

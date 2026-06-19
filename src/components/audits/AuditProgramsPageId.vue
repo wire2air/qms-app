@@ -218,324 +218,313 @@ async function handleDelete() {
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
-    <PageHeader>
-      <template #title>{{ program?.name || 'Program' }}</template>
-      <template #actions>
-        <BaseButton
-          v-if="program"
-          variant="outline"
-          size="sm"
-          @click="router.push(getCompanyPath('/audits?tab=programs'))"
-        >
-          <IconArrowBack :size="16" class="tw:mr-1" />
-          Back
-        </BaseButton>
-        <BaseButton
-          v-if="canDelete && program"
-          variant="danger"
-          size="sm"
-          :disabled="deleting"
-          @click="showDeleteDialog = true"
-        >
-          Delete
-        </BaseButton>
-      </template>
-    </PageHeader>
+  <BaseDetailPage
+    :title="program?.name || 'Program'"
+    :loading="loading"
+    :notFound="!loading && !program"
+    notFoundTitle="Program not found"
+    notFoundDescription="This audit program could not be found."
+    width="standard"
+  >
+    <template #actions>
+      <BaseButton
+        v-if="program"
+        variant="outline"
+        size="sm"
+        @click="router.push(getCompanyPath('/audits?tab=programs'))"
+      >
+        <IconArrowBack :size="16" class="tw:mr-1" />
+        Back
+      </BaseButton>
+      <BaseButton
+        v-if="canDelete && program"
+        variant="danger"
+        size="sm"
+        :disabled="deleting"
+        @click="showDeleteDialog = true"
+      >
+        Delete
+      </BaseButton>
+    </template>
 
-    <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <BaseSpinner size="lg" />
-    </div>
+    <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+      <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_320px] tw:gap-4 tw:items-start">
+        <!-- Left column -->
+        <div class="tw:flex tw:flex-col tw:gap-4">
+          <!-- Details card -->
+          <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <BaseText
+              variant="overline"
+              class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+            >
+              Program Details
+            </BaseText>
 
-    <BaseEmptyState
-      v-else-if="!program"
-      title="Program not found"
-      description="This audit program could not be found."
-    />
+            <BaseTextInput
+              v-if="editingName && isEditable"
+              v-model="program.name"
+              placeholder="Program name"
+              autofocus
+              class="tw:mb-2"
+              @blur="editingName = false"
+            />
+            <BaseClickableRow
+              v-else
+              class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
+              :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+              :disabled="!isEditable"
+              aria-label="Edit program name"
+              @click="isEditable && (editingName = true)"
+            >
+              {{ program.name }}
+            </BaseClickableRow>
 
-    <div v-else class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
-      <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_320px] tw:gap-4 tw:items-start">
-          <!-- Left column -->
-          <div class="tw:flex tw:flex-col tw:gap-4">
-            <!-- Details card -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <BaseText
-                variant="overline"
-                class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-              >
-                Program Details
-              </BaseText>
-
-              <BaseTextInput
-                v-if="editingName && isEditable"
-                v-model="program.name"
-                placeholder="Program name"
-                autofocus
-                class="tw:mb-2"
-                @blur="editingName = false"
+            <div v-if="editingDescription && isEditable" class="tw:mb-4">
+              <BaseTextarea
+                v-model="program.description"
+                :rows="3"
+                placeholder="Optional description"
+                @blur="editingDescription = false"
               />
-              <BaseClickableRow
-                v-else
-                class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
-                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                :disabled="!isEditable"
-                aria-label="Edit program name"
-                @click="isEditable && (editingName = true)"
-              >
-                {{ program.name }}
-              </BaseClickableRow>
-
-              <div v-if="editingDescription && isEditable" class="tw:mb-4">
-                <BaseTextarea
-                  v-model="program.description"
-                  :rows="3"
-                  placeholder="Optional description"
-                  @blur="editingDescription = false"
-                />
-              </div>
-              <BaseClickableRow
-                v-else
-                class="tw:mb-4 tw:text-sm tw:text-secondary tw:leading-relaxed"
-                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                :disabled="!isEditable"
-                aria-label="Edit program description"
-                @click="isEditable && (editingDescription = true)"
-              >
-                {{ program.description || (isEditable ? 'Add a description…' : '—') }}
-              </BaseClickableRow>
-
-              <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Type</div>
-                  <BaseInlineSelect
-                    v-if="isEditable"
-                    v-model="program.programTypeId"
-                    :items="PROGRAM_TYPES"
-                    :required="true"
-                  />
-                  <span v-else class="tw:text-sm">{{ typeLabel(program.programTypeId) }}</span>
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Standard</div>
-                  <AuditStandardSelectMenu v-if="isEditable" v-model="program.auditStandardId" />
-                  <AuditStandardBadgeById
-                    v-else-if="program.auditStandardId"
-                    :standardId="program.auditStandardId"
-                  />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Manager</div>
-                  <UserSelectMenu v-if="isEditable" v-model="program.managerUserId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">{{
-                    program.managerUserId || '—'
-                  }}</span>
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Department</div>
-                  <DepartmentSelectMenu v-if="isEditable" v-model="program.departmentId" />
-                  <DepartmentBadgeById
-                    v-else-if="program.departmentId"
-                    :departmentId="program.departmentId"
-                  />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Site</div>
-                  <SiteSelectMenu v-if="isEditable" v-model="program.siteId" />
-                  <SiteBadgeById v-else-if="program.siteId" :siteId="program.siteId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div
-                  v-if="program.programTypeId === 'SUPPLIER'"
-                  class="tw:flex tw:flex-col tw:gap-1"
-                >
-                  <div class="tw:text-xs tw:text-secondary">
-                    Supplier <span class="tw:text-red-500">*</span>
-                  </div>
-                  <SupplierSelectMenu
-                    v-if="isEditable"
-                    v-model="program.supplierId"
-                    :required="true"
-                  />
-                  <SupplierBadgeById
-                    v-else-if="program.supplierId"
-                    :supplierId="program.supplierId"
-                  />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-              </div>
             </div>
+            <BaseClickableRow
+              v-else
+              class="tw:mb-4 tw:text-sm tw:text-secondary tw:leading-relaxed"
+              :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+              :disabled="!isEditable"
+              aria-label="Edit program description"
+              @click="isEditable && (editingDescription = true)"
+            >
+              {{ program.description || (isEditable ? 'Add a description…' : '—') }}
+            </BaseClickableRow>
 
-            <!-- Schedule card -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <BaseText
-                variant="overline"
-                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-              >
-                <IconCalendarTime :size="14" />
-                Schedule
-              </BaseText>
-              <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Frequency</div>
-                  <BaseInlineSelect
-                    v-if="isEditable"
-                    v-model="program.frequencyId"
-                    :items="FREQUENCIES"
-                    :required="true"
-                  />
-                  <span v-else class="tw:text-sm">{{ freqLabel(program.frequencyId) }}</span>
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Next Due</div>
-                  <BaseTextInput v-if="isEditable" v-model="nextDueDateStr" type="date" />
-                  <span v-else class="tw:text-sm">
-                    {{ program.nextDueDate ? program.nextDueDate.formatDate('date') : '—' }}
-                  </span>
-                </div>
-                <div
-                  v-if="program.frequencyId === 'EVERY_X_DAYS'"
-                  class="tw:flex tw:flex-col tw:gap-1"
-                >
-                  <div class="tw:text-xs tw:text-secondary">
-                    Days Interval <span class="tw:text-red-500">*</span>
-                  </div>
-                  <BaseTextInput
-                    v-if="isEditable"
-                    v-model="program.daysInterval"
-                    type="number"
-                    placeholder="e.g. 90"
-                  />
-                  <span v-else class="tw:text-sm">{{ program.daysInterval || '—' }}</span>
-                </div>
-                <div
-                  v-if="program.frequencyId === 'CUSTOM_RECURRENCE'"
-                  class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2"
-                >
-                  <div class="tw:text-xs tw:text-secondary">
-                    Cron Expression <span class="tw:text-red-500">*</span>
-                  </div>
-                  <BaseTextInput
-                    v-if="isEditable"
-                    v-model="program.cronExpression"
-                    placeholder="0 0 1 */3 *"
-                  />
-                  <code v-else class="tw:text-xs">{{ program.cronExpression || '—' }}</code>
-                </div>
-              </div>
-              <div
-                class="tw:text-caption tw:text-secondary tw:italic tw:pt-3 tw:border-t tw:border-divider tw:mt-3"
-              >
-                The daily generator mints an Audit when nextDueDate ≤ today. Pausing a program stops
-                new audits; existing audits keep running.
-              </div>
-            </div>
-
-            <!-- Auditor pool card -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-              >
-                <BaseText variant="overline" class="tw:flex tw:items-center tw:gap-2">
-                  <IconUsers :size="14" />
-                  Auditor Pool
-                  <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
-                    {{ auditors.length }}
-                  </span>
-                </BaseText>
-                <BaseButton
+            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary">Type</div>
+                <BaseInlineSelect
                   v-if="isEditable"
-                  variant="outline"
-                  size="sm"
-                  @click="showAddAuditorDialog = true"
-                >
-                  <template #icon><IconPlus :size="14" /></template>
-                  Add
-                </BaseButton>
+                  v-model="program.programTypeId"
+                  :items="PROGRAM_TYPES"
+                  :required="true"
+                />
+                <span v-else class="tw:text-sm">{{ typeLabel(program.programTypeId) }}</span>
               </div>
-
-              <div
-                v-if="!auditors.length"
-                class="tw:py-8 tw:text-center tw:text-sm tw:text-secondary tw:italic"
-              >
-                No auditors assigned yet.
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary">Standard</div>
+                <AuditStandardSelectMenu v-if="isEditable" v-model="program.auditStandardId" />
+                <AuditStandardBadgeById
+                  v-else-if="program.auditStandardId"
+                  :standardId="program.auditStandardId"
+                />
+                <span v-else class="tw:text-sm tw:text-secondary">—</span>
               </div>
-              <div v-else class="tw:flex tw:flex-col tw:divide-y tw:divide-divider">
-                <div
-                  v-for="auditor in auditors"
-                  :key="auditor.id"
-                  class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:py-2"
-                >
-                  <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
-                    <UserBadgeById :userId="auditor.userId" />
-                    <button
-                      type="button"
-                      class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:border-0"
-                      :class="
-                        auditor.roleOnAudit === 'LEAD'
-                          ? 'tw:bg-amber-100 tw:text-amber-700'
-                          : 'tw:bg-blue-100 tw:text-blue-700'
-                      "
-                      :title="isEditable ? 'Click to toggle LEAD / TEAM' : ''"
-                      :disabled="!isEditable"
-                      @click="toggleAuditorRole(auditor)"
-                    >
-                      {{ auditor.roleOnAudit }}
-                    </button>
-                  </div>
-                  <button
-                    v-if="isEditable"
-                    type="button"
-                    class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0"
-                    title="Remove from pool"
-                    @click="removeAuditor(auditor)"
-                  >
-                    <IconTrash :size="14" />
-                  </button>
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary">Manager</div>
+                <UserSelectMenu v-if="isEditable" v-model="program.managerUserId" />
+                <span v-else class="tw:text-sm tw:text-secondary">{{
+                  program.managerUserId || '—'
+                }}</span>
+              </div>
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary">Department</div>
+                <DepartmentSelectMenu v-if="isEditable" v-model="program.departmentId" />
+                <DepartmentBadgeById
+                  v-else-if="program.departmentId"
+                  :departmentId="program.departmentId"
+                />
+                <span v-else class="tw:text-sm tw:text-secondary">—</span>
+              </div>
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary">Site</div>
+                <SiteSelectMenu v-if="isEditable" v-model="program.siteId" />
+                <SiteBadgeById v-else-if="program.siteId" :siteId="program.siteId" />
+                <span v-else class="tw:text-sm tw:text-secondary">—</span>
+              </div>
+              <div v-if="program.programTypeId === 'SUPPLIER'" class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary">
+                  Supplier <span class="tw:text-red-500">*</span>
                 </div>
+                <SupplierSelectMenu
+                  v-if="isEditable"
+                  v-model="program.supplierId"
+                  :required="true"
+                />
+                <SupplierBadgeById
+                  v-else-if="program.supplierId"
+                  :supplierId="program.supplierId"
+                />
+                <span v-else class="tw:text-sm tw:text-secondary">—</span>
               </div>
             </div>
           </div>
 
-          <!-- Right column / Overview -->
-          <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <BaseText
-                variant="overline"
-                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+          <!-- Schedule card -->
+          <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <BaseText
+              variant="overline"
+              class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+            >
+              <IconCalendarTime :size="14" />
+              Schedule
+            </BaseText>
+            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary">Frequency</div>
+                <BaseInlineSelect
+                  v-if="isEditable"
+                  v-model="program.frequencyId"
+                  :items="FREQUENCIES"
+                  :required="true"
+                />
+                <span v-else class="tw:text-sm">{{ freqLabel(program.frequencyId) }}</span>
+              </div>
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <div class="tw:text-xs tw:text-secondary">Next Due</div>
+                <BaseTextInput v-if="isEditable" v-model="nextDueDateStr" type="date" />
+                <span v-else class="tw:text-sm">
+                  {{ program.nextDueDate ? program.nextDueDate.formatDate('date') : '—' }}
+                </span>
+              </div>
+              <div
+                v-if="program.frequencyId === 'EVERY_X_DAYS'"
+                class="tw:flex tw:flex-col tw:gap-1"
               >
-                Overview
+                <div class="tw:text-xs tw:text-secondary">
+                  Days Interval <span class="tw:text-red-500">*</span>
+                </div>
+                <BaseTextInput
+                  v-if="isEditable"
+                  v-model="program.daysInterval"
+                  type="number"
+                  placeholder="e.g. 90"
+                />
+                <span v-else class="tw:text-sm">{{ program.daysInterval || '—' }}</span>
+              </div>
+              <div
+                v-if="program.frequencyId === 'CUSTOM_RECURRENCE'"
+                class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2"
+              >
+                <div class="tw:text-xs tw:text-secondary">
+                  Cron Expression <span class="tw:text-red-500">*</span>
+                </div>
+                <BaseTextInput
+                  v-if="isEditable"
+                  v-model="program.cronExpression"
+                  placeholder="0 0 1 */3 *"
+                />
+                <code v-else class="tw:text-xs">{{ program.cronExpression || '—' }}</code>
+              </div>
+            </div>
+            <div
+              class="tw:text-caption tw:text-secondary tw:italic tw:pt-3 tw:border-t tw:border-divider tw:mt-3"
+            >
+              The daily generator mints an Audit when nextDueDate ≤ today. Pausing a program stops
+              new audits; existing audits keep running.
+            </div>
+          </div>
+
+          <!-- Auditor pool card -->
+          <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+            <div
+              class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+            >
+              <BaseText variant="overline" class="tw:flex tw:items-center tw:gap-2">
+                <IconUsers :size="14" />
+                Auditor Pool
+                <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
+                  {{ auditors.length }}
+                </span>
               </BaseText>
-              <div class="tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Active</span>
-                  <BaseSwitch v-if="isEditable" v-model="program.active" />
-                  <span
-                    v-else
-                    class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+              <BaseButton
+                v-if="isEditable"
+                variant="outline"
+                size="sm"
+                @click="showAddAuditorDialog = true"
+              >
+                <template #icon><IconPlus :size="14" /></template>
+                Add
+              </BaseButton>
+            </div>
+
+            <div
+              v-if="!auditors.length"
+              class="tw:py-8 tw:text-center tw:text-sm tw:text-secondary tw:italic"
+            >
+              No auditors assigned yet.
+            </div>
+            <div v-else class="tw:flex tw:flex-col tw:divide-y tw:divide-divider">
+              <div
+                v-for="auditor in auditors"
+                :key="auditor.id"
+                class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:py-2"
+              >
+                <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
+                  <UserBadgeById :userId="auditor.userId" />
+                  <button
+                    type="button"
+                    class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:border-0"
                     :class="
-                      program.active
-                        ? 'tw:bg-emerald-100 tw:text-emerald-700'
-                        : 'tw:bg-gray-100 tw:text-gray-600'
+                      auditor.roleOnAudit === 'LEAD'
+                        ? 'tw:bg-amber-100 tw:text-amber-700'
+                        : 'tw:bg-blue-100 tw:text-blue-700'
                     "
+                    :title="isEditable ? 'Click to toggle LEAD / TEAM' : ''"
+                    :disabled="!isEditable"
+                    @click="toggleAuditorRole(auditor)"
                   >
-                    {{ program.active ? 'Active' : 'Paused' }}
-                  </span>
+                    {{ auditor.roleOnAudit }}
+                  </button>
                 </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Created</span>
-                  <span class="tw:text-xs">
-                    {{ program.createdAt ? program.createdAt.formatDate('date') : '—' }}
-                  </span>
-                </div>
-                <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-1">
-                  Saving…
-                </div>
-                <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-1">
-                  {{ saveError }}
-                </div>
+                <button
+                  v-if="isEditable"
+                  type="button"
+                  class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0"
+                  title="Remove from pool"
+                  @click="removeAuditor(auditor)"
+                >
+                  <IconTrash :size="14" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column / Overview -->
+        <div class="tw:flex tw:flex-col tw:gap-3">
+          <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
+            <BaseText
+              variant="overline"
+              class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+            >
+              Overview
+            </BaseText>
+            <div class="tw:flex tw:flex-col">
+              <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                <span class="tw:text-xs tw:text-secondary">Active</span>
+                <BaseSwitch v-if="isEditable" v-model="program.active" />
+                <span
+                  v-else
+                  class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+                  :class="
+                    program.active
+                      ? 'tw:bg-emerald-100 tw:text-emerald-700'
+                      : 'tw:bg-gray-100 tw:text-gray-600'
+                  "
+                >
+                  {{ program.active ? 'Active' : 'Paused' }}
+                </span>
+              </div>
+              <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
+                <span class="tw:text-xs tw:text-secondary">Created</span>
+                <span class="tw:text-xs">
+                  {{ program.createdAt ? program.createdAt.formatDate('date') : '—' }}
+                </span>
+              </div>
+              <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-1">
+                Saving…
+              </div>
+              <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-1">
+                {{ saveError }}
               </div>
             </div>
           </div>
@@ -593,5 +582,5 @@ async function handleDelete() {
         </BaseButton>
       </div>
     </BaseDialog>
-  </BasePage>
+  </BaseDetailPage>
 </template>

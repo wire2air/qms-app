@@ -18,7 +18,7 @@ defineEmits(['viewDocument'])
         <div class="tw:flex tw:items-center tw:gap-2">
           <span
             v-if="doc?.documentType"
-            class="ds-label-sm tw:bg-primary/10 tw:text-primary tw:px-2 tw:py-0.5 tw:rounded"
+            class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wide tw:bg-primary/10 tw:text-primary tw:px-2 tw:py-0.5 tw:rounded"
           >
             {{ doc.documentType.name }}
           </span>

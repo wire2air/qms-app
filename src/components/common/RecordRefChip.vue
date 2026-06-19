@@ -51,7 +51,7 @@ const tone = computed(() => TONE[props.type] || 'tw:bg-gray-100 tw:text-gray-600
     class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-full tw:px-2 tw:py-0.5 tw:text-xs tw:no-underline tw:max-w-full"
     :class="[tone, to ? 'tw:hover:opacity-80 tw:transition-opacity' : '']"
   >
-    <span class="tw:font-semibold tw:opacity-70 tw:uppercase tw:text-[10px] tw:tracking-wide">{{ label }}</span>
+    <span class="tw:font-semibold tw:opacity-70 tw:uppercase tw:text-micro tw:tracking-wide">{{ label }}</span>
     <span class="tw:font-mono tw:font-medium tw:truncate">{{ number }}</span>
   </component>
 </template>

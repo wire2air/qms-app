@@ -437,61 +437,61 @@ function onCreateLinkedChangeRequest() {
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
-    <PageHeader>
-      <template #title>
-        <BaseBreadcrumbs :items="breadcrumbs" />
-      </template>
-      <template #actions>
-        <div class="tw:flex tw:items-center tw:gap-2">
-          <!-- Action buttons (left): lifecycle transitions for the NC. -->
-          <BaseButton
-            v-if="isOwner && nc?.statusId === 'DRAFT'"
-            variant="primary"
-            :disabled="saving"
-            @click="openOpenDialog"
-            >Open NC</BaseButton
-          >
-          <BaseButton
-            v-if="isOwner && nc && !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId)"
-            variant="primary"
-            :disabled="!canMarkComplete || completing"
-            :title="markCompleteBlockedReason || undefined"
-            @click="openMarkCompleteDialog"
-          >
-            {{ completing ? 'Closing…' : 'Approve and Close' }}
-          </BaseButton>
-          <BaseButton
-            v-if="isOwner && nc?.statusId === 'DRAFT'"
-            variant="outline"
-            :disabled="deleting"
-            @click="showDeleteDialog = true"
-            >Delete</BaseButton
-          >
+  <BaseDetailPage
+    :breadcrumbs="breadcrumbs"
+    :loading="loading"
+    :notFound="!loading && !nc"
+    notFoundTitle="NC not found"
+    notFoundDescription="This nonconformance could not be found."
+    width="standard"
+  >
+    <template #actions>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <!-- Action buttons (left): lifecycle transitions for the NC. -->
+        <BaseButton
+          v-if="isOwner && nc?.statusId === 'DRAFT'"
+          variant="primary"
+          :disabled="saving"
+          @click="openOpenDialog"
+          >Open NC</BaseButton
+        >
+        <BaseButton
+          v-if="isOwner && nc && !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId)"
+          variant="primary"
+          :disabled="!canMarkComplete || completing"
+          :title="markCompleteBlockedReason || undefined"
+          @click="openMarkCompleteDialog"
+        >
+          {{ completing ? 'Closing…' : 'Approve and Close' }}
+        </BaseButton>
+        <BaseButton
+          v-if="isOwner && nc?.statusId === 'DRAFT'"
+          variant="outline"
+          :disabled="deleting"
+          @click="showDeleteDialog = true"
+          >Delete</BaseButton
+        >
 
-          <!-- Utility buttons (right): always rightmost, parity with CAPA. -->
-          <BaseButton v-if="nc?.id" variant="secondary" @click="openPrintView">
-            <IconPrinter :size="20" class="tw:mr-1" />
-            Print
-          </BaseButton>
-          <BaseButton v-if="nc?.id" variant="secondary" @click="showAuditLog = true">
-            <IconClipboardList :size="20" class="tw:mr-1" />
-            Audit Log
-          </BaseButton>
-          <AskAiButton
-            v-if="nc?.id"
-            entityType="Nonconformance"
-            :entityId="nc.id"
-            :entityTitle="nc.title"
-            :entityNumber="nc.ncNumber"
-          />
-        </div>
-      </template>
-    </PageHeader>
+        <!-- Utility buttons (right): always rightmost, parity with CAPA. -->
+        <BaseButton v-if="nc?.id" variant="secondary" @click="openPrintView">
+          <IconPrinter :size="20" class="tw:mr-1" />
+          Print
+        </BaseButton>
+        <BaseButton v-if="nc?.id" variant="secondary" @click="showAuditLog = true">
+          <IconClipboardList :size="20" class="tw:mr-1" />
+          Audit Log
+        </BaseButton>
+        <AskAiButton
+          v-if="nc?.id"
+          entityType="Nonconformance"
+          :entityId="nc.id"
+          :entityTitle="nc.title"
+          :entityNumber="nc.ncNumber"
+        />
+      </div>
+    </template>
 
-    <BaseSpinner v-if="loading" centered size="md" />
-
-    <div v-else-if="nc" class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
+    <template v-if="nc">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <RecordTrailBreadcrumb />
         <!-- QC inspection origin — this NC was auto-raised by a rejected lot -->
@@ -937,8 +937,15 @@ function onCreateLinkedChangeRequest() {
                   <BaseText v-else color="secondary">—</BaseText>
                 </BaseDetailField>
                 <BaseDetailField label="Department">
-                  <DepartmentSelectMenu v-if="isEditable" v-model="nc.departmentId" :required="true" />
-                  <DepartmentBadgeById v-else-if="nc.departmentId" :departmentId="nc.departmentId" />
+                  <DepartmentSelectMenu
+                    v-if="isEditable"
+                    v-model="nc.departmentId"
+                    :required="true"
+                  />
+                  <DepartmentBadgeById
+                    v-else-if="nc.departmentId"
+                    :departmentId="nc.departmentId"
+                  />
                   <BaseText v-else color="secondary">—</BaseText>
                 </BaseDetailField>
               </BaseDetailSection>
@@ -982,7 +989,10 @@ function onCreateLinkedChangeRequest() {
                 </BaseDetailField>
                 <BaseDetailField label="Issue type">
                   <NcIssueTypeSelectMenu v-if="isEditable" v-model="nc.ncIssueTypeId" />
-                  <NcIssueTypeBadgeById v-else-if="nc.ncIssueTypeId" :issueTypeId="nc.ncIssueTypeId" />
+                  <NcIssueTypeBadgeById
+                    v-else-if="nc.ncIssueTypeId"
+                    :issueTypeId="nc.ncIssueTypeId"
+                  />
                   <BaseText v-else color="secondary">—</BaseText>
                 </BaseDetailField>
               </BaseDetailSection>
@@ -1071,7 +1081,11 @@ function onCreateLinkedChangeRequest() {
                   </div>
                 </BaseDetailField>
                 <BaseDetailField v-if="isEditable || nc.productId" label="Product">
-                  <ProductSelectMenu v-if="isEditable" v-model="nc.productId" :allowCreate="false" />
+                  <ProductSelectMenu
+                    v-if="isEditable"
+                    v-model="nc.productId"
+                    :allowCreate="false"
+                  />
                   <ProductBadgeById v-else-if="nc.productId" :productId="nc.productId" />
                   <BaseText v-else color="secondary">—</BaseText>
                 </BaseDetailField>
@@ -1096,19 +1110,34 @@ function onCreateLinkedChangeRequest() {
                 </BaseDetailField>
                 <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
                   <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" />
-                  <BaseText v-else variant="body" weight="medium" class="tw:font-mono tw:break-words">
+                  <BaseText
+                    v-else
+                    variant="body"
+                    weight="medium"
+                    class="tw:font-mono tw:break-words"
+                  >
                     {{ nc.poNumber }}
                   </BaseText>
                 </BaseDetailField>
                 <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
                   <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" />
-                  <BaseText v-else variant="body" weight="medium" class="tw:font-mono tw:break-words">
+                  <BaseText
+                    v-else
+                    variant="body"
+                    weight="medium"
+                    class="tw:font-mono tw:break-words"
+                  >
                     {{ nc.orderNumber }}
                   </BaseText>
                 </BaseDetailField>
                 <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
                   <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" />
-                  <BaseText v-else variant="body" weight="medium" class="tw:font-mono tw:break-words">
+                  <BaseText
+                    v-else
+                    variant="body"
+                    weight="medium"
+                    class="tw:font-mono tw:break-words"
+                  >
                     {{ nc.lotNumber }}
                   </BaseText>
                 </BaseDetailField>
@@ -1181,13 +1210,7 @@ function onCreateLinkedChangeRequest() {
           </div>
         </div>
       </div>
-    </div>
-
-    <BaseEmptyState
-      v-else
-      title="NC not found"
-      description="This nonconformance could not be found."
-    />
+    </template>
 
     <!-- ─── NC-level Approve and Close dialog ──────────────────────────── -->
     <!-- Shows all closure invariants visually; the button at the page
@@ -1342,5 +1365,5 @@ function onCreateLinkedChangeRequest() {
         </BaseButton>
       </div>
     </BaseDialog>
-  </BasePage>
+  </BaseDetailPage>
 </template>

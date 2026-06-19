@@ -261,9 +261,9 @@ defineExpose({
       v-if="!hideHeader"
       class="tw:bg-main-hover tw:px-5 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between"
     >
-      <h3 class="ds-label tw:text-on-sidebar">
+      <BaseText as="h3" variant="overline" color="inherit" class="tw:text-on-sidebar">
         {{ label }} <span v-if="required" class="tw:text-bad">*</span>
-      </h3>
+      </BaseText>
       <div class="tw:flex tw:items-center tw:gap-2">
         <span
           v-if="uploadedFiles?.length > 0"
@@ -289,7 +289,7 @@ defineExpose({
     <!-- Already-uploaded files (from v-model) — rendered above the dropzone
          so users see what's already attached before they add more. -->
     <div v-if="uploadedFiles?.length > 0" class="tw:px-5 tw:pt-5 tw:pb-3 tw:space-y-2">
-      <div class="ds-label-sm tw:text-secondary tw:mb-2">Uploaded Files</div>
+      <BaseText as="div" variant="overline" class="tw:mb-2">Uploaded Files</BaseText>
       <BaseFileItem
         v-for="asset in uploadedFiles"
         :key="asset.id"
@@ -358,7 +358,7 @@ defineExpose({
       v-if="files?.length > 0"
       class="tw:space-y-3 tw:max-h-96 tw:overflow-y-auto tw:px-5 tw:pb-5"
     >
-      <div class="ds-label-sm tw:text-secondary tw:mb-2">Pending Files</div>
+      <BaseText as="div" variant="overline" class="tw:mb-2">Pending Files</BaseText>
       <BaseFileItem
         v-for="(fileObj, index) in files"
         :key="index"

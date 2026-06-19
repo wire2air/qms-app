@@ -17,7 +17,9 @@ defineEmits(['viewNc'])
     <div class="tw:flex tw:flex-col tw:md:flex-row tw:md:items-start tw:justify-between tw:gap-4">
       <div class="tw:space-y-2">
         <div class="tw:flex tw:items-center tw:gap-2">
-          <span class="ds-label-sm tw:bg-primary/10 tw:text-primary tw:px-2 tw:py-0.5 tw:rounded">
+          <span
+            class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wide tw:bg-primary/10 tw:text-primary tw:px-2 tw:py-0.5 tw:rounded"
+          >
             Nonconformance
           </span>
           <span v-if="nc?.ncNumber" class="tw:text-secondary tw:text-sm">#{{ nc.ncNumber }}</span>

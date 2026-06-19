@@ -4,7 +4,19 @@
 > Evidence + per-component scores: [design-system-audit.md](./design-system-audit.md). Typography design: §13 there.
 >
 > **Effort:** S ≈ <½ day · M ≈ 1–2 days · L ≈ 3–5 days · XL ≈ multi-batch sweep.
-> **Status:** ⬜ todo · ✅ done.
+> **Status:** ⬜ todo · 🚧 in progress · ✅ done.
+
+---
+
+## Progress — ~73% (effort-weighted)
+
+| Band | Phases | State |
+|---|---|---|
+| Foundation + primitives | 0 · 0.5 · 1 · 2 · 3 | ✅ ~100% |
+| Composition + controls + overlays + data | 3.5 · 4 · 5 · 6 | 🚧 ~80% (components done; control-hardening + adoption partial) |
+| Sweep + advanced + composables | 7 · 8 · 9 | 🚧 ~55% (net-new done; visual sweeps + heavy integrations remain) |
+
+**Remaining ~27%, three buckets:** (1) **visual sweeps** — `text-[Npx]` (mostly done), `ds-label`→typography (✅ complete, utility deleted), captions→`BaseCaption`, raw `<select>`/`<input>`→controls; bespoke + per-domain verify, ratchet-guarded. (2) **heavy integrations** — `BasePdfViewer`, lazy `RichTextEditor` relocate, `useFileUploader` + `uploadFile` consolidation. (3) **control hardening** — `BaseAutocomplete`, `BaseTable` row-keyboard, `BaseUploader` dropzone, `BaseField` rollout.
 
 ---
 
@@ -80,7 +92,7 @@ The foundation everything else consumes. **CSS variables, not `.ts`.**
 - [x] `typography/typography.js` variant→token map (wired `--text-*` + semantic colors) + `overline` variant.
 - [x] `BaseHeading` (semantic `level` + visual `as`), `BaseText`, `BaseCaption`, `BaseLabel`, `BaseHelperText`, `BaseErrorText` — 25 unit tests, eslint clean.
 - [ ] Stories (deferred to Phase 1 Storybook setup).
-- [ ] Retire `.ds-label`/`.ds-label-sm` utilities → tracked as a Phase 7 Bucket-B follow-up.
+- [x] Retire `.ds-label`/`.ds-label-sm` utilities — all usages swept project-wide and the two utility classes deleted from `base.css` (Phase 7).
 
 ## Phase 3 — BaseField  ✅ DONE  `M–L` · risk: medium ⭐
 
@@ -102,7 +114,9 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [x] **`BaseTabs` / `BaseTabPanel`** — accessible tabs (role=tablist/tab/tabpanel, roving tabindex, Arrow/Home/End). 14 hand-rolled bars, 0 ARIA. 9 tests. (Also closes the §3 `BaseTabs` gap.)
 - [x] **Tier-2 built:** `BaseDescriptionList`/`BaseDescriptionItem` (semantic `<dl>/<dt>/<dd>`; inline/stacked, `divided`; ~20–30-file rail pattern; 14 tests), `BaseFieldRow` (responsive 1→N column form grid, mobile-collapsing; ~30 files; 6 tests), `BaseListPage` (`BasePage`+`PageHeader`+`#stats`/`#filters` slots + opt-in loading/empty; 39+ `*Home.vue`; 8 tests), `BaseDetailPage` (breadcrumb/title teleport + loading/not-found + internal-scroll body; 30+ `*PageId.vue`; 7 tests). *Adoption (sweeping pages onto them) tracked under Phase 7.*
 - [x] **Tier-3 built:** `BaseQuickFilterPills` (single-select toggle pills as real `aria-pressed` buttons in a `role=group`; fixes the NC/CAPA/Complaints toolbars' zero-a11y `<button>` rows + dark-mode-breaking `bg-white`; 3 files; 7 tests), `BaseAuditTrailRow` ("by {actor} · {date}" line; actor via slot to stay decoupled from the user feature, date via `dt.formatDate`; ~15–20 sites; 7 tests). *Adoption tracked under Phase 7.*
-- [ ] **Adoption gaps (no new component):** finish `PageHeader` rollout (32 raw title / 55 raw actions — gated on `BaseDetailPage`); migrate `EquipmentHome`/`FormAssignmentsHome` off raw `<select>` → `BaseFilterBar`; consolidate ~84 hand-rolled delete dialogs onto `useConfirm`.
+- [x] **Adoption — delete/confirm dialogs → `useConfirm`:** the ~84 hand-rolled `<BaseConfirmDialog>`/`confirmDialog` flows consolidated onto `useConfirm()` (destructive actions now `danger`); only ProductsHome's bulk-delete kept. ~20 files.
+- [x] **`PageHeader` rollout COMPLETE + `BaseDetailPage` adopted.** The direct-teleport rollout was already finished (75 files on `PageHeader`; `npm run lint:layout` green — the old "32/55 raw" counts were stale). Adopted `BaseDetailPage` on **15 detail pages** (suppliers, users, optionSets, documents, changeRequests, trainings, audits programs/standards, nonconformances, documentTemplates, capas, roles, groups, customerComplaints, myTraining, trainingInstances) — collapses the hand-rolled `BasePage`+`PageHeader`+loading/notFound/scroll shell and adds proper not-found states. Skipped `ImpersonatePageId` (page-level siblings + inline body states don't fit the shell) and the allowlisted full-canvas `formTemplatePageId`/`AuditInstancesPageId`. ⚠️ Auth-gated — eyeball per page before merge.
+- [ ] **Adoption gap remaining:** migrate `EquipmentHome`/`FormAssignmentsHome` off raw `<select>` → folded into the parked **`BaseSelect`** workstream (raw `<select>`/`<input>` → hardened controls).
 - [ ] Stories + a11y for each (deferred to Phase 1 Storybook setup).
 
 ## Phase 4 — Core Controls: harden + fill gaps  🚧 IN PROGRESS  `L` · risk: medium
@@ -120,7 +134,7 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [x] **`BaseMenu` + `BaseSelectMenu` a11y.** Delivered the audit's headline outcome — **menu/listbox/option roles, `aria-selected`, `aria-activedescendant`, and full keyboard nav** (Arrow/Home/End/Enter, focus management) — **in place on the existing BasePopover foundation** rather than a ground-up HeadlessUI swap. Rationale: HeadlessUI `Menu`/`Combobox` don't do floating positioning (these get it from BasePopover) and a full swap would have to reimplement positioning *and* break the `#trigger`/`#button`/`#items`/`#item`/`#footer` slot contracts that ~25 `BaseMenu` + dozens of `XSelectMenu` consumers depend on — unacceptable without runtime verification. Auto-select logic left in place (entity wrappers rely on it); moving it out is a separate, consumer-affecting change. **⚠️ Needs in-browser verification before merge** (interactive keyboard/selection across real dropdowns).
 - [ ] Reduce `BasePopover` to a positioner; de-dupe portal branches; default `flip:true`. *(deferred — BasePopover is the positioning engine the above now lean on; refactor separately.)*
 - [x] **New: `BaseTooltip`** (floating-ui — hover+focus, role=tooltip + aria-describedby) and **`BaseDrawer`** (BaseDialog variant, slide-in). `BaseDialog` — added `ariaLabel` (title-less accessible name) + `initialFocus`.
-- [x] Normalized toast taxonomy (`positive/negative` → `success/error`, legacy aliased — zero break) + live-region a11y (errors assertive `alert`, rest polite `status`; dismiss `aria-label`). `ConfirmDialog` → `BaseConfirmDialog` rename **deferred to Phase 7** (it's ~24 auto-imported template consumers — a sweep, not a swap).
+- [x] Normalized toast taxonomy (`positive/negative` → `success/error`, legacy aliased — zero break) + live-region a11y (errors assertive `alert`, rest polite `status`; dismiss `aria-label`). `ConfirmDialog` → `BaseConfirmDialog` rename **done in Phase 7** (21 consumers swept).
 - [ ] Stories + a11y for each shipped item (Tooltip/Drawer stories added; Menu/SelectMenu kept existing stories; ~39 new unit tests across the phase).
 
 ## Phase 6 — Data Components  🚧 IN PROGRESS  `L–XL` · risk: low–med
@@ -129,6 +143,7 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [x] **`BaseBreadcrumbs` → `nav`/`ol`/`aria-current`** (22 consumers, additive — visual unchanged).
 - [x] **Merged `BaseChip` → `BaseBadge`** (added `size` prop; migrated the 2 workflow consumers; deleted BaseChip). `scope`/`aria-sort` for BaseTable headers already shipped in Phase 4.
 - [ ] **`BaseTable` skeleton + `manual`/server mode** — *deferred (owner asked to leave BaseTable alone this pass).* `@tanstack/vue-virtual` virtualization **declined** for now (no new dep). `BaseRailItem` dedup of `BaseStepper`/`BaseTimeline` **deferred** (both 0 consumers — pure internal cleanup).
+- [x] **`BaseAccordion`** (WAI-ARIA: button-in-heading `aria-expanded`/`-controls`, region panels, Arrow/Home/End, single/multiple) + **`BaseAvatar`** (image→initials→icon fallback, deterministic tint, `role=img`) — audit §3 P1 "polish" tier; 13 tests.
 - [x] Stories + unit tests for each shipped item (~46 new tests across the phase; build-storybook green).
 
 ## Phase 7 — App-Wide Refactor / Sweep  🚧 IN PROGRESS  `XL` · risk: medium
@@ -137,9 +152,11 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [x] Raw `<label>` field blocks → `BaseField`; eyebrows → `BaseText overline`; small headings → `BaseText`.
 - [x] **`ConfirmDialog` → `BaseConfirmDialog`** rename (21 consumers + ConfirmDialogHost's render; host keeps its name). App build green.
 - [x] **z-index migration** — 42 ad-hoc `tw:z-<number>` across 25 feature files → the Phase-1 named tokens (`tw:z-raised…z-max`). Verified no-op (token values = the numbers); no raw `tw:z-N` left in `src/`.
-- [x] **CI guardrail shipped** — `npm run lint:ds` ([check-design-system.mjs](../scripts/check-design-system.mjs)) is a **regression ratchet**: counts raw `text-[Npx]` / `<label>` / `<h1-6>` in `src/` and fails only when a count rises above its baseline (362 / 153 / 127). Wired into `npm run lint`. Lower a baseline as you sweep; 0 = hard ban.
+- [x] **CI guardrail shipped** — `npm run lint:ds` ([check-design-system.mjs](../scripts/check-design-system.mjs)) is a **regression ratchet**: counts raw `text-[Npx]` / `<label>` / `<h1-6>` in `src/` and fails only when a count rises above its baseline (now **3 / 136 / 128** after the sweeps below; heading 127→128 absorbs the supplier-portal merge's un-swept `src/pages/supplier/*` headings as tracked debt). Wired into `npm run lint`. Lower a baseline as you sweep; 0 = hard ban.
+- [x] **`text-[Npx]` retired** — 359 of 362 raw pixel sizes → typography tokens (`text-caption`/`text-label`/new `text-micro:10px`), pixel-identical no-op; 3 (8px/9px) outliers left. Baseline 362→3.
+- [x] **`ds-label`/`ds-label-sm` → typography primitives — COMPLETE project-wide.** Every usage swept across suppliers, documents, workflowInstance, company, form-builder, workflow, roles + `BaseUploader`: eyebrows/section labels → `BaseText overline`; mis-styled values (emails, sentences, empty-state hints) → `BaseText caption`; colored pills kept their element with inline `text-caption/font-semibold/uppercase/tracking-wide` tokens. The two `.ds-label*` utility classes deleted from `base.css`. ⚠️ Bespoke visual changes (12/11px uppercase → 11px overline tracking; emails no longer uppercased) — eyeball per domain on the running app.
+- [ ] Read-only captions → `BaseCaption` (~95) — *deferred, bespoke + per-domain verify.*
 - [ ] Replace raw `<select>`/`<input>`/clickable `<div>` → hardened Base controls (after Phase 4/5).
-- [ ] **Retire the ~362 `text-[Npx]` magic numbers** + `ds-label`→`BaseLabel` (~22) + read-only captions→`BaseCaption` (~95). **Deferred — large mechanical sweeps (hundreds of edits) that need a dedicated, in-app-verified pass; the ratchet now prevents the counts from growing in the meantime.**
 - [ ] *Intentional leaves (do NOT convert):* ~25 checkbox/switch/radio-wrapping `<label>`s; `<th>` table headers; `BaseCheckbox`-nested question labels.
 
 ## Phase 8 — Advanced Components  🚧 IN PROGRESS  `XL` · risk: med (mostly lazy-loaded)
@@ -147,7 +164,9 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [x] **`BaseChart`** — lazy ApexCharts wrapper (`vue3-apexcharts`) with brand defaults; `defineAsyncComponent` keeps apexcharts (~140KB → its own chunk, confirmed) off non-chart routes. Story (line/bar/donut).
 - [x] **`BaseSignaturePad`** — draw-to-sign canvas (`signature_pad`); v-model = PNG data URL, HiDPI-scaled, `clear()`/`isEmpty()`. Story.
 - [x] **`BaseImageCropper`** — crop/zoom on the installed `vue-advanced-cropper`; emits cropped data URL. Story.
-- [ ] **Deferred (complex / blind-risk):** `BasePdfViewer` (pdfjs worker setup + existing `usePdfImport`), `RichTextEditor` lazy-load + relocate (23 call sites — `defineAsyncComponent` ref/expose forwarding), `BaseFileUpload`/`useFileUploader`, Markdown render, Barcode/QR.
+- [x] **`BaseMarkdown`** — sanitized prose render wrapping the `markdownToHtml` (marked + DOMPurify) single source of truth; 6 tests.
+- [x] **`BaseQrCode`** — SVG QR (qrcode lib) for asset tags / record links; accessible `role=img`; 5 tests.
+- [ ] **Deferred (complex / blind-risk):** `BasePdfViewer` (pdfjs worker setup + existing `usePdfImport`), `RichTextEditor` lazy-load + relocate (23 call sites — `defineAsyncComponent` ref/expose forwarding), `BaseFileUpload`/`useFileUploader`, Barcode (QR shipped).
 - [x] Each heavy dep lazy-loaded (verified apexcharts is a separate chunk; charts/signature/cropper components carry browser-verify notes — render to canvas/SVG, checked in Storybook not jsdom).
 
 ## Phase 9 — Composables  🚧 IN PROGRESS  `M` · risk: low
@@ -155,7 +174,8 @@ The enterprise field wrapper — `<BaseField label required hint error><BaseInpu
 - [x] **`useChecklistModel`** — extracted BaseChecklist's uniform-vs-nested value-shape state machine into a pure, unit-tested composable (audit §7; it was inline + unmountable to test). BaseChecklist consumes it (1:1, build-verified). 8 tests.
 - [x] **`usePagination`** — extracted BasePagination's math (total pages / range label / clamped nav / page-size reset) into a reusable composable; BasePagination consumes it (spec safety-net passes). 7 tests.
 - [ ] **Deferred:** `useDate` (near-dead — `dt.formatDate` is already a DateTime prototype method app-wide), `useTable` (would require refactoring BaseTable — out of scope), `useFileUploader` + consolidating the two `uploadFile` contracts (`useFileUpload.js` vs `uploadService.js`) + shared `CameraCaptureDialog` (a real refactor of untested upload components — needs a verified pass).
-- [ ] Already exist (keep/standardize): `useConfirm`, `useToast`, `useDialog` (extract from BaseDialog), `useClipboard` (=VueUse).
+- [x] **`useDialog`** — open/close/toggle state for dialogs/drawers (+ onOpen/onClose hooks); replaces the `showXDialog = ref(false)` pattern. 4 tests.
+- [ ] Already exist (keep/standardize): `useConfirm`, `useToast`, `useClipboard` (=VueUse).
 
 ---
 

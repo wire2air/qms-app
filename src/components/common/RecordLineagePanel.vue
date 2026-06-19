@@ -43,7 +43,7 @@ const show = computed(() => causedBy.value.length > 0 || ledTo.value.length > 0)
     </div>
 
     <div v-if="causedBy.length" class="tw:flex tw:flex-col tw:gap-1.5">
-      <div class="tw:flex tw:items-center tw:gap-1 tw:text-[11px] tw:text-secondary">
+      <div class="tw:flex tw:items-center tw:gap-1 tw:text-caption tw:text-secondary">
         <IconArrowUp :size="13" /> Caused by
       </div>
       <div class="tw:flex tw:flex-wrap tw:gap-1.5">
@@ -57,7 +57,7 @@ const show = computed(() => causedBy.value.length > 0 || ledTo.value.length > 0)
     </div>
 
     <div v-if="ledTo.length" class="tw:flex tw:flex-col tw:gap-1.5">
-      <div class="tw:flex tw:items-center tw:gap-1 tw:text-[11px] tw:text-secondary">
+      <div class="tw:flex tw:items-center tw:gap-1 tw:text-caption tw:text-secondary">
         <IconArrowDown :size="13" /> Led to
       </div>
       <div class="tw:flex tw:flex-wrap tw:gap-1.5">

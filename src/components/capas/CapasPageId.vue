@@ -359,70 +359,73 @@ function onCreateLinkedChangeRequest() {
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
-    <PageHeader :icon="IconClipboardList">
-      <template #title>{{ capa?.capaNumber || capa?.title || 'CAPA' }}</template>
-      <template #actions>
-        <AskAiButton
-          v-if="capa?.id"
-          entityType="Capa"
-          :entityId="capa.id"
-          :entityTitle="capa.title"
-          :entityNumber="capa.capaNumber"
-        />
-        <BaseButton v-if="capa?.id" variant="secondary" @click="openPrintView">
-          <IconPrinter :size="20" class="tw:mr-1" />
-          Print
-        </BaseButton>
-        <BaseButton v-if="capa?.id" variant="secondary" @click="showAuditLog = true">
-          <IconClipboardList :size="20" class="tw:mr-1" />
-          Audit Log
-        </BaseButton>
-        <BaseButton
-          v-if="isOwner && capa?.statusId === 'DRAFT'"
-          variant="outline"
-          :disabled="deleting"
-          @click="showDeleteDialog = true"
-        >
-          Delete
-        </BaseButton>
-        <BaseButton
-          v-if="isOwner && capa?.statusId === 'DRAFT'"
-          variant="primary"
-          :disabled="saving"
-          @click="openOpenDialog"
-        >
-          Open CAPA
-        </BaseButton>
-        <BaseButton
-          v-if="isOwner && capa?.statusId === 'PENDING'"
-          variant="secondary"
-          :disabled="cancelling"
-          @click="openCancelDialog"
-        >
-          Cancel CAPA
-        </BaseButton>
-        <BaseButton
-          v-if="isOwner && capa?.statusId === 'PENDING'"
-          variant="danger"
-          :disabled="closing"
-          @click="openCloseDialog"
-        >
-          Close CAPA
-        </BaseButton>
-        <BaseButton
-          v-if="canCreateChangeRequest && capa?.id && !['DRAFT'].includes(capa?.statusId)"
-          variant="outline"
-          @click="onCreateLinkedChangeRequest"
-        >
-          Create Change Request
-        </BaseButton>
-      </template>
-    </PageHeader>
+  <BaseDetailPage
+    :icon="IconClipboardList"
+    :title="capa?.capaNumber || capa?.title || 'CAPA'"
+    :loading="loading"
+    :notFound="!loading && !capa"
+    notFoundTitle="CAPA not found"
+    notFoundDescription="This CAPA could not be found."
+    width="standard"
+  >
+    <template #actions>
+      <AskAiButton
+        v-if="capa?.id"
+        entityType="Capa"
+        :entityId="capa.id"
+        :entityTitle="capa.title"
+        :entityNumber="capa.capaNumber"
+      />
+      <BaseButton v-if="capa?.id" variant="secondary" @click="openPrintView">
+        <IconPrinter :size="20" class="tw:mr-1" />
+        Print
+      </BaseButton>
+      <BaseButton v-if="capa?.id" variant="secondary" @click="showAuditLog = true">
+        <IconClipboardList :size="20" class="tw:mr-1" />
+        Audit Log
+      </BaseButton>
+      <BaseButton
+        v-if="isOwner && capa?.statusId === 'DRAFT'"
+        variant="outline"
+        :disabled="deleting"
+        @click="showDeleteDialog = true"
+      >
+        Delete
+      </BaseButton>
+      <BaseButton
+        v-if="isOwner && capa?.statusId === 'DRAFT'"
+        variant="primary"
+        :disabled="saving"
+        @click="openOpenDialog"
+      >
+        Open CAPA
+      </BaseButton>
+      <BaseButton
+        v-if="isOwner && capa?.statusId === 'PENDING'"
+        variant="secondary"
+        :disabled="cancelling"
+        @click="openCancelDialog"
+      >
+        Cancel CAPA
+      </BaseButton>
+      <BaseButton
+        v-if="isOwner && capa?.statusId === 'PENDING'"
+        variant="danger"
+        :disabled="closing"
+        @click="openCloseDialog"
+      >
+        Close CAPA
+      </BaseButton>
+      <BaseButton
+        v-if="canCreateChangeRequest && capa?.id && !['DRAFT'].includes(capa?.statusId)"
+        variant="outline"
+        @click="onCreateLinkedChangeRequest"
+      >
+        Create Change Request
+      </BaseButton>
+    </template>
 
-    <BaseSpinner v-if="loading" centered size="md" />
-
-    <div v-else-if="capa" class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
+    <template v-if="capa">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <RecordTrailBreadcrumb />
         <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_16fr] tw:gap-4 tw:items-start">
@@ -579,8 +582,15 @@ function onCreateLinkedChangeRequest() {
                   <BaseText v-else color="secondary">—</BaseText>
                 </BaseDetailField>
                 <BaseDetailField label="Department">
-                  <DepartmentSelectMenu v-if="isEditable" v-model="capa.departmentId" :required="true" />
-                  <DepartmentBadgeById v-else-if="capa.departmentId" :departmentId="capa.departmentId" />
+                  <DepartmentSelectMenu
+                    v-if="isEditable"
+                    v-model="capa.departmentId"
+                    :required="true"
+                  />
+                  <DepartmentBadgeById
+                    v-else-if="capa.departmentId"
+                    :departmentId="capa.departmentId"
+                  />
                   <BaseText v-else color="secondary">—</BaseText>
                 </BaseDetailField>
                 <BaseDetailField v-if="capa.supplierId" label="Supplier">
@@ -652,15 +662,7 @@ function onCreateLinkedChangeRequest() {
           </div>
         </div>
       </div>
-    </div>
-
-    <div v-else class="tw:p-5">
-      <BaseEmptyState
-        :icon="null"
-        title="CAPA not found"
-        description="This CAPA could not be found."
-      />
-    </div>
+    </template>
 
     <BaseDialog v-model="showCloseDialog" title="Close CAPA" maxWidth="lg">
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
@@ -875,5 +877,5 @@ function onCreateLinkedChangeRequest() {
         </BaseButton>
       </div>
     </BaseDialog>
-  </BasePage>
+  </BaseDetailPage>
 </template>
