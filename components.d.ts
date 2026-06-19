@@ -205,6 +205,7 @@ declare module 'vue' {
     BaseOptionGroup: typeof import('./resource/js/shared/components/BaseOptionGroup.vue')['default']
     'BaseOptionGroup.spec': typeof import('./resource/js/shared/components/BaseOptionGroup.spec.js')['default']
     'BaseOptionGroup.stories': typeof import('./resource/js/shared/components/BaseOptionGroup.stories.js')['default']
+    BaseOtpInput: typeof import('./resource/js/shared/components/BaseOtpInput.vue')['default']
     BaseOverviewPanel: typeof import('./resource/js/shared/components/BaseOverviewPanel.vue')['default']
     BasePage: typeof import('./resource/js/shared/components/BasePage.vue')['default']
     'BasePage.spec': typeof import('./resource/js/shared/components/BasePage.spec.js')['default']
