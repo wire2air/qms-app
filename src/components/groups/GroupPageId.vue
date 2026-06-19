@@ -57,7 +57,6 @@ const filteredUsers = computed(() => {
 
 // ─── Breadcrumbs ──────────────────────────────────────────────────────────────
 
-
 // ─── Auto-save ────────────────────────────────────────────────────────────────
 
 const editingName = ref(false)
@@ -130,218 +129,204 @@ function copyToClipboard(text) {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader v-if="group" :icon="IconBuilding" :title="group.name || 'Team'">
-      <template #actions>
+  <BaseDetailPage
+    :icon="IconBuilding"
+    :title="group?.name || 'Team'"
+    :loading="loading"
+    :notFound="!loading && !group"
+    notFoundTitle="Team not found"
+    width="standard"
+  >
+    <template #actions>
+      <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary">
+        <BaseSpinner size="xs" />
+        Saving...
+      </div>
+    </template>
+
+    <div class="tw:py-8 tw:space-y-8">
+      <!-- Error Banner -->
+      <div
+        v-if="saveError"
+        class="tw:p-3 tw:bg-red-50 tw:text-red-600 tw:text-sm tw:rounded-lg tw:border tw:border-red-200"
+      >
+        {{ saveError }}
+      </div>
+
+      <!-- Profile Header -->
+      <div class="tw:bg-sidebar tw:border tw:border-divider tw:p-6 tw:rounded-xl tw:shadow-sm">
         <div
-          v-if="isSaving"
-          class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary"
+          class="tw:flex tw:flex-col tw:md:flex-row tw:items-start tw:md:items-center tw:justify-between tw:gap-6"
         >
-          <BaseSpinner size="xs" />
-          Saving...
-        </div>
-      </template>
-    </PageHeader>
-
-
-    <!-- Loading State -->
-    <div
-      v-if="loading"
-      class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:flex-1 tw:py-8"
-    >
-      <BaseSpinner size="lg" />
-      <div class="tw:text-sm tw:text-secondary tw:mt-3">Loading team...</div>
-    </div>
-
-    <!-- Content -->
-    <div v-else-if="group" class="tw:overflow-y-auto">
-      <div class="tw:py-8 tw:space-y-8">
-        <!-- Error Banner -->
-        <div
-          v-if="saveError"
-          class="tw:p-3 tw:bg-red-50 tw:text-red-600 tw:text-sm tw:rounded-lg tw:border tw:border-red-200"
-        >
-          {{ saveError }}
-        </div>
-
-        <!-- Profile Header -->
-        <div class="tw:bg-sidebar tw:border tw:border-divider tw:p-6 tw:rounded-xl tw:shadow-sm">
-          <div
-            class="tw:flex tw:flex-col tw:md:flex-row tw:items-start tw:md:items-center tw:justify-between tw:gap-6"
-          >
-            <div class="tw:flex tw:items-center tw:gap-6">
-              <!-- Avatar -->
-              <BaseClickableRow
-                class="tw:relative tw:group"
-                :disabled="!canUpdate"
-                aria-label="Change group avatar"
-                @click="openAvatarDialog"
-              >
-                <TeamAvatar :team="group" class="tw:size-20" />
-                <div
-                  v-if="canUpdate"
-                  class="tw:absolute tw:inset-0 tw:bg-black/50 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:pointer-events-none"
-                >
-                  <IconCamera :size="28" class="tw:text-white" />
-                </div>
-              </BaseClickableRow>
-
-              <!-- Name & Leadership -->
-              <div>
-                <div class="tw:flex tw:items-center tw:gap-3 tw:mb-1">
-                  <template v-if="editingName && canUpdate">
-                    <BaseTextInput
-                      v-model="group.name"
-                      placeholder="Group name"
-                      size="sm"
-                      @keyup.enter="editingName = false"
-                      @blur="editingName = false"
-                    />
-                  </template>
-                  <h2
-                    v-else
-                    class="tw:text-2xl tw:font-bold tw:text-on-main"
-                    :class="{ 'tw:cursor-pointer tw:hover:text-primary': canUpdate }"
-                    @click="canUpdate && (editingName = true)"
-                  >
-                    {{ group.name || 'Team' }}
-                  </h2>
-                  <span
-                    v-if="group.isLeadership"
-                    class="tw:text-xs tw:font-semibold tw:bg-primary/10 tw:text-primary tw:px-2.5 tw:py-1 tw:rounded-full"
-                  >
-                    Leadership
-                  </span>
-                </div>
-                <p class="tw:text-secondary tw:flex tw:items-center tw:gap-1.5 tw:text-sm">
-                  <IconBuilding :size="14" />
-                  {{ memberCount }} member{{ memberCount !== 1 ? 's' : '' }}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-8">
-          <!-- Team Overview Card -->
-          <div class="tw:lg:col-span-1 tw:space-y-6">
-            <div
-              class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm tw:overflow-hidden"
+          <div class="tw:flex tw:items-center tw:gap-6">
+            <!-- Avatar -->
+            <BaseClickableRow
+              class="tw:relative tw:group"
+              :disabled="!canUpdate"
+              aria-label="Change group avatar"
+              @click="openAvatarDialog"
             >
-              <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
-                <h3 class="tw:font-bold tw:text-on-main tw:text-sm tw:uppercase tw:tracking-wide">
-                  Team Settings
-                </h3>
+              <TeamAvatar :team="group" class="tw:size-20" />
+              <div
+                v-if="canUpdate"
+                class="tw:absolute tw:inset-0 tw:bg-black/50 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:pointer-events-none"
+              >
+                <IconCamera :size="28" class="tw:text-white" />
               </div>
-              <div class="tw:p-6 tw:space-y-5">
-                <!-- Team ID -->
-                <div>
-                  <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Team ID</label>
-                  <div class="tw:flex tw:items-center tw:gap-2 tw:group">
-                    <code
-                      class="tw:text-xs tw:text-on-main tw:bg-main tw:font-mono tw:break-all tw:p-1 tw:rounded tw:flex-1"
-                    >
-                      {{ id }}
-                    </code>
-                    <button
-                      class="tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:p-1 tw:rounded tw:hover:bg-main-hover"
-                      @click="copyToClipboard(id)"
-                    >
-                      <IconCopy :size="14" class="tw:text-secondary" />
-                    </button>
-                  </div>
-                </div>
+            </BaseClickableRow>
 
-                <!-- Color -->
-                <div v-if="canUpdate">
-                  <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Group Color</label>
-                  <BaseColorPicker v-model="group.color" />
-                </div>
-                <div v-else>
-                  <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Group Color</label>
-                  <span
-                    class="tw:inline-block tw:size-6 tw:rounded-full tw:border tw:border-divider"
-                    :style="{ backgroundColor: group.color }"
+            <!-- Name & Leadership -->
+            <div>
+              <div class="tw:flex tw:items-center tw:gap-3 tw:mb-1">
+                <template v-if="editingName && canUpdate">
+                  <BaseTextInput
+                    v-model="group.name"
+                    placeholder="Group name"
+                    size="sm"
+                    @keyup.enter="editingName = false"
+                    @blur="editingName = false"
                   />
-                </div>
+                </template>
+                <h2
+                  v-else
+                  class="tw:text-2xl tw:font-bold tw:text-on-main"
+                  :class="{ 'tw:cursor-pointer tw:hover:text-primary': canUpdate }"
+                  @click="canUpdate && (editingName = true)"
+                >
+                  {{ group.name || 'Team' }}
+                </h2>
+                <span
+                  v-if="group.isLeadership"
+                  class="tw:text-xs tw:font-semibold tw:bg-primary/10 tw:text-primary tw:px-2.5 tw:py-1 tw:rounded-full"
+                >
+                  Leadership
+                </span>
+              </div>
+              <p class="tw:text-secondary tw:flex tw:items-center tw:gap-1.5 tw:text-sm">
+                <IconBuilding :size="14" />
+                {{ memberCount }} member{{ memberCount !== 1 ? 's' : '' }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-                <!-- Leadership Toggle -->
-                <div>
-                  <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Type</label>
-                  <label
-                    v-if="canUpdate"
-                    class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer"
+      <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-8">
+        <!-- Team Overview Card -->
+        <div class="tw:lg:col-span-1 tw:space-y-6">
+          <div
+            class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm tw:overflow-hidden"
+          >
+            <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
+              <h3 class="tw:font-bold tw:text-on-main tw:text-sm tw:uppercase tw:tracking-wide">
+                Team Settings
+              </h3>
+            </div>
+            <div class="tw:p-6 tw:space-y-5">
+              <!-- Team ID -->
+              <div>
+                <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Team ID</label>
+                <div class="tw:flex tw:items-center tw:gap-2 tw:group">
+                  <code
+                    class="tw:text-xs tw:text-on-main tw:bg-main tw:font-mono tw:break-all tw:p-1 tw:rounded tw:flex-1"
                   >
-                    <BaseSwitch v-model="group.isLeadership" />
-                    <span class="tw:text-sm tw:text-on-main">Leadership Team</span>
-                  </label>
-                  <span v-else-if="group.isLeadership" class="tw:text-sm tw:text-on-main">
-                    Leadership Team
-                  </span>
-                  <span v-else class="tw:text-sm tw:text-secondary">Standard Team</span>
+                    {{ id }}
+                  </code>
+                  <button
+                    class="tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:p-1 tw:rounded tw:hover:bg-main-hover"
+                    @click="copyToClipboard(id)"
+                  >
+                    <IconCopy :size="14" class="tw:text-secondary" />
+                  </button>
                 </div>
+              </div>
+
+              <!-- Color -->
+              <div v-if="canUpdate">
+                <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Group Color</label>
+                <BaseColorPicker v-model="group.color" />
+              </div>
+              <div v-else>
+                <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Group Color</label>
+                <span
+                  class="tw:inline-block tw:size-6 tw:rounded-full tw:border tw:border-divider"
+                  :style="{ backgroundColor: group.color }"
+                />
+              </div>
+
+              <!-- Leadership Toggle -->
+              <div>
+                <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Type</label>
+                <label v-if="canUpdate" class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer">
+                  <BaseSwitch v-model="group.isLeadership" />
+                  <span class="tw:text-sm tw:text-on-main">Leadership Team</span>
+                </label>
+                <span v-else-if="group.isLeadership" class="tw:text-sm tw:text-on-main">
+                  Leadership Team
+                </span>
+                <span v-else class="tw:text-sm tw:text-secondary">Standard Team</span>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Members Section -->
-          <div class="tw:lg:col-span-2 tw:space-y-6">
-            <div class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm">
-              <div
-                class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
-              >
-                <div class="tw:flex tw:items-center tw:gap-2">
-                  <h3 class="tw:font-bold tw:text-on-main tw:text-sm tw:uppercase tw:tracking-wide">
-                    Members
-                  </h3>
-                  <span
-                    class="tw:text-micro tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
-                  >
-                    {{ memberCount }}
-                  </span>
-                </div>
-                <BaseSelectMenu
-                  :modelValue="userIdsOnTeam"
-                  :items="filteredUsers"
-                  :required="true"
-                  :multiple="true"
-                  @update:modelValue="onAddMembers"
+        <!-- Members Section -->
+        <div class="tw:lg:col-span-2 tw:space-y-6">
+          <div class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm">
+            <div
+              class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
+            >
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <h3 class="tw:font-bold tw:text-on-main tw:text-sm tw:uppercase tw:tracking-wide">
+                  Members
+                </h3>
+                <span
+                  class="tw:text-micro tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
                 >
-                  <template #button="scope">
-                    <slot name="button" v-bind="scope">
-                      <button
-                        class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
-                      >
-                        <IconUserPlus :size="14" />
-                        Add Members
-                      </button>
-                    </slot>
-                  </template>
-                </BaseSelectMenu>
+                  {{ memberCount }}
+                </span>
               </div>
-
-              <!-- Member List -->
-              <div v-if="memberships.length > 0" class="tw:divide-y tw:divide-divider">
-                <div
-                  v-for="entry in memberships"
-                  :key="entry.m.id"
-                  class="tw:flex tw:items-center tw:p-4 tw:hover:bg-main-hover tw:transition-colors"
-                >
-                  <UsersListItem
-                    class="tw:w-full"
-                    :user="entry.user"
-                    :clearable="canUpdate"
-                    @clear="onRemoveMember(entry)"
-                  />
-                </div>
-              </div>
-
-              <div
-                v-else
-                class="tw:p-8 tw:text-center tw:text-secondary tw:text-sm tw:border-dashed tw:border-2 tw:border-divider tw:rounded-b-xl"
+              <BaseSelectMenu
+                :modelValue="userIdsOnTeam"
+                :items="filteredUsers"
+                :required="true"
+                :multiple="true"
+                @update:modelValue="onAddMembers"
               >
-                No members assigned yet.
+                <template #button="scope">
+                  <slot name="button" v-bind="scope">
+                    <button
+                      class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
+                    >
+                      <IconUserPlus :size="14" />
+                      Add Members
+                    </button>
+                  </slot>
+                </template>
+              </BaseSelectMenu>
+            </div>
+
+            <!-- Member List -->
+            <div v-if="memberships.length > 0" class="tw:divide-y tw:divide-divider">
+              <div
+                v-for="entry in memberships"
+                :key="entry.m.id"
+                class="tw:flex tw:items-center tw:p-4 tw:hover:bg-main-hover tw:transition-colors"
+              >
+                <UsersListItem
+                  class="tw:w-full"
+                  :user="entry.user"
+                  :clearable="canUpdate"
+                  @clear="onRemoveMember(entry)"
+                />
               </div>
+            </div>
+
+            <div
+              v-else
+              class="tw:p-8 tw:text-center tw:text-secondary tw:text-sm tw:border-dashed tw:border-2 tw:border-divider tw:rounded-b-xl"
+            >
+              No members assigned yet.
             </div>
           </div>
         </div>
@@ -357,5 +342,5 @@ function copyToClipboard(text) {
       @save="handleAvatarSave"
       @delete="handleAvatarDelete"
     />
-  </BasePage>
+  </BaseDetailPage>
 </template>

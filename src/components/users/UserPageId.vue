@@ -113,34 +113,25 @@ async function handleAvatarDelete() {
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
-    <PageHeader>
-      <template #title>
-        <BaseBreadcrumbs :items="breadcrumbItems" />
-      </template>
-      <template #actions>
-        <BaseButton
-          v-if="canUpdateUser && user && !user.inviteSent"
-          variant="outline"
-          :loading="sendingInvite"
-          @click="sendInvitation"
-        >
-          Send Invitation
-        </BaseButton>
-      </template>
-    </PageHeader>
+  <BaseDetailPage
+    :breadcrumbs="breadcrumbItems"
+    :loading="loading"
+    :notFound="!loading && !user"
+    notFoundTitle="User not found"
+    width="standard"
+  >
+    <template #actions>
+      <BaseButton
+        v-if="canUpdateUser && user && !user.inviteSent"
+        variant="outline"
+        :loading="sendingInvite"
+        @click="sendInvitation"
+      >
+        Send Invitation
+      </BaseButton>
+    </template>
 
-    <!-- Loading State -->
-    <div
-      v-if="loading"
-      class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:flex-1 tw:py-8"
-    >
-      <BaseSpinner size="lg" />
-      <div class="tw:text-sm tw:text-secondary tw:mt-3">Loading user...</div>
-    </div>
-
-    <!-- Content -->
-    <div v-else class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:py-8">
+    <div class="tw:py-8">
       <div class="tw:space-y-6">
         <!-- Saving Indicator -->
         <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary">
@@ -408,5 +399,5 @@ async function handleAvatarDelete() {
       :performedBy="props.id"
       :title="`Audit Log — ${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Audit Log'"
     />
-  </BasePage>
+  </BaseDetailPage>
 </template>
