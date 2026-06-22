@@ -8,6 +8,7 @@ import {
   searchNodes,
   countActiveGroups,
   shouldSearch,
+  isDateNode,
 } from './filterMenuHelpers.js'
 
 describe('hasChildren / isAsync', () => {
@@ -85,5 +86,16 @@ describe('shouldSearch', () => {
     expect(shouldSearch({}, 3)).toBe(false)
     expect(shouldSearch({ searchable: true }, 1)).toBe(true)
     expect(shouldSearch({ searchable: false }, 100)).toBe(false)
+  })
+})
+
+describe('date nodes', () => {
+  it('isDateNode detects type:date', () => {
+    expect(isDateNode({ type: 'date', group: 'createdAt' })).toBe(true)
+    expect(isDateNode({ group: 'statusId', options: [] })).toBe(false)
+  })
+  it('countActiveGroups counts a non-null date token', () => {
+    expect(countActiveGroups({ createdAt: { operator: 'before', value: '2026-01-01' } })).toBe(1)
+    expect(countActiveGroups({ createdAt: null })).toBe(0)
   })
 })

@@ -74,6 +74,11 @@ export function countActiveGroups(model = {}) {
   ).length
 }
 
+/** A node that edits a date token (rendered with BaseDateFilter, not checkboxes). */
+export function isDateNode(node) {
+  return node?.type === 'date'
+}
+
 /** Show an inline search box once a submenu has more than this many options. */
 export const SEARCH_THRESHOLD = 8
 export function shouldSearch(node, childCount) {

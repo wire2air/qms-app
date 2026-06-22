@@ -38,6 +38,10 @@ provide('filterMenuCtx', {
   toggle: (node) => {
     model.value = toggleSelection(model.value, node)
   },
+  getValue: (group) => model.value?.[group] ?? null,
+  setValue: (group, value) => {
+    model.value = { ...model.value, [group]: value }
+  },
   requestClose: () => {
     open.value = false
   },

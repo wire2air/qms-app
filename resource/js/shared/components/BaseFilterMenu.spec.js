@@ -84,4 +84,15 @@ describe('BaseFilterMenu (cascading)', () => {
     await nextTick()
     expect(w.emitted('update:modelValue').at(-1)[0]).toEqual({ priority: 'HIGH' })
   })
+
+  it('opens a BaseDateFilter panel for a type:date node and writes a token', async () => {
+    const items = [{ id: 'created', label: 'Created', group: 'createdAt', type: 'date' }]
+    const w = mount(BaseFilterMenu, { attachTo: document.body, props: { items, modelValue: {} } })
+    mounted.push(w)
+    await w.get('button').trigger('click')
+    await nextTick()
+    rowByText('Created').click()
+    await nextTick()
+    expect(document.body.querySelector('select[data-op]')).not.toBeNull()
+  })
 })

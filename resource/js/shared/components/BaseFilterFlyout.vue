@@ -15,6 +15,7 @@ import {
   isAsync,
   searchNodes,
   shouldSearch,
+  isDateNode,
 } from '../composables/filterMenuHelpers.js'
 
 const props = defineProps({
@@ -32,6 +33,8 @@ const openId = ref(null)
 const openAnchor = ref(null)
 const asyncKids = ref({})
 const loadingId = ref(null)
+const dateNode = ref(null)
+const dateAnchor = ref(null)
 
 const enableSearch = computed(() => shouldSearch({}, props.nodes.length))
 const filtered = computed(() => searchNodes(props.nodes, search.value))
@@ -56,6 +59,11 @@ async function openSub(node, el) {
 }
 function onSelect(node, ev) {
   if (node.disabled) return
+  if (isDateNode(node)) {
+    dateNode.value = node
+    dateAnchor.value = ev?.currentTarget ?? null
+    return
+  }
   if (hasChildren(node)) openSub(node, ev?.currentTarget)
   else if (node.onSelect) {
     node.onSelect()
@@ -158,7 +166,7 @@ function onKeydown(e) {
             v-else
             :node="node"
             :checked="isChecked(node)"
-            :hasSub="hasChildren(node)"
+            :hasSub="hasChildren(node) || isDateNode(node)"
             :loading="loadingId === node.id"
             @select="(ev) => onSelect(node, ev)"
             @hover="(ev) => onHover(node, ev)"
@@ -167,6 +175,7 @@ function onKeydown(e) {
         <p v-if="!filtered.length" class="tw:px-2 tw:py-3 tw:text-center tw:text-xs tw:text-secondary">
           No matches
         </p>
+        <slot />
       </div>
 
       <!-- recursive child flyout (unlimited nesting) -->
@@ -177,6 +186,20 @@ function onKeydown(e) {
         placement="right-start"
         @close="openId = null"
       />
+
+      <!-- date-filter sub-panel -->
+      <BaseFilterFlyout
+        v-if="dateNode && dateAnchor"
+        :nodes="[]"
+        :anchorEl="dateAnchor"
+        placement="right-start"
+        @close="dateNode = null"
+      >
+        <BaseDateFilter
+          :modelValue="ctx?.getValue?.(dateNode.group) ?? null"
+          @update:modelValue="(t) => ctx?.setValue?.(dateNode.group, t)"
+        />
+      </BaseFilterFlyout>
     </div>
   </Teleport>
 </template>
