@@ -231,4 +231,21 @@ describe('BaseDateField (time / datetime)', () => {
     expect(v.toISODate()).toBe('2026-06-15')
     expect(v.hour).toBe(10)
   })
+
+  it('datetime mode preserves time-of-day when picking a calendar day', async () => {
+    const w = mountField({
+      mode: 'datetime',
+      modelValue: DateTime.fromISO('2026-06-15T14:30'),
+    })
+    await w.get('button').trigger('click')
+    await nextTick()
+    const dayCell = document.body.querySelector('[data-day="2026-06-20"]')
+    expect(dayCell).not.toBeNull()
+    dayCell.click()
+    await nextTick()
+    const v = w.emitted('update:modelValue').at(-1)[0]
+    expect(v.toISODate()).toBe('2026-06-20')
+    expect(v.hour).toBe(14)
+    expect(v.minute).toBe(30)
+  })
 })
