@@ -875,338 +875,323 @@ const ncDetailConfig = computed(() =>
 
     <!-- Right column — stays here until Task 4 moves it into the BaseDetailLayout rail -->
     <template v-if="nc" #rail>
-      <!-- External access — read-only panel populated by workflow-
-           step assignment (autoShareSupplierUsers). Product decision
-           (2026-05-29): supplier visibility on NCs is workflow-
-           driven, not manual. Only meaningful on supplier-facing
-           NCs — internal NCs never share externally. -->
-      <SharedWithPanel
-        v-if="nc.isSupplierFacing"
-        entityType="Nonconformance"
-        :entityId="id"
-      />
-
-      <!-- Customer complaints this NC was converted from — resolves
-           via nc_source_links, self-hides when there are none. -->
-      <NcLinkedComplaintsPanel :ncId="id" />
-
-      <!-- Overview side card. Grouped into subsections with quiet
-           dividers so the right rail stays scannable as it grows:
-             Identification → People → Classification → Schedule
-             → Source / Commerce → Related
-           Severity / Detected are NOT duplicated here — they live
-           in the main grid alongside Type + Source. -->
-      <BaseOverviewPanel>
-        <!-- General -->
-        <BaseDetailSection title="General">
-          <BaseDetailField label="NC number">
-            <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
-              {{ nc.ncNumber || '—' }}
-            </BaseText>
-          </BaseDetailField>
-          <BaseDetailField label="Status">
-            <div class="tw:flex tw:items-center tw:gap-1.5 tw:flex-wrap">
-              <NcStatusBadgeById :statusId="nc.statusId" />
-              <BaseBadge
-                v-if="nc.markedCompleteAt"
-                class="tw:text-micro tw:bg-emerald-100 tw:text-emerald-700"
-                title="Marked complete by owner — pending final close"
-              >
-                Completed
-              </BaseBadge>
-            </div>
-          </BaseDetailField>
-        </BaseDetailSection>
-
-        <!-- Ownership -->
-        <BaseDetailSection title="Ownership" divided>
-          <!-- Initiator = who raised the NC (createdBy, immutable). -->
-          <BaseDetailField label="Initiator">
-            <UserBadgeById v-if="nc.createdBy" :userId="nc.createdBy" />
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
-          <!-- Responsible party = drives the NC to closure; effectiveness
-               checks + default workflow assignment route here. -->
-          <BaseDetailField label="Responsible party">
-            <UserSelectMenu v-if="isEditable" v-model="nc.ownerId" :required="true" />
-            <UserBadgeById v-else-if="nc.ownerId" :userId="nc.ownerId" />
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
-          <BaseDetailField label="Site">
-            <SiteSelectMenu v-if="isEditable" v-model="nc.siteId" :required="true" />
-            <SiteBadgeById v-else-if="nc.siteId" :siteId="nc.siteId" />
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
-          <BaseDetailField label="Department">
-            <DepartmentSelectMenu
-              v-if="isEditable"
-              v-model="nc.departmentId"
-              :required="true"
-            />
-            <DepartmentBadgeById
-              v-else-if="nc.departmentId"
-              :departmentId="nc.departmentId"
-            />
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
-        </BaseDetailSection>
-
-        <!-- Notify (cc) — groups/people emailed + in-app on status change -->
-        <BaseDetailSection title="Notify (cc)" divided>
-          <NotificationCcField
-            v-model:groupIds="nc.notifyGroupIds"
-            v-model:userIds="nc.notifyUserIds"
-            :editable="isEditable"
-            hint=""
+      <!-- 1. Status & schedule — NC number, status badge, marked-complete chip, due date -->
+      <BaseRailCard title="Status &amp; schedule">
+        <BaseDetailField label="NC number">
+          <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
+            {{ nc.ncNumber || '—' }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Status">
+          <div class="tw:flex tw:items-center tw:gap-1.5 tw:flex-wrap">
+            <NcStatusBadgeById :statusId="nc.statusId" />
+            <BaseBadge
+              v-if="nc.markedCompleteAt"
+              class="tw:text-micro tw:bg-emerald-100 tw:text-emerald-700"
+              title="Marked complete by owner — pending final close"
+            >
+              Completed
+            </BaseBadge>
+          </div>
+        </BaseDetailField>
+        <BaseDetailField label="Due date">
+          <BaseDateField
+            v-if="editingDueDate && isEditable"
+            v-model="nc.dueDate"
+            mode="date"
+            class="tw:w-full"
+            @blur="editingDueDate = false"
           />
-        </BaseDetailSection>
+          <BaseClickableRow
+            v-else
+            tag="span"
+            class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
+            :class="[
+              isOverdue ? 'tw:text-red-600' : '',
+              isEditable ? 'tw:hover:text-primary' : '',
+            ]"
+            :disabled="!isEditable"
+            aria-label="Edit due date"
+            @click="editingDueDate = true"
+          >
+            <span>{{ nc.dueDate ? nc.dueDate.formatDate('date') : '—' }}</span>
+            <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
+          </BaseClickableRow>
+        </BaseDetailField>
+      </BaseRailCard>
 
-        <!-- Classification -->
-        <BaseDetailSection title="Classification" divided>
-          <BaseDetailField label="Priority">
-            <BaseInlineSelect
-              v-if="isEditable"
-              v-model="nc.priorityId"
-              :items="[
-                { id: 'LOW', name: 'Low' },
-                { id: 'MEDIUM', name: 'Medium' },
-                { id: 'HIGH', name: 'High' },
-                { id: 'CRITICAL', name: 'Critical' },
-              ]"
-            />
-            <span
-              v-else-if="nc.priorityId"
-              class="tw:inline-flex tw:items-center tw:text-xs tw:font-semibold tw:rounded tw:px-2 tw:py-0.5"
-              :class="{
-                'tw:bg-emerald-100 tw:text-emerald-700': nc.priorityId === 'LOW',
-                'tw:bg-amber-100 tw:text-amber-700': nc.priorityId === 'MEDIUM',
-                'tw:bg-orange-100 tw:text-orange-700': nc.priorityId === 'HIGH',
-                'tw:bg-rose-100 tw:text-rose-700': nc.priorityId === 'CRITICAL',
-              }"
-            >
-              {{ nc.priorityId.charAt(0) + nc.priorityId.slice(1).toLowerCase() }}
-            </span>
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
-          <BaseDetailField label="Issue type">
-            <NcIssueTypeSelectMenu v-if="isEditable" v-model="nc.ncIssueTypeId" />
-            <NcIssueTypeBadgeById
-              v-else-if="nc.ncIssueTypeId"
-              :issueTypeId="nc.ncIssueTypeId"
-            />
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
-        </BaseDetailSection>
+      <!-- 2. People — initiator, responsible party, site, department -->
+      <BaseRailCard title="People">
+        <!-- Initiator = who raised the NC (createdBy, immutable). -->
+        <BaseDetailField label="Initiator">
+          <UserBadgeById v-if="nc.createdBy" :userId="nc.createdBy" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <!-- Responsible party = drives the NC to closure; effectiveness
+             checks + default workflow assignment route here. -->
+        <BaseDetailField label="Responsible party">
+          <UserSelectMenu v-if="isEditable" v-model="nc.ownerId" :required="true" />
+          <UserBadgeById v-else-if="nc.ownerId" :userId="nc.ownerId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Site">
+          <SiteSelectMenu v-if="isEditable" v-model="nc.siteId" :required="true" />
+          <SiteBadgeById v-else-if="nc.siteId" :siteId="nc.siteId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Department">
+          <DepartmentSelectMenu
+            v-if="isEditable"
+            v-model="nc.departmentId"
+            :required="true"
+          />
+          <DepartmentBadgeById
+            v-else-if="nc.departmentId"
+            :departmentId="nc.departmentId"
+          />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+      </BaseRailCard>
 
-        <!-- Schedule -->
-        <BaseDetailSection title="Schedule" divided>
-          <BaseDetailField label="Due date">
-            <BaseDateField
-              v-if="editingDueDate && isEditable"
-              v-model="nc.dueDate"
-              mode="date"
-              class="tw:w-full"
-              @blur="editingDueDate = false"
-            />
-            <BaseClickableRow
-              v-else
-              tag="span"
-              class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
-              :class="[
-                isOverdue ? 'tw:text-red-600' : '',
-                isEditable ? 'tw:hover:text-primary' : '',
-              ]"
-              :disabled="!isEditable"
-              aria-label="Edit due date"
-              @click="editingDueDate = true"
-            >
-              <span>{{ nc.dueDate ? nc.dueDate.formatDate('date') : '—' }}</span>
-              <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
-            </BaseClickableRow>
-          </BaseDetailField>
-        </BaseDetailSection>
+      <!-- 3. Classification — priority, issue type -->
+      <BaseRailCard title="Classification">
+        <BaseDetailField label="Priority">
+          <BaseInlineSelect
+            v-if="isEditable"
+            v-model="nc.priorityId"
+            :items="[
+              { id: 'LOW', name: 'Low' },
+              { id: 'MEDIUM', name: 'Medium' },
+              { id: 'HIGH', name: 'High' },
+              { id: 'CRITICAL', name: 'Critical' },
+            ]"
+          />
+          <span
+            v-else-if="nc.priorityId"
+            class="tw:inline-flex tw:items-center tw:text-xs tw:font-semibold tw:rounded tw:px-2 tw:py-0.5"
+            :class="{
+              'tw:bg-emerald-100 tw:text-emerald-700': nc.priorityId === 'LOW',
+              'tw:bg-amber-100 tw:text-amber-700': nc.priorityId === 'MEDIUM',
+              'tw:bg-orange-100 tw:text-orange-700': nc.priorityId === 'HIGH',
+              'tw:bg-rose-100 tw:text-rose-700': nc.priorityId === 'CRITICAL',
+            }"
+          >
+            {{ nc.priorityId.charAt(0) + nc.priorityId.slice(1).toLowerCase() }}
+          </span>
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Issue type">
+          <NcIssueTypeSelectMenu v-if="isEditable" v-model="nc.ncIssueTypeId" />
+          <NcIssueTypeBadgeById
+            v-else-if="nc.ncIssueTypeId"
+            :issueTypeId="nc.ncIssueTypeId"
+          />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+      </BaseRailCard>
 
-        <!-- Product Impact / Commerce. Editable rows always render so a
-             missing value (e.g. PO# on a lot-spawned NC) can be ADDED;
-             read-only mode keeps hiding empties. -->
-        <BaseDetailSection
-          v-if="
-            isEditable ||
-            nc.supplierId ||
-            nc.productId ||
-            nc.qtyAffected ||
-            nc.poNumber ||
-            nc.orderNumber ||
-            nc.lotNumber
-          "
-          title="Product impact"
-          divided
-        >
-          <BaseDetailField v-if="isEditable || nc.supplierId" label="Supplier">
-            <SupplierSelectMenu
-              v-if="isEditable && nc.statusId === 'DRAFT'"
-              v-model="nc.supplierId"
-            />
-            <SupplierBadgeById v-else-if="nc.supplierId" :supplierId="nc.supplierId" />
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
-          <!-- Supplier facing — free toggle while DRAFT; once OPEN the
-               owner can still CONVERT internal → supplier-facing. -->
-          <BaseDetailField label="Supplier facing">
-            <BaseInlineSelect
-              v-if="isEditable && nc.statusId === 'DRAFT'"
-              v-model="audienceModel"
-              :items="[
-                { id: 'INTERNAL', name: 'No — internal' },
-                { id: 'SUPPLIER', name: 'Yes — supplier facing' },
-              ]"
-              :required="true"
-            />
-            <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-              <span
-                class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
-                :class="
-                  nc.isSupplierFacing
-                    ? 'tw:bg-violet-100 tw:text-violet-700'
-                    : 'tw:bg-gray-100 tw:text-secondary'
-                "
-              >
-                {{ nc.isSupplierFacing ? 'Supplier-facing' : 'Internal' }}
-              </span>
-              <button
-                v-if="canConvertToSupplier"
-                class="tw:text-caption tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
-                @click="openConvertDialog"
-              >
-                Convert…
-              </button>
-            </div>
-          </BaseDetailField>
-          <BaseDetailField v-if="isEditable || nc.productId" label="Product">
-            <ProductSelectMenu
-              v-if="isEditable"
-              v-model="nc.productId"
-              :allowCreate="false"
-            />
-            <ProductBadgeById v-else-if="nc.productId" :productId="nc.productId" />
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
-          <BaseDetailField v-if="isEditable || nc.qtyAffected" label="Qty affected">
-            <div v-if="isEditable" class="tw:flex tw:gap-1">
-              <BaseTextInput
-                v-model="qtyAffectedModel"
-                type="number"
-                size="sm"
-                class="tw:flex-1"
-              />
-              <BaseTextInput
-                v-model="nc.unitOfMeasure"
-                size="sm"
-                placeholder="UOM"
-                class="tw:w-16"
-              />
-            </div>
-            <BaseText v-else variant="body" weight="medium">
-              {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
-            </BaseText>
-          </BaseDetailField>
-          <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
-            <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" />
-            <BaseText
-              v-else
-              variant="body"
-              weight="medium"
-              class="tw:font-mono tw:break-words"
-            >
-              {{ nc.poNumber }}
-            </BaseText>
-          </BaseDetailField>
-          <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
-            <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" />
-            <BaseText
-              v-else
-              variant="body"
-              weight="medium"
-              class="tw:font-mono tw:break-words"
-            >
-              {{ nc.orderNumber }}
-            </BaseText>
-          </BaseDetailField>
-          <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
-            <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" />
-            <BaseText
-              v-else
-              variant="body"
-              weight="medium"
-              class="tw:font-mono tw:break-words"
-            >
-              {{ nc.lotNumber }}
-            </BaseText>
-          </BaseDetailField>
-        </BaseDetailSection>
+      <!-- 4. Notify (cc) — groups/people emailed + in-app on status change -->
+      <BaseRailCard title="Notify (cc)">
+        <NotificationCcField
+          v-model:groupIds="nc.notifyGroupIds"
+          v-model:userIds="nc.notifyUserIds"
+          :editable="isEditable"
+          hint=""
+        />
+      </BaseRailCard>
 
-        <!-- Related -->
-        <BaseDetailSection title="Related" divided>
-          <BaseDetailField label="CAPA">
-            <BaseText
-              variant="body"
-              weight="medium"
-              :class="nc.capaRequired === null ? 'tw:text-secondary tw:italic' : ''"
-            >
-              {{
-                nc.capaRequired === true
-                  ? 'Required'
-                  : nc.capaRequired === false
-                    ? 'Not required'
-                    : 'Not yet decided'
-              }}
-            </BaseText>
-          </BaseDetailField>
-        </BaseDetailSection>
-      </BaseOverviewPanel>
-
-      <!-- Workflow panel -->
-      <div
-        v-if="nc.workflowVersionId || workflowInstance"
-        class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4"
+      <!-- 5. Product impact — supplier, supplier-facing + Convert path, product, qty+UOM, PO/Order/Lot.
+               Collapsed by default; editable rows always render so a missing value can be ADDED;
+               read-only mode keeps hiding empties. -->
+      <BaseRailCard
+        v-if="
+          isEditable ||
+          nc.supplierId ||
+          nc.productId ||
+          nc.qtyAffected ||
+          nc.poNumber ||
+          nc.orderNumber ||
+          nc.lotNumber
+        "
+        title="Product impact"
+        :defaultOpen="false"
       >
-        <BaseText
-          variant="overline"
-          class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
-        >
-          NC workflow
-        </BaseText>
+        <BaseDetailField v-if="isEditable || nc.supplierId" label="Supplier">
+          <SupplierSelectMenu
+            v-if="isEditable && nc.statusId === 'DRAFT'"
+            v-model="nc.supplierId"
+          />
+          <SupplierBadgeById v-else-if="nc.supplierId" :supplierId="nc.supplierId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <!-- Supplier facing — free toggle while DRAFT; once OPEN the
+             owner can still CONVERT internal → supplier-facing. -->
+        <BaseDetailField label="Supplier facing">
+          <BaseInlineSelect
+            v-if="isEditable && nc.statusId === 'DRAFT'"
+            v-model="audienceModel"
+            :items="[
+              { id: 'INTERNAL', name: 'No — internal' },
+              { id: 'SUPPLIER', name: 'Yes — supplier facing' },
+            ]"
+            :required="true"
+          />
+          <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+            <span
+              class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
+              :class="
+                nc.isSupplierFacing
+                  ? 'tw:bg-violet-100 tw:text-violet-700'
+                  : 'tw:bg-gray-100 tw:text-secondary'
+              "
+            >
+              {{ nc.isSupplierFacing ? 'Supplier-facing' : 'Internal' }}
+            </span>
+            <button
+              v-if="canConvertToSupplier"
+              class="tw:text-caption tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+              @click="openConvertDialog"
+            >
+              Convert…
+            </button>
+          </div>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.productId" label="Product">
+          <ProductSelectMenu
+            v-if="isEditable"
+            v-model="nc.productId"
+            :allowCreate="false"
+          />
+          <ProductBadgeById v-else-if="nc.productId" :productId="nc.productId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.qtyAffected" label="Qty affected">
+          <div v-if="isEditable" class="tw:flex tw:gap-1">
+            <BaseTextInput
+              v-model="qtyAffectedModel"
+              type="number"
+              size="sm"
+              class="tw:flex-1"
+            />
+            <BaseTextInput
+              v-model="nc.unitOfMeasure"
+              size="sm"
+              placeholder="UOM"
+              class="tw:w-16"
+            />
+          </div>
+          <BaseText v-else variant="body" weight="medium">
+            {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
+          <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" />
+          <BaseText
+            v-else
+            variant="body"
+            weight="medium"
+            class="tw:font-mono tw:break-words"
+          >
+            {{ nc.poNumber }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
+          <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" />
+          <BaseText
+            v-else
+            variant="body"
+            weight="medium"
+            class="tw:font-mono tw:break-words"
+          >
+            {{ nc.orderNumber }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
+          <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" />
+          <BaseText
+            v-else
+            variant="body"
+            weight="medium"
+            class="tw:font-mono tw:break-words"
+          >
+            {{ nc.lotNumber }}
+          </BaseText>
+        </BaseDetailField>
+      </BaseRailCard>
 
-        <!-- Active workflow instance -->
-        <div v-if="workflowInstance">
-          <WorkflowInstanceStatusBadgeById :statusId="workflowInstance.statusId" showDot />
-          <RouterLink
-            class="tw:mt-3 tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
-            :to="getCompanyPath(`/workflow-instances/${workflowInstance.id}`)"
+      <!-- 6. Related — CAPA state, linked complaints, workflow info card, shared-with panel -->
+      <BaseRailCard title="Related">
+        <BaseDetailField label="CAPA">
+          <BaseText
+            variant="body"
+            weight="medium"
+            :class="nc.capaRequired === null ? 'tw:text-secondary tw:italic' : ''"
           >
-            View workflow details →
-          </RouterLink>
-          <RouterLink
-            v-if="workflowVersion?.workflowId"
-            class="tw:mt-1 tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
-            :to="
-              getCompanyPath(
-                `/workflow-templates/${workflowVersion.workflowId}?version=${encodeURIComponent(
-                  workflowVersion.versionLabel ||
-                    `${workflowVersion.versionMajor ?? 1}.${workflowVersion.versionMinor ?? 0}`,
-                )}`,
-              )
-            "
+            {{
+              nc.capaRequired === true
+                ? 'Required'
+                : nc.capaRequired === false
+                  ? 'Not required'
+                  : 'Not yet decided'
+            }}
+          </BaseText>
+        </BaseDetailField>
+
+        <!-- Customer complaints this NC was converted from — resolves
+             via nc_source_links, self-hides when there are none. -->
+        <NcLinkedComplaintsPanel :ncId="id" />
+
+        <!-- Workflow panel -->
+        <div v-if="nc.workflowVersionId || workflowInstance">
+          <BaseText
+            variant="overline"
+            class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
           >
-            View workflow template →
-          </RouterLink>
+            NC workflow
+          </BaseText>
+
+          <!-- Active workflow instance -->
+          <div v-if="workflowInstance">
+            <WorkflowInstanceStatusBadgeById :statusId="workflowInstance.statusId" showDot />
+            <RouterLink
+              class="tw:mt-3 tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
+              :to="getCompanyPath(`/workflow-instances/${workflowInstance.id}`)"
+            >
+              View workflow details →
+            </RouterLink>
+            <RouterLink
+              v-if="workflowVersion?.workflowId"
+              class="tw:mt-1 tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
+              :to="
+                getCompanyPath(
+                  `/workflow-templates/${workflowVersion.workflowId}?version=${encodeURIComponent(
+                    workflowVersion.versionLabel ||
+                      `${workflowVersion.versionMajor ?? 1}.${workflowVersion.versionMinor ?? 0}`,
+                  )}`,
+                )
+              "
+            >
+              View workflow template →
+            </RouterLink>
+          </div>
+
+          <!-- Not yet submitted -->
+          <div v-else-if="nc.workflowVersionId" class="tw:text-sm tw:text-secondary">
+            workflow assigned but not yet submitted.
+          </div>
         </div>
 
-        <!-- Not yet submitted -->
-        <div v-else-if="nc.workflowVersionId" class="tw:text-sm tw:text-secondary">
-          workflow assigned but not yet submitted.
-        </div>
-      </div>
+        <!-- External access — read-only panel populated by workflow-
+             step assignment (autoShareSupplierUsers). Product decision
+             (2026-05-29): supplier visibility on NCs is workflow-
+             driven, not manual. Only meaningful on supplier-facing
+             NCs — internal NCs never share externally. -->
+        <SharedWithPanel
+          v-if="nc.isSupplierFacing"
+          entityType="Nonconformance"
+          :entityId="id"
+        />
+      </BaseRailCard>
 
       <!-- Workflow detail component (steps, reassign, send-back, record viewer) -->
     </template>
