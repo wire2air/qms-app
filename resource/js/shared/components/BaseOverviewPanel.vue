@@ -1,4 +1,5 @@
 <script setup>
+/** @deprecated Use DetailRail + BaseRailCard inside BaseDetailLayout instead (SP-1). */
 /**
  * BaseOverviewPanel — the standard right-rail "Overview" card for detail pages.
  * Owns the card chrome + title so every detail page's overview looks identical
@@ -12,6 +13,12 @@
  * Width is governed by the page's grid column — keep that column the same
  * across detail pages so panels match.
  */
+onMounted(() => {
+  if (import.meta.env?.DEV) {
+    console.warn('[deprecation] BaseOverviewPanel is deprecated; use DetailRail + BaseRailCard inside BaseDetailLayout.')
+  }
+})
+
 const props = defineProps({
   title: { type: String, default: 'Overview' },
   // 'card' — white surface, rounded-lg (default, matches the record pages).

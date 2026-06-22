@@ -1,4 +1,5 @@
 <script setup>
+/** @deprecated Use BaseDetailLayout instead — it supersedes this shell (SP-1). */
 /**
  * BaseDetailPage — the detail (*PageId.vue) page shell. Wraps the
  *   <BasePage fullHeight><PageHeader>(breadcrumbs + actions)</PageHeader>
@@ -47,6 +48,12 @@ const props = defineProps({
   notFoundTitle: { type: String, default: 'Not found' },
   notFoundDescription: { type: String, default: '' },
   notFoundIcon: { type: [Object, Function], default: () => IconFileOff },
+})
+
+onMounted(() => {
+  if (import.meta.env?.DEV) {
+    console.warn('[deprecation] BaseDetailPage is deprecated; migrate to BaseDetailLayout (see docs/superpowers/specs/2026-06-22-detail-template-core-config-design.md).')
+  }
 })
 
 const slots = useSlots()
