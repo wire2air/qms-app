@@ -1,5 +1,12 @@
 <script setup>
-import { IconSearch, IconX, IconFilter, IconChevronDown } from '@tabler/icons-vue'
+import {
+  IconSearch,
+  IconX,
+  IconCircleDot,
+  IconAlertTriangle,
+  IconTag,
+  IconBuildingFactory2,
+} from '@tabler/icons-vue'
 
 const filters = defineModel('filters', { type: Object, required: true })
 const activeFilter = defineModel('activeFilter', { type: String, required: true })
@@ -13,49 +20,97 @@ const filterPills = [
   { value: 'closed', label: 'Closed' },
 ]
 
+// Dimension option sources for the Linear-style filter menu.
+const ncStatuses = useLiveQuery((db) => db.NcStatus.where().orderBy('displayOrder').exec(), {
+  models: ['NcStatus'],
+  initial: [],
+})
+const ncSeverities = useLiveQuery((db) => db.NcSeverity.where().orderBy('displayOrder').exec(), {
+  models: ['NcSeverity'],
+  initial: [],
+})
+const ncTypes = useLiveQuery((db) => db.NcType.where().orderBy('displayOrder').exec(), {
+  models: ['NcType'],
+  initial: [],
+})
+const suppliers = useLiveQuery((db) => db.Supplier.where('statusId', 'APPROVED').exec(), {
+  models: ['Supplier'],
+  initial: [],
+})
+
+// Descriptor tree for the cascading BaseFilterMenu (each dimension → a submenu
+// of its values; `group` is the selection bucket key on the filter model).
+const filterItems = computed(() => [
+  {
+    id: 'statusId',
+    label: 'Status',
+    icon: IconCircleDot,
+    group: 'statusId',
+    options: ncStatuses.value.map((s) => ({ value: s.id, label: s.name })),
+  },
+  {
+    id: 'severityId',
+    label: 'Severity',
+    icon: IconAlertTriangle,
+    group: 'severityId',
+    options: ncSeverities.value.map((s) => ({ value: s.id, label: s.name })),
+  },
+  {
+    id: 'typeId',
+    label: 'Type',
+    icon: IconTag,
+    group: 'typeId',
+    options: ncTypes.value.map((t) => ({ value: t.id, label: t.name })),
+  },
+  {
+    id: 'supplierId',
+    label: 'Supplier',
+    icon: IconBuildingFactory2,
+    group: 'supplierId',
+    searchable: true,
+    options: suppliers.value.map((s) => ({ value: s.id, label: s.name })),
+  },
+])
+
+function arr(key) {
+  return Array.isArray(filters.value[key]) ? filters.value[key] : []
+}
+function removeValue(key, value) {
+  filters.value = { ...filters.value, [key]: arr(key).filter((v) => v !== value) }
+}
 const hasChips = computed(
   () =>
-    !!(
-      filters.value.statusId ||
-      filters.value.severityId ||
-      filters.value.typeId ||
-      filters.value.supplierId ||
-      filters.value.dateFrom ||
-      filters.value.dateTo
-    ),
+    arr('statusId').length ||
+    arr('severityId').length ||
+    arr('typeId').length ||
+    arr('supplierId').length ||
+    filters.value.dateFrom ||
+    filters.value.dateTo,
 )
 const showClear = computed(() => hasChips.value || !!filters.value.search)
 
-// Count of applied filters (drives the "Filters" button badge).
-const activeCount = computed(() => {
-  let n = 0
-  if (filters.value.statusId) n += 1
-  if (filters.value.severityId) n += 1
-  if (filters.value.typeId) n += 1
-  if (filters.value.supplierId) n += 1
-  if (filters.value.dateFrom || filters.value.dateTo) n += 1
-  return n
-})
-
 function clearDates() {
-  filters.value.dateFrom = null
-  filters.value.dateTo = null
+  filters.value.dateFrom = ''
+  filters.value.dateTo = ''
 }
 function clearAll() {
-  filters.value.search = ''
-  filters.value.statusId = null
-  filters.value.severityId = null
-  filters.value.typeId = null
-  filters.value.supplierId = null
-  filters.value.dateFrom = null
-  filters.value.dateTo = null
+  filters.value = {
+    ...filters.value,
+    search: '',
+    statusId: [],
+    severityId: [],
+    typeId: [],
+    supplierId: [],
+    dateFrom: '',
+    dateTo: '',
+  }
 }
 </script>
 
 <template>
   <!-- Sticky workspace toolbar: pins below the app bar while the list scrolls. -->
   <div class="tw:sticky tw:top-0 tw:z-sticky tw:flex tw:flex-col tw:gap-2.5 tw:bg-main tw:pt-1 tw:pb-2.5">
-    <!-- Row 1 — search + filter controls -->
+    <!-- Row 1 — search + filter menu + date range -->
     <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
       <div class="tw:relative tw:min-w-[12rem] tw:flex-1 tw:max-w-sm">
         <IconSearch
@@ -70,101 +125,47 @@ function clearAll() {
         />
       </div>
 
-      <div class="tw:ms-auto tw:flex tw:items-center tw:gap-2">
-        <BasePopover placement="bottom-end">
-          <template #button>
-            <button
-              type="button"
-              class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:px-3 tw:py-1.5 tw:text-sm tw:font-medium tw:transition-colors"
-              :class="
-                activeCount
-                  ? 'tw:border-primary/40 tw:bg-main-selected tw:text-primary'
-                  : 'tw:border-divider tw:bg-card tw:text-on-main tw:hover:bg-main-hover'
-              "
-            >
-              <IconFilter :size="16" />
-              Filters
-              <span
-                v-if="activeCount"
-                class="tw:rounded-full tw:bg-primary tw:px-1.5 tw:text-micro tw:font-bold tw:text-on-primary tw:tabular-nums"
-              >
-                {{ activeCount }}
-              </span>
-              <IconChevronDown :size="14" class="tw:text-secondary" />
-            </button>
-          </template>
-          <template #content>
-            <div class="tw:flex tw:w-72 tw:flex-col tw:gap-3 tw:p-3">
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <span class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">Status</span>
-                <NcStatusSelectMenu v-model="filters.statusId" />
-              </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <span class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">Severity</span>
-                <NcSeveritySelectMenu v-model="filters.severityId" />
-              </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <span class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">Type</span>
-                <NcTypeSelectMenu v-model="filters.typeId" />
-              </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <span class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">Supplier</span>
-                <SupplierSelectMenu v-model="filters.supplierId" />
-              </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <span class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">Created date</span>
-                <DateRangeFilter
-                  :from="filters.dateFrom"
-                  :to="filters.dateTo"
-                  @update:from="(v) => (filters.dateFrom = v)"
-                  @update:to="(v) => (filters.dateTo = v)"
-                />
-              </div>
-              <button
-                v-if="showClear"
-                type="button"
-                class="tw:self-start tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
-                @click="clearAll"
-              >
-                Clear all filters
-              </button>
-            </div>
-          </template>
-        </BasePopover>
+      <div class="tw:ms-auto tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+        <BaseFilterMenu v-model="filters" :items="filterItems" />
+        <DateRangeFilter v-model:from="filters.dateFrom" v-model:to="filters.dateTo" />
       </div>
     </div>
 
     <!-- Row 2 — quick views -->
     <BaseQuickFilterPills v-model="activeFilter" :pills="filterPills" ariaLabel="Quick views" />
 
-    <!-- Row 3 — active filter chips (removable) -->
+    <!-- Row 3 — applied filters as removable tokens -->
     <div v-if="hasChips" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
       <span class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
         Filters
       </span>
       <NcStatusBadgeById
-        v-if="filters.statusId"
-        :statusId="filters.statusId"
+        v-for="id in arr('statusId')"
+        :key="`st-${id}`"
+        :statusId="id"
         clearable
-        @clear="filters.statusId = null"
+        @clear="removeValue('statusId', id)"
       />
       <NcSeverityBadgeById
-        v-if="filters.severityId"
-        :severityId="filters.severityId"
+        v-for="id in arr('severityId')"
+        :key="`sv-${id}`"
+        :severityId="id"
         clearable
-        @clear="filters.severityId = null"
+        @clear="removeValue('severityId', id)"
       />
       <NcTypeBadgeById
-        v-if="filters.typeId"
-        :typeId="filters.typeId"
+        v-for="id in arr('typeId')"
+        :key="`ty-${id}`"
+        :typeId="id"
         clearable
-        @clear="filters.typeId = null"
+        @clear="removeValue('typeId', id)"
       />
       <SupplierBadgeById
-        v-if="filters.supplierId"
-        :supplierId="filters.supplierId"
+        v-for="id in arr('supplierId')"
+        :key="`sp-${id}`"
+        :supplierId="id"
         clearable
-        @clear="filters.supplierId = null"
+        @clear="removeValue('supplierId', id)"
       />
       <span
         v-if="filters.dateFrom || filters.dateTo"

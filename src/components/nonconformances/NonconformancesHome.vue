@@ -27,10 +27,11 @@ const canDelete = computed(() => isAllowed(['nonconformances:delete']))
 const list = useListLayout({
   filters: {
     search: '',
-    statusId: null,
-    severityId: null,
-    typeId: null,
-    supplierId: route.query.supplierId || null,
+    // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+    statusId: [],
+    severityId: [],
+    typeId: [],
+    supplierId: route.query.supplierId ? [route.query.supplierId] : [],
     dateFrom: '',
     dateTo: '',
     activeFilter: 'all_open',
@@ -43,15 +44,15 @@ const list = useListLayout({
 // Supplier deep-link: /nonconformances?supplierId=… prefilters to one supplier.
 watch(
   () => route.query.supplierId,
-  (v) => (list.filters.value.supplierId = v || null),
+  (v) => (list.filters.value.supplierId = v ? [v] : []),
 )
 const filterSupplier = useLiveQueryWithDeps(
-  [() => list.filters.value.supplierId],
+  [() => list.filters.value.supplierId?.[0] ?? null],
   async (db, [id]) => (id ? db.Supplier.findByPk(id) : null),
   { models: ['Supplier'] },
 )
 function clearSupplierFilter() {
-  list.filters.value.supplierId = null
+  list.filters.value.supplierId = []
   const q = { ...route.query }
   delete q.supplierId
   router.replace({ query: q })
@@ -76,16 +77,16 @@ function exportCsv() {
 const CLOSED_STATUSES = ['CLOSED']
 const OPEN_STATUSES = ['DRAFT', 'UNDER_REVIEW']
 
-function applyFilters(results, search, statusId, severityId, typeId) {
+function applyFilters(results, search, statusIds, severityIds, typeIds) {
   if (search) {
     const q = search.toLowerCase()
     results = results.filter(
       (r) => r.title?.toLowerCase().includes(q) || r.ncNumber?.toLowerCase().includes(q),
     )
   }
-  if (statusId) results = results.filter((r) => r.statusId === statusId)
-  if (severityId) results = results.filter((r) => r.severityId === severityId)
-  if (typeId) results = results.filter((r) => r.typeId === typeId)
+  if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
+  if (severityIds?.length) results = results.filter((r) => severityIds.includes(r.severityId))
+  if (typeIds?.length) results = results.filter((r) => typeIds.includes(r.typeId))
   return results
 }
 
@@ -121,11 +122,11 @@ const ncs = useLiveQueryWithDeps(
     () => list.filters.value.dateFrom,
     () => list.filters.value.dateTo,
   ],
-  async (db, [search, statusId, severityId, typeId, af, supplierId, dateFrom, dateTo]) => {
+  async (db, [search, statusIds, severityIds, typeIds, af, supplierIds, dateFrom, dateTo]) => {
     let results = await db.Nonconformance.where().exec()
-    results = applyFilters(results, search, statusId, severityId, typeId)
+    results = applyFilters(results, search, statusIds, severityIds, typeIds)
     results = applyActiveFilter(results, af)
-    if (supplierId) results = results.filter((r) => r.supplierId === supplierId)
+    if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))
     if (dateFrom || dateTo)
       results = results.filter((r) => dateInRange(r.createdAt, dateFrom, dateTo))
     return results.sort(

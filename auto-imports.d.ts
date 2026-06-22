@@ -8,6 +8,7 @@ export {}
 declare global {
   const EffectScope: typeof import('vue').EffectScope
   const PdfImportLimitError: typeof import('./src/composables/usePdfImport.js').PdfImportLimitError
+  const SEARCH_THRESHOLD: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').SEARCH_THRESHOLD
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
   const bucketActions: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').bucketActions
@@ -19,6 +20,7 @@ declare global {
   const computedWithControl: typeof import('@vueuse/core').computedWithControl
   const controlledComputed: typeof import('@vueuse/core').controlledComputed
   const controlledRef: typeof import('@vueuse/core').controlledRef
+  const countActiveGroups: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').countActiveGroups
   const createApp: typeof import('vue').createApp
   const createEventHook: typeof import('@vueuse/core').createEventHook
   const createGlobalState: typeof import('@vueuse/core').createGlobalState
@@ -59,11 +61,14 @@ declare global {
   const hMergeSlotSafely: typeof import('./resource/js/shared/composables/render.js').hMergeSlotSafely
   const hSlot: typeof import('./resource/js/shared/composables/render.js').hSlot
   const hUniqueSlot: typeof import('./resource/js/shared/composables/render.js').hUniqueSlot
+  const hasChildren: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').hasChildren
   const ignorableWatch: typeof import('@vueuse/core').ignorableWatch
   const inject: typeof import('vue').inject
   const injectLocal: typeof import('@vueuse/core').injectLocal
   const injectMultipleProps: typeof import('./resource/js/shared/composables/object.js').injectMultipleProps
   const injectProp: typeof import('./resource/js/shared/composables/object.js').injectProp
+  const isAsync: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isAsync
+  const isChecked: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isChecked
   const isDefined: typeof import('@vueuse/core').isDefined
   const isProxy: typeof import('vue').isProxy
   const isReactive: typeof import('vue').isReactive
@@ -125,17 +130,20 @@ declare global {
   const refThrottled: typeof import('@vueuse/core').refThrottled
   const refWithControl: typeof import('@vueuse/core').refWithControl
   const registerCommands: typeof import('./resource/js/shared/composables/useCommandRegistry.js').registerCommands
+  const resolveChildren: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').resolveChildren
   const resolveComponent: typeof import('vue').resolveComponent
   const resolveDetailState: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').resolveDetailState
   const resolveListState: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').resolveListState
   const resolveRef: typeof import('@vueuse/core').resolveRef
   const resolveRouteMeta: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').resolveRouteMeta
+  const searchNodes: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').searchNodes
   const selectAndUploadFile: typeof import('./src/composables/useFileUpload.js').selectAndUploadFile
   const setProp: typeof import('./resource/js/shared/composables/object.js').setProp
   const shallowReactive: typeof import('vue').shallowReactive
   const shallowReadonly: typeof import('vue').shallowReadonly
   const shallowRef: typeof import('vue').shallowRef
   const shouldIgnoreTarget: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').shouldIgnoreTarget
+  const shouldSearch: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').shouldSearch
   const syncRef: typeof import('@vueuse/core').syncRef
   const syncRefs: typeof import('@vueuse/core').syncRefs
   const templateRef: typeof import('@vueuse/core').templateRef
@@ -146,6 +154,7 @@ declare global {
   const toRef: typeof import('vue').toRef
   const toRefs: typeof import('vue').toRefs
   const toValue: typeof import('vue').toValue
+  const toggleSelection: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').toggleSelection
   const triggerRef: typeof import('vue').triggerRef
   const tryOnBeforeMount: typeof import('@vueuse/core').tryOnBeforeMount
   const tryOnBeforeUnmount: typeof import('@vueuse/core').tryOnBeforeUnmount
