@@ -14,6 +14,7 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post, get } from '@/api'
 import { utils as xlsxUtils, writeFile as xlsxWriteFile } from 'xlsx'
 import { DateTime } from 'luxon'
+import { matchesDateFilter } from '@/utils/dateRanges.js'
 
 const router = useRouter()
 const toast = useToast()
@@ -40,8 +41,7 @@ const list = useListLayout({
     assignedTeamId: null,
     formId: null,
     sentiment: null,
-    dateFrom: null,
-    dateTo: null,
+    createdAt: null,
     customKey: null,
     customValue: '',
   },
@@ -70,12 +70,8 @@ function saveCurrentView(name) {
     id: crypto.randomUUID(),
     name,
     activeFilter: activeFilter.value,
-    // DateTimes don't survive JSON — store ISO, revive on apply.
-    filters: {
-      ...filters.value,
-      dateFrom: filters.value.dateFrom?.toISODate?.() ?? null,
-      dateTo: filters.value.dateTo?.toISODate?.() ?? null,
-    },
+    // Token is a plain object — safe to JSON round-trip directly.
+    filters: { ...filters.value },
   }
   savedViews.value = [...savedViews.value.filter((v) => v.name !== name), view]
   persistViews()
@@ -84,12 +80,7 @@ function saveCurrentView(name) {
 
 function applySavedView(view) {
   activeFilter.value = view.activeFilter
-  filters.value = {
-    ...filters.value,
-    ...view.filters,
-    dateFrom: view.filters.dateFrom ? DateTime.fromISO(view.filters.dateFrom) : null,
-    dateTo: view.filters.dateTo ? DateTime.fromISO(view.filters.dateTo) : null,
-  }
+  filters.value = { ...filters.value, ...view.filters }
 }
 
 function deleteSavedView(view) {
@@ -128,8 +119,7 @@ function applyFilters(results, f) {
   if (f.assignedTeamId) results = results.filter((r) => r.assignedTeamId === f.assignedTeamId)
   if (f.formId) results = results.filter((r) => r.formId === f.formId)
   if (f.sentiment) results = results.filter((r) => r.sentiment === f.sentiment)
-  if (f.dateFrom) results = results.filter((r) => r.createdAt && r.createdAt >= f.dateFrom)
-  if (f.dateTo) results = results.filter((r) => r.createdAt && r.createdAt <= f.dateTo.endOf('day'))
+  if (f.createdAt) results = results.filter((r) => matchesDateFilter(r.createdAt, f.createdAt))
   if (f.customKey && f.customValue?.trim()) {
     const v = f.customValue.trim().toLowerCase()
     results = results.filter((r) =>

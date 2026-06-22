@@ -2,32 +2,30 @@
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { currentSession } from '@/utils/currentSession'
 import { exportToCSV } from '@/utils/exportUtils.js'
-import { dateInRange } from '@/utils/listFilters.js'
+import { matchesDateFilter } from '@/utils/dateRanges.js'
 import { DateTime } from 'luxon'
 
 const props = defineProps({
   search: { type: String, default: '' },
   statusId: { type: String, default: null },
   taskKindId: { type: String, default: null },
-  dateFrom: { type: String, default: '' },
-  dateTo: { type: String, default: '' },
+  createdAt: { type: Object, default: null },
 })
 
 const taskInstances = useLiveQueryWithDeps(
   [
     () => props.statusId,
     () => props.taskKindId,
-    () => props.dateFrom,
-    () => props.dateTo,
+    () => props.createdAt,
     () => currentSession.value?.userId,
   ],
-  async (db, [statusId, taskKindId, dateFrom, dateTo, userId]) => {
+  async (db, [statusId, taskKindId, createdAt, userId]) => {
     if (!userId) return []
     let results = await db.TaskInstance.where('assignedTo', userId).exec()
     if (statusId) results = results.filter((t) => t.statusId === statusId)
     if (taskKindId) results = results.filter((t) => t.taskKindId === taskKindId)
-    if (dateFrom || dateTo)
-      results = results.filter((t) => dateInRange(t.createdAt, dateFrom, dateTo))
+    if (createdAt)
+      results = results.filter((t) => matchesDateFilter(t.createdAt, createdAt))
     return results
   },
 

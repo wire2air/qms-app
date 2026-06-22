@@ -8,7 +8,7 @@ import {
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { dateInRange } from '@/utils/listFilters.js'
+import { matchesDateFilter } from '@/utils/dateRanges.js'
 import { exportToCSV } from '@/utils/exportUtils.js'
 import { DateTime } from 'luxon'
 
@@ -28,8 +28,7 @@ const list = useListLayout({
     priorityId: null,
     typeId: null,
     supplierId: route.query.supplierId || null,
-    dateFrom: '',
-    dateTo: '',
+    createdAt: null,
   },
   total: () => capas.value.length,
   empty: () => capas.value.length === 0,
@@ -116,16 +115,15 @@ const capas = useLiveQueryWithDeps(
     () => list.filters.value.typeId,
     () => activeFilter.value,
     () => list.filters.value.supplierId,
-    () => list.filters.value.dateFrom,
-    () => list.filters.value.dateTo,
+    () => list.filters.value.createdAt,
   ],
-  async (db, [search, statusId, priorityId, typeId, af, supplierId, dateFrom, dateTo]) => {
+  async (db, [search, statusId, priorityId, typeId, af, supplierId, createdAt]) => {
     let results = await db.Capa.where().exec()
     results = applyFilters(results, search, statusId, priorityId, typeId)
     results = applyActiveFilter(results, af)
     if (supplierId) results = results.filter((r) => r.supplierId === supplierId)
-    if (dateFrom || dateTo)
-      results = results.filter((r) => dateInRange(r.createdAt, dateFrom, dateTo))
+    if (createdAt)
+      results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )

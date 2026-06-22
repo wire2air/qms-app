@@ -10,7 +10,7 @@ import {
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
-import { dateInRange } from '@/utils/listFilters.js'
+import { matchesDateFilter } from '@/utils/dateRanges.js'
 import { exportToCSV } from '@/utils/exportUtils.js'
 
 const router = useRouter()
@@ -32,8 +32,7 @@ const list = useListLayout({
     severityId: [],
     typeId: [],
     supplierId: route.query.supplierId ? [route.query.supplierId] : [],
-    dateFrom: '',
-    dateTo: '',
+    createdAt: null,
     activeFilter: 'all_open',
   },
   total: () => ncs.value.length,
@@ -119,16 +118,15 @@ const ncs = useLiveQueryWithDeps(
     () => list.filters.value.typeId,
     () => list.filters.value.activeFilter,
     () => list.filters.value.supplierId,
-    () => list.filters.value.dateFrom,
-    () => list.filters.value.dateTo,
+    () => list.filters.value.createdAt,
   ],
-  async (db, [search, statusIds, severityIds, typeIds, af, supplierIds, dateFrom, dateTo]) => {
+  async (db, [search, statusIds, severityIds, typeIds, af, supplierIds, createdAt]) => {
     let results = await db.Nonconformance.where().exec()
     results = applyFilters(results, search, statusIds, severityIds, typeIds)
     results = applyActiveFilter(results, af)
     if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))
-    if (dateFrom || dateTo)
-      results = results.filter((r) => dateInRange(r.createdAt, dateFrom, dateTo))
+    if (createdAt)
+      results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )

@@ -22,7 +22,7 @@ const tableRef = ref(null)
 
 // Filter state + resolved content state. URL sync stays off (see header note).
 const list = useListLayout({
-  filters: { search: '', statusId: null, dateFrom: '', dateTo: '' },
+  filters: { search: '', statusId: null, createdAt: null },
   syncUrl: false,
 })
 
@@ -62,8 +62,7 @@ const subtitle = computed(() => {
           :search="list.filters.value.search"
           :statusId="list.filters.value.statusId"
           :taskKindId="taskKindId"
-          :dateFrom="list.filters.value.dateFrom"
-          :dateTo="list.filters.value.dateTo"
+          :createdAt="list.filters.value.createdAt"
         />
       </div>
     </div>

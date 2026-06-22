@@ -8,7 +8,7 @@ import {
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { dateInRange } from '@/utils/listFilters.js'
+import { matchesDateFilter } from '@/utils/dateRanges.js'
 import { exportToCSV } from '@/utils/exportUtils.js'
 import { DateTime } from 'luxon'
 
@@ -27,8 +27,7 @@ const list = useListLayout({
     statusId: null,
     priorityId: null,
     changeTypeId: null,
-    dateFrom: '',
-    dateTo: '',
+    createdAt: null,
   },
   total: () => changeRequests.value.length,
   empty: () => changeRequests.value.length === 0,
@@ -96,15 +95,14 @@ const changeRequests = useLiveQueryWithDeps(
     () => list.filters.value.priorityId,
     () => list.filters.value.changeTypeId,
     () => activeFilter.value,
-    () => list.filters.value.dateFrom,
-    () => list.filters.value.dateTo,
+    () => list.filters.value.createdAt,
   ],
-  async (db, [search, statusId, priorityId, changeTypeId, af, dateFrom, dateTo]) => {
+  async (db, [search, statusId, priorityId, changeTypeId, af, createdAt]) => {
     let results = await db.ChangeRequest.where().exec()
     results = applyFilters(results, search, statusId, priorityId, changeTypeId)
     results = applyActiveFilter(results, af)
-    if (dateFrom || dateTo)
-      results = results.filter((r) => dateInRange(r.createdAt, dateFrom, dateTo))
+    if (createdAt)
+      results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )

@@ -4,9 +4,9 @@
  * SyncEngine; create/version/approve go through the qcInspection REST service
  * (aggregate writes, not plain entity CRUD).
  */
-import { IconPlus, IconDownload } from '@tabler/icons-vue'
+import { IconPlus, IconDownload, IconCalendar } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { dateInRange } from '@/utils/listFilters.js'
+import { matchesDateFilter } from '@/utils/dateRanges.js'
 import { exportToCSV } from '@/utils/exportUtils.js'
 import { post, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { isAllowed } from '@/utils/currentSession.js'
@@ -19,8 +19,11 @@ const showCreate = ref(false)
 const showEsign = ref(false)
 const approvingId = ref(null)
 const deletingId = ref(null)
-const dateFrom = ref('')
-const dateTo = ref('')
+const specFilters = ref({})
+
+const specDateFilterItems = computed(() => [
+  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
+])
 
 const canApprove = computed(() => isAllowed(['qcInspection:spec:write']))
 
@@ -63,11 +66,11 @@ const MATERIAL_LABELS = {
 }
 
 const specs = useLiveQueryWithDeps(
-  [() => dateFrom.value, () => dateTo.value],
-  async (db, [from, to]) => {
+  [() => specFilters.value.createdAt],
+  async (db, [createdAt]) => {
     let rows = await db.Specification.where().exec()
     rows = rows.filter((s) => s.statusId !== 'SUPERSEDED')
-    if (from || to) rows = rows.filter((s) => dateInRange(s.createdAt, from, to))
+    if (createdAt) rows = rows.filter((s) => matchesDateFilter(s.createdAt, createdAt))
     return rows.sort((a, b) => (a.name || '').localeCompare(b.name || '') || b.version - a.version)
   },
 
@@ -99,12 +102,7 @@ function exportCsv() {
     <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:flex-wrap">
       <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
         <div class="tw:text-sm tw:text-secondary">{{ specs.length }} specification(s)</div>
-        <DateRangeFilter
-          :from="dateFrom"
-          :to="dateTo"
-          @update:from="(v) => (dateFrom = v)"
-          @update:to="(v) => (dateTo = v)"
-        />
+        <BaseFilterMenu v-model="specFilters" :items="specDateFilterItems" />
       </div>
       <div class="tw:flex tw:items-center tw:gap-2">
         <BaseButton variant="outline" size="sm" :disabled="!specs.length" @click="exportCsv">

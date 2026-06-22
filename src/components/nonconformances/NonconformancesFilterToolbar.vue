@@ -6,6 +6,7 @@ import {
   IconAlertTriangle,
   IconTag,
   IconBuildingFactory2,
+  IconCalendar,
 } from '@tabler/icons-vue'
 
 const filters = defineModel('filters', { type: Object, required: true })
@@ -70,6 +71,7 @@ const filterItems = computed(() => [
     searchable: true,
     options: suppliers.value.map((s) => ({ value: s.id, label: s.name })),
   },
+  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
 ])
 
 function arr(key) {
@@ -84,15 +86,10 @@ const hasChips = computed(
     arr('severityId').length ||
     arr('typeId').length ||
     arr('supplierId').length ||
-    filters.value.dateFrom ||
-    filters.value.dateTo,
+    filters.value.createdAt,
 )
 const showClear = computed(() => hasChips.value || !!filters.value.search)
 
-function clearDates() {
-  filters.value.dateFrom = ''
-  filters.value.dateTo = ''
-}
 function clearAll() {
   filters.value = {
     ...filters.value,
@@ -101,8 +98,7 @@ function clearAll() {
     severityId: [],
     typeId: [],
     supplierId: [],
-    dateFrom: '',
-    dateTo: '',
+    createdAt: null,
   }
 }
 </script>
@@ -127,7 +123,6 @@ function clearAll() {
 
       <div class="tw:ms-auto tw:flex tw:flex-wrap tw:items-center tw:gap-2">
         <BaseFilterMenu v-model="filters" :items="filterItems" />
-        <DateRangeFilter v-model:from="filters.dateFrom" v-model:to="filters.dateTo" />
       </div>
     </div>
 
@@ -168,15 +163,15 @@ function clearAll() {
         @clear="removeValue('supplierId', id)"
       />
       <span
-        v-if="filters.dateFrom || filters.dateTo"
+        v-if="filters.createdAt"
         class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"
       >
-        Date range
+        Created date
         <button
           type="button"
-          aria-label="Clear date range"
+          aria-label="Clear date filter"
           class="tw:rounded tw:p-0.5 tw:hover:bg-main-hover"
-          @click="clearDates"
+          @click="filters.createdAt = null"
         >
           <IconX class="tw:size-3" />
         </button>
