@@ -62,6 +62,8 @@ function onSelect(node, ev) {
   if (isDateNode(node)) {
     dateNode.value = node
     dateAnchor.value = ev?.currentTarget ?? null
+    openId.value = null
+    openAnchor.value = null
     return
   }
   if (hasChildren(node)) openSub(node, ev?.currentTarget)
@@ -71,6 +73,9 @@ function onSelect(node, ev) {
   } else ctx?.toggle?.(node)
 }
 function onHover(node, ev) {
+  if (isDateNode(node)) return
+  dateNode.value = null
+  dateAnchor.value = null
   if (hasChildren(node)) openSub(node, ev?.currentTarget)
   else openId.value = null
 }
