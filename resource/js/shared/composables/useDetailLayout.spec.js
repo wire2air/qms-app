@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { ref, h } from 'vue'
 import { useDetailLayout } from './useDetailLayout.js'
+import { resolveVariant } from './detailVariantHelpers.js'
 
 // Mount inside a component so onMounted-based VueUse hooks (useScroll) run.
 function harness(options) {
@@ -43,5 +44,28 @@ describe('useDetailLayout', () => {
     expect(typeof api.scrolled.value).toBe('boolean')
     expect(typeof api.isMobile.value).toBe('boolean')
     expect(typeof api.isTablet.value).toBe('boolean')
+  })
+})
+
+describe('useDetailLayout — variant descriptor', () => {
+  it('exposes the resolved variant descriptor', () => {
+    const { variantDescriptor } = useDetailLayout({ variant: 'readonly' })
+    expect(variantDescriptor.value).toEqual(resolveVariant('readonly'))
+  })
+  it('defaults to standard when no variant given', () => {
+    const { variantDescriptor } = useDetailLayout({})
+    expect(variantDescriptor.value.variant).toBe('standard')
+  })
+})
+
+describe('useDetailLayout — nav model', () => {
+  it('builds a nav model from sections + tabs', () => {
+    const { navModel } = useDetailLayout({
+      sections: [{ id: 'details', label: 'Details' }],
+      tabs: [{ value: 'activity', label: 'Activity' }],
+    })
+    expect(navModel.value.items.map((i) => i.key)).toEqual(['details', 'activity'])
+    expect(navModel.value.hasAnchor).toBe(true)
+    expect(navModel.value.hasPanel).toBe(true)
   })
 })
