@@ -108,7 +108,7 @@ async function onSubmit() {
 
           <!-- Effective Date -->
           <BaseField label="Effective Date">
-            <BaseDatePicker v-model="editForm.effectiveDate" :required="false" />
+            <BaseDateField v-model="editForm.effectiveDate" mode="date" :required="false" />
           </BaseField>
 
           <!-- Related Standard -->

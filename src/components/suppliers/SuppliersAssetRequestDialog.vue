@@ -326,10 +326,10 @@ async function onSave() {
       <!-- Dates -->
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
         <BaseField label="Due Date">
-          <BaseDatePicker v-model="form.dueDate" />
+          <BaseDateField v-model="form.dueDate" mode="date" />
         </BaseField>
         <BaseField label="Expiry Date">
-          <BaseDatePicker v-model="form.expiryDate" />
+          <BaseDateField v-model="form.expiryDate" mode="date" />
         </BaseField>
       </div>
 

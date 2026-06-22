@@ -229,9 +229,10 @@ watch(
           <div>
             <BaseLabel color="secondary">Effective Date</BaseLabel>
             <div class="tw:mt-1">
-              <BaseDatePicker
+              <BaseDateField
                 v-if="canEdit"
                 v-model="currentVersion.effectiveDate"
+                mode="date"
                 :required="false"
               />
               <p v-else class="tw:text-sm tw:font-medium">

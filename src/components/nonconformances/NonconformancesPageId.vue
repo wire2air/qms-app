@@ -602,9 +602,10 @@ function onCreateLinkedChangeRequest() {
                 </div>
                 <div class="tw:flex tw:flex-col tw:gap-1">
                   <div class="tw:text-xs tw:text-secondary">Detected</div>
-                  <BaseDatePicker
+                  <BaseDateField
                     v-if="editingDetected && isEditable"
                     v-model="nc.detectedAt"
+                    mode="date"
                     @blur="editingDetected = false"
                   />
                   <BaseClickableRow
@@ -996,9 +997,10 @@ function onCreateLinkedChangeRequest() {
               <!-- Schedule -->
               <BaseDetailSection title="Schedule" divided>
                 <BaseDetailField label="Due date">
-                  <BaseDatePicker
+                  <BaseDateField
                     v-if="editingDueDate && isEditable"
                     v-model="nc.dueDate"
+                    mode="date"
                     class="tw:w-full"
                     @blur="editingDueDate = false"
                   />

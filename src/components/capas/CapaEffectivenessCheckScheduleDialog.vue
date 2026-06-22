@@ -51,7 +51,7 @@ async function handleSubmit() {
         actions are still effective.
       </p>
       <BaseField label="Due date" required>
-        <BaseDatePicker v-model="dueAt" />
+        <BaseDateField v-model="dueAt" mode="date" />
       </BaseField>
     </div>
 

@@ -44,7 +44,7 @@ const retryLimitOptions = [
           <BaseSwitch v-model="form.requiredCompletion" />
         </div>
         <BaseField label="Assessment Due Date">
-          <BaseDatePicker v-model="form.assessmentDueDate" />
+          <BaseDateField v-model="form.assessmentDueDate" mode="date" />
         </BaseField>
         <BaseField label="Retry limit">
           <BaseSelectMenu v-model="form.retryLimit" :items="retryLimitOptions" :required="true" />

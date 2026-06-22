@@ -607,7 +607,7 @@ function onCreateLinkedChangeRequest() {
 
               <BaseDetailSection title="Schedule" divided>
                 <BaseDetailField label="Due">
-                  <BaseDatePicker v-if="isEditable" v-model="capa.dueDate" class="tw:w-full" />
+                  <BaseDateField v-if="isEditable" v-model="capa.dueDate" mode="date" class="tw:w-full" />
                   <BaseText
                     v-else
                     variant="body"
@@ -723,7 +723,7 @@ function onCreateLinkedChangeRequest() {
           </div>
           <div class="tw:flex tw:items-center tw:gap-2">
             <span class="tw:text-xs tw:text-secondary">Or pick a specific date:</span>
-            <BaseDatePicker v-model="closeEcCustomDate" />
+            <BaseDateField v-model="closeEcCustomDate" mode="date" />
           </div>
           <p v-if="closeEffectivenessDate" class="tw:text-xs tw:text-secondary tw:mt-2">
             Will schedule for: <strong>{{ closeEffectivenessDate.formatDate('date') }}</strong>

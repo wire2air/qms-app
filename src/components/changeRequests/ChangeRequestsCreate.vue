@@ -307,13 +307,13 @@ async function handleSubmit() {
               <UserSelectMenu v-model="form.ownerId" :required="true" />
             </BaseField>
             <BaseField label="Initiated" required>
-              <BaseDatePicker v-model="form.initiatedAt" />
+              <BaseDateField v-model="form.initiatedAt" mode="date" />
             </BaseField>
             <BaseField label="Target Implementation Date">
-              <BaseDatePicker v-model="form.targetImplementationDate" />
+              <BaseDateField v-model="form.targetImplementationDate" mode="date" />
             </BaseField>
             <BaseField label="Due Date">
-              <BaseDatePicker v-model="form.dueDate" />
+              <BaseDateField v-model="form.dueDate" mode="date" />
             </BaseField>
           </div>
 

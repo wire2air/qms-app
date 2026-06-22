@@ -142,7 +142,7 @@ async function handleConvert() {
           </div>
         </BaseField>
         <BaseField label="Detected date" required>
-          <BaseDatePicker v-model="form.detectedAt" />
+          <BaseDateField v-model="form.detectedAt" mode="date" />
         </BaseField>
       </div>
 

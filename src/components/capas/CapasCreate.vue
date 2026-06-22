@@ -306,10 +306,10 @@ async function handleReviewersConfirmed(reviewers) {
               </div>
             </BaseField>
             <BaseField label="Initiated date" required>
-              <BaseDatePicker v-model="form.initiatedAt" />
+              <BaseDateField v-model="form.initiatedAt" mode="date" />
             </BaseField>
             <BaseField label="Due date">
-              <BaseDatePicker v-model="form.dueDate" />
+              <BaseDateField v-model="form.dueDate" mode="date" />
             </BaseField>
             <BaseField
               label="Responsible party"

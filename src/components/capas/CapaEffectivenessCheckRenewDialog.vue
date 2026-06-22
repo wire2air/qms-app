@@ -74,7 +74,7 @@ async function handleSubmit() {
         Close out this check and schedule the next follow-up. This requires e-signature verification.
       </p>
       <BaseField label="Next due date" required>
-        <BaseDatePicker v-model="dueAt" />
+        <BaseDateField v-model="dueAt" mode="date" />
       </BaseField>
       <BaseField v-slot="{ id: fieldId }" label="Comments">
         <BaseTextarea

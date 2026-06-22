@@ -99,7 +99,7 @@ function handleDialogClose() {
             autofocus
           />
           <BaseField label="Expires At" hint="Leave empty for no expiration">
-            <BaseDatePicker v-model="form.expiresAt" />
+            <BaseDateField v-model="form.expiresAt" mode="date" />
           </BaseField>
         </div>
       </div>
