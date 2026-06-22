@@ -1,15 +1,11 @@
-import { DateTime } from 'luxon'
+import { matchesDateFilter } from './dateRanges.js'
 
 /**
  * True when `value` (a luxon DateTime or ISO string) falls within the inclusive
- * [from, to] range. `from`/`to` are 'yyyy-mm-dd' strings; empty = unbounded on
- * that side. Used by the list date-range filters (created-date basis).
+ * [from, to] range. `from`/`to` are 'yyyy-mm-dd' strings; empty = unbounded.
+ * Thin compatibility wrapper over matchesDateFilter (single filtering impl).
  */
 export function dateInRange(value, from, to) {
   if (!from && !to) return true
-  const ms = value?.toMillis?.() ?? (value ? DateTime.fromISO(String(value)).toMillis() : 0)
-  if (!ms) return false
-  if (from && ms < DateTime.fromISO(from).startOf('day').toMillis()) return false
-  if (to && ms > DateTime.fromISO(to).endOf('day').toMillis()) return false
-  return true
+  return matchesDateFilter(value, { operator: 'between', value: from || null, value2: to || null })
 }
