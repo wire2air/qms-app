@@ -68,3 +68,31 @@ describe('BaseDetailLayout', () => {
     expect(title.textContent).toContain('Acme')
   })
 })
+
+import { defineDetailConfig } from '../composables/defineDetailConfig.js'
+import { readOnlyBanner } from '../composables/bannerFactories.js'
+
+describe('BaseDetailLayout — config + banners', () => {
+  it('derives title from config when no discrete title prop', () => {
+    const config = defineDetailConfig({ header: () => ({ title: 'From Config' }) })
+    const w = mountLayout({ props: { config }, slots: { default: '<div/>' } })
+    expect(w.text()).toContain('From Config')
+  })
+  it('renders the banner region from config.banners(record)', () => {
+    const config = defineDetailConfig({ banners: () => [readOnlyBanner()] })
+    const w = mountLayout({ props: { config }, slots: { default: '<div/>' } })
+    expect(w.find('[data-test="banner-region"]').exists()).toBe(true)
+    expect(w.text()).toContain('Read-only')
+  })
+  it('renders no banner region when config.banners returns empty', () => {
+    const config = defineDetailConfig({})
+    const w = mountLayout({ props: { config }, slots: { default: '<div/>' } })
+    expect(w.find('[data-test="banner-region"]').exists()).toBe(false)
+  })
+  it('config title wins over the discrete title prop', () => {
+    const config = defineDetailConfig({ header: () => ({ title: 'Config Title' }) })
+    const w = mountLayout({ props: { config, title: 'Prop Title' }, slots: { default: '<div/>' } })
+    expect(w.text()).toContain('Config Title')
+    expect(w.text()).not.toContain('Prop Title')
+  })
+})

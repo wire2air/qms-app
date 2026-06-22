@@ -1,6 +1,7 @@
 <!-- BaseDetailLayout.vue -->
 <script setup>
 import { IconFileOff, IconAlertTriangle } from '@tabler/icons-vue'
+import { normalizeDetailConfig } from '../composables/defineDetailConfig.js'
 // useDetailLayout is auto-imported (resource/js/shared/composables is in AutoImport.dirs).
 const props = defineProps({
   title: { type: String, default: '' },
@@ -20,8 +21,27 @@ const props = defineProps({
   notFoundDescription: { type: String, default: '' },
   errorTitle: { type: String, default: 'Something went wrong' },
   errorDescription: { type: String, default: '' },
+  config: { type: Object, default: null },
+  record: { type: Object, default: null },
 })
 const activeTab = defineModel('tab', { type: [String, Number], default: null })
+
+const cfg = computed(() => (props.config ? normalizeDetailConfig(props.config).config : null))
+const headerData = computed(() => (cfg.value ? cfg.value.header(props.record) || {} : {}))
+
+// config wins over discrete props
+const effTitle = computed(() => headerData.value.title ?? props.title)
+const effIcon = computed(() => headerData.value.icon ?? props.icon)
+const effAvatarName = computed(() => headerData.value.avatarName ?? props.avatarName)
+const effBreadcrumbs = computed(() =>
+  cfg.value ? cfg.value.breadcrumbs(props.record) ?? props.breadcrumbs : props.breadcrumbs,
+)
+const effActions = computed(() => cfg.value?.actions?.length ? cfg.value.actions : props.actions)
+const effTabs = computed(() => (cfg.value?.tabs?.length ? cfg.value.tabs : props.tabs))
+const effRailCards = computed(() => (cfg.value?.railCards?.length ? cfg.value.railCards : props.railCards))
+const effHeaderVariant = computed(() => cfg.value?.headerVariant ?? props.headerVariant)
+const effWidth = computed(() => cfg.value?.width ?? props.width)
+const banners = computed(() => (cfg.value ? cfg.value.banners(props.record) : []))
 
 const slots = useSlots()
 const scrollEl = ref(null)
@@ -29,24 +49,24 @@ const { state, scrolled, isMobile } = useDetailLayout({
   loading: () => props.loading,
   notFound: () => props.notFound,
   error: () => props.error,
-  actions: () => props.actions,
+  actions: () => effActions.value,
   scrollTarget: scrollEl,
 })
 
-const hasTabs = computed(() => props.tabs.some((t) => t.visible !== false))
+const hasTabs = computed(() => effTabs.value.some((t) => t.visible !== false))
 const showRail = computed(() => {
   if (props.rail === false) return false
   if (props.rail === true) return true
-  return !!slots.rail || props.railCards.length > 0
+  return !!slots.rail || effRailCards.value.length > 0
 })
 const slotState = computed(() => ({ state: state.value, isMobile: isMobile.value, activeTab: activeTab.value }))
 </script>
 
 <template>
-  <BasePage :width="width" :fullHeight="true">
-    <PageHeader :icon="breadcrumbs ? null : icon" :title="breadcrumbs ? '' : title">
-      <template v-if="breadcrumbs" #title>
-        <BaseBreadcrumbs :items="breadcrumbs" />
+  <BasePage :width="effWidth" :fullHeight="true">
+    <PageHeader :icon="effBreadcrumbs ? null : effIcon" :title="effBreadcrumbs ? '' : effTitle">
+      <template v-if="effBreadcrumbs" #title>
+        <BaseBreadcrumbs :items="effBreadcrumbs" />
       </template>
     </PageHeader>
 
@@ -81,11 +101,11 @@ const slotState = computed(() => ({ state: state.value, isMobile: isMobile.value
     <div v-else ref="scrollEl" class="tw:flex tw:flex-1 tw:min-h-0 tw:flex-col tw:overflow-auto">
       <div class="tw:sticky tw:top-0 tw:z-raised tw:bg-main">
         <DetailHeader
-          :title="title"
-          :icon="icon"
-          :avatarName="avatarName"
-          :variant="headerVariant"
-          :actions="actions"
+          :title="effTitle"
+          :icon="effIcon"
+          :avatarName="effAvatarName"
+          :variant="effHeaderVariant"
+          :actions="effActions"
           :scrolled="scrolled"
         >
           <template v-if="$slots.title" #title><slot name="title" v-bind="slotState" /></template>
@@ -95,20 +115,22 @@ const slotState = computed(() => ({ state: state.value, isMobile: isMobile.value
         </DetailHeader>
       </div>
 
+      <BaseBannerRegion v-if="banners.length" :banners="banners" />
+
       <div
         class="tw:grid tw:gap-6 tw:py-4 tw:max-lg:grid-cols-1"
         :class="showRail ? 'tw:grid-cols-[minmax(0,1fr)_340px]' : 'tw:grid-cols-1'"
       >
         <div class="tw:min-w-0">
-          <DetailTabs v-if="hasTabs" v-model="activeTab" :tabs="tabs" :ariaLabel="title || 'Sections'">
-            <template v-for="t in tabs" :key="t.value" #[`tab-${t.value}`]>
+          <DetailTabs v-if="hasTabs" v-model="activeTab" :tabs="effTabs" :ariaLabel="effTitle || 'Sections'">
+            <template v-for="t in effTabs" :key="t.value" #[`tab-${t.value}`]>
               <slot :name="`tab-${t.value}`" v-bind="slotState" />
             </template>
           </DetailTabs>
           <slot v-else v-bind="slotState" />
         </div>
 
-        <DetailRail v-if="showRail" :railCards="railCards" class="tw:lg:sticky tw:lg:top-20 tw:lg:self-start">
+        <DetailRail v-if="showRail" :railCards="effRailCards" class="tw:lg:sticky tw:lg:top-20 tw:lg:self-start">
           <template v-if="$slots.rail" #default><slot name="rail" v-bind="slotState" /></template>
         </DetailRail>
       </div>
