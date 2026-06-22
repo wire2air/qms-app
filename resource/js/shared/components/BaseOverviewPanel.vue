@@ -13,17 +13,17 @@
  * Width is governed by the page's grid column — keep that column the same
  * across detail pages so panels match.
  */
-onMounted(() => {
-  if (import.meta.env?.DEV) {
-    console.warn('[deprecation] BaseOverviewPanel is deprecated; use DetailRail + BaseRailCard inside BaseDetailLayout.')
-  }
-})
-
 const props = defineProps({
   title: { type: String, default: 'Overview' },
   // 'card' — white surface, rounded-lg (default, matches the record pages).
   // 'sidebar' — bg-sidebar, rounded-xl (matches the QC / inspection cards).
   tone: { type: String, default: 'card', validator: (v) => ['card', 'sidebar'].includes(v) },
+})
+
+onMounted(() => {
+  if (import.meta.env?.DEV) {
+    console.warn('[deprecation] BaseOverviewPanel is deprecated; use DetailRail + BaseRailCard inside BaseDetailLayout.')
+  }
 })
 
 const surface = computed(() =>
