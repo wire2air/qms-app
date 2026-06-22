@@ -60,6 +60,49 @@ describe('queryToFilters', () => {
   })
 })
 
+describe('filtersToQuery + queryToFilters — object (date token) round-trip', () => {
+  const dateToken = {
+    operator: 'before',
+    value: '2026-06-22',
+    value2: null,
+    relative: { dir: 'past', unit: 'day', count: 7 },
+  }
+  const defaults = { createdAt: null }
+
+  it('filtersToQuery serializes an object value as a JSON string', () => {
+    const q = filtersToQuery({ createdAt: dateToken }, defaults)
+    expect(typeof q.createdAt).toBe('string')
+    expect(JSON.parse(q.createdAt)).toEqual(dateToken)
+  })
+
+  it('queryToFilters deserializes a JSON string back to the original object', () => {
+    const q = filtersToQuery({ createdAt: dateToken }, defaults)
+    const result = queryToFilters(q, defaults)
+    expect(result).toEqual({ createdAt: dateToken })
+  })
+
+  it('full round-trip preserves object, array, string, and number together', () => {
+    const mixedDefaults = { createdAt: null, siteIds: [], search: '', page: 1 }
+    const mixedFilters = {
+      createdAt: dateToken,
+      siteIds: ['a', 'b'],
+      search: 'acme',
+      page: 3,
+    }
+    const q = filtersToQuery(mixedFilters, mixedDefaults)
+    const result = queryToFilters(q, mixedDefaults)
+    expect(result).toEqual(mixedFilters)
+  })
+
+  it('a plain string status id (default null) still round-trips as the string, not parsed', () => {
+    const statusDefaults = { statusId: null }
+    const q = filtersToQuery({ statusId: 'OPEN' }, statusDefaults)
+    expect(q.statusId).toBe('OPEN')
+    const result = queryToFilters(q, statusDefaults)
+    expect(result.statusId).toBe('OPEN')
+  })
+})
+
 describe('encodeSort / decodeSort', () => {
   it('encodes ascending and descending', () => {
     expect(encodeSort('name', false)).toBe('name')

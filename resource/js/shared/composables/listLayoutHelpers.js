@@ -14,7 +14,8 @@ export function resolveListState({ loading, error, empty } = {}) {
 
 /**
  * Serialize active filters into a flat query object, omitting anything equal to
- * its default (keeps URLs clean). Arrays → comma-separated string.
+ * its default (keeps URLs clean). Arrays → comma-separated string. Object values
+ * (e.g. date-filter tokens) → JSON.stringify.
  *
  * @param {Record<string, any>} filters  current filter values
  * @param {Record<string, any>} defaults initial/default values to diff against
@@ -26,6 +27,8 @@ export function filtersToQuery(filters = {}, defaults = {}) {
     const d = defaults[key]
     if (Array.isArray(v)) {
       if (v.length) query[key] = v.join(',')
+    } else if (v !== null && typeof v === 'object') {
+      if (v !== d) query[key] = JSON.stringify(v)
     } else if (v !== d && v !== '' && v !== null && v !== undefined) {
       query[key] = String(v)
     }
@@ -35,8 +38,10 @@ export function filtersToQuery(filters = {}, defaults = {}) {
 
 /**
  * Hydrate filters from a query object, coercing each value to the TYPE of its
- * default (array → comma split, number → Number, boolean → 'true'). Keys not in
- * `defaults` are ignored; missing/empty query values fall back to the default.
+ * default (array → comma split, number → Number, boolean → 'true'). Object-valued
+ * defaults (e.g. date-filter tokens) are restored by JSON.parse when the query
+ * string starts with '{'. Keys not in `defaults` are ignored; missing/empty query
+ * values fall back to the default.
  *
  * @param {Record<string, any>} query    raw query (string-valued)
  * @param {Record<string, any>} defaults default values (define the key set + types)
@@ -55,7 +60,16 @@ export function queryToFilters(query = {}, defaults = {}) {
     } else if (typeof d === 'boolean') {
       out[key] = raw === 'true' || raw === true
     } else {
-      out[key] = String(raw)
+      const s = String(raw)
+      if (s.startsWith('{')) {
+        try {
+          out[key] = JSON.parse(s)
+        } catch {
+          out[key] = s
+        }
+      } else {
+        out[key] = s
+      }
     }
   }
   return out
