@@ -1,5 +1,5 @@
 <script setup>
-import { IconPrinter, IconClipboardList } from '@tabler/icons-vue'
+import { buildCapaBanners, buildCapaSections, buildCapaActions } from './capaDetailConfig.js'
 import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
@@ -356,526 +356,537 @@ function onCreateLinkedChangeRequest() {
     query: { source: 'CAPA', sourceId: props.id },
   })
 }
+
+// ─── BaseDetailLayout config (SP-6) ──────────────────────────────────────────
+const capaBanners = computed(() =>
+  buildCapaBanners(capa.value, { isEditable: isEditable.value }),
+)
+const capaActions = computed(() =>
+  buildCapaActions(
+    {
+      isOwner: isOwner.value,
+      statusId: capa.value?.statusId,
+      canClose: canClose.value,
+      closeDisabledReason: closeDisabledReason.value,
+      canCreateChangeRequest: canCreateChangeRequest.value,
+      saving: saving.value,
+    },
+    {
+      openOpen: openOpenDialog,
+      openClose: openCloseDialog,
+      openCancel: openCancelDialog,
+      print: openPrintView,
+      createCr: onCreateLinkedChangeRequest,
+      openAudit() {
+        showAuditLog.value = true
+      },
+      openDelete() {
+        showDeleteDialog.value = true
+      },
+    },
+  ),
+)
+const capaDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: [
+      { label: 'CAPAs', to: getCompanyPath('/capas') },
+      { label: capa.value?.capaNumber || capa.value?.title || 'Loading…' },
+    ],
+    banners: () => capaBanners.value,
+    actions: capaActions.value,
+    sections: buildCapaSections(capa.value),
+  }),
+)
 </script>
 
 <template>
-  <BaseDetailPage
-    :icon="IconClipboardList"
-    :title="capa?.capaNumber || capa?.title || 'CAPA'"
+  <BaseDetailLayout
+    :config="capaDetailConfig"
+    :record="capa"
     :loading="loading"
     :notFound="!loading && !capa"
     notFoundTitle="CAPA not found"
     notFoundDescription="This CAPA could not be found."
-    width="standard"
   >
-    <template #actions>
-      <AskAiButton
-        v-if="capa?.id"
-        entityType="Capa"
-        :entityId="capa.id"
-        :entityTitle="capa.title"
-        :entityNumber="capa.capaNumber"
+    <template #title>
+      <BaseTextInput
+        v-if="editingTitle && isEditable"
+        v-model="capa.title"
+        placeholder="CAPA title"
+        autofocus
+        class="tw:mb-2"
+        @blur="editingTitle = false"
       />
-      <BaseButton v-if="capa?.id" variant="secondary" @click="openPrintView">
-        <IconPrinter :size="20" class="tw:mr-1" />
-        Print
-      </BaseButton>
-      <BaseButton v-if="capa?.id" variant="secondary" @click="showAuditLog = true">
-        <IconClipboardList :size="20" class="tw:mr-1" />
-        Audit Log
-      </BaseButton>
-      <BaseButton
-        v-if="isOwner && capa?.statusId === 'DRAFT'"
-        variant="outline"
-        :disabled="deleting"
-        @click="showDeleteDialog = true"
+      <BaseClickableRow
+        v-else
+        class="tw:text-base tw:font-semibold tw:text-on-main"
+        :class="isEditable ? 'tw:hover:text-primary' : ''"
+        :disabled="!isEditable"
+        aria-label="Edit CAPA title"
+        @click="editingTitle = true"
       >
-        Delete
-      </BaseButton>
-      <BaseButton
-        v-if="isOwner && capa?.statusId === 'DRAFT'"
-        variant="primary"
-        :disabled="saving"
-        @click="openOpenDialog"
-      >
-        Open CAPA
-      </BaseButton>
-      <BaseButton
-        v-if="isOwner && capa?.statusId === 'PENDING'"
-        variant="secondary"
-        :disabled="cancelling"
-        @click="openCancelDialog"
-      >
-        Cancel CAPA
-      </BaseButton>
-      <BaseButton
-        v-if="isOwner && capa?.statusId === 'PENDING'"
-        variant="danger"
-        :disabled="closing"
-        @click="openCloseDialog"
-      >
-        Close CAPA
-      </BaseButton>
-      <BaseButton
-        v-if="canCreateChangeRequest && capa?.id && !['DRAFT'].includes(capa?.statusId)"
-        variant="outline"
-        @click="onCreateLinkedChangeRequest"
-      >
-        Create Change Request
-      </BaseButton>
+        {{ capa?.title }}
+      </BaseClickableRow>
     </template>
 
-    <template v-if="capa">
-      <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-        <RecordTrailBreadcrumb />
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_16fr] tw:gap-4 tw:items-start">
-          <!-- Left column -->
-          <div class="tw:flex tw:flex-col tw:gap-4">
-            <!-- CAPA Details -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-              >
-                <BaseText variant="overline">CAPA Details</BaseText>
-                <!-- At-a-glance indicator of which assignee pool the
-                     workflow draws from. Mirrors the NC chip — a CAPA
-                     spawned from a supplier NC inherits both
-                     isSupplierFacing and supplierId from the source
-                     (see CapasCreate watch on sourceNc), so this stays
-                     in sync with how the workflow actually routes its
-                     non-APPROVAL steps. -->
-                <span
-                  v-if="capa.isSupplierFacing"
-                  class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
-                  title="Supplier-facing: non-approval workflow steps draw from this CAPA's supplier users. Approval steps stay internal."
-                >
-                  Supplier-facing
-                </span>
-                <span
-                  v-else
-                  class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
-                >
-                  Internal
-                </span>
-              </div>
+    <template #status>
+      <CapaStatusBadgeById v-if="capa" :statusId="capa.statusId" />
+      <CapaPriorityBadgeById v-if="capa?.priorityId" :priorityId="capa.priorityId" />
+    </template>
 
-              <BaseTextInput
-                v-if="editingTitle && isEditable"
-                v-model="capa.title"
-                placeholder="CAPA title"
-                autofocus
-                class="tw:mb-2"
-                @blur="editingTitle = false"
-              />
-              <div
-                v-else
-                class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
-                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                @click="isEditable && (editingTitle = true)"
-              >
-                {{ capa.title }}
-              </div>
+    <template v-if="capa" #meta>
+      <span class="tw:font-mono">{{ capa.capaNumber }}</span>
+      <template v-if="capa.typeId"> · <CapaTypeBadgeById :typeId="capa.typeId" /></template>
+      <template v-if="capa.initiatedAt"> · Initiated {{ capa.initiatedAt.formatDate('date') }}</template>
+    </template>
 
-              <BaseRichTextField
-                v-model="capa.description"
-                :editable="isEditable"
-                clickToEdit
-                clickToEditLabel="Add a description…"
-                placeholder="Add a description…"
-                class="tw:mb-4"
-              />
-
-              <div class="tw:grid tw:grid-cols-3 tw:gap-3">
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Priority</div>
-                  <CapaPriorityBadgeById :priorityId="capa.priorityId" />
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Type</div>
-                  <CapaTypeBadgeById :typeId="capa.typeId" />
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Source</div>
-                  <CapaSourceBadgeById :sourceId="capa.sourceType" />
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Initiated</div>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ capa.initiatedAt?.formatDate('date') || '—' }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Related records lineage (NC / complaint / finding → this CAPA).
-                 Self-hides when there are no links. -->
-            <RecordLineagePanel :id="id" type="Capa" />
-
-            <!-- Raised-from-Audit context (scoped): audit header + only the
-                 findings/failed requirements this CAPA addresses. Self-hides
-                 when the CAPA didn't originate from an audit. Visible to
-                 assignees without audits:read — see AuditOriginPanel. -->
-            <AuditOriginPanel entityType="Capa" :entityId="id" />
-
-            <!-- Workflow steps. In DRAFT (no instance yet) we render the
-                 template-step preview so the owner can plan assignments.
-                 Once they Submit, the workflow instance exists and the
-                 live CapaWorkflowDetail takes over. -->
-            <CapaWorkflowDraftPreview
-              v-if="!workflowInstance && capa?.statusId === 'DRAFT'"
-              :capaId="id"
-              :isOwner="isOwner"
-            />
-            <CapaWorkflowDetail
-              v-else
-              :capaId="id"
-              :workflowInstanceId="workflowInstance?.id"
-              :isOwner="isOwner"
-            />
-
-            <!-- Effectiveness Check (post-closure follow-up) -->
-            <CapaEffectivenessCheckCard :capaId="id" :isOwner="isOwner" />
-
-            <!-- External access — read-only panel populated by workflow-
-                 step assignment (autoShareSupplierUsers). The product
-                 decision (2026-05-29) is that supplier visibility on CAPA
-                 is workflow-driven, not manual. See SharedWithPanel.vue.
-                 Only relevant on supplier-facing CAPAs — external access is
-                 only ever granted on those, so hide the section otherwise. -->
-            <SharedWithPanel v-if="capa?.isSupplierFacing" entityType="Capa" :entityId="id" />
-
-            <!-- Admin-defined custom fields. Self-hides when none configured. -->
-            <CustomFieldsCard entityType="Capa" :entityId="id" :editable="isEditable" />
-          </div>
-
-          <!-- Right column -->
-          <div class="tw:flex tw:flex-col tw:gap-4">
-            <!-- Overview -->
-            <BaseOverviewPanel>
-              <BaseDetailSection title="General">
-                <BaseDetailField label="Number">
-                  <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
-                    {{ capa.capaNumber }}
-                  </BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Status">
-                  <CapaStatusBadgeById :statusId="capa.statusId" />
-                </BaseDetailField>
-              </BaseDetailSection>
-
-              <BaseDetailSection title="Ownership" divided>
-                <!-- Initiator = who raised the CAPA (createdBy, immutable). -->
-                <BaseDetailField label="Initiator">
-                  <UserBadgeById v-if="capa.createdBy" :userId="capa.createdBy" />
-                  <BaseText v-else color="secondary">—</BaseText>
-                </BaseDetailField>
-                <!-- Responsible party = drives the CAPA to closure; effectiveness
-                     checks + default workflow assignment route here. -->
-                <BaseDetailField label="Responsible party">
-                  <UserSelectMenu v-if="isEditable" v-model="capa.ownerId" :required="true" />
-                  <UserBadgeById v-else-if="capa.ownerId" :userId="capa.ownerId" />
-                  <BaseText v-else color="secondary">—</BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Site">
-                  <SiteSelectMenu v-if="isEditable" v-model="capa.siteId" :required="true" />
-                  <SiteBadgeById v-else-if="capa.siteId" :siteId="capa.siteId" />
-                  <BaseText v-else color="secondary">—</BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Department">
-                  <DepartmentSelectMenu
-                    v-if="isEditable"
-                    v-model="capa.departmentId"
-                    :required="true"
-                  />
-                  <DepartmentBadgeById
-                    v-else-if="capa.departmentId"
-                    :departmentId="capa.departmentId"
-                  />
-                  <BaseText v-else color="secondary">—</BaseText>
-                </BaseDetailField>
-                <BaseDetailField v-if="capa.supplierId" label="Supplier">
-                  <SupplierBadgeById :supplierId="capa.supplierId" />
-                </BaseDetailField>
-              </BaseDetailSection>
-
-              <!-- Notify (cc) — groups/people emailed + in-app on status change -->
-              <BaseDetailSection title="Notify (cc)" divided>
-                <NotificationCcField
-                  v-model:groupIds="capa.notifyGroupIds"
-                  v-model:userIds="capa.notifyUserIds"
-                  :editable="isEditable"
-                  hint=""
-                />
-              </BaseDetailSection>
-
-              <BaseDetailSection title="Schedule" divided>
-                <BaseDetailField label="Due">
-                  <BaseDateField v-if="isEditable" v-model="capa.dueDate" mode="date" class="tw:w-full" />
-                  <BaseText
-                    v-else
-                    variant="body"
-                    weight="medium"
-                    :class="isOverdue ? 'tw:text-red-600' : ''"
-                  >
-                    {{ capa.dueDate?.formatDate('date') || '—' }}
-                  </BaseText>
-                </BaseDetailField>
-                <BaseDetailField
-                  v-if="capa.verifiedAt"
-                  label="Verified"
-                  :value="capa.verifiedAt.formatDate('dateTime')"
-                />
-                <BaseDetailField
-                  v-if="capa.closedAt"
-                  label="Closed"
-                  :value="capa.closedAt.formatDate('dateTime')"
-                />
-              </BaseDetailSection>
-            </BaseOverviewPanel>
-
-            <!-- Workflow template card -->
-            <RouterLink
-              v-if="workflow && workflowVersion"
-              :to="
-                getCompanyPath(
-                  `/workflow-templates/${workflow.id}?version=${encodeURIComponent(
-                    workflowVersionLabel(workflowVersion),
-                  )}`,
-                )
-              "
-              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-2 tw:hover:border-primary tw:hover:bg-main-hover tw:transition-colors"
-            >
-              <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">
-                Workflow template
-              </div>
-              <div class="tw:flex tw:items-center tw:justify-between tw:gap-2">
-                <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
-                  {{ workflow.name }}
-                </span>
-                <span
-                  class="tw:text-xs tw:font-mono tw:text-secondary tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
-                >
-                  v{{ workflowVersionLabel(workflowVersion) }}
-                </span>
-              </div>
-            </RouterLink>
-          </div>
-        </div>
+    <template #actions>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <DetailActionBar :actions="capaActions" />
+        <AskAiButton
+          v-if="capa?.id"
+          entityType="Capa"
+          :entityId="capa.id"
+          :entityTitle="capa.title"
+          :entityNumber="capa.capaNumber"
+        />
       </div>
     </template>
 
-    <BaseDialog v-model="showCloseDialog" title="Close CAPA" maxWidth="lg">
-      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
-        <!-- Gate 1: workflow step completion -->
+    <template v-if="capa" #section-details>
+      <RecordTrailBreadcrumb />
+
+      <!-- Related records lineage (NC / complaint / finding → this CAPA).
+           Self-hides when there are no links. -->
+      <RecordLineagePanel :id="id" type="Capa" />
+
+      <!-- Raised-from-Audit context (scoped): audit header + only the
+           findings/failed requirements this CAPA addresses. Self-hides
+           when the CAPA didn't originate from an audit. Visible to
+           assignees without audits:read — see AuditOriginPanel. -->
+      <AuditOriginPanel entityType="Capa" :entityId="id" />
+
+      <!-- CAPA Details card (description + classification grid) -->
+      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
         <div
-          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:border"
-          :class="
-            incompleteStepCount === 0
-              ? 'tw:bg-green-50 tw:border-green-200'
-              : 'tw:bg-red-50 tw:border-red-200'
+          class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+        >
+          <BaseText variant="overline">CAPA Details</BaseText>
+          <!-- At-a-glance indicator of which assignee pool the
+               workflow draws from. Mirrors the NC chip — a CAPA
+               spawned from a supplier NC inherits both
+               isSupplierFacing and supplierId from the source
+               (see CapasCreate watch on sourceNc), so this stays
+               in sync with how the workflow actually routes its
+               non-APPROVAL steps. -->
+          <span
+            v-if="capa.isSupplierFacing"
+            class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+            title="Supplier-facing: non-approval workflow steps draw from this CAPA's supplier users. Approval steps stay internal."
+          >
+            Supplier-facing
+          </span>
+          <span
+            v-else
+            class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+          >
+            Internal
+          </span>
+        </div>
+
+        <BaseRichTextField
+          v-model="capa.description"
+          :editable="isEditable"
+          clickToEdit
+          clickToEditLabel="Add a description…"
+          placeholder="Add a description…"
+          class="tw:mb-4"
+        />
+
+        <div class="tw:grid tw:grid-cols-3 tw:gap-3">
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <div class="tw:text-xs tw:text-secondary">Priority</div>
+            <CapaPriorityBadgeById :priorityId="capa.priorityId" />
+          </div>
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <div class="tw:text-xs tw:text-secondary">Type</div>
+            <CapaTypeBadgeById :typeId="capa.typeId" />
+          </div>
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <div class="tw:text-xs tw:text-secondary">Source</div>
+            <CapaSourceBadgeById :sourceId="capa.sourceType" />
+          </div>
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <div class="tw:text-xs tw:text-secondary">Initiated</div>
+            <span class="tw:text-sm tw:font-medium">
+              {{ capa.initiatedAt?.formatDate('date') || '—' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin-defined custom fields. Self-hides when none configured. -->
+      <CustomFieldsCard entityType="Capa" :entityId="id" :editable="isEditable" />
+    </template>
+
+    <template v-if="capa" #section-workflow>
+      <!-- Workflow steps. In DRAFT (no instance yet) we render the
+           template-step preview so the owner can plan assignments.
+           Once they Submit, the workflow instance exists and the
+           live CapaWorkflowDetail takes over. -->
+      <CapaWorkflowDraftPreview
+        v-if="!workflowInstance && capa?.statusId === 'DRAFT'"
+        :capaId="id"
+        :isOwner="isOwner"
+      />
+      <CapaWorkflowDetail
+        v-else
+        :capaId="id"
+        :workflowInstanceId="workflowInstance?.id"
+        :isOwner="isOwner"
+      />
+    </template>
+
+    <template v-if="capa" #section-effectiveness>
+      <!-- Effectiveness Check (post-closure follow-up) -->
+      <CapaEffectivenessCheckCard :capaId="id" :isOwner="isOwner" />
+
+      <!-- External access — read-only panel populated by workflow-
+           step assignment (autoShareSupplierUsers). The product
+           decision (2026-05-29) is that supplier visibility on CAPA
+           is workflow-driven, not manual. See SharedWithPanel.vue.
+           Only relevant on supplier-facing CAPAs — external access is
+           only ever granted on those, so hide the section otherwise. -->
+      <SharedWithPanel v-if="capa?.isSupplierFacing" entityType="Capa" :entityId="id" />
+    </template>
+
+    <template v-if="capa" #rail>
+      <!-- 1. Status & schedule -->
+      <BaseRailCard title="Status &amp; schedule">
+        <BaseDetailField label="Number">
+          <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
+            {{ capa.capaNumber }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Status">
+          <CapaStatusBadgeById :statusId="capa.statusId" />
+        </BaseDetailField>
+        <BaseDetailField label="Due">
+          <BaseDateField v-if="isEditable" v-model="capa.dueDate" mode="date" class="tw:w-full" />
+          <BaseText
+            v-else
+            variant="body"
+            weight="medium"
+            :class="isOverdue ? 'tw:text-red-600' : ''"
+          >
+            {{ capa.dueDate?.formatDate('date') || '—' }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField
+          v-if="capa.verifiedAt"
+          label="Verified"
+          :value="capa.verifiedAt.formatDate('dateTime')"
+        />
+        <BaseDetailField
+          v-if="capa.closedAt"
+          label="Closed"
+          :value="capa.closedAt.formatDate('dateTime')"
+        />
+      </BaseRailCard>
+
+      <!-- 2. People -->
+      <BaseRailCard title="People">
+        <!-- Initiator = who raised the CAPA (createdBy, immutable). -->
+        <BaseDetailField label="Initiator">
+          <UserBadgeById v-if="capa.createdBy" :userId="capa.createdBy" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <!-- Responsible party = drives the CAPA to closure; effectiveness
+             checks + default workflow assignment route here. -->
+        <BaseDetailField label="Responsible party">
+          <UserSelectMenu v-if="isEditable" v-model="capa.ownerId" :required="true" />
+          <UserBadgeById v-else-if="capa.ownerId" :userId="capa.ownerId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Site">
+          <SiteSelectMenu v-if="isEditable" v-model="capa.siteId" :required="true" />
+          <SiteBadgeById v-else-if="capa.siteId" :siteId="capa.siteId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Department">
+          <DepartmentSelectMenu
+            v-if="isEditable"
+            v-model="capa.departmentId"
+            :required="true"
+          />
+          <DepartmentBadgeById
+            v-else-if="capa.departmentId"
+            :departmentId="capa.departmentId"
+          />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="capa.supplierId" label="Supplier">
+          <SupplierBadgeById :supplierId="capa.supplierId" />
+        </BaseDetailField>
+      </BaseRailCard>
+
+      <!-- 3. Notify (cc) — groups/people emailed + in-app on status change -->
+      <BaseRailCard title="Notify (cc)">
+        <NotificationCcField
+          v-model:groupIds="capa.notifyGroupIds"
+          v-model:userIds="capa.notifyUserIds"
+          :editable="isEditable"
+          hint=""
+        />
+      </BaseRailCard>
+
+      <!-- 4. Related — workflow template link -->
+      <BaseRailCard v-if="(workflow && workflowVersion) || capa.isSupplierFacing" title="Related">
+        <!-- Workflow template card -->
+        <RouterLink
+          v-if="workflow && workflowVersion"
+          :to="
+            getCompanyPath(
+              `/workflow-templates/${workflow.id}?version=${encodeURIComponent(
+                workflowVersionLabel(workflowVersion),
+              )}`,
+            )
           "
+          class="tw:flex tw:flex-col tw:gap-2 tw:hover:text-primary tw:transition-colors"
         >
-          <div
-            class="tw:shrink-0 tw:mt-0.5 tw:font-bold"
-            :class="incompleteStepCount === 0 ? 'tw:text-green-600' : 'tw:text-red-600'"
-          >
-            {{ incompleteStepCount === 0 ? '✓' : '⚠' }}
+          <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">
+            Workflow template
           </div>
-          <div
-            class="tw:text-sm"
-            :class="incompleteStepCount === 0 ? 'tw:text-green-800' : 'tw:text-red-800'"
-          >
-            <template v-if="incompleteStepCount === 0">
-              All workflow steps and sub-tasks are complete.
-            </template>
-            <template v-else>
-              <strong>{{ incompleteStepCount }}</strong> workflow step{{
-                incompleteStepCount === 1 ? '' : 's'
-              }}
-              still open. Complete, skip, or cancel them before closing.
-            </template>
-          </div>
-        </div>
-
-        <!-- Gate 2: effectiveness check date -->
-        <BaseField label="Effectiveness Check Date" required>
-          <p class="tw:text-xs tw:text-secondary tw:mb-2">
-            When should the corrective action's effectiveness be verified? Industry standard is 90
-            days from close.
-          </p>
-          <div class="tw:flex tw:flex-wrap tw:gap-2 tw:mb-3">
-            <button
-              v-for="preset in EC_PRESETS"
-              :key="preset.days"
-              type="button"
-              class="tw:px-3 tw:py-1 tw:rounded-full tw:text-xs tw:font-medium tw:border tw:transition-colors"
-              :class="
-                !closeEcCustomDate && closeEcPresetDays === preset.days
-                  ? 'tw:bg-primary tw:text-white tw:border-primary'
-                  : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:bg-main-hover'
-              "
-              @click="
-                () => {
-                  closeEcPresetDays = preset.days
-                  closeEcCustomDate = null
-                }
-              "
+          <div class="tw:flex tw:items-center tw:justify-between tw:gap-2">
+            <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+              {{ workflow.name }}
+            </span>
+            <span
+              class="tw:text-xs tw:font-mono tw:text-secondary tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
             >
-              {{ preset.label }}
-            </button>
+              v{{ workflowVersionLabel(workflowVersion) }}
+            </span>
           </div>
-          <div class="tw:flex tw:items-center tw:gap-2">
-            <span class="tw:text-xs tw:text-secondary">Or pick a specific date:</span>
-            <BaseDateField v-model="closeEcCustomDate" mode="date" />
-          </div>
-          <p v-if="closeEffectivenessDate" class="tw:text-xs tw:text-secondary tw:mt-2">
-            Will schedule for: <strong>{{ closeEffectivenessDate.formatDate('date') }}</strong>
-          </p>
-        </BaseField>
+        </RouterLink>
+      </BaseRailCard>
+    </template>
+  </BaseDetailLayout>
 
-        <!-- Optional closure comments -->
-        <BaseField v-slot="{ id: fieldId }" label="Closure Comments" optional>
-          <BaseTextarea
-            :id="fieldId"
-            v-model="closeComments"
-            :rows="3"
-            placeholder="Summary of the corrective action and verification of completion"
-          />
-        </BaseField>
+  <!-- ─── Dialogs (siblings after </BaseDetailLayout>) ──────────────── -->
 
-        <!-- CFR 21 Part 11 notice -->
+  <BaseDialog v-model="showCloseDialog" title="Close CAPA" maxWidth="lg">
+    <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+      <!-- Gate 1: workflow step completion -->
+      <div
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:border"
+        :class="
+          incompleteStepCount === 0
+            ? 'tw:bg-green-50 tw:border-green-200'
+            : 'tw:bg-red-50 tw:border-red-200'
+        "
+      >
         <div
-          class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800"
+          class="tw:shrink-0 tw:mt-0.5 tw:font-bold"
+          :class="incompleteStepCount === 0 ? 'tw:text-green-600' : 'tw:text-red-600'"
         >
-          <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
-          <div>
-            CFR 21 Part 11 — Closing this CAPA finalises the controlled record and requires an
-            e-signature. You'll be prompted to confirm your identity on the next step.
-          </div>
+          {{ incompleteStepCount === 0 ? '✓' : '⚠' }}
         </div>
-
-        <p v-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</p>
+        <div
+          class="tw:text-sm"
+          :class="incompleteStepCount === 0 ? 'tw:text-green-800' : 'tw:text-red-800'"
+        >
+          <template v-if="incompleteStepCount === 0">
+            All workflow steps and sub-tasks are complete.
+          </template>
+          <template v-else>
+            <strong>{{ incompleteStepCount }}</strong> workflow step{{
+              incompleteStepCount === 1 ? '' : 's'
+            }}
+            still open. Complete, skip, or cancel them before closing.
+          </template>
+        </div>
       </div>
-      <template #footer="{ close }">
-        <BaseDialogFooter
-          submitLabel="Sign & Close CAPA"
-          submitVariant="danger"
-          :loading="closing"
-          :disabled="!canClose"
-          :submitTitle="canClose ? undefined : closeDisabledReason"
-          @cancel="close"
-          @submit="handleCloseCapa"
-        />
-      </template>
-    </BaseDialog>
 
-    <!-- E-sign dialog — used for both Close and Cancel. CFR-11 §11.100
-         (unique user signature) + §11.200 (two ID components). The
-         pendingEsignAction flag routes the @verified callback to the
-         right controller. -->
-    <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
-
-    <!-- Audit Log Dialog — CAPA + its WorkflowInstance, steps and
-         effectiveness checks all roll up into one timeline. -->
-    <AuditLogDialog
-      v-model="showAuditLog"
-      :includeEntities="auditIncludeEntities"
-      :title="`Audit Log — ${capa?.capaNumber ?? 'CAPA'}`"
-    />
-
-    <BaseDialog v-model="showCancelDialog" title="Cancel CAPA" maxWidth="md">
-      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
-        <div
-          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
-        >
-          <div class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5">⚠</div>
-          <div class="tw:text-sm tw:text-amber-800">
-            Cancelling will abort any in-progress workflow and mark the CAPA cancelled. The reason
-            below is recorded on the row and in the audit log.
-          </div>
-        </div>
-        <BaseField v-slot="{ id: fieldId }" label="Reason">
-          <BaseTextarea
-            :id="fieldId"
-            v-model="cancelReason"
-            :rows="3"
-            placeholder="Why is this CAPA being cancelled?"
-          />
-        </BaseField>
-        <!-- CFR 21 Part 11 notice -->
-        <div
-          class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800"
-        >
-          <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
-          <div>
-            CFR 21 Part 11 — Cancelling a CAPA is a regulated decision and requires an e-signature.
-            You'll confirm your identity on the next step.
-          </div>
-        </div>
-        <p v-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</p>
-      </div>
-      <template #footer="{ close }">
-        <BaseDialogFooter
-          cancelLabel="Keep Open"
-          submitLabel="Sign & Cancel CAPA"
-          submitVariant="danger"
-          :loading="cancelling"
-          :disabled="!cancelReason.trim()"
-          @cancel="close"
-          @submit="handleCancelCapa"
-        />
-      </template>
-    </BaseDialog>
-
-    <!-- Open CAPA confirmation — Draft → Active transition. -->
-    <BaseDialog v-model="showOpenDialog" title="Open CAPA" maxWidth="md">
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <p class="tw:text-sm tw:text-on-main">
-          Opening this CAPA starts the assigned workflow and makes it a
-          <strong>permanent audit record</strong>.
+      <!-- Gate 2: effectiveness check date -->
+      <BaseField label="Effectiveness Check Date" required>
+        <p class="tw:text-xs tw:text-secondary tw:mb-2">
+          When should the corrective action's effectiveness be verified? Industry standard is 90
+          days from close.
         </p>
-        <ul class="tw:text-sm tw:text-secondary tw:list-disc tw:pl-5 tw:space-y-1">
-          <li>Most fields stay editable until the CAPA is closed.</li>
-          <li>It can no longer be deleted — only closed or cancelled with a recorded reason.</li>
-          <li>The workflow's first step becomes active and reviewers get tasks.</li>
-        </ul>
-        <div
-          v-if="saveError"
-          class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm"
-        >
-          {{ saveError }}
+        <div class="tw:flex tw:flex-wrap tw:gap-2 tw:mb-3">
+          <button
+            v-for="preset in EC_PRESETS"
+            :key="preset.days"
+            type="button"
+            class="tw:px-3 tw:py-1 tw:rounded-full tw:text-xs tw:font-medium tw:border tw:transition-colors"
+            :class="
+              !closeEcCustomDate && closeEcPresetDays === preset.days
+                ? 'tw:bg-primary tw:text-white tw:border-primary'
+                : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:bg-main-hover'
+            "
+            @click="
+              () => {
+                closeEcPresetDays = preset.days
+                closeEcCustomDate = null
+              }
+            "
+          >
+            {{ preset.label }}
+          </button>
+        </div>
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <span class="tw:text-xs tw:text-secondary">Or pick a specific date:</span>
+          <BaseDateField v-model="closeEcCustomDate" mode="date" />
+        </div>
+        <p v-if="closeEffectivenessDate" class="tw:text-xs tw:text-secondary tw:mt-2">
+          Will schedule for: <strong>{{ closeEffectivenessDate.formatDate('date') }}</strong>
+        </p>
+      </BaseField>
+
+      <!-- Optional closure comments -->
+      <BaseField v-slot="{ id: fieldId }" label="Closure Comments" optional>
+        <BaseTextarea
+          :id="fieldId"
+          v-model="closeComments"
+          :rows="3"
+          placeholder="Summary of the corrective action and verification of completion"
+        />
+      </BaseField>
+
+      <!-- CFR 21 Part 11 notice -->
+      <div
+        class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800"
+      >
+        <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
+        <div>
+          CFR 21 Part 11 — Closing this CAPA finalises the controlled record and requires an
+          e-signature. You'll be prompted to confirm your identity on the next step.
         </div>
       </div>
-      <template #footer="{ close }">
-        <BaseDialogFooter
-          submitLabel="Open CAPA"
-          :loading="saving"
-          @cancel="close"
-          @submit="handleSubmitForReview"
-        />
-      </template>
-    </BaseDialog>
 
-    <!-- Delete draft CAPA -->
-    <BaseDialog v-model="showDeleteDialog" title="Delete Draft CAPA" maxWidth="md">
-      <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Delete this draft CAPA? This permanently removes the record. Drafts have no audit history
-        yet, so this is safe.
+      <p v-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</p>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Sign & Close CAPA"
+        submitVariant="danger"
+        :loading="closing"
+        :disabled="!canClose"
+        :submitTitle="canClose ? undefined : closeDisabledReason"
+        @cancel="close"
+        @submit="handleCloseCapa"
+      />
+    </template>
+  </BaseDialog>
+
+  <!-- E-sign dialog — used for both Close and Cancel. CFR-11 §11.100
+       (unique user signature) + §11.200 (two ID components). The
+       pendingEsignAction flag routes the @verified callback to the
+       right controller. -->
+  <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
+
+  <!-- Audit Log Dialog — CAPA + its WorkflowInstance, steps and
+       effectiveness checks all roll up into one timeline. -->
+  <AuditLogDialog
+    v-model="showAuditLog"
+    :includeEntities="auditIncludeEntities"
+    :title="`Audit Log — ${capa?.capaNumber ?? 'CAPA'}`"
+  />
+
+  <BaseDialog v-model="showCancelDialog" title="Cancel CAPA" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+      <div
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+      >
+        <div class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5">⚠</div>
+        <div class="tw:text-sm tw:text-amber-800">
+          Cancelling will abort any in-progress workflow and mark the CAPA cancelled. The reason
+          below is recorded on the row and in the audit log.
+        </div>
+      </div>
+      <BaseField v-slot="{ id: fieldId }" label="Reason">
+        <BaseTextarea
+          :id="fieldId"
+          v-model="cancelReason"
+          :rows="3"
+          placeholder="Why is this CAPA being cancelled?"
+        />
+      </BaseField>
+      <!-- CFR 21 Part 11 notice -->
+      <div
+        class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800"
+      >
+        <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
+        <div>
+          CFR 21 Part 11 — Cancelling a CAPA is a regulated decision and requires an e-signature.
+          You'll confirm your identity on the next step.
+        </div>
+      </div>
+      <p v-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</p>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        cancelLabel="Keep Open"
+        submitLabel="Sign & Cancel CAPA"
+        submitVariant="danger"
+        :loading="cancelling"
+        :disabled="!cancelReason.trim()"
+        @cancel="close"
+        @submit="handleCancelCapa"
+      />
+    </template>
+  </BaseDialog>
+
+  <!-- Open CAPA confirmation — Draft → Active transition. -->
+  <BaseDialog v-model="showOpenDialog" title="Open CAPA" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <p class="tw:text-sm tw:text-on-main">
+        Opening this CAPA starts the assigned workflow and makes it a
+        <strong>permanent audit record</strong>.
       </p>
+      <ul class="tw:text-sm tw:text-secondary tw:list-disc tw:pl-5 tw:space-y-1">
+        <li>Most fields stay editable until the CAPA is closed.</li>
+        <li>It can no longer be deleted — only closed or cancelled with a recorded reason.</li>
+        <li>The workflow's first step becomes active and reviewers get tasks.</li>
+      </ul>
       <div
         v-if="saveError"
-        class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm tw:mb-3"
+        class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm"
       >
         {{ saveError }}
       </div>
-      <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
-        <BaseButton variant="outline" :disabled="deleting" @click="showDeleteDialog = false">
-          Cancel
-        </BaseButton>
-        <BaseButton variant="danger" :disabled="deleting" @click="handleDeleteDraft">
-          {{ deleting ? 'Deleting…' : 'Delete' }}
-        </BaseButton>
-      </div>
-    </BaseDialog>
-  </BaseDetailPage>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Open CAPA"
+        :loading="saving"
+        @cancel="close"
+        @submit="handleSubmitForReview"
+      />
+    </template>
+  </BaseDialog>
+
+  <!-- Delete draft CAPA -->
+  <BaseDialog v-model="showDeleteDialog" title="Delete Draft CAPA" maxWidth="md">
+    <p class="tw:text-sm tw:text-on-main tw:mb-3">
+      Delete this draft CAPA? This permanently removes the record. Drafts have no audit history
+      yet, so this is safe.
+    </p>
+    <div
+      v-if="saveError"
+      class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm tw:mb-3"
+    >
+      {{ saveError }}
+    </div>
+    <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
+      <BaseButton variant="outline" :disabled="deleting" @click="showDeleteDialog = false">
+        Cancel
+      </BaseButton>
+      <BaseButton variant="danger" :disabled="deleting" @click="handleDeleteDraft">
+        {{ deleting ? 'Deleting…' : 'Delete' }}
+      </BaseButton>
+    </div>
+  </BaseDialog>
 </template>
