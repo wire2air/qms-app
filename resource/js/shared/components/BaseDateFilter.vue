@@ -7,10 +7,14 @@
  */
 import { OPERATORS } from '@/utils/dateRanges.js'
 
-const model = defineModel({ type: [Object, null], default: null })
+const model = defineModel({ type: Object, default: null })
 
 const DEFAULT = { operator: 'relative', value: null, value2: null, relative: { dir: 'past', unit: 'day', count: 7 } }
-const token = computed(() => ({ ...DEFAULT, ...(model.value || {}) }))
+const token = computed(() => ({
+  ...DEFAULT,
+  ...(model.value || {}),
+  relative: { ...DEFAULT.relative, ...(model.value?.relative || {}) },
+}))
 
 const UNITS = [
   { id: 'day', label: 'days' },
