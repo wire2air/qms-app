@@ -137,4 +137,11 @@ describe('BaseDetailLayout — variants', () => {
     const w = mountLayout({ props: { config, rail: false }, slots: { default: '<div/>', 'ai-summary': '<div data-test="ai"/>' } })
     expect(w.find('aside[aria-label="Details"]').exists()).toBe(false)
   })
+  it('print variant renders the rail without sticky positioning', () => {
+    const config = defineDetailConfig({ variant: 'print', railCards: [{ id: 'p', title: 'Properties', items: [{ label: 'Status', value: 'Open' }] }] })
+    const w = mountLayout({ props: { config }, slots: { default: '<div/>' } })
+    const rail = w.find('aside[aria-label="Details"]')
+    expect(rail.exists()).toBe(true)
+    expect(rail.classes().some((c) => c.includes('sticky'))).toBe(false)
+  })
 })

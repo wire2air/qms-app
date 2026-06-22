@@ -150,7 +150,9 @@ const slotState = computed(() => ({
     </div>
 
     <!-- Ready: sticky header + tabs + 2-col body -->
-    <div v-else ref="scrollEl" class="tw:flex tw:flex-1 tw:min-h-0 tw:flex-col tw:overflow-auto">
+    <!-- --detail-header-offset is the single sticky-offset source (spec §5.1); nav top and section scroll-margin derive from it.
+         A fully dynamic measured value is a deferred refinement for the SP-6 page integration. -->
+    <div v-else ref="scrollEl" class="tw:flex tw:flex-1 tw:min-h-0 tw:flex-col tw:overflow-auto" style="--detail-header-offset: 4rem">
       <div :class="vd.stickyHeader ? 'tw:sticky tw:top-0 tw:z-raised tw:bg-main' : 'tw:bg-main'">
         <DetailHeader
           :title="effTitle"
@@ -179,12 +181,12 @@ const slotState = computed(() => ({
       >
         <div class="tw:min-w-0">
           <template v-if="vd.showNav && effSections.length">
-            <DetailAnchorNav :sections="effSections" :activeId="activeSectionId" class="tw:sticky tw:top-16 tw:z-raised tw:bg-main" />
+            <DetailAnchorNav :sections="effSections" :activeId="activeSectionId" class="tw:sticky tw:top-[var(--detail-header-offset)] tw:z-raised tw:bg-main" />
             <section
               v-for="s in effSections"
               :id="`section-${s.id}`"
               :key="s.id"
-              class="tw:scroll-mt-32 tw:py-4"
+              class="tw:scroll-mt-[calc(var(--detail-header-offset)+3rem)] tw:py-4"
             >
               <slot :name="`section-${s.id}`" v-bind="slotState" />
             </section>
@@ -198,7 +200,8 @@ const slotState = computed(() => ({
           <div v-if="aiEnabled && $slots['ai-panel']" class="tw:mt-4"><slot name="ai-panel" v-bind="slotState" /></div>
         </div>
 
-        <DetailRail v-if="showRailFinal" :railCards="effRailCards" class="tw:lg:sticky tw:lg:top-20 tw:lg:self-start">
+        <!-- Finding 1: print variant is linearized; rail must not be sticky in that case -->
+        <DetailRail v-if="showRailFinal" :railCards="effRailCards" :class="vd.linearized ? '' : 'tw:lg:sticky tw:lg:top-20 tw:lg:self-start'">
           <template v-if="$slots.rail || aiEnabled || versionEnabled" #default>
             <BaseRailCard v-if="aiEnabled && $slots['ai-summary']" title="AI Summary">
               <slot name="ai-summary" v-bind="slotState" />
