@@ -643,7 +643,7 @@ const capaDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- 4. Related — workflow template link -->
-      <BaseRailCard v-if="(workflow && workflowVersion) || capa.isSupplierFacing" title="Related">
+      <BaseRailCard v-if="workflow && workflowVersion" title="Related">
         <!-- Workflow template card -->
         <RouterLink
           v-if="workflow && workflowVersion"
