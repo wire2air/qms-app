@@ -1,6 +1,11 @@
 <script setup>
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { isAllowed } from '@/utils/currentSession.js'
+import {
+  buildSupplierBanners,
+  buildSupplierSections,
+  buildSupplierActions,
+} from './supplierDetailConfig.js'
 
 const props = defineProps({
   id: {
@@ -47,57 +52,80 @@ const activeTab = computed({
     router.replace({ query: { ...route.query, tab: value } })
   },
 })
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const supplierBanners = computed(() =>
+  buildSupplierBanners(supplier.value, { canUpdate: canUpdate.value }),
+)
+const supplierActions = computed(() => buildSupplierActions({}, {}))
+const supplierDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => supplierBanners.value,
+    actions: supplierActions.value,
+    sections: buildSupplierSections(supplier.value),
+  }),
+)
 </script>
 
 <template>
-  <BaseDetailPage
-    :breadcrumbs="breadcrumbs"
+  <BaseDetailLayout
+    :config="supplierDetailConfig"
+    :record="supplier"
     :loading="loading"
     :notFound="!loading && !supplier"
     notFoundTitle="Supplier not found"
-    width="standard"
+    notFoundDescription="This supplier could not be found."
   >
-    <template #actions>
-      <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary">
-        <BaseSpinner size="sm" />
-        Saving...
-      </div>
-      <p v-else-if="saveError" class="tw:text-sm tw:text-red-500">{{ saveError }}</p>
+    <template #title>
+      <BaseTextInput
+        v-if="editingName && canUpdate"
+        v-model="supplier.name"
+        size="sm"
+        autofocus
+        @keyup.enter="editingName = false"
+        @blur="editingName = false"
+      />
+      <BaseClickableRow
+        v-else
+        class="tw:text-base tw:font-semibold tw:text-on-main"
+        :class="canUpdate ? 'tw:hover:text-primary' : ''"
+        :disabled="!canUpdate"
+        aria-label="Edit supplier name"
+        @click="canUpdate && (editingName = true)"
+      >
+        {{ supplier?.name }}
+      </BaseClickableRow>
     </template>
 
-    <div class="tw:py-8 tw:space-y-8">
-      <!-- Header Section -->
-      <section
-        class="tw:flex tw:flex-col tw:md:flex-row tw:md:items-center tw:justify-between tw:gap-4"
-      >
-        <div class="tw:space-y-1">
-          <div class="tw:flex tw:items-center tw:gap-3">
-            <template v-if="editingName && canUpdate">
-              <BaseTextInput
-                v-model="supplier.name"
-                size="sm"
-                @keyup.enter="editingName = false"
-                @blur="editingName = false"
-              />
-            </template>
-            <h1
-              v-else
-              class="tw:text-2xl tw:font-bold tw:text-on-main tw:tracking-tight tw:cursor-pointer tw:hover:text-primary"
-              @click="canUpdate && (editingName = true)"
-            >
-              {{ supplier.name }}
-            </h1>
-            <SupplierStatusSelectMenu
-              v-if="canUpdate"
-              v-model="supplier.statusId"
-              :required="true"
-            />
-            <SupplierStatusBadgeById v-else :statusId="supplier.statusId" />
-          </div>
-          <p class="tw:text-secondary tw:text-sm">{{ supplier.code }} • Supplier Record</p>
-        </div>
-      </section>
+    <template #status>
+      <SupplierStatusSelectMenu
+        v-if="canUpdate"
+        v-model="supplier.statusId"
+        :required="true"
+      />
+      <SupplierStatusBadgeById v-else :statusId="supplier.statusId" />
+    </template>
 
+    <template v-if="supplier" #meta>
+      <span class="tw:font-mono">{{ supplier.code }}</span>
+      <span> · Supplier Record</span>
+    </template>
+
+    <template #actions>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary">
+          <BaseSpinner size="sm" />
+          Saving...
+        </div>
+        <p v-else-if="saveError" class="tw:text-sm tw:text-red-500">{{ saveError }}</p>
+        <DetailActionBar :actions="supplierActions" />
+      </div>
+    </template>
+
+    <template v-if="supplier" #section-details>
       <!-- Tab Navigation + Content -->
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Supplier sections">
         <div class="tw:mt-6">
@@ -127,6 +155,6 @@ const activeTab = computed({
           </BaseTabPanel>
         </div>
       </BaseTabs>
-    </div>
-  </BaseDetailPage>
+    </template>
+  </BaseDetailLayout>
 </template>
