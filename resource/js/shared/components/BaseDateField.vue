@@ -92,6 +92,9 @@ const hasValue = computed(() =>
 const sizeClass = computed(
   () => ({ sm: 'tw:h-7 tw:text-xs', md: 'tw:h-9 tw:text-sm', lg: 'tw:h-11 tw:text-base' })[props.size],
 )
+const densityClass = computed(() =>
+  props.density === 'compact' ? 'tw:gap-1 tw:px-2' : 'tw:gap-2 tw:px-2.5',
+)
 const TriggerIcon = computed(() => (props.mode === 'time' ? IconClock : IconCalendar))
 
 function toggle() {
@@ -195,12 +198,17 @@ onBeforeUnmount(() => {
         :disabled="disabled"
         aria-haspopup="dialog"
         :aria-expanded="open"
-        class="tw:inline-flex tw:min-w-0 tw:items-center tw:gap-2 tw:rounded-lg tw:border tw:bg-card tw:px-2.5 tw:text-on-main tw:transition-colors tw:focus:ring-2 tw:focus:ring-primary/20 tw:focus:outline-none tw:disabled:cursor-not-allowed tw:disabled:opacity-50"
+        :aria-readonly="readonly"
+        class="tw:inline-flex tw:min-w-0 tw:items-center tw:rounded-lg tw:border tw:bg-card tw:text-on-main tw:transition-colors tw:focus:ring-2 tw:focus:ring-primary/20 tw:focus:outline-none tw:disabled:cursor-not-allowed tw:disabled:opacity-50"
         :class="[
           sizeClass,
+          densityClass,
           open ? 'tw:border-primary' : error ? 'tw:border-red-400' : 'tw:border-divider tw:hover:bg-main-hover',
+          readonly ? 'tw:cursor-default tw:opacity-75' : '',
         ]"
         @click="toggle"
+        @focus="emit('focus', $event)"
+        @blur="emit('blur', $event)"
       >
         <component :is="TriggerIcon" :size="16" class="tw:shrink-0 tw:text-secondary" aria-hidden="true" />
         <span v-if="displayText" class="tw:truncate">{{ displayText }}</span>
@@ -209,7 +217,7 @@ onBeforeUnmount(() => {
         <IconChevronDown v-else :size="14" class="tw:ms-auto tw:shrink-0 tw:text-secondary" />
       </button>
       <button
-        v-if="clearable && hasValue && !disabled"
+        v-if="clearable && hasValue && !disabled && !readonly"
         type="button"
         aria-label="Clear"
         class="tw:shrink-0 tw:rounded tw:p-1 tw:text-secondary tw:hover:text-on-main"
@@ -267,7 +275,7 @@ onBeforeUnmount(() => {
           <div v-if="allowManualInput && mode !== 'range' && mode !== 'time'" class="tw:border-t tw:border-divider tw:p-2">
             <input
               type="text"
-              :placeholder="mode === 'datetime' ? 'yyyy-mm-dd' : 'Type a date'"
+              :placeholder="mode === 'datetime' ? 'yyyy-mm-dd hh:mm' : 'Type a date'"
               class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-transparent tw:px-2 tw:py-1 tw:text-sm tw:outline-none tw:focus:border-primary"
               @change="onManualInput"
             />

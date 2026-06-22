@@ -70,3 +70,135 @@ describe('BaseDateField (date mode)', () => {
     expect(document.body.querySelector('[role="application"]')).toBeNull()
   })
 })
+
+describe('BaseDateField (density, readonly, datetime placeholder)', () => {
+  it('compact density applies tw:gap-1 tw:px-2 to the trigger button', () => {
+    const w = mountField({ modelValue: null, density: 'compact' })
+    const btn = w.get('button[aria-haspopup="dialog"]')
+    expect(btn.classes()).toContain('tw:gap-1')
+    expect(btn.classes()).toContain('tw:px-2')
+  })
+
+  it('comfortable density applies tw:gap-2 tw:px-2.5 to the trigger button', () => {
+    const w = mountField({ modelValue: null, density: 'comfortable' })
+    const btn = w.get('button[aria-haspopup="dialog"]')
+    expect(btn.classes()).toContain('tw:gap-2')
+    expect(btn.classes()).toContain('tw:px-2.5')
+  })
+
+  it('readonly: does not open, sets aria-readonly, hides clear button', async () => {
+    const w = mountField({ modelValue: DateTime.fromISO('2026-06-15'), readonly: true, clearable: true })
+    const btn = w.get('button[aria-haspopup="dialog"]')
+    await btn.trigger('click')
+    await nextTick()
+    expect(document.body.querySelector('[data-date-panel]')).toBeNull()
+    expect(btn.attributes('aria-readonly')).toBe('true')
+    expect(w.find('[aria-label="Clear"]').exists()).toBe(false)
+  })
+
+  it('emits focus and blur from the trigger button', async () => {
+    const w = mountField({ modelValue: null })
+    const btn = w.get('button[aria-haspopup="dialog"]')
+    await btn.trigger('focus')
+    await btn.trigger('blur')
+    expect(w.emitted('focus')).toHaveLength(1)
+    expect(w.emitted('blur')).toHaveLength(1)
+  })
+
+  it('datetime manual-input has placeholder "yyyy-mm-dd hh:mm"', async () => {
+    const w = mountField({ modelValue: null, mode: 'datetime' })
+    await w.get('button[aria-haspopup="dialog"]').trigger('click')
+    await nextTick()
+    const input = document.body.querySelector('[data-date-panel] input[type="text"]')
+    expect(input).not.toBeNull()
+    expect(input.getAttribute('placeholder')).toBe('yyyy-mm-dd hh:mm')
+  })
+})
+
+describe('BaseDateField (range + multiple + presets)', () => {
+  it('range: first click stays open (partial); second click emits {start,end} and closes', async () => {
+    // Use a modelValue that puts the calendar on June 2026
+    const w = mountField({
+      mode: 'range',
+      modelValue: { start: DateTime.fromISO('2026-06-10'), end: DateTime.fromISO('2026-06-14') },
+    })
+    await w.get('button[aria-haspopup="dialog"]').trigger('click')
+    await nextTick()
+    // First click: BaseCalendar sets rangeStart internally and emits {start, end: null} — panel stays open
+    const day10 = document.body.querySelector('[data-day="2026-06-10"]')
+    expect(day10).not.toBeNull()
+    day10.click()
+    await nextTick()
+    expect(document.body.querySelector('[data-date-panel]')).not.toBeNull()
+    // Second click: completes the range → panel closes
+    const day17 = document.body.querySelector('[data-day="2026-06-17"]')
+    expect(day17).not.toBeNull()
+    day17.click()
+    await nextTick()
+    expect(document.body.querySelector('[data-date-panel]')).toBeNull()
+    const emitted = w.emitted('update:modelValue')
+    expect(emitted).toBeTruthy()
+    const lastValue = emitted.at(-1)[0]
+    expect(lastValue).toHaveProperty('start')
+    expect(lastValue).toHaveProperty('end')
+    expect(DateTime.isDateTime(lastValue.start)).toBe(true)
+    expect(DateTime.isDateTime(lastValue.end)).toBe(true)
+    expect(lastValue.start.toMillis()).toBeLessThanOrEqual(lastValue.end.toMillis())
+  })
+
+  it('range clear: emits {start: null, end: null}', async () => {
+    const w = mountField({
+      mode: 'range',
+      modelValue: { start: DateTime.fromISO('2026-06-10'), end: DateTime.fromISO('2026-06-14') },
+      clearable: true,
+    })
+    await w.get('[aria-label="Clear"]').trigger('click')
+    const emitted = w.emitted('update:modelValue')
+    expect(emitted).toBeTruthy()
+    const lastValue = emitted.at(-1)[0]
+    expect(lastValue).toEqual({ start: null, end: null })
+  })
+
+  it('multiple mode: picking a day stays open and emits an array of length 1', async () => {
+    const w = mountField({ multiple: true, modelValue: [] })
+    await w.get('button[aria-haspopup="dialog"]').trigger('click')
+    await nextTick()
+    // Pick any visible day
+    const anyDay = document.body.querySelector('[data-day]')
+    expect(anyDay).not.toBeNull()
+    anyDay.click()
+    await nextTick()
+    // Panel must still be open for multiple mode
+    expect(document.body.querySelector('[data-date-panel]')).not.toBeNull()
+    const emitted = w.emitted('update:modelValue')
+    expect(emitted).toBeTruthy()
+    const lastValue = emitted.at(-1)[0]
+    expect(Array.isArray(lastValue)).toBe(true)
+    expect(lastValue.length).toBe(1)
+  })
+
+  it('preset pick (range): clicking "Last 7 Days" emits a valid {start,end} and closes', async () => {
+    const w = mountField({
+      mode: 'range',
+      modelValue: { start: null, end: null },
+    })
+    await w.get('button[aria-haspopup="dialog"]').trigger('click')
+    await nextTick()
+    // Find the preset rail button by text
+    const presetBtns = document.body.querySelectorAll('[data-date-panel] button')
+    const last7Btn = Array.from(presetBtns).find((b) => b.textContent.trim() === 'Last 7 Days')
+    expect(last7Btn).not.toBeNull()
+    last7Btn.click()
+    await nextTick()
+    // Panel should close after preset pick
+    expect(document.body.querySelector('[data-date-panel]')).toBeNull()
+    const emitted = w.emitted('update:modelValue')
+    expect(emitted).toBeTruthy()
+    const lastValue = emitted.at(-1)[0]
+    expect(lastValue).toHaveProperty('start')
+    expect(lastValue).toHaveProperty('end')
+    expect(DateTime.isDateTime(lastValue.start)).toBe(true)
+    expect(DateTime.isDateTime(lastValue.end)).toBe(true)
+    expect(lastValue.start.toMillis()).toBeLessThanOrEqual(lastValue.end.toMillis())
+  })
+})
