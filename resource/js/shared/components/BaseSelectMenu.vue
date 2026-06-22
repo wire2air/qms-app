@@ -1,5 +1,5 @@
 <script setup>
-import { IconSearch } from '@tabler/icons-vue'
+import { IconSearch, IconChevronDown } from '@tabler/icons-vue'
 import { computed, shallowRef, useSlots } from 'vue'
 
 const props = defineProps({
@@ -18,11 +18,19 @@ const props = defineProps({
   },
   nullLabel: {
     type: String,
-    default: '— Select —',
+    default: 'All',
   },
   hideNullOption: {
     type: Boolean,
     default: false,
+  },
+  // Trigger appearance: 'control' = bordered input-style chrome (toolbars/forms;
+  // the default so a row of selects aligns with text inputs); 'inline' = the
+  // bare badge trigger (compact table cells, where input chrome is too heavy).
+  variant: {
+    type: String,
+    default: 'control',
+    validator: (v) => ['control', 'inline'].includes(v),
   },
   // Optional field chrome — when any of these are set the component renders a
   // label/instructions/error around the trigger. When none are set the wrapper
@@ -65,6 +73,11 @@ function getArray() {
 }
 
 const showNullable = computed(() => !props.required && !props.multiple && !props.hideNullOption)
+
+// Strip the dated em-dash convention ("— All statuses —" → "All statuses").
+const displayNullLabel = computed(
+  () => (props.nullLabel || '').replace(/^—\s*/, '').replace(/\s*—$/, '').trim() || 'All',
+)
 
 const isNullableSelected = computed(() => {
   if (props.multiple) return getArray().length === 0
@@ -252,11 +265,34 @@ watch(
 
     <BasePopover placement="bottom" :arrow="false" :flip="true">
       <template #button>
-      <BaseBadge v-if="showNullable && isNullableSelected" selectable>
-        {{ nullLabel }}
-      </BaseBadge>
-      <slot v-else name="button" :selected="selected" :clear="clear" />
-    </template>
+        <!-- 'control' — bordered input-style trigger that aligns with text
+             inputs / buttons in a toolbar or form. -->
+        <div
+          v-if="variant === 'control'"
+          class="tw:flex tw:min-h-9 tw:w-full tw:cursor-pointer tw:items-center tw:justify-between tw:gap-2 tw:rounded-lg tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm tw:transition-colors tw:hover:border-secondary/50 tw:hover:bg-main-hover tw:focus-within:border-primary tw:focus-within:ring-2 tw:focus-within:ring-primary/20"
+        >
+          <span class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-1">
+            <span v-if="showNullable && isNullableSelected" class="tw:truncate tw:text-placeholder">
+              {{ displayNullLabel }}
+            </span>
+            <slot v-else name="button" :selected="selected" :clear="clear" />
+          </span>
+          <IconChevronDown
+            v-if="showNullable && isNullableSelected"
+            :size="16"
+            class="tw:shrink-0 tw:text-secondary"
+            aria-hidden="true"
+          />
+        </div>
+
+        <!-- 'inline' — bare badge trigger (compact cells). -->
+        <template v-else>
+          <BaseBadge v-if="showNullable && isNullableSelected" selectable>
+            {{ displayNullLabel }}
+          </BaseBadge>
+          <slot v-else name="button" :selected="selected" :clear="clear" />
+        </template>
+      </template>
 
     <template #content="{ close }">
       <!-- Panel is wider than the trigger on purpose — long entity names

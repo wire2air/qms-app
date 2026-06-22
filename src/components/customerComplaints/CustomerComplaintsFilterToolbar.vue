@@ -1,5 +1,5 @@
 <script setup>
-import { IconFilter, IconX, IconBookmark, IconTrash } from '@tabler/icons-vue'
+import { IconFilter, IconX, IconBookmark, IconTrash, IconCalendar } from '@tabler/icons-vue'
 
 defineProps({
   formOptions: { type: Array, default: () => [] },
@@ -32,14 +32,17 @@ const SENTIMENTS = [
 // Advanced filters fold away to keep the toolbar compact.
 const showAdvanced = ref(false)
 
+const dateFilterItems = computed(() => [
+  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
+])
+
 const advancedActive = computed(
   () =>
     !!(
       filters.value.formId ||
       filters.value.sentiment ||
       filters.value.assignedTeamId ||
-      filters.value.dateFrom ||
-      filters.value.dateTo ||
+      filters.value.createdAt ||
       (filters.value.customKey && filters.value.customValue)
     ),
 )
@@ -71,8 +74,7 @@ function clearAdvanced() {
   filters.value.formId = null
   filters.value.sentiment = null
   filters.value.assignedTeamId = null
-  filters.value.dateFrom = null
-  filters.value.dateTo = null
+  filters.value.createdAt = null
   filters.value.customKey = null
   filters.value.customValue = ''
 }
@@ -129,12 +131,7 @@ function clearAll() {
       <BaseField label="Group" size="xs">
         <GroupSelectMenu v-model="filters.assignedTeamId" />
       </BaseField>
-      <BaseField label="Created from" size="xs">
-        <BaseDatePicker v-model="filters.dateFrom" class="tw:w-36" />
-      </BaseField>
-      <BaseField label="Created to" size="xs">
-        <BaseDatePicker v-model="filters.dateTo" class="tw:w-36" />
-      </BaseField>
+      <BaseFilterMenu v-model="filters" :items="dateFilterItems" />
       <BaseField v-if="customFieldKeys.length" label="Custom field" size="xs">
         <div class="tw:flex tw:gap-1">
           <BaseSelectMenu

@@ -1,4 +1,6 @@
 <script setup>
+import { IconCalendar } from '@tabler/icons-vue'
+
 const filters = defineModel('filters', {
   type: Object,
   default: () => ({
@@ -6,8 +8,7 @@ const filters = defineModel('filters', {
     statusId: null,
     priorityId: null,
     changeTypeId: null,
-    dateFrom: '',
-    dateTo: '',
+    createdAt: null,
   }),
 })
 const activeFilter = defineModel('activeFilter', { type: String, default: 'all_open' })
@@ -20,13 +21,16 @@ const TABS = [
   { id: 'closed', label: 'Closed' },
 ]
 
+const filterItems = computed(() => [
+  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
+])
+
 function clearAll() {
   filters.value.search = ''
   filters.value.statusId = null
   filters.value.priorityId = null
   filters.value.changeTypeId = null
-  filters.value.dateFrom = ''
-  filters.value.dateTo = ''
+  filters.value.createdAt = null
 }
 
 const hasActiveFilters = computed(
@@ -35,8 +39,7 @@ const hasActiveFilters = computed(
     filters.value.statusId ||
     filters.value.priorityId ||
     filters.value.changeTypeId ||
-    filters.value.dateFrom ||
-    filters.value.dateTo,
+    filters.value.createdAt,
 )
 </script>
 
@@ -70,12 +73,7 @@ const hasActiveFilters = computed(
         <ChangeRequestStatusSelectMenu v-model="filters.statusId" class="tw:w-44" />
         <ChangeRequestPrioritySelectMenu v-model="filters.priorityId" class="tw:w-44" />
         <ChangeTypeSelectMenu v-model="filters.changeTypeId" class="tw:w-44" />
-        <DateRangeFilter
-          :from="filters.dateFrom"
-          :to="filters.dateTo"
-          @update:from="(v) => (filters.dateFrom = v)"
-          @update:to="(v) => (filters.dateTo = v)"
-        />
+        <BaseFilterMenu v-model="filters" :items="filterItems" />
       </template>
     </BaseFilterBar>
   </div>

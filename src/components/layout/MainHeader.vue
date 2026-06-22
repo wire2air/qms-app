@@ -83,7 +83,7 @@ async function resetSync() {
         <button
           v-if="canUseAi"
           class="tw:p-2 tw:rounded-full tw:text-primary tw:hover:bg-main-hover tw:transition-colors"
-          title="AI Assistant (⌘K)"
+          title="AI Assistant (⌘J)"
           @click="chatPanel.toggle()"
         >
           <IconSparkles :size="20" />

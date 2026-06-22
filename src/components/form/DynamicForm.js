@@ -1,4 +1,3 @@
-import { DateTime } from 'luxon'
 import { defineComponent, ref, computed, h } from 'vue'
 import { useVModels } from '@vueuse/core'
 import { getProp, injectMultipleProps, setProp } from '@shared/composables/object.js'
@@ -15,9 +14,7 @@ import BaseCheckbox from '@shared/components/BaseCheckbox.vue'
 import BaseSwitch from '@shared/components/BaseSwitch.vue'
 import BaseColorPicker from '@shared/components/BaseColorPicker.vue'
 import BaseRichTextEditor from '@/components/editor/BaseRichTextEditor.vue'
-import BaseDatePicker from '@shared/components/BaseDatePicker.vue'
-import BaseTimePicker from '@shared/components/BaseTimePicker.vue'
-import BaseDateTimePicker from '@shared/components/BaseDateTimePicker.vue'
+import BaseDateField from '@shared/components/BaseDateField.vue'
 import OptionSetSelect from '@/components/common/OptionSetSelect.vue'
 import OptionSetOptionGroup from '@/components/common/OptionSetOptionGroup.vue'
 import BaseChecklist from '@shared/components/BaseChecklist.vue'
@@ -261,22 +258,18 @@ export default defineComponent({
 
         case 'date': {
           const isDisabled = props.disabled || field.disabled
-          const dtValue = scope.value ? DateTime.fromISO(scope.value) : null
-          // BaseDatePicker doesn't take a `label` prop either.
           return h('div', { class: 'tw:flex tw:flex-col' }, [
             field.label
-              ? h(
-                  'div',
-                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                  field.label,
-                )
+              ? h('div', { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' }, field.label)
               : null,
-            h(BaseDatePicker, {
+            h(BaseDateField, {
               ...inputFieldProps,
-              modelValue: dtValue,
+              mode: 'date',
+              valueFormat: 'iso',
+              modelValue: scope.value || null,
               disabled: isDisabled,
-              'onUpdate:modelValue': (dt) => {
-                scope.value = DateTime.isDateTime(dt) ? dt.toISO() : null
+              'onUpdate:modelValue': (v) => {
+                scope.value = v || null
               },
             }),
           ])
@@ -284,50 +277,42 @@ export default defineComponent({
 
         case 'datetime': {
           const isDisabled = props.disabled || field.disabled
-          const dtValue = scope.value ? DateTime.fromISO(scope.value) : null
-          const onUpdate = (dt) => {
-            scope.value = DateTime.isDateTime(dt) ? dt.toISO() : null
-          }
           const mode = field.mode || 'datetime'
-          // BaseDatePicker / BaseDateTimePicker / BaseTimePicker don't take a
-          // label prop, so wrap them in a div with a label row — mirrors the
-          // colorPicker / slider cases above. Without this, datetime fields
-          // render value-only with no label header.
           const labelEl = field.label
-            ? h(
-                'div',
-                { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                field.label,
-              )
+            ? h('div', { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' }, field.label)
             : null
-          if (mode === 'date') {
-            return h('div', { class: 'tw:flex tw:flex-col' }, [
-              labelEl,
-              h(BaseDatePicker, {
-                modelValue: dtValue,
-                disabled: isDisabled,
-                'onUpdate:modelValue': onUpdate,
-              }),
-            ])
-          }
+
           if (mode === 'time') {
+            // Stored as minutes-since-midnight; bridge to a HH:mm string for the field.
+            const mins = Number(scope.value ?? 0)
+            const hh = String(Math.floor(mins / 60)).padStart(2, '0')
+            const mm = String(mins % 60).padStart(2, '0')
             return h('div', { class: 'tw:flex tw:flex-col' }, [
               labelEl,
-              h(BaseTimePicker, {
-                timeInMins: scope.value ?? 0,
+              h(BaseDateField, {
+                mode: 'time',
+                valueFormat: 'iso',
+                modelValue: mins ? `${hh}:${mm}` : null,
                 disabled: isDisabled,
-                'onUpdate:timeInMins': (val) => {
-                  scope.value = val
+                'onUpdate:modelValue': (v) => {
+                  if (!v) return (scope.value = 0)
+                  const [h2, m2] = String(v).split(':').map(Number)
+                  scope.value = h2 * 60 + m2
                 },
               }),
             ])
           }
+
           return h('div', { class: 'tw:flex tw:flex-col' }, [
             labelEl,
-            h(BaseDateTimePicker, {
-              modelValue: dtValue,
+            h(BaseDateField, {
+              mode: mode === 'date' ? 'date' : 'datetime',
+              valueFormat: 'iso',
+              modelValue: scope.value || null,
               disabled: isDisabled,
-              'onUpdate:modelValue': onUpdate,
+              'onUpdate:modelValue': (v) => {
+                scope.value = v || null
+              },
             }),
           ])
         }

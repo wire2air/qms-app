@@ -1,9 +1,6 @@
 import '@/extensions/datetime' // Extend Luxon's DateTime with custom formatting method
-import 'v-calendar/style.css'
 import '@models/index.js' // Initialize IndexedDB database and live query system
 import '@/components/form/tools/index.js' // Register custom form tool components
-
-import VCalendar from 'v-calendar'
 
 import { createApp } from 'vue'
 import { createI18n } from 'vue-i18n'
@@ -47,9 +44,6 @@ const app = createApp(App)
 
 // Faro captures Vue component errors via app.config.errorHandler.
 installVueErrorHandler(app)
-
-// Use VCalendar
-app.use(VCalendar, {})
 
 // Use i18n
 app.use(i18n)

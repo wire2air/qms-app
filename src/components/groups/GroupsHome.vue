@@ -7,10 +7,15 @@ const showCreateDialog = ref(false)
 const canCreateGroup = computed(() => isAllowed(['teams:create']))
 const canDeleteGroup = computed(() => isAllowed(['teams:delete']))
 
-const filters = ref({ search: '' })
+const list = useListLayout({
+  filters: { search: '' },
+  total: () => groups.value.length,
+  empty: () => groups.value.length === 0,
+  syncUrl: true,
+})
 
 const groups = useLiveQueryWithDeps(
-  [() => filters.value.search],
+  [() => list.filters.value.search],
   async (db, [search]) => {
     let results = await db.Team.where().exec()
     if (search) {
@@ -29,23 +34,26 @@ const loading = computed(() => groups.value === undefined)
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      :icon="IconUsersGroup"
-      title="Groups"
-      subtitle="Manage your organization's groups and team assignments."
-    >
-      <template #actions>
-        <BaseButton v-if="canCreateGroup" @click="showCreateDialog = true">
-          Create Group
-        </BaseButton>
-      </template>
-    </PageHeader>
+  <BaseListLayout
+    title="Groups"
+    :icon="IconUsersGroup"
+    subtitle="Manage your organization's groups and team assignments."
+    :state="list.state.value"
+    :emptyIcon="IconUsersGroup"
+    :emptyTitle="list.hasActiveFilters.value ? 'No groups match your filters' : 'No groups yet'"
+  >
+    <template #actions>
+      <BaseButton v-if="canCreateGroup" @click="showCreateDialog = true">
+        Create Group
+      </BaseButton>
+    </template>
 
-    <GroupsFilterToolbar v-model:filters="filters" />
+    <template #filters>
+      <GroupsFilterToolbar v-model:filters="list.filters.value" />
+    </template>
 
     <GroupsList :groups="groups" :loading="loading" :canDelete="canDeleteGroup" />
 
     <GroupsCreateDialog v-model="showCreateDialog" />
-  </BasePage>
+  </BaseListLayout>
 </template>

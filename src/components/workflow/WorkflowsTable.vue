@@ -3,9 +3,11 @@ import { IconEdit, IconGitBranch } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
-  filters: {
-    type: Object,
-    default: () => ({ search: '', statusId: null }),
+  // Filtered rows are resolved by the parent (WorkflowsHome) so the list shell
+  // can derive its total/empty/loading state from a single source query.
+  workflows: {
+    type: Array,
+    default: () => [],
   },
 })
 
@@ -21,23 +23,12 @@ const columns = [
   { name: 'actions', label: '', field: 'actions', align: 'right' },
 ]
 
-const rows = useLiveQueryWithDeps(
-  [() => props.filters?.search, () => props.filters?.statusId],
-  async (db, [search, statusId]) => {
-    let results = await db.Workflow.where().exec()
-    if (statusId) results = results.filter((r) => r.statusId === statusId)
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter((r) => r.name.toLowerCase().includes(q))
-    }
-    return results.sort((a, b) => {
-      const ta = b.createdAt?.toMillis?.() ?? 0
-      const tb = a.createdAt?.toMillis?.() ?? 0
-      return ta - tb
-    })
-  },
-
-  { models: ['Workflow'], initial: [] },
+const rows = computed(() =>
+  [...props.workflows].sort((a, b) => {
+    const ta = b.createdAt?.toMillis?.() ?? 0
+    const tb = a.createdAt?.toMillis?.() ?? 0
+    return ta - tb
+  }),
 )
 
 const workflowMetaMap = useLiveQueryWithDeps(
@@ -51,6 +42,7 @@ const workflowMetaMap = useLiveQueryWithDeps(
       const workflowVersions = versions.filter((v) => v.workflowId === id)
       const representative = workflowVersions.find((v) => v.isCurrent) ?? workflowVersions[0]
       if (representative) {
+        useLiveQueryWithDeps
         map[id] = {
           version: representative,
           stepCount: steps.filter((s) => s.workflowVersionId === representative.id).length,

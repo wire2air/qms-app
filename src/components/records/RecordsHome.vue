@@ -6,12 +6,20 @@ const toast = useToast()
 const { confirm } = useConfirm()
 const showAddDialog = ref(false)
 
-const filters = ref({ search: '' })
-
 const canCreateRecord = computed(() => isAllowed(['records:create']))
 
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty`/`loading` are lazy getters that read `records`.
+const list = useListLayout({
+  filters: { search: '' },
+  total: () => records.value.length,
+  empty: () => records.value.length === 0,
+  loading: () => records.value === undefined,
+  syncUrl: true,
+})
+
 const records = useLiveQueryWithDeps(
-  [() => filters.value.search],
+  [() => list.filters.value.search],
   async (db, [search]) => {
     const all = await db.Record.where().exec()
     if (!search) return all
@@ -55,45 +63,42 @@ function onRecordCreated() {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      :icon="IconFolderOpen"
-      title="Records"
-      subtitle="View and manage submitted records."
-    >
-      <template #actions>
-        <button
-          v-if="canCreateRecord"
-          class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:bg-primary tw:text-white tw:font-bold tw:rounded-lg tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:cursor-pointer"
-          @click="showAddDialog = true"
-        >
-          <IconPlus :size="18" />
-          Add Record
-        </button>
-      </template>
-    </PageHeader>
+  <BaseListLayout
+    title="Records"
+    :icon="IconFolderOpen"
+    subtitle="View and manage submitted records."
+    :state="list.state.value"
+    :emptyTitle="list.hasActiveFilters.value ? 'No records match your filters' : 'No records yet'"
+  >
+    <template #actions>
+      <button
+        v-if="canCreateRecord"
+        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:bg-primary tw:text-white tw:font-bold tw:rounded-lg tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:cursor-pointer"
+        @click="showAddDialog = true"
+      >
+        <IconPlus :size="18" />
+        Add Record
+      </button>
+    </template>
 
-    <!-- Standalone records (legacy `records` table) -->
-    <div class="tw:flex tw:items-center tw:justify-between tw:mt-2">
-      <h3 class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:uppercase tw:tracking-wide">
-        Standalone Records
-      </h3>
-      <span class="tw:text-xs tw:text-secondary">
-        UTILITY-classified form templates (legacy path)
-      </span>
-    </div>
-    <RecordsFilterToolbar v-model:filters="filters" />
+    <template #filters>
+      <!-- Standalone records (legacy `records` table) -->
+      <div class="tw:flex tw:items-center tw:justify-between tw:mt-2">
+        <h3 class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:uppercase tw:tracking-wide">
+          Standalone Records
+        </h3>
+        <span class="tw:text-xs tw:text-secondary">
+          UTILITY-classified form templates (legacy path)
+        </span>
+      </div>
+      <RecordsFilterToolbar v-model:filters="list.filters.value" />
+    </template>
+
     <div>
       <RecordsTable :rows="records" :loading="loading" @delete="onDeleteRecord" />
     </div>
 
     <!-- Add Record Dialog -->
     <AddRecordDialog v-model="showAddDialog" @created="onRecordCreated" />
-  </BasePage>
+  </BaseListLayout>
 </template>
-
-<style scoped lang="scss">
-.text-slate-800 {
-  color: #1e293b;
-}
-</style>

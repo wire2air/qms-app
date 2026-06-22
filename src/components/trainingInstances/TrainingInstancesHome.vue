@@ -2,10 +2,17 @@
 import { IconSchool, IconCircleCheck, IconClock } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 
-const filters = ref({ status: 'ACTIVE', trainingId: null })
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty` are lazy getters that read `instances`.
+const list = useListLayout({
+  filters: { status: 'ACTIVE', trainingId: null },
+  total: () => instances.value.length,
+  empty: () => instances.value.length === 0,
+  syncUrl: true,
+})
 
 const instances = useLiveQueryWithDeps(
-  [() => filters.value.status, () => filters.value.trainingId],
+  [() => list.filters.value.status, () => list.filters.value.trainingId],
   async (db, [status, trainingId]) => {
     let results = await db.TrainingInstance.where().exec()
     if (status) results = results.filter((r) => r.status === status)
@@ -33,102 +40,93 @@ const stats = computed(() => {
   }
 })
 
-const STATUS_OPTIONS = [
-  { id: null, name: 'All' },
-  { id: 'ACTIVE', name: 'Active' },
-  { id: 'PENDING_VERIFICATION', name: 'Pending Verification' },
-  { id: 'COMPLETED', name: 'Completed' },
-  { id: 'CANCELLED', name: 'Cancelled' },
+const STATUS_PILLS = [
+  { value: null, label: 'All' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'PENDING_VERIFICATION', label: 'Pending Verification' },
+  { value: 'COMPLETED', label: 'Completed' },
+  { value: 'CANCELLED', label: 'Cancelled' },
 ]
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      :icon="IconSchool"
-      title="Training Instances"
-      subtitle="Track launched trainings and assignee progress."
-    />
-
-    <!-- Stat Cards -->
-    <div class="tw:grid tw:grid-cols-3 tw:gap-3">
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
+  <BaseListLayout
+    title="Training Instances"
+    :icon="IconSchool"
+    subtitle="Track launched trainings and assignee progress."
+    :state="list.state.value"
+    :emptyIcon="IconSchool"
+    :emptyTitle="
+      list.hasActiveFilters.value
+        ? 'No instances match your filters'
+        : 'No instances found'
+    "
+  >
+    <template #stats>
+      <div class="tw:grid tw:grid-cols-3 tw:gap-3">
         <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
         >
-          <IconSchool :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Active
-          </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.active }}</div>
-        </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-green-50 tw:text-green-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconCircleCheck :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Completed
-          </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.completed }}</div>
-        </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-red-50 tw:text-red-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconClock :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Overdue
-          </div>
           <div
-            class="tw:text-2xl tw:font-black"
-            :class="stats.overdue > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
+            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
           >
-            {{ stats.overdue }}
+            <IconSchool :size="20" />
+          </div>
+          <div>
+            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+              Active
+            </div>
+            <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.active }}</div>
+          </div>
+        </div>
+        <div
+          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
+        >
+          <div
+            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-green-50 tw:text-green-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+          >
+            <IconCircleCheck :size="20" />
+          </div>
+          <div>
+            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+              Completed
+            </div>
+            <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.completed }}</div>
+          </div>
+        </div>
+        <div
+          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
+        >
+          <div
+            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-red-50 tw:text-red-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+          >
+            <IconClock :size="20" />
+          </div>
+          <div>
+            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+              Overdue
+            </div>
+            <div
+              class="tw:text-2xl tw:font-black"
+              :class="stats.overdue > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
+            >
+              {{ stats.overdue }}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
 
-    <!-- Filters -->
-    <div class="tw:flex tw:gap-1 tw:flex-wrap">
-      <button
-        v-for="opt in STATUS_OPTIONS"
-        :key="String(opt.id)"
-        class="tw:px-3 tw:py-1.5 tw:rounded-lg tw:text-sm tw:font-medium tw:transition-colors"
-        :class="
-          filters.status === opt.id
-            ? 'tw:bg-primary tw:text-white'
-            : 'tw:bg-gray-100 tw:text-secondary tw:hover:bg-gray-200'
-        "
-        @click="filters.status = opt.id"
-      >
-        {{ opt.name }}
-      </button>
-    </div>
+    <template #quick-filters>
+      <BaseQuickFilterPills
+        v-model="list.filters.value.status"
+        ariaLabel="Training instance status filters"
+        :pills="STATUS_PILLS"
+      />
+    </template>
 
     <!-- Instances list -->
     <div class="tw:flex tw:flex-col tw:gap-2">
-      <p
-        v-if="!instances.length"
-        class="tw:text-sm tw:text-secondary tw:italic tw:p-4 tw:text-center"
-      >
-        No instances found.
-      </p>
       <TrainingInstanceRow
         v-for="instance in instances"
         :key="instance.id"
@@ -137,5 +135,5 @@ const STATUS_OPTIONS = [
         :showManager="true"
       />
     </div>
-  </BasePage>
+  </BaseListLayout>
 </template>

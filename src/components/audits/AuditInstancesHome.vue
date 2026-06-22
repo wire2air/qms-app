@@ -6,10 +6,10 @@
  * daily generator (Phase B-5) off a program; the row reflects who's
  * leading, what state it's in, and when it was scheduled.
  */
-import { IconChecklist, IconPlus, IconDownload } from '@tabler/icons-vue'
+import { IconChecklist, IconPlus, IconDownload, IconCalendar } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { dateInRange } from '@/utils/listFilters.js'
+import { matchesDateFilter } from '@/utils/dateRanges.js'
 import { exportToCSV } from '@/utils/exportUtils.js'
 
 const router = useRouter()
@@ -30,8 +30,11 @@ function openDetail(row) {
 const search = ref('')
 const statusFilter = ref(null)
 const supplierFilter = ref(null)
-const dateFrom = ref('')
-const dateTo = ref('')
+const auditFilters = ref({})
+
+const auditDateFilterItems = computed(() => [
+  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
+])
 
 function exportCsv() {
   exportToCSV(
@@ -82,16 +85,15 @@ const instances = useLiveQueryWithDeps(
     () => search.value,
     () => statusFilter.value,
     () => supplierFilter.value,
-    () => dateFrom.value,
-    () => dateTo.value,
+    () => auditFilters.value.createdAt,
   ],
-  async (db, [q, status, supplierId, df, dt]) => {
+  async (db, [q, status, supplierId, createdAt]) => {
     const results = await db.AuditInstance.where().exec()
     const filtered = results.filter(
       (i) =>
         (status ? i.statusId === status : true) &&
         (supplierId ? i.supplierId === supplierId : true) &&
-        (df || dt ? dateInRange(i.createdAt, df, dt) : true),
+        matchesDateFilter(i.createdAt, createdAt),
     )
     const sorted = filtered.sort(
       (a, b) =>
@@ -123,12 +125,7 @@ const instances = useLiveQueryWithDeps(
           class="tw:w-44"
         />
         <SupplierSelectMenu v-model="supplierFilter" class="tw:w-48" />
-        <DateRangeFilter
-          :from="dateFrom"
-          :to="dateTo"
-          @update:from="(v) => (dateFrom = v)"
-          @update:to="(v) => (dateTo = v)"
-        />
+        <BaseFilterMenu v-model="auditFilters" :items="auditDateFilterItems" />
         <div class="tw:text-xs tw:text-secondary">
           {{ instances.length }} audit{{ instances.length === 1 ? '' : 's' }}
         </div>

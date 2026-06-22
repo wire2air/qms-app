@@ -149,7 +149,7 @@ function decrementReviewMonths() {
 
     <!-- Effective Date -->
     <BaseField label="Effective Date">
-      <BaseDatePicker v-model="form.effectiveDate" />
+      <BaseDateField v-model="form.effectiveDate" mode="date" />
     </BaseField>
 
     <!-- Site -->

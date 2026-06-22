@@ -3,9 +3,9 @@
  * Inspection lots list — the QC execution queue. Reads live from the
  * SyncEngine; create/import/transition go through the qcInspection REST service.
  */
-import { IconPlus, IconDownload, IconUpload } from '@tabler/icons-vue'
+import { IconPlus, IconDownload, IconUpload, IconCalendar } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { dateInRange } from '@/utils/listFilters.js'
+import { matchesDateFilter } from '@/utils/dateRanges.js'
 import { exportToCSV } from '@/utils/exportUtils.js'
 
 defineProps({ canCreate: { type: Boolean, default: false } })
@@ -14,8 +14,11 @@ const router = useRouter()
 const showCreate = ref(false)
 const showImport = ref(false)
 const pointFilter = ref(null)
-const dateFrom = ref('')
-const dateTo = ref('')
+const lotFilters = ref({})
+
+const lotDateFilterItems = computed(() => [
+  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
+])
 
 const POINT_LABELS = {
   INCOMING: 'Incoming (IQC)',
@@ -26,11 +29,11 @@ const POINT_LABELS = {
 const POINT_OPTIONS = Object.entries(POINT_LABELS).map(([id, name]) => ({ id, name }))
 
 const lots = useLiveQueryWithDeps(
-  [() => pointFilter.value, () => dateFrom.value, () => dateTo.value],
-  async (db, [point, from, to]) => {
+  [() => pointFilter.value, () => lotFilters.value.createdAt],
+  async (db, [point, createdAt]) => {
     const rows = await db.InspectionLot.where().exec()
     let filtered = point ? rows.filter((l) => l.inspectionPoint === point) : rows
-    if (from || to) filtered = filtered.filter((l) => dateInRange(l.createdAt, from, to))
+    if (createdAt) filtered = filtered.filter((l) => matchesDateFilter(l.createdAt, createdAt))
     return filtered.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -81,12 +84,7 @@ function exportCsv() {
           nullLabel="— All points —"
           class="tw:w-56"
         />
-        <DateRangeFilter
-          :from="dateFrom"
-          :to="dateTo"
-          @update:from="(v) => (dateFrom = v)"
-          @update:to="(v) => (dateTo = v)"
-        />
+        <BaseFilterMenu v-model="lotFilters" :items="lotDateFilterItems" />
       </div>
       <div class="tw:flex tw:items-center tw:gap-2">
         <BaseButton variant="outline" size="sm" :disabled="!lots.length" @click="exportCsv">

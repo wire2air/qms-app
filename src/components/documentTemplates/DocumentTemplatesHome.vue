@@ -5,6 +5,16 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const router = useRouter()
 
+// Headless list-page core. This page has no toolbar/filters of its own — it
+// just drives the shell's resolved content state (loading / empty / ready)
+// off the live query below.
+const list = useListLayout({
+  filters: {},
+  total: () => documentTemplates.value?.length ?? 0,
+  loading: () => documentTemplates.value === undefined,
+  empty: () => documentTemplates.value?.length === 0,
+})
+
 const documentTemplates = useLiveQuery(async (db) => db.DocumentTemplate.where().exec(), {
   models: ['DocumentTemplate'],
 })
@@ -26,26 +36,33 @@ function navigateToCreate() {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      :icon="IconFileDescription"
-      title="Document Templates"
-      subtitle="Define document lifecycles, metadata, and structural components."
-    >
-      <template #actions>
-        <BaseButton v-if="canCreate" @click="navigateToCreate">Create Template</BaseButton>
-      </template>
-    </PageHeader>
+  <BaseListLayout
+    title="Document Templates"
+    :icon="IconFileDescription"
+    subtitle="Define document lifecycles, metadata, and structural components."
+    :state="list.state.value"
+    :emptyIcon="IconFileDescription"
+    emptyTitle="No document templates yet"
+  >
+    <template #actions>
+      <BaseButton v-if="canCreate" @click="navigateToCreate">Create Template</BaseButton>
+    </template>
 
-    <!-- Stats Cards -->
-    <DocumentTemplatesStatsCards
-      :total="totalTemplates"
-      :active="activeTemplates"
-      :withTraining="withTraining"
-      :loading="loading"
-    />
+    <template #stats>
+      <!-- Stats Cards -->
+      <DocumentTemplatesStatsCards
+        :total="totalTemplates"
+        :active="activeTemplates"
+        :withTraining="withTraining"
+        :loading="loading"
+      />
+    </template>
+
+    <template #empty-action>
+      <BaseButton v-if="canCreate" @click="navigateToCreate">Create Template</BaseButton>
+    </template>
 
     <!-- Templates Table -->
     <DocumentTemplatesTable :rows="documentTemplates || []" :loading="loading" />
-  </BasePage>
+  </BaseListLayout>
 </template>

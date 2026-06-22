@@ -23,23 +23,25 @@ function isOverdue(row) {
 }
 
 const columns = [
-  { name: 'ncNumber', label: 'NC NUMBER', field: 'ncNumber', align: 'left', sortable: true, hideable: false },
-  { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
-  { name: 'severity', label: 'SEVERITY', field: 'severityId', align: 'left', sortable: false },
-  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
-  { name: 'type', label: 'TYPE', field: 'typeId', align: 'left', sortable: false },
-  { name: 'dueDate', label: 'DUE DATE', field: 'dueDate', align: 'left', sortable: true },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+  // Severity is shown as the accent dot on the title (no separate colored pill
+  // column); Created is dropped to keep the table readable without overflow.
+  { name: 'ncNumber', label: 'NC #', field: 'ncNumber', align: 'left', sortable: true, hideable: false },
+  { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
+  { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: false },
+  { name: 'type', label: 'Type', field: 'typeId', align: 'left', sortable: false },
+  { name: 'dueDate', label: 'Due date', field: 'dueDate', align: 'left', sortable: true },
   { name: 'actions', label: '', field: 'actions', align: 'right' },
 ]
 
 const pagination = ref({
   page: 1,
   rowsPerPage: 50,
-  sortBy: 'createdAt',
+  sortBy: null, // rows arrive pre-sorted (newest first) from the query
   descending: true,
   total: null,
 })
+// Dense by default — this is a high-volume work list, not a dashboard.
+const density = ref('compact')
 
 function rowMenuItems(row) {
   const items = []
@@ -56,6 +58,7 @@ function rowMenuItems(row) {
 <template>
   <BaseTable
     v-model:pagination="pagination"
+    v-model:density="density"
     :rows="rows"
     :columns="columns"
     rowKey="id"
@@ -84,10 +87,6 @@ function rowMenuItems(row) {
       </RouterLink>
     </template>
 
-    <template #body-cell-severity="{ row }">
-      <NcSeverityBadgeById :severityId="row.severityId" />
-    </template>
-
     <template #body-cell-status="{ row }">
       <NcStatusBadgeById :statusId="row.statusId" />
     </template>
@@ -105,10 +104,6 @@ function rowMenuItems(row) {
         <span v-if="isOverdue(row)">↑</span>
       </span>
       <span v-else class="tw:text-secondary">—</span>
-    </template>
-
-    <template #body-cell-createdAt="{ row }">
-      <span class="tw:text-sm tw:text-secondary">{{ row.createdAt?.formatDate('date') }}</span>
     </template>
 
     <template #body-cell-actions="{ row }">

@@ -9,14 +9,21 @@ const canCreateSupplier = computed(() => isAllowed(['suppliers:create']))
 const canUpdateSupplier = computed(() => isAllowed(['suppliers:update']))
 const canDeleteSupplier = computed(() => isAllowed(['suppliers:delete']))
 
-const filters = ref({ search: '', statusId: null, category: null, riskLevel: null })
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty` are lazy getters that read `suppliers`.
+const list = useListLayout({
+  filters: { search: '', statusId: null, category: null, riskLevel: null },
+  total: () => suppliers.value.length,
+  empty: () => suppliers.value.length === 0,
+  syncUrl: true,
+})
 
 const suppliers = useLiveQueryWithDeps(
   [
-    () => filters.value.search,
-    () => filters.value.statusId,
-    () => filters.value.category,
-    () => filters.value.riskLevel,
+    () => list.filters.value.search,
+    () => list.filters.value.statusId,
+    () => list.filters.value.category,
+    () => list.filters.value.riskLevel,
   ],
   async (db, [search, statusId, category, riskLevel]) => {
     let results = await db.Supplier.where().exec()
@@ -59,41 +66,45 @@ async function onDeleteSupplier(row) {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      :icon="IconTruck"
-      title="Suppliers"
-      subtitle="Manage and evaluate your global network of manufacturing partners."
-    >
-      <template #actions>
-        <BaseButton v-if="canCreateSupplier" @click="onCreateSupplier">
-          <span>Create New Supplier</span>
-        </BaseButton>
-      </template>
-    </PageHeader>
+  <BaseListLayout
+    title="Suppliers"
+    :icon="IconTruck"
+    subtitle="Manage and evaluate your global network of manufacturing partners."
+    :state="list.state.value"
+    :emptyTitle="list.hasActiveFilters.value ? 'No suppliers match your filters' : 'No suppliers yet'"
+  >
+    <template #actions>
+      <BaseButton v-if="canCreateSupplier" @click="onCreateSupplier">
+        <span>Create New Supplier</span>
+      </BaseButton>
+    </template>
 
-    <!-- Stats Card -->
-    <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-4 tw:gap-4">
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-        <div class="tw:flex tw:items-center tw:gap-4">
-          <div
-            class="tw:w-12 tw:h-12 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center"
-          >
-            <IconUsers :size="24" />
-          </div>
-          <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-              Total Suppliers
+    <template #stats>
+      <!-- Stats Card -->
+      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-4 tw:gap-4">
+        <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
+          <div class="tw:flex tw:items-center tw:gap-4">
+            <div
+              class="tw:w-12 tw:h-12 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center"
+            >
+              <IconUsers :size="24" />
             </div>
-            <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
-              {{ suppliers.length }}
+            <div>
+              <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+                Total Suppliers
+              </div>
+              <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
+                {{ suppliers.length }}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
 
-    <SuppliersFilterToolbar v-model:filters="filters" />
+    <template #filters>
+      <SuppliersFilterToolbar v-model:filters="list.filters.value" />
+    </template>
 
     <SuppliersTable
       :rows="suppliers"
@@ -102,5 +113,5 @@ async function onDeleteSupplier(row) {
       @delete="onDeleteSupplier"
       @edit="onEditSupplier"
     />
-  </BasePage>
+  </BaseListLayout>
 </template>

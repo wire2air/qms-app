@@ -17,6 +17,14 @@ describe('BaseStatusState', () => {
     expect(mount(BaseStatusState, { props: { variant: 'notfound' } }).text()).toContain('Not found')
   })
 
+  it('supports the enterprise feedback states (denied / offline / maintenance)', () => {
+    expect(mount(BaseStatusState, { props: { variant: 'denied' } }).text()).toContain("You don't have access")
+    expect(mount(BaseStatusState, { props: { variant: 'offline' } }).text()).toContain("You're offline")
+    expect(mount(BaseStatusState, { props: { variant: 'maintenance' } }).text()).toContain('Down for maintenance')
+    // denied uses the warn tint
+    expect(mount(BaseStatusState, { props: { variant: 'denied' } }).html()).toContain('tw:text-warn')
+  })
+
   it('tints the icon per variant (error = red, success = green)', () => {
     expect(mount(BaseStatusState, { props: { variant: 'error' } }).html()).toContain('tw:text-bad')
     expect(mount(BaseStatusState, { props: { variant: 'success' } }).html()).toContain('tw:text-good')
@@ -39,6 +47,9 @@ describe('BaseStatusState', () => {
   it('validates the variant prop', () => {
     const { validator } = BaseStatusState.props.variant
     expect(validator('empty')).toBe(true)
+    expect(validator('denied')).toBe(true)
+    expect(validator('offline')).toBe(true)
+    expect(validator('maintenance')).toBe(true)
     expect(validator('bogus')).toBe(false)
   })
 })

@@ -1,5 +1,5 @@
 <script setup>
-import { useEventListener, onClickOutside } from '@vueuse/core'
+import { onClickOutside } from '@vueuse/core'
 import {
   IconX,
   IconSparkles,
@@ -15,7 +15,7 @@ import { useChatStream } from '@/composables/useChatStream'
  * AI chat slide-out (see AI_PLAN.md §6).
  *
  * Mounted once at the App level so its state survives route changes.
- * Cmd-K / Ctrl-K toggles open/close. The panel itself is conditionally
+ * Cmd-J / Ctrl-J toggles open/close. The panel itself is conditionally
  * rendered via v-if so when it's closed we don't keep an active SSE stream
  * or watchers in memory.
  */
@@ -23,12 +23,14 @@ import { useChatStream } from '@/composables/useChatStream'
 const panel = useChatPanel()
 const { confirm } = useConfirm()
 
-// Cmd-K / Ctrl-K toggles the panel globally.
-useEventListener('keydown', (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-    e.preventDefault()
-    panel.toggle()
-  }
+// Cmd-J / Ctrl-J toggles the panel globally (fires even while typing). ⌘K/⌘P
+// now belong to the command palette (C4).
+useHotkeys({
+  keys: 'mod+j',
+  description: 'Toggle AI assistant',
+  group: 'Global',
+  allowInInput: true,
+  handler: () => panel.toggle(),
 })
 
 // One chat-stream instance per panel mount. It reacts to `threadId` mutations
@@ -183,7 +185,7 @@ watch(
 
           <button
             class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
-            title="Close (Cmd-K)"
+            title="Close (Cmd-J)"
             @click="panel.close()"
           >
             <IconX :size="18" />

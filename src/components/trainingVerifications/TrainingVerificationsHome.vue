@@ -9,7 +9,19 @@ const props = defineProps({
 })
 
 const userId = computed(() => currentSession.value?.userId)
-const search = ref('')
+
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total` is a lazy getter that reads `filteredInstances`.
+// NOTE: `empty` is intentionally omitted — this is a master-detail dashboard that
+// always renders its two-column grid (the left list shows its own inline
+// "no instances" message and the right panel shows a placeholder). Letting the
+// layout swap to its empty-state would hide the search box + right panel and
+// change behavior, so state stays 'ready' and inline empty handling is preserved.
+const list = useListLayout({
+  filters: { search: '' },
+  total: () => filteredInstances.value.length,
+  syncUrl: true,
+})
 
 // Trainings I manage, plus trainings with no manager set (fallback to launcher)
 const myTrainings = useLiveQueryWithDeps(
@@ -67,8 +79,8 @@ const pendingInstancesWithCounts = useLiveQueryWithDeps(
 )
 
 const filteredInstances = computed(() => {
-  if (!search.value) return pendingInstancesWithCounts.value
-  const needle = search.value.toLowerCase()
+  if (!list.filters.value.search) return pendingInstancesWithCounts.value
+  const needle = list.filters.value.search.toLowerCase()
   return pendingInstancesWithCounts.value.filter((row) =>
     row.instance.snapshot?.title?.toLowerCase().includes(needle),
   )
@@ -114,28 +126,38 @@ function onVerified() {
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
-    <PageHeader title="Training Verification" />
-
-    <!-- Top stats -->
-    <div
-      class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:justify-between"
-    >
-      <div>
-        <h1 class="tw:text-2xl tw:font-bold tw:text-on-sidebar">Training Verification Dashboard</h1>
-        <p class="tw:text-sm tw:text-secondary">Manager review and competency verification queue</p>
-      </div>
-      <div class="tw:flex tw:gap-3">
-        <div class="tw:bg-blue-50 tw:rounded-lg tw:px-4 tw:py-2 tw:border tw:border-blue-200">
-          <p class="tw:text-xs tw:text-blue-700 tw:font-medium">Pending Instances</p>
-          <p class="tw:text-2xl tw:font-black tw:text-blue-700">{{ filteredInstances.length }}</p>
+  <BaseListLayout
+    title="Training Verification"
+    :icon="IconClipboardCheck"
+    width="standard"
+    fullHeight
+    :state="list.state.value"
+  >
+    <template #stats>
+      <!-- Top stats -->
+      <div
+        class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:justify-between"
+      >
+        <div>
+          <h1 class="tw:text-2xl tw:font-bold tw:text-on-sidebar">
+            Training Verification Dashboard
+          </h1>
+          <p class="tw:text-sm tw:text-secondary">
+            Manager review and competency verification queue
+          </p>
         </div>
-        <div class="tw:bg-green-50 tw:rounded-lg tw:px-4 tw:py-2 tw:border tw:border-green-200">
-          <p class="tw:text-xs tw:text-green-700 tw:font-medium">Closed This Week</p>
-          <p class="tw:text-2xl tw:font-black tw:text-green-700">{{ closedThisWeek }}</p>
+        <div class="tw:flex tw:gap-3">
+          <div class="tw:bg-blue-50 tw:rounded-lg tw:px-4 tw:py-2 tw:border tw:border-blue-200">
+            <p class="tw:text-xs tw:text-blue-700 tw:font-medium">Pending Instances</p>
+            <p class="tw:text-2xl tw:font-black tw:text-blue-700">{{ filteredInstances.length }}</p>
+          </div>
+          <div class="tw:bg-green-50 tw:rounded-lg tw:px-4 tw:py-2 tw:border tw:border-green-200">
+            <p class="tw:text-xs tw:text-green-700 tw:font-medium">Closed This Week</p>
+            <p class="tw:text-2xl tw:font-black tw:text-green-700">{{ closedThisWeek }}</p>
+          </div>
         </div>
       </div>
-    </div>
+    </template>
 
     <!-- Body: left list + right panel -->
     <div class="tw:grid tw:grid-cols-[minmax(320px,1fr)_2fr] tw:gap-4 tw:flex-1 tw:min-h-0">
@@ -147,7 +169,7 @@ function onVerified() {
           <p class="tw:text-sm tw:font-bold tw:text-on-sidebar">Pending Training Instances</p>
           <p class="tw:text-xs tw:text-secondary">Instances awaiting competency verification</p>
         </div>
-        <BaseTextInput v-model="search" placeholder="Search training..." size="sm" />
+        <BaseTextInput v-model="list.filters.value.search" placeholder="Search training..." size="sm" />
 
         <p
           v-if="!filteredInstances.length"
@@ -206,5 +228,5 @@ function onVerified() {
         </div>
       </div>
     </div>
-  </BasePage>
+  </BaseListLayout>
 </template>

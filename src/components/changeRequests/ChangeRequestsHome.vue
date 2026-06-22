@@ -8,7 +8,7 @@ import {
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { dateInRange } from '@/utils/listFilters.js'
+import { matchesDateFilter } from '@/utils/dateRanges.js'
 import { exportToCSV } from '@/utils/exportUtils.js'
 import { DateTime } from 'luxon'
 
@@ -17,15 +17,22 @@ const router = useRouter()
 const canCreate = computed(() => isAllowed(['changeRequests:create']))
 const canUpdate = computed(() => isAllowed(['changeRequests:update']))
 
-const filters = ref({
-  search: '',
-  statusId: null,
-  priorityId: null,
-  changeTypeId: null,
-  dateFrom: '',
-  dateTo: '',
-})
 const activeFilter = ref('all_open')
+
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty` are lazy getters that read `changeRequests`.
+const list = useListLayout({
+  filters: {
+    search: '',
+    statusId: null,
+    priorityId: null,
+    changeTypeId: null,
+    createdAt: null,
+  },
+  total: () => changeRequests.value.length,
+  empty: () => changeRequests.value.length === 0,
+  syncUrl: true,
+})
 
 function exportCsv() {
   exportToCSV(
@@ -83,20 +90,19 @@ const allCRs = useLiveQuery((db) => db.ChangeRequest.where().exec(), {
 
 const changeRequests = useLiveQueryWithDeps(
   [
-    () => filters.value.search,
-    () => filters.value.statusId,
-    () => filters.value.priorityId,
-    () => filters.value.changeTypeId,
+    () => list.filters.value.search,
+    () => list.filters.value.statusId,
+    () => list.filters.value.priorityId,
+    () => list.filters.value.changeTypeId,
     () => activeFilter.value,
-    () => filters.value.dateFrom,
-    () => filters.value.dateTo,
+    () => list.filters.value.createdAt,
   ],
-  async (db, [search, statusId, priorityId, changeTypeId, af, dateFrom, dateTo]) => {
+  async (db, [search, statusId, priorityId, changeTypeId, af, createdAt]) => {
     let results = await db.ChangeRequest.where().exec()
     results = applyFilters(results, search, statusId, priorityId, changeTypeId)
     results = applyActiveFilter(results, af)
-    if (dateFrom || dateTo)
-      results = results.filter((r) => dateInRange(r.createdAt, dateFrom, dateTo))
+    if (createdAt)
+      results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -129,23 +135,28 @@ function onCreate() {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      title="Change Requests"
-      subtitle="Plan, approve, implement, and verify the effectiveness of controlled changes."
-    >
-      <template #actions>
-        <BaseButton variant="outline" :disabled="!changeRequests.length" @click="exportCsv">
-          <IconDownload :size="16" class="tw:mr-1" />
-          Export
-        </BaseButton>
-        <BaseButton v-if="canCreate" variant="primary" @click="onCreate">
-          New Change Request
-        </BaseButton>
-      </template>
-    </PageHeader>
+  <BaseListLayout
+    title="Change Requests"
+    subtitle="Plan, approve, implement, and verify the effectiveness of controlled changes."
+    :state="list.state.value"
+    :emptyTitle="
+      list.hasActiveFilters.value
+        ? 'No change requests match your filters'
+        : 'No change requests yet'
+    "
+  >
+    <template #actions>
+      <BaseButton variant="outline" :disabled="!changeRequests.length" @click="exportCsv">
+        <IconDownload :size="16" class="tw:mr-1" />
+        Export
+      </BaseButton>
+      <BaseButton v-if="canCreate" variant="primary" @click="onCreate">
+        New Change Request
+      </BaseButton>
+    </template>
 
-    <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
+    <template #stats>
+      <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
       <div
         class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
       >
@@ -215,14 +226,20 @@ function onCreate() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </template>
 
-    <ChangeRequestsFilterToolbar v-model:filters="filters" v-model:activeFilter="activeFilter" />
+    <template #filters>
+      <ChangeRequestsFilterToolbar
+        v-model:filters="list.filters.value"
+        v-model:activeFilter="activeFilter"
+      />
+    </template>
 
     <ChangeRequestsTable
       :rows="changeRequests"
       :canUpdate="canUpdate"
       @edit="(row) => router.push(getCompanyPath(`/change-requests/${row.id}`))"
     />
-  </BasePage>
+  </BaseListLayout>
 </template>

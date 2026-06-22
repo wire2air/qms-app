@@ -5,19 +5,27 @@ import { IconFileDescription, IconPlus } from '@tabler/icons-vue'
 
 const router = useRouter()
 
-const filters = ref({
-  search: '',
-  documentTypeId: null,
-  documentTemplateId: null,
-  departmentId: null,
-  statusId: null,
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty` are lazy getters that read `documents`.
+const list = useListLayout({
+  filters: {
+    search: '',
+    documentTypeId: null,
+    documentTemplateId: null,
+    departmentId: null,
+    statusId: null,
+  },
+  total: () => documents.value.length,
+  empty: () => documents.value.length === 0,
+  loading: () => allDocuments.value === undefined,
+  syncUrl: true,
 })
 
 const allDocuments = useLiveQueryWithDeps(
   [
-    () => filters.value.documentTypeId,
-    () => filters.value.documentTemplateId,
-    () => filters.value.departmentId,
+    () => list.filters.value.documentTypeId,
+    () => list.filters.value.documentTemplateId,
+    () => list.filters.value.departmentId,
   ],
   async (db, [documentTypeId, documentTemplateId, departmentId]) => {
     let q = db.Document.where()
@@ -69,21 +77,21 @@ const latestVersionStatusByDocId = useLiveQueryWithDeps(
 )
 
 const documents = computed(() => {
-  let list = allDocuments.value ?? []
-  const statusId = filters.value.statusId
+  let rows = allDocuments.value ?? []
+  const statusId = list.filters.value.statusId
   if (statusId) {
     const currentStatuses = currentVersionStatusByDocId.value ?? {}
     const latestStatuses = latestVersionStatusByDocId.value ?? {}
-    list = list.filter(
+    rows = rows.filter(
       (d) =>
         d.statusId === statusId ||
         currentStatuses[d.id] === statusId ||
         latestStatuses[d.id] === statusId,
     )
   }
-  if (!filters.value.search) return list
-  const q = filters.value.search.toLowerCase()
-  return list.filter(
+  if (!list.filters.value.search) return rows
+  const q = list.filters.value.search.toLowerCase()
+  return rows.filter(
     (d) => d.title?.toLowerCase().includes(q) || d.docNumber?.toLowerCase().includes(q),
   )
 })
@@ -116,31 +124,37 @@ function navigateToDetail(row) {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      :icon="IconFileDescription"
-      title="Documents"
-      subtitle="Manage controlled documents, versions, and approvals."
-    >
-      <template #title>
-        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
-          Documents
-          <HelpButton slug="KB/documents/document-control" :size="16" />
-        </span>
-      </template>
-      <template #actions>
-        <BaseButton v-if="canCreate" @click="navigateToCreate">
-          <IconPlus :size="16" class="tw:mr-1" />
-          Create Document
-        </BaseButton>
-      </template>
-    </PageHeader>
+  <BaseListLayout
+    title="Documents"
+    :icon="IconFileDescription"
+    subtitle="Manage controlled documents, versions, and approvals."
+    :state="list.state.value"
+    :emptyIcon="IconFileDescription"
+    :emptyTitle="list.hasActiveFilters.value ? 'No documents match your filters' : 'No documents yet'"
+  >
+    <template #title>
+      <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+        Documents
+        <HelpButton slug="KB/documents/document-control" :size="16" />
+      </span>
+    </template>
+
+    <template #actions>
+      <BaseButton v-if="canCreate" @click="navigateToCreate">
+        <IconPlus :size="16" class="tw:mr-1" />
+        Create Document
+      </BaseButton>
+    </template>
 
     <!-- Stats Cards -->
-    <DocumentsStatsCards :stats="stats" :total="statsTotal" />
+    <template #stats>
+      <DocumentsStatsCards :stats="stats" :total="statsTotal" />
+    </template>
 
     <!-- Filter Toolbar -->
-    <DocumentsFilterToolbar v-model:filters="filters" />
+    <template #filters>
+      <DocumentsFilterToolbar v-model:filters="list.filters.value" />
+    </template>
 
     <!-- Documents Table -->
     <DocumentsTable
@@ -148,5 +162,5 @@ function navigateToDetail(row) {
       :loading="allDocuments === undefined"
       @view="navigateToDetail"
     />
-  </BasePage>
+  </BaseListLayout>
 </template>

@@ -482,7 +482,7 @@ const editingTitle = ref(false)
 
             <BaseDetailSection title="Schedule" divided>
               <BaseDetailField label="Due date">
-                <BaseDatePicker v-if="isEditable" v-model="cr.dueDate" class="tw:w-full" />
+                <BaseDateField v-if="isEditable" v-model="cr.dueDate" mode="date" class="tw:w-full" />
                 <span
                   v-else
                   class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
@@ -493,9 +493,10 @@ const editingTitle = ref(false)
                 </span>
               </BaseDetailField>
               <BaseDetailField label="Target implementation">
-                <BaseDatePicker
+                <BaseDateField
                   v-if="isEditable"
                   v-model="cr.targetImplementationDate"
+                  mode="date"
                   class="tw:w-full"
                 />
                 <BaseText v-else variant="body" weight="medium">
