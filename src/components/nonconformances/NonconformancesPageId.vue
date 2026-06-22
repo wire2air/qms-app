@@ -458,9 +458,13 @@ const ncActions = computed(() =>
     {
       openOpen: openOpenDialog,
       openMarkComplete: openMarkCompleteDialog,
-      openDelete() { showDeleteDialog.value = true },
+      openDelete() {
+        showDeleteDialog.value = true
+      },
       print: openPrintView,
-      openAudit() { showAuditLog.value = true },
+      openAudit() {
+        showAuditLog.value = true
+      },
       openConvert: openConvertDialog,
     },
   ),
@@ -543,9 +547,7 @@ const ncDetailConfig = computed(() =>
 
       <!-- NC Details card -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <div
-          class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-        >
+        <div class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
           <BaseText variant="overline">NC Details</BaseText>
           <!-- At-a-glance indicator of which assignee pool the
                workflow draws from. Always visible (not just on
@@ -631,9 +633,7 @@ const ncDetailConfig = computed(() =>
 
         <!-- Immediate containment action -->
         <div class="tw:flex tw:flex-col tw:gap-1 tw:mt-4">
-          <BaseText variant="overline" class="tw:block">
-            Immediate containment action
-          </BaseText>
+          <BaseText variant="overline" class="tw:block"> Immediate containment action </BaseText>
           <BaseRichTextField
             v-model="nc.immediateContainmentAction"
             :editable="isEditable"
@@ -668,10 +668,7 @@ const ncDetailConfig = computed(() =>
     <template v-if="nc" #section-disposition>
       <!-- Disposition card -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <BaseText
-          variant="overline"
-          class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-        >
+        <BaseText variant="overline" class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
           Disposition
         </BaseText>
 
@@ -784,9 +781,7 @@ const ncDetailConfig = computed(() =>
             <div class="tw:flex tw:flex-col tw:gap-1">
               <div class="tw:text-xs tw:text-secondary">CAPA required?</div>
               <span class="tw:text-sm tw:font-medium">
-                {{
-                  nc.capaRequired === true ? 'Yes' : nc.capaRequired === false ? 'No' : '—'
-                }}
+                {{ nc.capaRequired === true ? 'Yes' : nc.capaRequired === false ? 'No' : '—' }}
               </span>
             </div>
             <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
@@ -910,10 +905,7 @@ const ncDetailConfig = computed(() =>
             v-else
             tag="span"
             class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
-            :class="[
-              isOverdue ? 'tw:text-red-600' : '',
-              isEditable ? 'tw:hover:text-primary' : '',
-            ]"
+            :class="[isOverdue ? 'tw:text-red-600' : '', isEditable ? 'tw:hover:text-primary' : '']"
             :disabled="!isEditable"
             aria-label="Edit due date"
             @click="editingDueDate = true"
@@ -944,15 +936,8 @@ const ncDetailConfig = computed(() =>
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
         <BaseDetailField label="Department">
-          <DepartmentSelectMenu
-            v-if="isEditable"
-            v-model="nc.departmentId"
-            :required="true"
-          />
-          <DepartmentBadgeById
-            v-else-if="nc.departmentId"
-            :departmentId="nc.departmentId"
-          />
+          <DepartmentSelectMenu v-if="isEditable" v-model="nc.departmentId" :required="true" />
+          <DepartmentBadgeById v-else-if="nc.departmentId" :departmentId="nc.departmentId" />
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
       </BaseRailCard>
@@ -986,10 +971,7 @@ const ncDetailConfig = computed(() =>
         </BaseDetailField>
         <BaseDetailField label="Issue type">
           <NcIssueTypeSelectMenu v-if="isEditable" v-model="nc.ncIssueTypeId" />
-          <NcIssueTypeBadgeById
-            v-else-if="nc.ncIssueTypeId"
-            :issueTypeId="nc.ncIssueTypeId"
-          />
+          <NcIssueTypeBadgeById v-else-if="nc.ncIssueTypeId" :issueTypeId="nc.ncIssueTypeId" />
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
       </BaseRailCard>
@@ -1061,28 +1043,14 @@ const ncDetailConfig = computed(() =>
           </div>
         </BaseDetailField>
         <BaseDetailField v-if="isEditable || nc.productId" label="Product">
-          <ProductSelectMenu
-            v-if="isEditable"
-            v-model="nc.productId"
-            :allowCreate="false"
-          />
+          <ProductSelectMenu v-if="isEditable" v-model="nc.productId" :allowCreate="false" />
           <ProductBadgeById v-else-if="nc.productId" :productId="nc.productId" />
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
         <BaseDetailField v-if="isEditable || nc.qtyAffected" label="Qty affected">
           <div v-if="isEditable" class="tw:flex tw:gap-1">
-            <BaseTextInput
-              v-model="qtyAffectedModel"
-              type="number"
-              size="sm"
-              class="tw:flex-1"
-            />
-            <BaseTextInput
-              v-model="nc.unitOfMeasure"
-              size="sm"
-              placeholder="UOM"
-              class="tw:w-16"
-            />
+            <BaseTextInput v-model="qtyAffectedModel" type="number" size="sm" class="tw:flex-1" />
+            <BaseTextInput v-model="nc.unitOfMeasure" size="sm" placeholder="UOM" class="tw:w-16" />
           </div>
           <BaseText v-else variant="body" weight="medium">
             {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
@@ -1090,34 +1058,19 @@ const ncDetailConfig = computed(() =>
         </BaseDetailField>
         <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
           <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" />
-          <BaseText
-            v-else
-            variant="body"
-            weight="medium"
-            class="tw:font-mono tw:break-words"
-          >
+          <BaseText v-else variant="body" weight="medium" class="tw:font-mono tw:break-words">
             {{ nc.poNumber }}
           </BaseText>
         </BaseDetailField>
         <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
           <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" />
-          <BaseText
-            v-else
-            variant="body"
-            weight="medium"
-            class="tw:font-mono tw:break-words"
-          >
+          <BaseText v-else variant="body" weight="medium" class="tw:font-mono tw:break-words">
             {{ nc.orderNumber }}
           </BaseText>
         </BaseDetailField>
         <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
           <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" />
-          <BaseText
-            v-else
-            variant="body"
-            weight="medium"
-            class="tw:font-mono tw:break-words"
-          >
+          <BaseText v-else variant="body" weight="medium" class="tw:font-mono tw:break-words">
             {{ nc.lotNumber }}
           </BaseText>
         </BaseDetailField>
@@ -1190,11 +1143,7 @@ const ncDetailConfig = computed(() =>
              (2026-05-29): supplier visibility on NCs is workflow-
              driven, not manual. Only meaningful on supplier-facing
              NCs — internal NCs never share externally. -->
-        <SharedWithPanel
-          v-if="nc.isSupplierFacing"
-          entityType="Nonconformance"
-          :entityId="id"
-        />
+        <SharedWithPanel v-if="nc.isSupplierFacing" entityType="Nonconformance" :entityId="id" />
       </BaseRailCard>
 
       <!-- Workflow detail component (steps, reassign, send-back, record viewer) -->
