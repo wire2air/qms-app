@@ -71,6 +71,7 @@ describe('BaseDetailLayout', () => {
 
 import { defineDetailConfig } from '../composables/defineDetailConfig.js'
 import { readOnlyBanner } from '../composables/bannerFactories.js'
+import { resolveVariant } from '../composables/detailVariantHelpers.js'
 
 describe('BaseDetailLayout — config + banners', () => {
   it('derives title from config when no discrete title prop', () => {
@@ -94,5 +95,42 @@ describe('BaseDetailLayout — config + banners', () => {
     const w = mountLayout({ props: { config, title: 'Prop Title' }, slots: { default: '<div/>' } })
     expect(w.text()).toContain('Config Title')
     expect(w.text()).not.toContain('Prop Title')
+  })
+})
+
+describe('BaseDetailLayout — variants', () => {
+  it('readonly exposes editable=false to scoped slots', () => {
+    const config = defineDetailConfig({ variant: 'readonly' })
+    const w = mountLayout({
+      props: { config },
+      slots: { default: `<template #default="s"><span data-test="ed">{{ String(s.editable) }}</span></template>` },
+    })
+    expect(w.get('[data-test="ed"]').text()).toBe('false')
+  })
+  it('embedded hides the rail even when railCards exist', () => {
+    const config = defineDetailConfig({ variant: 'embedded', railCards: [{ id: 'p', title: 'Properties' }] })
+    const w = mountLayout({ props: { config }, slots: { default: '<div/>' } })
+    expect(w.find('aside[aria-label="Details"]').exists()).toBe(false)
+  })
+  it('renders a stub marker for the approval variant', () => {
+    const config = defineDetailConfig({ variant: 'approval' })
+    const w = mountLayout({ props: { config }, slots: { default: '<div/>' } })
+    expect(w.find('[data-test="variant-stub"]').exists()).toBe(true)
+  })
+  it('renders anchor sections with their ids and a nav', () => {
+    const config = defineDetailConfig({ sections: [{ id: 'details', label: 'Details' }] })
+    const w = mountLayout({
+      props: { config },
+      slots: { 'section-details': '<div data-test="sec">Body</div>' },
+    })
+    expect(w.find('nav[aria-label="Sections"]').exists()).toBe(true)
+    expect(w.find('#section-details').exists()).toBe(true)
+    expect(w.get('[data-test="sec"]').text()).toBe('Body')
+  })
+  it('hides the AI summary slot unless ai.enabled', () => {
+    const off = mountLayout({ props: { config: defineDetailConfig({}) }, slots: { default: '<div/>', 'ai-summary': '<div data-test="ai"/>' } })
+    expect(off.find('[data-test="ai"]').exists()).toBe(false)
+    const on = mountLayout({ props: { config: defineDetailConfig({ ai: { enabled: true } }) }, slots: { default: '<div/>', 'ai-summary': '<div data-test="ai"/>' } })
+    expect(on.find('[data-test="ai"]').exists()).toBe(true)
   })
 })

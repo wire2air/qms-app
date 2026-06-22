@@ -2,6 +2,7 @@
 <script setup>
 import { IconFileOff, IconAlertTriangle } from '@tabler/icons-vue'
 import { normalizeDetailConfig } from '../composables/defineDetailConfig.js'
+import { morphHeaderVariant } from '../composables/detailVariantHelpers.js'
 // useDetailLayout is auto-imported (resource/js/shared/composables is in AutoImport.dirs).
 const props = defineProps({
   title: { type: String, default: '' },
@@ -23,6 +24,7 @@ const props = defineProps({
   errorDescription: { type: String, default: '' },
   config: { type: Object, default: null },
   record: { type: Object, default: null },
+  variant: { type: String, default: 'standard' },
 })
 const activeTab = defineModel('tab', { type: [String, Number], default: null })
 
@@ -43,29 +45,82 @@ const effHeaderVariant = computed(() => cfg.value?.headerVariant ?? props.header
 const effWidth = computed(() => cfg.value?.width ?? props.width)
 const banners = computed(() => (cfg.value ? cfg.value.banners(props.record) : []))
 
+const effVariant = computed(() => cfg.value?.variant ?? props.variant)
+const effSections = computed(() => cfg.value?.sections ?? [])
+
 const slots = useSlots()
 const scrollEl = ref(null)
-const { state, scrolled, isMobile } = useDetailLayout({
+const { state, scrolled, isMobile, variantDescriptor, navModel } = useDetailLayout({
   loading: () => props.loading,
   notFound: () => props.notFound,
   error: () => props.error,
   actions: () => effActions.value,
+  variant: () => effVariant.value,
+  sections: () => effSections.value,
+  tabs: () => effTabs.value,
   scrollTarget: scrollEl,
 })
 
+const vd = variantDescriptor // computed { showBreadcrumbs, stickyHeader, showNav, showRail, columns, editable, linearized, stub }
+const effHeaderVariantMorphed = computed(() =>
+  vd.value.stickyHeader ? morphHeaderVariant(effHeaderVariant.value, scrolled.value) : effHeaderVariant.value,
+)
 const hasTabs = computed(() => effTabs.value.some((t) => t.visible !== false))
 const showRail = computed(() => {
   if (props.rail === false) return false
   if (props.rail === true) return true
   return !!slots.rail || effRailCards.value.length > 0
 })
-const slotState = computed(() => ({ state: state.value, isMobile: isMobile.value, activeTab: activeTab.value }))
+const showRailFinal = computed(() => {
+  if (!vd.value.showRail) return false
+  if (showRail.value) return true
+  // AI/version seams force the rail open even without explicit railCards
+  if (aiEnabled.value && slots['ai-summary']) return true
+  if (versionEnabled.value) return true
+  return false
+})
+const twoCol = computed(() => vd.value.columns === 2 && showRailFinal.value)
+const aiEnabled = computed(() => cfg.value?.ai?.enabled === true)
+const versionEnabled = computed(() => cfg.value?.version?.enabled === true)
+
+// scrollspy for anchor sections (guarded for jsdom)
+const activeSectionId = ref('')
+let observer = null
+function setupSpy() {
+  if (observer) { observer.disconnect(); observer = null }
+  if (typeof IntersectionObserver === 'undefined' || !effSections.value.length) return
+  observer = new IntersectionObserver(
+    (entries) => {
+      const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+      if (visible[0]) activeSectionId.value = visible[0].target.id.replace('section-', '')
+    },
+    { root: scrollEl.value, rootMargin: '-20% 0px -70% 0px', threshold: 0 },
+  )
+  effSections.value.forEach((s) => {
+    const el = scrollEl.value?.querySelector(`#section-${s.id}`)
+    if (el) observer.observe(el)
+  })
+}
+onMounted(setupSpy)
+watch([effSections, () => state.value], () => nextTick(setupSpy))
+onBeforeUnmount(() => observer?.disconnect())
+
+const slotState = computed(() => ({
+  state: state.value,
+  isMobile: isMobile.value,
+  activeTab: activeTab.value,
+  variant: vd.value.variant,
+  editable: vd.value.editable,
+}))
 </script>
 
 <template>
   <BasePage :width="effWidth" :fullHeight="true">
-    <PageHeader :icon="effBreadcrumbs ? null : effIcon" :title="effBreadcrumbs ? '' : effTitle">
-      <template v-if="effBreadcrumbs" #title>
+    <PageHeader
+      :icon="effBreadcrumbs && vd.showBreadcrumbs ? null : effIcon"
+      :title="effBreadcrumbs && vd.showBreadcrumbs ? '' : effTitle"
+    >
+      <template v-if="effBreadcrumbs && vd.showBreadcrumbs" #title>
         <BaseBreadcrumbs :items="effBreadcrumbs" />
       </template>
     </PageHeader>
@@ -99,12 +154,12 @@ const slotState = computed(() => ({ state: state.value, isMobile: isMobile.value
 
     <!-- Ready: sticky header + tabs + 2-col body -->
     <div v-else ref="scrollEl" class="tw:flex tw:flex-1 tw:min-h-0 tw:flex-col tw:overflow-auto">
-      <div class="tw:sticky tw:top-0 tw:z-raised tw:bg-main">
+      <div :class="vd.stickyHeader ? 'tw:sticky tw:top-0 tw:z-raised tw:bg-main' : 'tw:bg-main'">
         <DetailHeader
           :title="effTitle"
           :icon="effIcon"
           :avatarName="effAvatarName"
-          :variant="effHeaderVariant"
+          :variant="effHeaderVariantMorphed"
           :actions="effActions"
           :scrolled="scrolled"
         >
@@ -115,23 +170,47 @@ const slotState = computed(() => ({ state: state.value, isMobile: isMobile.value
         </DetailHeader>
       </div>
 
+      <div v-if="vd.stub" data-test="variant-stub" class="tw:rounded-md tw:border tw:border-dashed tw:border-amber-300 tw:bg-amber-50 tw:px-3 tw:py-1.5 tw:text-caption tw:text-amber-800">
+        Variant "{{ vd.variant }}" is not yet implemented — rendering the standard layout.
+      </div>
+
       <BaseBannerRegion v-if="banners.length" :banners="banners" />
 
       <div
         class="tw:grid tw:gap-6 tw:py-4 tw:max-lg:grid-cols-1"
-        :class="showRail ? 'tw:grid-cols-[minmax(0,1fr)_340px]' : 'tw:grid-cols-1'"
+        :class="twoCol ? 'tw:grid-cols-[minmax(0,1fr)_340px]' : 'tw:grid-cols-1'"
       >
         <div class="tw:min-w-0">
-          <DetailTabs v-if="hasTabs" v-model="activeTab" :tabs="effTabs" :ariaLabel="effTitle || 'Sections'">
+          <template v-if="vd.showNav && effSections.length">
+            <DetailAnchorNav :sections="effSections" :activeId="activeSectionId" class="tw:sticky tw:top-16 tw:z-raised tw:bg-main" />
+            <section
+              v-for="s in effSections"
+              :id="`section-${s.id}`"
+              :key="s.id"
+              class="tw:scroll-mt-32 tw:py-4"
+            >
+              <slot :name="`section-${s.id}`" v-bind="slotState" />
+            </section>
+          </template>
+          <DetailTabs v-if="vd.showNav && hasTabs" v-model="activeTab" :tabs="effTabs" :ariaLabel="effTitle || 'Sections'">
             <template v-for="t in effTabs" :key="t.value" #[`tab-${t.value}`]>
               <slot :name="`tab-${t.value}`" v-bind="slotState" />
             </template>
           </DetailTabs>
           <slot v-else v-bind="slotState" />
+          <div v-if="aiEnabled && $slots['ai-panel']" class="tw:mt-4"><slot name="ai-panel" v-bind="slotState" /></div>
         </div>
 
-        <DetailRail v-if="showRail" :railCards="effRailCards" class="tw:lg:sticky tw:lg:top-20 tw:lg:self-start">
-          <template v-if="$slots.rail" #default><slot name="rail" v-bind="slotState" /></template>
+        <DetailRail v-if="showRailFinal" :railCards="effRailCards" class="tw:lg:sticky tw:lg:top-20 tw:lg:self-start">
+          <template v-if="$slots.rail || aiEnabled || versionEnabled" #default>
+            <BaseRailCard v-if="aiEnabled && $slots['ai-summary']" title="AI Summary">
+              <slot name="ai-summary" v-bind="slotState" />
+            </BaseRailCard>
+            <BaseRailCard v-if="versionEnabled" title="Version" data-test="version-card">
+              <slot name="version-summary" v-bind="slotState"><span class="tw:text-secondary tw:text-body">—</span></slot>
+            </BaseRailCard>
+            <slot v-if="$slots.rail" name="rail" v-bind="slotState" />
+          </template>
         </DetailRail>
       </div>
     </div>
