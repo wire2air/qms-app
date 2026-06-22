@@ -10,10 +10,17 @@ import {
   DATETIME_MODE_OPTIONS,
 } from '@/constants/formBuilderConfig'
 
-defineProps({
+const props = defineProps({
   path: {
     type: String,
     default: null,
+  },
+  // Custom Fields module only: show a free-text "Section" placement input on
+  // input fields (stored on field.section). Default off — forms/workflow
+  // builders never render it.
+  showSectionPlacement: {
+    type: Boolean,
+    default: false,
   },
 })
 
@@ -21,6 +28,12 @@ const field = defineModel('field', {
   type: Object,
   default: () => ({}),
 })
+
+// Layout containers don't take a section-placement value — only actual inputs.
+const LAYOUT_TYPES = new Set(['section', 'row', 'column', 'separator'])
+const canPlaceInSection = computed(
+  () => props.showSectionPlacement && !LAYOUT_TYPES.has(field.value?.type),
+)
 
 const hasTypeSettings = computed(() => TYPE_SETTINGS_TYPES.has(field.value?.type))
 const isNumberType = computed(() => NUMBER_TYPES.has(field.value?.type))
@@ -99,6 +112,24 @@ function updateRowColClass(value) {
     <div v-else class="tw:p-3 tw:flex tw:flex-col tw:gap-6 tw:h-full">
       <!-- Basic Settings -->
       <ConfigBasic v-model:field="field" />
+
+      <!-- Section placement (Custom Fields module only). Free text — the admin
+           pastes a card/section title from the entity's detail page; the field
+           is grouped there when supported, otherwise it falls into the single
+           "Additional information" card (v1 always uses the single card). -->
+      <BaseField
+        v-if="canPlaceInSection"
+        v-slot="{ id: fieldId }"
+        label="Section (optional)"
+        hint="Paste a section title from the entity page to group this field there. Leave blank for the Additional information card."
+      >
+        <BaseTextInput
+          :id="fieldId"
+          v-model="field.section"
+          placeholder="e.g. Additional information"
+          size="sm"
+        />
+      </BaseField>
 
       <!-- State Settings -->
       <ConfigState v-model:field="field" />

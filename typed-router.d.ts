@@ -114,6 +114,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/automation-rules': RouteRecordInfo<
+      '/automation-rules',
+      '/automation-rules',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/capas/[[id]]': RouteRecordInfo<
       '/capas/[[id]]',
       '/capas/:id?',
@@ -131,6 +138,13 @@ declare module 'vue-router/auto-routes' {
     '/complaint-settings': RouteRecordInfo<
       '/complaint-settings',
       '/complaint-settings',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/custom-fields': RouteRecordInfo<
+      '/custom-fields',
+      '/custom-fields',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -385,6 +399,20 @@ declare module 'vue-router/auto-routes' {
       '/qc-inspection/specifications/:id',
       { id: ParamValue<true> },
       { id: ParamValue<false> },
+      | never
+    >,
+    '/qualityEvents/[[id]]': RouteRecordInfo<
+      '/qualityEvents/[[id]]',
+      '/qualityEvents/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/qualityEvents/dashboard': RouteRecordInfo<
+      '/qualityEvents/dashboard',
+      '/qualityEvents/dashboard',
+      Record<never, never>,
+      Record<never, never>,
       | never
     >,
     '/rca-templates': RouteRecordInfo<
@@ -653,6 +681,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/automation-rules.vue': {
+      routes:
+        | '/automation-rules'
+      views:
+        | never
+    }
     'src/pages/capas/[[id]].vue': {
       routes:
         | '/capas/[[id]]'
@@ -668,6 +702,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/complaint-settings.vue': {
       routes:
         | '/complaint-settings'
+      views:
+        | never
+    }
+    'src/pages/custom-fields.vue': {
+      routes:
+        | '/custom-fields'
       views:
         | never
     }
@@ -884,6 +924,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/qc-inspection/specifications/[id].vue': {
       routes:
         | '/qc-inspection/specifications/[id]'
+      views:
+        | never
+    }
+    'src/pages/qualityEvents/[[id]].vue': {
+      routes:
+        | '/qualityEvents/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/qualityEvents/dashboard.vue': {
+      routes:
+        | '/qualityEvents/dashboard'
       views:
         | never
     }

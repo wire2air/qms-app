@@ -2,18 +2,14 @@
 defineProps({
   required: { type: Boolean, default: false },
   multiple: { type: Boolean, default: false },
-  // Form-style empty prompt (standardized like User/Group menus). The filter
-  // "— All issue types —" wording belongs on filter bars, not entry forms.
-  nullLabel: { type: String, default: '— Select Issue Type —' },
 })
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
-const issueTypes = useLiveQuery(
-  (db) => db.NcIssueType.where().orderBy('displayOrder').exec(),
-
-  { models: ['NcIssueType'], initial: [] },
-)
+const categories = useLiveQuery((db) => db.EventCategory.where().orderBy('displayOrder').exec(), {
+  models: ['EventCategory'],
+  initial: [],
+})
 
 function getArray() {
   return Array.isArray(modelValue.value) ? modelValue.value : []
@@ -23,38 +19,34 @@ function getArray() {
 <template>
   <BaseSelectMenu
     v-model="modelValue"
-    :items="issueTypes"
-    :nullLabel="nullLabel"
+    :items="categories"
     :required="required"
     :multiple="multiple"
+    nullLabel="— All categories —"
   >
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <template v-if="multiple">
           <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <NcIssueTypeBadgeById
+            <EventCategoryBadgeById
               v-for="id in getArray()"
               :key="id"
-              :issueTypeId="id"
+              :categoryId="id"
               :clearable="!required || getArray().length > 1"
               @clear="() => scope.clear(id)"
             />
           </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            {{ nullLabel }}
-          </span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Category</span>
         </template>
         <template v-else>
-          <NcIssueTypeBadgeById
+          <EventCategoryBadgeById
             v-if="modelValue"
-            :issueTypeId="modelValue"
+            :categoryId="modelValue"
             :clearable="!required"
             selectable
             @clear="() => scope.clear(modelValue)"
           />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            {{ nullLabel }}
-          </span>
+          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Category</span>
         </template>
       </slot>
     </template>

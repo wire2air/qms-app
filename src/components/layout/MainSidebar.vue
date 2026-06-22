@@ -39,6 +39,9 @@ import {
   IconTestPipe,
   IconHelpCircle,
   IconBell,
+  IconListDetails,
+  IconEye,
+  IconBolt,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { isDark } from '@/utils/theme.js'
@@ -196,6 +199,12 @@ const navItems = computed(() => {
       to: getCompanyPath('/nonconformances'),
     },
     {
+      label: 'Events & Observations',
+      permissions: ['qualityEvents:read'],
+      icon: IconEye,
+      to: getCompanyPath('/qualityEvents'),
+    },
+    {
       label: 'Customer Complaints',
       permissions: ['customerComplaints:read'],
       icon: IconHeadset,
@@ -306,6 +315,23 @@ const navItems = computed(() => {
           permissions: ['company:manage'],
           icon: IconBell,
           to: getCompanyPath('/notification-rules'),
+        },
+        {
+          // Condition-based automation / notification rules (object → AND/OR
+          // conditions → actions: notify, create NC, …). Scoped per site/dept.
+          label: 'Automation Rules',
+          permissions: ['automationRules:manage'],
+          icon: IconBolt,
+          to: getCompanyPath('/automation-rules'),
+        },
+        {
+          // Admin-defined custom fields per entity (NC / CAPA / CR / Audit /
+          // Document / Training). Rendered as the "Additional information" card
+          // on each detail page; stored in entity_field_values (JSONB), sealed.
+          label: 'Custom Fields',
+          permissions: ['customFields:manage'],
+          icon: IconListDetails,
+          to: getCompanyPath('/custom-fields'),
         },
         {
           // The Customer Complaint module's own admin hub (email

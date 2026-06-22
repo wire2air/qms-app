@@ -18,6 +18,10 @@ const toast = useToast()
 
 const saving = ref(false)
 const activeTab = ref('properties')
+
+// Admin-defined custom fields — held locally, persisted after the doc exists.
+const customFieldsData = ref({})
+const customFieldsRef = ref(null)
 const selectedTemplate = ref(null)
 
 const DEFAULT_TRAINING_CONFIG = {
@@ -228,11 +232,22 @@ async function saveDraft() {
     }
     return
   }
+  if ((await customFieldsRef.value?.validate()) === false) {
+    toast.warning('Complete the required fields under Additional information')
+    activeTab.value = 'properties'
+    return
+  }
 
   saving.value = true
   try {
     const doc = await createDocument({ ...form.value })
     if (doc) {
+      // Persist custom fields against the new document (best-effort).
+      try {
+        await customFieldsRef.value?.persist(doc.id)
+      } catch (cfErr) {
+        toast.warning(cfErr?.message || 'Document saved, but custom fields could not be saved — add them on the document page')
+      }
       toast.success('Document saved as draft')
       form.value = { ...DEFAULT_FORM }
       router.push(getCompanyPath(`/documents/${doc.id}`))
@@ -377,6 +392,14 @@ const docTabs = [
         <!-- keepAlive: panels stay mounted so form state survives tab switches -->
         <BaseTabPanel value="properties" keepAlive class="tw:pt-6">
           <DocumentsCreateProperties v-model="form" v-model:selectedTemplate="selectedTemplate" />
+          <!-- Admin-defined custom fields. Self-hides when none configured. -->
+          <div class="tw:mt-4">
+            <CustomFieldsCreateSection
+              ref="customFieldsRef"
+              v-model="customFieldsData"
+              entityType="Document"
+            />
+          </div>
         </BaseTabPanel>
         <BaseTabPanel value="changeControl" keepAlive class="tw:pt-6">
           <DocumentsCreateChangeControl :form="form" />

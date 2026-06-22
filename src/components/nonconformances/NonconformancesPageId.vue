@@ -642,6 +642,9 @@ const ncDetailConfig = computed(() =>
           />
         </div>
       </div>
+
+      <!-- Admin-defined custom fields (Settings → Custom Fields). Self-hides when none configured. (merged from develop) -->
+      <CustomFieldsCard entityType="Nonconformance" :entityId="id" :editable="isEditable" />
     </template>
 
     <template v-if="nc" #section-workflow>

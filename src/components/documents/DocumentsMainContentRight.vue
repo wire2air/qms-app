@@ -382,6 +382,9 @@ watch(
           </div>
         </nav>
       </div>
+
+      <!-- Admin-defined custom fields. Self-hides when none configured. -->
+      <CustomFieldsCard entityType="Document" :entityId="document.id" :editable="canEdit" />
     </div>
   </div>
 </template>

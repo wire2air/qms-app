@@ -14,6 +14,11 @@ const toast = useToast()
 const workflowPickerRef = ref(null)
 const saving = ref(false)
 
+// Admin-defined custom fields (Settings → Custom Fields). The NC doesn't exist
+// yet, so answers live here and are persisted after creation via cfRef.persist.
+const customFieldsData = ref({})
+const customFieldsRef = ref(null)
+
 // ── Supplier shortcut: raise NC + linked 8D CAPA in one go ────────────
 // For supplier-facing NCs the Submit button opens a small dialog asking
 // "Create a linked CAPA?" + a CAPA workflow (defaulted to the SCAR 8D).
@@ -116,7 +121,7 @@ watch(sourceFinding, (f) => {
   }
 })
 
-function handleSubmit() {
+async function handleSubmit() {
   if (!form.value.title) {
     toast.notify({ type: 'negative', message: 'Title is required' })
     return
@@ -160,6 +165,11 @@ function handleSubmit() {
     toast.notify({ type: 'negative', message: 'Workflow version is required' })
     return
   }
+  // Required custom fields (Additional information) must pass before we proceed.
+  if ((await customFieldsRef.value?.validate()) === false) {
+    toast.notify({ type: 'negative', message: 'Complete the required fields under Additional information' })
+    return
+  }
 
   // Supplier-facing → shortcut dialog (Create CAPA? + workflow, auto-assigned
   // + opened server-side). Internal NCs keep the manual per-step picker.
@@ -199,6 +209,16 @@ async function confirmSupplierRaise() {
         message: capa ? `NC raised + ${capa.capaNumber} (8D) opened` : 'NC raised',
       })
     }
+    // Persist custom fields against the new NC (best-effort — a values save
+    // failure must not lose the NC; the user can fill them on the detail page).
+    try {
+      await customFieldsRef.value?.persist(nonconformance.id)
+    } catch (cfErr) {
+      toast.notify({
+        type: 'warning',
+        message: cfErr?.message || 'NC raised, but custom fields could not be saved — add them on the NC page',
+      })
+    }
     showCapaShortcut.value = false
     router.push(getCompanyPath(`/nonconformances/${nonconformance.id}`))
   } catch (e) {
@@ -230,6 +250,15 @@ async function handleReviewersConfirmed(reviewers) {
             "NC created, but couldn't link it to the finding — attach manually from the audit page",
         })
       }
+    }
+    // Persist custom fields against the new NC (best-effort).
+    try {
+      await customFieldsRef.value?.persist(response.nonconformance.id)
+    } catch (cfErr) {
+      toast.notify({
+        type: 'warning',
+        message: cfErr?.message || 'NC created, but custom fields could not be saved — add them on the NC page',
+      })
     }
     router.push(getCompanyPath(`/nonconformances/${response.nonconformance.id}`))
   } catch (e) {
@@ -289,6 +318,14 @@ async function handleReviewersConfirmed(reviewers) {
             />
           </div>
         </div>
+
+        <!-- Admin-defined custom fields (Additional information). Right after the
+             basic card; self-hides when none are configured for Nonconformance. -->
+        <CustomFieldsCreateSection
+          ref="customFieldsRef"
+          v-model="customFieldsData"
+          entityType="Nonconformance"
+        />
 
         <!-- Classification -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">

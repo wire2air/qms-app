@@ -10,6 +10,10 @@ const route = useRoute()
 const toast = useToast()
 const saving = ref(false)
 
+// Admin-defined custom fields — held locally, persisted after the CR exists.
+const customFieldsData = ref({})
+const customFieldsRef = ref(null)
+
 // Cross-module shortcuts: a CR can be spawned from an NC, CAPA,
 // audit, etc. via ?source=NC&sourceId=...; we pre-fill the source
 // pointers and seed the title from the originating record.
@@ -175,6 +179,10 @@ async function handleSubmit() {
       return
     }
   }
+  if ((await customFieldsRef.value?.validate()) === false) {
+    toast.notify({ type: 'negative', message: 'Complete the required fields under Additional information' })
+    return
+  }
 
   saving.value = true
   try {
@@ -201,6 +209,15 @@ async function handleSubmit() {
             "CR created, but couldn't link it to the finding — attach manually from the audit page",
         })
       }
+    }
+    // Persist custom fields against the new CR (best-effort).
+    try {
+      await customFieldsRef.value?.persist(response.changeRequest.id)
+    } catch (cfErr) {
+      toast.notify({
+        type: 'warning',
+        message: cfErr?.message || 'CR created, but custom fields could not be saved — add them on the CR page',
+      })
     }
     router.push(getCompanyPath(`/change-requests/${response.changeRequest.id}`))
   } catch (e) {
@@ -348,6 +365,13 @@ async function handleSubmit() {
             </div>
           </label>
         </div>
+
+        <!-- Admin-defined custom fields. Self-hides when none configured. -->
+        <CustomFieldsCreateSection
+          ref="customFieldsRef"
+          v-model="customFieldsData"
+          entityType="ChangeRequest"
+        />
 
         <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">

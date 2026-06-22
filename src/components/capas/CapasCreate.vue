@@ -13,6 +13,11 @@ const toast = useToast()
 const workflowPickerRef = ref(null)
 const saving = ref(false)
 
+// Admin-defined custom fields — answers held locally, persisted after the CAPA
+// exists (see customFieldsRef.persist in handleReviewersConfirmed).
+const customFieldsData = ref({})
+const customFieldsRef = ref(null)
+
 const presetNcId = computed(() => {
   const q = route.query?.ncId
   return typeof q === 'string' ? q : null
@@ -138,7 +143,7 @@ watch(
   },
 )
 
-function handleSubmit() {
+async function handleSubmit() {
   if (!form.value.title) {
     toast.notify({ type: 'negative', message: 'Title is required' })
     return
@@ -182,6 +187,10 @@ function handleSubmit() {
     toast.notify({ type: 'negative', message: 'Workflow version is required' })
     return
   }
+  if ((await customFieldsRef.value?.validate()) === false) {
+    toast.notify({ type: 'negative', message: 'Complete the required fields under Additional information' })
+    return
+  }
 
   workflowPickerRef.value.submit()
 }
@@ -208,6 +217,15 @@ async function handleReviewersConfirmed(reviewers) {
             "CAPA created, but couldn't link one or more findings — attach manually from the audit page",
         })
       }
+    }
+    // Persist custom fields against the new CAPA (best-effort).
+    try {
+      await customFieldsRef.value?.persist(response.capa.id)
+    } catch (cfErr) {
+      toast.notify({
+        type: 'warning',
+        message: cfErr?.message || 'CAPA created, but custom fields could not be saved — add them on the CAPA page',
+      })
     }
     router.push(getCompanyPath(`/capas/${response.capa.id}`))
   } catch (e) {
@@ -270,6 +288,13 @@ async function handleReviewersConfirmed(reviewers) {
             />
           </div>
         </div>
+
+        <!-- Admin-defined custom fields. Self-hides when none configured. -->
+        <CustomFieldsCreateSection
+          ref="customFieldsRef"
+          v-model="customFieldsData"
+          entityType="Capa"
+        />
 
         <!-- Classification -->
         <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
