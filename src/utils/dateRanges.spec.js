@@ -33,4 +33,23 @@ describe('resolvePreset', () => {
     expect(PRESETS.find((p) => p.id === 'custom')).toBeTruthy()
     expect(resolvePreset('nope', NOW)).toBeNull()
   })
+
+  it('last_month from January wraps to prior December', () => {
+    const JAN = DateTime.fromISO('2026-01-15')
+    const { start, end } = resolvePreset('last_month', JAN)
+    expect(start.toISODate()).toBe('2025-12-01')
+    expect(end.toISODate()).toBe('2025-12-31')
+  })
+
+  it('last_year from NOW gives prior full year', () => {
+    const { start, end } = resolvePreset('last_year', NOW)
+    expect(start.toISODate()).toBe('2025-01-01')
+    expect(end.toISODate()).toBe('2025-12-31')
+  })
+
+  it('yesterday from NOW gives prior day', () => {
+    const { start, end } = resolvePreset('yesterday', NOW)
+    expect(start.toISODate()).toBe('2026-06-21')
+    expect(end.toISODate()).toBe('2026-06-21')
+  })
 })
