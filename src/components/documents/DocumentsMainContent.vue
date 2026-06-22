@@ -1,7 +1,7 @@
 <script setup>
 import { IconFileText, IconSchool, IconHistory } from '@tabler/icons-vue'
 
-defineProps({
+const props = defineProps({
   documentId: {
     type: String,
     required: true,
@@ -16,19 +16,48 @@ defineProps({
   },
 })
 
-const contentTabs = [
-  { value: 'content', label: 'Content', icon: IconFileText },
-  { value: 'changeControl', label: 'Change Control', icon: IconHistory },
-  { value: 'training', label: 'Training', icon: IconSchool },
-]
+// Tab is a model so the parent (e.g. the submit-for-review training reminder)
+// can jump the author straight to the Training tab.
+const activeTab = defineModel('activeTab', { type: String, default: 'content' })
 
-// Tabs are always shown — Change Control captures audit data on every
-// revision (we may not require training), and Training is opt-in but the
-// tab is always reachable so an author can set it up on any version even
-// if v1.0 had no training. The hasTraining gate was removed because it
-// hid the tab on plain documents, blocking authors from adding training
-// later.
-const activeTab = ref('content')
+// Change Control only applies to a REVISION — it captures what changed versus
+// the prior version. The first draft (v1.0, no earlier version) has nothing to
+// compare against, so the tab is hidden until a revision exists.
+const versions = useLiveQueryWithDeps(
+  [() => props.documentId],
+  async (db, [id]) => (id ? db.DocumentVersion.where('documentId', id).exec() : []),
+  { models: ['DocumentVersion'], initial: [] },
+)
+const selectedVersion = useLiveQueryWithDeps(
+  [() => props.versionId],
+  async (db, [id]) => (id ? db.DocumentVersion.findByPk(id) : null),
+  { models: ['DocumentVersion'] },
+)
+const isRevisionVersion = computed(() => {
+  const sel = selectedVersion.value
+  if (!sel) return false
+  // True when an older version of this document exists (selected is not the first).
+  return versions.value.some(
+    (v) =>
+      v.versionMajor < sel.versionMajor ||
+      (v.versionMajor === sel.versionMajor && v.versionMinor < sel.versionMinor),
+  )
+})
+
+// Training is always reachable so an author can set it up on any version.
+// Change Control is revision-only (see above).
+const contentTabs = computed(() => [
+  { value: 'content', label: 'Content', icon: IconFileText },
+  ...(isRevisionVersion.value
+    ? [{ value: 'changeControl', label: 'Change Control', icon: IconHistory }]
+    : []),
+  { value: 'training', label: 'Training', icon: IconSchool },
+])
+
+// If the tab gets hidden (e.g. switching to the first version), fall back.
+watch(isRevisionVersion, (isRev) => {
+  if (!isRev && activeTab.value === 'changeControl') activeTab.value = 'content'
+})
 </script>
 
 <template>
@@ -53,7 +82,7 @@ const activeTab = ref('content')
           </div>
         </PrintTeleport>
       </BaseTabPanel>
-      <BaseTabPanel value="changeControl">
+      <BaseTabPanel v-if="isRevisionVersion" value="changeControl">
         <PrintTeleport>
           <DocumentsChangeControlTab :documentId="documentId" :versionId="versionId" />
         </PrintTeleport>

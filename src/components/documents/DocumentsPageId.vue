@@ -18,6 +18,7 @@ import {
   IconGitCompare,
   IconPrinter,
   IconClipboardList,
+  IconAlertTriangle,
 } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -171,6 +172,24 @@ const hasActiveTaskOnSelected = computed(
 // workflow preview dialog state
 const showPreviewDialog = ref(false)
 
+// Main-content tab (v-model into DocumentsMainContent) so the training reminder
+// can jump the author to the Training tab.
+const activeContentTab = ref('content')
+
+// Submit-for-review training reminder. Training defaults on; a version with
+// training enabled but no audience (roles/users) would launch nothing on
+// effective, so we block submit until the author sets an audience or disables
+// training. Assessment stays optional (read-and-acknowledge is allowed).
+const showTrainingReminder = ref(false)
+const trainingAudienceMissing = computed(() => {
+  const tc = selectedVersion.value?.trainingConfig
+  if (!tc?.enabled) return false
+  return !(tc.roleIds?.length || tc.userIds?.length)
+})
+const trainingAssessmentMissing = computed(
+  () => !!selectedVersion.value?.trainingConfig?.enabled && !selectedVersion.value?.trainingConfig?.assessment?.length,
+)
+
 // Permissions
 // Co-author model: the Owner (userId, accountable) OR the Author (authorId,
 // originator) OR a company owner may drive the document's content / version /
@@ -263,7 +282,34 @@ async function handleDeleteVersion() {
 }
 
 function handleSubmitForReview() {
+  // Gate: training enabled but no audience → remind before the workflow picker.
+  if (trainingAudienceMissing.value) {
+    showTrainingReminder.value = true
+    return
+  }
   // open preview dialog instead of immediate confirmation
+  showPreviewDialog.value = true
+}
+
+// Reminder action: jump to the Training tab to finish setup.
+function goToTrainingSetup() {
+  showTrainingReminder.value = false
+  activeContentTab.value = 'training'
+}
+
+// Reminder action: turn training off on this version, then continue to submit.
+async function disableTrainingAndSubmit() {
+  const tc = selectedVersion.value?.trainingConfig
+  if (tc) {
+    selectedVersion.value.trainingConfig = { ...tc, enabled: false }
+    try {
+      await selectedVersion.value.save()
+    } catch (e) {
+      toast.error(e.message || 'Failed to update training setting')
+      return
+    }
+  }
+  showTrainingReminder.value = false
   showPreviewDialog.value = true
 }
 
@@ -575,6 +621,7 @@ async function handleNewVersionConfirm(changeControl) {
 
       <!-- Main Content Grid -->
       <DocumentsMainContent
+        v-model:activeTab="activeContentTab"
         :documentId="props.id"
         :versionId="selectedVersion?.id"
         :reviewMode="hasActiveTaskOnSelected"
@@ -594,6 +641,37 @@ async function handleNewVersionConfirm(changeControl) {
         :documentId="props.id"
         :versionId="selectedVersion?.id"
       />
+
+      <!-- Training-not-set reminder before submitting for review. -->
+      <BaseDialog v-model="showTrainingReminder" title="Finish training setup" maxWidth="md">
+        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+          <div
+            class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+          >
+            <IconAlertTriangle :size="20" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
+            <div class="tw:text-sm tw:text-amber-900">
+              Training is enabled for this document but no
+              <strong>audience</strong> is selected — nothing would be assigned when it becomes
+              effective.
+              <span v-if="trainingAssessmentMissing">
+                No assessment has been added yet either (optional — leave it off for
+                read-and-acknowledge).
+              </span>
+            </div>
+          </div>
+          <p class="tw:text-sm tw:text-secondary">
+            Add a training audience (roles or users) on the Training tab, or disable training if this
+            document doesn't need it.
+          </p>
+        </div>
+        <template #footer="{ close }">
+          <BaseButton variant="outline" @click="close">Cancel</BaseButton>
+          <BaseButton variant="outline" @click="disableTrainingAndSubmit">
+            Disable training &amp; submit
+          </BaseButton>
+          <BaseButton variant="primary" @click="goToTrainingSetup">Set up training</BaseButton>
+        </template>
+      </BaseDialog>
 
       <!-- Audit Log Dialog — covers the Document plus its Versions, Sections, and Links -->
       <AuditLogDialog
