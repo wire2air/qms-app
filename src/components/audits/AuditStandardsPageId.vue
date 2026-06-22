@@ -17,20 +17,20 @@
  */
 import {
   IconClipboardList,
-  IconClipboardCheck,
-  IconArrowBack,
-  IconPlus,
-  IconSend,
   IconTrash,
   IconFile,
   IconUpload,
   IconDownload,
   IconX,
-  IconCopy,
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post, patch, del } from '@/api'
+import {
+  buildAuditStandardBanners,
+  buildAuditStandardSections,
+  buildAuditStandardActions,
+} from './auditStandardDetailConfig.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -316,551 +316,565 @@ async function handleRemoveSourceFile() {
     removingSourceFile.value = false
   }
 }
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const auditStandardBanners = computed(() =>
+  buildAuditStandardBanners(standard.value, { isEditable: isEditable.value }),
+)
+const auditStandardActions = computed(() =>
+  buildAuditStandardActions(
+    {
+      canCreate: canCreate.value,
+      canDelete: canDelete.value,
+      canSubmitEditable: canSubmitEditable.value,
+      canSpawnNewDraft: canSpawnNewDraft.value,
+      hasStandard: !!standard.value,
+      hasEditableVersion: !!editableVersion.value,
+      spawningDraft: spawningDraft.value,
+      deleting: deleting.value,
+    },
+    {
+      openClone() {
+        showCloneDialog.value = true
+      },
+      openSubmit() {
+        if (editableVersion.value) openSubmitDialog(editableVersion.value.id)
+      },
+      spawnNewDraft,
+      openAudit() {
+        showAuditLog.value = true
+      },
+      openDelete() {
+        showDeleteDialog.value = true
+      },
+    },
+  ),
+)
+const auditStandardDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: [
+      { label: 'Audits', to: getCompanyPath('/audits?tab=standards') },
+      { label: standard.value?.name || standard.value?.code || 'Loading…' },
+    ],
+    banners: () => auditStandardBanners.value,
+    actions: auditStandardActions.value,
+    sections: buildAuditStandardSections(standard.value, {
+      underReviewVersion: underReviewVersion.value,
+    }),
+  }),
+)
 </script>
 
 <template>
-  <BaseDetailPage
-    :title="standard?.name || standard?.code || 'Standard'"
-    :icon="IconClipboardCheck"
+  <BaseDetailLayout
+    :config="auditStandardDetailConfig"
+    :record="standard"
     :loading="loading"
     :notFound="!loading && !standard"
     notFoundTitle="Standard not found"
     notFoundDescription="This audit standard could not be found."
-    width="standard"
   >
-    <template #actions>
-      <BaseButton
-        v-if="standard"
-        variant="outline"
-        size="sm"
-        @click="router.push(getCompanyPath('/audits?tab=standards'))"
+    <template #title>
+      <BaseTextInput
+        v-if="editingName && isEditable"
+        v-model="standard.name"
+        placeholder="Standard name"
+        autofocus
+        class="tw:mb-2"
+        @blur="editingName = false"
+      />
+      <BaseClickableRow
+        v-else
+        class="tw:text-base tw:font-semibold tw:text-on-main"
+        :class="isEditable ? 'tw:hover:text-primary' : ''"
+        :disabled="!isEditable"
+        aria-label="Edit standard name"
+        @click="isEditable && (editingName = true)"
       >
-        <IconArrowBack :size="16" class="tw:mr-1" />
-        Back
-      </BaseButton>
-      <BaseButton
-        v-if="canCreate && standard"
-        variant="outline"
-        size="sm"
-        @click="showCloneDialog = true"
-      >
-        <IconCopy :size="16" class="tw:mr-1" />
-        Duplicate
-      </BaseButton>
-      <BaseButton
-        v-if="canSubmitEditable && editableVersion"
-        variant="primary"
-        size="sm"
-        @click="openSubmitDialog(editableVersion.id)"
-      >
-        <IconSend :size="16" class="tw:mr-1" />
-        Submit for Approval
-      </BaseButton>
-      <BaseButton
-        v-if="canSpawnNewDraft"
-        variant="outline"
-        size="sm"
-        :disabled="spawningDraft"
-        @click="spawnNewDraft"
-      >
-        <IconPlus :size="16" class="tw:mr-1" />
-        {{ spawningDraft ? 'Creating…' : 'New Draft' }}
-      </BaseButton>
-      <BaseButton v-if="standard" variant="secondary" size="sm" @click="showAuditLog = true">
-        <IconClipboardCheck :size="16" class="tw:mr-1" />
-        Audit Log
-      </BaseButton>
-      <BaseButton
-        v-if="canDelete && standard"
-        variant="danger"
-        size="sm"
-        :disabled="deleting"
-        @click="showDeleteDialog = true"
-      >
-        Delete
-      </BaseButton>
+        {{ standard?.name }}
+      </BaseClickableRow>
     </template>
 
-    <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-      <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_280px] tw:gap-4 tw:items-start">
-        <!-- Left column -->
-        <div class="tw:flex tw:flex-col tw:gap-4">
-          <!-- Details card -->
-          <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-            <BaseText
-              variant="overline"
-              class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-            >
-              Standard Details
-            </BaseText>
-
-            <BaseTextInput
-              v-if="editingName && isEditable"
-              v-model="standard.name"
-              placeholder="Standard name"
-              autofocus
-              class="tw:mb-2"
-              @blur="editingName = false"
-            />
-            <BaseClickableRow
-              v-else
-              class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
-              :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-              :disabled="!isEditable"
-              aria-label="Edit standard name"
-              @click="isEditable && (editingName = true)"
-            >
-              {{ standard.name }}
-            </BaseClickableRow>
-
-            <div v-if="editingDescription && isEditable" class="tw:mb-4">
-              <BaseTextarea
-                v-model="standard.description"
-                :rows="3"
-                placeholder="Optional description"
-                @blur="editingDescription = false"
-              />
-            </div>
-            <BaseClickableRow
-              v-else
-              class="tw:mb-4 tw:text-sm tw:text-secondary tw:leading-relaxed"
-              :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-              :disabled="!isEditable"
-              aria-label="Edit standard description"
-              @click="isEditable && (editingDescription = true)"
-            >
-              {{ standard.description || (isEditable ? 'Add a description…' : '—') }}
-            </BaseClickableRow>
-
-            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <div class="tw:text-xs tw:text-secondary">Type</div>
-                <AuditStandardTypeSelectMenu
-                  v-if="isEditable"
-                  v-model="standard.auditStandardTypeId"
-                />
-                <AuditStandardTypeBadgeById
-                  v-else-if="standard.auditStandardTypeId"
-                  :standardTypeId="standard.auditStandardTypeId"
-                />
-                <span v-else class="tw:text-sm tw:text-secondary">—</span>
-              </div>
-              <div class="tw:flex tw:flex-col tw:gap-1">
-                <div class="tw:text-xs tw:text-secondary">Effective</div>
-                <span class="tw:text-sm tw:font-medium">
-                  {{ standard.effectiveDate ? standard.effectiveDate.formatDate('date') : '—' }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Approval Workflow — appears when a version is
-                 UNDER_REVIEW (i.e. has been submitted via
-                 AuditStandardVersionSubmitDialog). Reviewers see
-                 Approve / Reject buttons inside each step card via
-                 the unified WorkflowStep component. On approval the
-                 auditStandardVersionHandler flips the version to
-                 EFFECTIVE; on rejection it goes back to REJECTED so
-                 the author can amend + resubmit. -->
-          <div
-            v-if="underReviewVersion"
-            class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-          >
-            <BaseText
-              variant="overline"
-              class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-            >
-              Approval Workflow
-              <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
-                v{{ underReviewVersion.versionMajor }}.{{ underReviewVersion.versionMinor }}
-              </span>
-            </BaseText>
-            <AuditStandardVersionWorkflowDetail
-              :versionId="underReviewVersion.id"
-              :workflowInstanceId="underReviewVersion.workflowInstanceId"
-              :isOwner="underReviewVersion.createdBy === currentSession?.userId"
-            />
-          </div>
-
-          <!-- Requirements editor (or read-only view) -->
-          <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-            <div
-              class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-            >
-              <BaseText variant="overline">
-                Requirements
-                <span
-                  v-if="activeVersion"
-                  class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-2"
-                >
-                  v{{ activeVersion.versionMajor }}.{{ activeVersion.versionMinor }}
-                </span>
-              </BaseText>
-              <span
-                v-if="activeVersion"
-                class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
-                :class="versionBadgeClass(activeVersion.statusId)"
-              >
-                {{ activeVersion.statusId }}
-              </span>
-            </div>
-
-            <AuditRequirementsEditor
-              v-if="editableVersion && isEditable"
-              :version="editableVersion"
-            />
-            <AuditRequirementsEditor v-else-if="activeVersion" :version="activeVersion" readonly />
-            <div v-else class="tw:py-12 tw:text-center tw:text-sm tw:text-secondary tw:italic">
-              No version yet — try creating a new draft.
-            </div>
-          </div>
-        </div>
-
-        <!-- Right column / Overview -->
-        <div class="tw:flex tw:flex-col tw:gap-3">
-          <BaseOverviewPanel>
-            <BaseDetailSection title="General">
-              <BaseDetailField label="Code">
-                <code
-                  class="tw:text-xs tw:font-mono tw:text-on-main tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
-                >
-                  {{ standard.code }}
-                </code>
-              </BaseDetailField>
-              <BaseDetailField label="Status">
-                <BaseBadge
-                  :class="
-                    standard.statusId === 'ACTIVE'
-                      ? 'tw:bg-emerald-100 tw:text-emerald-700'
-                      : standard.statusId === 'INACTIVE'
-                        ? 'tw:bg-gray-100 tw:text-gray-700'
-                        : 'tw:bg-purple-100 tw:text-purple-700'
-                  "
-                >
-                  {{ standard.statusId }}
-                </BaseBadge>
-              </BaseDetailField>
-              <BaseDetailField label="Content">
-                <AuditStandardContentLicenseBadgeById :licenseId="standard.contentLicense" />
-              </BaseDetailField>
-              <BaseDetailField label="Versions">
-                <BaseText variant="body" weight="medium">{{ versions.length }}</BaseText>
-              </BaseDetailField>
-              <BaseDetailField
-                label="Created"
-                :value="standard.createdAt ? standard.createdAt.formatDate('date') : null"
-              />
-            </BaseDetailSection>
-
-            <!-- License attestation — who confirmed the license + the attest
-                   CTA when content isn't yet customer-licensed. -->
-            <BaseDetailSection
-              v-if="
-                standard.customerLicenseAttestedAt ||
-                (isEditable && standard.contentLicense !== 'CUSTOMER_LICENSED')
-              "
-              title="License"
-              divided
-            >
-              <BaseDetailField v-if="standard.customerLicenseAttestedAt" label="Attested">
-                <BaseText variant="body" class="tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
-                  {{ standard.customerLicenseAttestedAt.formatDate?.('date') ?? '—' }}
-                  <UserBadgeById
-                    v-if="standard.customerLicenseAttestedBy"
-                    :userId="standard.customerLicenseAttestedBy"
-                  />
-                </BaseText>
-              </BaseDetailField>
-              <button
-                v-if="isEditable && standard.contentLicense !== 'CUSTOMER_LICENSED'"
-                type="button"
-                class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:self-start"
-                @click="showAttestDialog = true"
-              >
-                {{
-                  standard.contentLicense === 'STRUCTURAL_SHELL'
-                    ? 'I have a license for the normative text →'
-                    : 'Attach a license →'
-                }}
-              </button>
-            </BaseDetailSection>
-
-            <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-2">
-              Saving…
-            </div>
-            <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-2">
-              {{ saveError }}
-            </div>
-          </BaseOverviewPanel>
-
-          <!-- Source document — the original PDF / Excel / CSV the
-                 structure was extracted from (or attached by hand for
-                 standards created via Generate / paste import). Lets
-                 auditors reference the source's normative guidance
-                 since the imported requirements are structure-only. -->
-          <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-            <BaseText
-              variant="overline"
-              class="tw:pb-2 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
-            >
-              <IconFile :size="14" />
-              Source Document
-            </BaseText>
-
-            <div v-if="sourceAsset" class="tw:flex tw:flex-col tw:gap-2">
-              <a
-                :href="sourceAsset.url"
-                target="_blank"
-                rel="noopener"
-                class="tw:flex tw:items-start tw:gap-2 tw:text-xs tw:text-primary tw:hover:underline tw:break-all"
-                :title="sourceAsset.originalFilename || sourceAsset.filename"
-              >
-                <IconDownload :size="14" class="tw:shrink-0 tw:mt-0.5" />
-                <span>{{ sourceAsset.originalFilename || sourceAsset.filename }}</span>
-              </a>
-              <div class="tw:text-micro tw:text-secondary tw:font-mono">
-                {{ sourceAsset.mimeType }} ·
-                {{ ((sourceAsset.fileSize || 0) / 1024).toFixed(1) }} KB
-              </div>
-              <div v-if="isEditable" class="tw:flex tw:gap-1 tw:mt-1">
-                <button
-                  type="button"
-                  class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50"
-                  :disabled="uploadingSourceFile"
-                  @click="sourceFileInputRef?.click()"
-                >
-                  {{ uploadingSourceFile ? 'Replacing…' : 'Replace' }}
-                </button>
-                <span class="tw:text-micro tw:text-secondary">·</span>
-                <button
-                  type="button"
-                  class="tw:text-caption tw:text-red-600 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50"
-                  :disabled="removingSourceFile"
-                  @click="handleRemoveSourceFile"
-                >
-                  <IconX :size="11" class="tw:inline" />
-                  {{ removingSourceFile ? 'Removing…' : 'Remove' }}
-                </button>
-              </div>
-            </div>
-
-            <div v-else class="tw:flex tw:flex-col tw:gap-2">
-              <div class="tw:text-caption tw:text-secondary tw:italic">
-                No source document attached.
-              </div>
-              <button
-                v-if="isEditable"
-                type="button"
-                class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50 tw:flex tw:items-center tw:gap-1"
-                :disabled="uploadingSourceFile"
-                @click="sourceFileInputRef?.click()"
-              >
-                <IconUpload :size="12" />
-                {{ uploadingSourceFile ? 'Uploading…' : 'Attach source file' }}
-              </button>
-            </div>
-
-            <input
-              ref="sourceFileInputRef"
-              type="file"
-              accept=".pdf,.csv,.txt,.tsv,.xlsx,.xls,application/pdf,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-              class="tw:hidden"
-              @change="handleSourceFilePicked"
-            />
-          </div>
-
-          <!-- Versions list -->
-          <div
-            v-if="versions.length"
-            class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4"
-          >
-            <BaseText
-              variant="overline"
-              class="tw:pb-2 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
-            >
-              <IconClipboardList :size="14" />
-              Versions
-            </BaseText>
-            <div class="tw:flex tw:flex-col tw:gap-0.5">
-              <div
-                v-for="v in versions"
-                :key="v.id"
-                class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:py-1.5 tw:text-xs tw:group"
-              >
-                <span class="tw:font-mono tw:shrink-0">
-                  v{{ v.versionMajor }}.{{ v.versionMinor }}
-                </span>
-                <div class="tw:flex tw:items-center tw:gap-1 tw:min-w-0">
-                  <!-- Per-row actions appear on hover; only valid actions
-                         render so there's no enabled-but-no-op affordance. -->
-                  <button
-                    v-if="
-                      isEditable &&
-                      (v.statusId === 'DRAFT' || v.statusId === 'REJECTED') &&
-                      standard.workflowVersionId
-                    "
-                    type="button"
-                    class="tw:opacity-0 tw:group-hover:opacity-100 tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-micro"
-                    title="Submit for approval"
-                    @click="openSubmitDialog(v.id)"
-                  >
-                    Submit
-                  </button>
-                  <button
-                    v-if="
-                      isEditable &&
-                      (v.statusId === 'DRAFT' || v.statusId === 'REJECTED') &&
-                      !!effectiveVersion
-                    "
-                    type="button"
-                    class="tw:opacity-0 tw:group-hover:opacity-100 tw:text-red-600 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-micro"
-                    title="Discard this draft"
-                    @click="discardTarget = v"
-                  >
-                    <IconTrash :size="11" />
-                  </button>
-                  <span
-                    class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-1.5 tw:py-0.5 tw:shrink-0"
-                    :class="versionBadgeClass(v.statusId)"
-                  >
-                    {{ v.statusId }}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div
-              v-if="!standard.workflowVersionId"
-              class="tw:text-micro tw:text-amber-700 tw:italic tw:pt-2 tw:border-t tw:border-divider tw:mt-2"
-            >
-              No approval workflow attached. Drafts can't be submitted until one is set.
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <AuditStandardCloneDialog v-model="showCloneDialog" :standard="standard" />
-
-    <AuditStandardVersionSubmitDialog
-      v-if="submitTargetVersionId"
-      v-model="showSubmitDialog"
-      :versionId="submitTargetVersionId"
-      :workflowVersionId="standard?.workflowVersionId ?? null"
-      @submitted="submitTargetVersionId = null"
-    />
-
-    <BaseDialog v-model="showAttestDialog" title="Attest License" maxWidth="md">
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <div
-          class="tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200 tw:p-3 tw:text-xs tw:text-amber-800"
-        >
-          By attesting, you confirm that your organization holds a valid license (typically from
-          ANSI, ISO, SAE, or AIAG) to use the normative text of this standard within your QMS. The
-          QMS does not embed the normative text itself; attestation is for your records + audit
-          trail.
-        </div>
-
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            License Reference (optional)
-          </p>
-          <BaseTextInput
-            v-model="attestForm.customerLicenseReference"
-            placeholder="e.g. ANSI invoice #12345, AIAG site license SL-2026"
-          />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            License Expires (optional)
-          </p>
-          <BaseTextInput v-model="attestForm.customerLicenseExpiresAt" type="date" />
-        </div>
-
-        <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer tw:text-xs">
-          <input
-            v-model="attestForm.acknowledged"
-            type="checkbox"
-            class="tw:mt-0.5 tw:cursor-pointer"
-          />
-          <span>
-            I confirm that {{ currentSession?.firstName ?? 'my organization' }} holds a valid
-            license to use this standard's normative text within our QMS, and that this attestation
-            will be recorded with my user account and the current timestamp.
-          </span>
-        </label>
-      </div>
-      <template #footer>
-        <BaseDialogFooter
-          submitLabel="Attest"
-          :loading="attesting"
-          :disabled="!attestForm.acknowledged"
-          @cancel="showAttestDialog = false"
-          @submit="confirmAttest"
-        />
-      </template>
-    </BaseDialog>
-
-    <BaseDialog
-      :modelValue="!!discardTarget"
-      title="Discard Draft"
-      maxWidth="md"
-      @update:modelValue="discardTarget = null"
-    >
-      <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Discard
-        <strong v-if="discardTarget">
-          v{{ discardTarget.versionMajor }}.{{ discardTarget.versionMinor }} </strong
-        >? This permanently deletes the draft and its requirements. Existing EFFECTIVE / SUPERSEDED
-        versions are untouched.
-      </p>
-      <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
-        <BaseButton variant="outline" :disabled="discarding" @click="discardTarget = null">
-          Cancel
-        </BaseButton>
-        <BaseButton variant="danger" :disabled="discarding" @click="confirmDiscardVersion">
-          {{ discarding ? 'Discarding…' : 'Discard' }}
-        </BaseButton>
-      </div>
-    </BaseDialog>
-
-    <BaseDialog v-model="showDeleteDialog" title="Archive Standard" maxWidth="md">
-      <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Archive <strong>{{ standard?.name }}</strong
-        >? Existing audit instances referencing this standard keep their reference and snapshot.
-        Active audits filed against it stay valid; the standard just won't appear in pickers for new
-        audits.
-      </p>
-      <p
-        v-if="!canDelete"
-        class="tw:text-xs tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:mb-3"
+    <template #status>
+      <BaseBadge
+        v-if="standard"
+        :class="
+          standard.statusId === 'ACTIVE'
+            ? 'tw:bg-emerald-100 tw:text-emerald-700'
+            : standard.statusId === 'INACTIVE'
+              ? 'tw:bg-gray-100 tw:text-gray-700'
+              : 'tw:bg-purple-100 tw:text-purple-700'
+        "
       >
-        You don't have the auditStandards:delete permission. Soft-delete only.
-      </p>
-      <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
-        <BaseButton variant="outline" :disabled="deleting" @click="showDeleteDialog = false">
-          Cancel
-        </BaseButton>
-        <BaseButton variant="danger" :disabled="deleting" @click="handleDelete">
-          {{ deleting ? 'Archiving…' : 'Archive' }}
-        </BaseButton>
-      </div>
-    </BaseDialog>
+        {{ standard.statusId }}
+      </BaseBadge>
+      <span
+        v-if="activeVersion"
+        class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+        :class="versionBadgeClass(activeVersion.statusId)"
+      >
+        v{{ activeVersion.versionMajor }}.{{ activeVersion.versionMinor }}
+        {{ activeVersion.statusId }}
+      </span>
+    </template>
 
-    <!-- Full audit-log dialog. Includes the AuditStandard row itself
-         plus every AuditStandardVersion underneath so the per-version
-         approval activity (reject reasons, reassigns, e-signatures)
-         is all in one place. -->
-    <AuditLogDialog
-      v-if="standard?.id"
-      v-model="showAuditLog"
-      entityType="AuditStandard"
-      :entityId="standard.id"
-      :title="`Audit Log — ${standard.name || 'Standard'}`"
-      :includeEntities="
-        versions.length
-          ? [{ entityType: 'AuditStandardVersion', entityIds: versions.map((v) => v.id) }]
-          : []
-      "
-    />
-  </BaseDetailPage>
+    <template v-if="standard" #meta>
+      <code class="tw:font-mono tw:text-xs">{{ standard.code }}</code>
+      <template v-if="standard.auditStandardTypeId">
+        · <AuditStandardTypeBadgeById :standardTypeId="standard.auditStandardTypeId" />
+      </template>
+      <template v-if="standard.effectiveDate">
+        · Effective {{ standard.effectiveDate.formatDate('date') }}
+      </template>
+    </template>
+
+    <template #actions>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <DetailActionBar :actions="auditStandardActions" />
+        <AskAiButton
+          v-if="standard?.id"
+          entityType="AuditStandard"
+          :entityId="standard.id"
+          :entityTitle="standard.name"
+          :entityNumber="standard.code"
+        />
+      </div>
+    </template>
+
+    <template v-if="standard" #section-details>
+      <!-- Details card -->
+      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+        <BaseText
+          variant="overline"
+          class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+        >
+          Standard Details
+        </BaseText>
+
+        <div v-if="editingDescription && isEditable" class="tw:mb-4">
+          <BaseTextarea
+            v-model="standard.description"
+            :rows="3"
+            placeholder="Optional description"
+            @blur="editingDescription = false"
+          />
+        </div>
+        <BaseClickableRow
+          v-else
+          class="tw:mb-4 tw:text-sm tw:text-secondary tw:leading-relaxed"
+          :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+          :disabled="!isEditable"
+          aria-label="Edit standard description"
+          @click="isEditable && (editingDescription = true)"
+        >
+          {{ standard.description || (isEditable ? 'Add a description…' : '—') }}
+        </BaseClickableRow>
+
+        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <div class="tw:text-xs tw:text-secondary">Type</div>
+            <AuditStandardTypeSelectMenu
+              v-if="isEditable"
+              v-model="standard.auditStandardTypeId"
+            />
+            <AuditStandardTypeBadgeById
+              v-else-if="standard.auditStandardTypeId"
+              :standardTypeId="standard.auditStandardTypeId"
+            />
+            <span v-else class="tw:text-sm tw:text-secondary">—</span>
+          </div>
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <div class="tw:text-xs tw:text-secondary">Effective</div>
+            <span class="tw:text-sm tw:font-medium">
+              {{ standard.effectiveDate ? standard.effectiveDate.formatDate('date') : '—' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template v-if="standard && underReviewVersion" #section-workflow>
+      <!-- Approval Workflow — appears when a version is
+           UNDER_REVIEW (i.e. has been submitted via
+           AuditStandardVersionSubmitDialog). Reviewers see
+           Approve / Reject buttons inside each step card via
+           the unified WorkflowStep component. On approval the
+           auditStandardVersionHandler flips the version to
+           EFFECTIVE; on rejection it goes back to REJECTED so
+           the author can amend + resubmit. -->
+      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+        <BaseText
+          variant="overline"
+          class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+        >
+          Approval Workflow
+          <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
+            v{{ underReviewVersion.versionMajor }}.{{ underReviewVersion.versionMinor }}
+          </span>
+        </BaseText>
+        <AuditStandardVersionWorkflowDetail
+          :versionId="underReviewVersion.id"
+          :workflowInstanceId="underReviewVersion.workflowInstanceId"
+          :isOwner="underReviewVersion.createdBy === currentSession?.userId"
+        />
+      </div>
+    </template>
+
+    <template v-if="standard" #section-requirements>
+      <!-- Requirements editor (or read-only view) -->
+      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+        <div
+          class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+        >
+          <BaseText variant="overline">
+            Requirements
+            <span
+              v-if="activeVersion"
+              class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-2"
+            >
+              v{{ activeVersion.versionMajor }}.{{ activeVersion.versionMinor }}
+            </span>
+          </BaseText>
+          <span
+            v-if="activeVersion"
+            class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+            :class="versionBadgeClass(activeVersion.statusId)"
+          >
+            {{ activeVersion.statusId }}
+          </span>
+        </div>
+
+        <AuditRequirementsEditor
+          v-if="editableVersion && isEditable"
+          :version="editableVersion"
+        />
+        <AuditRequirementsEditor v-else-if="activeVersion" :version="activeVersion" readonly />
+        <div v-else class="tw:py-12 tw:text-center tw:text-sm tw:text-secondary tw:italic">
+          No version yet — try creating a new draft.
+        </div>
+      </div>
+    </template>
+
+    <template v-if="standard" #rail>
+      <!-- 1. General info -->
+      <BaseRailCard title="General">
+        <BaseDetailField label="Code">
+          <code
+            class="tw:text-xs tw:font-mono tw:text-on-main tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
+          >
+            {{ standard.code }}
+          </code>
+        </BaseDetailField>
+        <BaseDetailField label="Status">
+          <BaseBadge
+            :class="
+              standard.statusId === 'ACTIVE'
+                ? 'tw:bg-emerald-100 tw:text-emerald-700'
+                : standard.statusId === 'INACTIVE'
+                  ? 'tw:bg-gray-100 tw:text-gray-700'
+                  : 'tw:bg-purple-100 tw:text-purple-700'
+            "
+          >
+            {{ standard.statusId }}
+          </BaseBadge>
+        </BaseDetailField>
+        <BaseDetailField label="Content">
+          <AuditStandardContentLicenseBadgeById :licenseId="standard.contentLicense" />
+        </BaseDetailField>
+        <BaseDetailField label="Versions">
+          <BaseText variant="body" weight="medium">{{ versions.length }}</BaseText>
+        </BaseDetailField>
+        <BaseDetailField
+          label="Created"
+          :value="standard.createdAt ? standard.createdAt.formatDate('date') : null"
+        />
+        <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-2">
+          Saving…
+        </div>
+        <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-2">
+          {{ saveError }}
+        </div>
+      </BaseRailCard>
+
+      <!-- 2. License attestation -->
+      <BaseRailCard
+        v-if="
+          standard.customerLicenseAttestedAt ||
+          (isEditable && standard.contentLicense !== 'CUSTOMER_LICENSED')
+        "
+        title="License"
+      >
+        <BaseDetailField v-if="standard.customerLicenseAttestedAt" label="Attested">
+          <BaseText variant="body" class="tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
+            {{ standard.customerLicenseAttestedAt.formatDate?.('date') ?? '—' }}
+            <UserBadgeById
+              v-if="standard.customerLicenseAttestedBy"
+              :userId="standard.customerLicenseAttestedBy"
+            />
+          </BaseText>
+        </BaseDetailField>
+        <button
+          v-if="isEditable && standard.contentLicense !== 'CUSTOMER_LICENSED'"
+          type="button"
+          class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:self-start"
+          @click="showAttestDialog = true"
+        >
+          {{
+            standard.contentLicense === 'STRUCTURAL_SHELL'
+              ? 'I have a license for the normative text →'
+              : 'Attach a license →'
+          }}
+        </button>
+      </BaseRailCard>
+
+      <!-- 3. Source document -->
+      <BaseRailCard title="Source Document" :icon="IconFile">
+
+        <div v-if="sourceAsset" class="tw:flex tw:flex-col tw:gap-2">
+          <a
+            :href="sourceAsset.url"
+            target="_blank"
+            rel="noopener"
+            class="tw:flex tw:items-start tw:gap-2 tw:text-xs tw:text-primary tw:hover:underline tw:break-all"
+            :title="sourceAsset.originalFilename || sourceAsset.filename"
+          >
+            <IconDownload :size="14" class="tw:shrink-0 tw:mt-0.5" />
+            <span>{{ sourceAsset.originalFilename || sourceAsset.filename }}</span>
+          </a>
+          <div class="tw:text-micro tw:text-secondary tw:font-mono">
+            {{ sourceAsset.mimeType }} ·
+            {{ ((sourceAsset.fileSize || 0) / 1024).toFixed(1) }} KB
+          </div>
+          <div v-if="isEditable" class="tw:flex tw:gap-1 tw:mt-1">
+            <button
+              type="button"
+              class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50"
+              :disabled="uploadingSourceFile"
+              @click="sourceFileInputRef?.click()"
+            >
+              {{ uploadingSourceFile ? 'Replacing…' : 'Replace' }}
+            </button>
+            <span class="tw:text-micro tw:text-secondary">·</span>
+            <button
+              type="button"
+              class="tw:text-caption tw:text-red-600 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50"
+              :disabled="removingSourceFile"
+              @click="handleRemoveSourceFile"
+            >
+              <IconX :size="11" class="tw:inline" />
+              {{ removingSourceFile ? 'Removing…' : 'Remove' }}
+            </button>
+          </div>
+        </div>
+
+        <div v-else class="tw:flex tw:flex-col tw:gap-2">
+          <div class="tw:text-caption tw:text-secondary tw:italic">
+            No source document attached.
+          </div>
+          <button
+            v-if="isEditable"
+            type="button"
+            class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:disabled:opacity-50 tw:flex tw:items-center tw:gap-1"
+            :disabled="uploadingSourceFile"
+            @click="sourceFileInputRef?.click()"
+          >
+            <IconUpload :size="12" />
+            {{ uploadingSourceFile ? 'Uploading…' : 'Attach source file' }}
+          </button>
+        </div>
+
+        <input
+          ref="sourceFileInputRef"
+          type="file"
+          accept=".pdf,.csv,.txt,.tsv,.xlsx,.xls,application/pdf,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+          class="tw:hidden"
+          @change="handleSourceFilePicked"
+        />
+      </BaseRailCard>
+
+      <!-- 4. Versions list -->
+      <BaseRailCard v-if="versions.length" title="Versions" :icon="IconClipboardList">
+
+        <div class="tw:flex tw:flex-col tw:gap-0.5">
+          <div
+            v-for="v in versions"
+            :key="v.id"
+            class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:py-1.5 tw:text-xs tw:group"
+          >
+            <span class="tw:font-mono tw:shrink-0">
+              v{{ v.versionMajor }}.{{ v.versionMinor }}
+            </span>
+            <div class="tw:flex tw:items-center tw:gap-1 tw:min-w-0">
+              <!-- Per-row actions appear on hover; only valid actions
+                   render so there's no enabled-but-no-op affordance. -->
+              <button
+                v-if="
+                  isEditable &&
+                  (v.statusId === 'DRAFT' || v.statusId === 'REJECTED') &&
+                  standard.workflowVersionId
+                "
+                type="button"
+                class="tw:opacity-0 tw:group-hover:opacity-100 tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-micro"
+                title="Submit for approval"
+                @click="openSubmitDialog(v.id)"
+              >
+                Submit
+              </button>
+              <button
+                v-if="
+                  isEditable &&
+                  (v.statusId === 'DRAFT' || v.statusId === 'REJECTED') &&
+                  !!effectiveVersion
+                "
+                type="button"
+                class="tw:opacity-0 tw:group-hover:opacity-100 tw:text-red-600 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-micro"
+                title="Discard this draft"
+                @click="discardTarget = v"
+              >
+                <IconTrash :size="11" />
+              </button>
+              <span
+                class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-1.5 tw:py-0.5 tw:shrink-0"
+                :class="versionBadgeClass(v.statusId)"
+              >
+                {{ v.statusId }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          v-if="!standard.workflowVersionId"
+          class="tw:text-micro tw:text-amber-700 tw:italic tw:pt-2 tw:border-t tw:border-divider tw:mt-2"
+        >
+          No approval workflow attached. Drafts can't be submitted until one is set.
+        </div>
+      </BaseRailCard>
+    </template>
+  </BaseDetailLayout>
+
+  <AuditStandardCloneDialog v-model="showCloneDialog" :standard="standard" />
+
+  <AuditStandardVersionSubmitDialog
+    v-if="submitTargetVersionId"
+    v-model="showSubmitDialog"
+    :versionId="submitTargetVersionId"
+    :workflowVersionId="standard?.workflowVersionId ?? null"
+    @submitted="submitTargetVersionId = null"
+  />
+
+  <BaseDialog v-model="showAttestDialog" title="Attest License" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <div
+        class="tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200 tw:p-3 tw:text-xs tw:text-amber-800"
+      >
+        By attesting, you confirm that your organization holds a valid license (typically from
+        ANSI, ISO, SAE, or AIAG) to use the normative text of this standard within your QMS. The
+        QMS does not embed the normative text itself; attestation is for your records + audit
+        trail.
+      </div>
+
+      <div>
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+          License Reference (optional)
+        </p>
+        <BaseTextInput
+          v-model="attestForm.customerLicenseReference"
+          placeholder="e.g. ANSI invoice #12345, AIAG site license SL-2026"
+        />
+      </div>
+      <div>
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+          License Expires (optional)
+        </p>
+        <BaseTextInput v-model="attestForm.customerLicenseExpiresAt" type="date" />
+      </div>
+
+      <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer tw:text-xs">
+        <input
+          v-model="attestForm.acknowledged"
+          type="checkbox"
+          class="tw:mt-0.5 tw:cursor-pointer"
+        />
+        <span>
+          I confirm that {{ currentSession?.firstName ?? 'my organization' }} holds a valid
+          license to use this standard's normative text within our QMS, and that this attestation
+          will be recorded with my user account and the current timestamp.
+        </span>
+      </label>
+    </div>
+    <template #footer>
+      <BaseDialogFooter
+        submitLabel="Attest"
+        :loading="attesting"
+        :disabled="!attestForm.acknowledged"
+        @cancel="showAttestDialog = false"
+        @submit="confirmAttest"
+      />
+    </template>
+  </BaseDialog>
+
+  <BaseDialog
+    :modelValue="!!discardTarget"
+    title="Discard Draft"
+    maxWidth="md"
+    @update:modelValue="discardTarget = null"
+  >
+    <p class="tw:text-sm tw:text-on-main tw:mb-3">
+      Discard
+      <strong v-if="discardTarget">
+        v{{ discardTarget.versionMajor }}.{{ discardTarget.versionMinor }} </strong
+      >? This permanently deletes the draft and its requirements. Existing EFFECTIVE / SUPERSEDED
+      versions are untouched.
+    </p>
+    <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
+      <BaseButton variant="outline" :disabled="discarding" @click="discardTarget = null">
+        Cancel
+      </BaseButton>
+      <BaseButton variant="danger" :disabled="discarding" @click="confirmDiscardVersion">
+        {{ discarding ? 'Discarding…' : 'Discard' }}
+      </BaseButton>
+    </div>
+  </BaseDialog>
+
+  <BaseDialog v-model="showDeleteDialog" title="Archive Standard" maxWidth="md">
+    <p class="tw:text-sm tw:text-on-main tw:mb-3">
+      Archive <strong>{{ standard?.name }}</strong
+      >? Existing audit instances referencing this standard keep their reference and snapshot.
+      Active audits filed against it stay valid; the standard just won't appear in pickers for new
+      audits.
+    </p>
+    <p
+      v-if="!canDelete"
+      class="tw:text-xs tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:mb-3"
+    >
+      You don't have the auditStandards:delete permission. Soft-delete only.
+    </p>
+    <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
+      <BaseButton variant="outline" :disabled="deleting" @click="showDeleteDialog = false">
+        Cancel
+      </BaseButton>
+      <BaseButton variant="danger" :disabled="deleting" @click="handleDelete">
+        {{ deleting ? 'Archiving…' : 'Archive' }}
+      </BaseButton>
+    </div>
+  </BaseDialog>
+
+  <!-- Full audit-log dialog. Includes the AuditStandard row itself
+       plus every AuditStandardVersion underneath so the per-version
+       approval activity (reject reasons, reassigns, e-signatures)
+       is all in one place. -->
+  <AuditLogDialog
+    v-if="standard?.id"
+    v-model="showAuditLog"
+    entityType="AuditStandard"
+    :entityId="standard.id"
+    :title="`Audit Log — ${standard.name || 'Standard'}`"
+    :includeEntities="
+      versions.length
+        ? [{ entityType: 'AuditStandardVersion', entityIds: versions.map((v) => v.id) }]
+        : []
+    "
+  />
 </template>
