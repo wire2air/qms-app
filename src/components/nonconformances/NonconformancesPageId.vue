@@ -453,6 +453,7 @@ const ncActions = computed(() =>
       markCompleteBlockedReason: markCompleteBlockedReason.value,
       canConvert: canConvertToSupplier.value,
       saving: saving.value,
+      completing: completing.value,
     },
     {
       openOpen: openOpenDialog,

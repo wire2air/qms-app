@@ -37,4 +37,9 @@ describe('DetailActionBar', () => {
     const w = mount(DetailActionBar, { props: { actions: [{ id: 'x', label: 'X', visible: false }] } })
     expect(w.find('button').exists()).toBe(false)
   })
+  it('passes the action title onto the visible button as a tooltip', () => {
+    const w = mount(DetailActionBar, { props: { actions: [{ id: 'x', label: 'Approve', variant: 'primary', priority: 100, disabled: true, title: 'Pick disposition', onSelect() {} }] } })
+    const btn = w.get('button')
+    expect(btn.attributes('title')).toBe('Pick disposition')
+  })
 })

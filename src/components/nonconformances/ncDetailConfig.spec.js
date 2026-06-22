@@ -68,4 +68,16 @@ describe('buildNcActions', () => {
     a.find((x) => x.id === 'open').onSelect()
     expect(opened).toBe(true)
   })
+  it('approve action is disabled and loading while completing is true', () => {
+    const a = buildNcActions({ isOwner: true, statusId: 'UNDER_REVIEW', canMarkComplete: true, markCompleteBlockedReason: null, canConvert: false, saving: false, completing: true }, handlers)
+    const approve = a.find((x) => x.id === 'approve')
+    expect(approve.disabled).toBe(true)
+    expect(approve.loading).toBe(true)
+  })
+  it('open action has loading=true while saving is true', () => {
+    const a = buildNcActions({ isOwner: true, statusId: 'DRAFT', canMarkComplete: false, markCompleteBlockedReason: '', canConvert: false, saving: true }, handlers)
+    const open = a.find((x) => x.id === 'open')
+    expect(open.disabled).toBe(true)
+    expect(open.loading).toBe(true)
+  })
 })

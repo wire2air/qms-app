@@ -144,4 +144,11 @@ describe('BaseDetailLayout — variants', () => {
     expect(rail.exists()).toBe(true)
     expect(rail.classes().some((c) => c.includes('sticky'))).toBe(false)
   })
+  it('does not render a section nav item or section body when section.visible is false', () => {
+    const config = defineDetailConfig({ sections: [{ id: 'a', label: 'Alpha' }, { id: 'b', label: 'Beta', visible: false }] })
+    const w = mountLayout({ props: { config }, slots: { 'section-a': '<div data-test="a"/>', 'section-b': '<div data-test="b"/>' } })
+    expect(w.find('#section-a').exists()).toBe(true)
+    expect(w.find('#section-b').exists()).toBe(false)
+    expect(w.find('[data-test="b"]').exists()).toBe(false)
+  })
 })

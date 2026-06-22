@@ -34,13 +34,13 @@ export function buildNcSections(nc) {
 
 /** Header action descriptors (SP-6). gates = resolved booleans/strings; handlers = callbacks. */
 export function buildNcActions(gates = {}, handlers = {}) {
-  const { isOwner, statusId, canMarkComplete, markCompleteBlockedReason, canConvert, saving } = gates
+  const { isOwner, statusId, canMarkComplete, markCompleteBlockedReason, canConvert, saving, completing } = gates
   const notTerminal = !['DRAFT', 'CLOSED', 'VOID'].includes(statusId)
   return [
     { id: 'open', label: 'Open NC', variant: 'primary', priority: 100,
-      visible: !!isOwner && statusId === 'DRAFT', disabled: !!saving, onSelect: handlers.openOpen },
+      visible: !!isOwner && statusId === 'DRAFT', disabled: !!saving, loading: !!saving, onSelect: handlers.openOpen },
     { id: 'approve', label: 'Approve & Close', variant: 'primary', priority: 100,
-      visible: !!isOwner && notTerminal, disabled: !canMarkComplete, title: markCompleteBlockedReason || undefined, onSelect: handlers.openMarkComplete },
+      visible: !!isOwner && notTerminal, disabled: !canMarkComplete || !!completing, loading: !!completing, title: markCompleteBlockedReason || undefined, onSelect: handlers.openMarkComplete },
     { id: 'print', label: 'Print', icon: IconPrinter, variant: 'secondary', priority: 50, visible: true, onSelect: handlers.print },
     { id: 'convert', label: 'Convert to supplier-facing', icon: IconArrowsExchange, variant: 'secondary', priority: 20, visible: !!canConvert, onSelect: handlers.openConvert },
     { id: 'audit', label: 'Audit Log', icon: IconHistory, variant: 'secondary', priority: 15, visible: true, onSelect: handlers.openAudit },

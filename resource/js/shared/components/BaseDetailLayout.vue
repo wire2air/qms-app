@@ -47,6 +47,7 @@ const banners = computed(() => (cfg.value ? cfg.value.banners(props.record) : []
 
 const effVariant = computed(() => cfg.value?.variant ?? props.variant)
 const effSections = computed(() => cfg.value?.sections ?? [])
+const visibleSections = computed(() => effSections.value.filter((s) => s.visible !== false))
 
 const slots = useSlots()
 const scrollEl = ref(null)
@@ -85,7 +86,7 @@ const activeSectionId = ref('')
 let observer = null
 function setupSpy() {
   if (observer) { observer.disconnect(); observer = null }
-  if (typeof IntersectionObserver === 'undefined' || !effSections.value.length) return
+  if (typeof IntersectionObserver === 'undefined' || !visibleSections.value.length) return
   observer = new IntersectionObserver(
     (entries) => {
       const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
@@ -93,7 +94,7 @@ function setupSpy() {
     },
     { root: scrollEl.value, rootMargin: '-20% 0px -70% 0px', threshold: 0 },
   )
-  effSections.value.forEach((s) => {
+  visibleSections.value.forEach((s) => {
     const el = scrollEl.value?.querySelector(`#section-${s.id}`)
     if (el) observer.observe(el)
   })
@@ -180,10 +181,10 @@ const slotState = computed(() => ({
         :class="twoCol ? 'tw:grid-cols-[minmax(0,1fr)_340px]' : 'tw:grid-cols-1'"
       >
         <div class="tw:min-w-0">
-          <template v-if="vd.showNav && effSections.length">
-            <DetailAnchorNav :sections="effSections" :activeId="activeSectionId" class="tw:sticky tw:top-[var(--detail-header-offset)] tw:z-raised tw:bg-main" />
+          <template v-if="vd.showNav && visibleSections.length">
+            <DetailAnchorNav :sections="visibleSections" :activeId="activeSectionId" class="tw:sticky tw:top-[var(--detail-header-offset)] tw:z-raised tw:bg-main" />
             <section
-              v-for="s in effSections"
+              v-for="s in visibleSections"
               :id="`section-${s.id}`"
               :key="s.id"
               class="tw:scroll-mt-[calc(var(--detail-header-offset)+3rem)] tw:py-4"
