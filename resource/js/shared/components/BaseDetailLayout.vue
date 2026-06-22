@@ -50,7 +50,7 @@ const effSections = computed(() => cfg.value?.sections ?? [])
 
 const slots = useSlots()
 const scrollEl = ref(null)
-const { state, scrolled, isMobile, variantDescriptor, navModel } = useDetailLayout({
+const { state, scrolled, isMobile, variantDescriptor } = useDetailLayout({
   loading: () => props.loading,
   notFound: () => props.notFound,
   error: () => props.error,
@@ -73,11 +73,8 @@ const showRail = computed(() => {
 })
 const showRailFinal = computed(() => {
   if (!vd.value.showRail) return false
-  if (showRail.value) return true
-  // AI/version seams force the rail open even without explicit railCards
-  if (aiEnabled.value && slots['ai-summary']) return true
-  if (versionEnabled.value) return true
-  return false
+  if (props.rail === false) return false
+  return showRail.value || (aiEnabled.value && !!slots['ai-summary']) || versionEnabled.value
 })
 const twoCol = computed(() => vd.value.columns === 2 && showRailFinal.value)
 const aiEnabled = computed(() => cfg.value?.ai?.enabled === true)

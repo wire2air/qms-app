@@ -71,7 +71,6 @@ describe('BaseDetailLayout', () => {
 
 import { defineDetailConfig } from '../composables/defineDetailConfig.js'
 import { readOnlyBanner } from '../composables/bannerFactories.js'
-import { resolveVariant } from '../composables/detailVariantHelpers.js'
 
 describe('BaseDetailLayout — config + banners', () => {
   it('derives title from config when no discrete title prop', () => {
@@ -132,5 +131,10 @@ describe('BaseDetailLayout — variants', () => {
     expect(off.find('[data-test="ai"]').exists()).toBe(false)
     const on = mountLayout({ props: { config: defineDetailConfig({ ai: { enabled: true } }) }, slots: { default: '<div/>', 'ai-summary': '<div data-test="ai"/>' } })
     expect(on.find('[data-test="ai"]').exists()).toBe(true)
+  })
+  it('keeps the rail hidden when rail=false even with ai.enabled', () => {
+    const config = defineDetailConfig({ ai: { enabled: true } })
+    const w = mountLayout({ props: { config, rail: false }, slots: { default: '<div/>', 'ai-summary': '<div data-test="ai"/>' } })
+    expect(w.find('aside[aria-label="Details"]').exists()).toBe(false)
   })
 })
