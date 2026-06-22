@@ -28,23 +28,48 @@ function now() {
   return dt
 }
 
-// Anchor DateTime that drives which month is shown + initial focus.
+// Fix #2: apply timezone/locale to anchorOf so the grid carries the right zone/locale.
 function anchorOf() {
   const v = props.modelValue
-  if (DateTime.isDateTime(v)) return v
-  if (Array.isArray(v) && v.length) return v[0]
-  if (v && v.start) return v.start
-  return now()
+  let dt
+  if (DateTime.isDateTime(v)) dt = v
+  else if (Array.isArray(v) && v.length) dt = v[0]
+  else if (v && v.start) dt = v.start
+  else dt = now()
+  if (props.timezone) dt = dt.setZone(props.timezone)
+  if (props.locale) dt = dt.setLocale(props.locale)
+  return dt
 }
+
 const viewMonth = ref(anchorOf().startOf('month'))
+
+// Fix #6: only reset viewMonth when not mid-range AND the anchor is in a different month.
 watch(
   () => props.modelValue,
   () => {
-    viewMonth.value = anchorOf().startOf('month')
+    if (rangeStart.value != null) return
+    const anchor = anchorOf().startOf('month')
+    if (!anchor.hasSame(viewMonth.value, 'month')) {
+      viewMonth.value = anchor
+    }
   },
 )
+
 // Pending range start while the user is mid-selection.
 const rangeStart = ref(null)
+
+// Fix #1: roving tabindex — track the focused ISO date.
+function initialFocusedIso() {
+  const v = props.modelValue
+  if (DateTime.isDateTime(v)) return v.toISODate()
+  const n = now()
+  if (n.hasSame(viewMonth.value, 'month')) return n.toISODate()
+  return viewMonth.value.startOf('month').toISODate()
+}
+const focusedIso = ref(initialFocusedIso())
+
+// Fix #3: template ref on the grid container for scoped focus queries.
+const gridEl = ref(null)
 
 const weekdayLabels = computed(() => {
   const base = viewMonth.value.set({ weekday: props.firstDayOfWeek })
@@ -69,6 +94,14 @@ const weeks = computed(() => {
   return out
 })
 
+// Ensure focusedIso is always a day in the current rendered grid;
+// if it falls outside the view month after navigation, fall back to the 1st.
+const resolvedFocusedIso = computed(() => {
+  const allDays = weeks.value.flat()
+  if (allDays.some((d) => d.toISODate() === focusedIso.value)) return focusedIso.value
+  return viewMonth.value.startOf('month').toISODate()
+})
+
 function isDisabled(day) {
   if (props.minDate && day.startOf('day') < props.minDate.startOf('day')) return true
   if (props.maxDate && day.startOf('day') > props.maxDate.startOf('day')) return true
@@ -87,10 +120,13 @@ function isSelected(day) {
   }
   return false
 }
+
+// Fix #7: normalize isInRange to compare startOf('day').
 function isInRange(day) {
   const v = props.modelValue
   if (props.selectionMode !== 'range' || !v?.start || !v?.end) return false
-  return day > v.start.startOf('day') && day < v.end.startOf('day')
+  const d = day.startOf('day')
+  return d > v.start.startOf('day') && d < v.end.startOf('day')
 }
 function inMonth(day) {
   return day.hasSame(viewMonth.value, 'month')
@@ -98,6 +134,7 @@ function inMonth(day) {
 
 function select(day) {
   if (isDisabled(day)) return
+  focusedIso.value = day.toISODate()
   if (props.selectionMode === 'single') {
     emit('update:modelValue', day.startOf('day'))
   } else if (props.selectionMode === 'multiple') {
@@ -130,11 +167,11 @@ function nextMonth() {
   viewMonth.value = viewMonth.value.plus({ months: 1 })
 }
 
-// roving focus
+// Fix #3: scoped focus query within gridEl.
 function focusDay(iso) {
+  focusedIso.value = iso
   nextTick(() => {
-    const el = document.querySelector(`[data-day="${iso}"]`)
-    el?.focus()
+    gridEl.value?.querySelector(`[data-day="${iso}"]`)?.focus()
   })
 }
 function onKey(day, e) {
@@ -189,22 +226,49 @@ function selectToday() {
       </button>
     </div>
 
-    <div role="grid" class="tw:grid tw:grid-cols-7 tw:gap-0.5 tw:text-center">
-      <span
-        v-for="lbl in weekdayLabels"
-        :key="lbl"
-        class="tw:py-1 tw:text-micro tw:font-medium tw:uppercase tw:text-secondary"
+    <!-- Fix #3: bind gridEl ref; Fix #5: per-row structure with role="row" -->
+    <div ref="gridEl" role="grid" class="tw:text-center">
+      <!-- Weekday header row — Fix #5: match col count when weekNumbers enabled; Fix #4: key by index -->
+      <div
+        role="row"
+        class="tw:grid tw:gap-0.5"
+        :class="weekNumbers ? 'tw:grid-cols-8' : 'tw:grid-cols-7'"
       >
-        {{ lbl }}
-      </span>
-      <template v-for="(week, wi) in weeks" :key="wi">
+        <!-- blank corner cell when week numbers are shown -->
+        <span v-if="weekNumbers" aria-hidden="true" />
+        <span
+          v-for="(lbl, i) in weekdayLabels"
+          :key="i"
+          class="tw:py-1 tw:text-micro tw:font-medium tw:uppercase tw:text-secondary"
+        >
+          {{ lbl }}
+        </span>
+      </div>
+
+      <!-- Fix #5: each week is a role="row" div; optional leading week-number cell -->
+      <div
+        v-for="(week, wi) in weeks"
+        :key="wi"
+        role="row"
+        class="tw:grid tw:gap-0.5"
+        :class="weekNumbers ? 'tw:grid-cols-8' : 'tw:grid-cols-7'"
+      >
+        <!-- week number — not a gridcell, not focusable -->
+        <span
+          v-if="weekNumbers"
+          class="tw:flex tw:h-9 tw:items-center tw:justify-center tw:text-micro tw:text-secondary"
+          aria-hidden="true"
+        >
+          {{ week[0].weekNumber }}
+        </span>
+
         <button
           v-for="day in week"
           :key="day.toISODate()"
           type="button"
           role="gridcell"
           :data-day="day.toISODate()"
-          :tabindex="day.hasSame(viewMonth, 'month') && day.day === 1 ? 0 : -1"
+          :tabindex="day.toISODate() === resolvedFocusedIso ? 0 : -1"
           :disabled="isDisabled(day)"
           :aria-selected="isSelected(day) ? 'true' : 'false'"
           :aria-disabled="isDisabled(day) ? 'true' : 'false'"
@@ -223,7 +287,7 @@ function selectToday() {
         >
           {{ day.day }}
         </button>
-      </template>
+      </div>
     </div>
 
     <div v-if="showToday" class="tw:mt-2 tw:flex tw:justify-center">

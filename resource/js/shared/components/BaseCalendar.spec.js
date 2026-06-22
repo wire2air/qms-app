@@ -57,4 +57,60 @@ describe('BaseCalendar', () => {
     expect(document.activeElement.getAttribute('data-day')).toBe('2026-06-16')
     w.unmount()
   })
+
+  // --- New tests ---
+
+  it('roving tabindex follows focus via ArrowRight', async () => {
+    const w = mount(BaseCalendar, { props: { modelValue: JUN }, attachTo: document.body })
+    // Initially the selected day (2026-06-15) should have tabindex 0
+    expect(cell(w, '2026-06-15').attributes('tabindex')).toBe('0')
+    expect(cell(w, '2026-06-14').attributes('tabindex')).toBe('-1')
+
+    // Trigger ArrowRight on the focused cell
+    const start = cell(w, '2026-06-15')
+    start.element.focus()
+    await start.trigger('keydown', { key: 'ArrowRight' })
+    await nextTick()
+
+    // After arrow navigation, 2026-06-16 gets tabindex 0, 2026-06-15 loses it
+    expect(cell(w, '2026-06-16').attributes('tabindex')).toBe('0')
+    expect(cell(w, '2026-06-15').attributes('tabindex')).toBe('-1')
+    w.unmount()
+  })
+
+  it('weekNumbers renders a week-number column with role="row" structure', () => {
+    const w = mount(BaseCalendar, { props: { modelValue: JUN, weekNumbers: true } })
+
+    // Should have role="row" elements (header + 6 week rows)
+    const rows = w.findAll('[role="row"]')
+    expect(rows.length).toBeGreaterThanOrEqual(7) // 1 header + 6 week rows
+
+    // Each week row should use 8 columns (week number + 7 days)
+    const weekRows = rows.filter((r) => r.find('[role="gridcell"]').exists())
+    expect(weekRows.length).toBe(6)
+
+    // Week number spans should be present (aria-hidden, non-gridcell)
+    // The first week of June 2026 — luxon weekNumber should be a positive integer
+    const allSpans = w.findAll('span[aria-hidden="true"]')
+    // Filter to those that look like week numbers (short numeric text)
+    const weekNumSpans = allSpans.filter((s) => /^\d+$/.test(s.text().trim()))
+    expect(weekNumSpans.length).toBeGreaterThanOrEqual(6)
+
+    // Confirm none of the week-number spans have role="gridcell"
+    weekNumSpans.forEach((s) => {
+      expect(s.attributes('role')).not.toBe('gridcell')
+    })
+  })
+
+  it('timezone prop: renders without error and shows day cells', () => {
+    // Smoke test — just verify the grid renders day cells when a timezone is applied
+    const w = mount(BaseCalendar, { props: { modelValue: null, timezone: 'Asia/Tokyo' } })
+    // Should render 42 day cells (6 weeks × 7 days)
+    const dayCells = w.findAll('[role="gridcell"]')
+    expect(dayCells.length).toBe(42)
+    // Each cell should have a valid data-day attribute
+    dayCells.forEach((c) => {
+      expect(c.attributes('data-day')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    })
+  })
 })
