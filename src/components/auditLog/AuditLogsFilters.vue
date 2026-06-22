@@ -69,7 +69,7 @@ const hasActiveFilters = computed(
         <span class="tw:text-micro tw:font-medium tw:text-secondary tw:uppercase tw:tracking-wide"
           >Start date</span
         >
-        <BaseDatePicker v-model="filters.dateFrom" :showShortcuts="false" />
+        <BaseDateField v-model="filters.dateFrom" mode="date" />
       </div>
 
       <!-- Date to -->
@@ -77,7 +77,7 @@ const hasActiveFilters = computed(
         <span class="tw:text-micro tw:font-medium tw:text-secondary tw:uppercase tw:tracking-wide"
           >End date</span
         >
-        <BaseDatePicker v-model="filters.dateTo" :showShortcuts="false" />
+        <BaseDateField v-model="filters.dateTo" mode="date" />
       </div>
     </template>
   </BaseFilterBar>

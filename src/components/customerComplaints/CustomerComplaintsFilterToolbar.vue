@@ -131,9 +131,7 @@ function clearAll() {
       <BaseField label="Group" size="xs">
         <GroupSelectMenu v-model="filters.assignedTeamId" />
       </BaseField>
-      <BaseField label="Created date" size="xs">
-        <BaseFilterMenu v-model="filters" :items="dateFilterItems" />
-      </BaseField>
+      <BaseFilterMenu v-model="filters" :items="dateFilterItems" />
       <BaseField v-if="customFieldKeys.length" label="Custom field" size="xs">
         <div class="tw:flex tw:gap-1">
           <BaseSelectMenu
