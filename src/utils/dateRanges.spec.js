@@ -104,6 +104,30 @@ describe('matchesDateFilter', () => {
     expect(matchesDateFilter(at('2026-06-10'), null, NOW)).toBe(true)
     expect(matchesDateFilter(at('2026-06-10'), {}, NOW)).toBe(true)
   })
+  it('unknown operator fails closed', () => {
+    expect(matchesDateFilter(at('2026-06-10'), { operator: 'typo' }, NOW)).toBe(false)
+  })
+})
+
+describe('resolveDateFilter', () => {
+  it('before: exclusive lower boundary', () => {
+    const token = { operator: 'before', value: '2026-06-22' }
+    const { start, end } = resolveDateFilter(token, NOW)
+    expect(start).toBeNull()
+    expect(end.toISO()).toBe(DateTime.fromISO('2026-06-22').startOf('day').minus({ milliseconds: 1 }).toISO())
+  })
+  it('onAfter: inclusive lower boundary', () => {
+    const token = { operator: 'onAfter', value: '2026-06-22' }
+    const { start, end } = resolveDateFilter(token, NOW)
+    expect(start.toISO()).toBe(DateTime.fromISO('2026-06-22').startOf('day').toISO())
+    expect(end).toBeNull()
+  })
+  it('unknown operator returns null window', () => {
+    const token = { operator: 'typo' }
+    const { start, end } = resolveDateFilter(token, NOW)
+    expect(start).toBeNull()
+    expect(end).toBeNull()
+  })
 })
 
 describe('OPERATORS', () => {

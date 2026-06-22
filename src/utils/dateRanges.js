@@ -101,6 +101,9 @@ export const OPERATORS = [
   { id: 'relative', label: 'Relative' },
 ]
 
+/** Derive the set of known operator ids from OPERATORS for fast lookup. */
+const KNOWN_OPERATORS = new Set(OPERATORS.map((o) => o.id))
+
 /** Coerce DateTime | ISO string | null → DateTime | null. */
 function toDateTime(v) {
   if (!v) return null
@@ -159,6 +162,7 @@ export function resolveDateFilter(token, now = DateTime.now()) {
 /** Apply a token to a single date. Returns true when the date passes the filter. */
 export function matchesDateFilter(date, token, now = DateTime.now()) {
   if (!token || !token.operator) return true
+  if (!KNOWN_OPERATORS.has(token.operator)) return false
   const d = toDateTime(date)
   if (token.operator === 'empty') return d == null
   if (token.operator === 'notEmpty') return d != null
