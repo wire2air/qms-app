@@ -338,23 +338,6 @@ const changeRequestActions = computed(() =>
           Change Request Details
         </BaseText>
 
-        <BaseTextInput
-          v-if="editingTitle && isEditable"
-          v-model="cr.title"
-          placeholder="CR title"
-          autofocus
-          class="tw:mb-2"
-          @blur="editingTitle = false"
-        />
-        <div
-          v-else
-          class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
-          :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-          @click="isEditable && (editingTitle = true)"
-        >
-          {{ cr.title }}
-        </div>
-
         <BaseRichTextField
           v-model="cr.description"
           :editable="isEditable"
