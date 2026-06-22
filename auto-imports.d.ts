@@ -46,7 +46,9 @@ declare global {
   const filterCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').filterCommands
   const filtersToQuery: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').filtersToQuery
   const formatChordParts: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').formatChordParts
+  const formatField: typeof import('./src/composables/useDateField.js').formatField
   const forwardRefs: typeof import('./resource/js/shared/composables/forwardRef.js').forwardRefs
+  const fromModel: typeof import('./src/composables/useDateField.js').fromModel
   const fuzzyScore: typeof import('./resource/js/shared/composables/commandHelpers.js').fuzzyScore
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
@@ -69,6 +71,7 @@ declare global {
   const injectProp: typeof import('./resource/js/shared/composables/object.js').injectProp
   const isAsync: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isAsync
   const isChecked: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isChecked
+  const isDateNode: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isDateNode
   const isDefined: typeof import('@vueuse/core').isDefined
   const isProxy: typeof import('vue').isProxy
   const isReactive: typeof import('vue').isReactive
@@ -102,6 +105,7 @@ declare global {
   const onUnmounted: typeof import('vue').onUnmounted
   const onUpdated: typeof import('vue').onUpdated
   const onWatcherCleanup: typeof import('vue').onWatcherCleanup
+  const parseManual: typeof import('./src/composables/useDateField.js').parseManual
   const parsePdfAndExtractImages: typeof import('./src/composables/usePdfImport.js').parsePdfAndExtractImages
   const pausableWatch: typeof import('@vueuse/core').pausableWatch
   const provide: typeof import('vue').provide
@@ -149,6 +153,7 @@ declare global {
   const templateRef: typeof import('@vueuse/core').templateRef
   const throttledRef: typeof import('@vueuse/core').throttledRef
   const throttledWatch: typeof import('@vueuse/core').throttledWatch
+  const toModel: typeof import('./src/composables/useDateField.js').toModel
   const toRaw: typeof import('vue').toRaw
   const toReactive: typeof import('@vueuse/core').toReactive
   const toRef: typeof import('vue').toRef
@@ -217,6 +222,7 @@ declare global {
   const useCurrentElement: typeof import('@vueuse/core').useCurrentElement
   const useCycleList: typeof import('@vueuse/core').useCycleList
   const useDark: typeof import('@vueuse/core').useDark
+  const useDateField: typeof import('./src/composables/useDateField.js').useDateField
   const useDateFormat: typeof import('@vueuse/core').useDateFormat
   const useDebounce: typeof import('@vueuse/core').useDebounce
   const useDebounceFn: typeof import('@vueuse/core').useDebounceFn
