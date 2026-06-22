@@ -1,9 +1,10 @@
 <script setup>
-import { IconAlertTriangle, IconPrinter, IconClipboardList } from '@tabler/icons-vue'
+import { IconAlertTriangle } from '@tabler/icons-vue'
 import { currentSession, isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
+import { buildNcBanners, buildNcActions } from './ncDetailConfig.js'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 const props = defineProps({
@@ -434,53 +435,88 @@ function onCreateLinkedChangeRequest() {
 }
 
 // ─── Workflow steps are handled by NcWorkflowDetail component ────────────────
+
+// ─── BaseDetailLayout config (SP-6 Task 2) ───────────────────────────────────
+const ncBanners = computed(() =>
+  buildNcBanners(nc.value, {
+    isEditable: isEditable.value,
+    sourceLot: sourceLot.value,
+    companyPath: getCompanyPath,
+  }),
+)
+const ncActions = computed(() =>
+  buildNcActions(
+    {
+      isOwner: isOwner.value,
+      statusId: nc.value?.statusId,
+      canMarkComplete: canMarkComplete.value,
+      markCompleteBlockedReason: markCompleteBlockedReason.value,
+      canConvert: canConvertToSupplier.value,
+      saving: saving.value,
+    },
+    {
+      openOpen: openOpenDialog,
+      openMarkComplete: openMarkCompleteDialog,
+      openDelete() { showDeleteDialog.value = true },
+      print: openPrintView,
+      openAudit() { showAuditLog.value = true },
+      openConvert: openConvertDialog,
+    },
+  ),
+)
+const ncDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => ncBanners.value,
+    actions: ncActions.value,
+  }),
+)
 </script>
 
 <template>
-  <BaseDetailPage
-    :breadcrumbs="breadcrumbs"
+  <BaseDetailLayout
+    :config="ncDetailConfig"
+    :record="nc"
     :loading="loading"
     :notFound="!loading && !nc"
     notFoundTitle="NC not found"
     notFoundDescription="This nonconformance could not be found."
-    width="standard"
   >
+    <template #title>
+      <BaseTextInput
+        v-if="editingTitle && isEditable"
+        v-model="nc.title"
+        placeholder="NC title"
+        autofocus
+        @blur="editingTitle = false"
+      />
+      <BaseClickableRow
+        v-else
+        class="tw:text-base tw:font-semibold tw:text-on-main"
+        :class="isEditable ? 'tw:hover:text-primary' : ''"
+        :disabled="!isEditable"
+        aria-label="Edit NC title"
+        @click="editingTitle = true"
+      >
+        {{ nc?.title }}
+      </BaseClickableRow>
+    </template>
+
+    <template #status>
+      <NcStatusBadgeById v-if="nc" :statusId="nc.statusId" />
+    </template>
+
+    <template v-if="nc" #meta>
+      <span class="tw:font-mono">{{ nc.ncNumber }}</span>
+      <template v-if="nc.typeId"> · <NcTypeBadgeById :typeId="nc.typeId" /></template>
+      <template v-if="nc.detectedAt"> · Detected {{ nc.detectedAt.formatDate('date') }}</template>
+    </template>
+
     <template #actions>
       <div class="tw:flex tw:items-center tw:gap-2">
-        <!-- Action buttons (left): lifecycle transitions for the NC. -->
-        <BaseButton
-          v-if="isOwner && nc?.statusId === 'DRAFT'"
-          variant="primary"
-          :disabled="saving"
-          @click="openOpenDialog"
-          >Open NC</BaseButton
-        >
-        <BaseButton
-          v-if="isOwner && nc && !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId)"
-          variant="primary"
-          :disabled="!canMarkComplete || completing"
-          :title="markCompleteBlockedReason || undefined"
-          @click="openMarkCompleteDialog"
-        >
-          {{ completing ? 'Closing…' : 'Approve and Close' }}
-        </BaseButton>
-        <BaseButton
-          v-if="isOwner && nc?.statusId === 'DRAFT'"
-          variant="outline"
-          :disabled="deleting"
-          @click="showDeleteDialog = true"
-          >Delete</BaseButton
-        >
-
-        <!-- Utility buttons (right): always rightmost, parity with CAPA. -->
-        <BaseButton v-if="nc?.id" variant="secondary" @click="openPrintView">
-          <IconPrinter :size="20" class="tw:mr-1" />
-          Print
-        </BaseButton>
-        <BaseButton v-if="nc?.id" variant="secondary" @click="showAuditLog = true">
-          <IconClipboardList :size="20" class="tw:mr-1" />
-          Audit Log
-        </BaseButton>
+        <DetailActionBar :actions="ncActions" />
         <AskAiButton
           v-if="nc?.id"
           entityType="Nonconformance"
@@ -494,23 +530,6 @@ function onCreateLinkedChangeRequest() {
     <template v-if="nc">
       <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
         <RecordTrailBreadcrumb />
-        <!-- QC inspection origin — this NC was auto-raised by a rejected lot -->
-        <div
-          v-if="sourceLot"
-          class="tw:bg-blue-50 tw:border tw:border-blue-200 tw:rounded-lg tw:px-4 tw:py-2.5 tw:text-sm tw:flex tw:items-center tw:gap-2 tw:flex-wrap"
-        >
-          <span class="tw:text-blue-900">
-            Raised from rejected QC inspection lot
-            <span class="tw:font-mono tw:font-semibold">{{ sourceLot.lotNumber }}</span>
-            ({{ sourceLot.inspectionPoint }})
-          </span>
-          <RouterLink
-            :to="getCompanyPath(`/qc-inspection/lots/${sourceLot.id}`)"
-            class="tw:text-blue-700 tw:font-medium tw:underline"
-          >
-            View inspection results
-          </RouterLink>
-        </div>
 
         <!-- 2-column layout -->
         <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[65fr_16fr] tw:gap-4 tw:items-start">
@@ -540,24 +559,6 @@ function onCreateLinkedChangeRequest() {
                   Internal
                 </span>
               </div>
-              <BaseTextInput
-                v-if="editingTitle && isEditable"
-                v-model="nc.title"
-                placeholder="NC title"
-                autofocus
-                class="tw:mb-2"
-                @blur="editingTitle = false"
-              />
-              <BaseClickableRow
-                v-else
-                class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
-                :class="isEditable ? 'tw:hover:text-primary' : ''"
-                :disabled="!isEditable"
-                aria-label="Edit NC title"
-                @click="editingTitle = true"
-              >
-                {{ nc.title }}
-              </BaseClickableRow>
               <BaseRichTextField
                 v-model="nc.description"
                 :editable="isEditable"
@@ -1363,5 +1364,5 @@ function onCreateLinkedChangeRequest() {
         </BaseButton>
       </div>
     </BaseDialog>
-  </BaseDetailPage>
+  </BaseDetailLayout>
 </template>
