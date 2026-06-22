@@ -1,4 +1,5 @@
 <script setup>
+import { buildDocumentBanners, buildDocumentSections, buildDocumentActions } from './documentDetailConfig.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { useDocuments } from '@/composables/useDocuments.js'
@@ -377,18 +378,79 @@ async function handleNewVersionConfirm(changeControl) {
 
   selectedVersion.value = await create()
 }
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const loading = computed(() => document.value === undefined)
+
+const documentBanners = computed(() =>
+  buildDocumentBanners(document.value, { isArchived: document.value?.statusId === 'ARCHIVED' }),
+)
+const documentActions = computed(() =>
+  buildDocumentActions(
+    {
+      canCreate: canCreate.value,
+      canSubmitForReview: canSubmitForReview.value,
+      canCancelReview: canCancelReview.value,
+      canSetEffective: canSetEffective.value,
+      canShowWorkflow:
+        selectedVersion.value?.statusId === 'IN_REVIEW' &&
+        canEdit.value &&
+        selectedVersion.value?.workflowInstanceId,
+      canEdit: canEdit.value,
+      canDelete: canDelete.value,
+      canDeleteVersion: canDelete.value && selectedVersion.value?.statusId === 'DRAFT',
+      selectedVersionStatusId: selectedVersion.value?.statusId,
+    },
+    {
+      createDraft: openNewVersionDialog,
+      submitForReview: handleSubmitForReview,
+      cancelReview: handleCancelReview,
+      setEffective: handleSetEffective,
+      showWorkflow() {
+        router.push(
+          getCompanyPath(`/workflow-instances/${selectedVersion.value.workflowInstanceId}`),
+        )
+      },
+      print: openPrintView,
+      reports: handleReports,
+      revisionHistory() {
+        showRevisionHistory.value = true
+      },
+      auditLog() {
+        showAuditLog.value = true
+      },
+      export: handleExport,
+      discussion() {
+        showMessages.value = true
+      },
+      deleteVersion: handleDeleteVersion,
+      archiveDocument: handleDeleteDocument,
+    },
+  ),
+)
+const documentDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: [
+      { label: 'Documents', to: getCompanyPath('/documents') },
+      { label: document.value?.docNumber || document.value?.title || 'Loading…' },
+    ],
+    banners: () => documentBanners.value,
+    actions: documentActions.value,
+    sections: buildDocumentSections(document.value),
+  }),
+)
 </script>
 
 <template>
-  <!-- Issue #3 fix: drop the min-h-screen — it forced the inner column to
-       be at least 100vh tall, which interacted with the sticky toolbar and
-       could make the document body unreachable on shorter viewports. The
-       App.vue overflow-auto wrapper already owns the scroll. -->
-  <BaseDetailPage
-    :icon="IconFileDescription"
-    :loading="!document"
-    width="standard"
-    :fullHeight="false"
+  <BaseDetailLayout
+    :config="documentDetailConfig"
+    :record="document"
+    :loading="loading"
+    :notFound="!loading && !document"
+    notFoundTitle="Document not found"
+    notFoundDescription="This document could not be found."
   >
     <template #title>
       <span v-if="document">
@@ -399,180 +461,182 @@ async function handleNewVersionConfirm(changeControl) {
       </span>
     </template>
 
-    <!-- Main Content -->
-    <div class="tw:flex tw:flex-col">
-      <!-- Toolbar Section -->
-      <div class="tw:bg-sidebar tw:border-b tw:border-divider tw:sticky tw:top-0 tw:z-raised">
-        <div class="tw:py-4 tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-4">
-          <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-3">
-            <AskAiButton
-              v-if="document?.id"
-              entityType="Document"
-              :entityId="document.id"
-              :entityTitle="document.title"
-              :entityNumber="document.docNumber"
-            />
-            <button
-              v-if="selectedVersion?.id"
-              class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
-              title="AI-generated summary of this version"
-              @click="showAiSummary = true"
-            >
-              <IconSparkles :size="13" />
-              Summarize
-            </button>
-            <button
-              v-if="canShowAiDiff"
-              class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
-              :title="`Explain what changed since v${versionLabelFor(aiDiffFromVersion)}`"
-              @click="showAiDiff = true"
-            >
-              <IconGitCompare :size="13" />
-              What changed
-            </button>
-            <TaskActionBar
-              v-if="selectedVersion?.id"
-              entityType="DocumentVersion"
-              :entityId="selectedVersion.id"
-            />
+    <template #status>
+      <DocumentsStatusBadge v-if="document" :statusId="document.statusId" />
+    </template>
 
-            <BaseButton v-if="canCreate" @click="openNewVersionDialog">
-              <IconNotes :size="20" class="tw:mr-1" />
-              Create New Draft
-            </BaseButton>
+    <template v-if="document?.docNumber" #meta>
+      <span class="tw:font-mono">{{ document.docNumber }}</span>
+    </template>
 
-            <BaseButton v-if="canSubmitForReview" @click="handleSubmitForReview">
-              <IconSend :size="20" class="tw:mr-1" />
-              Submit For Review
-            </BaseButton>
+    <template #actions>
+      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-3">
+        <AskAiButton
+          v-if="document?.id"
+          entityType="Document"
+          :entityId="document.id"
+          :entityTitle="document.title"
+          :entityNumber="document.docNumber"
+        />
+        <button
+          v-if="selectedVersion?.id"
+          class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
+          title="AI-generated summary of this version"
+          @click="showAiSummary = true"
+        >
+          <IconSparkles :size="13" />
+          Summarize
+        </button>
+        <button
+          v-if="canShowAiDiff"
+          class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
+          :title="`Explain what changed since v${versionLabelFor(aiDiffFromVersion)}`"
+          @click="showAiDiff = true"
+        >
+          <IconGitCompare :size="13" />
+          What changed
+        </button>
+        <TaskActionBar
+          v-if="selectedVersion?.id"
+          entityType="DocumentVersion"
+          :entityId="selectedVersion.id"
+        />
 
-            <BaseButton v-if="canCancelReview" variant="danger" @click="handleCancelReview">
-              <IconX :size="20" class="tw:mr-1" />
-              Cancel Review
-            </BaseButton>
+        <BaseButton v-if="canCreate" @click="openNewVersionDialog">
+          <IconNotes :size="20" class="tw:mr-1" />
+          Create New Draft
+        </BaseButton>
 
-            <BaseButton v-if="canSetEffective" @click="handleSetEffective">
-              <IconChecks :size="20" class="tw:mr-1" />
-              Set Effective
-            </BaseButton>
+        <BaseButton v-if="canSubmitForReview" @click="handleSubmitForReview">
+          <IconSend :size="20" class="tw:mr-1" />
+          Submit For Review
+        </BaseButton>
 
-            <BaseButton
-              v-if="
-                selectedVersion?.statusId === 'IN_REVIEW' &&
-                canEdit &&
-                selectedVersion.workflowInstanceId
-              "
-              variant="outline"
-              @click="
-                router.push(
-                  getCompanyPath(`/workflow-instances/${selectedVersion.workflowInstanceId}`),
-                )
-              "
-            >
-              Show Workflow
-            </BaseButton>
+        <BaseButton v-if="canCancelReview" variant="danger" @click="handleCancelReview">
+          <IconX :size="20" class="tw:mr-1" />
+          Cancel Review
+        </BaseButton>
 
-            <!-- Version Selector -->
-            <div class="tw:relative">
-              <BasePopover placement="bottom-start">
-                <template #button>
-                  <BaseButton variant="outline">
-                    Version: {{ versionLabel }} ({{ selectedVersion?.statusId }})
-                    <IconChevronDown :size="16" class="tw:ml-1" />
-                  </BaseButton>
-                </template>
-                <template #content="{ close }">
-                  <div class="tw:flex tw:flex-col tw:py-1 tw:min-w-48">
-                    <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:px-3 tw:py-1">
-                      Document History
-                    </div>
-                    <button
-                      v-for="version in versions"
-                      :key="version.id"
-                      class="tw:flex tw:w-full tw:items-start tw:px-3 tw:py-2 tw:text-sm tw:hover:bg-main-hover"
-                      :class="
-                        version.id === selectedVersion?.id
-                          ? 'tw:text-primary tw:font-semibold'
-                          : 'tw:text-on-sidebar'
-                      "
-                      @click="
-                        () => {
-                          selectVersion(version)
-                          close()
-                        }
-                      "
-                    >
-                      Version
-                      {{
-                        version.versionLabel || `${version.versionMajor}.${version.versionMinor}`
-                      }}
-                      <span
-                        v-if="version.statusId === 'EFFECTIVE'"
-                        class="tw:text-primary tw:font-bold tw:ml-1"
-                      >
-                        (Current)
-                      </span>
-                      <span
-                        v-else-if="version.statusId === 'DRAFT'"
-                        class="tw:text-secondary tw:ml-1"
-                      >
-                        (Draft)
-                      </span>
-                    </button>
-                  </div>
-                </template>
-              </BasePopover>
-            </div>
+        <BaseButton v-if="canSetEffective" @click="handleSetEffective">
+          <IconChecks :size="20" class="tw:mr-1" />
+          Set Effective
+        </BaseButton>
 
-            <div class="tw:h-6 tw:w-px tw:bg-divider tw:mx-2"></div>
+        <BaseButton
+          v-if="
+            selectedVersion?.statusId === 'IN_REVIEW' &&
+            canEdit &&
+            selectedVersion.workflowInstanceId
+          "
+          variant="outline"
+          @click="
+            router.push(
+              getCompanyPath(`/workflow-instances/${selectedVersion.workflowInstanceId}`),
+            )
+          "
+        >
+          Show Workflow
+        </BaseButton>
 
-            <BaseButton variant="secondary" @click="handleReports">
-              <IconChartBar :size="20" class="tw:mr-1" />
-              Reports
-            </BaseButton>
-
-            <BaseButton variant="secondary" @click="openPrintView">
-              <IconPrinter :size="20" class="tw:mr-1" />
-              Print
-            </BaseButton>
-
-            <BaseButton variant="secondary" @click="showRevisionHistory = true">
-              <IconHistory :size="20" class="tw:mr-1" />
-              Revision History
-            </BaseButton>
-
-            <BaseButton variant="secondary" @click="showAuditLog = true">
-              <IconClipboardList :size="20" class="tw:mr-1" />
-              Audit Log
-            </BaseButton>
-
-            <BaseButton variant="secondary" @click="handleExport">
-              <IconFileDescription :size="20" class="tw:mr-1" />
-              Export
-            </BaseButton>
-
-            <BaseButton variant="secondary" @click="showMessages = true">
-              <IconMessage :size="20" class="tw:mr-1" />
-              Discussion
-            </BaseButton>
-          </div>
-
-          <div class="tw:flex tw:items-center tw:gap-2">
-            <BaseMenu
-              v-if="document.statusId !== 'ARCHIVED' && (canEdit || canDelete)"
-              :items="moreActionsItems"
-            >
-              <template #trigger>
-                <BaseButton variant="outline">
-                  More Actions
-                  <IconChevronDown :size="16" class="tw:ml-1" />
-                </BaseButton>
-              </template>
-            </BaseMenu>
-          </div>
+        <!-- Version Selector -->
+        <div class="tw:relative">
+          <BasePopover placement="bottom-start">
+            <template #button>
+              <BaseButton variant="outline">
+                Version: {{ versionLabel }} ({{ selectedVersion?.statusId }})
+                <IconChevronDown :size="16" class="tw:ml-1" />
+              </BaseButton>
+            </template>
+            <template #content="{ close }">
+              <div class="tw:flex tw:flex-col tw:py-1 tw:min-w-48">
+                <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:px-3 tw:py-1">
+                  Document History
+                </div>
+                <button
+                  v-for="version in versions"
+                  :key="version.id"
+                  class="tw:flex tw:w-full tw:items-start tw:px-3 tw:py-2 tw:text-sm tw:hover:bg-main-hover"
+                  :class="
+                    version.id === selectedVersion?.id
+                      ? 'tw:text-primary tw:font-semibold'
+                      : 'tw:text-on-sidebar'
+                  "
+                  @click="
+                    () => {
+                      selectVersion(version)
+                      close()
+                    }
+                  "
+                >
+                  Version
+                  {{
+                    version.versionLabel || `${version.versionMajor}.${version.versionMinor}`
+                  }}
+                  <span
+                    v-if="version.statusId === 'EFFECTIVE'"
+                    class="tw:text-primary tw:font-bold tw:ml-1"
+                  >
+                    (Current)
+                  </span>
+                  <span
+                    v-else-if="version.statusId === 'DRAFT'"
+                    class="tw:text-secondary tw:ml-1"
+                  >
+                    (Draft)
+                  </span>
+                </button>
+              </div>
+            </template>
+          </BasePopover>
         </div>
-      </div>
 
+        <div class="tw:h-6 tw:w-px tw:bg-divider tw:mx-2"></div>
+
+        <BaseButton variant="secondary" @click="handleReports">
+          <IconChartBar :size="20" class="tw:mr-1" />
+          Reports
+        </BaseButton>
+
+        <BaseButton variant="secondary" @click="openPrintView">
+          <IconPrinter :size="20" class="tw:mr-1" />
+          Print
+        </BaseButton>
+
+        <BaseButton variant="secondary" @click="showRevisionHistory = true">
+          <IconHistory :size="20" class="tw:mr-1" />
+          Revision History
+        </BaseButton>
+
+        <BaseButton variant="secondary" @click="showAuditLog = true">
+          <IconClipboardList :size="20" class="tw:mr-1" />
+          Audit Log
+        </BaseButton>
+
+        <BaseButton variant="secondary" @click="handleExport">
+          <IconFileDescription :size="20" class="tw:mr-1" />
+          Export
+        </BaseButton>
+
+        <BaseButton variant="secondary" @click="showMessages = true">
+          <IconMessage :size="20" class="tw:mr-1" />
+          Discussion
+        </BaseButton>
+
+        <BaseMenu
+          v-if="document && document.statusId !== 'ARCHIVED' && (canEdit || canDelete)"
+          :items="moreActionsItems"
+        >
+          <template #trigger>
+            <BaseButton variant="outline">
+              More Actions
+              <IconChevronDown :size="16" class="tw:ml-1" />
+            </BaseButton>
+          </template>
+        </BaseMenu>
+      </div>
+    </template>
+
+    <template v-if="document" #section-content>
       <!-- Main Content Grid -->
       <DocumentsMainContent
         :documentId="props.id"
@@ -585,59 +649,61 @@ async function handleNewVersionConfirm(changeControl) {
       <!-- Read-only access panel — populated by workflow-step assignment
            via autoShareSupplierUsers. See SharedWithPanel.vue header. -->
       <SharedWithPanel entityType="Document" :entityId="props.id" />
+    </template>
+  </BaseDetailLayout>
 
-      <!-- Messages Drawer -->
-      <DocumentsMessages v-model="showMessages" :documentId="props.id" />
+  <!-- ─── Dialogs (siblings after </BaseDetailLayout>) ──────────────── -->
 
-      <DocumentWorkflowPreviewDialog
-        v-model="showPreviewDialog"
-        :documentId="props.id"
-        :versionId="selectedVersion?.id"
-      />
+  <!-- Messages Drawer -->
+  <DocumentsMessages v-model="showMessages" :documentId="props.id" />
 
-      <!-- Audit Log Dialog — covers the Document plus its Versions, Sections, and Links -->
-      <AuditLogDialog
-        v-model="showAuditLog"
-        :includeEntities="auditIncludeEntities"
-        :title="`Audit Log — ${document?.title ?? 'Document'}`"
-      />
+  <DocumentWorkflowPreviewDialog
+    v-model="showPreviewDialog"
+    :documentId="props.id"
+    :versionId="selectedVersion?.id"
+  />
 
-      <!-- Revision History — version-by-version change control + approval chain -->
-      <DocumentRevisionHistoryDialog
-        v-model="showRevisionHistory"
-        :documentId="props.id"
-        :documentTitle="document?.title ?? ''"
-      />
+  <!-- Audit Log Dialog — covers the Document plus its Versions, Sections, and Links -->
+  <AuditLogDialog
+    v-model="showAuditLog"
+    :includeEntities="auditIncludeEntities"
+    :title="`Audit Log — ${document?.title ?? 'Document'}`"
+  />
 
-      <!-- Obsoletion (archive with required reason) -->
-      <DocumentObsoletionDialog
-        v-model="showObsoletionDialog"
-        :document="document"
-        :documentTitle="document?.title ?? ''"
-        :documentNumber="document?.docNumber ?? ''"
-        @archived="handleArchived"
-      />
+  <!-- Revision History — version-by-version change control + approval chain -->
+  <DocumentRevisionHistoryDialog
+    v-model="showRevisionHistory"
+    :documentId="props.id"
+    :documentTitle="document?.title ?? ''"
+  />
 
-      <!-- AI generation dialogs (Phase 4) -->
-      <DocumentSummaryDialog
-        v-model="showAiSummary"
-        :versionId="selectedVersion?.id"
-        :documentTitle="`${document?.title ?? 'Document'} v${versionLabelFor(selectedVersion)}`"
-      />
-      <DocumentDiffSummaryDialog
-        v-model="showAiDiff"
-        :fromVersionId="aiDiffFromVersion?.id"
-        :toVersionId="selectedVersion?.id"
-        :fromLabel="versionLabelFor(aiDiffFromVersion)"
-        :toLabel="versionLabelFor(selectedVersion)"
-      />
-      <DocumentsNewVersionDialog
-        v-model="showNewVersionDialog"
-        :baselineSections="baselineSections"
-        :nextVersionLabel="nextVersionLabel"
-        :fromVersionLabel="fromVersionLabel"
-        @confirm="handleNewVersionConfirm"
-      />
-    </div>
-  </BaseDetailPage>
+  <!-- Obsoletion (archive with required reason) -->
+  <DocumentObsoletionDialog
+    v-model="showObsoletionDialog"
+    :document="document"
+    :documentTitle="document?.title ?? ''"
+    :documentNumber="document?.docNumber ?? ''"
+    @archived="handleArchived"
+  />
+
+  <!-- AI generation dialogs (Phase 4) -->
+  <DocumentSummaryDialog
+    v-model="showAiSummary"
+    :versionId="selectedVersion?.id"
+    :documentTitle="`${document?.title ?? 'Document'} v${versionLabelFor(selectedVersion)}`"
+  />
+  <DocumentDiffSummaryDialog
+    v-model="showAiDiff"
+    :fromVersionId="aiDiffFromVersion?.id"
+    :toVersionId="selectedVersion?.id"
+    :fromLabel="versionLabelFor(aiDiffFromVersion)"
+    :toLabel="versionLabelFor(selectedVersion)"
+  />
+  <DocumentsNewVersionDialog
+    v-model="showNewVersionDialog"
+    :baselineSections="baselineSections"
+    :nextVersionLabel="nextVersionLabel"
+    :fromVersionLabel="fromVersionLabel"
+    @confirm="handleNewVersionConfirm"
+  />
 </template>
