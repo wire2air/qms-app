@@ -12,6 +12,7 @@ import {
   IconFlag,
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { matchesDateFilter } from '@/utils/dateRanges.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { refetchSyncRecord } from '@/utils/syncEngineRefresh.js'
 import { post } from '@/api'
@@ -91,10 +92,8 @@ onMounted(() => {
   }
 })
 
-// Single object so the new BaseDateRangeInput can drive both bounds
-// from one v-model. Empty strings = unbounded on that side, matching
-// the previous fromDate/toDate semantics.
-const dateRange = ref({ from: '', to: '' })
+// { start, end } ISO strings — empty string = unbounded on that side.
+const dateRange = ref({ start: '', end: '' })
 // Filter toggle — when true, only rows with at least one OPEN flag
 // (resolvedAt IS NULL) stay in view.
 const flaggedOnly = ref(false)
@@ -135,13 +134,13 @@ const records = useLiveQueryWithDeps(
     () => scope.value,
     () => statusFilter.value,
     () => formTemplateFilter.value,
-    () => dateRange.value.from,
-    () => dateRange.value.to,
+    () => dateRange.value.start,
+    () => dateRange.value.end,
     () => supervisedIds.value,
     () => flaggedOnly.value,
     () => openFlagsByRecordId.value,
   ],
-  async (db, [uid, scopeVal, status, logBookId, from, to, supIds, flaggedOnlyVal, flagMap]) => {
+  async (db, [uid, scopeVal, status, logBookId, start, end, supIds, flaggedOnlyVal, flagMap]) => {
     let rows = await db.FieldRecord.where().exec()
     if (scopeVal === 'mine' && uid) {
       rows = rows.filter((r) => r.submittedByUserId === uid)
@@ -158,13 +157,14 @@ const records = useLiveQueryWithDeps(
     if (logBookId !== 'all') {
       rows = rows.filter((r) => r.logBookId === logBookId)
     }
-    if (from) {
-      const fromMs = DateTime.fromISO(from).startOf('day').toMillis()
-      rows = rows.filter((r) => (r.submittedAt?.toMillis?.() ?? 0) >= fromMs)
-    }
-    if (to) {
-      const toMs = DateTime.fromISO(to).endOf('day').toMillis()
-      rows = rows.filter((r) => (r.submittedAt?.toMillis?.() ?? 0) <= toMs)
+    if (start || end) {
+      rows = rows.filter((r) =>
+        matchesDateFilter(r.submittedAt, {
+          operator: 'between',
+          value: start || null,
+          value2: end || null,
+        }),
+      )
     }
     if (flaggedOnlyVal) {
       rows = rows.filter((r) => (flagMap?.get?.(r.id) ?? 0) > 0)
@@ -497,8 +497,8 @@ function printList() {
     module: 'LogBook',
     templateId: selectedTemplate.value.id,
   })
-  if (dateRange.value.from) params.set('from', dateRange.value.from)
-  if (dateRange.value.to) params.set('to', dateRange.value.to)
+  if (dateRange.value.start) params.set('from', dateRange.value.start)
+  if (dateRange.value.end) params.set('to', dateRange.value.end)
   const cols = visibleColumns.value.map((c) => c.name).join(',')
   if (cols) params.set('cols', cols)
   const url = getCompanyPath(`/print?${params.toString()}`)
@@ -569,7 +569,7 @@ function printList() {
       </button>
       <div class="tw:flex tw:items-center tw:gap-2">
         <span class="tw:text-xs tw:text-secondary">Submitted</span>
-        <BaseDateRangeInput v-model="dateRange" />
+        <BaseDateField v-model="dateRange" mode="range" valueFormat="iso" clearable placeholder="All time" />
       </div>
 
       <!-- Right-aligned actions: column picker + print + export.
