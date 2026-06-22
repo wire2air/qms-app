@@ -202,3 +202,33 @@ describe('BaseDateField (range + multiple + presets)', () => {
     expect(lastValue.start.toMillis()).toBeLessThanOrEqual(lastValue.end.toMillis())
   })
 })
+
+describe('BaseDateField (time / datetime)', () => {
+  it('time mode renders hour/minute/meridiem selects and emits a DateTime', async () => {
+    const w = mountField({ mode: 'time', modelValue: null })
+    await w.get('button').trigger('click')
+    await nextTick()
+    const selects = document.body.querySelectorAll('[data-date-panel] select')
+    expect(selects.length).toBe(3) // hours, minutes, am/pm
+    selects[0].value = '9'
+    selects[0].dispatchEvent(new Event('change'))
+    await nextTick()
+    const v = w.emitted('update:modelValue').at(-1)[0]
+    expect(DateTime.isDateTime(v)).toBe(true)
+    expect(v.hour).toBe(9)
+  })
+
+  it('datetime mode keeps the day and updates the time', async () => {
+    const day = DateTime.fromISO('2026-06-15T00:00')
+    const w = mountField({ mode: 'datetime', modelValue: day })
+    await w.get('button').trigger('click')
+    await nextTick()
+    const selects = document.body.querySelectorAll('[data-date-panel] select')
+    selects[0].value = '10'
+    selects[0].dispatchEvent(new Event('change'))
+    await nextTick()
+    const v = w.emitted('update:modelValue').at(-1)[0]
+    expect(v.toISODate()).toBe('2026-06-15')
+    expect(v.hour).toBe(10)
+  })
+})

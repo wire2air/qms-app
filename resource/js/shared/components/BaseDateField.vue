@@ -109,20 +109,41 @@ function close() {
 }
 
 function onCalendarUpdate(v) {
-  // Single/datetime/month/year → DateTime; range → {start,end}; multiple → array
   if (props.mode === 'range' || props.multiple) {
     model.value = v
+  } else if (props.mode === 'datetime') {
+    const base = internal.value
+    const merged = base ? v.set({ hour: base.hour, minute: base.minute }) : v
+    commit(merged)
   } else {
     commit(v)
   }
   emit('change', model.value)
-  // Close on a completed single pick (range closes only when both ends set).
   if (props.mode === 'range') {
     if (v?.start && v?.end) close()
   } else if (!props.multiple && props.mode !== 'datetime' && props.mode !== 'time') {
     close()
   }
 }
+
+// --- time-of-day editing ---
+const timeBase = computed(() => internal.value || DateTime.now().startOf('day'))
+const hour12 = computed(() => {
+  const h = timeBase.value.hour % 12
+  return h === 0 ? 12 : h
+})
+const minute = computed(() => timeBase.value.minute - (timeBase.value.minute % 5))
+const meridiem = computed(() => (timeBase.value.hour < 12 ? 'am' : 'pm'))
+
+function setTime({ h12 = hour12.value, m = minute.value, mer = meridiem.value }) {
+  let h = Number(h12) % 12
+  if (mer === 'pm') h += 12
+  const next = timeBase.value.set({ hour: h, minute: Number(m), second: 0, millisecond: 0 })
+  commit(next)
+  emit('change', model.value)
+}
+const HOURS = Array.from({ length: 12 }, (_, i) => i + 1)
+const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5)
 
 function pickPreset(preset) {
   const r = resolvePreset(preset.id)
@@ -279,6 +300,37 @@ onBeforeUnmount(() => {
               class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-transparent tw:px-2 tw:py-1 tw:text-sm tw:outline-none tw:focus:border-primary"
               @change="onManualInput"
             />
+          </div>
+
+          <!-- time panel (time + datetime modes) -->
+          <div
+            v-if="mode === 'time' || mode === 'datetime'"
+            class="tw:flex tw:items-center tw:gap-1 tw:border-t tw:border-divider tw:p-2"
+          >
+            <IconClock :size="16" class="tw:text-secondary" />
+            <select
+              :value="hour12"
+              class="tw:rounded tw:border tw:border-divider tw:bg-transparent tw:px-1 tw:py-0.5 tw:text-sm"
+              @change="(e) => setTime({ h12: e.target.value })"
+            >
+              <option v-for="h in HOURS" :key="h" :value="h">{{ h }}</option>
+            </select>
+            <span class="tw:text-secondary">:</span>
+            <select
+              :value="minute"
+              class="tw:rounded tw:border tw:border-divider tw:bg-transparent tw:px-1 tw:py-0.5 tw:text-sm"
+              @change="(e) => setTime({ m: e.target.value })"
+            >
+              <option v-for="m in MINUTES" :key="m" :value="m">{{ String(m).padStart(2, '0') }}</option>
+            </select>
+            <select
+              :value="meridiem"
+              class="tw:rounded tw:border tw:border-divider tw:bg-transparent tw:px-1 tw:py-0.5 tw:text-sm"
+              @change="(e) => setTime({ mer: e.target.value })"
+            >
+              <option value="am">am</option>
+              <option value="pm">pm</option>
+            </select>
           </div>
         </div>
       </div>
