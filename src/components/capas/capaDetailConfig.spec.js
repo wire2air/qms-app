@@ -141,7 +141,7 @@ describe('buildCapaActions', () => {
     let opened = false
     const a = buildCapaActions(
       { isOwner: true, statusId: 'DRAFT', canClose: false, closeDisabledReason: '', canCreateChangeRequest: false, saving: false },
-      { ...handlers, openOpen: () => { opened = true } },
+      { ...handlers, openOpen() { opened = true } },
     )
     a.find((x) => x.id === 'open').onSelect()
     expect(opened).toBe(true)
@@ -161,5 +161,25 @@ describe('buildCapaActions', () => {
       handlers,
     )
     expect(a.find((x) => x.id === 'createCr').visible).toBe(false)
+  })
+
+  it('close action is disabled and loading while closing is true', () => {
+    const a = buildCapaActions(
+      { isOwner: true, statusId: 'PENDING', canClose: true, closeDisabledReason: '', canCreateChangeRequest: false, saving: false, closing: true },
+      handlers,
+    )
+    const close = a.find((x) => x.id === 'close')
+    expect(close.disabled).toBe(true)
+    expect(close.loading).toBe(true)
+  })
+
+  it('cancel action is disabled and loading while cancelling is true', () => {
+    const a = buildCapaActions(
+      { isOwner: true, statusId: 'PENDING', canClose: true, closeDisabledReason: '', canCreateChangeRequest: false, saving: false, cancelling: true },
+      handlers,
+    )
+    const cancel = a.find((x) => x.id === 'cancel')
+    expect(cancel.disabled).toBe(true)
+    expect(cancel.loading).toBe(true)
   })
 })

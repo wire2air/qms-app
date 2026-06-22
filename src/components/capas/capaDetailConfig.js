@@ -38,7 +38,7 @@ export function buildCapaSections(_capa) {
 
 /** Header action descriptors (SP-6). gates = resolved booleans/strings; handlers = callbacks. */
 export function buildCapaActions(gates = {}, handlers = {}) {
-  const { isOwner, statusId, canClose, closeDisabledReason, canCreateChangeRequest, saving } = gates
+  const { isOwner, statusId, canClose, closeDisabledReason, canCreateChangeRequest, saving, closing, cancelling } = gates
   return [
     {
       id: 'open',
@@ -56,7 +56,8 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       variant: 'primary',
       priority: 100,
       visible: !!isOwner && statusId === 'PENDING',
-      disabled: !canClose,
+      disabled: !canClose || !!closing,
+      loading: !!closing,
       title: closeDisabledReason || undefined,
       onSelect: handlers.openClose,
     },
@@ -66,6 +67,8 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       variant: 'secondary',
       priority: 60,
       visible: !!isOwner && statusId === 'PENDING',
+      disabled: !!cancelling,
+      loading: !!cancelling,
       onSelect: handlers.openCancel,
     },
     {

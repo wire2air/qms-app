@@ -370,6 +370,8 @@ const capaActions = computed(() =>
       closeDisabledReason: closeDisabledReason.value,
       canCreateChangeRequest: canCreateChangeRequest.value,
       saving: saving.value,
+      closing: closing.value,
+      cancelling: cancelling.value,
     },
     {
       openOpen: openOpenDialog,
@@ -646,7 +648,6 @@ const capaDetailConfig = computed(() =>
       <BaseRailCard v-if="workflow && workflowVersion" title="Related">
         <!-- Workflow template card -->
         <RouterLink
-          v-if="workflow && workflowVersion"
           :to="
             getCompanyPath(
               `/workflow-templates/${workflow.id}?version=${encodeURIComponent(
