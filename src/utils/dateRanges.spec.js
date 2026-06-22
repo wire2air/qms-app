@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { DateTime } from 'luxon'
-import { PRESETS, resolvePreset } from './dateRanges.js'
+import { PRESETS, resolvePreset, resolveRelative, resolveDateFilter, matchesDateFilter, OPERATORS } from './dateRanges.js'
 
 const NOW = DateTime.fromISO('2026-06-22T15:30:00') // a Monday
 
@@ -51,5 +51,66 @@ describe('resolvePreset', () => {
     const { start, end } = resolvePreset('yesterday', NOW)
     expect(start.toISODate()).toBe('2026-06-21')
     expect(end.toISODate()).toBe('2026-06-21')
+  })
+})
+
+describe('resolveRelative', () => {
+  it('past 7 days ends today, starts 6 days earlier', () => {
+    const { start, end } = resolveRelative({ dir: 'past', unit: 'day', count: 7 }, NOW)
+    expect(start.toISODate()).toBe('2026-06-16')
+    expect(end.toISODate()).toBe('2026-06-22')
+  })
+  it('next 3 days starts today, ends 2 days later', () => {
+    const { start, end } = resolveRelative({ dir: 'next', unit: 'day', count: 3 }, NOW)
+    expect(start.toISODate()).toBe('2026-06-22')
+    expect(end.toISODate()).toBe('2026-06-24')
+  })
+  it('this month maps to the calendar month', () => {
+    const { start, end } = resolveRelative({ dir: 'this', unit: 'month' }, NOW)
+    expect(start.toISODate()).toBe('2026-06-01')
+    expect(end.toISODate()).toBe('2026-06-30')
+  })
+})
+
+describe('matchesDateFilter', () => {
+  const at = (iso) => DateTime.fromISO(iso)
+  it('before is exclusive of the boundary day', () => {
+    const token = { operator: 'before', value: '2026-06-22' }
+    expect(matchesDateFilter(at('2026-06-21T23:00'), token, NOW)).toBe(true)
+    expect(matchesDateFilter(at('2026-06-22T01:00'), token, NOW)).toBe(false)
+  })
+  it('onOrAfter includes the boundary day', () => {
+    const token = { operator: 'onAfter', value: '2026-06-22' }
+    expect(matchesDateFilter(at('2026-06-22T00:00'), token, NOW)).toBe(true)
+    expect(matchesDateFilter(at('2026-06-21T23:00'), token, NOW)).toBe(false)
+  })
+  it('between is inclusive on both ends', () => {
+    const token = { operator: 'between', value: '2026-06-10', value2: '2026-06-20' }
+    expect(matchesDateFilter(at('2026-06-10T00:00'), token, NOW)).toBe(true)
+    expect(matchesDateFilter(at('2026-06-20T23:00'), token, NOW)).toBe(true)
+    expect(matchesDateFilter(at('2026-06-21T00:00'), token, NOW)).toBe(false)
+  })
+  it('empty / notEmpty test presence', () => {
+    expect(matchesDateFilter(null, { operator: 'empty' }, NOW)).toBe(true)
+    expect(matchesDateFilter(at('2026-06-10'), { operator: 'empty' }, NOW)).toBe(false)
+    expect(matchesDateFilter(at('2026-06-10'), { operator: 'notEmpty' }, NOW)).toBe(true)
+  })
+  it('relative re-evaluates against now', () => {
+    const token = { operator: 'relative', relative: { dir: 'past', unit: 'day', count: 7 } }
+    expect(matchesDateFilter(at('2026-06-18'), token, NOW)).toBe(true)
+    expect(matchesDateFilter(at('2026-06-01'), token, NOW)).toBe(false)
+  })
+  it('no operator matches everything (acts as no-op)', () => {
+    expect(matchesDateFilter(at('2026-06-10'), null, NOW)).toBe(true)
+    expect(matchesDateFilter(at('2026-06-10'), {}, NOW)).toBe(true)
+  })
+})
+
+describe('OPERATORS', () => {
+  it('lists the full operator set', () => {
+    expect(OPERATORS.map((o) => o.id)).toEqual([
+      'eq', 'neq', 'before', 'after', 'onBefore', 'onAfter',
+      'between', 'notBetween', 'empty', 'notEmpty', 'relative',
+    ])
   })
 })
