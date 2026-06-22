@@ -506,6 +506,7 @@ const ncDetailConfig = computed(() =>
 
     <template #status>
       <NcStatusBadgeById v-if="nc" :statusId="nc.statusId" />
+      <NcSeverityBadgeById v-if="nc?.severityId" :severityId="nc.severityId" />
     </template>
 
     <template v-if="nc" #meta>
