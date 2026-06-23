@@ -1,16 +1,12 @@
 <script setup>
-import {
-  IconBook,
-  IconChevronRight,
-  IconRocket,
-  IconArchive,
-  IconCircleCheck,
-  IconTrash,
-  IconArrowBackUp,
-  IconLayoutGrid,
-} from '@tabler/icons-vue'
+import { IconCircleCheck, IconTrash } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import {
+  buildTrainingBanners,
+  buildTrainingSections,
+  buildTrainingActions,
+} from './trainingDetailConfig.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -134,89 +130,83 @@ const tabs = [
   { value: 'assignees', label: 'Assignees' },
   { value: 'instances', label: 'Instances' },
 ]
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
+  { label: 'Training Library', to: getCompanyPath('/trainings') },
+  { label: training.value?.title || 'Loading…' },
+])
+const trainingBanners = computed(() => buildTrainingBanners(training.value))
+const trainingActions = computed(() =>
+  buildTrainingActions(
+    {
+      canManage: canManage.value,
+      status: training.value?.status,
+      hasManager: !!training.value?.managerId,
+      canUnpublish: canUnpublish.value,
+      actionLoading: actionLoading.value,
+    },
+    {
+      openPublish() {
+        showPublishConfirm.value = true
+      },
+      launch() {
+        showLaunchDialog.value = true
+      },
+      addMatrix() {
+        showAddMatrixDialog.value = true
+      },
+      unpublish: handleUnpublish,
+      archive: handleArchive,
+      openDelete() {
+        showDeleteConfirm.value = true
+      },
+    },
+  ),
+)
+const trainingDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => trainingBanners.value,
+    actions: trainingActions.value,
+    sections: buildTrainingSections(training.value),
+  }),
+)
 </script>
 
 <template>
-  <BaseDetailPage
+  <BaseDetailLayout
+    :config="trainingDetailConfig"
+    :record="training"
     :loading="loading"
     :notFound="!loading && !training"
     notFoundTitle="Training not found"
-    width="standard"
-    :fullHeight="false"
+    notFoundDescription="This training could not be found."
   >
     <template #title>
-      <div class="tw:flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary">
-        <RouterLink :to="getCompanyPath('/trainings')" class="tw:hover:text-primary"
-          >Training Library</RouterLink
-        >
-        <IconChevronRight :size="14" />
-        <span class="tw:text-on-sidebar tw:font-medium">{{ training?.title }}</span>
-      </div>
+      <span class="tw:text-base tw:font-semibold tw:text-on-main">{{ training?.title }}</span>
     </template>
-    <template v-if="training" #actions>
+
+    <template #status>
+      <TrainingStatusBadgeById v-if="training" :statusId="training.status" />
+    </template>
+
+    <template v-if="training && training.description" #meta>
+      {{ training.description }}
+    </template>
+
+    <template #actions>
       <div class="tw:flex tw:items-center tw:gap-2">
-        <span v-if="isSaving" class="tw:text-xs tw:text-secondary">Saving…</span>
-        <TrainingStatusBadgeById :statusId="training.status" />
-
-        <!-- DRAFT actions -->
-        <template v-if="canManage && training.status === 'DRAFT'">
-          <BaseButton
-            variant="primary"
-            :disabled="!training.managerId"
-            :title="training.managerId ? '' : 'A Training Manager is required before publishing'"
-            @click="showPublishConfirm = true"
-          >
-            <IconCircleCheck :size="16" class="tw:mr-1" /> Publish
-          </BaseButton>
-          <BaseButton
-            variant="secondary"
-            :loading="actionLoading"
-            @click="showDeleteConfirm = true"
-          >
-            <IconTrash :size="16" class="tw:mr-1" /> Delete
-          </BaseButton>
-        </template>
-
-        <!-- ACTIVE (Published) actions -->
-        <template v-if="canManage && training.status === 'ACTIVE'">
-          <BaseButton variant="primary" @click="showLaunchDialog = true">
-            <IconRocket :size="16" class="tw:mr-1" /> Launch
-          </BaseButton>
-          <BaseButton variant="secondary" @click="showAddMatrixDialog = true">
-            <IconLayoutGrid :size="16" class="tw:mr-1" /> Add to Training Matrix
-          </BaseButton>
-          <BaseButton
-            v-if="canUnpublish"
-            variant="secondary"
-            :loading="actionLoading"
-            @click="handleUnpublish"
-          >
-            <IconArrowBackUp :size="16" class="tw:mr-1" /> Unpublish
-          </BaseButton>
-          <BaseButton variant="secondary" :loading="actionLoading" @click="handleArchive">
-            <IconArchive :size="16" class="tw:mr-1" /> Archive
-          </BaseButton>
-        </template>
+        <span v-if="isSaving" class="tw:text-sm tw:text-secondary">Saving…</span>
+        <DetailActionBar :actions="trainingActions" />
       </div>
     </template>
 
-    <!-- Title -->
-    <div class="tw:flex tw:items-center tw:gap-3">
-      <div
-        class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-      >
-        <IconBook :size="20" />
-      </div>
-      <div>
-        <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ training.title }}</div>
-        <div v-if="training.description" class="tw:text-sm tw:text-secondary">
-          {{ training.description }}
-        </div>
-      </div>
-    </div>
-
-    <!-- Tabs -->
-    <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Training sections">
+    <template v-if="training" #section-details>
+      <!-- Tabs -->
+      <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Training sections">
       <div class="tw:mt-6">
         <BaseTabPanel value="details">
           <div class="tw:flex tw:flex-col tw:gap-4 tw:max-w-xl">
@@ -255,9 +245,11 @@ const tabs = [
         </BaseTabPanel>
       </div>
     </BaseTabs>
+    </template>
+  </BaseDetailLayout>
 
-    <!-- Launch dialog -->
-    <TrainingLaunchDialog
+  <!-- Launch dialog -->
+  <TrainingLaunchDialog
       v-model="showLaunchDialog"
       :trainingId="training.id"
       :trainingTitle="training.title"
@@ -312,5 +304,4 @@ const tabs = [
         </BaseDialogFooter>
       </template>
     </BaseDialog>
-  </BaseDetailPage>
 </template>

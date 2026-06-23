@@ -11,11 +11,16 @@
  * fresh; we never call .save() on the model itself because the BE
  * runs zod cross-field invariants the SyncEngine would skip.
  */
-import { IconArrowBack, IconCalendarTime, IconUsers, IconPlus, IconTrash } from '@tabler/icons-vue'
+import { IconCalendarTime, IconUsers, IconPlus, IconTrash } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPCs (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { patch, post, del } from '@/api'
+import {
+  buildAuditProgramBanners,
+  buildAuditProgramSections,
+  buildAuditProgramActions,
+} from './auditProgramDetailConfig.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -215,71 +220,99 @@ async function handleDelete() {
     deleting.value = false
   }
 }
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
+  { label: 'Audits', to: getCompanyPath('/audits?tab=programs') },
+  { label: program.value?.name || 'Loading…' },
+])
+const auditProgramBanners = computed(() => buildAuditProgramBanners(program.value))
+const auditProgramActions = computed(() =>
+  buildAuditProgramActions(
+    { canDelete: canDelete.value, deleting: deleting.value },
+    {
+      openDelete() {
+        showDeleteDialog.value = true
+      },
+    },
+  ),
+)
+const auditProgramDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => auditProgramBanners.value,
+    actions: auditProgramActions.value,
+    sections: buildAuditProgramSections(program.value),
+  }),
+)
 </script>
 
 <template>
-  <BaseDetailPage
-    :title="program?.name || 'Program'"
+  <BaseDetailLayout
+    :config="auditProgramDetailConfig"
+    :record="program"
     :loading="loading"
     :notFound="!loading && !program"
     notFoundTitle="Program not found"
     notFoundDescription="This audit program could not be found."
-    width="standard"
   >
-    <template #actions>
-      <BaseButton
-        v-if="program"
-        variant="outline"
-        size="sm"
-        @click="router.push(getCompanyPath('/audits?tab=programs'))"
+    <template #title>
+      <BaseTextInput
+        v-if="editingName && isEditable"
+        v-model="program.name"
+        placeholder="Program name"
+        autofocus
+        @keyup.enter="editingName = false"
+        @blur="editingName = false"
+      />
+      <BaseClickableRow
+        v-else
+        class="tw:text-base tw:font-semibold tw:text-on-main"
+        :class="isEditable ? 'tw:hover:text-primary' : ''"
+        :disabled="!isEditable"
+        aria-label="Edit program name"
+        @click="isEditable && (editingName = true)"
       >
-        <IconArrowBack :size="16" class="tw:mr-1" />
-        Back
-      </BaseButton>
-      <BaseButton
-        v-if="canDelete && program"
-        variant="danger"
-        size="sm"
-        :disabled="deleting"
-        @click="showDeleteDialog = true"
-      >
-        Delete
-      </BaseButton>
+        {{ program?.name }}
+      </BaseClickableRow>
     </template>
 
-    <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-      <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_320px] tw:gap-4 tw:items-start">
-        <!-- Left column -->
-        <div class="tw:flex tw:flex-col tw:gap-4">
-          <!-- Details card -->
-          <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-            <BaseText
-              variant="overline"
-              class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-            >
-              Program Details
-            </BaseText>
+    <template #status>
+      <BaseBadge
+        v-if="program"
+        :class="
+          program.active
+            ? 'tw:bg-emerald-100 tw:text-emerald-700'
+            : 'tw:bg-gray-100 tw:text-gray-600'
+        "
+      >
+        {{ program.active ? 'Active' : 'Paused' }}
+      </BaseBadge>
+    </template>
 
-            <BaseTextInput
-              v-if="editingName && isEditable"
-              v-model="program.name"
-              placeholder="Program name"
-              autofocus
-              class="tw:mb-2"
-              @blur="editingName = false"
-            />
-            <BaseClickableRow
-              v-else
-              class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
-              :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-              :disabled="!isEditable"
-              aria-label="Edit program name"
-              @click="isEditable && (editingName = true)"
-            >
-              {{ program.name }}
-            </BaseClickableRow>
+    <template v-if="program" #meta>
+      <span>{{ typeLabel(program.programTypeId) }}</span>
+      <span> · {{ freqLabel(program.frequencyId) }}</span>
+      <template v-if="program.nextDueDate">
+        · Next due {{ program.nextDueDate.formatDate('date') }}
+      </template>
+    </template>
 
-            <div v-if="editingDescription && isEditable" class="tw:mb-4">
+    <template #actions>
+      <DetailActionBar :actions="auditProgramActions" />
+    </template>
+
+    <template v-if="program" #section-details>
+      <div class="tw:flex tw:flex-col tw:gap-4">
+        <!-- Details card -->
+        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+          <BaseText variant="overline" class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
+            Program Details
+          </BaseText>
+
+          <div v-if="editingDescription && isEditable" class="tw:mb-4">
               <BaseTextarea
                 v-model="program.description"
                 :rows="3"
@@ -488,51 +521,36 @@ async function handleDelete() {
             </div>
           </div>
         </div>
+    </template>
 
-        <!-- Right column / Overview -->
-        <div class="tw:flex tw:flex-col tw:gap-3">
-          <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-            <BaseText
-              variant="overline"
-              class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
-            >
-              Overview
-            </BaseText>
-            <div class="tw:flex tw:flex-col">
-              <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                <span class="tw:text-xs tw:text-secondary">Active</span>
-                <BaseSwitch v-if="isEditable" v-model="program.active" />
-                <span
-                  v-else
-                  class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
-                  :class="
-                    program.active
-                      ? 'tw:bg-emerald-100 tw:text-emerald-700'
-                      : 'tw:bg-gray-100 tw:text-gray-600'
-                  "
-                >
-                  {{ program.active ? 'Active' : 'Paused' }}
-                </span>
-              </div>
-              <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                <span class="tw:text-xs tw:text-secondary">Created</span>
-                <span class="tw:text-xs">
-                  {{ program.createdAt ? program.createdAt.formatDate('date') : '—' }}
-                </span>
-              </div>
-              <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-1">
-                Saving…
-              </div>
-              <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-1">
-                {{ saveError }}
-              </div>
-            </div>
-          </div>
+    <template v-if="program" #rail>
+      <BaseRailCard title="Overview">
+        <BaseDetailField label="Active">
+          <BaseSwitch v-if="isEditable" v-model="program.active" />
+          <BaseBadge
+            v-else
+            :class="
+              program.active
+                ? 'tw:bg-emerald-100 tw:text-emerald-700'
+                : 'tw:bg-gray-100 tw:text-gray-600'
+            "
+          >
+            {{ program.active ? 'Active' : 'Paused' }}
+          </BaseBadge>
+        </BaseDetailField>
+        <BaseDetailField
+          label="Created"
+          :value="program.createdAt ? program.createdAt.formatDate('date') : null"
+        />
+        <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-1">Saving…</div>
+        <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-1">
+          {{ saveError }}
         </div>
-      </div>
-    </div>
+      </BaseRailCard>
+    </template>
+  </BaseDetailLayout>
 
-    <BaseDialog v-model="showAddAuditorDialog" title="Add Auditor" maxWidth="md">
+  <BaseDialog v-model="showAddAuditorDialog" title="Add Auditor" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
@@ -582,5 +600,4 @@ async function handleDelete() {
         </BaseButton>
       </div>
     </BaseDialog>
-  </BaseDetailPage>
 </template>

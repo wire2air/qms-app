@@ -1,10 +1,15 @@
 <script setup>
-import { IconChevronRight, IconBan, IconUserMinus, IconListSearch } from '@tabler/icons-vue'
+import { IconBan, IconUserMinus, IconListSearch } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 import { DateTime } from 'luxon'
+import {
+  buildTrainingInstanceBanners,
+  buildTrainingInstanceSections,
+  buildTrainingInstanceActions,
+} from './trainingInstanceDetailConfig.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -158,79 +163,81 @@ function openAssessmentReview(assignee) {
 function closeAssessmentReview() {
   reviewAssignee.value = null
 }
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
+  { label: 'Training Instances', to: getCompanyPath('/training-instances') },
+  { label: instance.value?.snapshot?.title || 'Loading…' },
+])
+const trainingInstanceBanners = computed(() => buildTrainingInstanceBanners(instance.value))
+const trainingInstanceActions = computed(() =>
+  buildTrainingInstanceActions(
+    {
+      canManage: canManage.value,
+      status: instance.value?.status,
+      needsVerification: needsVerification.value,
+      cancelling: cancelling.value,
+    },
+    {
+      verify: () => router.push(getCompanyPath(`/training-verifications/${props.id}`)),
+      openCancel: openCancelDialog,
+    },
+  ),
+)
+const trainingInstanceDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => trainingInstanceBanners.value,
+    actions: trainingInstanceActions.value,
+    sections: buildTrainingInstanceSections(instance.value),
+  }),
+)
 </script>
 
 <template>
-  <BaseDetailPage
+  <BaseDetailLayout
+    :config="trainingInstanceDetailConfig"
+    :record="instance"
     :loading="loading"
     :notFound="!loading && !instance"
     notFoundTitle="Training instance not found"
-    width="standard"
-    :fullHeight="false"
+    notFoundDescription="This training instance could not be found."
   >
     <template #title>
-      <div class="tw:flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary">
-        <RouterLink :to="getCompanyPath('/training-instances')" class="tw:hover:text-primary"
-          >Training Instances</RouterLink
-        >
-        <IconChevronRight :size="14" />
-        <span class="tw:text-on-sidebar tw:font-medium">{{ instance?.snapshot?.title }}</span>
-      </div>
+      <span class="tw:text-base tw:font-semibold tw:text-on-main">{{
+        instance?.snapshot?.title
+      }}</span>
     </template>
+
+    <template #status>
+      <TrainingInstanceStatusBadgeById v-if="instance" :statusId="instance.status" />
+    </template>
+
+    <template v-if="instance" #meta>
+      <span
+        v-if="instance.dueDate"
+        :class="
+          instanceOverdue && instance.status !== 'COMPLETED' ? 'tw:text-red-600 tw:font-medium' : ''
+        "
+      >
+        Due {{ instance.dueDate.formatDate('date') }}
+        <span v-if="instanceOverdue && instance.status !== 'COMPLETED'">· overdue</span>
+      </span>
+      <span v-if="instanceCompletedAt" class="tw:text-green-600 tw:font-medium">
+        · Completed {{ instanceCompletedAt.formatDate('datetime') }}
+      </span>
+      <span v-if="instance.cancelledAt" class="tw:text-red-600 tw:font-medium">
+        · Cancelled {{ instance.cancelledAt.formatDate('date') }}
+      </span>
+    </template>
+
     <template #actions>
-      <BaseButton
-        v-if="canManage && ['ACTIVE', 'PENDING_VERIFICATION'].includes(instance?.status)"
-        variant="secondary"
-        @click="openCancelDialog"
-      >
-        <IconBan :size="16" class="tw:mr-1" /> Cancel Instance
-      </BaseButton>
-      <BaseButton
-        v-if="canManage && needsVerification"
-        variant="primary"
-        @click="router.push(getCompanyPath(`/training-verifications/${id}`))"
-      >
-        Verify Training
-      </BaseButton>
+      <DetailActionBar :actions="trainingInstanceActions" />
     </template>
 
-    <div class="tw:flex tw:flex-col tw:gap-6">
-      <!-- Header -->
-      <div class="tw:flex tw:items-start tw:justify-between">
-        <div>
-          <h1 class="tw:text-2xl tw:font-bold tw:text-on-sidebar">
-            {{ instance.snapshot?.title }}
-          </h1>
-          <div class="tw:flex tw:items-center tw:gap-2 tw:mt-1">
-            <TrainingInstanceStatusBadgeById :statusId="instance.status" />
-            <span
-              v-if="instance.dueDate"
-              class="tw:text-xs"
-              :class="
-                instanceOverdue && instance.status !== 'COMPLETED'
-                  ? 'tw:text-red-600 tw:font-medium'
-                  : 'tw:text-secondary'
-              "
-            >
-              Due {{ instance.dueDate.formatDate('date') }}
-              <span v-if="instanceOverdue && instance.status !== 'COMPLETED'">· overdue</span>
-            </span>
-            <span v-if="instanceCompletedAt" class="tw:text-xs tw:text-green-600 tw:font-medium">
-              · Completed {{ instanceCompletedAt.formatDate('datetime') }}
-            </span>
-            <span v-if="instance.cancelledAt" class="tw:text-xs tw:text-red-600 tw:font-medium">
-              · Cancelled {{ instance.cancelledAt.formatDate('date') }}
-            </span>
-          </div>
-          <p
-            v-if="instance.status === 'CANCELLED' && instance.cancelReason"
-            class="tw:text-xs tw:text-secondary tw:italic tw:mt-1"
-          >
-            Reason: {{ instance.cancelReason }}
-          </p>
-        </div>
-      </div>
-
+    <template v-if="instance" #section-details>
       <!-- Summary stats -->
       <div class="tw:grid tw:grid-cols-4 tw:gap-3">
         <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
@@ -357,9 +364,10 @@ function closeAssessmentReview() {
           </div>
         </div>
       </div>
-    </div>
+    </template>
+  </BaseDetailLayout>
 
-    <!-- Remove assignee dialog -->
+  <!-- Remove assignee dialog -->
     <BaseDialog
       :modelValue="!!removeTarget"
       :title="'Remove Assignee'"
@@ -481,5 +489,4 @@ function closeAssessmentReview() {
         </BaseDialogFooter>
       </template>
     </BaseDialog>
-  </BaseDetailPage>
 </template>
