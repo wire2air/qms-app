@@ -7,9 +7,10 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "lint": "eslint \"./src*/**/*.{js,cjs,mjs,vue}\" \"./resource/**/*.{js,cjs,mjs,vue}\" && npm run lint:layout && npm run lint:ds",
+    "lint": "eslint \"./src*/**/*.{js,cjs,mjs,vue}\" \"./resource/**/*.{js,cjs,mjs,vue}\" && npm run lint:layout && npm run lint:ds && npm run lint:forms",
     "lint:layout": "node scripts/check-page-layout.mjs",
     "lint:ds": "node scripts/check-design-system.mjs",
+    "lint:forms": "node scripts/check-form-system.mjs",
     "format": "prettier --write \"**/*.{js,vue,scss,html,md,json}\" --ignore-path .gitignore",
     "test": "vitest run",
     "test:watch": "vitest",
