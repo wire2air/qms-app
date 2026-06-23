@@ -6,6 +6,7 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 // `start` is a state-transition; `answers` PUT is a debounced auto-save
 // (no SyncEngine model owns it).
 import { post, put } from '@/api'
+import { buildMyTrainingSections } from './myTrainingDetailConfig.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -262,42 +263,55 @@ const isLockedOut = computed(() => {
   if (a.status === 'FAILED' && (a.attemptCount ?? 0) >= maxAttempts.value) return true
   return false
 })
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
+  { label: 'My Tasks', to: getCompanyPath('/tasks') },
+  { label: instance.value?.snapshot?.title || 'Training' },
+])
+const myTrainingDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    sections: buildMyTrainingSections(instance.value),
+  }),
+)
 </script>
 
 <template>
-  <BaseDetailPage
-    :title="instance?.snapshot?.title"
+  <BaseDetailLayout
+    :config="myTrainingDetailConfig"
+    :record="instance"
     :loading="loading"
     :notFound="!loading && !instance"
     notFoundTitle="Training not found"
-    width="standard"
-    :fullHeight="false"
+    notFoundDescription="This training could not be found."
   >
-    <div
-      v-if="instance && !myAssignee"
-      class="tw:flex tw:items-center tw:justify-center tw:h-64 tw:text-secondary"
-    >
-      You are not assigned to this training.
-    </div>
+    <template #title>
+      <span class="tw:text-base tw:font-semibold tw:text-on-main">{{
+        instance?.snapshot?.title
+      }}</span>
+    </template>
 
-    <div v-else class="tw:flex tw:flex-col tw:gap-6">
-      <RouterLink
-        :to="getCompanyPath('/tasks')"
-        class="tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary tw:hover:text-primary"
+    <template #status>
+      <TrainingAssigneeStatusBadgeById v-if="myAssignee" :statusId="myAssignee.status" />
+    </template>
+
+    <template v-if="instance?.dueDate" #meta>
+      <span>Due {{ instance.dueDate.formatDate('date') }}</span>
+    </template>
+
+    <template v-if="instance" #section-details>
+      <div
+        v-if="!myAssignee"
+        class="tw:flex tw:items-center tw:justify-center tw:h-64 tw:text-secondary"
       >
-        <IconChevronRight :size="14" class="tw:rotate-180" />
-        My Tasks
-      </RouterLink>
-
-      <!-- Status + due date -->
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <TrainingAssigneeStatusBadgeById :statusId="myAssignee.status" />
-        <span v-if="instance.dueDate" class="tw:text-xs tw:text-secondary">
-          Due {{ instance.dueDate?.formatDate('date') }}
-        </span>
+        You are not assigned to this training.
       </div>
 
-      <!-- Stepper (Assessment step hidden when training has no questions) -->
+      <div v-else class="tw:flex tw:flex-col tw:gap-6">
+        <!-- Stepper (Assessment step hidden when training has no questions) -->
       <div class="tw:flex tw:items-center tw:gap-2 tw:bg-gray-50 tw:rounded-lg tw:p-3">
         <div v-for="(s, idx) in stepperSteps" :key="s.id" class="tw:flex tw:items-center tw:gap-1">
           <div
@@ -552,12 +566,13 @@ const isLockedOut = computed(() => {
         />
       </div>
     </div>
+    </template>
+  </BaseDetailLayout>
 
-    <TrainingDocumentViewDialog
-      v-model="showDocDialog"
-      :documentId="viewingDocId"
-      :versionId="viewingVersionId"
-    />
-    <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
-  </BaseDetailPage>
+  <TrainingDocumentViewDialog
+    v-model="showDocDialog"
+    :documentId="viewingDocId"
+    :versionId="viewingVersionId"
+  />
+  <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
 </template>

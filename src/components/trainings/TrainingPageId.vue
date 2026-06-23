@@ -248,8 +248,10 @@ const trainingDetailConfig = computed(() =>
     </template>
   </BaseDetailLayout>
 
-  <!-- Launch dialog -->
-  <TrainingLaunchDialog
+  <!-- Dialogs (siblings; guarded — they all reference the loaded training) -->
+  <template v-if="training">
+    <!-- Launch dialog -->
+    <TrainingLaunchDialog
       v-model="showLaunchDialog"
       :trainingId="training.id"
       :trainingTitle="training.title"
@@ -304,4 +306,5 @@ const trainingDetailConfig = computed(() =>
         </BaseDialogFooter>
       </template>
     </BaseDialog>
+  </template>
 </template>
