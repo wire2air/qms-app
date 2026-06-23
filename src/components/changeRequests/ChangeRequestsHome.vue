@@ -17,17 +17,17 @@ const router = useRouter()
 const canCreate = computed(() => isAllowed(['changeRequests:create']))
 const canUpdate = computed(() => isAllowed(['changeRequests:update']))
 
-const activeFilter = ref('all_open')
-
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `changeRequests`.
 const list = useListLayout({
   filters: {
     search: '',
-    statusId: null,
-    priorityId: null,
-    changeTypeId: null,
+    // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+    statusId: [],
+    priorityId: [],
+    changeTypeId: [],
     createdAt: null,
+    activeFilter: 'all_open',
   },
   total: () => changeRequests.value.length,
   empty: () => changeRequests.value.length === 0,
@@ -58,16 +58,17 @@ const OPEN_STATUSES = [
 ]
 const CLOSED_STATUSES = ['CLOSED', 'REJECTED', 'CANCELLED']
 
-function applyFilters(results, search, statusId, priorityId, changeTypeId) {
+function applyFilters(results, search, statusIds, priorityIds, changeTypeIds) {
   if (search) {
     const q = search.toLowerCase()
     results = results.filter(
       (r) => r.title?.toLowerCase().includes(q) || r.crNumber?.toLowerCase().includes(q),
     )
   }
-  if (statusId) results = results.filter((r) => r.statusId === statusId)
-  if (priorityId) results = results.filter((r) => r.priorityId === priorityId)
-  if (changeTypeId) results = results.filter((r) => r.changeTypeId === changeTypeId)
+  if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
+  if (priorityIds?.length) results = results.filter((r) => priorityIds.includes(r.priorityId))
+  if (changeTypeIds?.length)
+    results = results.filter((r) => changeTypeIds.includes(r.changeTypeId))
   return results
 }
 
@@ -94,12 +95,12 @@ const changeRequests = useLiveQueryWithDeps(
     () => list.filters.value.statusId,
     () => list.filters.value.priorityId,
     () => list.filters.value.changeTypeId,
-    () => activeFilter.value,
+    () => list.filters.value.activeFilter,
     () => list.filters.value.createdAt,
   ],
-  async (db, [search, statusId, priorityId, changeTypeId, af, createdAt]) => {
+  async (db, [search, statusIds, priorityIds, changeTypeIds, af, createdAt]) => {
     let results = await db.ChangeRequest.where().exec()
-    results = applyFilters(results, search, statusId, priorityId, changeTypeId)
+    results = applyFilters(results, search, statusIds, priorityIds, changeTypeIds)
     results = applyActiveFilter(results, af)
     if (createdAt)
       results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
@@ -129,6 +130,33 @@ const stats = computed(() => {
   }
 })
 
+// Compact KPI strip (list-page metrics bar) — matches the other QMS list pages.
+const kpiItems = computed(() => [
+  { key: 'open', label: 'Open CRs', value: stats.value.open, icon: IconAlertCircle, color: 'blue' },
+  {
+    key: 'awaiting',
+    label: 'Awaiting approval',
+    value: stats.value.awaitingApproval,
+    icon: IconClock,
+    color: 'amber',
+  },
+  {
+    key: 'urgent',
+    label: 'Urgent open',
+    value: stats.value.urgentOpen,
+    icon: IconShieldCheck,
+    color: 'red',
+    emphasize: stats.value.urgentOpen > 0,
+  },
+  {
+    key: 'closed',
+    label: 'Closed this month',
+    value: stats.value.closedThisMonth,
+    icon: IconCircleCheck,
+    color: 'green',
+  },
+])
+
 function onCreate() {
   router.push(getCompanyPath('/change-requests/create'))
 }
@@ -156,83 +184,13 @@ function onCreate() {
     </template>
 
     <template #stats>
-      <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconAlertCircle :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Open CRs
-          </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.open }}</div>
-        </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconClock :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Awaiting approval
-          </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
-            {{ stats.awaitingApproval }}
-          </div>
-        </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-red-50 tw:text-red-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconShieldCheck :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Urgent open
-          </div>
-          <div
-            class="tw:text-2xl tw:font-black"
-            :class="stats.urgentOpen > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
-          >
-            {{ stats.urgentOpen }}
-          </div>
-        </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-green-50 tw:text-green-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconCircleCheck :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Closed this month
-          </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
-            {{ stats.closedThisMonth }}
-          </div>
-        </div>
-      </div>
-      </div>
+      <BaseStatStrip :items="kpiItems" />
     </template>
 
     <template #filters>
       <ChangeRequestsFilterToolbar
         v-model:filters="list.filters.value"
-        v-model:activeFilter="activeFilter"
+        v-model:activeFilter="list.filters.value.activeFilter"
       />
     </template>
 

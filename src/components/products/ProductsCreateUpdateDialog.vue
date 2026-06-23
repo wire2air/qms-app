@@ -2,6 +2,7 @@
 import { IconCheck, IconX as IconXCross, IconPackage } from '@tabler/icons-vue'
 import { required, helpers } from '@vuelidate/validators'
 import { useValidator } from '@shared/composables/validator.js'
+import { currentSession } from '@/utils/currentSession.js'
 
 const props = defineProps({
   id: {
@@ -16,6 +17,8 @@ const open = defineModel({
   type: Boolean,
   default: false,
 })
+
+const toast = useToast()
 
 const form = ref({
   name: '',
@@ -90,15 +93,20 @@ async function onSubmit() {
 
   isSubmitting.value = true
   try {
+    const uid = currentSession.value?.userId
     if (!isEdit.value) {
-      const newProduct = await createProduct(form.value)
+      // createdBy/updatedBy are required on the Product model and are not
+      // auto-populated — set them from the current session.
+      const newProduct = await createProduct({ ...form.value, createdBy: uid, updatedBy: uid })
       emit('created', newProduct)
     } else {
-      Object.assign(product.value, form.value)
+      Object.assign(product.value, form.value, { updatedBy: uid })
       await product.value.save()
       emit('updated', product.value)
     }
     open.value = false
+  } catch (e) {
+    toast.error(e?.message || 'Failed to save product')
   } finally {
     isSubmitting.value = false
   }

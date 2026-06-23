@@ -25,9 +25,10 @@ const toast = useToast()
 
 const showCreateDialog = ref(false)
 
-// Default to in-service so retired equipment doesn't drown the list.
+// Multi-select dimensions (Linear-style filter menu) — arrays of ids. Default
+// to in-service so retired equipment doesn't drown the list.
 const list = useListLayout({
-  filters: { search: '', status: 'IN_SERVICE', category: 'all' },
+  filters: { search: '', status: ['IN_SERVICE'], category: [] },
   total: () => equipment.value.length,
   empty: () => equipment.value.length === 0,
   syncUrl: true,
@@ -39,10 +40,10 @@ const equipment = useLiveQueryWithDeps(
     () => list.filters.value.status,
     () => list.filters.value.category,
   ],
-  async (db, [q, status, category]) => {
+  async (db, [q, statuses, categories]) => {
     let rows = await db.Equipment.where().exec()
-    if (status !== 'all') rows = rows.filter((e) => e.statusId === status)
-    if (category !== 'all') rows = rows.filter((e) => e.category === category)
+    if (statuses?.length) rows = rows.filter((e) => statuses.includes(e.statusId))
+    if (categories?.length) rows = rows.filter((e) => categories.includes(e.category))
     if (q) {
       const needle = q.toLowerCase()
       rows = rows.filter(
@@ -175,34 +176,7 @@ async function recordCalibration(e) {
     </template>
 
     <template #filters>
-      <BaseFilterBar
-        v-model:search="list.filters.value.search"
-        searchPlaceholder="Search by name, code, or serial…"
-        @clear="list.reset()"
-      >
-        <template #filters>
-          <div class="tw:flex tw:items-center tw:gap-2">
-            <span class="tw:text-xs tw:text-secondary">Status</span>
-            <select v-model="list.filters.value.status">
-              <option value="all">All</option>
-              <option value="IN_SERVICE">In service</option>
-              <option value="OUT_OF_SERVICE">Out of service</option>
-              <option value="RETIRED">Retired</option>
-            </select>
-          </div>
-          <div class="tw:flex tw:items-center tw:gap-2">
-            <span class="tw:text-xs tw:text-secondary">Category</span>
-            <select v-model="list.filters.value.category">
-              <option value="all">All</option>
-              <option value="INSTRUMENT">Instrument</option>
-              <option value="MACHINE">Machine</option>
-              <option value="VEHICLE">Vehicle</option>
-              <option value="SENSOR">Sensor</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-        </template>
-      </BaseFilterBar>
+      <EquipmentFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
     <template #empty-action>

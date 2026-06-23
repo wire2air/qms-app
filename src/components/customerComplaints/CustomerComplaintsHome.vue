@@ -34,16 +34,16 @@ const canConvert = computed(
 const list = useListLayout({
   filters: {
     search: '',
-    statusId: null,
-    priorityId: null,
-    sourceId: null,
-    assignedTo: null,
+    // Primary dimensions — multi-select (Linear-style filter menu) arrays of ids.
+    statusId: [],
+    priorityId: [],
+    sourceId: [],
+    assignedTo: [],
+    // CC-specific single-select dimensions (folded into the filter menu).
     assignedTeamId: null,
     formId: null,
     sentiment: null,
     createdAt: null,
-    customKey: null,
-    customValue: '',
   },
   total: () => complaints.value.length,
   loading: () => complaints.value === undefined,
@@ -112,22 +112,23 @@ function applyFilters(results, f) {
         r.customerEmail?.toLowerCase().includes(q),
     )
   }
-  if (f.statusId) results = results.filter((r) => r.statusId === f.statusId)
-  if (f.priorityId) results = results.filter((r) => r.priorityId === f.priorityId)
-  if (f.sourceId) results = results.filter((r) => r.sourceId === f.sourceId)
-  if (f.assignedTo) results = results.filter((r) => r.assignedTo === f.assignedTo)
+  // Multi-select dims. Defensive: handles arrays (current) and bare strings
+  // (legacy saved views persisted before multi-select).
+  const matchesDim = (selected, value) => {
+    if (Array.isArray(selected)) return selected.length === 0 || selected.includes(value)
+    return !selected || value === selected
+  }
+  results = results.filter(
+    (r) =>
+      matchesDim(f.statusId, r.statusId) &&
+      matchesDim(f.priorityId, r.priorityId) &&
+      matchesDim(f.sourceId, r.sourceId) &&
+      matchesDim(f.assignedTo, r.assignedTo),
+  )
   if (f.assignedTeamId) results = results.filter((r) => r.assignedTeamId === f.assignedTeamId)
   if (f.formId) results = results.filter((r) => r.formId === f.formId)
   if (f.sentiment) results = results.filter((r) => r.sentiment === f.sentiment)
   if (f.createdAt) results = results.filter((r) => matchesDateFilter(r.createdAt, f.createdAt))
-  if (f.customKey && f.customValue?.trim()) {
-    const v = f.customValue.trim().toLowerCase()
-    results = results.filter((r) =>
-      String(r.customFields?.[f.customKey] ?? '')
-        .toLowerCase()
-        .includes(v),
-    )
-  }
   return results
 }
 
@@ -195,6 +196,33 @@ const stats = computed(() => {
     resolvedThisMonth: resolvedThisMonth.length,
   }
 })
+
+// Compact KPI strip (list-page metrics bar) — matches the other QMS list pages.
+const kpiItems = computed(() => [
+  { key: 'open', label: 'Open tickets', value: stats.value.open, icon: IconHeadset, color: 'blue' },
+  {
+    key: 'unassigned',
+    label: 'Unassigned',
+    value: stats.value.unassigned,
+    icon: IconUserQuestion,
+    color: 'red',
+    emphasize: stats.value.unassigned > 0,
+  },
+  {
+    key: 'waiting',
+    label: 'Waiting customer',
+    value: stats.value.waiting,
+    icon: IconClockPause,
+    color: 'amber',
+  },
+  {
+    key: 'resolved',
+    label: 'Resolved this month',
+    value: stats.value.resolvedThisMonth,
+    icon: IconCircleCheck,
+    color: 'green',
+  },
+])
 
 // ─── Selection + bulk actions ────────────────────────────────────────────────
 const selectedIds = ref([])
@@ -338,77 +366,8 @@ function onNewComplaint() {
       </BaseButton>
     </template>
 
-    <!-- Stat Cards -->
     <template #stats>
-    <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconHeadset :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Open tickets
-          </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.open }}</div>
-        </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-red-50 tw:text-red-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconUserQuestion :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Unassigned
-          </div>
-          <div
-            class="tw:text-2xl tw:font-black"
-            :class="stats.unassigned > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
-          >
-            {{ stats.unassigned }}
-          </div>
-        </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconClockPause :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Waiting customer
-          </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.waiting }}</div>
-        </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-green-50 tw:text-green-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconCircleCheck :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Resolved this month
-          </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
-            {{ stats.resolvedThisMonth }}
-          </div>
-        </div>
-      </div>
-    </div>
+      <BaseStatStrip :items="kpiItems" />
     </template>
 
     <template #filters>
@@ -416,7 +375,6 @@ function onNewComplaint() {
         v-model:filters="filters"
         v-model:activeFilter="activeFilter"
         :formOptions="formOptions"
-        :customFieldKeys="customFieldKeys"
         :savedViews="savedViews"
         @saveView="saveCurrentView"
         @applyView="applySavedView"

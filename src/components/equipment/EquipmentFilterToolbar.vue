@@ -1,37 +1,31 @@
 <script setup>
-import { IconSearch, IconX, IconCircleDot, IconCategory, IconAlertTriangle } from '@tabler/icons-vue'
+import { IconSearch, IconX, IconCircleDot, IconCategory } from '@tabler/icons-vue'
 
 const filters = defineModel('filters', { type: Object, required: true })
 
-const CATEGORIES = ['Raw Materials', 'Component', 'Service', 'Software']
-const RISK_LEVELS = ['Low', 'Medium', 'High']
-
-const statuses = useLiveQuery((db) => db.SupplierStatus.where().orderBy('displayOrder').exec(), {
-  models: ['SupplierStatus'],
-  initial: [],
-})
+const STATUS_OPTIONS = [
+  { value: 'IN_SERVICE', label: 'In service' },
+  { value: 'OUT_OF_SERVICE', label: 'Out of service' },
+  { value: 'RETIRED', label: 'Retired' },
+]
+const CATEGORY_OPTIONS = [
+  { value: 'INSTRUMENT', label: 'Instrument' },
+  { value: 'MACHINE', label: 'Machine' },
+  { value: 'VEHICLE', label: 'Vehicle' },
+  { value: 'SENSOR', label: 'Sensor' },
+  { value: 'OTHER', label: 'Other' },
+]
+const statusLabel = (v) => STATUS_OPTIONS.find((o) => o.value === v)?.label ?? v
+const categoryLabel = (v) => CATEGORY_OPTIONS.find((o) => o.value === v)?.label ?? v
 
 const filterItems = computed(() => [
-  {
-    id: 'statusId',
-    label: 'Status',
-    icon: IconCircleDot,
-    group: 'statusId',
-    options: statuses.value.map((s) => ({ value: s.id, label: s.name })),
-  },
+  { id: 'status', label: 'Status', icon: IconCircleDot, group: 'status', options: STATUS_OPTIONS },
   {
     id: 'category',
     label: 'Category',
     icon: IconCategory,
     group: 'category',
-    options: CATEGORIES.map((c) => ({ value: c, label: c })),
-  },
-  {
-    id: 'riskLevel',
-    label: 'Risk level',
-    icon: IconAlertTriangle,
-    group: 'riskLevel',
-    options: RISK_LEVELS.map((r) => ({ value: r, label: r })),
+    options: CATEGORY_OPTIONS,
   },
 ])
 
@@ -41,19 +35,11 @@ function arr(key) {
 function removeValue(key, value) {
   filters.value = { ...filters.value, [key]: arr(key).filter((v) => v !== value) }
 }
-const hasChips = computed(
-  () => arr('statusId').length || arr('category').length || arr('riskLevel').length,
-)
+const hasChips = computed(() => arr('status').length || arr('category').length)
 const showClear = computed(() => hasChips.value || !!filters.value.search)
 
 function clearAll() {
-  filters.value = {
-    ...filters.value,
-    search: '',
-    statusId: [],
-    category: [],
-    riskLevel: [],
-  }
+  filters.value = { ...filters.value, search: '', status: [], category: [] }
 }
 </script>
 
@@ -72,7 +58,7 @@ function clearAll() {
         <input
           v-model="filters.search"
           type="text"
-          placeholder="Search name or code…"
+          placeholder="Search by name, code, or serial…"
           class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-card tw:py-1.5 tw:ps-8 tw:pe-3 tw:text-sm tw:text-on-main tw:outline-none tw:transition-colors tw:focus:border-primary"
         />
       </div>
@@ -87,39 +73,32 @@ function clearAll() {
       <span class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
         Filters
       </span>
-      <SupplierStatusBadgeById
-        v-for="id in arr('statusId')"
-        :key="`st-${id}`"
-        :statusId="id"
-        clearable
-        @clear="removeValue('statusId', id)"
-      />
       <span
-        v-for="c in arr('category')"
-        :key="`ca-${c}`"
+        v-for="v in arr('status')"
+        :key="`st-${v}`"
         class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"
       >
-        {{ c }}
+        {{ statusLabel(v) }}
         <button
           type="button"
-          :aria-label="`Remove ${c} filter`"
+          :aria-label="`Remove ${statusLabel(v)} filter`"
           class="tw:rounded tw:p-0.5 tw:hover:bg-main-hover"
-          @click="removeValue('category', c)"
+          @click="removeValue('status', v)"
         >
           <IconX class="tw:size-3" />
         </button>
       </span>
       <span
-        v-for="r in arr('riskLevel')"
-        :key="`rk-${r}`"
+        v-for="v in arr('category')"
+        :key="`ca-${v}`"
         class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"
       >
-        {{ r }} risk
+        {{ categoryLabel(v) }}
         <button
           type="button"
-          :aria-label="`Remove ${r} risk filter`"
+          :aria-label="`Remove ${categoryLabel(v)} filter`"
           class="tw:rounded tw:p-0.5 tw:hover:bg-main-hover"
-          @click="removeValue('riskLevel', r)"
+          @click="removeValue('category', v)"
         >
           <IconX class="tw:size-3" />
         </button>
