@@ -271,18 +271,27 @@ const changeRequestActions = computed(() =>
     },
   ),
 )
+
+const changeRequestDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => changeRequestBanners.value,
+    actions: changeRequestActions.value,
+    sections: changeRequestSections.value,
+  }),
+)
 </script>
 
 <template>
   <BaseDetailLayout
-    :breadcrumbs="breadcrumbs"
+    :config="changeRequestDetailConfig"
+    :record="cr"
     :loading="loading"
     :notFound="!loading && !cr"
     notFoundTitle="Change Request not found"
     notFoundDescription="This Change Request could not be found."
-    :banners="changeRequestBanners"
-    :sections="changeRequestSections"
-    width="standard"
   >
     <template #title>
       <BaseTextInput

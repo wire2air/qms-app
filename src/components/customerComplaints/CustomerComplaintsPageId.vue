@@ -177,18 +177,27 @@ const complaintActions = computed(() =>
     },
   ),
 )
+
+const complaintDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => complaintBanners.value,
+    actions: complaintActions.value,
+    sections: complaintSections.value,
+  }),
+)
 </script>
 
 <template>
   <BaseDetailLayout
-    :breadcrumbs="breadcrumbs"
+    :config="complaintDetailConfig"
+    :record="complaint"
     :loading="loading"
     :notFound="!loading && !complaint"
     notFoundTitle="Complaint not found"
     notFoundDescription="This customer complaint could not be found."
-    :banners="complaintBanners"
-    :sections="complaintSections"
-    width="standard"
   >
     <template #title>
       <BaseTextInput
