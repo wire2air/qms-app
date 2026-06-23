@@ -1,32 +1,63 @@
 <script setup>
-import { IconSearch } from '@tabler/icons-vue'
+import { IconSearch, IconFileText, IconBuilding, IconCircleDot } from '@tabler/icons-vue'
 
-const filters = defineModel('filters', {
-  type: Object,
-  required: true,
+const filters = defineModel('filters', { type: Object, required: true })
+
+// Option sources for the cascading filter menu.
+const documentTypes = useLiveQuery(
+  (db) => db.DocumentType.where().orderBy('displayOrder').exec(),
+  { models: ['DocumentType'], initial: [] },
+)
+const sites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
+const statuses = useLiveQuery((db) => db.FormStatus.where().orderBy('displayOrder').exec(), {
+  models: ['FormStatus'],
+  initial: [],
 })
 
-function hasItems(v) {
-  return Array.isArray(v) ? v.length > 0 : !!v
-}
+const filterItems = computed(() => [
+  {
+    id: 'documentTypeId',
+    label: 'Type',
+    icon: IconFileText,
+    group: 'documentTypeId',
+    searchable: true,
+    options: documentTypes.value.map((t) => ({ value: t.id, label: t.name })),
+  },
+  {
+    id: 'siteId',
+    label: 'Site',
+    icon: IconBuilding,
+    group: 'siteId',
+    searchable: true,
+    options: sites.value.map((s) => ({ value: s.id, label: s.name })),
+  },
+  {
+    id: 'statusId',
+    label: 'Status',
+    icon: IconCircleDot,
+    group: 'statusId',
+    options: statuses.value.map((s) => ({ value: s.id, label: s.name })),
+  },
+])
 
-const showClear = computed(
-  () =>
-    !!(
-      filters.value.search ||
-      hasItems(filters.value.documentTypeId) ||
-      hasItems(filters.value.siteId) ||
-      filters.value.statusId
-    ),
+function arr(key) {
+  return Array.isArray(filters.value[key]) ? filters.value[key] : []
+}
+function removeValue(key, value) {
+  filters.value = { ...filters.value, [key]: arr(key).filter((v) => v !== value) }
+}
+const hasChips = computed(
+  () => arr('documentTypeId').length || arr('siteId').length || arr('statusId').length,
 )
+const showClear = computed(() => hasChips.value || !!filters.value.search)
 
 function clearAll() {
   filters.value = {
     ...filters.value,
     search: '',
-    documentTypeId: null,
-    siteId: null,
-    statusId: null,
+    documentTypeId: [],
+    siteId: [],
+    statusId: [],
   }
 }
 </script>
@@ -47,14 +78,49 @@ function clearAll() {
     </BaseTextInput>
   </SafeTeleport>
 
-  <BaseFilterBar hideSearch :showClear="showClear" @clear="clearAll">
-    <template #filters>
-      <DocumentTypeSelectMenu v-model="filters.documentTypeId" multiple />
-      <SiteSelectMenu v-model="filters.siteId" :required="false" multiple />
-      <FormTemplateStatusSelectMenu v-model="filters.statusId" />
-    </template>
-    <template #actions>
-      <slot name="actions" />
-    </template>
-  </BaseFilterBar>
+  <div class="tw:flex tw:flex-col tw:gap-2.5">
+    <!-- Row 1 — filter menu + view switcher -->
+    <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+      <BaseFilterMenu v-model="filters" :items="filterItems" />
+      <div class="tw:ms-auto tw:flex tw:items-center tw:gap-2">
+        <slot name="actions" />
+      </div>
+    </div>
+
+    <!-- Row 2 — applied filters as removable tokens -->
+    <div v-if="hasChips" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
+      <span class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+        Filters
+      </span>
+      <DocumentTypeBadgeById
+        v-for="id in arr('documentTypeId')"
+        :key="`ty-${id}`"
+        :documentTypeId="id"
+        clearable
+        @clear="removeValue('documentTypeId', id)"
+      />
+      <SiteBadgeById
+        v-for="id in arr('siteId')"
+        :key="`si-${id}`"
+        :siteId="id"
+        clearable
+        @clear="removeValue('siteId', id)"
+      />
+      <FormTemplateStatusBadgeById
+        v-for="id in arr('statusId')"
+        :key="`st-${id}`"
+        :statusId="id"
+        clearable
+        @clear="removeValue('statusId', id)"
+      />
+      <button
+        v-if="showClear"
+        type="button"
+        class="tw:ms-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
+        @click="clearAll"
+      >
+        Clear all
+      </button>
+    </div>
+  </div>
 </template>

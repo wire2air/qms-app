@@ -1,9 +1,21 @@
 <script setup>
-import { IconFilter, IconX, IconBookmark, IconTrash, IconCalendar } from '@tabler/icons-vue'
+import {
+  IconSearch,
+  IconX,
+  IconBookmark,
+  IconTrash,
+  IconCircleDot,
+  IconAlertTriangle,
+  IconInbox,
+  IconUser,
+  IconMoodSmile,
+  IconForms,
+  IconUsersGroup,
+  IconCalendar,
+} from '@tabler/icons-vue'
 
-defineProps({
+const props = defineProps({
   formOptions: { type: Array, default: () => [] },
-  customFieldKeys: { type: Array, default: () => [] },
   savedViews: { type: Array, default: () => [] },
 })
 
@@ -19,7 +31,7 @@ const filterPills = [
   { value: 'waiting', label: 'Waiting customer' },
   { value: 'resolved', label: 'Resolved' },
   { value: 'closed', label: 'Closed' },
-  { value: 'spam', label: 'Spam' },
+  { value: 'spam', label: 'Spam', color: 'red' },
 ]
 
 const SENTIMENTS = [
@@ -29,35 +41,127 @@ const SENTIMENTS = [
   { id: 'URGENT', name: 'Urgent' },
 ]
 
-// Advanced filters fold away to keep the toolbar compact.
-const showAdvanced = ref(false)
+const PRIORITIES = [
+  { id: 'LOW', name: 'Low' },
+  { id: 'MEDIUM', name: 'Medium' },
+  { id: 'HIGH', name: 'High' },
+  { id: 'CRITICAL', name: 'Critical' },
+]
 
-const dateFilterItems = computed(() => [
+// Option sources for the cascading filter menu.
+const statuses = useLiveQuery(
+  (db) => db.CustomerComplaintStatus.where().orderBy('displayOrder').exec(),
+  { models: ['CustomerComplaintStatus'], initial: [] },
+)
+const sources = useLiveQuery(
+  (db) => db.CustomerComplaintSource.where().orderBy('displayOrder').exec(),
+  { models: ['CustomerComplaintSource'], initial: [] },
+)
+const users = useLiveQuery(
+  async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
+  { models: ['User'], initial: [] },
+)
+const teams = useLiveQuery((db) => db.Team.where().exec(), { models: ['Team'], initial: [] })
+
+// Multi-select dimensions use the default 'check' mode (arrays); single-value
+// dimensions (form / sentiment / group) use 'radio' so the model key stays a
+// scalar — no other code changes needed.
+const filterItems = computed(() => [
+  {
+    id: 'statusId',
+    label: 'Status',
+    icon: IconCircleDot,
+    group: 'statusId',
+    options: statuses.value.map((s) => ({ value: s.id, label: s.name })),
+  },
+  {
+    id: 'priorityId',
+    label: 'Priority',
+    icon: IconAlertTriangle,
+    group: 'priorityId',
+    options: PRIORITIES.map((p) => ({ value: p.id, label: p.name })),
+  },
+  {
+    id: 'sourceId',
+    label: 'Source',
+    icon: IconInbox,
+    group: 'sourceId',
+    options: sources.value.map((s) => ({ value: s.id, label: s.name })),
+  },
+  {
+    id: 'assignedTo',
+    label: 'Assignee',
+    icon: IconUser,
+    group: 'assignedTo',
+    searchable: true,
+    options: users.value.map((u) => ({
+      value: u.id,
+      label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email,
+    })),
+  },
+  {
+    id: 'sentiment',
+    label: 'Sentiment',
+    icon: IconMoodSmile,
+    group: 'sentiment',
+    select: 'radio',
+    options: SENTIMENTS.map((s) => ({ value: s.id, label: s.name })),
+  },
+  {
+    id: 'assignedTeamId',
+    label: 'Group',
+    icon: IconUsersGroup,
+    group: 'assignedTeamId',
+    select: 'radio',
+    searchable: true,
+    options: teams.value.map((t) => ({ value: t.id, label: t.name })),
+  },
+  ...(props.formOptions.length
+    ? [
+        {
+          id: 'formId',
+          label: 'Form',
+          icon: IconForms,
+          group: 'formId',
+          select: 'radio',
+          searchable: true,
+          options: props.formOptions.map((f) => ({ value: f.id, label: f.name })),
+        },
+      ]
+    : []),
   { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
 ])
 
-const advancedActive = computed(
-  () =>
-    !!(
-      filters.value.formId ||
-      filters.value.sentiment ||
-      filters.value.assignedTeamId ||
-      filters.value.createdAt ||
-      (filters.value.customKey && filters.value.customValue)
-    ),
+function arr(key) {
+  return Array.isArray(filters.value[key]) ? filters.value[key] : []
+}
+function removeValue(key, value) {
+  filters.value = { ...filters.value, [key]: arr(key).filter((v) => v !== value) }
+}
+
+// Labels for the single-select chips (form / sentiment / group).
+const sentimentLabel = computed(
+  () => SENTIMENTS.find((s) => s.id === filters.value.sentiment)?.name ?? filters.value.sentiment,
+)
+const teamLabel = computed(
+  () => teams.value.find((t) => t.id === filters.value.assignedTeamId)?.name ?? '…',
+)
+const formLabel = computed(
+  () => props.formOptions.find((f) => f.id === filters.value.formId)?.name ?? '…',
 )
 
-const showClear = computed(
+const hasChips = computed(
   () =>
-    !!(
-      filters.value.search ||
-      filters.value.statusId ||
-      filters.value.priorityId ||
-      filters.value.sourceId ||
-      filters.value.assignedTo ||
-      advancedActive.value
-    ),
+    arr('statusId').length ||
+    arr('priorityId').length ||
+    arr('sourceId').length ||
+    arr('assignedTo').length ||
+    filters.value.sentiment ||
+    filters.value.assignedTeamId ||
+    filters.value.formId ||
+    filters.value.createdAt,
 )
+const showClear = computed(() => hasChips.value || !!filters.value.search)
 
 const showSaveViewDialog = ref(false)
 const newViewName = ref('')
@@ -70,103 +174,50 @@ function handleSaveView() {
   showSaveViewDialog.value = false
 }
 
-function clearAdvanced() {
-  filters.value.formId = null
-  filters.value.sentiment = null
-  filters.value.assignedTeamId = null
-  filters.value.createdAt = null
-  filters.value.customKey = null
-  filters.value.customValue = ''
-}
-
 function clearAll() {
-  filters.value.search = ''
-  filters.value.statusId = null
-  filters.value.priorityId = null
-  filters.value.sourceId = null
-  filters.value.assignedTo = null
-  clearAdvanced()
+  filters.value = {
+    ...filters.value,
+    search: '',
+    statusId: [],
+    priorityId: [],
+    sourceId: [],
+    assignedTo: [],
+    sentiment: null,
+    assignedTeamId: null,
+    formId: null,
+    createdAt: null,
+  }
 }
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-2">
-    <BaseFilterBar
-      v-model:search="filters.search"
-      searchPlaceholder="Search ticket, subject, customer…"
-      :showClear="showClear"
-      @clear="clearAll"
-    >
-      <template #filters>
-        <CustomerComplaintStatusSelectMenu v-model="filters.statusId" />
-        <CustomerComplaintPrioritySelectMenu v-model="filters.priorityId" />
-        <CustomerComplaintSourceSelectMenu v-model="filters.sourceId" />
-        <UserSelectMenu v-model="filters.assignedTo" />
-        <button
-          class="tw:flex tw:items-center tw:gap-1 tw:px-2 tw:py-1 tw:rounded-md tw:text-xs tw:font-medium tw:transition-colors"
-          :class="
-            advancedActive || showAdvanced
-              ? 'tw:bg-blue-100 tw:text-blue-700'
-              : 'tw:text-secondary tw:hover:bg-main-hover'
-          "
-          @click="showAdvanced = !showAdvanced"
-        >
-          <IconFilter :size="14" />
-          More
-        </button>
-      </template>
-    </BaseFilterBar>
+  <!-- Sticky workspace toolbar: pins below the app bar while the list scrolls. -->
+  <div
+    class="tw:sticky tw:top-0 tw:z-sticky tw:flex tw:flex-col tw:gap-2.5 tw:bg-main tw:pt-1 tw:pb-2.5"
+  >
+    <!-- Row 1 — search + filter menu -->
+    <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+      <div class="tw:relative tw:min-w-[12rem] tw:flex-1 tw:max-w-sm">
+        <IconSearch
+          :size="16"
+          class="tw:pointer-events-none tw:absolute tw:left-2.5 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary"
+        />
+        <input
+          v-model="filters.search"
+          type="text"
+          placeholder="Search ticket, subject, customer…"
+          class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-card tw:py-1.5 tw:ps-8 tw:pe-3 tw:text-sm tw:text-on-main tw:outline-none tw:transition-colors tw:focus:border-primary"
+        />
+      </div>
 
-    <!-- Advanced filters -->
-    <div
-      v-if="showAdvanced"
-      class="tw:flex tw:items-end tw:p-2 tw:gap-2 tw:flex-wrap tw:rounded-lg tw:border tw:border-divider tw:bg-card"
-    >
-      <BaseField label="Form" size="xs">
-        <BaseSelectMenu v-model="filters.formId" :items="formOptions" />
-      </BaseField>
-      <BaseField label="Sentiment" size="xs">
-        <BaseSelectMenu v-model="filters.sentiment" :items="SENTIMENTS" />
-      </BaseField>
-      <BaseField label="Group" size="xs">
-        <GroupSelectMenu v-model="filters.assignedTeamId" />
-      </BaseField>
-      <BaseFilterMenu v-model="filters" :items="dateFilterItems" />
-      <BaseField v-if="customFieldKeys.length" label="Custom field" size="xs">
-        <div class="tw:flex tw:gap-1">
-          <BaseSelectMenu
-            v-model="filters.customKey"
-            :items="customFieldKeys.map((k) => ({ id: k, name: k }))"
-          />
-          <BaseTextInput v-model="filters.customValue" placeholder="contains…" class="tw:w-32" />
-        </div>
-      </BaseField>
-      <button
-        v-if="advancedActive"
-        class="tw:flex tw:items-center tw:gap-1 tw:px-2 tw:py-1.5 tw:rounded-md tw:text-xs tw:text-secondary tw:hover:bg-main-hover"
-        @click="clearAdvanced"
-      >
-        <IconX :size="12" />
-        Clear
-      </button>
+      <div class="tw:ms-auto tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+        <BaseFilterMenu v-model="filters" :items="filterItems" />
+      </div>
     </div>
 
-    <div class="tw:flex tw:gap-2 tw:flex-wrap tw:items-center">
-      <button
-        v-for="pill in filterPills"
-        :key="pill.value"
-        class="tw:px-3 tw:py-1 tw:rounded-full tw:text-xs tw:font-medium tw:border tw:transition-colors"
-        :class="
-          activeFilter === pill.value
-            ? pill.value === 'spam'
-              ? 'tw:bg-red-50 tw:text-red-700 tw:border-red-300'
-              : 'tw:bg-blue-50 tw:text-blue-700 tw:border-blue-300'
-            : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:bg-main-hover'
-        "
-        @click="activeFilter = pill.value"
-      >
-        {{ pill.label }}
-      </button>
+    <!-- Row 2 — quick views + saved views -->
+    <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+      <BaseQuickFilterPills v-model="activeFilter" :pills="filterPills" ariaLabel="Quick views" />
 
       <span v-if="savedViews.length" class="tw:text-divider">|</span>
       <BaseClickableRow
@@ -194,6 +245,105 @@ function clearAll() {
       >
         <IconBookmark :size="12" />
         Save view
+      </button>
+    </div>
+
+    <!-- Row 3 — applied filters as removable tokens -->
+    <div v-if="hasChips" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
+      <span class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+        Filters
+      </span>
+      <CustomerComplaintStatusBadgeById
+        v-for="id in arr('statusId')"
+        :key="`st-${id}`"
+        :statusId="id"
+        clearable
+        @clear="removeValue('statusId', id)"
+      />
+      <CustomerComplaintPriorityBadgeById
+        v-for="id in arr('priorityId')"
+        :key="`pr-${id}`"
+        :priorityId="id"
+        clearable
+        @clear="removeValue('priorityId', id)"
+      />
+      <CustomerComplaintSourceBadgeById
+        v-for="id in arr('sourceId')"
+        :key="`so-${id}`"
+        :sourceId="id"
+        clearable
+        @clear="removeValue('sourceId', id)"
+      />
+      <UserBadgeById
+        v-for="id in arr('assignedTo')"
+        :key="`as-${id}`"
+        :userId="id"
+        clearable
+        @clear="removeValue('assignedTo', id)"
+      />
+      <span
+        v-if="filters.sentiment"
+        class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"
+      >
+        Sentiment: {{ sentimentLabel }}
+        <button
+          type="button"
+          aria-label="Clear sentiment filter"
+          class="tw:rounded tw:p-0.5 tw:hover:bg-main-hover"
+          @click="filters.sentiment = null"
+        >
+          <IconX class="tw:size-3" />
+        </button>
+      </span>
+      <span
+        v-if="filters.assignedTeamId"
+        class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"
+      >
+        Group: {{ teamLabel }}
+        <button
+          type="button"
+          aria-label="Clear group filter"
+          class="tw:rounded tw:p-0.5 tw:hover:bg-main-hover"
+          @click="filters.assignedTeamId = null"
+        >
+          <IconX class="tw:size-3" />
+        </button>
+      </span>
+      <span
+        v-if="filters.formId"
+        class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"
+      >
+        Form: {{ formLabel }}
+        <button
+          type="button"
+          aria-label="Clear form filter"
+          class="tw:rounded tw:p-0.5 tw:hover:bg-main-hover"
+          @click="filters.formId = null"
+        >
+          <IconX class="tw:size-3" />
+        </button>
+      </span>
+      <span
+        v-if="filters.createdAt"
+        class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"
+      >
+        Created date
+        <button
+          type="button"
+          aria-label="Clear date filter"
+          class="tw:rounded tw:p-0.5 tw:hover:bg-main-hover"
+          @click="filters.createdAt = null"
+        >
+          <IconX class="tw:size-3" />
+        </button>
+      </span>
+      <button
+        v-if="showClear"
+        type="button"
+        class="tw:ms-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
+        @click="clearAll"
+      >
+        Clear all
       </button>
     </div>
 

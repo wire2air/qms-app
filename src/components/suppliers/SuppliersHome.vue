@@ -1,5 +1,11 @@
 <script setup>
-import { IconTruck, IconUsers } from '@tabler/icons-vue'
+import {
+  IconTruck,
+  IconUsers,
+  IconAlertTriangle,
+  IconShieldCheck,
+  IconCircleCheck,
+} from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
@@ -12,7 +18,8 @@ const canDeleteSupplier = computed(() => isAllowed(['suppliers:delete']))
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `suppliers`.
 const list = useListLayout({
-  filters: { search: '', statusId: null, category: null, riskLevel: null },
+  // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+  filters: { search: '', statusId: [], category: [], riskLevel: [] },
   total: () => suppliers.value.length,
   empty: () => suppliers.value.length === 0,
   syncUrl: true,
@@ -25,7 +32,7 @@ const suppliers = useLiveQueryWithDeps(
     () => list.filters.value.category,
     () => list.filters.value.riskLevel,
   ],
-  async (db, [search, statusId, category, riskLevel]) => {
+  async (db, [search, statusIds, categories, riskLevels]) => {
     let results = await db.Supplier.where().exec()
     if (search) {
       const q = search.toLowerCase()
@@ -33,9 +40,9 @@ const suppliers = useLiveQueryWithDeps(
         (s) => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q),
       )
     }
-    if (statusId) results = results.filter((s) => s.statusId === statusId)
-    if (category) results = results.filter((s) => s.category === category)
-    if (riskLevel) results = results.filter((s) => s.riskLevel === riskLevel)
+    if (statusIds?.length) results = results.filter((s) => statusIds.includes(s.statusId))
+    if (categories?.length) results = results.filter((s) => categories.includes(s.category))
+    if (riskLevels?.length) results = results.filter((s) => riskLevels.includes(s.riskLevel))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -43,6 +50,36 @@ const suppliers = useLiveQueryWithDeps(
 
   { models: ['Supplier'], initial: [] },
 )
+
+const allSuppliers = useLiveQuery((db) => db.Supplier.where().exec(), {
+  models: ['Supplier'],
+  initial: [],
+})
+
+// Compact KPI strip (list-page metrics bar) — matches the other QMS list pages.
+const kpiItems = computed(() => {
+  const all = allSuppliers.value
+  const byRisk = (r) => all.filter((s) => s.riskLevel === r).length
+  return [
+    {
+      key: 'total',
+      label: 'Total suppliers',
+      value: all.length,
+      icon: IconUsers,
+      color: 'primary',
+    },
+    {
+      key: 'high',
+      label: 'High risk',
+      value: byRisk('High'),
+      icon: IconAlertTriangle,
+      color: 'red',
+      emphasize: byRisk('High') > 0,
+    },
+    { key: 'medium', label: 'Medium risk', value: byRisk('Medium'), icon: IconShieldCheck, color: 'amber' },
+    { key: 'low', label: 'Low risk', value: byRisk('Low'), icon: IconCircleCheck, color: 'green' },
+  ]
+})
 
 const { confirm } = useConfirm()
 
@@ -80,26 +117,7 @@ async function onDeleteSupplier(row) {
     </template>
 
     <template #stats>
-      <!-- Stats Card -->
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-4 tw:gap-4">
-        <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-          <div class="tw:flex tw:items-center tw:gap-4">
-            <div
-              class="tw:w-12 tw:h-12 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center"
-            >
-              <IconUsers :size="24" />
-            </div>
-            <div>
-              <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-                Total Suppliers
-              </div>
-              <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
-                {{ suppliers.length }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <BaseStatStrip :items="kpiItems" />
     </template>
 
     <template #filters>

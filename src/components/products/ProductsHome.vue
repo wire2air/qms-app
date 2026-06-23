@@ -25,7 +25,8 @@ const canUpdateProduct = computed(() => isAllowed(['products:update']))
 const canDeleteProduct = computed(() => isAllowed(['products:delete']))
 
 const list = useListLayout({
-  filters: { search: '', productTypeId: null, statusId: null, productFamilyId: null },
+  // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+  filters: { search: '', productTypeId: [], statusId: [], productFamilyId: [] },
   total: () => products.value.length,
   empty: () => products.value.length === 0,
   syncUrl: true,
@@ -38,11 +39,13 @@ const products = useLiveQueryWithDeps(
     () => list.filters.value.statusId,
     () => list.filters.value.productFamilyId,
   ],
-  async (db, [search, productTypeId, statusId, productFamilyId]) => {
+  async (db, [search, productTypeIds, statusIds, productFamilyIds]) => {
     let results = await db.Product.where().exec()
-    if (productTypeId) results = results.filter((p) => p.productTypeId === productTypeId)
-    if (statusId) results = results.filter((p) => p.statusId === statusId)
-    if (productFamilyId) results = results.filter((p) => p.productFamilyId === productFamilyId)
+    if (productTypeIds?.length)
+      results = results.filter((p) => productTypeIds.includes(p.productTypeId))
+    if (statusIds?.length) results = results.filter((p) => statusIds.includes(p.statusId))
+    if (productFamilyIds?.length)
+      results = results.filter((p) => productFamilyIds.includes(p.productFamilyId))
     if (search) {
       const q = search.toLowerCase()
       results = results.filter(

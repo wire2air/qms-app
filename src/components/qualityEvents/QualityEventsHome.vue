@@ -1,6 +1,13 @@
 <script setup>
-import { IconLayoutDashboard } from '@tabler/icons-vue'
-import { isAllowed } from '@/utils/currentSession.js'
+import {
+  IconLayoutDashboard,
+  IconAlertCircle,
+  IconEye,
+  IconArrowUpRight,
+  IconCircleCheck,
+  IconClipboardList,
+} from '@tabler/icons-vue'
+import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const router = useRouter()
@@ -10,28 +17,73 @@ const { confirm } = useConfirm()
 const canCreate = computed(() => isAllowed(['qualityEvents:create']))
 const canDelete = computed(() => isAllowed(['qualityEvents:delete']))
 
-const filters = ref({ search: '', statusId: null, categoryId: null, severityId: null })
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty` are lazy getters that read `events`. `activeFilter`
+// (the quick-filter pill) lives in the same bag so it shares URL-sync + reset.
+const list = useListLayout({
+  filters: {
+    search: '',
+    // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+    statusId: [],
+    categoryId: [],
+    severityId: [],
+    activeFilter: 'all_open',
+  },
+  total: () => events.value.length,
+  empty: () => events.value.length === 0,
+  syncUrl: true,
+})
+
 const showCreate = ref(false)
+
+const OPEN_STATUSES = ['DRAFT', 'OPEN', 'UNDER_REVIEW', 'AWAITING_DECISION', 'ESCALATED']
+
+function applyFilters(results, search, statusIds, categoryIds, severityIds) {
+  if (search) {
+    const q = search.toLowerCase()
+    results = results.filter(
+      (r) => r.title?.toLowerCase().includes(q) || r.eventNumber?.toLowerCase().includes(q),
+    )
+  }
+  if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
+  if (categoryIds?.length) results = results.filter((r) => categoryIds.includes(r.categoryId))
+  if (severityIds?.length) results = results.filter((r) => severityIds.includes(r.severityId))
+  return results
+}
+
+function applyActiveFilter(results, af) {
+  const userId = currentSession.value?.userId
+  if (af === 'all_open') return results.filter((r) => OPEN_STATUSES.includes(r.statusId))
+  if (af === 'mine')
+    return results.filter(
+      (r) => r.assignedToUserId === userId && OPEN_STATUSES.includes(r.statusId),
+    )
+  if (af === 'escalated') return results.filter((r) => r.statusId === 'ESCALATED')
+  if (af === 'closed') return results.filter((r) => r.statusId === 'CLOSED')
+  if (af === 'cancelled') return results.filter((r) => r.statusId === 'CANCELLED')
+  return results
+}
+
+const allEvents = useLiveQuery((db) => db.QualityEvent.where().exec(), {
+  models: ['QualityEvent'],
+  initial: [],
+})
 
 const events = useLiveQueryWithDeps(
   [
-    () => filters.value.search,
-    () => filters.value.statusId,
-    () => filters.value.categoryId,
-    () => filters.value.severityId,
+    () => list.filters.value.search,
+    () => list.filters.value.statusId,
+    () => list.filters.value.categoryId,
+    () => list.filters.value.severityId,
+    () => list.filters.value.activeFilter,
   ],
-  async (db, [search, statusId, categoryId, severityId]) => {
+  async (db, [search, statusIds, categoryIds, severityIds, af]) => {
     let results = await db.QualityEvent.where().exec()
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter(
-        (r) => r.title?.toLowerCase().includes(q) || r.eventNumber?.toLowerCase().includes(q),
-      )
-    }
-    if (statusId) results = results.filter((r) => r.statusId === statusId)
-    if (categoryId) results = results.filter((r) => r.categoryId === categoryId)
-    if (severityId) results = results.filter((r) => r.severityId === severityId)
-    return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    results = applyFilters(results, search, statusIds, categoryIds, severityIds)
+    results = applyActiveFilter(results, af)
+    return results.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )
   },
   { models: ['QualityEvent'], initial: [] },
 )
@@ -44,11 +96,46 @@ const escalations = useLiveQuery((db) => db.RecordLink.where().exec(), {
 const escalatedIds = computed(
   () =>
     new Set(
-      (escalations.value || [])
-        .filter((l) => l.fromType === 'QualityEvent')
-        .map((l) => l.fromId),
+      (escalations.value || []).filter((l) => l.fromType === 'QualityEvent').map((l) => l.fromId),
     ),
 )
+
+const stats = computed(() => {
+  const all = allEvents.value
+  return {
+    open: all.filter((r) => OPEN_STATUSES.includes(r.statusId)).length,
+    underReview: all.filter((r) => r.statusId === 'UNDER_REVIEW').length,
+    escalated: all.filter((r) => r.statusId === 'ESCALATED').length,
+    closed: all.filter((r) => r.statusId === 'CLOSED').length,
+  }
+})
+
+// Compact KPI strip (list-page metrics bar, not a dashboard card grid).
+const kpiItems = computed(() => [
+  { key: 'open', label: 'Open', value: stats.value.open, icon: IconAlertCircle, color: 'blue' },
+  {
+    key: 'review',
+    label: 'Under review',
+    value: stats.value.underReview,
+    icon: IconEye,
+    color: 'amber',
+  },
+  {
+    key: 'escalated',
+    label: 'Escalated',
+    value: stats.value.escalated,
+    icon: IconArrowUpRight,
+    color: 'red',
+    emphasize: stats.value.escalated > 0,
+  },
+  {
+    key: 'closed',
+    label: 'Closed',
+    value: stats.value.closed,
+    icon: IconCircleCheck,
+    color: 'green',
+  },
+])
 
 async function onDeleteRow(row) {
   if (
@@ -76,31 +163,47 @@ function onCreated(event) {
 </script>
 
 <template>
-  <BasePage width="wide">
-    <PageHeader
-      title="Events & Observations"
-      subtitle="Log quality observations, concerns, and near-misses — escalate only when justified."
-    >
-      <template #actions>
-        <BaseButton variant="outline" @click="router.push(getCompanyPath('/qualityEvents/dashboard'))">
-          <IconLayoutDashboard :size="16" class="tw:mr-1" />
-          Dashboard
-        </BaseButton>
-        <BaseButton v-if="canCreate" variant="primary" @click="showCreate = true">Log Event</BaseButton>
-      </template>
-    </PageHeader>
+  <BaseListLayout
+    title="Events & Observations"
+    subtitle="Log quality observations, concerns, and near-misses — escalate only when justified."
+    :state="list.state.value"
+    :emptyIcon="IconClipboardList"
+    :emptyTitle="
+      list.hasActiveFilters.value ? 'No events match your filters' : 'No events logged yet'
+    "
+  >
+    <template #title>
+      <span class="tw:inline-flex tw:items-center tw:gap-2">
+        Events &amp; Observations
+        <span
+          class="tw:rounded-full tw:bg-main-selected tw:px-2 tw:py-0.5 tw:text-caption tw:font-semibold tw:text-secondary tw:tabular-nums"
+        >
+          {{ events.length }}
+        </span>
+      </span>
+    </template>
 
-    <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
-      <BaseTextInput
-        v-model="filters.search"
-        placeholder="Search events…"
-        size="sm"
-        class="tw:w-64"
+    <template #actions>
+      <BaseButton
+        variant="outline"
+        @click="router.push(getCompanyPath('/qualityEvents/dashboard'))"
+      >
+        <IconLayoutDashboard :size="16" class="tw:mr-1" />
+        Dashboard
+      </BaseButton>
+      <BaseButton v-if="canCreate" variant="primary" @click="showCreate = true">Log Event</BaseButton>
+    </template>
+
+    <template #stats>
+      <BaseStatStrip :items="kpiItems" />
+    </template>
+
+    <template #filters>
+      <QualityEventsFilterToolbar
+        v-model:filters="list.filters.value"
+        v-model:activeFilter="list.filters.value.activeFilter"
       />
-      <div class="tw:w-44"><QualityEventStatusSelectMenu v-model="filters.statusId" :required="false" /></div>
-      <div class="tw:w-48"><EventCategorySelectMenu v-model="filters.categoryId" :required="false" /></div>
-      <div class="tw:w-44"><EventSeveritySelectMenu v-model="filters.severityId" :required="false" /></div>
-    </div>
+    </template>
 
     <QualityEventsTable
       :rows="events"
@@ -110,5 +213,5 @@ function onCreated(event) {
     />
 
     <QualityEventCreateDialog v-model="showCreate" @created="onCreated" />
-  </BasePage>
+  </BaseListLayout>
 </template>

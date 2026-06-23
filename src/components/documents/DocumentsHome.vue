@@ -10,10 +10,12 @@ const router = useRouter()
 const list = useListLayout({
   filters: {
     search: '',
-    documentTypeId: null,
+    // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+    documentTypeId: [],
+    departmentId: [],
+    statusId: [],
+    // Deep-link only (e.g. from a template) — single value, no toolbar control.
     documentTemplateId: null,
-    departmentId: null,
-    statusId: null,
   },
   total: () => documents.value.length,
   empty: () => documents.value.length === 0,
@@ -27,12 +29,14 @@ const allDocuments = useLiveQueryWithDeps(
     () => list.filters.value.documentTemplateId,
     () => list.filters.value.departmentId,
   ],
-  async (db, [documentTypeId, documentTemplateId, departmentId]) => {
-    let q = db.Document.where()
-    if (documentTypeId) q = q.where('documentTypeId', documentTypeId)
-    if (documentTemplateId) q = q.where('documentTemplateId', documentTemplateId)
-    if (departmentId) q = q.where('departmentId', departmentId)
-    return q.exec()
+  async (db, [documentTypeIds, documentTemplateId, departmentIds]) => {
+    let rows = await db.Document.where().exec()
+    if (Array.isArray(documentTypeIds) && documentTypeIds.length)
+      rows = rows.filter((d) => documentTypeIds.includes(d.documentTypeId))
+    if (documentTemplateId) rows = rows.filter((d) => d.documentTemplateId === documentTemplateId)
+    if (Array.isArray(departmentIds) && departmentIds.length)
+      rows = rows.filter((d) => departmentIds.includes(d.departmentId))
+    return rows
   },
 
   { models: ['Document'], initial: [] },
@@ -78,15 +82,15 @@ const latestVersionStatusByDocId = useLiveQueryWithDeps(
 
 const documents = computed(() => {
   let rows = allDocuments.value ?? []
-  const statusId = list.filters.value.statusId
-  if (statusId) {
+  const statusIds = list.filters.value.statusId
+  if (Array.isArray(statusIds) && statusIds.length) {
     const currentStatuses = currentVersionStatusByDocId.value ?? {}
     const latestStatuses = latestVersionStatusByDocId.value ?? {}
     rows = rows.filter(
       (d) =>
-        d.statusId === statusId ||
-        currentStatuses[d.id] === statusId ||
-        latestStatuses[d.id] === statusId,
+        statusIds.includes(d.statusId) ||
+        statusIds.includes(currentStatuses[d.id]) ||
+        statusIds.includes(latestStatuses[d.id]),
     )
   }
   if (!list.filters.value.search) return rows

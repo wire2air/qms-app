@@ -24,33 +24,31 @@ const canDelete = computed(() => isAllowed(['capas:delete']))
 const list = useListLayout({
   filters: {
     search: '',
-    statusId: null,
-    priorityId: null,
-    typeId: null,
-    supplierId: route.query.supplierId || null,
+    // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+    statusId: [],
+    priorityId: [],
+    typeId: [],
+    supplierId: route.query.supplierId ? [route.query.supplierId] : [],
     createdAt: null,
+    activeFilter: 'all_open',
   },
   total: () => capas.value.length,
   empty: () => capas.value.length === 0,
   syncUrl: true,
 })
 
-// Quick-filter pill selection. Kept separate from `list.filters` because the
-// CapasFilterToolbar exposes it via its own `v-model:activeFilter`.
-const activeFilter = ref('all_open')
-
 // Supplier deep-link: /capas?supplierId=… prefilters to one supplier.
 watch(
   () => route.query.supplierId,
-  (v) => (list.filters.value.supplierId = v || null),
+  (v) => (list.filters.value.supplierId = v ? [v] : []),
 )
 const filterSupplier = useLiveQueryWithDeps(
-  [() => list.filters.value.supplierId],
+  [() => list.filters.value.supplierId?.[0] ?? null],
   async (db, [id]) => (id ? db.Supplier.findByPk(id) : null),
   { models: ['Supplier'] },
 )
 function clearSupplierFilter() {
-  list.filters.value.supplierId = null
+  list.filters.value.supplierId = []
   const q = { ...route.query }
   delete q.supplierId
   router.replace({ query: q })
@@ -75,16 +73,16 @@ function exportCsv() {
 const CLOSED_STATUSES = ['CLOSED', 'CANCELLED']
 const OPEN_STATUSES = ['DRAFT', 'PENDING']
 
-function applyFilters(results, search, statusId, priorityId, typeId) {
+function applyFilters(results, search, statusIds, priorityIds, typeIds) {
   if (search) {
     const q = search.toLowerCase()
     results = results.filter(
       (r) => r.title?.toLowerCase().includes(q) || r.capaNumber?.toLowerCase().includes(q),
     )
   }
-  if (statusId) results = results.filter((r) => r.statusId === statusId)
-  if (priorityId) results = results.filter((r) => r.priorityId === priorityId)
-  if (typeId) results = results.filter((r) => r.typeId === typeId)
+  if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
+  if (priorityIds?.length) results = results.filter((r) => priorityIds.includes(r.priorityId))
+  if (typeIds?.length) results = results.filter((r) => typeIds.includes(r.typeId))
   return results
 }
 
@@ -113,17 +111,16 @@ const capas = useLiveQueryWithDeps(
     () => list.filters.value.statusId,
     () => list.filters.value.priorityId,
     () => list.filters.value.typeId,
-    () => activeFilter.value,
+    () => list.filters.value.activeFilter,
     () => list.filters.value.supplierId,
     () => list.filters.value.createdAt,
   ],
-  async (db, [search, statusId, priorityId, typeId, af, supplierId, createdAt]) => {
+  async (db, [search, statusIds, priorityIds, typeIds, af, supplierIds, createdAt]) => {
     let results = await db.Capa.where().exec()
-    results = applyFilters(results, search, statusId, priorityId, typeId)
+    results = applyFilters(results, search, statusIds, priorityIds, typeIds)
     results = applyActiveFilter(results, af)
-    if (supplierId) results = results.filter((r) => r.supplierId === supplierId)
-    if (createdAt)
-      results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
+    if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))
+    if (createdAt) results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -149,6 +146,40 @@ const stats = computed(() => {
     closedThisMonth: closedThisMonth.length,
   }
 })
+
+// Compact KPI strip (list-page metrics bar) — matches the other QMS list pages.
+const kpiItems = computed(() => [
+  {
+    key: 'open',
+    label: 'Open CAPAs',
+    value: stats.value.open,
+    icon: IconAlertCircle,
+    color: 'blue',
+  },
+  {
+    key: 'overdue',
+    label: 'Overdue',
+    value: stats.value.overdue,
+    icon: IconClock,
+    color: 'red',
+    emphasize: stats.value.overdue > 0,
+  },
+  {
+    key: 'critical',
+    label: 'Critical open',
+    value: stats.value.criticalOpen,
+    icon: IconShieldCheck,
+    color: 'amber',
+    emphasize: stats.value.criticalOpen > 0,
+  },
+  {
+    key: 'closed',
+    label: 'Closed this month',
+    value: stats.value.closedThisMonth,
+    icon: IconCircleCheck,
+    color: 'green',
+  },
+])
 
 function onCreateCapa() {
   router.push(getCompanyPath('/capas/create'))
@@ -177,82 +208,8 @@ function onCreateCapa() {
       <BaseButton v-if="canCreate" variant="primary" @click="onCreateCapa">Create CAPA</BaseButton>
     </template>
 
-    <!-- Stat Cards -->
     <template #stats>
-      <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
-        <div
-          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-        >
-          <div
-            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-          >
-            <IconAlertCircle :size="20" />
-          </div>
-          <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-              Open CAPAs
-            </div>
-            <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.open }}</div>
-          </div>
-        </div>
-        <div
-          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-        >
-          <div
-            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-red-50 tw:text-red-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-          >
-            <IconClock :size="20" />
-          </div>
-          <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-              Overdue
-            </div>
-            <div
-              class="tw:text-2xl tw:font-black"
-              :class="stats.overdue > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
-            >
-              {{ stats.overdue }}
-            </div>
-          </div>
-        </div>
-        <div
-          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-        >
-          <div
-            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-          >
-            <IconShieldCheck :size="20" />
-          </div>
-          <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-              Critical open
-            </div>
-            <div
-              class="tw:text-2xl tw:font-black"
-              :class="stats.criticalOpen > 0 ? 'tw:text-amber-600' : 'tw:text-on-sidebar'"
-            >
-              {{ stats.criticalOpen }}
-            </div>
-          </div>
-        </div>
-        <div
-          class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-        >
-          <div
-            class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-green-50 tw:text-green-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-          >
-            <IconCircleCheck :size="20" />
-          </div>
-          <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-              Closed this month
-            </div>
-            <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
-              {{ stats.closedThisMonth }}
-            </div>
-          </div>
-        </div>
-      </div>
+      <BaseStatStrip :items="kpiItems" />
     </template>
 
     <template #filters>
@@ -272,7 +229,10 @@ function onCreateCapa() {
         </button>
       </div>
 
-      <CapasFilterToolbar v-model:filters="list.filters.value" v-model:activeFilter="activeFilter" />
+      <CapasFilterToolbar
+        v-model:filters="list.filters.value"
+        v-model:activeFilter="list.filters.value.activeFilter"
+      />
     </template>
 
     <CapasTable

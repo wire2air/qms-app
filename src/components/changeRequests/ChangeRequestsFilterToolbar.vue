@@ -1,80 +1,166 @@
 <script setup>
-import { IconCalendar } from '@tabler/icons-vue'
+import {
+  IconSearch,
+  IconX,
+  IconCircleDot,
+  IconAlertTriangle,
+  IconTag,
+  IconCalendar,
+} from '@tabler/icons-vue'
 
-const filters = defineModel('filters', {
-  type: Object,
-  default: () => ({
-    search: '',
-    statusId: null,
-    priorityId: null,
-    changeTypeId: null,
-    createdAt: null,
-  }),
-})
+const filters = defineModel('filters', { type: Object, required: true })
 const activeFilter = defineModel('activeFilter', { type: String, default: 'all_open' })
 
-const TABS = [
-  { id: 'all_open', label: 'All open' },
-  { id: 'mine', label: 'Mine' },
-  { id: 'awaiting_approval', label: 'Awaiting approval' },
-  { id: 'urgent', label: 'Urgent' },
-  { id: 'closed', label: 'Closed' },
+const filterPills = [
+  { value: 'all_open', label: 'All open' },
+  { value: 'mine', label: 'Mine' },
+  { value: 'awaiting_approval', label: 'Awaiting approval' },
+  { value: 'urgent', label: 'Urgent' },
+  { value: 'closed', label: 'Closed' },
 ]
 
+// Dimension option sources for the Linear-style filter menu.
+const crStatuses = useLiveQuery(
+  (db) => db.ChangeRequestStatus.where().orderBy('displayOrder').exec(),
+  { models: ['ChangeRequestStatus'], initial: [] },
+)
+const crPriorities = useLiveQuery(
+  (db) => db.ChangeRequestPriority.where().orderBy('displayOrder').exec(),
+  { models: ['ChangeRequestPriority'], initial: [] },
+)
+const changeTypes = useLiveQuery((db) => db.ChangeType.where().orderBy('displayOrder').exec(), {
+  models: ['ChangeType'],
+  initial: [],
+})
+
 const filterItems = computed(() => [
+  {
+    id: 'statusId',
+    label: 'Status',
+    icon: IconCircleDot,
+    group: 'statusId',
+    options: crStatuses.value.map((s) => ({ value: s.id, label: s.name })),
+  },
+  {
+    id: 'priorityId',
+    label: 'Priority',
+    icon: IconAlertTriangle,
+    group: 'priorityId',
+    options: crPriorities.value.map((p) => ({ value: p.id, label: p.name })),
+  },
+  {
+    id: 'changeTypeId',
+    label: 'Type',
+    icon: IconTag,
+    group: 'changeTypeId',
+    options: changeTypes.value.map((t) => ({ value: t.id, label: t.name })),
+  },
   { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
 ])
 
-function clearAll() {
-  filters.value.search = ''
-  filters.value.statusId = null
-  filters.value.priorityId = null
-  filters.value.changeTypeId = null
-  filters.value.createdAt = null
+function arr(key) {
+  return Array.isArray(filters.value[key]) ? filters.value[key] : []
 }
-
-const hasActiveFilters = computed(
+function removeValue(key, value) {
+  filters.value = { ...filters.value, [key]: arr(key).filter((v) => v !== value) }
+}
+const hasChips = computed(
   () =>
-    filters.value.search ||
-    filters.value.statusId ||
-    filters.value.priorityId ||
-    filters.value.changeTypeId ||
+    arr('statusId').length ||
+    arr('priorityId').length ||
+    arr('changeTypeId').length ||
     filters.value.createdAt,
 )
+const showClear = computed(() => hasChips.value || !!filters.value.search)
+
+function clearAll() {
+  filters.value = {
+    ...filters.value,
+    search: '',
+    statusId: [],
+    priorityId: [],
+    changeTypeId: [],
+    createdAt: null,
+  }
+}
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3">
-    <!-- Quick-filter tab strip -->
-    <div class="tw:flex tw:items-center tw:gap-1 tw:border-b tw:border-divider">
-      <button
-        v-for="tab in TABS"
-        :key="tab.id"
-        class="tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:border-b-2 tw:transition-colors tw:cursor-pointer"
-        :class="
-          activeFilter === tab.id
-            ? 'tw:border-primary tw:text-primary'
-            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'
-        "
-        @click="activeFilter = tab.id"
-      >
-        {{ tab.label }}
-      </button>
+  <!-- Sticky workspace toolbar: pins below the app bar while the list scrolls. -->
+  <div
+    class="tw:sticky tw:top-0 tw:z-sticky tw:flex tw:flex-col tw:gap-2.5 tw:bg-main tw:pt-1 tw:pb-2.5"
+  >
+    <!-- Row 1 — search + filter menu -->
+    <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+      <div class="tw:relative tw:min-w-[12rem] tw:flex-1 tw:max-w-sm">
+        <IconSearch
+          :size="16"
+          class="tw:pointer-events-none tw:absolute tw:left-2.5 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary"
+        />
+        <input
+          v-model="filters.search"
+          type="text"
+          placeholder="Search by CR number or title…"
+          class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-card tw:py-1.5 tw:ps-8 tw:pe-3 tw:text-sm tw:text-on-main tw:outline-none tw:transition-colors tw:focus:border-primary"
+        />
+      </div>
+
+      <div class="tw:ms-auto tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+        <BaseFilterMenu v-model="filters" :items="filterItems" />
+      </div>
     </div>
 
-    <!-- Field filters -->
-    <BaseFilterBar
-      v-model:search="filters.search"
-      searchPlaceholder="Search by CR number or title…"
-      :showClear="hasActiveFilters"
-      @clear="clearAll"
-    >
-      <template #filters>
-        <ChangeRequestStatusSelectMenu v-model="filters.statusId" class="tw:w-44" />
-        <ChangeRequestPrioritySelectMenu v-model="filters.priorityId" class="tw:w-44" />
-        <ChangeTypeSelectMenu v-model="filters.changeTypeId" class="tw:w-44" />
-        <BaseFilterMenu v-model="filters" :items="filterItems" />
-      </template>
-    </BaseFilterBar>
+    <!-- Row 2 — quick views -->
+    <BaseQuickFilterPills v-model="activeFilter" :pills="filterPills" ariaLabel="Quick views" />
+
+    <!-- Row 3 — applied filters as removable tokens -->
+    <div v-if="hasChips" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
+      <span class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+        Filters
+      </span>
+      <ChangeRequestStatusBadgeById
+        v-for="id in arr('statusId')"
+        :key="`st-${id}`"
+        :statusId="id"
+        clearable
+        @clear="removeValue('statusId', id)"
+      />
+      <ChangeRequestPriorityBadgeById
+        v-for="id in arr('priorityId')"
+        :key="`pr-${id}`"
+        :priorityId="id"
+        clearable
+        @clear="removeValue('priorityId', id)"
+      />
+      <ChangeTypeBadgeById
+        v-for="id in arr('changeTypeId')"
+        :key="`ty-${id}`"
+        :changeTypeId="id"
+        clearable
+        @clear="removeValue('changeTypeId', id)"
+      />
+      <span
+        v-if="filters.createdAt"
+        class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"
+      >
+        Created date
+        <button
+          type="button"
+          aria-label="Clear date filter"
+          class="tw:rounded tw:p-0.5 tw:hover:bg-main-hover"
+          @click="filters.createdAt = null"
+        >
+          <IconX class="tw:size-3" />
+        </button>
+      </span>
+      <button
+        v-if="showClear"
+        type="button"
+        class="tw:ms-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
+        @click="clearAll"
+      >
+        Clear all
+      </button>
+    </div>
   </div>
 </template>

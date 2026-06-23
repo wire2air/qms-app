@@ -1,29 +1,128 @@
 <script setup>
-const filters = defineModel('filters', {
-  type: Object,
-  required: true,
+import { IconSearch, IconCategory, IconTag, IconCircleDot } from '@tabler/icons-vue'
+
+const filters = defineModel('filters', { type: Object, required: true })
+
+// Option sources for the cascading filter menu.
+const families = useLiveQuery((db) => db.ProductFamily.where().orderBy('displayOrder').exec(), {
+  models: ['ProductFamily'],
+  initial: [],
+})
+const types = useLiveQuery((db) => db.ProductType.where().orderBy('displayOrder').exec(), {
+  models: ['ProductType'],
+  initial: [],
+})
+const statuses = useLiveQuery((db) => db.ProductStatus.where().orderBy('displayOrder').exec(), {
+  models: ['ProductStatus'],
+  initial: [],
 })
 
-const showClear = computed(
-  () => !!(filters.value.search || filters.value.productTypeId || filters.value.statusId || filters.value.productFamilyId),
+const filterItems = computed(() => [
+  {
+    id: 'productFamilyId',
+    label: 'Family',
+    icon: IconCategory,
+    group: 'productFamilyId',
+    searchable: true,
+    options: families.value.map((f) => ({ value: f.id, label: f.name })),
+  },
+  {
+    id: 'productTypeId',
+    label: 'Type',
+    icon: IconTag,
+    group: 'productTypeId',
+    options: types.value.map((t) => ({ value: t.id, label: t.name })),
+  },
+  {
+    id: 'statusId',
+    label: 'Status',
+    icon: IconCircleDot,
+    group: 'statusId',
+    options: statuses.value.map((s) => ({ value: s.id, label: s.name })),
+  },
+])
+
+function arr(key) {
+  return Array.isArray(filters.value[key]) ? filters.value[key] : []
+}
+function removeValue(key, value) {
+  filters.value = { ...filters.value, [key]: arr(key).filter((v) => v !== value) }
+}
+const hasChips = computed(
+  () => arr('productFamilyId').length || arr('productTypeId').length || arr('statusId').length,
 )
+const showClear = computed(() => hasChips.value || !!filters.value.search)
 
 function clearAll() {
-  filters.value = { search: '', productTypeId: null, statusId: null, productFamilyId: null }
+  filters.value = {
+    ...filters.value,
+    search: '',
+    productFamilyId: [],
+    productTypeId: [],
+    statusId: [],
+  }
 }
 </script>
 
 <template>
-  <BaseFilterBar
-    v-model:search="filters.search"
-    searchPlaceholder="Search products…"
-    :showClear="showClear"
-    @clear="clearAll"
+  <!-- Sticky workspace toolbar: pins below the app bar while the list scrolls. -->
+  <div
+    class="tw:sticky tw:top-0 tw:z-sticky tw:flex tw:flex-col tw:gap-2.5 tw:bg-main tw:pt-1 tw:pb-2.5"
   >
-    <template #filters>
-      <ProductFamilySelectMenu v-model="filters.productFamilyId" :required="false" :allowCreate="false" nullLabel="All Families" />
-      <ProductTypeSelectMenu v-model="filters.productTypeId" :required="false" />
-      <ProductStatusSelectMenu v-model="filters.statusId" :required="false" />
-    </template>
-  </BaseFilterBar>
+    <!-- Row 1 — search + filter menu -->
+    <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+      <div class="tw:relative tw:min-w-[12rem] tw:flex-1 tw:max-w-sm">
+        <IconSearch
+          :size="16"
+          class="tw:pointer-events-none tw:absolute tw:left-2.5 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary"
+        />
+        <input
+          v-model="filters.search"
+          type="text"
+          placeholder="Search name or SKU…"
+          class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-card tw:py-1.5 tw:ps-8 tw:pe-3 tw:text-sm tw:text-on-main tw:outline-none tw:transition-colors tw:focus:border-primary"
+        />
+      </div>
+
+      <div class="tw:ms-auto tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+        <BaseFilterMenu v-model="filters" :items="filterItems" />
+      </div>
+    </div>
+
+    <!-- Row 2 — applied filters as removable tokens -->
+    <div v-if="hasChips" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
+      <span class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+        Filters
+      </span>
+      <ProductFamilyBadgeById
+        v-for="id in arr('productFamilyId')"
+        :key="`fa-${id}`"
+        :productFamilyId="id"
+        clearable
+        @clear="removeValue('productFamilyId', id)"
+      />
+      <ProductTypeBadgeById
+        v-for="id in arr('productTypeId')"
+        :key="`ty-${id}`"
+        :productTypeId="id"
+        clearable
+        @clear="removeValue('productTypeId', id)"
+      />
+      <ProductStatusBadgeById
+        v-for="id in arr('statusId')"
+        :key="`st-${id}`"
+        :statusId="id"
+        clearable
+        @clear="removeValue('statusId', id)"
+      />
+      <button
+        v-if="showClear"
+        type="button"
+        class="tw:ms-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
+        @click="clearAll"
+      >
+        Clear all
+      </button>
+    </div>
+  </div>
 </template>
