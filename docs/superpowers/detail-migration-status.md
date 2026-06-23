@@ -67,3 +67,20 @@ EXEMPT (full-canvas/execution workspaces / reusable editors — do NOT migrate):
 - **Remaining work:** (a) human visual pass (gate 7) on the 4 migrated pages on the running auth app — header title/status/meta, actions per status + overflow, banners, body sections/tabs render, autosave indicator, all dialogs OPEN (the dialog-sibling gotcha above), rail edit (AuditProgram); (b) open PR for the wave-2 branch once visual passes.
 - **⚠ PROCESS — do migrations INLINE, not via isolated subagents.** A wave-2 subagent reported success ("18/18 tests, build ✓") but worked in a throwaway worktree that never landed — left a broken commit (imported a config file that didn't exist; template never migrated). It was reset out. If using subagents, VERIFY the committed main-tree state yourself every time, don't trust self-reports.
 - **Per-page verification gates (all must pass before human visual):** (1) config file actually exists on disk; (2) `grep -c ':config=' page` ≥1 AND `grep -c ':banners=\|:sections=' page` ==0; (3) no duplicate title (`editing*Title*`/`<rec>.title` only in `#title`); (4) dialog count unchanged vs original AND dialogs are siblings after `</BaseDetailLayout>` (see gotcha); (5) `pnpm build` green; (6) `pnpm exec eslint` clean; (7) human visual on the running auth page.
+
+## ▶▶ WAVE-3 BACKLOG (remaining pages — pick up here next)
+Full inventory verified by scanning `grep -rl BaseDetailPage|BaseDetailLayout src` on 2026-06-23. After wave-2 merges, every detail page is migrated or exempt EXCEPT these:
+
+**Candidate (re-evaluate — was exempt, now looks migratable):**
+- **AuditInstancesPageId** (`audits/AuditInstancesPageId.vue`, ~1046 lines). Seen running 2026-06-23: its chrome is a textbook detail shape — title `AUD-…` + Scheduled/PASS badges (`#title`/`#status`), Back·Report·Start Audit·Submit·Cancel·Audit Log·Delete (`#actions` → DetailActionBar), Information/Requirements/Findings/OFI tabs (**panel-mode** tabs → `#tab-*`), Conformance/Audit Team/Overview cards (`#rail`). The audit-execution workspace lives INSIDE the tab panels, which BaseDetailLayout renders untouched. No embedded/dual-mode problem (unlike Spec Detail). → Reasonable migration; just large. Decide: migrate or keep bespoke.
+
+**Out of original QMS-core scope (admin/settings — migrate only if app-wide consistency is wanted):**
+- UserPageId (`users/UserPageId.vue`)
+- RolePageId (`roles/RolePageId.vue`)
+- GroupPageId (`groups/GroupPageId.vue`)
+- OptionSetsPageId (`optionSets/OptionSetsPageId.vue`)
+- DocumentTemplatesPageId (`documentTemplates/DocumentTemplatesPageId.vue`)
+
+**Confirmed exempt (do NOT migrate):** Document, MyTraining, LogBookDetailPage, InspectionLotDetail, SpecificationDetail (dual-mode). (AuditInstance moved to "candidate" above pending decision.)
+
+**Confirmed migrated (10):** NC, CAPA, Audit Standard, Change Request, Customer Complaint, Supplier (wave-1, in `develop`); Training Instance, Audit Program, Training, Quality Events (wave-2, this branch/PR).
