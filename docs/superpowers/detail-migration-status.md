@@ -57,3 +57,10 @@ EXEMPT (full-canvas/execution workspaces — do NOT migrate):
 - AuditInstancesPageId — audit workspace (custom tabs + walkthrough/findings/OFI panels + rail + approval workflow).
 - LogBookDetailPage (inspectionsLogs) — controlled-doc FormBuilder design platform.
 - InspectionLotDetail (qcInspection) — inspection results-capture execution surface.
+
+## ▶ RESUME HERE (fresh session)
+- **Branch:** `feat/ds-detail-migration-wave2` (off `develop` after PR #72; pushed). Wave-1's 6 pages are shipped in `develop`.
+- **Do next (migrate, in order):** TrainingInstancePageId (clean, no tabs/rail) → AuditProgramsPageId (rail) → TrainingPageId (own 5 tabs → single body section) → QualityEventsPageId (own 6 tabs → single body section) → SpecificationDetail (hand-rolled + version/e-sign; careful).
+- **Mark exempt (no migration):** MyTrainingPageId, AuditInstancesPageId, LogBookDetailPage, InspectionLotDetail.
+- **⚠ PROCESS — do migrations INLINE, not via isolated subagents.** A wave-2 subagent reported success ("18/18 tests, build ✓") but worked in a throwaway worktree that never landed — left a broken commit (imported a config file that didn't exist; template never migrated). It was reset out. If using subagents, VERIFY the committed main-tree state yourself every time, don't trust self-reports.
+- **Per-page verification gates (all must pass before human visual):** (1) config file actually exists on disk; (2) `grep -c ':config=' page` ≥1 AND `grep -c ':banners=\|:sections=' page` ==0; (3) no duplicate title (`editing*Title*`/`<rec>.title` only in `#title`); (4) dialog count unchanged vs original; (5) `pnpm build` green; (6) `pnpm exec eslint` clean; (7) human visual on the running auth page.
