@@ -116,15 +116,30 @@ describe('BaseDetailLayout — variants', () => {
     const w = mountLayout({ props: { config }, slots: { default: '<div/>' } })
     expect(w.find('[data-test="variant-stub"]').exists()).toBe(true)
   })
-  it('renders anchor sections with their ids and a nav', () => {
+  it('renders a single section body WITHOUT an anchor nav (nav only adds noise for one section)', () => {
     const config = defineDetailConfig({ sections: [{ id: 'details', label: 'Details' }] })
     const w = mountLayout({
       props: { config },
       slots: { 'section-details': '<div data-test="sec">Body</div>' },
     })
-    expect(w.find('nav[aria-label="Sections"]').exists()).toBe(true)
+    expect(w.find('nav[aria-label="Sections"]').exists()).toBe(false)
     expect(w.find('#section-details').exists()).toBe(true)
     expect(w.get('[data-test="sec"]').text()).toBe('Body')
+  })
+  it('renders an anchor nav when there is more than one section', () => {
+    const config = defineDetailConfig({
+      sections: [
+        { id: 'details', label: 'Details' },
+        { id: 'workflow', label: 'Workflow' },
+      ],
+    })
+    const w = mountLayout({
+      props: { config },
+      slots: { 'section-details': '<div data-test="d"/>', 'section-workflow': '<div data-test="w"/>' },
+    })
+    expect(w.find('nav[aria-label="Sections"]').exists()).toBe(true)
+    expect(w.find('#section-details').exists()).toBe(true)
+    expect(w.find('#section-workflow').exists()).toBe(true)
   })
   it('hides the AI summary slot unless ai.enabled', () => {
     const off = mountLayout({ props: { config: defineDetailConfig({}) }, slots: { default: '<div/>', 'ai-summary': '<div data-test="ai"/>' } })

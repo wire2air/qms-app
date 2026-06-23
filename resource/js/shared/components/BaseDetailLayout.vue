@@ -182,7 +182,7 @@ const slotState = computed(() => ({
       >
         <div class="tw:min-w-0">
           <template v-if="vd.showNav && visibleSections.length">
-            <DetailAnchorNav :sections="visibleSections" :activeId="activeSectionId" class="tw:sticky tw:top-[var(--detail-header-offset)] tw:z-raised tw:bg-main" />
+            <DetailAnchorNav v-if="visibleSections.length > 1" :sections="visibleSections" :activeId="activeSectionId" class="tw:sticky tw:top-[var(--detail-header-offset)] tw:z-raised tw:bg-main" />
             <section
               v-for="s in visibleSections"
               :id="`section-${s.id}`"
