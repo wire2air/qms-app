@@ -1,6 +1,5 @@
 <script setup>
 import {
-  IconArrowLeft,
   IconShieldCheck,
   IconFileText,
   IconDeviceFloppy,
@@ -19,6 +18,7 @@ import { humanizeCron } from '@/utils/cronHumanize.js'
 import { patch, del, post } from '@/api'
 import FormBuilder from '@/components/form-builder/FormBuilder.vue'
 import DynamicForm from '@/components/form/DynamicForm.js'
+import { buildLogBookSections, buildLogBookActions } from './logBookDetailConfig.js'
 
 /**
  * Log Book detail page — wired at /inspections-logs/log-books/:id.
@@ -514,56 +514,66 @@ async function archive() {
   }
 }
 
-function back() {
-  router.push(getCompanyPath('/inspections-logs/templates'))
-}
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
+  { label: 'Log Books', to: getCompanyPath('/inspections-logs/templates') },
+  { label: logBook.value?.title || 'Log Book' },
+])
+const logBookActions = computed(() =>
+  buildLogBookActions({ canUpdate: canUpdate.value, hasLogBook: !!logBook.value }, { archive }),
+)
+const logBookDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    actions: logBookActions.value,
+    sections: buildLogBookSections(logBook.value),
+  }),
+)
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader :title="logBook?.title || 'Log Book'">
-      <template v-if="logBook" #subtitle>
-        <span class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary">
-          <span class="tw:font-mono tw:uppercase">{{ logBook.code }}</span>
-          <span>·</span>
-          <span>schema v{{ logBook.schemaVersion }}</span>
-          <span v-if="isSaving" class="tw:text-amber-600">· saving…</span>
-        </span>
-      </template>
-      <template #actions>
-        <span
-          v-if="logBook"
-          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-1 tw:border"
-          :class="
-            logBook.recordClassification === 'CONTROLLED_RECORD'
-              ? 'tw:bg-red-50 tw:text-red-700 tw:border-red-200'
-              : 'tw:bg-amber-50 tw:text-amber-700 tw:border-amber-200'
-          "
-        >
-          <IconShieldCheck v-if="logBook.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
-          {{ logBook.recordClassification?.replace('_', ' ') }}
-        </span>
-        <BaseButton variant="ghost" @click="back">
-          <IconArrowLeft :size="16" />
-          Back to Log Books
-        </BaseButton>
-        <BaseButton
-          v-if="canUpdate && logBook"
-          variant="ghost"
-          class="tw:text-red-600"
-          @click="archive"
-        >
-          Archive
-        </BaseButton>
-      </template>
-    </PageHeader>
+  <BaseDetailLayout
+    :config="logBookDetailConfig"
+    :record="logBook"
+    :loading="loading"
+    :notFound="!loading && !logBook"
+    notFoundTitle="Log book not found"
+    notFoundDescription="This log book could not be found."
+  >
+    <template #title>
+      <span class="tw:text-base tw:font-semibold tw:text-on-main">{{
+        logBook?.title || 'Log Book'
+      }}</span>
+    </template>
 
-    <div v-if="loading" class="tw:py-12 tw:text-center tw:text-secondary">Loading…</div>
-    <div v-else-if="!logBook" class="tw:py-12 tw:text-center tw:text-secondary">
-      Log book not found.
-    </div>
+    <template #status>
+      <span
+        v-if="logBook"
+        class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-1 tw:border"
+        :class="
+          logBook.recordClassification === 'CONTROLLED_RECORD'
+            ? 'tw:bg-red-50 tw:text-red-700 tw:border-red-200'
+            : 'tw:bg-amber-50 tw:text-amber-700 tw:border-amber-200'
+        "
+      >
+        <IconShieldCheck v-if="logBook.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
+        {{ logBook.recordClassification?.replace('_', ' ') }}
+      </span>
+    </template>
 
-    <template v-else>
+    <template v-if="logBook" #meta>
+      <span class="tw:font-mono tw:uppercase">{{ logBook.code }}</span>
+      <span> · schema v{{ logBook.schemaVersion }}</span>
+      <span v-if="isSaving" class="tw:text-amber-600"> · saving…</span>
+    </template>
+
+    <template #actions>
+      <DetailActionBar :actions="logBookActions" />
+    </template>
+
+    <template v-if="logBook" #section-details>
       <!-- Tab strip -->
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Log book sections">
         <div class="tw:mt-6">
@@ -1336,9 +1346,10 @@ function back() {
         </div>
       </BaseTabs>
     </template>
+  </BaseDetailLayout>
 
-    <!-- Submit-for-approval dialog (reviewer-per-step picker). -->
-    <LogBookVersionSubmitDialog
+  <!-- Submit-for-approval dialog (reviewer-per-step picker). -->
+  <LogBookVersionSubmitDialog
       v-if="submitDialog.versionId"
       v-model="submitDialog.open"
       :versionId="submitDialog.versionId"
@@ -1443,5 +1454,4 @@ function back() {
         </div>
       </div>
     </Teleport>
-  </BasePage>
 </template>
