@@ -2,13 +2,13 @@
 import {
   IconFileText,
   IconInfoCircle,
-  IconHistory,
   IconArticle,
   IconSchool,
   IconSparkles,
   IconFileUpload,
 } from '@tabler/icons-vue'
 import { required, minValue, helpers } from '@vuelidate/validators'
+import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
 import { db } from '@models/index'
@@ -25,7 +25,10 @@ const customFieldsRef = ref(null)
 const selectedTemplate = ref(null)
 
 const DEFAULT_TRAINING_CONFIG = {
-  enabled: false,
+  // Training defaults ON — the "Enable training" toggle now lives on the
+  // Properties tab so authors see it up front. They untoggle for docs that
+  // need no training; the submit-for-review gate enforces an audience.
+  enabled: true,
   autoLaunch: true,
   managerId: null,
   requireManagerVerification: true,
@@ -66,10 +69,11 @@ const DEFAULT_FORM = {
 }
 
 // Form data — owner defaults to the creating user (the author can reassign it
-// in the Properties tab before saving).
+// in the Properties tab before saving); effective date defaults to today.
 const form = ref({
   ...DEFAULT_FORM,
   ownerId: currentSession.value?.userId ?? null,
+  effectiveDate: DateTime.now(),
 })
 
 // Validation rules
@@ -79,6 +83,9 @@ const rules = computed(() => ({
   },
   documentTypeId: {
     required: helpers.withMessage('Document type is required', required),
+  },
+  documentTemplateId: {
+    required: helpers.withMessage('Document template is required', required),
   },
   prefix: {
     required: helpers.withMessage('Document prefix is required', required),
@@ -224,12 +231,8 @@ async function saveDraft() {
 
   if (!isValid) {
     toast.warning('Please fix the validation errors before saving')
-    // Route to the tab that owns the first error so the user sees it.
-    if (validator.value.regulatoryImpactNotes?.$error) {
-      activeTab.value = 'changeControl'
-    } else {
-      activeTab.value = 'properties'
-    }
+    // All validated fields live on the Properties tab.
+    activeTab.value = 'properties'
     return
   }
   if ((await customFieldsRef.value?.validate()) === false) {
@@ -257,27 +260,6 @@ async function saveDraft() {
     toast.error('Failed to save document. Please try again.')
   } finally {
     saving.value = false
-  }
-}
-
-async function continueToNext() {
-  const isValid = await validator.value.$validate()
-  if (!isValid) {
-    toast.warning('Please fix the validation errors before continuing')
-    activeTab.value = 'properties'
-    return
-  } else {
-    goToNextTab()
-  }
-}
-
-function goToNextTab() {
-  if (activeTab.value === 'properties') {
-    activeTab.value = 'changeControl'
-  } else if (activeTab.value === 'changeControl') {
-    activeTab.value = 'content'
-  } else if (activeTab.value === 'content') {
-    activeTab.value = 'training'
   }
 }
 
@@ -355,9 +337,10 @@ function handlePdfImport(draft) {
   toast.success('PDF imported — review each section before saving.')
 }
 
+// Change Control is omitted on create — a brand-new document is always v1.0
+// (a first draft) where change control doesn't apply. It appears on revisions.
 const docTabs = [
   { value: 'properties', label: 'Properties', icon: IconInfoCircle },
-  { value: 'changeControl', label: 'Change Control', icon: IconHistory },
   { value: 'content', label: 'Content', icon: IconArticle },
   { value: 'training', label: 'Training Assessment', icon: IconSchool },
 ]
@@ -401,9 +384,6 @@ const docTabs = [
             />
           </div>
         </BaseTabPanel>
-        <BaseTabPanel value="changeControl" keepAlive class="tw:pt-6">
-          <DocumentsCreateChangeControl :form="form" />
-        </BaseTabPanel>
         <BaseTabPanel value="content" keepAlive class="tw:pt-6">
           <DocumentsCreateContent :form="form" :selectedTemplate="selectedTemplate" />
         </BaseTabPanel>
@@ -419,12 +399,9 @@ const docTabs = [
     >
       <div class="tw:flex tw:items-center tw:justify-end">
         <div class="tw:flex tw:items-center tw:gap-4">
-          <BaseButton variant="danger" :isLoading="saving" @click="cancel"> Cancel </BaseButton>
-          <BaseButton variant="secondary" :isLoading="saving" @click="saveDraft">
-            Save Draft
-          </BaseButton>
-          <BaseButton v-if="activeTab !== 'training'" :isLoading="saving" @click="continueToNext">
-            Continue
+          <BaseButton variant="secondary" :isLoading="saving" @click="cancel"> Cancel </BaseButton>
+          <BaseButton variant="primary" :isLoading="saving" @click="saveDraft">
+            Create Document
           </BaseButton>
         </div>
       </div>

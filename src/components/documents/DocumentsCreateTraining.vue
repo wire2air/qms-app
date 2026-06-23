@@ -78,18 +78,19 @@ const hasAssessment = computed({
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-5">
-    <!-- Enable training -->
-    <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5">
-      <div class="tw:flex tw:items-start tw:justify-between tw:gap-4">
-        <div>
-          <BaseText as="h3" weight="bold">Enable training for this document</BaseText>
-          <p class="tw:text-sm tw:text-secondary tw:mt-1">
-            When enabled, a training will be automatically launched for the selected employees each time
-            this document becomes effective. They'll be required to read the document and (optionally) pass
-            an assessment.
-          </p>
-        </div>
-        <BaseSwitch v-model="config.enabled" />
+    <!-- The enable toggle now lives on the Properties tab. When training is off,
+         point the author there; otherwise show the audience + assessment setup. -->
+    <div
+      v-if="!config.enabled"
+      class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5"
+    >
+      <div class="tw:flex tw:items-start tw:gap-3">
+        <IconAlertCircle :size="18" class="tw:text-secondary tw:shrink-0 tw:mt-0.5" />
+        <p class="tw:text-sm tw:text-secondary">
+          Training is disabled. Turn on
+          <span class="tw:font-medium tw:text-on-sidebar">Enable training for this document</span>
+          on the Properties tab to set the audience and assessment.
+        </p>
       </div>
     </div>
 

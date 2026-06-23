@@ -107,8 +107,8 @@ function decrementReviewMonths() {
     class="tw:bg-sidebar tw:rounded-2xl tw:shadow-sm tw:border tw:border-divider tw:p-8 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6"
   >
     <!-- Document Template -->
-    <BaseField label="Document Template">
-      <DocumentTemplateSelectMenu v-model="form.documentTemplateId" />
+    <BaseField label="Document Template" required>
+      <DocumentTemplateSelectMenu v-model="form.documentTemplateId" :required="true" />
     </BaseField>
 
     <!-- Document Type -->
@@ -207,6 +207,21 @@ function decrementReviewMonths() {
         <p class="tw:text-xs tw:text-secondary">Skip manual release after final approval</p>
       </div>
       <BaseSwitch v-model="form.autoEffectiveOnApproval" />
+    </div>
+
+    <!-- Enable training (moved here from the Training tab so it's visible up
+         front; the audience + assessment are still configured on that tab). -->
+    <div
+      class="tw:flex tw:items-center tw:gap-4 tw:py-4 tw:px-6 tw:bg-sidebar-hover tw:rounded-2xl tw:border tw:border-divider/50"
+    >
+      <div class="tw:space-y-0.5 tw:flex-1">
+        <p class="tw:text-sm tw:font-bold tw:text-on-sidebar">Enable training for this document</p>
+        <p class="tw:text-xs tw:text-secondary">
+          Launch training when this document becomes effective. Set the audience &amp; assessment on
+          the Training tab.
+        </p>
+      </div>
+      <BaseSwitch v-model="form.trainingConfig.enabled" />
     </div>
 
     <!-- Tags (full width) -->

@@ -182,7 +182,7 @@ const navItems = computed(() => {
       to: getCompanyPath('/records'),
     },
     {
-      label: 'Documents',
+      label: 'Document Control',
       permissions: ['documents:read'],
       icon: IconFileText,
       to: getCompanyPath('/documents'),
