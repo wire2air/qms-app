@@ -4,6 +4,11 @@ import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { upload } from '@/api'
 import { useDebounceFn } from '@vueuse/core'
+import {
+  buildQualityEventBanners,
+  buildQualityEventSections,
+  buildQualityEventActions,
+} from './qualityEventDetailConfig.js'
 
 const props = defineProps({ id: { type: String, required: true } })
 
@@ -175,47 +180,73 @@ function targetRoute(link) {
   const seg = map[link.toType]
   return seg ? getCompanyPath(`/${seg}/${link.toId}`) : null
 }
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
+  { label: 'Events', to: getCompanyPath('/qualityEvents') },
+  { label: event.value?.title || event.value?.eventNumber || 'Loading…' },
+])
+const qualityEventBanners = computed(() => buildQualityEventBanners(event.value))
+const qualityEventActions = computed(() =>
+  buildQualityEventActions(
+    { canUpdate: canUpdate.value, statusId: event.value?.statusId },
+    {
+      escalate() {
+        showEscalate.value = true
+      },
+    },
+  ),
+)
+const qualityEventDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => qualityEventBanners.value,
+    actions: qualityEventActions.value,
+    sections: buildQualityEventSections(event.value),
+  }),
+)
 </script>
 
 <template>
-  <BaseDetailPage>
-    <template #breadcrumb>
-      <RouterLink :to="getCompanyPath('/qualityEvents')" class="tw:text-secondary tw:hover:text-primary">
-        Events
-      </RouterLink>
+  <BaseDetailLayout
+    :config="qualityEventDetailConfig"
+    :record="event"
+    :loading="loading"
+    :notFound="!loading && !event"
+    notFoundTitle="Event not found"
+    notFoundDescription="This quality event could not be found."
+  >
+    <template #title>
+      <span class="tw:text-base tw:font-semibold tw:text-on-main">{{ event?.title }}</span>
     </template>
 
-    <div v-if="loading" class="tw:p-8 tw:text-center tw:text-secondary">Loading…</div>
-    <div v-else-if="!event" class="tw:p-8 tw:text-center tw:text-secondary">Event not found.</div>
-
-    <div v-else class="tw:flex tw:flex-col tw:gap-4">
-      <!-- Header -->
-      <div class="tw:flex tw:flex-wrap tw:items-start tw:justify-between tw:gap-3">
-        <div>
-          <div class="tw:font-mono tw:text-xs tw:text-secondary">{{ event.eventNumber }}</div>
-          <BaseText as="h1" class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ event.title }}</BaseText>
-          <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2 tw:mt-2">
-            <EventCategoryBadgeById v-if="event.categoryId" :categoryId="event.categoryId" />
-            <EventSeverityBadgeById v-if="event.severityId" :severityId="event.severityId" />
-          </div>
-        </div>
-        <div class="tw:flex tw:items-center tw:gap-2">
-          <span v-if="isSaving" class="tw:text-xs tw:text-secondary">Saving…</span>
-          <div class="tw:w-48">
-            <QualityEventStatusSelectMenu v-if="canUpdate" v-model="event.statusId" />
-            <QualityEventStatusBadgeById v-else :statusId="event.statusId" />
-          </div>
-          <BaseButton
-            v-if="canUpdate && !['CLOSED', 'CANCELLED'].includes(event.statusId)"
-            variant="primary"
-            @click="showEscalate = true"
-          >
-            <IconArrowUpRight :size="16" class="tw:mr-1" />
-            Escalate
-          </BaseButton>
-        </div>
+    <template #status>
+      <div v-if="event" class="tw:w-48">
+        <QualityEventStatusSelectMenu v-if="canUpdate" v-model="event.statusId" />
+        <QualityEventStatusBadgeById v-else :statusId="event.statusId" />
       </div>
+    </template>
 
+    <template v-if="event" #meta>
+      <span class="tw:font-mono">{{ event.eventNumber }}</span>
+      <template v-if="event.categoryId">
+        · <EventCategoryBadgeById :categoryId="event.categoryId" />
+      </template>
+      <template v-if="event.severityId">
+        · <EventSeverityBadgeById :severityId="event.severityId" />
+      </template>
+    </template>
+
+    <template #actions>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <span v-if="isSaving" class="tw:text-sm tw:text-secondary">Saving…</span>
+        <DetailActionBar :actions="qualityEventActions" />
+      </div>
+    </template>
+
+    <template v-if="event" #section-details>
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Event detail">
         <!-- Overview -->
         <BaseTabPanel value="overview">
@@ -410,13 +441,13 @@ function targetRoute(link) {
           </div>
         </BaseTabPanel>
       </BaseTabs>
-    </div>
+    </template>
+  </BaseDetailLayout>
 
-    <QualityEventEscalateDialog
-      v-if="event"
-      v-model="showEscalate"
-      :eventId="props.id"
-      @escalated="onEscalated"
-    />
-  </BaseDetailPage>
+  <QualityEventEscalateDialog
+    v-if="event"
+    v-model="showEscalate"
+    :eventId="props.id"
+    @escalated="onEscalated"
+  />
 </template>
