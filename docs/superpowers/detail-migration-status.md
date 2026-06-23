@@ -12,8 +12,11 @@ Each: `<module>DetailConfig.js` pure builders (banners/sections/actions) + spec,
 | Audit Standard | `audits/AuditStandardsPageId.vue` | `f611497` | 19 |
 | Change Request | `changeRequests/ChangeRequestsPageId.vue` | `5e6f529`,`6d2cfa0` (title-dup fix) | 24 |
 | Customer Complaint | `customerComplaints/CustomerComplaintsPageId.vue` | `5b9dc67` | 24 |
-| Document | `documents/DocumentsPageId.vue` | `f13820d` | 22 |
 | Supplier | `suppliers/SuppliersPageId.vue` | `4cee82a` | 8 |
+
+## EXEMPT — full-canvas editors/viewers (do NOT migrate)
+- **Document** (`documents/DocumentsPageId.vue`) — reverted (`d9c6ff1`). It is a full-canvas document editor: its own Content/Change Control/Training tabs + a PROPERTIES panel + inline rich-text editors. Wrapping it in `BaseDetailLayout` added redundant chrome (a one-item "Content" anchor nav above the doc's own tabs) and a cramped header. Stays on its original layout. **Lesson: before migrating, open the running page — if it already has its own tabs/properties/editor canvas, it's exempt.**
+- Likely also exempt (verify on the running page first): Inspection Log, QC Inspection Spec/Lot, possibly Audit Instance.
 
 `develop` merged in (NC conflict resolved → kept migration + ported `CustomFieldsCard`). SP-1 shared fixes (section `visible` filter, action `title` tooltip) are in and benefit all.
 
