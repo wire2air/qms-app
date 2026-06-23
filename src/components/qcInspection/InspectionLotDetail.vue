@@ -16,6 +16,10 @@ import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAU
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
+import {
+  buildInspectionLotSections,
+  buildInspectionLotActions,
+} from './inspectionLotDetailConfig.js'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
@@ -345,78 +349,91 @@ async function saveDispositionNotes() {
     savingNotes.value = false
   }
 }
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const loading = computed(() => lot.value === undefined)
+const inspectionLotActions = computed(() =>
+  buildInspectionLotActions(
+    {
+      canExecute: canExecute.value,
+      canDispose: canDispose.value,
+      statusId: lot.value?.statusId,
+      acting: acting.value,
+    },
+    {
+      edit() {
+        showEdit.value = true
+      },
+      start: () => act('start', 'Inspection started'),
+      complete: () => act('complete', 'Lot completed'),
+      submit() {
+        showSubmit.value = true
+      },
+    },
+  ),
+)
+const inspectionLotDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: moduleCrumbs.value,
+    actions: inspectionLotActions.value,
+    sections: buildInspectionLotSections(lot.value),
+  }),
+)
 </script>
 
 <template>
-  <div v-if="lot" class="tw:p-5 tw:flex tw:flex-col tw:gap-5">
-    <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap tw:text-sm">
-      <BaseBreadcrumbs :items="moduleCrumbs" />
-      <RecordTrailBreadcrumb />
-    </div>
+  <BaseDetailLayout
+    :config="inspectionLotDetailConfig"
+    :record="lot"
+    :loading="loading"
+    :notFound="!loading && !lot"
+    notFoundTitle="Lot not found"
+    notFoundDescription="This inspection lot could not be found."
+  >
+    <template #title>
+      <span class="tw:font-mono tw:text-base tw:font-semibold tw:text-on-main">{{
+        lot?.lotNumber
+      }}</span>
+    </template>
 
-    <!-- Header -->
-    <div class="tw:flex tw:items-start tw:justify-between tw:gap-4">
-      <div>
-        <div class="tw:flex tw:items-center tw:gap-3">
-          <h1 class="tw:text-2xl tw:font-bold tw:font-mono tw:text-on-main">{{ lot.lotNumber }}</h1>
-          <InspectionLotStatusBadgeById :statusId="lot.statusId" />
-        </div>
-        <div class="tw:text-sm tw:text-secondary tw:mt-1">
-          {{ POINT_LABELS[lot.inspectionPoint] || lot.inspectionPoint }} · sample
-          {{ lot.sampleSize ?? '—' }}<span v-if="lot.quantity"> of {{ lot.quantity }}</span>
-          <span v-if="lot.qualityState"> · {{ lot.qualityState }}</span>
-        </div>
-        <!-- Key identifiers (overview panel removed from this page) -->
+    <template #status>
+      <InspectionLotStatusBadgeById v-if="lot" :statusId="lot.statusId" />
+    </template>
+
+    <template v-if="lot" #meta>
+      <span>{{ POINT_LABELS[lot.inspectionPoint] || lot.inspectionPoint }}</span>
+      <span>
+        · sample {{ lot.sampleSize ?? '—' }}<span v-if="lot.quantity"> of {{ lot.quantity }}</span>
+      </span>
+      <span v-if="lot.qualityState"> · {{ lot.qualityState }}</span>
+    </template>
+
+    <template #actions>
+      <DetailActionBar :actions="inspectionLotActions" />
+    </template>
+
+    <template v-if="lot" #section-details>
+      <div class="tw:flex tw:flex-col tw:gap-5">
+        <RecordTrailBreadcrumb />
+
+        <!-- Key identifiers -->
         <div
           v-if="product || supplier || lot.batchNumber || lot.poNumber || equipment"
-          class="tw:text-sm tw:text-secondary tw:mt-0.5 tw:flex tw:flex-wrap tw:items-center tw:gap-x-1.5 tw:gap-y-0.5"
+          class="tw:text-sm tw:text-secondary tw:flex tw:flex-wrap tw:items-center tw:gap-x-1.5 tw:gap-y-0.5"
         >
           <span v-if="product" class="tw:text-on-main tw:font-medium">
-            {{ product.name }}<span v-if="product.sku" class="tw:font-mono tw:font-normal tw:text-secondary"> · {{ product.sku }}</span>
+            {{ product.name
+            }}<span v-if="product.sku" class="tw:font-mono tw:font-normal tw:text-secondary">
+              · {{ product.sku }}</span
+            >
           </span>
           <span v-if="supplier">· {{ supplier.name }}</span>
           <span v-if="lot.batchNumber">· Batch {{ lot.batchNumber }}</span>
           <span v-if="lot.poNumber">· PO {{ lot.poNumber }}</span>
           <span v-if="equipment">· {{ equipment.name }}</span>
         </div>
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <BaseButton
-          v-if="canExecute && ['DRAFT', 'PENDING', 'IN_PROGRESS'].includes(lot.statusId)"
-          variant="outline"
-          size="sm"
-          @click="showEdit = true"
-        >
-          Edit
-        </BaseButton>
-        <BaseButton
-          v-if="canExecute && lot.statusId === 'PENDING'"
-          variant="outline"
-          size="sm"
-          :loading="acting"
-          @click="act('start', 'Inspection started')"
-        >
-          Start
-        </BaseButton>
-        <BaseButton
-          v-if="canExecute && lot.statusId === 'IN_PROGRESS'"
-          variant="outline"
-          size="sm"
-          :loading="acting"
-          @click="act('complete', 'Lot completed')"
-        >
-          Complete
-        </BaseButton>
-        <BaseButton
-          v-if="canDispose && lot.statusId === 'COMPLETED'"
-          variant="primary"
-          size="sm"
-          @click="showSubmit = true"
-        >
-          Submit for QA Disposition
-        </BaseButton>
-      </div>
-    </div>
 
     <!-- Adverse disposition (rework / return / reject / hold) — NC creation is
          the user's call. -->
@@ -712,9 +729,10 @@ async function saveDispositionNotes() {
       <RecordLineagePanel :id="props.id" type="InspectionLot" />
     </div>
 
-    <InspectionLotSubmitDialog v-model="showSubmit" :lotId="props.id" />
-    <InspectionLotCreateDialog v-model="showEdit" :editLot="lot" />
-  </div>
+    </div>
+    </template>
+  </BaseDetailLayout>
 
-  <div v-else class="tw:p-10 tw:text-center tw:text-secondary">Loading…</div>
+  <InspectionLotSubmitDialog v-model="showSubmit" :lotId="props.id" />
+  <InspectionLotCreateDialog v-model="showEdit" :editLot="lot" />
 </template>
