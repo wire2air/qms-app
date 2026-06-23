@@ -16,6 +16,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Which detail tab is active. The rail is now persistent across all tabs
+  // (Properties/Collaborators/Workflow are document-level), but the Table of
+  // Contents is content-specific and only renders on the Content tab.
+  activeTab: {
+    type: String,
+    default: 'content',
+  },
 })
 
 const document = useLiveQueryWithDeps(
@@ -342,8 +349,11 @@ watch(
         <WorkflowInstanceTimeline :workflowInstanceId="currentVersion.workflowInstanceId" />
       </div>
 
-      <!-- Table of Contents Card -->
-      <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:p-5">
+      <!-- Table of Contents Card — content-specific, hidden on other tabs -->
+      <div
+        v-if="activeTab === 'content'"
+        class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:p-5"
+      >
         <div class="tw:flex tw:items-center tw:justify-between tw:mb-4">
           <BaseText variant="overline">Table of Contents</BaseText>
         </div>

@@ -2,24 +2,14 @@
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { useDocuments } from '@/composables/useDocuments.js'
+// Bespoke header controls still need these; the toolbar buttons are now
+// DetailActionBar descriptors (icons live in documentDetailConfig.js).
+import { IconChevronDown, IconSparkles, IconGitCompare, IconAlertTriangle } from '@tabler/icons-vue'
 import {
-  IconNotes,
-  IconSend,
-  IconX,
-  IconChecks,
-  IconChevronDown,
-  IconChartBar,
-  IconFileDescription,
-  IconMessage,
-  IconTrash,
-  IconArchive,
-  IconHistory,
-  IconSparkles,
-  IconGitCompare,
-  IconPrinter,
-  IconClipboardList,
-  IconAlertTriangle,
-} from '@tabler/icons-vue'
+  buildDocumentBanners,
+  buildDocumentTabs,
+  buildDocumentActions,
+} from './documentDetailConfig.js'
 
 const props = defineProps({
   id: {
@@ -172,9 +162,27 @@ const hasActiveTaskOnSelected = computed(
 // workflow preview dialog state
 const showPreviewDialog = ref(false)
 
-// Main-content tab (v-model into DocumentsMainContent) so the training reminder
-// can jump the author to the Training tab.
+// Main-content tab (drives BaseDetailLayout's panel tabs) so the training
+// reminder can jump the author to the Training tab.
 const activeContentTab = ref('content')
+
+// Change Control only applies to a REVISION — it captures what changed versus
+// the prior version. The first draft (v1.0, no earlier version) has nothing to
+// compare against, so the tab is hidden until a revision exists. (Hoisted from
+// the dissolved DocumentsMainContent wrapper.)
+const isRevisionVersion = computed(() => {
+  const sel = selectedVersion.value
+  if (!sel) return false
+  return versions.value.some(
+    (v) =>
+      v.versionMajor < sel.versionMajor ||
+      (v.versionMajor === sel.versionMajor && v.versionMinor < sel.versionMinor),
+  )
+})
+// If the active tab gets hidden (e.g. switching to the first version), fall back.
+watch(isRevisionVersion, (isRev) => {
+  if (!isRev && activeContentTab.value === 'changeControl') activeContentTab.value = 'content'
+})
 
 // Submit-for-review training reminder. Training defaults on; a version with
 // training enabled but no audience (roles/users) would launch nothing on
@@ -331,17 +339,6 @@ async function handleSetEffective() {
   }
 }
 
-const moreActionsItems = computed(() => {
-  const items = []
-  if (canDelete.value && selectedVersion.value?.statusId === 'DRAFT') {
-    items.push({ name: 'Delete Version', icon: IconTrash, click: handleDeleteVersion })
-  }
-  if (canEdit.value) {
-    items.push({ name: 'Archive Document', icon: IconArchive, click: handleDeleteDocument })
-  }
-  return items
-})
-
 // New-revision flow: open the change-control dialog first, then create
 // the DocumentVersion with the captured fields. The DB CHECK constraint
 // rejects v>1.0 without a change_reason, so the dialog is mandatory here.
@@ -423,18 +420,76 @@ async function handleNewVersionConfirm(changeControl) {
 
   selectedVersion.value = await create()
 }
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
+  { label: 'Documents', to: getCompanyPath('/documents') },
+  { label: document.value?.title || 'Loading…' },
+])
+const documentBanners = computed(() => buildDocumentBanners(document.value))
+const documentTabs = computed(() => buildDocumentTabs(isRevisionVersion.value))
+const documentActions = computed(() =>
+  buildDocumentActions(
+    {
+      canCreate: canCreate.value,
+      canSubmitForReview: canSubmitForReview.value,
+      canCancelReview: canCancelReview.value,
+      canSetEffective: canSetEffective.value,
+      canEdit: canEdit.value,
+      canDelete: canDelete.value,
+      statusId: document.value?.statusId,
+      selectedStatus: selectedVersion.value?.statusId,
+      inReview:
+        selectedVersion.value?.statusId === 'IN_REVIEW' &&
+        !!selectedVersion.value?.workflowInstanceId,
+    },
+    {
+      createDraft: openNewVersionDialog,
+      submitForReview: handleSubmitForReview,
+      setEffective: handleSetEffective,
+      cancelReview: handleCancelReview,
+      showWorkflow() {
+        if (selectedVersion.value?.workflowInstanceId) {
+          router.push(
+            getCompanyPath(`/workflow-instances/${selectedVersion.value.workflowInstanceId}`),
+          )
+        }
+      },
+      print: openPrintView,
+      reports: handleReports,
+      revisionHistory() {
+        showRevisionHistory.value = true
+      },
+      auditLog() {
+        showAuditLog.value = true
+      },
+      export: handleExport,
+      discussion() {
+        showMessages.value = true
+      },
+      deleteVersion: handleDeleteVersion,
+      archive: handleDeleteDocument,
+    },
+  ),
+)
+const documentDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'wide',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => documentBanners.value,
+    actions: documentActions.value,
+    tabs: documentTabs.value,
+  }),
+)
 </script>
 
 <template>
-  <!-- Issue #3 fix: drop the min-h-screen — it forced the inner column to
-       be at least 100vh tall, which interacted with the sticky toolbar and
-       could make the document body unreachable on shorter viewports. The
-       App.vue overflow-auto wrapper already owns the scroll. -->
-  <BaseDetailPage
-    :icon="IconFileDescription"
+  <BaseDetailLayout
+    v-model:tab="activeContentTab"
+    :config="documentDetailConfig"
+    :record="document"
     :loading="!document"
-    width="standard"
-    :fullHeight="false"
   >
     <template #title>
       <span v-if="document">
@@ -445,13 +500,18 @@ async function handleNewVersionConfirm(changeControl) {
       </span>
     </template>
 
-    <!-- Main Content -->
-    <div class="tw:flex tw:flex-col">
-      <!-- Toolbar Section -->
-      <div class="tw:bg-sidebar tw:border-b tw:border-divider tw:sticky tw:top-0 tw:z-raised">
-        <div class="tw:py-4 tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-4">
-          <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-3">
-            <AskAiButton
+    <template #status>
+      <DocumentVersionStatusBadgeById v-if="selectedVersion" :statusId="selectedVersion.statusId" />
+    </template>
+
+    <template v-if="selectedVersion" #meta>
+      <span class="tw:font-mono">{{ document?.docNumber }}</span>
+      <span> · v{{ versionLabel }} ({{ selectedVersion.statusId }})</span>
+    </template>
+
+    <template #actions>
+      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+        <AskAiButton
               v-if="document?.id"
               entityType="Document"
               :entityId="document.id"
@@ -481,42 +541,6 @@ async function handleNewVersionConfirm(changeControl) {
               entityType="DocumentVersion"
               :entityId="selectedVersion.id"
             />
-
-            <BaseButton v-if="canCreate" @click="openNewVersionDialog">
-              <IconNotes :size="20" class="tw:mr-1" />
-              Create New Draft
-            </BaseButton>
-
-            <BaseButton v-if="canSubmitForReview" @click="handleSubmitForReview">
-              <IconSend :size="20" class="tw:mr-1" />
-              Submit For Review
-            </BaseButton>
-
-            <BaseButton v-if="canCancelReview" variant="danger" @click="handleCancelReview">
-              <IconX :size="20" class="tw:mr-1" />
-              Cancel Review
-            </BaseButton>
-
-            <BaseButton v-if="canSetEffective" @click="handleSetEffective">
-              <IconChecks :size="20" class="tw:mr-1" />
-              Set Effective
-            </BaseButton>
-
-            <BaseButton
-              v-if="
-                selectedVersion?.statusId === 'IN_REVIEW' &&
-                canEdit &&
-                selectedVersion.workflowInstanceId
-              "
-              variant="outline"
-              @click="
-                router.push(
-                  getCompanyPath(`/workflow-instances/${selectedVersion.workflowInstanceId}`),
-                )
-              "
-            >
-              Show Workflow
-            </BaseButton>
 
             <!-- Version Selector -->
             <div class="tw:relative">
@@ -570,68 +594,46 @@ async function handleNewVersionConfirm(changeControl) {
               </BasePopover>
             </div>
 
-            <div class="tw:h-6 tw:w-px tw:bg-divider tw:mx-2"></div>
-
-            <BaseButton variant="secondary" @click="handleReports">
-              <IconChartBar :size="20" class="tw:mr-1" />
-              Reports
-            </BaseButton>
-
-            <BaseButton variant="secondary" @click="openPrintView">
-              <IconPrinter :size="20" class="tw:mr-1" />
-              Print
-            </BaseButton>
-
-            <BaseButton variant="secondary" @click="showRevisionHistory = true">
-              <IconHistory :size="20" class="tw:mr-1" />
-              Revision History
-            </BaseButton>
-
-            <BaseButton variant="secondary" @click="showAuditLog = true">
-              <IconClipboardList :size="20" class="tw:mr-1" />
-              Audit Log
-            </BaseButton>
-
-            <BaseButton variant="secondary" @click="handleExport">
-              <IconFileDescription :size="20" class="tw:mr-1" />
-              Export
-            </BaseButton>
-
-            <BaseButton variant="secondary" @click="showMessages = true">
-              <IconMessage :size="20" class="tw:mr-1" />
-              Discussion
-            </BaseButton>
-          </div>
-
-          <div class="tw:flex tw:items-center tw:gap-2">
-            <BaseMenu
-              v-if="document.statusId !== 'ARCHIVED' && (canEdit || canDelete)"
-              :items="moreActionsItems"
-            >
-              <template #trigger>
-                <BaseButton variant="outline">
-                  More Actions
-                  <IconChevronDown :size="16" class="tw:ml-1" />
-                </BaseButton>
-              </template>
-            </BaseMenu>
-          </div>
-        </div>
+        <DetailActionBar :actions="documentActions" />
       </div>
+    </template>
 
-      <!-- Main Content Grid -->
-      <DocumentsMainContent
-        v-model:activeTab="activeContentTab"
+    <template v-if="document" #tab-content>
+      <PrintTeleport>
+        <DocumentsMainContentLeft
+          :documentId="props.id"
+          :versionId="selectedVersion?.id"
+          :reviewMode="hasActiveTaskOnSelected"
+        />
+      </PrintTeleport>
+    </template>
+
+    <template v-if="document && isRevisionVersion" #tab-changeControl>
+      <PrintTeleport>
+        <DocumentsChangeControlTab :documentId="props.id" :versionId="selectedVersion?.id" />
+      </PrintTeleport>
+    </template>
+
+    <template v-if="document" #tab-training>
+      <PrintTeleport>
+        <DocumentsTrainingTab :documentId="props.id" :versionId="selectedVersion?.id" />
+      </PrintTeleport>
+    </template>
+
+    <template v-if="document" #rail>
+      <DocumentsMainContentRight
         :documentId="props.id"
         :versionId="selectedVersion?.id"
         :reviewMode="hasActiveTaskOnSelected"
+        :activeTab="activeContentTab"
       />
-
-      <!-- Shared with — explicit per-user grants outside the normal
-           permission scope (typically supplier users). -->
-      <!-- Read-only access panel — populated by workflow-step assignment
-           via autoShareSupplierUsers. See SharedWithPanel.vue header. -->
+      <!-- Read-only external-access panel — populated by workflow-step
+           assignment via autoShareSupplierUsers. See SharedWithPanel.vue. -->
       <SharedWithPanel entityType="Document" :entityId="props.id" />
+    </template>
+  </BaseDetailLayout>
+
+  <!-- Dialogs (siblings after </BaseDetailLayout>) -->
 
       <!-- Messages Drawer -->
       <DocumentsMessages v-model="showMessages" :documentId="props.id" />
@@ -716,6 +718,4 @@ async function handleNewVersionConfirm(changeControl) {
         :fromVersionLabel="fromVersionLabel"
         @confirm="handleNewVersionConfirm"
       />
-    </div>
-  </BaseDetailPage>
 </template>
