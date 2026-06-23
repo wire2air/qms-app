@@ -468,8 +468,6 @@ declare module 'vue' {
     DocumentBadge: typeof import('./src/components/badges/DocumentBadge.vue')['default']
     DocumentBadgeById: typeof import('./src/components/badges/DocumentBadgeById.vue')['default']
     DocumentContentReadonly: typeof import('./src/components/documents/DocumentContentReadonly.vue')['default']
-    DocumentDetailConfig: typeof import('./src/components/documents/documentDetailConfig.js')['default']
-    'DocumentDetailConfig.spec': typeof import('./src/components/documents/documentDetailConfig.spec.js')['default']
     DocumentDiffSummaryDialog: typeof import('./src/components/documents/DocumentDiffSummaryDialog.vue')['default']
     DocumentDraftDialog: typeof import('./src/components/documents/DocumentDraftDialog.vue')['default']
     DocumentGenerateQuestionsDialog: typeof import('./src/components/documents/DocumentGenerateQuestionsDialog.vue')['default']
