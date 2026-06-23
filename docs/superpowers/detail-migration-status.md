@@ -46,21 +46,24 @@ Header (title inline-edit+autosave, status/severity badges, meta line, correct p
 
 ## Wave-2 classification (look-first, code-based 2026-06-23)
 Branch: feat/ds-detail-migration-wave2 (off develop after PR #72 merged).
-MIGRATE (genuine record pages):
-- TrainingInstancePageId (BaseDetailPage; no tabs/rail) — clean record.
-- TrainingPageId (BaseDetailPage; own 5 tabs Details/Material/Assessment/Assignees/Instances) — tabs organize fields, not a canvas → put tabs in a single body section (no nav pill via ≤1-section rule), like Supplier.
-- AuditProgramsPageId (BaseDetailPage; left fields + right overview rail) — classic.
-- QualityEventsPageId (BaseDetailPage; own 6 tabs) — like Supplier/Training; single body section.
-- SpecificationDetail (hand-rolled; characteristics table editor + right rail + version/e-sign workflow) — record-ish but custom; migrate carefully.
-EXEMPT (full-canvas/execution workspaces — do NOT migrate):
+MIGRATE — ✅ ALL DONE & structurally verified (2026-06-23):
+- TrainingInstancePageId (`1793860`/`2f2719e`) — clean record; title/status/meta slots, cancel-reason→banner, 2 actions, 11 config tests.
+- AuditProgramsPageId (`92afffc`) — left fields + Overview→#rail card; Back dropped (breadcrumb), Delete action, paused banner, 9 config tests.
+- TrainingPageId (`b707048`) — 5 tabs in single body section; Publish/Launch/Add-Matrix/Unpublish/Archive/Delete actions, 13 config tests.
+- QualityEventsPageId (`0aafe83`) — 6 tabs in single body section; Escalate action, status banner, replaced hand-rolled loading/notFound, 9 config tests.
+EXEMPT (full-canvas/execution workspaces / reusable editors — do NOT migrate):
+- **SpecificationDetail (qcInspection)** — RECLASSIFIED EXEMPT 2026-06-23 (was tentatively "migrate carefully"). It is a **dual-mode reusable editor**: standalone at `pages/qc-inspection/specifications/[id].vue` AND embedded inline in `products/ProductSpecificationsTab.vue` (`embedded` prop → back-link + emits, `tw:p-5` dropped). `BaseDetailLayout` always wraps in `BasePage` (owns width/full-height/header teleport), which is wrong for the embedded surface. Migrating cleanly would require extracting the large characteristics-editor body into a shared child (state-heavy, high regression risk) — not worth it. Per look-first rule (own characteristics-table canvas + save/approve/version e-sign workflow, reused embedded) it is exempt. User-confirmed.
 - MyTrainingPageId — training-execution stepper + assessment canvas.
 - AuditInstancesPageId — audit workspace (custom tabs + walkthrough/findings/OFI panels + rail + approval workflow).
 - LogBookDetailPage (inspectionsLogs) — controlled-doc FormBuilder design platform.
 - InspectionLotDetail (qcInspection) — inspection results-capture execution surface.
 
+## Gotcha discovered in wave-2 (CRITICAL — build/eslint do NOT catch it; only visual/manual does)
+- **Dialogs must be siblings AFTER `</BaseDetailLayout>`, never direct children of it.** `BaseDetailLayout` renders `#section-*` (or `#tab-*`) **instead of** the default slot — so a `<BaseDialog>` left as a plain (unslotted) child of `<BaseDetailLayout>` lands in the never-rendered default slot and **silently never opens**. Pattern (matches CAPA/AuditStandard): close `</BaseDetailLayout>`, then place all dialogs as siblings inside the root `<template>`. Run `eslint --fix` after to re-indent. (Hit on TrainingInstance first pass — dialogs were inside; fixed in `2f2719e` before the human pass.)
+
 ## ▶ RESUME HERE (fresh session)
 - **Branch:** `feat/ds-detail-migration-wave2` (off `develop` after PR #72; pushed). Wave-1's 6 pages are shipped in `develop`.
-- **Do next (migrate, in order):** TrainingInstancePageId (clean, no tabs/rail) → AuditProgramsPageId (rail) → TrainingPageId (own 5 tabs → single body section) → QualityEventsPageId (own 6 tabs → single body section) → SpecificationDetail (hand-rolled + version/e-sign; careful).
-- **Mark exempt (no migration):** MyTrainingPageId, AuditInstancesPageId, LogBookDetailPage, InspectionLotDetail.
+- **STATUS (2026-06-23):** wave-2 migrations COMPLETE. 4 migrated inline (TrainingInstance `2f2719e`, AuditProgram `92afffc`, Training `b707048`, QualityEvents `0aafe83`) — each passed gates 1–6. SpecificationDetail RECLASSIFIED EXEMPT (dual-mode editor; user-confirmed — see classification section). 5 pages now exempt total.
+- **Remaining work:** (a) human visual pass (gate 7) on the 4 migrated pages on the running auth app — header title/status/meta, actions per status + overflow, banners, body sections/tabs render, autosave indicator, all dialogs OPEN (the dialog-sibling gotcha above), rail edit (AuditProgram); (b) open PR for the wave-2 branch once visual passes.
 - **⚠ PROCESS — do migrations INLINE, not via isolated subagents.** A wave-2 subagent reported success ("18/18 tests, build ✓") but worked in a throwaway worktree that never landed — left a broken commit (imported a config file that didn't exist; template never migrated). It was reset out. If using subagents, VERIFY the committed main-tree state yourself every time, don't trust self-reports.
-- **Per-page verification gates (all must pass before human visual):** (1) config file actually exists on disk; (2) `grep -c ':config=' page` ≥1 AND `grep -c ':banners=\|:sections=' page` ==0; (3) no duplicate title (`editing*Title*`/`<rec>.title` only in `#title`); (4) dialog count unchanged vs original; (5) `pnpm build` green; (6) `pnpm exec eslint` clean; (7) human visual on the running auth page.
+- **Per-page verification gates (all must pass before human visual):** (1) config file actually exists on disk; (2) `grep -c ':config=' page` ≥1 AND `grep -c ':banners=\|:sections=' page` ==0; (3) no duplicate title (`editing*Title*`/`<rec>.title` only in `#title`); (4) dialog count unchanged vs original AND dialogs are siblings after `</BaseDetailLayout>` (see gotcha); (5) `pnpm build` green; (6) `pnpm exec eslint` clean; (7) human visual on the running auth page.
