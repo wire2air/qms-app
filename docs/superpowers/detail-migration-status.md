@@ -43,3 +43,17 @@ Each: `<module>DetailConfig.js` pure builders (banners/sections/actions) + spec,
 
 ## Verification (human, per page — auth-gated)
 Header (title inline-edit+autosave, status/severity badges, meta line, correct primary action per status + overflow + AskAi); banners (read-only/supplier-facing/origin where applicable); anchor sections jump + render; rail fields edit+autosave; all dialogs fire (open/submit/approve/close/cancel/delete/convert + e-sign); workflow draft-preview vs active; **no duplicated title**; CustomFields card shows when configured.
+
+## Wave-2 classification (look-first, code-based 2026-06-23)
+Branch: feat/ds-detail-migration-wave2 (off develop after PR #72 merged).
+MIGRATE (genuine record pages):
+- TrainingInstancePageId (BaseDetailPage; no tabs/rail) — clean record.
+- TrainingPageId (BaseDetailPage; own 5 tabs Details/Material/Assessment/Assignees/Instances) — tabs organize fields, not a canvas → put tabs in a single body section (no nav pill via ≤1-section rule), like Supplier.
+- AuditProgramsPageId (BaseDetailPage; left fields + right overview rail) — classic.
+- QualityEventsPageId (BaseDetailPage; own 6 tabs) — like Supplier/Training; single body section.
+- SpecificationDetail (hand-rolled; characteristics table editor + right rail + version/e-sign workflow) — record-ish but custom; migrate carefully.
+EXEMPT (full-canvas/execution workspaces — do NOT migrate):
+- MyTrainingPageId — training-execution stepper + assessment canvas.
+- AuditInstancesPageId — audit workspace (custom tabs + walkthrough/findings/OFI panels + rail + approval workflow).
+- LogBookDetailPage (inspectionsLogs) — controlled-doc FormBuilder design platform.
+- InspectionLotDetail (qcInspection) — inspection results-capture execution surface.
