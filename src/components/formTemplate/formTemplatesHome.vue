@@ -37,11 +37,12 @@ const canCreateTemplate = computed(() => isAllowed(['formTemplates:create']))
 const canUpdateTemplate = computed(() => isAllowed(['formTemplates:update']))
 const canDeleteTemplate = computed(() => isAllowed(['formTemplates:delete']))
 
+// Multi-select dimensions (Linear-style filter menu) — arrays of ids.
 const filters = ref({
   search: '',
-  documentTypeId: null,
-  siteId: null,
-  statusId: null,
+  documentTypeId: [],
+  siteId: [],
+  statusId: [],
 })
 
 const templates = useLiveQueryWithDeps(
@@ -54,7 +55,10 @@ const templates = useLiveQueryWithDeps(
   async (db, [search, statusId, siteId, documentTypeId]) => {
     let results = await db.FormTemplate.where().exec()
 
-    if (statusId) results = results.filter((t) => t.statusId === statusId)
+    if (statusId) {
+      const statusIds = Array.isArray(statusId) ? statusId : [statusId]
+      if (statusIds.length) results = results.filter((t) => statusIds.includes(t.statusId))
+    }
     if (documentTypeId) {
       const ids = Array.isArray(documentTypeId) ? documentTypeId : [documentTypeId]
       if (ids.length) results = results.filter((t) => ids.includes(t.documentTypeId))
