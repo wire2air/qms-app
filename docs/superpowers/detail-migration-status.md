@@ -38,6 +38,7 @@ Each: `<module>DetailConfig.js` pure builders (banners/sections/actions) + spec,
 - **Title duplication**: moving the title to `#title` requires REMOVING the body title block — grep `editingTitle`/`<entity>.title` to confirm it's only in `#title`. (Hit on Change Request; fixed.)
 - Preserve `visitTrail`/`isOwner` co-author/`useAutoSave` and all `useLiveQuery` `{models}` options verbatim — only relocate. Don't let a subagent "improve" the script.
 - Buttons become `buildXActions` descriptors (one primary per status; Print secondary; Delete/Audit/etc. overflow); bespoke buttons (AskAi, version popovers, TaskActionBar) ride in the `#actions` slot beside `DetailActionBar`.
+- **`:config` wiring (CRITICAL — build/token-diff do NOT catch this; only visual does):** `banners` and `sections` are NOT discrete props on `BaseDetailLayout` — they ONLY flow through `:config`. Passing `:banners`/`:sections` directly makes them silently ignored → `effSections=[]` → the `#section-*` body never renders → **empty main column** (rail still shows). Always assemble `<entity>DetailConfig = computed(() => defineDetailConfig({ variant, width, breadcrumbs, banners, actions, sections }))` and pass `:config="…"` + `:record="…"`. Verify per page: `grep -c ':config=' file` ≥1 AND `grep -c ':banners=\|:sections=' file` ==0. (Hit on CC + CR — fixed `3e99bd3`.)
 - pnpm (NOT npm). Known pre-existing unrelated failing test: a `BaseBadge` dark-mode test.
 
 ## Verification (human, per page — auth-gated)
