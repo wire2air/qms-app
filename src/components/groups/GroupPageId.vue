@@ -1,7 +1,9 @@
 <script setup>
 import { IconCamera, IconBuilding, IconUserPlus, IconCopy } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
+import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { uploadFile } from '@/utils/uploadService.js'
+import { buildGroupSections } from './groupDetailConfig.js'
 
 const props = defineProps({
   id: {
@@ -126,40 +128,79 @@ async function onRemoveMember(entry) {
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text)
 }
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
+  { label: 'Groups', to: getCompanyPath('/groups') },
+  { label: group.value?.name || 'Team' },
+])
+const groupDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    sections: buildGroupSections(group.value),
+  }),
+)
 </script>
 
 <template>
-  <BaseDetailPage
-    :icon="IconBuilding"
-    :title="group?.name || 'Team'"
+  <BaseDetailLayout
+    :config="groupDetailConfig"
+    :record="group"
     :loading="loading"
     :notFound="!loading && !group"
     notFoundTitle="Team not found"
-    width="standard"
+    notFoundDescription="This team could not be found."
   >
+    <template #title>
+      <BaseTextInput
+        v-if="editingName && canUpdate"
+        v-model="group.name"
+        placeholder="Group name"
+        size="sm"
+        autofocus
+        @keyup.enter="editingName = false"
+        @blur="editingName = false"
+      />
+      <BaseClickableRow
+        v-else
+        class="tw:text-base tw:font-semibold tw:text-on-main"
+        :class="canUpdate ? 'tw:hover:text-primary' : ''"
+        :disabled="!canUpdate"
+        aria-label="Edit group name"
+        @click="canUpdate && (editingName = true)"
+      >
+        {{ group?.name || 'Team' }}
+      </BaseClickableRow>
+    </template>
+
+    <template #status>
+      <BaseBadge v-if="group?.isLeadership" class="tw:bg-primary/10 tw:text-primary">
+        Leadership
+      </BaseBadge>
+    </template>
+
+    <template v-if="group" #meta>
+      <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+        <IconBuilding :size="14" />
+        {{ memberCount }} member{{ memberCount !== 1 ? 's' : '' }}
+      </span>
+    </template>
+
     <template #actions>
       <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary">
         <BaseSpinner size="xs" />
         Saving...
       </div>
+      <p v-else-if="saveError" class="tw:text-sm tw:text-red-500">{{ saveError }}</p>
     </template>
 
-    <div class="tw:py-8 tw:space-y-8">
-      <!-- Error Banner -->
-      <div
-        v-if="saveError"
-        class="tw:p-3 tw:bg-red-50 tw:text-red-600 tw:text-sm tw:rounded-lg tw:border tw:border-red-200"
-      >
-        {{ saveError }}
-      </div>
-
-      <!-- Profile Header -->
-      <div class="tw:bg-sidebar tw:border tw:border-divider tw:p-6 tw:rounded-xl tw:shadow-sm">
-        <div
-          class="tw:flex tw:flex-col tw:md:flex-row tw:items-start tw:md:items-center tw:justify-between tw:gap-6"
-        >
-          <div class="tw:flex tw:items-center tw:gap-6">
-            <!-- Avatar -->
+    <template v-if="group" #rail>
+      <BaseRailCard title="Team Settings">
+        <div class="tw:flex tw:flex-col tw:gap-5">
+          <!-- Avatar -->
+          <div class="tw:flex tw:justify-center">
             <BaseClickableRow
               class="tw:relative tw:group"
               :disabled="!canUpdate"
@@ -174,104 +215,54 @@ function copyToClipboard(text) {
                 <IconCamera :size="28" class="tw:text-white" />
               </div>
             </BaseClickableRow>
+          </div>
 
-            <!-- Name & Leadership -->
-            <div>
-              <div class="tw:flex tw:items-center tw:gap-3 tw:mb-1">
-                <template v-if="editingName && canUpdate">
-                  <BaseTextInput
-                    v-model="group.name"
-                    placeholder="Group name"
-                    size="sm"
-                    @keyup.enter="editingName = false"
-                    @blur="editingName = false"
-                  />
-                </template>
-                <h2
-                  v-else
-                  class="tw:text-2xl tw:font-bold tw:text-on-main"
-                  :class="{ 'tw:cursor-pointer tw:hover:text-primary': canUpdate }"
-                  @click="canUpdate && (editingName = true)"
-                >
-                  {{ group.name || 'Team' }}
-                </h2>
-                <span
-                  v-if="group.isLeadership"
-                  class="tw:text-xs tw:font-semibold tw:bg-primary/10 tw:text-primary tw:px-2.5 tw:py-1 tw:rounded-full"
-                >
-                  Leadership
-                </span>
-              </div>
-              <p class="tw:text-secondary tw:flex tw:items-center tw:gap-1.5 tw:text-sm">
-                <IconBuilding :size="14" />
-                {{ memberCount }} member{{ memberCount !== 1 ? 's' : '' }}
-              </p>
+          <!-- Team ID -->
+          <div>
+            <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Team ID</label>
+            <div class="tw:flex tw:items-center tw:gap-2 tw:group">
+              <code
+                class="tw:text-xs tw:text-on-main tw:bg-main tw:font-mono tw:break-all tw:p-1 tw:rounded tw:flex-1"
+              >
+                {{ id }}
+              </code>
+              <button
+                class="tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:p-1 tw:rounded tw:hover:bg-main-hover"
+                @click="copyToClipboard(id)"
+              >
+                <IconCopy :size="14" class="tw:text-secondary" />
+              </button>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-8">
-        <!-- Team Overview Card -->
-        <div class="tw:lg:col-span-1 tw:space-y-6">
-          <div
-            class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm tw:overflow-hidden"
-          >
-            <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
-              <h3 class="tw:font-bold tw:text-on-main tw:text-sm tw:uppercase tw:tracking-wide">
-                Team Settings
-              </h3>
-            </div>
-            <div class="tw:p-6 tw:space-y-5">
-              <!-- Team ID -->
-              <div>
-                <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Team ID</label>
-                <div class="tw:flex tw:items-center tw:gap-2 tw:group">
-                  <code
-                    class="tw:text-xs tw:text-on-main tw:bg-main tw:font-mono tw:break-all tw:p-1 tw:rounded tw:flex-1"
-                  >
-                    {{ id }}
-                  </code>
-                  <button
-                    class="tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:p-1 tw:rounded tw:hover:bg-main-hover"
-                    @click="copyToClipboard(id)"
-                  >
-                    <IconCopy :size="14" class="tw:text-secondary" />
-                  </button>
-                </div>
-              </div>
+          <!-- Color -->
+          <div>
+            <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Group Color</label>
+            <BaseColorPicker v-if="canUpdate" v-model="group.color" />
+            <span
+              v-else
+              class="tw:inline-block tw:size-6 tw:rounded-full tw:border tw:border-divider"
+              :style="{ backgroundColor: group.color }"
+            />
+          </div>
 
-              <!-- Color -->
-              <div v-if="canUpdate">
-                <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Group Color</label>
-                <BaseColorPicker v-model="group.color" />
-              </div>
-              <div v-else>
-                <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Group Color</label>
-                <span
-                  class="tw:inline-block tw:size-6 tw:rounded-full tw:border tw:border-divider"
-                  :style="{ backgroundColor: group.color }"
-                />
-              </div>
-
-              <!-- Leadership Toggle -->
-              <div>
-                <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Type</label>
-                <label v-if="canUpdate" class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer">
-                  <BaseSwitch v-model="group.isLeadership" />
-                  <span class="tw:text-sm tw:text-on-main">Leadership Team</span>
-                </label>
-                <span v-else-if="group.isLeadership" class="tw:text-sm tw:text-on-main">
-                  Leadership Team
-                </span>
-                <span v-else class="tw:text-sm tw:text-secondary">Standard Team</span>
-              </div>
-            </div>
+          <!-- Leadership Toggle -->
+          <div>
+            <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Type</label>
+            <label v-if="canUpdate" class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer">
+              <BaseSwitch v-model="group.isLeadership" />
+              <span class="tw:text-sm tw:text-on-main">Leadership Team</span>
+            </label>
+            <span v-else-if="group.isLeadership" class="tw:text-sm tw:text-on-main">
+              Leadership Team
+            </span>
+            <span v-else class="tw:text-sm tw:text-secondary">Standard Team</span>
           </div>
         </div>
+      </BaseRailCard>
+    </template>
 
-        <!-- Members Section -->
-        <div class="tw:lg:col-span-2 tw:space-y-6">
+    <template v-if="group" #section-details>
           <div class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm">
             <div
               class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
@@ -329,18 +320,16 @@ function copyToClipboard(text) {
               No members assigned yet.
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+    </template>
+  </BaseDetailLayout>
 
-    <!-- Avatar Management Dialog -->
-    <ImageCropDialog
-      v-model="showAvatarDialog"
-      :currentImageUrl="group?.avatar"
-      title="Team Avatar"
-      :aspectRatio="1"
-      @save="handleAvatarSave"
-      @delete="handleAvatarDelete"
-    />
-  </BaseDetailPage>
+  <!-- Avatar Management Dialog -->
+  <ImageCropDialog
+    v-model="showAvatarDialog"
+    :currentImageUrl="group?.avatar"
+    title="Team Avatar"
+    :aspectRatio="1"
+    @save="handleAvatarSave"
+    @delete="handleAvatarDelete"
+  />
 </template>

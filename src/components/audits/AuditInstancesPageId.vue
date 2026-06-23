@@ -15,18 +15,14 @@
  * the task-action surface).
  */
 import {
-  IconArrowBack,
   IconChecklist,
   IconClipboardCheck,
   IconUsers,
   IconClipboardList,
   IconBolt,
   IconSend,
-  IconPlayerPlay,
-  IconBan,
   IconPlus,
   IconTrash,
-  IconPrinter,
   IconBulb,
 } from '@tabler/icons-vue'
 import { useAuditScoring } from '@/composables/useAuditScoring'
@@ -34,6 +30,11 @@ import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPCs (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { patch, post, del } from '@/api'
+import {
+  buildAuditInstanceBanners,
+  buildAuditInstanceTabs,
+  buildAuditInstanceActions,
+} from './auditInstanceDetailConfig.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -349,175 +350,114 @@ async function releaseAudit() {
   }
 }
 
-const auditTabs = computed(() => {
-  const tabs = [
-    { id: 'info', label: 'Information', icon: IconClipboardCheck, count: null },
-    {
-      id: 'requirements',
-      label: 'Requirements',
-      icon: IconClipboardList,
-      count: clauseCount.value,
-    },
-    { id: 'findings', label: 'Findings', icon: IconBolt, count: findingsByStatus.value.total },
-    { id: 'ofi', label: 'OFI', icon: IconBulb, count: scoring.value.counts.OFI },
-  ]
-  return supplierTabsLocked.value ? tabs.filter((t) => t.id === 'info') : tabs
-})
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const auditInstanceTabs = computed(() =>
+  buildAuditInstanceTabs({
+    clauseCount: clauseCount.value,
+    findingsTotal: findingsByStatus.value.total,
+    ofiCount: scoring.value.counts.OFI,
+    supplierTabsLocked: supplierTabsLocked.value,
+  }),
+)
 // If the active tab becomes unavailable (supplier pre-release), fall back to Information.
-watch(auditTabs, (tabs) => {
-  if (!tabs.some((t) => t.id === tab.value)) tab.value = 'info'
+watch(auditInstanceTabs, (tabs) => {
+  if (!tabs.some((t) => t.value === tab.value)) tab.value = 'info'
 })
+const breadcrumbs = computed(() => [
+  { label: 'Audits', to: getCompanyPath('/audits?tab=instances') },
+  { label: auditInstance.value?.auditNumber || 'Audit' },
+])
+const auditInstanceBanners = computed(() => buildAuditInstanceBanners(auditInstance.value))
+const auditInstanceActions = computed(() =>
+  buildAuditInstanceActions(
+    {
+      canStart: canStart.value,
+      canSubmitForCloseOut: canSubmitForCloseOut.value,
+      canCancel: canCancel.value,
+      canDelete: canDelete.value,
+      canRelease: canRelease.value,
+      isReleased: isReleased.value,
+      statusId: auditInstance.value?.statusId,
+      transitioning: transitioning.value,
+      releasing: releasing.value,
+      unassessedCount: unassessedCount.value,
+      findingsOpen: findingsByStatus.value.open,
+    },
+    {
+      release: releaseAudit,
+      start: startAudit,
+      openSubmit() {
+        showSubmitDialog.value = true
+      },
+      report: openReport,
+      openCancel() {
+        showCancelDialog.value = true
+      },
+      openAuditLog() {
+        showAuditLog.value = true
+      },
+      openDelete() {
+        showDeleteDialog.value = true
+      },
+    },
+  ),
+)
+const auditInstanceDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => auditInstanceBanners.value,
+    actions: auditInstanceActions.value,
+    tabs: auditInstanceTabs.value,
+  }),
+)
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
-    <PageHeader :icon="IconClipboardCheck">
-      <template #title>{{ auditInstance?.auditNumber || 'Audit' }}</template>
-      <template #actions>
-        <BaseButton
-          v-if="auditInstance"
-          variant="outline"
-          size="sm"
-          @click="router.push(getCompanyPath('/audits?tab=instances'))"
-        >
-          <IconArrowBack :size="16" class="tw:mr-1" />
-          Back
-        </BaseButton>
-        <BaseButton v-if="auditInstance" variant="outline" size="sm" @click="openReport">
-          <IconPrinter :size="16" class="tw:mr-1" />
-          Report
-        </BaseButton>
-        <!-- #3 — release a supplier audit for the supplier's review. -->
-        <BaseButton
-          v-if="canRelease && !isReleased"
-          variant="primary"
-          size="sm"
-          :loading="releasing"
-          @click="releaseAudit"
-        >
-          <IconSend :size="16" class="tw:mr-1" />
-          Release to Supplier
-        </BaseButton>
+  <BaseDetailLayout
+    v-model:tab="tab"
+    :config="auditInstanceDetailConfig"
+    :record="auditInstance"
+    :loading="loading"
+    :notFound="!loading && !auditInstance"
+    notFoundTitle="Audit not found"
+    notFoundDescription="This audit could not be found."
+  >
+    <template #title>{{ auditInstance?.auditNumber || 'Audit' }}</template>
+
+    <template #status>
+      <AuditInstanceStatusBadgeById v-if="auditInstance" :statusId="auditInstance.statusId" />
+    </template>
+
+    <template v-if="auditInstance" #meta>
+      <span>{{ auditInstance.programTypeId }}</span>
+      <template v-if="auditInstance.scheduledDate">
+        · Scheduled {{ auditInstance.scheduledDate.formatDate('date') }}
+      </template>
+    </template>
+
+    <template #actions>
+      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+        <!-- #3 — released-to-supplier chip (bespoke; the Release action lives in DetailActionBar) -->
         <span
-          v-else-if="isReleased && canRelease"
+          v-if="isReleased && canRelease"
           class="tw:inline-flex tw:items-center tw:text-xs tw:font-medium tw:text-emerald-700 tw:bg-emerald-50 tw:rounded tw:px-2 tw:py-1"
           :title="`Released to supplier on ${auditInstance.releasedAt?.formatDate?.('datetime') ?? ''}`"
         >
           Released {{ auditInstance.releasedAt?.formatDate?.('date') }}
         </span>
-        <BaseButton
-          v-if="canStart"
-          variant="primary"
-          size="sm"
-          :disabled="transitioning"
-          @click="startAudit"
-        >
-          <IconPlayerPlay :size="16" class="tw:mr-1" />
-          Start Audit
-        </BaseButton>
-        <BaseButton
-          v-if="canSubmitForCloseOut"
-          variant="primary"
-          size="sm"
-          :disabled="unassessedCount > 0 || findingsByStatus.open > 0"
-          :title="
-            unassessedCount > 0
-              ? `Assess all requirements first — ${unassessedCount} not yet assessed.`
-              : findingsByStatus.open > 0
-                ? `Resolve or close all findings first — ${findingsByStatus.open} still open.`
-                : 'Submit this audit for close-out'
-          "
-          @click="showSubmitDialog = true"
-        >
-          <IconSend :size="16" class="tw:mr-1" />
-          Submit for Close-Out
-          <span
-            v-if="unassessedCount > 0 || findingsByStatus.open > 0"
-            class="tw:ml-1 tw:text-micro tw:opacity-80"
-          >
-            ({{
-              unassessedCount > 0
-                ? `${unassessedCount} unassessed`
-                : `${findingsByStatus.open} open`
-            }})
-          </span>
-        </BaseButton>
-        <BaseButton
-          v-if="canCancel"
-          variant="outline"
-          size="sm"
-          :disabled="transitioning"
-          @click="showCancelDialog = true"
-        >
-          <IconBan :size="16" class="tw:mr-1" />
-          Cancel
-        </BaseButton>
-        <BaseButton v-if="auditInstance" variant="secondary" size="sm" @click="showAuditLog = true">
-          <IconClipboardCheck :size="16" class="tw:mr-1" />
-          Audit Log
-        </BaseButton>
-        <BaseButton
-          v-if="canDelete && auditInstance && auditInstance.statusId !== 'CLOSED'"
-          variant="danger"
-          size="sm"
-          :disabled="transitioning"
-          @click="showDeleteDialog = true"
-        >
-          Delete
-        </BaseButton>
-      </template>
-    </PageHeader>
+        <DetailActionBar :actions="auditInstanceActions" :maxVisible="4" />
+      </div>
+    </template>
 
-    <BaseSpinner v-if="loading" centered size="lg" />
-
-    <BaseEmptyState
-      v-else-if="!auditInstance"
-      title="Audit not found"
-      description="This audit could not be found."
-    />
-
-    <div v-else class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
-      <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_320px] tw:gap-4 tw:items-start">
-          <div class="tw:flex tw:flex-col tw:gap-4">
-            <!-- Tabs: Information (details + agenda + document request +
-                 close-out) · Requirements · Findings. The right rail stays
-                 persistent across tabs. -->
-            <div class="tw:flex tw:border-b tw:border-divider">
-              <button
-                v-for="t in auditTabs"
-                :key="t.id"
-                type="button"
-                class="tw:px-4 tw:py-2 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:bg-transparent tw:cursor-pointer"
-                :class="
-                  tab === t.id
-                    ? 'tw:border-primary tw:text-primary'
-                    : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'
-                "
-                @click="tab = t.id"
-              >
-                <component :is="t.icon" :size="16" />
-                {{ t.label }}
-                <span
-                  v-if="t.count != null"
-                  class="tw:text-micro tw:font-normal tw:bg-main-hover tw:text-secondary tw:rounded tw:px-1.5 tw:py-0.5"
-                >
-                  {{ t.count }}
-                </span>
-              </button>
-            </div>
-
-            <!-- Details card -->
-            <div
-              v-show="tab === 'info'"
-              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-            >
-              <div
-                class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-              >
-                <BaseText variant="overline">Audit Details</BaseText>
-                <AuditInstanceStatusBadgeById :statusId="auditInstance.statusId" />
-              </div>
+    <template v-if="auditInstance" #tab-info>
+      <div class="tw:flex tw:flex-col tw:gap-4">
+        <!-- Details card -->
+        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+          <div class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
+            <BaseText variant="overline">Audit Details</BaseText>
+          </div>
 
               <div class="tw:grid tw:grid-cols-2 tw:gap-3 tw:mb-4">
                 <div class="tw:flex tw:flex-col tw:gap-1">
@@ -659,310 +599,236 @@ watch(auditTabs, (tabs) => {
               </div>
             </div>
 
-            <!-- Admin-defined custom fields (Information tab). Self-hides when
-                 none are configured for Audit. -->
-            <CustomFieldsCard
-              v-if="tab === 'info'"
-              entityType="AuditInstance"
-              :entityId="id"
-              :editable="isEditable"
-            />
+        <!-- Admin-defined custom fields. Self-hides when none configured. -->
+        <CustomFieldsCard entityType="AuditInstance" :entityId="id" :editable="isEditable" />
 
-            <!-- Agenda + embedded Document Request (#15/#2): select clauses +
-                 requested docs, send to the supplier or the internal auditee. -->
-            <AuditAgendaPanel
-              v-if="tab === 'info'"
-              :auditInstance="auditInstance"
-              :readonly="!isEditable"
-              :docRequestReadonly="docRequestReadonly"
-              :canManageRequests="isEditable"
-            />
+        <!-- Agenda + embedded Document Request: select clauses + requested docs. -->
+        <AuditAgendaPanel
+          :auditInstance="auditInstance"
+          :readonly="!isEditable"
+          :docRequestReadonly="docRequestReadonly"
+          :canManageRequests="isEditable"
+        />
 
-            <!-- Requirements execution -->
-            <div
-              v-show="tab === 'requirements'"
-              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-            >
-              <BaseText
-                variant="overline"
-                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-              >
-                <IconClipboardList :size="14" />
-                Requirements
-              </BaseText>
-              <AuditWalkthroughPanel :auditInstance="auditInstance" :readonly="!isEditable" />
-            </div>
-
-            <!-- Findings -->
-            <div
-              v-show="tab === 'findings'"
-              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-            >
-              <BaseText
-                variant="overline"
-                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-              >
-                <IconBolt :size="14" />
-                Findings
-              </BaseText>
-              <AuditFindingsPanel
-                :auditInstance="auditInstance"
-                :readonly="!isEditable"
-                :canRespond="
-                  auditInstance.programTypeId === 'SUPPLIER' && (isEditable || isAuditee)
-                "
-              />
-            </div>
-
-            <!-- OFI — opportunities for improvement (requirement results = OFI) -->
-            <div
-              v-show="tab === 'ofi'"
-              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-            >
-              <BaseText
-                variant="overline"
-                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-              >
-                <IconBulb :size="14" />
-                Opportunities for Improvement
-              </BaseText>
-              <AuditOfiPanel :auditInstance="auditInstance" />
-            </div>
-
-            <!-- Document Request now lives inside the Agenda panel for every
-                 audit type (they're sent to the auditee/supplier together). -->
-
-            <!-- Close-Out Workflow — appears once the audit has been
-                 Submitted-for-Close-Out (workflowInstanceId is set).
-                 Reviewers see Approve / Reject buttons inside each step card
-                 via the unified WorkflowStep component. -->
-            <div
-              v-if="auditInstance.workflowInstanceId && tab === 'info'"
-              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-            >
-              <BaseText
-                variant="overline"
-                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-              >
-                <IconSend :size="14" />
-                Close-Out Workflow
-              </BaseText>
-              <AuditInstanceWorkflowDetail
-                :auditInstanceId="auditInstance.id"
-                :workflowInstanceId="auditInstance.workflowInstanceId"
-                :isOwner="auditInstance.createdBy === currentSession?.userId"
-              />
-            </div>
-          </div>
-
-          <!-- Right rail -->
-          <div class="tw:flex tw:flex-col tw:gap-3">
-            <!-- Conformance score (#1). Hidden on mobile/iPad to save space —
-                 the auditor still sees it in the printable report; shown on lg+. -->
-            <div
-              class="tw:hidden tw:lg:block tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-            >
-              <BaseText
-                variant="overline"
-                class="tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
-              >
-                <IconClipboardCheck :size="14" />
-                Conformance
-              </BaseText>
-              <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
-                <div
-                  class="tw:text-3xl tw:font-extrabold"
-                  :class="scoring.pass ? 'tw:text-emerald-600' : 'tw:text-red-600'"
-                >
-                  {{ scoring.conformancePct == null ? '—' : `${scoring.conformancePct}%` }}
-                </div>
-                <span
-                  class="tw:text-micro tw:font-bold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
-                  :class="
-                    scoring.pass
-                      ? 'tw:bg-emerald-100 tw:text-emerald-700'
-                      : 'tw:bg-red-100 tw:text-red-700'
-                  "
-                >
-                  {{ scoring.pass ? 'Pass' : 'Fail' }}
-                </span>
-              </div>
-              <div class="tw:grid tw:grid-cols-2 tw:gap-x-3 tw:gap-y-1 tw:text-xs">
-                <div class="tw:flex tw:justify-between">
-                  <span class="tw:text-secondary">Conforming</span
-                  ><span class="tw:font-medium">{{ scoring.counts.CONFORMING }}</span>
-                </div>
-                <div class="tw:flex tw:justify-between">
-                  <span class="tw:text-secondary">Minor NC</span
-                  ><span class="tw:font-medium">{{ scoring.counts.MINOR_NC }}</span>
-                </div>
-                <div class="tw:flex tw:justify-between">
-                  <span class="tw:text-secondary">Major NC</span
-                  ><span class="tw:font-medium tw:text-red-600">{{ scoring.counts.MAJOR_NC }}</span>
-                </div>
-                <div class="tw:flex tw:justify-between">
-                  <span class="tw:text-secondary">OFI</span
-                  ><span class="tw:font-medium">{{ scoring.counts.OFI }}</span>
-                </div>
-                <div class="tw:flex tw:justify-between">
-                  <span class="tw:text-secondary">N/A</span
-                  ><span class="tw:font-medium">{{ scoring.counts.NA }}</span>
-                </div>
-                <div class="tw:flex tw:justify-between">
-                  <span class="tw:text-secondary">Assessed</span
-                  ><span class="tw:font-medium">{{ scoring.assessed }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Team -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-              >
-                <BaseText variant="overline" class="tw:flex tw:items-center tw:gap-2">
-                  <IconUsers :size="14" />
-                  Audit Team
-                  <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
-                    {{ teamMembers.length }}
-                  </span>
-                </BaseText>
-                <BaseButton
-                  v-if="isEditable"
-                  variant="outline"
-                  size="sm"
-                  @click="showAddMemberDialog = true"
-                >
-                  <template #icon><IconPlus :size="14" /></template>
-                  Add
-                </BaseButton>
-              </div>
-
-              <div
-                v-if="!teamMembers.length"
-                class="tw:py-8 tw:text-center tw:text-sm tw:text-secondary tw:italic"
-              >
-                No team members yet.
-              </div>
-              <div v-else class="tw:flex tw:flex-col tw:divide-y tw:divide-divider">
-                <div
-                  v-for="member in teamMembers"
-                  :key="member.id"
-                  class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:py-2"
-                >
-                  <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
-                    <UserBadgeById :userId="member.userId" />
-                    <button
-                      type="button"
-                      class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:border-0"
-                      :class="
-                        member.roleOnAudit === 'LEAD'
-                          ? 'tw:bg-amber-100 tw:text-amber-700'
-                          : 'tw:bg-blue-100 tw:text-blue-700'
-                      "
-                      :title="isEditable ? 'Click to toggle LEAD / TEAM' : ''"
-                      :disabled="!isEditable"
-                      @click="toggleMemberRole(member)"
-                    >
-                      {{ member.roleOnAudit }}
-                    </button>
-                  </div>
-                  <button
-                    v-if="isEditable"
-                    type="button"
-                    class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0"
-                    title="Remove from team"
-                    @click="removeMember(member)"
-                  >
-                    <IconTrash :size="14" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <BaseText
-                variant="overline"
-                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
-              >
-                Overview
-              </BaseText>
-              <div class="tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Audit Number</span>
-                  <code
-                    class="tw:text-xs tw:font-mono tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
-                  >
-                    {{ auditInstance.auditNumber || '—' }}
-                  </code>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Type</span>
-                  <span class="tw:text-xs">{{ auditInstance.programTypeId }}</span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Progress</span>
-                  <span class="tw:text-xs tw:font-medium">
-                    {{ responseCount }} / {{ clauseCount }} clauses
-                  </span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Findings</span>
-                  <span class="tw:text-xs tw:font-medium">
-                    {{ findingsByStatus.open }} open / {{ findingsByStatus.total }} total
-                  </span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Started</span>
-                  <span class="tw:text-xs">
-                    {{ auditInstance.startedAt ? auditInstance.startedAt.formatDate('date') : '—' }}
-                  </span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Completed</span>
-                  <span class="tw:text-xs">
-                    {{
-                      auditInstance.completedAt ? auditInstance.completedAt.formatDate('date') : '—'
-                    }}
-                  </span>
-                </div>
-                <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-1">
-                  Saving…
-                </div>
-                <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-1">
-                  {{ saveError }}
-                </div>
-              </div>
-            </div>
-
-            <div
-              v-if="auditInstance.auditProgramId"
-              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4"
-            >
-              <BaseText
-                variant="overline"
-                class="tw:pb-2 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
-              >
-                <IconChecklist :size="14" />
-                Spawned From
-              </BaseText>
-              <p class="tw:text-xs tw:text-secondary tw:italic">
-                Minted by the daily generator off an audit program.
-              </p>
-              <BaseButton
-                variant="outline"
-                size="sm"
-                class="tw:mt-2"
-                @click="
-                  router.push(getCompanyPath(`/audits/programs/${auditInstance.auditProgramId}`))
-                "
-              >
-                Open Program
-              </BaseButton>
-            </div>
-          </div>
+        <!-- Close-Out Workflow — appears once Submitted-for-Close-Out. Reviewers
+             see Approve / Reject inside each step card. -->
+        <div
+          v-if="auditInstance.workflowInstanceId"
+          class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
+        >
+          <BaseText
+            variant="overline"
+            class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+          >
+            <IconSend :size="14" />
+            Close-Out Workflow
+          </BaseText>
+          <AuditInstanceWorkflowDetail
+            :auditInstanceId="auditInstance.id"
+            :workflowInstanceId="auditInstance.workflowInstanceId"
+            :isOwner="auditInstance.createdBy === currentSession?.userId"
+          />
         </div>
       </div>
-    </div>
+    </template>
+
+    <template v-if="auditInstance" #tab-requirements>
+      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+        <BaseText
+          variant="overline"
+          class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+        >
+          <IconClipboardList :size="14" />
+          Requirements
+        </BaseText>
+        <AuditWalkthroughPanel :auditInstance="auditInstance" :readonly="!isEditable" />
+      </div>
+    </template>
+
+    <template v-if="auditInstance" #tab-findings>
+      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+        <BaseText
+          variant="overline"
+          class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+        >
+          <IconBolt :size="14" />
+          Findings
+        </BaseText>
+        <AuditFindingsPanel
+          :auditInstance="auditInstance"
+          :readonly="!isEditable"
+          :canRespond="auditInstance.programTypeId === 'SUPPLIER' && (isEditable || isAuditee)"
+        />
+      </div>
+    </template>
+
+    <template v-if="auditInstance" #tab-ofi>
+      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+        <BaseText
+          variant="overline"
+          class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
+        >
+          <IconBulb :size="14" />
+          Opportunities for Improvement
+        </BaseText>
+        <AuditOfiPanel :auditInstance="auditInstance" />
+      </div>
+    </template>
+
+    <template v-if="auditInstance" #rail>
+      <!-- Conformance score (#1). Hidden on mobile/iPad to save space —
+           the auditor still sees it in the printable report; shown on lg+. -->
+      <BaseRailCard title="Conformance" :icon="IconClipboardCheck" class="tw:hidden tw:lg:block">
+        <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
+          <div
+            class="tw:text-3xl tw:font-extrabold"
+            :class="scoring.pass ? 'tw:text-emerald-600' : 'tw:text-red-600'"
+          >
+            {{ scoring.conformancePct == null ? '—' : `${scoring.conformancePct}%` }}
+          </div>
+          <span
+            class="tw:text-micro tw:font-bold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+            :class="
+              scoring.pass ? 'tw:bg-emerald-100 tw:text-emerald-700' : 'tw:bg-red-100 tw:text-red-700'
+            "
+          >
+            {{ scoring.pass ? 'Pass' : 'Fail' }}
+          </span>
+        </div>
+        <div class="tw:grid tw:grid-cols-2 tw:gap-x-3 tw:gap-y-1 tw:text-xs">
+          <div class="tw:flex tw:justify-between">
+            <span class="tw:text-secondary">Conforming</span
+            ><span class="tw:font-medium">{{ scoring.counts.CONFORMING }}</span>
+          </div>
+          <div class="tw:flex tw:justify-between">
+            <span class="tw:text-secondary">Minor NC</span
+            ><span class="tw:font-medium">{{ scoring.counts.MINOR_NC }}</span>
+          </div>
+          <div class="tw:flex tw:justify-between">
+            <span class="tw:text-secondary">Major NC</span
+            ><span class="tw:font-medium tw:text-red-600">{{ scoring.counts.MAJOR_NC }}</span>
+          </div>
+          <div class="tw:flex tw:justify-between">
+            <span class="tw:text-secondary">OFI</span
+            ><span class="tw:font-medium">{{ scoring.counts.OFI }}</span>
+          </div>
+          <div class="tw:flex tw:justify-between">
+            <span class="tw:text-secondary">N/A</span
+            ><span class="tw:font-medium">{{ scoring.counts.NA }}</span>
+          </div>
+          <div class="tw:flex tw:justify-between">
+            <span class="tw:text-secondary">Assessed</span
+            ><span class="tw:font-medium">{{ scoring.assessed }}</span>
+          </div>
+        </div>
+      </BaseRailCard>
+
+      <!-- Team -->
+      <BaseRailCard title="Audit Team" :icon="IconUsers">
+        <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
+          <span class="tw:text-xs tw:text-secondary">{{ teamMembers.length }} member(s)</span>
+          <BaseButton
+            v-if="isEditable"
+            variant="outline"
+            size="sm"
+            @click="showAddMemberDialog = true"
+          >
+            <template #icon><IconPlus :size="14" /></template>
+            Add
+          </BaseButton>
+        </div>
+
+        <div
+          v-if="!teamMembers.length"
+          class="tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic"
+        >
+          No team members yet.
+        </div>
+        <div v-else class="tw:flex tw:flex-col tw:divide-y tw:divide-divider">
+          <div
+            v-for="member in teamMembers"
+            :key="member.id"
+            class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:py-2"
+          >
+            <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
+              <UserBadgeById :userId="member.userId" />
+              <button
+                type="button"
+                class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5 tw:cursor-pointer tw:border-0"
+                :class="
+                  member.roleOnAudit === 'LEAD'
+                    ? 'tw:bg-amber-100 tw:text-amber-700'
+                    : 'tw:bg-blue-100 tw:text-blue-700'
+                "
+                :title="isEditable ? 'Click to toggle LEAD / TEAM' : ''"
+                :disabled="!isEditable"
+                @click="toggleMemberRole(member)"
+              >
+                {{ member.roleOnAudit }}
+              </button>
+            </div>
+            <button
+              v-if="isEditable"
+              type="button"
+              class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0"
+              title="Remove from team"
+              @click="removeMember(member)"
+            >
+              <IconTrash :size="14" />
+            </button>
+          </div>
+        </div>
+      </BaseRailCard>
+
+      <!-- Overview -->
+      <BaseRailCard title="Overview">
+        <div class="tw:flex tw:flex-col tw:gap-2">
+          <BaseDetailField label="Audit Number" layout="inline">
+            <code class="tw:text-xs tw:font-mono tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded">
+              {{ auditInstance.auditNumber || '—' }}
+            </code>
+          </BaseDetailField>
+          <BaseDetailField label="Type" layout="inline" :value="auditInstance.programTypeId" />
+          <BaseDetailField label="Progress" layout="inline">
+            <span class="tw:text-xs tw:font-medium">{{ responseCount }} / {{ clauseCount }} clauses</span>
+          </BaseDetailField>
+          <BaseDetailField label="Findings" layout="inline">
+            <span class="tw:text-xs tw:font-medium">
+              {{ findingsByStatus.open }} open / {{ findingsByStatus.total }} total
+            </span>
+          </BaseDetailField>
+          <BaseDetailField
+            label="Started"
+            layout="inline"
+            :value="auditInstance.startedAt ? auditInstance.startedAt.formatDate('date') : null"
+          />
+          <BaseDetailField
+            label="Completed"
+            layout="inline"
+            :value="auditInstance.completedAt ? auditInstance.completedAt.formatDate('date') : null"
+          />
+          <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-1">Saving…</div>
+          <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-1">
+            {{ saveError }}
+          </div>
+        </div>
+      </BaseRailCard>
+
+      <BaseRailCard v-if="auditInstance.auditProgramId" title="Spawned From" :icon="IconChecklist">
+        <p class="tw:text-xs tw:text-secondary tw:italic">
+          Minted by the daily generator off an audit program.
+        </p>
+        <BaseButton
+          variant="outline"
+          size="sm"
+          class="tw:mt-2"
+          @click="router.push(getCompanyPath(`/audits/programs/${auditInstance.auditProgramId}`))"
+        >
+          Open Program
+        </BaseButton>
+      </BaseRailCard>
+    </template>
+  </BaseDetailLayout>
 
     <AuditInstanceSubmitDialog
       v-if="auditInstance"
@@ -1051,5 +917,4 @@ watch(auditTabs, (tabs) => {
           : []
       "
     />
-  </BasePage>
 </template>

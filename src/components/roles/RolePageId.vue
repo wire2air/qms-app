@@ -4,6 +4,7 @@ import { getCompanyPath } from '@/utils/routeHelpers'
 import { useRolePermissions } from '@/composables/useRolePermissions.js'
 import { useRoles } from '@/composables/useRoles.js'
 import { isAllowed } from '@/utils/currentSession.js'
+import { buildRoleSections, buildRoleActions } from './roleDetailConfig.js'
 
 const props = defineProps({
   id: {
@@ -217,180 +218,166 @@ watch(
     }
   },
 )
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const roleActions = computed(() =>
+  buildRoleActions(
+    {
+      canUpdate: canUpdateRole.value,
+      hasRole: !!role.value,
+      isInactive: isInactive.value,
+      saving: loading.value,
+    },
+    { save: saveChanges, cancel: goBack, activate: handleActivate, deactivate: handleDeactivate },
+  ),
+)
+const roleDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbItems.value,
+    actions: roleActions.value,
+    sections: buildRoleSections(role.value),
+  }),
+)
 </script>
 
 <template>
-  <BaseDetailPage
-    :breadcrumbs="breadcrumbItems"
+  <BaseDetailLayout
+    :config="roleDetailConfig"
+    :record="role"
     :loading="loading && !role"
     :notFound="error && !role"
     notFoundTitle="Role not found"
-    width="standard"
+    notFoundDescription="This role could not be found."
   >
+    <template #title>
+      <BaseTextInput
+        v-if="isEditingName"
+        ref="nameInputRef"
+        v-model="editedName"
+        size="sm"
+        @blur="stopEditName"
+        @keyup.enter="stopEditName"
+        @keyup.escape="stopEditName"
+      />
+      <BaseClickableRow
+        v-else
+        class="tw:text-base tw:font-semibold tw:text-on-main"
+        :class="canUpdateRole ? 'tw:hover:text-primary' : ''"
+        :disabled="!canUpdateRole"
+        aria-label="Edit role name"
+        @click="canUpdateRole && startEditName()"
+      >
+        {{ role?.name }}
+      </BaseClickableRow>
+    </template>
+
+    <template #status>
+      <RoleStatusBadge v-if="role" :status="role.statusId" />
+    </template>
+
+    <template v-if="role" #meta>
+      <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+        <IconHistory :size="14" />
+        Last Modified {{ role.updatedAt.formatDate('date') }}
+      </span>
+    </template>
+
     <template #actions>
-      <template v-if="canUpdateRole">
-        <button
-          class="tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-secondary tw:bg-transparent tw:border tw:border-divider tw:rounded-lg tw:cursor-pointer tw:hover:bg-main-hover tw:transition-colors"
-          @click="goBack"
-        >
-          Cancel
-        </button>
-        <button
-          class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:disabled:opacity-50"
-          :disabled="loading"
-          @click="saveChanges"
-        >
-          <BaseSpinner v-if="loading" size="sm" color="white" class="tw:mr-1" />
-          Save Changes
-        </button>
-      </template>
-      <button
-        v-if="role && canUpdateRole && isInactive"
-        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-green-700 tw:bg-transparent tw:border tw:border-green-600 tw:rounded-lg tw:cursor-pointer tw:hover:bg-green-50 tw:transition-colors"
-        @click="handleActivate"
-      >
-        Activate
-      </button>
-      <button
-        v-else-if="role && canUpdateRole && !isInactive"
-        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-amber-700 tw:bg-transparent tw:border tw:border-amber-600 tw:rounded-lg tw:cursor-pointer tw:hover:bg-amber-50 tw:transition-colors"
-        @click="handleDeactivate"
-      >
-        Deactivate
-      </button>
+      <DetailActionBar :actions="roleActions" :maxVisible="4" />
     </template>
 
-    <template v-if="role">
-      <div class="tw:py-6 tw:space-y-6">
-        <!-- Role Info Card -->
-        <section class="tw:bg-layer tw:rounded-xl tw:border tw:border-sidebar tw:p-6 tw:shadow-sm">
-          <div class="tw:flex tw:flex-wrap tw:justify-between tw:items-start tw:gap-4">
-            <div class="tw:space-y-1 tw:flex-1">
-              <!-- Editable Name -->
-              <div v-if="isEditingName" class="tw:flex tw:items-center tw:gap-2">
-                <BaseTextInput
-                  ref="nameInputRef"
-                  v-model="editedName"
-                  class="tw:text-3xl"
-                  @blur="stopEditName"
-                  @keyup.enter="stopEditName"
-                  @keyup.escape="stopEditName"
-                />
-              </div>
-              <h2
-                v-else
-                class="tw:text-3xl tw:font-black tw:tracking-tight tw:text-on-sidebar"
-                :class="
-                  canUpdateRole
-                    ? 'tw:cursor-pointer tw:hover:text-primary tw:transition-colors'
-                    : ''
-                "
-                @click="canUpdateRole && startEditName()"
-              >
-                {{ role.name }}
-              </h2>
-
-              <!-- Editable Description -->
-              <div v-if="isEditingDescription" class="tw:flex tw:items-start tw:gap-2">
-                <BaseTextarea
-                  ref="descriptionInputRef"
-                  v-model="editedDescription"
-                  class="tw:flex-1"
-                  rows="2"
-                  @blur="stopEditDescription"
-                  @keyup.escape="stopEditDescription"
-                />
-              </div>
-              <p
-                v-else
-                class="tw:text-secondary tw:max-w-2xl tw:transition-colors"
-                :class="canUpdateRole ? 'tw:cursor-pointer tw:hover:text-on-sidebar' : ''"
-                @click="canUpdateRole && startEditDescription()"
-              >
-                {{
-                  role.description ||
-                  (canUpdateRole
-                    ? 'No description provided (click to edit)'
-                    : 'No description provided')
-                }}
-              </p>
-
-              <div class="tw:flex tw:items-center tw:gap-4 tw:pt-2">
-                <div class="tw:flex tw:items-center tw:gap-2">
-                  <IconHistory :size="16" class="tw:text-secondary" />
-                  <span class="tw:text-xs tw:text-secondary">
-                    Last Modified: {{ role.updatedAt.formatDate('date') }}
-                  </span>
-                </div>
-
-                <RoleStatusBadge :status="role.statusId" />
-              </div>
-            </div>
-            <div class="tw:flex tw:flex-col tw:items-end tw:gap-3">
-              <BaseText variant="overline">Assigned Users</BaseText>
-              <div class="tw:flex tw:items-center tw:gap-2">
-                <div
-                  class="tw:w-10 tw:h-10 tw:rounded-full tw:bg-primary/10 tw:flex tw:items-center tw:justify-center tw:text-sm tw:font-bold tw:text-primary"
-                >
-                  {{ usersCount }}
-                </div>
-              </div>
-              <button
-                class="tw:text-sm tw:font-semibold tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline"
-                @click="openUsersDialog"
-              >
-                View All Users
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <!-- Permissions Section Header -->
-        <div class="tw:flex tw:items-center tw:justify-between tw:pt-4">
-          <h3 class="tw:text-xl tw:font-bold tw:text-on-sidebar">Permissions</h3>
-          <div class="tw:flex tw:items-center tw:gap-4">
-            <div class="tw:relative">
-              <IconSearch
-                :size="18"
-                class="tw:absolute tw:left-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
-              />
-              <BaseTextInput
-                v-model="searchTerm"
-                placeholder="Search permissions..."
-                class="tw:w-64 tw:pl-9"
-              />
-            </div>
-            <button
-              v-if="canUpdateRole"
-              class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:font-semibold tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline"
-              @click="selectAll"
-            >
-              <IconSquareCheck :size="18" />
-              Select All
-            </button>
-          </div>
-        </div>
-
-        <!-- Permission Groups -->
-        <RolePermissionsList
-          v-model="sectionedGroups"
-          :permissionActions="permissionActions"
-          :isSelected="isSelected"
-          :togglePermission="togglePermission"
-          :getPermissionForAction="getPermissionForAction"
-          :canUpdateRole="canUpdateRole"
+    <template v-if="role" #rail>
+      <!-- Description -->
+      <BaseRailCard title="Description">
+        <BaseTextarea
+          v-if="isEditingDescription"
+          ref="descriptionInputRef"
+          v-model="editedDescription"
+          rows="3"
+          @blur="stopEditDescription"
+          @keyup.escape="stopEditDescription"
         />
-      </div>
+        <BaseClickableRow
+          v-else
+          class="tw:text-sm tw:text-secondary tw:leading-relaxed"
+          :class="canUpdateRole ? 'tw:hover:text-on-sidebar' : ''"
+          :disabled="!canUpdateRole"
+          aria-label="Edit role description"
+          @click="canUpdateRole && startEditDescription()"
+        >
+          {{
+            role.description ||
+            (canUpdateRole ? 'No description provided (click to edit)' : 'No description provided')
+          }}
+        </BaseClickableRow>
+      </BaseRailCard>
+
+      <!-- Assigned Users -->
+      <BaseRailCard title="Assigned Users">
+        <div class="tw:flex tw:items-center tw:gap-3">
+          <div
+            class="tw:w-10 tw:h-10 tw:rounded-full tw:bg-primary/10 tw:flex tw:items-center tw:justify-center tw:text-sm tw:font-bold tw:text-primary"
+          >
+            {{ usersCount }}
+          </div>
+          <button
+            class="tw:text-sm tw:font-semibold tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline"
+            @click="openUsersDialog"
+          >
+            View All Users
+          </button>
+        </div>
+      </BaseRailCard>
     </template>
 
-    <!-- Users Assignment Dialog -->
-    <RoleUsersDialog
-      v-if="showUsersDialog"
-      v-model="showUsersDialog"
-      :roleId="id"
-      :roleName="role?.name"
-      :assignedUsers="assignedUsers"
-      @saved="fetchRoleData"
-    />
-  </BaseDetailPage>
+    <template v-if="role" #section-permissions>
+      <!-- Permissions Section Header -->
+      <div class="tw:flex tw:items-center tw:justify-between tw:mb-4">
+        <h3 class="tw:text-xl tw:font-bold tw:text-on-sidebar">Permissions</h3>
+        <div class="tw:flex tw:items-center tw:gap-4">
+          <div class="tw:relative">
+            <IconSearch
+              :size="18"
+              class="tw:absolute tw:left-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
+            />
+            <BaseTextInput
+              v-model="searchTerm"
+              placeholder="Search permissions..."
+              class="tw:w-64 tw:pl-9"
+            />
+          </div>
+          <button
+            v-if="canUpdateRole"
+            class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:font-semibold tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline"
+            @click="selectAll"
+          >
+            <IconSquareCheck :size="18" />
+            Select All
+          </button>
+        </div>
+      </div>
+
+      <!-- Permission Groups -->
+      <RolePermissionsList
+        v-model="sectionedGroups"
+        :permissionActions="permissionActions"
+        :isSelected="isSelected"
+        :togglePermission="togglePermission"
+        :getPermissionForAction="getPermissionForAction"
+        :canUpdateRole="canUpdateRole"
+      />
+    </template>
+  </BaseDetailLayout>
+
+  <!-- Users Assignment Dialog -->
+  <RoleUsersDialog
+    v-if="showUsersDialog"
+    v-model="showUsersDialog"
+    :roleId="id"
+    :roleName="role?.name"
+    :assignedUsers="assignedUsers"
+    @saved="fetchRoleData"
+  />
 </template>

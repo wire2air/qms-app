@@ -1,7 +1,7 @@
 <script setup>
-import { IconFileAlert } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
+import { buildWorkflowInstanceSections } from './workflowInstanceDetailConfig.js'
 
 const props = defineProps({
   instanceId: { type: String, required: true },
@@ -92,6 +92,13 @@ const statusColor = computed(() => {
   return 'amber'
 })
 
+const STATUS_BADGE_CLASS = {
+  emerald: 'tw:bg-emerald-100 tw:text-emerald-700',
+  red: 'tw:bg-red-100 tw:text-red-700',
+  orange: 'tw:bg-orange-100 tw:text-orange-700',
+  amber: 'tw:bg-amber-100 tw:text-amber-700',
+}
+
 const progressPercent = computed(() => {
   if (!steps.value.length) return 0
   const completed = steps.value.filter((s) => s.statusId === 'APPROVED').length
@@ -131,67 +138,74 @@ const breadcrumbs = computed(() => {
     { label: 'Workflow' },
   ]
 })
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const workflowInstanceDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    sections: buildWorkflowInstanceSections(instance.value),
+  }),
+)
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader>
-      <template #title>
-        <BaseBreadcrumbs v-if="instance" :items="breadcrumbs" />
-      </template>
-    </PageHeader>
+  <BaseDetailLayout
+    :config="workflowInstanceDetailConfig"
+    :record="instance"
+    :loading="loading"
+    :notFound="!loading && !instance"
+    notFoundTitle="Workflow instance not found"
+  >
+    <template #title>
+      <span class="tw:text-base tw:font-semibold tw:text-on-main">
+        {{ workflowVersion?.name || 'Workflow Approval' }}
+      </span>
+    </template>
 
-    <!-- Loading -->
-    <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:min-h-[60vh]">
-      <BaseSpinner size="lg" />
-    </div>
+    <template #status>
+      <BaseBadge v-if="instance" :class="STATUS_BADGE_CLASS[statusColor]">{{ statusLabel }}</BaseBadge>
+    </template>
 
-    <!-- Main Content -->
-    <div v-else-if="instance" class="tw:w-full tw:py-4 tw:lg:py-8">
-      <div class="tw:flex tw:flex-col tw:lg:grid tw:lg:grid-cols-12 tw:gap-8">
-        <!-- ─── Main Column ─────────────────────────────────────────────── -->
-        <div class="tw:lg:col-span-8 tw:space-y-6">
-          <WorkflowInstanceDocumentSummary
-            v-if="instance.resourceType === 'DocumentVersion'"
-            :doc="doc"
+    <template v-if="instance" #meta>
+      <span>{{ completedSteps }}/{{ steps.length }} steps</span>
+      <span> · {{ elapsedTime }}</span>
+    </template>
+
+    <template v-if="instance" #section-details>
+      <div class="tw:flex tw:flex-col tw:gap-6">
+        <WorkflowInstanceDocumentSummary
+          v-if="instance.resourceType === 'DocumentVersion'"
+          :doc="doc"
+          :workflowVersion="workflowVersion"
+          :statusLabel="statusLabel"
+          :statusColor="statusColor"
+          @viewDocument="router.push(getCompanyPath(`/documents/${doc?.id}`))"
+        />
+
+        <template v-else-if="instance.resourceType === 'Nonconformance'">
+          <WorkflowInstanceNcSummary
+            :nc="nc"
             :workflowVersion="workflowVersion"
             :statusLabel="statusLabel"
             :statusColor="statusColor"
-            @viewDocument="router.push(getCompanyPath(`/documents/${doc?.id}`))"
+            @viewNc="router.push(getCompanyPath(`/nonconformances/${nc?.id}`))"
           />
+          <WorkflowInstanceNcOutcomeBanner :instanceStatusId="instance.statusId" />
+        </template>
 
-          <template v-else-if="instance.resourceType === 'Nonconformance'">
-            <WorkflowInstanceNcSummary
-              :nc="nc"
-              :workflowVersion="workflowVersion"
-              :statusLabel="statusLabel"
-              :statusColor="statusColor"
-              @viewNc="router.push(getCompanyPath(`/nonconformances/${nc?.id}`))"
-            />
-            <WorkflowInstanceNcOutcomeBanner :instanceStatusId="instance.statusId" />
-          </template>
-
-          <WorkflowInstanceTimeline :workflowInstanceId="props.instanceId" />
-        </div>
-
-        <!-- ─── Sidebar Column ──────────────────────────────────────────── -->
-        <div class="tw:lg:col-span-4 tw:space-y-6">
-          <WorkflowInstanceHealthCard
-            :progressPercent="progressPercent"
-            :elapsedTime="elapsedTime"
-            :completedSteps="completedSteps"
-            :totalSteps="steps.length"
-          />
-        </div>
+        <WorkflowInstanceTimeline :workflowInstanceId="props.instanceId" />
       </div>
-    </div>
+    </template>
 
-    <!-- Not Found -->
-    <div
-      v-else
-      class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:min-h-[60vh] tw:text-center"
-    >
-      <BaseEmptyState :icon="IconFileAlert" title="Workflow instance not found" />
-    </div>
-  </BasePage>
+    <template v-if="instance" #rail>
+      <WorkflowInstanceHealthCard
+        :progressPercent="progressPercent"
+        :elapsedTime="elapsedTime"
+        :completedSteps="completedSteps"
+        :totalSteps="steps.length"
+      />
+    </template>
+  </BaseDetailLayout>
 </template>

@@ -16,6 +16,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Which detail tab is active. The rail is now persistent across all tabs
+  // (Properties/Collaborators/Workflow are document-level), but the Table of
+  // Contents is content-specific and only renders on the Content tab.
+  activeTab: {
+    type: String,
+    default: 'content',
+  },
 })
 
 const document = useLiveQueryWithDeps(
@@ -112,185 +119,123 @@ watch(
 </script>
 
 <template>
-  <div v-if="document && currentVersion" class="tw:lg:col-span-1 tw:space-y-6 tw:print:hidden">
-    <div class="tw:sticky tw:top-24 tw:space-y-6">
-      <!-- Properties Card -->
-      <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:p-5">
-        <BaseText
-          variant="overline"
-          class="tw:mb-4 tw:flex tw:items-center tw:justify-between"
-        >
-          Properties
-          <IconSettings class="tw:size-4" />
-        </BaseText>
-        <div class="tw:space-y-3">
-          <!-- Document ID -->
-          <div>
-            <BaseLabel color="secondary">Document ID</BaseLabel>
-            <p class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mt-1">
-              {{ document.docNumber }}
+  <template v-if="document && currentVersion">
+    <!-- Properties -->
+    <BaseRailCard title="Properties" :icon="IconSettings">
+      <div class="tw:flex tw:flex-col tw:gap-3">
+        <BaseDetailField label="Document ID">
+          <BaseText variant="body" weight="medium" class="tw:font-mono tw:text-on-main">
+            {{ document.docNumber }}
+          </BaseText>
+        </BaseDetailField>
+
+        <!-- Co-author model: Owner is accountable for the lifecycle (periodic
+             review, effectiveness, default step assignee); Author is the
+             originator. Both reassignable inline when editable. -->
+        <BaseDetailField label="Owner">
+          <UserSelectMenu v-if="canEdit" v-model="document.userId" :required="true" />
+          <UserBadgeById v-else :userId="document.userId" />
+        </BaseDetailField>
+
+        <BaseDetailField label="Author">
+          <UserSelectMenu v-if="canEdit" v-model="document.authorId" :required="true" />
+          <UserBadgeById v-else-if="document.authorId" :userId="document.authorId" />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </BaseDetailField>
+
+        <BaseDetailField label="Type">
+          <DocumentTypeSelectMenu v-if="canEdit" v-model="document.documentTypeId" required />
+          <DocumentTypeBadgeById v-else :documentTypeId="document.documentTypeId" :iconOnly="false" />
+        </BaseDetailField>
+
+        <BaseDetailField label="Status" layout="inline">
+          <DocumentVersionStatusBadgeById :statusId="currentVersion.statusId" />
+        </BaseDetailField>
+
+        <BaseDetailField label="Department">
+          <DepartmentSelectMenu v-if="canEdit" v-model="document.departmentId" required />
+          <DepartmentBadgeById
+            v-else-if="document.departmentId"
+            :departmentId="document.departmentId"
+          />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </BaseDetailField>
+
+        <BaseDetailField label="Related Standard">
+          <RelatedStandardSelectMenu v-if="canEdit" v-model="document.relatedStandardId" />
+          <RelatedStandardBadgeById
+            v-else-if="document.relatedStandardId"
+            :relatedStandardId="document.relatedStandardId"
+          />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </BaseDetailField>
+
+        <BaseDetailField label="Periodic Review" layout="inline">
+          <div v-if="canEdit" class="tw:flex tw:items-center tw:gap-1.5">
+            <input
+              v-model.number="document.periodicReviewMonths"
+              type="number"
+              min="1"
+              class="tw:w-16 tw:rounded-md tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:py-1 tw:text-sm tw:text-on-sidebar tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
+            />
+            <span class="tw:text-xs tw:text-secondary">months</span>
+          </div>
+          <BaseText v-else variant="body" weight="medium">
+            {{ document.periodicReviewMonths }} months
+          </BaseText>
+        </BaseDetailField>
+
+        <BaseDetailField label="Auto-Effective" layout="inline">
+          <BaseSwitch v-model="document.autoEffectiveOnApproval" :disabled="!canEdit" />
+        </BaseDetailField>
+
+        <BaseDetailField label="Effective Date">
+          <BaseDateField
+            v-if="canEdit"
+            v-model="currentVersion.effectiveDate"
+            mode="date"
+            :required="false"
+          />
+          <BaseText v-else variant="body" weight="medium">
+            {{
+              currentVersion.effectiveDate ? currentVersion.effectiveDate.formatDate('date') : '—'
+            }}
+          </BaseText>
+        </BaseDetailField>
+
+        <!-- Immutable audit-PDF snapshot, generated by the worker on EFFECTIVE
+             transition. The sha256 is the tamper-evidence anchor. -->
+        <BaseDetailField v-if="currentVersion.snapshotStoragePath" label="Audit Snapshot">
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <a
+              :href="`/api/v1/files/${currentVersion.snapshotStoragePath}`"
+              target="_blank"
+              rel="noopener"
+              class="tw:text-sm tw:font-medium tw:text-primary tw:hover:underline"
+            >
+              Download audit PDF
+            </a>
+            <p v-if="currentVersion.snapshotGeneratedAt" class="tw:text-xs tw:text-secondary">
+              Generated {{ currentVersion.snapshotGeneratedAt.formatDate('datetime') }}
+            </p>
+            <p
+              v-if="currentVersion.snapshotSha256"
+              class="tw:text-micro tw:font-mono tw:text-secondary tw:break-all"
+              :title="currentVersion.snapshotSha256"
+            >
+              sha256: {{ currentVersion.snapshotSha256.slice(0, 16) }}…
             </p>
           </div>
+        </BaseDetailField>
 
-          <!-- Owner + Author (co-author model): Owner is accountable for the
-               lifecycle (periodic review, effectiveness, default step assignee);
-               Author is the originator. Both reassignable inline when editable. -->
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div>
-              <BaseLabel color="secondary">Owner</BaseLabel>
-              <div class="tw:mt-1">
-                <UserSelectMenu v-if="canEdit" v-model="document.userId" :required="true" />
-                <UserBadgeById v-else :userId="document.userId" />
-              </div>
-            </div>
-            <div>
-              <BaseLabel color="secondary">Author</BaseLabel>
-              <div class="tw:mt-1">
-                <UserSelectMenu v-if="canEdit" v-model="document.authorId" :required="true" />
-                <UserBadgeById v-else-if="document.authorId" :userId="document.authorId" />
-                <span v-else class="tw:text-sm tw:text-secondary">—</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Type + Status -->
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div>
-              <BaseLabel color="secondary">Type</BaseLabel>
-              <div class="tw:mt-1">
-                <DocumentTypeSelectMenu v-if="canEdit" v-model="document.documentTypeId" required />
-                <DocumentTypeBadgeById
-                  v-else
-                  :documentTypeId="document.documentTypeId"
-                  :iconOnly="false"
-                />
-              </div>
-            </div>
-            <div>
-              <BaseLabel color="secondary">Status</BaseLabel>
-              <div class="tw:mt-1">
-                <DocumentVersionStatusBadgeById :statusId="currentVersion.statusId" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Department + Related Standard -->
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div>
-              <BaseLabel color="secondary">Department</BaseLabel>
-              <div class="tw:mt-1">
-                <DepartmentSelectMenu v-if="canEdit" v-model="document.departmentId" required />
-                <DepartmentBadgeById
-                  v-else-if="document.departmentId"
-                  :departmentId="document.departmentId"
-                />
-                <span v-else class="tw:text-sm tw:text-secondary">—</span>
-              </div>
-            </div>
-            <div>
-              <BaseLabel color="secondary">Related Standard</BaseLabel>
-              <div class="tw:mt-1">
-                <RelatedStandardSelectMenu v-if="canEdit" v-model="document.relatedStandardId" />
-                <RelatedStandardBadgeById
-                  v-else-if="document.relatedStandardId"
-                  :relatedStandardId="document.relatedStandardId"
-                />
-                <span v-else class="tw:text-sm tw:text-secondary">—</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Periodic Review + Auto-Effective -->
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div>
-              <BaseLabel color="secondary">Periodic Review</BaseLabel>
-              <div v-if="canEdit" class="tw:flex tw:items-center tw:gap-1.5 tw:mt-1">
-                <input
-                  v-model.number="document.periodicReviewMonths"
-                  type="number"
-                  min="1"
-                  class="tw:w-16 tw:rounded-md tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:py-1 tw:text-sm tw:text-on-sidebar tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
-                />
-                <span class="tw:text-xs tw:text-secondary">months</span>
-              </div>
-              <p v-else class="tw:text-sm tw:font-medium tw:mt-1">
-                {{ document.periodicReviewMonths }} months
-              </p>
-            </div>
-            <div>
-              <BaseLabel color="secondary">Auto-Effective</BaseLabel>
-              <div class="tw:mt-1">
-                <BaseSwitch v-model="document.autoEffectiveOnApproval" :disabled="!canEdit" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Effective Date (own row — date picker needs width) -->
-          <div>
-            <BaseLabel color="secondary">Effective Date</BaseLabel>
-            <div class="tw:mt-1">
-              <BaseDateField
-                v-if="canEdit"
-                v-model="currentVersion.effectiveDate"
-                mode="date"
-                :required="false"
-              />
-              <p v-else class="tw:text-sm tw:font-medium">
-                {{
-                  currentVersion.effectiveDate
-                    ? currentVersion.effectiveDate.formatDate('date')
-                    : '—'
-                }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Immutable audit-PDF snapshot, generated by the worker on
-               EFFECTIVE transition (see backend/worker/tasks/
-               generate_document_snapshot.js). The hash is the
-               tamper-evidence anchor so an auditor can verify the
-               downloaded PDF against the stored sha256. -->
-          <div v-if="currentVersion.snapshotStoragePath">
-            <BaseLabel color="secondary">Audit Snapshot</BaseLabel>
-            <div class="tw:mt-1 tw:flex tw:flex-col tw:gap-1">
-              <a
-                :href="`/api/v1/files/${currentVersion.snapshotStoragePath}`"
-                target="_blank"
-                rel="noopener"
-                class="tw:text-sm tw:font-medium tw:text-primary tw:hover:underline"
-              >
-                Download audit PDF
-              </a>
-              <p v-if="currentVersion.snapshotGeneratedAt" class="tw:text-xs tw:text-secondary">
-                Generated {{ currentVersion.snapshotGeneratedAt.formatDate('datetime') }}
-              </p>
-              <p
-                v-if="currentVersion.snapshotSha256"
-                class="tw:text-micro tw:font-mono tw:text-secondary tw:break-all"
-                :title="currentVersion.snapshotSha256"
-              >
-                sha256: {{ currentVersion.snapshotSha256.slice(0, 16) }}…
-              </p>
-            </div>
-          </div>
-
-          <!-- Collaborators Section -->
-          <DocumentsCollaborators :documentId="document.id" :canEdit="canEdit" />
-        </div>
+        <!-- Collaborators (renders its own sub-header) -->
+        <DocumentsCollaborators :documentId="document.id" :canEdit="canEdit" />
       </div>
+    </BaseRailCard>
 
-      <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:p-5">
-        <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
-          <BaseText variant="overline">Workflow</BaseText>
-          <button
-            v-if="canEdit"
-            class="tw:text-xs tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:transition-colors"
-            @click="showWorkflowDialog = true"
-          >
-            {{ document.workflowVersionId ? 'Change' : 'Select' }}
-          </button>
-        </div>
-
+    <!-- Workflow -->
+    <BaseRailCard title="Workflow" :icon="IconHierarchy">
+      <div class="tw:flex tw:flex-col tw:gap-2">
         <!-- Selected workflow display -->
         <RouterLink
           v-if="selectedWorkflow && selectedWorkflowVersion"
@@ -326,65 +271,69 @@ watch(
           <span>Select a workflow</span>
         </button>
 
-        <!-- Workflow Selection Dialog -->
-        <BaseDialog v-model="showWorkflowDialog" title="Select Workflow" maxWidth="lg">
-          <WorkflowVersionSelect
-            v-model="document.workflowVersionId"
-            moduleId="APPROVAL"
-            @update:modelValue="showWorkflowDialog = false"
-          />
-        </BaseDialog>
+        <button
+          v-if="canEdit && selectedWorkflow"
+          class="tw:self-start tw:text-xs tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:transition-colors"
+          @click="showWorkflowDialog = true"
+        >
+          Change workflow
+        </button>
       </div>
+    </BaseRailCard>
 
-      <!-- Approval Workflow Timeline (live) -->
-      <div v-if="currentVersion.workflowInstanceId" class="tw:space-y-4">
-        <BaseText variant="overline" class="tw:block tw:px-1">Workflow Timeline</BaseText>
-        <WorkflowInstanceTimeline :workflowInstanceId="currentVersion.workflowInstanceId" />
-      </div>
+    <!-- Approval Workflow Timeline (live) -->
+    <BaseRailCard v-if="currentVersion.workflowInstanceId" title="Workflow Timeline">
+      <WorkflowInstanceTimeline :workflowInstanceId="currentVersion.workflowInstanceId" />
+    </BaseRailCard>
 
-      <!-- Table of Contents Card -->
-      <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:p-5">
-        <div class="tw:flex tw:items-center tw:justify-between tw:mb-4">
-          <BaseText variant="overline">Table of Contents</BaseText>
-        </div>
-        <nav class="tw:space-y-1">
-          <a
-            v-for="(section, index) in documentSections"
-            :key="section.id"
-            :href="`#${section.id}`"
-            class="tw:group tw:flex tw:items-center tw:gap-3 tw:px-3 tw:py-2 tw:rounded-lg tw:text-sm tw:font-medium tw:transition-colors"
+    <!-- Table of Contents — content-specific, hidden on other tabs -->
+    <BaseRailCard v-if="activeTab === 'content'" title="Table of Contents">
+      <nav class="tw:space-y-1">
+        <a
+          v-for="(section, index) in documentSections"
+          :key="section.id"
+          :href="`#${section.id}`"
+          class="tw:group tw:flex tw:items-center tw:gap-3 tw:px-3 tw:py-2 tw:rounded-lg tw:text-sm tw:font-medium tw:transition-colors"
+          :class="
+            activeSection === section.id
+              ? 'tw:text-primary tw:bg-primary/5'
+              : 'tw:text-secondary tw:hover:bg-sidebar-hover'
+          "
+          @click.prevent="scrollToSection(section.id)"
+        >
+          <span
+            class="tw:text-xs tw:font-bold"
             :class="
               activeSection === section.id
-                ? 'tw:text-primary tw:bg-primary/5'
-                : 'tw:text-secondary tw:hover:bg-sidebar-hover'
+                ? 'tw:text-primary/50'
+                : 'tw:text-secondary tw:group-hover:text-primary/50'
             "
-            @click.prevent="scrollToSection(section.id)"
           >
-            <span
-              class="tw:text-xs tw:font-bold"
-              :class="
-                activeSection === section.id
-                  ? 'tw:text-primary/50'
-                  : 'tw:text-secondary tw:group-hover:text-primary/50'
-              "
-            >
-              {{ index + 1 }}.
-            </span>
-            {{ section.title }}
-          </a>
+            {{ index + 1 }}.
+          </span>
+          {{ section.title }}
+        </a>
 
-          <!-- Empty state -->
-          <div
-            v-if="documentSections.length === 0"
-            class="tw:text-center tw:py-4 tw:text-secondary tw:text-xs"
-          >
-            No sections available
-          </div>
-        </nav>
-      </div>
+        <!-- Empty state -->
+        <div
+          v-if="documentSections.length === 0"
+          class="tw:text-center tw:py-4 tw:text-secondary tw:text-xs"
+        >
+          No sections available
+        </div>
+      </nav>
+    </BaseRailCard>
 
-      <!-- Admin-defined custom fields. Self-hides when none configured. -->
-      <CustomFieldsCard entityType="Document" :entityId="document.id" :editable="canEdit" />
-    </div>
-  </div>
+    <!-- Admin-defined custom fields. Self-hides when none configured. -->
+    <CustomFieldsCard entityType="Document" :entityId="document.id" :editable="canEdit" />
+
+    <!-- Workflow Selection Dialog -->
+    <BaseDialog v-model="showWorkflowDialog" title="Select Workflow" maxWidth="lg">
+      <WorkflowVersionSelect
+        v-model="document.workflowVersionId"
+        moduleId="APPROVAL"
+        @update:modelValue="showWorkflowDialog = false"
+      />
+    </BaseDialog>
+  </template>
 </template>

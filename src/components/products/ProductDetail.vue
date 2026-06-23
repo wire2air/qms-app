@@ -1,14 +1,14 @@
 <script setup>
 /**
  * Product (Item Master) detail page. Two tabs:
- *   - Overview: the item's core fields (name, SKU, family, type, status,
- *     description). Edit opens the existing create/update dialog.
- *   - Specifications: the QC specifications scoped to this item, defined
- *     and approved right here (ProductSpecificationsTab).
+ *   - Overview: the item's core fields (name, SKU, family, type, status, description).
+ *     Edit opens the existing create/update dialog.
+ *   - Specifications: the QC specifications scoped to this item, defined and
+ *     approved right here (ProductSpecificationsTab).
  */
-import { IconArrowLeft, IconPackage, IconPencil } from '@tabler/icons-vue'
-import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { isAllowed } from '@/utils/currentSession.js'
+import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { buildProductTabs, buildProductActions } from './productDetailConfig.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -26,99 +26,108 @@ const product = useLiveQueryWithDeps(
 )
 const loading = computed(() => product.value === undefined)
 
-const TABS = [
-  { value: 'overview', label: 'Overview' },
-  { value: 'specifications', label: 'Specifications' },
-]
-const validTabIds = new Set(TABS.map((t) => t.value))
-const activeTab = ref(validTabIds.has(route.query.tab) ? route.query.tab : 'overview')
+const VALID_TABS = ['overview', 'specifications']
+const activeTab = ref(VALID_TABS.includes(route.query.tab) ? route.query.tab : 'overview')
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab } })
 })
 
 const showEdit = ref(false)
 
-function goBack() {
-  router.push(getCompanyPath('/products'))
-}
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
+  { label: 'Item Master', to: getCompanyPath('/products') },
+  { label: product.value?.name || 'Item' },
+])
+const productActions = computed(() =>
+  buildProductActions(
+    { canUpdate: canUpdate.value },
+    {
+      edit() {
+        showEdit.value = true
+      },
+    },
+  ),
+)
+const productDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    actions: productActions.value,
+    tabs: buildProductTabs(product.value),
+  }),
+)
 </script>
 
 <template>
-  <BasePage width="standard">
-    <button
-      class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:text-secondary tw:hover:text-on-sidebar tw:w-fit"
-      @click="goBack"
-    >
-      <IconArrowLeft :size="16" /> Item Master
-    </button>
-
-    <div v-if="loading" class="tw:text-secondary tw:py-12 tw:text-center">Loading…</div>
-
-    <div v-else-if="!product" class="tw:text-secondary tw:py-12 tw:text-center tw:italic">
-      Item not found.
-    </div>
-
-    <template v-else>
-      <!-- Header -->
-      <PageHeader :icon="IconPackage">
-        <template #title>
-          {{ product.name }}
-          <span
-            class="tw:inline-flex tw:items-center tw:rounded tw:border tw:border-primary tw:px-2 tw:py-0.5 tw:text-xs tw:font-medium tw:text-primary"
-            >{{ product.sku }}</span
-          >
-          <ProductStatusBadgeById v-if="product.statusId" :statusId="product.statusId" />
-        </template>
-        <template #actions>
-          <BaseButton v-if="canUpdate" variant="outline" size="sm" @click="showEdit = true">
-            <template #icon><IconPencil :size="16" /></template>
-            Edit
-          </BaseButton>
-        </template>
-      </PageHeader>
-
-      <!-- Tabs -->
-      <BaseTabs v-model="activeTab" :tabs="TABS" ariaLabel="Product detail">
-        <!-- Overview -->
-        <BaseTabPanel value="overview">
-          <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-5 tw:max-w-3xl">
-            <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Name</p>
-              <p class="tw:text-on-sidebar">{{ product.name }}</p>
-            </div>
-            <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">SKU</p>
-              <p class="tw:text-on-sidebar tw:font-mono">{{ product.sku }}</p>
-            </div>
-            <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Product Family</p>
-              <ProductFamilyBadgeById v-if="product.productFamilyId" :productFamilyId="product.productFamilyId" />
-              <span v-else class="tw:text-sm tw:text-secondary">—</span>
-            </div>
-            <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Product Type</p>
-              <ProductTypeBadgeById v-if="product.productTypeId" :productTypeId="product.productTypeId" />
-              <span v-else class="tw:text-sm tw:text-secondary">—</span>
-            </div>
-            <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Status</p>
-              <ProductStatusBadgeById v-if="product.statusId" :statusId="product.statusId" />
-              <span v-else class="tw:text-sm tw:text-secondary">—</span>
-            </div>
-            <div class="tw:md:col-span-2">
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
-              <p class="tw:text-on-sidebar tw:whitespace-pre-wrap">{{ product.description || '—' }}</p>
-            </div>
-          </div>
-        </BaseTabPanel>
-
-        <!-- Specifications -->
-        <BaseTabPanel value="specifications">
-          <ProductSpecificationsTab :productId="product.id" :productName="product.name" />
-        </BaseTabPanel>
-      </BaseTabs>
+  <BaseDetailLayout
+    v-model:tab="activeTab"
+    :config="productDetailConfig"
+    :record="product"
+    :loading="loading"
+    :notFound="!loading && !product"
+    notFoundTitle="Item not found"
+    notFoundDescription="This item could not be found."
+  >
+    <template #title>
+      <span class="tw:text-base tw:font-semibold tw:text-on-main">{{ product?.name }}</span>
     </template>
 
-    <ProductsCreateUpdateDialog v-if="showEdit" :id="props.id" v-model="showEdit" />
-  </BasePage>
+    <template #status>
+      <ProductStatusBadgeById v-if="product?.statusId" :statusId="product.statusId" />
+    </template>
+
+    <template v-if="product" #meta>
+      <span class="tw:font-mono">{{ product.sku }}</span>
+    </template>
+
+    <template #actions>
+      <DetailActionBar :actions="productActions" />
+    </template>
+
+    <template v-if="product" #tab-overview>
+      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-5 tw:max-w-3xl">
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Name</p>
+          <p class="tw:text-on-sidebar">{{ product.name }}</p>
+        </div>
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">SKU</p>
+          <p class="tw:text-on-sidebar tw:font-mono">{{ product.sku }}</p>
+        </div>
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Product Family</p>
+          <ProductFamilyBadgeById
+            v-if="product.productFamilyId"
+            :productFamilyId="product.productFamilyId"
+          />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </div>
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Product Type</p>
+          <ProductTypeBadgeById
+            v-if="product.productTypeId"
+            :productTypeId="product.productTypeId"
+          />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </div>
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Status</p>
+          <ProductStatusBadgeById v-if="product.statusId" :statusId="product.statusId" />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </div>
+        <div class="tw:md:col-span-2">
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
+          <p class="tw:text-on-sidebar tw:whitespace-pre-wrap">{{ product.description || '—' }}</p>
+        </div>
+      </div>
+    </template>
+
+    <template v-if="product" #tab-specifications>
+      <ProductSpecificationsTab :productId="product.id" :productName="product.name" />
+    </template>
+  </BaseDetailLayout>
+
+  <ProductsCreateUpdateDialog v-if="showEdit" :id="props.id" v-model="showEdit" />
 </template>

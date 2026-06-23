@@ -1,13 +1,12 @@
 <script setup>
-import {
-  IconInfoCircle,
-  IconSettings,
-  IconArchive,
-  IconArchiveOff,
-  IconSend,
-} from '@tabler/icons-vue'
+import { IconInfoCircle, IconSettings } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import {
+  buildDocumentTemplateBanners,
+  buildDocumentTemplateSections,
+  buildDocumentTemplateActions,
+} from './documentTemplateDetailConfig.js'
 
 const props = defineProps({
   id: {
@@ -98,91 +97,86 @@ async function onUnarchive() {
     toast.error(err)
   }
 }
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
+  { label: 'Document Templates', to: getCompanyPath('/document-templates') },
+  { label: template.value?.name || 'Template' },
+])
+const documentTemplateBanners = computed(() => buildDocumentTemplateBanners(template.value))
+const documentTemplateActions = computed(() =>
+  buildDocumentTemplateActions(
+    {
+      canUpdate: canUpdate.value,
+      canArchive: canArchive.value,
+      statusId: template.value?.statusId,
+    },
+    { publish: onPublish, archive: onArchive, unarchive: onUnarchive },
+  ),
+)
+const documentTemplateDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => documentTemplateBanners.value,
+    actions: documentTemplateActions.value,
+    sections: buildDocumentTemplateSections(template.value),
+  }),
+)
 </script>
 
 <template>
-  <BaseDetailPage
+  <BaseDetailLayout
+    :config="documentTemplateDetailConfig"
+    :record="template"
     :loading="loading"
     :notFound="!loading && !template"
     notFoundTitle="Template not found"
-    width="standard"
+    notFoundDescription="This template could not be found."
   >
-    <template v-if="template" #title>
-      <div class="tw:flex tw:items-center tw:gap-3">
-        <!-- Editable name -->
-        <template v-if="editingName && canEdit">
-          <BaseTextInput
-            v-model="template.name"
-            placeholder="Template Name"
-            size="sm"
-            @keyup.enter="editingName = false"
-            @blur="editingName = false"
-          />
-        </template>
-        <h1
-          v-else
-          class="tw:text-3xl tw:font-black tw:text-on-sidebar"
-          :class="{ 'tw:cursor-pointer tw:hover:text-primary': canEdit }"
-          @click="canEdit && (editingName = true)"
-        >
-          {{ template.name }}
-        </h1>
-
-        <DocumentTemplateStatusBadgeById :statusId="template.statusId" />
-      </div>
+    <template #title>
+      <BaseTextInput
+        v-if="editingName && canEdit"
+        v-model="template.name"
+        placeholder="Template Name"
+        size="sm"
+        autofocus
+        @keyup.enter="editingName = false"
+        @blur="editingName = false"
+      />
+      <BaseClickableRow
+        v-else
+        class="tw:text-base tw:font-semibold tw:text-on-main"
+        :class="canEdit ? 'tw:hover:text-primary' : ''"
+        :disabled="!canEdit"
+        aria-label="Edit template name"
+        @click="canEdit && (editingName = true)"
+      >
+        {{ template?.name }}
+      </BaseClickableRow>
     </template>
+
+    <template #status>
+      <DocumentTemplateStatusBadgeById v-if="template" :statusId="template.statusId" />
+    </template>
+
+    <template v-if="template" #meta>
+      <span class="tw:font-mono">{{ template.prefix }}</span>
+    </template>
+
     <template #actions>
-      <button
-        v-if="canUpdate && template?.statusId === 'DRAFT'"
-        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:bg-primary tw:text-white tw:text-sm tw:font-medium tw:hover:bg-primary/90 tw:transition-colors"
-        @click="onPublish"
-      >
-        <IconSend :size="16" />
-        Publish
-      </button>
-      <button
-        v-if="canArchive && template?.statusId !== 'ARCHIVED'"
-        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:border tw:border-red-300 tw:text-red-600 tw:text-sm tw:font-medium tw:hover:bg-red-50 tw:transition-colors"
-        @click="onArchive"
-      >
-        <IconArchive :size="16" />
-        Archive
-      </button>
-      <button
-        v-if="canArchive && template?.statusId === 'ARCHIVED'"
-        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:rounded-lg tw:border tw:border-primary tw:text-primary tw:text-sm tw:font-medium tw:hover:bg-primary/10 tw:transition-colors"
-        @click="onUnarchive"
-      >
-        <IconArchiveOff :size="16" />
-        Unarchive
-      </button>
+      <DetailActionBar :actions="documentTemplateActions" />
     </template>
 
-    <!-- Template Details -->
-    <div v-if="template" class="tw:py-6 tw:space-y-6">
-      <!-- Basic Information Card -->
-      <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-        <div
-          class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
-        >
-          <IconInfoCircle :size="22" class="tw:text-primary" />
-          <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Basic Information</h2>
-        </div>
-        <div class="tw:p-6 tw:grid tw:grid-cols-2 tw:gap-6">
-          <div>
-            <p class="tw:text-secondary tw:mb-1">Document Prefix</p>
-            <BaseTextInput
-              v-if="canEdit"
-              v-model="template.prefix"
-              placeholder="Prefix"
-              size="sm"
-            />
-            <p v-else class="tw:font-mono tw:font-bold tw:text-on-sidebar">
-              {{ template.prefix }}
-            </p>
-          </div>
-          <div>
-            <p class="tw:text-secondary tw:mb-1">Department</p>
+    <template v-if="template" #rail>
+      <BaseRailCard title="Basic Information" :icon="IconInfoCircle">
+        <div class="tw:flex tw:flex-col tw:gap-3">
+          <BaseDetailField label="Document Prefix">
+            <BaseTextInput v-if="canEdit" v-model="template.prefix" placeholder="Prefix" size="sm" />
+            <span v-else class="tw:font-mono tw:font-bold tw:text-on-main">{{ template.prefix }}</span>
+          </BaseDetailField>
+          <BaseDetailField label="Department">
             <DepartmentSelectMenu v-if="canEdit" v-model="template.departmentId" />
             <template v-else>
               <DepartmentBadgeById
@@ -191,9 +185,8 @@ async function onUnarchive() {
               />
               <span v-else class="tw:text-sm tw:text-secondary">—</span>
             </template>
-          </div>
-          <div>
-            <p class="tw:text-secondary tw:mb-1">Related Standard</p>
+          </BaseDetailField>
+          <BaseDetailField label="Related Standard">
             <RelatedStandardSelectMenu v-if="canEdit" v-model="template.relatedStandardId" />
             <template v-else>
               <RelatedStandardBadgeById
@@ -202,12 +195,23 @@ async function onUnarchive() {
               />
               <span v-else class="tw:text-sm tw:text-secondary">—</span>
             </template>
-          </div>
-          <BaseDetailField label="Created Date" :value="template.createdAt?.formatDate('date')" />
-          <BaseDetailField label="Last Modified" :value="template.updatedAt?.formatDate('date')" />
+          </BaseDetailField>
+          <BaseDetailField
+            label="Created"
+            layout="inline"
+            :value="template.createdAt?.formatDate('date')"
+          />
+          <BaseDetailField
+            label="Last Modified"
+            layout="inline"
+            :value="template.updatedAt?.formatDate('date')"
+          />
         </div>
-      </div>
+      </BaseRailCard>
+    </template>
 
+    <template v-if="template" #section-details>
+      <div class="tw:flex tw:flex-col tw:gap-6">
       <!-- Default Settings Card -->
       <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
         <div
@@ -266,8 +270,9 @@ async function onUnarchive() {
         </div>
       </div>
 
-      <!-- Sections Card -->
-      <DocumentSectionsEditor v-model="template.sections" :readonly="!canEdit" />
-    </div>
-  </BaseDetailPage>
+        <!-- Sections Card -->
+        <DocumentSectionsEditor v-model="template.sections" :readonly="!canEdit" />
+      </div>
+    </template>
+  </BaseDetailLayout>
 </template>
