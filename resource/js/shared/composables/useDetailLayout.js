@@ -2,6 +2,8 @@
 import { computed, toValue } from 'vue'
 import { useScroll, useBreakpoints } from '@vueuse/core'
 import { resolveDetailState, bucketActions } from './detailLayoutHelpers.js'
+import { resolveVariant } from './detailVariantHelpers.js'
+import { resolveNavModel } from './detailNavHelpers.js'
 
 function flag(v) {
   return typeof v === 'function' ? !!v() : !!toValue(v)
@@ -48,5 +50,10 @@ export function useDetailLayout(o = {}) {
   const isMobile = bp.smaller('md') // < 768
   const isTablet = bp.between('md', 'lg') // 768–1024
 
-  return { state, actionBuckets, scrolled, isMobile, isTablet }
+  const variantDescriptor = computed(() => resolveVariant(toValue(o.variant) || 'standard'))
+  const navModel = computed(() =>
+    resolveNavModel(toValue(o.sections) || [], toValue(o.tabs) || []),
+  )
+
+  return { state, actionBuckets, scrolled, isMobile, isTablet, variantDescriptor, navModel }
 }

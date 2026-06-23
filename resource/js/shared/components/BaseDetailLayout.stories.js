@@ -11,7 +11,11 @@ import {
   capaActions,
   capaTabs,
   capaRailCards,
+  ncRecord,
+  ncConfig,
+  bannerSet,
 } from './detailLayout.fixtures.js'
+import { defineDetailConfig } from '../composables/defineDetailConfig.js'
 
 export default {
   title: 'Templates/Detail Page',
@@ -175,5 +179,76 @@ export const Mobile = {
       <template #meta>ACM-001 · updated 2d ago</template>
       <template #tab-overview><div class="tw:py-4">Overview…</div></template>
     </BaseDetailLayout></div>`,
+  }),
+}
+
+// ── Config-driven (hybrid API) ─────────────────────────────────────────────────
+
+export const ConfigDriven = {
+  name: 'Config-driven (hybrid API)',
+  render: () => ({
+    components: { BaseDetailLayout },
+    setup: () => ({ ncConfig, ncRecord }),
+    template: `
+      <div style="height: 680px">
+        <BaseDetailLayout :config="ncConfig" :record="ncRecord">
+          <template #section-details><div class="tw:text-body">Containment action, severity, type…</div></template>
+          <template #section-workflow><div class="tw:text-body">Workflow timeline (SP-4)…</div></template>
+          <template #section-disposition><div class="tw:text-body">Disposition decision…</div></template>
+          <template #tab-activity><div class="tw:py-4 tw:text-body">Activity feed (SP-2)…</div></template>
+        </BaseDetailLayout>
+      </div>`,
+  }),
+}
+
+// ── Variants (readonly / embedded / print / stub) ─────────────────────────────
+
+export const Variants = {
+  name: 'Variants (readonly / embedded / print / stub)',
+  render: () => ({
+    components: { BaseDetailLayout },
+    setup: () => ({
+      readonly: defineDetailConfig({ variant: 'readonly', header: () => ({ title: 'Read-only record' }), railCards: [{ id: 'p', title: 'Properties', items: [{ label: 'Status', value: 'Closed' }] }] }),
+      embedded: defineDetailConfig({ variant: 'embedded', header: () => ({ title: 'Embedded (peek) record' }) }),
+      print: defineDetailConfig({ variant: 'print', header: () => ({ title: 'Print layout' }), railCards: [{ id: 'p', title: 'Properties', items: [{ label: 'Status', value: 'Open' }] }] }),
+      approval: defineDetailConfig({ variant: 'approval', header: () => ({ title: 'Approval (stub)' }) }),
+    }),
+    template: `
+      <div class="tw:flex tw:flex-col tw:gap-8">
+        <div style="height: 280px"><BaseDetailLayout :config="readonly"><template #default><div class="tw:text-body">Body</div></template></BaseDetailLayout></div>
+        <div style="height: 240px"><BaseDetailLayout :config="embedded"><template #default><div class="tw:text-body">Body</div></template></BaseDetailLayout></div>
+        <div style="height: 280px"><BaseDetailLayout :config="print"><template #default><div class="tw:text-body">Body</div></template></BaseDetailLayout></div>
+        <div style="height: 240px"><BaseDetailLayout :config="approval"><template #default><div class="tw:text-body">Body</div></template></BaseDetailLayout></div>
+      </div>`,
+  }),
+}
+
+// ── Banner region (tones + factories) ─────────────────────────────────────────
+
+export const Banners = {
+  name: 'Banner region (tones + factories)',
+  render: () => ({
+    components: { BaseDetailLayout },
+    setup: () => ({ config: defineDetailConfig({ header: () => ({ title: 'Record with banners' }), banners: () => bannerSet }) }),
+    template: `<div style="height: 460px"><BaseDetailLayout :config="config"><template #default><div class="tw:text-body">Body</div></template></BaseDetailLayout></div>`,
+  }),
+}
+
+// ── AI + version seams (enabled) ──────────────────────────────────────────────
+
+export const Seams = {
+  name: 'AI + version seams (enabled)',
+  render: () => ({
+    components: { BaseDetailLayout },
+    setup: () => ({ config: defineDetailConfig({ header: () => ({ title: 'Seams on' }), ai: { enabled: true }, version: { enabled: true } }) }),
+    template: `
+      <div style="height: 460px">
+        <BaseDetailLayout :config="config">
+          <template #default><div class="tw:text-body">Body</div></template>
+          <template #ai-summary><div class="tw:text-body">AI summary goes here (SP-5).</div></template>
+          <template #ai-panel><div class="tw:text-body">AI analysis panel (SP-5).</div></template>
+          <template #version-summary><div class="tw:text-body">v1.0 · Yasin Q.</div></template>
+        </BaseDetailLayout>
+      </div>`,
   }),
 }

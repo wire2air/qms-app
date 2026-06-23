@@ -73,6 +73,23 @@ Every authenticated app page's root is `<BasePage>` — the single owner of cont
 
 ---
 
+## Detail pages
+
+Every record detail page uses `BaseDetailLayout` (not `BaseDetailPage`, which is deprecated). Declare the page with `defineDetailConfig({...})` (header, banners, sections, tabs, railCards, variant) + slot overrides (`#section-{id}`, `#tab-{value}`, `#rail`, `#ai-summary`/`#ai-panel`/`#version-summary` seams). Rail is `DetailRail` + `BaseRailCard` (not `BaseOverviewPanel`). Full design: `docs/superpowers/specs/2026-06-22-detail-template-core-config-design.md`.
+
+**Interaction rules — pick the surface by intent:**
+- Full-page nav → a different record, or a panel-mode tab (heavy dataset) in the same record.
+- Drawer (slide-over) → peek a related record without leaving context; a focused sub-task.
+- Dialog → a blocking must-resolve decision (confirm destructive, e-signature).
+- Popover → lightweight info / small picker anchored to a control.
+- Context menu → per-row/per-item secondary actions.
+- Inline edit → editing a field of the current record (autosave is the default edit model).
+- Expandable section / rail card → optional detail.
+- Right rail → glanceable, persistent, ranked metadata + relationships. Never the full edit form, never large datasets.
+- Bottom sheet → the mobile substitute for rail and peek.
+
+---
+
 ## Component pattern: badge triad (XBadge → XBadgeById → XSelectMenu)
 
 Every entity that appears as a badge or in a select menu follows this triad. **Never use `BaseSelectMenu` directly for an entity** — always wrap it.

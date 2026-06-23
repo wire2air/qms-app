@@ -9,6 +9,8 @@ declare global {
   const EffectScope: typeof import('vue').EffectScope
   const PdfImportLimitError: typeof import('./src/composables/usePdfImport.js').PdfImportLimitError
   const SEARCH_THRESHOLD: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').SEARCH_THRESHOLD
+  const approvalPendingBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').approvalPendingBanner
+  const archivedBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').archivedBanner
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
   const bucketActions: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').bucketActions
@@ -37,6 +39,7 @@ declare global {
   const decodeSort: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').decodeSort
   const defineAsyncComponent: typeof import('vue').defineAsyncComponent
   const defineComponent: typeof import('vue').defineComponent
+  const defineDetailConfig: typeof import('./resource/js/shared/composables/defineDetailConfig.js').defineDetailConfig
   const eagerComputed: typeof import('@vueuse/core').eagerComputed
   const effectScope: typeof import('vue').effectScope
   const encodeSort: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').encodeSort
@@ -78,12 +81,15 @@ declare global {
   const isReadonly: typeof import('vue').isReadonly
   const isRef: typeof import('vue').isRef
   const isShallow: typeof import('vue').isShallow
+  const lockedBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').lockedBanner
   const makeDestructurable: typeof import('@vueuse/core').makeDestructurable
   const markRaw: typeof import('vue').markRaw
   const matchChord: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').matchChord
   const matchPattern: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').matchPattern
+  const morphHeaderVariant: typeof import('./resource/js/shared/composables/detailVariantHelpers.js').morphHeaderVariant
   const nextTick: typeof import('vue').nextTick
   const normalizeChord: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').normalizeChord
+  const normalizeDetailConfig: typeof import('./resource/js/shared/composables/defineDetailConfig.js').normalizeDetailConfig
   const onActivated: typeof import('vue').onActivated
   const onBeforeMount: typeof import('vue').onBeforeMount
   const onBeforeRouteLeave: typeof import('vue-router').onBeforeRouteLeave
@@ -125,6 +131,7 @@ declare global {
   const reactiveComputed: typeof import('@vueuse/core').reactiveComputed
   const reactiveOmit: typeof import('@vueuse/core').reactiveOmit
   const reactivePick: typeof import('@vueuse/core').reactivePick
+  const readOnlyBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').readOnlyBanner
   const readonly: typeof import('vue').readonly
   const ref: typeof import('vue').ref
   const refAutoReset: typeof import('@vueuse/core').refAutoReset
@@ -138,8 +145,10 @@ declare global {
   const resolveComponent: typeof import('vue').resolveComponent
   const resolveDetailState: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').resolveDetailState
   const resolveListState: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').resolveListState
+  const resolveNavModel: typeof import('./resource/js/shared/composables/detailNavHelpers.js').resolveNavModel
   const resolveRef: typeof import('@vueuse/core').resolveRef
   const resolveRouteMeta: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').resolveRouteMeta
+  const resolveVariant: typeof import('./resource/js/shared/composables/detailVariantHelpers.js').resolveVariant
   const searchNodes: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').searchNodes
   const selectAndUploadFile: typeof import('./src/composables/useFileUpload.js').selectAndUploadFile
   const setProp: typeof import('./resource/js/shared/composables/object.js').setProp
@@ -168,6 +177,7 @@ declare global {
   const tryOnUnmounted: typeof import('@vueuse/core').tryOnUnmounted
   const unref: typeof import('vue').unref
   const unrefElement: typeof import('@vueuse/core').unrefElement
+  const unsavedChangesBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').unsavedChangesBanner
   const until: typeof import('@vueuse/core').until
   const uploadFile: typeof import('./src/composables/useFileUpload.js').uploadFile
   const useActiveElement: typeof import('@vueuse/core').useActiveElement
@@ -386,6 +396,7 @@ declare global {
   const useWindowFocus: typeof import('@vueuse/core').useWindowFocus
   const useWindowScroll: typeof import('@vueuse/core').useWindowScroll
   const useWindowSize: typeof import('@vueuse/core').useWindowSize
+  const validationIssuesBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').validationIssuesBanner
   const watch: typeof import('vue').watch
   const watchArray: typeof import('@vueuse/core').watchArray
   const watchAtMost: typeof import('@vueuse/core').watchAtMost
@@ -402,6 +413,7 @@ declare global {
   const watchTriggerable: typeof import('@vueuse/core').watchTriggerable
   const watchWithFilter: typeof import('@vueuse/core').watchWithFilter
   const whenever: typeof import('@vueuse/core').whenever
+  const workflowWaitingBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').workflowWaitingBanner
 }
 // for type re-export
 declare global {

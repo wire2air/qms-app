@@ -17,6 +17,7 @@ const overflowItems = computed(() =>
     name: a.label,
     icon: a.icon,
     disabled: a.disabled,
+    title: a.title,
     click: () => a.onSelect && a.onSelect(),
   })),
 )
@@ -31,6 +32,7 @@ const overflowItems = computed(() =>
       size="sm"
       :loading="a.loading"
       :disabled="a.disabled"
+      :title="a.title"
       :as="a.to ? 'RouterLink' : 'button'"
       :to="a.to || undefined"
       @click="a.onSelect && a.onSelect()"

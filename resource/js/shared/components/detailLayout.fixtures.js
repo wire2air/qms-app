@@ -9,8 +9,11 @@ import {
   IconBuildingFactory2,
   IconShieldCheck,
   IconClipboardCheck,
+  IconClipboardList,
   IconX,
 } from '@tabler/icons-vue'
+import { defineDetailConfig } from '../composables/defineDetailConfig.js'
+import { readOnlyBanner, approvalPendingBanner, validationIssuesBanner } from '../composables/bannerFactories.js'
 
 // ── Supplier fixtures ──────────────────────────────────────────────────────────
 
@@ -106,3 +109,27 @@ export const capaRailCards = [
     ],
   },
 ]
+
+// ── Non-conformance fixtures (config-driven API) ───────────────────────────────
+
+export const ncRecord = {
+  id: 'nc-1', title: 'Non conformance testing', statusId: 'DRAFT', ncNumber: 'NC-MAIN-ENG-001',
+}
+
+export const ncConfig = defineDetailConfig({
+  variant: 'standard',
+  header: (r) => ({ title: r.title, icon: IconClipboardList, avatarName: r.title }),
+  breadcrumbs: (r) => [{ label: 'Nonconformances', to: '/nonconformances' }, { label: r.ncNumber }],
+  banners: (r) => (r.statusId === 'DRAFT' ? [approvalPendingBanner()] : []),
+  sections: [
+    { id: 'details', label: 'Details', icon: IconClipboardList },
+    { id: 'workflow', label: 'Workflow' },
+    { id: 'disposition', label: 'Disposition' },
+  ],
+  tabs: [{ value: 'activity', label: 'Activity', count: () => 4 }],
+  railCards: [
+    { id: 'props', title: 'Properties', items: [{ label: 'Status', value: 'Draft' }, { label: 'Owner', value: 'Yasin Q.' }] },
+  ],
+})
+
+export const bannerSet = [readOnlyBanner(), approvalPendingBanner(), validationIssuesBanner(2)]
