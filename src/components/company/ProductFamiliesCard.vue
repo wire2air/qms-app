@@ -2,6 +2,7 @@
 import { IconPlus, IconPencil, IconTrash, IconRestore } from '@tabler/icons-vue'
 import { currentSession } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { required } from '@shared/components/form/validators.js'
 
 const toast = useToast()
 const { confirm } = useConfirm()
@@ -21,10 +22,16 @@ const deactivated = useLiveQuery(
   { models: ['ProductFamily'], initial: [] },
 )
 
+// ─── Dialog state ────────────────────────────────────────────────────────────
 const showEditDialog = ref(false)
 const editing = ref(null)
+const formRef = ref(null)
+const saveError = ref('')
 const form = ref({ code: '', name: '', description: '', displayOrder: 1000 })
 const saving = ref(false)
+// Has the user manually edited the code? While false, we keep the code
+// auto-derived from the name as they type. First manual keystroke locks
+// it so subsequent name edits don't blow away their override.
 const codeDirty = ref(false)
 const codeEditable = ref(false)
 
@@ -38,6 +45,8 @@ function slugify(text) {
     .toUpperCase()
 }
 
+// Auto-derive code from name as the user types — but only on new rows
+// (editing existing rows preserves the saved code, which is immutable).
 watch(
   () => form.value.name,
   (newName) => {
@@ -46,6 +55,14 @@ watch(
     form.value.code = slugify(newName)
   },
 )
+
+// Reset dialog state on open so a previous error or dirty state never bleeds
+// into the next invocation.
+watch(showEditDialog, (val) => {
+  if (val) {
+    saveError.value = ''
+  }
+})
 
 function openAdd() {
   editing.value = null
@@ -73,9 +90,9 @@ function openEdit(row) {
   showEditDialog.value = true
 }
 
-async function handleSave() {
-  if (!form.value.name.trim()) { toast.warning('Name is required'); return }
+async function onValidSubmit() {
   saving.value = true
+  saveError.value = ''
   try {
     if (editing.value) {
       await patch(`/v1/services/productFamilies/${editing.value.id}`, {
@@ -85,7 +102,6 @@ async function handleSave() {
       })
       toast.success('Product family updated')
     } else {
-      if (!form.value.code.trim()) { toast.warning('Code is required'); saving.value = false; return }
       await post('/v1/services/productFamilies', {
         code: form.value.code.trim().toUpperCase(),
         name: form.value.name.trim(),
@@ -96,7 +112,7 @@ async function handleSave() {
     }
     showEditDialog.value = false
   } catch (e) {
-    toast.error(e.message || 'Failed to save')
+    saveError.value = e.message || 'Failed to save'
   } finally {
     saving.value = false
   }
@@ -134,12 +150,17 @@ const showDeactivated = ref(false)
 </script>
 
 <template>
-  <div class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar">
-    <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between">
+  <div
+    class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
+  >
+    <div
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
+    >
       <div>
         <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Product Families</h2>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          Brand lines or product ranges used to group items in the Item Master. Scoped to this company.
+          Brand lines or product ranges used to group items in the Item Master. Scoped to this
+          company.
         </p>
       </div>
       <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
@@ -158,7 +179,9 @@ const showDeactivated = ref(false)
     <div class="tw:p-4">
       <table class="tw:w-full tw:text-sm">
         <thead>
-          <tr class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider">
+          <tr
+            class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider"
+          >
             <th class="tw:px-3 tw:py-2">Name</th>
             <th class="tw:px-3 tw:py-2">Code</th>
             <th class="tw:px-3 tw:py-2 tw:text-center">Order</th>
@@ -174,11 +197,15 @@ const showDeactivated = ref(false)
               </div>
             </td>
             <td class="tw:px-3 tw:py-3">
-              <code class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary">
+              <code
+                class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary"
+              >
                 {{ row.code }}
               </code>
             </td>
-            <td class="tw:px-3 tw:py-3 tw:text-center tw:text-secondary">{{ row.displayOrder }}</td>
+            <td class="tw:px-3 tw:py-3 tw:text-center tw:text-secondary">
+              {{ row.displayOrder }}
+            </td>
             <td class="tw:px-3 tw:py-3 tw:text-right">
               <div v-if="isOwner" class="tw:flex tw:items-center tw:justify-end tw:gap-1">
                 <button
@@ -199,7 +226,10 @@ const showDeactivated = ref(false)
             </td>
           </tr>
           <tr v-if="!families.length">
-            <td colspan="4" class="tw:px-3 tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic">
+            <td
+              colspan="4"
+              class="tw:px-3 tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic"
+            >
               No active product families. Add one above.
             </td>
           </tr>
@@ -221,7 +251,10 @@ const showDeactivated = ref(false)
           >
             <div>
               <span class="tw:font-medium tw:text-secondary tw:line-through">{{ row.name }}</span>
-              <code class="tw:text-micro tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary">{{ row.code }}</code>
+              <code
+                class="tw:text-micro tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary"
+                >{{ row.code }}</code
+              >
             </div>
             <button
               v-if="isOwner"
@@ -241,51 +274,78 @@ const showDeactivated = ref(false)
       :title="editing ? 'Edit Product Family' : 'Add Product Family'"
       maxWidth="md"
     >
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Name <span class="tw:text-red-500">*</span>
-          </p>
-          <BaseTextInput v-model="form.name" placeholder="e.g. Skincare" />
-        </div>
-        <div v-if="!editing">
-          <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
-              Code <span class="tw:text-red-500">*</span>
-              <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">(auto-derived from name)</span>
+      <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
+        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+          <BaseField label="Name" required :value="form.name" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput v-bind="field" v-model="form.name" placeholder="e.g. Skincare" />
+            </template>
+          </BaseField>
+
+          <div v-if="!editing">
+            <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
+                Code <span class="tw:text-red-500">*</span>
+                <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
+                  (auto-derived from name)
+                </span>
+              </p>
+              <button
+                type="button"
+                class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                @click="codeEditable = !codeEditable"
+              >
+                {{ codeEditable ? 'Lock' : 'Edit' }}
+              </button>
+            </div>
+            <BaseField :value="form.code" :rules="[required()]">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.code"
+                  placeholder="SKINCARE"
+                  :disabled="!codeEditable"
+                  @input="codeDirty = true"
+                />
+              </template>
+            </BaseField>
+            <p class="tw:text-caption tw:text-secondary tw:mt-1">
+              SCREAMING_SNAKE_CASE. Stable identifier — cannot be changed later.
             </p>
-            <button
-              type="button"
-              class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
-              @click="codeEditable = !codeEditable"
-            >
-              {{ codeEditable ? 'Lock' : 'Edit' }}
-            </button>
           </div>
-          <BaseTextInput
-            v-model="form.code"
-            placeholder="SKINCARE"
-            :disabled="!codeEditable"
-            @input="codeDirty = true"
-          />
-          <p class="tw:text-caption tw:text-secondary tw:mt-1">
-            SCREAMING_SNAKE_CASE. Stable identifier — cannot be changed later.
-          </p>
+
+          <BaseField label="Description" :value="form.description">
+            <template #default="field">
+              <BaseTextarea
+                v-bind="field"
+                v-model="form.description"
+                :rows="2"
+                placeholder="Optional description"
+              />
+            </template>
+          </BaseField>
+
+          <BaseField label="Display Order" :value="form.displayOrder">
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model.number="form.displayOrder"
+                type="number"
+                :min="0"
+              />
+            </template>
+          </BaseField>
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
-          <BaseTextarea v-model="form.description" :rows="2" placeholder="Optional description" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Display Order</p>
-          <BaseTextInput v-model.number="form.displayOrder" type="number" :min="0" />
-        </div>
-      </div>
+      </BaseForm>
+
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="saving" :disabled="saving" @click="handleSave">
-          {{ editing ? 'Save' : 'Add' }}
-        </BaseButton>
+        <BaseDialogFooter
+          :submitLabel="editing ? 'Save' : 'Add'"
+          :loading="saving"
+          :error="saveError"
+          @cancel="close"
+          @submit="formRef.submit()"
+        />
       </template>
     </BaseDialog>
   </div>

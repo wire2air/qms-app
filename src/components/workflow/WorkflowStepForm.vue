@@ -116,6 +116,7 @@ const isEditable = computed(() => currentUserTask.value?.statusId === 'ASSIGNED'
 
 const formData = ref({})
 const saving = ref(false)
+const missingFieldsError = ref('')
 let formSeeded = false
 
 // Auto-finalize registry. Field widgets that have a "Finalize" step
@@ -298,11 +299,10 @@ async function submitForm(esign) {
   // `{}` slips past a naive truthy test.
   const missing = getMissingRequiredFields()
   if (missing.length > 0) {
-    toast.warning(
-      `Please fill in the required field${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}`,
-    )
+    missingFieldsError.value = `Please fill in the required field${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}`
     return
   }
+  missingFieldsError.value = ''
   return persistRecord({ submit: true, esign })
 }
 
@@ -333,7 +333,14 @@ defineExpose({ submit: submitForm, saving })
 <template>
   <template v-if="hasForm">
     <template v-if="isEditable">
-      <DynamicForm v-model="formData" :fields="formSchema" />
+      <DynamicForm
+        v-model="formData"
+        :fields="formSchema"
+        @update:modelValue="missingFieldsError = ''"
+      />
+      <BaseErrorText v-if="missingFieldsError" class="tw:mt-2">{{
+        missingFieldsError
+      }}</BaseErrorText>
       <div class="tw:mt-4 tw:flex tw:justify-end tw:gap-2">
         <BaseButton variant="outline" :disabled="saving" @click="saveDraft">
           <template #icon><IconDeviceFloppy :size="16" /></template>

@@ -84,10 +84,51 @@ toast→inline fixes. **Confirm autosave/inline-edit still works** and sections 
 
 ---
 
+---
+
+## D. Phase 4–7 (2026-06-24) — newly migrated, please eyeball
+
+**Migration is now COMPLETE — the form guard is enforced repo-wide (no allowlist).**
+
+### Phase 4 — Settings/admin cards (Company settings & template admin)
+Each is an Add/Edit dialog. For a couple of them, confirm:
+- [ ] **Add** with the **Name blank** → required error shows **inline under the field**
+      (not a toast); the dialog's Add button gates on it.
+- [ ] **Add** with a valid name → saves, dialog closes, row appears; a server failure
+      shows the error **in the dialog footer** (not a toast).
+- [ ] **Edit** an existing row → Code field is hidden/locked as before; Save works.
+- Screens: **NC Issue Types**, **NC Disposition Types**, **Audit Finding Categories**,
+  **Audit Standard Types**, **Event Categories**, **Event Severities**,
+  **Product Families**, **Supplier Certificate Types**, **Root Cause Categories**
+  (RCA template), **Hazard Categories** (risk template), **Custom Fields card**,
+  **CAPA Effectiveness Check card**.
+
+### Phase 5 — List/home pages
+- [ ] **Canned Responses** and **Routing Rules** (Customer Complaints settings): the
+      page card renders; the **Add/Edit dialog** validates required fields **inline**
+      and saves. (Routing Rules still loads/saves via the old API by design — just
+      confirm it still works.)
+
+### Phase 6 — Panels, workflow & auth
+- [ ] **Auth — Forgot Password**: submit with **blank/invalid email** → error shows
+      **inline on the field** (not a toast); valid email still submits.
+- [ ] **Auth — Login**: normal login works; bad credentials still show the server
+      error toast (unchanged); any password-confirm mismatch shows inline.
+- [ ] **Field Record / Log Book** (Inspections Logs) → **Flag / Amend / Void** dialogs:
+      submitting with the reason/notes **blank** shows the required error **inline**
+      and blocks submit; filled → action proceeds.
+- [ ] **Task Instance → CAPA / NC actions** and **Workflow step actions** (reassign /
+      comment): leaving the required selection/comment empty shows an **inline** error
+      (not a toast).
+- [ ] **Workflow Step Form**: submitting with required dynamic fields empty shows the
+      "fill in the required field(s)" message **inline** (not a toast).
+- [ ] **Display panels** (Audit Insights dashboard, Complaint Reports, workflow draft
+      previews for CAPA/CR/NC, attachments/conversation/form panels, Suppliers tabs,
+      Documents Training tab, Form Assignment editor): open each, confirm cards render
+      and **dark mode** looks right (cards use `bg-card`, not white), nothing broken.
+
+---
+
 ## If something's wrong
 Note the **screen + what you did + what you saw** and send it back — I'll fix it and
 re-scan the whole class (like the cron-hint slot bug, which I then build-gated against).
-
-## Not yet migrated (don't test — still old style)
-Phase 4 settings/admin cards, Phase 5 list/home pages, Phase 6 panels + auth
-(48 files remain in the allowlist).

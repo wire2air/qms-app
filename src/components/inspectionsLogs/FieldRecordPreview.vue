@@ -22,6 +22,7 @@ import { post, patch } from '@/api'
 import { DateTime } from 'luxon'
 import { freezeOptionLabels } from '@/utils/freezeFormPayloadLabels.js'
 import { db } from '@models/index'
+import { required } from '@shared/components/form/validators.js'
 
 /**
  * Full-screen preview for a field record. Opens from the row click on
@@ -289,6 +290,7 @@ function attachmentsForFlag(flagId) {
 }
 
 const showFlagDialog = ref(false)
+const flagFormRef = ref(null)
 const flagSeverity = ref('WARN')
 const flagNotes = ref('')
 const flagPhoto = ref(null)
@@ -304,10 +306,7 @@ function startFlag() {
 async function submitFlag() {
   if (!record.value?.id) return
   const notes = flagNotes.value?.trim()
-  if (!notes) {
-    toast.error('Notes are required when raising a flag')
-    return
-  }
+  if (!notes) return
   isRaisingFlag.value = true
   try {
     // BasePhoto stores the uploaded asset directly (id + url); the API
@@ -501,6 +500,7 @@ async function saveEdit() {
 // Amend dialog state. Re-uses the form schema; collects comment +
 // captures e-sig before POSTing to /amend.
 const showAmendDialog = ref(false)
+const amendFormRef = ref(null)
 const amendDraft = ref({})
 const amendComment = ref('')
 const isSavingAmend = ref(false)
@@ -513,10 +513,7 @@ function startAmend() {
 }
 
 function confirmAmend() {
-  if (!amendComment.value.trim()) {
-    toast.error('Reason for change is required')
-    return
-  }
+  if (!amendComment.value.trim()) return
   pendingAmend.value = {
     payload: amendDraft.value,
     comment: amendComment.value.trim(),
@@ -553,6 +550,7 @@ async function submitAmend(esign) {
 
 // Void dialog state. Reason + esig.
 const showVoidDialog = ref(false)
+const voidFormRef = ref(null)
 const voidReason = ref('')
 const isSavingVoid = ref(false)
 const pendingVoid = ref(null) // { reason } waiting on esign
@@ -563,10 +561,7 @@ function startVoid() {
 }
 
 function confirmVoid() {
-  if (!voidReason.value.trim()) {
-    toast.error('Reason for voiding is required')
-    return
-  }
+  if (!voidReason.value.trim()) return
   pendingVoid.value = { reason: voidReason.value.trim() }
   showVoidDialog.value = false
   showEsignDialog.value = true
@@ -899,7 +894,9 @@ function close() {
           class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4"
         >
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
-            <BaseText as="h3" class="tw:text-sm tw:font-bold tw:text-on-main">Revision history</BaseText>
+            <BaseText as="h3" class="tw:text-sm tw:font-bold tw:text-on-main"
+              >Revision history</BaseText
+            >
             <span class="tw:text-xs tw:text-secondary">
               {{ revisions.length }} {{ revisions.length === 1 ? 'entry' : 'entries' }}
             </span>
@@ -1125,7 +1122,12 @@ function close() {
             with your reason and e-signature.
           </p>
 
-          <div class="tw:flex-1 tw:overflow-y-auto tw:mb-3">
+          <BaseForm
+            ref="amendFormRef"
+            hideFooter
+            class="tw:flex-1 tw:overflow-y-auto tw:mb-3"
+            @submit="confirmAmend"
+          >
             <DynamicForm
               v-if="schemaFields.length > 0"
               v-model="amendDraft"
@@ -1136,6 +1138,8 @@ function close() {
               v-slot="{ id: reasonId }"
               label="Reason for change"
               required
+              :value="amendComment"
+              :rules="[required()]"
               class="tw:mt-4"
             >
               <textarea
@@ -1146,7 +1150,7 @@ function close() {
                 placeholder="Why is this entry being changed? (audit trail)"
               ></textarea>
             </BaseField>
-          </div>
+          </BaseForm>
 
           <div class="tw:flex tw:justify-end tw:gap-2">
             <button
@@ -1161,7 +1165,7 @@ function close() {
               type="button"
               class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-primary tw:text-white tw:font-medium tw:hover:bg-primary/90 tw:transition tw:border-0 tw:disabled:opacity-50"
               :disabled="isSavingAmend || !amendComment.trim()"
-              @click="confirmAmend"
+              @click="amendFormRef?.submit()"
             >
               Continue to sign
             </button>
@@ -1182,15 +1186,23 @@ function close() {
             Voiding marks the entry as superseded but keeps it (and all revisions) in the audit
             trail. This action requires an e-signature.
           </p>
-          <BaseField v-slot="{ id: reasonId }" label="Reason" required>
-            <textarea
-              :id="reasonId"
-              v-model="voidReason"
-              rows="3"
-              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
-              placeholder="Why is this entry being voided?"
-            ></textarea>
-          </BaseField>
+          <BaseForm ref="voidFormRef" hideFooter @submit="confirmVoid">
+            <BaseField
+              v-slot="{ id: reasonId }"
+              label="Reason"
+              required
+              :value="voidReason"
+              :rules="[required()]"
+            >
+              <textarea
+                :id="reasonId"
+                v-model="voidReason"
+                rows="3"
+                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
+                placeholder="Why is this entry being voided?"
+              ></textarea>
+            </BaseField>
+          </BaseForm>
           <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-3">
             <button
               type="button"
@@ -1204,7 +1216,7 @@ function close() {
               type="button"
               class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-red-600 tw:text-white tw:font-medium tw:hover:bg-red-700 tw:transition tw:border-0 tw:disabled:opacity-50"
               :disabled="isSavingVoid || !voidReason.trim()"
-              @click="confirmVoid"
+              @click="voidFormRef?.submit()"
             >
               Continue to sign
             </button>
@@ -1233,36 +1245,44 @@ function close() {
           <p class="tw:text-xs tw:text-secondary tw:mb-3">
             Raise a flag to send an immediate alert to the log book supervisor.
           </p>
-          <div class="tw:flex tw:items-center tw:gap-2 tw:mb-3">
-            <span class="tw:text-xs tw:font-semibold tw:text-secondary">Severity</span>
-            <select
-              v-model="flagSeverity"
-              class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
+          <BaseForm ref="flagFormRef" hideFooter @submit="submitFlag">
+            <div class="tw:flex tw:items-center tw:gap-2 tw:mb-3">
+              <span class="tw:text-xs tw:font-semibold tw:text-secondary">Severity</span>
+              <select
+                v-model="flagSeverity"
+                class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
+              >
+                <option value="INFO">Info — minor note</option>
+                <option value="WARN">Warn — needs attention</option>
+                <option value="CRITICAL">Critical — escalates now</option>
+              </select>
+            </div>
+            <BaseField
+              v-slot="{ id: notesId }"
+              label="Notes"
+              required
+              :value="flagNotes"
+              :rules="[required()]"
             >
-              <option value="INFO">Info — minor note</option>
-              <option value="WARN">Warn — needs attention</option>
-              <option value="CRITICAL">Critical — escalates now</option>
-            </select>
-          </div>
-          <BaseField v-slot="{ id: notesId }" label="Notes" required>
-            <textarea
-              :id="notesId"
-              v-model="flagNotes"
-              rows="4"
-              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
-              placeholder="What's wrong with this entry? Detail helps your supervisor act faster."
-            ></textarea>
-          </BaseField>
-          <BaseField label="Photo evidence" optional class="tw:mt-3">
-            <BasePhoto
-              v-model="flagPhoto"
-              mode="both"
-              fileType="ASSET"
-              accept="image/*"
-              placeholder="Add photo"
-              previewSize="120px"
-            />
-          </BaseField>
+              <textarea
+                :id="notesId"
+                v-model="flagNotes"
+                rows="4"
+                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
+                placeholder="What's wrong with this entry? Detail helps your supervisor act faster."
+              ></textarea>
+            </BaseField>
+            <BaseField label="Photo evidence" optional class="tw:mt-3">
+              <BasePhoto
+                v-model="flagPhoto"
+                mode="both"
+                fileType="ASSET"
+                accept="image/*"
+                placeholder="Add photo"
+                previewSize="120px"
+              />
+            </BaseField>
+          </BaseForm>
           <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-3">
             <button
               type="button"
@@ -1276,7 +1296,7 @@ function close() {
               type="button"
               class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-amber-600 tw:text-white tw:font-medium tw:hover:bg-amber-700 tw:transition tw:border-0 tw:disabled:opacity-50"
               :disabled="isRaisingFlag || !flagNotes.trim()"
-              @click="submitFlag"
+              @click="flagFormRef?.submit()"
             >
               {{ isRaisingFlag ? 'Raising…' : 'Raise flag' }}
             </button>

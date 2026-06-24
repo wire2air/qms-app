@@ -100,10 +100,7 @@ function removeAttribute(key) {
 </script>
 
 <template>
-  <div
-    v-if="formId || hasCustomValues || editable"
-    class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-  >
+  <BaseCard v-if="formId || hasCustomValues || editable">
     <div class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
       <IconForms :size="16" class="tw:text-primary" />
       <BaseText variant="overline">
@@ -166,5 +163,5 @@ function removeAttribute(key) {
         </BaseButton>
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>

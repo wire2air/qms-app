@@ -106,6 +106,7 @@ const showEsignDialog = ref(false)
 const pendingOutcomeId = ref(null)
 const comment = ref('')
 const reassignToUserId = ref(null)
+const reassignError = ref('')
 const actionLoading = ref(false)
 
 const stepRoles = useLiveQueryWithDeps(
@@ -184,7 +185,7 @@ function onOutcomeClick(outcomeId) {
 
 function onConfirmDialog() {
   if (pendingConfig.value?.needsUser && !reassignToUserId.value) {
-    toast.warning('Please select a user to reassign to')
+    reassignError.value = 'Please select a user to reassign to'
     return
   }
   showConfirmDialog.value = false
@@ -259,6 +260,7 @@ async function submitAction({ method, provider, token } = {}) {
               type="radio"
               :value="user.id"
               class="tw:accent-primary"
+              @change="reassignError = ''"
             />
             <div class="tw:flex-1 tw:min-w-0">
               <div class="tw:text-sm tw:font-medium tw:text-on-main">
@@ -271,6 +273,7 @@ async function submitAction({ method, provider, token } = {}) {
             No eligible users available for reassignment.
           </p>
         </div>
+        <p v-if="reassignError" class="tw:text-sm tw:text-red-600 tw:mt-1">{{ reassignError }}</p>
       </BaseField>
 
       <BaseField v-slot="{ id: fieldId }" label="Comment" :optional="pendingConfig?.needsComment">

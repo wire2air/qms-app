@@ -149,7 +149,7 @@ function truncate(text, n = 80) {
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+  <BaseCard>
     <div
       class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
     >
@@ -207,5 +207,5 @@ function truncate(text, n = 80) {
       :entityId="entityId"
       :rfiId="activeRfiId"
     />
-  </div>
+  </BaseCard>
 </template>

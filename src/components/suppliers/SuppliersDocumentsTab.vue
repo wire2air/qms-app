@@ -21,6 +21,7 @@ import {
 } from '@tabler/icons-vue'
 import { upload } from '@/api' // Action RPC — see CLAUDE.md rule #4 exception.
 import { isAllowed } from '@/utils/currentSession.js'
+import { required } from '@shared/components/form/validators.js'
 
 const props = defineProps({
   supplier: {
@@ -74,6 +75,7 @@ const showUpload = ref(false)
 const uploadForm = ref({ title: '', description: '', documentType: 'OTHER', file: null })
 const uploading = ref(false)
 const fileInput = ref(null)
+const uploadFormRef = ref(null)
 
 function openUpload() {
   if (!canUpdate.value) return
@@ -88,16 +90,12 @@ function onFile(e) {
   uploadForm.value.file = e.target.files?.[0] || null
 }
 
-async function submitUpload() {
+function submitUpload() {
+  uploadFormRef.value?.submit()
+}
+
+async function onValidSubmit() {
   if (uploading.value) return
-  if (!uploadForm.value.file) {
-    toast.error('Pick a file first')
-    return
-  }
-  if (!uploadForm.value.title.trim()) {
-    toast.error('Title is required')
-    return
-  }
   uploading.value = true
   try {
     const fd = new FormData()
@@ -244,53 +242,72 @@ function formatSize(bytes) {
 
     <!-- Ad-hoc upload dialog -->
     <BaseDialog v-model="showUpload" title="Upload supplier document" size="md">
-      <div class="tw:p-4 tw:flex tw:flex-col tw:gap-3">
-        <BaseField v-slot="{ id: fieldId }" label="Title" required>
-          <BaseTextInput :id="fieldId" v-model="uploadForm.title" placeholder="e.g. ISO 9001 Certificate" />
-        </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="Description" optional>
-          <BaseTextarea
-            :id="fieldId"
-            v-model="uploadForm.description"
-            :rows="2"
-            placeholder="What is this document, what does it cover, when was it issued?"
-          />
-        </BaseField>
-        <BaseField label="File" required>
-          <BaseClickableRow
-            v-if="!uploadForm.file"
-            class="tw:border-2 tw:border-dashed tw:border-divider tw:rounded-lg tw:p-6 tw:text-center tw:hover:border-primary tw:transition-colors"
-            aria-label="Select a file to upload"
-            @click="pickFile"
+      <BaseForm ref="uploadFormRef" hideFooter @submit="onValidSubmit">
+        <div class="tw:p-4 tw:flex tw:flex-col tw:gap-3">
+          <BaseField
+            v-slot="{ id: fieldId }"
+            label="Title"
+            required
+            :value="uploadForm.title"
+            :rules="[required()]"
           >
-            <IconUpload :size="28" class="tw:text-secondary tw:mx-auto" />
-            <p class="tw:text-xs tw:text-secondary tw:mt-1">Click to select a file</p>
-          </BaseClickableRow>
-          <div
-            v-else
-            class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:flex tw:items-center tw:gap-3"
+            <BaseTextInput
+              :id="fieldId"
+              v-model="uploadForm.title"
+              placeholder="e.g. ISO 9001 Certificate"
+            />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Description" optional>
+            <BaseTextarea
+              :id="fieldId"
+              v-model="uploadForm.description"
+              :rows="2"
+              placeholder="What is this document, what does it cover, when was it issued?"
+            />
+          </BaseField>
+          <BaseField
+            label="File"
+            required
+            :value="uploadForm.file"
+            :rules="[required('Pick a file first.')]"
           >
-            <IconFileDescription :size="24" class="tw:text-primary" />
-            <div class="tw:flex-1 tw:min-w-0">
-              <div class="tw:text-sm tw:text-on-main tw:truncate">{{ uploadForm.file.name }}</div>
-              <div class="tw:text-xs tw:text-secondary">{{ formatSize(uploadForm.file.size) }}</div>
-            </div>
-            <button
-              class="tw:text-xs tw:text-secondary tw:hover:text-on-main tw:bg-transparent tw:border-0 tw:cursor-pointer"
-              @click="uploadForm.file = null"
+            <BaseClickableRow
+              v-if="!uploadForm.file"
+              class="tw:border-2 tw:border-dashed tw:border-divider tw:rounded-lg tw:p-6 tw:text-center tw:hover:border-primary tw:transition-colors"
+              aria-label="Select a file to upload"
+              @click="pickFile"
             >
-              Remove
-            </button>
-          </div>
-          <input
-            ref="fileInput"
-            type="file"
-            class="tw:hidden"
-            accept="image/*,application/pdf,.docx,.doc,.xlsx,.xls,.csv"
-            @change="onFile"
-          />
-        </BaseField>
-      </div>
+              <IconUpload :size="28" class="tw:text-secondary tw:mx-auto" />
+              <p class="tw:text-xs tw:text-secondary tw:mt-1">Click to select a file</p>
+            </BaseClickableRow>
+            <div
+              v-else
+              class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:flex tw:items-center tw:gap-3"
+            >
+              <IconFileDescription :size="24" class="tw:text-primary" />
+              <div class="tw:flex-1 tw:min-w-0">
+                <div class="tw:text-sm tw:text-on-main tw:truncate">{{ uploadForm.file.name }}</div>
+                <div class="tw:text-xs tw:text-secondary">
+                  {{ formatSize(uploadForm.file.size) }}
+                </div>
+              </div>
+              <button
+                class="tw:text-xs tw:text-secondary tw:hover:text-on-main tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                @click="uploadForm.file = null"
+              >
+                Remove
+              </button>
+            </div>
+            <input
+              ref="fileInput"
+              type="file"
+              class="tw:hidden"
+              accept="image/*,application/pdf,.docx,.doc,.xlsx,.xls,.csv"
+              @change="onFile"
+            />
+          </BaseField>
+        </div>
+      </BaseForm>
       <template #footer>
         <BaseDialogFooter
           submitLabel="Upload"

@@ -2,7 +2,9 @@
 import { IconRoute, IconPlus, IconPencil, IconTrash, IconX } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 // Routing rules are REST-managed admin config.
+// TODO(form-migration): RoutingRule CRUD still on @/api — convert to syncEngine in a follow-up.
 import { get, post, put, del } from '@/api'
+import { required } from '@shared/components/form/validators.js'
 
 /**
  * Ticket routing rules (Complaint Settings → Routing). Zendesk-trigger
@@ -103,6 +105,8 @@ const showEditDialog = ref(false)
 const editing = ref(null)
 const draft = ref(makeDraft(null))
 const saving = ref(false)
+const saveError = ref('')
+const formRef = ref(null)
 
 function makeDraft(rule) {
   return {
@@ -121,12 +125,14 @@ function onCreate() {
   draft.value = makeDraft(null)
   draft.value.all = [{ field: 'priorityId', op: 'eq', value: '' }]
   draft.value.actions = [{ type: 'ASSIGN_TEAM', teamId: null }]
+  saveError.value = ''
   showEditDialog.value = true
 }
 
 function onEdit(rule) {
   editing.value = rule
   draft.value = makeDraft(rule)
+  saveError.value = ''
   showEditDialog.value = true
 }
 
@@ -152,20 +158,17 @@ function needsValue(op) {
   return !['is_set', 'not_set'].includes(op)
 }
 
-async function handleSave() {
-  if (!draft.value.name.trim()) {
-    toast.notify({ type: 'negative', message: 'Rule name is required' })
-    return
-  }
+async function onValidSubmit() {
   if (!draft.value.all.length && !draft.value.any.length) {
-    toast.notify({ type: 'negative', message: 'Add at least one condition' })
+    saveError.value = 'Add at least one condition'
     return
   }
   if (!draft.value.actions.length) {
-    toast.notify({ type: 'negative', message: 'Add at least one action' })
+    saveError.value = 'Add at least one action'
     return
   }
   saving.value = true
+  saveError.value = ''
   try {
     const payload = {
       name: draft.value.name.trim(),
@@ -181,7 +184,7 @@ async function handleSave() {
     rules.value = data.rules ?? []
     showEditDialog.value = false
   } catch (e) {
-    toast.notify({ type: 'negative', message: e.message || 'Failed to save rule' })
+    saveError.value = e.message || 'Failed to save rule'
   } finally {
     saving.value = false
   }
@@ -218,19 +221,13 @@ async function handleDelete(rule) {
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-    <div
-      class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-    >
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <IconRoute :size="18" class="tw:text-primary" />
-        <BaseText variant="overline">Ticket Routing Rules</BaseText>
-      </div>
+  <PageSection title="Ticket Routing Rules" :icon="IconRoute" variant="card">
+    <template #actions>
       <BaseButton variant="primary" size="sm" @click="onCreate">
         <IconPlus :size="16" class="tw:mr-1" />
         New rule
       </BaseButton>
-    </div>
+    </template>
 
     <p class="tw:text-sm tw:text-secondary tw:mb-4">
       IF conditions match THEN actions run — evaluated in order when a ticket is created or a
@@ -285,150 +282,160 @@ async function handleDelete(rule) {
       :title="editing ? 'Edit Routing Rule' : 'New Routing Rule'"
       maxWidth="2xl"
     >
-      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-          <BaseField v-slot="{ id: fieldId }" label="Rule name" required>
-            <BaseTextInput
-              :id="fieldId"
-              v-model="draft.name"
-              placeholder="e.g. Critical → QA Team"
-            />
-          </BaseField>
-          <BaseField label="Run when">
-            <div class="tw:flex tw:flex-wrap tw:gap-2">
-              <BaseButton
-                v-for="event in EVENTS"
-                :key="event.id"
-                size="sm"
-                :variant="draft.triggerEvents.includes(event.id) ? 'primary' : 'outline'"
-                @click="toggleEvent(event.id)"
-              >
-                {{ event.name }}
+      <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
+        <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <BaseField label="Rule name" required :value="draft.name" :rules="[required()]">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="draft.name"
+                  placeholder="e.g. Critical → QA Team"
+                />
+              </template>
+            </BaseField>
+            <BaseField label="Run when">
+              <div class="tw:flex tw:flex-wrap tw:gap-2">
+                <BaseButton
+                  v-for="event in EVENTS"
+                  :key="event.id"
+                  size="sm"
+                  :variant="draft.triggerEvents.includes(event.id) ? 'primary' : 'outline'"
+                  @click="toggleEvent(event.id)"
+                >
+                  {{ event.name }}
+                </BaseButton>
+              </div>
+            </BaseField>
+          </div>
+
+          <!-- Conditions -->
+          <div v-for="group in ['all', 'any']" :key="group" class="tw:flex tw:flex-col tw:gap-2">
+            <div class="tw:flex tw:items-center tw:justify-between">
+              <BaseText variant="overline">
+                {{ group === 'all' ? 'Match ALL of (AND)' : 'Match ANY of (OR)' }}
+              </BaseText>
+              <BaseButton variant="outline" size="sm" @click="addCondition(group)">
+                <IconPlus :size="12" class="tw:mr-1" /> Condition
               </BaseButton>
             </div>
-          </BaseField>
-        </div>
+            <div
+              v-for="(condition, index) in draft[group]"
+              :key="index"
+              class="tw:flex tw:flex-wrap tw:items-center tw:gap-2"
+            >
+              <BaseSelectMenu
+                v-model="condition.field"
+                :items="CONDITION_FIELDS"
+                required
+                class="tw:w-40"
+              >
+                <template #button>
+                  <BaseBadge selectable>{{ fieldLabel(condition.field) }}</BaseBadge>
+                </template>
+              </BaseSelectMenu>
+              <BaseSelectMenu v-model="condition.op" :items="OPERATORS" required class="tw:w-40">
+                <template #button>
+                  <BaseBadge selectable>{{ opLabel(condition.op) }}</BaseBadge>
+                </template>
+              </BaseSelectMenu>
+              <BaseTextInput
+                v-if="needsValue(condition.op)"
+                v-model="condition.value"
+                placeholder="value"
+                class="tw:flex-1 tw:min-w-32"
+              />
+              <span v-else class="tw:flex-1" />
+              <button
+                class="tw:text-secondary tw:hover:text-red-600"
+                @click="removeCondition(group, index)"
+              >
+                <IconX :size="14" />
+              </button>
+            </div>
+            <p v-if="!draft[group].length" class="tw:text-xs tw:text-secondary tw:italic">
+              No {{ group === 'all' ? 'AND' : 'OR' }} conditions.
+            </p>
+          </div>
 
-        <!-- Conditions -->
-        <div v-for="group in ['all', 'any']" :key="group" class="tw:flex tw:flex-col tw:gap-2">
-          <div class="tw:flex tw:items-center tw:justify-between">
-            <BaseText variant="overline">
-              {{ group === 'all' ? 'Match ALL of (AND)' : 'Match ANY of (OR)' }}
-            </BaseText>
-            <BaseButton variant="outline" size="sm" @click="addCondition(group)">
-              <IconPlus :size="12" class="tw:mr-1" /> Condition
-            </BaseButton>
-          </div>
-          <div
-            v-for="(condition, index) in draft[group]"
-            :key="index"
-            class="tw:flex tw:flex-wrap tw:items-center tw:gap-2"
-          >
-            <BaseSelectMenu
-              v-model="condition.field"
-              :items="CONDITION_FIELDS"
-              required
-              class="tw:w-40"
+          <!-- Actions -->
+          <div class="tw:flex tw:flex-col tw:gap-2">
+            <div class="tw:flex tw:items-center tw:justify-between">
+              <BaseText variant="overline">Then (actions)</BaseText>
+              <BaseButton variant="outline" size="sm" @click="addAction">
+                <IconPlus :size="12" class="tw:mr-1" /> Action
+              </BaseButton>
+            </div>
+            <div
+              v-for="(action, index) in draft.actions"
+              :key="index"
+              class="tw:flex tw:flex-wrap tw:items-center tw:gap-2"
             >
-              <template #button>
-                <BaseBadge selectable>{{ fieldLabel(condition.field) }}</BaseBadge>
-              </template>
-            </BaseSelectMenu>
-            <BaseSelectMenu v-model="condition.op" :items="OPERATORS" required class="tw:w-40">
-              <template #button>
-                <BaseBadge selectable>{{ opLabel(condition.op) }}</BaseBadge>
-              </template>
-            </BaseSelectMenu>
-            <BaseTextInput
-              v-if="needsValue(condition.op)"
-              v-model="condition.value"
-              placeholder="value"
-              class="tw:flex-1 tw:min-w-32"
-            />
-            <span v-else class="tw:flex-1" />
-            <button
-              class="tw:text-secondary tw:hover:text-red-600"
-              @click="removeCondition(group, index)"
-            >
-              <IconX :size="14" />
-            </button>
+              <BaseSelectMenu v-model="action.type" :items="ACTION_TYPES" required class="tw:w-44">
+                <template #button>
+                  <BaseBadge selectable>{{ actionLabel(action) }}</BaseBadge>
+                </template>
+              </BaseSelectMenu>
+              <UserSelectMenu
+                v-if="['ASSIGN_USER', 'NOTIFY_USER'].includes(action.type)"
+                v-model="action.userId"
+                required
+                class="tw:flex-1 tw:min-w-40"
+              />
+              <GroupSelectMenu
+                v-else-if="action.type === 'ASSIGN_TEAM'"
+                v-model="action.teamId"
+                required
+                class="tw:flex-1 tw:min-w-40"
+              />
+              <BaseSelectMenu
+                v-else-if="action.type === 'SET_PRIORITY'"
+                v-model="action.priorityId"
+                :items="PRIORITIES"
+                required
+                class="tw:flex-1 tw:min-w-40"
+              >
+                <template #button>
+                  <BaseBadge selectable>
+                    {{
+                      PRIORITIES.find((p) => p.id === action.priorityId)?.name || 'Select priority'
+                    }}
+                  </BaseBadge>
+                </template>
+              </BaseSelectMenu>
+              <BaseSelectMenu
+                v-else-if="action.type === 'SET_SENTIMENT'"
+                v-model="action.sentiment"
+                :items="SENTIMENTS"
+                required
+                class="tw:flex-1 tw:min-w-40"
+              >
+                <template #button>
+                  <BaseBadge selectable>
+                    {{
+                      SENTIMENTS.find((s) => s.id === action.sentiment)?.name || 'Select sentiment'
+                    }}
+                  </BaseBadge>
+                </template>
+              </BaseSelectMenu>
+              <span v-else class="tw:flex-1" />
+              <button class="tw:text-secondary tw:hover:text-red-600" @click="removeAction(index)">
+                <IconX :size="14" />
+              </button>
+            </div>
           </div>
-          <p v-if="!draft[group].length" class="tw:text-xs tw:text-secondary tw:italic">
-            No {{ group === 'all' ? 'AND' : 'OR' }} conditions.
-          </p>
         </div>
+      </BaseForm>
 
-        <!-- Actions -->
-        <div class="tw:flex tw:flex-col tw:gap-2">
-          <div class="tw:flex tw:items-center tw:justify-between">
-            <BaseText variant="overline">Then (actions)</BaseText>
-            <BaseButton variant="outline" size="sm" @click="addAction">
-              <IconPlus :size="12" class="tw:mr-1" /> Action
-            </BaseButton>
-          </div>
-          <div
-            v-for="(action, index) in draft.actions"
-            :key="index"
-            class="tw:flex tw:flex-wrap tw:items-center tw:gap-2"
-          >
-            <BaseSelectMenu v-model="action.type" :items="ACTION_TYPES" required class="tw:w-44">
-              <template #button>
-                <BaseBadge selectable>{{ actionLabel(action) }}</BaseBadge>
-              </template>
-            </BaseSelectMenu>
-            <UserSelectMenu
-              v-if="['ASSIGN_USER', 'NOTIFY_USER'].includes(action.type)"
-              v-model="action.userId"
-              required
-              class="tw:flex-1 tw:min-w-40"
-            />
-            <GroupSelectMenu
-              v-else-if="action.type === 'ASSIGN_TEAM'"
-              v-model="action.teamId"
-              required
-              class="tw:flex-1 tw:min-w-40"
-            />
-            <BaseSelectMenu
-              v-else-if="action.type === 'SET_PRIORITY'"
-              v-model="action.priorityId"
-              :items="PRIORITIES"
-              required
-              class="tw:flex-1 tw:min-w-40"
-            >
-              <template #button>
-                <BaseBadge selectable>
-                  {{ PRIORITIES.find((p) => p.id === action.priorityId)?.name || 'Select priority' }}
-                </BaseBadge>
-              </template>
-            </BaseSelectMenu>
-            <BaseSelectMenu
-              v-else-if="action.type === 'SET_SENTIMENT'"
-              v-model="action.sentiment"
-              :items="SENTIMENTS"
-              required
-              class="tw:flex-1 tw:min-w-40"
-            >
-              <template #button>
-                <BaseBadge selectable>
-                  {{ SENTIMENTS.find((s) => s.id === action.sentiment)?.name || 'Select sentiment' }}
-                </BaseBadge>
-              </template>
-            </BaseSelectMenu>
-            <span v-else class="tw:flex-1" />
-            <button class="tw:text-secondary tw:hover:text-red-600" @click="removeAction(index)">
-              <IconX :size="14" />
-            </button>
-          </div>
-        </div>
-      </div>
       <template #footer="{ close }">
         <BaseDialogFooter
           submitLabel="Save Rule"
           :loading="saving"
+          :error="saveError"
           @cancel="close"
-          @submit="handleSave"
+          @submit="formRef.submit()"
         />
       </template>
     </BaseDialog>
-  </div>
+  </PageSection>
 </template>

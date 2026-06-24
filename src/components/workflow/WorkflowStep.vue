@@ -378,7 +378,7 @@ function activityLabel(statusId) {
 </script>
 
 <template>
-  <div v-if="instanceStep" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+  <BaseCard v-if="instanceStep">
     <!-- Header: step number + name + status badge + active assignee + inline actions -->
     <div
       class="tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
@@ -570,5 +570,5 @@ function activityLabel(statusId) {
         />
       </template>
     </BaseDialog>
-  </div>
+  </BaseCard>
 </template>

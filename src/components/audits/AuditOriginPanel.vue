@@ -67,10 +67,7 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
 </script>
 
 <template>
-  <div
-    v-if="origin"
-    class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4"
-  >
+  <BaseCard v-if="origin" class="tw:flex tw:flex-col tw:gap-4">
     <!-- Audit header — click to collapse/expand (collapsed by default). -->
     <button
       type="button"
@@ -81,12 +78,20 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
       <div class="tw:flex tw:flex-col tw:flex-1 tw:min-w-0">
         <div class="tw:text-sm tw:font-semibold tw:text-primary">
           Raised from Audit
-          <span class="tw:font-normal tw:text-secondary">· {{ origin.findings.length }} finding{{ origin.findings.length === 1 ? '' : 's' }}</span>
+          <span class="tw:font-normal tw:text-secondary"
+            >· {{ origin.findings.length }} finding{{
+              origin.findings.length === 1 ? '' : 's'
+            }}</span
+          >
         </div>
         <div class="tw:text-sm tw:text-secondary">
-          <span class="tw:font-mono tw:font-medium tw:text-primary">{{ origin.audit.auditNumber || 'Audit' }}</span>
+          <span class="tw:font-mono tw:font-medium tw:text-primary">{{
+            origin.audit.auditNumber || 'Audit'
+          }}</span>
           <template v-if="origin.audit.standardName"> · {{ origin.audit.standardName }}</template>
-          <template v-if="origin.audit.standardVersion"> (v{{ origin.audit.standardVersion }})</template>
+          <template v-if="origin.audit.standardVersion">
+            (v{{ origin.audit.standardVersion }})</template
+          >
         </div>
         <div v-if="origin.audit.scope" class="tw:text-xs tw:text-secondary tw:mt-0.5">
           Scope: {{ origin.audit.scope }}
@@ -108,7 +113,10 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
       >
         <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
           <IconAlertTriangle :size="15" class="tw:text-amber-600 tw:shrink-0" />
-          <span v-if="f.findingNumber" class="tw:text-xs tw:font-mono tw:font-medium tw:text-primary">
+          <span
+            v-if="f.findingNumber"
+            class="tw:text-xs tw:font-mono tw:font-medium tw:text-primary"
+          >
             {{ f.findingNumber }}
           </span>
           <span
@@ -117,7 +125,9 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
           >
             {{ RESULT_LABEL[f.findingTypeId] || f.findingTypeId }}
           </span>
-          <span class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary">
+          <span
+            class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
+          >
             {{ f.statusId }}
           </span>
         </div>
@@ -125,9 +135,15 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
         <p class="tw:text-sm tw:text-primary">{{ f.description }}</p>
 
         <!-- The failed requirement behind this finding -->
-        <div v-if="f.requirement" class="tw:bg-main tw:rounded tw:p-2 tw:flex tw:flex-col tw:gap-0.5">
+        <div
+          v-if="f.requirement"
+          class="tw:bg-main tw:rounded tw:p-2 tw:flex tw:flex-col tw:gap-0.5"
+        >
           <div class="tw:flex tw:items-center tw:gap-2">
-            <span v-if="f.requirement.clauseNumber" class="tw:text-xs tw:font-mono tw:font-semibold tw:text-secondary">
+            <span
+              v-if="f.requirement.clauseNumber"
+              class="tw:text-xs tw:font-mono tw:font-semibold tw:text-secondary"
+            >
               {{ f.requirement.clauseNumber }}
             </span>
             <span
@@ -138,7 +154,8 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
             </span>
           </div>
           <div v-if="f.requirement.title" class="tw:text-xs tw:text-secondary">
-            {{ f.requirement.title }}{{ f.requirement.question ? `: ${f.requirement.question}` : '' }}
+            {{ f.requirement.title
+            }}{{ f.requirement.question ? `: ${f.requirement.question}` : '' }}
           </div>
           <div v-if="f.requirement.comments" class="tw:text-xs tw:text-secondary tw:italic">
             “{{ f.requirement.comments }}”
@@ -147,7 +164,9 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
 
         <!-- Evidence captured against this finding (files + linked records). -->
         <div v-if="f.evidence && f.evidence.length" class="tw:flex tw:flex-col tw:gap-1">
-          <div class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+          <div
+            class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+          >
             Evidence ({{ f.evidence.length }})
           </div>
           <div class="tw:flex tw:flex-col tw:gap-1">
@@ -174,5 +193,5 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
         </div>
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>

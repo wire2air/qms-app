@@ -83,7 +83,7 @@ function formatSize(bytes) {
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+  <BaseCard>
     <div
       class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
     >
@@ -139,5 +139,5 @@ function formatSize(bytes) {
       </div>
     </div>
     <div v-else class="tw:text-sm tw:text-secondary tw:italic">No attachments.</div>
-  </div>
+  </BaseCard>
 </template>

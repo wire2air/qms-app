@@ -196,7 +196,9 @@ chrome swapped, **not** a `BaseForm`.
 | Real forms (have `toast` validation) | 50 |
 | Card-only (chrome swap) | 33 |
 | **Total in allowlist** | **82** |
-| Migrated (removed from allowlist) | 1 |
+| Migrated (removed from allowlist) | 82 |
+| **Remaining in allowlist** | **0** |
 
-Update this table and tick boxes as files migrate. When the allowlist is empty,
-delete it and make `lint:forms` enforce the rules repo-wide.
+**MIGRATION COMPLETE (2026-06-24).** All 82 forms are on the form system. The
+`ALLOWLIST` and `allowlisted()` machinery have been deleted from
+`scripts/check-form-system.mjs`; `lint:forms` now enforces the rules repo-wide.
