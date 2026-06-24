@@ -1,5 +1,5 @@
 <script setup>
-import { IconX, IconChevronDown, IconChevronUp } from '@tabler/icons-vue'
+import { IconChevronDown, IconChevronUp } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. The logBooks
 // endpoint validates edit-window pairing, classification, status and uniqueness
 // server-side before the row lands; SyncEngine catches up via the sync push.
@@ -232,26 +232,17 @@ async function save() {
     isSubmitting.value = false
   }
 }
-
-function close() {
-  open.value = false
-}
 </script>
 
 <template>
-  <BaseDialog v-model="open" maxWidth="2xl" persistent>
-    <div class="tw:flex tw:justify-between tw:items-center tw:mb-4">
-      <div>
-        <div class="tw:text-xl tw:font-bold tw:text-on-main">New Log Book</div>
-        <div class="tw:text-xs tw:text-secondary">
-          Define what gets logged. You'll build the form fields next.
-        </div>
-      </div>
-      <button class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-main-hover" @click="close">
-        <IconX :size="20" />
-      </button>
-    </div>
-
+  <BaseDialog
+    v-model="open"
+    maxWidth="2xl"
+    persistent
+    showClose
+    title="New Log Book"
+    subtitle="Define what gets logged. You'll build the form fields next."
+  >
     <BaseForm ref="formRef" hideFooter @submit="save">
       <!-- Title -->
       <BaseField label="Log Book Name" required :value="title" :rules="[required()]">
@@ -483,14 +474,15 @@ function close() {
       </div>
     </BaseForm>
 
-    <!-- Footer -->
-    <BaseDialogFooter
-      class="tw:mt-6"
-      submitLabel="Create & Build Form"
-      :loading="isSubmitting"
-      :error="saveError"
-      @cancel="close"
-      @submit="formRef?.submit()"
-    />
+    <!-- Footer — pinned to the bottom by BaseDialog's #footer region -->
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Create & Build Form"
+        :loading="isSubmitting"
+        :error="saveError"
+        @cancel="close"
+        @submit="formRef?.submit()"
+      />
+    </template>
   </BaseDialog>
 </template>
