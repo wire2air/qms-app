@@ -1,6 +1,5 @@
 <script setup>
-import { required, email, helpers } from '@vuelidate/validators'
-import { useValidator } from '@shared/composables/validator.js'
+import { required, email } from '@shared/components/form/validators.js'
 // Action RPC (not entity CRUD — POST /v1/services/users/:id/invite) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 
@@ -10,6 +9,10 @@ const open = defineModel({
 })
 
 const toast = useToast()
+
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref('')
 
 // Create user mutation
 const createUser = useLiveMutation(async (db, data) => {
@@ -38,19 +41,6 @@ const form = ref({
   languageId: 'en-US',
 })
 
-const rules = computed(() => ({
-  firstName: { required: helpers.withMessage('Required', required) },
-  lastName: { required: helpers.withMessage('Required', required) },
-  email: {
-    required: helpers.withMessage('Required', required),
-    email: helpers.withMessage('Invalid email format', email),
-  },
-}))
-
-const validator = useValidator(rules, form)
-
-const isSubmitting = ref(false)
-
 // Reset form when closed
 watch(open, (val) => {
   if (!val) {
@@ -63,15 +53,17 @@ watch(open, (val) => {
       inviteSent: false,
       siteId: null,
       departmentId: null,
+      timezone: 'UTC',
+      languageId: 'en-US',
     }
+    saveError.value = ''
   }
 })
 
 async function onSubmit() {
-  const valid = await validator.value.$validate()
-  if (!valid) return
-
+  if (isSubmitting.value) return
   isSubmitting.value = true
+  saveError.value = ''
   try {
     const { user, inviteSent } = await createUser(form.value)
     if (inviteSent && user?.id) {
@@ -85,6 +77,8 @@ async function onSubmit() {
       }
     }
     open.value = false
+  } catch (err) {
+    saveError.value = err?.message || 'Failed to create user'
   } finally {
     isSubmitting.value = false
   }
@@ -93,77 +87,78 @@ async function onSubmit() {
 
 <template>
   <BaseDialog v-model="open" title="Create New User" maxWidth="lg">
-    <div class="tw:grid tw:grid-cols-12 tw:gap-0">
-      <!-- Main Content -->
-      <div class="tw:col-span-12 tw:sm:col-span-8 tw:p-4">
-        <div class="tw:flex tw:flex-col tw:gap-3">
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <BaseTextInput
-              v-model="form.firstName"
-              name="firstName"
-              label="First Name"
-              placeholder="e.g. John"
-              :required="true"
-            />
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <div class="tw:grid tw:grid-cols-12 tw:gap-0">
+        <!-- Main Content -->
+        <div class="tw:col-span-12 tw:sm:col-span-8 tw:p-4">
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+              <BaseField label="First Name" required :value="form.firstName" :rules="[required()]">
+                <template #default="field">
+                  <BaseTextInput v-bind="field" v-model="form.firstName" placeholder="e.g. John" />
+                </template>
+              </BaseField>
 
-            <BaseTextInput
-              v-model="form.lastName"
-              name="lastName"
-              label="Last Name"
-              placeholder="e.g. Doe"
-              :required="true"
-            />
-          </div>
+              <BaseField label="Last Name" required :value="form.lastName" :rules="[required()]">
+                <template #default="field">
+                  <BaseTextInput v-bind="field" v-model="form.lastName" placeholder="e.g. Doe" />
+                </template>
+              </BaseField>
+            </div>
 
-          <BaseTextInput
-            v-model="form.email"
-            name="email"
-            label="Email"
-            placeholder="e.g. john.doe@example.com"
-            type="email"
-            :required="true"
-          />
+            <BaseField label="Email" required :value="form.email" :rules="[required(), email()]">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.email"
+                  placeholder="e.g. john.doe@example.com"
+                  type="email"
+                />
+              </template>
+            </BaseField>
 
-          <BaseField label="Roles" required>
-            <RoleSelectMenu v-model="form.roleIds" :required="true" multiple />
-          </BaseField>
+            <BaseField label="Roles" required :value="form.roleIds" :rules="[required()]">
+              <RoleSelectMenu v-model="form.roleIds" :required="true" multiple />
+            </BaseField>
 
-          <BaseField label="Site" required>
-            <SiteSelectMenu v-model="form.siteId" :required="true" />
-          </BaseField>
+            <BaseField label="Site" required :value="form.siteId" :rules="[required()]">
+              <SiteSelectMenu v-model="form.siteId" :required="true" />
+            </BaseField>
 
-          <BaseField label="Department" required>
-            <DepartmentSelectMenu
-              v-model="form.departmentId"
-              :siteId="form.siteId"
-              :required="true"
-            />
-          </BaseField>
-        </div>
-      </div>
-
-      <!-- Mini Sidebar -->
-      <div class="tw:col-span-12 tw:sm:col-span-4 tw:bg-main-hover tw:p-4 tw:rounded-r-lg">
-        <div class="tw:flex tw:flex-col tw:gap-4">
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-2 tw:font-medium">User Color</div>
-            <BaseColorPicker v-model="form.color" />
-          </div>
-
-          <div class="tw:flex tw:gap-1">
-            <BaseCheckbox v-model="form.inviteSent" label="Send Invite" />
-            <div class="tw:text-micro tw:text-secondary tw:ml-2">Send an email invitation.</div>
+            <BaseField label="Department" required :value="form.departmentId" :rules="[required()]">
+              <DepartmentSelectMenu
+                v-model="form.departmentId"
+                :siteId="form.siteId"
+                :required="true"
+              />
+            </BaseField>
           </div>
         </div>
+
+        <!-- Mini Sidebar -->
+        <div class="tw:col-span-12 tw:sm:col-span-4 tw:bg-main-hover tw:p-4 tw:rounded-r-lg">
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <div>
+              <div class="tw:text-xs tw:text-secondary tw:mb-2 tw:font-medium">User Color</div>
+              <BaseColorPicker v-model="form.color" />
+            </div>
+
+            <div class="tw:flex tw:gap-1">
+              <BaseCheckbox v-model="form.inviteSent" label="Send Invite" />
+              <div class="tw:text-micro tw:text-secondary tw:ml-2">Send an email invitation.</div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </BaseForm>
 
     <template #footer>
       <BaseDialogFooter
         submitLabel="Create User"
         :loading="isSubmitting"
+        :error="saveError"
         @cancel="open = false"
-        @submit="onSubmit"
+        @submit="formRef?.submit()"
       />
     </template>
   </BaseDialog>

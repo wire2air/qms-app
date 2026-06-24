@@ -73,6 +73,20 @@ export function email(msg) {
 }
 
 /**
+ * Fails when a non-empty numeric value is below `min`. Passes on empty so
+ * `required()` owns emptiness — compose: `:rules="[required(), minValue(1)]"`.
+ * `msg` overrides the label-derived default.
+ */
+export function minValue(min, msg) {
+  return (value) => {
+    if (isEmpty(value) || Number(value) >= min) return true
+    return (
+      msg || ((label) => (label ? `${label} must be at least ${min}.` : `Must be at least ${min}.`))
+    )
+  }
+}
+
+/**
  * Resolve a rule's failure result to a final message string. A function result
  * is a label-derived default; a string is used verbatim.
  */
