@@ -57,16 +57,16 @@ const { isSaving } = useAutoSave(training, {
 const actionLoading = ref(false)
 const showPublishConfirm = ref(false)
 const showDeleteConfirm = ref(false)
+const publishError = ref('')
 
 async function handlePublish() {
   if (!training.value) return
   if (!training.value.managerId) {
-    toast.notify({
-      type: 'negative',
-      message: 'A Training Manager is required before publishing. Set one on the Details tab.',
-    })
+    publishError.value =
+      'A Training Manager is required before publishing. Set one on the Details tab.'
     return
   }
+  publishError.value = ''
   actionLoading.value = true
   try {
     training.value.status = 'ACTIVE'
@@ -148,6 +148,7 @@ const trainingActions = computed(() =>
     },
     {
       openPublish() {
+        publishError.value = ''
         showPublishConfirm.value = true
       },
       launch() {
@@ -207,44 +208,47 @@ const trainingDetailConfig = computed(() =>
     <template v-if="training" #section-details>
       <!-- Tabs -->
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Training sections">
-      <div class="tw:mt-6">
-        <BaseTabPanel value="details">
-          <div class="tw:flex tw:flex-col tw:gap-4 tw:max-w-xl">
-            <TrainingDetailsTab :training="training" :editable="isEditable && canUpdate" />
-            <!-- Admin-defined custom fields. Self-hides when none configured. -->
-            <CustomFieldsCard
-              entityType="Training"
-              :entityId="training.id"
-              :editable="isEditable && canUpdate"
-            />
-          </div>
-        </BaseTabPanel>
+        <div class="tw:mt-6">
+          <BaseTabPanel value="details">
+            <div class="tw:flex tw:flex-col tw:gap-4 tw:max-w-xl">
+              <TrainingDetailsTab :training="training" :editable="isEditable && canUpdate" />
+              <!-- Admin-defined custom fields. Self-hides when none configured. -->
+              <CustomFieldsCard
+                entityType="Training"
+                :entityId="training.id"
+                :editable="isEditable && canUpdate"
+              />
+            </div>
+          </BaseTabPanel>
 
-        <BaseTabPanel value="material">
-          <div class="tw:flex tw:flex-col tw:gap-4">
-            <TrainingMaterialTab :training="training" :editable="isEditable && canUpdate" />
-          </div>
-        </BaseTabPanel>
+          <BaseTabPanel value="material">
+            <div class="tw:flex tw:flex-col tw:gap-4">
+              <TrainingMaterialTab :training="training" :editable="isEditable && canUpdate" />
+            </div>
+          </BaseTabPanel>
 
-        <BaseTabPanel value="assessment">
-          <div class="tw:flex tw:flex-col tw:gap-4">
-            <TrainingAssessmentEditor :training="training" :editable="isEditable && canUpdate" />
-          </div>
-        </BaseTabPanel>
+          <BaseTabPanel value="assessment">
+            <div class="tw:flex tw:flex-col tw:gap-4">
+              <TrainingAssessmentEditor :training="training" :editable="isEditable && canUpdate" />
+            </div>
+          </BaseTabPanel>
 
-        <BaseTabPanel value="assignees">
-          <div class="tw:flex tw:flex-col tw:gap-4">
-            <TrainingAssigneesTab :trainingId="training.id" :canUpdate="isEditable && canUpdate" />
-          </div>
-        </BaseTabPanel>
+          <BaseTabPanel value="assignees">
+            <div class="tw:flex tw:flex-col tw:gap-4">
+              <TrainingAssigneesTab
+                :trainingId="training.id"
+                :canUpdate="isEditable && canUpdate"
+              />
+            </div>
+          </BaseTabPanel>
 
-        <BaseTabPanel value="instances">
-          <div class="tw:flex tw:flex-col tw:gap-4">
-            <TrainingInstancesTab :trainingId="training.id" />
-          </div>
-        </BaseTabPanel>
-      </div>
-    </BaseTabs>
+          <BaseTabPanel value="instances">
+            <div class="tw:flex tw:flex-col tw:gap-4">
+              <TrainingInstancesTab :trainingId="training.id" />
+            </div>
+          </BaseTabPanel>
+        </div>
+      </BaseTabs>
     </template>
   </BaseDetailLayout>
 
@@ -275,6 +279,12 @@ const trainingDetailConfig = computed(() =>
             </p>
           </div>
         </div>
+        <p
+          v-if="publishError"
+          class="tw:text-xs tw:text-red-600 tw:bg-red-50 tw:border tw:border-red-200 tw:rounded-md tw:p-2"
+        >
+          {{ publishError }}
+        </p>
       </div>
       <template #footer="{ close }">
         <BaseDialogFooter

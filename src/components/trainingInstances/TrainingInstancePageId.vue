@@ -281,8 +281,7 @@ const trainingInstanceDetailConfig = computed(() =>
       </div>
 
       <!-- Assignee Progress -->
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5">
-        <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar tw:mb-4">Assignee Progress</h2>
+      <FormSection title="Assignee Progress">
         <p v-if="!allAssignees.length" class="tw:text-sm tw:text-secondary tw:italic">
           No assignees.
         </p>
@@ -363,130 +362,130 @@ const trainingInstanceDetailConfig = computed(() =>
             <span v-else class="tw:w-6" />
           </div>
         </div>
-      </div>
+      </FormSection>
     </template>
   </BaseDetailLayout>
 
   <!-- Remove assignee dialog -->
-    <BaseDialog
-      :modelValue="!!removeTarget"
-      :title="'Remove Assignee'"
-      maxWidth="md"
-      @update:modelValue="(v) => !v && closeRemoveDialog()"
-    >
-      <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-        <div
-          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
-        >
-          <div class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5">⚠</div>
-          <div class="tw:text-sm tw:text-amber-800">
-            This assignee will be marked as <strong>Removed</strong> and their training task will be
-            cancelled. The reason below is recorded in the audit log.
-          </div>
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Reason</p>
-          <BaseTextarea
-            v-model="removeReason"
-            :rows="3"
-            placeholder="Why is this assignee being removed?"
-          />
+  <BaseDialog
+    :modelValue="!!removeTarget"
+    :title="'Remove Assignee'"
+    maxWidth="md"
+    @update:modelValue="(v) => !v && closeRemoveDialog()"
+  >
+    <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+      <div
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+      >
+        <div class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5">⚠</div>
+        <div class="tw:text-sm tw:text-amber-800">
+          This assignee will be marked as <strong>Removed</strong> and their training task will be
+          cancelled. The reason below is recorded in the audit log.
         </div>
       </div>
-      <template #footer="{ close }">
-        <BaseDialogFooter
-          submitLabel="Remove Assignee"
-          submitVariant="danger"
-          :loading="removing"
-          :disabled="!removeReason.trim()"
-          @cancel="close"
-          @submit="handleRemoveAssignee"
-        />
-      </template>
-    </BaseDialog>
-
-    <!-- Assessment review dialog (manager only) -->
-    <BaseDialog
-      :modelValue="!!reviewAssignee"
-      title="Assessment Answers"
-      maxWidth="3xl"
-      @update:modelValue="(v) => !v && closeAssessmentReview()"
-    >
-      <div v-if="reviewAssignee" class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-        <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
-          <div class="tw:flex tw:items-center tw:gap-3">
-            <UserBadgeById :userId="reviewAssignee.userId" />
-            <TrainingAssigneeStatusBadgeById :statusId="reviewAssignee.status" />
-          </div>
-          <div class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary">
-            <span>
-              Score:
-              <span
-                class="tw:font-semibold"
-                :class="
-                  reviewAssignee.status === 'COMPLETED' || reviewAssignee.status === 'VERIFIED'
-                    ? 'tw:text-green-600'
-                    : 'tw:text-red-600'
-                "
-              >
-                {{ reviewAssignee.score ?? '—' }}%
-              </span>
-            </span>
-            <span>
-              Attempts: {{ reviewAssignee.attemptCount ?? 0 }}/{{
-                instance.snapshot?.maxAttempts ?? 1
-              }}
-            </span>
-          </div>
-        </div>
-        <TrainingAssessmentView
-          :answers="reviewAssignee.assessmentAnswers ?? {}"
-          :questions="assessmentQuestions"
-          :passingScore="instance.snapshot?.passingScore ?? 70"
-          :attemptCount="reviewAssignee.attemptCount ?? 0"
-          :maxAttempts="instance.snapshot?.maxAttempts ?? 1"
-          :readonly="true"
-          :showCorrect="true"
+      <div>
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Reason</p>
+        <BaseTextarea
+          v-model="removeReason"
+          :rows="3"
+          placeholder="Why is this assignee being removed?"
         />
       </div>
-      <template #footer="{ close }">
-        <BaseButton variant="secondary" @click="close">Close</BaseButton>
-      </template>
-    </BaseDialog>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Remove Assignee"
+        submitVariant="danger"
+        :loading="removing"
+        :disabled="!removeReason.trim()"
+        @cancel="close"
+        @submit="handleRemoveAssignee"
+      />
+    </template>
+  </BaseDialog>
 
-    <!-- Cancel instance dialog -->
-    <BaseDialog v-model="showCancelDialog" title="Cancel Training Instance" maxWidth="md">
-      <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-        <div
-          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-red-50 tw:border tw:border-red-200"
-        >
-          <div class="tw:text-red-600 tw:shrink-0 tw:mt-0.5">⚠</div>
-          <div class="tw:text-sm tw:text-red-800">
-            All active training tasks for assigned employees will be cancelled. The reason below is
-            recorded on the instance and in the audit log.
-          </div>
+  <!-- Assessment review dialog (manager only) -->
+  <BaseDialog
+    :modelValue="!!reviewAssignee"
+    title="Assessment Answers"
+    maxWidth="3xl"
+    @update:modelValue="(v) => !v && closeAssessmentReview()"
+  >
+    <div v-if="reviewAssignee" class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+      <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
+        <div class="tw:flex tw:items-center tw:gap-3">
+          <UserBadgeById :userId="reviewAssignee.userId" />
+          <TrainingAssigneeStatusBadgeById :statusId="reviewAssignee.status" />
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Reason</p>
-          <BaseTextarea
-            v-model="cancelReason"
-            :rows="3"
-            placeholder="Why is this training instance being cancelled?"
-          />
+        <div class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary">
+          <span>
+            Score:
+            <span
+              class="tw:font-semibold"
+              :class="
+                reviewAssignee.status === 'COMPLETED' || reviewAssignee.status === 'VERIFIED'
+                  ? 'tw:text-green-600'
+                  : 'tw:text-red-600'
+              "
+            >
+              {{ reviewAssignee.score ?? '—' }}%
+            </span>
+          </span>
+          <span>
+            Attempts: {{ reviewAssignee.attemptCount ?? 0 }}/{{
+              instance.snapshot?.maxAttempts ?? 1
+            }}
+          </span>
         </div>
       </div>
-      <template #footer="{ close }">
-        <BaseDialogFooter
-          cancelLabel="Keep Active"
-          submitLabel="Cancel Instance"
-          submitVariant="danger"
-          :loading="cancelling"
-          :disabled="!cancelReason.trim()"
-          @cancel="close"
-          @submit="handleCancel"
-        >
-          <template #submitIcon><IconBan :size="16" /></template>
-        </BaseDialogFooter>
-      </template>
-    </BaseDialog>
+      <TrainingAssessmentView
+        :answers="reviewAssignee.assessmentAnswers ?? {}"
+        :questions="assessmentQuestions"
+        :passingScore="instance.snapshot?.passingScore ?? 70"
+        :attemptCount="reviewAssignee.attemptCount ?? 0"
+        :maxAttempts="instance.snapshot?.maxAttempts ?? 1"
+        :readonly="true"
+        :showCorrect="true"
+      />
+    </div>
+    <template #footer="{ close }">
+      <BaseButton variant="secondary" @click="close">Close</BaseButton>
+    </template>
+  </BaseDialog>
+
+  <!-- Cancel instance dialog -->
+  <BaseDialog v-model="showCancelDialog" title="Cancel Training Instance" maxWidth="md">
+    <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+      <div
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-red-50 tw:border tw:border-red-200"
+      >
+        <div class="tw:text-red-600 tw:shrink-0 tw:mt-0.5">⚠</div>
+        <div class="tw:text-sm tw:text-red-800">
+          All active training tasks for assigned employees will be cancelled. The reason below is
+          recorded on the instance and in the audit log.
+        </div>
+      </div>
+      <div>
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Reason</p>
+        <BaseTextarea
+          v-model="cancelReason"
+          :rows="3"
+          placeholder="Why is this training instance being cancelled?"
+        />
+      </div>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        cancelLabel="Keep Active"
+        submitLabel="Cancel Instance"
+        submitVariant="danger"
+        :loading="cancelling"
+        :disabled="!cancelReason.trim()"
+        @cancel="close"
+        @submit="handleCancel"
+      >
+        <template #submitIcon><IconBan :size="16" /></template>
+      </BaseDialogFooter>
+    </template>
+  </BaseDialog>
 </template>

@@ -79,10 +79,7 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
 </script>
 
 <template>
-  <div
-    v-if="cr && hasWorkflow"
-    class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4"
-  >
+  <BaseCard v-if="cr && hasWorkflow" class="tw:flex tw:flex-col tw:gap-4">
     <div class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider">
       <div>
         <BaseText as="h3" weight="bold">Approval Workflow Plan</BaseText>
@@ -135,5 +132,5 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
         </div>
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>

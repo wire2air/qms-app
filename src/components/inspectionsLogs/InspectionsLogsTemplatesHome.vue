@@ -124,7 +124,9 @@ function editWindowSummary(t) {
     subtitle="Each log book defines the structure for a class of log entries (daily temperature, gemba round, batch release). Operational log books auto-lock entries after a short edit window; controlled-record log books require an e-signature and reviewer approval."
     :state="list.state.value"
     :emptyIcon="IconStack2"
-    :emptyTitle="list.hasActiveFilters.value ? 'No log books match your filters' : 'No log books yet'"
+    :emptyTitle="
+      list.hasActiveFilters.value ? 'No log books match your filters' : 'No log books yet'
+    "
   >
     <template #actions>
       <BaseButton v-if="canCreate" variant="primary" @click="openCreate('OPERATIONAL_LOG')">
@@ -174,7 +176,7 @@ function editWindowSummary(t) {
       >
         <button
           type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
+          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:px-5 tw:py-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
           @click="openCreate('OPERATIONAL_LOG')"
         >
           <div class="tw:flex tw:items-center tw:gap-3 tw:mb-2">
@@ -192,7 +194,7 @@ function editWindowSummary(t) {
         </button>
         <button
           type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
+          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:px-5 tw:py-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
           @click="openCreate('CONTROLLED_RECORD')"
         >
           <div class="tw:flex tw:items-center tw:gap-3 tw:mb-2">

@@ -25,6 +25,7 @@
  * auto-imported — pass the imported @tabler/icons-vue component.
  */
 import { IconChevronDown } from '@tabler/icons-vue'
+import { BaseFormRegistryKey } from './formContext.js'
 
 const props = defineProps({
   title: { type: String, default: '' },
@@ -56,6 +57,21 @@ const open = ref(props.defaultOpen)
 function toggle() {
   open.value = !open.value
 }
+
+// Register with the enclosing BaseForm (if any) so it can auto-expand this
+// section when a validation error inside it is jumped to (C1). Only collapsible
+// sections can hide content, so only they need to register.
+const registry = inject(BaseFormRegistryKey, null)
+const sectionEntry = {
+  id: sectionId.value,
+  open: () => {
+    open.value = true
+  },
+}
+onMounted(() => {
+  if (props.collapsible) registry?.registerSection?.(sectionEntry)
+})
+onBeforeUnmount(() => registry?.unregisterSection?.(sectionEntry))
 </script>
 
 <template>

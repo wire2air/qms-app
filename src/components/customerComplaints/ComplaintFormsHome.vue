@@ -80,25 +80,19 @@ async function handleDelete() {
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-    <div
-      class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-    >
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <IconForms :size="18" class="tw:text-primary" />
-        <BaseText variant="overline">Complaint Forms</BaseText>
-      </div>
+  <PageSection title="Complaint Forms" :icon="IconForms" variant="card">
+    <template #actions>
       <BaseButton variant="primary" size="sm" @click="onCreate">
         <IconPlus :size="16" class="tw:mr-1" />
         New form
       </BaseButton>
-    </div>
+    </template>
 
     <p class="tw:text-sm tw:text-secondary tw:mb-4">
       Public intake forms your customers fill without logging in — each gets a unique URL you can
       share or embed. A form always collects the system fields (subject, description, contact
-      details you enable); attach a dynamic form template to collect custom attributes like
-      product, serial number or region. Submissions become complaint tickets with source
+      details you enable); attach a dynamic form template to collect custom attributes like product,
+      serial number or region. Submissions become complaint tickets with source
       <strong>Web Form</strong>.
     </p>
 
@@ -126,8 +120,8 @@ async function handleDelete() {
     >
       <p class="tw:text-sm tw:text-on-main tw:p-1">
         Delete <strong>{{ deleteTarget?.name }}</strong
-        >? Its public URL stops working immediately. Existing tickets created through it keep
-        their data and reporting reference.
+        >? Its public URL stops working immediately. Existing tickets created through it keep their
+        data and reporting reference.
       </p>
       <template #footer="{ close }">
         <BaseDialogFooter
@@ -139,5 +133,5 @@ async function handleDelete() {
         />
       </template>
     </BaseDialog>
-  </div>
+  </PageSection>
 </template>

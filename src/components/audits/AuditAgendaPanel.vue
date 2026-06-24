@@ -80,9 +80,7 @@ async function send() {
       notes: notes.value?.trim() || null,
     })
     const n = res?.notified ?? 0
-    toast.success(
-      n > 0 ? `Agenda sent to ${n} recipient${n === 1 ? '' : 's'}.` : 'Agenda saved.',
-    )
+    toast.success(n > 0 ? `Agenda sent to ${n} recipient${n === 1 ? '' : 's'}.` : 'Agenda saved.')
   } catch (e) {
     toast.error(e.message || 'Failed to send agenda')
   } finally {
@@ -92,14 +90,17 @@ async function send() {
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+  <BaseCard>
     <BaseText
       variant="overline"
       class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
     >
       <IconCalendarEvent :size="14" />
       Audit Agenda
-      <span v-if="sentAt" class="tw:font-normal tw:normal-case tw:text-secondary tw:inline-flex tw:items-center tw:gap-1">
+      <span
+        v-if="sentAt"
+        class="tw:font-normal tw:normal-case tw:text-secondary tw:inline-flex tw:items-center tw:gap-1"
+      >
         <IconCheck :size="12" class="tw:text-emerald-600" /> Sent {{ fmt(sentAt) }}
       </span>
     </BaseText>
@@ -109,7 +110,9 @@ async function send() {
       They get read-only access to this audit and can upload requested documents.
     </p>
 
-    <div class="tw:flex tw:flex-col tw:gap-1 tw:max-h-72 tw:overflow-y-auto tw:mb-3 tw:border tw:border-divider tw:rounded tw:p-2">
+    <div
+      class="tw:flex tw:flex-col tw:gap-1 tw:max-h-72 tw:overflow-y-auto tw:mb-3 tw:border tw:border-divider tw:rounded tw:p-2"
+    >
       <label
         v-for="c in clauses"
         :key="c.requirementId"
@@ -124,7 +127,9 @@ async function send() {
         />
         <span>
           <span class="tw:font-mono tw:font-semibold tw:text-secondary">{{ c.clauseNumber }}</span>
-          <span class="tw:text-on-main"> {{ c.title }}{{ c.question ? `: ${c.question}` : '' }}</span>
+          <span class="tw:text-on-main">
+            {{ c.title }}{{ c.question ? `: ${c.question}` : '' }}</span
+          >
         </span>
       </label>
       <div v-if="!clauses.length" class="tw:text-xs tw:text-secondary tw:italic tw:py-2">
@@ -144,7 +149,9 @@ async function send() {
 
     <!-- Requested documents — sent to the supplier with the agenda. -->
     <div class="tw:mb-3 tw:pt-3 tw:border-t tw:border-divider">
-      <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2 tw:flex tw:items-center tw:gap-1">
+      <p
+        class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2 tw:flex tw:items-center tw:gap-1"
+      >
         <IconPaperclip :size="14" /> Requested Documents
       </p>
       <AuditDocumentRequestPanel
@@ -155,11 +162,13 @@ async function send() {
     </div>
 
     <div class="tw:flex tw:items-center tw:justify-between">
-      <span class="tw:text-xs tw:text-secondary">{{ selected.size }} of {{ clauses.length }} clauses selected</span>
+      <span class="tw:text-xs tw:text-secondary"
+        >{{ selected.size }} of {{ clauses.length }} clauses selected</span
+      >
       <BaseButton v-if="!readonly" variant="primary" size="sm" :loading="sending" @click="send">
         <template #icon><IconSend :size="14" /></template>
         {{ sentAt ? `Re-send to ${recipientLabel}` : `Generate & Send to ${recipientLabel}` }}
       </BaseButton>
     </div>
-  </div>
+  </BaseCard>
 </template>

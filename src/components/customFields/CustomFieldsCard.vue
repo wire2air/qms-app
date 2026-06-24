@@ -148,24 +148,20 @@ watch(
 </script>
 
 <template>
-  <div
-    v-if="hasFields"
-    class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-  >
-    <div class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
-      <BaseText variant="overline">{{ title }}</BaseText>
+  <FormSection v-if="hasFields" :title="title">
+    <template #actions>
       <span
         class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
         :title="`Custom fields configured for ${customFieldEntityLabel(entityType)}`"
       >
         Custom
       </span>
-      <BaseSpinner v-if="saving" size="xs" class="tw:ml-auto" />
-    </div>
+      <BaseSpinner v-if="saving" size="xs" />
+    </template>
 
     <DynamicForm v-if="editable" v-model="formData" :fields="liveSchema" />
     <FormSchemaReadonlyView v-else :fields="readonlySchema" :values="readonlyValues" />
 
     <p v-if="saveError" class="tw:text-xs tw:text-red-600 tw:mt-2">{{ saveError }}</p>
-  </div>
+  </FormSection>
 </template>

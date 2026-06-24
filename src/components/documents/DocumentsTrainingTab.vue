@@ -389,33 +389,27 @@ function libraryAssigneeStats(instanceId) {
     />
 
     <!-- No training configured AND not on an editable version → empty state -->
-    <div
-      v-else-if="!training"
-      class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-8 tw:text-center"
-    >
+    <BaseCard v-else-if="!training" class="tw:text-center" padding="lg">
       <IconSchool :size="48" class="tw:mx-auto tw:mb-3 tw:text-gray-300" />
       <p class="tw:text-sm tw:text-secondary">
         No training has been configured for this document yet.
       </p>
-    </div>
+    </BaseCard>
 
     <!-- No instances launched yet (training exists but doc never became effective) -->
-    <div
-      v-else-if="!latestInstance"
-      class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-8 tw:text-center"
-    >
+    <BaseCard v-else-if="!latestInstance" class="tw:text-center" padding="lg">
       <IconSchool :size="48" class="tw:mx-auto tw:mb-3 tw:text-gray-300" />
       <p class="tw:text-sm tw:text-secondary">
         Training is configured. The first training instance will launch when this document becomes
         effective.
       </p>
-    </div>
+    </BaseCard>
 
     <template v-else>
       <!-- Header: latest instance summary -->
       <RouterLink
         :to="getCompanyPath(`/training-instances/${latestInstance.id}`)"
-        class="tw:block tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:hover:bg-gray-50 tw:transition-colors tw:no-underline"
+        class="tw:block tw:bg-card tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:hover:bg-gray-50 tw:transition-colors tw:no-underline"
       >
         <div class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:mb-3">
           <div>
@@ -483,7 +477,7 @@ function libraryAssigneeStats(instanceId) {
       </RouterLink>
 
       <!-- Assignees list -->
-      <div class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5">
+      <BaseCard>
         <BaseText as="h3" weight="bold" class="tw:mb-3 tw:flex tw:items-center tw:gap-2">
           <IconUsers :size="16" /> Assignees ({{ assignees.length }})
         </BaseText>
@@ -518,13 +512,10 @@ function libraryAssigneeStats(instanceId) {
             <TrainingAssigneeStatusBadgeById :statusId="a.status" />
           </div>
         </div>
-      </div>
+      </BaseCard>
 
       <!-- History (prior instances from retraining) -->
-      <div
-        v-if="allInstances.length > 1"
-        class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5"
-      >
+      <BaseCard v-if="allInstances.length > 1">
         <BaseText as="h3" weight="bold" class="tw:mb-3">Training History</BaseText>
         <p class="tw:text-xs tw:text-secondary tw:mb-3">
           Each document revision (or retraining triggered by the manager) launches a new instance.
@@ -546,7 +537,7 @@ function libraryAssigneeStats(instanceId) {
             <TrainingInstanceStatusBadgeById :statusId="inst.status" :showDot="false" />
           </RouterLink>
         </div>
-      </div>
+      </BaseCard>
     </template>
 
     <!-- Library Training History — shown regardless of whether this doc has
@@ -557,19 +548,17 @@ function libraryAssigneeStats(instanceId) {
          WHO completed WHICH training on this document and when. -->
     <div v-if="libraryInstances.length" class="tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:flex-col tw:gap-1">
-        <BaseText as="h3" weight="bold">
-          Library Training Referencing This Document
-        </BaseText>
+        <BaseText as="h3" weight="bold"> Library Training Referencing This Document </BaseText>
         <p class="tw:text-xs tw:text-secondary">
           Trainings from the Training Library that include this document as a reference. Each
           instance shows its assignees and completion status.
         </p>
       </div>
 
-      <div
+      <BaseCard
         v-for="inst in libraryInstances"
         :key="inst.id"
-        class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:flex tw:flex-col tw:gap-4"
+        class="tw:flex tw:flex-col tw:gap-4"
       >
         <!-- Instance header — click-through to the full instance page -->
         <RouterLink
@@ -671,7 +660,7 @@ function libraryAssigneeStats(instanceId) {
             </div>
           </div>
         </div>
-      </div>
+      </BaseCard>
     </div>
   </div>
 </template>

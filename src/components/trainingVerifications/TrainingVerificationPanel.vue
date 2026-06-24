@@ -98,9 +98,31 @@ watch(
 const showEsignDialog = ref(false)
 const submitting = ref(false)
 
+const assigneeError = ref('')
+const competencyError = ref('')
+
+watch(selectedAssigneeIds, () => {
+  if (selectedAssigneeIds.value.length > 0) assigneeError.value = ''
+})
+
+watch(
+  () => [
+    form.value.demonstratedUnderstanding,
+    form.value.canPerformIndependently,
+    form.value.practicalObservationCompleted,
+    form.value.retrainingRequired,
+  ],
+  () => {
+    competencyError.value = ''
+  },
+)
+
 function openSignDialog() {
+  assigneeError.value = ''
+  competencyError.value = ''
+
   if (selectedAssigneeIds.value.length === 0) {
-    toast.notify({ type: 'negative', message: 'Select at least one employee' })
+    assigneeError.value = 'Select at least one employee'
     return
   }
   if (!form.value.retrainingRequired) {
@@ -109,10 +131,7 @@ function openSignDialog() {
       !form.value.canPerformIndependently ||
       !form.value.practicalObservationCompleted
     ) {
-      toast.notify({
-        type: 'negative',
-        message: 'Confirm all three competency criteria or select Reject',
-      })
+      competencyError.value = 'Confirm all three competency criteria or select Reject'
       return
     }
   }
@@ -132,12 +151,11 @@ async function onEsignVerified(esign) {
       signatureMethod: esign?.method ?? 'password',
     })
     showEsignDialog.value = false
-    toast.notify({
-      type: 'positive',
-      message: form.value.retrainingRequired
-        ? `Retraining instance launched for ${data.verifiedCount} employee${data.verifiedCount === 1 ? '' : 's'}`
-        : `Verified ${data.verifiedCount} employee${data.verifiedCount === 1 ? '' : 's'}`,
-    })
+    const employeeLabel = `${data.verifiedCount} employee${data.verifiedCount === 1 ? '' : 's'}`
+    const successMessage = form.value.retrainingRequired
+      ? `Retraining instance launched for ${employeeLabel}`
+      : `Verified ${employeeLabel}`
+    toast.notify({ type: 'positive', message: successMessage })
     emit('verified', data)
   } catch (err) {
     toast.notify({ type: 'negative', message: err?.message || 'Verification failed' })
@@ -154,10 +172,7 @@ async function onEsignVerified(esign) {
   <div v-else-if="!isManager" class="tw:p-8 tw:text-center tw:text-secondary">
     Only the training manager can verify assignees for this training.
   </div>
-  <div
-    v-else
-    class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:flex tw:flex-col tw:gap-5"
-  >
+  <BaseCard v-else class="tw:flex tw:flex-col tw:gap-5">
     <!-- Header -->
     <div class="tw:flex tw:items-start tw:justify-between">
       <div>
@@ -236,6 +251,8 @@ async function onEsignVerified(esign) {
       </div>
     </div>
 
+    <p v-if="assigneeError" class="tw:text-sm tw:text-red-600">{{ assigneeError }}</p>
+
     <!-- Competency criteria -->
     <div class="tw:border tw:border-divider tw:rounded-lg tw:p-4">
       <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mb-3">
@@ -271,6 +288,8 @@ async function onEsignVerified(esign) {
         </label>
       </div>
     </div>
+
+    <p v-if="competencyError" class="tw:text-sm tw:text-red-600">{{ competencyError }}</p>
 
     <!-- Reject -->
     <div class="tw:border tw:border-amber-200 tw:bg-amber-50/40 tw:rounded-lg tw:p-4">
@@ -329,5 +348,5 @@ async function onEsignVerified(esign) {
     </div>
 
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
-  </div>
+  </BaseCard>
 </template>

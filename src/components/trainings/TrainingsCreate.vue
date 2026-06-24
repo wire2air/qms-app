@@ -1,10 +1,14 @@
 <script setup>
 import { IconBook } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { required } from '@shared/components/form/validators.js'
+import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
 
 const router = useRouter()
 const toast = useToast()
 const saving = ref(false)
+// Server-side save failure — surfaced persistently in the form footer.
+const submitError = ref('')
 
 const title = ref('')
 const description = ref('')
@@ -13,22 +17,31 @@ const description = ref('')
 const customFieldsData = ref({})
 const customFieldsRef = ref(null)
 
+// Unsaved-changes marker for the footer + BaseForm's beforeunload guard.
+const isDirty = ref(false)
+watch([title, description, customFieldsData], () => (isDirty.value = true), { deep: true })
+
+// Confirm before abandoning a half-filled training via in-app navigation
+// (Cancel, back, sidebar). allowLeave() is called before the post-save
+// redirect so a successful create doesn't prompt. BaseForm covers the
+// browser-level exit.
+const { allowLeave } = useUnsavedChangesGuard(isDirty)
+
 const createTraining = useLiveMutation(async (db, payload) => {
   const training = db.Training.create(payload)
   await training.save()
   return training
 })
 
-async function handleSubmit() {
-  if (!title.value.trim()) {
-    toast.notify({ type: 'negative', message: 'Title is required' })
-    return
-  }
-  if ((await customFieldsRef.value?.validate()) === false) {
-    toast.notify({ type: 'negative', message: 'Complete the required fields under Additional information' })
-    return
-  }
+function goBack() {
+  router.push(getCompanyPath('/trainings'))
+}
+
+// Fires only after BaseForm's per-field rules pass.
+async function onSubmit() {
+  if ((await customFieldsRef.value?.validate()) === false) return
   saving.value = true
+  submitError.value = ''
   try {
     const training = await createTraining({
       title: title.value.trim(),
@@ -41,12 +54,15 @@ async function handleSubmit() {
     } catch (cfErr) {
       toast.notify({
         type: 'warning',
-        message: cfErr?.message || 'Training created, but custom fields could not be saved — add them on the training page',
+        message:
+          cfErr?.message ||
+          'Training created, but custom fields could not be saved — add them on the training page',
       })
     }
+    allowLeave() // saved — don't prompt on the redirect
     router.push(getCompanyPath(`/trainings/${training.id}`))
   } catch (err) {
-    toast.notify({ type: 'negative', message: err.message || 'Failed to create training' })
+    submitError.value = err.message || 'Failed to create training'
   } finally {
     saving.value = false
   }
@@ -64,49 +80,44 @@ async function handleSubmit() {
           ]"
         />
       </template>
-      <template #actions>
-        <BaseButton
-          variant="secondary"
-          :disabled="saving"
-          @click="router.push(getCompanyPath('/trainings'))"
-          >Cancel</BaseButton
-        >
-        <BaseButton variant="primary" :loading="saving" @click="handleSubmit"
-          >Create Training</BaseButton
-        >
-      </template>
     </PageHeader>
 
     <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
-      <div class="tw:max-w-xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">
-        <div class="tw:flex tw:items-center tw:gap-3">
-          <div class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0">
-            <IconBook :size="20" />
+      <BaseForm
+        class="tw:py-6"
+        :dirty="isDirty"
+        :loading="saving"
+        :submitError="submitError"
+        submitLabel="Create Training"
+        @submit="onSubmit"
+        @cancel="goBack"
+      >
+        <FormSection id="training-details" title="Training details" :icon="IconBook">
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <BaseField
+              id="training-title"
+              label="Title"
+              required
+              :value="title"
+              :rules="[required()]"
+            >
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="title"
+                  placeholder="e.g. Fire Safety Procedures"
+                />
+              </template>
+            </BaseField>
+            <BaseField label="Description">
+              <BaseTextarea
+                v-model="description"
+                placeholder="Brief overview of what this training covers…"
+                :rows="3"
+              />
+            </BaseField>
           </div>
-          <div>
-            <div class="tw:text-xl tw:font-bold tw:text-on-sidebar">New Training</div>
-            <div class="tw:text-sm tw:text-secondary">After creating, add material, assessment questions, and assign roles or users.</div>
-          </div>
-        </div>
-
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4">
-          <BaseField v-slot="{ id: fieldId }" label="Title" required>
-            <BaseTextInput
-              :id="fieldId"
-              v-model="title"
-              placeholder="e.g. Fire Safety Procedures"
-              @keyup.enter="handleSubmit"
-            />
-          </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Description">
-            <BaseTextarea
-              :id="fieldId"
-              v-model="description"
-              placeholder="Brief overview of what this training covers…"
-              :rows="3"
-            />
-          </BaseField>
-        </div>
+        </FormSection>
 
         <!-- Admin-defined custom fields. Self-hides when none configured. -->
         <CustomFieldsCreateSection
@@ -115,7 +126,9 @@ async function handleSubmit() {
           entityType="Training"
         />
 
-        <div class="tw:bg-blue-50 tw:border tw:border-blue-100 tw:rounded-lg tw:p-4 tw:text-sm tw:text-blue-700">
+        <div
+          class="tw:bg-blue-50 tw:border tw:border-blue-100 tw:rounded-lg tw:p-4 tw:text-sm tw:text-blue-700"
+        >
           <p class="tw:font-medium tw:mb-1">What you can configure on the next page:</p>
           <ul class="tw:list-disc tw:list-inside tw:text-blue-600 tw:space-y-0.5">
             <li>Instructions and linked documents</li>
@@ -124,7 +137,7 @@ async function handleSubmit() {
             <li>Passing score and completion deadline</li>
           </ul>
         </div>
-      </div>
+      </BaseForm>
     </div>
   </BasePage>
 </template>

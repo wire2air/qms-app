@@ -5,6 +5,7 @@
  * record and saving (CLAUDE.md rule #4). Picking one in the spec builder
  * pre-fills a characteristic with these defaults.
  */
+import { required } from '@shared/components/form/validators.js'
 import ProductTypeSelectMenu from '@/components/menus/ProductTypeSelectMenu.vue'
 
 const props = defineProps({
@@ -13,6 +14,8 @@ const props = defineProps({
 const open = defineModel({ type: Boolean, default: false })
 const toast = useToast()
 const saving = ref(false)
+const saveError = ref('')
+const formRef = ref(null)
 
 const TEST_TYPES = [
   { id: 'NUMERIC', name: 'Numeric (measured)' },
@@ -63,6 +66,7 @@ watch(open, (isOpen) => {
         active: d.active ?? true,
       }
     : blank()
+  saveError.value = ''
 })
 
 // Auto-suggest a SCREAMING_SNAKE code from the name on new entries.
@@ -70,7 +74,11 @@ watch(
   () => form.value.name,
   (name) => {
     if (props.editDefect || !name) return
-    form.value.code = name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+    form.value.code = name
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
   },
 )
 
@@ -80,13 +88,10 @@ const createTest = useLiveMutation(async (db, payload) => {
   return d
 })
 
-async function save() {
+async function onValidSubmit() {
   if (saving.value) return
-  if (!form.value.code.trim() || !form.value.name.trim()) {
-    toast.error('Code and name are required')
-    return
-  }
   saving.value = true
+  saveError.value = ''
   try {
     const numeric = form.value.testType === 'NUMERIC'
     const payload = {
@@ -117,7 +122,7 @@ async function save() {
     toast.success(props.editDefect ? 'Test updated' : 'Test added')
     open.value = false
   } catch (err) {
-    toast.error(err?.message || 'Failed to save test')
+    saveError.value = err?.message || 'Failed to save test'
   } finally {
     saving.value = false
   }
@@ -126,72 +131,114 @@ async function save() {
 
 <template>
   <BaseDialog v-model="open" :title="editDefect ? 'Edit test' : 'Add test'" maxWidth="md">
-    <div class="tw:flex tw:flex-col tw:gap-4 tw:py-1">
-      <BaseField v-slot="{ id: fieldId }" label="Name" required>
-        <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. pH, Appearance" />
-      </BaseField>
-      <div class="tw:grid tw:grid-cols-3 tw:gap-3">
-        <BaseField v-slot="{ id: fieldId }" label="Code" required>
-          <BaseTextInput :id="fieldId" v-model="form.code" placeholder="PH" :disabled="!!editDefect" />
+    <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:py-1">
+        <BaseField label="Name" required :value="form.name" :rules="[required()]">
+          <template #default="field">
+            <BaseTextInput v-bind="field" v-model="form.name" placeholder="e.g. pH, Appearance" />
+          </template>
         </BaseField>
-        <BaseField label="Type" required>
-          <BaseInlineSelect v-model="form.testType" :items="TEST_TYPES" :required="true" />
-        </BaseField>
-        <BaseField label="Severity" required>
-          <DefectSeveritySelectMenu v-model="form.defaultSeverity" :required="true" />
-        </BaseField>
-      </div>
+        <div class="tw:grid tw:grid-cols-3 tw:gap-3">
+          <BaseField label="Code" required :value="form.code" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model="form.code"
+                placeholder="PH"
+                :disabled="!!editDefect"
+              />
+            </template>
+          </BaseField>
+          <BaseField label="Type" required>
+            <BaseInlineSelect v-model="form.testType" :items="TEST_TYPES" :required="true" />
+          </BaseField>
+          <BaseField label="Severity" required>
+            <DefectSeveritySelectMenu v-model="form.defaultSeverity" :required="true" />
+          </BaseField>
+        </div>
 
-      <!-- NUMERIC defaults -->
-      <div v-if="form.testType === 'NUMERIC'" class="tw:flex tw:flex-wrap tw:gap-3 tw:items-end">
-        <BaseField v-slot="{ id: fieldId }" label="Target" class="tw:w-24">
-          <BaseTextInput :id="fieldId" v-model.number="form.targetValue" type="number" size="sm" />
+        <!-- NUMERIC defaults -->
+        <div v-if="form.testType === 'NUMERIC'" class="tw:flex tw:flex-wrap tw:gap-3 tw:items-end">
+          <BaseField label="Target" class="tw:w-24">
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model.number="form.targetValue"
+                type="number"
+                size="sm"
+              />
+            </template>
+          </BaseField>
+          <BaseField label="LSL (≥)" class="tw:w-24">
+            <template #default="field">
+              <BaseTextInput v-bind="field" v-model.number="form.lsl" type="number" size="sm" />
+            </template>
+          </BaseField>
+          <BaseField label="USL (≤)" class="tw:w-24">
+            <template #default="field">
+              <BaseTextInput v-bind="field" v-model.number="form.usl" type="number" size="sm" />
+            </template>
+          </BaseField>
+          <BaseField label="UOM" class="tw:w-24">
+            <template #default="field">
+              <BaseTextInput v-bind="field" v-model="form.uom" size="sm" placeholder="mm" />
+            </template>
+          </BaseField>
+          <label
+            class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap"
+          >
+            <BaseCheckbox v-model="form.requiresInstrument" /> Instrument
+          </label>
+        </div>
+
+        <!-- Preferred instrument — the default gauge for this measured test -->
+        <BaseField
+          v-if="form.testType === 'NUMERIC' && form.requiresInstrument"
+          label="Preferred instrument"
+        >
+          <template #label>
+            Preferred instrument
+            <span class="tw:font-normal tw:text-secondary"
+              >(suggested gauge; drives the calibration check)</span
+            >
+          </template>
+          <EquipmentSelectMenu
+            v-model="form.preferredEquipmentId"
+            nullLabel="— None (pick at capture) —"
+          />
         </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="LSL (≥)" class="tw:w-24">
-          <BaseTextInput :id="fieldId" v-model.number="form.lsl" type="number" size="sm" />
+
+        <BaseField label="Method / instructions">
+          <template #default="field">
+            <BaseTextarea
+              v-bind="field"
+              v-model="form.testMethod"
+              :rows="2"
+              placeholder="How is this test performed?"
+            />
+          </template>
         </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="USL (≤)" class="tw:w-24">
-          <BaseTextInput :id="fieldId" v-model.number="form.usl" type="number" size="sm" />
+        <BaseField label="Applies to product types">
+          <template #label>
+            Applies to product types
+            <span class="tw:font-normal tw:text-secondary">(optional — blank = all)</span>
+          </template>
+          <ProductTypeSelectMenu v-model="form.applicableProductTypeIds" multiple />
         </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="UOM" class="tw:w-24">
-          <BaseTextInput :id="fieldId" v-model="form.uom" size="sm" placeholder="mm" />
-        </BaseField>
-        <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
-          <BaseCheckbox v-model="form.requiresInstrument" /> Instrument
+        <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:select-none">
+          <BaseCheckbox v-model="form.active" />
+          <span class="tw:text-sm tw:text-on-main">Active</span>
         </label>
       </div>
-
-      <!-- Preferred instrument — the default gauge for this measured test -->
-      <BaseField v-if="form.testType === 'NUMERIC' && form.requiresInstrument" label="Preferred instrument">
-        <template #label>
-          Preferred instrument
-          <span class="tw:font-normal tw:text-secondary">(suggested gauge; drives the calibration check)</span>
-        </template>
-        <EquipmentSelectMenu v-model="form.preferredEquipmentId" nullLabel="— None (pick at capture) —" />
-      </BaseField>
-
-      <BaseField v-slot="{ id: fieldId }" label="Method / instructions">
-        <BaseTextarea :id="fieldId" v-model="form.testMethod" :rows="2" placeholder="How is this test performed?" />
-      </BaseField>
-      <BaseField label="Applies to product types">
-        <template #label>
-          Applies to product types
-          <span class="tw:font-normal tw:text-secondary">(optional — blank = all)</span>
-        </template>
-        <ProductTypeSelectMenu v-model="form.applicableProductTypeIds" multiple />
-      </BaseField>
-      <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:select-none">
-        <BaseCheckbox v-model="form.active" />
-        <span class="tw:text-sm tw:text-on-main">Active</span>
-      </label>
-    </div>
+    </BaseForm>
 
     <template #footer="{ close }">
       <BaseDialogFooter
         :submitLabel="editDefect ? 'Save' : 'Add test'"
         :loading="saving"
+        :error="saveError"
         @cancel="close"
-        @submit="save"
+        @submit="formRef.submit()"
       />
     </template>
   </BaseDialog>

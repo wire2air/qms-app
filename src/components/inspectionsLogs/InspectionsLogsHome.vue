@@ -181,7 +181,7 @@ function go(path) {
         <button
           v-if="canCreateTemplate"
           type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
+          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:px-5 tw:py-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
           @click="go('/inspections-logs/templates')"
         >
           <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
@@ -201,7 +201,7 @@ function go(path) {
         <button
           v-if="canAssign"
           type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
+          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:px-5 tw:py-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
           @click="go('/inspections-logs/form-assignments')"
         >
           <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
@@ -220,7 +220,7 @@ function go(path) {
 
         <button
           type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
+          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:px-5 tw:py-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
           @click="go('/task-instances')"
         >
           <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
@@ -239,7 +239,7 @@ function go(path) {
 
         <button
           type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
+          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:px-5 tw:py-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
           @click="go('/inspections-logs/records')"
         >
           <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">

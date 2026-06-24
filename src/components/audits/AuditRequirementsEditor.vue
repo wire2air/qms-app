@@ -22,6 +22,7 @@ import {
 } from '@tabler/icons-vue'
 import { post, patch, del } from '@/api'
 import { canUseAi } from '@/utils/currentSession.js'
+import { required } from '@shared/components/form/validators.js'
 
 const props = defineProps({
   version: { type: Object, required: true },
@@ -92,6 +93,7 @@ function rowIndentStyle(rowId) {
 // ─── Dialog ────────────────────────────────────────────────────────────
 const showEditDialog = ref(false)
 const editing = ref(null)
+const formRef = ref(null)
 function blankForm(displayOrder = 1000) {
   return {
     clauseNumber: '',
@@ -174,14 +176,6 @@ function openEdit(row) {
 }
 
 async function handleSave() {
-  if (!form.value.clauseNumber.trim()) {
-    toast.warning('Clause number is required')
-    return
-  }
-  if (!form.value.title.trim()) {
-    toast.warning('Title is required')
-    return
-  }
   saving.value = true
   try {
     // Drop blank checklist rows.
@@ -543,186 +537,212 @@ async function handleBulkEnrich() {
       :title="editing ? 'Edit Requirement' : 'Add Requirement'"
       maxWidth="3xl"
     >
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <!-- Identity row — always visible across tabs. -->
-        <div class="tw:grid tw:grid-cols-[150px_1fr] tw:gap-3">
-          <BaseField v-slot="{ id: fieldId }" label="Clause #" required>
-            <BaseTextInput :id="fieldId" v-model="form.clauseNumber" placeholder="7.2.1" />
-          </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Title" required>
-            <BaseTextInput :id="fieldId" v-model="form.title" placeholder="Personnel competency assessment" />
-          </BaseField>
-        </div>
+      <BaseForm ref="formRef" hideFooter @submit="handleSave">
+        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+          <!-- Identity row — always visible across tabs. -->
+          <div class="tw:grid tw:grid-cols-[150px_1fr] tw:gap-3">
+            <BaseField label="Clause #" required :value="form.clauseNumber" :rules="[required()]">
+              <template #default="field">
+                <BaseTextInput v-bind="field" v-model="form.clauseNumber" placeholder="7.2.1" />
+              </template>
+            </BaseField>
+            <BaseField label="Title" required :value="form.title" :rules="[required()]">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.title"
+                  placeholder="Personnel competency assessment"
+                />
+              </template>
+            </BaseField>
+          </div>
 
-        <!-- Tabs -->
-        <div class="tw:flex tw:gap-1 tw:border-b tw:border-divider">
-          <button
-            v-for="t in [
-              { id: 'clause', label: 'Clause details' },
-              { id: 'checklists', label: 'Audit checklists' },
-            ]"
-            :key="t.id"
-            type="button"
-            class="tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:cursor-pointer tw:bg-transparent tw:border-0 tw:border-b-2 tw:-mb-px"
-            :class="
-              editTab === t.id
-                ? 'tw:border-primary tw:text-primary'
-                : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'
-            "
-            @click="editTab = t.id"
-          >
-            {{ t.label }}
-          </button>
-        </div>
+          <!-- Tabs -->
+          <div class="tw:flex tw:gap-1 tw:border-b tw:border-divider">
+            <button
+              v-for="t in [
+                { id: 'clause', label: 'Clause details' },
+                { id: 'checklists', label: 'Audit checklists' },
+              ]"
+              :key="t.id"
+              type="button"
+              class="tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:cursor-pointer tw:bg-transparent tw:border-0 tw:border-b-2 tw:-mb-px"
+              :class="
+                editTab === t.id
+                  ? 'tw:border-primary tw:text-primary'
+                  : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main'
+              "
+              @click="editTab = t.id"
+            >
+              {{ t.label }}
+            </button>
+          </div>
 
-        <!-- Tab: Audit checklists -->
-        <div v-show="editTab === 'checklists'" class="tw:flex tw:flex-col tw:gap-3">
-          <!-- Guided audit: three tick-off checklists the auditor works through —
+          <!-- Tab: Audit checklists -->
+          <div v-show="editTab === 'checklists'" class="tw:flex tw:flex-col tw:gap-3">
+            <!-- Guided audit: three tick-off checklists the auditor works through —
              Questions (ask/confirm), Observations (watch), Expected Evidence
              (records to collect). All share the [{id,text}] shape. -->
-          <div
-            v-for="cl in [
-              {
-                key: 'questions',
-                label: 'Questions (checklist)',
-                add: 'Add question',
-                ph: 'e.g. Is competency assessed and recorded for QMS personnel?',
-                empty: 'No questions yet — add the items the auditor will confirm.',
-              },
-              {
-                key: 'observations',
-                label: 'Observations (checklist)',
-                add: 'Add observation',
-                ph: 'e.g. Operators wearing required PPE on the line',
-                empty: 'No observations yet — add what the auditor should watch for.',
-              },
-              {
-                key: 'evidenceItems',
-                label: 'Expected Evidence (checklist)',
-                add: 'Add evidence item',
-                ph: 'e.g. Calibration certificates for test equipment',
-                empty: 'No evidence items yet — add the records the auditor should collect.',
-              },
-            ]"
-            :key="cl.key"
-          >
-            <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">{{ cl.label }}</p>
-              <button
-                type="button"
-                class="tw:text-xs tw:font-medium tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:inline-flex tw:items-center tw:gap-1"
-                @click="addChecklistItem(form[cl.key])"
-              >
-                <IconPlus :size="13" /> {{ cl.add }}
-              </button>
-            </div>
-            <div v-if="form[cl.key].length" class="tw:flex tw:flex-col tw:gap-1.5">
-              <div
-                v-for="(item, ii) in form[cl.key]"
-                :key="item.id"
-                class="tw:flex tw:items-start tw:gap-2"
-              >
-                <span class="tw:text-xs tw:text-secondary tw:mt-2 tw:w-4 tw:text-right">{{
-                  ii + 1
-                }}</span>
-                <BaseTextInput v-model="item.text" class="tw:flex-1" :placeholder="cl.ph" />
+            <div
+              v-for="cl in [
+                {
+                  key: 'questions',
+                  label: 'Questions (checklist)',
+                  add: 'Add question',
+                  ph: 'e.g. Is competency assessed and recorded for QMS personnel?',
+                  empty: 'No questions yet — add the items the auditor will confirm.',
+                },
+                {
+                  key: 'observations',
+                  label: 'Observations (checklist)',
+                  add: 'Add observation',
+                  ph: 'e.g. Operators wearing required PPE on the line',
+                  empty: 'No observations yet — add what the auditor should watch for.',
+                },
+                {
+                  key: 'evidenceItems',
+                  label: 'Expected Evidence (checklist)',
+                  add: 'Add evidence item',
+                  ph: 'e.g. Calibration certificates for test equipment',
+                  empty: 'No evidence items yet — add the records the auditor should collect.',
+                },
+              ]"
+              :key="cl.key"
+            >
+              <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
+                <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">{{ cl.label }}</p>
                 <button
                   type="button"
-                  class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1.5 tw:mt-0.5 tw:cursor-pointer tw:bg-transparent tw:border-0"
-                  title="Remove"
-                  @click="removeChecklistItem(form[cl.key], ii)"
+                  class="tw:text-xs tw:font-medium tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:inline-flex tw:items-center tw:gap-1"
+                  @click="addChecklistItem(form[cl.key])"
                 >
-                  <IconTrash :size="14" />
+                  <IconPlus :size="13" /> {{ cl.add }}
                 </button>
               </div>
-            </div>
-            <p v-else class="tw:text-xs tw:text-secondary tw:italic">{{ cl.empty }}</p>
-          </div>
-
-          <!-- People / roles to interview (free-text roles/titles). -->
-          <BaseField label="People / roles to interview">
-            <div
-              v-if="form.peopleToInterview.length"
-              class="tw:flex tw:flex-wrap tw:gap-1.5 tw:mb-1.5"
-            >
-              <span
-                v-for="(role, ri) in form.peopleToInterview"
-                :key="ri"
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:bg-main-hover tw:rounded tw:pl-2 tw:pr-1 tw:py-0.5"
-              >
-                {{ role }}
-                <button
-                  type="button"
-                  class="tw:text-secondary tw:hover:text-red-600 tw:rounded tw:cursor-pointer tw:bg-transparent tw:border-0"
-                  @click="removeRole(ri)"
+              <div v-if="form[cl.key].length" class="tw:flex tw:flex-col tw:gap-1.5">
+                <div
+                  v-for="(item, ii) in form[cl.key]"
+                  :key="item.id"
+                  class="tw:flex tw:items-start tw:gap-2"
                 >
-                  <IconX :size="12" />
-                </button>
-              </span>
+                  <span class="tw:text-xs tw:text-secondary tw:mt-2 tw:w-4 tw:text-right">{{
+                    ii + 1
+                  }}</span>
+                  <BaseTextInput v-model="item.text" class="tw:flex-1" :placeholder="cl.ph" />
+                  <button
+                    type="button"
+                    class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1.5 tw:mt-0.5 tw:cursor-pointer tw:bg-transparent tw:border-0"
+                    title="Remove"
+                    @click="removeChecklistItem(form[cl.key], ii)"
+                  >
+                    <IconTrash :size="14" />
+                  </button>
+                </div>
+              </div>
+              <p v-else class="tw:text-xs tw:text-secondary tw:italic">{{ cl.empty }}</p>
             </div>
-            <div class="tw:flex tw:items-center tw:gap-2">
-              <BaseTextInput
-                v-model="newRole"
-                class="tw:flex-1"
-                placeholder="e.g. Quality Manager, Line Supervisor…"
-                @keyup.enter="addRole"
-              />
-              <BaseButton variant="outline" size="sm" :disabled="!newRole.trim()" @click="addRole">
-                Add
-              </BaseButton>
-            </div>
-          </BaseField>
-        </div>
-        <!-- /Audit checklists tab -->
 
-        <!-- Tab: Clause details -->
-        <div v-show="editTab === 'clause'" class="tw:flex tw:flex-col tw:gap-3">
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <BaseField label="Department">
-              <DepartmentSelectMenu v-model="form.departmentId" />
-            </BaseField>
-            <BaseField label="Category">
-              <AuditFindingCategorySelectMenu v-model="form.categoryId" />
+            <!-- People / roles to interview (free-text roles/titles). -->
+            <BaseField label="People / roles to interview">
+              <div
+                v-if="form.peopleToInterview.length"
+                class="tw:flex tw:flex-wrap tw:gap-1.5 tw:mb-1.5"
+              >
+                <span
+                  v-for="(role, ri) in form.peopleToInterview"
+                  :key="ri"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:bg-main-hover tw:rounded tw:pl-2 tw:pr-1 tw:py-0.5"
+                >
+                  {{ role }}
+                  <button
+                    type="button"
+                    class="tw:text-secondary tw:hover:text-red-600 tw:rounded tw:cursor-pointer tw:bg-transparent tw:border-0"
+                    @click="removeRole(ri)"
+                  >
+                    <IconX :size="12" />
+                  </button>
+                </span>
+              </div>
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <BaseTextInput
+                  v-model="newRole"
+                  class="tw:flex-1"
+                  placeholder="e.g. Quality Manager, Line Supervisor…"
+                  @keyup.enter="addRole"
+                />
+                <BaseButton
+                  variant="outline"
+                  size="sm"
+                  :disabled="!newRole.trim()"
+                  @click="addRole"
+                >
+                  Add
+                </BaseButton>
+              </div>
             </BaseField>
           </div>
-          <BaseField v-slot="{ id: fieldId }" label="Description">
-            <BaseTextarea
-              :id="fieldId"
-              v-model="form.description"
-              :rows="4"
-              placeholder="What the requirement says verbatim. Pasted from the standard text."
-            />
-          </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Guidance">
-            <BaseTextarea
-              :id="fieldId"
-              v-model="form.guidance"
-              :rows="3"
-              placeholder="How to interpret / audit this requirement. Internal interpretation notes."
-            />
-          </BaseField>
-          <!-- Expected Evidence is now the checklist above (#24). -->
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <BaseField v-slot="{ id: fieldId }" label="Display Order">
-              <BaseTextInput :id="fieldId" v-model.number="form.displayOrder" type="number" :min="0" />
+          <!-- /Audit checklists tab -->
+
+          <!-- Tab: Clause details -->
+          <div v-show="editTab === 'clause'" class="tw:flex tw:flex-col tw:gap-3">
+            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+              <BaseField label="Department">
+                <DepartmentSelectMenu v-model="form.departmentId" />
+              </BaseField>
+              <BaseField label="Category">
+                <AuditFindingCategorySelectMenu v-model="form.categoryId" />
+              </BaseField>
+            </div>
+            <BaseField v-slot="{ id: fieldId }" label="Description">
+              <BaseTextarea
+                :id="fieldId"
+                v-model="form.description"
+                :rows="4"
+                placeholder="What the requirement says verbatim. Pasted from the standard text."
+              />
             </BaseField>
-            <BaseField
-              v-slot="{ id: fieldId }"
-              label="Risk Weight"
-              hint="1–100. Reserved for risk-based auditing prioritisation."
-            >
-              <BaseTextInput :id="fieldId" v-model.number="form.riskWeight" type="number" :min="1" :max="100" />
+            <BaseField v-slot="{ id: fieldId }" label="Guidance">
+              <BaseTextarea
+                :id="fieldId"
+                v-model="form.guidance"
+                :rows="3"
+                placeholder="How to interpret / audit this requirement. Internal interpretation notes."
+              />
             </BaseField>
+            <!-- Expected Evidence is now the checklist above (#24). -->
+            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+              <BaseField v-slot="{ id: fieldId }" label="Display Order">
+                <BaseTextInput
+                  :id="fieldId"
+                  v-model.number="form.displayOrder"
+                  type="number"
+                  :min="0"
+                />
+              </BaseField>
+              <BaseField
+                v-slot="{ id: fieldId }"
+                label="Risk Weight"
+                hint="1–100. Reserved for risk-based auditing prioritisation."
+              >
+                <BaseTextInput
+                  :id="fieldId"
+                  v-model.number="form.riskWeight"
+                  type="number"
+                  :min="1"
+                  :max="100"
+                />
+              </BaseField>
+            </div>
           </div>
+          <!-- /Clause details tab -->
         </div>
-        <!-- /Clause details tab -->
-      </div>
+      </BaseForm>
       <template #footer="{ close }">
         <BaseDialogFooter
           :submitLabel="editing ? 'Save' : 'Add Requirement'"
           :loading="saving"
           @cancel="close"
-          @submit="handleSave"
+          @submit="formRef.submit()"
         />
       </template>
     </BaseDialog>

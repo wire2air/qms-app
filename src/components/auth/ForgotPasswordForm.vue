@@ -1,6 +1,7 @@
 <script setup>
 import { IconMail, IconMailCheck } from '@tabler/icons-vue'
 import { useAuth } from '@/composables/useAuth.js'
+import { required } from '@shared/components/form/validators.js'
 
 const router = useRouter()
 const toast = useToast()
@@ -8,25 +9,25 @@ const { requestPasswordReset, loading } = useAuth()
 
 const email = ref('')
 const submitted = ref(false)
+const emailFormatError = ref('')
+const formRef = ref(null)
 
-function isValidEmail(emailValue) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(emailValue)
-}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 async function handleSubmit() {
-  if (!email.value) {
-    toast.error('Please enter your email address')
+  emailFormatError.value = ''
+
+  if (!EMAIL_RE.test(email.value)) {
+    emailFormatError.value = 'Please enter a valid email address.'
     return
   }
 
-  if (!isValidEmail(email.value)) {
-    toast.error('Please enter a valid email address')
-    return
+  try {
+    await requestPasswordReset(email.value)
+    submitted.value = true
+  } catch (err) {
+    toast.error(err?.message || 'Failed to send reset link. Please try again.')
   }
-
-  await requestPasswordReset(email.value)
-  submitted.value = true
 }
 
 function goToLogin() {
@@ -44,38 +45,51 @@ function goToLogin() {
     </div>
 
     <div class="tw:pt-4">
-      <div class="tw:flex tw:flex-col tw:gap-4">
-        <BaseTextInput
-          v-model="email"
-          type="email"
-          placeholder="Email"
-          autocomplete="email"
-          :disabled="loading"
-          @keyup.enter="handleSubmit"
-        >
-          <template #icon>
-            <IconMail :size="16" class="tw:text-secondary" />
-          </template>
-        </BaseTextInput>
+      <BaseForm ref="formRef" hideFooter @submit="handleSubmit">
+        <div class="tw:flex tw:flex-col tw:gap-4">
+          <BaseField
+            label="Email"
+            required
+            :value="email"
+            :rules="[required()]"
+            :error="emailFormatError"
+          >
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model="email"
+                type="email"
+                placeholder="Email"
+                autocomplete="email"
+                :disabled="loading"
+                @keyup.enter="formRef?.submit()"
+              >
+                <template #icon>
+                  <IconMail :size="16" class="tw:text-secondary" />
+                </template>
+              </BaseTextInput>
+            </template>
+          </BaseField>
 
-        <button
-          class="tw:w-full tw:py-3 tw:px-4 tw:rounded-lg tw:bg-primary tw:text-white tw:font-medium tw:text-sm tw:hover:opacity-90 tw:transition-opacity tw:cursor-pointer tw:border-0 disabled:tw:opacity-50 disabled:tw:cursor-not-allowed"
-          :disabled="loading || !email"
-          @click="handleSubmit"
-        >
-          <span v-if="loading" class="tw:inline-flex tw:items-center tw:justify-center tw:gap-2">
-            <BaseSpinner size="sm" color="white" />
-            Sending...
-          </span>
-          <span v-else>Send reset link</span>
-        </button>
+          <button
+            class="tw:w-full tw:py-3 tw:px-4 tw:rounded-lg tw:bg-primary tw:text-white tw:font-medium tw:text-sm tw:hover:opacity-90 tw:transition-opacity tw:cursor-pointer tw:border-0 disabled:tw:opacity-50 disabled:tw:cursor-not-allowed"
+            :disabled="loading || !email"
+            @click="formRef?.submit()"
+          >
+            <span v-if="loading" class="tw:inline-flex tw:items-center tw:justify-center tw:gap-2">
+              <BaseSpinner size="sm" color="white" />
+              Sending...
+            </span>
+            <span v-else>Send reset link</span>
+          </button>
 
-        <div class="tw:text-center">
-          <a href="#" class="tw:text-sm tw:text-primary" @click.prevent="goToLogin">
-            Back to sign in
-          </a>
+          <div class="tw:text-center">
+            <a href="#" class="tw:text-sm tw:text-primary" @click.prevent="goToLogin">
+              Back to sign in
+            </a>
+          </div>
         </div>
-      </div>
+      </BaseForm>
     </div>
   </div>
 

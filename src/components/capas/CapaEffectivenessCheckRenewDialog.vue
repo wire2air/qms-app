@@ -1,6 +1,7 @@
 <script setup>
-import { post } from '@/api'
+import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { DateTime } from 'luxon'
+import { required } from '@shared/components/form/validators.js'
 import workflowInstanceEsignAuthDialog from '@/components/workflowInstance/workflowInstanceEsignAuthDialog.vue'
 
 const props = defineProps({
@@ -14,6 +15,8 @@ const toast = useToast()
 const dueAt = ref(null)
 const comments = ref('')
 const saving = ref(false)
+const saveError = ref('')
+const formRef = ref(null)
 const esignOpen = ref(false)
 const esignData = ref(null)
 
@@ -22,6 +25,7 @@ watch(isOpen, (open) => {
     dueAt.value = DateTime.now().plus({ days: 30 })
     comments.value = ''
     esignData.value = null
+    saveError.value = ''
   } else {
     dueAt.value = null
   }
@@ -30,20 +34,13 @@ watch(isOpen, (open) => {
 function handleEsignVerified(data) {
   esignData.value = data
   esignOpen.value = false
-  handleSubmit()
+  doRenew()
 }
 
-async function handleSubmit() {
+async function doRenew() {
   if (!props.checkId) return
-  if (!dueAt.value) {
-    toast.notify({ type: 'negative', message: 'New due date is required' })
-    return
-  }
-  if (!esignData.value) {
-    esignOpen.value = true
-    return
-  }
   saving.value = true
+  saveError.value = ''
   try {
     const response = await post(
       `/v1/services/capas/${props.capaId}/effectivenessChecks/${props.checkId}/renew`,
@@ -59,40 +56,54 @@ async function handleSubmit() {
     isOpen.value = false
     emit('renewed', response.effectivenessCheck)
   } catch (e) {
-    toast.notify({ type: 'negative', message: e.message || 'Failed to renew' })
+    saveError.value = e.message || 'Failed to renew'
     esignData.value = null
   } finally {
     saving.value = false
   }
 }
+
+async function onValidSubmit() {
+  if (!props.checkId) return
+  if (!esignData.value) {
+    esignOpen.value = true
+    return
+  }
+  await doRenew()
+}
 </script>
 
 <template>
   <BaseDialog v-model="isOpen" title="Renew Effectiveness Check" maxWidth="md">
-    <div class="tw:flex tw:flex-col tw:gap-3">
-      <p class="tw:text-sm tw:text-secondary">
-        Close out this check and schedule the next follow-up. This requires e-signature verification.
-      </p>
-      <BaseField label="Next due date" required>
-        <BaseDateField v-model="dueAt" mode="date" />
-      </BaseField>
-      <BaseField v-slot="{ id: fieldId }" label="Comments">
-        <BaseTextarea
-          :id="fieldId"
-          v-model="comments"
-          placeholder="What did you verify on this round?"
-          :rows="3"
-        />
-      </BaseField>
-    </div>
+    <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
+      <div class="tw:flex tw:flex-col tw:gap-3">
+        <p class="tw:text-sm tw:text-secondary">
+          Close out this check and schedule the next follow-up. This requires e-signature
+          verification.
+        </p>
+        <BaseField label="Next due date" required :value="dueAt" :rules="[required()]">
+          <BaseDateField v-model="dueAt" mode="date" />
+        </BaseField>
+        <BaseField label="Comments" :value="comments">
+          <template #default="field">
+            <BaseTextarea
+              v-bind="field"
+              v-model="comments"
+              placeholder="What did you verify on this round?"
+              :rows="3"
+            />
+          </template>
+        </BaseField>
+      </div>
+    </BaseForm>
 
-    <template #footer>
+    <template #footer="{ close }">
       <BaseDialogFooter
         submitLabel="Renew"
         :loading="saving"
-        :disabled="!dueAt"
-        @cancel="isOpen = false"
-        @submit="handleSubmit"
+        :error="saveError"
+        @cancel="close"
+        @submit="formRef.submit()"
       />
     </template>
   </BaseDialog>

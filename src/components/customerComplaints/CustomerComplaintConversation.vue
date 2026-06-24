@@ -115,11 +115,8 @@ function trustedHtml(message) {
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-    <BaseText
-      variant="overline"
-      class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-    >
+  <BaseCard>
+    <BaseText variant="overline" class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
       Conversation
     </BaseText>
 
@@ -142,10 +139,7 @@ function trustedHtml(message) {
             :size="14"
           />
           <span class="tw:font-medium">{{ senderLabel(message) }}</span>
-          <BaseBadge
-            v-if="isNote(message)"
-            class="tw:bg-amber-100 tw:text-amber-700 tw:text-micro"
-          >
+          <BaseBadge v-if="isNote(message)" class="tw:bg-amber-100 tw:text-amber-700 tw:text-micro">
             Internal note
           </BaseBadge>
           <span>·</span>
@@ -241,7 +235,7 @@ function trustedHtml(message) {
         </BaseButton>
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>
 
 <style scoped>

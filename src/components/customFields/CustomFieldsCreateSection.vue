@@ -70,19 +70,15 @@ defineExpose({ persist, validate })
 </script>
 
 <template>
-  <div
-    v-if="hasFields"
-    class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-  >
-    <div class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
-      <BaseText variant="overline">{{ title }}</BaseText>
+  <FormSection v-if="hasFields" :title="title">
+    <template #actions>
       <span
         class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
       >
         Custom
       </span>
-    </div>
+    </template>
 
     <DynamicForm ref="formRef" v-model="payload" :fields="schema" />
-  </div>
+  </FormSection>
 </template>

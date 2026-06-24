@@ -1,13 +1,17 @@
 <script setup>
-import { IconPaperclip, IconX } from '@tabler/icons-vue'
+import { IconPaperclip, IconX, IconInfoCircle, IconUser } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 import { uploadFile } from '@/composables/useFileUpload'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { required } from '@shared/components/form/validators.js'
+import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
 
 const router = useRouter()
 const toast = useToast()
 const saving = ref(false)
+// Server-side save failure — surfaced persistently in the form footer.
+const submitError = ref('')
 
 const form = ref({
   subject: '',
@@ -25,6 +29,39 @@ const form = ref({
 const pendingAssets = ref([])
 const uploading = ref(false)
 const fileInputRef = ref(null)
+
+// Unsaved-changes marker for the footer + BaseForm's beforeunload guard.
+const isDirty = ref(false)
+watch(form, () => (isDirty.value = true), { deep: true })
+
+// Confirm before abandoning a half-filled complaint via in-app navigation
+// (Cancel, back, sidebar). allowLeave() is called before the post-save
+// redirect so a successful create doesn't prompt. BaseForm covers the
+// browser-level exit.
+const { allowLeave } = useUnsavedChangesGuard(isDirty)
+
+// Sticky section nav (FormProgressNav). Section ids mirror the FormSection ids
+// below; status shows a check once a section's required fields are satisfied.
+const navSections = computed(() => [
+  {
+    id: 'cc-details',
+    label: 'Details',
+    icon: IconInfoCircle,
+    status: form.value.subject.trim() ? 'complete' : null,
+  },
+  {
+    id: 'cc-customer',
+    label: 'Customer',
+    icon: IconUser,
+    status: null,
+  },
+  {
+    id: 'cc-attachments',
+    label: 'Attachments',
+    icon: IconPaperclip,
+    status: pendingAssets.value.length ? 'complete' : null,
+  },
+])
 
 function onPickFiles() {
   fileInputRef.value?.click()
@@ -53,12 +90,14 @@ function removePendingAsset(assetId) {
   pendingAssets.value = pendingAssets.value.filter((a) => a.id !== assetId)
 }
 
-async function handleSubmit() {
-  if (!form.value.subject.trim()) {
-    toast.notify({ type: 'negative', message: 'Subject is required' })
-    return
-  }
+function goBack() {
+  router.push(getCompanyPath('/customer-complaints'))
+}
+
+// Fires only after BaseForm's per-field rules pass.
+async function onSubmit() {
   saving.value = true
+  submitError.value = ''
   try {
     const response = await post('/v1/services/customerComplaints', {
       subject: form.value.subject.trim(),
@@ -71,9 +110,10 @@ async function handleSubmit() {
       customerPhone: form.value.customerPhone || null,
       assetIds: pendingAssets.value.map((a) => a.id),
     })
+    allowLeave() // saved — don't prompt on the redirect
     router.push(getCompanyPath(`/customer-complaints/${response.customerComplaint.id}`))
   } catch (e) {
-    toast.notify({ type: 'negative', message: e.message || 'Failed to create complaint' })
+    submitError.value = e.message || 'Failed to create complaint'
   } finally {
     saving.value = false
   }
@@ -91,40 +131,47 @@ async function handleSubmit() {
           ]"
         />
       </template>
-      <template #actions>
-        <BaseButton variant="primary" :disabled="saving || uploading" @click="handleSubmit">
-          {{ saving ? 'Creating…' : 'Create Complaint' }}
-        </BaseButton>
-      </template>
     </PageHeader>
 
     <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
-      <div class="tw:py-6 tw:flex tw:flex-col tw:gap-4">
+      <div class="tw:sticky tw:top-0 tw:z-10 tw:bg-main">
+        <FormProgressNav :sections="navSections" />
+      </div>
+      <BaseForm
+        class="tw:py-6"
+        :dirty="isDirty"
+        :loading="saving || uploading"
+        :submitError="submitError"
+        submitLabel="Create Complaint"
+        @submit="onSubmit"
+        @cancel="goBack"
+      >
         <!-- Complaint details -->
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <BaseText
-            variant="overline"
-            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-          >
-            Complaint details
-          </BaseText>
+        <FormSection id="cc-details" title="Complaint details" :icon="IconInfoCircle">
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <BaseField v-slot="{ id: fieldId }" label="Subject" required>
-              <BaseTextInput
-                :id="fieldId"
-                v-model="form.subject"
-                placeholder="Short summary of the complaint…"
-              />
+            <BaseField
+              id="cc-subject"
+              label="Subject"
+              required
+              :value="form.subject"
+              :rules="[required()]"
+            >
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.subject"
+                  placeholder="Short summary of the complaint…"
+                />
+              </template>
             </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="Description">
+            <BaseField label="Description">
               <BaseTextarea
-                :id="fieldId"
                 v-model="form.description"
                 placeholder="Describe the complaint in the customer's words…"
                 :rows="5"
               />
             </BaseField>
-            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <BaseFieldRow :columns="2">
               <BaseField label="Source">
                 <div class="tw:flex tw:gap-2">
                   <BaseButton
@@ -151,53 +198,70 @@ async function handleSubmit() {
                   </BaseButton>
                 </div>
               </BaseField>
-            </div>
+            </BaseFieldRow>
           </div>
-        </div>
+        </FormSection>
 
         <!-- Customer details -->
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <BaseText
-            variant="overline"
-            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-          >
-            Customer details
-          </BaseText>
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <BaseField v-slot="{ id: fieldId }" label="Name">
-              <BaseTextInput
-                :id="fieldId"
-                v-model="form.customerName"
-                placeholder="Customer contact name"
-              />
+        <FormSection
+          id="cc-customer"
+          title="Customer details"
+          :icon="IconUser"
+          optional
+          collapsible
+          :defaultOpen="false"
+        >
+          <BaseFieldRow :columns="2">
+            <BaseField label="Name">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.customerName"
+                  placeholder="Customer contact name"
+                />
+              </template>
             </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="Email">
-              <BaseTextInput
-                :id="fieldId"
-                v-model="form.customerEmail"
-                type="email"
-                placeholder="customer@example.com"
-              />
+            <BaseField label="Email">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.customerEmail"
+                  type="email"
+                  placeholder="customer@example.com"
+                />
+              </template>
             </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="Company">
-              <BaseTextInput
-                :id="fieldId"
-                v-model="form.customerCompany"
-                placeholder="Customer company"
-              />
+            <BaseField label="Company">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.customerCompany"
+                  placeholder="Customer company"
+                />
+              </template>
             </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="Phone">
-              <BaseTextInput :id="fieldId" v-model="form.customerPhone" placeholder="Phone number" />
+            <BaseField label="Phone">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.customerPhone"
+                  placeholder="Phone number"
+                />
+              </template>
             </BaseField>
-          </div>
-        </div>
+          </BaseFieldRow>
+        </FormSection>
 
         <!-- Attachments -->
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-          >
-            <BaseText variant="overline">Attachments</BaseText>
+        <FormSection
+          id="cc-attachments"
+          title="Attachments"
+          :icon="IconPaperclip"
+          optional
+          collapsible
+          :defaultOpen="false"
+        >
+          <template #actions>
             <BaseButton variant="outline" size="sm" :disabled="uploading" @click="onPickFiles">
               <IconPaperclip :size="16" class="tw:mr-1" />
               {{ uploading ? 'Uploading…' : 'Add files' }}
@@ -209,7 +273,7 @@ async function handleSubmit() {
               class="tw:hidden"
               @change="onFilesSelected"
             />
-          </div>
+          </template>
           <div v-if="pendingAssets.length" class="tw:flex tw:flex-col tw:gap-2">
             <div
               v-for="asset in pendingAssets"
@@ -228,8 +292,8 @@ async function handleSubmit() {
             </div>
           </div>
           <div v-else class="tw:text-sm tw:text-secondary tw:italic">No files attached yet.</div>
-        </div>
-      </div>
+        </FormSection>
+      </BaseForm>
     </div>
   </BasePage>
 </template>

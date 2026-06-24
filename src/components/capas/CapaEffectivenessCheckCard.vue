@@ -119,13 +119,10 @@ function openComplete() {
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-    <div
-      class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-    >
-      <BaseText variant="overline">Effectiveness Check</BaseText>
-      <span v-if="savingInterval" class="tw:text-xs tw:text-secondary">Saving…</span>
-    </div>
+  <FormSection title="Effectiveness Check">
+    <template v-if="savingInterval" #actions>
+      <span class="tw:text-xs tw:text-secondary">Saving…</span>
+    </template>
 
     <!-- ─── Planning mode (DRAFT / PENDING) ────────────────────────────── -->
     <div v-if="!isClosed && capa" class="tw:flex tw:flex-col tw:gap-3">
@@ -229,5 +226,5 @@ function openComplete() {
       :capaId="capaId"
       :checkId="activeCheck?.id"
     />
-  </div>
+  </FormSection>
 </template>

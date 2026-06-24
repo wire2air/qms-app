@@ -127,27 +127,27 @@ const BREAKDOWN_SECTIONS = [
 
     <!-- Headline metrics -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-5 tw:gap-3">
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
+      <BaseCard>
         <BaseText variant="overline">Created</BaseText>
         <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ metrics.created }}</div>
-      </div>
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
+      </BaseCard>
+      <BaseCard>
         <BaseText variant="overline">Resolved</BaseText>
         <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ metrics.resolved }}</div>
-      </div>
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
+      </BaseCard>
+      <BaseCard>
         <BaseText variant="overline">Avg first response</BaseText>
         <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
           {{ formatHours(metrics.avgFirstResponse) }}
         </div>
-      </div>
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
+      </BaseCard>
+      <BaseCard>
         <BaseText variant="overline">Avg resolution</BaseText>
         <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
           {{ formatHours(metrics.avgResolution) }}
         </div>
-      </div>
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
+      </BaseCard>
+      <BaseCard>
         <BaseText variant="overline">CSAT</BaseText>
         <div class="tw:flex tw:items-baseline tw:gap-1">
           <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
@@ -158,11 +158,11 @@ const BREAKDOWN_SECTIONS = [
             ({{ metrics.csatCount }})
           </span>
         </div>
-      </div>
+      </BaseCard>
     </div>
 
     <!-- Weekly trend -->
-    <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5">
+    <BaseCard>
       <div class="tw:flex tw:items-center tw:justify-between tw:mb-4">
         <BaseText variant="overline">Created vs Resolved (weekly)</BaseText>
         <div class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary">
@@ -193,15 +193,11 @@ const BREAKDOWN_SECTIONS = [
           />
         </div>
       </div>
-    </div>
+    </BaseCard>
 
     <!-- Breakdowns -->
     <ContentGrid min="18rem" gap="compact">
-      <div
-        v-for="section in BREAKDOWN_SECTIONS"
-        :key="section.title"
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5"
-      >
+      <BaseCard v-for="section in BREAKDOWN_SECTIONS" :key="section.title">
         <BaseText variant="overline" class="tw:block tw:mb-3">{{ section.title }}</BaseText>
         <div v-if="section.data.value.length" class="tw:flex tw:flex-col tw:gap-2">
           <div v-for="row in section.data.value" :key="row.key" class="tw:flex tw:flex-col">
@@ -218,7 +214,7 @@ const BREAKDOWN_SECTIONS = [
           </div>
         </div>
         <p v-else class="tw:text-xs tw:text-secondary tw:italic">No data in range.</p>
-      </div>
+      </BaseCard>
     </ContentGrid>
   </BasePage>
 </template>

@@ -157,10 +157,7 @@ watch(
 </script>
 
 <template>
-  <div
-    v-if="capa && hasWorkflow"
-    class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4"
-  >
+  <BaseCard v-if="capa && hasWorkflow" class="tw:flex tw:flex-col tw:gap-4">
     <div class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider">
       <div>
         <BaseText as="h3" weight="bold">Workflow Plan</BaseText>
@@ -235,5 +232,5 @@ watch(
         </div>
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>

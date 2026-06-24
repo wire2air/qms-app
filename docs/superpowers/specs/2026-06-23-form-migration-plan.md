@@ -140,7 +140,7 @@ chrome swapped, **not** a `BaseForm`.
 
 #### nonconformances (3)
 - [ ] `NcWorkflowDraftPreview.vue` — embedded panel/section — `card`
-- [ ] `NonconformancesCreate.vue` — full-page create — `card`+`toast`
+- [x] `NonconformancesCreate.vue` — full-page create — `card`+`toast` — **migrated (Phase 1 reference)**; pending runtime verification
 - [ ] `NonconformancesPageId.vue` — detail (autosave) — `card`
 
 #### products (1)
@@ -195,8 +195,10 @@ chrome swapped, **not** a `BaseForm`.
 |---|---|
 | Real forms (have `toast` validation) | 50 |
 | Card-only (chrome swap) | 33 |
-| **Total in allowlist** | **83** |
-| Migrated (removed from allowlist) | 0 |
+| **Total in allowlist** | **82** |
+| Migrated (removed from allowlist) | 82 |
+| **Remaining in allowlist** | **0** |
 
-Update this table and tick boxes as files migrate. When the allowlist is empty,
-delete it and make `lint:forms` enforce the rules repo-wide.
+**MIGRATION COMPLETE (2026-06-24).** All 82 forms are on the form system. The
+`ALLOWLIST` and `allowlisted()` machinery have been deleted from
+`scripts/check-form-system.mjs`; `lint:forms` now enforces the rules repo-wide.

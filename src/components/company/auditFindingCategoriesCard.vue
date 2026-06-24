@@ -16,7 +16,8 @@
 
 import { IconPlus, IconPencil, IconTrash, IconRestore } from '@tabler/icons-vue'
 import { currentSession, isAllowed } from '@/utils/currentSession.js'
-import { post, patch, del } from '@/api'
+import { post, patch, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { required } from '@shared/components/form/validators.js'
 
 const toast = useToast()
 const { confirm } = useConfirm()
@@ -42,6 +43,8 @@ const deactivated = useLiveQuery(
 
 const showEditDialog = ref(false)
 const editing = ref(null)
+const formRef = ref(null)
+const saveError = ref('')
 const form = ref({
   code: '',
   name: '',
@@ -72,6 +75,14 @@ watch(
   },
 )
 
+// Reset dialog state on open so a previous error or dirty state never bleeds
+// into the next invocation.
+watch(showEditDialog, (val) => {
+  if (val) {
+    saveError.value = ''
+  }
+})
+
 function openAdd() {
   editing.value = null
   codeDirty.value = false
@@ -100,12 +111,9 @@ function openEdit(row) {
   showEditDialog.value = true
 }
 
-async function handleSave() {
-  if (!form.value.name.trim()) {
-    toast.warning('Name is required')
-    return
-  }
+async function onValidSubmit() {
   saving.value = true
+  saveError.value = ''
   try {
     if (editing.value) {
       await patch(`/v1/services/auditFindingCategories/${editing.value.id}`, {
@@ -116,11 +124,6 @@ async function handleSave() {
       })
       toast.success('Category updated')
     } else {
-      if (!form.value.code.trim()) {
-        toast.warning('Code is required')
-        saving.value = false
-        return
-      }
       await post('/v1/services/auditFindingCategories', {
         code: form.value.code.trim().toUpperCase(),
         name: form.value.name.trim(),
@@ -132,7 +135,7 @@ async function handleSave() {
     }
     showEditDialog.value = false
   } catch (e) {
-    toast.error(e.message || 'Failed to save')
+    saveError.value = e.message || 'Failed to save'
   } finally {
     saving.value = false
   }
@@ -298,61 +301,86 @@ const showDeactivated = ref(false)
       :title="editing ? 'Edit Category' : 'Add Category'"
       maxWidth="md"
     >
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <BaseField v-slot="{ id: fieldId }" label="Name" required>
-          <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. Cybersecurity" />
-        </BaseField>
-        <div v-if="!editing">
-          <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
-              Code <span class="tw:text-red-500">*</span>
-              <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
-                (auto-derived from name)
-              </span>
+      <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
+        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+          <BaseField label="Name" required :value="form.name" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput v-bind="field" v-model="form.name" placeholder="e.g. Cybersecurity" />
+            </template>
+          </BaseField>
+
+          <div v-if="!editing">
+            <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
+                Code <span class="tw:text-red-500">*</span>
+                <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
+                  (auto-derived from name)
+                </span>
+              </p>
+              <button
+                type="button"
+                class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                @click="codeEditable = !codeEditable"
+              >
+                {{ codeEditable ? 'Lock' : 'Edit' }}
+              </button>
+            </div>
+            <BaseField :value="form.code" :rules="[required()]">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.code"
+                  placeholder="CYBERSECURITY"
+                  :disabled="!codeEditable"
+                  @input="codeDirty = true"
+                />
+              </template>
+            </BaseField>
+            <p class="tw:text-caption tw:text-secondary tw:mt-1">
+              SCREAMING_SNAKE_CASE. Stable identifier saved on every audit_findings row using this
+              category — cannot be changed later.
             </p>
-            <button
-              type="button"
-              class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
-              @click="codeEditable = !codeEditable"
-            >
-              {{ codeEditable ? 'Lock' : 'Edit' }}
-            </button>
           </div>
-          <BaseTextInput
-            v-model="form.code"
-            placeholder="CYBERSECURITY"
-            :disabled="!codeEditable"
-            @input="codeDirty = true"
-          />
-          <p class="tw:text-caption tw:text-secondary tw:mt-1">
-            SCREAMING_SNAKE_CASE. Stable identifier saved on every audit_findings row using this
-            category — cannot be changed later.
-          </p>
-        </div>
-        <BaseField v-slot="{ id: fieldId }" label="Description">
-          <BaseTextarea
-            :id="fieldId"
-            v-model="form.description"
-            :rows="2"
-            placeholder="Optional description shown alongside the option in the picker"
-          />
-        </BaseField>
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-          <BaseField label="Colour" hint="Used as the badge background tint. Leave empty for neutral grey.">
-            <BaseColorPicker v-model="form.color" allowNull />
+
+          <BaseField label="Description" :value="form.description">
+            <template #default="field">
+              <BaseTextarea
+                v-bind="field"
+                v-model="form.description"
+                :rows="2"
+                placeholder="Optional description shown alongside the option in the picker"
+              />
+            </template>
           </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Display Order">
-            <BaseTextInput :id="fieldId" v-model.number="form.displayOrder" type="number" :min="0" />
-          </BaseField>
+
+          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <BaseField
+              label="Colour"
+              hint="Used as the badge background tint. Leave empty for neutral grey."
+            >
+              <BaseColorPicker v-model="form.color" allowNull />
+            </BaseField>
+            <BaseField label="Display Order" :value="form.displayOrder">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model.number="form.displayOrder"
+                  type="number"
+                  :min="0"
+                />
+              </template>
+            </BaseField>
+          </div>
         </div>
-      </div>
+      </BaseForm>
+
       <template #footer="{ close }">
         <BaseDialogFooter
           :submitLabel="editing ? 'Save' : 'Add'"
           :loading="saving"
-          :disabled="saving"
+          :error="saveError"
           @cancel="close"
-          @submit="handleSave"
+          @submit="formRef.submit()"
         />
       </template>
     </BaseDialog>
