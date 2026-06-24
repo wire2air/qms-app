@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { required, requiredWhen, email, resolveRuleMessage } from './validators.js'
+import { required, requiredWhen, email, minValue, resolveRuleMessage } from './validators.js'
 
 // A rule is (value) => true | string | ((label) => string).
 // `true` = valid. A string = an explicit message. A function = a
@@ -103,6 +103,45 @@ describe('email', () => {
   it('uses an explicit message verbatim, ignoring the label', () => {
     const result = email('Bad address')('nope')
     expect(resolveRuleMessage(result, 'Email')).toBe('Bad address')
+  })
+})
+
+describe('minValue', () => {
+  it('passes when the value is at least the minimum', () => {
+    expect(minValue(1)(1)).toBe(true)
+    expect(minValue(1)(5)).toBe(true)
+    expect(minValue(0)(0)).toBe(true)
+  })
+
+  it('passes for numeric strings at/above the minimum', () => {
+    expect(minValue(1)('1')).toBe(true)
+    expect(minValue(10)('42')).toBe(true)
+  })
+
+  it('fails when the value is below the minimum', () => {
+    expect(minValue(1)(0)).not.toBe(true)
+    expect(minValue(5)('4')).not.toBe(true)
+  })
+
+  it('passes for an empty value (let required() own emptiness)', () => {
+    expect(minValue(1)('')).toBe(true)
+    expect(minValue(1)(null)).toBe(true)
+    expect(minValue(1)(undefined)).toBe(true)
+  })
+
+  it('returns a label-derived default message when none is given', () => {
+    const result = minValue(1)(0)
+    expect(resolveRuleMessage(result, 'Months')).toBe('Months must be at least 1.')
+  })
+
+  it('falls back to a generic message when the field has no label', () => {
+    const result = minValue(3)(1)
+    expect(resolveRuleMessage(result, '')).toBe('Must be at least 3.')
+  })
+
+  it('uses an explicit message verbatim, ignoring the label', () => {
+    const result = minValue(1, 'Too small')(0)
+    expect(resolveRuleMessage(result, 'Months')).toBe('Too small')
   })
 })
 

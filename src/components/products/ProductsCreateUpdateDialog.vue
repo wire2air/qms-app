@@ -1,7 +1,6 @@
 <script setup>
 import { IconCheck, IconX as IconXCross, IconPackage } from '@tabler/icons-vue'
-import { required, helpers } from '@vuelidate/validators'
-import { useValidator } from '@shared/composables/validator.js'
+import { required } from '@shared/components/form/validators.js'
 import { currentSession } from '@/utils/currentSession.js'
 
 const props = defineProps({
@@ -18,7 +17,9 @@ const open = defineModel({
   default: false,
 })
 
-const toast = useToast()
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref('')
 
 const form = ref({
   name: '',
@@ -28,6 +29,8 @@ const form = ref({
   productTypeId: null,
   statusId: 'ACTIVE',
 })
+
+const isEdit = computed(() => !!props.id)
 
 // Load existing product if editing
 const product = useLiveQueryWithDeps(
@@ -51,17 +54,14 @@ const skuAvailable = useLiveQueryWithDeps(
   { models: ['Product'], initial: true },
 )
 
-const rules = computed(() => ({
-  name: { required: helpers.withMessage('Required', required) },
-  sku: { required: helpers.withMessage('Required', required) },
-  productTypeId: { required: helpers.withMessage('Required', required) },
-  statusId: { required: helpers.withMessage('Required', required) },
-}))
+// Live "in use" message for the SKU field (create mode); enforced on submit via skuUnique.
+const skuInUseError = computed(() =>
+  !isEdit.value && form.value.sku && !skuAvailable.value ? 'SKU already in use' : '',
+)
 
-const validator = useValidator(rules, form)
-
-const isSubmitting = ref(false)
-const isEdit = computed(() => !!props.id)
+function skuUnique() {
+  return skuAvailable.value || 'SKU already in use'
+}
 
 // Populate form when product loads in edit mode
 watch(
@@ -88,10 +88,9 @@ const createProduct = useLiveMutation(async (db, data) => {
 })
 
 async function onSubmit() {
-  const valid = await validator.value.$validate()
-  if (!valid || !skuAvailable.value) return
-
+  if (isSubmitting.value) return
   isSubmitting.value = true
+  saveError.value = ''
   try {
     const uid = currentSession.value?.userId
     if (!isEdit.value) {
@@ -105,8 +104,8 @@ async function onSubmit() {
       emit('updated', product.value)
     }
     open.value = false
-  } catch (e) {
-    toast.error(e?.message || 'Failed to save product')
+  } catch (err) {
+    saveError.value = err?.message || 'Failed to save product'
   } finally {
     isSubmitting.value = false
   }
@@ -123,6 +122,7 @@ watch(open, (val) => {
       productTypeId: null,
       statusId: 'ACTIVE',
     }
+    saveError.value = ''
   }
 })
 </script>
@@ -140,35 +140,45 @@ watch(open, (val) => {
       </div>
     </template>
 
-    <div class="tw:flex tw:flex-col tw:gap-4">
-      <BaseTextInput
-        v-model="form.name"
-        name="name"
-        label="Product Name"
-        placeholder="e.g. Stainless Steel Bolt"
-        :required="true"
-        :errorMsg="validator.$errors?.name?.[0]?.$message"
-      />
-
-      <div class="tw:relative">
-        <BaseTextInput
-          v-model="form.sku"
-          name="sku"
-          label="SKU"
-          placeholder="e.g. BOLT-SS-M8"
-          :required="true"
-          :errorMsg="
-            !skuAvailable ? 'SKU already in use' : (validator.$errors?.sku?.[0]?.$message ?? '')
-          "
-        />
-        <template v-if="!isEdit && form.sku">
-          <IconCheck
-            v-if="skuAvailable"
-            class="tw:absolute tw:right-3 tw:top-9 tw:size-4 tw:text-green-500"
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <BaseField label="Product Name" required :value="form.name" :rules="[required()]">
+        <template #default="field">
+          <BaseTextInput
+            v-bind="field"
+            v-model="form.name"
+            placeholder="e.g. Stainless Steel Bolt"
           />
-          <IconXCross v-else class="tw:absolute tw:right-3 tw:top-9 tw:size-4 tw:text-red-500" />
         </template>
-      </div>
+      </BaseField>
+
+      <BaseField
+        label="SKU"
+        required
+        :value="form.sku"
+        :rules="[required(), skuUnique]"
+        :error="skuInUseError"
+      >
+        <template #default="field">
+          <div class="tw:relative">
+            <BaseTextInput
+              v-bind="field"
+              v-model="form.sku"
+              placeholder="e.g. BOLT-SS-M8"
+              :disabled="isEdit"
+            />
+            <template v-if="!isEdit && form.sku">
+              <IconCheck
+                v-if="skuAvailable"
+                class="tw:absolute tw:right-3 tw:top-1/2 tw:-translate-y-1/2 tw:size-4 tw:text-green"
+              />
+              <IconXCross
+                v-else
+                class="tw:absolute tw:right-3 tw:top-1/2 tw:-translate-y-1/2 tw:size-4 tw:text-red"
+              />
+            </template>
+          </div>
+        </template>
+      </BaseField>
 
       <div>
         <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Product Family</p>
@@ -176,31 +186,31 @@ watch(open, (val) => {
       </div>
 
       <div class="tw:flex tw:gap-4">
-        <BaseField label="Product Type">
+        <BaseField label="Product Type" required :value="form.productTypeId" :rules="[required()]">
           <ProductTypeSelectMenu v-model="form.productTypeId" :required="true" />
         </BaseField>
 
-        <BaseField label="Status">
+        <BaseField label="Status" required :value="form.statusId" :rules="[required()]">
           <ProductStatusSelectMenu v-model="form.statusId" :required="true" />
         </BaseField>
       </div>
 
       <BaseTextarea
         v-model="form.description"
-        name="description"
         label="Description"
         placeholder="Short plain-text summary (optional)"
         :maxlength="1000"
         :rows="3"
       />
-    </div>
+    </BaseForm>
 
     <template #footer>
       <BaseDialogFooter
         :submitLabel="isEdit ? 'Save Changes' : 'Create Product'"
         :loading="isSubmitting"
+        :error="saveError"
         @cancel="open = false"
-        @submit="onSubmit"
+        @submit="formRef?.submit()"
       />
     </template>
   </BaseDialog>

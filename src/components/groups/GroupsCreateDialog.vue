@@ -1,8 +1,14 @@
 <script setup>
+import { required } from '@shared/components/form/validators.js'
+
 const open = defineModel({
   type: Boolean,
   default: false,
 })
+
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref(null)
 
 const form = ref({
   name: '',
@@ -10,9 +16,6 @@ const form = ref({
   isLeadership: false,
   userIds: [],
 })
-
-const isSubmitting = ref(false)
-const saveError = ref(null)
 
 const createGroup = useLiveMutation(async (db, { name, color, isLeadership, userIds }) => {
   const team = db.Team.create({ name, color, isLeadership })
@@ -32,7 +35,7 @@ watch(open, (val) => {
 })
 
 async function onSubmit() {
-  if (!form.value.name.trim()) return
+  if (isSubmitting.value) return
   isSubmitting.value = true
   saveError.value = null
   try {
@@ -48,53 +51,54 @@ async function onSubmit() {
 
 <template>
   <BaseDialog v-model="open" title="Create New Group">
-    <div class="tw:grid tw:grid-cols-12 tw:gap-0">
-      <!-- Main Content -->
-      <div class="tw:col-span-12 tw:sm:col-span-8 tw:p-4">
-        <div class="tw:flex tw:flex-col tw:gap-3">
-          <BaseField v-slot="{ id: fieldId }" label="Group Name" required>
-            <BaseTextInput
-              :id="fieldId"
-              v-model="form.name"
-              name="name"
-              placeholder="e.g. Quality Assurance Team"
-            />
-          </BaseField>
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <div class="tw:grid tw:grid-cols-12 tw:gap-0">
+        <!-- Main Content -->
+        <div class="tw:col-span-12 tw:sm:col-span-8 tw:p-4">
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <BaseField label="Group Name" required :value="form.name" :rules="[required()]">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.name"
+                  placeholder="e.g. Quality Assurance Team"
+                />
+              </template>
+            </BaseField>
 
-          <BaseField label="Members">
-            <UserSelectMenu v-model="form.userIds" multiple />
-          </BaseField>
-
-        </div>
-      </div>
-
-      <!-- Mini Sidebar -->
-      <div class="tw:col-span-12 tw:sm:col-span-4 tw:bg-main-hover tw:p-4 tw:rounded-r-lg">
-        <div class="tw:flex tw:flex-col tw:gap-4">
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-2 tw:font-medium">Group Color</div>
-            <BaseColorPicker v-model="form.color" />
-          </div>
-
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer">
-              <BaseCheckbox v-model="form.isLeadership" />
-              <span class="tw:text-sm tw:font-medium tw:text-on-main">Leadership Team</span>
-            </label>
-            <div class="tw:text-micro tw:text-secondary">Core management group.</div>
+            <BaseField label="Members">
+              <UserSelectMenu v-model="form.userIds" multiple />
+            </BaseField>
           </div>
         </div>
+
+        <!-- Mini Sidebar -->
+        <div class="tw:col-span-12 tw:sm:col-span-4 tw:bg-main-hover tw:p-4 tw:rounded-r-lg">
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <div>
+              <div class="tw:text-xs tw:text-secondary tw:mb-2 tw:font-medium">Group Color</div>
+              <BaseColorPicker v-model="form.color" />
+            </div>
+
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer">
+                <BaseCheckbox v-model="form.isLeadership" />
+                <span class="tw:text-sm tw:font-medium tw:text-on-main">Leadership Team</span>
+              </label>
+              <div class="tw:text-micro tw:text-secondary">Core management group.</div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </BaseForm>
 
     <template #footer>
       <BaseDialogFooter
         submitLabel="Create Group"
         :loading="isSubmitting"
-        :disabled="!form.name.trim()"
         :error="saveError"
         @cancel="open = false"
-        @submit="onSubmit"
+        @submit="formRef?.submit()"
       />
     </template>
   </BaseDialog>
