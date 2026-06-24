@@ -1,7 +1,6 @@
 <script setup>
 import { IconCheck, IconX as IconXCross, IconMapPin } from '@tabler/icons-vue'
-import { required, helpers } from '@vuelidate/validators'
-import { useValidator } from '@shared/composables/validator.js'
+import { required } from '@shared/components/form/validators.js'
 
 const props = defineProps({
   id: {
@@ -17,12 +16,18 @@ const open = defineModel({
   default: false,
 })
 
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref('')
+
 const form = ref({
   name: '',
   code: '',
   address: '',
   timezone: null,
 })
+
+const isEdit = computed(() => !!props.id)
 
 // Load existing site if editing
 const site = useLiveQueryWithDeps(
@@ -46,15 +51,16 @@ const codeAvailable = useLiveQueryWithDeps(
   { models: ['Site'], initial: true },
 )
 
-const rules = computed(() => ({
-  name: { required: helpers.withMessage('Required', required) },
-  code: { required: helpers.withMessage('Required', required) },
-}))
+// Live "in use" message for the Code field — shown the moment a taken code is
+// typed (create mode). The same condition is enforced on submit via codeUnique.
+const codeInUseError = computed(() =>
+  !isEdit.value && form.value.code && !codeAvailable.value ? 'Code already in use' : '',
+)
 
-const validator = useValidator(rules, form)
-
-const isSubmitting = ref(false)
-const isEdit = computed(() => !!props.id)
+// Submit-time rule mirroring the live check so a taken code blocks submit.
+function codeUnique() {
+  return codeAvailable.value || 'Code already in use'
+}
 
 // Populate form when site loads in edit mode
 watch(
@@ -112,10 +118,9 @@ const getDisplayOrder = useLiveMutation(async (db) => {
 })
 
 async function onSubmit() {
-  const valid = await validator.value.$validate()
-  if (!valid || !codeAvailable.value) return
-
+  if (isSubmitting.value) return
   isSubmitting.value = true
+  saveError.value = ''
   try {
     if (!isEdit.value) {
       const newSite = await createSite({
@@ -134,6 +139,8 @@ async function onSubmit() {
       emit('updated', site.value)
     }
     open.value = false
+  } catch (err) {
+    saveError.value = err?.message || 'Failed to save site'
   } finally {
     isSubmitting.value = false
   }
@@ -143,6 +150,7 @@ async function onSubmit() {
 watch(open, (val) => {
   if (!val) {
     form.value = { name: '', code: '', address: '', timezone: null }
+    saveError.value = ''
   }
 })
 </script>
@@ -159,34 +167,47 @@ watch(open, (val) => {
         <span>{{ isEdit ? 'Edit Site' : 'Create New Site' }}</span>
       </div>
     </template>
-    <div class="tw:flex tw:flex-col tw:gap-4">
-      <BaseTextInput
-        v-model="form.name"
-        name="name"
-        label="Site Name"
-        placeholder="e.g. New York Headquarters"
-        :required="true"
-        @blur="onNameBlur"
-      />
 
-      <div class="tw:relative">
-        <BaseTextInput
-          v-model="form.code"
-          name="code"
-          label="Code"
-          placeholder="e.g. NY-HQ"
-          :required="true"
-          :disabled="isEdit"
-          :errorMsg="!codeAvailable ? 'Code already in use' : ''"
-        />
-        <template v-if="!isEdit && form.code">
-          <IconCheck
-            v-if="codeAvailable"
-            class="tw:absolute tw:right-3 tw:top-9 tw:size-4 tw:text-green"
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <BaseField label="Site Name" required :value="form.name" :rules="[required()]">
+        <template #default="field">
+          <BaseTextInput
+            v-bind="field"
+            v-model="form.name"
+            placeholder="e.g. New York Headquarters"
+            @blur="onNameBlur"
           />
-          <IconXCross v-else class="tw:absolute tw:right-3 tw:top-9 tw:size-4 tw:text-red" />
         </template>
-      </div>
+      </BaseField>
+
+      <BaseField
+        label="Code"
+        required
+        :value="form.code"
+        :rules="[required(), codeUnique]"
+        :error="codeInUseError"
+      >
+        <template #default="field">
+          <div class="tw:relative">
+            <BaseTextInput
+              v-bind="field"
+              v-model="form.code"
+              placeholder="e.g. NY-HQ"
+              :disabled="isEdit"
+            />
+            <template v-if="!isEdit && form.code">
+              <IconCheck
+                v-if="codeAvailable"
+                class="tw:absolute tw:right-3 tw:top-1/2 tw:-translate-y-1/2 tw:size-4 tw:text-green"
+              />
+              <IconXCross
+                v-else
+                class="tw:absolute tw:right-3 tw:top-1/2 tw:-translate-y-1/2 tw:size-4 tw:text-red"
+              />
+            </template>
+          </div>
+        </template>
+      </BaseField>
 
       <BaseTextarea
         v-model="form.address"
@@ -196,14 +217,15 @@ watch(open, (val) => {
       />
 
       <TimezoneDropdown v-model="form.timezone" />
-    </div>
+    </BaseForm>
 
     <template #footer>
       <BaseDialogFooter
         :submitLabel="isEdit ? 'Update Site' : 'Create Site'"
         :loading="isSubmitting"
+        :error="saveError"
         @cancel="open = false"
-        @submit="onSubmit"
+        @submit="formRef?.submit()"
       />
     </template>
   </BaseDialog>
