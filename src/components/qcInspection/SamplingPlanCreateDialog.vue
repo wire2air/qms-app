@@ -7,6 +7,7 @@
  */
 import { IconPlus, IconTrash } from '@tabler/icons-vue'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { required, requiredWhen, minValue } from '@shared/components/form/validators.js'
 
 const props = defineProps({
   editPlan: { type: Object, default: null },
@@ -15,6 +16,8 @@ const emit = defineEmits(['created', 'updated'])
 const show = defineModel({ type: Boolean, default: false })
 const toast = useToast()
 const saving = ref(false)
+const saveError = ref(null)
+const formRef = ref(null)
 const preview = ref(null)
 const previewing = ref(false)
 
@@ -66,13 +69,14 @@ function seedFromPlan(plan) {
     standardCode: plan.standardCode ?? null,
     inspectionLevel: plan.inspectionLevel ?? 'II',
     switchingState: plan.switchingState ?? 'NORMAL',
-    severityAqls: Array.isArray(plan.severityAqls) && plan.severityAqls.length
-      ? plan.severityAqls.map((r) => ({ severity: r.severity, aql: r.aql }))
-      : [
-          { severity: 'CRITICAL', aql: 0.4 },
-          { severity: 'MAJOR', aql: 1.0 },
-          { severity: 'MINOR', aql: 2.5 },
-        ],
+    severityAqls:
+      Array.isArray(plan.severityAqls) && plan.severityAqls.length
+        ? plan.severityAqls.map((r) => ({ severity: r.severity, aql: r.aql }))
+        : [
+            { severity: 'CRITICAL', aql: 0.4 },
+            { severity: 'MAJOR', aql: 1.0 },
+            { severity: 'MINOR', aql: 2.5 },
+          ],
     previewLotSize: 1000,
   }
 }
@@ -103,6 +107,7 @@ function reset() {
 reset()
 watch(show, (v) => {
   if (v) reset()
+  if (!v) saveError.value = null
 })
 watch(
   () => props.editPlan,
@@ -124,26 +129,6 @@ function removeAql(i) {
   form.value.severityAqls.splice(i, 1)
 }
 
-const canSubmit = computed(() => {
-  const f = form.value
-  if (!f.name?.trim()) return false
-  if (f.scope === 'product' && !f.productId) return false
-  if (f.scope === 'productType' && !f.productTypeId) return false
-  if (f.planType === 'CUSTOM') {
-    return (
-      f.customRows.length > 0 &&
-      f.customRows.every(
-        (r) =>
-          r.severityLabel?.trim() &&
-          Number.isInteger(r.sampleSize) && r.sampleSize >= 1 &&
-          Number.isInteger(r.accept) && r.accept >= 0 &&
-          Number.isInteger(r.reject) && r.reject > r.accept,
-      )
-    )
-  }
-  return !!f.standardCode && !!f.inspectionLevel && f.severityAqls.length > 0
-})
-
 async function runPreview() {
   if (!form.value.standardCode || previewing.value) return
   previewing.value = true
@@ -162,9 +147,10 @@ async function runPreview() {
   }
 }
 
-async function onSave() {
-  if (!canSubmit.value || saving.value) return
+async function onSubmit() {
+  if (saving.value) return
   saving.value = true
+  saveError.value = null
   try {
     const f = form.value
     const body = {
@@ -197,10 +183,9 @@ async function onSave() {
       emit('created', plan.id)
     }
   } catch (err) {
-    toast.error(
+    saveError.value =
       err?.message ||
-        (isEdit.value ? 'Failed to update sampling plan' : 'Failed to create sampling plan'),
-    )
+      (isEdit.value ? 'Failed to update sampling plan' : 'Failed to create sampling plan')
   } finally {
     saving.value = false
   }
@@ -214,213 +199,321 @@ async function onSave() {
     :persistent="true"
     size="3xl"
   >
-    <div class="tw:p-5 tw:flex tw:flex-col tw:gap-5">
-      <!-- ── Basic info ───────────────────────────────────────────────── -->
-      <div class="tw:flex tw:flex-col tw:gap-3">
-        <BaseField v-slot="{ id: fieldId }" label="Plan name" required>
-          <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. Finished Goods AQL 2.5" />
-        </BaseField>
-        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
-          <BaseField label="Inspection point">
-            <BaseInlineSelect
-              v-model="form.inspectionPoint"
-              :items="POINTS"
-              :required="true"
-              class="tw:w-full"
-            />
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <div class="tw:p-5 tw:flex tw:flex-col tw:gap-5">
+        <!-- ── Basic info ───────────────────────────────────────────────── -->
+        <div class="tw:flex tw:flex-col tw:gap-3">
+          <BaseField label="Plan name" required :value="form.name" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model="form.name"
+                placeholder="e.g. Finished Goods AQL 2.5"
+              />
+            </template>
           </BaseField>
-          <BaseField label="Scope">
-            <BaseInlineSelect
-              v-model="form.scope"
-              :items="[
-                { id: 'product', name: 'Specific product' },
-                { id: 'productType', name: 'Product type' },
-              ]"
-              :required="true"
-              class="tw:w-full"
-            />
-          </BaseField>
-          <BaseField label="Plan type">
-            <BaseInlineSelect
-              v-model="form.planType"
-              :items="[
-                { id: 'STANDARD', name: 'AQL standard' },
-                { id: 'CUSTOM', name: 'Custom table' },
-              ]"
-              :required="true"
-              class="tw:w-full"
-            />
-          </BaseField>
-        </div>
-        <BaseField required>
-          <template #label>
-            {{ form.scope === 'product' ? 'Product' : 'Product type' }}
-          </template>
-          <ProductSelectMenu
-            v-if="form.scope === 'product'"
-            v-model="form.productId"
-            class="tw:w-full"
-          />
-          <ProductTypeSelectMenu v-else v-model="form.productTypeId" class="tw:w-full" />
-        </BaseField>
-      </div>
-
-      <hr class="tw:border-divider" />
-
-      <!-- ── CUSTOM plan table — fixed (sampleSize, accept, reject) per
-           severity, no AQL standard lookup. ─────────────────────────────── -->
-      <div v-if="form.planType === 'CUSTOM'" class="tw:flex tw:flex-col tw:gap-3">
-        <div class="tw:flex tw:items-center tw:justify-between">
-          <BaseText variant="overline">Custom plan table</BaseText>
-          <BaseButton variant="text-link" size="sm" @click="addCustomRow">
-            <IconPlus :size="14" /> Add row
-          </BaseButton>
-        </div>
-        <p class="tw:text-xs tw:text-secondary tw:-mt-2">
-          Each row sets the fixed sample size and accept/reject numbers for a severity. Reject must
-          be greater than accept (e.g. accept 0 / reject 1 = any defect fails the lot).
-        </p>
-        <div class="tw:flex tw:flex-col tw:gap-2">
-          <div
-            v-for="(row, i) in form.customRows"
-            :key="i"
-            class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
-          >
-            <BaseField v-slot="{ id: fieldId }" label="Severity label" class="tw:flex-1">
-              <BaseTextInput :id="fieldId" v-model="row.severityLabel" size="sm" placeholder="e.g. NORMAL, CRITICAL" />
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
+            <BaseField label="Inspection point">
+              <BaseInlineSelect
+                v-model="form.inspectionPoint"
+                :items="POINTS"
+                :required="true"
+                class="tw:w-full"
+              />
             </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="Sample size" class="tw:w-28">
-              <BaseTextInput :id="fieldId" v-model.number="row.sampleSize" type="number" size="sm" />
+            <BaseField label="Scope">
+              <BaseInlineSelect
+                v-model="form.scope"
+                :items="[
+                  { id: 'product', name: 'Specific product' },
+                  { id: 'productType', name: 'Product type' },
+                ]"
+                :required="true"
+                class="tw:w-full"
+              />
             </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="Accept ≤" class="tw:w-24">
-              <BaseTextInput :id="fieldId" v-model.number="row.accept" type="number" size="sm" />
+            <BaseField label="Plan type">
+              <BaseInlineSelect
+                v-model="form.planType"
+                :items="[
+                  { id: 'STANDARD', name: 'AQL standard' },
+                  { id: 'CUSTOM', name: 'Custom table' },
+                ]"
+                :required="true"
+                class="tw:w-full"
+              />
             </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="Reject ≥" class="tw:w-24">
-              <BaseTextInput :id="fieldId" v-model.number="row.reject" type="number" size="sm" />
-            </BaseField>
-            <button
-              type="button"
-              class="tw:p-1.5 tw:mt-4 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
-              @click="removeCustomRow(i)"
-            >
-              <IconTrash :size="16" />
-            </button>
           </div>
+          <BaseField
+            required
+            :value="form.scope === 'product' ? form.productId : form.productTypeId"
+            :rules="[
+              requiredWhen(() => form.scope === 'product'),
+              requiredWhen(() => form.scope === 'productType'),
+            ]"
+          >
+            <template #label>
+              {{ form.scope === 'product' ? 'Product' : 'Product type' }}
+            </template>
+            <template #default="field">
+              <ProductSelectMenu
+                v-if="form.scope === 'product'"
+                v-bind="field"
+                v-model="form.productId"
+                class="tw:w-full"
+              />
+              <ProductTypeSelectMenu
+                v-else
+                v-bind="field"
+                v-model="form.productTypeId"
+                class="tw:w-full"
+              />
+            </template>
+          </BaseField>
         </div>
-      </div>
 
-      <!-- ── Sampling configuration (STANDARD) ─────────────────────────── -->
-      <div v-if="form.planType === 'STANDARD'" class="tw:flex tw:flex-col tw:gap-3">
-        <BaseText variant="overline">Sampling configuration</BaseText>
-        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-          <BaseField label="AQL standard" required>
-            <BaseInlineSelect
-              v-model="form.standardCode"
-              :items="standardItems"
-              :required="true"
-              placeholder="Select standard…"
-              class="tw:w-full"
-            />
-          </BaseField>
-          <BaseField label="Inspection level">
-            <BaseInlineSelect
-              v-model="form.inspectionLevel"
-              :items="LEVELS"
-              :required="true"
-              class="tw:w-full"
-            />
-          </BaseField>
-          <BaseField label="Switching state">
-            <BaseInlineSelect v-model="form.switchingState" :items="SWITCHING_STATES" :required="true" class="tw:w-full" />
-          </BaseField>
-        </div>
+        <hr class="tw:border-divider" />
 
-        <div>
-          <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
-            <label class="tw:text-sm tw:font-medium">Defect class → AQL %</label>
-            <BaseButton variant="text-link" size="sm" @click="addAql">
-              <IconPlus :size="14" /> Add class
+        <!-- ── CUSTOM plan table — fixed (sampleSize, accept, reject) per
+             severity, no AQL standard lookup. ─────────────────────────────── -->
+        <div v-if="form.planType === 'CUSTOM'" class="tw:flex tw:flex-col tw:gap-3">
+          <div class="tw:flex tw:items-center tw:justify-between">
+            <BaseText variant="overline">Custom plan table</BaseText>
+            <BaseButton variant="text-link" size="sm" @click="addCustomRow">
+              <IconPlus :size="14" /> Add row
             </BaseButton>
           </div>
-          <p class="tw:text-caption tw:text-secondary tw:mb-2">
-            One AQL per defect class — the accept/reject limits attributes inspection checks the
-            defect tally against. (Critical is usually tightest.)
+          <p class="tw:text-xs tw:text-secondary tw:-mt-2">
+            Each row sets the fixed sample size and accept/reject numbers for a severity. Reject
+            must be greater than accept (e.g. accept 0 / reject 1 = any defect fails the lot).
           </p>
-          <div class="tw:flex tw:flex-col tw:gap-2">
-            <div
-              v-for="(row, i) in form.severityAqls"
-              :key="i"
-              class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
-            >
-              <BaseField label="Defect class" class="tw:flex-1">
-                <BaseInlineSelect v-model="row.severity" :items="DEFECT_CLASSES" :required="true" class="tw:w-full" />
-              </BaseField>
-              <BaseField label="AQL %" class="tw:w-36">
-                <BaseInlineSelect v-model="row.aql" :items="AQL_OPTIONS" :required="true" class="tw:w-full" />
-              </BaseField>
-              <button
-                type="button"
-                class="tw:p-1.5 tw:mt-4 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
-                @click="removeAql(i)"
+          <BaseField
+            :value="form.customRows"
+            :rules="[
+              requiredWhen(() => form.planType === 'CUSTOM', 'Add at least one sampling row.'),
+            ]"
+          >
+            <div class="tw:flex tw:flex-col tw:gap-2">
+              <div
+                v-for="(row, i) in form.customRows"
+                :key="i"
+                class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
               >
-                <IconTrash :size="16" />
-              </button>
+                <BaseField label="Severity label" class="tw:flex-1">
+                  <template #default="field">
+                    <BaseTextInput
+                      v-bind="field"
+                      v-model="row.severityLabel"
+                      size="sm"
+                      placeholder="e.g. NORMAL, CRITICAL"
+                    />
+                  </template>
+                </BaseField>
+                <BaseField
+                  label="Sample size"
+                  :value="row.sampleSize"
+                  :rules="[required(), minValue(1)]"
+                  class="tw:w-28"
+                >
+                  <template #default="field">
+                    <BaseTextInput
+                      v-bind="field"
+                      v-model.number="row.sampleSize"
+                      type="number"
+                      size="sm"
+                    />
+                  </template>
+                </BaseField>
+                <BaseField
+                  label="Accept ≤"
+                  :value="row.accept"
+                  :rules="[required(), minValue(0)]"
+                  class="tw:w-24"
+                >
+                  <template #default="field">
+                    <BaseTextInput
+                      v-bind="field"
+                      v-model.number="row.accept"
+                      type="number"
+                      size="sm"
+                    />
+                  </template>
+                </BaseField>
+                <BaseField
+                  label="Reject ≥"
+                  :value="row.reject"
+                  :rules="[
+                    required(),
+                    (v) => Number(v) > Number(row.accept) || 'Reject must exceed accept',
+                  ]"
+                  class="tw:w-24"
+                >
+                  <template #default="field">
+                    <BaseTextInput
+                      v-bind="field"
+                      v-model.number="row.reject"
+                      type="number"
+                      size="sm"
+                    />
+                  </template>
+                </BaseField>
+                <button
+                  type="button"
+                  class="tw:p-1.5 tw:mt-4 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                  @click="removeCustomRow(i)"
+                >
+                  <IconTrash :size="16" />
+                </button>
+              </div>
+            </div>
+          </BaseField>
+        </div>
+
+        <!-- ── Sampling configuration (STANDARD) ─────────────────────────── -->
+        <div v-if="form.planType === 'STANDARD'" class="tw:flex tw:flex-col tw:gap-3">
+          <BaseText variant="overline">Sampling configuration</BaseText>
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+            <BaseField
+              label="AQL standard"
+              required
+              :value="form.standardCode"
+              :rules="[requiredWhen(() => form.planType === 'STANDARD')]"
+            >
+              <template #default="field">
+                <BaseInlineSelect
+                  v-bind="field"
+                  v-model="form.standardCode"
+                  :items="standardItems"
+                  :required="true"
+                  placeholder="Select standard…"
+                  class="tw:w-full"
+                />
+              </template>
+            </BaseField>
+            <BaseField label="Inspection level">
+              <BaseInlineSelect
+                v-model="form.inspectionLevel"
+                :items="LEVELS"
+                :required="true"
+                class="tw:w-full"
+              />
+            </BaseField>
+            <BaseField label="Switching state">
+              <BaseInlineSelect
+                v-model="form.switchingState"
+                :items="SWITCHING_STATES"
+                :required="true"
+                class="tw:w-full"
+              />
+            </BaseField>
+          </div>
+
+          <div>
+            <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
+              <label class="tw:text-sm tw:font-medium">Defect class → AQL %</label>
+              <BaseButton variant="text-link" size="sm" @click="addAql">
+                <IconPlus :size="14" /> Add class
+              </BaseButton>
+            </div>
+            <p class="tw:text-caption tw:text-secondary tw:mb-2">
+              One AQL per defect class — the accept/reject limits attributes inspection checks the
+              defect tally against. (Critical is usually tightest.)
+            </p>
+            <BaseField
+              :value="form.severityAqls"
+              :rules="[
+                requiredWhen(() => form.planType === 'STANDARD', 'Add at least one defect class.'),
+              ]"
+            >
+              <div class="tw:flex tw:flex-col tw:gap-2">
+                <div
+                  v-for="(row, i) in form.severityAqls"
+                  :key="i"
+                  class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
+                >
+                  <BaseField label="Defect class" class="tw:flex-1">
+                    <BaseInlineSelect
+                      v-model="row.severity"
+                      :items="DEFECT_CLASSES"
+                      :required="true"
+                      class="tw:w-full"
+                    />
+                  </BaseField>
+                  <BaseField label="AQL %" class="tw:w-36">
+                    <BaseInlineSelect
+                      v-model="row.aql"
+                      :items="AQL_OPTIONS"
+                      :required="true"
+                      class="tw:w-full"
+                    />
+                  </BaseField>
+                  <button
+                    type="button"
+                    class="tw:p-1.5 tw:mt-4 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                    @click="removeAql(i)"
+                  >
+                    <IconTrash :size="16" />
+                  </button>
+                </div>
+              </div>
+            </BaseField>
+          </div>
+        </div>
+
+        <hr v-if="form.planType === 'STANDARD'" class="tw:border-divider" />
+
+        <!-- ── Live preview (STANDARD only — custom tables ARE the plan) ──── -->
+        <div v-if="form.planType === 'STANDARD'">
+          <BaseText variant="overline" class="tw:block tw:mb-3">Sample-size preview</BaseText>
+          <div class="tw:flex tw:items-end tw:gap-3">
+            <BaseField label="Lot size" class="tw:w-40">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model.number="form.previewLotSize"
+                  type="number"
+                  size="sm"
+                  placeholder="e.g. 1000"
+                />
+              </template>
+            </BaseField>
+            <BaseButton
+              variant="outline"
+              size="sm"
+              :loading="previewing"
+              :disabled="!form.standardCode || !form.inspectionLevel"
+              @click="runPreview"
+            >
+              Preview
+            </BaseButton>
+          </div>
+          <div
+            v-if="preview"
+            class="tw:mt-3 tw:p-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:flex tw:flex-col tw:gap-1"
+          >
+            <div class="tw:text-sm tw:font-semibold tw:text-on-main">
+              Code letter <span class="tw:font-mono">{{ preview.codeLetter }}</span> · Sample size
+              <span class="tw:font-mono">{{ preview.sampleSize }}</span>
+            </div>
+            <div
+              v-for="s in preview.perSeverity"
+              :key="s.severity + s.aql"
+              class="tw:text-xs tw:text-secondary"
+            >
+              {{ s.severity }} — AQL {{ s.aql }}% → accept ≤ {{ s.accept }}, reject ≥ {{ s.reject }}
             </div>
           </div>
         </div>
       </div>
-
-      <hr v-if="form.planType === 'STANDARD'" class="tw:border-divider" />
-
-      <!-- ── Live preview (STANDARD only — custom tables ARE the plan) ──── -->
-      <div v-if="form.planType === 'STANDARD'">
-        <BaseText variant="overline" class="tw:block tw:mb-3">Sample-size preview</BaseText>
-        <div class="tw:flex tw:items-end tw:gap-3">
-          <BaseField v-slot="{ id: fieldId }" label="Lot size" class="tw:w-40">
-            <BaseTextInput
-              :id="fieldId"
-              v-model.number="form.previewLotSize"
-              type="number"
-              size="sm"
-              placeholder="e.g. 1000"
-            />
-          </BaseField>
-          <BaseButton
-            variant="outline"
-            size="sm"
-            :loading="previewing"
-            :disabled="!form.standardCode || !form.inspectionLevel"
-            @click="runPreview"
-          >
-            Preview
-          </BaseButton>
-        </div>
-        <div
-          v-if="preview"
-          class="tw:mt-3 tw:p-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:flex tw:flex-col tw:gap-1"
-        >
-          <div class="tw:text-sm tw:font-semibold tw:text-on-main">
-            Code letter <span class="tw:font-mono">{{ preview.codeLetter }}</span> · Sample size
-            <span class="tw:font-mono">{{ preview.sampleSize }}</span>
-          </div>
-          <div
-            v-for="s in preview.perSeverity"
-            :key="s.severity + s.aql"
-            class="tw:text-xs tw:text-secondary"
-          >
-            {{ s.severity }} — AQL {{ s.aql }}% → accept ≤ {{ s.accept }}, reject ≥ {{ s.reject }}
-          </div>
-        </div>
-      </div>
-    </div>
+    </BaseForm>
 
     <template #footer>
       <BaseDialogFooter
         :submitLabel="isEdit ? 'Save changes' : 'Create draft'"
         :loading="saving"
-        :disabled="!canSubmit"
+        :error="saveError"
         @cancel="show = false"
-        @submit="onSave"
+        @submit="formRef?.submit()"
       />
     </template>
   </BaseDialog>

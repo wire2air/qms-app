@@ -1,6 +1,7 @@
 <script setup>
 import { IconX, IconCheck, IconCircleX } from '@tabler/icons-vue'
-import { post, patch } from '@/api'
+import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { required, minValue } from '@shared/components/form/validators.js'
 
 /**
  * Equipment create/edit dialog. POSTs to /v1/services/equipment on
@@ -23,6 +24,10 @@ const props = defineProps({
 const emit = defineEmits(['created', 'updated'])
 const open = defineModel({ type: Boolean, default: false })
 const toast = useToast()
+
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref('')
 
 const isEditing = computed(() => Boolean(props.equipment?.id))
 
@@ -60,7 +65,6 @@ function toDateInput(dt) {
 // we query the SyncEngine for an exact-code match. Server-side INSERT
 // still validates (race-safe) and returns a clean error if a row
 // slips through.
-const isSubmitting = ref(false)
 const codeMatches = useLiveQueryWithDeps(
   [() => code.value.trim(), () => props.equipment?.id ?? null],
   async (db, [c, selfId]) => {
@@ -79,10 +83,18 @@ const isCodeAvailable = computed(() => {
   return codeMatches.value.length === 0
 })
 
+// Submit-time rule: taken code blocks submit.
+function codeUnique() {
+  return isCodeAvailable.value !== false || 'Code already in use'
+}
+
 // Reset / seed state every time the dialog opens. In edit mode we
 // pull from props.equipment; in create mode we clear to defaults.
 watch(open, (isOpen) => {
-  if (!isOpen) return
+  if (!isOpen) {
+    saveError.value = ''
+    return
+  }
   const e = props.equipment
   code.value = e?.code ?? ''
   name.value = e?.name ?? ''
@@ -106,19 +118,6 @@ watch(open, (isOpen) => {
   nextPmDue.value = toDateInput(e?.nextPmDue)
   isSubmitting.value = false
 })
-
-const isCodeFormatValid = computed(() => /^[a-z0-9-_]+$/i.test(code.value.trim()))
-const isFormValid = computed(
-  () =>
-    name.value.trim().length > 0 &&
-    code.value.trim().length >= 2 &&
-    isCodeFormatValid.value &&
-    isCodeAvailable.value !== false &&
-    // Site is required — every piece of equipment lives somewhere
-    // operationally. (Visibility security via user↔site is a
-    // separate concern; see architecture_security_tiers memory.)
-    !!siteId.value,
-)
 
 // Common payload for both POST and PATCH. `code` is omitted on
 // PATCH below — the backend updatable list also excludes it, but
@@ -151,9 +150,10 @@ function buildPayload() {
   }
 }
 
-async function save() {
-  if (!isFormValid.value) return
+async function onSubmit() {
+  if (isSubmitting.value) return
   isSubmitting.value = true
+  saveError.value = ''
   try {
     if (isEditing.value) {
       const res = await patch(`/v1/services/equipment/${props.equipment.id}`, buildPayload())
@@ -170,9 +170,8 @@ async function save() {
     open.value = false
     toast.success('Equipment added')
   } catch (err) {
-    toast.error(
-      err?.message || (isEditing.value ? 'Failed to update equipment' : 'Failed to add equipment'),
-    )
+    saveError.value =
+      err?.message || (isEditing.value ? 'Failed to update equipment' : 'Failed to add equipment')
   } finally {
     isSubmitting.value = false
   }
@@ -203,194 +202,221 @@ function close() {
       </button>
     </div>
 
-    <div class="tw:flex tw:flex-col tw:gap-4">
-      <BaseField v-slot="{ id: fieldId }" label="Name" required>
-        <BaseTextInput
-          :id="fieldId"
-          v-model="name"
-          placeholder="e.g. Freezer #3, Calibration probe T-001"
-        />
-      </BaseField>
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <div class="tw:flex tw:flex-col tw:gap-4">
+        <BaseField label="Name" required :value="name" :rules="[required()]">
+          <template #default="field">
+            <BaseTextInput
+              v-bind="field"
+              v-model="name"
+              placeholder="e.g. Freezer #3, Calibration probe T-001"
+            />
+          </template>
+        </BaseField>
 
-      <BaseField v-slot="{ id: fieldId }" label="Code" required>
-        <div class="tw:relative">
+        <BaseField
+          label="Code"
+          required
+          :value="code"
+          :rules="[
+            required(),
+            (v) => /^[a-z0-9-_]+$/i.test((v || '').trim()) || 'Use letters, numbers, - and _ only.',
+            (v) => (v || '').trim().length >= 2 || 'Code must be at least 2 characters.',
+            codeUnique,
+          ]"
+        >
+          <template #default="field">
+            <div class="tw:relative">
+              <BaseTextInput
+                v-bind="field"
+                v-model="code"
+                placeholder="e.g. EQ-001"
+                :disabled="isEditing"
+              />
+              <div class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2">
+                <IconCheck v-if="isCodeAvailable === true" :size="16" class="tw:text-green-600" />
+                <IconCircleX v-else-if="isCodeAvailable === false" :size="16" class="tw:text-bad" />
+              </div>
+            </div>
+            <div class="tw:text-xs tw:text-secondary tw:mt-1">
+              Unique identifier (e.g. asset tag). Used in audit reports and log book references.
+              <span v-if="isEditing"> Locked after creation to keep audit references stable.</span>
+            </div>
+          </template>
+        </BaseField>
+
+        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+          <BaseField v-slot="{ id: fieldId }" label="Category">
+            <select
+              :id="fieldId"
+              v-model="category"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            >
+              <option :value="null">— Uncategorised —</option>
+              <option value="INSTRUMENT">Instrument</option>
+              <option value="MACHINE">Machine</option>
+              <option value="VEHICLE">Vehicle</option>
+              <option value="SENSOR">Sensor</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Status">
+            <select
+              :id="fieldId"
+              v-model="statusId"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            >
+              <option value="IN_SERVICE">In service</option>
+              <option value="OUT_OF_SERVICE">Out of service</option>
+              <option value="RETIRED">Retired</option>
+            </select>
+          </BaseField>
+        </div>
+
+        <BaseField v-slot="{ id: fieldId }" label="Description">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="description"
+            :rows="2"
+            placeholder="Optional context"
+          />
+        </BaseField>
+
+        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-3">
+          <BaseField v-slot="{ id: fieldId }" label="Manufacturer">
+            <BaseTextInput :id="fieldId" v-model="manufacturer" />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Model">
+            <BaseTextInput :id="fieldId" v-model="model" />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Serial number">
+            <BaseTextInput :id="fieldId" v-model="serialNumber" />
+          </BaseField>
+        </div>
+
+        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+          <BaseField label="Site" required :value="siteId" :rules="[required()]">
+            <template #default="field">
+              <SiteSelectMenu v-bind="field" v-model="siteId" :required="true" />
+            </template>
+          </BaseField>
+          <BaseField label="Department" optional>
+            <DepartmentSelectMenu v-model="departmentId" />
+            <div class="tw:text-caption tw:text-secondary tw:mt-1">
+              Calibration reminders escalate to the department's supervisor.
+            </div>
+          </BaseField>
+        </div>
+
+        <BaseField label="Owner / custodian" optional>
+          <UserSelectMenu v-model="ownerUserId" />
+          <div class="tw:text-caption tw:text-secondary tw:mt-1">
+            The responsible person — notified first about calibration. Falls back to the department
+            supervisor.
+          </div>
+        </BaseField>
+
+        <BaseField v-slot="{ id: fieldId }" label="Location (free text)">
           <BaseTextInput
             :id="fieldId"
-            v-model="code"
-            placeholder="e.g. EQ-001"
-            :disabled="isEditing"
+            v-model="locationText"
+            placeholder="e.g. Rack 3, Bay B; Lab 2; East wall freezer"
           />
-          <div class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2">
-            <IconCheck v-if="isCodeAvailable === true" :size="16" class="tw:text-green-600" />
-            <IconCircleX v-else-if="isCodeAvailable === false" :size="16" class="tw:text-bad" />
-          </div>
-        </div>
-        <div class="tw:text-xs tw:text-secondary tw:mt-1">
-          Unique identifier (e.g. asset tag). Used in audit reports and log book references.
-          <span v-if="isEditing"> Locked after creation to keep audit references stable.</span>
-        </div>
-      </BaseField>
-
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <BaseField v-slot="{ id: fieldId }" label="Category">
-          <select
-            :id="fieldId"
-            v-model="category"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-          >
-            <option :value="null">— Uncategorised —</option>
-            <option value="INSTRUMENT">Instrument</option>
-            <option value="MACHINE">Machine</option>
-            <option value="VEHICLE">Vehicle</option>
-            <option value="SENSOR">Sensor</option>
-            <option value="OTHER">Other</option>
-          </select>
         </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="Status">
-          <select
-            :id="fieldId"
-            v-model="statusId"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-          >
-            <option value="IN_SERVICE">In service</option>
-            <option value="OUT_OF_SERVICE">Out of service</option>
-            <option value="RETIRED">Retired</option>
-          </select>
-        </BaseField>
-      </div>
 
-      <BaseField v-slot="{ id: fieldId }" label="Description">
-        <BaseTextarea :id="fieldId" v-model="description" :rows="2" placeholder="Optional context" />
-      </BaseField>
-
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-3">
-        <BaseField v-slot="{ id: fieldId }" label="Manufacturer">
-          <BaseTextInput :id="fieldId" v-model="manufacturer" />
-        </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="Model">
-          <BaseTextInput :id="fieldId" v-model="model" />
-        </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="Serial number">
-          <BaseTextInput :id="fieldId" v-model="serialNumber" />
-        </BaseField>
-      </div>
-
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <BaseField label="Site" required>
-          <SiteSelectMenu v-model="siteId" :required="true" />
-        </BaseField>
-        <BaseField label="Department" optional>
-          <DepartmentSelectMenu v-model="departmentId" />
-          <div class="tw:text-caption tw:text-secondary tw:mt-1">
-            Calibration reminders escalate to the department's supervisor.
-          </div>
-        </BaseField>
-      </div>
-
-      <BaseField label="Owner / custodian" optional>
-        <UserSelectMenu v-model="ownerUserId" />
-        <div class="tw:text-caption tw:text-secondary tw:mt-1">
-          The responsible person — notified first about calibration. Falls back to the department
-          supervisor.
-        </div>
-      </BaseField>
-
-      <BaseField v-slot="{ id: fieldId }" label="Location (free text)">
-        <BaseTextInput
-          :id="fieldId"
-          v-model="locationText"
-          placeholder="e.g. Rack 3, Bay B; Lab 2; East wall freezer"
-        />
-      </BaseField>
-
-      <!-- Calibration program. requiresCalibration flags the instrument as
-           calibration-tracked (drives the daily due reminder); the interval
-           auto-computes the next due each time a calibration is recorded. -->
-      <div class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/40 tw:p-3 tw:flex tw:flex-col tw:gap-3">
-        <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:select-none">
-          <BaseCheckbox v-model="requiresCalibration" />
-          <span class="tw:text-sm tw:font-medium tw:text-on-main">Requires calibration</span>
-        </label>
-        <div v-if="requiresCalibration" class="tw:w-48">
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Calibration interval (months)
+        <!-- Calibration program. requiresCalibration flags the instrument as
+             calibration-tracked (drives the daily due reminder); the interval
+             auto-computes the next due each time a calibration is recorded. -->
+        <div
+          class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/40 tw:p-3 tw:flex tw:flex-col tw:gap-3"
+        >
+          <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:select-none">
+            <BaseCheckbox v-model="requiresCalibration" />
+            <span class="tw:text-sm tw:font-medium tw:text-on-main">Requires calibration</span>
           </label>
-          <BaseTextInput
-            v-model.number="calibrationIntervalMonths"
-            type="number"
-            min="1"
-            placeholder="e.g. 12"
-          />
-          <div class="tw:text-caption tw:text-secondary tw:mt-1">
-            Used to roll the next-due date forward when a calibration is recorded.
+          <div v-if="requiresCalibration" class="tw:w-48">
+            <BaseField
+              label="Calibration interval (months)"
+              required
+              :value="calibrationIntervalMonths"
+              :rules="[required(), minValue(1)]"
+            >
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model.number="calibrationIntervalMonths"
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 12"
+                />
+              </template>
+            </BaseField>
+            <div class="tw:text-caption tw:text-secondary tw:mt-1">
+              Used to roll the next-due date forward when a calibration is recorded.
+            </div>
           </div>
         </div>
+
+        <!-- Lifecycle + maintenance dates. All optional. The list page
+             uses next_calibration_due / next_pm_due to flag overdue +
+             due-soon equipment, so populating them is what makes the
+             catalog actually useful. retiredAt is auto-stamped server-
+             side when statusId flips to RETIRED, but you can also set
+             it manually for accurate historical dates. -->
+        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+          <BaseField v-slot="{ id: fieldId }" label="Installed">
+            <input
+              :id="fieldId"
+              v-model="installedAt"
+              type="date"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Retired">
+            <input
+              :id="fieldId"
+              v-model="retiredAt"
+              type="date"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Next calibration due">
+            <input
+              :id="fieldId"
+              v-model="nextCalibrationDue"
+              type="date"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Next PM due">
+            <input
+              :id="fieldId"
+              v-model="nextPmDue"
+              type="date"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            />
+          </BaseField>
+        </div>
+
+        <BaseField v-slot="{ id: fieldId }" label="Notes">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="notes"
+            :rows="2"
+            placeholder="Internal notes about this equipment"
+          />
+        </BaseField>
       </div>
+    </BaseForm>
 
-      <!-- Lifecycle + maintenance dates. All optional. The list page
-           uses next_calibration_due / next_pm_due to flag overdue +
-           due-soon equipment, so populating them is what makes the
-           catalog actually useful. retiredAt is auto-stamped server-
-           side when statusId flips to RETIRED, but you can also set
-           it manually for accurate historical dates. -->
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <BaseField v-slot="{ id: fieldId }" label="Installed">
-          <input
-            :id="fieldId"
-            v-model="installedAt"
-            type="date"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-          />
-        </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="Retired">
-          <input
-            :id="fieldId"
-            v-model="retiredAt"
-            type="date"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-          />
-        </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="Next calibration due">
-          <input
-            :id="fieldId"
-            v-model="nextCalibrationDue"
-            type="date"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-          />
-        </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="Next PM due">
-          <input
-            :id="fieldId"
-            v-model="nextPmDue"
-            type="date"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-          />
-        </BaseField>
-      </div>
-
-      <BaseField v-slot="{ id: fieldId }" label="Notes">
-        <BaseTextarea
-          :id="fieldId"
-          v-model="notes"
-          :rows="2"
-          placeholder="Internal notes about this equipment"
-        />
-      </BaseField>
-    </div>
-
-    <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-6">
-      <BaseButton variant="outline" :disabled="isSubmitting" @click="close">Cancel</BaseButton>
-      <BaseButton variant="primary" :disabled="!isFormValid || isSubmitting" @click="save">
-        {{
-          isSubmitting
-            ? isEditing
-              ? 'Saving…'
-              : 'Creating…'
-            : isEditing
-              ? 'Save changes'
-              : 'Add equipment'
-        }}
-      </BaseButton>
-    </div>
+    <template #footer>
+      <BaseDialogFooter
+        :submitLabel="isEditing ? 'Save changes' : 'Add equipment'"
+        :loading="isSubmitting"
+        :error="saveError"
+        @cancel="close"
+        @submit="formRef?.submit()"
+      />
+    </template>
   </BaseDialog>
 </template>
