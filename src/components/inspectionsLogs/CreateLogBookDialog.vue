@@ -1,6 +1,10 @@
 <script setup>
 import { IconX, IconChevronDown, IconChevronUp } from '@tabler/icons-vue'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. The logBooks
+// endpoint validates edit-window pairing, classification, status and uniqueness
+// server-side before the row lands; SyncEngine catches up via the sync push.
 import { post } from '@/api'
+import { required } from '@shared/components/form/validators.js'
 
 /**
  * Dedicated wizard for creating a Log Book (an Inspections & Logs
@@ -28,7 +32,9 @@ import { post } from '@/api'
 
 const emit = defineEmits(['created'])
 const open = defineModel({ type: Boolean, default: false })
-const toast = useToast()
+
+const formRef = ref(null)
+const saveError = ref('')
 
 // Form state -----------------------------------------------------------
 const title = ref('')
@@ -104,6 +110,7 @@ watch(open, (isOpen) => {
   showReferences.value = false
   showCompliance.value = false
   isSubmitting.value = false
+  saveError.value = ''
 })
 
 // Derived classification — what we stamp on template.config and how
@@ -185,8 +192,9 @@ const createSiteOnLogBook = useLiveMutation(async (db, { logBookId, siteId }) =>
 })
 
 async function save() {
-  if (!isFormValid.value) return
+  if (!isFormValid.value || isSubmitting.value) return
   isSubmitting.value = true
+  saveError.value = ''
   try {
     const res = await post('/v1/services/logBooks', {
       title: title.value.trim(),
@@ -219,7 +227,7 @@ async function save() {
     emit('created', logBook)
     open.value = false
   } catch (err) {
-    toast.error(err?.message || 'Failed to create log book')
+    saveError.value = err?.message || 'Failed to create log book'
   } finally {
     isSubmitting.value = false
   }
@@ -244,36 +252,45 @@ function close() {
       </button>
     </div>
 
-    <div class="tw:flex tw:flex-col tw:gap-4">
+    <BaseForm ref="formRef" hideFooter @submit="save">
       <!-- Title -->
-      <BaseField v-slot="{ id: fieldId }" label="Log Book Name" required>
-        <BaseTextInput
-          :id="fieldId"
-          v-model="title"
-          placeholder="e.g. Daily Warehouse Temperature Log"
-        />
+      <BaseField label="Log Book Name" required :value="title" :rules="[required()]">
+        <template #default="field">
+          <BaseTextInput
+            v-bind="field"
+            v-model="title"
+            placeholder="e.g. Daily Warehouse Temperature Log"
+          />
+        </template>
       </BaseField>
 
       <!-- Code prefix template — supports {DEPTCODE} / {TYPECODE}
            placeholders, resolved server-side from the selected
            Department + LogBookType. Defaults to FRM-{DEPTCODE}-{TYPECODE}. -->
-      <BaseField v-slot="{ id: fieldId }" label="Record Id Prefix" required>
-        <BaseTextInput :id="fieldId" v-model="codePrefix" placeholder="FRM-{DEPTCODE}-{TYPECODE}" />
-        <div class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:flex-col tw:gap-0.5">
-          <div>
-            Use
-            <span class="tw:font-mono tw:text-on-main">{DEPTCODE}</span>
-            and
-            <span class="tw:font-mono tw:text-on-main">{TYPECODE}</span>
-            to insert the selected Department + Log Book Type. Leave plain text for a literal code.
+      <BaseField label="Record Id Prefix" required :value="codePrefix" :rules="[required()]">
+        <template #default="field">
+          <BaseTextInput
+            v-bind="field"
+            v-model="codePrefix"
+            placeholder="FRM-{DEPTCODE}-{TYPECODE}"
+          />
+          <div class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:flex-col tw:gap-0.5">
+            <div>
+              Use
+              <span class="tw:font-mono tw:text-on-main">{DEPTCODE}</span>
+              and
+              <span class="tw:font-mono tw:text-on-main">{TYPECODE}</span>
+              to insert the selected Department + Log Book Type. Leave plain text for a literal
+              code.
+            </div>
+            <div>
+              Resolved:
+              <span class="tw:font-mono tw:text-on-main">{{ resolvedCodePreview }}</span>
+              · entries numbered
+              <span class="tw:font-mono tw:text-on-main">{{ resolvedCodePreview }}-0001</span>
+            </div>
           </div>
-          <div>
-            Resolved:
-            <span class="tw:font-mono tw:text-on-main">{{ resolvedCodePreview }}</span>
-            · entries numbered
-            <span class="tw:font-mono tw:text-on-main">{{ resolvedCodePreview }}-0001</span>
-          </div>
-        </div>
+        </template>
       </BaseField>
 
       <!-- Description -->
@@ -289,29 +306,33 @@ function close() {
       <!-- Type + Supervisor (always visible — these are the load-bearing
            routing fields for the digest / approval flow). -->
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <BaseField v-slot="{ id: fieldId }" label="Type" required>
-          <select
-            :id="fieldId"
-            v-model="logBookTypeId"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-          >
-            <option :value="null" disabled>— Pick a type —</option>
-            <option v-for="t in logBookTypes" :key="t.id" :value="t.id">
-              {{ t.name }}
-            </option>
-          </select>
-          <div
-            v-if="logBookTypes.length === 0"
-            class="tw:text-caption tw:text-amber-700 tw:italic tw:mt-1"
-          >
-            No categories loaded yet — the seeded global types sync on the next bootstrap. If this
-            persists, hard-refresh the page to re-bootstrap IndexedDB.
-          </div>
+        <BaseField label="Type" required :value="logBookTypeId" :rules="[required()]">
+          <template #default="field">
+            <select
+              v-bind="field"
+              v-model="logBookTypeId"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            >
+              <option :value="null" disabled>— Pick a type —</option>
+              <option v-for="t in logBookTypes" :key="t.id" :value="t.id">
+                {{ t.name }}
+              </option>
+            </select>
+            <div
+              v-if="logBookTypes.length === 0"
+              class="tw:text-caption tw:text-amber-700 tw:italic tw:mt-1"
+            >
+              No categories loaded yet — the seeded global types sync on the next bootstrap. If this
+              persists, hard-refresh the page to re-bootstrap IndexedDB.
+            </div>
+          </template>
         </BaseField>
         <BaseField
           label="Supervisor"
           required
           hint="Who reviews submissions + gets daily digests + flag alerts."
+          :value="supervisorUserId"
+          :rules="[required()]"
         >
           <UserSelectMenu v-model="supervisorUserId" />
         </BaseField>
@@ -325,6 +346,8 @@ function close() {
           label="Sites"
           required
           hint="Pick at least one site where this log book can be filled."
+          :value="selectedSites"
+          :rules="[required('Pick at least one site.')]"
         >
           <SiteSelectMenu v-model="selectedSites" multiple />
         </BaseField>
@@ -458,14 +481,16 @@ function close() {
           </div>
         </div>
       </div>
-    </div>
+    </BaseForm>
 
     <!-- Footer -->
-    <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-6">
-      <BaseButton variant="outline" :disabled="isSubmitting" @click="close">Cancel</BaseButton>
-      <BaseButton variant="primary" :disabled="!isFormValid || isSubmitting" @click="save">
-        {{ isSubmitting ? 'Creating…' : 'Create &amp; Build Form' }}
-      </BaseButton>
-    </div>
+    <BaseDialogFooter
+      class="tw:mt-6"
+      submitLabel="Create & Build Form"
+      :loading="isSubmitting"
+      :error="saveError"
+      @cancel="close"
+      @submit="formRef?.submit()"
+    />
   </BaseDialog>
 </template>
