@@ -11,7 +11,6 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    '_dbg.spec': typeof import('./resource/js/shared/components/form/_dbg.spec.js')['default']
     AcceptInvitationForm: typeof import('./src/components/auth/AcceptInvitationForm.vue')['default']
     AddRecordDialog: typeof import('./src/components/records/AddRecordDialog.vue')['default']
     AdvancedImage: typeof import('./src/components/editor/extensions/image/advancedImage.js')['default']
