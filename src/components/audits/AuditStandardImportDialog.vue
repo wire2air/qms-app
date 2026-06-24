@@ -25,6 +25,7 @@
 import { IconUpload, IconAlertTriangle, IconFileUpload, IconDownload } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
+import { required, requiredWhen } from '@shared/components/form/validators.js'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -65,7 +66,7 @@ const LICENSES = [
     id: 'CUSTOMER_LICENSED',
     label: 'Licensed copy (BYOL)',
     description:
-      'You hold a valid licence for this standard\'s normative text. Attestation is required.',
+      "You hold a valid licence for this standard's normative text. Attestation is required.",
   },
   {
     id: 'CUSTOMER_AUTHORED',
@@ -76,8 +77,7 @@ const LICENSES = [
   {
     id: 'PUBLIC_DOMAIN',
     label: 'Public domain',
-    description:
-      'Government regulation, US federal register text, etc. — no licence required.',
+    description: 'Government regulation, US federal register text, etc. — no licence required.',
   },
 ]
 
@@ -91,6 +91,8 @@ const licenseAttested = ref(false)
 const customerLicenseReference = ref('')
 const customerLicenseExpiresAt = ref('')
 const submitting = ref(false)
+const saveError = ref('')
+const formRef = ref(null)
 
 // File upload — fill the downloaded CSV template and upload it. CSV only;
 // PDF / AI / paste / JSON paths were removed as too heavyweight.
@@ -154,6 +156,7 @@ watch(
     licenseAttested.value = false
     customerLicenseReference.value = ''
     customerLicenseExpiresAt.value = ''
+    saveError.value = ''
   },
 )
 
@@ -161,17 +164,10 @@ function close() {
   emit('update:modelValue', false)
 }
 
-async function handleImport() {
+async function onValidSubmit() {
   if (submitting.value) return
-  if (!code.value.trim() || !name.value.trim() || !content.value.trim()) {
-    toast.warning('Code, name, and content are required.')
-    return
-  }
-  if (requiresAttestation.value && !licenseAttested.value) {
-    toast.warning('Confirm the license attestation to import a CUSTOMER_LICENSED standard.')
-    return
-  }
   submitting.value = true
+  saveError.value = ''
   try {
     const payload = {
       code: code.value.trim(),
@@ -190,7 +186,7 @@ async function handleImport() {
     emit('created', res?.auditStandard ?? null)
     close()
   } catch (err) {
-    toast.error(err?.message || 'Import failed')
+    saveError.value = err?.message || 'Import failed'
   } finally {
     submitting.value = false
   }
@@ -213,182 +209,196 @@ function safeParseJson(raw) {
     maxWidth="xl"
     @update:modelValue="close"
   >
-    <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
-      <!-- Header / context -->
-      <div
-        class="tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:p-3 tw:text-xs tw:text-blue-800 tw:leading-relaxed"
-      >
-        Bring-Your-Own-Licence import. Customers paste / upload their
-        own clause list from a licensed standard (or original
-        content). The BE creates the standard + a v1.0 EFFECTIVE
-        version + parsed clauses in one transaction.
-      </div>
-
-      <!-- Identity -->
-      <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <BaseField v-slot="{ id: fieldId }" label="Code" required>
-          <BaseTextInput
-            :id="fieldId"
-            v-model="code"
-            placeholder="e.g. ISO-9001-INTERNAL"
-            :required="true"
-          />
-        </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="Name" required>
-          <BaseTextInput
-            :id="fieldId"
-            v-model="name"
-            placeholder="e.g. ISO 9001:2015 — internal interpretation"
-            :required="true"
-          />
-        </BaseField>
-      </div>
-
-      <BaseField v-slot="{ id: fieldId }" label="Description">
-        <BaseTextarea
-          :id="fieldId"
-          v-model="description"
-          :rows="2"
-          placeholder="Short note about the source / scope of this import"
-        />
-      </BaseField>
-
-      <!-- License classification -->
-      <BaseField label="Content licence">
-        <div class="tw:flex tw:flex-col tw:gap-2">
-          <label
-            v-for="lic in LICENSES"
-            :key="lic.id"
-            class="tw:flex tw:items-start tw:gap-2 tw:p-2 tw:rounded tw:border tw:border-divider tw:cursor-pointer tw:hover:bg-main-hover/40"
-            :class="contentLicense === lic.id ? 'tw:bg-primary/5 tw:border-primary' : ''"
-          >
-            <input
-              v-model="contentLicense"
-              type="radio"
-              name="content-license"
-              :value="lic.id"
-              class="tw:mt-0.5"
-            />
-            <div class="tw:flex tw:flex-col">
-              <span class="tw:text-sm tw:font-semibold">{{ lic.label }}</span>
-              <span class="tw:text-xs tw:text-secondary">{{ lic.description }}</span>
-            </div>
-          </label>
-        </div>
-      </BaseField>
-
-      <!-- License attestation, gated on CUSTOMER_LICENSED -->
-      <div
-        v-if="requiresAttestation"
-        class="tw:rounded-lg tw:border tw:border-amber-300 tw:bg-amber-50 tw:p-3 tw:flex tw:flex-col tw:gap-2"
-      >
-        <div class="tw:flex tw:items-start tw:gap-2 tw:text-xs tw:text-amber-900">
-          <IconAlertTriangle :size="16" class="tw:shrink-0 tw:mt-0.5" />
-          <span>
-            <strong>License attestation required.</strong> By checking the
-            box below you represent that your organisation holds a valid
-            licence for this standard. The system records the attesting
-            user + timestamp.
-          </span>
-        </div>
-        <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:cursor-pointer">
-          <input v-model="licenseAttested" type="checkbox" />
-          I confirm we hold a valid licence for the content being
-          imported.
-        </label>
-        <div class="tw:grid tw:grid-cols-2 tw:gap-2">
-          <BaseField v-slot="{ id: fieldId }" label="Licence reference" optional>
-            <BaseTextInput
-              :id="fieldId"
-              v-model="customerLicenseReference"
-              placeholder="e.g. ISO Online Browsing Platform subscription #…"
-            />
-          </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Licence expiry" optional>
-            <BaseTextInput :id="fieldId" v-model="customerLicenseExpiresAt" type="date" />
-          </BaseField>
-        </div>
-      </div>
-
-      <!-- Input format picker. Stacked vertically (was a 3-up grid that
-           crowded the labels). Each row reads as "type + description". -->
-      <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Format</p>
-        <!-- Single format (CSV template). Render the guidance without the
-             selector chrome since there's nothing to choose. -->
-        <div class="tw:flex tw:flex-col tw:gap-2">
-          <div
-            v-for="fmt in FORMATS"
-            :key="fmt.id"
-            class="tw:flex tw:flex-col tw:gap-0.5 tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-primary/5"
-          >
-            <span class="tw:text-sm tw:font-semibold">{{ fmt.label }}</span>
-            <span class="tw:text-caption tw:text-secondary">{{ fmt.description }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Content textarea + file-upload affordance. Download the CSV
-           template, fill it, and upload it (or paste the CSV inline). -->
-      <div>
-        <div class="tw:flex tw:items-center tw:justify-between tw:mb-1 tw:gap-2">
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
-            Clauses ({{ activeFormat?.label ?? '' }})
-          </p>
-          <div class="tw:flex tw:items-center tw:gap-2">
-            <BaseButton
-              variant="outline"
-              size="xs"
-              :disabled="readingFile"
-              @click="downloadActiveSample"
-            >
-              <template #icon><IconDownload :size="14" /></template>
-              Download template
-            </BaseButton>
-            <BaseButton
-              variant="outline"
-              size="xs"
-              :disabled="readingFile"
-              @click="fileInputRef?.click()"
-            >
-              <template #icon><IconFileUpload :size="14" /></template>
-              {{ readingFile ? 'Reading…' : 'Upload file' }}
-            </BaseButton>
-          </div>
-          <input
-            ref="fileInputRef"
-            type="file"
-            accept=".csv,text/csv"
-            class="tw:hidden"
-            @change="onFilePicked"
-          />
-        </div>
-        <!-- Per-format requirements strip. Surfaces the EXACT header /
-             shape the BE parser expects so a wrong-cased CSV header
-             ("Clause Number" vs "clauseNumber") is impossible to miss
-             before submit. -->
+    <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+        <!-- Header / context -->
         <div
-          v-if="activeFormat?.requiredFields"
-          class="tw:rounded tw:bg-gray-50 tw:border tw:border-gray-200 tw:px-2 tw:py-1.5 tw:mb-2 tw:text-caption tw:text-gray-700 tw:font-mono tw:break-all"
+          class="tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:p-3 tw:text-xs tw:text-blue-800 tw:leading-relaxed"
         >
-          {{ activeFormat.requiredFields }}
+          Bring-Your-Own-Licence import. Customers paste / upload their own clause list from a
+          licensed standard (or original content). The BE creates the standard + a v1.0 EFFECTIVE
+          version + parsed clauses in one transaction.
         </div>
-        <BaseTextarea
-          v-model="content"
-          :rows="12"
-          :placeholder="activeFormat?.sample ?? ''"
-          class="tw:font-mono tw:text-label"
-        />
-      </div>
-    </div>
 
-    <template #footer>
+        <!-- Identity -->
+        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <BaseField label="Code" required :value="code" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput v-bind="field" v-model="code" placeholder="e.g. ISO-9001-INTERNAL" />
+            </template>
+          </BaseField>
+          <BaseField label="Name" required :value="name" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model="name"
+                placeholder="e.g. ISO 9001:2015 — internal interpretation"
+              />
+            </template>
+          </BaseField>
+        </div>
+
+        <BaseField label="Description">
+          <template #default="field">
+            <BaseTextarea
+              v-bind="field"
+              v-model="description"
+              :rows="2"
+              placeholder="Short note about the source / scope of this import"
+            />
+          </template>
+        </BaseField>
+
+        <!-- License classification -->
+        <BaseField label="Content licence">
+          <div class="tw:flex tw:flex-col tw:gap-2">
+            <label
+              v-for="lic in LICENSES"
+              :key="lic.id"
+              class="tw:flex tw:items-start tw:gap-2 tw:p-2 tw:rounded tw:border tw:border-divider tw:cursor-pointer tw:hover:bg-main-hover/40"
+              :class="contentLicense === lic.id ? 'tw:bg-primary/5 tw:border-primary' : ''"
+            >
+              <input
+                v-model="contentLicense"
+                type="radio"
+                name="content-license"
+                :value="lic.id"
+                class="tw:mt-0.5"
+              />
+              <div class="tw:flex tw:flex-col">
+                <span class="tw:text-sm tw:font-semibold">{{ lic.label }}</span>
+                <span class="tw:text-xs tw:text-secondary">{{ lic.description }}</span>
+              </div>
+            </label>
+          </div>
+        </BaseField>
+
+        <!-- License attestation, gated on CUSTOMER_LICENSED -->
+        <div
+          v-if="requiresAttestation"
+          class="tw:rounded-lg tw:border tw:border-amber-300 tw:bg-amber-50 tw:p-3 tw:flex tw:flex-col tw:gap-2"
+        >
+          <div class="tw:flex tw:items-start tw:gap-2 tw:text-xs tw:text-amber-900">
+            <IconAlertTriangle :size="16" class="tw:shrink-0 tw:mt-0.5" />
+            <span>
+              <strong>License attestation required.</strong> By checking the box below you represent
+              that your organisation holds a valid licence for this standard. The system records the
+              attesting user + timestamp.
+            </span>
+          </div>
+          <BaseField
+            label="License attestation"
+            :value="licenseAttested"
+            :rules="[
+              requiredWhen(() => requiresAttestation, 'You must confirm you hold a valid licence.'),
+            ]"
+          >
+            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:cursor-pointer">
+              <input v-model="licenseAttested" type="checkbox" />
+              I confirm we hold a valid licence for the content being imported.
+            </label>
+          </BaseField>
+          <div class="tw:grid tw:grid-cols-2 tw:gap-2">
+            <BaseField label="Licence reference" optional>
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="customerLicenseReference"
+                  placeholder="e.g. ISO Online Browsing Platform subscription #…"
+                />
+              </template>
+            </BaseField>
+            <BaseField label="Licence expiry" optional>
+              <template #default="field">
+                <BaseTextInput v-bind="field" v-model="customerLicenseExpiresAt" type="date" />
+              </template>
+            </BaseField>
+          </div>
+        </div>
+
+        <!-- Input format picker. Stacked vertically (was a 3-up grid that
+             crowded the labels). Each row reads as "type + description". -->
+        <div>
+          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Format</p>
+          <!-- Single format (CSV template). Render the guidance without the
+               selector chrome since there's nothing to choose. -->
+          <div class="tw:flex tw:flex-col tw:gap-2">
+            <div
+              v-for="fmt in FORMATS"
+              :key="fmt.id"
+              class="tw:flex tw:flex-col tw:gap-0.5 tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-primary/5"
+            >
+              <span class="tw:text-sm tw:font-semibold">{{ fmt.label }}</span>
+              <span class="tw:text-caption tw:text-secondary">{{ fmt.description }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Content textarea + file-upload affordance. Download the CSV
+             template, fill it, and upload it (or paste the CSV inline). -->
+        <BaseField
+          label="Clauses"
+          required
+          :value="content"
+          :rules="[required('Clause content is required.')]"
+        >
+          <template #label> Clauses ({{ activeFormat?.label ?? '' }}) </template>
+          <div class="tw:flex tw:flex-col tw:gap-2">
+            <div class="tw:flex tw:items-center tw:justify-end tw:gap-2">
+              <BaseButton
+                variant="outline"
+                size="xs"
+                :disabled="readingFile"
+                @click="downloadActiveSample"
+              >
+                <template #icon><IconDownload :size="14" /></template>
+                Download template
+              </BaseButton>
+              <BaseButton
+                variant="outline"
+                size="xs"
+                :disabled="readingFile"
+                @click="fileInputRef?.click()"
+              >
+                <template #icon><IconFileUpload :size="14" /></template>
+                {{ readingFile ? 'Reading…' : 'Upload file' }}
+              </BaseButton>
+            </div>
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept=".csv,text/csv"
+              class="tw:hidden"
+              @change="onFilePicked"
+            />
+            <!-- Per-format requirements strip. Surfaces the EXACT header /
+                 shape the BE parser expects so a wrong-cased CSV header
+                 ("Clause Number" vs "clauseNumber") is impossible to miss
+                 before submit. -->
+            <div
+              v-if="activeFormat?.requiredFields"
+              class="tw:rounded tw:bg-gray-50 tw:border tw:border-gray-200 tw:px-2 tw:py-1.5 tw:text-caption tw:text-gray-700 tw:font-mono tw:break-all"
+            >
+              {{ activeFormat.requiredFields }}
+            </div>
+            <BaseTextarea
+              v-model="content"
+              :rows="12"
+              :placeholder="activeFormat?.sample ?? ''"
+              class="tw:font-mono tw:text-label"
+            />
+          </div>
+        </BaseField>
+      </div>
+    </BaseForm>
+
+    <template #footer="{ close: closeDialog }">
       <BaseDialogFooter
         submitLabel="Import"
         :loading="submitting"
-        :disabled="!code.trim() || !name.trim() || !content.trim() || (requiresAttestation && !licenseAttested)"
-        @cancel="close"
-        @submit="handleImport"
+        :error="saveError"
+        @cancel="closeDialog"
+        @submit="formRef?.submit()"
       >
         <template #submitIcon><IconUpload :size="16" /></template>
       </BaseDialogFooter>

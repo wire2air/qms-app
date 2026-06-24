@@ -12,7 +12,8 @@
  * looking up the row directly — no need for callers to pass it.
  */
 import { IconQuestionMark, IconSend, IconCheck } from '@tabler/icons-vue'
-import { post } from '@/api'
+import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { required } from '@shared/components/form/validators.js'
 
 const props = defineProps({
   // 'create' | 'respond' | 'view'
@@ -28,6 +29,8 @@ const open = defineModel({ type: Boolean, default: false })
 
 const toast = useToast()
 const submitting = ref(false)
+const saveError = ref('')
+const formRef = ref(null)
 const questionDraft = ref('')
 const responseDraft = ref('')
 
@@ -82,18 +85,17 @@ const title = computed(() => {
 watch(open, (isOpen) => {
   if (isOpen && props.mode === 'create') {
     questionDraft.value = ''
+    saveError.value = ''
   }
   if (isOpen && props.mode === 'respond') {
     responseDraft.value = ''
+    saveError.value = ''
   }
 })
 
-async function handleCreate() {
-  if (!questionDraft.value.trim()) {
-    toast.warning('Please enter a question')
-    return
-  }
+async function onValidSubmitCreate() {
   submitting.value = true
+  saveError.value = ''
   try {
     await post('/v1/services/informationRequests', {
       entityType: props.entityType,
@@ -104,18 +106,15 @@ async function handleCreate() {
     open.value = false
     emit('submitted')
   } catch (e) {
-    toast.error(e?.message || 'Failed to send request')
+    saveError.value = e?.message || 'Failed to send request'
   } finally {
     submitting.value = false
   }
 }
 
-async function handleRespond() {
-  if (!responseDraft.value.trim()) {
-    toast.warning('Please enter a response')
-    return
-  }
+async function onValidSubmitRespond() {
   submitting.value = true
+  saveError.value = ''
   try {
     await post(`/v1/services/informationRequests/${props.rfiId}/respond`, {
       response: responseDraft.value.trim(),
@@ -124,7 +123,7 @@ async function handleRespond() {
     open.value = false
     emit('submitted')
   } catch (e) {
-    toast.error(e?.message || 'Failed to send response')
+    saveError.value = e?.message || 'Failed to send response'
   } finally {
     submitting.value = false
   }
@@ -160,14 +159,18 @@ async function handleAcknowledge() {
             they reply.
           </div>
         </div>
-        <BaseField v-slot="{ id: fieldId }" label="Your question" required>
-          <BaseTextarea
-            :id="fieldId"
-            v-model="questionDraft"
-            :rows="5"
-            placeholder="What clarification do you need?"
-          />
-        </BaseField>
+        <BaseForm ref="formRef" hideFooter @submit="onValidSubmitCreate">
+          <BaseField label="Your question" required :value="questionDraft" :rules="[required()]">
+            <template #default="field">
+              <BaseTextarea
+                v-bind="field"
+                v-model="questionDraft"
+                :rows="5"
+                placeholder="What clarification do you need?"
+              />
+            </template>
+          </BaseField>
+        </BaseForm>
       </template>
 
       <!-- ── RESPOND MODE ──────────────────────────────────────────── -->
@@ -182,14 +185,18 @@ async function handleAcknowledge() {
             {{ rfi?.question || '—' }}
           </p>
         </div>
-        <BaseField v-slot="{ id: fieldId }" label="Your response" required>
-          <BaseTextarea
-            :id="fieldId"
-            v-model="responseDraft"
-            :rows="5"
-            placeholder="Provide the clarification…"
-          />
-        </BaseField>
+        <BaseForm ref="formRef" hideFooter @submit="onValidSubmitRespond">
+          <BaseField label="Your response" required :value="responseDraft" :rules="[required()]">
+            <template #default="field">
+              <BaseTextarea
+                v-bind="field"
+                v-model="responseDraft"
+                :rows="5"
+                placeholder="Provide the clarification…"
+              />
+            </template>
+          </BaseField>
+        </BaseForm>
       </template>
 
       <!-- ── VIEW MODE ─────────────────────────────────────────────── -->
@@ -220,26 +227,20 @@ async function handleAcknowledge() {
 
     <template #footer="{ close }">
       <BaseButton variant="outline" :disabled="submitting" @click="close">Close</BaseButton>
-      <BaseButton
-        v-if="mode === 'create'"
-        variant="primary"
-        :loading="submitting"
-        :disabled="!questionDraft.trim() || submitting"
-        @click="handleCreate"
-      >
-        <template #icon><IconSend :size="16" /></template>
-        Send request
-      </BaseButton>
-      <BaseButton
-        v-else-if="mode === 'respond'"
-        variant="primary"
-        :loading="submitting"
-        :disabled="!responseDraft.trim() || submitting"
-        @click="handleRespond"
-      >
-        <template #icon><IconSend :size="16" /></template>
-        Send response
-      </BaseButton>
+      <template v-if="mode === 'create'">
+        <BaseErrorText v-if="saveError" :error="saveError" />
+        <BaseButton variant="primary" :loading="submitting" @click="formRef?.submit()">
+          <template #icon><IconSend :size="16" /></template>
+          Send request
+        </BaseButton>
+      </template>
+      <template v-else-if="mode === 'respond'">
+        <BaseErrorText v-if="saveError" :error="saveError" />
+        <BaseButton variant="primary" :loading="submitting" @click="formRef?.submit()">
+          <template #icon><IconSend :size="16" /></template>
+          Send response
+        </BaseButton>
+      </template>
       <BaseButton
         v-else-if="mode === 'view' && rfi?.statusId === 'RESPONDED'"
         variant="primary"

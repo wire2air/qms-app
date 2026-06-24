@@ -69,6 +69,15 @@ Each file in the checklist names one recipe. Apply it end-to-end as a single rev
 
 **Model:** `NonconformancesCreate.vue`. **Files:** Modify the `*Create.vue`; no test file (verified at runtime + lint).
 
+> **Tabbed creates stay tabbed (user directive 2026-06-24).** If the existing
+> page uses `BaseTabs` (e.g. `DocumentsCreate`: Properties / Content / Training),
+> KEEP the tabs and the child components — do NOT flatten them into one scrolling
+> sectioned form. Migrate *inside* the existing layout: wrap in `BaseForm`,
+> convert each child's fields to `BaseField :value/:rules` (they auto-register
+> with the parent `BaseForm` across component boundaries via provide/inject), add
+> `useUnsavedChangesGuard`, move submit to the footer. Skip `FormProgressNav` for
+> tabbed pages (the tabs are the nav). Do not inline/orphan child components.
+
 **Interfaces consumed:** `BaseForm`, `FormSection`, `BaseFieldRow`, `BaseField`, `FormProgressNav`, `useUnsavedChangesGuard`, `required`/`requiredWhen` from `validators.js`.
 
 - [ ] **Step 1 — Inventory the old form.** List every field, its required-ness, and the current toast/validate messages. Note any cross-field rules.
@@ -98,16 +107,22 @@ Each file in the checklist names one recipe. Apply it end-to-end as a single rev
 - [ ] **Step 4 — Submit** via `@submit` → `useLiveMutation` (or tagged action-RPC). On success close the dialog; surface failures via the dialog footer error, not a toast.
 - [ ] **Step 5 — Remove from allowlist; verify (lint + vitest + runtime); commit.**
 
-### Recipe C — Detail page, autosave (`*PageId.vue`)
+### Recipe C — Detail page (`*PageId.vue`) — chrome swap inside `BaseDetailLayout`
 
-**Model:** the form-migration plan's "detail (autosave)" row + `AutosaveIndicator.stories.js`.
+> **CORRECTED 2026-06-24 after investigation.** These pages are ALREADY migrated
+> to `BaseDetailLayout` + `defineDetailConfig` + (mostly) `useAutoSave` by the
+> prior detail-template effort. They autosave and do NOT use `BaseForm`. **Do NOT
+> add `BaseForm`/`mode="autosave"`/`FormProgressNav`/`AutosaveIndicator`** — that
+> would fight `BaseDetailLayout`. The ONLY form-guard violations left are (a)
+> leftover hand-rolled card chrome inside the `#section-*` slots, and (b)
+> toast-as-validation on the two `toast`-tagged pages. This recipe is a light
+> chrome/validation swap, nothing structural.
 
-- [ ] **Step 1 — Confirm it's autosave** (detail pages edit a live record). Component takes an `id` prop; load via `useLiveQueryWithDeps([() => props.id], (db,[id]) => db.Model.findByPk(id))`.
-- [ ] **Step 2 — `BaseForm mode="autosave"`**; sections → `FormSection`. No submit button, no `FormProgressNav` unless the page is long (then nav is fine; still autosave).
-- [ ] **Step 3 — Autosave** with the existing `useAutoSave` pattern (deep watch + debounce, skip first load — see CLAUDE.md "inline edit + auto-save"). Drop `AutosaveIndicator` into `#footer-status`.
-- [ ] **Step 4 — Inline validation** via `:rules` where edits can be invalid; surface `save()` errors. No central toast.
-- [ ] **Step 5 — Extract** any bespoke severity/priority toggles to `SegmentedControl`.
-- [ ] **Step 6 — Remove from allowlist; verify; commit.**
+- [ ] **Step 1 — Swap each hand-rolled card** inside the `#section-*` slots: a `<div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">` that wraps a hand-rolled overline/bordered header + fields → `<FormSection title="…">` (FormSection IS card-surface + titled header, so drop the bespoke `<BaseText variant="overline">…</BaseText>` header too). A plain surface with no title → `<BaseCard>`. Keep all inner fields/inline-edit/v-model/handlers byte-for-byte.
+- [ ] **Step 2 — Toast→inline (only ChangeRequestsPageId, TrainingPageId):** replace `toast.*('… required')` inline-edit validation with inline error display (surface `save()` errors / a small inline error ref next to the field — per CLAUDE.md "inline edit + auto-save"; BaseModel validates on save). No central `validate()`, no BaseForm.
+- [ ] **Step 3 — Do NOT touch** the `BaseDetailLayout`/`defineDetailConfig`/`useAutoSave`/rail/dialogs/queries/computeds. This is IA-chrome only.
+- [ ] **Step 4 — Extract** any bespoke severity/priority toggle to `SegmentedControl` only if trivially in the swapped section (else leave).
+- [ ] **Step 5 — Remove from allowlist; verify** (eslint + `lint:forms`/`layout`/`ds` + vitest + **`pnpm build`**).
 
 ### Recipe D — Settings/admin card (`*Card.vue` with `toast`)
 

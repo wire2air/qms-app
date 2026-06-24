@@ -454,150 +454,137 @@ const auditInstanceDetailConfig = computed(() =>
     <template v-if="auditInstance" #tab-info>
       <div class="tw:flex tw:flex-col tw:gap-4">
         <!-- Details card -->
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
-            <BaseText variant="overline">Audit Details</BaseText>
+        <FormSection title="Audit Details">
+          <div class="tw:grid tw:grid-cols-2 tw:gap-3 tw:mb-4">
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:text-xs tw:text-secondary">Standard</div>
+              <AuditStandardBadgeById
+                v-if="isEditable && auditInstance.auditStandardId"
+                :standardId="auditInstance.auditStandardId"
+              />
+              <span v-else-if="auditInstance.displayMeta?.standardName" class="tw:text-sm">
+                {{ auditInstance.displayMeta.standardName }}
+              </span>
+              <span v-else class="tw:text-sm tw:text-secondary">—</span>
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:text-xs tw:text-secondary">Scheduled</div>
+              <BaseTextInput v-if="isEditable" v-model="scheduledDateStr" type="date" size="sm" />
+              <span v-else class="tw:text-sm">
+                {{
+                  auditInstance.scheduledDate ? auditInstance.scheduledDate.formatDate('date') : '—'
+                }}
+              </span>
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:text-xs tw:text-secondary">Lead Auditor</div>
+              <UserSelectMenu v-if="isEditable" v-model="auditInstance.leadAuditorUserId" />
+              <span v-else-if="auditInstance.displayMeta?.leadAuditorName" class="tw:text-sm">
+                {{ auditInstance.displayMeta.leadAuditorName }}
+              </span>
+              <span v-else class="tw:text-sm tw:text-secondary">—</span>
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:text-xs tw:text-secondary">Auditee</div>
+              <UserSelectMenu
+                v-if="isEditable"
+                v-model="auditInstance.auditeeUserId"
+                nullLabel="-- Select --"
+                :kind="
+                  auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'
+                "
+                :supplierId="
+                  auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null
+                "
+                :departmentId="
+                  auditInstance.programTypeId === 'SUPPLIER' ? null : auditInstance.departmentId
+                "
+              />
+              <span v-else-if="auditInstance.displayMeta?.auditeeName" class="tw:text-sm">
+                {{ auditInstance.displayMeta.auditeeName }}
+              </span>
+              <span v-else class="tw:text-sm tw:text-secondary">—</span>
+            </div>
+            <div
+              v-if="auditInstance.programTypeId !== 'SUPPLIER'"
+              class="tw:flex tw:flex-col tw:gap-1"
+            >
+              <div class="tw:text-xs tw:text-secondary">Department</div>
+              <DepartmentSelectMenu v-if="isEditable" v-model="auditInstance.departmentId" />
+              <DepartmentBadgeById
+                v-else-if="auditInstance.departmentId"
+                :departmentId="auditInstance.departmentId"
+              />
+              <span v-else class="tw:text-sm tw:text-secondary">—</span>
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:text-xs tw:text-secondary">Site</div>
+              <SiteSelectMenu v-if="isEditable" v-model="auditInstance.siteId" />
+              <SiteBadgeById v-else-if="auditInstance.siteId" :siteId="auditInstance.siteId" />
+              <span v-else class="tw:text-sm tw:text-secondary">—</span>
+            </div>
+            <div
+              v-if="auditInstance.programTypeId === 'SUPPLIER'"
+              class="tw:flex tw:flex-col tw:gap-1"
+            >
+              <div class="tw:text-xs tw:text-secondary">Supplier</div>
+              <SupplierBadgeById
+                v-if="isEditable && auditInstance.supplierId"
+                :supplierId="auditInstance.supplierId"
+              />
+              <span v-else-if="auditInstance.displayMeta?.supplierName" class="tw:text-sm">
+                {{ auditInstance.displayMeta.supplierName }}
+              </span>
+              <span v-else class="tw:text-sm tw:text-secondary">—</span>
+            </div>
           </div>
 
-              <div class="tw:grid tw:grid-cols-2 tw:gap-3 tw:mb-4">
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Standard</div>
-                  <AuditStandardBadgeById
-                    v-if="isEditable && auditInstance.auditStandardId"
-                    :standardId="auditInstance.auditStandardId"
-                  />
-                  <span v-else-if="auditInstance.displayMeta?.standardName" class="tw:text-sm">
-                    {{ auditInstance.displayMeta.standardName }}
-                  </span>
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Scheduled</div>
-                  <BaseTextInput
-                    v-if="isEditable"
-                    v-model="scheduledDateStr"
-                    type="date"
-                    size="sm"
-                  />
-                  <span v-else class="tw:text-sm">
-                    {{
-                      auditInstance.scheduledDate
-                        ? auditInstance.scheduledDate.formatDate('date')
-                        : '—'
-                    }}
-                  </span>
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Lead Auditor</div>
-                  <UserSelectMenu v-if="isEditable" v-model="auditInstance.leadAuditorUserId" />
-                  <span v-else-if="auditInstance.displayMeta?.leadAuditorName" class="tw:text-sm">
-                    {{ auditInstance.displayMeta.leadAuditorName }}
-                  </span>
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Auditee</div>
-                  <UserSelectMenu
-                    v-if="isEditable"
-                    v-model="auditInstance.auditeeUserId"
-                    nullLabel="-- Select --"
-                    :kind="
-                      auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'
-                    "
-                    :supplierId="
-                      auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null
-                    "
-                    :departmentId="
-                      auditInstance.programTypeId === 'SUPPLIER' ? null : auditInstance.departmentId
-                    "
-                  />
-                  <span v-else-if="auditInstance.displayMeta?.auditeeName" class="tw:text-sm">
-                    {{ auditInstance.displayMeta.auditeeName }}
-                  </span>
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div
-                  v-if="auditInstance.programTypeId !== 'SUPPLIER'"
-                  class="tw:flex tw:flex-col tw:gap-1"
-                >
-                  <div class="tw:text-xs tw:text-secondary">Department</div>
-                  <DepartmentSelectMenu v-if="isEditable" v-model="auditInstance.departmentId" />
-                  <DepartmentBadgeById
-                    v-else-if="auditInstance.departmentId"
-                    :departmentId="auditInstance.departmentId"
-                  />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Site</div>
-                  <SiteSelectMenu v-if="isEditable" v-model="auditInstance.siteId" />
-                  <SiteBadgeById v-else-if="auditInstance.siteId" :siteId="auditInstance.siteId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div
-                  v-if="auditInstance.programTypeId === 'SUPPLIER'"
-                  class="tw:flex tw:flex-col tw:gap-1"
-                >
-                  <div class="tw:text-xs tw:text-secondary">Supplier</div>
-                  <SupplierBadgeById
-                    v-if="isEditable && auditInstance.supplierId"
-                    :supplierId="auditInstance.supplierId"
-                  />
-                  <span v-else-if="auditInstance.displayMeta?.supplierName" class="tw:text-sm">
-                    {{ auditInstance.displayMeta.supplierName }}
-                  </span>
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-              </div>
-
-              <!-- Scope / Objectives — click-to-edit, long form -->
-              <div class="tw:flex tw:flex-col tw:gap-3">
-                <div>
-                  <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-                    Scope
-                  </p>
-                  <BaseTextarea
-                    v-if="editingScope && isEditable"
-                    v-model="auditInstance.scope"
-                    :rows="3"
-                    placeholder="What's in scope for this audit?"
-                    @blur="editingScope = false"
-                  />
-                  <BaseClickableRow
-                    v-else
-                    class="tw:text-sm tw:whitespace-pre-line tw:text-on-main"
-                    :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                    :disabled="!isEditable"
-                    aria-label="Edit audit scope"
-                    @click="isEditable && (editingScope = true)"
-                  >
-                    {{ auditInstance.scope || (isEditable ? 'Add scope…' : '—') }}
-                  </BaseClickableRow>
-                </div>
-                <div>
-                  <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-                    Objectives
-                  </p>
-                  <BaseTextarea
-                    v-if="editingObjectives && isEditable"
-                    v-model="auditInstance.objectives"
-                    :rows="3"
-                    placeholder="What outcomes does this audit need to produce?"
-                    @blur="editingObjectives = false"
-                  />
-                  <BaseClickableRow
-                    v-else
-                    class="tw:text-sm tw:whitespace-pre-line tw:text-on-main"
-                    :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                    :disabled="!isEditable"
-                    aria-label="Edit audit objectives"
-                    @click="isEditable && (editingObjectives = true)"
-                  >
-                    {{ auditInstance.objectives || (isEditable ? 'Add objectives…' : '—') }}
-                  </BaseClickableRow>
-                </div>
-              </div>
+          <!-- Scope / Objectives — click-to-edit, long form -->
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <div>
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Scope</p>
+              <BaseTextarea
+                v-if="editingScope && isEditable"
+                v-model="auditInstance.scope"
+                :rows="3"
+                placeholder="What's in scope for this audit?"
+                @blur="editingScope = false"
+              />
+              <BaseClickableRow
+                v-else
+                class="tw:text-sm tw:whitespace-pre-line tw:text-on-main"
+                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                :disabled="!isEditable"
+                aria-label="Edit audit scope"
+                @click="isEditable && (editingScope = true)"
+              >
+                {{ auditInstance.scope || (isEditable ? 'Add scope…' : '—') }}
+              </BaseClickableRow>
             </div>
+            <div>
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+                Objectives
+              </p>
+              <BaseTextarea
+                v-if="editingObjectives && isEditable"
+                v-model="auditInstance.objectives"
+                :rows="3"
+                placeholder="What outcomes does this audit need to produce?"
+                @blur="editingObjectives = false"
+              />
+              <BaseClickableRow
+                v-else
+                class="tw:text-sm tw:whitespace-pre-line tw:text-on-main"
+                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
+                :disabled="!isEditable"
+                aria-label="Edit audit objectives"
+                @click="isEditable && (editingObjectives = true)"
+              >
+                {{ auditInstance.objectives || (isEditable ? 'Add objectives…' : '—') }}
+              </BaseClickableRow>
+            </div>
+          </div>
+        </FormSection>
 
         <!-- Admin-defined custom fields. Self-hides when none configured. -->
         <CustomFieldsCard entityType="AuditInstance" :entityId="id" :editable="isEditable" />
@@ -612,67 +599,40 @@ const auditInstanceDetailConfig = computed(() =>
 
         <!-- Close-Out Workflow — appears once Submitted-for-Close-Out. Reviewers
              see Approve / Reject inside each step card. -->
-        <div
+        <FormSection
           v-if="auditInstance.workflowInstanceId"
-          class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
+          title="Close-Out Workflow"
+          :icon="IconSend"
         >
-          <BaseText
-            variant="overline"
-            class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-          >
-            <IconSend :size="14" />
-            Close-Out Workflow
-          </BaseText>
           <AuditInstanceWorkflowDetail
             :auditInstanceId="auditInstance.id"
             :workflowInstanceId="auditInstance.workflowInstanceId"
             :isOwner="auditInstance.createdBy === currentSession?.userId"
           />
-        </div>
+        </FormSection>
       </div>
     </template>
 
     <template v-if="auditInstance" #tab-requirements>
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <BaseText
-          variant="overline"
-          class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-        >
-          <IconClipboardList :size="14" />
-          Requirements
-        </BaseText>
+      <FormSection title="Requirements" :icon="IconClipboardList">
         <AuditWalkthroughPanel :auditInstance="auditInstance" :readonly="!isEditable" />
-      </div>
+      </FormSection>
     </template>
 
     <template v-if="auditInstance" #tab-findings>
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <BaseText
-          variant="overline"
-          class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-        >
-          <IconBolt :size="14" />
-          Findings
-        </BaseText>
+      <FormSection title="Findings" :icon="IconBolt">
         <AuditFindingsPanel
           :auditInstance="auditInstance"
           :readonly="!isEditable"
           :canRespond="auditInstance.programTypeId === 'SUPPLIER' && (isEditable || isAuditee)"
         />
-      </div>
+      </FormSection>
     </template>
 
     <template v-if="auditInstance" #tab-ofi>
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <BaseText
-          variant="overline"
-          class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-        >
-          <IconBulb :size="14" />
-          Opportunities for Improvement
-        </BaseText>
+      <FormSection title="Opportunities for Improvement" :icon="IconBulb">
         <AuditOfiPanel :auditInstance="auditInstance" />
-      </div>
+      </FormSection>
     </template>
 
     <template v-if="auditInstance" #rail>
@@ -689,7 +649,9 @@ const auditInstanceDetailConfig = computed(() =>
           <span
             class="tw:text-micro tw:font-bold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
             :class="
-              scoring.pass ? 'tw:bg-emerald-100 tw:text-emerald-700' : 'tw:bg-red-100 tw:text-red-700'
+              scoring.pass
+                ? 'tw:bg-emerald-100 tw:text-emerald-700'
+                : 'tw:bg-red-100 tw:text-red-700'
             "
           >
             {{ scoring.pass ? 'Pass' : 'Fail' }}
@@ -790,7 +752,9 @@ const auditInstanceDetailConfig = computed(() =>
           </BaseDetailField>
           <BaseDetailField label="Type" layout="inline" :value="auditInstance.programTypeId" />
           <BaseDetailField label="Progress" layout="inline">
-            <span class="tw:text-xs tw:font-medium">{{ responseCount }} / {{ clauseCount }} clauses</span>
+            <span class="tw:text-xs tw:font-medium"
+              >{{ responseCount }} / {{ clauseCount }} clauses</span
+            >
           </BaseDetailField>
           <BaseDetailField label="Findings" layout="inline">
             <span class="tw:text-xs tw:font-medium">
@@ -807,7 +771,9 @@ const auditInstanceDetailConfig = computed(() =>
             layout="inline"
             :value="auditInstance.completedAt ? auditInstance.completedAt.formatDate('date') : null"
           />
-          <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-1">Saving…</div>
+          <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-1">
+            Saving…
+          </div>
           <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-1">
             {{ saveError }}
           </div>
@@ -830,91 +796,91 @@ const auditInstanceDetailConfig = computed(() =>
     </template>
   </BaseDetailLayout>
 
-    <AuditInstanceSubmitDialog
-      v-if="auditInstance"
-      v-model="showSubmitDialog"
-      :auditInstanceId="auditInstance.id"
-    />
+  <AuditInstanceSubmitDialog
+    v-if="auditInstance"
+    v-model="showSubmitDialog"
+    :auditInstanceId="auditInstance.id"
+  />
 
-    <BaseDialog v-model="showAddMemberDialog" title="Add Team Member" maxWidth="md">
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            User <span class="tw:text-red-500">*</span>
-          </p>
-          <UserSelectMenu v-model="addMemberForm.userId" />
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Role</p>
-          <BaseInlineSelect
-            v-model="addMemberForm.roleOnAudit"
-            :items="[
-              { id: 'TEAM', name: 'Team Member' },
-              { id: 'LEAD', name: 'Lead Auditor' },
-            ]"
-            :required="true"
-          />
-          <p class="tw:text-caption tw:text-secondary tw:mt-1">
-            Promoting to LEAD demotes the current lead (if any).
-          </p>
-        </div>
+  <BaseDialog v-model="showAddMemberDialog" title="Add Team Member" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <div>
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+          User <span class="tw:text-red-500">*</span>
+        </p>
+        <UserSelectMenu v-model="addMemberForm.userId" />
       </div>
-      <template #footer>
-        <BaseDialogFooter
-          submitLabel="Add"
-          :loading="addingMember"
-          :disabled="!addMemberForm.userId"
-          @cancel="showAddMemberDialog = false"
-          @submit="handleAddMember"
+      <div>
+        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Role</p>
+        <BaseInlineSelect
+          v-model="addMemberForm.roleOnAudit"
+          :items="[
+            { id: 'TEAM', name: 'Team Member' },
+            { id: 'LEAD', name: 'Lead Auditor' },
+          ]"
+          :required="true"
         />
-      </template>
-    </BaseDialog>
-
-    <BaseDialog v-model="showCancelDialog" title="Cancel Audit" maxWidth="md">
-      <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Cancel <strong>{{ auditInstance?.auditNumber }}</strong
-        >? Existing requirement responses + team data stay intact — the audit is just marked
-        CANCELLED. Use Delete to remove the row entirely.
-      </p>
-      <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
-        <BaseButton variant="outline" :disabled="transitioning" @click="showCancelDialog = false">
-          Keep
-        </BaseButton>
-        <BaseButton variant="danger" :disabled="transitioning" @click="confirmCancel">
-          {{ transitioning ? 'Cancelling…' : 'Cancel Audit' }}
-        </BaseButton>
+        <p class="tw:text-caption tw:text-secondary tw:mt-1">
+          Promoting to LEAD demotes the current lead (if any).
+        </p>
       </div>
-    </BaseDialog>
+    </div>
+    <template #footer>
+      <BaseDialogFooter
+        submitLabel="Add"
+        :loading="addingMember"
+        :disabled="!addMemberForm.userId"
+        @cancel="showAddMemberDialog = false"
+        @submit="handleAddMember"
+      />
+    </template>
+  </BaseDialog>
 
-    <BaseDialog v-model="showDeleteDialog" title="Archive Audit" maxWidth="md">
-      <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Archive <strong>{{ auditInstance?.auditNumber }}</strong
-        >? Soft-delete; admins can restore via Settings if needed.
-      </p>
-      <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
-        <BaseButton variant="outline" :disabled="transitioning" @click="showDeleteDialog = false">
-          Cancel
-        </BaseButton>
-        <BaseButton variant="danger" :disabled="transitioning" @click="handleDelete">
-          {{ transitioning ? 'Archiving…' : 'Archive' }}
-        </BaseButton>
-      </div>
-    </BaseDialog>
+  <BaseDialog v-model="showCancelDialog" title="Cancel Audit" maxWidth="md">
+    <p class="tw:text-sm tw:text-on-main tw:mb-3">
+      Cancel <strong>{{ auditInstance?.auditNumber }}</strong
+      >? Existing requirement responses + team data stay intact — the audit is just marked
+      CANCELLED. Use Delete to remove the row entirely.
+    </p>
+    <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
+      <BaseButton variant="outline" :disabled="transitioning" @click="showCancelDialog = false">
+        Keep
+      </BaseButton>
+      <BaseButton variant="danger" :disabled="transitioning" @click="confirmCancel">
+        {{ transitioning ? 'Cancelling…' : 'Cancel Audit' }}
+      </BaseButton>
+    </div>
+  </BaseDialog>
 
-    <!-- Full audit-log dialog. Includes the AuditInstance row itself
+  <BaseDialog v-model="showDeleteDialog" title="Archive Audit" maxWidth="md">
+    <p class="tw:text-sm tw:text-on-main tw:mb-3">
+      Archive <strong>{{ auditInstance?.auditNumber }}</strong
+      >? Soft-delete; admins can restore via Settings if needed.
+    </p>
+    <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
+      <BaseButton variant="outline" :disabled="transitioning" @click="showDeleteDialog = false">
+        Cancel
+      </BaseButton>
+      <BaseButton variant="danger" :disabled="transitioning" @click="handleDelete">
+        {{ transitioning ? 'Archiving…' : 'Archive' }}
+      </BaseButton>
+    </div>
+  </BaseDialog>
+
+  <!-- Full audit-log dialog. Includes the AuditInstance row itself
          plus the parent WorkflowInstance (for cross-step activity)
          and the child Findings (so reviewers can see the related
          finding history without leaving the audit). -->
-    <AuditLogDialog
-      v-if="auditInstance?.id"
-      v-model="showAuditLog"
-      entityType="AuditInstance"
-      :entityId="auditInstance.id"
-      :title="`Audit Log — ${auditInstance.auditNumber || 'Audit'}`"
-      :includeEntities="
-        auditInstance.workflowInstanceId
-          ? [{ entityType: 'WorkflowInstance', entityIds: [auditInstance.workflowInstanceId] }]
-          : []
-      "
-    />
+  <AuditLogDialog
+    v-if="auditInstance?.id"
+    v-model="showAuditLog"
+    entityType="AuditInstance"
+    :entityId="auditInstance.id"
+    :title="`Audit Log — ${auditInstance.auditNumber || 'Audit'}`"
+    :includeEntities="
+      auditInstance.workflowInstanceId
+        ? [{ entityType: 'WorkflowInstance', entityIds: [auditInstance.workflowInstanceId] }]
+        : []
+    "
+  />
 </template>

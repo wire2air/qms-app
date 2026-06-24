@@ -358,9 +358,7 @@ function onCreateLinkedChangeRequest() {
 }
 
 // ─── BaseDetailLayout config (SP-6) ──────────────────────────────────────────
-const capaBanners = computed(() =>
-  buildCapaBanners(capa.value, { isEditable: isEditable.value }),
-)
+const capaBanners = computed(() => buildCapaBanners(capa.value, { isEditable: isEditable.value }))
 const capaActions = computed(() =>
   buildCapaActions(
     {
@@ -441,7 +439,9 @@ const capaDetailConfig = computed(() =>
     <template v-if="capa" #meta>
       <span class="tw:font-mono">{{ capa.capaNumber }}</span>
       <template v-if="capa.typeId"> · <CapaTypeBadgeById :typeId="capa.typeId" /></template>
-      <template v-if="capa.initiatedAt"> · Initiated {{ capa.initiatedAt.formatDate('date') }}</template>
+      <template v-if="capa.initiatedAt">
+        · Initiated {{ capa.initiatedAt.formatDate('date') }}</template
+      >
     </template>
 
     <template #actions>
@@ -471,11 +471,8 @@ const capaDetailConfig = computed(() =>
       <AuditOriginPanel entityType="Capa" :entityId="id" />
 
       <!-- CAPA Details card (description + classification grid) -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <div
-          class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-        >
-          <BaseText variant="overline">CAPA Details</BaseText>
+      <FormSection title="CAPA Details">
+        <template #actions>
           <!-- At-a-glance indicator of which assignee pool the
                workflow draws from. Mirrors the NC chip — a CAPA
                spawned from a supplier NC inherits both
@@ -496,7 +493,7 @@ const capaDetailConfig = computed(() =>
           >
             Internal
           </span>
-        </div>
+        </template>
 
         <BaseRichTextField
           v-model="capa.description"
@@ -527,7 +524,7 @@ const capaDetailConfig = computed(() =>
             </span>
           </div>
         </div>
-      </div>
+      </FormSection>
 
       <!-- Admin-defined custom fields. Self-hides when none configured. -->
       <CustomFieldsCard entityType="Capa" :entityId="id" :editable="isEditable" />
@@ -618,15 +615,8 @@ const capaDetailConfig = computed(() =>
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
         <BaseDetailField label="Department">
-          <DepartmentSelectMenu
-            v-if="isEditable"
-            v-model="capa.departmentId"
-            :required="true"
-          />
-          <DepartmentBadgeById
-            v-else-if="capa.departmentId"
-            :departmentId="capa.departmentId"
-          />
+          <DepartmentSelectMenu v-if="isEditable" v-model="capa.departmentId" :required="true" />
+          <DepartmentBadgeById v-else-if="capa.departmentId" :departmentId="capa.departmentId" />
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
         <BaseDetailField v-if="capa.supplierId" label="Supplier">
@@ -872,8 +862,8 @@ const capaDetailConfig = computed(() =>
   <!-- Delete draft CAPA -->
   <BaseDialog v-model="showDeleteDialog" title="Delete Draft CAPA" maxWidth="md">
     <p class="tw:text-sm tw:text-on-main tw:mb-3">
-      Delete this draft CAPA? This permanently removes the record. Drafts have no audit history
-      yet, so this is safe.
+      Delete this draft CAPA? This permanently removes the record. Drafts have no audit history yet,
+      so this is safe.
     </p>
     <div
       v-if="saveError"

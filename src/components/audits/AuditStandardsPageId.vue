@@ -445,14 +445,7 @@ const auditStandardDetailConfig = computed(() =>
 
     <template v-if="standard" #section-details>
       <!-- Details card -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <BaseText
-          variant="overline"
-          class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-        >
-          Standard Details
-        </BaseText>
-
+      <FormSection title="Standard Details">
         <div v-if="editingDescription && isEditable" class="tw:mb-4">
           <BaseTextarea
             v-model="standard.description"
@@ -475,10 +468,7 @@ const auditStandardDetailConfig = computed(() =>
         <div class="tw:grid tw:grid-cols-2 tw:gap-3">
           <div class="tw:flex tw:flex-col tw:gap-1">
             <div class="tw:text-xs tw:text-secondary">Type</div>
-            <AuditStandardTypeSelectMenu
-              v-if="isEditable"
-              v-model="standard.auditStandardTypeId"
-            />
+            <AuditStandardTypeSelectMenu v-if="isEditable" v-model="standard.auditStandardTypeId" />
             <AuditStandardTypeBadgeById
               v-else-if="standard.auditStandardTypeId"
               :standardTypeId="standard.auditStandardTypeId"
@@ -492,7 +482,7 @@ const auditStandardDetailConfig = computed(() =>
             </span>
           </div>
         </div>
-      </div>
+      </FormSection>
     </template>
 
     <template v-if="standard && underReviewVersion" #section-workflow>
@@ -504,39 +494,30 @@ const auditStandardDetailConfig = computed(() =>
            auditStandardVersionHandler flips the version to
            EFFECTIVE; on rejection it goes back to REJECTED so
            the author can amend + resubmit. -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <BaseText
-          variant="overline"
-          class="tw:pb-3 tw:border-b tw:border-divider tw:mb-4 tw:flex tw:items-center tw:gap-2"
-        >
-          Approval Workflow
-          <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
+      <FormSection title="Approval Workflow">
+        <template #actions>
+          <span class="tw:font-normal tw:normal-case tw:text-secondary tw:text-xs tw:ml-1">
             v{{ underReviewVersion.versionMajor }}.{{ underReviewVersion.versionMinor }}
           </span>
-        </BaseText>
+        </template>
         <AuditStandardVersionWorkflowDetail
           :versionId="underReviewVersion.id"
           :workflowInstanceId="underReviewVersion.workflowInstanceId"
           :isOwner="underReviewVersion.createdBy === currentSession?.userId"
         />
-      </div>
+      </FormSection>
     </template>
 
     <template v-if="standard" #section-requirements>
       <!-- Requirements editor (or read-only view) -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <div
-          class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-        >
-          <BaseText variant="overline">
-            Requirements
-            <span
-              v-if="activeVersion"
-              class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-2"
-            >
-              v{{ activeVersion.versionMajor }}.{{ activeVersion.versionMinor }}
-            </span>
-          </BaseText>
+      <FormSection title="Requirements">
+        <template #actions>
+          <span
+            v-if="activeVersion"
+            class="tw:font-normal tw:normal-case tw:text-secondary tw:text-xs tw:ml-2"
+          >
+            v{{ activeVersion.versionMajor }}.{{ activeVersion.versionMinor }}
+          </span>
           <span
             v-if="activeVersion"
             class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
@@ -544,17 +525,14 @@ const auditStandardDetailConfig = computed(() =>
           >
             {{ activeVersion.statusId }}
           </span>
-        </div>
+        </template>
 
-        <AuditRequirementsEditor
-          v-if="editableVersion && isEditable"
-          :version="editableVersion"
-        />
+        <AuditRequirementsEditor v-if="editableVersion && isEditable" :version="editableVersion" />
         <AuditRequirementsEditor v-else-if="activeVersion" :version="activeVersion" readonly />
         <div v-else class="tw:py-12 tw:text-center tw:text-sm tw:text-secondary tw:italic">
           No version yet — try creating a new draft.
         </div>
-      </div>
+      </FormSection>
     </template>
 
     <template v-if="standard" #rail>
@@ -590,9 +568,7 @@ const auditStandardDetailConfig = computed(() =>
           label="Created"
           :value="standard.createdAt ? standard.createdAt.formatDate('date') : null"
         />
-        <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-2">
-          Saving…
-        </div>
+        <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-2">Saving…</div>
         <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-2">
           {{ saveError }}
         </div>
@@ -631,7 +607,6 @@ const auditStandardDetailConfig = computed(() =>
 
       <!-- 3. Source document -->
       <BaseRailCard title="Source Document" :icon="IconFile">
-
         <div v-if="sourceAsset" class="tw:flex tw:flex-col tw:gap-2">
           <a
             :href="sourceAsset.url"
@@ -644,8 +619,7 @@ const auditStandardDetailConfig = computed(() =>
             <span>{{ sourceAsset.originalFilename || sourceAsset.filename }}</span>
           </a>
           <div class="tw:text-micro tw:text-secondary tw:font-mono">
-            {{ sourceAsset.mimeType }} ·
-            {{ ((sourceAsset.fileSize || 0) / 1024).toFixed(1) }} KB
+            {{ sourceAsset.mimeType }} · {{ ((sourceAsset.fileSize || 0) / 1024).toFixed(1) }} KB
           </div>
           <div v-if="isEditable" class="tw:flex tw:gap-1 tw:mt-1">
             <button
@@ -696,7 +670,6 @@ const auditStandardDetailConfig = computed(() =>
 
       <!-- 4. Versions list -->
       <BaseRailCard v-if="versions.length" title="Versions" :icon="IconClipboardList">
-
         <div class="tw:flex tw:flex-col tw:gap-0.5">
           <div
             v-for="v in versions"
@@ -769,10 +742,9 @@ const auditStandardDetailConfig = computed(() =>
       <div
         class="tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200 tw:p-3 tw:text-xs tw:text-amber-800"
       >
-        By attesting, you confirm that your organization holds a valid license (typically from
-        ANSI, ISO, SAE, or AIAG) to use the normative text of this standard within your QMS. The
-        QMS does not embed the normative text itself; attestation is for your records + audit
-        trail.
+        By attesting, you confirm that your organization holds a valid license (typically from ANSI,
+        ISO, SAE, or AIAG) to use the normative text of this standard within your QMS. The QMS does
+        not embed the normative text itself; attestation is for your records + audit trail.
       </div>
 
       <div>
@@ -798,9 +770,9 @@ const auditStandardDetailConfig = computed(() =>
           class="tw:mt-0.5 tw:cursor-pointer"
         />
         <span>
-          I confirm that {{ currentSession?.firstName ?? 'my organization' }} holds a valid
-          license to use this standard's normative text within our QMS, and that this attestation
-          will be recorded with my user account and the current timestamp.
+          I confirm that {{ currentSession?.firstName ?? 'my organization' }} holds a valid license
+          to use this standard's normative text within our QMS, and that this attestation will be
+          recorded with my user account and the current timestamp.
         </span>
       </label>
     </div>

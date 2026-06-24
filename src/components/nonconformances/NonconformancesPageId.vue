@@ -546,9 +546,8 @@ const ncDetailConfig = computed(() =>
       <AuditOriginPanel entityType="Nonconformance" :entityId="id" />
 
       <!-- NC Details card -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <div class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
-          <BaseText variant="overline">NC Details</BaseText>
+      <FormSection title="NC Details">
+        <template #actions>
           <!-- At-a-glance indicator of which assignee pool the
                workflow draws from. Always visible (not just on
                the DRAFT preview), so you can spot a mislabeled
@@ -566,7 +565,7 @@ const ncDetailConfig = computed(() =>
           >
             Internal
           </span>
-        </div>
+        </template>
         <BaseRichTextField
           v-model="nc.description"
           :editable="isEditable"
@@ -641,7 +640,7 @@ const ncDetailConfig = computed(() =>
             textClass="tw:text-sm tw:text-on-main tw:leading-relaxed"
           />
         </div>
-      </div>
+      </FormSection>
 
       <!-- Admin-defined custom fields (Settings → Custom Fields). Self-hides when none configured. (merged from develop) -->
       <CustomFieldsCard entityType="Nonconformance" :entityId="id" :editable="isEditable" />
@@ -667,11 +666,7 @@ const ncDetailConfig = computed(() =>
 
     <template v-if="nc" #section-disposition>
       <!-- Disposition card -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <BaseText variant="overline" class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
-          Disposition
-        </BaseText>
-
+      <FormSection title="Disposition">
         <template v-if="isEditable">
           <div class="tw:grid tw:grid-cols-2 tw:gap-3">
             <BaseField label="Disposition">
@@ -818,19 +813,13 @@ const ncDetailConfig = computed(() =>
             </div>
           </div>
         </template>
-      </div>
+      </FormSection>
     </template>
 
     <template v-if="nc" #section-capas>
       <!-- Linked CAPAs -->
-      <div
-        v-if="nc.capaRequired === true"
-        class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-      >
-        <div
-          class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-        >
-          <BaseText variant="overline">Linked CAPAs</BaseText>
+      <FormSection v-if="nc.capaRequired === true" title="Linked CAPAs">
+        <template #actions>
           <div class="tw:flex tw:gap-2">
             <BaseButton
               v-if="canCreateChangeRequest"
@@ -849,7 +838,7 @@ const ncDetailConfig = computed(() =>
               Create CAPA
             </BaseButton>
           </div>
-        </div>
+        </template>
         <div v-if="linkedCapas.length" class="tw:flex tw:flex-col tw:gap-2">
           <RouterLink
             v-for="linked in linkedCapas"
@@ -869,7 +858,7 @@ const ncDetailConfig = computed(() =>
           </RouterLink>
         </div>
         <div v-else class="tw:text-sm tw:text-secondary tw:italic">No CAPAs linked yet.</div>
-      </div>
+      </FormSection>
     </template>
 
     <!-- Right column — stays here until Task 4 moves it into the BaseDetailLayout rail -->

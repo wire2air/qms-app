@@ -1,18 +1,35 @@
 <script setup>
 import { DateTime } from 'luxon'
-import { post } from '@/api'
+import {
+  IconInfoCircle,
+  IconCategory,
+  IconBell,
+  IconSitemap,
+  IconFileDescription,
+} from '@tabler/icons-vue'
+import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
 import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
+import { required } from '@shared/components/form/validators.js'
+import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
 
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
 const saving = ref(false)
+// Server-side save failure — surfaced persistently in the form footer.
+const submitError = ref('')
 
 // Admin-defined custom fields — held locally, persisted after the CR exists.
 const customFieldsData = ref({})
 const customFieldsRef = ref(null)
+
+const CLASSIFICATIONS = [
+  { id: 'MINOR', name: 'Minor' },
+  { id: 'MAJOR', name: 'Major' },
+  { id: 'CRITICAL', name: 'Critical' },
+]
 
 // Cross-module shortcuts: a CR can be spawned from an NC, CAPA,
 // audit, etc. via ?source=NC&sourceId=...; we pre-fill the source
@@ -28,7 +45,6 @@ const presetSourceId = computed(() => {
 
 const sourceNc = useLiveQueryWithDeps(
   [() => presetSourceType.value, () => presetSourceId.value],
-
   async (db, [type, id]) => {
     if (type !== 'NC' || !id) return null
     return db.Nonconformance.findByPk(id)
@@ -38,7 +54,6 @@ const sourceNc = useLiveQueryWithDeps(
 
 const sourceCapa = useLiveQueryWithDeps(
   [() => presetSourceType.value, () => presetSourceId.value],
-
   async (db, [type, id]) => {
     if (type !== 'CAPA' || !id) return null
     return db.Capa.findByPk(id)
@@ -55,7 +70,6 @@ const presetFindingId = computed(() => {
 })
 const sourceFinding = useLiveQueryWithDeps(
   [() => presetFindingId.value],
-
   async (db, [id]) => {
     if (!id) return null
     return db.AuditFinding.findByPk(id)
@@ -85,6 +99,15 @@ const form = ref({
   notifyGroupIds: [],
   notifyUserIds: [],
 })
+
+// Unsaved-changes marker for the footer + BaseForm's beforeunload guard.
+const isDirty = ref(false)
+watch(form, () => (isDirty.value = true), { deep: true })
+
+// Confirm before abandoning a half-filled CR via in-app navigation (Cancel,
+// back, sidebar). allowLeave() is called before the post-save redirect so a
+// successful create doesn't prompt. BaseForm covers the browser-level exit.
+const { allowLeave } = useUnsavedChangesGuard(isDirty)
 
 // Seed title + site + department from the originating record so the
 // owner doesn't have to retype context.
@@ -122,19 +145,12 @@ watch(
   },
 )
 
-const CLASSIFICATIONS = [
-  { id: 'MINOR', name: 'Minor' },
-  { id: 'MAJOR', name: 'Major' },
-  { id: 'CRITICAL', name: 'Critical' },
-]
-
 // Only show workflows scoped to the Change Control module.
 const workflows = useLiveQuery(
   async (db) => {
     const all = await db.Workflow.where().exec()
     return all.filter((w) => w.moduleId === 'CHANGE_CONTROL' && w.statusId === 'ACTIVE')
   },
-
   { models: ['Workflow'], initial: [] },
 )
 const activeWorkflowVersions = useLiveQueryWithDeps(
@@ -149,7 +165,6 @@ const activeWorkflowVersions = useLiveQueryWithDeps(
     )
     return versions.filter((v) => v?.statusId === 'PUBLISHED')
   },
-
   { models: ['WorkflowVersion'], initial: [] },
 )
 
@@ -163,28 +178,53 @@ const workflowVersionOptions = computed(() =>
   }),
 )
 
-async function handleSubmit() {
-  for (const [field, label] of [
-    ['title', 'Title'],
-    ['changeTypeId', 'Change type'],
-    ['priorityId', 'Priority'],
-    ['siteId', 'Site'],
-    ['departmentId', 'Department'],
-    ['ownerId', 'Responsible party'],
-    ['initiatedAt', 'Initiated date'],
-    ['workflowVersionId', 'Workflow'],
-  ]) {
-    if (!form.value[field]) {
-      toast.notify({ type: 'negative', message: `${label} is required` })
-      return
-    }
-  }
-  if ((await customFieldsRef.value?.validate()) === false) {
-    toast.notify({ type: 'negative', message: 'Complete the required fields under Additional information' })
-    return
-  }
+// Sticky section nav (FormProgressNav). Section ids mirror the FormSection ids
+// below; status shows a check once a section's required fields are satisfied.
+const classificationComplete = computed(
+  () =>
+    !!form.value.changeTypeId &&
+    !!form.value.priorityId &&
+    !!form.value.siteId &&
+    !!form.value.departmentId &&
+    !!form.value.ownerId &&
+    !!form.value.initiatedAt,
+)
+const navSections = computed(() => [
+  {
+    id: 'cr-basic',
+    label: 'Basic',
+    icon: IconInfoCircle,
+    status: form.value.title ? 'complete' : null,
+  },
+  {
+    id: 'cr-classification',
+    label: 'Classification',
+    icon: IconCategory,
+    status: classificationComplete.value ? 'complete' : null,
+  },
+  { id: 'cr-context', label: 'Context', icon: IconFileDescription, status: null },
+  { id: 'cr-notify', label: 'Notify', icon: IconBell, status: null },
+  {
+    id: 'cr-workflow',
+    label: 'Workflow',
+    icon: IconSitemap,
+    status: form.value.workflowVersionId ? 'complete' : null,
+  },
+])
+
+// No form-level escape-hatch validation needed — all required values have
+// labeled BaseField wrappers with per-field :rules.
+function validate() {
+  return []
+}
+
+// Fires only after validate() and all per-field rules pass. Runs the async
+// custom-fields check (which surfaces its own inline errors), then submits.
+async function onSubmit() {
+  if ((await customFieldsRef.value?.validate()) === false) return
 
   saving.value = true
+  submitError.value = ''
   try {
     const payload = {
       ...form.value,
@@ -193,7 +233,7 @@ async function handleSubmit() {
         form.value.targetImplementationDate?.toISODate?.() ?? form.value.targetImplementationDate,
       dueDate: form.value.dueDate?.toISODate?.() ?? form.value.dueDate,
     }
-    const response = await post('/v1/services/changeRequests', payload)
+    const response = await post('/v1/services/changeRequests', payload) // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
     if (presetFindingId.value && response.changeRequest?.id) {
       try {
         await linkSpawnedToFinding({
@@ -216,61 +256,103 @@ async function handleSubmit() {
     } catch (cfErr) {
       toast.notify({
         type: 'warning',
-        message: cfErr?.message || 'CR created, but custom fields could not be saved — add them on the CR page',
+        message:
+          cfErr?.message ||
+          'CR created, but custom fields could not be saved — add them on the CR page',
       })
     }
+    allowLeave() // saved — don't prompt on the redirect
     router.push(getCompanyPath(`/change-requests/${response.changeRequest.id}`))
   } catch (e) {
-    toast.notify({ type: 'negative', message: e.message || 'Failed to create Change Request' })
+    submitError.value = e.message || 'Failed to create Change Request'
   } finally {
     saving.value = false
   }
+}
+
+function goBack() {
+  router.push(getCompanyPath('/change-requests'))
 }
 </script>
 
 <template>
   <BasePage width="standard" fullHeight>
-    <PageHeader
-      title="New Change Request"
-      subtitle="Create a draft. You'll pick reviewers and open the CR on the next page."
-    >
-      <template #actions>
-        <BaseButton variant="outline" @click="router.push(getCompanyPath('/change-requests'))">
-          Cancel
-        </BaseButton>
-        <BaseButton variant="primary" :disabled="saving" @click="handleSubmit">
-          {{ saving ? 'Creating…' : 'Create Draft' }}
-        </BaseButton>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs
+          :items="[
+            { label: 'Change Requests', to: getCompanyPath('/change-requests') },
+            { label: 'New Change Request' },
+          ]"
+        />
       </template>
     </PageHeader>
 
     <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
-      <div class="tw:py-5 tw:flex tw:flex-col tw:gap-4">
-        <div
-          class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4"
-        >
-          <BaseField v-slot="{ id: fieldId }" label="Title" required>
-            <BaseTextInput
-              :id="fieldId"
-              v-model="form.title"
-              placeholder="Short summary of the change"
-            />
-          </BaseField>
-
-          <BaseField label="Description">
-            <div class="create-cr-editor">
-              <BaseRichTextEditor
-                v-model="form.description"
-                placeholder="What is being changed and why?"
-              />
-            </div>
-          </BaseField>
-
-          <div class="tw:grid tw:grid-cols-2 tw:gap-4">
-            <BaseField label="Change Type" required>
-              <ChangeTypeSelectMenu v-model="form.changeTypeId" :required="true" />
+      <div class="tw:sticky tw:top-0 tw:z-10 tw:bg-main">
+        <FormProgressNav :sections="navSections" />
+      </div>
+      <BaseForm
+        class="tw:py-6"
+        :validate="validate"
+        :dirty="isDirty"
+        :loading="saving"
+        :submitError="submitError"
+        submitLabel="Create Draft"
+        @submit="onSubmit"
+        @cancel="goBack"
+      >
+        <!-- Basic information -->
+        <FormSection id="cr-basic" title="Basic information" :icon="IconInfoCircle">
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <BaseField
+              id="cr-title"
+              label="Title"
+              required
+              :value="form.title"
+              :rules="[required()]"
+            >
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.title"
+                  placeholder="Short summary of the change"
+                />
+              </template>
             </BaseField>
-            <BaseField label="Classification">
+            <BaseField label="Description">
+              <div class="create-cr-editor">
+                <BaseRichTextEditor
+                  v-model="form.description"
+                  placeholder="What is being changed and why?"
+                />
+              </div>
+            </BaseField>
+          </div>
+        </FormSection>
+
+        <!-- Admin-defined custom fields. Self-hides when none configured. -->
+        <CustomFieldsCreateSection
+          ref="customFieldsRef"
+          v-model="customFieldsData"
+          entityType="ChangeRequest"
+        />
+
+        <!-- Classification -->
+        <FormSection id="cr-classification" title="Classification" :icon="IconCategory">
+          <BaseFieldRow :columns="2">
+            <BaseField
+              id="cr-change-type"
+              label="Change Type"
+              required
+              :value="form.changeTypeId"
+              :rules="[required()]"
+            >
+              <template #default="field">
+                <ChangeTypeSelectMenu v-bind="field" v-model="form.changeTypeId" :required="true" />
+              </template>
+            </BaseField>
+            <BaseField label="Classification" optional>
               <BaseSelectMenu
                 v-model="form.classification"
                 :items="CLASSIFICATIONS"
@@ -283,11 +365,148 @@ async function handleSubmit() {
                 </template>
               </BaseSelectMenu>
             </BaseField>
-            <BaseField label="Priority" required>
-              <ChangeRequestPrioritySelectMenu v-model="form.priorityId" :required="true" />
+            <BaseField
+              id="cr-priority"
+              label="Priority"
+              required
+              :value="form.priorityId"
+              :rules="[required()]"
+            >
+              <template #default="field">
+                <ChangeRequestPrioritySelectMenu
+                  v-bind="field"
+                  v-model="form.priorityId"
+                  :required="true"
+                />
+              </template>
             </BaseField>
-            <BaseField label="Workflow" required>
+            <BaseField
+              id="cr-site"
+              label="Site"
+              required
+              :value="form.siteId"
+              :rules="[required()]"
+            >
+              <template #default="field">
+                <SiteSelectMenu v-bind="field" v-model="form.siteId" required />
+              </template>
+            </BaseField>
+            <BaseField
+              id="cr-department"
+              label="Department"
+              required
+              :value="form.departmentId"
+              :rules="[required()]"
+            >
+              <template #default="field">
+                <DepartmentSelectMenu
+                  v-bind="field"
+                  v-model="form.departmentId"
+                  :siteId="form.siteId"
+                  required
+                />
+              </template>
+            </BaseField>
+            <BaseField
+              id="cr-owner"
+              label="Responsible party"
+              required
+              hint="Drives the change request to closure. You remain the initiator."
+              :value="form.ownerId"
+              :rules="[required()]"
+            >
+              <template #default="field">
+                <UserSelectMenu v-bind="field" v-model="form.ownerId" required />
+              </template>
+            </BaseField>
+            <BaseField
+              id="cr-initiated"
+              label="Initiated"
+              required
+              :value="form.initiatedAt"
+              :rules="[required()]"
+            >
+              <template #default="field">
+                <BaseDateField v-bind="field" v-model="form.initiatedAt" mode="date" />
+              </template>
+            </BaseField>
+            <BaseField label="Target Implementation Date" optional>
+              <BaseDateField v-model="form.targetImplementationDate" mode="date" />
+            </BaseField>
+            <BaseField label="Due Date" optional>
+              <BaseDateField v-model="form.dueDate" mode="date" />
+            </BaseField>
+          </BaseFieldRow>
+        </FormSection>
+
+        <!-- Context (optional) -->
+        <FormSection
+          id="cr-context"
+          title="Context"
+          :icon="IconFileDescription"
+          optional
+          collapsible
+          :defaultOpen="false"
+        >
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <BaseField label="Reason for Change">
+              <div class="create-cr-editor">
+                <BaseRichTextEditor
+                  v-model="form.reasonForChange"
+                  placeholder="What's driving this change? (audit finding, regulatory update, NC, supplier change, etc.)"
+                />
+              </div>
+            </BaseField>
+            <BaseField label="Business Justification">
+              <div class="create-cr-editor">
+                <BaseRichTextEditor
+                  v-model="form.businessJustification"
+                  placeholder="Why is this change worth the effort? Cost / quality / compliance impact."
+                />
+              </div>
+            </BaseField>
+            <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
+              <BaseSwitch v-model="form.requiresEffectivenessCheck" />
+              <div>
+                <div class="tw:text-sm tw:font-semibold tw:text-on-main">
+                  Requires effectiveness check
+                </div>
+                <div class="tw:text-xs tw:text-secondary">
+                  Track post-implementation verification. CAPA-style — recommended for MAJOR or
+                  CRITICAL changes.
+                </div>
+              </div>
+            </label>
+          </div>
+        </FormSection>
+
+        <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
+        <FormSection
+          id="cr-notify"
+          title="Notify (cc)"
+          :icon="IconBell"
+          optional
+          collapsible
+          :defaultOpen="false"
+        >
+          <NotificationCcField
+            v-model:groupIds="form.notifyGroupIds"
+            v-model:userIds="form.notifyUserIds"
+          />
+        </FormSection>
+
+        <!-- Workflow -->
+        <FormSection id="cr-workflow" title="Workflow" :icon="IconSitemap">
+          <BaseField
+            id="cr-workflow-version"
+            label="Workflow"
+            required
+            :value="form.workflowVersionId"
+            :rules="[required()]"
+          >
+            <template #default="field">
               <BaseSelectMenu
+                v-bind="field"
                 v-model="form.workflowVersionId"
                 :items="workflowVersionOptions"
                 :required="true"
@@ -302,92 +521,10 @@ async function handleSubmit() {
                   </span>
                 </template>
               </BaseSelectMenu>
-            </BaseField>
-          </div>
-
-          <div class="tw:grid tw:grid-cols-2 tw:gap-4">
-            <BaseField label="Site" required>
-              <SiteSelectMenu v-model="form.siteId" :required="true" />
-            </BaseField>
-            <BaseField label="Department" required>
-              <DepartmentSelectMenu
-                v-model="form.departmentId"
-                :required="true"
-                :siteId="form.siteId"
-              />
-            </BaseField>
-            <BaseField
-              label="Responsible party"
-              required
-              hint="Drives the change request to closure. You remain the initiator."
-            >
-              <UserSelectMenu v-model="form.ownerId" :required="true" />
-            </BaseField>
-            <BaseField label="Initiated" required>
-              <BaseDateField v-model="form.initiatedAt" mode="date" />
-            </BaseField>
-            <BaseField label="Target Implementation Date">
-              <BaseDateField v-model="form.targetImplementationDate" mode="date" />
-            </BaseField>
-            <BaseField label="Due Date">
-              <BaseDateField v-model="form.dueDate" mode="date" />
-            </BaseField>
-          </div>
-
-          <BaseField label="Reason for Change">
-            <div class="create-cr-editor">
-              <BaseRichTextEditor
-                v-model="form.reasonForChange"
-                placeholder="What's driving this change? (audit finding, regulatory update, NC, supplier change, etc.)"
-              />
-            </div>
+            </template>
           </BaseField>
-
-          <BaseField label="Business Justification">
-            <div class="create-cr-editor">
-              <BaseRichTextEditor
-                v-model="form.businessJustification"
-                placeholder="Why is this change worth the effort? Cost / quality / compliance impact."
-              />
-            </div>
-          </BaseField>
-
-          <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
-            <BaseSwitch v-model="form.requiresEffectivenessCheck" />
-            <div>
-              <div class="tw:text-sm tw:font-semibold tw:text-on-main">
-                Requires effectiveness check
-              </div>
-              <div class="tw:text-xs tw:text-secondary">
-                Track post-implementation verification. CAPA-style — recommended for MAJOR or
-                CRITICAL changes.
-              </div>
-            </div>
-          </label>
-        </div>
-
-        <!-- Admin-defined custom fields. Self-hides when none configured. -->
-        <CustomFieldsCreateSection
-          ref="customFieldsRef"
-          v-model="customFieldsData"
-          entityType="ChangeRequest"
-        />
-
-        <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <BaseText
-            variant="overline"
-            class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-          >
-            Notify (cc)
-            <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
-          </BaseText>
-          <NotificationCcField
-            v-model:groupIds="form.notifyGroupIds"
-            v-model:userIds="form.notifyUserIds"
-          />
-        </div>
-      </div>
+        </FormSection>
+      </BaseForm>
     </div>
   </BasePage>
 </template>

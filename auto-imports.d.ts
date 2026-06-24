@@ -33,6 +33,7 @@ declare global {
   const createSharedComposable: typeof import('@vueuse/core').createSharedComposable
   const createTemplatePromise: typeof import('@vueuse/core').createTemplatePromise
   const createUnrefFn: typeof import('@vueuse/core').createUnrefFn
+  const createUnsavedGuard: typeof import('./resource/js/shared/composables/useUnsavedChangesGuard.js').createUnsavedGuard
   const customRef: typeof import('vue').customRef
   const debouncedRef: typeof import('@vueuse/core').debouncedRef
   const debouncedWatch: typeof import('@vueuse/core').debouncedWatch
@@ -378,6 +379,7 @@ declare global {
   const useToggle: typeof import('@vueuse/core').useToggle
   const useTooltipData: typeof import('./resource/js/shared/composables/useTooltipData.js').useTooltipData
   const useTransition: typeof import('@vueuse/core').useTransition
+  const useUnsavedChangesGuard: typeof import('./resource/js/shared/composables/useUnsavedChangesGuard.js').useUnsavedChangesGuard
   const useUrlSearchParams: typeof import('@vueuse/core').useUrlSearchParams
   const useUserMedia: typeof import('@vueuse/core').useUserMedia
   const useUserSettings: typeof import('./src/composables/useUserSettings.js').useUserSettings

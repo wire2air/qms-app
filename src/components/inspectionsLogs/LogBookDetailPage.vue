@@ -1079,30 +1079,25 @@ const logBookDetailConfig = computed(() =>
                with the real submission view. -->
           <BaseTabPanel value="schema">
             <div class="tw:flex tw:flex-col tw:gap-3">
-              <section
-                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:flex tw:items-start tw:gap-4"
-              >
-                <div class="tw:flex-1">
-                  <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main tw:mb-1">
-                    Log book schema
-                  </BaseText>
-                  <p class="tw:text-sm tw:text-secondary">
-                    {{
-                      (logBook.schema?.length ?? 0) > 0
-                        ? `${logBook.schema.length} field${logBook.schema.length === 1 ? '' : 's'} defined. Saving in the builder bumps schemaVersion (currently v${logBook.schemaVersion}).`
-                        : 'No fields yet. Open the builder to drag-and-drop the form structure.'
-                    }}
-                  </p>
-                </div>
-                <BaseButton
-                  variant="primary"
-                  :disabled="!canEditDetails || isSavingSchema"
-                  @click="openSchemaBuilder"
-                >
-                  <IconDeviceFloppy :size="16" />
-                  {{ (logBook.schema?.length ?? 0) > 0 ? 'Edit schema' : 'Build schema' }}
-                </BaseButton>
-              </section>
+              <FormSection title="Log book schema">
+                <template #actions>
+                  <BaseButton
+                    variant="primary"
+                    :disabled="!canEditDetails || isSavingSchema"
+                    @click="openSchemaBuilder"
+                  >
+                    <IconDeviceFloppy :size="16" />
+                    {{ (logBook.schema?.length ?? 0) > 0 ? 'Edit schema' : 'Build schema' }}
+                  </BaseButton>
+                </template>
+                <p class="tw:text-sm tw:text-secondary">
+                  {{
+                    (logBook.schema?.length ?? 0) > 0
+                      ? `${logBook.schema.length} field${logBook.schema.length === 1 ? '' : 's'} defined. Saving in the builder bumps schemaVersion (currently v${logBook.schemaVersion}).`
+                      : 'No fields yet. Open the builder to drag-and-drop the form structure.'
+                  }}
+                </p>
+              </FormSection>
 
               <!-- Interactive preview pane — same DynamicForm a floor user
              gets at submission time, wrapped in the FormBuilder's
@@ -1135,16 +1130,16 @@ const logBookDetailConfig = computed(() =>
             <div class="tw:flex tw:flex-col tw:gap-3">
               <!-- Inline create/edit — embedded editor scoped to this log book
              (no navigation to /form-assignments/*). -->
-              <FormAssignmentEditor
-                v-if="showAssignmentEditor"
-                :id="editingAssignmentId"
-                :key="editingAssignmentId || 'new'"
-                embedded
-                :logBookId="props.id"
-                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5"
-                @saved="onAssignmentSaved"
-                @cancel="showAssignmentEditor = false"
-              />
+              <BaseCard v-if="showAssignmentEditor">
+                <FormAssignmentEditor
+                  :id="editingAssignmentId"
+                  :key="editingAssignmentId || 'new'"
+                  embedded
+                  :logBookId="props.id"
+                  @saved="onAssignmentSaved"
+                  @cancel="showAssignmentEditor = false"
+                />
+              </BaseCard>
               <section v-else class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
                 <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:mb-3">
                   <div>
@@ -1350,108 +1345,106 @@ const logBookDetailConfig = computed(() =>
 
   <!-- Submit-for-approval dialog (reviewer-per-step picker). -->
   <LogBookVersionSubmitDialog
-      v-if="submitDialog.versionId"
-      v-model="submitDialog.open"
-      :versionId="submitDialog.versionId"
-      :workflowVersionId="draft?.workflowVersionId || null"
-    />
+    v-if="submitDialog.versionId"
+    v-model="submitDialog.open"
+    :versionId="submitDialog.versionId"
+    :workflowVersionId="draft?.workflowVersionId || null"
+  />
 
-    <!-- Full-screen FormBuilder overlay. Mirrors the workflow-step
+  <!-- Full-screen FormBuilder overlay. Mirrors the workflow-step
          panel pattern: teleport to body, slide-up transition, internal
          FormBuilder fires `save` from its toolbar with the final schema. -->
-    <Teleport to="body">
-      <Transition
-        enterActiveClass="tw:transition-transform tw:duration-300 tw:ease-out"
-        enterFromClass="tw:translate-y-full"
-        enterToClass="tw:translate-y-0"
-        leaveActiveClass="tw:transition-transform tw:duration-200 tw:ease-in"
-        leaveFromClass="tw:translate-y-0"
-        leaveToClass="tw:translate-y-full"
-      >
-        <div
-          v-if="showSchemaBuilder"
-          class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-max"
-        >
-          <div class="tw:flex tw:flex-col tw:h-full tw:flex-nowrap">
-            <!-- Header -->
-            <div
-              class="tw:flex tw:items-center tw:border-b tw:border-divider tw:py-3 tw:px-4 tw:shrink-0"
-            >
-              <div class="tw:flex tw:items-center tw:gap-2">
-                <div class="tw:text-lg tw:font-medium tw:text-on-main">
-                  {{ logBook?.title || 'Log book schema' }}
-                </div>
-                <span class="tw:text-xs tw:text-secondary tw:font-mono">
-                  v{{ logBook?.schemaVersion ?? 1 }}
-                </span>
-              </div>
-              <div class="tw:flex-1" />
-              <button
-                type="button"
-                class="tw:p-1.5 tw:rounded-full tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:bg-main-hover tw:text-secondary tw:transition-colors"
-                :disabled="isSavingSchema"
-                @click="showSchemaBuilder = false"
-              >
-                <IconX :size="20" />
-              </button>
-            </div>
-            <!-- Body — the FormBuilder fills the remaining space; its
-                 own toolbar contains Save / Undo / Redo / Preview / JSON. -->
-            <div class="tw:flex-1 tw:min-h-0 tw:overflow-hidden">
-              <FormBuilder
-                :initialSchema="logBook.schema || []"
-                title="Log book schema"
-                @save="onSchemaBuilderSave"
-              />
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <!-- Add-document dialog -->
-    <Teleport to="body">
+  <Teleport to="body">
+    <Transition
+      enterActiveClass="tw:transition-transform tw:duration-300 tw:ease-out"
+      enterFromClass="tw:translate-y-full"
+      enterToClass="tw:translate-y-0"
+      leaveActiveClass="tw:transition-transform tw:duration-200 tw:ease-in"
+      leaveFromClass="tw:translate-y-0"
+      leaveToClass="tw:translate-y-full"
+    >
       <div
-        v-if="showAddDocDialog"
-        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        v-if="showSchemaBuilder"
+        class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-max"
       >
-        <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
-          <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-3">Link a document</h3>
-          <BaseField label="Document" class="tw:mb-3">
-            <DocumentSelectMenu v-model="pendingDocId" hideNullOption />
-          </BaseField>
-          <BaseField v-slot="{ id: relId }" label="Relationship" class="tw:mb-3">
-            <select
-              :id="relId"
-              v-model="pendingRelType"
-              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-            >
-              <option value="IMPLEMENTS">Implements — this log book operationalises the doc</option>
-              <option value="REFERENCES">References — the doc is cited but not implemented</option>
-              <option value="EVIDENCE_OF">
-                Evidence of — entries serve as compliance evidence
-              </option>
-            </select>
-          </BaseField>
-          <BaseField v-slot="{ id: notesId }" label="Notes" optional>
-            <textarea
-              :id="notesId"
-              v-model="pendingDocNotes"
-              rows="2"
-              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-            ></textarea>
-          </BaseField>
-          <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-3">
+        <div class="tw:flex tw:flex-col tw:h-full tw:flex-nowrap">
+          <!-- Header -->
+          <div
+            class="tw:flex tw:items-center tw:border-b tw:border-divider tw:py-3 tw:px-4 tw:shrink-0"
+          >
+            <div class="tw:flex tw:items-center tw:gap-2">
+              <div class="tw:text-lg tw:font-medium tw:text-on-main">
+                {{ logBook?.title || 'Log book schema' }}
+              </div>
+              <span class="tw:text-xs tw:text-secondary tw:font-mono">
+                v{{ logBook?.schemaVersion ?? 1 }}
+              </span>
+            </div>
+            <div class="tw:flex-1" />
             <button
               type="button"
-              class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-transparent tw:text-secondary tw:hover:bg-main-hover"
-              @click="showAddDocDialog = false"
+              class="tw:p-1.5 tw:rounded-full tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:bg-main-hover tw:text-secondary tw:transition-colors"
+              :disabled="isSavingSchema"
+              @click="showSchemaBuilder = false"
             >
-              Cancel
+              <IconX :size="20" />
             </button>
-            <BaseButton variant="primary" @click="saveDocLink">Link</BaseButton>
+          </div>
+          <!-- Body — the FormBuilder fills the remaining space; its
+                 own toolbar contains Save / Undo / Redo / Preview / JSON. -->
+          <div class="tw:flex-1 tw:min-h-0 tw:overflow-hidden">
+            <FormBuilder
+              :initialSchema="logBook.schema || []"
+              title="Log book schema"
+              @save="onSchemaBuilderSave"
+            />
           </div>
         </div>
       </div>
-    </Teleport>
+    </Transition>
+  </Teleport>
+
+  <!-- Add-document dialog -->
+  <Teleport to="body">
+    <div
+      v-if="showAddDocDialog"
+      class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+    >
+      <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
+        <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-3">Link a document</h3>
+        <BaseField label="Document" class="tw:mb-3">
+          <DocumentSelectMenu v-model="pendingDocId" hideNullOption />
+        </BaseField>
+        <BaseField v-slot="{ id: relId }" label="Relationship" class="tw:mb-3">
+          <select
+            :id="relId"
+            v-model="pendingRelType"
+            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+          >
+            <option value="IMPLEMENTS">Implements — this log book operationalises the doc</option>
+            <option value="REFERENCES">References — the doc is cited but not implemented</option>
+            <option value="EVIDENCE_OF">Evidence of — entries serve as compliance evidence</option>
+          </select>
+        </BaseField>
+        <BaseField v-slot="{ id: notesId }" label="Notes" optional>
+          <textarea
+            :id="notesId"
+            v-model="pendingDocNotes"
+            rows="2"
+            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+          ></textarea>
+        </BaseField>
+        <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-3">
+          <button
+            type="button"
+            class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-transparent tw:text-secondary tw:hover:bg-main-hover"
+            @click="showAddDocDialog = false"
+          >
+            Cancel
+          </button>
+          <BaseButton variant="primary" @click="saveDocLink">Link</BaseButton>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>

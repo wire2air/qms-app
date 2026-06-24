@@ -250,7 +250,7 @@ const qualityEventDetailConfig = computed(() =>
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Event detail">
         <!-- Overview -->
         <BaseTabPanel value="overview">
-          <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4 tw:max-w-3xl">
+          <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
             <BaseField v-slot="{ id: fid }" label="Title" class="tw:md:col-span-2">
               <BaseTextInput :id="fid" v-model="event.title" :disabled="!canUpdate" />
             </BaseField>
