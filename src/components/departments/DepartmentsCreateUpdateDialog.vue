@@ -1,7 +1,6 @@
 <script setup>
 import { IconCheck, IconX as IconXCross, IconBuilding } from '@tabler/icons-vue'
-import { required, helpers } from '@vuelidate/validators'
-import { useValidator } from '@shared/composables/validator.js'
+import { required } from '@shared/components/form/validators.js'
 
 const props = defineProps({
   id: {
@@ -17,6 +16,10 @@ const open = defineModel({
   default: false,
 })
 
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref('')
+
 const form = ref({
   name: '',
   code: '',
@@ -24,6 +27,8 @@ const form = ref({
   description: '',
   supervisorUserId: null,
 })
+
+const isEdit = computed(() => !!props.id)
 
 // Load existing department if editing
 const department = useLiveQueryWithDeps(
@@ -47,16 +52,15 @@ const codeAvailable = useLiveQueryWithDeps(
   { models: ['Department'], initial: true },
 )
 
-const rules = computed(() => ({
-  name: { required: helpers.withMessage('Required', required) },
-  code: { required: helpers.withMessage('Required', required) },
-  siteId: { required: helpers.withMessage('Required', required) },
-}))
+// Live "in use" message for the Code field (create mode); enforced on submit
+// via codeUnique.
+const codeInUseError = computed(() =>
+  !isEdit.value && form.value.code && !codeAvailable.value ? 'Code already in use' : '',
+)
 
-const validator = useValidator(rules, form)
-
-const isSubmitting = ref(false)
-const isEdit = computed(() => !!props.id)
+function codeUnique() {
+  return codeAvailable.value || 'Code already in use'
+}
 
 // Populate form when department loads in edit mode
 watch(
@@ -79,6 +83,7 @@ watch(
 watch(open, (val) => {
   if (!val) {
     form.value = { name: '', code: '', siteId: null, description: '', supervisorUserId: null }
+    saveError.value = ''
   }
 })
 
@@ -119,10 +124,9 @@ const getDisplayOrder = useLiveMutation(async (db) => {
 })
 
 async function onSubmit() {
-  const valid = await validator.value.$validate()
-  if (!valid || !codeAvailable.value) return
-
+  if (isSubmitting.value) return
   isSubmitting.value = true
+  saveError.value = ''
   try {
     if (!isEdit.value) {
       const newDept = await createDepartment({
@@ -143,6 +147,8 @@ async function onSubmit() {
       emit('updated', department.value)
     }
     open.value = false
+  } catch (err) {
+    saveError.value = err?.message || 'Failed to save department'
   } finally {
     isSubmitting.value = false
   }
@@ -161,36 +167,49 @@ async function onSubmit() {
         <span>{{ isEdit ? 'Edit Department' : 'Create New Department' }}</span>
       </div>
     </template>
-    <div class="tw:flex tw:flex-col tw:gap-4">
-      <BaseTextInput
-        v-model="form.name"
-        name="name"
-        label="Department Name"
-        placeholder="e.g. Quality Assurance"
-        :required="true"
-        @blur="onNameBlur"
-      />
 
-      <div class="tw:relative">
-        <BaseTextInput
-          v-model="form.code"
-          name="code"
-          label="Code"
-          placeholder="e.g. QA"
-          :required="true"
-          :disabled="isEdit"
-          :errorMsg="!codeAvailable ? 'Code already in use' : ''"
-        />
-        <template v-if="!isEdit && form.code">
-          <IconCheck
-            v-if="codeAvailable"
-            class="tw:absolute tw:right-3 tw:top-9 tw:size-4 tw:text-green"
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <BaseField label="Department Name" required :value="form.name" :rules="[required()]">
+        <template #default="field">
+          <BaseTextInput
+            v-bind="field"
+            v-model="form.name"
+            placeholder="e.g. Quality Assurance"
+            @blur="onNameBlur"
           />
-          <IconXCross v-else class="tw:absolute tw:right-3 tw:top-9 tw:size-4 tw:text-red" />
         </template>
-      </div>
+      </BaseField>
 
-      <BaseField label="Site" size="sm" :required="true">
+      <BaseField
+        label="Code"
+        required
+        :value="form.code"
+        :rules="[required(), codeUnique]"
+        :error="codeInUseError"
+      >
+        <template #default="field">
+          <div class="tw:relative">
+            <BaseTextInput
+              v-bind="field"
+              v-model="form.code"
+              placeholder="e.g. QA"
+              :disabled="isEdit"
+            />
+            <template v-if="!isEdit && form.code">
+              <IconCheck
+                v-if="codeAvailable"
+                class="tw:absolute tw:right-3 tw:top-1/2 tw:-translate-y-1/2 tw:size-4 tw:text-green"
+              />
+              <IconXCross
+                v-else
+                class="tw:absolute tw:right-3 tw:top-1/2 tw:-translate-y-1/2 tw:size-4 tw:text-red"
+              />
+            </template>
+          </div>
+        </template>
+      </BaseField>
+
+      <BaseField label="Site" size="sm" required :value="form.siteId" :rules="[required()]">
         <SiteSelectMenu v-model="form.siteId" :required="true" />
       </BaseField>
 
@@ -209,14 +228,15 @@ async function onSubmit() {
         placeholder="e.g. Quality assurance and testing department"
         :rows="2"
       />
-    </div>
+    </BaseForm>
 
     <template #footer>
       <BaseDialogFooter
         :submitLabel="isEdit ? 'Update Department' : 'Create Department'"
         :loading="isSubmitting"
+        :error="saveError"
         @cancel="open = false"
-        @submit="onSubmit"
+        @submit="formRef?.submit()"
       />
     </template>
   </BaseDialog>
