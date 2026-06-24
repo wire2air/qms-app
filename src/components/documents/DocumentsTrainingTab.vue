@@ -2,7 +2,7 @@
 import { IconSchool, IconCalendar, IconUsers, IconClock, IconSparkles } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { DateTime } from 'luxon'
-import { currentSession } from '@/utils/currentSession.js'
+import { currentSession, canUseAi } from '@/utils/currentSession.js'
 
 const props = defineProps({
   documentId: { type: String, required: true },
@@ -60,7 +60,7 @@ const isEditable = computed(
 // require training to be enabled because there's no point generating
 // questions for a version where training won't run.
 const canGenerateQuestions = computed(
-  () => isEditable.value && selectedVersion.value?.trainingConfig?.enabled,
+  () => canUseAi.value && isEditable.value && selectedVersion.value?.trainingConfig?.enabled,
 )
 const showGenerateDialog = ref(false)
 

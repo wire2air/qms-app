@@ -10,7 +10,7 @@ import {
 import { required, minValue, helpers } from '@vuelidate/validators'
 import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { currentSession } from '@/utils/currentSession.js'
+import { currentSession, canUseAi } from '@/utils/currentSession.js'
 import { db } from '@models/index'
 
 const router = useRouter()
@@ -351,6 +351,7 @@ const docTabs = [
     <PageHeader :icon="IconFileText" title="Create Document">
       <template #actions>
         <button
+          v-if="canUseAi"
           class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-divider tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-sidebar tw:transition-colors tw:font-medium tw:px-3 tw:py-1.5 tw:text-sm"
           title="Import an existing PDF (SOP, work instruction, etc.) — extracts text + images and structures the content"
           @click="showImportDialog = true"
@@ -359,6 +360,7 @@ const docTabs = [
           Import PDF
         </button>
         <button
+          v-if="canUseAi"
           class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-3 tw:py-1.5 tw:text-sm"
           title="Use AI to draft an initial outline you can edit"
           @click="showDraftDialog = true"

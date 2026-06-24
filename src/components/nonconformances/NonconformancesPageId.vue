@@ -1,6 +1,6 @@
 <script setup>
 import { IconAlertTriangle } from '@tabler/icons-vue'
-import { currentSession, isAllowed } from '@/utils/currentSession.js'
+import { currentSession, isAllowed, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
@@ -525,7 +525,7 @@ const ncDetailConfig = computed(() =>
       <div class="tw:flex tw:items-center tw:gap-2">
         <DetailActionBar :actions="ncActions" />
         <AskAiButton
-          v-if="nc?.id"
+          v-if="canUseAi && nc?.id"
           entityType="Nonconformance"
           :entityId="nc.id"
           :entityTitle="nc.title"
