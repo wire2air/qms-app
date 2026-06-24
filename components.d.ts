@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    '_dbg.spec': typeof import('./resource/js/shared/components/form/_dbg.spec.js')['default']
     AcceptInvitationForm: typeof import('./src/components/auth/AcceptInvitationForm.vue')['default']
     AddRecordDialog: typeof import('./src/components/records/AddRecordDialog.vue')['default']
     AdvancedImage: typeof import('./src/components/editor/extensions/image/advancedImage.js')['default']
@@ -380,6 +381,7 @@ declare module 'vue' {
     ChatThreadList: typeof import('./src/components/chat/ChatThreadList.vue')['default']
     ChatToolCallCard: typeof import('./src/components/chat/ChatToolCallCard.vue')['default']
     CloneStandardDialog: typeof import('./src/components/qcInspection/CloneStandardDialog.vue')['default']
+    'CollapsibleErrors.spec': typeof import('./resource/js/shared/components/form/collapsibleErrors.spec.js')['default']
     CompanyAiProfileCard: typeof import('./src/components/company/CompanyAiProfileCard.vue')['default']
     CompanyBrandingCard: typeof import('./src/components/company/companyBrandingCard.vue')['default']
     CompanyCardSaveStatus: typeof import('./src/components/company/CompanyCardSaveStatus.vue')['default']
@@ -572,6 +574,7 @@ declare module 'vue' {
     FieldRecordPrint: typeof import('./src/components/print/modules/FieldRecordPrint.vue')['default']
     FieldRecordsHome: typeof import('./src/components/inspectionsLogs/FieldRecordsHome.vue')['default']
     FieldRecordsList: typeof import('./src/components/inspectionsLogs/FieldRecordsList.vue')['default']
+    'FieldRules.spec': typeof import('./resource/js/shared/components/form/fieldRules.spec.js')['default']
     FishboneAnalysis: typeof import('./src/components/form/tools/rca/FishboneAnalysis.vue')['default']
     FiveWhyAnalysis: typeof import('./src/components/form/tools/rca/FiveWhyAnalysis.vue')['default']
     ForgotPasswordForm: typeof import('./src/components/auth/ForgotPasswordForm.vue')['default']
@@ -581,6 +584,7 @@ declare module 'vue' {
     FormCanvas: typeof import('./src/components/form-builder/FormCanvas.vue')['default']
     FormCanvasField: typeof import('./src/components/form-builder/FormCanvasField.vue')['default']
     FormComponentRegistry: typeof import('./src/components/form/formComponentRegistry.js')['default']
+    FormContext: typeof import('./resource/js/shared/components/form/formContext.js')['default']
     FormFieldConfig: typeof import('./src/components/form-builder/FormFieldConfig.vue')['default']
     FormFieldPalette: typeof import('./src/components/form-builder/FormFieldPalette.vue')['default']
     'FormPageExample.stories': typeof import('./resource/js/shared/components/form/FormPageExample.stories.js')['default']
@@ -992,6 +996,8 @@ declare module 'vue' {
     UserStatusSelectMenu: typeof import('./src/components/menus/UserStatusSelectMenu.vue')['default']
     ValidationSummary: typeof import('./resource/js/shared/components/form/ValidationSummary.vue')['default']
     'ValidationSummary.stories': typeof import('./resource/js/shared/components/form/ValidationSummary.stories.js')['default']
+    Validators: typeof import('./resource/js/shared/components/form/validators.js')['default']
+    'Validators.spec': typeof import('./resource/js/shared/components/form/validators.spec.js')['default']
     WhyTreeAnalysis: typeof import('./src/components/form/tools/rca/WhyTreeAnalysis.vue')['default']
     WorkflowCard: typeof import('./src/components/workflow/WorkflowCard.vue')['default']
     WorkflowConditionEditor: typeof import('./src/components/workflow/WorkflowConditionEditor.vue')['default']
