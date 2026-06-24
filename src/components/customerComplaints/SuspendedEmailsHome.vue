@@ -52,19 +52,13 @@ async function handleDelete(row) {
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-    <div
-      class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-    >
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <IconMailPause :size="18" class="tw:text-primary" />
-        <BaseText variant="overline">Suspended Emails</BaseText>
-      </div>
+  <PageSection title="Suspended Emails" :icon="IconMailPause" variant="card">
+    <template #actions>
       <BaseButton variant="outline" size="sm" :disabled="loading" @click="load">
         <IconRefresh :size="14" class="tw:mr-1" />
         Refresh
       </BaseButton>
-    </div>
+    </template>
 
     <p class="tw:text-sm tw:text-secondary tw:mb-4">
       Inbound mail that was quarantined instead of becoming a ticket — auto-responders, mail to
@@ -106,5 +100,5 @@ async function handleDelete(row) {
         </button>
       </div>
     </div>
-  </div>
+  </PageSection>
 </template>
