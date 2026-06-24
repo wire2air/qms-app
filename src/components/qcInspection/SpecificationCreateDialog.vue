@@ -5,6 +5,7 @@
  */
 import { IconPlus, IconTrash } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { required, requiredWhen } from '@shared/components/form/validators.js'
 
 const props = defineProps({
   // When set, the spec is pre-scoped to this product: the scope/target
@@ -15,7 +16,10 @@ const props = defineProps({
 const emit = defineEmits(['created'])
 const show = defineModel({ type: Boolean, default: false })
 const toast = useToast()
-const saving = ref(false)
+
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref(null)
 
 const MATERIAL_KINDS = [
   { id: 'RAW', name: 'Raw material' },
@@ -45,6 +49,7 @@ function reset() {
 reset()
 watch(show, (v) => {
   if (v) reset()
+  if (!v) saveError.value = null
 })
 
 function addCharacteristic() {
@@ -86,17 +91,10 @@ function removeCharacteristic(i) {
   form.value.characteristics.splice(i, 1)
 }
 
-const canSubmit = computed(() => {
-  const f = form.value
-  if (!f.name?.trim()) return false
-  if (f.scope === 'product' && !f.productId) return false
-  if (f.scope === 'productType' && !f.productTypeId) return false
-  return f.characteristics.length > 0 && f.characteristics.every((c) => c.name?.trim())
-})
-
-async function onSave() {
-  if (!canSubmit.value || saving.value) return
-  saving.value = true
+async function onSubmit() {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  saveError.value = null
   try {
     const f = form.value
     const { specification } = await post('/v1/services/qcInspection/specifications', {
@@ -124,122 +122,209 @@ async function onSave() {
     show.value = false
     emit('created', specification.id)
   } catch (err) {
-    toast.error(err?.message || 'Failed to create specification')
+    saveError.value = err?.message || 'Failed to create specification'
   } finally {
-    saving.value = false
+    isSubmitting.value = false
   }
 }
 </script>
 
 <template>
   <BaseDialog v-model="show" title="New Specification" :persistent="true" size="3xl">
-    <div class="tw:p-4 tw:space-y-4">
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <BaseField v-slot="{ id: fieldId }" label="Name" required>
-          <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. Bulk Lotion Spec" />
-        </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="Code">
-          <BaseTextInput :id="fieldId" v-model="form.code" placeholder="optional" />
-        </BaseField>
-        <BaseField label="Material kind">
-          <BaseInlineSelect v-model="form.materialKind" :items="MATERIAL_KINDS" :required="true" />
-        </BaseField>
-        <BaseField v-if="!lockProductId" label="Scope">
-          <BaseInlineSelect
-            v-model="form.scope"
-            :items="[{ id: 'product', name: 'Specific product' }, { id: 'productType', name: 'Product type' }]"
-            :required="true"
-            class="tw:w-full"
-          />
-        </BaseField>
-      </div>
-
-      <!-- Scope target on its own row (the select needs the width). Hidden
-           when the dialog is opened pre-scoped to a product. -->
-      <BaseField v-if="!lockProductId" required>
-        <template #label>
-          {{ form.scope === 'product' ? 'Product' : 'Product type' }}
-        </template>
-        <ProductSelectMenu v-if="form.scope === 'product'" v-model="form.productId" class="tw:w-full" />
-        <ProductTypeSelectMenu v-else v-model="form.productTypeId" class="tw:w-full" />
-      </BaseField>
-
-      <div>
-        <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
-          <label class="tw:text-sm tw:font-semibold">Characteristics (tests) <span class="tw:text-bad">*</span></label>
-          <div class="tw:flex tw:items-center tw:gap-3">
-            <TestLibraryAddMenu
-              :productTypeId="form.scope === 'productType' ? form.productTypeId : null"
-              @pick="addFromLibrary"
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <div class="tw:p-4 tw:space-y-4">
+        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+          <BaseField label="Name" required :value="form.name" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model="form.name"
+                placeholder="e.g. Bulk Lotion Spec"
+              />
+            </template>
+          </BaseField>
+          <BaseField label="Code" :value="form.code">
+            <template #default="field">
+              <BaseTextInput v-bind="field" v-model="form.code" placeholder="optional" />
+            </template>
+          </BaseField>
+          <BaseField label="Material kind">
+            <BaseInlineSelect
+              v-model="form.materialKind"
+              :items="MATERIAL_KINDS"
+              :required="true"
             />
-            <BaseButton variant="secondary" size="sm" @click="addCharacteristic">
-              <IconPlus :size="14" /> Add test
-            </BaseButton>
-          </div>
+          </BaseField>
+          <BaseField v-if="!lockProductId" label="Scope">
+            <BaseInlineSelect
+              v-model="form.scope"
+              :items="[
+                { id: 'product', name: 'Specific product' },
+                { id: 'productType', name: 'Product type' },
+              ]"
+              :required="true"
+              class="tw:w-full"
+            />
+          </BaseField>
         </div>
-        <div v-if="!form.characteristics.length" class="tw:text-xs tw:text-secondary tw:italic tw:py-2">
-          Add at least one test (e.g. pH 5.0–6.0, Appearance pass/fail).
-        </div>
-        <div
-          v-for="(c, i) in form.characteristics"
-          :key="c._key || i"
-          class="tw:p-3 tw:mb-2 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover"
+
+        <!-- Scope target on its own row (the select needs the width). Hidden
+             when the dialog is opened pre-scoped to a product. -->
+        <BaseField
+          v-if="!lockProductId"
+          required
+          :value="form.scope === 'product' ? form.productId : form.productTypeId"
+          :rules="[
+            requiredWhen(() => form.scope === 'product' && !lockProductId, 'Product is required.'),
+            requiredWhen(
+              () => form.scope === 'productType' && !lockProductId,
+              'Product type is required.',
+            ),
+          ]"
         >
-          <div class="tw:flex tw:items-end tw:gap-3">
-            <BaseField v-slot="{ id: fieldId }" label="Test name" class="tw:flex-1">
-              <BaseTextInput :id="fieldId" v-model="c.name" placeholder="e.g. pH, Appearance" size="sm" />
-            </BaseField>
-            <BaseField label="Type" class="tw:w-44">
-              <BaseInlineSelect v-model="c.testType" :items="TEST_TYPES" :required="true" />
-            </BaseField>
-            <BaseField label="Defect class" class="tw:w-32">
-              <DefectSeveritySelectMenu v-model="c.defectClass" :required="true" />
-            </BaseField>
-            <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
-              <BaseCheckbox v-model="c.requiresInstrument" /> Instrument
-            </label>
-            <button
-              type="button"
-              class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
-              @click="removeCharacteristic(i)"
-            >
-              <IconTrash :size="16" />
-            </button>
-          </div>
-          <div v-if="c.testType === 'NUMERIC'" class="tw:flex tw:flex-wrap tw:gap-3 tw:mt-3">
-            <BaseField v-slot="{ id: fieldId }" label="Target" class="tw:w-28">
-              <BaseTextInput :id="fieldId" v-model.number="c.targetValue" type="number" size="sm" />
-            </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="LSL (min)" class="tw:w-28">
-              <BaseTextInput :id="fieldId" v-model.number="c.lsl" type="number" size="sm" />
-            </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="USL (max)" class="tw:w-28">
-              <BaseTextInput :id="fieldId" v-model.number="c.usl" type="number" size="sm" />
-            </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="UOM" class="tw:w-28">
-              <BaseTextInput :id="fieldId" v-model="c.uom" placeholder="e.g. pH, %" size="sm" />
-            </BaseField>
-          </div>
-          <BaseField v-if="c.requiresInstrument" label="Preferred instrument" class="tw:mt-3 tw:w-72">
-            <EquipmentSelectMenu v-model="c.preferredEquipmentId" nullLabel="— None (pick at capture) —" />
-          </BaseField>
-          <BaseField label="Test method / instrument requirements" class="tw:mt-3">
-            <RichTextAttachments
-              v-model="c.testMethod"
-              placeholder="e.g. Calibrated micrometer, 0.001 mm resolution, 20°C — attach reference images or spec sheets"
+          <template #label>
+            {{ form.scope === 'product' ? 'Product' : 'Product type' }}
+          </template>
+          <template #default="field">
+            <ProductSelectMenu
+              v-if="form.scope === 'product'"
+              v-bind="field"
+              v-model="form.productId"
+              class="tw:w-full"
             />
-          </BaseField>
+            <ProductTypeSelectMenu
+              v-else
+              v-bind="field"
+              v-model="form.productTypeId"
+              class="tw:w-full"
+            />
+          </template>
+        </BaseField>
+
+        <div>
+          <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
+            <label class="tw:text-sm tw:font-semibold"
+              >Characteristics (tests) <span class="tw:text-bad">*</span></label
+            >
+            <div class="tw:flex tw:items-center tw:gap-3">
+              <TestLibraryAddMenu
+                :productTypeId="form.scope === 'productType' ? form.productTypeId : null"
+                @pick="addFromLibrary"
+              />
+              <BaseButton variant="secondary" size="sm" @click="addCharacteristic">
+                <IconPlus :size="14" /> Add test
+              </BaseButton>
+            </div>
+          </div>
+          <div
+            v-if="!form.characteristics.length"
+            class="tw:text-xs tw:text-secondary tw:italic tw:py-2"
+          >
+            Add at least one test (e.g. pH 5.0–6.0, Appearance pass/fail).
+          </div>
+          <!-- List-level rule: at least one characteristic must exist. -->
+          <BaseField :value="form.characteristics" :rules="[required('Add at least one test.')]" />
+          <div
+            v-for="(c, i) in form.characteristics"
+            :key="c._key || i"
+            class="tw:p-3 tw:mb-2 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover"
+          >
+            <div class="tw:flex tw:items-end tw:gap-3">
+              <BaseField
+                label="Test name"
+                required
+                :value="c.name"
+                :rules="[required()]"
+                class="tw:flex-1"
+              >
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="c.name"
+                    placeholder="e.g. pH, Appearance"
+                    size="sm"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Type" class="tw:w-44">
+                <BaseInlineSelect v-model="c.testType" :items="TEST_TYPES" :required="true" />
+              </BaseField>
+              <BaseField label="Defect class" class="tw:w-32">
+                <DefectSeveritySelectMenu v-model="c.defectClass" :required="true" />
+              </BaseField>
+              <label
+                class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap"
+              >
+                <BaseCheckbox v-model="c.requiresInstrument" /> Instrument
+              </label>
+              <button
+                type="button"
+                class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                @click="removeCharacteristic(i)"
+              >
+                <IconTrash :size="16" />
+              </button>
+            </div>
+            <div v-if="c.testType === 'NUMERIC'" class="tw:flex tw:flex-wrap tw:gap-3 tw:mt-3">
+              <BaseField label="Target" class="tw:w-28">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model.number="c.targetValue"
+                    type="number"
+                    size="sm"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="LSL (min)" class="tw:w-28">
+                <template #default="field">
+                  <BaseTextInput v-bind="field" v-model.number="c.lsl" type="number" size="sm" />
+                </template>
+              </BaseField>
+              <BaseField label="USL (max)" class="tw:w-28">
+                <template #default="field">
+                  <BaseTextInput v-bind="field" v-model.number="c.usl" type="number" size="sm" />
+                </template>
+              </BaseField>
+              <BaseField label="UOM" class="tw:w-28">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="c.uom"
+                    placeholder="e.g. pH, %"
+                    size="sm"
+                  />
+                </template>
+              </BaseField>
+            </div>
+            <BaseField
+              v-if="c.requiresInstrument"
+              label="Preferred instrument"
+              class="tw:mt-3 tw:w-72"
+            >
+              <EquipmentSelectMenu
+                v-model="c.preferredEquipmentId"
+                nullLabel="— None (pick at capture) —"
+              />
+            </BaseField>
+            <BaseField label="Test method / instrument requirements" class="tw:mt-3">
+              <RichTextAttachments
+                v-model="c.testMethod"
+                placeholder="e.g. Calibrated micrometer, 0.001 mm resolution, 20°C — attach reference images or spec sheets"
+              />
+            </BaseField>
+          </div>
         </div>
       </div>
-    </div>
+    </BaseForm>
 
     <template #footer>
       <BaseDialogFooter
         submitLabel="Create"
-        :loading="saving"
-        :disabled="!canSubmit"
+        :loading="isSubmitting"
+        :error="saveError"
         @cancel="show = false"
-        @submit="onSave"
+        @submit="formRef?.submit()"
       />
     </template>
   </BaseDialog>
