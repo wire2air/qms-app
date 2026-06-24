@@ -17,8 +17,8 @@
  *   :rules="[requiredWhen(() => form.isSupplierFacing, 'Pick a supplier.')]"
  *   :rules="[v => v > 0 || 'Must be positive']"   // raw inline rule
  *
- * Shipped: required, requiredWhen. Deferred until a form needs them (one-liners
- * to add): minLen, maxLen, min, max, pattern, email.
+ * Shipped: required, requiredWhen, email. Deferred until a form needs them
+ * (one-liners to add): minLen, maxLen, min, max, pattern.
  */
 
 // Empty for the purpose of `required`: blank/whitespace string, null/undefined,
@@ -48,6 +48,27 @@ export function requiredWhen(condFn, msg) {
   return (value) => {
     if (!condFn()) return true
     return required(msg)(value)
+  }
+}
+
+// Pragmatic single-@ shape: a local part, an @, then a dotted domain — no
+// internal whitespace. Deliberately not RFC-5322-exhaustive; it rejects the
+// mistakes users actually make (missing @, missing TLD, stray spaces).
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Fails when a non-empty value isn't a valid email address. Passes on empty so
+ * `required()` owns emptiness — compose them: `:rules="[required(), email()]"`.
+ * `msg` overrides the label-derived default.
+ */
+export function email(msg) {
+  return (value) => {
+    if (isEmpty(value) || EMAIL_RE.test(String(value).trim())) return true
+    return (
+      msg ||
+      ((label) =>
+        label ? `${label} must be a valid email address.` : 'Enter a valid email address.')
+    )
   }
 }
 

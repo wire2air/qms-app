@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { required, requiredWhen, resolveRuleMessage } from './validators.js'
+import { required, requiredWhen, email, resolveRuleMessage } from './validators.js'
 
 // A rule is (value) => true | string | ((label) => string).
 // `true` = valid. A string = an explicit message. A function = a
@@ -65,6 +65,44 @@ describe('requiredWhen', () => {
   it('reuses the required default message when no message is given', () => {
     const result = requiredWhen(() => true)('')
     expect(resolveRuleMessage(result, 'Supplier')).toBe('Supplier is required.')
+  })
+})
+
+describe('email', () => {
+  it('passes for valid email addresses', () => {
+    expect(email()('user@example.com')).toBe(true)
+    expect(email()('support@yasin1.inbound.localhost')).toBe(true)
+    expect(email()('a.b-c+tag@sub.domain.co')).toBe(true)
+  })
+
+  it('fails for malformed addresses', () => {
+    expect(email()('not-an-email')).not.toBe(true)
+    expect(email()('missing@domain')).not.toBe(true)
+    expect(email()('@nolocal.com')).not.toBe(true)
+    expect(email()('spaces in@email.com')).not.toBe(true)
+    expect(email()('two@@at.com')).not.toBe(true)
+  })
+
+  it('passes for an empty value (let required() own emptiness)', () => {
+    expect(email()('')).toBe(true)
+    expect(email()('   ')).toBe(true)
+    expect(email()(null)).toBe(true)
+    expect(email()(undefined)).toBe(true)
+  })
+
+  it('returns a label-derived default message when none is given', () => {
+    const result = email()('nope')
+    expect(resolveRuleMessage(result, 'Email')).toBe('Email must be a valid email address.')
+  })
+
+  it('falls back to a generic message when the field has no label', () => {
+    const result = email()('nope')
+    expect(resolveRuleMessage(result, '')).toBe('Enter a valid email address.')
+  })
+
+  it('uses an explicit message verbatim, ignoring the label', () => {
+    const result = email('Bad address')('nope')
+    expect(resolveRuleMessage(result, 'Email')).toBe('Bad address')
   })
 })
 
