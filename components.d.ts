@@ -990,6 +990,7 @@ declare module 'vue' {
     TrainingVerificationsHome: typeof import('./src/components/trainingVerifications/TrainingVerificationsHome.vue')['default']
     Typography: typeof import('./resource/js/shared/components/typography/typography.js')['default']
     'Typography.spec': typeof import('./resource/js/shared/components/typography/typography.spec.js')['default']
+    UseComplaintFilterOptions: typeof import('./src/components/customerComplaints/useComplaintFilterOptions.js')['default']
     UseDataTable: typeof import('./resource/js/shared/components/dataTable/useDataTable.js')['default']
     UseImageResize: typeof import('./src/components/editor/extensions/image/useImageResize.js')['default']
     UserAvatar: typeof import('./src/components/avatars/UserAvatar.vue')['default']

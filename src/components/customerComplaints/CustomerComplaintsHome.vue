@@ -453,7 +453,6 @@ function onNewComplaint() {
       v-model:selected="selectedIds"
       :rows="complaints"
       :selectable="canUpdate || canConvert"
-      :canUpdate="canUpdate"
       :customFieldKeys="customFieldKeys"
       @open="(row) => router.push(getCompanyPath(`/customer-complaints/${row.id}`))"
     />
