@@ -666,10 +666,22 @@ const qualityEventDetailConfig = computed(() =>
 
       <BaseRailCard title="Schedule">
         <BaseDetailField label="Occurrence Date">
-          <BaseDateField v-model="event.occurrenceDate" mode="date" :disabled="!canUpdate" />
+          <BaseDateField v-if="canUpdate" v-model="event.occurrenceDate" mode="date" />
+          <BaseText v-else color="secondary">
+            {{ event.occurrenceDate ? toDateTime(event.occurrenceDate)?.formatDate('date') : '—' }}
+          </BaseText>
+        </BaseDetailField>
+        <!-- Reported date is the intake timestamp (read-only). -->
+        <BaseDetailField label="Reported Date">
+          <BaseText color="secondary">
+            {{ event.reportedDate ? toDateTime(event.reportedDate)?.formatDate('datetime') : '—' }}
+          </BaseText>
         </BaseDetailField>
         <BaseDetailField label="Review Due Date">
-          <BaseDateField v-model="event.reviewDueDate" mode="date" :disabled="!canUpdate" />
+          <BaseDateField v-if="canUpdate" v-model="event.reviewDueDate" mode="date" />
+          <BaseText v-else color="secondary">
+            {{ event.reviewDueDate ? toDateTime(event.reviewDueDate)?.formatDate('date') : '—' }}
+          </BaseText>
         </BaseDetailField>
       </BaseRailCard>
     </template>
