@@ -18,7 +18,12 @@
  * Phase 0 of the rebuild — see
  * docs/superpowers/specs/2026-06-25-base-table-system-rebuild-blueprint.md
  */
-import { IconCaretUpFilled, IconCaretDownFilled, IconDownload, IconChevronRight } from '@tabler/icons-vue'
+import {
+  IconCaretUpFilled,
+  IconCaretDownFilled,
+  IconDownload,
+  IconChevronRight,
+} from '@tabler/icons-vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useDataTable, getCellValue } from './useDataTable.js'
 import { applyFilterGroup } from './filterModel.js'
@@ -65,8 +70,12 @@ const props = defineProps({
   // Opt-in: below `mobileBreakpoint` render a stacked card list instead of a
   // horizontal-scroll table. Off by default (cards read best when columns declare
   // a `mobile` priority); set `mobileCards` (true) per table to enable.
-  mobileCards: { type: Boolean, default: false },
-  mobileBreakpoint: { type: String, default: 'md', validator: (v) => ['sm', 'md', 'lg'].includes(v) },
+  mobileCards: { type: Boolean, default: true },
+  mobileBreakpoint: {
+    type: String,
+    default: 'md',
+    validator: (v) => ['sm', 'md', 'lg'].includes(v),
+  },
   // Per-row actions (array or row→array). When set, a right-aligned actions column
   // is appended automatically and rendered via TableRowActions (and in mobile cards).
   rowActions: { type: [Array, Function], default: null },
@@ -250,7 +259,10 @@ watch(
   () => table.getState().pagination,
   (p) => {
     const page = p.pageIndex + 1
-    if ((pagination.value?.page ?? 1) !== page || (pagination.value?.pageSize ?? 50) !== p.pageSize) {
+    if (
+      (pagination.value?.page ?? 1) !== page ||
+      (pagination.value?.pageSize ?? 50) !== p.pageSize
+    ) {
       pagination.value = { ...(pagination.value || {}), page, pageSize: p.pageSize }
     }
   },
@@ -395,7 +407,11 @@ function toggleExpand(row, event) {
 }
 
 function alignTh(align) {
-  return align === 'right' ? 'tw:text-right' : align === 'center' ? 'tw:text-center' : 'tw:text-left'
+  return align === 'right'
+    ? 'tw:text-right'
+    : align === 'center'
+      ? 'tw:text-center'
+      : 'tw:text-left'
 }
 function alignTd(align) {
   return align === 'right'
@@ -538,8 +554,7 @@ function handleExport() {
 }
 function onExportConfirm({ format, fieldKeys, scope }) {
   const fields = exportFieldUniverse.value.filter((f) => fieldKeys.includes(f.key))
-  const rows =
-    scope === 'all' ? props.rows.slice() : allSortedRows.value.map((r) => r.original)
+  const rows = scope === 'all' ? props.rows.slice() : allSortedRows.value.map((r) => r.original)
   if (hasExportListener.value) {
     emit('export', { format, fields, scope, rows, rowCount: rows.length })
     return
@@ -654,11 +669,7 @@ defineExpose({ table })
       </div>
 
       <div class="tw:flex tw:items-center tw:gap-1">
-        <TableSearch
-          v-if="searchable"
-          v-model="search"
-          :placeholder="searchPlaceholder"
-        />
+        <TableSearch v-if="searchable" v-model="search" :placeholder="searchPlaceholder" />
         <TableSearchScope
           v-if="searchable"
           v-model="searchScope"
@@ -789,8 +800,14 @@ defineExpose({ table })
                   v-if="mobileMetaCols.length"
                   class="tw:mt-2.5 tw:grid tw:grid-cols-2 tw:gap-x-3 tw:gap-y-1.5"
                 >
-                  <div v-for="col in mobileMetaCols" :key="col.name" class="tw:flex tw:flex-col tw:gap-0.5">
-                    <dt class="tw:text-micro tw:font-medium tw:tracking-wide tw:text-placeholder tw:uppercase">
+                  <div
+                    v-for="col in mobileMetaCols"
+                    :key="col.name"
+                    class="tw:flex tw:flex-col tw:gap-0.5"
+                  >
+                    <dt
+                      class="tw:text-micro tw:font-medium tw:tracking-wide tw:text-placeholder tw:uppercase"
+                    >
                       {{ col.label }}
                     </dt>
                     <dd class="tw:text-sm tw:text-on-main">
@@ -867,9 +884,7 @@ defineExpose({ table })
                 alignTh(column.columnDef.meta.align),
                 pinBoundaryClass(column),
                 column.getCanSort() ? 'tw:hover:bg-main-hover' : '',
-                column.getIsSorted()
-                  ? 'tw:bg-main-selected tw:text-primary'
-                  : 'tw:text-secondary',
+                column.getIsSorted() ? 'tw:bg-main-selected tw:text-primary' : 'tw:text-secondary',
               ]"
             >
               <slot
@@ -962,7 +977,12 @@ defineExpose({ table })
               @keydown.enter.self="rowInteractive && activateRow(item.row, $event)"
               @keydown.space.self.prevent="rowInteractive && activateRow(item.row, $event)"
             >
-              <td v-if="expandable" class="tw:w-9 tw:text-center tw:align-middle" :class="pad.td" @click.stop>
+              <td
+                v-if="expandable"
+                class="tw:w-9 tw:text-center tw:align-middle"
+                :class="pad.td"
+                @click.stop
+              >
                 <button
                   v-if="item.row.getCanExpand()"
                   type="button"

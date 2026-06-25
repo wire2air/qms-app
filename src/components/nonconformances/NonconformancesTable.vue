@@ -41,7 +41,14 @@ const columns = computed(() => {
     dueDate: { filterType: 'date' },
   }
   return [
-    { name: 'ncNumber', label: 'NC #', field: 'ncNumber', align: 'left', sortable: true, hideable: false },
+    {
+      name: 'ncNumber',
+      label: 'NC #',
+      field: 'ncNumber',
+      align: 'left',
+      sortable: true,
+      hideable: false,
+    },
     { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
     { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: false },
     { name: 'type', label: 'Type', field: 'typeId', align: 'left', sortable: false },
@@ -76,7 +83,6 @@ function rowMenuItems(row) {
     :rows="rows"
     :columns="columns"
     rowKey="id"
-    :mobileCards="false"
     searchable
     columnManager
     densitySelector
