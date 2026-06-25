@@ -312,260 +312,261 @@ const myTrainingDetailConfig = computed(() =>
 
       <div v-else class="tw:flex tw:flex-col tw:gap-6">
         <!-- Stepper (Assessment step hidden when training has no questions) -->
-      <div class="tw:flex tw:items-center tw:gap-2 tw:bg-gray-50 tw:rounded-lg tw:p-3">
-        <div v-for="(s, idx) in stepperSteps" :key="s.id" class="tw:flex tw:items-center tw:gap-1">
+        <div class="tw:flex tw:items-center tw:gap-2 tw:bg-gray-50 tw:rounded-lg tw:p-3">
           <div
-            class="tw:flex tw:items-center tw:gap-1.5 tw:px-3 tw:py-1 tw:rounded-full tw:text-sm tw:font-medium tw:transition-colors"
-            :class="step === s.id ? 'tw:bg-primary tw:text-white' : 'tw:text-secondary'"
+            v-for="(s, idx) in stepperSteps"
+            :key="s.id"
+            class="tw:flex tw:items-center tw:gap-1"
           >
-            <span
-              v-if="step === s.id"
-              class="tw:w-5 tw:h-5 tw:rounded-full tw:bg-white tw:text-primary tw:text-xs tw:flex tw:items-center tw:justify-center tw:font-bold"
-              >{{ idx + 1 }}</span
+            <div
+              class="tw:flex tw:items-center tw:gap-1.5 tw:px-3 tw:py-1 tw:rounded-full tw:text-sm tw:font-medium tw:transition-colors"
+              :class="step === s.id ? 'tw:bg-primary tw:text-white' : 'tw:text-secondary'"
             >
-            {{ s.label }}
-          </div>
-          <IconChevronRight
-            v-if="idx < stepperSteps.length - 1"
-            :size="14"
-            class="tw:text-secondary"
-          />
-        </div>
-      </div>
-
-      <!-- Step: Instructions -->
-      <div v-if="step === 'instructions'" class="tw:flex tw:flex-col tw:gap-4">
-        <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5">
-          <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar tw:mb-3">Instructions</h2>
-          <BaseRichTextEditor
-            v-if="instance.snapshot?.instructions"
-            :modelValue="instance.snapshot.instructions"
-            :editable="false"
-          />
-          <p v-else class="tw:text-sm tw:text-secondary tw:italic">
-            No specific instructions provided.
-          </p>
-        </div>
-        <div v-if="instance.snapshot?.description" class="tw:text-sm tw:text-secondary">
-          {{ instance.snapshot.description }}
-        </div>
-        <div class="tw:flex tw:justify-end">
-          <BaseButton v-if="isLockedOut" variant="primary" @click="step = 'result-review'">
-            View Results
-          </BaseButton>
-          <BaseButton
-            v-else-if="myAssignee.status === 'ASSIGNED'"
-            variant="primary"
-            :loading="starting"
-            @click="handleStart"
-          >
-            Start Training
-          </BaseButton>
-          <BaseButton v-else variant="primary" @click="step = 'material'">
-            Continue to Material
-          </BaseButton>
-        </div>
-      </div>
-
-      <!-- Step: Material -->
-      <div v-else-if="step === 'material'" class="tw:flex tw:flex-col tw:gap-4">
-        <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5">
-          <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar tw:mb-3">Training Material</h2>
-
-          <div v-if="instance.snapshot?.documentIds?.length" class="tw:mb-4">
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">
-              Reference Documents
-            </p>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <BaseClickableRow
-                v-for="docId in instance.snapshot.documentIds"
-                :key="docId"
-                class="tw:flex tw:items-center tw:justify-between tw:p-2 tw:rounded-lg tw:border tw:border-divider tw:hover:bg-gray-50 tw:transition-colors"
-                aria-label="View reference document"
-                @click="openDocument(docId)"
+              <span
+                v-if="step === s.id"
+                class="tw:w-5 tw:h-5 tw:rounded-full tw:bg-white tw:text-primary tw:text-xs tw:flex tw:items-center tw:justify-center tw:font-bold"
+                >{{ idx + 1 }}</span
               >
-                <DocumentBadgeById :documentId="docId" />
-                <div class="tw:flex tw:items-center tw:gap-1.5 tw:shrink-0">
-                  <span v-if="!viewedDocIds.includes(docId)" class="tw:text-xs tw:text-secondary"
-                    >Click to view</span
-                  >
-                  <IconCheck v-else :size="16" class="tw:text-green-500" />
-                </div>
-              </BaseClickableRow>
+              {{ s.label }}
             </div>
+            <IconChevronRight
+              v-if="idx < stepperSteps.length - 1"
+              :size="14"
+              class="tw:text-secondary"
+            />
           </div>
+        </div>
 
-          <div v-if="instance.snapshot?.externalLinks?.length">
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">Links</p>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <a
-                v-for="link in instance.snapshot.externalLinks"
-                :key="link.url"
-                :href="link.url"
-                target="_blank"
-                class="tw:flex tw:items-center tw:justify-between tw:p-2 tw:rounded-lg tw:border tw:border-divider tw:hover:bg-gray-50 tw:transition-colors"
-                @click="markLinkViewed(link.url)"
-              >
-                <span class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-primary">
-                  <IconExternalLink :size="14" class="tw:shrink-0" />
-                  {{ link.title || link.url }}
-                </span>
-                <div class="tw:flex tw:items-center tw:gap-1.5 tw:shrink-0">
-                  <span
-                    v-if="!viewedLinkUrls.includes(link.url)"
-                    class="tw:text-xs tw:text-secondary"
-                    >Click to open</span
-                  >
-                  <IconCheck v-else :size="16" class="tw:text-green-500" />
-                </div>
-              </a>
+        <!-- Step: Instructions -->
+        <div v-if="step === 'instructions'" class="tw:flex tw:flex-col tw:gap-4">
+          <FormSection title="Instructions">
+            <BaseRichTextEditor
+              v-if="instance.snapshot?.instructions"
+              :modelValue="instance.snapshot.instructions"
+              :editable="false"
+            />
+            <p v-else class="tw:text-sm tw:text-secondary tw:italic">
+              No specific instructions provided.
+            </p>
+          </FormSection>
+          <div v-if="instance.snapshot?.description" class="tw:text-sm tw:text-secondary">
+            {{ instance.snapshot.description }}
+          </div>
+          <div class="tw:flex tw:justify-end">
+            <BaseButton v-if="isLockedOut" variant="primary" @click="step = 'result-review'">
+              View Results
+            </BaseButton>
+            <BaseButton
+              v-else-if="myAssignee.status === 'ASSIGNED'"
+              variant="primary"
+              :loading="starting"
+              @click="handleStart"
+            >
+              Start Training
+            </BaseButton>
+            <BaseButton v-else variant="primary" @click="step = 'material'">
+              Continue to Material
+            </BaseButton>
+          </div>
+        </div>
+
+        <!-- Step: Material -->
+        <div v-else-if="step === 'material'" class="tw:flex tw:flex-col tw:gap-4">
+          <FormSection title="Training Material">
+            <div v-if="instance.snapshot?.documentIds?.length" class="tw:mb-4">
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">
+                Reference Documents
+              </p>
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <BaseClickableRow
+                  v-for="docId in instance.snapshot.documentIds"
+                  :key="docId"
+                  class="tw:flex tw:items-center tw:justify-between tw:p-2 tw:rounded-lg tw:border tw:border-divider tw:hover:bg-gray-50 tw:transition-colors"
+                  aria-label="View reference document"
+                  @click="openDocument(docId)"
+                >
+                  <DocumentBadgeById :documentId="docId" />
+                  <div class="tw:flex tw:items-center tw:gap-1.5 tw:shrink-0">
+                    <span v-if="!viewedDocIds.includes(docId)" class="tw:text-xs tw:text-secondary"
+                      >Click to view</span
+                    >
+                    <IconCheck v-else :size="16" class="tw:text-green-500" />
+                  </div>
+                </BaseClickableRow>
+              </div>
             </div>
-          </div>
 
-          <p
-            v-if="
-              !instance.snapshot?.documentIds?.length && !instance.snapshot?.externalLinks?.length
-            "
-            class="tw:text-sm tw:text-secondary tw:italic"
-          >
-            No material linked to this training.
+            <div v-if="instance.snapshot?.externalLinks?.length">
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">Links</p>
+              <div class="tw:flex tw:flex-col tw:gap-1">
+                <a
+                  v-for="link in instance.snapshot.externalLinks"
+                  :key="link.url"
+                  :href="link.url"
+                  target="_blank"
+                  class="tw:flex tw:items-center tw:justify-between tw:p-2 tw:rounded-lg tw:border tw:border-divider tw:hover:bg-gray-50 tw:transition-colors"
+                  @click="markLinkViewed(link.url)"
+                >
+                  <span class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-primary">
+                    <IconExternalLink :size="14" class="tw:shrink-0" />
+                    {{ link.title || link.url }}
+                  </span>
+                  <div class="tw:flex tw:items-center tw:gap-1.5 tw:shrink-0">
+                    <span
+                      v-if="!viewedLinkUrls.includes(link.url)"
+                      class="tw:text-xs tw:text-secondary"
+                      >Click to open</span
+                    >
+                    <IconCheck v-else :size="16" class="tw:text-green-500" />
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            <p
+              v-if="
+                !instance.snapshot?.documentIds?.length && !instance.snapshot?.externalLinks?.length
+              "
+              class="tw:text-sm tw:text-secondary tw:italic"
+            >
+              No material linked to this training.
+            </p>
+          </FormSection>
+
+          <p v-if="!allMaterialViewed" class="tw:text-xs tw:text-secondary tw:text-center">
+            Please review all documents and links above before proceeding.
           </p>
-        </div>
 
-        <p v-if="!allMaterialViewed" class="tw:text-xs tw:text-secondary tw:text-center">
-          Please review all documents and links above before proceeding.
-        </p>
-
-        <div class="tw:flex tw:justify-between">
-          <BaseButton variant="secondary" @click="step = 'instructions'">Back</BaseButton>
-          <BaseButton
-            v-if="instance.snapshot?.assessment?.length"
-            variant="primary"
-            :disabled="!allMaterialViewed"
-            @click="step = 'assessment'"
-          >
-            Proceed to Assessment
-          </BaseButton>
-          <BaseButton
-            v-else
-            variant="primary"
-            :disabled="!allMaterialViewed"
-            :loading="submitting"
-            @click="openSubmitSignDialog"
-          >
-            Mark Complete &amp; Submit
-          </BaseButton>
-        </div>
-      </div>
-
-      <!-- Step: Assessment -->
-      <div v-else-if="step === 'assessment'" class="tw:flex tw:flex-col tw:gap-4">
-        <TrainingAssessmentView
-          :answers="answers"
-          :questions="instance.snapshot?.assessment ?? []"
-          :passingScore="instance.snapshot?.passingScore ?? 70"
-          :attemptCount="effectiveAssignee?.attemptCount ?? 0"
-          :maxAttempts="maxAttempts"
-          @update:answers="answers = $event"
-        />
-        <div v-if="isLockedOut" class="tw:text-sm tw:text-secondary tw:italic tw:text-center">
-          {{
-            effectiveAssignee?.status === 'COMPLETED'
-              ? 'You have already completed this training.'
-              : 'Maximum attempts reached. You can no longer submit this assessment.'
-          }}
-        </div>
-        <div v-else class="tw:flex tw:justify-between">
-          <BaseButton variant="secondary" @click="step = 'material'">Back</BaseButton>
-          <BaseButton
-            variant="primary"
-            :loading="submitting"
-            :disabled="isLockedOut"
-            @click="openSubmitSignDialog"
-          >
-            Submit Assessment
-          </BaseButton>
-        </div>
-      </div>
-
-      <!-- Step: Result -->
-      <div v-else-if="step === 'result'" class="tw:flex tw:justify-center">
-        <div
-          class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-8 tw:max-w-sm tw:w-full tw:flex tw:flex-col tw:items-center tw:gap-4"
-        >
-          <div
-            class="tw:w-16 tw:h-16 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-2xl tw:font-black"
-            :class="
-              submitResult?.passed
-                ? 'tw:bg-green-100 tw:text-green-700'
-                : 'tw:bg-red-100 tw:text-red-700'
-            "
-          >
-            {{ submitResult?.score }}%
+          <div class="tw:flex tw:justify-between">
+            <BaseButton variant="secondary" @click="step = 'instructions'">Back</BaseButton>
+            <BaseButton
+              v-if="instance.snapshot?.assessment?.length"
+              variant="primary"
+              :disabled="!allMaterialViewed"
+              @click="step = 'assessment'"
+            >
+              Proceed to Assessment
+            </BaseButton>
+            <BaseButton
+              v-else
+              variant="primary"
+              :disabled="!allMaterialViewed"
+              :loading="submitting"
+              @click="openSubmitSignDialog"
+            >
+              Mark Complete &amp; Submit
+            </BaseButton>
           </div>
-          <div class="tw:text-center">
-            <p class="tw:text-xl tw:font-bold tw:text-on-sidebar">
-              {{ submitResult?.passed ? 'Passed!' : 'Failed' }}
-            </p>
-            <p class="tw:text-sm tw:text-secondary tw:mt-1">
-              <template v-if="submitResult?.passed">
-                Congratulations! You completed this training.
-              </template>
-              <template v-else-if="canRetry">
-                Score below passing threshold of {{ instance.snapshot?.passingScore ?? 70 }}%.
-                Please review the material and try again.
-              </template>
-              <template v-else>
-                Score below passing threshold of {{ instance.snapshot?.passingScore ?? 70 }}%.
-                Maximum attempts reached.
-              </template>
-            </p>
-          </div>
-          <BaseButton v-if="canRetry" variant="secondary" @click="handleRetry">
-            Retry Assessment
-          </BaseButton>
         </div>
-      </div>
 
-      <!-- Locked-out review (read-only past attempt) -->
-      <div v-if="step === 'result-review'" class="tw:flex tw:flex-col tw:gap-4">
-        <div
-          class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-6 tw:flex tw:items-center tw:gap-4"
-        >
-          <div
-            class="tw:w-14 tw:h-14 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-xl tw:font-black tw:shrink-0"
-            :class="
+        <!-- Step: Assessment -->
+        <div v-else-if="step === 'assessment'" class="tw:flex tw:flex-col tw:gap-4">
+          <TrainingAssessmentView
+            :answers="answers"
+            :questions="instance.snapshot?.assessment ?? []"
+            :passingScore="instance.snapshot?.passingScore ?? 70"
+            :attemptCount="effectiveAssignee?.attemptCount ?? 0"
+            :maxAttempts="maxAttempts"
+            @update:answers="answers = $event"
+          />
+          <div v-if="isLockedOut" class="tw:text-sm tw:text-secondary tw:italic tw:text-center">
+            {{
               effectiveAssignee?.status === 'COMPLETED'
-                ? 'tw:bg-green-100 tw:text-green-700'
-                : 'tw:bg-red-100 tw:text-red-700'
-            "
-          >
-            {{ effectiveAssignee?.score ?? 0 }}%
+                ? 'You have already completed this training.'
+                : 'Maximum attempts reached. You can no longer submit this assessment.'
+            }}
           </div>
-          <div>
-            <p class="tw:text-lg tw:font-bold tw:text-on-sidebar">
-              {{ effectiveAssignee?.status === 'COMPLETED' ? 'Passed' : 'Failed' }}
-            </p>
-            <p class="tw:text-sm tw:text-secondary">
-              Final attempt {{ effectiveAssignee?.attemptCount ?? 0 }} of {{ maxAttempts }} ·
-              Passing score {{ instance.snapshot?.passingScore ?? 70 }}%
-            </p>
-            <p v-if="effectiveAssignee?.completedAt" class="tw:text-xs tw:text-secondary tw:mt-1">
-              Completed {{ effectiveAssignee.completedAt.formatDate('date') }}
-            </p>
+          <div v-else class="tw:flex tw:justify-between">
+            <BaseButton variant="secondary" @click="step = 'material'">Back</BaseButton>
+            <BaseButton
+              variant="primary"
+              :loading="submitting"
+              :disabled="isLockedOut"
+              @click="openSubmitSignDialog"
+            >
+              Submit Assessment
+            </BaseButton>
           </div>
         </div>
-        <TrainingAssessmentView
-          :answers="answers"
-          :questions="instance.snapshot?.assessment ?? []"
-          :passingScore="instance.snapshot?.passingScore ?? 70"
-          :attemptCount="effectiveAssignee?.attemptCount ?? 0"
-          :maxAttempts="maxAttempts"
-          :readonly="true"
-          @update:answers="answers = $event"
-        />
+
+        <!-- Step: Result -->
+        <div v-else-if="step === 'result'" class="tw:flex tw:justify-center">
+          <div
+            class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-8 tw:max-w-sm tw:w-full tw:flex tw:flex-col tw:items-center tw:gap-4"
+          >
+            <div
+              class="tw:w-16 tw:h-16 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-2xl tw:font-black"
+              :class="
+                submitResult?.passed
+                  ? 'tw:bg-green-100 tw:text-green-700'
+                  : 'tw:bg-red-100 tw:text-red-700'
+              "
+            >
+              {{ submitResult?.score }}%
+            </div>
+            <div class="tw:text-center">
+              <p class="tw:text-xl tw:font-bold tw:text-on-sidebar">
+                {{ submitResult?.passed ? 'Passed!' : 'Failed' }}
+              </p>
+              <p class="tw:text-sm tw:text-secondary tw:mt-1">
+                <template v-if="submitResult?.passed">
+                  Congratulations! You completed this training.
+                </template>
+                <template v-else-if="canRetry">
+                  Score below passing threshold of {{ instance.snapshot?.passingScore ?? 70 }}%.
+                  Please review the material and try again.
+                </template>
+                <template v-else>
+                  Score below passing threshold of {{ instance.snapshot?.passingScore ?? 70 }}%.
+                  Maximum attempts reached.
+                </template>
+              </p>
+            </div>
+            <BaseButton v-if="canRetry" variant="secondary" @click="handleRetry">
+              Retry Assessment
+            </BaseButton>
+          </div>
+        </div>
+
+        <!-- Locked-out review (read-only past attempt) -->
+        <div v-if="step === 'result-review'" class="tw:flex tw:flex-col tw:gap-4">
+          <div
+            class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-6 tw:flex tw:items-center tw:gap-4"
+          >
+            <div
+              class="tw:w-14 tw:h-14 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-xl tw:font-black tw:shrink-0"
+              :class="
+                effectiveAssignee?.status === 'COMPLETED'
+                  ? 'tw:bg-green-100 tw:text-green-700'
+                  : 'tw:bg-red-100 tw:text-red-700'
+              "
+            >
+              {{ effectiveAssignee?.score ?? 0 }}%
+            </div>
+            <div>
+              <p class="tw:text-lg tw:font-bold tw:text-on-sidebar">
+                {{ effectiveAssignee?.status === 'COMPLETED' ? 'Passed' : 'Failed' }}
+              </p>
+              <p class="tw:text-sm tw:text-secondary">
+                Final attempt {{ effectiveAssignee?.attemptCount ?? 0 }} of {{ maxAttempts }} ·
+                Passing score {{ instance.snapshot?.passingScore ?? 70 }}%
+              </p>
+              <p v-if="effectiveAssignee?.completedAt" class="tw:text-xs tw:text-secondary tw:mt-1">
+                Completed {{ effectiveAssignee.completedAt.formatDate('date') }}
+              </p>
+            </div>
+          </div>
+          <TrainingAssessmentView
+            :answers="answers"
+            :questions="instance.snapshot?.assessment ?? []"
+            :passingScore="instance.snapshot?.passingScore ?? 70"
+            :attemptCount="effectiveAssignee?.attemptCount ?? 0"
+            :maxAttempts="maxAttempts"
+            :readonly="true"
+            @update:answers="answers = $event"
+          />
+        </div>
       </div>
-    </div>
     </template>
   </BaseDetailLayout>
 

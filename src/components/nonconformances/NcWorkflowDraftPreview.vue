@@ -190,9 +190,7 @@ watch(
        available through DRAFT. An NC spawned from a rejected QC lot
        arrives with no workflow; without this card there'd be no way to
        set one before Open NC. -->
-    <div
-      class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-3"
-    >
+    <BaseCard class="tw:flex tw:flex-col tw:gap-3">
       <div class="tw:pb-3 tw:border-b tw:border-divider">
         <BaseText as="h3" weight="bold">Workflow</BaseText>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
@@ -212,12 +210,9 @@ watch(
       <p v-else-if="!hasWorkflow" class="tw:text-sm tw:text-secondary tw:italic">
         No workflow selected yet — the NC owner picks one before opening.
       </p>
-    </div>
+    </BaseCard>
 
-    <div
-      v-if="hasWorkflow"
-      class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4"
-    >
+    <BaseCard v-if="hasWorkflow" class="tw:flex tw:flex-col tw:gap-4">
       <div class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider">
         <div>
           <BaseText as="h3" weight="bold" class="tw:flex tw:items-center tw:gap-2">
@@ -340,6 +335,6 @@ watch(
           </div>
         </div>
       </div>
-    </div>
+    </BaseCard>
   </div>
 </template>

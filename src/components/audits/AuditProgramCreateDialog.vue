@@ -12,8 +12,10 @@
  * On success emits `created` with the new program; the parent navigates
  * to /audits/programs/<id> when the user clicked "Create & open".
  */
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { required, requiredWhen } from '@shared/components/form/validators.js'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -57,11 +59,18 @@ function defaultForm() {
 
 const form = ref(defaultForm())
 const saving = ref(false)
+const saveError = ref('')
+const formRef = ref(null)
+// Tracks whether the user clicked "Create & open" vs "Create".
+const navigateAfterSave = ref(false)
 
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) form.value = defaultForm()
+    if (open) {
+      form.value = defaultForm()
+      saveError.value = ''
+    }
   },
 )
 
@@ -71,27 +80,23 @@ const supplierRequired = computed(() => form.value.programTypeId === 'SUPPLIER')
 const daysRequired = computed(() => form.value.frequencyId === 'EVERY_X_DAYS')
 const cronRequired = computed(() => form.value.frequencyId === 'CUSTOM_RECURRENCE')
 
-const canSave = computed(() => {
-  if (!form.value.name.trim()) return false
-  if (supplierRequired.value && !form.value.supplierId) return false
-  if (daysRequired.value) {
-    const n = Number(form.value.daysInterval)
-    if (!Number.isFinite(n) || n <= 0) return false
-  }
-  if (cronRequired.value && !form.value.cronExpression.trim()) return false
-  return true
-})
-
 function close() {
   emit('update:modelValue', false)
 }
 
-async function handleSave({ navigate }) {
-  if (!canSave.value) {
-    toast.warning('Fill the required fields first')
-    return
-  }
+function submitCreate() {
+  navigateAfterSave.value = false
+  formRef.value?.submit()
+}
+
+function submitCreateAndOpen() {
+  navigateAfterSave.value = true
+  formRef.value?.submit()
+}
+
+async function onValidSubmit() {
   saving.value = true
+  saveError.value = ''
   try {
     const result = await post('/v1/services/auditPrograms', {
       name: form.value.name.trim(),
@@ -111,11 +116,11 @@ async function handleSave({ navigate }) {
     toast.success(`Program "${program?.name}" created`)
     emit('created', program)
     close()
-    if (navigate && program?.id) {
+    if (navigateAfterSave.value && program?.id) {
       router.push(getCompanyPath(`/audits/programs/${program.id}`))
     }
   } catch (e) {
-    toast.error(e.message || 'Failed to create program')
+    saveError.value = e.message || 'Failed to create program'
   } finally {
     saving.value = false
   }
@@ -123,99 +128,141 @@ async function handleSave({ navigate }) {
 </script>
 
 <template>
-  <BaseDialog :modelValue="modelValue" title="New Audit Program" maxWidth="lg" @update:modelValue="close">
-    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-      <BaseField v-slot="{ id: fieldId }" label="Name" required>
-        <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. Annual Internal Quality Audit" />
-      </BaseField>
-
-      <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <BaseField label="Type" required>
-          <BaseInlineSelect v-model="form.programTypeId" :items="PROGRAM_TYPES" :required="true" />
+  <BaseDialog
+    :modelValue="modelValue"
+    title="New Audit Program"
+    maxWidth="lg"
+    @update:modelValue="close"
+  >
+    <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <BaseField label="Name" required :value="form.name" :rules="[required()]">
+          <template #default="field">
+            <BaseTextInput
+              v-bind="field"
+              v-model="form.name"
+              placeholder="e.g. Annual Internal Quality Audit"
+            />
+          </template>
         </BaseField>
-        <BaseField label="Frequency" required>
-          <BaseInlineSelect v-model="form.frequencyId" :items="FREQUENCIES" :required="true" />
+
+        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <BaseField label="Type" required :value="form.programTypeId" :rules="[required()]">
+            <BaseInlineSelect
+              v-model="form.programTypeId"
+              :items="PROGRAM_TYPES"
+              :required="true"
+            />
+          </BaseField>
+          <BaseField label="Frequency" required :value="form.frequencyId" :rules="[required()]">
+            <BaseInlineSelect v-model="form.frequencyId" :items="FREQUENCIES" :required="true" />
+          </BaseField>
+        </div>
+
+        <!-- Frequency-conditional fields. Hidden when the gate is off so the
+             form doesn't carry stale interval / cron data into the save. -->
+        <BaseField
+          v-if="daysRequired"
+          label="Days Interval"
+          required
+          hint="The daily generator will mint a new audit every N days."
+          :value="form.daysInterval"
+          :rules="[requiredWhen(() => daysRequired, 'Days Interval is required.')]"
+        >
+          <template #default="field">
+            <BaseTextInput
+              v-bind="field"
+              v-model="form.daysInterval"
+              type="number"
+              placeholder="e.g. 90"
+            />
+          </template>
+        </BaseField>
+        <BaseField
+          v-if="cronRequired"
+          label="Cron Expression"
+          required
+          :value="form.cronExpression"
+          :rules="[requiredWhen(() => cronRequired, 'Cron Expression is required.')]"
+        >
+          <template #default="field">
+            <BaseTextInput v-bind="field" v-model="form.cronExpression" placeholder="0 0 1 */3 *" />
+            <p class="tw:text-caption tw:text-secondary tw:mt-1">
+              Standard 5-field cron. Example: <code>0 0 1 */3 *</code> = midnight on the 1st of every
+              3rd month.
+            </p>
+          </template>
+        </BaseField>
+
+        <!-- Standard on its own row — names like '21 CFR Part 820 (US FDA QSR)'
+             don't truncate or shove the Manager chip when given full width. -->
+        <BaseField label="Standard">
+          <AuditStandardSelectMenu v-model="form.auditStandardId" />
+        </BaseField>
+
+        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <BaseField label="Manager">
+            <UserSelectMenu v-model="form.managerUserId" />
+          </BaseField>
+          <BaseField label="Department">
+            <DepartmentSelectMenu v-model="form.departmentId" />
+          </BaseField>
+        </div>
+
+        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <BaseField label="Site">
+            <SiteSelectMenu v-model="form.siteId" />
+          </BaseField>
+          <BaseField label="Next Due">
+            <template #default="field">
+              <BaseTextInput v-bind="field" v-model="form.nextDueDate" type="date" />
+            </template>
+          </BaseField>
+        </div>
+
+        <BaseField
+          v-if="supplierRequired"
+          label="Supplier"
+          required
+          hint="Required for Supplier-type programs. Audits minted from this program scope to this supplier."
+          :value="form.supplierId"
+          :rules="[
+            requiredWhen(
+              () => supplierRequired,
+              'Supplier is required for Supplier-type programs.',
+            ),
+          ]"
+        >
+          <SupplierSelectMenu v-model="form.supplierId" :required="true" />
+        </BaseField>
+
+        <BaseField label="Description">
+          <template #default="field">
+            <BaseTextarea
+              v-bind="field"
+              v-model="form.description"
+              :rows="3"
+              placeholder="Optional scope / context for this program"
+            />
+          </template>
         </BaseField>
       </div>
+    </BaseForm>
 
-      <!-- Frequency-conditional fields. Hidden when the gate is off so the
-           form doesn't carry stale interval / cron data into the save. -->
-      <BaseField
-        v-if="daysRequired"
-        v-slot="{ id: fieldId }"
-        label="Days Interval"
-        required
-        hint="The daily generator will mint a new audit every N days."
-      >
-        <BaseTextInput :id="fieldId" v-model="form.daysInterval" type="number" placeholder="e.g. 90" />
-      </BaseField>
-      <BaseField v-if="cronRequired" v-slot="{ id: fieldId }" label="Cron Expression" required>
-        <BaseTextInput :id="fieldId" v-model="form.cronExpression" placeholder="0 0 1 */3 *" />
-        <p class="tw:text-caption tw:text-secondary tw:mt-1">
-          Standard 5-field cron. Example: <code>0 0 1 */3 *</code> = midnight on the 1st of every 3rd month.
-        </p>
-      </BaseField>
-
-      <!-- Standard on its own row — names like '21 CFR Part 820 (US FDA QSR)'
-           don't truncate or shove the Manager chip when given full width. -->
-      <BaseField label="Standard">
-        <AuditStandardSelectMenu v-model="form.auditStandardId" />
-      </BaseField>
-
-      <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <BaseField label="Manager">
-          <UserSelectMenu v-model="form.managerUserId" />
-        </BaseField>
-        <BaseField label="Department">
-          <DepartmentSelectMenu v-model="form.departmentId" />
-        </BaseField>
-      </div>
-
-      <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <BaseField label="Site">
-          <SiteSelectMenu v-model="form.siteId" />
-        </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="Next Due">
-          <BaseTextInput :id="fieldId" v-model="form.nextDueDate" type="date" />
-        </BaseField>
-      </div>
-
-      <BaseField
-        v-if="supplierRequired"
-        label="Supplier"
-        required
-        hint="Required for Supplier-type programs. Audits minted from this program scope to this supplier."
-      >
-        <SupplierSelectMenu v-model="form.supplierId" :required="true" />
-      </BaseField>
-
-      <BaseField v-slot="{ id: fieldId }" label="Description">
-        <BaseTextarea
-          :id="fieldId"
-          v-model="form.description"
-          :rows="3"
-          placeholder="Optional scope / context for this program"
-        />
-      </BaseField>
-    </div>
     <template #footer>
       <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-      <BaseButton
-        variant="outline"
-        :loading="saving"
-        :disabled="saving || !canSave"
-        @click="handleSave({ navigate: false })"
-      >
+      <BaseButton variant="outline" :loading="saving" :disabled="saving" @click="submitCreate">
         Create
       </BaseButton>
       <BaseButton
         variant="primary"
         :loading="saving"
-        :disabled="saving || !canSave"
-        @click="handleSave({ navigate: true })"
+        :disabled="saving"
+        @click="submitCreateAndOpen"
       >
         Create &amp; open
       </BaseButton>
+      <BaseErrorText v-if="saveError">{{ saveError }}</BaseErrorText>
     </template>
   </BaseDialog>
 </template>

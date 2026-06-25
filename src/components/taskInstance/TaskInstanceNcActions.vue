@@ -98,6 +98,8 @@ const pendingOutcomeId = ref(null)
 const comment = ref('')
 const reassignToUserId = ref(null)
 const actionLoading = ref(false)
+const reassignError = ref('')
+const commentError = ref('')
 
 // Candidate users for reassignment (step roles → RoleOnUser → User, excluding current user)
 const stepRoles = useLiveQueryWithDeps(
@@ -179,6 +181,8 @@ function onOutcomeClick(outcomeId) {
   pendingOutcomeId.value = outcomeId
   comment.value = ''
   reassignToUserId.value = null
+  reassignError.value = ''
+  commentError.value = ''
 
   const config = OUTCOME_CONFIG.value[outcomeId]
   if (config?.needsComment || config?.needsUser) {
@@ -191,12 +195,14 @@ function onOutcomeClick(outcomeId) {
 }
 
 function onConfirmDialog() {
+  reassignError.value = ''
+  commentError.value = ''
   if (pendingConfig.value?.needsUser && !reassignToUserId.value) {
-    toast.warning('Please select a user to reassign to')
+    reassignError.value = 'Please select a user to reassign to'
     return
   }
   if (pendingConfig.value?.commentRequired && !comment.value.trim()) {
-    toast.warning('A comment is required')
+    commentError.value = 'A comment is required'
     return
   }
   showConfirmDialog.value = false
@@ -302,6 +308,7 @@ async function submitAction({ method, provider, token } = {}) {
               type="radio"
               :value="user.id"
               class="tw:accent-primary"
+              @change="reassignError = ''"
             />
             <div class="tw:flex-1 tw:min-w-0">
               <div class="tw:text-sm tw:font-medium tw:text-on-main">
@@ -314,6 +321,7 @@ async function submitAction({ method, provider, token } = {}) {
             No eligible users available for reassignment.
           </p>
         </div>
+        <BaseErrorText v-if="reassignError" class="tw:mt-1">{{ reassignError }}</BaseErrorText>
       </BaseField>
 
       <BaseField
@@ -331,7 +339,9 @@ async function submitAction({ method, provider, token } = {}) {
               ? 'Why are you sending this back to the owner?'
               : 'Add a comment…'
           "
+          @input="commentError = ''"
         />
+        <BaseErrorText v-if="commentError" class="tw:mt-1">{{ commentError }}</BaseErrorText>
       </BaseField>
 
       <template #footer="{ close }">

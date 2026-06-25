@@ -1,7 +1,6 @@
 <script setup>
 import { IconInfoCircle, IconSettings, IconCircleCheck, IconCircleX } from '@tabler/icons-vue'
-import { required, minValue, helpers } from '@vuelidate/validators'
-import { useValidator } from '@shared/composables/validator.js'
+import { required, minValue } from '@shared/components/form/validators.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { validateUUID } from '@/utils/validators.js'
 import { currentCompany } from '@/utils/currentCompany.js'
@@ -17,7 +16,9 @@ const props = defineProps({
 const router = useRouter()
 const toast = useToast()
 
+const formRef = ref(null)
 const saving = ref(false)
+const saveError = ref('')
 const checkingPrefix = ref(false)
 const prefixAvailable = ref(null)
 const originalPrefix = ref(null)
@@ -83,61 +84,53 @@ function onPrefixInput(value) {
   form.value.prefix = value.toUpperCase()
 }
 
-const rules = computed(() => ({
-  name: { required: helpers.withMessage('Template name is required', required) },
-  prefix: {
-    required: helpers.withMessage('Document prefix is required', required),
-    validFormat: helpers.withMessage(
-      'Only uppercase letters, numbers, hyphens, and placeholders {SITE_CODE}, {DEPARTMENT_CODE} are allowed',
-      (value) => /^[A-Z0-9{}\-_]+$/.test(value) && /[A-Z0-9}]$/.test(value),
-    ),
-    validPlaceholders: helpers.withMessage(
-      'Only {SITE_CODE} and {DEPARTMENT_CODE} placeholders are supported',
-      (value) => {
-        const placeholders = [...value.matchAll(/\{([A-Z_]+)\}/g)].map((m) => m[1])
-        return placeholders.every((p) => ['SITE_CODE', 'DEPARTMENT_CODE'].includes(p))
-      },
-    ),
-    noDuplicatePlaceholders: helpers.withMessage(
-      'Each placeholder can only be used once',
-      (value) => {
-        const placeholders = [...value.matchAll(/\{([A-Z_]+)\}/g)].map((m) => m[1])
-        return new Set(placeholders).size === placeholders.length
-      },
-    ),
-    noUnmatchedBraces: helpers.withMessage(
-      'Invalid placeholder format - check your curly braces',
-      (value) => {
-        const stripped = value.replace(/\{[A-Z_]+\}/g, '')
-        return !stripped.includes('{') && !stripped.includes('}')
-      },
-    ),
-  },
-  periodicReviewMonths: {
-    required: helpers.withMessage('Periodic review period is required', required),
-    minValue: helpers.withMessage('Must be at least 1 month', minValue(1)),
-  },
-  reviewLimitDays: {
-    required: helpers.withMessage('Review limit is required', required),
-    minValue: helpers.withMessage('Must be at least 1 day', minValue(1)),
-  },
-  approvalLimitDays: {
-    required: helpers.withMessage('Approval limit is required', required),
-    minValue: helpers.withMessage('Must be at least 1 day', minValue(1)),
-  },
-  sections: {
-    minLength: helpers.withMessage(
-      'At least one section is required',
-      (value) => value && value?.length > 0,
-    ),
-    hasValidSections: helpers.withMessage('All sections must have a title', (value) => {
-      if (!value || value.length === 0) return true
-      return value.every((section) => section.title && section.title.trim().length > 0)
-    }),
-  },
-}))
+// Prefix validation rules
+function prefixValidFormat(value) {
+  if (!value) return true
+  return (
+    (/^[A-Z0-9{}\-_]+$/.test(value) && /[A-Z0-9}]$/.test(value)) ||
+    'Only uppercase letters, numbers, hyphens, and placeholders {SITE_CODE}, {DEPARTMENT_CODE} are allowed'
+  )
+}
 
-const validator = useValidator(rules, form)
+function prefixValidPlaceholders(value) {
+  if (!value) return true
+  const placeholders = [...value.matchAll(/\{([A-Z_]+)\}/g)].map((m) => m[1])
+  return (
+    placeholders.every((p) => ['SITE_CODE', 'DEPARTMENT_CODE'].includes(p)) ||
+    'Only {SITE_CODE} and {DEPARTMENT_CODE} placeholders are supported'
+  )
+}
+
+function prefixNoDuplicatePlaceholders(value) {
+  if (!value) return true
+  const placeholders = [...value.matchAll(/\{([A-Z_]+)\}/g)].map((m) => m[1])
+  return (
+    new Set(placeholders).size === placeholders.length || 'Each placeholder can only be used once'
+  )
+}
+
+function prefixNoUnmatchedBraces(value) {
+  if (!value) return true
+  const stripped = value.replace(/\{[A-Z_]+\}/g, '')
+  return (
+    (!stripped.includes('{') && !stripped.includes('}')) ||
+    'Invalid placeholder format - check your curly braces'
+  )
+}
+
+// Sections validation rules
+function sectionsMinLength(value) {
+  return (value && value.length > 0) || 'At least one section is required'
+}
+
+function sectionsHaveValidTitles(value) {
+  if (!value || value.length === 0) return true
+  return (
+    value.every((section) => section.title && section.title.trim().length > 0) ||
+    'All sections must have a title'
+  )
+}
 
 const pageTitle = computed(() =>
   isEditMode.value ? 'Edit Document Template' : 'Create Document Template',
@@ -176,12 +169,9 @@ const createTemplate = useLiveMutation(async (db, data) => {
   return t
 })
 
-async function saveTemplate() {
-  const isValid = await validator.value.$validate()
-  if (!isValid) {
-    toast.error(validator.value.$errors[0].$message || 'Please fix validation errors before saving')
-    return
-  }
+async function onSubmit() {
+  if (saving.value) return
+  saveError.value = ''
   if (prefixAvailable.value === false) return
 
   saving.value = true
@@ -200,8 +190,8 @@ async function saveTemplate() {
     }
     router.push(getCompanyPath(`/document-templates/${docId}`))
   } catch (error) {
-    // BaseModel validation errors are caught here
-    toast.error(error.message || 'An error occurred while saving the document template')
+    saveError.value = error?.message || 'An error occurred while saving the document template'
+    toast.error(saveError.value)
   } finally {
     saving.value = false
   }
@@ -210,7 +200,6 @@ async function saveTemplate() {
 function goBack() {
   router.push(getCompanyPath('/document-templates'))
 }
-
 </script>
 
 <template>
@@ -222,7 +211,6 @@ function goBack() {
       </template>
     </PageHeader>
 
-
     <!-- Loading overlay -->
     <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
       <BaseSpinner size="lg" />
@@ -231,126 +219,176 @@ function goBack() {
     <!-- Scrollable content -->
     <div v-else class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
       <div class="tw:py-8">
-        <div class="tw:space-y-6">
-          <!-- Basic Information -->
-          <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-            <div
-              class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
-            >
-              <IconInfoCircle :size="22" class="tw:text-primary" />
-              <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Basic Information</h2>
-            </div>
-            <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6">
-              <BaseTextInput
-                v-model="form.name"
-                name="name"
-                label="Name"
-                placeholder="e.g. Standard Operating Procedure"
-                :required="true"
-              />
-              <BaseField
-                required
-                hint='Prefix for document numbers. Supports placeholders: {SITE_CODE}, {DEPARTMENT_CODE} (e.g. "DOC", "SOP-{SITE_CODE}").'
+        <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+          <div class="tw:space-y-6">
+            <!-- Basic Information -->
+            <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
+              <div
+                class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
               >
-                <template #label>
-                  <span class="tw:flex tw:items-center tw:gap-2">
-                    Document Prefix
-                    <BaseSpinner v-if="checkingPrefix" size="xs" />
-                    <IconCircleCheck
-                      v-else-if="prefixAvailable === true"
-                      :size="16"
-                      class="tw:text-green-600"
+                <IconInfoCircle :size="22" class="tw:text-primary" />
+                <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Basic Information</h2>
+              </div>
+              <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6">
+                <BaseField
+                  label="Name"
+                  required
+                  :value="form.name"
+                  :rules="[required('Template name is required')]"
+                >
+                  <template #default="field">
+                    <BaseTextInput
+                      v-bind="field"
+                      v-model="form.name"
+                      placeholder="e.g. Standard Operating Procedure"
                     />
-                    <IconCircleX
-                      v-else-if="prefixAvailable === false"
-                      :size="16"
-                      class="tw:text-red-500"
+                  </template>
+                </BaseField>
+
+                <BaseField
+                  required
+                  hint='Prefix for document numbers. Supports placeholders: {SITE_CODE}, {DEPARTMENT_CODE} (e.g. "DOC", "SOP-{SITE_CODE}").'
+                  :value="form.prefix"
+                  :rules="[
+                    required('Document prefix is required'),
+                    prefixValidFormat,
+                    prefixValidPlaceholders,
+                    prefixNoDuplicatePlaceholders,
+                    prefixNoUnmatchedBraces,
+                  ]"
+                >
+                  <template #label>
+                    <span class="tw:flex tw:items-center tw:gap-2">
+                      Document Prefix
+                      <BaseSpinner v-if="checkingPrefix" size="xs" />
+                      <IconCircleCheck
+                        v-else-if="prefixAvailable === true"
+                        :size="16"
+                        class="tw:text-green-600"
+                      />
+                      <IconCircleX
+                        v-else-if="prefixAvailable === false"
+                        :size="16"
+                        class="tw:text-red-500"
+                      />
+                    </span>
+                  </template>
+                  <template #default="field">
+                    <BaseTextInput
+                      v-bind="field"
+                      :modelValue="form.prefix"
+                      placeholder="DOC"
+                      @update:modelValue="onPrefixInput"
                     />
-                  </span>
-                </template>
-                <template #default="{ id: fieldId }">
-                  <BaseTextInput
-                    :id="fieldId"
-                    :modelValue="form.prefix"
-                    placeholder="DOC"
-                    :required="true"
-                    @update:modelValue="onPrefixInput"
-                  />
-                </template>
-              </BaseField>
-              <BaseField label="Department">
-                <DepartmentSelectMenu v-model="form.departmentId" />
-              </BaseField>
-              <BaseField label="Related Standard">
-                <RelatedStandardSelectMenu v-model="form.relatedStandardId" />
-              </BaseField>
-            </div>
-          </div>
+                  </template>
+                </BaseField>
 
-          <!-- Default Settings -->
-          <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-            <div
-              class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
-            >
-              <IconSettings :size="22" class="tw:text-primary" />
-              <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Default Settings</h2>
-            </div>
-            <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-x-12 tw:gap-y-6">
-              <div>
-                <BaseCheckbox v-model="form.trainingAvailable" label="Yes">
-                  <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
-                    Training Available?
-                  </label>
-                </BaseCheckbox>
-              </div>
-              <div>
-                <BaseCheckbox v-model="form.retrainingOnVersion" label="Yes">
-                  <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
-                    Retraining Required on Each Version?
-                  </label>
-                </BaseCheckbox>
-              </div>
-              <BaseTextInput
-                v-model.number="form.periodicReviewMonths"
-                name="periodicReviewMonths"
-                label="Periodic Review Period (months)"
-                type="number"
-                :required="true"
-              />
-              <BaseTextInput
-                v-model.number="form.reviewLimitDays"
-                name="reviewLimitDays"
-                label="Review Limit (days)"
-                type="number"
-                :required="true"
-              />
-              <BaseTextInput
-                v-model.number="form.approvalLimitDays"
-                name="approvalLimitDays"
-                label="Approval Limit (days)"
-                type="number"
-                :required="true"
-              />
-              <div>
-                <BaseCheckbox v-model="form.autoEffectiveOnApproval" label="Yes">
-                  <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
-                    Auto Effective on Approval?
-                  </label>
-                </BaseCheckbox>
-              </div>
-              <div>
-                <BaseCheckbox v-model="form.showSectionTitles" label="Yes">
-                  <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
-                    Show Text Section Titles?
-                  </label>
-                </BaseCheckbox>
+                <BaseField label="Department">
+                  <DepartmentSelectMenu v-model="form.departmentId" />
+                </BaseField>
+                <BaseField label="Related Standard">
+                  <RelatedStandardSelectMenu v-model="form.relatedStandardId" />
+                </BaseField>
               </div>
             </div>
-          </div>
 
-          <!-- Sections Builder -->
-          <DocumentSectionsEditor v-model="form.sections" />
-        </div>
+            <!-- Default Settings -->
+            <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
+              <div
+                class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
+              >
+                <IconSettings :size="22" class="tw:text-primary" />
+                <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Default Settings</h2>
+              </div>
+              <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-x-12 tw:gap-y-6">
+                <div>
+                  <BaseCheckbox v-model="form.trainingAvailable" label="Yes">
+                    <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
+                      Training Available?
+                    </label>
+                  </BaseCheckbox>
+                </div>
+                <div>
+                  <BaseCheckbox v-model="form.retrainingOnVersion" label="Yes">
+                    <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
+                      Retraining Required on Each Version?
+                    </label>
+                  </BaseCheckbox>
+                </div>
+                <BaseField
+                  label="Periodic Review Period (months)"
+                  required
+                  :value="form.periodicReviewMonths"
+                  :rules="[
+                    required('Periodic review period is required'),
+                    minValue(1, 'Must be at least 1 month'),
+                  ]"
+                >
+                  <template #default="field">
+                    <BaseTextInput
+                      v-bind="field"
+                      v-model.number="form.periodicReviewMonths"
+                      type="number"
+                    />
+                  </template>
+                </BaseField>
+                <BaseField
+                  label="Review Limit (days)"
+                  required
+                  :value="form.reviewLimitDays"
+                  :rules="[
+                    required('Review limit is required'),
+                    minValue(1, 'Must be at least 1 day'),
+                  ]"
+                >
+                  <template #default="field">
+                    <BaseTextInput
+                      v-bind="field"
+                      v-model.number="form.reviewLimitDays"
+                      type="number"
+                    />
+                  </template>
+                </BaseField>
+                <BaseField
+                  label="Approval Limit (days)"
+                  required
+                  :value="form.approvalLimitDays"
+                  :rules="[
+                    required('Approval limit is required'),
+                    minValue(1, 'Must be at least 1 day'),
+                  ]"
+                >
+                  <template #default="field">
+                    <BaseTextInput
+                      v-bind="field"
+                      v-model.number="form.approvalLimitDays"
+                      type="number"
+                    />
+                  </template>
+                </BaseField>
+                <div>
+                  <BaseCheckbox v-model="form.autoEffectiveOnApproval" label="Yes">
+                    <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
+                      Auto Effective on Approval?
+                    </label>
+                  </BaseCheckbox>
+                </div>
+                <div>
+                  <BaseCheckbox v-model="form.showSectionTitles" label="Yes">
+                    <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
+                      Show Text Section Titles?
+                    </label>
+                  </BaseCheckbox>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sections Builder -->
+            <BaseField :value="form.sections" :rules="[sectionsMinLength, sectionsHaveValidTitles]">
+              <DocumentSectionsEditor v-model="form.sections" />
+            </BaseField>
+          </div>
+        </BaseForm>
       </div>
     </div>
 
@@ -366,9 +404,12 @@ function goBack() {
         >
           Discard
         </button>
-        <BaseButton :loading="saving" @click="saveTemplate">
-          {{ isEditMode ? 'Save Changes' : 'Create Template' }}
-        </BaseButton>
+        <div class="tw:flex tw:flex-col tw:items-end tw:gap-1">
+          <p v-if="saveError" class="tw:text-sm tw:text-red-600">{{ saveError }}</p>
+          <BaseButton :loading="saving" @click="formRef?.submit()">
+            {{ isEditMode ? 'Save Changes' : 'Create Template' }}
+          </BaseButton>
+        </div>
       </div>
     </div>
   </BasePage>

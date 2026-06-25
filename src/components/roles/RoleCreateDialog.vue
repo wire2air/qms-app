@@ -1,12 +1,17 @@
 <script setup>
 import { IconCirclePlus, IconInfoCircle } from '@tabler/icons-vue'
-import { required, helpers } from '@vuelidate/validators'
-import { useValidator } from '@shared/composables/validator.js'
+import { required } from '@shared/components/form/validators.js'
 import { useRoles } from '@/composables/useRoles.js'
+
+const emit = defineEmits(['created'])
 
 const show = defineModel({ type: Boolean, default: false })
 
 const { roles, createRole } = useRoles()
+
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref('')
 
 const form = ref({
   name: '',
@@ -14,51 +19,31 @@ const form = ref({
   copyFromRoleId: 'custom',
 })
 
-const rules = computed(() => ({
-  name: { required: helpers.withMessage('Role name is required', required) },
-}))
-
-const validator = useValidator(rules, form)
-
-const loading = ref(false)
-
 // Computed options for the "Copy from" select
-const copyFromOptions = computed(() => {
-  const options = [
-    {
-      label: 'Custom',
-      value: 'custom',
-      description: 'Start with no permissions',
-    },
-    ...roles.value.map((role) => ({
-      label: role.name,
-      value: role.id,
-      description: role.description || 'No description provided',
-    })),
-  ]
+const copyFromOptions = computed(() => [
+  {
+    id: 'custom',
+    name: 'Custom',
+    description: 'Start with no permissions',
+  },
+  ...roles.value.map((role) => ({
+    id: role.id,
+    name: role.name,
+    description: role.description || 'No description provided',
+  })),
+])
 
-  return options
-})
-
-// Get permission IDs from selected role
+// Permission IDs to copy from the selected role
 const selectedRolePermissions = computed(() => {
-  if (form.value.copyFromRoleId === 'custom') {
-    return []
-  }
-
+  if (form.value.copyFromRoleId === 'custom') return []
   const selectedRole = roles.value.find((role) => role.id === form.value.copyFromRoleId)
-  if (!selectedRole || !selectedRole.permissionAssignments) {
-    return []
-  }
-
-  return selectedRole.permissionAssignments.map((pa) => pa.permissionId)
+  return selectedRole?.permissionAssignments?.map((pa) => pa.permissionId) ?? []
 })
 
-async function handleSubmit() {
-  const valid = await validator.value.$validate()
-  if (!valid) return
-
-  loading.value = true
+async function onSubmit() {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  saveError.value = ''
   try {
     const payload = {
       name: form.value.name.trim(),
@@ -66,109 +51,104 @@ async function handleSubmit() {
       statusId: 'ACTIVE',
       permissionIds: selectedRolePermissions.value,
     }
-
     const result = await createRole(payload)
-
-    if (result.success) {
+    if (result?.success) {
+      emit('created', result.role)
       show.value = false
-      form.value = {
-        name: '',
-        description: '',
-        copyFromRoleId: 'custom',
-      }
+    } else {
+      saveError.value = 'Failed to create role'
     }
+  } catch (err) {
+    saveError.value = err?.message || 'Failed to create role'
   } finally {
-    loading.value = false
+    isSubmitting.value = false
   }
 }
+
+// Reset form when dialog closes
+watch(show, (val) => {
+  if (!val) {
+    form.value = { name: '', description: '', copyFromRoleId: 'custom' }
+    saveError.value = ''
+  }
+})
 </script>
 
 <template>
-  <BaseDialog v-model="show" title="Create Role" :loading="loading" @close="show = false">
-    <div class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
+  <BaseDialog v-model="show" maxWidth="md">
+    <template #title>
       <div class="tw:flex tw:items-center tw:gap-3">
         <div
-          class="tw:w-10 tw:h-10 tw:bg-primary/10 tw:text-primary tw:rounded-xl tw:flex tw:items-center tw:justify-center"
+          class="tw:w-9 tw:h-9 tw:bg-primary/10 tw:text-primary tw:rounded-xl tw:flex tw:items-center tw:justify-center"
         >
-          <IconCirclePlus :size="24" />
+          <IconCirclePlus class="tw:size-5 tw:text-primary" />
         </div>
-        <div class="tw:text-2xl tw:font-bold tw:text-on-main">Create Role</div>
+        <span>Create Role</span>
       </div>
+    </template>
 
-      <div class="tw:text-sm tw:text-secondary tw:leading-relaxed">
-        Define a new role with specific permissions to control access to features and data.
-      </div>
-
-      <div class="tw:flex tw:flex-col tw:gap-4" @keydown.enter.prevent="handleSubmit">
-        <BaseTextInput
-          v-model="form.name"
-          name="name"
-          label="Role Name"
-          placeholder="e.g., Field Supervisor"
-          autofocus
-        />
-
-        <BaseTextarea
-          v-model="form.description"
-          label="Description"
-          placeholder="Describe the purpose and responsibilities of this role"
-          class="tw:min-h-24"
-        />
-
-        <BaseField label="Copy From">
-          <BaseSelectMenu
-            v-model="form.copyFromRoleId"
-            :items="
-              copyFromOptions.map((o) => ({
-                id: o.value,
-                name: o.label,
-                description: o.description,
-              }))
-            "
-            :required="true"
-          >
-            <template #button>
-              <span class="tw:text-sm tw:font-medium">
-                {{
-                  copyFromOptions.find((o) => o.value === form.copyFromRoleId)?.label || 'Select...'
-                }}
-              </span>
-            </template>
-          </BaseSelectMenu>
-        </BaseField>
-
-        <div
-          v-if="form.copyFromRoleId !== 'custom'"
-          class="tw:text-xs tw:text-secondary tw:bg-primary/5 tw:p-3 tw:rounded-lg"
-        >
-          <div class="tw:flex tw:items-center tw:gap-2">
-            <IconInfoCircle :size="16" class="tw:text-primary" />
-            <span>
-              {{ selectedRolePermissions.length }} permission{{
-                selectedRolePermissions.length !== 1 ? 's' : ''
-              }}
-              will be copied from the selected role
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div class="tw:flex tw:justify-end tw:gap-3 tw:mt-2">
-        <button
-          class="tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:text-secondary tw:bg-transparent tw:border tw:border-divider tw:rounded-lg tw:cursor-pointer tw:hover:bg-main-hover tw:transition-colors"
-          @click="show = false"
-        >
-          Cancel
-        </button>
-        <button
-          class="tw:px-6 tw:py-2 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:disabled:opacity-50 tw:disabled:cursor-not-allowed"
-          :disabled="loading"
-          @click="handleSubmit"
-        >
-          <BaseSpinner v-if="loading" size="sm" color="white" class="tw:mr-2" />
-          Create Role
-        </button>
-      </div>
+    <div class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:mb-2">
+      Define a new role with specific permissions to control access to features and data.
     </div>
+
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <BaseField
+        label="Role Name"
+        required
+        :value="form.name"
+        :rules="[required('Role name is required')]"
+      >
+        <template #default="field">
+          <BaseTextInput
+            v-bind="field"
+            v-model="form.name"
+            placeholder="e.g., Field Supervisor"
+            autofocus
+          />
+        </template>
+      </BaseField>
+
+      <BaseTextarea
+        v-model="form.description"
+        label="Description"
+        placeholder="Describe the purpose and responsibilities of this role"
+        class="tw:min-h-24"
+      />
+
+      <BaseField label="Copy From">
+        <BaseSelectMenu v-model="form.copyFromRoleId" :items="copyFromOptions" :required="true">
+          <template #button>
+            <span class="tw:text-sm tw:font-medium">
+              {{ copyFromOptions.find((o) => o.id === form.copyFromRoleId)?.name || 'Select...' }}
+            </span>
+          </template>
+        </BaseSelectMenu>
+      </BaseField>
+
+      <div
+        v-if="form.copyFromRoleId !== 'custom'"
+        class="tw:text-xs tw:text-secondary tw:bg-primary/5 tw:p-3 tw:rounded-lg"
+      >
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <IconInfoCircle :size="16" class="tw:text-primary" />
+          <span>
+            {{ selectedRolePermissions.length }} permission{{
+              selectedRolePermissions.length !== 1 ? 's' : ''
+            }}
+            will be copied from the selected role
+          </span>
+        </div>
+      </div>
+    </BaseForm>
+
+    <template #footer>
+      <BaseDialogFooter
+        submitLabel="Create Role"
+        :loading="isSubmitting"
+        :error="saveError"
+        @cancel="show = false"
+        @submit="formRef?.submit()"
+      />
+    </template>
   </BaseDialog>
 </template>

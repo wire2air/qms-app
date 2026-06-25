@@ -6,7 +6,8 @@
  */
 import { IconPlus, IconPencil, IconTrash, IconRestore } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
-import { post, patch, del } from '@/api'
+import { post, patch, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { required } from '@shared/components/form/validators.js'
 
 const toast = useToast()
 const { confirm } = useConfirm()
@@ -18,21 +19,41 @@ const severities = useLiveQuery((db) => db.EventSeverity.where().orderBy('rank',
   initial: [],
 })
 const deactivated = useLiveQuery(
-  async (db) => (await db.EventSeverity.where('id', undefined, { force: true }).exec()).filter((d) => d.deletedAt),
+  async (db) =>
+    (await db.EventSeverity.where('id', undefined, { force: true }).exec()).filter(
+      (d) => d.deletedAt,
+    ),
   { models: ['EventSeverity'], initial: [] },
 )
 
+// ─── Dialog state ────────────────────────────────────────────────────────────
 const showEditDialog = ref(false)
 const editing = ref(null)
-const form = ref({ code: '', name: '', description: '', color: '#10b981', rank: 1, displayOrder: 1000 })
+const formRef = ref(null)
+const saveError = ref('')
+const form = ref({
+  code: '',
+  name: '',
+  description: '',
+  color: '#10b981',
+  rank: 1,
+  displayOrder: 1000,
+})
 const saving = ref(false)
 const codeDirty = ref(false)
 const codeEditable = ref(false)
 const showDeactivated = ref(false)
 
 function slugify(text) {
-  return (text || '').toString().trim().replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/_+/g, '_').toUpperCase()
+  return (text || '')
+    .toString()
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_')
+    .toUpperCase()
 }
+
 watch(
   () => form.value.name,
   (n) => {
@@ -41,17 +62,34 @@ watch(
   },
 )
 
+// Reset dialog state on open so a previous error or dirty state never bleeds
+// into the next invocation.
+watch(showEditDialog, (val) => {
+  if (val) {
+    saveError.value = ''
+  }
+})
+
 function openAdd() {
   editing.value = null
   codeDirty.value = false
   codeEditable.value = false
   const nextRank = (severities.value?.length ?? 0) + 1
-  form.value = { code: '', name: '', description: '', color: '#10b981', rank: nextRank, displayOrder: nextRank * 100 }
+  form.value = {
+    code: '',
+    name: '',
+    description: '',
+    color: '#10b981',
+    rank: nextRank,
+    displayOrder: nextRank * 100,
+  }
   showEditDialog.value = true
 }
+
 function openEdit(row) {
   editing.value = row
   codeDirty.value = true
+  codeEditable.value = false
   form.value = {
     code: row.code,
     name: row.name,
@@ -63,12 +101,9 @@ function openEdit(row) {
   showEditDialog.value = true
 }
 
-async function handleSave() {
-  if (!form.value.name.trim()) {
-    toast.warning('Name is required')
-    return
-  }
+async function onValidSubmit() {
   saving.value = true
+  saveError.value = ''
   try {
     if (editing.value) {
       await patch(`/v1/services/eventSeverities/${editing.value.id}`, {
@@ -80,11 +115,6 @@ async function handleSave() {
       })
       toast.success('Severity updated')
     } else {
-      if (!form.value.code.trim()) {
-        toast.warning('Code is required')
-        saving.value = false
-        return
-      }
       await post('/v1/services/eventSeverities', {
         code: form.value.code.trim().toUpperCase(),
         name: form.value.name.trim(),
@@ -97,13 +127,22 @@ async function handleSave() {
     }
     showEditDialog.value = false
   } catch (e) {
-    toast.error(e.message || 'Failed to save')
+    saveError.value = e.message || 'Failed to save'
   } finally {
     saving.value = false
   }
 }
+
 async function handleDeactivate(row) {
-  if (!(await confirm({ title: 'Deactivate severity', message: `Deactivate "${row.name}"?`, okLabel: 'Deactivate', danger: true }))) return
+  if (
+    !(await confirm({
+      title: 'Deactivate severity',
+      message: `Deactivate "${row.name}"?`,
+      okLabel: 'Deactivate',
+      danger: true,
+    }))
+  )
+    return
   try {
     await del(`/v1/services/eventSeverities/${row.id}`)
     toast.success('Severity deactivated')
@@ -111,6 +150,7 @@ async function handleDeactivate(row) {
     toast.error(e.message || 'Failed to deactivate')
   }
 }
+
 async function handleRestore(row) {
   try {
     await post(`/v1/services/eventSeverities/${row.id}/restore`, {})
@@ -122,7 +162,9 @@ async function handleRestore(row) {
 </script>
 
 <template>
-  <div class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar">
+  <div
+    class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
+  >
     <BaseSectionHeader
       title="Event Severities"
       :level="2"
@@ -138,14 +180,19 @@ async function handleRestore(row) {
       </template>
     </BaseSectionHeader>
 
-    <div v-if="!canConfigure" class="tw:p-4 tw:bg-amber-50 tw:border-b tw:border-amber-200 tw:text-xs tw:text-amber-800">
+    <div
+      v-if="!canConfigure"
+      class="tw:p-4 tw:bg-amber-50 tw:border-b tw:border-amber-200 tw:text-xs tw:text-amber-800"
+    >
       You need the "Configure Events" permission to edit these.
     </div>
 
     <div class="tw:p-4">
       <table class="tw:w-full tw:text-sm">
         <thead>
-          <tr class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider">
+          <tr
+            class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider"
+          >
             <th class="tw:px-3 tw:py-2">Name</th>
             <th class="tw:px-3 tw:py-2">Code</th>
             <th class="tw:px-3 tw:py-2 tw:text-center">Rank</th>
@@ -156,28 +203,47 @@ async function handleRestore(row) {
           <tr v-for="row in severities" :key="row.id" class="tw:border-b tw:border-divider">
             <td class="tw:px-3 tw:py-3">
               <div class="tw:flex tw:items-center tw:gap-2">
-                <span class="tw:size-3 tw:rounded-full tw:shrink-0" :style="{ backgroundColor: row.color || '#cbd5e1' }" />
+                <span
+                  class="tw:size-3 tw:rounded-full tw:shrink-0"
+                  :style="{ backgroundColor: row.color || '#cbd5e1' }"
+                />
                 <span class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</span>
               </div>
-              <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">{{ row.description }}</div>
+              <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">
+                {{ row.description }}
+              </div>
             </td>
             <td class="tw:px-3 tw:py-3">
-              <code class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary">{{ row.code }}</code>
+              <code
+                class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary"
+                >{{ row.code }}</code
+              >
             </td>
             <td class="tw:px-3 tw:py-3 tw:text-center tw:text-secondary">{{ row.rank }}</td>
             <td class="tw:px-3 tw:py-3 tw:text-right">
               <div v-if="canConfigure" class="tw:flex tw:items-center tw:justify-end tw:gap-1">
-                <button class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:hover:text-primary" title="Edit" @click="openEdit(row)">
+                <button
+                  class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:hover:text-primary"
+                  title="Edit"
+                  @click="openEdit(row)"
+                >
                   <IconPencil :size="16" />
                 </button>
-                <button class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-red-50 tw:hover:text-red-600" title="Deactivate" @click="handleDeactivate(row)">
+                <button
+                  class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-red-50 tw:hover:text-red-600"
+                  title="Deactivate"
+                  @click="handleDeactivate(row)"
+                >
                   <IconTrash :size="16" />
                 </button>
               </div>
             </td>
           </tr>
           <tr v-if="!severities.length">
-            <td colspan="4" class="tw:px-3 tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic">
+            <td
+              colspan="4"
+              class="tw:px-3 tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic"
+            >
               No active severities. Add one above.
             </td>
           </tr>
@@ -185,13 +251,24 @@ async function handleRestore(row) {
       </table>
 
       <div v-if="deactivated.length" class="tw:mt-4 tw:border-t tw:border-divider tw:pt-4">
-        <button class="tw:text-xs tw:font-semibold tw:text-secondary tw:hover:text-on-sidebar" @click="showDeactivated = !showDeactivated">
+        <button
+          class="tw:text-xs tw:font-semibold tw:text-secondary tw:hover:text-on-sidebar"
+          @click="showDeactivated = !showDeactivated"
+        >
           {{ showDeactivated ? '▾' : '▸' }} Deactivated ({{ deactivated.length }})
         </button>
         <div v-if="showDeactivated" class="tw:mt-2 tw:flex tw:flex-col tw:gap-1">
-          <div v-for="row in deactivated" :key="row.id" class="tw:flex tw:items-center tw:justify-between tw:px-3 tw:py-2 tw:rounded-lg tw:bg-main-hover/40 tw:text-sm">
+          <div
+            v-for="row in deactivated"
+            :key="row.id"
+            class="tw:flex tw:items-center tw:justify-between tw:px-3 tw:py-2 tw:rounded-lg tw:bg-main-hover/40 tw:text-sm"
+          >
             <span class="tw:font-medium tw:text-secondary tw:line-through">{{ row.name }}</span>
-            <button v-if="canConfigure" class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline" @click="handleRestore(row)">
+            <button
+              v-if="canConfigure"
+              class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline"
+              @click="handleRestore(row)"
+            >
               <IconRestore :size="14" /> Restore
             </button>
           </div>
@@ -199,38 +276,92 @@ async function handleRestore(row) {
       </div>
     </div>
 
-    <BaseDialog v-model="showEditDialog" :title="editing ? 'Edit Severity' : 'Add Severity'" maxWidth="md">
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <BaseField v-slot="{ id: fieldId }" label="Name" required>
-          <BaseTextInput :id="fieldId" v-model="form.name" placeholder="e.g. Critical" />
-        </BaseField>
-        <div v-if="!editing">
-          <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Code <span class="tw:text-red-500">*</span></p>
-            <button type="button" class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer" @click="codeEditable = !codeEditable">
-              {{ codeEditable ? 'Lock' : 'Edit' }}
-            </button>
+    <BaseDialog
+      v-model="showEditDialog"
+      :title="editing ? 'Edit Severity' : 'Add Severity'"
+      maxWidth="md"
+    >
+      <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
+        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+          <BaseField label="Name" required :value="form.name" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput v-bind="field" v-model="form.name" placeholder="e.g. Critical" />
+            </template>
+          </BaseField>
+
+          <div v-if="!editing">
+            <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
+              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
+                Code <span class="tw:text-red-500">*</span>
+              </p>
+              <button
+                type="button"
+                class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                @click="codeEditable = !codeEditable"
+              >
+                {{ codeEditable ? 'Lock' : 'Edit' }}
+              </button>
+            </div>
+            <BaseField :value="form.code" :rules="[required()]">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.code"
+                  placeholder="CRITICAL"
+                  :disabled="!codeEditable"
+                  @input="codeDirty = true"
+                />
+              </template>
+            </BaseField>
+            <p class="tw:text-caption tw:text-secondary tw:mt-1">
+              SCREAMING_SNAKE_CASE. Cannot be changed later.
+            </p>
           </div>
-          <BaseTextInput v-model="form.code" placeholder="CRITICAL" :disabled="!codeEditable" @input="codeDirty = true" />
-          <p class="tw:text-caption tw:text-secondary tw:mt-1">SCREAMING_SNAKE_CASE. Cannot be changed later.</p>
+
+          <BaseField label="Description" :value="form.description">
+            <template #default="field">
+              <BaseTextarea v-bind="field" v-model="form.description" :rows="2" />
+            </template>
+          </BaseField>
+
+          <div class="tw:grid tw:grid-cols-3 tw:gap-3">
+            <BaseField label="Color" :value="form.color">
+              <template #default="field">
+                <input
+                  v-bind="field"
+                  v-model="form.color"
+                  type="color"
+                  class="tw:h-9 tw:w-full tw:rounded tw:border tw:border-divider"
+                />
+              </template>
+            </BaseField>
+            <BaseField label="Rank" :value="form.rank">
+              <template #default="field">
+                <BaseTextInput v-bind="field" v-model.number="form.rank" type="number" :min="0" />
+              </template>
+            </BaseField>
+            <BaseField label="Display Order" :value="form.displayOrder">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model.number="form.displayOrder"
+                  type="number"
+                  :min="0"
+                />
+              </template>
+            </BaseField>
+          </div>
         </div>
-        <BaseField v-slot="{ id: fieldId }" label="Description">
-          <BaseTextarea :id="fieldId" v-model="form.description" :rows="2" />
-        </BaseField>
-        <div class="tw:grid tw:grid-cols-3 tw:gap-3">
-          <BaseField v-slot="{ id: fieldId }" label="Color">
-            <input :id="fieldId" v-model="form.color" type="color" class="tw:h-9 tw:w-full tw:rounded tw:border tw:border-divider" />
-          </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Rank">
-            <BaseTextInput :id="fieldId" v-model.number="form.rank" type="number" :min="0" />
-          </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Display Order">
-            <BaseTextInput :id="fieldId" v-model.number="form.displayOrder" type="number" :min="0" />
-          </BaseField>
-        </div>
-      </div>
+      </BaseForm>
+
       <template #footer="{ close }">
-        <BaseDialogFooter :submitLabel="editing ? 'Save' : 'Add'" :loading="saving" :disabled="saving" @cancel="close" @submit="handleSave" />
+        <BaseDialogFooter
+          :submitLabel="editing ? 'Save' : 'Add'"
+          :loading="saving"
+          :error="saveError"
+          @cancel="close"
+          @submit="formRef.submit()"
+        />
       </template>
     </BaseDialog>
   </div>

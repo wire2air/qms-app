@@ -7,6 +7,18 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // Optional secondary line under the title, in the pinned header.
+  subtitle: {
+    type: String,
+    default: '',
+  },
+  // Force the close (X) button even on a persistent dialog. Default behaviour is
+  // unchanged: the X shows on non-persistent dialogs and is hidden on persistent
+  // ones. A persistent form dialog can opt back in so users keep an explicit X.
+  showClose: {
+    type: Boolean,
+    default: false,
+  },
   // `size` is the canonical prop; `maxWidth` is kept for backwards compat.
   size: {
     type: String,
@@ -103,16 +115,21 @@ const maxWidthClass = {
             >
               <!-- Header -->
               <div
-                v-if="title || $slots.title"
-                class="tw:flex tw:shrink-0 tw:items-center tw:justify-between tw:px-6 tw:pt-5 tw:pb-4 tw:border-b tw:border-divider"
+                v-if="title || subtitle || $slots.title"
+                class="tw:flex tw:shrink-0 tw:items-start tw:justify-between tw:gap-3 tw:px-6 tw:pt-5 tw:pb-4 tw:border-b tw:border-divider"
               >
-                <DialogTitle as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
-                  <slot name="title">{{ title }}</slot>
-                </DialogTitle>
+                <div class="tw:min-w-0">
+                  <DialogTitle as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
+                    <slot name="title">{{ title }}</slot>
+                  </DialogTitle>
+                  <p v-if="subtitle" class="tw:text-xs tw:text-secondary tw:mt-0.5">
+                    {{ subtitle }}
+                  </p>
+                </div>
                 <button
-                  v-if="!persistent"
+                  v-if="!persistent || showClose"
                   aria-label="Close dialog"
-                  class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
+                  class="tw:-mt-0.5 tw:shrink-0 tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
                   @click="close"
                 >
                   <IconX :size="18" />

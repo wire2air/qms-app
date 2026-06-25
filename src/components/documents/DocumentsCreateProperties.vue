@@ -1,5 +1,6 @@
 <script setup>
 import { IconMinus, IconPlus, IconX } from '@tabler/icons-vue'
+import { required } from '@shared/components/form/validators.js'
 
 const form = defineModel({
   type: Object,
@@ -100,6 +101,44 @@ function decrementReviewMonths() {
     form.value.periodicReviewMonths--
   }
 }
+
+// Prefix validation rules — mirrors the original Vuelidate rules.
+const prefixRules = [
+  required(),
+  (value) => {
+    if (!value) return true
+    return (
+      (/^[A-Z0-9{}\-_]+$/.test(value) && /[A-Z0-9}]$/.test(value)) ||
+      'Only uppercase letters, numbers, hyphens, and placeholders {SITE_CODE}, {DEPARTMENT_CODE} are allowed'
+    )
+  },
+  (value) => {
+    if (!value) return true
+    const placeholders = [...value.matchAll(/\{([A-Z_]+)\}/g)].map((m) => m[1])
+    return (
+      placeholders.every((p) => ['SITE_CODE', 'DEPARTMENT_CODE'].includes(p)) ||
+      'Only {SITE_CODE} and {DEPARTMENT_CODE} placeholders are supported'
+    )
+  },
+  (value) => {
+    if (!value) return true
+    const placeholders = [...value.matchAll(/\{([A-Z_]+)\}/g)].map((m) => m[1])
+    return (
+      new Set(placeholders).size === placeholders.length || 'Each placeholder can only be used once'
+    )
+  },
+  (value) => {
+    if (!value) return true
+    const stripped = value.replace(/\{[A-Z_]+\}/g, '')
+    return (
+      (!stripped.includes('{') && !stripped.includes('}')) ||
+      'Invalid placeholder format - check your curly braces'
+    )
+  },
+]
+
+// periodicReviewMonths must be >= 1
+const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at least 1 month']
 </script>
 
 <template>
@@ -107,25 +146,38 @@ function decrementReviewMonths() {
     class="tw:bg-sidebar tw:rounded-2xl tw:shadow-sm tw:border tw:border-divider tw:p-8 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6"
   >
     <!-- Document Template -->
-    <BaseField label="Document Template" required>
-      <DocumentTemplateSelectMenu v-model="form.documentTemplateId" :required="true" />
+    <BaseField
+      label="Document Template"
+      required
+      :value="form.documentTemplateId"
+      :rules="[required()]"
+    >
+      <template #default="field">
+        <DocumentTemplateSelectMenu
+          v-bind="field"
+          v-model="form.documentTemplateId"
+          :required="true"
+        />
+      </template>
     </BaseField>
 
     <!-- Document Type -->
-    <BaseField label="Document Type" required>
-      <DocumentTypeSelectMenu v-model="form.documentTypeId" :required="true" />
+    <BaseField label="Document Type" required :value="form.documentTypeId" :rules="[required()]">
+      <template #default="field">
+        <DocumentTypeSelectMenu v-bind="field" v-model="form.documentTypeId" :required="true" />
+      </template>
     </BaseField>
 
     <!-- Document Title -->
-    <div class="tw:space-y-2">
-      <BaseTextInput
-        v-model="form.title"
-        name="title"
-        label="Document Title"
-        placeholder="e.g. Clean Room Sterilization Protocol"
-        :required="true"
-      />
-    </div>
+    <BaseField label="Document Title" required :value="form.title" :rules="[required()]">
+      <template #default="field">
+        <BaseTextInput
+          v-bind="field"
+          v-model="form.title"
+          placeholder="e.g. Clean Room Sterilization Protocol"
+        />
+      </template>
+    </BaseField>
 
     <!-- Related Standard -->
     <BaseField label="Related Standard">
@@ -133,19 +185,17 @@ function decrementReviewMonths() {
     </BaseField>
 
     <!-- Document Prefix -->
-    <div class="tw:space-y-2">
-      <BaseTextInput
-        v-model="prefix"
-        name="prefix"
-        label="Document Prefix"
-        placeholder="e.g. SOP, DOC-{SITE_CODE}"
-        :required="true"
-      />
-      <p class="tw:text-xs tw:text-secondary tw:italic">
-        Supports placeholders: {SITE_CODE}, {DEPARTMENT_CODE} (e.g. "DOC", "SOP-{SITE_CODE}",
-        "DOC-{SITE_CODE}-{DEPARTMENT_CODE}").
-      </p>
-    </div>
+    <BaseField label="Document Prefix" required :value="prefix" :rules="prefixRules">
+      <template #default="field">
+        <div class="tw:space-y-2">
+          <BaseTextInput v-bind="field" v-model="prefix" placeholder="e.g. SOP, DOC-{SITE_CODE}" />
+          <p class="tw:text-xs tw:text-secondary tw:italic">
+            Supports placeholders: {SITE_CODE}, {DEPARTMENT_CODE} (e.g. "DOC", "SOP-{SITE_CODE}",
+            "DOC-{SITE_CODE}-{DEPARTMENT_CODE}").
+          </p>
+        </div>
+      </template>
+    </BaseField>
 
     <!-- Effective Date -->
     <BaseField label="Effective Date">
@@ -153,23 +203,40 @@ function decrementReviewMonths() {
     </BaseField>
 
     <!-- Site -->
-    <BaseField label="Site" required>
-      <SiteSelectMenu v-model="form.siteId" :required="true" />
+    <BaseField label="Site" required :value="form.siteId" :rules="[required()]">
+      <template #default="field">
+        <SiteSelectMenu v-bind="field" v-model="form.siteId" :required="true" />
+      </template>
     </BaseField>
 
     <!-- Department -->
-    <BaseField label="Department" required>
-      <DepartmentSelectMenu v-model="form.departmentId" :required="true" />
+    <BaseField label="Department" required :value="form.departmentId" :rules="[required()]">
+      <template #default="field">
+        <DepartmentSelectMenu v-bind="field" v-model="form.departmentId" :required="true" />
+      </template>
     </BaseField>
 
     <!-- Owner — accountable for the document lifecycle (periodic review,
          effectiveness). Defaults to you (the author); reassign to hand off. -->
-    <BaseField label="Owner" required hint="Accountable for review & effectiveness. You remain the author.">
-      <UserSelectMenu v-model="form.ownerId" :required="true" />
+    <BaseField
+      label="Owner"
+      required
+      hint="Accountable for review & effectiveness. You remain the author."
+      :value="form.ownerId"
+      :rules="[required()]"
+    >
+      <template #default="field">
+        <UserSelectMenu v-bind="field" v-model="form.ownerId" :required="true" />
+      </template>
     </BaseField>
 
     <!-- Periodic Review Frequency -->
-    <BaseField label="Periodic Review Frequency">
+    <BaseField
+      label="Periodic Review Frequency"
+      required
+      :value="form.periodicReviewMonths"
+      :rules="reviewMonthsRules"
+    >
       <div class="tw:flex tw:items-center tw:gap-3">
         <div
           class="tw:flex tw:items-center tw:border tw:border-divider tw:rounded-xl tw:overflow-hidden tw:bg-sidebar-hover"

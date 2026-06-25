@@ -1,5 +1,5 @@
 <script setup>
-import { IconCategory } from '@tabler/icons-vue'
+import { IconCategory, IconChevronDown } from '@tabler/icons-vue'
 import {
   getCategoryLabel,
   getCategoryIcon,
@@ -19,6 +19,19 @@ const model = defineModel({
   type: Object,
   required: true,
 })
+
+// Per-card collapse state (keyed by item.key). Cards start expanded; this set
+// holds the keys the user has collapsed.
+const collapsed = ref(new Set())
+function isCollapsed(key) {
+  return collapsed.value.has(key)
+}
+function toggle(key) {
+  const next = new Set(collapsed.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  collapsed.value = next
+}
 </script>
 
 <template>
@@ -31,19 +44,32 @@ const model = defineModel({
       </h4>
     </div>
 
-    <!-- Category Items -->
-    <div class="tw:flex tw:flex-col tw:gap-3">
-      <div
+    <!-- Category Items — up to 4 per row, collapsing to fewer on narrow screens -->
+    <div
+      class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-3 tw:xl:grid-cols-4 tw:gap-3 tw:items-stretch"
+    >
+      <BaseCard
         v-for="item in model.items"
         :key="item.key"
-        class="tw:bg-layer tw:rounded-xl tw:border tw:border-sidebar tw:overflow-hidden tw:shadow-sm"
+        padding="none"
+        class="tw:overflow-hidden tw:shadow-sm"
       >
-        <!-- Item Header -->
-        <div
-          class="tw:bg-sidebar/30 tw:px-5 tw:py-3 tw:border-b tw:border-sidebar tw:flex tw:items-center tw:gap-3"
+        <!-- Item Header — click to collapse/expand the permissions -->
+        <button
+          type="button"
+          class="tw:w-full tw:text-left tw:bg-sidebar/30 tw:px-5 tw:py-3 tw:flex tw:items-center tw:gap-3 tw:transition-colors tw:hover:bg-sidebar/50 tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/40"
+          :class="isCollapsed(item.key) ? '' : 'tw:border-b tw:border-divider'"
+          :aria-expanded="!isCollapsed(item.key)"
+          :aria-controls="`perm-body-${item.key}`"
+          @click="toggle(item.key)"
         >
-          <component :is="getCategoryIcon(item.key)" :size="20" class="tw:text-secondary" />
-          <div>
+          <component
+            :is="getCategoryIcon(item.key)"
+            :size="20"
+            class="tw:shrink-0 tw:text-secondary"
+            aria-hidden="true"
+          />
+          <div class="tw:min-w-0 tw:flex-1">
             <p class="tw:text-sm tw:font-semibold tw:text-on-sidebar">
               {{ getCategoryLabel(item.key) }}
             </p>
@@ -51,10 +77,20 @@ const model = defineModel({
               {{ getCategoryDescription(item.key) }}
             </p>
           </div>
-        </div>
+          <IconChevronDown
+            :size="18"
+            class="tw:shrink-0 tw:text-secondary tw:transition-transform tw:duration-150"
+            :class="isCollapsed(item.key) ? 'tw:-rotate-90' : ''"
+            aria-hidden="true"
+          />
+        </button>
 
         <!-- Item Body - Checkboxes in a wrapping row -->
-        <div class="tw:px-5 tw:py-3 tw:flex tw:flex-wrap tw:gap-x-6 tw:gap-y-1">
+        <div
+          v-show="!isCollapsed(item.key)"
+          :id="`perm-body-${item.key}`"
+          class="tw:px-5 tw:py-3 tw:flex tw:flex-wrap tw:gap-x-6 tw:gap-y-1"
+        >
           <template v-for="action in permissionActions" :key="`${item.key}-${action}`">
             <BaseCheckbox
               v-if="getPermissionForAction(item.group.permissions, action)"
@@ -68,7 +104,7 @@ const model = defineModel({
             </BaseCheckbox>
           </template>
         </div>
-      </div>
+      </BaseCard>
     </div>
   </div>
 </template>

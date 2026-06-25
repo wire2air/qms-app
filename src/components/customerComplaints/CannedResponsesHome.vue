@@ -1,5 +1,6 @@
 <script setup>
 import { IconMessage2, IconPlus, IconPencil, IconTrash } from '@tabler/icons-vue'
+import { required } from '@shared/components/form/validators.js'
 
 /**
  * Canned responses admin (Complaint Settings → Canned Responses).
@@ -22,6 +23,8 @@ const responses = useLiveQuery(
 const showEditDialog = ref(false)
 const editing = ref(null)
 const draft = ref({ name: '', bodyHtml: '' })
+const formRef = ref(null)
+const saveError = ref('')
 const saving = ref(false)
 
 // Mustache placeholders kept out of the template (Vue would try to
@@ -37,12 +40,14 @@ function htmlToPlainText(html) {
 function onCreate() {
   editing.value = null
   draft.value = { name: '', bodyHtml: '' }
+  saveError.value = ''
   showEditDialog.value = true
 }
 
 function onEdit(response) {
   editing.value = response
   draft.value = { name: response.name, bodyHtml: response.bodyHtml || response.body }
+  saveError.value = ''
   showEditDialog.value = true
 }
 
@@ -52,13 +57,10 @@ const createResponse = useLiveMutation(async (db, payload) => {
   return response
 })
 
-async function handleSave() {
+async function onValidSubmit() {
   const body = htmlToPlainText(draft.value.bodyHtml)
-  if (!draft.value.name.trim() || !body) {
-    toast.notify({ type: 'negative', message: 'Name and content are required' })
-    return
-  }
   saving.value = true
+  saveError.value = ''
   try {
     if (editing.value) {
       editing.value.name = draft.value.name.trim()
@@ -74,7 +76,7 @@ async function handleSave() {
     }
     showEditDialog.value = false
   } catch (e) {
-    toast.notify({ type: 'negative', message: e.message || 'Failed to save' })
+    saveError.value = e.message || 'Failed to save'
   } finally {
     saving.value = false
   }
@@ -99,19 +101,13 @@ async function handleDelete(response) {
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-    <div
-      class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-    >
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <IconMessage2 :size="18" class="tw:text-primary" />
-        <BaseText variant="overline">Canned Responses</BaseText>
-      </div>
+  <PageSection title="Canned Responses" :icon="IconMessage2" variant="card">
+    <template #actions>
       <BaseButton variant="primary" size="sm" @click="onCreate">
         <IconPlus :size="16" class="tw:mr-1" />
         New response
       </BaseButton>
-    </div>
+    </template>
 
     <p class="tw:text-sm tw:text-secondary tw:mb-4">
       Saved replies agents insert from the ticket reply box. Use placeholders:
@@ -148,26 +144,42 @@ async function handleDelete(response) {
       :title="editing ? 'Edit Canned Response' : 'New Canned Response'"
       maxWidth="lg"
     >
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <BaseField v-slot="{ id: fieldId }" label="Name" required>
-          <BaseTextInput :id="fieldId" v-model="draft.name" placeholder="e.g. Refund Response" />
-        </BaseField>
-        <BaseField label="Content" required>
-          <div class="canned-editor">
-            <BaseRichTextEditor v-model="draft.bodyHtml" :placeholder="editorPlaceholder" />
-          </div>
-        </BaseField>
-      </div>
+      <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
+        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+          <BaseField label="Name" required :value="draft.name" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model="draft.name"
+                placeholder="e.g. Refund Response"
+              />
+            </template>
+          </BaseField>
+          <BaseField
+            label="Content"
+            required
+            :value="htmlToPlainText(draft.bodyHtml)"
+            :rules="[required()]"
+          >
+            <template #default="field">
+              <div class="canned-editor" v-bind="field">
+                <BaseRichTextEditor v-model="draft.bodyHtml" :placeholder="editorPlaceholder" />
+              </div>
+            </template>
+          </BaseField>
+        </div>
+      </BaseForm>
       <template #footer="{ close }">
         <BaseDialogFooter
           submitLabel="Save"
           :loading="saving"
+          :error="saveError"
           @cancel="close"
-          @submit="handleSave"
+          @submit="formRef.submit()"
         />
       </template>
     </BaseDialog>
-  </div>
+  </PageSection>
 </template>
 
 <style scoped>

@@ -475,7 +475,7 @@ const documentActions = computed(() =>
 const documentDetailConfig = computed(() =>
   defineDetailConfig({
     variant: 'standard',
-    width: 'wide',
+    width: 'standard',
     breadcrumbs: breadcrumbs.value,
     banners: () => documentBanners.value,
     actions: documentActions.value,

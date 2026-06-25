@@ -1,5 +1,9 @@
 <script setup>
-import { buildChangeRequestBanners, buildChangeRequestSections, buildChangeRequestActions } from './changeRequestDetailConfig.js'
+import {
+  buildChangeRequestBanners,
+  buildChangeRequestSections,
+  buildChangeRequestActions,
+} from './changeRequestDetailConfig.js'
 import { IconAlertTriangle } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { currentSession, isAllowed, canUseAi } from '@/utils/currentSession.js'
@@ -13,7 +17,6 @@ const props = defineProps({
 
 const router = useRouter()
 const route = useRoute()
-const toast = useToast()
 const { visit: visitTrail } = useRecordTrail()
 
 const cr = useLiveQueryWithDeps(
@@ -97,16 +100,19 @@ const showCancelDialog = ref(false)
 const showCancelEsign = ref(false)
 const cancelling = ref(false)
 const cancelReason = ref('')
+const cancelReasonError = ref('')
 function openCancelDialog() {
   cancelReason.value = ''
+  cancelReasonError.value = ''
   saveError.value = null
   showCancelDialog.value = true
 }
 function handleCancelClick() {
   if (!cancelReason.value.trim()) {
-    toast.warning('A cancel reason is required')
+    cancelReasonError.value = 'A cancel reason is required'
     return
   }
+  cancelReasonError.value = ''
   showCancelEsign.value = true
 }
 async function onCancelEsignVerified({ method, provider, token }) {
@@ -318,8 +324,12 @@ const changeRequestDetailConfig = computed(() =>
 
     <template v-if="cr" #meta>
       <span class="tw:font-mono">{{ cr.crNumber }}</span>
-      <template v-if="cr.changeTypeId"> · <ChangeTypeBadgeById :changeTypeId="cr.changeTypeId" /></template>
-      <template v-if="cr.initiatedAt"> · Initiated {{ cr.initiatedAt.formatDate('date') }}</template>
+      <template v-if="cr.changeTypeId">
+        · <ChangeTypeBadgeById :changeTypeId="cr.changeTypeId"
+      /></template>
+      <template v-if="cr.initiatedAt">
+        · Initiated {{ cr.initiatedAt.formatDate('date') }}</template
+      >
     </template>
 
     <template #actions>
@@ -339,14 +349,7 @@ const changeRequestDetailConfig = computed(() =>
       <RecordTrailBreadcrumb />
 
       <!-- Details card -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <BaseText
-          variant="overline"
-          class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-        >
-          Change Request Details
-        </BaseText>
-
+      <FormSection title="Change Request Details">
         <BaseRichTextField
           v-model="cr.description"
           :editable="isEditable"
@@ -376,7 +379,7 @@ const changeRequestDetailConfig = computed(() =>
             </span>
           </div>
         </div>
-      </div>
+      </FormSection>
 
       <!-- Admin-defined custom fields. Self-hides when none configured. -->
       <CustomFieldsCard entityType="ChangeRequest" :entityId="id" :editable="isEditable" />
@@ -384,17 +387,9 @@ const changeRequestDetailConfig = computed(() =>
 
     <template v-if="cr" #section-reason>
       <!-- Reason + Justification -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <BaseText
-          variant="overline"
-          class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-        >
-          Reason &amp; Justification
-        </BaseText>
+      <FormSection title="Reason &amp; Justification">
         <div class="tw:mb-4">
-          <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">
-            Reason for Change
-          </div>
+          <div class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1">Reason for Change</div>
           <BaseRichTextField
             v-model="cr.reasonForChange"
             :editable="isEditable"
@@ -413,7 +408,7 @@ const changeRequestDetailConfig = computed(() =>
             textClass="tw:text-sm tw:text-on-main tw:leading-relaxed"
           />
         </div>
-      </div>
+      </FormSection>
     </template>
 
     <template v-if="cr" #section-workflow>
@@ -472,11 +467,7 @@ const changeRequestDetailConfig = computed(() =>
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
         <BaseDetailField label="Department">
-          <DepartmentSelectMenu
-            v-if="isEditable"
-            v-model="cr.departmentId"
-            :required="true"
-          />
+          <DepartmentSelectMenu v-if="isEditable" v-model="cr.departmentId" :required="true" />
           <DepartmentBadgeById v-else-if="cr.departmentId" :departmentId="cr.departmentId" />
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
@@ -513,11 +504,7 @@ const changeRequestDetailConfig = computed(() =>
             class="tw:w-full"
           />
           <BaseText v-else variant="body" weight="medium">
-            {{
-              cr.targetImplementationDate
-                ? cr.targetImplementationDate.formatDate('date')
-                : '—'
-            }}
+            {{ cr.targetImplementationDate ? cr.targetImplementationDate.formatDate('date') : '—' }}
           </BaseText>
         </BaseDetailField>
         <BaseDetailField
@@ -568,12 +555,13 @@ const changeRequestDetailConfig = computed(() =>
         Cancelling permanently terminates this Change Request. The record stays in the audit log;
         you cannot re-open it.
       </p>
-      <BaseField v-slot="{ id: fieldId }" label="Reason" required>
+      <BaseField v-slot="{ id: fieldId }" label="Reason" required :error="cancelReasonError">
         <BaseTextarea
           :id="fieldId"
           v-model="cancelReason"
           :rows="3"
           placeholder="Why is this Change Request being cancelled?"
+          @input="cancelReasonError = ''"
         />
       </BaseField>
       <p

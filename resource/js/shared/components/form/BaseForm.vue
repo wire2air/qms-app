@@ -31,6 +31,7 @@
  */
 import ValidationSummary from './ValidationSummary.vue'
 import StickyFormFooter from './StickyFormFooter.vue'
+import { BaseFormRegistryKey } from './formContext.js'
 
 const props = defineProps({
   // 'submit' (explicit save button) | 'autosave' (status-only footer).
@@ -66,14 +67,41 @@ const emit = defineEmits(['submit', 'cancel', 'invalid'])
 
 const summaryRef = ref(null)
 const attempted = ref(false)
-const validationErrors = ref([])
+// Result of the optional form-level :validate() prop, captured on submit (the
+// back-compat escape hatch alongside per-field rules).
+const legacyErrors = ref([])
 
-// Shown errors = last validation run merged with caller-supplied server errors,
-// de-duped by id. Only visible after a submit attempt.
+// Per-field rules registry. Each BaseField registers a { id, label, getError,
+// validate } entry; submit() runs every validate(), and fieldErrors reflects
+// their live inline error so the summary shrinks as fields are fixed. The Set is
+// plain (a reactive Set would auto-unwrap the entries' refs); membership changes
+// bump registryVersion, and getError() tracks each field's error reactively.
+const fields = new Set()
+const registryVersion = ref(0)
+// Collapsible FormSections register { id, open } so focusField can expand the
+// section containing a jumped-to error (C1) — otherwise the control sits in a
+// display:none body, invisible and unfocusable.
+const sections = new Set()
+provide(BaseFormRegistryKey, {
+  register: (f) => (fields.add(f), registryVersion.value++),
+  unregister: (f) => (fields.delete(f), registryVersion.value++),
+  registerSection: (s) => sections.add(s),
+  unregisterSection: (s) => sections.delete(s),
+})
+const fieldErrors = computed(() => {
+  registryVersion.value // re-collect when fields mount/unmount
+  return [...fields]
+    .filter((f) => f.getError())
+    .map((f) => ({ id: f.id, label: f.label, message: f.getError() }))
+})
+
+// Shown errors = live per-field rule errors + the legacy validate() run +
+// caller-supplied server errors, de-duped by id. Only visible after a submit
+// attempt.
 const shownErrors = computed(() => {
   if (!attempted.value) return []
   const byId = new Map()
-  for (const e of [...validationErrors.value, ...props.errors]) {
+  for (const e of [...fieldErrors.value, ...legacyErrors.value, ...props.errors]) {
     if (e && e.id && !byId.has(e.id)) byId.set(e.id, e)
   }
   return [...byId.values()]
@@ -82,13 +110,22 @@ const shownErrors = computed(() => {
 const isAutosave = computed(() => props.mode === 'autosave')
 const submitHint = computed(() => (props.submitHotkey && !isAutosave.value ? '⌘↵' : ''))
 
-function focusField(id) {
+async function focusField(id) {
   const el = typeof document !== 'undefined' ? document.getElementById(id) : null
   if (!el) return
+  // Expand any collapsed section that contains the target so the error and its
+  // control are visible before we scroll/focus (C1). Opening an open section is
+  // a no-op, so no need to test the current state.
+  for (const s of sections) {
+    const secEl = document.getElementById(s.id)
+    if (secEl && secEl.contains(el)) s.open()
+  }
+  await nextTick()
   el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   // The id may resolve to a non-focusable container (e.g. a SegmentedControl's
   // radiogroup <div>). Fall through to its first focusable descendant.
-  const FOCUSABLE = 'input,select,textarea,button,a[href],[role="radio"][tabindex="0"],[role="radio"],[tabindex]'
+  const FOCUSABLE =
+    'input,select,textarea,button,a[href],[role="radio"][tabindex="0"],[role="radio"],[tabindex]'
   const target = el.matches(FOCUSABLE) ? el : el.querySelector(FOCUSABLE)
   ;(target || el).focus?.({ preventScroll: true })
 }
@@ -96,7 +133,10 @@ function focusField(id) {
 async function submit() {
   if (props.loading || isAutosave.value) return
   attempted.value = true
-  validationErrors.value = props.validate ? props.validate() || [] : []
+  // Run every registered field's rules (each sets its own inline error), then
+  // the optional form-level validate() escape hatch.
+  for (const f of fields) f.validate()
+  legacyErrors.value = props.validate ? props.validate() || [] : []
   if (shownErrors.value.length) {
     emit('invalid', shownErrors.value)
     await nextTick()
@@ -114,13 +154,11 @@ function onHotkey(e) {
   }
 }
 
-// Once the user fixes things and re-validates clean, drop the stale summary.
-watch(
-  () => props.dirty,
-  () => {
-    if (attempted.value && !shownErrors.value.length) attempted.value = false
-  },
-)
+// Once every error clears (fields re-validate live once touched), drop the
+// stale summary. Driven by shownErrors so it shrinks and disappears on its own.
+watch(shownErrors, (errs) => {
+  if (attempted.value && !errs.length) attempted.value = false
+})
 
 // Unsaved-changes guard (tab close / reload). Route guards stay with the page
 // (it owns the router); this covers the browser-level exit.

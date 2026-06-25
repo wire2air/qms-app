@@ -1,29 +1,20 @@
 <script setup>
 import { IconLayoutKanban } from '@tabler/icons-vue'
-import { required, helpers } from '@vuelidate/validators'
-import { useValidator } from '@shared/composables/validator.js'
+import { required } from '@shared/components/form/validators.js'
 import { currentCompany } from '@/utils/currentCompany.js'
 
 const emit = defineEmits(['created'])
 
 const show = defineModel({ type: Boolean, default: false })
 
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref('')
+
 const form = ref({
   name: '',
   description: '',
   moduleId: null,
-})
-
-const rules = computed(() => ({
-  name: { required: helpers.withMessage('Workflow name is required', required) },
-}))
-
-const validator = useValidator(rules, form)
-
-const loading = ref(false)
-
-const isFormValid = computed(() => {
-  return form.value.name.trim() && form.value.moduleId
 })
 
 // Create the workflow, its first draft version, and a seeded "Step 1" all in
@@ -76,11 +67,10 @@ const createWorkflowAndVersion = useLiveMutation(async (db, { name, description,
   return workflow
 })
 
-async function handleSubmit() {
-  const valid = await validator.value.$validate()
-  if (!valid || !isFormValid.value) return
-
-  loading.value = true
+async function onSubmit() {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  saveError.value = ''
   try {
     const workflow = await createWorkflowAndVersion({
       name: form.value.name.trim(),
@@ -92,18 +82,28 @@ async function handleSubmit() {
       resetForm()
       show.value = false
     }
+  } catch (err) {
+    saveError.value = err?.message || 'Failed to create workflow'
   } finally {
-    loading.value = false
+    isSubmitting.value = false
   }
 }
 
 function resetForm() {
-  form.value = { name: '', description: '', moduleId: null, documentTypeId: null }
+  form.value = { name: '', description: '', moduleId: null }
 }
+
+// Reset form and error when dialog closes
+watch(show, (val) => {
+  if (!val) {
+    resetForm()
+    saveError.value = ''
+  }
+})
 </script>
 
 <template>
-  <BaseDialog v-model="show" title="Create Workflow" maxWidth="md" @hide="resetForm">
+  <BaseDialog v-model="show" maxWidth="md">
     <template #title>
       <div class="tw:flex tw:items-center tw:gap-3">
         <div
@@ -115,43 +115,43 @@ function resetForm() {
       </div>
     </template>
 
-    <div class="tw:flex tw:flex-col tw:gap-4">
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
       <p class="tw:text-sm tw:text-secondary tw:leading-relaxed">Define a new workflow.</p>
 
-      <div class="tw:flex tw:flex-col tw:gap-4">
-        <!-- Name -->
-        <BaseTextInput
-          v-model="form.name"
-          name="name"
-          label="Workflow Name"
-          placeholder="e.g. Global SOP Multi-Stage Workflow"
-          autofocus
-          required
-        />
+      <BaseField
+        label="Workflow Name"
+        required
+        :value="form.name"
+        :rules="[required('Workflow name is required')]"
+      >
+        <template #default="field">
+          <BaseTextInput
+            v-bind="field"
+            v-model="form.name"
+            placeholder="e.g. Global SOP Multi-Stage Workflow"
+            autofocus
+          />
+        </template>
+      </BaseField>
 
-        <div class="tw:grid tw:grid-cols-2 tw:gap-4">
-          <!-- Module -->
-          <BaseField label="Module" required>
-            <ModuleSelectMenu v-model="form.moduleId" required />
-          </BaseField>
-        </div>
+      <BaseField label="Module" required :value="form.moduleId" :rules="[required()]">
+        <ModuleSelectMenu v-model="form.moduleId" :required="true" />
+      </BaseField>
 
-        <!-- Description -->
-        <BaseTextarea
-          v-model="form.description"
-          label="Description"
-          placeholder="Describe the purpose of this workflow"
-        />
-      </div>
-    </div>
+      <BaseTextarea
+        v-model="form.description"
+        label="Description"
+        placeholder="Describe the purpose of this workflow"
+      />
+    </BaseForm>
 
-    <template #footer="{ close }">
+    <template #footer>
       <BaseDialogFooter
         submitLabel="Create Workflow"
-        :loading="loading"
-        :disabled="!isFormValid"
-        @cancel="close"
-        @submit="handleSubmit"
+        :loading="isSubmitting"
+        :error="saveError"
+        @cancel="show = false"
+        @submit="formRef?.submit()"
       />
     </template>
   </BaseDialog>

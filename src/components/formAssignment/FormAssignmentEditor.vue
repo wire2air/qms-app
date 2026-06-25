@@ -393,10 +393,7 @@ function back() {
       <!-- Log book — standalone only. When embedded in a log book's
            Assignments tab the book is fixed (lockLogBook), so this whole
            section is hidden and the value is pre-filled from the prop. -->
-      <div
-        v-if="!lockLogBook"
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:space-y-3"
-      >
+      <BaseCard v-if="!lockLogBook" class="tw:space-y-3">
         <BaseText as="h3" weight="semibold">Log book</BaseText>
         <div>
           <select
@@ -415,10 +412,10 @@ function back() {
             No log books yet. Create one from the Log Books page and then come back to assign it.
           </p>
         </div>
-      </div>
+      </BaseCard>
 
       <!-- Assignees -->
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:space-y-3">
+      <BaseCard class="tw:space-y-3">
         <BaseText as="h3" weight="semibold">Assignees</BaseText>
         <div class="tw:flex tw:items-center tw:gap-4">
           <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
@@ -446,10 +443,10 @@ function back() {
             <RoleSelectMenu v-model="form.assignedRoleId" :required="true" />
           </BaseField>
         </div>
-      </div>
+      </BaseCard>
 
       <!-- Schedule -->
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:space-y-3">
+      <BaseCard class="tw:space-y-3">
         <BaseText as="h3" weight="semibold">Schedule</BaseText>
         <div class="tw:flex tw:items-center tw:gap-4">
           <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
@@ -563,7 +560,7 @@ function back() {
             list and can submit it whenever needed.
           </p>
         </template>
-      </div>
+      </BaseCard>
 
       <!-- Location & Lifecycle removed for log book assignments: site
            scoping + the effective-from/until window were more than these

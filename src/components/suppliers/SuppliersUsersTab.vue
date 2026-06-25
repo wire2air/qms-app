@@ -1,6 +1,7 @@
 <script setup>
 import { IconUserPlus, IconMail, IconUser, IconX } from '@tabler/icons-vue'
 import { post, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { required } from '@shared/components/form/validators.js'
 
 /**
  * Users at this supplier — EXTERNAL_SUPPLIER kind. Distinct from
@@ -37,6 +38,7 @@ const users = useLiveQueryWithDeps(
 const showInvite = ref(false)
 const invite = ref({ firstName: '', lastName: '', email: '', jobTitle: '' })
 const isInviting = ref(false)
+const formRef = ref(null)
 
 function openInvite() {
   if (!props.canUpdate) return
@@ -44,12 +46,8 @@ function openInvite() {
   showInvite.value = true
 }
 
-async function submitInvite() {
+async function onValidSubmit() {
   if (isInviting.value) return
-  if (!invite.value.firstName.trim() || !invite.value.email.trim()) {
-    toast.error('First name and email are required')
-    return
-  }
   isInviting.value = true
   try {
     await post(`/v1/services/suppliers/${props.supplierId}/users`, {
@@ -183,33 +181,52 @@ async function cancelInvite(u) {
 
     <!-- Invite dialog -->
     <BaseDialog v-model="showInvite" title="Invite supplier user" size="md">
-      <div class="tw:flex tw:flex-col tw:gap-3">
-        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-          <BaseField v-slot="{ id: fieldId }" label="First name" required>
-            <BaseTextInput :id="fieldId" v-model="invite.firstName" />
+      <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
+        <div class="tw:flex tw:flex-col tw:gap-3">
+          <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+            <BaseField label="First name" required :value="invite.firstName" :rules="[required()]">
+              <template #default="field">
+                <BaseTextInput v-bind="field" v-model="invite.firstName" />
+              </template>
+            </BaseField>
+            <BaseField label="Last name">
+              <template #default="field">
+                <BaseTextInput v-bind="field" v-model="invite.lastName" />
+              </template>
+            </BaseField>
+          </div>
+          <BaseField label="Email" required :value="invite.email" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model="invite.email"
+                type="email"
+                placeholder="user@supplier.example"
+              />
+            </template>
           </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Last name">
-            <BaseTextInput :id="fieldId" v-model="invite.lastName" />
+          <BaseField label="Job title">
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model="invite.jobTitle"
+                placeholder="Quality Manager, Sales Lead, …"
+              />
+            </template>
           </BaseField>
+          <p class="tw:text-caption tw:text-secondary tw:italic">
+            They'll get an invitation email to set their password. Role / data-access assignment
+            lands in the next step — for now an invited user has read-only access only to records
+            explicitly shared with them.
+          </p>
         </div>
-        <BaseField v-slot="{ id: fieldId }" label="Email" required>
-          <BaseTextInput :id="fieldId" v-model="invite.email" type="email" placeholder="user@supplier.example" />
-        </BaseField>
-        <BaseField v-slot="{ id: fieldId }" label="Job title">
-          <BaseTextInput :id="fieldId" v-model="invite.jobTitle" placeholder="Quality Manager, Sales Lead, …" />
-        </BaseField>
-        <p class="tw:text-caption tw:text-secondary tw:italic">
-          They'll get an invitation email to set their password. Role / data-access assignment lands
-          in the next step — for now an invited user has read-only access only to records explicitly
-          shared with them.
-        </p>
-      </div>
-      <template #footer>
+      </BaseForm>
+      <template #footer="{ close }">
         <BaseDialogFooter
           submitLabel="Send invitation"
           :loading="isInviting"
-          @cancel="showInvite = false"
-          @submit="submitInvite"
+          @cancel="close"
+          @submit="formRef.submit()"
         />
       </template>
     </BaseDialog>

@@ -114,19 +114,13 @@ async function handleDelete() {
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-    <div
-      class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-    >
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <IconMailForward :size="18" class="tw:text-primary" />
-        <BaseText variant="overline">Support Addresses</BaseText>
-      </div>
+  <PageSection title="Support Addresses" :icon="IconMailForward" variant="card">
+    <template #actions>
       <BaseButton variant="primary" size="sm" @click="showCreateDialog = true">
         <IconPlus :size="16" class="tw:mr-1" />
         Add address
       </BaseButton>
-    </div>
+    </template>
 
     <p class="tw:text-sm tw:text-secondary tw:mb-4">
       Emails sent to any of these addresses become complaint tickets. System addresses on
@@ -181,5 +175,5 @@ async function handleDelete() {
         />
       </template>
     </BaseDialog>
-  </div>
+  </PageSection>
 </template>

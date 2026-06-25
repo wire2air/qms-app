@@ -128,6 +128,9 @@ function buildEsignFromVerified(v) {
   return v
 }
 
+// Inline validation error for the Document Type field (UTILITY path only).
+const docTypeError = ref('')
+
 // Dialog state
 const step = ref('select') // 'select' | 'form' | 'success'
 
@@ -318,7 +321,10 @@ const flagHasContent = computed(() => {
   const s = flagNotes.value || ''
   const [htmlPart] = s.split('\n[qms-attachments]::')
   const hasAttachments = s.includes('\n[qms-attachments]::')
-  const text = htmlPart.replace(/<[^>]*>/g, '').replace(/&nbsp;|&#160;/g, ' ').trim()
+  const text = htmlPart
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;|&#160;/g, ' ')
+    .trim()
   return text.length > 0 || hasAttachments
 })
 
@@ -367,9 +373,10 @@ async function handleSubmit(data) {
   // the `records` table and require a document type selection.
   if (!isInspectionRecord.value) {
     if (!documentTypeId.value) {
-      toast.error('Document Type is required')
+      docTypeError.value = 'Document Type is required.'
       return
     }
+    docTypeError.value = ''
     submitting.value = true
     try {
       const frozen = await freezeOptionLabels(db, templateSchema.value, data)
@@ -439,6 +446,7 @@ function goBackToSelect() {
   flagSeverity.value = 'WARN'
   flagNotes.value = ''
   documentTypeId.value = null
+  docTypeError.value = ''
 }
 
 function handleClose() {
@@ -616,8 +624,17 @@ const templateSchema = computed(() => {
                 <div class="tw:p-4 tw:flex tw:flex-col tw:gap-4">
                   <!-- Document Type selector only applies to UTILITY records;
                        inspection records derive the doctype from their log book. -->
-                  <BaseField v-if="!isInspectionRecord" label="Document Type" required>
-                    <DocumentTypeSelectMenu v-model="documentTypeId" required />
+                  <BaseField
+                    v-if="!isInspectionRecord"
+                    label="Document Type"
+                    required
+                    :error="docTypeError"
+                  >
+                    <DocumentTypeSelectMenu
+                      v-model="documentTypeId"
+                      required
+                      @update:modelValue="docTypeError = ''"
+                    />
                   </BaseField>
                   <DynamicForm
                     v-model="formData"

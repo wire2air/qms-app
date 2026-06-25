@@ -72,19 +72,7 @@ function loginWithMicrosoft() {
 }
 
 async function submitForm() {
-  if (!isFormValid.value) {
-    toast.error(
-      isSignup.value
-        ? 'Please fill in all fields correctly'
-        : 'Please enter both email and password',
-    )
-    return
-  }
-
-  if (isSignup.value && password.value !== confirmPassword.value) {
-    toast.error('Passwords do not match')
-    return
-  }
+  if (!isFormValid.value) return
 
   loadingLogin.value = true
 

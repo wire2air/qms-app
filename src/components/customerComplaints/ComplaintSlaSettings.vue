@@ -87,12 +87,12 @@ const FIELDS = [
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:max-w-2xl">
-    <div class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4">
-      <IconClockHour4 :size="18" class="tw:text-primary" />
-      <BaseText variant="overline">SLA &amp; Lifecycle</BaseText>
-    </div>
-
+  <PageSection
+    title="SLA &amp; Lifecycle"
+    :icon="IconClockHour4"
+    variant="card"
+    class="tw:max-w-2xl"
+  >
     <div class="tw:flex tw:flex-col tw:gap-4">
       <BaseField
         v-for="field in FIELDS"
@@ -110,5 +110,5 @@ const FIELDS = [
         </BaseButton>
       </div>
     </div>
-  </div>
+  </PageSection>
 </template>

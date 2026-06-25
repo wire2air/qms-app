@@ -88,12 +88,9 @@ function openReassignDialog(instanceStepId) {
         </template>
       </WorkflowStep>
     </template>
-    <div
-      v-else-if="workflowInstanceId"
-      class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:text-sm tw:text-secondary tw:italic"
-    >
+    <BaseCard v-else-if="workflowInstanceId" class="tw:text-sm tw:text-secondary tw:italic">
       No workflow steps to show yet.
-    </div>
+    </BaseCard>
 
     <!-- Reassign dialog — shared with CAPA + NC -->
     <WorkflowReassignDialog ref="reassignDialogRef" :module="CR_MODULE" :resourceId="crId" />

@@ -17,6 +17,7 @@
 import { IconArrowBackUp } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
+import { required } from '@shared/components/form/validators.js'
 
 const props = defineProps({
   module: { type: Object, required: true },
@@ -94,6 +95,7 @@ const showEsignDialog = ref(false)
 const pendingOutcomeId = ref(null)
 const comment = ref('')
 const actionLoading = ref(false)
+const confirmFormRef = ref(null)
 
 const pendingConfig = computed(() =>
   pendingOutcomeId.value ? (OUTCOME_CONFIG.value[pendingOutcomeId.value] ?? null) : null,
@@ -123,10 +125,6 @@ function onOutcomeClick(outcomeId) {
 }
 
 function onConfirmDialog() {
-  if (pendingConfig.value?.commentRequired && !comment.value.trim()) {
-    toast.warning('A comment is required')
-    return
-  }
   showConfirmDialog.value = false
   if (needsEsignFor(pendingOutcomeId.value)) {
     showEsignDialog.value = true
@@ -219,38 +217,44 @@ const items = computed(() => {
     <BaseMenu :items="items" />
 
     <BaseDialog v-model="showConfirmDialog" :title="confirmTitle" maxWidth="md" persistent>
-      <BaseField :required="!!pendingConfig?.commentRequired">
-        <template #label>
-          {{
-            isRejectAction
-              ? isApprovalStep
-                ? 'Reason for rejection'
-                : 'Reason for sending back'
-              : 'Comment'
-          }}
-        </template>
-        <template #default="{ id: fieldId }">
-          <textarea
-            :id="fieldId"
-            v-model="comment"
-            rows="3"
-            class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:text-on-main tw:text-sm tw:p-3 tw:resize-none tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
-            :placeholder="
+      <BaseForm ref="confirmFormRef" hideFooter @submit="onConfirmDialog">
+        <BaseField
+          :required="!!pendingConfig?.commentRequired"
+          :value="comment"
+          :rules="pendingConfig?.commentRequired ? [required()] : []"
+        >
+          <template #label>
+            {{
               isRejectAction
                 ? isApprovalStep
-                  ? 'Why are you rejecting?'
-                  : 'Why are you sending this back to the owner?'
-                : 'Add a comment…'
-            "
-          />
-        </template>
-      </BaseField>
+                  ? 'Reason for rejection'
+                  : 'Reason for sending back'
+                : 'Comment'
+            }}
+          </template>
+          <template #default="{ id: fieldId }">
+            <textarea
+              :id="fieldId"
+              v-model="comment"
+              rows="3"
+              class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:text-on-main tw:text-sm tw:p-3 tw:resize-none tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
+              :placeholder="
+                isRejectAction
+                  ? isApprovalStep
+                    ? 'Why are you rejecting?'
+                    : 'Why are you sending this back to the owner?'
+                  : 'Add a comment…'
+              "
+            />
+          </template>
+        </BaseField>
+      </BaseForm>
       <template #footer="{ close }">
         <BaseDialogFooter
           submitLabel="Confirm"
           :loading="actionLoading"
           @cancel="close"
-          @submit="onConfirmDialog"
+          @submit="confirmFormRef?.submit()"
         />
       </template>
     </BaseDialog>

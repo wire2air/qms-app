@@ -255,14 +255,7 @@ const complaintDetailConfig = computed(() =>
       </div>
 
       <!-- Ticket information -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <BaseText
-          variant="overline"
-          class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-        >
-          Ticket information
-        </BaseText>
-
+      <FormSection title="Ticket information">
         <BaseTextarea
           v-if="editingDescription && isEditable"
           v-model="complaint.description"
@@ -279,7 +272,7 @@ const complaintDetailConfig = computed(() =>
             {{ complaint.description || (isEditable ? 'Add a description…' : '—') }}
           </p>
         </div>
-      </div>
+      </FormSection>
 
       <!-- Form submission data (web-form tickets only; self-hides) -->
       <CustomerComplaintFormPanel
@@ -322,10 +315,7 @@ const complaintDetailConfig = computed(() =>
       <!-- 2. Assignment -->
       <BaseRailCard title="Assignment">
         <BaseDetailField label="Priority">
-          <CustomerComplaintPrioritySelectMenu
-            v-if="isEditable"
-            v-model="complaint.priorityId"
-          />
+          <CustomerComplaintPrioritySelectMenu v-if="isEditable" v-model="complaint.priorityId" />
           <CustomerComplaintPriorityBadgeById
             v-else-if="complaint.priorityId"
             :priorityId="complaint.priorityId"
@@ -338,10 +328,7 @@ const complaintDetailConfig = computed(() =>
         </BaseDetailField>
         <BaseDetailField label="Group">
           <GroupSelectMenu v-if="isEditable" v-model="complaint.assignedTeamId" />
-          <GroupBadgeById
-            v-else-if="complaint.assignedTeamId"
-            :teamId="complaint.assignedTeamId"
-          />
+          <GroupBadgeById v-else-if="complaint.assignedTeamId" :teamId="complaint.assignedTeamId" />
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
         <BaseDetailField label="Sentiment">
@@ -365,10 +352,7 @@ const complaintDetailConfig = computed(() =>
 
       <!-- 3. Timeline -->
       <BaseRailCard title="Timeline">
-        <BaseDetailField
-          label="Created"
-          :value="complaint.createdAt?.formatDate('datetime')"
-        />
+        <BaseDetailField label="Created" :value="complaint.createdAt?.formatDate('datetime')" />
         <BaseDetailField
           v-if="complaint.lastCustomerMessageAt"
           label="Last customer reply"
@@ -454,10 +438,7 @@ const complaintDetailConfig = computed(() =>
 
       <!-- 6. Linked NC -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-        <BaseText
-          variant="overline"
-          class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
-        >
+        <BaseText variant="overline" class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
           Linked NC
         </BaseText>
         <div v-if="linkedNcs.length" class="tw:flex tw:flex-col tw:gap-2">

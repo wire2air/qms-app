@@ -185,9 +185,7 @@ function openFindingsInstance(f) {
   <div class="tw:flex tw:flex-col tw:gap-4">
     <!-- 1. Stat strip -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
-      <div
-        class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3"
-      >
+      <BaseCard class="tw:flex tw:items-center tw:gap-3">
         <div
           class="tw:size-10 tw:rounded-lg tw:bg-blue-100 tw:flex tw:items-center tw:justify-center tw:text-blue-700"
         >
@@ -197,10 +195,8 @@ function openFindingsInstance(f) {
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ activePrograms }}</span>
           <BaseText variant="overline">Active Programs</BaseText>
         </div>
-      </div>
-      <div
-        class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3"
-      >
+      </BaseCard>
+      <BaseCard class="tw:flex tw:items-center tw:gap-3">
         <div
           class="tw:size-10 tw:rounded-lg tw:bg-amber-100 tw:flex tw:items-center tw:justify-center tw:text-amber-700"
         >
@@ -210,10 +206,8 @@ function openFindingsInstance(f) {
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ inFlightAudits }}</span>
           <BaseText variant="overline">In-Flight Audits</BaseText>
         </div>
-      </div>
-      <div
-        class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3"
-      >
+      </BaseCard>
+      <BaseCard class="tw:flex tw:items-center tw:gap-3">
         <div
           class="tw:size-10 tw:rounded-lg tw:bg-red-100 tw:flex tw:items-center tw:justify-center tw:text-red-700"
         >
@@ -223,10 +217,8 @@ function openFindingsInstance(f) {
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ openFindings }}</span>
           <BaseText variant="overline">Open Findings</BaseText>
         </div>
-      </div>
-      <div
-        class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:items-center tw:gap-3"
-      >
+      </BaseCard>
+      <BaseCard class="tw:flex tw:items-center tw:gap-3">
         <div
           class="tw:size-10 tw:rounded-lg tw:bg-emerald-100 tw:flex tw:items-center tw:justify-center tw:text-emerald-700"
         >
@@ -236,16 +228,13 @@ function openFindingsInstance(f) {
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ auditsDueIn30d }}</span>
           <BaseText variant="overline">Due in 30 Days</BaseText>
         </div>
-      </div>
+      </BaseCard>
     </div>
 
     <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-2 tw:gap-3">
       <!-- 2. Findings by category -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <BaseText
-          variant="overline"
-          class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-3"
-        >
+      <BaseCard>
+        <BaseText variant="overline" class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-3">
           Open Findings by Category
         </BaseText>
         <div
@@ -268,14 +257,11 @@ function openFindingsInstance(f) {
             </div>
           </div>
         </div>
-      </div>
+      </BaseCard>
 
       <!-- 3. Findings by type -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-        <BaseText
-          variant="overline"
-          class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-3"
-        >
+      <BaseCard>
+        <BaseText variant="overline" class="tw:block tw:pb-3 tw:border-b tw:border-divider tw:mb-3">
           Open Findings by Type
         </BaseText>
         <div class="tw:flex tw:flex-col tw:gap-2">
@@ -293,10 +279,10 @@ function openFindingsInstance(f) {
             </div>
           </div>
         </div>
-      </div>
+      </BaseCard>
 
       <!-- 4. Lead auditor backlog -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+      <BaseCard>
         <BaseText
           variant="overline"
           class="tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
@@ -324,10 +310,10 @@ function openFindingsInstance(f) {
             </div>
           </div>
         </div>
-      </div>
+      </BaseCard>
 
       <!-- 5. Upcoming audits -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+      <BaseCard>
         <BaseText
           variant="overline"
           class="tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
@@ -359,11 +345,11 @@ function openFindingsInstance(f) {
             </div>
           </button>
         </div>
-      </div>
+      </BaseCard>
     </div>
 
     <!-- 6. Recent findings — full-width across the bottom -->
-    <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+    <BaseCard>
       <BaseText
         variant="overline"
         class="tw:pb-3 tw:border-b tw:border-divider tw:mb-3 tw:flex tw:items-center tw:gap-2"
@@ -400,6 +386,6 @@ function openFindingsInstance(f) {
           </div>
         </button>
       </div>
-    </div>
+    </BaseCard>
   </div>
 </template>

@@ -7,11 +7,11 @@ import {
   IconSparkles,
   IconFileUpload,
 } from '@tabler/icons-vue'
-import { required, minValue, helpers } from '@vuelidate/validators'
 import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession, canUseAi } from '@/utils/currentSession.js'
 import { db } from '@models/index'
+import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
 
 const router = useRouter()
 const toast = useToast()
@@ -76,71 +76,15 @@ const form = ref({
   effectiveDate: DateTime.now(),
 })
 
-// Validation rules
-const rules = computed(() => ({
-  title: {
-    required: helpers.withMessage('Document title is required', required),
-  },
-  documentTypeId: {
-    required: helpers.withMessage('Document type is required', required),
-  },
-  documentTemplateId: {
-    required: helpers.withMessage('Document template is required', required),
-  },
-  prefix: {
-    required: helpers.withMessage('Document prefix is required', required),
-    validFormat: helpers.withMessage(
-      'Only uppercase letters, numbers, hyphens, and placeholders {SITE_CODE}, {DEPARTMENT_CODE} are allowed',
-      (value) => !value || (/^[A-Z0-9{}\-_]+$/.test(value) && /[A-Z0-9}]$/.test(value)),
-    ),
-    validPlaceholders: helpers.withMessage(
-      'Only {SITE_CODE} and {DEPARTMENT_CODE} placeholders are supported',
-      (value) => {
-        if (!value) return true
-        const placeholders = [...value.matchAll(/\{([A-Z_]+)\}/g)].map((m) => m[1])
-        return placeholders.every((p) => ['SITE_CODE', 'DEPARTMENT_CODE'].includes(p))
-      },
-    ),
-    noDuplicatePlaceholders: helpers.withMessage(
-      'Each placeholder can only be used once',
-      (value) => {
-        if (!value) return true
-        const placeholders = [...value.matchAll(/\{([A-Z_]+)\}/g)].map((m) => m[1])
-        return new Set(placeholders).size === placeholders.length
-      },
-    ),
-    noUnmatchedBraces: helpers.withMessage(
-      'Invalid placeholder format - check your curly braces',
-      (value) => {
-        if (!value) return true
-        const stripped = value.replace(/\{[A-Z_]+\}/g, '')
-        return !stripped.includes('{') && !stripped.includes('}')
-      },
-    ),
-  },
-  departmentId: {
-    required: helpers.withMessage('Department is required', required),
-  },
-  siteId: {
-    required: helpers.withMessage('Site is required', required),
-  },
-  periodicReviewMonths: {
-    required: helpers.withMessage('Periodic review period is required', required),
-    minValue: helpers.withMessage('Must be at least 1 month', minValue(1)),
-  },
-  // Conditional: when the author flags regulatory impact, the notes field
-  // is required. Mirrors the DB CHECK constraint so the message lands in
-  // the UI before the save round-trip.
-  regulatoryImpactNotes: {
-    requiredWhenImpact: helpers.withMessage(
-      'Notes are required when regulatory impact is flagged',
-      (value) => !form.value.regulatoryImpact || (value && value.trim().length > 0),
-    ),
-  },
-}))
+// Unsaved-changes marker for the footer + BaseForm's beforeunload guard.
+const isDirty = ref(false)
+watch(form, () => (isDirty.value = true), { deep: true })
 
-// Setup validator
-const validator = useValidator(rules, form)
+// Confirm before abandoning a half-filled document via in-app navigation
+// (Cancel, back, sidebar). allowLeave() is called before the post-save
+// redirect so a successful create doesn't prompt. BaseForm covers the
+// browser-level exit.
+const { allowLeave } = useUnsavedChangesGuard(isDirty)
 
 const createDocument = useLiveMutation(async (db, formData) => {
   // Resolve placeholders in prefix → {SITE_CODE}, {DEPARTMENT_CODE}
@@ -225,18 +169,9 @@ const createDocument = useLiveMutation(async (db, formData) => {
   return doc
 })
 
-async function saveDraft() {
-  // Validate form fields using Vuelidate
-  const isValid = await validator.value.$validate()
-
-  if (!isValid) {
-    toast.warning('Please fix the validation errors before saving')
-    // All validated fields live on the Properties tab.
-    activeTab.value = 'properties'
-    return
-  }
+async function onSubmit() {
+  // CustomFieldsCreateSection surfaces its own inline errors on validate() = false.
   if ((await customFieldsRef.value?.validate()) === false) {
-    toast.warning('Complete the required fields under Additional information')
     activeTab.value = 'properties'
     return
   }
@@ -249,10 +184,14 @@ async function saveDraft() {
       try {
         await customFieldsRef.value?.persist(doc.id)
       } catch (cfErr) {
-        toast.warning(cfErr?.message || 'Document saved, but custom fields could not be saved — add them on the document page')
+        toast.warning(
+          cfErr?.message ||
+            'Document saved, but custom fields could not be saved — add them on the document page',
+        )
       }
       toast.success('Document saved as draft')
       form.value = { ...DEFAULT_FORM }
+      allowLeave() // saved — don't prompt on the redirect
       router.push(getCompanyPath(`/documents/${doc.id}`))
     }
   } catch (error) {
@@ -372,41 +311,35 @@ const docTabs = [
     </PageHeader>
 
     <!-- Scrollable content -->
-    <div class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
-      <BaseTabs v-model="activeTab" :tabs="docTabs" ariaLabel="Create document">
-        <!-- keepAlive: panels stay mounted so form state survives tab switches -->
-        <BaseTabPanel value="properties" keepAlive class="tw:pt-6">
-          <DocumentsCreateProperties v-model="form" v-model:selectedTemplate="selectedTemplate" />
-          <!-- Admin-defined custom fields. Self-hides when none configured. -->
-          <div class="tw:mt-4">
-            <CustomFieldsCreateSection
-              ref="customFieldsRef"
-              v-model="customFieldsData"
-              entityType="Document"
-            />
-          </div>
-        </BaseTabPanel>
-        <BaseTabPanel value="content" keepAlive class="tw:pt-6">
-          <DocumentsCreateContent :form="form" :selectedTemplate="selectedTemplate" />
-        </BaseTabPanel>
-        <BaseTabPanel value="training" keepAlive class="tw:pt-6">
-          <DocumentsCreateTraining v-model="form.trainingConfig" />
-        </BaseTabPanel>
-      </BaseTabs>
-    </div>
-
-    <!-- Sticky Footer Action Bar -->
-    <div
-      class="tw:absolute tw:bottom-0 tw:left-0 tw:right-0 tw:bg-sidebar/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-modal"
-    >
-      <div class="tw:flex tw:items-center tw:justify-end">
-        <div class="tw:flex tw:items-center tw:gap-4">
-          <BaseButton variant="secondary" :isLoading="saving" @click="cancel"> Cancel </BaseButton>
-          <BaseButton variant="primary" :isLoading="saving" @click="saveDraft">
-            Create Document
-          </BaseButton>
-        </div>
-      </div>
+    <div class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto">
+      <BaseForm
+        :dirty="isDirty"
+        :loading="saving"
+        submitLabel="Create Document"
+        @submit="onSubmit"
+        @cancel="cancel"
+      >
+        <BaseTabs v-model="activeTab" :tabs="docTabs" ariaLabel="Create document">
+          <!-- keepAlive: panels stay mounted so form state survives tab switches -->
+          <BaseTabPanel value="properties" keepAlive class="tw:pt-6">
+            <DocumentsCreateProperties v-model="form" v-model:selectedTemplate="selectedTemplate" />
+            <!-- Admin-defined custom fields. Self-hides when none configured. -->
+            <div class="tw:mt-4">
+              <CustomFieldsCreateSection
+                ref="customFieldsRef"
+                v-model="customFieldsData"
+                entityType="Document"
+              />
+            </div>
+          </BaseTabPanel>
+          <BaseTabPanel value="content" keepAlive class="tw:pt-6">
+            <DocumentsCreateContent :form="form" :selectedTemplate="selectedTemplate" />
+          </BaseTabPanel>
+          <BaseTabPanel value="training" keepAlive class="tw:pt-6">
+            <DocumentsCreateTraining v-model="form.trainingConfig" />
+          </BaseTabPanel>
+        </BaseTabs>
+      </BaseForm>
     </div>
 
     <!-- AI draft dialog (Phase 4) -->
