@@ -41,6 +41,31 @@ const deactivated = useLiveQuery(
   { models: ['AuditStandardType'], initial: [] },
 )
 
+// Active-list table config (DataTable). Name carries a description subline,
+// Code renders as a chip, and Colour renders the type badge — all via slots.
+// Per-row Edit/Deactivate come from rowActions (null hides the actions column
+// for users without manage permission).
+const columns = [
+  { name: 'name', label: 'NAME', field: 'name', align: 'left' },
+  { name: 'code', label: 'CODE', field: 'code', align: 'left' },
+  { name: 'color', label: 'COLOUR', field: 'color', align: 'center' },
+  { name: 'displayOrder', label: 'ORDER', field: 'displayOrder', align: 'center' },
+]
+const rowActions = computed(() =>
+  canManage.value
+    ? [
+        { key: 'edit', label: 'Edit', icon: IconPencil, onClick: (row) => openEdit(row) },
+        {
+          key: 'deactivate',
+          label: 'Deactivate',
+          icon: IconTrash,
+          danger: true,
+          onClick: (row) => handleDeactivate(row),
+        },
+      ]
+    : null,
+)
+
 const showEditDialog = ref(false)
 const editing = ref(null)
 const formRef = ref(null)
@@ -199,68 +224,37 @@ const showDeactivated = ref(false)
     </div>
 
     <div class="tw:p-4">
-      <table class="tw:w-full tw:text-sm">
-        <thead>
-          <tr
-            class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider"
-          >
-            <th class="tw:px-3 tw:py-2">Name</th>
-            <th class="tw:px-3 tw:py-2">Code</th>
-            <th class="tw:px-3 tw:py-2 tw:text-center">Colour</th>
-            <th class="tw:px-3 tw:py-2 tw:text-center">Order</th>
-            <th class="tw:px-3 tw:py-2 tw:text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in standardTypes" :key="row.id" class="tw:border-b tw:border-divider">
-            <td class="tw:px-3 tw:py-3">
-              <div class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</div>
-              <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">
-                {{ row.description }}
-              </div>
-            </td>
-            <td class="tw:px-3 tw:py-3">
-              <code
-                class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary"
-              >
-                {{ row.code }}
-              </code>
-            </td>
-            <td class="tw:px-3 tw:py-3 tw:text-center">
-              <AuditStandardTypeBadge :standardType="row" />
-            </td>
-            <td class="tw:px-3 tw:py-3 tw:text-center tw:text-secondary">
-              {{ row.displayOrder }}
-            </td>
-            <td class="tw:px-3 tw:py-3 tw:text-right">
-              <div v-if="canManage" class="tw:flex tw:items-center tw:justify-end tw:gap-1">
-                <button
-                  class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:hover:text-primary"
-                  title="Edit"
-                  @click="openEdit(row)"
-                >
-                  <IconPencil :size="16" />
-                </button>
-                <button
-                  class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-red-50 tw:hover:text-red-600"
-                  title="Deactivate"
-                  @click="handleDeactivate(row)"
-                >
-                  <IconTrash :size="16" />
-                </button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!standardTypes.length">
-            <td
-              colspan="5"
-              class="tw:px-3 tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic"
-            >
-              No active standard types. Add one above.
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <DataTable
+        :rows="standardTypes"
+        :columns="columns"
+        :rowActions="rowActions"
+        rowKey="id"
+        :mobileCards="false"
+        hidePagination
+        searchable
+        filterable
+        densitySelector
+        columnManager
+        exportManager
+        exportFilename="audit-standard-types.csv"
+        persistKey="lookups:auditStandardTypes"
+        noDataLabel="No active standard types. Add one above."
+      >
+        <template #body-cell-name="{ row }">
+          <div class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</div>
+          <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">
+            {{ row.description }}
+          </div>
+        </template>
+        <template #body-cell-code="{ row }">
+          <code class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary">
+            {{ row.code }}
+          </code>
+        </template>
+        <template #body-cell-color="{ row }">
+          <AuditStandardTypeBadge :standardType="row" />
+        </template>
+      </DataTable>
 
       <div v-if="deactivated.length" class="tw:mt-4 tw:border-t tw:border-divider tw:pt-4">
         <button

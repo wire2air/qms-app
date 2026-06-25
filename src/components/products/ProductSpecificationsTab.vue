@@ -39,6 +39,14 @@ const MATERIAL_LABELS = {
   FINISHED: 'Finished good',
 }
 
+const columns = [
+  { name: 'name', label: 'NAME', field: 'name', align: 'left' },
+  { name: 'material', label: 'MATERIAL', field: 'materialKind', align: 'left' },
+  { name: 'version', label: 'VERSION', field: 'version', align: 'left' },
+  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left' },
+  { name: 'actions', label: '', field: 'actions', align: 'right' },
+]
+
 const specs = useLiveQueryWithDeps(
   [() => props.productId],
   async (db, [productId]) => {
@@ -114,67 +122,56 @@ async function deleteSpec(id) {
       </BaseButton>
     </div>
 
-    <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead class="tw:bg-main-hover tw:text-secondary tw:text-xs tw:uppercase">
-          <tr>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Name</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Material</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Version</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Status</th>
-            <th class="tw:px-4 tw:py-2.5"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <BaseClickableRow
-            v-for="s in specs"
-            :key="s.id"
-            tag="tr"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-            :aria-label="`Open specification ${s.name}`"
-            @click="openSpec(s.id)"
+    <DataTable
+      :rows="specs"
+      :columns="columns"
+      rowKey="id"
+      :mobileCards="false"
+      hidePagination
+      noDataLabel="No specifications for this item yet."
+    >
+      <template #body-cell-name="{ row }">
+        <button
+          type="button"
+          class="tw:font-medium tw:text-on-main tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-left tw:p-0"
+          :aria-label="`Open specification ${row.name}`"
+          @click="openSpec(row.id)"
+        >
+          {{ row.name }}
+          <span v-if="row.code" class="tw:text-xs tw:text-secondary tw:font-mono"
+            >· {{ row.code }}</span
           >
-            <td class="tw:px-4 tw:py-2.5 tw:font-medium tw:text-on-main">
-              {{ s.name }}
-              <span v-if="s.code" class="tw:text-xs tw:text-secondary tw:font-mono">· {{ s.code }}</span>
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
-              {{ MATERIAL_LABELS[s.materialKind] || s.materialKind }}
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">v{{ s.version }}</td>
-            <td class="tw:px-4 tw:py-2.5">
-              <SpecificationStatusBadgeById :statusId="s.statusId" />
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-right" @click.stop>
-              <div class="tw:flex tw:items-center tw:justify-end tw:gap-2">
-                <BaseButton
-                  v-if="canManage && s.statusId === 'DRAFT'"
-                  variant="outline"
-                  size="sm"
-                  @click="startApprove(s)"
-                >
-                  Approve
-                </BaseButton>
-                <BaseButton
-                  v-if="canManage && s.statusId === 'DRAFT'"
-                  :variant="deletingId === s.id ? 'danger' : 'outline'"
-                  size="sm"
-                  @click="deleteSpec(s.id)"
-                >
-                  {{ deletingId === s.id ? 'Confirm Delete?' : 'Delete' }}
-                </BaseButton>
-              </div>
-            </td>
-          </BaseClickableRow>
-          <tr v-if="!specs.length">
-            <td colspan="5" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
-              No specifications for this item yet.
-              <span v-if="canManage">Click <strong>New Specification</strong> to define one.</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+        </button>
+      </template>
+
+      <template #body-cell-material="{ row }">
+        <span class="tw:text-secondary">{{ MATERIAL_LABELS[row.materialKind] || row.materialKind }}</span>
+      </template>
+
+      <template #body-cell-version="{ row }">
+        <span class="tw:text-secondary">v{{ row.version }}</span>
+      </template>
+
+      <template #body-cell-status="{ row }">
+        <SpecificationStatusBadgeById :statusId="row.statusId" />
+      </template>
+
+      <template #body-cell-actions="{ row }">
+        <div
+          v-if="canManage && row.statusId === 'DRAFT'"
+          class="tw:flex tw:items-center tw:justify-end tw:gap-2"
+        >
+          <BaseButton variant="outline" size="sm" @click="startApprove(row)">Approve</BaseButton>
+          <BaseButton
+            :variant="deletingId === row.id ? 'danger' : 'outline'"
+            size="sm"
+            @click="deleteSpec(row.id)"
+          >
+            {{ deletingId === row.id ? 'Confirm Delete?' : 'Delete' }}
+          </BaseButton>
+        </div>
+      </template>
+    </DataTable>
   </div>
 
   <SpecificationCreateDialog

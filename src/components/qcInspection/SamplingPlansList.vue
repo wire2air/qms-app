@@ -5,7 +5,7 @@
  * version history. DRAFT plans show an Edit button that opens the plan form
  * pre-populated. ACTIVE plans show a "New Version" button.
  */
-import { IconPlus, IconChevronDown, IconChevronRight } from '@tabler/icons-vue'
+import { IconPlus } from '@tabler/icons-vue'
 import { post, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { isAllowed } from '@/utils/currentSession.js'
 
@@ -19,7 +19,6 @@ const approvingId = ref(null)
 const revisingId = ref(null)
 const deletingId = ref(null)
 const editingPlan = ref(null)
-const expandedId = ref(null)
 
 const canApprove = computed(() => isAllowed(['qcInspection:plan:approve']))
 const canCreate = computed(
@@ -32,6 +31,33 @@ const POINT_LABELS = {
   FINAL: 'Final',
   OUTGOING: 'Outgoing',
 }
+const POINT_OPTIONS = Object.entries(POINT_LABELS).map(([value, label]) => ({ value, label }))
+const STATUS_OPTIONS = [
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'ACTIVE', label: 'Active' },
+]
+
+const columns = [
+  { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+  {
+    name: 'point',
+    label: 'Point',
+    field: 'inspectionPoint',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: POINT_OPTIONS,
+  },
+  { name: 'standard', label: 'Standard / Level', field: 'standardCode', align: 'left' },
+  {
+    name: 'status',
+    label: 'Status',
+    field: 'statusId',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: STATUS_OPTIONS,
+  },
+  { name: 'actions', label: '', field: 'actions', align: 'right' },
+]
 
 // Main list: only ACTIVE + DRAFT (hide SUPERSEDED / ARCHIVED)
 const plans = useLiveQuery(
@@ -72,10 +98,6 @@ function getPredecessors(plan) {
     currentId = found.parentPlanId
   }
   return result
-}
-
-function toggleExpand(planId) {
-  expandedId.value = expandedId.value === planId ? null : planId
 }
 
 function startApprove(plan) {
@@ -130,223 +152,193 @@ async function createNewVersion(plan) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3">
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:text-sm tw:text-secondary">{{ plans.length }} sampling plan(s)</div>
-      <BaseButton v-if="canManage" variant="primary" size="sm" @click="showCreate = true">
-        <template #icon><IconPlus :size="16" /></template>
-        New Sampling Plan
-      </BaseButton>
-    </div>
+    <DataTable
+      :rows="plans"
+      :columns="columns"
+      rowKey="id"
+      :mobileCards="false"
+      :expandable="true"
+      searchable
+      filterable
+      densitySelector
+      columnManager
+      exportManager
+      exportFilename="sampling-plans.csv"
+      persistKey="qcInspection:samplingPlans"
+      noDataLabel="No sampling plans yet."
+    >
+      <template #toolbar-left>
+        <span class="tw:text-sm tw:text-secondary">{{ plans.length }} sampling plan(s)</span>
+        <BaseButton v-if="canManage" variant="primary" size="sm" @click="showCreate = true">
+          <template #icon><IconPlus :size="16" /></template>
+          New Sampling Plan
+        </BaseButton>
+      </template>
 
-    <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead class="tw:bg-main-hover tw:text-secondary tw:text-xs tw:uppercase">
-          <tr>
-            <th class="tw:text-left tw:px-4 tw:py-2.5 tw:w-6"></th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Name</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Point</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Standard / Level</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Status</th>
-            <th class="tw:px-4 tw:py-2.5"></th>
-          </tr>
-        </thead>
+      <template #body-cell-name="{ row }">
+        <span class="tw:font-medium tw:text-on-main">{{ row.name }}</span>
+        <span
+          v-if="row.version > 1"
+          class="tw:text-micro tw:text-secondary tw:font-normal tw:ml-1"
+          >v{{ row.version }}</span
+        >
+      </template>
 
-        <tbody v-for="p in plans" :key="p.id">
-          <!-- Main row -->
-          <BaseClickableRow
-            tag="tr"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover tw:transition-colors"
-            :aria-label="`Toggle details for sampling plan ${p.name}`"
-            @click="toggleExpand(p.id)"
+      <template #body-cell-point="{ row }">
+        <span class="tw:text-secondary">
+          {{ POINT_LABELS[row.inspectionPoint] || row.inspectionPoint }}
+        </span>
+      </template>
+
+      <template #body-cell-standard="{ row }">
+        <span class="tw:text-secondary">
+          <template v-if="row.planType === 'STANDARD'"
+            >{{ standardName(row.standardCode) }} · {{ row.inspectionLevel }}</template
           >
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
-              <component
-                :is="expandedId === p.id ? IconChevronDown : IconChevronRight"
-                :size="14"
-              />
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:font-medium tw:text-on-main">
-              {{ p.name }}
-              <span
-                v-if="p.version > 1"
-                class="tw:text-micro tw:text-secondary tw:font-normal tw:ml-1"
-                >v{{ p.version }}</span
+          <template v-else>Custom table</template>
+        </span>
+      </template>
+
+      <template #body-cell-status="{ row }">
+        <span
+          class="tw:text-caption tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
+          :class="{
+            'tw:bg-amber-100 tw:text-amber-700': row.statusId === 'DRAFT',
+            'tw:bg-green-100 tw:text-green-700': row.statusId === 'ACTIVE',
+          }"
+          >{{ row.statusId }}</span
+        >
+      </template>
+
+      <template #body-cell-actions="{ row }">
+        <div class="tw:flex tw:items-center tw:justify-end tw:gap-2">
+          <BaseButton
+            v-if="canCreate && row.statusId === 'DRAFT'"
+            variant="outline"
+            size="sm"
+            @click="startEdit(row)"
+          >
+            Edit
+          </BaseButton>
+          <BaseButton
+            v-if="canApprove && row.statusId === 'DRAFT'"
+            variant="primary"
+            size="sm"
+            @click="startApprove(row)"
+          >
+            Approve
+          </BaseButton>
+          <BaseButton
+            v-if="canCreate && row.statusId === 'DRAFT'"
+            :variant="deletingId === row.id ? 'danger' : 'outline'"
+            size="sm"
+            @click="deletePlan(row.id)"
+          >
+            {{ deletingId === row.id ? 'Confirm Delete?' : 'Delete' }}
+          </BaseButton>
+          <BaseButton
+            v-if="canCreate && row.statusId === 'ACTIVE'"
+            variant="outline"
+            size="sm"
+            :loading="revisingId === row.id"
+            @click="createNewVersion(row)"
+          >
+            New Version
+          </BaseButton>
+        </div>
+      </template>
+
+      <template #row-detail="{ row: p }">
+        <div class="tw:flex tw:flex-col tw:gap-4">
+          <!-- AQL table (STANDARD plans) -->
+          <div v-if="p.planType === 'STANDARD' && p.severityAqls?.length">
+            <BaseText variant="overline" class="tw:block tw:mb-2"> AQL by Severity </BaseText>
+            <div class="tw:flex tw:flex-wrap tw:gap-2">
+              <div
+                v-for="sa in p.severityAqls"
+                :key="sa.severity"
+                class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:px-3 tw:py-1.5 tw:text-center"
               >
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
-              {{ POINT_LABELS[p.inspectionPoint] || p.inspectionPoint }}
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
-              <template v-if="p.planType === 'STANDARD'"
-                >{{ standardName(p.standardCode) }} · {{ p.inspectionLevel }}</template
-              >
-              <template v-else>Custom table</template>
-            </td>
-            <td class="tw:px-4 tw:py-2.5">
-              <span
-                class="tw:text-caption tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
-                :class="{
-                  'tw:bg-amber-100 tw:text-amber-700': p.statusId === 'DRAFT',
-                  'tw:bg-green-100 tw:text-green-700': p.statusId === 'ACTIVE',
-                }"
-                >{{ p.statusId }}</span
-              >
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-right" @click.stop>
-              <div class="tw:flex tw:items-center tw:justify-end tw:gap-2">
-                <BaseButton
-                  v-if="canCreate && p.statusId === 'DRAFT'"
-                  variant="outline"
-                  size="sm"
-                  @click="startEdit(p)"
-                >
-                  Edit
-                </BaseButton>
-                <BaseButton
-                  v-if="canApprove && p.statusId === 'DRAFT'"
-                  variant="primary"
-                  size="sm"
-                  @click="startApprove(p)"
-                >
-                  Approve
-                </BaseButton>
-                <BaseButton
-                  v-if="canCreate && p.statusId === 'DRAFT'"
-                  :variant="deletingId === p.id ? 'danger' : 'outline'"
-                  size="sm"
-                  @click="deletePlan(p.id)"
-                >
-                  {{ deletingId === p.id ? 'Confirm Delete?' : 'Delete' }}
-                </BaseButton>
-                <BaseButton
-                  v-if="canCreate && p.statusId === 'ACTIVE'"
-                  variant="outline"
-                  size="sm"
-                  :loading="revisingId === p.id"
-                  @click="createNewVersion(p)"
-                >
-                  New Version
-                </BaseButton>
+                <div class="tw:text-micro tw:text-secondary tw:uppercase">
+                  {{ sa.severity }}
+                </div>
+                <div class="tw:font-semibold tw:text-on-main tw:text-sm">AQL {{ sa.aql }}%</div>
               </div>
-            </td>
-          </BaseClickableRow>
+            </div>
+          </div>
 
-          <!-- Expanded detail row -->
-          <tr v-if="expandedId === p.id" class="tw:border-t tw:border-divider tw:bg-main-hover">
-            <td colspan="6" class="tw:px-6 tw:py-4">
-              <div class="tw:flex tw:flex-col tw:gap-4">
-                <!-- AQL table (STANDARD plans) -->
-                <div v-if="p.planType === 'STANDARD' && p.severityAqls?.length">
-                  <BaseText variant="overline" class="tw:block tw:mb-2">
-                    AQL by Severity
-                  </BaseText>
-                  <div class="tw:flex tw:flex-wrap tw:gap-2">
-                    <div
-                      v-for="sa in p.severityAqls"
-                      :key="sa.severity"
-                      class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:px-3 tw:py-1.5 tw:text-center"
-                    >
-                      <div class="tw:text-micro tw:text-secondary tw:uppercase">
-                        {{ sa.severity }}
-                      </div>
-                      <div class="tw:font-semibold tw:text-on-main tw:text-sm">
-                        AQL {{ sa.aql }}%
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          <!-- Custom table rows -->
+          <div v-if="p.planType === 'CUSTOM' && p.customPlanTable?.rows?.length">
+            <BaseText variant="overline" class="tw:block tw:mb-2"> Custom Plan Table </BaseText>
+            <table class="tw:text-xs tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
+              <thead class="tw:bg-white tw:text-secondary tw:uppercase">
+                <tr>
+                  <th class="tw:text-left tw:px-3 tw:py-1.5">Severity</th>
+                  <th class="tw:text-left tw:px-3 tw:py-1.5">Sample Size</th>
+                  <th class="tw:text-left tw:px-3 tw:py-1.5">Accept</th>
+                  <th class="tw:text-left tw:px-3 tw:py-1.5">Reject</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="cr in p.customPlanTable.rows"
+                  :key="cr.severityLabel"
+                  class="tw:border-t tw:border-divider"
+                >
+                  <td class="tw:px-3 tw:py-1.5 tw:font-medium tw:text-on-main">
+                    {{ cr.severityLabel }}
+                  </td>
+                  <td class="tw:px-3 tw:py-1.5">{{ cr.sampleSize }}</td>
+                  <td class="tw:px-3 tw:py-1.5 tw:text-green-700">≤ {{ cr.accept }}</td>
+                  <td class="tw:px-3 tw:py-1.5 tw:text-red-700">≥ {{ cr.reject }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-                <!-- Custom table rows -->
-                <div v-if="p.planType === 'CUSTOM' && p.customPlanTable?.rows?.length">
-                  <BaseText variant="overline" class="tw:block tw:mb-2">
-                    Custom Plan Table
-                  </BaseText>
-                  <table
-                    class="tw:text-xs tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden"
-                  >
-                    <thead class="tw:bg-white tw:text-secondary tw:uppercase">
-                      <tr>
-                        <th class="tw:text-left tw:px-3 tw:py-1.5">Severity</th>
-                        <th class="tw:text-left tw:px-3 tw:py-1.5">Sample Size</th>
-                        <th class="tw:text-left tw:px-3 tw:py-1.5">Accept</th>
-                        <th class="tw:text-left tw:px-3 tw:py-1.5">Reject</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr
-                        v-for="row in p.customPlanTable.rows"
-                        :key="row.severityLabel"
-                        class="tw:border-t tw:border-divider"
-                      >
-                        <td class="tw:px-3 tw:py-1.5 tw:font-medium tw:text-on-main">
-                          {{ row.severityLabel }}
-                        </td>
-                        <td class="tw:px-3 tw:py-1.5">{{ row.sampleSize }}</td>
-                        <td class="tw:px-3 tw:py-1.5 tw:text-green-700">≤ {{ row.accept }}</td>
-                        <td class="tw:px-3 tw:py-1.5 tw:text-red-700">≥ {{ row.reject }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+          <!-- Metadata -->
+          <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3 tw:text-sm">
+            <div v-if="p.description">
+              <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Description</div>
+              <div class="tw:text-on-main">{{ p.description }}</div>
+            </div>
+            <div v-if="p.effectiveFrom">
+              <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Effective From</div>
+              <div class="tw:text-on-main">{{ p.effectiveFrom?.formatDate('date') }}</div>
+            </div>
+            <div v-if="p.effectiveUntil">
+              <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Effective Until</div>
+              <div class="tw:text-on-main">{{ p.effectiveUntil?.formatDate('date') }}</div>
+            </div>
+            <div v-if="p.notes">
+              <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Notes</div>
+              <div class="tw:text-on-main">{{ p.notes }}</div>
+            </div>
+          </div>
 
-                <!-- Metadata -->
-                <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3 tw:text-sm">
-                  <div v-if="p.description">
-                    <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Description</div>
-                    <div class="tw:text-on-main">{{ p.description }}</div>
-                  </div>
-                  <div v-if="p.effectiveFrom">
-                    <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Effective From</div>
-                    <div class="tw:text-on-main">{{ p.effectiveFrom?.formatDate('date') }}</div>
-                  </div>
-                  <div v-if="p.effectiveUntil">
-                    <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Effective Until</div>
-                    <div class="tw:text-on-main">{{ p.effectiveUntil?.formatDate('date') }}</div>
-                  </div>
-                  <div v-if="p.notes">
-                    <div class="tw:text-xs tw:text-secondary tw:mb-0.5">Notes</div>
-                    <div class="tw:text-on-main">{{ p.notes }}</div>
-                  </div>
-                </div>
-
-                <!-- Version history (predecessors via parentPlanId chain) -->
-                <div v-if="getPredecessors(p).length">
-                  <BaseText variant="overline" class="tw:block tw:mb-2">
-                    Version History
-                  </BaseText>
-                  <div class="tw:flex tw:flex-col tw:gap-1">
-                    <div
-                      v-for="prev in getPredecessors(p)"
-                      :key="prev.id"
-                      class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary tw:py-1 tw:border-b tw:border-divider tw:last:border-0"
-                    >
-                      <span class="tw:font-mono tw:font-medium tw:text-on-main"
-                        >v{{ prev.version }}</span
-                      >
-                      <span>{{ prev.name }}</span>
-                      <span v-if="prev.planType === 'STANDARD'"
-                        >· {{ standardName(prev.standardCode) }} {{ prev.inspectionLevel }}</span
-                      >
-                      <span class="tw:ml-auto tw:text-micro"
-                        >superseded {{ prev.effectiveUntil?.formatDate('date') }}</span
-                      >
-                    </div>
-                  </div>
-                </div>
+          <!-- Version history (predecessors via parentPlanId chain) -->
+          <div v-if="getPredecessors(p).length">
+            <BaseText variant="overline" class="tw:block tw:mb-2"> Version History </BaseText>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <div
+                v-for="prev in getPredecessors(p)"
+                :key="prev.id"
+                class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary tw:py-1 tw:border-b tw:border-divider tw:last:border-0"
+              >
+                <span class="tw:font-mono tw:font-medium tw:text-on-main">v{{ prev.version }}</span>
+                <span>{{ prev.name }}</span>
+                <span v-if="prev.planType === 'STANDARD'"
+                  >· {{ standardName(prev.standardCode) }} {{ prev.inspectionLevel }}</span
+                >
+                <span class="tw:ml-auto tw:text-micro"
+                  >superseded {{ prev.effectiveUntil?.formatDate('date') }}</span
+                >
               </div>
-            </td>
-          </tr>
-        </tbody>
-
-        <tbody v-if="!plans.length">
-          <tr>
-            <td colspan="6" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
-              No sampling plans yet.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </DataTable>
 
     <SamplingPlanCreateDialog v-model="showCreate" />
     <SamplingPlanCreateDialog v-model="showEdit" :editPlan="editingPlan" />

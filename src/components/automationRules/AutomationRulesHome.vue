@@ -24,6 +24,36 @@ function openEdit(rule) {
 
 const triggerLabel = Object.fromEntries(AUTOMATION_TRIGGERS.map((t) => [t.value, t.label]))
 
+const OBJECT_OPTIONS = Object.entries(OBJECT_BY_VALUE).map(([value, o]) => ({
+  value,
+  label: o?.label || value,
+}))
+const TRIGGER_OPTIONS = AUTOMATION_TRIGGERS.map((t) => ({ value: t.value, label: t.label }))
+
+const columns = [
+  { name: 'name', label: 'Rule', field: 'name', align: 'left', sortable: true },
+  {
+    name: 'object',
+    label: 'Object',
+    field: 'objectType',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: OBJECT_OPTIONS,
+  },
+  {
+    name: 'trigger',
+    label: 'Trigger',
+    field: 'trigger',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: TRIGGER_OPTIONS,
+  },
+  { name: 'conditions', label: 'Conditions', field: conditionCount, align: 'center', filterType: 'number' },
+  { name: 'actionSummary', label: 'Actions', field: actionSummary, align: 'left', filterType: false },
+  { name: 'active', label: 'Active', field: 'isActive', align: 'center', filterType: false },
+  { name: 'actions', label: '', field: 'actions', align: 'right', filterType: false },
+]
+
 function actionSummary(rule) {
   const list = Array.isArray(rule.actions) ? rule.actions : []
   if (!list.length) return '—'
@@ -65,48 +95,67 @@ async function onDelete(rule) {
       </template>
     </PageHeader>
 
-    <div class="tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead>
-          <tr class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider">
-            <th class="tw:px-4 tw:py-2.5">Rule</th>
-            <th class="tw:px-4 tw:py-2.5">Object</th>
-            <th class="tw:px-4 tw:py-2.5">Trigger</th>
-            <th class="tw:px-4 tw:py-2.5 tw:text-center">Conditions</th>
-            <th class="tw:px-4 tw:py-2.5">Actions</th>
-            <th class="tw:px-4 tw:py-2.5 tw:text-center">Active</th>
-            <th class="tw:px-4 tw:py-2.5 tw:text-right"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="rule in rules" :key="rule.id" class="tw:border-b tw:border-divider">
-            <td class="tw:px-4 tw:py-3 tw:font-medium tw:text-on-sidebar">{{ rule.name }}</td>
-            <td class="tw:px-4 tw:py-3 tw:text-secondary">{{ OBJECT_BY_VALUE[rule.objectType]?.label || rule.objectType }}</td>
-            <td class="tw:px-4 tw:py-3 tw:text-secondary">{{ triggerLabel[rule.trigger] || rule.trigger }}</td>
-            <td class="tw:px-4 tw:py-3 tw:text-center tw:text-secondary">{{ conditionCount(rule) }}</td>
-            <td class="tw:px-4 tw:py-3 tw:text-secondary tw:text-xs">{{ actionSummary(rule) }}</td>
-            <td class="tw:px-4 tw:py-3 tw:text-center">
-              <BaseSwitch :modelValue="rule.isActive" @update:modelValue="() => toggleActive(rule)" />
-            </td>
-            <td class="tw:px-4 tw:py-3 tw:text-right">
-              <div class="tw:flex tw:items-center tw:justify-end tw:gap-1">
-                <button class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:text-primary" title="Edit" @click="openEdit(rule)">
-                  <IconPencil :size="16" />
-                </button>
-                <button class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:text-red-600" title="Delete" @click="onDelete(rule)">
-                  <IconTrash :size="16" />
-                </button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!rules.length">
-            <td colspan="7" class="tw:px-4 tw:py-8 tw:text-center tw:text-sm tw:text-secondary tw:italic">
-              No automation rules yet. Create one to notify people or auto-create records when conditions match.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      :rows="rules"
+      :columns="columns"
+      rowKey="id"
+      :mobileCards="false"
+      searchable
+      filterable
+      densitySelector
+      columnManager
+      exportManager
+      exportFilename="automation-rules.csv"
+      persistKey="automationRules:list"
+      noDataLabel="No automation rules yet. Create one to notify people or auto-create records when conditions match."
+    >
+      <template #toolbar-left>
+        <span class="tw:text-sm tw:text-secondary">{{ rules.length }} rule(s)</span>
+      </template>
+
+      <template #body-cell-name="{ row }">
+        <span class="tw:font-medium tw:text-on-main">{{ row.name }}</span>
+      </template>
+
+      <template #body-cell-object="{ row }">
+        <span class="tw:text-secondary">{{ OBJECT_BY_VALUE[row.objectType]?.label || row.objectType }}</span>
+      </template>
+
+      <template #body-cell-trigger="{ row }">
+        <span class="tw:text-secondary">{{ triggerLabel[row.trigger] || row.trigger }}</span>
+      </template>
+
+      <template #body-cell-conditions="{ row }">
+        <span class="tw:text-secondary">{{ conditionCount(row) }}</span>
+      </template>
+
+      <template #body-cell-actionSummary="{ row }">
+        <span class="tw:text-secondary tw:text-xs">{{ actionSummary(row) }}</span>
+      </template>
+
+      <template #body-cell-active="{ row }">
+        <BaseSwitch :modelValue="row.isActive" @update:modelValue="() => toggleActive(row)" />
+      </template>
+
+      <template #body-cell-actions="{ row }">
+        <div class="tw:flex tw:items-center tw:justify-end tw:gap-1">
+          <button
+            class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:text-primary"
+            title="Edit"
+            @click="openEdit(row)"
+          >
+            <IconPencil :size="16" />
+          </button>
+          <button
+            class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:text-red-600"
+            title="Delete"
+            @click="onDelete(row)"
+          >
+            <IconTrash :size="16" />
+          </button>
+        </div>
+      </template>
+    </DataTable>
 
     <AutomationRuleBuilder v-model="showBuilder" :ruleId="editingId" @saved="showBuilder = false" />
   </BasePage>

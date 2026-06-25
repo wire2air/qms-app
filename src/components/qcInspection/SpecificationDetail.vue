@@ -135,6 +135,22 @@ const MATERIAL_LABELS = {
 const MATERIAL_ITEMS = Object.entries(MATERIAL_LABELS).map(([id, name]) => ({ id, name }))
 const TEST_TYPES = ['NUMERIC', 'PASS_FAIL', 'TEXT']
 
+// Read-only characteristics table (EFFECTIVE/SUPERSEDED specs).
+const charColumns = [
+  { name: 'test', label: 'Test', field: 'name', align: 'left' },
+  { name: 'type', label: 'Type', field: 'testType', align: 'left' },
+  { name: 'spec', label: 'Spec', field: 'name', align: 'left' },
+  { name: 'instrument', label: 'Instrument', field: 'name', align: 'left' },
+]
+
+// Version history table.
+const versionColumns = [
+  { name: 'version', label: 'Version', field: 'version', align: 'left' },
+  { name: 'status', label: 'Status', field: 'statusId', align: 'left' },
+  { name: 'effective', label: 'Effective', field: 'name', align: 'left' },
+  { name: 'superseded', label: 'Superseded', field: 'name', align: 'left' },
+]
+
 function userName(user) {
   if (!user) return '—'
   return [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || '—'
@@ -555,43 +571,35 @@ async function newVersion() {
 
         <!-- Read-only table -->
         <template v-else>
-          <table class="tw:w-full tw:text-sm">
-            <thead class="tw:text-secondary tw:text-xs tw:uppercase tw:bg-main-hover">
-              <tr class="tw:border-b tw:border-divider">
-                <th class="tw:text-left tw:px-5 tw:py-2">Test</th>
-                <th class="tw:text-left tw:px-5 tw:py-2">Type</th>
-                <th class="tw:text-left tw:px-5 tw:py-2">Spec</th>
-                <th class="tw:text-left tw:px-5 tw:py-2">Instrument</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(c, idx) in characteristics"
-                :key="c.id"
-                class="tw:border-t tw:border-divider tw:hover:bg-sidebar-selected tw:transition-colors"
-                :class="idx % 2 === 1 ? 'tw:bg-main-hover' : ''"
-              >
-                <td class="tw:px-5 tw:py-2.5 tw:font-medium tw:text-on-main">
-                  {{ c.name }}
-                  <DefectSeverityBadgeById :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')" class="tw:ml-1 tw:text-micro" />
-                  <div v-if="c.testMethod" class="tw:mt-1">
-                    <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
-                  </div>
-                </td>
-                <td class="tw:px-5 tw:py-2.5 tw:text-secondary">{{ c.testType }}</td>
-                <td class="tw:px-5 tw:py-2.5 tw:text-secondary">{{ limitText(c) }}</td>
-                <td class="tw:px-5 tw:py-2.5 tw:text-secondary">
-                  <EquipmentBadgeById v-if="c.preferredEquipmentId" :equipmentId="c.preferredEquipmentId" />
-                  <template v-else>{{ c.requiresInstrument ? 'Required' : '—' }}</template>
-                </td>
-              </tr>
-              <tr v-if="!characteristics.length">
-                <td colspan="4" class="tw:px-5 tw:py-6 tw:text-center tw:text-secondary tw:italic">
-                  No characteristics.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <DataTable
+            :rows="characteristics"
+            :columns="charColumns"
+            rowKey="id"
+            :mobileCards="false"
+            :stickyHeader="false"
+            hidePagination
+            noDataLabel="No characteristics."
+          >
+            <template #body-cell-test="{ row }">
+              <div class="tw:font-medium tw:text-on-main">
+                {{ row.name }}
+                <DefectSeverityBadgeById :severityId="row.defectClass || (row.isCritical ? 'CRITICAL' : 'MAJOR')" class="tw:ml-1 tw:text-micro" />
+                <div v-if="row.testMethod" class="tw:mt-1">
+                  <RichTextAttachments :modelValue="row.testMethod" :readonly="true" />
+                </div>
+              </div>
+            </template>
+            <template #body-cell-type="{ row }">
+              <span class="tw:text-secondary">{{ row.testType }}</span>
+            </template>
+            <template #body-cell-spec="{ row }">
+              <span class="tw:text-secondary">{{ limitText(row) }}</span>
+            </template>
+            <template #body-cell-instrument="{ row }">
+              <EquipmentBadgeById v-if="row.preferredEquipmentId" :equipmentId="row.preferredEquipmentId" />
+              <span v-else class="tw:text-secondary">{{ row.requiresInstrument ? 'Required' : '—' }}</span>
+            </template>
+          </DataTable>
         </template>
       </div>
 
@@ -721,39 +729,35 @@ async function newVersion() {
       <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover">
         <h3 class="tw:font-bold tw:text-on-main">Version History</h3>
       </div>
-      <table class="tw:w-full tw:text-sm">
-        <thead class="tw:text-secondary tw:text-xs tw:uppercase">
-          <tr>
-            <th class="tw:text-left tw:px-5 tw:py-2">Version</th>
-            <th class="tw:text-left tw:px-5 tw:py-2">Status</th>
-            <th class="tw:text-left tw:px-5 tw:py-2">Effective</th>
-            <th class="tw:text-left tw:px-5 tw:py-2">Superseded</th>
-          </tr>
-        </thead>
-        <tbody>
-          <BaseClickableRow
-            v-for="prev in versionHistory"
-            :key="prev.id"
-            tag="tr"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-            :aria-label="`Open specification version ${prev.version}`"
-            @click="openSpec(prev.id)"
+      <DataTable
+        :rows="versionHistory"
+        :columns="versionColumns"
+        rowKey="id"
+        :mobileCards="false"
+        :stickyHeader="false"
+        hidePagination
+        noDataLabel="No previous versions."
+      >
+        <template #body-cell-version="{ row }">
+          <button
+            type="button"
+            class="tw:font-mono tw:font-medium tw:text-on-main tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+            :aria-label="`Open specification version ${row.version}`"
+            @click="openSpec(row.id)"
           >
-            <td class="tw:px-5 tw:py-2.5 tw:font-mono tw:font-medium tw:text-on-main">
-              v{{ prev.version }}
-            </td>
-            <td class="tw:px-5 tw:py-2.5">
-              <SpecificationStatusBadgeById :statusId="prev.statusId" />
-            </td>
-            <td class="tw:px-5 tw:py-2.5 tw:text-secondary">
-              {{ prev.effectiveFrom?.formatDate('date') || '—' }}
-            </td>
-            <td class="tw:px-5 tw:py-2.5 tw:text-secondary">
-              {{ prev.effectiveUntil?.formatDate('date') || '—' }}
-            </td>
-          </BaseClickableRow>
-        </tbody>
-      </table>
+            v{{ row.version }}
+          </button>
+        </template>
+        <template #body-cell-status="{ row }">
+          <SpecificationStatusBadgeById :statusId="row.statusId" />
+        </template>
+        <template #body-cell-effective="{ row }">
+          <span class="tw:text-secondary">{{ row.effectiveFrom?.formatDate('date') || '—' }}</span>
+        </template>
+        <template #body-cell-superseded="{ row }">
+          <span class="tw:text-secondary">{{ row.effectiveUntil?.formatDate('date') || '—' }}</span>
+        </template>
+      </DataTable>
     </div>
 
     <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />

@@ -2,12 +2,12 @@
 /**
  * Specifications list — the versioned test master. Reads live from the
  * SyncEngine; create/version/approve go through the qcInspection REST service
- * (aggregate writes, not plain entity CRUD).
+ * (aggregate writes, not plain entity CRUD). Rendered via the shared DataTable —
+ * search, advanced filter (incl. created-date), density, column manager and
+ * export all live in the table toolbar.
  */
-import { IconPlus, IconDownload, IconCalendar } from '@tabler/icons-vue'
+import { IconPlus } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { matchesDateFilter } from '@/utils/dateRanges.js'
-import { exportToCSV } from '@/utils/exportUtils.js'
 import { post, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { isAllowed } from '@/utils/currentSession.js'
 
@@ -19,11 +19,6 @@ const showCreate = ref(false)
 const showEsign = ref(false)
 const approvingId = ref(null)
 const deletingId = ref(null)
-const specFilters = ref({})
-
-const specDateFilterItems = computed(() => [
-  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
-])
 
 const canApprove = computed(() => isAllowed(['qcInspection:spec:write']))
 
@@ -33,7 +28,10 @@ function startApprove(spec) {
 }
 
 async function deleteSpec(id) {
-  if (deletingId.value !== id) { deletingId.value = id; return }
+  if (deletingId.value !== id) {
+    deletingId.value = id
+    return
+  }
   try {
     await del(`/v1/services/qcInspection/specifications/${id}`)
     toast.success('Specification deleted')
@@ -64,122 +62,113 @@ const MATERIAL_LABELS = {
   BULK: 'Bulk',
   FINISHED: 'Finished good',
 }
+const MATERIAL_OPTIONS = Object.entries(MATERIAL_LABELS).map(([value, label]) => ({ value, label }))
 
-const specs = useLiveQueryWithDeps(
-  [() => specFilters.value.createdAt],
-  async (db, [createdAt]) => {
+const columns = [
+  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
+  {
+    name: 'material',
+    label: 'MATERIAL',
+    field: 'materialKind',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: MATERIAL_OPTIONS,
+  },
+  { name: 'version', label: 'VERSION', field: 'version', align: 'left', sortable: true },
+  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left' },
+  {
+    name: 'createdAt',
+    label: 'CREATED',
+    field: 'createdAt',
+    align: 'left',
+    sortable: true,
+    filterType: 'date',
+  },
+  { name: 'actions', label: '', field: 'actions', align: 'right' },
+]
+
+const specs = useLiveQuery(
+  async (db) => {
     let rows = await db.Specification.where().exec()
     rows = rows.filter((s) => s.statusId !== 'SUPERSEDED')
-    if (createdAt) rows = rows.filter((s) => matchesDateFilter(s.createdAt, createdAt))
     return rows.sort((a, b) => (a.name || '').localeCompare(b.name || '') || b.version - a.version)
   },
-
   { models: ['Specification'], initial: [] },
 )
 
 function openSpec(id) {
   router.push(getCompanyPath(`/qc-inspection/specifications/${id}`))
 }
-
-function exportCsv() {
-  exportToCSV(
-    specs.value,
-    [
-      { field: 'name', label: 'Name' },
-      { field: 'code', label: 'Code' },
-      { field: (r) => MATERIAL_LABELS[r.materialKind] || r.materialKind, label: 'Material' },
-      { field: 'version', label: 'Version' },
-      { field: 'statusId', label: 'Status' },
-      { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
-    ],
-    'specifications',
-  )
-}
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3">
-    <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:flex-wrap">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-        <div class="tw:text-sm tw:text-secondary">{{ specs.length }} specification(s)</div>
-        <BaseFilterMenu v-model="specFilters" :items="specDateFilterItems" />
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <BaseButton variant="outline" size="sm" :disabled="!specs.length" @click="exportCsv">
-          <template #icon><IconDownload :size="16" /></template>
-          Export
-        </BaseButton>
-        <BaseButton v-if="canManage" variant="primary" size="sm" @click="showCreate = true">
-          <template #icon><IconPlus :size="16" /></template>
-          New Specification
-        </BaseButton>
-      </div>
-    </div>
+  <DataTable
+    :rows="specs"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    searchable
+    filterable
+    densitySelector
+    columnManager
+    exportManager
+    exportFilename="specifications.csv"
+    persistKey="qcInspection:specifications"
+    noDataLabel="No specifications yet."
+  >
+    <template #toolbar-left>
+      <span class="tw:text-sm tw:text-secondary">{{ specs.length }} specification(s)</span>
+      <BaseButton v-if="canManage" variant="primary" size="sm" @click="showCreate = true">
+        <template #icon><IconPlus :size="16" /></template>
+        New Specification
+      </BaseButton>
+    </template>
 
-    <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead class="tw:bg-main-hover tw:text-secondary tw:text-xs tw:uppercase">
-          <tr>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Name</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Material</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Version</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Status</th>
-            <th class="tw:px-4 tw:py-2.5"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <BaseClickableRow
-            v-for="s in specs"
-            :key="s.id"
-            tag="tr"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-            :aria-label="`Open specification ${s.name}`"
-            @click="openSpec(s.id)"
-          >
-            <td class="tw:px-4 tw:py-2.5 tw:font-medium tw:text-on-main">
-              {{ s.name }}
-              <span v-if="s.code" class="tw:text-xs tw:text-secondary tw:font-mono"
-                >· {{ s.code }}</span
-              >
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
-              {{ MATERIAL_LABELS[s.materialKind] || s.materialKind }}
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">v{{ s.version }}</td>
-            <td class="tw:px-4 tw:py-2.5">
-              <SpecificationStatusBadgeById :statusId="s.statusId" />
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-right" @click.stop>
-              <div class="tw:flex tw:items-center tw:justify-end tw:gap-2">
-                <BaseButton
-                  v-if="canApprove && s.statusId === 'DRAFT'"
-                  variant="outline"
-                  size="sm"
-                  @click="startApprove(s)"
-                >
-                  Approve
-                </BaseButton>
-                <BaseButton
-                  v-if="canApprove && s.statusId === 'DRAFT'"
-                  :variant="deletingId === s.id ? 'danger' : 'outline'"
-                  size="sm"
-                  @click="deleteSpec(s.id)"
-                >
-                  {{ deletingId === s.id ? 'Confirm Delete?' : 'Delete' }}
-                </BaseButton>
-              </div>
-            </td>
-          </BaseClickableRow>
-          <tr v-if="!specs.length">
-            <td colspan="5" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
-              No specifications yet.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <template #body-cell-name="{ row }">
+      <RouterLink
+        :to="getCompanyPath(`/qc-inspection/specifications/${row.id}`)"
+        class="tw:font-medium tw:text-on-main tw:hover:text-primary"
+      >
+        {{ row.name }}
+        <span v-if="row.code" class="tw:text-xs tw:text-secondary tw:font-mono">
+          · {{ row.code }}</span
+        >
+      </RouterLink>
+    </template>
 
-    <SpecificationCreateDialog v-model="showCreate" @created="(id) => openSpec(id)" />
-    <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
-  </div>
+    <template #body-cell-material="{ row }">
+      <span class="tw:text-secondary">{{ MATERIAL_LABELS[row.materialKind] || row.materialKind }}</span>
+    </template>
+
+    <template #body-cell-version="{ row }">
+      <span class="tw:text-secondary">v{{ row.version }}</span>
+    </template>
+
+    <template #body-cell-status="{ row }">
+      <SpecificationStatusBadgeById :statusId="row.statusId" />
+    </template>
+
+    <template #body-cell-createdAt="{ row }">
+      <span class="tw:text-secondary">{{ row.createdAt?.formatDate('date') }}</span>
+    </template>
+
+    <template #body-cell-actions="{ row }">
+      <div
+        v-if="canApprove && row.statusId === 'DRAFT'"
+        class="tw:flex tw:items-center tw:justify-end tw:gap-2"
+      >
+        <BaseButton variant="outline" size="sm" @click="startApprove(row)">Approve</BaseButton>
+        <BaseButton
+          :variant="deletingId === row.id ? 'danger' : 'outline'"
+          size="sm"
+          @click="deleteSpec(row.id)"
+        >
+          {{ deletingId === row.id ? 'Confirm Delete?' : 'Delete' }}
+        </BaseButton>
+      </div>
+    </template>
+  </DataTable>
+
+  <SpecificationCreateDialog v-model="showCreate" @created="(id) => openSpec(id)" />
+  <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
 </template>

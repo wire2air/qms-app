@@ -25,6 +25,24 @@ const standards = useLiveQuery(
 
   { models: ['SamplingStandard'], initial: [] },
 )
+
+const TYPE_OPTIONS = [
+  { value: true, label: 'Custom' },
+  { value: false, label: 'Global' },
+]
+const columns = [
+  { name: 'name', label: 'Standard', field: 'name', align: 'left', sortable: true },
+  {
+    name: 'type',
+    label: 'Type',
+    field: (s) => !!s.companyId,
+    align: 'left',
+    filterType: 'select',
+    filterOptions: TYPE_OPTIONS,
+  },
+  { name: 'actions', label: '', field: 'actions', align: 'right' },
+]
+
 const selected = computed(() => standards.value.find((s) => s.id === selectedId.value) || null)
 // Global standards are view-only; only tenant custom clones are editable.
 const selectedEditable = computed(() => !!selected.value?.companyId)
@@ -69,54 +87,51 @@ async function saveCell(cell) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
-    <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead class="tw:bg-main-hover tw:text-secondary tw:text-xs tw:uppercase">
-          <tr>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Standard</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Type</th>
-            <th class="tw:text-right tw:px-4 tw:py-2.5"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="s in standards" :key="s.id" class="tw:border-t tw:border-divider">
-            <td class="tw:px-4 tw:py-2.5 tw:font-medium tw:text-on-main">{{ s.name }}</td>
-            <td class="tw:px-4 tw:py-2.5">
-              <span
-                class="tw:text-micro tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
-                :class="
-                  s.companyId
-                    ? 'tw:bg-blue-100 tw:text-blue-700'
-                    : 'tw:bg-gray-100 tw:text-gray-600'
-                "
-              >
-                {{ s.companyId ? 'Custom' : 'Global' }}
-              </span>
-            </td>
-            <td class="tw:px-4 tw:py-2.5">
-              <div class="tw:flex tw:items-center tw:justify-end tw:gap-4">
-                <BaseButton variant="text-link" size="sm" @click="select(s)">
-                  {{ s.companyId ? 'Edit cells' : 'View' }}
-                </BaseButton>
-                <BaseButton
-                  v-if="canManage && !s.companyId"
-                  variant="text-link"
-                  size="sm"
-                  @click="openClone(s)"
-                >
-                  <IconCopy :size="14" /> Clone
-                </BaseButton>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!standards.length">
-            <td colspan="3" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
-              No standards.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      :rows="standards"
+      :columns="columns"
+      rowKey="id"
+      :mobileCards="false"
+      searchable
+      filterable
+      densitySelector
+      columnManager
+      exportManager
+      exportFilename="aql-standards.csv"
+      persistKey="qcInspection:aqlStandards"
+      noDataLabel="No standards."
+    >
+      <template #body-cell-name="{ row }">
+        <span class="tw:font-medium tw:text-on-main">{{ row.name }}</span>
+      </template>
+
+      <template #body-cell-type="{ row }">
+        <span
+          class="tw:text-micro tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
+          :class="
+            row.companyId ? 'tw:bg-blue-100 tw:text-blue-700' : 'tw:bg-gray-100 tw:text-gray-600'
+          "
+        >
+          {{ row.companyId ? 'Custom' : 'Global' }}
+        </span>
+      </template>
+
+      <template #body-cell-actions="{ row }">
+        <div class="tw:flex tw:items-center tw:justify-end tw:gap-4">
+          <BaseButton variant="text-link" size="sm" @click="select(row)">
+            {{ row.companyId ? 'Edit cells' : 'View' }}
+          </BaseButton>
+          <BaseButton
+            v-if="canManage && !row.companyId"
+            variant="text-link"
+            size="sm"
+            @click="openClone(row)"
+          >
+            <IconCopy :size="14" /> Clone
+          </BaseButton>
+        </div>
+      </template>
+    </DataTable>
 
     <!-- Cell editor for the selected custom standard -->
     <div

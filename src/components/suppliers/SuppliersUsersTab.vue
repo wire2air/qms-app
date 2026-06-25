@@ -1,5 +1,5 @@
 <script setup>
-import { IconUserPlus, IconMail, IconUser, IconX } from '@tabler/icons-vue'
+import { IconUserPlus, IconMail, IconX } from '@tabler/icons-vue'
 import { post, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { required } from '@shared/components/form/validators.js'
 
@@ -34,6 +34,14 @@ const users = useLiveQueryWithDeps(
 
   { models: ['User'], initial: [] },
 )
+
+const columns = [
+  { name: 'name', label: 'NAME', field: 'firstName', align: 'left' },
+  { name: 'email', label: 'EMAIL', field: 'email', align: 'left' },
+  { name: 'title', label: 'TITLE', field: 'jobTitle', align: 'left' },
+  { name: 'status', label: 'STATUS', field: 'userStatusId', align: 'left' },
+  { name: 'actions', label: '', field: 'actions', align: 'right' },
+]
 
 const showInvite = ref(false)
 const invite = ref({ firstName: '', lastName: '', email: '', jobTitle: '' })
@@ -119,65 +127,55 @@ async function cancelInvite(u) {
       </BaseButton>
     </div>
 
-    <div
-      v-if="users.length === 0"
-      class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:py-10 tw:text-secondary tw:bg-white tw:rounded-lg tw:border tw:border-divider"
+    <DataTable
+      :rows="users"
+      :columns="columns"
+      rowKey="id"
+      :mobileCards="false"
+      searchable
+      densitySelector
+      columnManager
+      exportManager
+      exportFilename="supplier-users.csv"
+      persistKey="suppliers:users"
+      noDataLabel="No supplier users yet. Invite one to give them dashboard access + workflow eligibility."
     >
-      <IconUser :size="32" class="tw:opacity-60" />
-      <div class="tw:text-sm">No supplier users yet.</div>
-      <div class="tw:text-xs">Invite one to give them dashboard access + workflow eligibility.</div>
-    </div>
+      <template #body-cell-name="{ row }">
+        <span class="tw:text-on-main">{{ row.firstName }} {{ row.lastName || '' }}</span>
+      </template>
 
-    <div v-else class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead class="tw:bg-main-hover tw:text-secondary tw:text-xs tw:uppercase">
-          <tr>
-            <th class="tw:text-left tw:px-3 tw:py-2">Name</th>
-            <th class="tw:text-left tw:px-3 tw:py-2">Email</th>
-            <th class="tw:text-left tw:px-3 tw:py-2">Title</th>
-            <th class="tw:text-left tw:px-3 tw:py-2">Status</th>
-            <th class="tw:text-right tw:px-3 tw:py-2 tw:w-8"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="u in users"
-            :key="u.id"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-          >
-            <td class="tw:px-3 tw:py-2 tw:text-on-main">
-              {{ u.firstName }} {{ u.lastName || '' }}
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-on-main">
-              <span class="tw:inline-flex tw:items-center tw:gap-1">
-                <IconMail :size="12" class="tw:text-secondary" />
-                {{ u.email }}
-              </span>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-secondary">{{ u.jobTitle || '—' }}</td>
-            <td class="tw:px-3 tw:py-2">
-              <span
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:rounded tw:px-2 tw:py-0.5"
-                :class="statusLabel(u).cls"
-              >
-                {{ statusLabel(u).text }}
-              </span>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-right">
-              <button
-                v-if="canCancelInvite(u)"
-                type="button"
-                title="Cancel invitation"
-                class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-bad tw:hover:bg-red-50 tw:bg-transparent tw:border-0 tw:cursor-pointer"
-                @click="cancelInvite(u)"
-              >
-                <IconX :size="14" />
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+      <template #body-cell-email="{ row }">
+        <span class="tw:inline-flex tw:items-center tw:gap-1 tw:text-on-main">
+          <IconMail :size="12" class="tw:text-secondary" />
+          {{ row.email }}
+        </span>
+      </template>
+
+      <template #body-cell-title="{ row }">
+        <span class="tw:text-secondary">{{ row.jobTitle || '—' }}</span>
+      </template>
+
+      <template #body-cell-status="{ row }">
+        <span
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:rounded tw:px-2 tw:py-0.5"
+          :class="statusLabel(row).cls"
+        >
+          {{ statusLabel(row).text }}
+        </span>
+      </template>
+
+      <template #body-cell-actions="{ row }">
+        <button
+          v-if="canCancelInvite(row)"
+          type="button"
+          title="Cancel invitation"
+          class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-bad tw:hover:bg-red-50 tw:bg-transparent tw:border-0 tw:cursor-pointer"
+          @click="cancelInvite(row)"
+        >
+          <IconX :size="14" />
+        </button>
+      </template>
+    </DataTable>
 
     <!-- Invite dialog -->
     <BaseDialog v-model="showInvite" title="Invite supplier user" size="md">
