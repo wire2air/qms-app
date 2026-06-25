@@ -68,7 +68,10 @@ function rowMenuItems(row) {
     :loading="loading"
     rowKey="id"
     :mobileCards="false"
+    searchable
     filterable
+    exportManager
+    exportFilename="sites.csv"
   >
     <template #body-cell-name="{ row }">
       <div class="tw:font-bold tw:text-on-main">{{ row.name }}</div>

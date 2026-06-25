@@ -82,7 +82,10 @@ function onRowClick(row) {
     :loading="loading"
     rowKey="id"
     :mobileCards="false"
+    searchable
     filterable
+    exportManager
+    exportFilename="option-sets.csv"
     @rowClick="onRowClick"
   >
     <template #body-cell-name="{ row }">

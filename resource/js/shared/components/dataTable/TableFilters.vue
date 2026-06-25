@@ -4,12 +4,16 @@
  * connector, an "Add filter" field picker (searchable), and a clear-all. Emits a
  * FilterGroup via v-model; DataTable applies it (see tableFilters.js).
  */
-import { IconPlus, IconX } from '@tabler/icons-vue'
+import { IconPlus, IconX, IconFilter } from '@tabler/icons-vue'
 import { newCondition, emptyGroup } from './filterModel.js'
 
 const props = defineProps({
   // Filterable columns: { name, label, filterType, filterOptions? }
   columns: { type: Array, default: () => [] },
+  // 'full'    — picker trigger + chips + clear (standalone bar; default)
+  // 'trigger' — just the add-filter picker button, styled for the toolbar icon row
+  // 'chips'   — just the active-condition chips + connector + clear (rendered below)
+  mode: { type: String, default: 'full' },
 })
 const group = defineModel({ type: Object, default: () => emptyGroup() })
 
@@ -45,28 +49,49 @@ function clearAll() {
 
 <template>
   <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
-    <template v-for="(cond, i) in conditions" :key="cond.id">
-      <button
-        v-if="i > 0"
-        type="button"
-        :aria-label="`Toggle combinator, currently ${combinator}`"
-        class="tw:rounded tw:bg-main-hover tw:px-1.5 tw:py-1 tw:text-micro tw:font-bold tw:tracking-wide tw:text-secondary tw:uppercase tw:transition-colors tw:hover:text-on-main"
-        @click="toggleCombinator"
-      >
-        {{ combinator }}
-      </button>
-      <TableFilterChip
-        v-if="colByName[cond.field]"
-        :condition="cond"
-        :column="colByName[cond.field]"
-        @update="updateCondition(cond.id, $event)"
-        @remove="removeCondition(cond.id)"
-      />
+    <template v-if="mode !== 'trigger'">
+      <template v-for="(cond, i) in conditions" :key="cond.id">
+        <button
+          v-if="i > 0"
+          type="button"
+          :aria-label="`Toggle combinator, currently ${combinator}`"
+          class="tw:rounded tw:bg-main-hover tw:px-1.5 tw:py-1 tw:text-micro tw:font-bold tw:tracking-wide tw:text-secondary tw:uppercase tw:transition-colors tw:hover:text-on-main"
+          @click="toggleCombinator"
+        >
+          {{ combinator }}
+        </button>
+        <TableFilterChip
+          v-if="colByName[cond.field]"
+          :condition="cond"
+          :column="colByName[cond.field]"
+          @update="updateCondition(cond.id, $event)"
+          @remove="removeCondition(cond.id)"
+        />
+      </template>
     </template>
 
-    <BasePopover placement="bottom-start">
+    <BasePopover v-if="mode !== 'chips'" placement="bottom-start">
       <template #button>
+        <!-- Toolbar-style icon trigger (lives in the toolbar icon row) -->
         <button
+          v-if="mode === 'trigger'"
+          type="button"
+          title="Filter"
+          class="tw:flex tw:items-center tw:gap-1.5 tw:rounded-md tw:px-2 tw:py-1.5 tw:text-xs tw:font-medium tw:transition-colors tw:hover:bg-main-hover tw:hover:text-on-main"
+          :class="conditions.length ? 'tw:text-primary' : 'tw:text-secondary'"
+        >
+          <IconFilter :size="16" />
+          <span class="tw:hidden sm:tw:inline">Filter</span>
+          <span
+            v-if="conditions.length"
+            class="tw:rounded tw:bg-primary/15 tw:px-1 tw:text-[10px] tw:font-semibold tw:text-primary"
+          >
+            {{ conditions.length }}
+          </span>
+        </button>
+        <!-- Standalone dashed "Advanced filter" button (full mode) -->
+        <button
+          v-else
           type="button"
           class="tw:flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-dashed tw:border-divider tw:px-2 tw:py-1 tw:text-xs tw:font-medium tw:text-secondary tw:transition-colors tw:hover:border-primary tw:hover:text-on-main"
         >
@@ -100,7 +125,7 @@ function clearAll() {
     </BasePopover>
 
     <button
-      v-if="conditions.length"
+      v-if="mode !== 'trigger' && conditions.length"
       type="button"
       class="tw:flex tw:items-center tw:gap-1 tw:rounded-md tw:px-1.5 tw:py-1 tw:text-xs tw:font-medium tw:text-secondary tw:transition-colors tw:hover:text-on-main"
       @click="clearAll"

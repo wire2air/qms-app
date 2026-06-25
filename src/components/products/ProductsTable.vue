@@ -1,5 +1,5 @@
 <script setup>
-import { IconEdit, IconTrash, IconDownload, IconUpload } from '@tabler/icons-vue'
+import { IconEdit, IconTrash, IconUpload } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const props = defineProps({
@@ -33,7 +33,6 @@ const families = useLiveQuery(async (db) => db.ProductFamily.where().exec(), {
   models: ['ProductFamily'],
   initial: [],
 })
-const familyMap = computed(() => new Map(families.value.map((f) => [f.id, f.name])))
 
 // Option sources for the advanced filter's entity-column dropdowns.
 const productTypes = useLiveQuery(async (db) => db.ProductType.where().exec(), {
@@ -98,40 +97,6 @@ function rowMenuItems(row) {
 }
 
 const showImportDialog = ref(false)
-
-function escapeCsvValue(value) {
-  if (value === null || value === undefined) return ''
-  const str = String(value)
-  if (str.includes('"') || str.includes(',') || str.includes('\n')) {
-    return `"${str.replaceAll('"', '""')}"`
-  }
-  return str
-}
-
-function downloadCsv(rows, cols) {
-  const exportCols = cols.filter((c) => c.name !== 'actions' && c.label)
-
-  const header = exportCols.map((c) => escapeCsvValue(c.label)).join(',')
-  const body = rows
-    .map((row) =>
-      exportCols
-        .map((c) => {
-          if (c.field === 'productFamilyId') return escapeCsvValue(familyMap.value.get(row.productFamilyId) ?? '')
-          return escapeCsvValue(row[c.field])
-        })
-        .join(','),
-    )
-    .join('\n')
-
-  const csv = `${header}\n${body}`
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = 'products.csv'
-  link.click()
-  URL.revokeObjectURL(url)
-}
 </script>
 
 <template>
@@ -140,15 +105,6 @@ function downloadCsv(rows, cols) {
       <BaseButton variant="outline" size="sm" @click="showImportDialog = true">
         <template #icon><IconUpload :size="16" /></template>
         Import CSV
-      </BaseButton>
-      <BaseButton
-        variant="outline"
-        size="sm"
-        :disabled="!rows.length"
-        @click="downloadCsv(rows, columns)"
-      >
-        <template #icon><IconDownload :size="16" /></template>
-        Export CSV
       </BaseButton>
     </div>
 
@@ -163,18 +119,17 @@ function downloadCsv(rows, cols) {
       :loading="loading"
       rowKey="id"
       :mobileCards="false"
+      searchable
       selectable
       columnManager
       densitySelector
       filterable
+      exportManager
+      exportFilename="products.csv"
       persistKey="products"
       @rowClick="openDetail"
     >
       <template #bulk-actions="{ clear }">
-        <BaseButton variant="outline" size="sm" @click="downloadCsv(selectedRows, columns)">
-          <template #icon><IconDownload :size="14" /></template>
-          Export
-        </BaseButton>
         <BaseButton
           v-if="canDelete"
           variant="danger"

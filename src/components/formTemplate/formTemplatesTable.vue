@@ -93,6 +93,8 @@ function rowMenuItems(row) {
     rowKey="id"
     :mobileCards="false"
     filterable
+    exportManager
+    exportFilename="form-templates.csv"
   >
     <!-- Title Column -->
     <template #body-cell-title="{ row }">

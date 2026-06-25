@@ -22,7 +22,7 @@ import { IconCaretUpFilled, IconCaretDownFilled, IconDownload, IconChevronRight 
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useDataTable, getCellValue } from './useDataTable.js'
 import { applyFilterGroup } from './filterModel.js'
-import { rowsToCsv, downloadCsv } from './exportCsv.js'
+import { rowsToCsv, downloadCsv, exportValue } from './exportCsv.js'
 
 const props = defineProps({
   columns: { type: Array, default: () => [] },
@@ -77,6 +77,18 @@ const props = defineProps({
   // Columns can supply `exportValue(row)` to control their serialized value.
   exportable: { type: Boolean, default: false },
   exportFilename: { type: String, default: 'export.csv' },
+  // Advanced export manager: the Export button opens a dialog to pick columns,
+  // format and row scope (instead of a one-click CSV). Supersedes `exportable`.
+  // On confirm, emits `@export={ format, fields, scope, rows, rowCount }`; with no
+  // listener it falls back to a client-side CSV download.
+  exportManager: { type: Boolean, default: false },
+  // Optional explicit export-field defs (a superset of the visible columns):
+  // { key, label, value(row)?, group: 'system'|'custom', defaultSelected? }.
+  // When null, derived from the visible leaf columns.
+  exportColumns: { type: Array, default: null },
+  // Formats the export dialog offers. Excel needs a consumer-side `@export`
+  // handler (the shell only generates CSV); CSV-only tables keep the default.
+  exportFormats: { type: Array, default: () => ['csv'] },
   // Expandable detail rows. true, or (row)→bool to gate per row. Renders an
   // expander column + a full-width detail row via the #row-detail slot.
   expandable: { type: [Boolean, Function], default: false },
@@ -94,6 +106,7 @@ const emit = defineEmits([
   'row-contextmenu',
   'row-expand',
   'retry',
+  'export',
 ])
 
 const pagination = defineModel('pagination', {
@@ -105,6 +118,8 @@ const sort = defineModel('sort', { type: Array, default: () => [] })
 const density = defineModel('density', { type: String, default: 'comfortable' })
 const search = defineModel('search', { type: String, default: '' })
 const filters = defineModel('filters', { type: Object, default: null })
+// Selected search columns; empty array ⇒ search across all columns (see applySearch).
+const searchScope = defineModel('searchScope', { type: Array, default: () => [] })
 
 // Append a synthetic, non-sortable, non-hideable actions column when rowActions is set.
 const ACTIONS_COL = {
@@ -131,13 +146,39 @@ const filterableColumns = computed(() =>
 const filterColByName = computed(() =>
   Object.fromEntries(filterableColumns.value.map((c) => [c.name, c])),
 )
-// In client mode the filter group is applied before the engine; in server mode the
-// caller owns filtering (the v-model still emits the group for the request).
-const sourceRows = computed(() =>
+// --- scoped search ------------------------------------------------------------
+// The search box filters client-side (a pre-filter before the engine, like the
+// advanced filter). By default it matches every searchable column; `searchScope`
+// (column names; empty ⇒ all) narrows it to the chosen columns.
+const searchableColumns = computed(() =>
+  props.columns.filter((c) => c.label && c.name !== '__actions' && c.searchable !== false),
+)
+function searchText(row, col) {
+  const v = getCellValue(row, col)
+  if (v == null) return ''
+  if (typeof v === 'object') {
+    return typeof v.formatDate === 'function' ? v.formatDate('date') : JSON.stringify(v)
+  }
+  return String(v)
+}
+function applySearch(rows) {
+  const q = (search.value || '').trim().toLowerCase()
+  // Server mode owns its own search (the query still emits via the v-model).
+  if (!q || props.manualPagination) return rows
+  const cols = searchScope.value.length
+    ? searchableColumns.value.filter((c) => searchScope.value.includes(c.name))
+    : searchableColumns.value
+  return rows.filter((row) => cols.some((c) => searchText(row, c).toLowerCase().includes(q)))
+}
+
+// In client mode the filter group + search are applied before the engine; in server
+// mode the caller owns filtering (the v-models still emit for the request).
+const filteredRows = computed(() =>
   props.manualPagination
     ? props.rows
     : applyFilterGroup(props.rows, filters.value, filterColByName.value),
 )
+const sourceRows = computed(() => applySearch(filteredRows.value))
 
 const { table } = useDataTable({
   columns: () => effectiveColumns.value,
@@ -233,19 +274,8 @@ watch(
   { deep: true },
 )
 
-watch(
-  search,
-  (v) => {
-    if ((v || '') !== (table.getState().globalFilter || '')) table.setGlobalFilter(v || '')
-  },
-  { immediate: true },
-)
-watch(
-  () => table.getState().globalFilter,
-  (v) => {
-    if ((v || '') !== (search.value || '')) search.value = v || ''
-  },
-)
+// `search` drives a client-side pre-filter (see applySearch) rather than the
+// engine's global filter, so it can be scoped to specific columns.
 
 // --- derived view data -------------------------------------------------------
 const leafColumns = computed(() => table.getVisibleLeafColumns())
@@ -453,10 +483,51 @@ const showToolbar = computed(
     props.columnManager ||
     props.densitySelector ||
     props.exportable ||
+    props.exportManager ||
+    props.filterable ||
     inBulkMode.value,
 )
+// Active structured-filter conditions (drives the chips row's visibility).
+const hasActiveFilters = computed(() => (filters.value?.conditions?.length ?? 0) > 0)
 function clearSelection() {
   selected.value = []
+}
+
+// --- export ------------------------------------------------------------------
+// The field universe the export manager offers: an explicit `exportColumns`
+// superset when given, else derived from the visible leaf columns. Each field
+// normalizes to { key, label, value(row), group, defaultSelected }.
+const exportFieldUniverse = computed(() => {
+  if (props.exportColumns) {
+    return props.exportColumns.map((f, i) => ({
+      key: f.key ?? f.name ?? `field_${i}`,
+      label: f.label ?? f.key ?? `Field ${i + 1}`,
+      value: typeof f.value === 'function' ? f.value : (row) => exportValue(row, f),
+      group: f.group === 'custom' ? 'custom' : 'system',
+      defaultSelected: f.defaultSelected !== false,
+    }))
+  }
+  // Offer every labelled column (not just the currently-visible ones), defaulting
+  // the checkboxes to the columns shown by default (`!hidden`).
+  return props.columns
+    .filter((c) => c.name !== '__actions' && c.label)
+    .map((col) => ({
+      key: col.name,
+      label: col.label,
+      value: (row) => exportValue(row, col),
+      group: 'system',
+      defaultSelected: !col.hidden,
+    }))
+})
+
+// Detect a real `@export` listener (same vnode-prop probe as rowInteractive) so we
+// only fall back to the built-in CSV download when the consumer isn't handling it.
+const hasExportListener = computed(() => Boolean(instance?.vnode?.props?.onExport))
+
+const showExportDialog = ref(false)
+function openExport() {
+  if (props.exportManager) showExportDialog.value = true
+  else handleExport()
 }
 function handleExport() {
   const cols = leafColumns.value
@@ -464,6 +535,18 @@ function handleExport() {
     .filter((c) => c.name !== '__actions')
   const exportRows = allSortedRows.value.map((r) => r.original)
   downloadCsv(rowsToCsv(exportRows, cols), props.exportFilename)
+}
+function onExportConfirm({ format, fieldKeys, scope }) {
+  const fields = exportFieldUniverse.value.filter((f) => fieldKeys.includes(f.key))
+  const rows =
+    scope === 'all' ? props.rows.slice() : allSortedRows.value.map((r) => r.original)
+  if (hasExportListener.value) {
+    emit('export', { format, fields, scope, rows, rowCount: rows.length })
+    return
+  }
+  // No consumer handler — generate CSV from the selected fields ourselves.
+  const cols = fields.map((f) => ({ name: f.key, label: f.label, exportValue: f.value }))
+  downloadCsv(rowsToCsv(rows, cols), props.exportFilename)
 }
 
 // --- view-state persistence (opt-in via persistKey) --------------------------
@@ -575,15 +658,26 @@ defineExpose({ table })
           v-if="searchable"
           v-model="search"
           :placeholder="searchPlaceholder"
+        />
+        <TableSearchScope
+          v-if="searchable"
+          v-model="searchScope"
+          :columns="searchableColumns"
           class="tw:mr-1"
         />
         <slot name="toolbar" />
+        <TableFilters
+          v-if="filterable"
+          v-model="filters"
+          :columns="filterableColumns"
+          mode="trigger"
+        />
         <button
-          v-if="exportable"
+          v-if="exportable || exportManager"
           type="button"
-          title="Export CSV"
+          :title="exportManager ? 'Export' : 'Export CSV'"
           class="tw:flex tw:items-center tw:gap-1.5 tw:rounded-md tw:px-2 tw:py-1.5 tw:text-xs tw:font-medium tw:text-secondary tw:transition-colors tw:hover:bg-main-hover tw:hover:text-on-main"
-          @click="handleExport"
+          @click="openExport"
         >
           <IconDownload :size="16" />
           <span class="tw:hidden sm:tw:inline">Export</span>
@@ -593,12 +687,14 @@ defineExpose({ table })
       </div>
     </div>
 
-    <!-- Filter bar (Linear-style chips + add-filter) -->
+    <!-- Active-filter chips row — only rendered when filters exist, so an
+         unfiltered table doesn't pay an empty line (the trigger lives in the
+         toolbar above). -->
     <div
-      v-if="filterable"
+      v-if="filterable && hasActiveFilters"
       class="tw:flex tw:items-center tw:gap-2 tw:border-b tw:border-divider tw:bg-main tw:px-4 tw:py-2"
     >
-      <TableFilters v-model="filters" :columns="filterableColumns" />
+      <TableFilters v-model="filters" :columns="filterableColumns" mode="chips" />
     </div>
 
     <!-- Scroll container -->
@@ -969,6 +1065,16 @@ defineExpose({ table })
       class="tw:border-t tw:border-divider tw:bg-main tw:px-4 tw:py-3"
       @update:page="pagination = { ...pagination, page: $event }"
       @update:rowsPerPage="pagination = { ...pagination, pageSize: $event, page: 1 }"
+    />
+
+    <TableExportDialog
+      v-if="exportManager"
+      v-model="showExportDialog"
+      :fields="exportFieldUniverse"
+      :formats="exportFormats"
+      :viewCount="filteredCount"
+      :allCount="rows.length"
+      @confirm="onExportConfirm"
     />
   </div>
 </template>

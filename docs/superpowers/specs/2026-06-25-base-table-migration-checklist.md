@@ -36,15 +36,28 @@ Remaining follow-ups (not migration blockers):
 - **One table per PR.** Each is independently shippable and eyeball-verifiable.
 - **The adapter stays** until the last consumer is migrated. Don't delete
   `BaseTable.vue` mid-rollout.
-- **Respect the page toolbar — search vs. advanced filter.** Most tables render inside
-  `BaseListLayout` / `useListLayout`, which owns the **search box + quick filters + saved
-  views** at the page level. **Never enable the table's `searchable`** — that's the
-  page's job (the CustomerComplaints duplication). The table's **`filterable` (advanced
-  filter) is a complementary capability and IS now enabled on all migrated tables** — it
-  adds structured per-column conditions (badge → `select`, luxon → `date`, `number`) the
-  page search can't express. The only exception is a page that already ships its **own**
-  advanced filter (`formTemplateRecords`), where `filterable` would duplicate it. Summary:
-  page owns search; table owns columns/density/export/persistence **and the advanced filter**.
+- **Search now lives IN the table (scoped), not the page.** Earlier the page toolbar owned
+  the search box. That has been **consolidated**: the shared DataTable has a built-in
+  **scoped search** (`searchable` — a search box + a "Search in" column-scope dropdown that
+  defaults to all columns; see `TableSearchScope.vue` and `applySearch` in `DataTable.vue`).
+  Each migrated list now enables `searchable` on its table and the page-level search box is
+  removed (search dropped from the `filters` bag / live-query deps / `applyFilters`). The
+  page keeps **structured filters + quick-filter pills + saved views**; the table owns
+  **search, columns, density, export, persistence, and the advanced filter (`filterable`)**.
+  Reference: `nonconformances/*` (toolbar search removed, table `searchable` added).
+  - **Tradeoffs accepted:** consolidating drops URL-synced search and search-in-saved-views,
+    and broadens matching from specific fields to all columns (now scopable).
+  - **GUARDRAIL — coverage:** DataTable search matches each searchable column's `field`
+    accessor (`getCellValue`). Only consolidate when every field the page search matched is a
+    real column. If the page search hits **resolved/looked-up values or arbitrary record
+    data not backed by a column**, do NOT consolidate — keep the page search. Skipped for this
+    reason: `taskInstance/taskInstancesTable` (polymorphic resolved titles),
+    `workflowInstance/workflowInstancesTable` (resolved NC/Capa/Doc titles),
+    `equipment/EquipmentHome` (code/serialNumber not columns),
+    `formTemplate/formTemplatesTable` (`code` not a column),
+    `formTemplate/formTemplateRecords` (searches the whole serialized record incl. dynamic
+    payload). To consolidate those later, add the missing data as (optionally `hidden`)
+    columns first.
 - **Auth-gated → human eyeball required.** Every migrated table must be opened in the
   running app and checked (sorting, pagination, selection, row-click, badges). CI/lint
   can't prove render.
@@ -81,8 +94,27 @@ Remaining follow-ups (not migration blockers):
       options composable (see `useComplaintFilterOptions.js`) — don't duplicate live
       queries.
 - [ ] **Dates:** cells still format via `dt.formatDate()` in the slot (unchanged).
-- [ ] **Export:** if the page already has an (audited) Export, do **not** enable the
-      table's `exportable` (compliance — see CustomerComplaints / 21 CFR Part 11).
+- [ ] **Export:** prefer the in-table **advanced export manager** (`exportManager` +
+      `exportColumns`/`exportFormats` + `@export`) over a page-header export button — it lets
+      users pick columns, format and row scope. See the design doc
+      `2026-06-25-datatable-export-manager-design.md` and the reference wiring in
+      `CustomerComplaintsHome.vue` + `CustomerComplaintsTable.vue`.
+      **Compliance:** for regulated data the consumer MUST handle `@export` and fire its audit
+      endpoint there (e.g. `/v1/services/customerComplaints/auditExport`, 21 CFR Part 11). The
+      DataTable's built-in CSV fallback (no `@export` listener) is **un-audited** — use it only
+      for non-regulated tables, and never enable the plain `exportable` where the page exports
+      through a compliance endpoint.
+      **Rollout status:** `exportManager` is now enabled on every migrated list table. Most use
+      the built-in CSV fallback (no `@export`) — parity with the old un-audited client-CSV those
+      pages had. Only **Customer Complaints** wires `@export` (audited, CSV+Excel, custom fields).
+      The export field universe defaults to **all columns** (default-checking the non-`hidden`
+      ones). Page-header Export buttons were removed where they existed (capas, changeRequests,
+      nonconformances, products) — search-style consolidation, no duplicates.
+      **Kept bespoke (not on `exportManager`):** `taskInstance/taskInstancesTable` (polymorphic —
+      keeps its `titleFor`-based `exportCsv`) and `formTemplate/formTemplateRecords` (dynamic
+      schema columns + its own export). **Compliance note:** NCs/CAPAs now expose an *un-audited*
+      client CSV (matching their previous page export); if audited export is required for a
+      regulated module, wire its `@export` to an audit endpoint like Complaints.
 - [ ] **Remove dead props** left over from the old wiring (e.g. unused `canUpdate`).
 
 ### Verification (per table)

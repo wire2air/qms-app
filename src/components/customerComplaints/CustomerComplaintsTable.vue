@@ -6,9 +6,14 @@ const props = defineProps({
   rows: { type: Array, default: () => [] },
   selectable: { type: Boolean, default: false },
   customFieldKeys: { type: Array, default: () => [] },
+  // Advanced export manager — Home owns the field defs (system + custom) and the
+  // audit-logged file generation; the table just forwards them to DataTable and
+  // re-emits the confirmed selection.
+  exportColumns: { type: Array, default: null },
+  exportFormats: { type: Array, default: () => ['csv'] },
 })
 
-defineEmits(['open'])
+defineEmits(['open', 'export'])
 
 // Multi-select feeds the bulk actions. DataTable owns the checkbox column +
 // select-all (page-scoped) and writes the selected ids back through this model.
@@ -101,7 +106,11 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     filterable
     densitySelector
     columnManager
+    exportManager
+    :exportColumns="exportColumns"
+    :exportFormats="exportFormats"
     persistKey="customerComplaints"
+    @export="(payload) => $emit('export', payload)"
   >
     <template #body-cell-complaintNumber="{ row }">
       <RouterLink

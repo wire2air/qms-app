@@ -223,6 +223,8 @@ async function recordCalibration(e) {
       rowKey="id"
       :mobileCards="false"
       filterable
+      exportManager
+      exportFilename="equipment.csv"
       @rowClick="openEdit"
     >
       <template #body-cell-name="{ row }">

@@ -97,7 +97,10 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     :columns="columns"
     rowKey="id"
     :mobileCards="false"
+    searchable
     filterable
+    exportManager
+    exportFilename="workflows.csv"
   >
     <template #body-cell-name="{ row }">
       <BaseClickableRow

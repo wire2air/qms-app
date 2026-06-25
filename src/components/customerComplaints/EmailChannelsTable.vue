@@ -95,6 +95,8 @@ function rowMenuItems(row) {
     rowKey="id"
     :mobileCards="false"
     filterable
+    exportManager
+    exportFilename="email-channels.csv"
   >
     <template #body-cell-address="{ row }">
       <div class="tw:flex tw:flex-col tw:gap-0.5">

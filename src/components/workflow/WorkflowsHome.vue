@@ -12,7 +12,7 @@ const viewMode = useCompanyLocalStorage('workflow-templates-view-mode', 'table')
 // Filter state + URL sync + resolved content state. Declared BEFORE the live
 // query so the `total`/`empty` lazy getters can reference `workflows`.
 const list = useListLayout({
-  filters: { search: '', statusId: null },
+  filters: { statusId: null },
   total: () => filteredWorkflows.value.length,
   loading: () => workflows.value === undefined,
   empty: () => filteredWorkflows.value.length === 0,
@@ -34,12 +34,8 @@ const workflows = useLiveQuery((db) => db.Workflow.where().exec(), {
 
 const filteredWorkflows = computed(() => {
   let rows = workflows.value ?? []
-  const { search, statusId } = list.filters.value
+  const { statusId } = list.filters.value
   if (statusId) rows = rows.filter((r) => r.statusId === statusId)
-  if (search) {
-    const q = search.toLowerCase()
-    rows = rows.filter((r) => r.name?.toLowerCase().includes(q))
-  }
   return rows
 })
 

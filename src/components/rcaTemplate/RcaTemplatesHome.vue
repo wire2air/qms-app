@@ -34,20 +34,12 @@ const canCreate = computed(() => isAllowed(['rcaTemplates:create']))
 const canUpdate = computed(() => isAllowed(['rcaTemplates:update']))
 const canDelete = computed(() => isAllowed(['rcaTemplates:delete']))
 
-const search = ref('')
-
-const templates = useLiveQueryWithDeps(
-  [() => search.value],
-  async (db, [q]) => {
+const templates = useLiveQuery(
+  async (db) => {
     const results = await db.RcaTemplate.where().exec()
-    if (!q)
-      return results.sort(
-        (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-      )
-    const lower = q.toLowerCase()
-    return results
-      .filter((t) => t.name.toLowerCase().includes(lower))
-      .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    return results.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )
   },
 
   { models: ['RcaTemplate'], initial: [] },
@@ -99,10 +91,6 @@ function onDialogClose() {
         <!-- Tab: Templates -->
         <BaseTabPanel value="templates">
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:flex tw:items-center tw:gap-3">
-              <BaseTextInput v-model="search" placeholder="Search templates..." class="tw:w-72" />
-            </div>
-
             <RcaTemplatesTable
               :rows="templates"
               :canUpdate="canUpdate"

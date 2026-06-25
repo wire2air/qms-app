@@ -74,6 +74,8 @@ function rowMenuItems(row) {
     rowKey="id"
     :mobileCards="false"
     filterable
+    exportManager
+    exportFilename="complaint-forms.csv"
   >
     <template #body-cell-name="{ row }">
       <div class="tw:flex tw:flex-col">

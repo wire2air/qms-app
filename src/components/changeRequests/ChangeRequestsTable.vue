@@ -52,7 +52,16 @@ const columns = computed(() => {
 </script>
 
 <template>
-  <DataTable :rows="rows" :columns="columns" rowKey="id" :mobileCards="false" filterable>
+  <DataTable
+    :rows="rows"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    searchable
+    filterable
+    exportManager
+    exportFilename="change-requests.csv"
+  >
     <template #body-cell-crNumber="{ row }">
       <RouterLink
         :to="getCompanyPath(`/change-requests/${row.id}`)"

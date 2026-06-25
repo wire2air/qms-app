@@ -90,9 +90,12 @@ function rowMenuItems(row) {
     :columns="columns"
     rowKey="id"
     :mobileCards="false"
+    searchable
     columnManager
     densitySelector
     filterable
+    exportManager
+    exportFilename="suppliers.csv"
     persistKey="suppliers"
   >
     <!-- Name Column -->

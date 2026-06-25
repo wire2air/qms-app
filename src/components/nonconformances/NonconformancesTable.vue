@@ -77,9 +77,12 @@ function rowMenuItems(row) {
     :columns="columns"
     rowKey="id"
     :mobileCards="false"
+    searchable
     columnManager
     densitySelector
     filterable
+    exportManager
+    exportFilename="nonconformances.csv"
     persistKey="nonconformances"
   >
     <template #body-cell-ncNumber="{ row }">

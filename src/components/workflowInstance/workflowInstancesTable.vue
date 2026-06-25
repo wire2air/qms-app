@@ -220,6 +220,8 @@ function routeForInstance(instance) {
     rowKey="id"
     :mobileCards="false"
     filterable
+    exportManager
+    exportFilename="workflow-instances.csv"
   >
     <!-- Item Title -->
     <template #body-cell-title="{ row }">

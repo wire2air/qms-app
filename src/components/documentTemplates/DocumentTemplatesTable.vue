@@ -126,6 +126,9 @@ function rowMenuItems(row) {
     rowKey="id"
     :mobileCards="false"
     filterable
+    searchable
+    exportManager
+    exportFilename="document-templates.csv"
   >
     <template #body-cell-name="{ row }">
       <BaseClickableRow

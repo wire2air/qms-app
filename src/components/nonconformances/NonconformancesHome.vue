@@ -5,13 +5,11 @@ import {
   IconClock,
   IconCircleCheck,
   IconClipboardList,
-  IconDownload,
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
-import { exportToCSV } from '@/utils/exportUtils.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -26,8 +24,8 @@ const canDelete = computed(() => isAllowed(['nonconformances:delete']))
 // page-reset behavior.
 const list = useListLayout({
   filters: {
-    search: '',
     // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+    // (Free-text search now lives in the table toolbar, not here.)
     statusId: [],
     severityId: [],
     typeId: [],
@@ -57,32 +55,10 @@ function clearSupplierFilter() {
   router.replace({ query: q })
 }
 
-function exportCsv() {
-  exportToCSV(
-    ncs.value,
-    [
-      { field: 'ncNumber', label: 'NC #' },
-      { field: 'title', label: 'Title' },
-      { field: 'statusId', label: 'Status' },
-      { field: 'severityId', label: 'Severity' },
-      { field: 'typeId', label: 'Type' },
-      { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
-      { field: (r) => r.dueDate?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Due' },
-    ],
-    'nonconformances',
-  )
-}
-
 const CLOSED_STATUSES = ['CLOSED']
 const OPEN_STATUSES = ['DRAFT', 'UNDER_REVIEW']
 
-function applyFilters(results, search, statusIds, severityIds, typeIds) {
-  if (search) {
-    const q = search.toLowerCase()
-    results = results.filter(
-      (r) => r.title?.toLowerCase().includes(q) || r.ncNumber?.toLowerCase().includes(q),
-    )
-  }
+function applyFilters(results, statusIds, severityIds, typeIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
   if (severityIds?.length) results = results.filter((r) => severityIds.includes(r.severityId))
   if (typeIds?.length) results = results.filter((r) => typeIds.includes(r.typeId))
@@ -112,7 +88,6 @@ const allNcs = useLiveQuery((db) => db.Nonconformance.where().exec(), {
 
 const ncs = useLiveQueryWithDeps(
   [
-    () => list.filters.value.search,
     () => list.filters.value.statusId,
     () => list.filters.value.severityId,
     () => list.filters.value.typeId,
@@ -120,9 +95,9 @@ const ncs = useLiveQueryWithDeps(
     () => list.filters.value.supplierId,
     () => list.filters.value.createdAt,
   ],
-  async (db, [search, statusIds, severityIds, typeIds, af, supplierIds, createdAt]) => {
+  async (db, [statusIds, severityIds, typeIds, af, supplierIds, createdAt]) => {
     let results = await db.Nonconformance.where().exec()
-    results = applyFilters(results, search, statusIds, severityIds, typeIds)
+    results = applyFilters(results, statusIds, severityIds, typeIds)
     results = applyActiveFilter(results, af)
     if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))
     if (createdAt)
@@ -209,10 +184,6 @@ function onRaiseNc() {
     </template>
 
     <template #actions>
-      <BaseButton variant="outline" :disabled="!ncs.length" @click="exportCsv">
-        <IconDownload :size="16" class="tw:mr-1" />
-        Export
-      </BaseButton>
       <BaseButton v-if="canCreate" variant="primary" @click="onRaiseNc">Raise NC</BaseButton>
     </template>
 

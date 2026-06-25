@@ -45,6 +45,9 @@ function rowMenuItems(row) {
     rowKey="id"
     :mobileCards="false"
     filterable
+    searchable
+    exportManager
+    exportFilename="risk-assessment-templates.csv"
   >
     <template #body-cell-name="{ row }">
       <span class="tw:font-semibold tw:text-on-main">{{ row.name }}</span>

@@ -29,20 +29,12 @@ const canCreate = computed(() => isAllowed(['riskAssessmentTemplates:create']))
 const canUpdate = computed(() => isAllowed(['riskAssessmentTemplates:update']))
 const canDelete = computed(() => isAllowed(['riskAssessmentTemplates:delete']))
 
-const search = ref('')
-
-const templates = useLiveQueryWithDeps(
-  [() => search.value],
-  async (db, [q]) => {
+const templates = useLiveQuery(
+  async (db) => {
     const results = await db.RiskAssessmentTemplate.where().exec()
-    if (!q)
-      return results.sort(
-        (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-      )
-    const lower = q.toLowerCase()
-    return results
-      .filter((t) => t.name.toLowerCase().includes(lower))
-      .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    return results.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )
   },
 
   { models: ['RiskAssessmentTemplate'], initial: [] },
@@ -93,10 +85,6 @@ function onDialogClose() {
         <!-- Tab: Templates -->
         <BaseTabPanel value="templates">
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:flex tw:items-center tw:gap-3">
-              <BaseTextInput v-model="search" placeholder="Search templates..." class="tw:w-72" />
-            </div>
-
             <RiskAssessmentTemplatesTable
               :rows="templates"
               :canUpdate="canUpdate"

@@ -160,9 +160,12 @@ async function onUnarchiveDocument(row) {
     :columns="columns"
     :loading="loading"
     :mobileCards="false"
+    searchable
     columnManager
     densitySelector
     filterable
+    exportManager
+    exportFilename="documents.csv"
     persistKey="documents"
   >
     <!-- Doc Number Column -->

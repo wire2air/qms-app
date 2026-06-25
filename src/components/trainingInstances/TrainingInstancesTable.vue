@@ -67,6 +67,9 @@ function rowMenuItems(row) {
     rowKey="id"
     :mobileCards="false"
     filterable
+    searchable
+    exportManager
+    exportFilename="training-instances.csv"
   >
     <template #body-cell-title="{ row }">
       <RouterLink

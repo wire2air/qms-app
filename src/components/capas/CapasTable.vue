@@ -103,9 +103,12 @@ function rowMenuItems(row) {
     :columns="columns"
     rowKey="id"
     :mobileCards="false"
+    searchable
     columnManager
     densitySelector
     filterable
+    exportManager
+    exportFilename="capas.csv"
     persistKey="capas"
   >
     <template #body-cell-capaNumber="{ row }">

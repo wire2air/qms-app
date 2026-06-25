@@ -92,7 +92,10 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     :loading="loading"
     hidePagination
     :mobileCards="false"
+    searchable
     filterable
+    exportManager
+    exportFilename="records.csv"
     @rowClick="openPreview"
   >
     <!-- Record Number Column -->

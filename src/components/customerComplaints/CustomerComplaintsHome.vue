@@ -4,7 +4,6 @@ import {
   IconUserQuestion,
   IconClockPause,
   IconCircleCheck,
-  IconDownload,
   IconChevronDown,
   IconChartBar,
 } from '@tabler/icons-vue'
@@ -280,54 +279,57 @@ function onConverted(ncId) {
   router.push(getCompanyPath(`/nonconformances/${ncId}`))
 }
 
-// ─── Export (current filtered view, system + custom fields) ─────────────────
-function exportRows() {
-  return complaints.value.map((c) => ({
-    Ticket: c.complaintNumber,
-    Subject: c.subject,
-    Status: c.statusId,
-    Priority: c.priorityId ?? '',
-    Source: c.sourceId,
-    Sentiment: c.sentiment ?? '',
-    Customer: c.customerName ?? '',
-    'Customer Email': c.customerEmail ?? '',
-    'Customer Company': c.customerCompany ?? '',
-    Created: c.createdAt?.formatDate?.('datetime') ?? '',
-    Resolved: c.resolvedAt?.formatDate?.('datetime') ?? '',
-    Closed: c.closedAt?.formatDate?.('datetime') ?? '',
-    Spam: c.isSpam ? 'Yes' : '',
-    ...Object.fromEntries(
-      customFieldKeys.value.map((key) => [
-        `Custom: ${key}`,
-        c.customFields?.[key] != null ? String(c.customFields[key]) : '',
-      ]),
-    ),
+// ─── Export ──────────────────────────────────────────────────────────────
+// Field universe for the DataTable's advanced export manager: the system fields
+// + every custom field. The user picks which to include (and format / row scope)
+// in the dialog; we generate the file + write the audit trail here (the table
+// stays decoupled from the audit endpoint — see the export-manager design doc).
+const exportColumns = computed(() => {
+  const system = [
+    { key: 'Ticket', label: 'Ticket', value: (c) => c.complaintNumber },
+    { key: 'Subject', label: 'Subject', value: (c) => c.subject },
+    { key: 'Status', label: 'Status', value: (c) => c.statusId },
+    { key: 'Priority', label: 'Priority', value: (c) => c.priorityId ?? '' },
+    { key: 'Source', label: 'Source', value: (c) => c.sourceId },
+    { key: 'Sentiment', label: 'Sentiment', value: (c) => c.sentiment ?? '' },
+    { key: 'Customer', label: 'Customer', value: (c) => c.customerName ?? '' },
+    { key: 'Customer Email', label: 'Customer Email', value: (c) => c.customerEmail ?? '' },
+    { key: 'Customer Company', label: 'Customer Company', value: (c) => c.customerCompany ?? '' },
+    { key: 'Created', label: 'Created', value: (c) => c.createdAt?.formatDate?.('datetime') ?? '' },
+    { key: 'Resolved', label: 'Resolved', value: (c) => c.resolvedAt?.formatDate?.('datetime') ?? '' },
+    { key: 'Closed', label: 'Closed', value: (c) => c.closedAt?.formatDate?.('datetime') ?? '' },
+    { key: 'Spam', label: 'Spam', value: (c) => (c.isSpam ? 'Yes' : '') },
+  ].map((f) => ({ ...f, group: 'system' }))
+  const custom = customFieldKeys.value.map((key) => ({
+    key: `custom:${key}`,
+    label: `Custom: ${key}`,
+    value: (c) => (c.customFields?.[key] != null ? String(c.customFields[key]) : ''),
+    group: 'custom',
   }))
-}
+  return [...system, ...custom]
+})
 
-function exportTickets(format) {
-  const rows = exportRows()
+function handleExport({ format, fields, scope, rows }) {
   if (!rows.length) {
     toast.notify({ type: 'warning', message: 'Nothing to export — the current view is empty' })
     return
   }
-  const sheet = xlsxUtils.json_to_sheet(rows)
+  const data = rows.map((row) => Object.fromEntries(fields.map((f) => [f.label, f.value(row)])))
+  const sheet = xlsxUtils.json_to_sheet(data)
   const book = xlsxUtils.book_new()
   xlsxUtils.book_append_sheet(book, sheet, 'Tickets')
   const stamp = DateTime.now().toFormat('yyyyLLdd-HHmm')
+  // xlsx writes CSV too (bookType 'csv'), so one path covers both formats.
   xlsxWriteFile(book, `tickets-${stamp}.${format}`, { bookType: format })
   // Exports leave the system — record who took what (21 CFR Part 11 trail).
   post('/v1/services/customerComplaints/auditExport', {
     format,
     rowCount: rows.length,
+    columns: fields.length,
+    scope,
     view: activeFilter.value,
   }).catch(() => {})
 }
-
-const exportMenuItems = [
-  { name: 'Export CSV', click: () => exportTickets('csv') },
-  { name: 'Export Excel', click: () => exportTickets('xlsx') },
-]
 
 function onNewComplaint() {
   router.push(getCompanyPath('/customer-complaints/create'))
@@ -352,15 +354,6 @@ function onNewComplaint() {
         <IconChartBar :size="18" class="tw:mr-1" />
         Reports
       </BaseButton>
-      <BaseMenu :items="exportMenuItems">
-        <template #trigger>
-          <BaseButton variant="secondary">
-            <IconDownload :size="18" class="tw:mr-1" />
-            Export
-            <IconChevronDown :size="14" class="tw:ml-1" />
-          </BaseButton>
-        </template>
-      </BaseMenu>
       <BaseButton v-if="canCreate" variant="primary" @click="onNewComplaint">
         New Complaint
       </BaseButton>
@@ -454,7 +447,10 @@ function onNewComplaint() {
       :rows="complaints"
       :selectable="canUpdate || canConvert"
       :customFieldKeys="customFieldKeys"
+      :exportColumns="exportColumns"
+      :exportFormats="['csv', 'xlsx']"
       @open="(row) => router.push(getCompanyPath(`/customer-complaints/${row.id}`))"
+      @export="handleExport"
     />
 
     <CustomerComplaintConvertToNcDialog

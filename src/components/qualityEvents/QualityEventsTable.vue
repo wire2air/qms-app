@@ -88,9 +88,12 @@ function rowMenuItems(row) {
     :columns="columns"
     rowKey="id"
     :mobileCards="false"
+    searchable
     columnManager
     densitySelector
     filterable
+    exportManager
+    exportFilename="quality-events.csv"
     persistKey="qualityEvents"
   >
     <template #body-cell-eventNumber="{ row }">

@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import DataTable from './DataTable.vue'
+import TableExportDialog from './TableExportDialog.vue'
 import BasePagination from '../BasePagination.vue'
 
 // persistKey persists via an INJECTED adapter (the app provides one backed by the
@@ -186,6 +187,34 @@ describe('DataTable — toolbar features', () => {
     expect(w.find('tbody tr').text()).toContain('Alpha')
   })
 
+  it('renders a search-scope dropdown alongside the search box', () => {
+    const w = mount(DataTable, { props: { columns, rows, searchable: true, hidePagination: true } })
+    expect(w.findAll('button').some((b) => b.attributes('title') === 'Search in')).toBe(true)
+  })
+
+  it('scopes the search to the selected columns', async () => {
+    const data = [
+      { id: 1, name: 'Alice', role: 'admin' },
+      { id: 2, name: 'Bob', role: 'user' },
+    ]
+    // 'admin' only appears in the role column → scoping to name matches nothing.
+    const w = mount(DataTable, {
+      props: {
+        columns,
+        rows: data,
+        searchable: true,
+        search: 'admin',
+        searchScope: ['name'],
+        hidePagination: true,
+      },
+    })
+    expect(w.findAll('tbody tr[data-index]')).toHaveLength(0)
+    // Widen to all fields → the role match comes back.
+    await w.setProps({ searchScope: [] })
+    expect(w.findAll('tbody tr[data-index]')).toHaveLength(1)
+    expect(w.find('tbody tr[data-index]').text()).toContain('Alice')
+  })
+
   it('hides columns declared `hidden: true` by default (still toggleable)', () => {
     const cols = [
       { name: 'name', label: 'Name', field: 'name' },
@@ -348,9 +377,22 @@ describe('DataTable — structured filters', () => {
     expect(w.text()).toContain('No matching results')
   })
 
-  it('renders the filter bar when filterable', () => {
+  it('renders the filter trigger in the toolbar when filterable', () => {
     const w = mount(DataTable, { props: { columns, rows, filterable: true, hidePagination: true } })
-    expect(w.text()).toContain('Advanced filter')
+    expect(w.findAll('button').some((b) => b.attributes('title') === 'Filter')).toBe(true)
+  })
+
+  it('shows the chips row only once filters are active', async () => {
+    const w = mount(DataTable, { props: { columns, rows, filterable: true, hidePagination: true } })
+    // No active conditions → no chips row (no AND/OR connector, no Clear).
+    expect(w.text()).not.toContain('Clear')
+    await w.setProps({
+      filters: {
+        combinator: 'and',
+        conditions: [{ id: 'c1', field: 'role', operator: 'equals', value: 'Admiral' }],
+      },
+    })
+    expect(w.text()).toContain('Clear')
   })
 })
 
@@ -395,6 +437,40 @@ describe('DataTable — resizable columns & export', () => {
   it('shows an Export button when exportable', () => {
     const w = mount(DataTable, { props: { columns, rows, exportable: true, hidePagination: true } })
     expect(w.findAll('button').some((b) => b.attributes('title') === 'Export CSV')).toBe(true)
+  })
+
+  it('shows an Export button (manager) when exportManager', () => {
+    const w = mount(DataTable, { props: { columns, rows, exportManager: true, hidePagination: true } })
+    expect(w.findAll('button').some((b) => b.attributes('title') === 'Export')).toBe(true)
+  })
+
+  it('emits @export with resolved fields + scoped rows when a listener is attached', async () => {
+    const exportColumns = [
+      { key: 'name', label: 'Name', value: (r) => r.name, group: 'system' },
+      { key: 'role', label: 'Role', value: (r) => r.role, group: 'system', defaultSelected: false },
+    ]
+    const w = mount(DataTable, {
+      props: { columns, rows, exportManager: true, exportColumns, hidePagination: true, onExport: () => {} },
+    })
+    const dialog = w.findComponent(TableExportDialog)
+    dialog.vm.$emit('confirm', { format: 'xlsx', fieldKeys: ['name'], scope: 'view' })
+    await w.vm.$nextTick()
+    const payload = w.emitted('export')[0][0]
+    expect(payload.format).toBe('xlsx')
+    expect(payload.fields.map((f) => f.key)).toEqual(['name'])
+    expect(payload.rowCount).toBe(rows.length)
+    expect(payload.rows.length).toBe(rows.length)
+  })
+
+  it('derives the export field universe from columns when exportColumns is omitted', async () => {
+    const w = mount(DataTable, {
+      props: { columns, rows, exportManager: true, hidePagination: true, onExport: () => {} },
+    })
+    const dialog = w.findComponent(TableExportDialog)
+    expect(dialog.props('fields').map((f) => f.key).sort()).toEqual(['name', 'role'])
+    dialog.vm.$emit('confirm', { format: 'csv', fieldKeys: ['name'], scope: 'view' })
+    await w.vm.$nextTick()
+    expect(w.emitted('export')[0][0].fields.map((f) => f.key)).toEqual(['name'])
   })
 })
 

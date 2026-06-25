@@ -12,7 +12,7 @@ const canDelete = computed(() => isAllowed(['trainings:delete']))
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `trainings`.
 const list = useListLayout({
-  filters: { search: '', status: null },
+  filters: { status: null },
   total: () => trainings.value.length,
   empty: () => trainings.value.length === 0,
   syncUrl: true,
@@ -30,15 +30,11 @@ const allTrainings = useLiveQuery(
 )
 
 const trainings = useLiveQueryWithDeps(
-  [() => list.filters.value.search, () => list.filters.value.status],
-  async (db, [search, status]) => {
+  [() => list.filters.value.status],
+  async (db, [status]) => {
     let results = await db.Training.where().exec()
     results = results.filter((r) => !r.sourceDocumentId)
     if (status) results = results.filter((r) => r.status === status)
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter((r) => r.title?.toLowerCase().includes(q))
-    }
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -148,14 +144,6 @@ const statusPills = computed(() => [
           </div>
         </div>
       </div>
-    </template>
-
-    <template #filters>
-      <BaseTextInput
-        v-model="list.filters.value.search"
-        placeholder="Search trainings..."
-        class="tw:w-64"
-      />
     </template>
 
     <template #quick-filters>

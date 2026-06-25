@@ -1,32 +1,17 @@
 <script setup>
-import { IconSearch } from '@tabler/icons-vue'
-
 const filters = defineModel('filters', {
   type: Object,
   required: true,
 })
 
-const showClear = computed(() => !!(filters.value.search || filters.value.statusId))
+const showClear = computed(() => !!filters.value.statusId)
 
 function clearAll() {
-  filters.value = { ...filters.value, search: '', statusId: null }
+  filters.value = { ...filters.value, statusId: null }
 }
 </script>
 
 <template>
-  <!-- Scoped search stays in the app header (preserved placement) -->
-  <SafeTeleport to="#main-header-search">
-    <BaseTextInput
-      v-model="filters.search"
-      placeholder="Search workflows by name or code…"
-      class="tw:flex-1 tw:max-w-md"
-    >
-      <template #icon>
-        <IconSearch :size="18" />
-      </template>
-    </BaseTextInput>
-  </SafeTeleport>
-
   <BaseFilterBar hideSearch :showClear="showClear" @clear="clearAll">
     <template #filters>
       <WorkflowsStatusSelectMenu v-model="filters.statusId" />

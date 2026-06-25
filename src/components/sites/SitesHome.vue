@@ -13,26 +13,20 @@ const canDeleteSite = computed(() => isAllowed(['sites:delete']))
 
 // Filter state + URL sync + resolved content state (Enterprise Page Framework list template).
 const list = useListLayout({
-  filters: { search: '' },
+  filters: {},
   total: () => sites.value.length,
   empty: () => sites.value.length === 0,
   syncUrl: true,
 })
 
 // Live query for sites
-const sites = useLiveQueryWithDeps(
-  [() => list.filters.value.search],
-  async (db, [search]) => {
-    let results = await db.Site.where().exec()
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter((s) => s.name.toLowerCase().includes(q))
-    }
+const sites = useLiveQuery(
+  async (db) => {
+    const results = await db.Site.where().exec()
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-
   { models: ['Site'], initial: [] },
 )
 
@@ -69,10 +63,6 @@ async function onDeleteSite(row) {
       <BaseButton v-if="canCreateSite" @click="openDialog()">
         <span>Create New Site</span>
       </BaseButton>
-    </template>
-
-    <template #filters>
-      <SitesFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
     <SitesTable
