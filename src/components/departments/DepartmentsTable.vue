@@ -37,13 +37,8 @@ const columns = [
   { name: 'actions', label: '', field: 'actions', align: 'right' },
 ]
 
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function onEdit(row) {
   emit('edit', row)
@@ -66,12 +61,14 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="rows"
     :columns="columns"
     :loading="loading"
     rowKey="id"
+    :mobileCards="false"
   >
     <template #body-cell-name="{ row }">
       <div class="tw:font-bold tw:text-on-main">{{ row.name }}</div>
@@ -102,5 +99,5 @@ function rowMenuItems(row) {
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

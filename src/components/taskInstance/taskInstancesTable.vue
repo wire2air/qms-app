@@ -435,13 +435,8 @@ const columns = [
   { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
 ]
 
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 // Resolve a row's display title from the per-entity maps (mirrors the title
 // cell), for export.
@@ -735,11 +730,13 @@ defineExpose({ exportCsv })
 
     <!-- Desktop / landscape: full table -->
     <div class="tw:hidden tw:md:block">
-      <BaseTable
+      <DataTable
         v-model:pagination="pagination"
+        v-model:sort="sort"
         :rows="filteredInstances"
         :columns="columns"
         rowKey="id"
+        :mobileCards="false"
       >
         <!-- Item Title -->
         <template #body-cell-title="{ row }">
@@ -980,7 +977,7 @@ defineExpose({ exportCsv })
         <template #body-cell-createdAt="{ row }">
           <span class="tw:text-sm tw:text-secondary">{{ row.createdAt?.formatDate('date') }}</span>
         </template>
-      </BaseTable>
+      </DataTable>
     </div>
 
     <!-- RFI dialog — opens inline when an Information Request task row is

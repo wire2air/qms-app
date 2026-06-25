@@ -68,6 +68,27 @@ export function useListLayout(o = {}) {
     },
   })
 
+  // DataTable v-model shapes — `tablePagination` ({ page, pageSize }) + `sort`
+  // ([{ id, desc }]) — backed by the same page/rowsPerPage/sortBy/descending refs
+  // (so URL-sync still works). Use these when binding to <DataTable>; the legacy
+  // `pagination` above stays for any remaining <BaseTable> consumers.
+  const tablePagination = computed({
+    get: () => ({ page: page.value, pageSize: rowsPerPage.value }),
+    set: (v) => {
+      if (!v) return
+      if (v.page != null) page.value = v.page
+      if (v.pageSize != null) rowsPerPage.value = v.pageSize
+    },
+  })
+  const sort = computed({
+    get: () => (sortBy.value ? [{ id: sortBy.value, desc: !!descending.value }] : []),
+    set: (v) => {
+      const s = Array.isArray(v) ? v[0] : null
+      sortBy.value = s?.id ?? null
+      descending.value = s?.desc ?? false
+    },
+  })
+
   const paged = usePagination(page, rowsPerPage, () => toValue(total) ?? 0)
 
   // Selection
@@ -115,8 +136,8 @@ export function useListLayout(o = {}) {
       () => {
         const query = filtersToQuery(filters.value, defaults)
         if (page.value > 1) query.page = String(page.value)
-        const sort = encodeSort(sortBy.value, descending.value)
-        if (sort) query.sort = sort
+        const encodedSort = encodeSort(sortBy.value, descending.value)
+        if (encodedSort) query.sort = encodedSort
         Promise.resolve(router.replace({ query })).catch(() => {})
       },
       { deep: true },
@@ -141,6 +162,8 @@ export function useListLayout(o = {}) {
     sortBy,
     descending,
     pagination,
+    tablePagination,
+    sort,
     paged,
     // selection
     selected,

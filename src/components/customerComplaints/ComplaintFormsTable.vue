@@ -38,13 +38,8 @@ const columns = [
   { name: 'actions', label: '', field: 'actions', align: 'right' },
 ]
 
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'name',
-  descending: false,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'name', desc: false }])
 
 function rowMenuItems(row) {
   return [
@@ -59,7 +54,14 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="forms" :columns="columns" rowKey="id">
+  <DataTable
+    v-model:pagination="pagination"
+    v-model:sort="sort"
+    :rows="forms"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+  >
     <template #body-cell-name="{ row }">
       <div class="tw:flex tw:flex-col">
         <button
@@ -122,5 +124,5 @@ function rowMenuItems(row) {
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

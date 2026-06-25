@@ -159,13 +159,8 @@ const columns = [
   { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
 ]
 
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function getDocument(instance) {
   return documentMap.value[instance.resourceId] || null
@@ -189,11 +184,13 @@ function routeForInstance(instance) {
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="filteredInstances"
     :columns="columns"
     rowKey="id"
+    :mobileCards="false"
   >
     <!-- Item Title -->
     <template #body-cell-title="{ row }">
@@ -270,5 +267,5 @@ function routeForInstance(instance) {
     <template #body-cell-createdAt="{ row }">
       <span class="tw:text-sm tw:text-secondary">{{ row.createdAt?.formatDate('date') }}</span>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

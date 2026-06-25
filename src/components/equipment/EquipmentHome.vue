@@ -186,11 +186,13 @@ async function recordCalibration(e) {
       </BaseButton>
     </template>
 
-    <BaseTable
-      v-model:pagination="list.pagination.value"
+    <DataTable
+      v-model:pagination="list.tablePagination.value"
+      v-model:sort="list.sort.value"
       :rows="equipment"
       :columns="columns"
       rowKey="id"
+      :mobileCards="false"
       @rowClick="openEdit"
     >
       <template #body-cell-name="{ row }">
@@ -249,7 +251,7 @@ async function recordCalibration(e) {
           {{ recordingId === row.id ? 'Recording…' : 'Record calibration' }}
         </button>
       </template>
-    </BaseTable>
+    </DataTable>
 
     <CreateEquipmentDialog v-model="showCreateDialog" @created="onCreated" />
     <!-- Same component, edit mode. The dialog seeds its draft from

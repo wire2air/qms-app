@@ -41,13 +41,8 @@ const columns = [
   { name: 'actions', label: '', field: 'actions', align: 'right' },
 ]
 
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function rowMenuItems(row) {
   if (!props.canDelete) return []
@@ -74,12 +69,14 @@ function onRowClick(row) {
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="rows"
     :columns="columns"
     :loading="loading"
     rowKey="id"
+    :mobileCards="false"
     @rowClick="onRowClick"
   >
     <template #body-cell-name="{ row }">
@@ -103,5 +100,5 @@ function onRowClick(row) {
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

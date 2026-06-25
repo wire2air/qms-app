@@ -48,22 +48,19 @@ const columns = [
   { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right', sortable: false },
 ]
 
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="rows"
     :columns="columns"
     :loading="loading"
     hidePagination
+    :mobileCards="false"
     @rowClick="openPreview"
   >
     <!-- Record Number Column -->
@@ -118,7 +115,7 @@ const pagination = ref({
         />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 
   <!-- Preview Panel -->
   <Teleport to="body">

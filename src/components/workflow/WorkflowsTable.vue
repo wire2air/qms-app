@@ -65,17 +65,19 @@ function rowMenuItems(workflow) {
   return [{ name: 'Edit', icon: IconEdit, click: () => navigateToWorkflow(workflow) }]
 }
 
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
+  <DataTable
+    v-model:pagination="pagination"
+    v-model:sort="sort"
+    :rows="rows"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+  >
     <template #body-cell-name="{ row }">
       <BaseClickableRow
         class="tw:flex tw:flex-col"
@@ -129,5 +131,5 @@ const pagination = ref({
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

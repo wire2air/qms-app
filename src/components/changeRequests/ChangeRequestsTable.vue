@@ -22,7 +22,7 @@ const columns = [
 </script>
 
 <template>
-  <BaseTable :rows="rows" :columns="columns" rowKey="id">
+  <DataTable :rows="rows" :columns="columns" rowKey="id" :mobileCards="false">
     <template #body-cell-crNumber="{ row }">
       <RouterLink
         :to="getCompanyPath(`/change-requests/${row.id}`)"
@@ -80,5 +80,5 @@ const columns = [
         </RouterLink>
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

@@ -20,13 +20,8 @@ const columns = [
   { name: 'actions', label: '', field: 'actions', align: 'right' },
 ]
 
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function isOverdue(row) {
   if (!row.dueDate || row.status !== 'ACTIVE') return false
@@ -49,7 +44,14 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
+  <DataTable
+    v-model:pagination="pagination"
+    v-model:sort="sort"
+    :rows="rows"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+  >
     <template #body-cell-title="{ row }">
       <RouterLink
         :to="getCompanyPath(`/training-instances/${row.id}`)"
@@ -79,5 +81,5 @@ function rowMenuItems(row) {
     <template #body-cell-actions="{ row }">
       <BaseRowMenu :items="rowMenuItems(row)" />
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

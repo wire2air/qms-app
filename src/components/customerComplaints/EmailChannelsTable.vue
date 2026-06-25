@@ -34,13 +34,8 @@ const columns = [
   { name: 'actions', label: '', field: 'actions', align: 'right' },
 ]
 
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'address',
-  descending: false,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'address', desc: false }])
 
 function rowMenuItems(row) {
   const items = []
@@ -72,7 +67,14 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="channels" :columns="columns" rowKey="id">
+  <DataTable
+    v-model:pagination="pagination"
+    v-model:sort="sort"
+    :rows="channels"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+  >
     <template #body-cell-address="{ row }">
       <div class="tw:flex tw:flex-col tw:gap-0.5">
         <span class="tw:text-sm tw:font-mono tw:font-medium">{{ row.address }}</span>
@@ -119,5 +121,5 @@ function rowMenuItems(row) {
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>
