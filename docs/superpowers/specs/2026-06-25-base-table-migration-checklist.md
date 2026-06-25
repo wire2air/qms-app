@@ -11,16 +11,40 @@
 
 ---
 
+## ✅ STATUS — migration complete (2026-06-25)
+
+**All `<BaseTable>` consumers are migrated to `<DataTable>`.** `grep -r "<BaseTable" src/`
+returns nothing. The advanced filter (`filterable`) has been rolled out to **24** tables
+(reference: `nonconformances/NonconformancesTable.vue`, `capas/CapasTable.vue`).
+
+Remaining follow-ups (not migration blockers):
+
+- **`formTemplate/formTemplateRecords.vue` — intentionally NOT `filterable`.** It already
+  ships a bespoke `FormTemplateRecordsAdvancedFilter` over dynamic, schema-derived columns;
+  DataTable's `filterable` would render a second, conflicting filter UI.
+- **`trainings/TrainingsTable.vue` — migrated but advanced filter NOT yet added** (omitted
+  from the filter rollout). Add `filterable` + per-column `filterType` if/when wanted.
+- **Cleanup (§5)** is now actionable: `BaseTable.vue` survives only as a thin adapter shim
+  with zero consumers; decide delete-vs-keep + add the `lint:tables` guard.
+- **In-app eyeball still owed** — auth-gated, so the filter dropdowns (select option lists,
+  date pickers) need a human pass in the running app.
+
+---
+
 ## 0. Strategy & ground rules
 
 - **One table per PR.** Each is independently shippable and eyeball-verifiable.
 - **The adapter stays** until the last consumer is migrated. Don't delete
   `BaseTable.vue` mid-rollout.
-- **Respect the page toolbar.** Most tables render inside `BaseListLayout` /
-  `useListLayout`, which already owns **search + filters + saved views** at the page
-  level. **Do NOT enable the table's `searchable`/`filterable`** when the page
-  already provides them — that was the CustomerComplaints duplication. Default to
-  page-owns-search/filter; the table owns columns/density/export/persistence.
+- **Respect the page toolbar — search vs. advanced filter.** Most tables render inside
+  `BaseListLayout` / `useListLayout`, which owns the **search box + quick filters + saved
+  views** at the page level. **Never enable the table's `searchable`** — that's the
+  page's job (the CustomerComplaints duplication). The table's **`filterable` (advanced
+  filter) is a complementary capability and IS now enabled on all migrated tables** — it
+  adds structured per-column conditions (badge → `select`, luxon → `date`, `number`) the
+  page search can't express. The only exception is a page that already ships its **own**
+  advanced filter (`formTemplateRecords`), where `filterable` would duplicate it. Summary:
+  page owns search; table owns columns/density/export/persistence **and the advanced filter**.
 - **Auth-gated → human eyeball required.** Every migrated table must be opened in the
   running app and checked (sorting, pagination, selection, row-click, badges). CI/lint
   can't prove render.
@@ -71,57 +95,65 @@
 
 ---
 
-## 2. Inventory & tracking (24 remaining + 1 done)
+## 2. Inventory & tracking (all 25 migrated)
 
-Tiers by feature surface. Check off as each lands.
+Tiers by feature surface. **`[x]` = migrated to `<DataTable>`. `AF` column = advanced
+filter (`filterable`) status.**
 
-### ✅ Done
-- [x] `customerComplaints/CustomerComplaintsTable.vue` — reference impl (columnManager + persistKey + advanced filter + shared options).
+### ✅ Done — reference
+- [x] `customerComplaints/CustomerComplaintsTable.vue` — reference impl (columnManager + persistKey + advanced filter + shared options). **AF: ✅**
 
 ### Tier 1 — Trivial (pagination only; ~near drop-in) — 16
-Swap element + pagination/sort v-model + keep slots. No column manager unless desired.
-- [ ] `changeRequests/ChangeRequestsTable.vue`  *(simplest — no flags)*
-- [ ] `records/RecordsTable.vue`  *(@rowClick)*
-- [ ] `optionSets/OptionSetsTable.vue`  *(@rowClick)*
-- [ ] `equipment/EquipmentHome.vue`  *(@rowClick; table inline in a Home page)*
-- [ ] `trainings/TrainingsTable.vue`
-- [ ] `trainingInstances/TrainingInstancesTable.vue`
-- [ ] `departments/DepartmentsTable.vue`
-- [ ] `sites/SitesTable.vue`
-- [ ] `documentTemplates/DocumentTemplatesTable.vue`
-- [ ] `rcaTemplate/RcaTemplatesTable.vue`
-- [ ] `riskAssessmentTemplate/RiskAssessmentTemplatesTable.vue`
-- [ ] `customerComplaints/ComplaintFormsTable.vue`
-- [ ] `customerComplaints/EmailChannelsTable.vue`
-- [ ] `formTemplate/formTemplatesTable.vue`
-- [ ] `workflow/WorkflowsTable.vue`
-- [ ] `workflowInstance/workflowInstancesTable.vue`
+
+- [x] `changeRequests/ChangeRequestsTable.vue` — **AF: ✅**
+- [x] `records/RecordsTable.vue` — **AF: ✅**
+- [x] `optionSets/OptionSetsTable.vue` — **AF: ✅** (date only — no entity cols)
+- [x] `equipment/EquipmentHome.vue` — **AF: ✅** (inline DataTable)
+- [x] `trainings/TrainingsTable.vue` — **AF: ❌ not yet** (omitted from rollout)
+- [x] `trainingInstances/TrainingInstancesTable.vue` — **AF: ✅**
+- [x] `departments/DepartmentsTable.vue` — **AF: ✅**
+- [x] `sites/SitesTable.vue` — **AF: ✅** (date + text only)
+- [x] `documentTemplates/DocumentTemplatesTable.vue` — **AF: ✅**
+- [x] `rcaTemplate/RcaTemplatesTable.vue` — **AF: ✅** (date only)
+- [x] `riskAssessmentTemplate/RiskAssessmentTemplatesTable.vue` — **AF: ✅** (date only)
+- [x] `customerComplaints/ComplaintFormsTable.vue` — **AF: ✅**
+- [x] `customerComplaints/EmailChannelsTable.vue` — **AF: ✅**
+- [x] `formTemplate/formTemplatesTable.vue` — **AF: ✅**
+- [x] `workflow/WorkflowsTable.vue` — **AF: ✅**
+- [x] `workflowInstance/workflowInstancesTable.vue` — **AF: ✅**
 
 ### Tier 2 — Medium (columnToggle + showDensityToggle) — 5
-Add `columnManager` + `densitySelector` + `persistKey`; mark non-default columns `hidden`.
-- [ ] `suppliers/SuppliersTable.vue`
-- [ ] `nonconformances/NonconformancesTable.vue`
-- [ ] `capas/CapasTable.vue`
-- [ ] `qualityEvents/QualityEventsTable.vue`
-- [ ] `documents/DocumentsTable.vue`  *(has computed columns w/ dependent queries — check those still feed `columns`)*
+
+- [x] `suppliers/SuppliersTable.vue` — **AF: ✅**
+- [x] `nonconformances/NonconformancesTable.vue` — **AF: ✅** (filter-pattern reference)
+- [x] `capas/CapasTable.vue` — **AF: ✅** (filter-pattern reference)
+- [x] `qualityEvents/QualityEventsTable.vue` — **AF: ✅**
+- [x] `documents/DocumentsTable.vue` — **AF: ✅** (computed columns w/ dependent queries)
 
 ### Tier 3 — Complex (selection / bulk / polymorphic) — 3
-- [ ] `formTemplate/formTemplateRecords.vue`  *(selectable; table embedded in a form-records page)*
-- [ ] `products/ProductsTable.vue`  *(selectable + bulk-actions + columnToggle + density + @rowClick + hand-rolled CSV export → migrate to `bulkActions`/`exportValue`; watch audited-export)*
-- [ ] `taskInstance/taskInstancesTable.vue`  *(**hardest**: 10 polymorphic entity types, ~12 dependent live queries, a hand-rolled desktop/mobile fork → replace the fork with `mobileCards` + column `mobile` priorities; do LAST, allow extra time)*
 
+- [x] `formTemplate/formTemplateRecords.vue` — **AF: N/A** (bespoke `FormTemplateRecordsAdvancedFilter`; DataTable `filterable` intentionally off)
+- [x] `products/ProductsTable.vue` — **AF: ✅**
+- [x] `taskInstance/taskInstancesTable.vue` — **AF: ✅ (partial)** — `entityType` → select, `dueDate`/`createdAt` → date; `title`/`type`/`status` disabled (`filterType:false`) because they're resolved per-entity-type via maps with no backing row scalar (a generic filter there would silently match nothing).
+
+> Other `filterable` tables outside the original 25-table inventory:
+> `inspectionsLogs/FieldRecordsList.vue` (added during the filter rollout).
+>
 > Infra / not consumers (no migration): `BasePage.vue`, `useListLayout.js`,
 > `BaseListLayout.stories.js`, `BaseTable.stories.js`.
 
 ---
 
-## 3. Rollout order
+## 3. Rollout order — ✅ complete
 
-1. **Pilot (1):** `ChangeRequestsTable` — the simplest, proves the Tier-1 recipe end-to-end.
-2. **Tier 1 batch** — the other 15 trivial tables (can be grouped a few per PR since they're mechanical, but still eyeball each).
-3. **Tier 2** — the 5 column-manager tables (each gets `persistKey`).
-4. **Tier 3** — `formTemplateRecords` → `ProductsTable` → `taskInstancesTable` (one PR each).
-5. **Cleanup** — see §5.
+1. ~~**Pilot (1):** `ChangeRequestsTable`~~ — done.
+2. ~~**Tier 1 batch** — the other 15 trivial tables.~~ — done.
+3. ~~**Tier 2** — the 5 column-manager tables (each gets `persistKey`).~~ — done.
+4. ~~**Tier 3** — `formTemplateRecords` → `ProductsTable` → `taskInstancesTable`.~~ — done.
+5. **Cleanup** — see §5 (now actionable; not yet done).
+
+Advanced-filter rollout (follow-up pass) landed across the migrated tables in two commits
+(`8766084` entity-rich tables; latest "advanced filter on remaining tables").
 
 ---
 
@@ -144,7 +176,7 @@ Add `columnManager` + `densitySelector` + `persistKey`; mark non-default columns
 
 ## 5. Final cleanup (after the last table)
 
-- [ ] Confirm zero `<BaseTable>` consumers remain (`grep -r "<BaseTable" src/`).
+- [x] Confirm zero `<BaseTable>` consumers remain (`grep -r "<BaseTable" src/`) — **confirmed 2026-06-25, none remain.**
 - [ ] Either **delete** `BaseTable.vue` (+ its spec/story) or leave it as a thin
       documented shim. Update CLAUDE.md/migration cheatsheet to point new tables at
       `<DataTable>`.
