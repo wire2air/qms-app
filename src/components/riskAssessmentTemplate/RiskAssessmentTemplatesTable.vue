@@ -9,12 +9,17 @@ const props = defineProps({
 
 const emit = defineEmits(['edit', 'delete'])
 
-const columns = [
-  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
-  { name: 'description', label: 'DESCRIPTION', field: 'description', align: 'left' },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
+const columns = computed(() => {
+  const filterCfg = {
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
+    { name: 'description', label: 'DESCRIPTION', field: 'description', align: 'left' },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'createdAt', desc: true }])
@@ -39,6 +44,7 @@ function rowMenuItems(row) {
     :columns="columns"
     rowKey="id"
     :mobileCards="false"
+    filterable
   >
     <template #body-cell-name="{ row }">
       <span class="tw:font-semibold tw:text-on-main">{{ row.name }}</span>

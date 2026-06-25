@@ -21,25 +21,30 @@ const router = useRouter()
 
 const { confirm } = useConfirm()
 
-const columns = [
-  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
-  {
-    name: 'description',
-    label: 'DESCRIPTION',
-    field: 'description',
-    align: 'left',
-    sortable: false,
-  },
-  {
-    name: 'optionsCount',
-    label: 'OPTIONS',
-    field: 'optionsCount',
-    align: 'center',
-    sortable: false,
-  },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
+const columns = computed(() => {
+  const filterCfg = {
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
+    {
+      name: 'description',
+      label: 'DESCRIPTION',
+      field: 'description',
+      align: 'left',
+      sortable: false,
+    },
+    {
+      name: 'optionsCount',
+      label: 'OPTIONS',
+      field: 'optionsCount',
+      align: 'center',
+      sortable: false,
+    },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'createdAt', desc: true }])
@@ -77,6 +82,7 @@ function onRowClick(row) {
     :loading="loading"
     rowKey="id"
     :mobileCards="false"
+    filterable
     @rowClick="onRowClick"
   >
     <template #body-cell-name="{ row }">

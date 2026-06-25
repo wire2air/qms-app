@@ -29,14 +29,26 @@ function openPublicPage(form) {
   window.open(publicUrl(form), '_blank', 'noopener,noreferrer')
 }
 
-const columns = [
-  { name: 'name', label: 'FORM', field: 'name', align: 'left', sortable: true },
-  { name: 'url', label: 'PUBLIC URL', field: 'slug', align: 'left' },
-  { name: 'template', label: 'CUSTOM FIELDS', field: 'fieldCount', align: 'left' },
-  { name: 'state', label: 'STATUS', field: 'stateId', align: 'left' },
-  { name: 'updatedAt', label: 'UPDATED', field: 'updatedAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
+const columns = computed(() => {
+  const filterCfg = {
+    state: {
+      filterType: 'select',
+      filterOptions: [
+        { value: 'ACTIVE', label: 'Active' },
+        { value: 'INACTIVE', label: 'Disabled' },
+      ],
+    },
+    updatedAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'FORM', field: 'name', align: 'left', sortable: true },
+    { name: 'url', label: 'PUBLIC URL', field: 'slug', align: 'left' },
+    { name: 'template', label: 'CUSTOM FIELDS', field: 'fieldCount', align: 'left' },
+    { name: 'state', label: 'STATUS', field: 'stateId', align: 'left' },
+    { name: 'updatedAt', label: 'UPDATED', field: 'updatedAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'name', desc: false }])
@@ -61,6 +73,7 @@ function rowMenuItems(row) {
     :columns="columns"
     rowKey="id"
     :mobileCards="false"
+    filterable
   >
     <template #body-cell-name="{ row }">
       <div class="tw:flex tw:flex-col">

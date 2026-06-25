@@ -13,15 +13,35 @@ const props = defineProps({
 
 const router = useRouter()
 
-const columns = [
-  { name: 'name', label: 'WORKFLOW NAME', field: 'name', align: 'left', sortable: true },
-  { name: 'type', label: 'TYPE', field: 'moduleId', align: 'left', sortable: true },
-  { name: 'steps', label: 'STEPS', field: 'steps', align: 'left', sortable: false },
-  { name: 'version', label: 'VERSION', field: 'version', align: 'left', sortable: false },
-  { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
+// Option sources for the advanced filter's entity-column dropdowns.
+const modules = useLiveQuery((db) => db.Module.where().exec(), {
+  models: ['Module'],
+  initial: [],
+})
+const workflowVersionStatuses = useLiveQuery((db) => db.WorkflowVersionStatus.where().exec(), {
+  models: ['WorkflowVersionStatus'],
+  initial: [],
+})
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    type: { filterType: 'select', filterOptions: selectOpts(modules.value) },
+    statusId: { filterType: 'select', filterOptions: selectOpts(workflowVersionStatuses.value) },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'WORKFLOW NAME', field: 'name', align: 'left', sortable: true },
+    { name: 'type', label: 'TYPE', field: 'moduleId', align: 'left', sortable: true },
+    { name: 'steps', label: 'STEPS', field: 'steps', align: 'left', sortable: false },
+    { name: 'version', label: 'VERSION', field: 'version', align: 'left', sortable: false },
+    { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 const rows = computed(() =>
   [...props.workflows].sort((a, b) => {
@@ -77,6 +97,7 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     :columns="columns"
     rowKey="id"
     :mobileCards="false"
+    filterable
   >
     <template #body-cell-name="{ row }">
       <BaseClickableRow

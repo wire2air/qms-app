@@ -12,13 +12,28 @@ const props = defineProps({
 
 const toast = useToast()
 
-const columns = [
-  { name: 'title', label: 'TRAINING', field: 'snapshot', align: 'left', sortable: false },
-  { name: 'status', label: 'STATUS', field: 'status', align: 'left', sortable: false },
-  { name: 'dueDate', label: 'DUE DATE', field: 'dueDate', align: 'left', sortable: true },
-  { name: 'createdAt', label: 'LAUNCHED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
+const columns = computed(() => {
+  const filterCfg = {
+    status: {
+      filterType: 'select',
+      filterOptions: [
+        { value: 'ACTIVE', label: 'Active' },
+        { value: 'PENDING_VERIFICATION', label: 'Pending Verification' },
+        { value: 'COMPLETED', label: 'Completed' },
+        { value: 'CANCELLED', label: 'Cancelled' },
+      ],
+    },
+    dueDate: { filterType: 'date' },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'title', label: 'TRAINING', field: 'snapshot', align: 'left', sortable: false },
+    { name: 'status', label: 'STATUS', field: 'status', align: 'left', sortable: false },
+    { name: 'dueDate', label: 'DUE DATE', field: 'dueDate', align: 'left', sortable: true },
+    { name: 'createdAt', label: 'LAUNCHED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'createdAt', desc: true }])
@@ -51,6 +66,7 @@ function rowMenuItems(row) {
     :columns="columns"
     rowKey="id"
     :mobileCards="false"
+    filterable
   >
     <template #body-cell-title="{ row }">
       <RouterLink

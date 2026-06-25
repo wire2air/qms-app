@@ -22,14 +22,19 @@ const props = defineProps({
 
 const emit = defineEmits(['delete', 'edit'])
 
-const columns = [
-  { name: 'name', label: 'SITE NAME', field: 'name', align: 'left', sortable: true },
-  { name: 'code', label: 'CODE', field: 'code', align: 'left', sortable: true },
-  { name: 'address', label: 'ADDRESS', field: 'address', align: 'left', sortable: true },
-  { name: 'timezone', label: 'TIMEZONE', field: 'timezone', align: 'left', sortable: true },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
+const columns = computed(() => {
+  const filterCfg = {
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'SITE NAME', field: 'name', align: 'left', sortable: true },
+    { name: 'code', label: 'CODE', field: 'code', align: 'left', sortable: true },
+    { name: 'address', label: 'ADDRESS', field: 'address', align: 'left', sortable: true },
+    { name: 'timezone', label: 'TIMEZONE', field: 'timezone', align: 'left', sortable: true },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'createdAt', desc: true }])
@@ -63,6 +68,7 @@ function rowMenuItems(row) {
     :loading="loading"
     rowKey="id"
     :mobileCards="false"
+    filterable
   >
     <template #body-cell-name="{ row }">
       <div class="tw:font-bold tw:text-on-main">{{ row.name }}</div>

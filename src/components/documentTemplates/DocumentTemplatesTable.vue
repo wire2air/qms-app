@@ -50,29 +50,50 @@ async function onUnarchiveTemplate(row) {
   }
 }
 
-const columns = [
-  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
-  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
-  { name: 'prefix', label: 'PREFIX', field: 'prefix', align: 'left', sortable: true },
-  { name: 'department', label: 'DEPARTMENT', field: 'department', align: 'left', sortable: true },
-  {
-    name: 'training',
-    label: 'TRAINING',
-    field: 'trainingAvailable',
-    align: 'center',
-    sortable: true,
-  },
-  { name: 'sections', label: 'SECTIONS', field: 'sections', align: 'center' },
-  {
-    name: 'reviewPeriod',
-    label: 'REVIEW PERIOD',
-    field: 'periodicReviewMonths',
-    align: 'center',
-    sortable: true,
-  },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
+// Option sources for the advanced filter's entity-column dropdowns.
+const documentTemplateStatuses = useLiveQuery((db) => db.DocumentTemplateStatus.where().exec(), {
+  models: ['DocumentTemplateStatus'],
+  initial: [],
+})
+const departments = useLiveQuery((db) => db.Department.where().exec(), {
+  models: ['Department'],
+  initial: [],
+})
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    status: { filterType: 'select', filterOptions: selectOpts(documentTemplateStatuses.value) },
+    department: { filterType: 'select', filterOptions: selectOpts(departments.value) },
+    reviewPeriod: { filterType: 'number' },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
+    { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
+    { name: 'prefix', label: 'PREFIX', field: 'prefix', align: 'left', sortable: true },
+    { name: 'department', label: 'DEPARTMENT', field: 'department', align: 'left', sortable: true },
+    {
+      name: 'training',
+      label: 'TRAINING',
+      field: 'trainingAvailable',
+      align: 'center',
+      sortable: true,
+    },
+    { name: 'sections', label: 'SECTIONS', field: 'sections', align: 'center' },
+    {
+      name: 'reviewPeriod',
+      label: 'REVIEW PERIOD',
+      field: 'periodicReviewMonths',
+      align: 'center',
+      sortable: true,
+    },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'createdAt', desc: true }])
@@ -104,6 +125,7 @@ function rowMenuItems(row) {
     :loading="loading"
     rowKey="id"
     :mobileCards="false"
+    filterable
   >
     <template #body-cell-name="{ row }">
       <BaseClickableRow

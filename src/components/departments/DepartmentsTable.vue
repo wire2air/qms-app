@@ -22,20 +22,32 @@ const props = defineProps({
 
 const emit = defineEmits(['delete', 'edit'])
 
-const columns = [
-  { name: 'name', label: 'DEPARTMENT NAME', field: 'name', align: 'left', sortable: true },
-  { name: 'code', label: 'CODE', field: 'code', align: 'left', sortable: true },
-  { name: 'site', label: 'SITE', field: 'site', align: 'left', sortable: false },
-  {
-    name: 'description',
-    label: 'DESCRIPTION',
-    field: 'description',
-    align: 'left',
-    sortable: false,
-  },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
+// Option sources for the advanced filter's entity-column dropdowns.
+const sites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    site: { filterType: 'select', filterOptions: selectOpts(sites.value) },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'DEPARTMENT NAME', field: 'name', align: 'left', sortable: true },
+    { name: 'code', label: 'CODE', field: 'code', align: 'left', sortable: true },
+    { name: 'site', label: 'SITE', field: 'site', align: 'left', sortable: false },
+    {
+      name: 'description',
+      label: 'DESCRIPTION',
+      field: 'description',
+      align: 'left',
+      sortable: false,
+    },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'createdAt', desc: true }])
@@ -69,6 +81,7 @@ function rowMenuItems(row) {
     :loading="loading"
     rowKey="id"
     :mobileCards="false"
+    filterable
   >
     <template #body-cell-name="{ row }">
       <div class="tw:font-bold tw:text-on-main">{{ row.name }}</div>

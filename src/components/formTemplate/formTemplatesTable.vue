@@ -24,13 +24,28 @@ const router = useRouter()
 const showPreviewDialog = ref(false)
 const previewTemplate = ref(null)
 
-const columns = [
-  { name: 'title', label: 'TEMPLATE NAME', field: 'title', align: 'left', sortable: true },
-  { name: 'version', label: 'VERSION', field: 'version', align: 'left', sortable: true },
-  { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
+// Option sources for the advanced filter's entity-column dropdowns.
+const formStatuses = useLiveQuery((db) => db.FormStatus.where().exec(), {
+  models: ['FormStatus'],
+  initial: [],
+})
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    statusId: { filterType: 'select', filterOptions: selectOpts(formStatuses.value) },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'title', label: 'TEMPLATE NAME', field: 'title', align: 'left', sortable: true },
+    { name: 'version', label: 'VERSION', field: 'version', align: 'left', sortable: true },
+    { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'createdAt', desc: true }])
@@ -77,6 +92,7 @@ function rowMenuItems(row) {
     :columns="columns"
     rowKey="id"
     :mobileCards="false"
+    filterable
   >
     <!-- Title Column -->
     <template #body-cell-title="{ row }">
