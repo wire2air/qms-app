@@ -4,6 +4,7 @@ import { initCurrentCompany, companies } from '@/utils/currentCompany'
 import { isPublicRoute as isPublicRouteFn, isAuthRoute } from '@/constants/authRoutes'
 import { initSync, deleteAllSyncDatabases } from '@/utils/initSyncEngine.js'
 import { currentSubdomain, gotoTenant } from '@/utils/tenant'
+import { provideDataTablePersist } from '@/composables/useDataTablePersist'
 
 const pageInfo = ref({
   showHeader: true,
@@ -20,6 +21,11 @@ useNavigationCommands()
 const route = useRoute()
 const openRoutes = ['/form']
 const loading = ref(true)
+
+// Wire <DataTable persistKey> view-state persistence to the synced User.settings
+// bag (IndexedDB + cross-device). Gated on `!loading` so the User query waits
+// until the syncEngine's IndexedDB is installed (querying earlier throws).
+provideDataTablePersist(() => !loading.value)
 const showFormBuilder = computed(() => {
   return route.name === '/templates/[[id]]' && route.query.mode === 'schema'
 })

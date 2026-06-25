@@ -421,27 +421,40 @@ const EntityType = {
   InspectionLot: 'QC Inspection Lot',
 }
 
-const columns = [
-  { name: 'title', label: 'ITEM', field: 'title', align: 'left' },
-  {
-    name: 'entityType',
-    label: 'ENTITY TYPE',
-    field: (row) => EntityType[row.entityType] || row.entityType,
-    align: 'left',
-  },
-  { name: 'type', label: 'TYPE', field: 'type', align: 'left' },
-  { name: 'dueDate', label: 'DUE DATE', field: 'dueDate', align: 'left', sortable: true },
-  { name: 'status', label: 'STATUS', field: 'status', align: 'left' },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+const columns = computed(() => {
+  // Only columns backed by a real scalar on the row can be filtered. `title`,
+  // `type` and `status` are resolved per-entity-type through the maps above
+  // (no plain row field), so a generic text/select filter on them would match
+  // nothing — disable it. `entityType` filters on its friendly label (the same
+  // value its accessor returns); dueDate/createdAt are luxon dates.
+  const filterCfg = {
+    title: { filterType: false },
+    entityType: {
+      filterType: 'select',
+      filterOptions: Object.values(EntityType).map((label) => ({ value: label, label })),
+    },
+    type: { filterType: false },
+    dueDate: { filterType: 'date' },
+    status: { filterType: false },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'title', label: 'ITEM', field: 'title', align: 'left' },
+    {
+      name: 'entityType',
+      label: 'ENTITY TYPE',
+      field: (row) => EntityType[row.entityType] || row.entityType,
+      align: 'left',
+    },
+    { name: 'type', label: 'TYPE', field: 'type', align: 'left' },
+    { name: 'dueDate', label: 'DUE DATE', field: 'dueDate', align: 'left', sortable: true },
+    { name: 'status', label: 'STATUS', field: 'status', align: 'left' },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 // Resolve a row's display title from the per-entity maps (mirrors the title
 // cell), for export.
@@ -735,11 +748,14 @@ defineExpose({ exportCsv })
 
     <!-- Desktop / landscape: full table -->
     <div class="tw:hidden tw:md:block">
-      <BaseTable
+      <DataTable
         v-model:pagination="pagination"
+        v-model:sort="sort"
         :rows="filteredInstances"
         :columns="columns"
         rowKey="id"
+        :mobileCards="false"
+        filterable
       >
         <!-- Item Title -->
         <template #body-cell-title="{ row }">
@@ -980,7 +996,7 @@ defineExpose({ exportCsv })
         <template #body-cell-createdAt="{ row }">
           <span class="tw:text-sm tw:text-secondary">{{ row.createdAt?.formatDate('date') }}</span>
         </template>
-      </BaseTable>
+      </DataTable>
     </div>
 
     <!-- RFI dialog — opens inline when an Information Request task row is

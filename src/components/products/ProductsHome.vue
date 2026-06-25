@@ -26,7 +26,7 @@ const canDeleteProduct = computed(() => isAllowed(['products:delete']))
 
 const list = useListLayout({
   // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
-  filters: { search: '', productTypeId: [], statusId: [], productFamilyId: [] },
+  filters: { productTypeId: [], statusId: [], productFamilyId: [] },
   total: () => products.value.length,
   empty: () => products.value.length === 0,
   syncUrl: true,
@@ -34,24 +34,17 @@ const list = useListLayout({
 
 const products = useLiveQueryWithDeps(
   [
-    () => list.filters.value.search,
     () => list.filters.value.productTypeId,
     () => list.filters.value.statusId,
     () => list.filters.value.productFamilyId,
   ],
-  async (db, [search, productTypeIds, statusIds, productFamilyIds]) => {
+  async (db, [productTypeIds, statusIds, productFamilyIds]) => {
     let results = await db.Product.where().exec()
     if (productTypeIds?.length)
       results = results.filter((p) => productTypeIds.includes(p.productTypeId))
     if (statusIds?.length) results = results.filter((p) => statusIds.includes(p.statusId))
     if (productFamilyIds?.length)
       results = results.filter((p) => productFamilyIds.includes(p.productFamilyId))
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter(
-        (p) => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q),
-      )
-    }
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )

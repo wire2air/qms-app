@@ -18,8 +18,21 @@
  * context. The panel region can be relocated with the optional #panels slot
  * naming if needed, but the default slot is the panels.
  *
+ * Overflow (enterprise UX): when the tabs are wider than the viewport the row
+ * scrolls horizontally (wheel / trackpad / touch), with the native scrollbar
+ * hidden. A subtle gradient fade marks each overflowing edge and a floating
+ * chevron button glides the row into view — both appear only when there is
+ * actually more in that direction, and vanish at the start/end. The active tab
+ * is always scrolled back into view on selection, and (underline variant) a
+ * sliding indicator animates between tabs. Nothing here adds layout space, so
+ * the affordances never cause layout shift. Toggle with `scrollable` / `fade` /
+ * `navButtons`. The fade color follows `--tabs-fade-color` (defaults to the page
+ * surface) so it blends correctly inside cards too.
+ *
  * Icons are NOT auto-imported — pass the imported component on a tab's `icon`.
  */
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-vue'
+
 const props = defineProps({
   // [{ value, label, icon?, disabled?, badge?, indicator? }]
   //   badge     — count pill after the label (string|number)
@@ -33,6 +46,10 @@ const props = defineProps({
   },
   // Accessible name for the tablist (WCAG — every tablist needs one).
   ariaLabel: { type: String, default: undefined },
+  // Overflow chrome — all default-on, additive (no caller changes required).
+  scrollable: { type: Boolean, default: true }, // master switch for scroll/fade/buttons
+  fade: { type: Boolean, default: true }, // gradient edge fades
+  navButtons: { type: Boolean, default: true }, // floating chevron buttons
 })
 
 const model = defineModel({ type: [String, Number], default: null })
@@ -115,11 +132,95 @@ function onKeydown(e) {
   }
 }
 
-const listClass = computed(() =>
-  props.variant === 'pills'
-    ? 'tw:flex tw:flex-wrap tw:gap-1'
-    : 'tw:flex tw:gap-1 tw:overflow-x-auto tw:border-b tw:border-divider',
+/* ──────────────────────────── Overflow navigation ──────────────────────────── */
+
+const scroller = ref(null) // the role="tablist" element (the scroll container)
+
+// useScroll keeps `arrivedState.left/right` reactive on every scroll — that is
+// what tells us whether there is anything left to reveal in each direction.
+const { arrivedState } = useScroll(scroller)
+
+const isOverflowing = ref(false)
+function measure() {
+  const el = scroller.value
+  isOverflowing.value = !!el && el.scrollWidth - el.clientWidth > 1
+  updateIndicator()
+}
+
+// Recompute on container resize and whenever the tab set changes — no polling.
+useResizeObserver(scroller, measure)
+watch(
+  () => props.tabs.map((t) => t.value).join('|'),
+  () => nextTick(measure),
 )
+onMounted(() => nextTick(measure))
+
+const canScroll = computed(() => props.scrollable && isOverflowing.value)
+const canPrev = computed(() => canScroll.value && !arrivedState.left)
+const canNext = computed(() => canScroll.value && !arrivedState.right)
+
+function scrollByDir(dir) {
+  const el = scroller.value
+  if (!el) return
+  // ~80% of a page keeps a sliver of the previous tab as a continuity anchor.
+  el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: 'smooth' })
+}
+
+// Translate vertical wheel/trackpad delta into horizontal scroll, but only when
+// the gesture is vertically dominant (preserve native horizontal swipe/trackpad).
+function onWheel(e) {
+  const el = scroller.value
+  if (!el || !canScroll.value) return
+  if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
+  el.scrollLeft += e.deltaY
+  e.preventDefault()
+}
+useEventListener(scroller, 'wheel', onWheel, { passive: false })
+
+// Keep the selected tab visible after any selection (click or keyboard).
+const didInitScroll = ref(false)
+function scrollActiveIntoView(smooth) {
+  const el = btnEls.get(model.value)
+  if (!el || typeof el.scrollIntoView !== 'function') return
+  el.scrollIntoView({
+    inline: 'nearest',
+    block: 'nearest',
+    behavior: smooth ? 'smooth' : 'auto',
+  })
+}
+
+/* Sliding underline indicator — one shared bar that glides between tabs.
+ * Positioned in the scroll content's coordinate space, so it tracks naturally
+ * while the row scrolls (no per-scroll recompute). */
+const indicatorStyle = ref({ opacity: 0 })
+function updateIndicator() {
+  if (props.variant !== 'underline') return
+  const el = btnEls.get(model.value)
+  if (!el || !scroller.value) {
+    indicatorStyle.value = { opacity: 0 }
+    return
+  }
+  indicatorStyle.value = {
+    transform: `translateX(${el.offsetLeft}px)`,
+    width: `${el.offsetWidth}px`,
+    opacity: 1,
+  }
+}
+
+watch(model, () => {
+  nextTick(() => {
+    updateIndicator()
+    scrollActiveIntoView(didInitScroll.value)
+    didInitScroll.value = true
+  })
+})
+
+/* ──────────────────────────── Styling ──────────────────────────── */
+
+const listClass = computed(() => [
+  'base-tabs__scroller tw:relative tw:flex tw:flex-nowrap tw:overflow-x-auto',
+  props.variant === 'pills' ? 'tw:gap-1' : 'tw:gap-1 tw:border-b tw:border-divider',
+])
 
 function tabClass(tab) {
   const active = isActive(tab)
@@ -133,10 +234,8 @@ function tabClass(tab) {
     ]
   }
   return [
-    'tw:inline-flex tw:items-center tw:gap-1.5 tw:whitespace-nowrap tw:-mb-px tw:border-b-2 tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:transition-colors tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/30',
-    active
-      ? 'tw:border-primary tw:text-primary'
-      : 'tw:border-transparent tw:text-secondary tw:hover:text-on-main',
+    'tw:relative tw:inline-flex tw:items-center tw:gap-1.5 tw:whitespace-nowrap tw:rounded-md tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:transition-colors tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/30',
+    active ? 'tw:text-primary' : 'tw:text-secondary tw:hover:text-on-main',
     tab.disabled && 'tw:cursor-not-allowed tw:opacity-50',
   ]
 }
@@ -144,40 +243,128 @@ function tabClass(tab) {
 
 <template>
   <div>
-    <div role="tablist" :aria-label="ariaLabel" :class="listClass" @keydown="onKeydown">
-      <button
-        v-for="tab in tabs"
-        :id="tabId(tab.value)"
-        :key="tab.value"
-        :ref="(el) => setBtn(tab.value, el)"
-        type="button"
-        role="tab"
-        :aria-selected="isActive(tab)"
-        :aria-controls="panelId(tab.value)"
-        :tabindex="isActive(tab) ? 0 : -1"
-        :disabled="tab.disabled || undefined"
-        :class="tabClass(tab)"
-        @click="select(tab)"
+    <!-- Overflow viewport: anchors the fades + floating buttons without taking
+         layout space, so they never cause layout shift. -->
+    <div class="tw:relative">
+      <div
+        ref="scroller"
+        role="tablist"
+        :aria-label="ariaLabel"
+        :class="listClass"
+        @keydown="onKeydown"
       >
-        <component :is="tab.icon" v-if="tab.icon" :size="16" aria-hidden="true" />
-        {{ tab.label }}
-        <!-- Optional count pill (e.g. "Versions 3"). -->
-        <span
-          v-if="tab.badge != null && tab.badge !== ''"
-          class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-main-hover tw:px-1.5 tw:text-[10px] tw:font-bold tw:text-secondary"
-          :class="isActive(tab) && 'tw:bg-primary/10 tw:text-primary'"
+        <button
+          v-for="tab in tabs"
+          :id="tabId(tab.value)"
+          :key="tab.value"
+          :ref="(el) => setBtn(tab.value, el)"
+          type="button"
+          role="tab"
+          :aria-selected="isActive(tab)"
+          :aria-controls="panelId(tab.value)"
+          :tabindex="isActive(tab) ? 0 : -1"
+          :disabled="tab.disabled || undefined"
+          :class="tabClass(tab)"
+          @click="select(tab)"
         >
-          {{ tab.badge }}
-        </span>
-        <!-- Optional attention dot (e.g. unresolved warning on a tab). -->
+          <component :is="tab.icon" v-if="tab.icon" :size="16" aria-hidden="true" />
+          {{ tab.label }}
+          <!-- Optional count pill (e.g. "Versions 3"). -->
+          <span
+            v-if="tab.badge != null && tab.badge !== ''"
+            class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-main-hover tw:px-1.5 tw:text-[10px] tw:font-bold tw:text-secondary"
+            :class="isActive(tab) && 'tw:bg-primary/10 tw:text-primary'"
+          >
+            {{ tab.badge }}
+          </span>
+          <!-- Optional attention dot (e.g. unresolved warning on a tab). -->
+          <span
+            v-if="tab.indicator"
+            class="tw:size-1.5 tw:rounded-full tw:bg-warning"
+            aria-hidden="true"
+          />
+        </button>
+
+        <!-- Sliding active indicator (underline variant only). Lives in scroll
+             content so it tracks the row while scrolling; GPU-friendly transform. -->
         <span
-          v-if="tab.indicator"
-          class="tw:size-1.5 tw:rounded-full tw:bg-warning"
+          v-if="variant === 'underline'"
+          class="tw:pointer-events-none tw:absolute tw:bottom-0 tw:left-0 tw:h-0.5 tw:rounded-full tw:bg-primary tw:transition-[transform,width,opacity] tw:duration-300 tw:ease-out"
+          :style="indicatorStyle"
           aria-hidden="true"
         />
-      </button>
+      </div>
+
+      <!-- Edge fades — purely decorative, never intercept clicks. -->
+      <template v-if="fade">
+        <div
+          class="base-tabs__fade base-tabs__fade--left tw:pointer-events-none tw:absolute tw:inset-y-0 tw:left-0 tw:w-12 tw:transition-opacity tw:duration-200"
+          :class="canPrev ? 'tw:opacity-100' : 'tw:opacity-0'"
+          aria-hidden="true"
+        />
+        <div
+          class="base-tabs__fade base-tabs__fade--right tw:pointer-events-none tw:absolute tw:inset-y-0 tw:right-0 tw:w-12 tw:transition-opacity tw:duration-200"
+          :class="canNext ? 'tw:opacity-100' : 'tw:opacity-0'"
+          aria-hidden="true"
+        />
+      </template>
+
+      <!-- Floating chevrons — mouse affordance only (keyboard already has
+           Arrow/Home/End), so aria-hidden + tabindex=-1 keep the tab order clean. -->
+      <template v-if="navButtons">
+        <button
+          type="button"
+          aria-hidden="true"
+          tabindex="-1"
+          class="tw:absolute tw:left-1 tw:top-1/2 tw:-translate-y-1/2 tw:inline-flex tw:size-7 tw:items-center tw:justify-center tw:rounded-full tw:border tw:border-divider tw:bg-card tw:text-secondary tw:shadow-sm tw:transition tw:duration-200 tw:hover:bg-main-hover tw:hover:text-on-main tw:active:scale-95"
+          :class="canPrev ? 'tw:opacity-100' : 'tw:pointer-events-none tw:opacity-0'"
+          @click="scrollByDir(-1)"
+        >
+          <IconChevronLeft :size="16" />
+        </button>
+        <button
+          type="button"
+          aria-hidden="true"
+          tabindex="-1"
+          class="tw:absolute tw:right-1 tw:top-1/2 tw:-translate-y-1/2 tw:inline-flex tw:size-7 tw:items-center tw:justify-center tw:rounded-full tw:border tw:border-divider tw:bg-card tw:text-secondary tw:shadow-sm tw:transition tw:duration-200 tw:hover:bg-main-hover tw:hover:text-on-main tw:active:scale-95"
+          :class="canNext ? 'tw:opacity-100' : 'tw:pointer-events-none tw:opacity-0'"
+          @click="scrollByDir(1)"
+        >
+          <IconChevronRight :size="16" />
+        </button>
+      </template>
     </div>
 
     <slot />
   </div>
 </template>
+
+<style scoped>
+/* Hide the native scrollbar while keeping the element fully scrollable. */
+.base-tabs__scroller {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+  scroll-behavior: smooth;
+}
+.base-tabs__scroller::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Edge fades blend the row into whatever surface it sits on. Override
+ * --tabs-fade-color on a parent to match a non-default background (e.g. cards). */
+.base-tabs__fade {
+  --tabs-fade-color: var(--color-main);
+}
+.base-tabs__fade--left {
+  background: linear-gradient(to right, var(--tabs-fade-color), transparent);
+}
+.base-tabs__fade--right {
+  background: linear-gradient(to left, var(--tabs-fade-color), transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .base-tabs__scroller {
+    scroll-behavior: auto;
+  }
+}
+</style>

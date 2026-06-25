@@ -149,23 +149,46 @@ const filteredInstances = computed(() => {
   })
 })
 
-const columns = [
-  { name: 'title', label: 'ITEM TITLE', field: 'title', align: 'left' },
-  { name: 'module', label: 'MODULE', field: 'module', align: 'left' },
-  { name: 'type', label: 'TYPE', field: 'type', align: 'left' },
-  { name: 'submittedBy', label: 'SUBMITTED BY', field: 'submittedBy', align: 'left' },
-  { name: 'currentStep', label: 'CURRENT STEP', field: 'currentStep', align: 'left' },
-  { name: 'status', label: 'STATUS', field: 'status', align: 'left' },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+// Option sources for the advanced filter's entity-column dropdowns.
+const modules = useLiveQuery((db) => db.Module.where().exec(), {
+  models: ['Module'],
+  initial: [],
 })
+const workflowInstanceStatuses = useLiveQuery((db) => db.WorkflowInstanceStatus.where().exec(), {
+  models: ['WorkflowInstanceStatus'],
+  initial: [],
+})
+const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    module: { filterType: 'select', filterOptions: selectOpts(modules.value) },
+    submittedBy: {
+      filterType: 'select',
+      filterOptions: users.value.map((u) => ({
+        value: u.id,
+        label: `${u.firstName} ${u.lastName}`.trim() || u.email,
+      })),
+    },
+    status: { filterType: 'select', filterOptions: selectOpts(workflowInstanceStatuses.value) },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'title', label: 'ITEM TITLE', field: 'title', align: 'left' },
+    { name: 'module', label: 'MODULE', field: 'module', align: 'left' },
+    { name: 'type', label: 'TYPE', field: 'type', align: 'left' },
+    { name: 'submittedBy', label: 'SUBMITTED BY', field: 'submittedBy', align: 'left' },
+    { name: 'currentStep', label: 'CURRENT STEP', field: 'currentStep', align: 'left' },
+    { name: 'status', label: 'STATUS', field: 'status', align: 'left' },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function getDocument(instance) {
   return documentMap.value[instance.resourceId] || null
@@ -189,11 +212,16 @@ function routeForInstance(instance) {
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="filteredInstances"
     :columns="columns"
     rowKey="id"
+    :mobileCards="false"
+    filterable
+    exportManager
+    exportFilename="workflow-instances.csv"
   >
     <!-- Item Title -->
     <template #body-cell-title="{ row }">
@@ -270,5 +298,5 @@ function routeForInstance(instance) {
     <template #body-cell-createdAt="{ row }">
       <span class="tw:text-sm tw:text-secondary">{{ row.createdAt?.formatDate('date') }}</span>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

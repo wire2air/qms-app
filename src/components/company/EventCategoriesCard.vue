@@ -14,6 +14,30 @@ const { confirm } = useConfirm()
 
 const canConfigure = computed(() => isAllowed(['qualityEvents:configure']))
 
+// Active-list table config (DataTable). Name renders a color swatch + optional
+// description subline and Code renders as a chip via slots; per-row
+// Edit/Deactivate come from rowActions (gated — null hides the actions column
+// entirely when the user lacks configure permission).
+const columns = [
+  { name: 'name', label: 'NAME', field: 'name', align: 'left' },
+  { name: 'code', label: 'CODE', field: 'code', align: 'left' },
+  { name: 'displayOrder', label: 'ORDER', field: 'displayOrder', align: 'center' },
+]
+const rowActions = computed(() =>
+  canConfigure.value
+    ? [
+        { key: 'edit', label: 'Edit', icon: IconPencil, onClick: (row) => openEdit(row) },
+        {
+          key: 'deactivate',
+          label: 'Deactivate',
+          icon: IconTrash,
+          danger: true,
+          onClick: (row) => handleDeactivate(row),
+        },
+      ]
+    : null,
+)
+
 const categories = useLiveQuery(
   (db) => db.EventCategory.where().orderBy('displayOrder', 'asc').exec(),
   {
@@ -174,69 +198,40 @@ async function handleRestore(row) {
     </div>
 
     <div class="tw:p-4">
-      <table class="tw:w-full tw:text-sm">
-        <thead>
-          <tr
-            class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider"
-          >
-            <th class="tw:px-3 tw:py-2">Name</th>
-            <th class="tw:px-3 tw:py-2">Code</th>
-            <th class="tw:px-3 tw:py-2 tw:text-center">Order</th>
-            <th class="tw:px-3 tw:py-2 tw:text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in categories" :key="row.id" class="tw:border-b tw:border-divider">
-            <td class="tw:px-3 tw:py-3">
-              <div class="tw:flex tw:items-center tw:gap-2">
-                <span
-                  class="tw:size-3 tw:rounded-full tw:shrink-0"
-                  :style="{ backgroundColor: row.color || '#cbd5e1' }"
-                />
-                <span class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</span>
-              </div>
-              <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">
-                {{ row.description }}
-              </div>
-            </td>
-            <td class="tw:px-3 tw:py-3">
-              <code
-                class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary"
-                >{{ row.code }}</code
-              >
-            </td>
-            <td class="tw:px-3 tw:py-3 tw:text-center tw:text-secondary">
-              {{ row.displayOrder }}
-            </td>
-            <td class="tw:px-3 tw:py-3 tw:text-right">
-              <div v-if="canConfigure" class="tw:flex tw:items-center tw:justify-end tw:gap-1">
-                <button
-                  class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:hover:text-primary"
-                  title="Edit"
-                  @click="openEdit(row)"
-                >
-                  <IconPencil :size="16" />
-                </button>
-                <button
-                  class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-red-50 tw:hover:text-red-600"
-                  title="Deactivate"
-                  @click="handleDeactivate(row)"
-                >
-                  <IconTrash :size="16" />
-                </button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!categories.length">
-            <td
-              colspan="4"
-              class="tw:px-3 tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic"
-            >
-              No active categories. Add one above.
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <DataTable
+        :rows="categories"
+        :columns="columns"
+        :rowActions="rowActions"
+        rowKey="id"
+        :mobileCards="false"
+        hidePagination
+        searchable
+        filterable
+        densitySelector
+        columnManager
+        exportManager
+        exportFilename="event-categories.csv"
+        persistKey="lookups:eventCategories"
+        noDataLabel="No active categories. Add one above."
+      >
+        <template #body-cell-name="{ row }">
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <span
+              class="tw:size-3 tw:rounded-full tw:shrink-0"
+              :style="{ backgroundColor: row.color || '#cbd5e1' }"
+            />
+            <span class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</span>
+          </div>
+          <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">
+            {{ row.description }}
+          </div>
+        </template>
+        <template #body-cell-code="{ row }">
+          <code class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary">
+            {{ row.code }}
+          </code>
+        </template>
+      </DataTable>
 
       <div v-if="deactivated.length" class="tw:mt-4 tw:border-t tw:border-divider tw:pt-4">
         <button

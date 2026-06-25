@@ -2,23 +2,17 @@
 /**
  * Inspection lots list — the QC execution queue. Reads live from the
  * SyncEngine; create/import/transition go through the qcInspection REST service.
+ * Rendered via the shared DataTable — search, advanced filter (point + created
+ * date), density, column manager and export all live in the table toolbar.
  */
-import { IconPlus, IconDownload, IconUpload, IconCalendar } from '@tabler/icons-vue'
+import { IconPlus, IconUpload } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { matchesDateFilter } from '@/utils/dateRanges.js'
-import { exportToCSV } from '@/utils/exportUtils.js'
 
 defineProps({ canCreate: { type: Boolean, default: false } })
 
 const router = useRouter()
 const showCreate = ref(false)
 const showImport = ref(false)
-const pointFilter = ref(null)
-const lotFilters = ref({})
-
-const lotDateFilterItems = computed(() => [
-  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
-])
 
 const POINT_LABELS = {
   INCOMING: 'Incoming (IQC)',
@@ -26,19 +20,15 @@ const POINT_LABELS = {
   FINAL: 'Final (FQC)',
   OUTGOING: 'Outgoing (OQC)',
 }
-const POINT_OPTIONS = Object.entries(POINT_LABELS).map(([id, name]) => ({ id, name }))
+const POINT_OPTIONS = Object.entries(POINT_LABELS).map(([value, label]) => ({ value, label }))
 
-const lots = useLiveQueryWithDeps(
-  [() => pointFilter.value, () => lotFilters.value.createdAt],
-  async (db, [point, createdAt]) => {
+const lots = useLiveQuery(
+  async (db) => {
     const rows = await db.InspectionLot.where().exec()
-    let filtered = point ? rows.filter((l) => l.inspectionPoint === point) : rows
-    if (createdAt) filtered = filtered.filter((l) => matchesDateFilter(l.createdAt, createdAt))
-    return filtered.sort(
+    return rows.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-
   { models: ['InspectionLot'], initial: [] },
 )
 const products = useLiveQuery(async (db) => db.Product.where().exec(), {
@@ -46,120 +36,117 @@ const products = useLiveQuery(async (db) => db.Product.where().exec(), {
   initial: [],
 })
 const productName = (id) => products.value.find((p) => p.id === id)?.name || '—'
-const dispositionTypes = useLiveQuery(async (db) => db.NcDispositionType.where().exec(), { initial: [] })
-const dispositionName = (id) => dispositionTypes.value.find((d) => d.id === id)?.name || ''
+
+const columns = [
+  { name: 'lotNumber', label: 'LOT #', field: 'lotNumber', align: 'left', sortable: true },
+  {
+    name: 'point',
+    label: 'POINT',
+    field: 'inspectionPoint',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: POINT_OPTIONS,
+  },
+  { name: 'product', label: 'PRODUCT', field: 'productId', align: 'left' },
+  { name: 'sample', label: 'SAMPLE', field: 'sampleSize', align: 'left' },
+  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left' },
+  { name: 'disposition', label: 'DISPOSITION', field: 'dispositionTypeId', align: 'left' },
+  { name: 'nc', label: 'NC', field: 'ncId', align: 'left' },
+  {
+    name: 'createdAt',
+    label: 'CREATED',
+    field: 'createdAt',
+    align: 'left',
+    sortable: true,
+    filterType: 'date',
+  },
+]
 
 function openLot(id) {
   router.push(getCompanyPath(`/qc-inspection/lots/${id}`))
 }
-
-function exportCsv() {
-  exportToCSV(
-    lots.value,
-    [
-      { field: 'lotNumber', label: 'Lot #' },
-      { field: (r) => POINT_LABELS[r.inspectionPoint] || r.inspectionPoint, label: 'Point' },
-      { field: (r) => productName(r.productId), label: 'Product' },
-      { field: 'statusId', label: 'Status' },
-      { field: 'sampleSize', label: 'Sample size' },
-      { field: 'quantity', label: 'Quantity' },
-      { field: (r) => dispositionName(r.dispositionTypeId), label: 'Disposition' },
-      { field: 'qualityState', label: 'Quality state' },
-      { field: 'batchNumber', label: 'Batch' },
-      { field: 'poNumber', label: 'PO' },
-      { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
-    ],
-    'inspection-lots',
-  )
-}
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3">
-    <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:flex-wrap">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-        <BaseInlineSelect
-          v-model="pointFilter"
-          :items="POINT_OPTIONS"
-          nullLabel="— All points —"
-          class="tw:w-56"
-        />
-        <BaseFilterMenu v-model="lotFilters" :items="lotDateFilterItems" />
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <BaseButton variant="outline" size="sm" :disabled="!lots.length" @click="exportCsv">
-          <template #icon><IconDownload :size="16" /></template>
-          Export
-        </BaseButton>
-        <BaseButton v-if="canCreate" variant="outline" size="sm" @click="showImport = true">
-          <template #icon><IconUpload :size="16" /></template>
-          Import CSV
-        </BaseButton>
-        <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreate = true">
-          <template #icon><IconPlus :size="16" /></template>
-          New Lot
-        </BaseButton>
-      </div>
-    </div>
+  <DataTable
+    :rows="lots"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    searchable
+    filterable
+    densitySelector
+    columnManager
+    exportManager
+    exportFilename="inspection-lots.csv"
+    persistKey="qcInspection:inspectionLots"
+    noDataLabel="No inspection lots yet."
+  >
+    <template #toolbar-left>
+      <span class="tw:text-sm tw:text-secondary">{{ lots.length }} lot(s)</span>
+      <BaseButton v-if="canCreate" variant="outline" size="sm" @click="showImport = true">
+        <template #icon><IconUpload :size="16" /></template>
+        Import CSV
+      </BaseButton>
+      <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreate = true">
+        <template #icon><IconPlus :size="16" /></template>
+        New Lot
+      </BaseButton>
+    </template>
 
-    <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead class="tw:bg-main-hover tw:text-secondary tw:text-xs tw:uppercase">
-          <tr>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Lot #</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Point</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Product</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Sample</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Status</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Disposition</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">NC</th>
-          </tr>
-        </thead>
-        <tbody>
-          <BaseClickableRow
-            v-for="l in lots"
-            :key="l.id"
-            tag="tr"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-            :aria-label="`Open inspection lot ${l.lotNumber}`"
-            @click="openLot(l.id)"
-          >
-            <td class="tw:px-4 tw:py-2.5 tw:font-mono tw:text-on-main">{{ l.lotNumber }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
-              {{ POINT_LABELS[l.inspectionPoint] || l.inspectionPoint }}
-            </td>
-            <td class="tw:px-4 tw:py-2.5">{{ productName(l.productId) }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
-              {{ l.sampleSize ?? '—' }}<span v-if="l.quantity"> / {{ l.quantity }}</span>
-            </td>
-            <td class="tw:px-4 tw:py-2.5">
-              <InspectionLotStatusBadgeById :statusId="l.statusId" />
-            </td>
-            <td class="tw:px-4 tw:py-2.5">
-              <NcDispositionTypeBadgeById v-if="l.dispositionTypeId" :dispositionTypeId="l.dispositionTypeId" />
-              <span v-else class="tw:text-secondary">—</span>
-            </td>
-            <td class="tw:px-4 tw:py-2.5" @click.stop>
-              <RouterLink
-                v-if="l.ncId"
-                :to="getCompanyPath(`/nonconformances/${l.ncId}`)"
-                class="tw:text-caption tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full tw:bg-red-100 tw:text-red-700 tw:hover:bg-red-200"
-              >
-                NC raised
-              </RouterLink>
-              <span v-else class="tw:text-secondary">—</span>
-            </td>
-          </BaseClickableRow>
-          <tr v-if="!lots.length">
-            <td colspan="7" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
-              No inspection lots yet.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <template #body-cell-lotNumber="{ row }">
+      <RouterLink
+        :to="getCompanyPath(`/qc-inspection/lots/${row.id}`)"
+        class="tw:font-mono tw:text-on-main tw:hover:text-primary"
+      >
+        {{ row.lotNumber }}
+      </RouterLink>
+    </template>
 
-    <InspectionLotCreateDialog v-model="showCreate" @created="(id) => openLot(id)" />
-    <InspectionLotImportDialog v-model="showImport" />
-  </div>
+    <template #body-cell-point="{ row }">
+      <span class="tw:text-secondary">
+        {{ POINT_LABELS[row.inspectionPoint] || row.inspectionPoint }}
+      </span>
+    </template>
+
+    <template #body-cell-product="{ row }">
+      {{ productName(row.productId) }}
+    </template>
+
+    <template #body-cell-sample="{ row }">
+      <span class="tw:text-secondary">
+        {{ row.sampleSize ?? '—' }}<span v-if="row.quantity"> / {{ row.quantity }}</span>
+      </span>
+    </template>
+
+    <template #body-cell-status="{ row }">
+      <InspectionLotStatusBadgeById :statusId="row.statusId" />
+    </template>
+
+    <template #body-cell-disposition="{ row }">
+      <NcDispositionTypeBadgeById
+        v-if="row.dispositionTypeId"
+        :dispositionTypeId="row.dispositionTypeId"
+      />
+      <span v-else class="tw:text-secondary">—</span>
+    </template>
+
+    <template #body-cell-nc="{ row }">
+      <RouterLink
+        v-if="row.ncId"
+        :to="getCompanyPath(`/nonconformances/${row.ncId}`)"
+        class="tw:text-caption tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full tw:bg-red-100 tw:text-red-700 tw:hover:bg-red-200"
+      >
+        NC raised
+      </RouterLink>
+      <span v-else class="tw:text-secondary">—</span>
+    </template>
+
+    <template #body-cell-createdAt="{ row }">
+      <span class="tw:text-secondary">{{ row.createdAt?.formatDate('date') }}</span>
+    </template>
+  </DataTable>
+
+  <InspectionLotCreateDialog v-model="showCreate" @created="(id) => openLot(id)" />
+  <InspectionLotImportDialog v-model="showImport" />
 </template>

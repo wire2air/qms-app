@@ -22,7 +22,6 @@ const canDelete = computed(() => isAllowed(['qualityEvents:delete']))
 // (the quick-filter pill) lives in the same bag so it shares URL-sync + reset.
 const list = useListLayout({
   filters: {
-    search: '',
     // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
     statusId: [],
     categoryId: [],
@@ -38,13 +37,7 @@ const showCreate = ref(false)
 
 const OPEN_STATUSES = ['DRAFT', 'OPEN', 'UNDER_REVIEW', 'AWAITING_DECISION', 'ESCALATED']
 
-function applyFilters(results, search, statusIds, categoryIds, severityIds) {
-  if (search) {
-    const q = search.toLowerCase()
-    results = results.filter(
-      (r) => r.title?.toLowerCase().includes(q) || r.eventNumber?.toLowerCase().includes(q),
-    )
-  }
+function applyFilters(results, statusIds, categoryIds, severityIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
   if (categoryIds?.length) results = results.filter((r) => categoryIds.includes(r.categoryId))
   if (severityIds?.length) results = results.filter((r) => severityIds.includes(r.severityId))
@@ -71,15 +64,14 @@ const allEvents = useLiveQuery((db) => db.QualityEvent.where().exec(), {
 
 const events = useLiveQueryWithDeps(
   [
-    () => list.filters.value.search,
     () => list.filters.value.statusId,
     () => list.filters.value.categoryId,
     () => list.filters.value.severityId,
     () => list.filters.value.activeFilter,
   ],
-  async (db, [search, statusIds, categoryIds, severityIds, af]) => {
+  async (db, [statusIds, categoryIds, severityIds, af]) => {
     let results = await db.QualityEvent.where().exec()
-    results = applyFilters(results, search, statusIds, categoryIds, severityIds)
+    results = applyFilters(results, statusIds, categoryIds, severityIds)
     results = applyActiveFilter(results, af)
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),

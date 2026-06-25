@@ -4,12 +4,10 @@ import {
   IconClock,
   IconCircleCheck,
   IconShieldCheck,
-  IconDownload,
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
-import { exportToCSV } from '@/utils/exportUtils.js'
 import { DateTime } from 'luxon'
 
 const router = useRouter()
@@ -23,8 +21,8 @@ const canDelete = computed(() => isAllowed(['capas:delete']))
 // because `total`/`empty` are lazy getters that read `capas`.
 const list = useListLayout({
   filters: {
-    search: '',
     // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+    // (Free-text search now lives in the table toolbar, not here.)
     statusId: [],
     priorityId: [],
     typeId: [],
@@ -54,32 +52,10 @@ function clearSupplierFilter() {
   router.replace({ query: q })
 }
 
-function exportCsv() {
-  exportToCSV(
-    capas.value,
-    [
-      { field: 'capaNumber', label: 'CAPA #' },
-      { field: 'title', label: 'Title' },
-      { field: 'statusId', label: 'Status' },
-      { field: 'priorityId', label: 'Priority' },
-      { field: 'typeId', label: 'Type' },
-      { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
-      { field: (r) => r.dueDate?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Due' },
-    ],
-    'capas',
-  )
-}
-
 const CLOSED_STATUSES = ['CLOSED', 'CANCELLED']
 const OPEN_STATUSES = ['DRAFT', 'PENDING']
 
-function applyFilters(results, search, statusIds, priorityIds, typeIds) {
-  if (search) {
-    const q = search.toLowerCase()
-    results = results.filter(
-      (r) => r.title?.toLowerCase().includes(q) || r.capaNumber?.toLowerCase().includes(q),
-    )
-  }
+function applyFilters(results, statusIds, priorityIds, typeIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
   if (priorityIds?.length) results = results.filter((r) => priorityIds.includes(r.priorityId))
   if (typeIds?.length) results = results.filter((r) => typeIds.includes(r.typeId))
@@ -107,7 +83,6 @@ const allCapas = useLiveQuery((db) => db.Capa.where().exec(), { models: ['Capa']
 
 const capas = useLiveQueryWithDeps(
   [
-    () => list.filters.value.search,
     () => list.filters.value.statusId,
     () => list.filters.value.priorityId,
     () => list.filters.value.typeId,
@@ -115,9 +90,9 @@ const capas = useLiveQueryWithDeps(
     () => list.filters.value.supplierId,
     () => list.filters.value.createdAt,
   ],
-  async (db, [search, statusIds, priorityIds, typeIds, af, supplierIds, createdAt]) => {
+  async (db, [statusIds, priorityIds, typeIds, af, supplierIds, createdAt]) => {
     let results = await db.Capa.where().exec()
-    results = applyFilters(results, search, statusIds, priorityIds, typeIds)
+    results = applyFilters(results, statusIds, priorityIds, typeIds)
     results = applyActiveFilter(results, af)
     if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))
     if (createdAt) results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
@@ -201,10 +176,6 @@ function onCreateCapa() {
     </template>
 
     <template #actions>
-      <BaseButton variant="outline" :disabled="!capas.length" @click="exportCsv">
-        <IconDownload :size="16" class="tw:mr-1" />
-        Export
-      </BaseButton>
       <BaseButton v-if="canCreate" variant="primary" @click="onCreateCapa">Create CAPA</BaseButton>
     </template>
 

@@ -4,6 +4,8 @@
  * (product OR product type, inspection point) to a Specification + Sampling
  * Plan + disposition Workflow. Lots created for a matching product+point pick
  * these up automatically (specific-product plans win over product-type plans).
+ * Rendered via the shared DataTable — search, advanced filter (point + active),
+ * density, column manager and export all live in the table toolbar.
  */
 import { IconPlus } from '@tabler/icons-vue'
 import { del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
@@ -17,6 +19,11 @@ const editingPlan = ref(null)
 const deletingId = ref(null)
 
 const POINT_LABELS = { INCOMING: 'Incoming', IN_PROCESS: 'In-process', FINAL: 'Final' }
+const POINT_OPTIONS = Object.entries(POINT_LABELS).map(([value, label]) => ({ value, label }))
+const ACTIVE_OPTIONS = [
+  { value: true, label: 'Active' },
+  { value: false, label: 'Inactive' },
+]
 
 const plans = useLiveQuery(
   async (db) => {
@@ -76,13 +83,41 @@ function workflowName(versionId) {
   return w ? `${w.name} v${v.versionMajor}.${v.versionMinor}` : '—'
 }
 
+const columns = [
+  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
+  {
+    name: 'point',
+    label: 'POINT',
+    field: 'inspectionPoint',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: POINT_OPTIONS,
+  },
+  { name: 'appliesTo', label: 'APPLIES TO', field: 'productId', align: 'left' },
+  { name: 'specification', label: 'SPECIFICATION', field: 'specificationId', align: 'left' },
+  { name: 'sampling', label: 'SAMPLING PLAN', field: 'samplingPlanId', align: 'left' },
+  { name: 'workflow', label: 'WORKFLOW', field: 'workflowVersionId', align: 'left' },
+  {
+    name: 'active',
+    label: 'ACTIVE',
+    field: 'active',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: ACTIVE_OPTIONS,
+  },
+  { name: 'actions', label: '', field: 'actions', align: 'right' },
+]
+
 function startEdit(plan) {
   editingPlan.value = plan
   showEdit.value = true
 }
 
 async function deletePlan(id) {
-  if (deletingId.value !== id) { deletingId.value = id; return }
+  if (deletingId.value !== id) {
+    deletingId.value = id
+    return
+  }
   try {
     await del(`/v1/services/qcInspection/templates/${id}`)
     toast.success('Inspection plan deleted')
@@ -95,85 +130,76 @@ async function deletePlan(id) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3">
-    <div class="tw:flex tw:items-center tw:justify-between tw:gap-2">
-      <div class="tw:text-sm tw:text-secondary">
-        {{ plans.length }} inspection plan(s) — lots for a matching product + point auto-resolve
-        their spec &amp; sampling
-      </div>
+  <DataTable
+    :rows="plans"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    searchable
+    filterable
+    densitySelector
+    columnManager
+    exportManager
+    exportFilename="inspection-plans.csv"
+    persistKey="qcInspection:inspectionPlans"
+    noDataLabel="No inspection plans yet. Create one to bind a Specification + Sampling Plan to a product (or product type) and inspection point — new lots will pick them up automatically."
+  >
+    <template #toolbar-left>
+      <span class="tw:text-sm tw:text-secondary">{{ plans.length }} inspection plan(s)</span>
       <BaseButton v-if="canManage" variant="primary" size="sm" @click="showCreate = true">
         <template #icon><IconPlus :size="16" /></template>
         New Inspection Plan
       </BaseButton>
-    </div>
+    </template>
 
-    <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead class="tw:bg-main-hover tw:text-secondary tw:text-xs tw:uppercase">
-          <tr>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Name</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Point</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Applies To</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Specification</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Sampling Plan</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Workflow</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Active</th>
-            <th class="tw:px-4 tw:py-2.5"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="t in plans" :key="t.id" class="tw:border-t tw:border-divider">
-            <td class="tw:px-4 tw:py-2.5 tw:font-medium tw:text-on-main">{{ t.name }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
-              {{ POINT_LABELS[t.inspectionPoint] || t.inspectionPoint }}
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ scopeLabel(t) }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">{{ specName(t.specificationId) }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
-              {{ samplingName(t.samplingPlanId) }}
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-secondary">
-              {{ workflowName(t.workflowVersionId) }}
-            </td>
-            <td class="tw:px-4 tw:py-2.5">
-              <span
-                class="tw:text-caption tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
-                :class="
-                  t.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-200 tw:text-gray-600'
-                "
-                >{{ t.active ? 'ACTIVE' : 'INACTIVE' }}</span
-              >
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-right">
-              <div class="tw:flex tw:items-center tw:justify-end tw:gap-2">
-                <BaseButton v-if="canManage" variant="outline" size="sm" @click="startEdit(t)">
-                  Edit
-                </BaseButton>
-                <BaseButton
-                  v-if="canManage"
-                  :variant="deletingId === t.id ? 'danger' : 'outline'"
-                  size="sm"
-                  @click="deletePlan(t.id)"
-                >
-                  {{ deletingId === t.id ? 'Confirm Delete?' : 'Delete' }}
-                </BaseButton>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!plans.length">
-            <td colspan="8" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary">
-              <p class="tw:font-medium tw:text-on-main tw:mb-1">No inspection plans yet.</p>
-              <p class="tw:text-xs tw:italic">
-                Create one to bind a Specification + Sampling Plan to a product (or product type)
-                and inspection point — new lots will pick them up automatically.
-              </p>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <template #body-cell-name="{ row }">
+      <span class="tw:font-medium tw:text-on-main">{{ row.name }}</span>
+    </template>
 
-    <InspectionPlanCreateDialog v-model="showCreate" />
-    <InspectionPlanCreateDialog v-model="showEdit" :editPlan="editingPlan" />
-  </div>
+    <template #body-cell-point="{ row }">
+      <span class="tw:text-secondary">
+        {{ POINT_LABELS[row.inspectionPoint] || row.inspectionPoint }}
+      </span>
+    </template>
+
+    <template #body-cell-appliesTo="{ row }">
+      <span class="tw:text-secondary">{{ scopeLabel(row) }}</span>
+    </template>
+
+    <template #body-cell-specification="{ row }">
+      <span class="tw:text-secondary">{{ specName(row.specificationId) }}</span>
+    </template>
+
+    <template #body-cell-sampling="{ row }">
+      <span class="tw:text-secondary">{{ samplingName(row.samplingPlanId) }}</span>
+    </template>
+
+    <template #body-cell-workflow="{ row }">
+      <span class="tw:text-secondary">{{ workflowName(row.workflowVersionId) }}</span>
+    </template>
+
+    <template #body-cell-active="{ row }">
+      <span
+        class="tw:text-caption tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
+        :class="row.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-200 tw:text-gray-600'"
+        >{{ row.active ? 'ACTIVE' : 'INACTIVE' }}</span
+      >
+    </template>
+
+    <template #body-cell-actions="{ row }">
+      <div v-if="canManage" class="tw:flex tw:items-center tw:justify-end tw:gap-2">
+        <BaseButton variant="outline" size="sm" @click="startEdit(row)">Edit</BaseButton>
+        <BaseButton
+          :variant="deletingId === row.id ? 'danger' : 'outline'"
+          size="sm"
+          @click="deletePlan(row.id)"
+        >
+          {{ deletingId === row.id ? 'Confirm Delete?' : 'Delete' }}
+        </BaseButton>
+      </div>
+    </template>
+  </DataTable>
+
+  <InspectionPlanCreateDialog v-model="showCreate" />
+  <InspectionPlanCreateDialog v-model="showEdit" :editPlan="editingPlan" />
 </template>

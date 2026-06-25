@@ -1,5 +1,5 @@
 <script setup>
-import { IconEdit, IconTrash, IconDownload, IconUpload } from '@tabler/icons-vue'
+import { IconEdit, IconTrash, IconUpload } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const props = defineProps({
@@ -33,34 +33,49 @@ const families = useLiveQuery(async (db) => db.ProductFamily.where().exec(), {
   models: ['ProductFamily'],
   initial: [],
 })
-const familyMap = computed(() => new Map(families.value.map((f) => [f.id, f.name])))
+
+// Option sources for the advanced filter's entity-column dropdowns.
+const productTypes = useLiveQuery(async (db) => db.ProductType.where().exec(), {
+  models: ['ProductType'],
+  initial: [],
+})
+const productStatuses = useLiveQuery(async (db) => db.ProductStatus.where().exec(), {
+  models: ['ProductStatus'],
+  initial: [],
+})
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
 
 const selected = ref([])
 const selectedRows = computed(() => props.rows.filter((r) => selected.value.includes(r.id)))
 
-const columns = [
-  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true, hideable: false },
-  { name: 'sku', label: 'SKU', field: 'sku', align: 'left', sortable: true },
-  { name: 'family', label: 'FAMILY', field: 'productFamilyId', align: 'left', sortable: false },
-  {
-    name: 'productType',
-    label: 'PRODUCT TYPE',
-    field: 'productTypeId',
-    align: 'left',
-    sortable: false,
-  },
-  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+const columns = computed(() => {
+  const filterCfg = {
+    family: { filterType: 'select', filterOptions: selectOpts(families.value) },
+    productType: { filterType: 'select', filterOptions: selectOpts(productTypes.value) },
+    status: { filterType: 'select', filterOptions: selectOpts(productStatuses.value) },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true, hideable: false },
+    { name: 'sku', label: 'SKU', field: 'sku', align: 'left', sortable: true },
+    { name: 'family', label: 'FAMILY', field: 'productFamilyId', align: 'left', sortable: false },
+    {
+      name: 'productType',
+      label: 'PRODUCT TYPE',
+      field: 'productTypeId',
+      align: 'left',
+      sortable: false,
+    },
+    { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function onEdit(row) {
   emit('edit', row)
@@ -82,40 +97,6 @@ function rowMenuItems(row) {
 }
 
 const showImportDialog = ref(false)
-
-function escapeCsvValue(value) {
-  if (value === null || value === undefined) return ''
-  const str = String(value)
-  if (str.includes('"') || str.includes(',') || str.includes('\n')) {
-    return `"${str.replaceAll('"', '""')}"`
-  }
-  return str
-}
-
-function downloadCsv(rows, cols) {
-  const exportCols = cols.filter((c) => c.name !== 'actions' && c.label)
-
-  const header = exportCols.map((c) => escapeCsvValue(c.label)).join(',')
-  const body = rows
-    .map((row) =>
-      exportCols
-        .map((c) => {
-          if (c.field === 'productFamilyId') return escapeCsvValue(familyMap.value.get(row.productFamilyId) ?? '')
-          return escapeCsvValue(row[c.field])
-        })
-        .join(','),
-    )
-    .join('\n')
-
-  const csv = `${header}\n${body}`
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = 'products.csv'
-  link.click()
-  URL.revokeObjectURL(url)
-}
 </script>
 
 <template>
@@ -125,36 +106,30 @@ function downloadCsv(rows, cols) {
         <template #icon><IconUpload :size="16" /></template>
         Import CSV
       </BaseButton>
-      <BaseButton
-        variant="outline"
-        size="sm"
-        :disabled="!rows.length"
-        @click="downloadCsv(rows, columns)"
-      >
-        <template #icon><IconDownload :size="16" /></template>
-        Export CSV
-      </BaseButton>
     </div>
 
     <ProductsImportCsvDialog v-model="showImportDialog" :columns="columns" />
 
-    <BaseTable
+    <DataTable
       v-model:pagination="pagination"
+      v-model:sort="sort"
       v-model:selected="selected"
       :rows="rows"
       :columns="columns"
       :loading="loading"
       rowKey="id"
+      :mobileCards="false"
+      searchable
       selectable
-      columnToggle
-      showDensityToggle
+      columnManager
+      densitySelector
+      filterable
+      exportManager
+      exportFilename="products.csv"
+      persistKey="products"
       @rowClick="openDetail"
     >
       <template #bulk-actions="{ clear }">
-        <BaseButton variant="outline" size="sm" @click="downloadCsv(selectedRows, columns)">
-          <template #icon><IconDownload :size="14" /></template>
-          Export
-        </BaseButton>
         <BaseButton
           v-if="canDelete"
           variant="danger"
@@ -206,6 +181,6 @@ function downloadCsv(rows, cols) {
           <BaseMenu :items="rowMenuItems(row)" />
         </div>
       </template>
-    </BaseTable>
+    </DataTable>
   </div>
 </template>

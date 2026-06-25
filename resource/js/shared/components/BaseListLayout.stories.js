@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import BaseListLayout from './BaseListLayout.vue'
-import BaseTable from './BaseTable.vue'
+import DataTable from './dataTable/DataTable.vue'
 import BaseFilterBar from './BaseFilterBar.vue'
 import BaseQuickFilterPills from './BaseQuickFilterPills.vue'
 import BaseButton from './BaseButton.vue'
@@ -46,7 +46,7 @@ const QUICK_PILLS = [
 
 function baseStory({ rows = ROWS, force } = {}) {
   return {
-    components: { BaseListLayout, BaseTable, BaseFilterBar, BaseQuickFilterPills, BaseButton, BaseBadge },
+    components: { BaseListLayout, DataTable, BaseFilterBar, BaseQuickFilterPills, BaseButton, BaseBadge },
     setup() {
       const data = ref(rows)
       const list = useListLayout({
@@ -81,18 +81,20 @@ function baseStory({ rows = ROWS, force } = {}) {
             <BaseButton size="sm"><IconArchive :size="16" /> Archive {{ count }}</BaseButton>
             <BaseButton size="sm" variant="danger"><IconTrash :size="16" /> Delete</BaseButton>
           </template>
-          <BaseTable
+          <DataTable
             :rows="data"
             :columns="COLUMNS"
             rowKey="id"
             selectable
-            v-model:pagination="list.pagination.value"
+            :mobileCards="false"
+            v-model:pagination="list.tablePagination.value"
+            v-model:sort="list.sort.value"
             v-model:selected="list.selected.value"
           >
             <template #body-cell-status="{ row }">
               <BaseBadge>{{ row.status }}</BaseBadge>
             </template>
-          </BaseTable>
+          </DataTable>
         </BaseListLayout>
       </div>`,
   }

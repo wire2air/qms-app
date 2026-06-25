@@ -12,21 +12,31 @@ const props = defineProps({
 
 const toast = useToast()
 
-const columns = [
-  { name: 'title', label: 'TRAINING', field: 'snapshot', align: 'left', sortable: false },
-  { name: 'status', label: 'STATUS', field: 'status', align: 'left', sortable: false },
-  { name: 'dueDate', label: 'DUE DATE', field: 'dueDate', align: 'left', sortable: true },
-  { name: 'createdAt', label: 'LAUNCHED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+const columns = computed(() => {
+  const filterCfg = {
+    status: {
+      filterType: 'select',
+      filterOptions: [
+        { value: 'ACTIVE', label: 'Active' },
+        { value: 'PENDING_VERIFICATION', label: 'Pending Verification' },
+        { value: 'COMPLETED', label: 'Completed' },
+        { value: 'CANCELLED', label: 'Cancelled' },
+      ],
+    },
+    dueDate: { filterType: 'date' },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'title', label: 'TRAINING', field: 'snapshot', align: 'left', sortable: false },
+    { name: 'status', label: 'STATUS', field: 'status', align: 'left', sortable: false },
+    { name: 'dueDate', label: 'DUE DATE', field: 'dueDate', align: 'left', sortable: true },
+    { name: 'createdAt', label: 'LAUNCHED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function isOverdue(row) {
   if (!row.dueDate || row.status !== 'ACTIVE') return false
@@ -49,7 +59,18 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
+  <DataTable
+    v-model:pagination="pagination"
+    v-model:sort="sort"
+    :rows="rows"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    filterable
+    searchable
+    exportManager
+    exportFilename="training-instances.csv"
+  >
     <template #body-cell-title="{ row }">
       <RouterLink
         :to="getCompanyPath(`/training-instances/${row.id}`)"
@@ -79,5 +100,5 @@ function rowMenuItems(row) {
     <template #body-cell-actions="{ row }">
       <BaseRowMenu :items="rowMenuItems(row)" />
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

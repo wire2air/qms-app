@@ -93,10 +93,6 @@ function onTemplateCreated(logBook) {
   }
 }
 
-function openTemplate(id) {
-  router.push(getCompanyPath(`/inspections-logs/log-books/${id}`))
-}
-
 function classificationBadgeClass(cls) {
   if (cls === 'CONTROLLED_RECORD') return 'tw:bg-red-50 tw:text-red-700 tw:border-red-200'
   if (cls === 'OPERATIONAL_LOG') return 'tw:bg-amber-50 tw:text-amber-700 tw:border-amber-200'
@@ -115,6 +111,15 @@ function editWindowSummary(t) {
   if (mode === 'UNTIL_REVIEW') return 'Edits until reviewed'
   return mode
 }
+
+const columns = [
+  { name: 'title', label: 'Log Book', field: 'title', align: 'left', sortable: true },
+  { name: 'category', label: 'Category', field: 'logBookTypeId', align: 'left' },
+  { name: 'type', label: 'Type', field: 'recordClassification', align: 'left', sortable: true },
+  { name: 'supervisor', label: 'Supervisor', field: 'supervisorUserId', align: 'left' },
+  { name: 'editWindow', label: 'Edit window', field: 'editWindowMode', align: 'left' },
+  { name: 'esig', label: 'E-sig', field: 'signatureRequired', align: 'left' },
+]
 </script>
 
 <template>
@@ -214,68 +219,71 @@ function editWindowSummary(t) {
     </template>
 
     <!-- Log books list -->
-    <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead class="tw:bg-main">
-          <tr class="tw:text-left">
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Log Book</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Category</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Type</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Supervisor</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Edit window</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">E-sig</th>
-          </tr>
-        </thead>
-        <tbody>
-          <BaseClickableRow
-            v-for="t in templates"
-            :key="t.id"
-            tag="tr"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-            :aria-label="`Open log book ${t.title}`"
-            @click="openTemplate(t.id)"
-          >
-            <td class="tw:px-3 tw:py-2">
-              <div class="tw:font-medium tw:text-on-main">{{ t.title }}</div>
-              <div class="tw:text-xs tw:text-secondary tw:font-mono tw:uppercase">{{ t.code }}</div>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-xs tw:text-on-main">
-              <span
-                v-if="t.logBookTypeId"
-                class="tw:inline-block tw:bg-main tw:border tw:border-divider tw:rounded tw:px-2 tw:py-0.5"
-              >
-                {{ typeName(t.logBookTypeId) }}
-              </span>
-              <span v-else class="tw:text-secondary">—</span>
-            </td>
-            <td class="tw:px-3 tw:py-2">
-              <span
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
-                :class="classificationBadgeClass(t.recordClassification)"
-              >
-                <IconShieldCheck v-if="t.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
-                {{ t.recordClassification?.replace('_', ' ') }}
-              </span>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-xs">
-              <UserBadgeById v-if="t.supervisorUserId" :userId="t.supervisorUserId" />
-              <span v-else class="tw:text-secondary">—</span>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-secondary tw:text-xs">{{ editWindowSummary(t) }}</td>
-            <td class="tw:px-3 tw:py-2 tw:text-xs">
-              <span
-                v-if="t.signatureRequired"
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-amber-700"
-              >
-                <IconShieldCheck :size="12" />
-                Required
-              </span>
-              <span v-else class="tw:text-secondary">—</span>
-            </td>
-          </BaseClickableRow>
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      :rows="templates"
+      :columns="columns"
+      rowKey="id"
+      :mobileCards="false"
+      hidePagination
+      densitySelector
+      columnManager
+      exportManager
+      exportFilename="log-books.csv"
+      persistKey="inspectionsLogs:logBooks"
+      noDataLabel="No log books yet."
+    >
+      <template #body-cell-title="{ row }">
+        <RouterLink
+          :to="getCompanyPath(`/inspections-logs/log-books/${row.id}`)"
+          class="tw:font-medium tw:text-on-main tw:hover:text-primary"
+        >
+          {{ row.title }}
+          <span class="tw:block tw:text-xs tw:text-secondary tw:font-mono tw:uppercase">{{
+            row.code
+          }}</span>
+        </RouterLink>
+      </template>
+
+      <template #body-cell-category="{ row }">
+        <span
+          v-if="row.logBookTypeId"
+          class="tw:inline-block tw:bg-main tw:border tw:border-divider tw:rounded tw:px-2 tw:py-0.5 tw:text-xs"
+        >
+          {{ typeName(row.logBookTypeId) }}
+        </span>
+        <span v-else class="tw:text-secondary">—</span>
+      </template>
+
+      <template #body-cell-type="{ row }">
+        <span
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
+          :class="classificationBadgeClass(row.recordClassification)"
+        >
+          <IconShieldCheck v-if="row.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
+          {{ row.recordClassification?.replace('_', ' ') }}
+        </span>
+      </template>
+
+      <template #body-cell-supervisor="{ row }">
+        <UserBadgeById v-if="row.supervisorUserId" :userId="row.supervisorUserId" />
+        <span v-else class="tw:text-secondary">—</span>
+      </template>
+
+      <template #body-cell-editWindow="{ row }">
+        <span class="tw:text-secondary tw:text-xs">{{ editWindowSummary(row) }}</span>
+      </template>
+
+      <template #body-cell-esig="{ row }">
+        <span
+          v-if="row.signatureRequired"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:text-amber-700"
+        >
+          <IconShieldCheck :size="12" />
+          Required
+        </span>
+        <span v-else class="tw:text-secondary">—</span>
+      </template>
+    </DataTable>
 
     <!-- Purpose-built log-book wizard. Backend payload identical to
          the generic form-template create, but the UX speaks the I&L

@@ -24,21 +24,31 @@ const router = useRouter()
 const showPreviewDialog = ref(false)
 const previewTemplate = ref(null)
 
-const columns = [
-  { name: 'title', label: 'TEMPLATE NAME', field: 'title', align: 'left', sortable: true },
-  { name: 'version', label: 'VERSION', field: 'version', align: 'left', sortable: true },
-  { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+// Option sources for the advanced filter's entity-column dropdowns.
+const formStatuses = useLiveQuery((db) => db.FormStatus.where().exec(), {
+  models: ['FormStatus'],
+  initial: [],
 })
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    statusId: { filterType: 'select', filterOptions: selectOpts(formStatuses.value) },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'title', label: 'TEMPLATE NAME', field: 'title', align: 'left', sortable: true },
+    { name: 'version', label: 'VERSION', field: 'version', align: 'left', sortable: true },
+    { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 const previewSchema = computed(() => {
   if (!previewTemplate.value?.schema) return []
@@ -75,7 +85,17 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
+  <DataTable
+    v-model:pagination="pagination"
+    v-model:sort="sort"
+    :rows="rows"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    filterable
+    exportManager
+    exportFilename="form-templates.csv"
+  >
     <!-- Title Column -->
     <template #body-cell-title="{ row }">
       <BaseClickableRow
@@ -109,7 +129,7 @@ function rowMenuItems(row) {
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 
   <!-- Preview Dialog -->
   <BaseDialog v-model="showPreviewDialog" maxWidth="full">

@@ -4,12 +4,10 @@ import {
   IconClock,
   IconShieldCheck,
   IconCircleCheck,
-  IconDownload,
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
-import { exportToCSV } from '@/utils/exportUtils.js'
 import { DateTime } from 'luxon'
 
 const router = useRouter()
@@ -21,7 +19,6 @@ const canUpdate = computed(() => isAllowed(['changeRequests:update']))
 // because `total`/`empty` are lazy getters that read `changeRequests`.
 const list = useListLayout({
   filters: {
-    search: '',
     // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
     statusId: [],
     priorityId: [],
@@ -34,20 +31,6 @@ const list = useListLayout({
   syncUrl: true,
 })
 
-function exportCsv() {
-  exportToCSV(
-    changeRequests.value,
-    [
-      { field: 'crNumber', label: 'CR #' },
-      { field: 'title', label: 'Title' },
-      { field: 'statusId', label: 'Status' },
-      { field: 'priorityId', label: 'Priority' },
-      { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
-    ],
-    'change-requests',
-  )
-}
-
 const OPEN_STATUSES = [
   'DRAFT',
   'UNDER_REVIEW',
@@ -58,13 +41,7 @@ const OPEN_STATUSES = [
 ]
 const CLOSED_STATUSES = ['CLOSED', 'REJECTED', 'CANCELLED']
 
-function applyFilters(results, search, statusIds, priorityIds, changeTypeIds) {
-  if (search) {
-    const q = search.toLowerCase()
-    results = results.filter(
-      (r) => r.title?.toLowerCase().includes(q) || r.crNumber?.toLowerCase().includes(q),
-    )
-  }
+function applyFilters(results, statusIds, priorityIds, changeTypeIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
   if (priorityIds?.length) results = results.filter((r) => priorityIds.includes(r.priorityId))
   if (changeTypeIds?.length)
@@ -91,16 +68,15 @@ const allCRs = useLiveQuery((db) => db.ChangeRequest.where().exec(), {
 
 const changeRequests = useLiveQueryWithDeps(
   [
-    () => list.filters.value.search,
     () => list.filters.value.statusId,
     () => list.filters.value.priorityId,
     () => list.filters.value.changeTypeId,
     () => list.filters.value.activeFilter,
     () => list.filters.value.createdAt,
   ],
-  async (db, [search, statusIds, priorityIds, changeTypeIds, af, createdAt]) => {
+  async (db, [statusIds, priorityIds, changeTypeIds, af, createdAt]) => {
     let results = await db.ChangeRequest.where().exec()
-    results = applyFilters(results, search, statusIds, priorityIds, changeTypeIds)
+    results = applyFilters(results, statusIds, priorityIds, changeTypeIds)
     results = applyActiveFilter(results, af)
     if (createdAt)
       results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
@@ -174,10 +150,6 @@ function onCreate() {
     "
   >
     <template #actions>
-      <BaseButton variant="outline" :disabled="!changeRequests.length" @click="exportCsv">
-        <IconDownload :size="16" class="tw:mr-1" />
-        Export
-      </BaseButton>
       <BaseButton v-if="canCreate" variant="primary" @click="onCreate">
         New Change Request
       </BaseButton>

@@ -8,31 +8,22 @@ const selectedOptionSetId = ref(null)
 const canCreateOptionSet = computed(() => isAllowed(['optionSets:create']))
 const canDeleteOptionSet = computed(() => isAllowed(['optionSets:delete']))
 
-// List layout — filter state + URL sync + resolved content state.
+// List layout — resolved content state + URL sync.
 const list = useListLayout({
-  filters: { search: '' },
+  filters: {},
   total: () => optionSets.value.length,
   empty: () => optionSets.value.length === 0,
   syncUrl: true,
 })
 
 // Live query for option sets
-const optionSets = useLiveQueryWithDeps(
-  [() => list.filters.value.search],
-  async (db, [search]) => {
-    let results = await db.OptionSet.where().exec()
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter(
-        (os) =>
-          os.name.toLowerCase().includes(q) || (os.description || '').toLowerCase().includes(q),
-      )
-    }
+const optionSets = useLiveQuery(
+  async (db) => {
+    const results = await db.OptionSet.where().exec()
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-
   { models: ['OptionSet'], initial: [] },
 )
 
@@ -58,10 +49,6 @@ function openDialog(id = null) {
         <IconPlus :size="16" />
         Create Option Set
       </BaseButton>
-    </template>
-
-    <template #filters>
-      <OptionSetsFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
     <template #empty-action>
