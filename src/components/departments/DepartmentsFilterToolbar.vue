@@ -4,20 +4,15 @@ const filters = defineModel('filters', {
   required: true,
 })
 
-const showClear = computed(() => !!(filters.value.search || filters.value.siteId))
+const showClear = computed(() => !!filters.value.siteId)
 
 function clearAll() {
-  filters.value = { search: '', siteId: null }
+  filters.value = { siteId: null }
 }
 </script>
 
 <template>
-  <BaseFilterBar
-    v-model:search="filters.search"
-    searchPlaceholder="Search departments…"
-    :showClear="showClear"
-    @clear="clearAll"
-  >
+  <BaseFilterBar :showClear="showClear" @clear="clearAll">
     <template #filters>
       <SiteSelectMenu v-model="filters.siteId" :required="false" :isFilter="true" />
     </template>

@@ -28,6 +28,14 @@ const verdict = computed(() => {
   })
   return { rows, verdict: rows.some((r) => r.rejected) ? 'REJECT' : 'ACCEPT' }
 })
+
+const columns = [
+  { name: 'class', label: 'Class', field: 'severity', align: 'left' },
+  { name: 'defectives', label: 'Defectives', field: 'count', align: 'left' },
+  { name: 'accept', label: 'Accept ≤', field: 'accept', align: 'left' },
+  { name: 'reject', label: 'Reject ≥', field: 'reject', align: 'left' },
+  { name: 'verdict', label: 'Verdict', field: 'severity', align: 'left' },
+]
 </script>
 
 <template>
@@ -43,32 +51,34 @@ const verdict = computed(() => {
     </div>
 
     <div class="tw:p-4">
-      <table class="tw:w-full tw:text-sm tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
-        <thead class="tw:bg-main-hover tw:text-secondary tw:text-xs tw:uppercase">
-          <tr>
-            <th class="tw:text-left tw:px-3 tw:py-2">Class</th>
-            <th class="tw:text-left tw:px-3 tw:py-2">Defectives</th>
-            <th class="tw:text-left tw:px-3 tw:py-2">Accept ≤</th>
-            <th class="tw:text-left tw:px-3 tw:py-2">Reject ≥</th>
-            <th class="tw:text-left tw:px-3 tw:py-2">Verdict</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="r in verdict.rows" :key="r.severity" class="tw:border-t tw:border-divider">
-            <td class="tw:px-3 tw:py-1.5"><DefectSeverityBadgeById :severityId="r.severity" /></td>
-            <td class="tw:px-3 tw:py-1.5 tw:font-semibold" :class="r.rejected ? 'tw:text-red-700' : 'tw:text-on-main'">
-              {{ r.count }}<span v-if="sampleSize" class="tw:text-secondary tw:font-normal"> / {{ sampleSize }}</span>
-            </td>
-            <td class="tw:px-3 tw:py-1.5 tw:text-secondary">{{ r.accept ?? '—' }}</td>
-            <td class="tw:px-3 tw:py-1.5 tw:text-secondary">{{ r.reject ?? '—' }}</td>
-            <td class="tw:px-3 tw:py-1.5">
-              <span class="tw:text-xs tw:font-semibold" :class="r.rejected ? 'tw:text-red-700' : 'tw:text-green-700'">
-                {{ r.rejected ? 'Reject' : 'OK' }}
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <DataTable
+        :rows="verdict.rows"
+        :columns="columns"
+        rowKey="severity"
+        :mobileCards="false"
+        :stickyHeader="false"
+        hidePagination
+      >
+        <template #body-cell-class="{ row }">
+          <DefectSeverityBadgeById :severityId="row.severity" />
+        </template>
+        <template #body-cell-defectives="{ row }">
+          <span class="tw:font-semibold" :class="row.rejected ? 'tw:text-red-700' : 'tw:text-on-main'">
+            {{ row.count }}<span v-if="sampleSize" class="tw:text-secondary tw:font-normal"> / {{ sampleSize }}</span>
+          </span>
+        </template>
+        <template #body-cell-accept="{ row }">
+          <span class="tw:text-secondary">{{ row.accept ?? '—' }}</span>
+        </template>
+        <template #body-cell-reject="{ row }">
+          <span class="tw:text-secondary">{{ row.reject ?? '—' }}</span>
+        </template>
+        <template #body-cell-verdict="{ row }">
+          <span class="tw:text-xs tw:font-semibold" :class="row.rejected ? 'tw:text-red-700' : 'tw:text-green-700'">
+            {{ row.rejected ? 'Reject' : 'OK' }}
+          </span>
+        </template>
+      </DataTable>
       <p v-if="singleResult" class="tw:text-caption tw:text-secondary tw:mt-2">
         <strong>Single-result inspection:</strong> the one judgment applies to the whole sample, so a
         failing test marks all {{ sampleSize ?? 'n' }} units defective for that class (→ reject).

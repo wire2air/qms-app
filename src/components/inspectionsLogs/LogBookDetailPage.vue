@@ -296,6 +296,13 @@ function scheduleSummary(plan) {
   if (plan.schedule.type === 'AD_HOC') return 'Ad-hoc (no schedule)'
   return humanizeCron(plan.schedule.cron)
 }
+
+const assignmentColumns = [
+  { name: 'schedule', label: 'Schedule', field: 'id', align: 'left' },
+  { name: 'assignees', label: 'Assignees', field: 'id', align: 'left' },
+  { name: 'status', label: 'Status', field: 'active', align: 'left' },
+  { name: 'actions', label: '', field: 'actions', align: 'right' },
+]
 // Assignment create/edit is embedded inline in this tab (no navigation
 // to /form-assignments/*). null id = create; a string id = edit.
 const showAssignmentEditor = ref(false)
@@ -1169,77 +1176,67 @@ const logBookDetailConfig = computed(() =>
                   </div>
                 </div>
 
-                <div v-else class="tw:overflow-hidden tw:rounded tw:border tw:border-divider">
-                  <table class="tw:w-full tw:text-sm">
-                    <thead class="tw:bg-main">
-                      <tr class="tw:text-left">
-                        <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Schedule</th>
-                        <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">
-                          Assignees
-                        </th>
-                        <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Status</th>
-                        <th class="tw:px-3 tw:py-2" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <BaseClickableRow
-                        v-for="row in logBookAssignments"
-                        :key="row.id"
-                        tag="tr"
-                        class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-                        :aria-label="`Edit assignment: ${scheduleSummary(row)}`"
-                        @click="goEditAssignment(row.id)"
+                <DataTable
+                  v-else
+                  :rows="logBookAssignments"
+                  :columns="assignmentColumns"
+                  rowKey="id"
+                  :mobileCards="false"
+                  hidePagination
+                >
+                  <template #body-cell-schedule="{ row }">
+                    <button
+                      type="button"
+                      class="tw:text-left tw:text-on-main tw:hover:text-primary"
+                      :aria-label="`Edit assignment: ${scheduleSummary(row)}`"
+                      @click="goEditAssignment(row.id)"
+                    >
+                      <div>{{ scheduleSummary(row) }}</div>
+                      <div
+                        v-if="row.schedule?.type === 'RECURRING' && row.schedule?.timezone"
+                        class="tw:text-xs tw:text-secondary"
                       >
-                        <td class="tw:px-3 tw:py-2 tw:text-on-main">
-                          <div>{{ scheduleSummary(row) }}</div>
-                          <div
-                            v-if="row.schedule?.type === 'RECURRING' && row.schedule?.timezone"
-                            class="tw:text-xs tw:text-secondary"
-                          >
-                            {{ row.schedule.timezone }}
-                          </div>
-                        </td>
-                        <td class="tw:px-3 tw:py-2 tw:text-on-main">
-                          <RoleBadgeById v-if="row.assignedRoleId" :roleId="row.assignedRoleId" />
-                          <div
-                            v-else-if="row.assignedUserIds?.length"
-                            class="tw:flex tw:flex-wrap tw:gap-1"
-                          >
-                            <UserBadgeById
-                              v-for="uid in row.assignedUserIds"
-                              :key="uid"
-                              :userId="uid"
-                            />
-                          </div>
-                          <span v-else class="tw:text-secondary">—</span>
-                        </td>
-                        <td class="tw:px-3 tw:py-2">
-                          <span
-                            class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:rounded tw:px-2 tw:py-0.5"
-                            :class="
-                              row.active
-                                ? 'tw:bg-green-100 tw:text-green-700'
-                                : 'tw:bg-gray-100 tw:text-gray-700'
-                            "
-                          >
-                            {{ row.active ? 'Active' : 'Inactive' }}
-                          </span>
-                        </td>
-                        <td class="tw:px-3 tw:py-2 tw:text-right" @click.stop>
-                          <button
-                            v-if="canAssign"
-                            type="button"
-                            class="tw:text-primary tw:text-xs tw:hover:underline tw:flex tw:items-center tw:gap-1 tw:ml-auto"
-                            @click="goEditAssignment(row.id)"
-                          >
-                            <IconEdit :size="14" />
-                            Edit
-                          </button>
-                        </td>
-                      </BaseClickableRow>
-                    </tbody>
-                  </table>
-                </div>
+                        {{ row.schedule.timezone }}
+                      </div>
+                    </button>
+                  </template>
+
+                  <template #body-cell-assignees="{ row }">
+                    <RoleBadgeById v-if="row.assignedRoleId" :roleId="row.assignedRoleId" />
+                    <div
+                      v-else-if="row.assignedUserIds?.length"
+                      class="tw:flex tw:flex-wrap tw:gap-1"
+                    >
+                      <UserBadgeById v-for="uid in row.assignedUserIds" :key="uid" :userId="uid" />
+                    </div>
+                    <span v-else class="tw:text-secondary">—</span>
+                  </template>
+
+                  <template #body-cell-status="{ row }">
+                    <span
+                      class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:rounded tw:px-2 tw:py-0.5"
+                      :class="
+                        row.active
+                          ? 'tw:bg-green-100 tw:text-green-700'
+                          : 'tw:bg-gray-100 tw:text-gray-700'
+                      "
+                    >
+                      {{ row.active ? 'Active' : 'Inactive' }}
+                    </span>
+                  </template>
+
+                  <template #body-cell-actions="{ row }">
+                    <button
+                      v-if="canAssign"
+                      type="button"
+                      class="tw:text-primary tw:text-xs tw:hover:underline tw:flex tw:items-center tw:gap-1 tw:ml-auto"
+                      @click="goEditAssignment(row.id)"
+                    >
+                      <IconEdit :size="14" />
+                      Edit
+                    </button>
+                  </template>
+                </DataTable>
               </section>
             </div>
           </BaseTabPanel>

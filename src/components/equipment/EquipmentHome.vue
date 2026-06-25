@@ -59,18 +59,47 @@ const equipment = useLiveQueryWithDeps(
   { models: ['Equipment'], initial: [] },
 )
 
+// Option sources for the advanced filter's entity-column dropdowns.
 const sites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
 const siteById = computed(() => new Map(sites.value.map((s) => [s.id, s])))
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
 
-const columns = [
-  { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
-  { name: 'category', label: 'Category', field: (r) => categoryLabel(r.category), align: 'left', sortable: true },
-  { name: 'site', label: 'Site', field: (r) => siteById.value.get(r.siteId)?.name ?? '—', align: 'left', sortable: true },
-  { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: true },
-  { name: 'nextCalibrationDue', label: 'Next calibration', field: 'nextCalibrationDue', align: 'left', sortable: true },
-  { name: 'nextPmDue', label: 'Next PM', field: 'nextPmDue', align: 'left', sortable: true },
-  { name: 'actions', label: '', align: 'right' },
-]
+const columns = computed(() => {
+  const filterCfg = {
+    category: {
+      filterType: 'select',
+      filterOptions: [
+        { value: 'INSTRUMENT', label: 'Instrument' },
+        { value: 'MACHINE', label: 'Machine' },
+        { value: 'VEHICLE', label: 'Vehicle' },
+        { value: 'SENSOR', label: 'Sensor' },
+        { value: 'OTHER', label: 'Other' },
+      ],
+    },
+    site: { filterType: 'select', filterOptions: selectOpts(sites.value) },
+    status: {
+      filterType: 'select',
+      filterOptions: [
+        { value: 'IN_SERVICE', label: 'In service' },
+        { value: 'OUT_OF_SERVICE', label: 'Out of service' },
+        { value: 'RETIRED', label: 'Retired' },
+      ],
+    },
+    nextCalibrationDue: { filterType: 'date' },
+    nextPmDue: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+    { name: 'category', label: 'Category', field: (r) => categoryLabel(r.category), align: 'left', sortable: true },
+    { name: 'site', label: 'Site', field: (r) => siteById.value.get(r.siteId)?.name ?? '—', align: 'left', sortable: true },
+    { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: true },
+    { name: 'nextCalibrationDue', label: 'Next calibration', field: 'nextCalibrationDue', align: 'left', sortable: true },
+    { name: 'nextPmDue', label: 'Next PM', field: 'nextPmDue', align: 'left', sortable: true },
+    { name: 'actions', label: '', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 function fmtDate(d) {
   if (!d) return null
@@ -186,11 +215,16 @@ async function recordCalibration(e) {
       </BaseButton>
     </template>
 
-    <BaseTable
-      v-model:pagination="list.pagination.value"
+    <DataTable
+      v-model:pagination="list.tablePagination.value"
+      v-model:sort="list.sort.value"
       :rows="equipment"
       :columns="columns"
       rowKey="id"
+      :mobileCards="false"
+      filterable
+      exportManager
+      exportFilename="equipment.csv"
       @rowClick="openEdit"
     >
       <template #body-cell-name="{ row }">
@@ -249,7 +283,7 @@ async function recordCalibration(e) {
           {{ recordingId === row.id ? 'Recording…' : 'Record calibration' }}
         </button>
       </template>
-    </BaseTable>
+    </DataTable>
 
     <CreateEquipmentDialog v-model="showCreateDialog" @created="onCreated" />
     <!-- Same component, edit mode. The dialog seeds its draft from

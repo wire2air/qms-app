@@ -2,6 +2,7 @@
 import { IconTrash, IconArrowUpRight } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { DateTime } from 'luxon'
+import { QUALITY_EVENT_STATUSES } from '@/utils/qualityEventStatuses'
 
 const props = defineProps({
   rows: { type: Array, default: () => [] },
@@ -11,19 +12,53 @@ const props = defineProps({
 
 const emit = defineEmits(['delete'])
 
-const columns = [
-  { name: 'eventNumber', label: 'EVENT #', field: 'eventNumber', align: 'left', sortable: true, hideable: false },
-  { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
-  { name: 'category', label: 'CATEGORY', field: 'categoryId', align: 'left', sortable: false },
-  { name: 'severity', label: 'SEVERITY', field: 'severityId', align: 'left', sortable: false },
-  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
-  { name: 'assignee', label: 'ASSIGNED TO', field: 'assignedToUserId', align: 'left', sortable: false },
-  { name: 'reporter', label: 'REPORTED BY', field: 'reportedByUserId', align: 'left', sortable: false },
-  { name: 'reportedDate', label: 'REPORTED', field: 'reportedDate', align: 'left', sortable: true },
-  { name: 'daysOpen', label: 'DAYS OPEN', field: 'daysOpen', align: 'right', sortable: false },
-  { name: 'escalated', label: 'ESCALATED', field: 'escalated', align: 'center', sortable: false },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
+// Option sources for the advanced filter's entity-column dropdowns.
+const eventCategories = useLiveQuery((db) => db.EventCategory.where().exec(), {
+  models: ['EventCategory'],
+  initial: [],
+})
+const eventSeverities = useLiveQuery((db) => db.EventSeverity.where().exec(), {
+  models: ['EventSeverity'],
+  initial: [],
+})
+const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+function userLabel(u) {
+  return `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    category: { filterType: 'select', filterOptions: selectOpts(eventCategories.value) },
+    severity: { filterType: 'select', filterOptions: selectOpts(eventSeverities.value) },
+    status: { filterType: 'select', filterOptions: selectOpts(QUALITY_EVENT_STATUSES) },
+    assignee: {
+      filterType: 'select',
+      filterOptions: users.value.map((u) => ({ value: u.id, label: userLabel(u) })),
+    },
+    reporter: {
+      filterType: 'select',
+      filterOptions: users.value.map((u) => ({ value: u.id, label: userLabel(u) })),
+    },
+    reportedDate: { filterType: 'date' },
+    daysOpen: { filterType: 'number' },
+  }
+  return [
+    { name: 'eventNumber', label: 'EVENT #', field: 'eventNumber', align: 'left', sortable: true, hideable: false },
+    { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
+    { name: 'category', label: 'CATEGORY', field: 'categoryId', align: 'left', sortable: false },
+    { name: 'severity', label: 'SEVERITY', field: 'severityId', align: 'left', sortable: false },
+    { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
+    { name: 'assignee', label: 'ASSIGNED TO', field: 'assignedToUserId', align: 'left', sortable: false },
+    { name: 'reporter', label: 'REPORTED BY', field: 'reportedByUserId', align: 'left', sortable: false },
+    { name: 'reportedDate', label: 'REPORTED', field: 'reportedDate', align: 'left', sortable: true },
+    { name: 'daysOpen', label: 'DAYS OPEN', field: 'daysOpen', align: 'right', sortable: false },
+    { name: 'escalated', label: 'ESCALATED', field: 'escalated', align: 'center', sortable: false },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 function daysOpen(row) {
   const start = row.reportedDate || row.createdAt
@@ -35,7 +70,8 @@ function daysOpen(row) {
   return d
 }
 
-const pagination = ref({ page: 1, rowsPerPage: 50, sortBy: 'reportedDate', descending: true, total: null })
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'reportedDate', desc: true }])
 
 function rowMenuItems(row) {
   const items = []
@@ -47,13 +83,20 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="rows"
     :columns="columns"
     rowKey="id"
-    columnToggle
-    showDensityToggle
+    :mobileCards="false"
+    searchable
+    columnManager
+    densitySelector
+    filterable
+    exportManager
+    exportFilename="quality-events.csv"
+    persistKey="qualityEvents"
   >
     <template #body-cell-eventNumber="{ row }">
       <RouterLink
@@ -115,5 +158,5 @@ function rowMenuItems(row) {
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

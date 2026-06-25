@@ -19,7 +19,7 @@ const canDeleteSupplier = computed(() => isAllowed(['suppliers:delete']))
 // because `total`/`empty` are lazy getters that read `suppliers`.
 const list = useListLayout({
   // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
-  filters: { search: '', statusId: [], category: [], riskLevel: [] },
+  filters: { statusId: [], category: [], riskLevel: [] },
   total: () => suppliers.value.length,
   empty: () => suppliers.value.length === 0,
   syncUrl: true,
@@ -27,19 +27,12 @@ const list = useListLayout({
 
 const suppliers = useLiveQueryWithDeps(
   [
-    () => list.filters.value.search,
     () => list.filters.value.statusId,
     () => list.filters.value.category,
     () => list.filters.value.riskLevel,
   ],
-  async (db, [search, statusIds, categories, riskLevels]) => {
+  async (db, [statusIds, categories, riskLevels]) => {
     let results = await db.Supplier.where().exec()
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter(
-        (s) => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q),
-      )
-    }
     if (statusIds?.length) results = results.filter((s) => statusIds.includes(s.statusId))
     if (categories?.length) results = results.filter((s) => categories.includes(s.category))
     if (riskLevels?.length) results = results.filter((s) => riskLevels.includes(s.riskLevel))

@@ -18,7 +18,7 @@ function flag(v) {
  * Headless core for the list/index page (Enterprise Page Framework A3 / L1).
  * Composes filter state (useTableFilters), pagination math (usePagination),
  * selection, resolved content state, and optional URL query-sync into one API
- * a list page can bind straight onto <BaseFilterBar> + <BaseTable>.
+ * a list page can bind straight onto <BaseFilterBar> + <DataTable>.
  *
  * @param {Object} o
  * @param {Record<string, any>} [o.filters]  initial/default filter values (also defines the key set + types)
@@ -65,6 +65,27 @@ export function useListLayout(o = {}) {
       if (v.rowsPerPage != null) rowsPerPage.value = v.rowsPerPage
       if (v.sortBy !== undefined) sortBy.value = v.sortBy
       if (v.descending != null) descending.value = v.descending
+    },
+  })
+
+  // DataTable v-model shapes — `tablePagination` ({ page, pageSize }) + `sort`
+  // ([{ id, desc }]) — backed by the same page/rowsPerPage/sortBy/descending refs
+  // (so URL-sync still works). Use these when binding to <DataTable>; the legacy
+  // `pagination` object above is retained for any non-DataTable paginated consumer.
+  const tablePagination = computed({
+    get: () => ({ page: page.value, pageSize: rowsPerPage.value }),
+    set: (v) => {
+      if (!v) return
+      if (v.page != null) page.value = v.page
+      if (v.pageSize != null) rowsPerPage.value = v.pageSize
+    },
+  })
+  const sort = computed({
+    get: () => (sortBy.value ? [{ id: sortBy.value, desc: !!descending.value }] : []),
+    set: (v) => {
+      const s = Array.isArray(v) ? v[0] : null
+      sortBy.value = s?.id ?? null
+      descending.value = s?.desc ?? false
     },
   })
 
@@ -115,8 +136,8 @@ export function useListLayout(o = {}) {
       () => {
         const query = filtersToQuery(filters.value, defaults)
         if (page.value > 1) query.page = String(page.value)
-        const sort = encodeSort(sortBy.value, descending.value)
-        if (sort) query.sort = sort
+        const encodedSort = encodeSort(sortBy.value, descending.value)
+        if (encodedSort) query.sort = encodedSort
         Promise.resolve(router.replace({ query })).catch(() => {})
       },
       { deep: true },
@@ -141,6 +162,8 @@ export function useListLayout(o = {}) {
     sortBy,
     descending,
     pagination,
+    tablePagination,
+    sort,
     paged,
     // selection
     selected,

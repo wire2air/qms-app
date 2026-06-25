@@ -19,28 +19,43 @@ const CONNECTION_TYPE_LABELS = {
   FORWARDING: 'Forwarding',
 }
 
-const columns = [
-  { name: 'address', label: 'ADDRESS', field: 'address', align: 'left', sortable: true },
-  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
-  {
-    name: 'channelType',
-    label: 'CONNECTION TYPE',
-    field: 'channelType',
-    align: 'left',
-    sortable: false,
-  },
-  { name: 'status', label: 'STATUS', field: 'verificationStatus', align: 'left' },
-  { name: 'updatedAt', label: 'UPDATED', field: 'updatedAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'address',
-  descending: false,
-  total: null,
+const columns = computed(() => {
+  const filterCfg = {
+    channelType: {
+      filterType: 'select',
+      filterOptions: [
+        { value: 'SYSTEM', label: 'System address' },
+        { value: 'FORWARDING', label: 'Forwarding' },
+      ],
+    },
+    status: {
+      filterType: 'select',
+      filterOptions: [
+        { value: 'VERIFIED', label: 'Verified' },
+        { value: 'PENDING', label: 'Pending verification' },
+        { value: 'FAILED', label: 'Verification failed' },
+      ],
+    },
+    updatedAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'address', label: 'ADDRESS', field: 'address', align: 'left', sortable: true },
+    { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
+    {
+      name: 'channelType',
+      label: 'CONNECTION TYPE',
+      field: 'channelType',
+      align: 'left',
+      sortable: false,
+    },
+    { name: 'status', label: 'STATUS', field: 'verificationStatus', align: 'left' },
+    { name: 'updatedAt', label: 'UPDATED', field: 'updatedAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'address', desc: false }])
 
 function rowMenuItems(row) {
   const items = []
@@ -72,7 +87,17 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="channels" :columns="columns" rowKey="id">
+  <DataTable
+    v-model:pagination="pagination"
+    v-model:sort="sort"
+    :rows="channels"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    filterable
+    exportManager
+    exportFilename="email-channels.csv"
+  >
     <template #body-cell-address="{ row }">
       <div class="tw:flex tw:flex-col tw:gap-0.5">
         <span class="tw:text-sm tw:font-mono tw:font-medium">{{ row.address }}</span>
@@ -119,5 +144,5 @@ function rowMenuItems(row) {
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

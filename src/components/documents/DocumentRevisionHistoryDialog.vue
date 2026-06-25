@@ -118,6 +118,16 @@ const TYPE_CLASS = {
   MINOR: 'tw:bg-blue-50 tw:text-blue-700',
   MAJOR: 'tw:bg-purple-50 tw:text-purple-700',
 }
+
+const columns = [
+  { name: 'version', label: 'VERSION', field: 'version', align: 'left' },
+  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left' },
+  { name: 'type', label: 'TYPE', field: 'changeType', align: 'left' },
+  { name: 'created', label: 'CREATED', field: 'createdAt', align: 'left' },
+  { name: 'effective', label: 'EFFECTIVE', field: 'effectiveDate', align: 'left' },
+  { name: 'approved', label: 'APPROVED', field: 'approved', align: 'left' },
+  { name: 'reason', label: 'REASON FOR CHANGE', field: 'changeReason', align: 'left' },
+]
 </script>
 
 <template>
@@ -138,95 +148,89 @@ const TYPE_CLASS = {
       </div>
     </template>
 
-    <div v-if="!versions.length" class="tw:text-center tw:py-12 tw:text-secondary tw:text-sm">
-      No versions found for this document.
-    </div>
+    <DataTable
+      :rows="versions"
+      :columns="columns"
+      rowKey="id"
+      :mobileCards="false"
+      hidePagination
+      noDataLabel="No versions found for this document."
+    >
+      <template #body-cell-version="{ row }">
+        <span class="tw:font-mono tw:font-semibold tw:whitespace-nowrap">
+          {{ versionLabel(row) }}
+        </span>
+      </template>
 
-    <div v-else class="tw:overflow-x-auto">
-      <table class="tw:w-full tw:text-sm tw:border-collapse">
-        <thead>
-          <tr
-            class="tw:text-left tw:text-xs tw:uppercase tw:tracking-wide tw:text-secondary tw:border-b tw:border-divider"
+      <template #body-cell-status="{ row }">
+        <span
+          class="tw:inline-flex tw:items-center tw:rounded tw:px-2 tw:py-0.5 tw:text-xs tw:font-semibold"
+          :class="STATUS_CLASS[row.statusId] || 'tw:bg-gray-100 tw:text-gray-600'"
+        >
+          {{ row.statusId }}
+        </span>
+      </template>
+
+      <template #body-cell-type="{ row }">
+        <span
+          v-if="row.changeType"
+          class="tw:inline-flex tw:items-center tw:rounded tw:px-2 tw:py-0.5 tw:text-xs tw:font-medium"
+          :class="TYPE_CLASS[row.changeType] || 'tw:bg-gray-100 tw:text-gray-600'"
+        >
+          {{ row.changeType }}
+        </span>
+        <span v-else class="tw:text-secondary">—</span>
+        <span
+          v-if="row.regulatoryImpact"
+          class="tw:ml-1.5 tw:inline-flex tw:items-center tw:gap-0.5 tw:rounded tw:bg-amber-100 tw:text-amber-800 tw:px-1.5 tw:py-0.5 tw:text-micro tw:font-semibold"
+          title="Regulatory impact flagged"
+        >
+          <IconShieldCheck :size="10" /> REG
+        </span>
+      </template>
+
+      <template #body-cell-created="{ row }">
+        <div class="tw:whitespace-nowrap">{{ fmtDate(row.createdAt) }}</div>
+        <div v-if="row.createdBy" class="tw:text-xs tw:text-secondary">
+          <UserBadgeById :userId="row.createdBy" />
+        </div>
+      </template>
+
+      <template #body-cell-effective="{ row }">
+        <span class="tw:whitespace-nowrap">{{ fmtDate(row.effectiveDate) }}</span>
+      </template>
+
+      <template #body-cell-approved="{ row }">
+        <template v-if="approvalByVersion[row.id]">
+          <div class="tw:whitespace-nowrap">{{ fmtDate(approvalByVersion[row.id].when) }}</div>
+          <div class="tw:text-xs tw:text-secondary">
+            <UserBadgeById :userId="approvalByVersion[row.id].who" />
+          </div>
+        </template>
+        <span v-else class="tw:text-secondary">—</span>
+      </template>
+
+      <template #body-cell-reason="{ row }">
+        <div class="tw:max-w-md">
+          <div v-if="row.changeReason" class="tw:text-on-main">
+            {{ row.changeReason }}
+          </div>
+          <div v-else class="tw:text-secondary">—</div>
+          <div
+            v-if="row.changeSummary"
+            class="tw:mt-1 tw:text-xs tw:text-secondary tw:italic tw:line-clamp-3"
           >
-            <th class="tw:py-2 tw:pr-3">Version</th>
-            <th class="tw:py-2 tw:pr-3">Status</th>
-            <th class="tw:py-2 tw:pr-3">Type</th>
-            <th class="tw:py-2 tw:pr-3">Created</th>
-            <th class="tw:py-2 tw:pr-3">Effective</th>
-            <th class="tw:py-2 tw:pr-3">Approved</th>
-            <th class="tw:py-2 tw:pr-3">Reason for change</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="v in versions" :key="v.id" class="tw:border-b tw:border-divider tw:align-top">
-            <td class="tw:py-3 tw:pr-3 tw:font-mono tw:font-semibold tw:whitespace-nowrap">
-              {{ versionLabel(v) }}
-            </td>
-            <td class="tw:py-3 tw:pr-3">
-              <span
-                class="tw:inline-flex tw:items-center tw:rounded tw:px-2 tw:py-0.5 tw:text-xs tw:font-semibold"
-                :class="STATUS_CLASS[v.statusId] || 'tw:bg-gray-100 tw:text-gray-600'"
-              >
-                {{ v.statusId }}
-              </span>
-            </td>
-            <td class="tw:py-3 tw:pr-3">
-              <span
-                v-if="v.changeType"
-                class="tw:inline-flex tw:items-center tw:rounded tw:px-2 tw:py-0.5 tw:text-xs tw:font-medium"
-                :class="TYPE_CLASS[v.changeType] || 'tw:bg-gray-100 tw:text-gray-600'"
-              >
-                {{ v.changeType }}
-              </span>
-              <span v-else class="tw:text-secondary">—</span>
-              <span
-                v-if="v.regulatoryImpact"
-                class="tw:ml-1.5 tw:inline-flex tw:items-center tw:gap-0.5 tw:rounded tw:bg-amber-100 tw:text-amber-800 tw:px-1.5 tw:py-0.5 tw:text-micro tw:font-semibold"
-                title="Regulatory impact flagged"
-              >
-                <IconShieldCheck :size="10" /> REG
-              </span>
-            </td>
-            <td class="tw:py-3 tw:pr-3 tw:whitespace-nowrap">
-              <div>{{ fmtDate(v.createdAt) }}</div>
-              <div v-if="v.createdBy" class="tw:text-xs tw:text-secondary">
-                <UserBadgeById :userId="v.createdBy" />
-              </div>
-            </td>
-            <td class="tw:py-3 tw:pr-3 tw:whitespace-nowrap">
-              {{ fmtDate(v.effectiveDate) }}
-            </td>
-            <td class="tw:py-3 tw:pr-3 tw:whitespace-nowrap">
-              <template v-if="approvalByVersion[v.id]">
-                <div>{{ fmtDate(approvalByVersion[v.id].when) }}</div>
-                <div class="tw:text-xs tw:text-secondary">
-                  <UserBadgeById :userId="approvalByVersion[v.id].who" />
-                </div>
-              </template>
-              <span v-else class="tw:text-secondary">—</span>
-            </td>
-            <td class="tw:py-3 tw:pr-3 tw:max-w-md">
-              <div v-if="v.changeReason" class="tw:text-on-main">
-                {{ v.changeReason }}
-              </div>
-              <div v-else class="tw:text-secondary">—</div>
-              <div
-                v-if="v.changeSummary"
-                class="tw:mt-1 tw:text-xs tw:text-secondary tw:italic tw:line-clamp-3"
-              >
-                {{ v.changeSummary }}
-              </div>
-              <div
-                v-if="v.regulatoryImpact && v.regulatoryImpactNotes"
-                class="tw:mt-1 tw:text-xs tw:text-amber-700"
-              >
-                <strong>Regulatory impact:</strong> {{ v.regulatoryImpactNotes }}
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+            {{ row.changeSummary }}
+          </div>
+          <div
+            v-if="row.regulatoryImpact && row.regulatoryImpactNotes"
+            class="tw:mt-1 tw:text-xs tw:text-amber-700"
+          >
+            <strong>Regulatory impact:</strong> {{ row.regulatoryImpactNotes }}
+          </div>
+        </div>
+      </template>
+    </DataTable>
 
     <template #footer>
       <BaseButton variant="outline" @click="show = false">Close</BaseButton>

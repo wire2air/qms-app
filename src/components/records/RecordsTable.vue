@@ -33,37 +33,69 @@ const updateRecord = useLiveMutation(async (db, { id, updates }) => {
   return record
 })
 
-const columns = [
-  { name: 'recordNumber', label: 'RECORD #', field: 'recordNumber', align: 'left', sortable: true },
-  {
-    name: 'documentTypeId',
-    label: 'DOCUMENT TYPE',
-    field: 'documentTypeId',
-    align: 'left',
-    sortable: true,
-  },
-  { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
-  { name: 'createdBy', label: 'CREATED BY', field: 'userId', align: 'left', sortable: false },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right', sortable: false },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+// Option sources for the advanced filter's entity-column dropdowns.
+const documentTypes = useLiveQuery((db) => db.DocumentType.where().exec(), {
+  models: ['DocumentType'],
+  initial: [],
 })
+const recordStatuses = useLiveQuery((db) => db.RecordStatus.where().exec(), {
+  models: ['RecordStatus'],
+  initial: [],
+})
+const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+function userOpts(list) {
+  return list.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}`.trim() || u.email }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    documentTypeId: { filterType: 'select', filterOptions: selectOpts(documentTypes.value) },
+    statusId: { filterType: 'select', filterOptions: selectOpts(recordStatuses.value) },
+    createdBy: { filterType: 'select', filterOptions: userOpts(users.value) },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    {
+      name: 'recordNumber',
+      label: 'RECORD #',
+      field: 'recordNumber',
+      align: 'left',
+      sortable: true,
+    },
+    {
+      name: 'documentTypeId',
+      label: 'DOCUMENT TYPE',
+      field: 'documentTypeId',
+      align: 'left',
+      sortable: true,
+    },
+    { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
+    { name: 'createdBy', label: 'CREATED BY', field: 'userId', align: 'left', sortable: false },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right', sortable: false },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="rows"
     :columns="columns"
     :loading="loading"
     hidePagination
+    :mobileCards="false"
+    searchable
+    filterable
+    exportManager
+    exportFilename="records.csv"
     @rowClick="openPreview"
   >
     <!-- Record Number Column -->
@@ -118,7 +150,7 @@ const pagination = ref({
         />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 
   <!-- Preview Panel -->
   <Teleport to="body">

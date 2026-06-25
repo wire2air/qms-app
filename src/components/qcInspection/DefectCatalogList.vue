@@ -3,7 +3,7 @@
  * Test Library admin — the per-tenant master list of inspection tests, each with
  * a default severity (CRITICAL/MAJOR/MINOR), type, method and limits. Picking one
  * in the spec builder pre-fills a characteristic. Synced model (DefectCatalog) —
- * list live, edits via the dialog.
+ * list live (via the shared DataTable), edits via the dialog.
  */
 import { IconPlus, IconPencil, IconTrash } from '@tabler/icons-vue'
 
@@ -26,6 +26,39 @@ const defects = useLiveQuery(
   { initial: [] },
 )
 
+const SEVERITY_OPTIONS = [
+  { value: 'CRITICAL', label: 'Critical' },
+  { value: 'MAJOR', label: 'Major' },
+  { value: 'MINOR', label: 'Minor' },
+]
+const STATUS_OPTIONS = [
+  { value: true, label: 'Active' },
+  { value: false, label: 'Inactive' },
+]
+
+const columns = [
+  { name: 'name', label: 'Test', field: 'name', align: 'left', sortable: true },
+  { name: 'code', label: 'Code', field: 'code', align: 'left', sortable: true },
+  { name: 'testType', label: 'Type', field: 'testType', align: 'left', sortable: true },
+  {
+    name: 'severity',
+    label: 'Severity',
+    field: 'defaultSeverity',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: SEVERITY_OPTIONS,
+  },
+  {
+    name: 'status',
+    label: 'Status',
+    field: 'active',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: STATUS_OPTIONS,
+  },
+  { name: 'actions', label: '', field: 'actions', align: 'right' },
+]
+
 function openCreate() {
   editDefect.value = null
   showDialog.value = true
@@ -46,9 +79,22 @@ async function removeDefect(d) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4">
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <p class="tw:text-sm tw:text-secondary">
+  <DataTable
+    :rows="defects"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    searchable
+    filterable
+    densitySelector
+    columnManager
+    exportManager
+    exportFilename="tests.csv"
+    persistKey="qcInspection:defectCatalog"
+    noDataLabel="No tests defined yet."
+  >
+    <template #toolbar-left>
+      <p class="tw:text-sm tw:text-secondary tw:max-w-xl">
         Reusable inspection tests with a default severity class. Pick one when building a
         specification to pre-fill the test (type, severity, method, limits — all overridable).
       </p>
@@ -56,67 +102,57 @@ async function removeDefect(d) {
         <template #icon><IconPlus :size="16" /></template>
         Add test
       </BaseButton>
-    </div>
+    </template>
 
-    <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead class="tw:bg-main-hover tw:text-secondary tw:text-xs tw:uppercase">
-          <tr>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Test</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Code</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Type</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Severity</th>
-            <th class="tw:text-left tw:px-4 tw:py-2.5">Status</th>
-            <th class="tw:px-4 tw:py-2.5"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="d in defects" :key="d.id" class="tw:border-t tw:border-divider">
-            <td class="tw:px-4 tw:py-2.5">
-              <div class="tw:font-medium tw:text-on-main">{{ d.name }}</div>
-              <div v-if="d.description" class="tw:text-xs tw:text-secondary tw:line-clamp-1">{{ d.description }}</div>
-            </td>
-            <td class="tw:px-4 tw:py-2.5 tw:font-mono tw:text-xs tw:text-secondary">{{ d.code }}</td>
-            <td class="tw:px-4 tw:py-2.5 tw:text-xs tw:text-secondary">{{ d.testType }}</td>
-            <td class="tw:px-4 tw:py-2.5"><DefectSeverityBadgeById :severityId="d.defaultSeverity" /></td>
-            <td class="tw:px-4 tw:py-2.5">
-              <span
-                class="tw:text-micro tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
-                :class="d.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-100 tw:text-gray-500'"
-              >
-                {{ d.active ? 'Active' : 'Inactive' }}
-              </span>
-            </td>
-            <td class="tw:px-4 tw:py-2.5">
-              <div v-if="canManage" class="tw:flex tw:items-center tw:justify-end tw:gap-3">
-                <button
-                  type="button"
-                  class="tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
-                  title="Edit"
-                  @click="openEdit(d)"
-                >
-                  <IconPencil :size="16" />
-                </button>
-                <button
-                  type="button"
-                  class="tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
-                  title="Delete"
-                  @click="removeDefect(d)"
-                >
-                  <IconTrash :size="16" />
-                </button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!defects.length">
-            <td colspan="6" class="tw:px-4 tw:py-8 tw:text-center tw:text-secondary tw:italic">
-              No tests defined yet.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <template #body-cell-name="{ row }">
+      <div class="tw:font-medium tw:text-on-main">{{ row.name }}</div>
+      <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:line-clamp-1">
+        {{ row.description }}
+      </div>
+    </template>
 
-    <DefectCatalogCreateDialog v-model="showDialog" :editDefect="editDefect" />
-  </div>
+    <template #body-cell-code="{ row }">
+      <span class="tw:font-mono tw:text-xs tw:text-secondary">{{ row.code }}</span>
+    </template>
+
+    <template #body-cell-testType="{ row }">
+      <span class="tw:text-xs tw:text-secondary">{{ row.testType }}</span>
+    </template>
+
+    <template #body-cell-severity="{ row }">
+      <DefectSeverityBadgeById :severityId="row.defaultSeverity" />
+    </template>
+
+    <template #body-cell-status="{ row }">
+      <span
+        class="tw:text-micro tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
+        :class="row.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-100 tw:text-gray-500'"
+      >
+        {{ row.active ? 'Active' : 'Inactive' }}
+      </span>
+    </template>
+
+    <template #body-cell-actions="{ row }">
+      <div v-if="canManage" class="tw:flex tw:items-center tw:justify-end tw:gap-3">
+        <button
+          type="button"
+          class="tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
+          title="Edit"
+          @click="openEdit(row)"
+        >
+          <IconPencil :size="16" />
+        </button>
+        <button
+          type="button"
+          class="tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
+          title="Delete"
+          @click="removeDefect(row)"
+        >
+          <IconTrash :size="16" />
+        </button>
+      </div>
+    </template>
+  </DataTable>
+
+  <DefectCatalogCreateDialog v-model="showDialog" :editDefect="editDefect" />
 </template>

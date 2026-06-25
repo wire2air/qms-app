@@ -11,24 +11,17 @@ const canCreateRecord = computed(() => isAllowed(['records:create']))
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty`/`loading` are lazy getters that read `records`.
 const list = useListLayout({
-  filters: { search: '' },
+  filters: {},
   total: () => records.value.length,
   empty: () => records.value.length === 0,
   loading: () => records.value === undefined,
   syncUrl: true,
 })
 
-const records = useLiveQueryWithDeps(
-  [() => list.filters.value.search],
-  async (db, [search]) => {
-    const all = await db.Record.where().exec()
-    if (!search) return all
-    const s = search.toLowerCase()
-    return all.filter((r) => r.recordNumber?.toLowerCase().includes(s))
-  },
-
-  { models: ['Record'], initial: [] },
-)
+const records = useLiveQuery((db) => db.Record.where().exec(), {
+  models: ['Record'],
+  initial: [],
+})
 
 const loading = computed(() => records.value === undefined)
 
@@ -91,7 +84,6 @@ function onRecordCreated() {
           UTILITY-classified form templates (legacy path)
         </span>
       </div>
-      <RecordsFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
     <div>

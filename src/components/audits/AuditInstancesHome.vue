@@ -4,15 +4,13 @@
  * landing page. Lists every audit the user can see (RLS: audits:read
  * or team membership). Most instances are minted server-side by the
  * daily generator (Phase B-5) off a program; the row reflects who's
- * leading, what state it's in, and when it was scheduled.
+ * leading, what state it's in, and when it was scheduled. Rendered via
+ * the shared DataTable — search, advanced filter, density, column
+ * manager and export all live in the table toolbar.
  */
-import { IconChecklist, IconPlus, IconDownload, IconCalendar } from '@tabler/icons-vue'
+import { IconPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { matchesDateFilter } from '@/utils/dateRanges.js'
-import { exportToCSV } from '@/utils/exportUtils.js'
-
-const router = useRouter()
 
 // No FE canRead gate — RLS is the single source of truth for row
 // visibility (supplier users without audits:read can still see audits
@@ -23,43 +21,15 @@ const canCreate = computed(() => isAllowed(['audits:create']))
 
 const showCreateDialog = ref(false)
 
-function openDetail(row) {
-  router.push(getCompanyPath(`/audits/instances/${row.id}`))
-}
-
-const search = ref('')
-const statusFilter = ref(null)
-const supplierFilter = ref(null)
-const auditFilters = ref({})
-
-const auditDateFilterItems = computed(() => [
-  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
-])
-
-function exportCsv() {
-  exportToCSV(
-    instances.value,
-    [
-      { field: 'auditNumber', label: 'Audit #' },
-      { field: 'programTypeId', label: 'Type' },
-      { field: (r) => r.displayMeta?.standardName ?? '', label: 'Standard' },
-      { field: 'statusId', label: 'Status' },
-      { field: (r) => r.scheduledDate?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Scheduled' },
-      { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
-    ],
-    'audits',
-  )
-}
-
 const STATUS_FILTER_OPTIONS = [
-  { id: 'DRAFT', name: 'Draft' },
-  { id: 'SCHEDULED', name: 'Scheduled' },
-  { id: 'IN_PROGRESS', name: 'In Progress' },
-  { id: 'REVIEW', name: 'In Review' },
-  { id: 'REJECTED', name: 'Rejected' },
-  { id: 'COMPLETED', name: 'Completed' },
-  { id: 'CLOSED', name: 'Closed' },
-  { id: 'CANCELLED', name: 'Cancelled' },
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'SCHEDULED', label: 'Scheduled' },
+  { value: 'IN_PROGRESS', label: 'In Progress' },
+  { value: 'REVIEW', label: 'In Review' },
+  { value: 'REJECTED', label: 'Rejected' },
+  { value: 'COMPLETED', label: 'Completed' },
+  { value: 'CLOSED', label: 'Closed' },
+  { value: 'CANCELLED', label: 'Cancelled' },
 ]
 
 const TYPE_LABELS = {
@@ -67,6 +37,8 @@ const TYPE_LABELS = {
   EXTERNAL: 'External',
   SUPPLIER: 'Supplier',
 }
+const TYPE_OPTIONS = Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label }))
+
 function typeBadgeClass(typeId) {
   switch (typeId) {
     case 'INTERNAL':
@@ -80,138 +52,124 @@ function typeBadgeClass(typeId) {
   }
 }
 
-const instances = useLiveQueryWithDeps(
-  [
-    () => search.value,
-    () => statusFilter.value,
-    () => supplierFilter.value,
-    () => auditFilters.value.createdAt,
-  ],
-  async (db, [q, status, supplierId, createdAt]) => {
+const columns = [
+  { name: 'number', label: 'Number', field: (r) => r.auditNumber || r.id.slice(0, 8), align: 'left', sortable: true },
+  { name: 'standard', label: 'Standard', field: 'auditStandardId', align: 'left' },
+  {
+    name: 'type',
+    label: 'Type',
+    field: 'programTypeId',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: TYPE_OPTIONS,
+  },
+  { name: 'lead', label: 'Lead', field: 'leadAuditorUserId', align: 'left' },
+  {
+    name: 'scheduled',
+    label: 'Scheduled',
+    field: 'scheduledDate',
+    align: 'left',
+    sortable: true,
+    filterType: 'date',
+  },
+  {
+    name: 'status',
+    label: 'Status',
+    field: 'statusId',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: STATUS_FILTER_OPTIONS,
+  },
+  {
+    name: 'createdAt',
+    label: 'Created',
+    field: 'createdAt',
+    align: 'left',
+    sortable: true,
+    filterType: 'date',
+  },
+]
+
+const instances = useLiveQuery(
+  async (db) => {
     const results = await db.AuditInstance.where().exec()
-    const filtered = results.filter(
-      (i) =>
-        (status ? i.statusId === status : true) &&
-        (supplierId ? i.supplierId === supplierId : true) &&
-        matchesDateFilter(i.createdAt, createdAt),
-    )
-    const sorted = filtered.sort(
+    return results.sort(
       (a, b) =>
         (b.scheduledDate?.toMillis?.() ?? b.createdAt?.toMillis?.() ?? 0) -
         (a.scheduledDate?.toMillis?.() ?? a.createdAt?.toMillis?.() ?? 0),
     )
-    if (!q) return sorted
-    const lower = q.toLowerCase()
-    return sorted.filter(
-      (i) =>
-        (i.auditNumber || '').toLowerCase().includes(lower) ||
-        (i.scope || '').toLowerCase().includes(lower),
-    )
   },
-
   { models: ['AuditInstance'], initial: [] },
 )
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3">
-    <div class="tw:flex tw:items-center tw:justify-between tw:gap-3">
-      <div class="tw:flex tw:items-center tw:gap-3">
-        <BaseTextInput v-model="search" placeholder="Search audits…" class="tw:w-72" />
-        <BaseInlineSelect
-          v-model="statusFilter"
-          :items="STATUS_FILTER_OPTIONS"
-          nullLabel="— All statuses —"
-          class="tw:w-44"
-        />
-        <SupplierSelectMenu v-model="supplierFilter" :isFilter="true" class="tw:w-48" />
-        <BaseFilterMenu v-model="auditFilters" :items="auditDateFilterItems" />
-        <div class="tw:text-xs tw:text-secondary">
-          {{ instances.length }} audit{{ instances.length === 1 ? '' : 's' }}
-        </div>
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <BaseButton variant="outline" size="sm" :disabled="!instances.length" @click="exportCsv">
-          <template #icon><IconDownload :size="16" /></template>
-          Export
-        </BaseButton>
-        <!-- New Audit = ad-hoc create (one-off, no program). The daily
-             generator handles program-driven audits automatically. -->
-        <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreateDialog = true">
-          <template #icon><IconPlus :size="16" /></template>
-          New Audit
-        </BaseButton>
-      </div>
-    </div>
+  <DataTable
+    :rows="instances"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    searchable
+    filterable
+    densitySelector
+    columnManager
+    exportManager
+    exportFilename="audits.csv"
+    persistKey="audits:instances"
+    noDataLabel="No audits yet. Audits are minted by the daily generator from active programs — create a program with a next-due date to see your first audit."
+  >
+    <template #toolbar-left>
+      <span class="tw:text-sm tw:text-secondary">
+        {{ instances.length }} audit{{ instances.length === 1 ? '' : 's' }}
+      </span>
+      <!-- New Audit = ad-hoc create (one-off, no program). The daily
+           generator handles program-driven audits automatically. -->
+      <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreateDialog = true">
+        <template #icon><IconPlus :size="16" /></template>
+        New Audit
+      </BaseButton>
+    </template>
 
-    <div
-      v-if="!instances.length"
-      class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:py-16 tw:text-secondary"
-    >
-      <IconChecklist :size="40" class="tw:opacity-50" />
-      <div class="tw:text-base tw:font-semibold">No audits yet</div>
-      <div class="tw:text-sm tw:text-center tw:max-w-md">
-        Audits are minted by the daily generator from active programs. Create a program with a
-        next-due date to see your first audit.
-      </div>
-    </div>
+    <template #body-cell-number="{ row }">
+      <RouterLink
+        :to="getCompanyPath(`/audits/instances/${row.id}`)"
+        class="tw:font-mono tw:text-xs tw:text-on-main tw:hover:text-primary"
+      >
+        {{ row.auditNumber || row.id.slice(0, 8) }}
+      </RouterLink>
+    </template>
 
-    <div v-else class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead>
-          <tr
-            class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider tw:bg-main-hover"
-          >
-            <th class="tw:px-4 tw:py-3">Number</th>
-            <th class="tw:px-4 tw:py-3">Standard</th>
-            <th class="tw:px-4 tw:py-3">Type</th>
-            <th class="tw:px-4 tw:py-3">Lead</th>
-            <th class="tw:px-4 tw:py-3">Scheduled</th>
-            <th class="tw:px-4 tw:py-3">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <BaseClickableRow
-            v-for="row in instances"
-            :key="row.id"
-            tag="tr"
-            class="tw:border-b tw:border-divider tw:hover:bg-main-hover/40"
-            :aria-label="`Open audit ${row.auditNumber || row.id.slice(0, 8)}`"
-            @click="openDetail(row)"
-          >
-            <td class="tw:px-4 tw:py-3 tw:font-mono tw:text-xs">
-              {{ row.auditNumber || row.id.slice(0, 8) }}
-            </td>
-            <td class="tw:px-4 tw:py-3">
-              <AuditStandardBadgeById
-                v-if="row.auditStandardId"
-                :standardId="row.auditStandardId"
-              />
-              <span v-else class="tw:text-xs tw:text-secondary">—</span>
-            </td>
-            <td class="tw:px-4 tw:py-3">
-              <span
-                class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
-                :class="typeBadgeClass(row.programTypeId)"
-              >
-                {{ TYPE_LABELS[row.programTypeId] || row.programTypeId }}
-              </span>
-            </td>
-            <td class="tw:px-4 tw:py-3">
-              <UserBadgeById v-if="row.leadAuditorUserId" :userId="row.leadAuditorUserId" />
-              <span v-else class="tw:text-xs tw:text-secondary">—</span>
-            </td>
-            <td class="tw:px-4 tw:py-3 tw:text-xs">
-              {{ row.scheduledDate ? row.scheduledDate.formatDate('date') : '—' }}
-            </td>
-            <td class="tw:px-4 tw:py-3">
-              <AuditInstanceStatusBadgeById :statusId="row.statusId" />
-            </td>
-          </BaseClickableRow>
-        </tbody>
-      </table>
-    </div>
+    <template #body-cell-standard="{ row }">
+      <AuditStandardBadgeById v-if="row.auditStandardId" :standardId="row.auditStandardId" />
+      <span v-else class="tw:text-xs tw:text-secondary">—</span>
+    </template>
 
-    <AuditInstanceCreateDialog v-model="showCreateDialog" />
-  </div>
+    <template #body-cell-type="{ row }">
+      <span
+        class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+        :class="typeBadgeClass(row.programTypeId)"
+      >
+        {{ TYPE_LABELS[row.programTypeId] || row.programTypeId }}
+      </span>
+    </template>
+
+    <template #body-cell-lead="{ row }">
+      <UserBadgeById v-if="row.leadAuditorUserId" :userId="row.leadAuditorUserId" />
+      <span v-else class="tw:text-xs tw:text-secondary">—</span>
+    </template>
+
+    <template #body-cell-scheduled="{ row }">
+      <span class="tw:text-xs">{{ row.scheduledDate ? row.scheduledDate.formatDate('date') : '—' }}</span>
+    </template>
+
+    <template #body-cell-status="{ row }">
+      <AuditInstanceStatusBadgeById :statusId="row.statusId" />
+    </template>
+
+    <template #body-cell-createdAt="{ row }">
+      <span class="tw:text-xs tw:text-secondary">{{ row.createdAt ? row.createdAt.formatDate('date') : '—' }}</span>
+    </template>
+  </DataTable>
+
+  <AuditInstanceCreateDialog v-model="showCreateDialog" />
 </template>

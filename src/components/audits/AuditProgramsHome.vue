@@ -1,39 +1,27 @@
 <script setup>
 /**
- * Audit Programs list. Mirrors AuditStandardsHome: a top search +
- * create button, then a table of programs with click-through to the
- * detail page. Programs are recurring schedule definitions; the daily
- * generator (Phase B-5) reads active programs whose next_due_date is
- * today-or-earlier and mints an AuditInstance off each.
+ * Audit Programs list. Mirrors AuditStandardsHome: a create button +
+ * table of programs with click-through to the detail page. Programs are
+ * recurring schedule definitions; the daily generator (Phase B-5) reads
+ * active programs whose next_due_date is today-or-earlier and mints an
+ * AuditInstance off each. Rendered via the shared DataTable — search,
+ * advanced filter, density, column manager and export live in the table
+ * toolbar.
  */
-import { IconCalendarTime, IconPlus } from '@tabler/icons-vue'
+import { IconPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-
-const router = useRouter()
 
 const canRead = computed(() => isAllowed(['auditPrograms:read']))
 const canCreate = computed(() => isAllowed(['auditPrograms:create']))
 
 const showCreateDialog = ref(false)
-function openDetail(row) {
-  router.push(getCompanyPath(`/audits/programs/${row.id}`))
-}
 
-const search = ref('')
-
-const programs = useLiveQueryWithDeps(
-  [() => search.value],
-  async (db, [q]) => {
+const programs = useLiveQuery(
+  async (db) => {
     const results = await db.AuditProgram.where().exec()
-    const sorted = results.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
-    if (!q) return sorted
-    const lower = q.toLowerCase()
-    return sorted.filter((p) => (p.name || '').toLowerCase().includes(lower))
+    return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-
   { models: ['AuditProgram'], initial: [] },
 )
 
@@ -46,11 +34,19 @@ const FREQUENCY_LABELS = {
   EVERY_X_DAYS: 'Every X Days',
   CUSTOM_RECURRENCE: 'Custom',
 }
+const FREQUENCY_OPTIONS = Object.entries(FREQUENCY_LABELS).map(([value, label]) => ({ value, label }))
+
 const TYPE_LABELS = {
   INTERNAL: 'Internal',
   EXTERNAL: 'External',
   SUPPLIER: 'Supplier',
 }
+const TYPE_OPTIONS = Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label }))
+
+const ACTIVE_OPTIONS = [
+  { value: true, label: 'Active' },
+  { value: false, label: 'Paused' },
+]
 
 function typeBadgeClass(typeId) {
   switch (typeId) {
@@ -64,114 +60,127 @@ function typeBadgeClass(typeId) {
       return 'tw:bg-gray-100 tw:text-gray-700'
   }
 }
+
+const columns = [
+  { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+  {
+    name: 'type',
+    label: 'Type',
+    field: 'programTypeId',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: TYPE_OPTIONS,
+  },
+  {
+    name: 'frequency',
+    label: 'Frequency',
+    field: 'frequencyId',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: FREQUENCY_OPTIONS,
+  },
+  { name: 'standard', label: 'Standard', field: 'auditStandardId', align: 'left' },
+  {
+    name: 'nextDue',
+    label: 'Next Due',
+    field: 'nextDueDate',
+    align: 'left',
+    sortable: true,
+    filterType: 'date',
+  },
+  {
+    name: 'active',
+    label: 'Active',
+    field: 'active',
+    align: 'left',
+    filterType: 'select',
+    filterOptions: ACTIVE_OPTIONS,
+  },
+]
 </script>
 
 <template>
   <div v-if="!canRead" class="tw:py-12 tw:text-center tw:text-secondary">
     You don't have permission to view audit programs.
   </div>
-  <div v-else class="tw:flex tw:flex-col tw:gap-3">
-    <div class="tw:flex tw:items-center tw:justify-between tw:gap-3">
-      <div class="tw:flex tw:items-center tw:gap-3">
-        <BaseTextInput v-model="search" placeholder="Search programs..." class="tw:w-72" />
-        <div class="tw:text-xs tw:text-secondary">
-          {{ programs.length }} program{{ programs.length === 1 ? '' : 's' }}
-        </div>
-      </div>
+  <DataTable
+    v-else
+    :rows="programs"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    searchable
+    filterable
+    densitySelector
+    columnManager
+    exportManager
+    exportFilename="audit-programs.csv"
+    persistKey="audits:programs"
+    noDataLabel="No programs yet. A program defines a recurring schedule — the daily worker mints an Audit whenever the program hits its frequency window."
+  >
+    <template #toolbar-left>
+      <span class="tw:text-sm tw:text-secondary">
+        {{ programs.length }} program{{ programs.length === 1 ? '' : 's' }}
+      </span>
       <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreateDialog = true">
         <template #icon><IconPlus :size="16" /></template>
         New Program
       </BaseButton>
-    </div>
+    </template>
 
-    <div
-      v-if="!programs.length"
-      class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:py-16 tw:text-secondary"
-    >
-      <IconCalendarTime :size="40" class="tw:opacity-50" />
-      <div class="tw:text-base tw:font-semibold">No programs yet</div>
-      <div class="tw:text-sm tw:text-center tw:max-w-md">
-        A program defines a recurring schedule. The daily worker mints an Audit whenever the program
-        hits its frequency window.
+    <template #body-cell-name="{ row }">
+      <RouterLink
+        :to="getCompanyPath(`/audits/programs/${row.id}`)"
+        class="tw:font-medium tw:text-on-main tw:hover:text-primary"
+      >
+        {{ row.name }}
+      </RouterLink>
+      <div
+        v-if="row.description"
+        class="tw:text-xs tw:text-secondary tw:font-normal tw:mt-0.5 tw:truncate tw:max-w-md"
+      >
+        {{ row.description }}
       </div>
-    </div>
+    </template>
 
-    <div v-else class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
-      <table class="tw:w-full tw:text-sm">
-        <thead>
-          <tr
-            class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider tw:bg-main-hover"
-          >
-            <th class="tw:px-4 tw:py-3">Name</th>
-            <th class="tw:px-4 tw:py-3">Type</th>
-            <th class="tw:px-4 tw:py-3">Frequency</th>
-            <th class="tw:px-4 tw:py-3">Standard</th>
-            <th class="tw:px-4 tw:py-3">Next Due</th>
-            <th class="tw:px-4 tw:py-3">Active</th>
-          </tr>
-        </thead>
-        <tbody>
-          <BaseClickableRow
-            v-for="row in programs"
-            :key="row.id"
-            tag="tr"
-            class="tw:border-b tw:border-divider tw:hover:bg-main-hover/40"
-            :aria-label="`Open program ${row.name}`"
-            @click="openDetail(row)"
-          >
-            <td class="tw:px-4 tw:py-3 tw:font-medium tw:text-on-sidebar">
-              {{ row.name }}
-              <div
-                v-if="row.description"
-                class="tw:text-xs tw:text-secondary tw:font-normal tw:mt-0.5 tw:truncate tw:max-w-md"
-              >
-                {{ row.description }}
-              </div>
-            </td>
-            <td class="tw:px-4 tw:py-3">
-              <span
-                class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
-                :class="typeBadgeClass(row.programTypeId)"
-              >
-                {{ TYPE_LABELS[row.programTypeId] || row.programTypeId }}
-              </span>
-            </td>
-            <td class="tw:px-4 tw:py-3 tw:text-xs">
-              {{ FREQUENCY_LABELS[row.frequencyId] || row.frequencyId }}
-              <span
-                v-if="row.frequencyId === 'EVERY_X_DAYS' && row.daysInterval"
-                class="tw:text-secondary"
-              >
-                ({{ row.daysInterval }}d)
-              </span>
-            </td>
-            <td class="tw:px-4 tw:py-3">
-              <AuditStandardBadgeById
-                v-if="row.auditStandardId"
-                :standardId="row.auditStandardId"
-              />
-              <span v-else class="tw:text-xs tw:text-secondary">—</span>
-            </td>
-            <td class="tw:px-4 tw:py-3 tw:text-xs">
-              {{ row.nextDueDate ? row.nextDueDate.formatDate('date') : '—' }}
-            </td>
-            <td class="tw:px-4 tw:py-3">
-              <span
-                class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
-                :class="
-                  row.active
-                    ? 'tw:bg-emerald-100 tw:text-emerald-700'
-                    : 'tw:bg-gray-100 tw:text-gray-600'
-                "
-              >
-                {{ row.active ? 'Active' : 'Paused' }}
-              </span>
-            </td>
-          </BaseClickableRow>
-        </tbody>
-      </table>
-    </div>
+    <template #body-cell-type="{ row }">
+      <span
+        class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+        :class="typeBadgeClass(row.programTypeId)"
+      >
+        {{ TYPE_LABELS[row.programTypeId] || row.programTypeId }}
+      </span>
+    </template>
 
-    <AuditProgramCreateDialog v-model="showCreateDialog" />
-  </div>
+    <template #body-cell-frequency="{ row }">
+      <span class="tw:text-xs">
+        {{ FREQUENCY_LABELS[row.frequencyId] || row.frequencyId }}
+        <span v-if="row.frequencyId === 'EVERY_X_DAYS' && row.daysInterval" class="tw:text-secondary">
+          ({{ row.daysInterval }}d)
+        </span>
+      </span>
+    </template>
+
+    <template #body-cell-standard="{ row }">
+      <AuditStandardBadgeById v-if="row.auditStandardId" :standardId="row.auditStandardId" />
+      <span v-else class="tw:text-xs tw:text-secondary">—</span>
+    </template>
+
+    <template #body-cell-nextDue="{ row }">
+      <span class="tw:text-xs">{{ row.nextDueDate ? row.nextDueDate.formatDate('date') : '—' }}</span>
+    </template>
+
+    <template #body-cell-active="{ row }">
+      <span
+        class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:rounded tw:px-2 tw:py-0.5"
+        :class="
+          row.active ? 'tw:bg-emerald-100 tw:text-emerald-700' : 'tw:bg-gray-100 tw:text-gray-600'
+        "
+      >
+        {{ row.active ? 'Active' : 'Paused' }}
+      </span>
+    </template>
+  </DataTable>
+
+  <AuditProgramCreateDialog v-model="showCreateDialog" />
 </template>

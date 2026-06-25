@@ -572,63 +572,7 @@ const ncDetailConfig = computed(() =>
           clickToEdit
           clickToEditLabel="Add a description…"
           placeholder="Add a description…"
-          class="tw:mb-4"
         />
-
-        <!-- Required-at-create fields stay in the main view:
-             Severity, Type, Source, Detected. Optional metadata
-             (Priority, Issue type, Due, Product, Qty, PO #, Order #,
-             Lot #) all moved to the right-side Overview panel to
-             match the "required → main / optional → right" rule. -->
-        <div class="tw:grid tw:grid-cols-4 tw:gap-3">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Severity</div>
-            <NcSeveritySelectMenu
-              v-if="editingSeverity && isEditable"
-              v-model="nc.severityId"
-              :required="true"
-              @blur="editingSeverity = false"
-            />
-            <BaseClickableRow
-              v-else
-              tag="span"
-              :class="isEditable ? 'tw:hover:opacity-70' : ''"
-              :disabled="!isEditable"
-              aria-label="Edit severity"
-              @click="editingSeverity = true"
-            >
-              <NcSeverityBadgeById :severityId="nc.severityId" />
-            </BaseClickableRow>
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Type</div>
-            <NcTypeBadgeById :typeId="nc.typeId" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Source</div>
-            <NcSourceBadgeById :sourceId="nc.sourceId" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Detected</div>
-            <BaseDateField
-              v-if="editingDetected && isEditable"
-              v-model="nc.detectedAt"
-              mode="date"
-              @blur="editingDetected = false"
-            />
-            <BaseClickableRow
-              v-else
-              tag="span"
-              class="tw:text-sm tw:font-medium"
-              :class="isEditable ? 'tw:hover:text-primary' : ''"
-              :disabled="!isEditable"
-              aria-label="Edit detected date"
-              @click="editingDetected = true"
-            >
-              {{ nc.detectedAt ? nc.detectedAt.formatDate('date') : '—' }}
-            </BaseClickableRow>
-          </div>
-        </div>
 
         <!-- Immediate containment action -->
         <div class="tw:flex tw:flex-col tw:gap-1 tw:mt-4">
@@ -863,46 +807,105 @@ const ncDetailConfig = computed(() =>
 
     <!-- Right column — stays here until Task 4 moves it into the BaseDetailLayout rail -->
     <template v-if="nc" #rail>
-      <!-- 1. Status & schedule — NC number, status badge, marked-complete chip, due date -->
-      <BaseRailCard title="Status &amp; schedule">
-        <BaseDetailField label="NC number">
-          <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
-            {{ nc.ncNumber || '—' }}
-          </BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Status">
-          <div class="tw:flex tw:items-center tw:gap-1.5 tw:flex-wrap">
-            <NcStatusBadgeById :statusId="nc.statusId" />
-            <BaseBadge
-              v-if="nc.markedCompleteAt"
-              class="tw:text-micro tw:bg-emerald-100 tw:text-emerald-700"
-              title="Marked complete by owner — pending final close"
+      <!-- 1. General — NC number, status, severity, type, source, priority, issue type, detected.
+           Responsive grid: pairs up two-per-row when the rail is wide enough,
+           collapses to one-per-row when narrow. -->
+      <BaseRailCard title="General">
+        <div class="tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
+          <BaseDetailField label="NC number">
+            <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
+              {{ nc.ncNumber || '—' }}
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Status">
+            <div class="tw:flex tw:items-center tw:gap-1.5 tw:flex-wrap">
+              <NcStatusBadgeById :statusId="nc.statusId" />
+              <BaseBadge
+                v-if="nc.markedCompleteAt"
+                class="tw:text-micro tw:bg-emerald-100 tw:text-emerald-700"
+                title="Marked complete by owner — pending final close"
+              >
+                Completed
+              </BaseBadge>
+            </div>
+          </BaseDetailField>
+          <BaseDetailField label="Severity">
+            <NcSeveritySelectMenu
+              v-if="editingSeverity && isEditable"
+              v-model="nc.severityId"
+              :required="true"
+              @blur="editingSeverity = false"
+            />
+            <BaseClickableRow
+              v-else
+              tag="span"
+              :class="isEditable ? 'tw:hover:opacity-70' : ''"
+              :disabled="!isEditable"
+              aria-label="Edit severity"
+              @click="editingSeverity = true"
             >
-              Completed
-            </BaseBadge>
-          </div>
-        </BaseDetailField>
-        <BaseDetailField label="Due date">
-          <BaseDateField
-            v-if="editingDueDate && isEditable"
-            v-model="nc.dueDate"
-            mode="date"
-            class="tw:w-full"
-            @blur="editingDueDate = false"
-          />
-          <BaseClickableRow
-            v-else
-            tag="span"
-            class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
-            :class="[isOverdue ? 'tw:text-red-600' : '', isEditable ? 'tw:hover:text-primary' : '']"
-            :disabled="!isEditable"
-            aria-label="Edit due date"
-            @click="editingDueDate = true"
-          >
-            <span>{{ nc.dueDate ? nc.dueDate.formatDate('date') : '—' }}</span>
-            <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
-          </BaseClickableRow>
-        </BaseDetailField>
+              <NcSeverityBadgeById :severityId="nc.severityId" />
+            </BaseClickableRow>
+          </BaseDetailField>
+          <BaseDetailField label="Type">
+            <NcTypeBadgeById v-if="nc.typeId" :typeId="nc.typeId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Source">
+            <NcSourceBadgeById v-if="nc.sourceId" :sourceId="nc.sourceId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Priority">
+            <BaseInlineSelect
+              v-if="isEditable"
+              v-model="nc.priorityId"
+              :items="[
+                { id: 'LOW', name: 'Low' },
+                { id: 'MEDIUM', name: 'Medium' },
+                { id: 'HIGH', name: 'High' },
+                { id: 'CRITICAL', name: 'Critical' },
+              ]"
+            />
+            <span
+              v-else-if="nc.priorityId"
+              class="tw:inline-flex tw:items-center tw:text-xs tw:font-semibold tw:rounded tw:px-2 tw:py-0.5"
+              :class="{
+                'tw:bg-emerald-100 tw:text-emerald-700': nc.priorityId === 'LOW',
+                'tw:bg-amber-100 tw:text-amber-700': nc.priorityId === 'MEDIUM',
+                'tw:bg-orange-100 tw:text-orange-700': nc.priorityId === 'HIGH',
+                'tw:bg-rose-100 tw:text-rose-700': nc.priorityId === 'CRITICAL',
+              }"
+            >
+              {{ nc.priorityId.charAt(0) + nc.priorityId.slice(1).toLowerCase() }}
+            </span>
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Issue type">
+            <NcIssueTypeSelectMenu v-if="isEditable" v-model="nc.ncIssueTypeId" />
+            <NcIssueTypeBadgeById v-else-if="nc.ncIssueTypeId" :issueTypeId="nc.ncIssueTypeId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Detected">
+            <BaseDateField
+              v-if="editingDetected && isEditable"
+              v-model="nc.detectedAt"
+              mode="date"
+              class="tw:w-full"
+              @blur="editingDetected = false"
+            />
+            <BaseClickableRow
+              v-else
+              tag="span"
+              class="tw:text-sm tw:font-medium"
+              :class="isEditable ? 'tw:hover:text-primary' : ''"
+              :disabled="!isEditable"
+              aria-label="Edit detected date"
+              @click="editingDetected = true"
+            >
+              {{ nc.detectedAt ? nc.detectedAt.formatDate('date') : '—' }}
+            </BaseClickableRow>
+          </BaseDetailField>
+        </div>
       </BaseRailCard>
 
       <!-- 2. People — initiator, responsible party, site, department -->
@@ -931,37 +934,28 @@ const ncDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
-      <!-- 3. Classification — priority, issue type -->
-      <BaseRailCard title="Classification">
-        <BaseDetailField label="Priority">
-          <BaseInlineSelect
-            v-if="isEditable"
-            v-model="nc.priorityId"
-            :items="[
-              { id: 'LOW', name: 'Low' },
-              { id: 'MEDIUM', name: 'Medium' },
-              { id: 'HIGH', name: 'High' },
-              { id: 'CRITICAL', name: 'Critical' },
-            ]"
+      <!-- 3. Schedule — due date -->
+      <BaseRailCard title="Schedule">
+        <BaseDetailField label="Due date">
+          <BaseDateField
+            v-if="editingDueDate && isEditable"
+            v-model="nc.dueDate"
+            mode="date"
+            class="tw:w-full"
+            @blur="editingDueDate = false"
           />
-          <span
-            v-else-if="nc.priorityId"
-            class="tw:inline-flex tw:items-center tw:text-xs tw:font-semibold tw:rounded tw:px-2 tw:py-0.5"
-            :class="{
-              'tw:bg-emerald-100 tw:text-emerald-700': nc.priorityId === 'LOW',
-              'tw:bg-amber-100 tw:text-amber-700': nc.priorityId === 'MEDIUM',
-              'tw:bg-orange-100 tw:text-orange-700': nc.priorityId === 'HIGH',
-              'tw:bg-rose-100 tw:text-rose-700': nc.priorityId === 'CRITICAL',
-            }"
+          <BaseClickableRow
+            v-else
+            tag="span"
+            class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
+            :class="[isOverdue ? 'tw:text-red-600' : '', isEditable ? 'tw:hover:text-primary' : '']"
+            :disabled="!isEditable"
+            aria-label="Edit due date"
+            @click="editingDueDate = true"
           >
-            {{ nc.priorityId.charAt(0) + nc.priorityId.slice(1).toLowerCase() }}
-          </span>
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Issue type">
-          <NcIssueTypeSelectMenu v-if="isEditable" v-model="nc.ncIssueTypeId" />
-          <NcIssueTypeBadgeById v-else-if="nc.ncIssueTypeId" :issueTypeId="nc.ncIssueTypeId" />
-          <BaseText v-else color="secondary">—</BaseText>
+            <span>{{ nc.dueDate ? nc.dueDate.formatDate('date') : '—' }}</span>
+            <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
+          </BaseClickableRow>
         </BaseDetailField>
       </BaseRailCard>
 

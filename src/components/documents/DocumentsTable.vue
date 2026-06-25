@@ -59,50 +59,74 @@ const latestVersionMapById = useLiveQueryWithDeps(
   { models: ['DocumentVersion'], initial: {} },
 )
 
-const columns = computed(() => [
-  {
-    name: 'docNumber',
-    label: 'DOC #',
-    field: 'docNumber',
-    align: 'left',
-    sortable: true,
-    hideable: false,
-  },
-  { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
-  { name: 'department', label: 'DEPARTMENT', field: 'departmentId', align: 'left', sortable: true },
-  {
-    name: 'current',
-    label: 'CURRENT',
-    field: (row) => currentVersionMapById.value[row.id],
-    align: 'left',
-    sortable: false,
-  },
-  {
-    name: 'latest',
-    label: 'LATEST',
-    field: (row) => latestVersionMapById.value[row.id],
-    align: 'left',
-    sortable: false,
-  },
-  {
-    name: 'effectiveDate',
-    label: 'EFFECTIVE DATE',
-    field: (row) => latestVersionMapById.value[row.id]?.effectiveDate,
-    align: 'left',
-    sortable: false,
-  },
-  { name: 'owner', label: 'OWNER', field: 'owner', align: 'left', sortable: true },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right', hideable: false },
-])
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+// Option sources for the advanced filter's entity-column dropdowns.
+const departments = useLiveQuery((db) => db.Department.where().exec(), {
+  models: ['Department'],
+  initial: [],
 })
+const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+function userOpts(list) {
+  return list.map((u) => ({
+    value: u.id,
+    label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email,
+  }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    department: { filterType: 'select', filterOptions: selectOpts(departments.value) },
+    owner: { filterType: 'select', filterOptions: userOpts(users.value) },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    {
+      name: 'docNumber',
+      label: 'DOC #',
+      field: 'docNumber',
+      align: 'left',
+      sortable: true,
+      hideable: false,
+    },
+    { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
+    {
+      name: 'department',
+      label: 'DEPARTMENT',
+      field: 'departmentId',
+      align: 'left',
+      sortable: true,
+    },
+    {
+      name: 'current',
+      label: 'CURRENT',
+      field: (row) => currentVersionMapById.value[row.id],
+      align: 'left',
+      sortable: false,
+    },
+    {
+      name: 'latest',
+      label: 'LATEST',
+      field: (row) => latestVersionMapById.value[row.id],
+      align: 'left',
+      sortable: false,
+    },
+    {
+      name: 'effectiveDate',
+      label: 'EFFECTIVE DATE',
+      field: (row) => latestVersionMapById.value[row.id]?.effectiveDate,
+      align: 'left',
+      sortable: false,
+    },
+    { name: 'owner', label: 'OWNER', field: 'owner', align: 'left', sortable: true },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right', hideable: false },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function getVersionLabel(version) {
   if (!version) return '-'
@@ -129,13 +153,20 @@ async function onUnarchiveDocument(row) {
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="rows"
     :columns="columns"
     :loading="loading"
-    columnToggle
-    showDensityToggle
+    :mobileCards="false"
+    searchable
+    columnManager
+    densitySelector
+    filterable
+    exportManager
+    exportFilename="documents.csv"
+    persistKey="documents"
   >
     <!-- Doc Number Column -->
     <template #body-cell-docNumber="{ row }">
@@ -242,5 +273,5 @@ async function onUnarchiveDocument(row) {
         </BasePopover>
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

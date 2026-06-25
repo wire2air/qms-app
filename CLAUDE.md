@@ -18,7 +18,7 @@ Non-negotiable in new and touched code. Migration sections below show what to re
 10. **Dates are luxon `DateTime`.** The axios response transformer already converts backend dates to `DateTime` instances. Format with the project-wide `dt.formatDate()` — never `.toFormat()`, `.toISO()`, or any ad-hoc formatting in components.
 11. **Soft deletes are automatic.** Never manually filter `!record.deletedAt` — the syncEngine excludes soft-deleted records from queries by default. Use `{ force: true }` only when you explicitly need them (e.g. computing the next version number).
 12. **`useLiveMutation` for creates** — don't call `db.Model.create()` + `save()` directly inside a component method.
-13. **Use `Base*` first.** `BaseTextInput`, `BaseTextarea`, `BaseColorPicker`, `BaseDialog`, `BaseTable`, `BaseSelectMenu`, `BaseClickableRow`, etc. live in `resource/js/shared/components/`. Reuse before building.
+13. **Use `Base*` first.** `BaseTextInput`, `BaseTextarea`, `BaseColorPicker`, `BaseDialog`, `BaseSelectMenu`, `BaseClickableRow`, etc. live in `resource/js/shared/components/`. Reuse before building. **For tables use `DataTable`** (`resource/js/shared/components/dataTable/`) — the old `BaseTable` has been removed; all lists are on `DataTable`.
 14. **Reuse before adding** — especially badges and select menus, which follow the [triad pattern](#component-pattern-badge-triad-xbadge--xbadgebyid--xselectmenu).
 15. **Every page root is `<BasePage>`.** Never set page-level padding, max-width, or section gap by hand (no `tw:p-5`, no ad-hoc `tw:max-w-*`, no `tw:gap-3` at the page root). `BasePage` owns width/padding/rhythm. See [Page layout](#page-layout).
 
@@ -68,7 +68,7 @@ Every authenticated app page's root is `<BasePage>` — the single owner of cont
 - **The page title lives in the top bar.** `PageHeader` teleports the icon+title to the bar's left and `#actions` to its right (search sits centered between). Don't hand-roll an in-body `tw:text-3xl` title block, and don't `SafeTeleport to="#main-header-title"`/`#main-header-actions` directly — use `PageHeader`.
 - **One width, no inner box.** Don't wrap page content in a bespoke `tw:max-w-* tw:mx-auto` box or add page-level padding inside `BasePage` — content fills `BasePage`'s width and shares one gutter. (Card/dialog padding is fine.)
 - **Enforced by `npm run lint:layout`** (runs as part of `npm run lint`) — flags bespoke `max-w` content boxes, direct header teleports, and `PageHeader` without `BasePage`. Genuine exceptions (full-canvas editors, public pages) live in the allowlist in `scripts/check-page-layout.mjs`.
-- **List/index pages use whole-page scroll** (no `fullHeight`) — `BaseTable`'s sticky header keeps columns visible. Reserve `fullHeight` for detail/create pages that already have an internal scroll region (sticky toolbar/footer + a `tw:flex-1 tw:min-h-0 tw:overflow-auto` body).
+- **List/index pages use whole-page scroll** (no `fullHeight`) — `DataTable`'s sticky header keeps columns visible. Reserve `fullHeight` for detail/create pages that already have an internal scroll region (sticky toolbar/footer + a `tw:flex-1 tw:min-h-0 tw:overflow-auto` body).
 - **Full-canvas editors/designers are exempt** (e.g. `WorkflowEditor`, `FormAssignmentEditor`, the form builder) — a surface that fills the viewport with its own panes/scroll is not a content page; keep its `tw:flex tw:flex-col tw:h-full tw:overflow-hidden` root, don't wrap it in `BasePage`. Public/auth pages are also out of scope.
 
 ---
@@ -366,7 +366,7 @@ The project is actively migrating off Quasar. Replace on touch.
 | `QSelect` / `WSelect`            | `BaseSelectMenu` — or an `XSelectMenu` if one exists for that entity |
 | `QDialog`                        | `BaseDialog`                                                         |
 | `QCard`                          | `<div>` + Tailwind, or `BaseCard`                                    |
-| `QTable`                         | `BaseTable`                                                          |
+| `QTable`                         | `DataTable` (`shared/components/dataTable/`)                         |
 | `QForm`                          | `<div>` with handlers — never `<form>`                               |
 | `QBadge`                         | `<span>` + Tailwind, or the entity's `XBadge`/`XBadgeById`           |
 | `QChip`                          | `BaseChip`                                                           |

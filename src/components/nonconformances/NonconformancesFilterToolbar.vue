@@ -1,6 +1,5 @@
 <script setup>
 import {
-  IconSearch,
   IconX,
   IconCircleDot,
   IconAlertTriangle,
@@ -88,12 +87,11 @@ const hasChips = computed(
     arr('supplierId').length ||
     filters.value.createdAt,
 )
-const showClear = computed(() => hasChips.value || !!filters.value.search)
+const showClear = computed(() => hasChips.value)
 
 function clearAll() {
   filters.value = {
     ...filters.value,
-    search: '',
     statusId: [],
     severityId: [],
     typeId: [],
@@ -106,21 +104,8 @@ function clearAll() {
 <template>
   <!-- Sticky workspace toolbar: pins below the app bar while the list scrolls. -->
   <div class="tw:sticky tw:top-0 tw:z-sticky tw:flex tw:flex-col tw:gap-2.5 tw:bg-main tw:pt-1 tw:pb-2.5">
-    <!-- Row 1 — search + filter menu + date range -->
+    <!-- Row 1 — filter menu + date range (search lives in the table toolbar) -->
     <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
-      <div class="tw:relative tw:min-w-[12rem] tw:flex-1 tw:max-w-sm">
-        <IconSearch
-          :size="16"
-          class="tw:pointer-events-none tw:absolute tw:left-2.5 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary"
-        />
-        <input
-          v-model="filters.search"
-          type="text"
-          placeholder="Search NC number, title…"
-          class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-card tw:py-1.5 tw:ps-8 tw:pe-3 tw:text-sm tw:text-on-main tw:outline-none tw:transition-colors tw:focus:border-primary"
-        />
-      </div>
-
       <div class="tw:ms-auto tw:flex tw:flex-wrap tw:items-center tw:gap-2">
         <BaseFilterMenu v-model="filters" :items="filterItems" />
       </div>

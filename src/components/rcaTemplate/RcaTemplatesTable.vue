@@ -9,20 +9,20 @@ const props = defineProps({
 
 const emit = defineEmits(['edit', 'delete'])
 
-const columns = [
-  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
-  { name: 'description', label: 'DESCRIPTION', field: 'description', align: 'left' },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+const columns = computed(() => {
+  const filterCfg = {
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
+    { name: 'description', label: 'DESCRIPTION', field: 'description', align: 'left' },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function rowMenuItems(row) {
   const items = []
@@ -37,7 +37,18 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
+  <DataTable
+    v-model:pagination="pagination"
+    v-model:sort="sort"
+    :rows="rows"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    filterable
+    searchable
+    exportManager
+    exportFilename="rca-templates.csv"
+  >
     <template #body-cell-name="{ row }">
       <span class="tw:font-semibold tw:text-on-main">{{ row.name }}</span>
     </template>
@@ -61,5 +72,5 @@ function rowMenuItems(row) {
         <BaseMenu v-if="rowMenuItems(row).length" :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

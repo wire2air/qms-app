@@ -9,8 +9,8 @@ const router = useRouter()
 // because `total`/`empty` are lazy getters that read `documents`.
 const list = useListLayout({
   filters: {
-    search: '',
     // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+    // (Free-text search now lives in the table toolbar, not here.)
     documentTypeId: [],
     departmentId: [],
     statusId: [],
@@ -93,11 +93,7 @@ const documents = computed(() => {
         statusIds.includes(latestStatuses[d.id]),
     )
   }
-  if (!list.filters.value.search) return rows
-  const q = list.filters.value.search.toLowerCase()
-  return rows.filter(
-    (d) => d.title?.toLowerCase().includes(q) || d.docNumber?.toLowerCase().includes(q),
-  )
+  return rows
 })
 
 const allDocumentsForStats = useLiveQuery(async (db) => db.Document.where().exec(), {

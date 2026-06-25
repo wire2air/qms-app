@@ -356,29 +356,7 @@ const changeRequestDetailConfig = computed(() =>
           clickToEdit
           clickToEditLabel="Add a description…"
           placeholder="Describe the change…"
-          class="tw:mb-4"
         />
-
-        <div class="tw:grid tw:grid-cols-3 tw:gap-3">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Change Type</div>
-            <ChangeTypeBadgeById :changeTypeId="cr.changeTypeId" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Classification</div>
-            <span class="tw:text-sm tw:font-medium">{{ cr.classification || '—' }}</span>
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Priority</div>
-            <ChangeRequestPriorityBadgeById :priorityId="cr.priorityId" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Initiated</div>
-            <span class="tw:text-sm tw:font-medium">
-              {{ cr.initiatedAt ? cr.initiatedAt.formatDate('date') : '—' }}
-            </span>
-          </div>
-        </div>
       </FormSection>
 
       <!-- Admin-defined custom fields. Self-hides when none configured. -->
@@ -435,16 +413,35 @@ const changeRequestDetailConfig = computed(() =>
     </template>
 
     <template v-if="cr" #rail>
-      <!-- 1. General -->
+      <!-- 1. General — CR number, status, change type, classification, priority, initiated.
+           Responsive grid: pairs up two-per-row when the rail is wide enough,
+           collapses to one-per-row when narrow. -->
       <BaseRailCard title="General">
-        <BaseDetailField label="CR number">
-          <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
-            {{ cr.crNumber || '—' }}
-          </BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Status">
-          <ChangeRequestStatusBadgeById :statusId="cr.statusId" />
-        </BaseDetailField>
+        <div class="tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
+          <BaseDetailField label="CR number">
+            <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
+              {{ cr.crNumber || '—' }}
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Status">
+            <ChangeRequestStatusBadgeById :statusId="cr.statusId" />
+          </BaseDetailField>
+          <BaseDetailField label="Change Type">
+            <ChangeTypeBadgeById v-if="cr.changeTypeId" :changeTypeId="cr.changeTypeId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Classification">
+            <BaseText variant="body" weight="medium">{{ cr.classification || '—' }}</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Priority">
+            <ChangeRequestPriorityBadgeById v-if="cr.priorityId" :priorityId="cr.priorityId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField
+            label="Initiated"
+            :value="cr.initiatedAt ? cr.initiatedAt.formatDate('date') : null"
+          />
+        </div>
       </BaseRailCard>
 
       <!-- 2. Ownership -->

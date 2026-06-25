@@ -9,20 +9,59 @@ defineProps({
 
 const emit = defineEmits(['edit'])
 
-const columns = [
-  { name: 'crNumber', label: 'CR #', field: 'crNumber', align: 'left' },
-  { name: 'title', label: 'Title', field: 'title', align: 'left' },
-  { name: 'changeType', label: 'Type', align: 'left' },
-  { name: 'priority', label: 'Priority', align: 'left' },
-  { name: 'status', label: 'Status', align: 'left' },
-  { name: 'owner', label: 'Owner', align: 'left' },
-  { name: 'targetImplementationDate', label: 'Target Date', align: 'left' },
-  { name: 'actions', label: '', align: 'right' },
-]
+// Option sources for the advanced filter's entity-column dropdowns.
+const changeTypes = useLiveQuery((db) => db.ChangeType.where().exec(), {
+  models: ['ChangeType'],
+  initial: [],
+})
+const priorities = useLiveQuery((db) => db.ChangeRequestPriority.where().exec(), {
+  models: ['ChangeRequestPriority'],
+  initial: [],
+})
+const statuses = useLiveQuery((db) => db.ChangeRequestStatus.where().exec(), {
+  models: ['ChangeRequestStatus'],
+  initial: [],
+})
+const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+function userOpts(list) {
+  return list.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}`.trim() || u.email }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    changeType: { filterType: 'select', filterOptions: selectOpts(changeTypes.value) },
+    priority: { filterType: 'select', filterOptions: selectOpts(priorities.value) },
+    status: { filterType: 'select', filterOptions: selectOpts(statuses.value) },
+    owner: { filterType: 'select', filterOptions: userOpts(users.value) },
+    targetImplementationDate: { filterType: 'date' },
+  }
+  return [
+    { name: 'crNumber', label: 'CR #', field: 'crNumber', align: 'left' },
+    { name: 'title', label: 'Title', field: 'title', align: 'left' },
+    { name: 'changeType', label: 'Type', align: 'left' },
+    { name: 'priority', label: 'Priority', align: 'left' },
+    { name: 'status', label: 'Status', align: 'left' },
+    { name: 'owner', label: 'Owner', align: 'left' },
+    { name: 'targetImplementationDate', label: 'Target Date', align: 'left' },
+    { name: 'actions', label: '', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 </script>
 
 <template>
-  <BaseTable :rows="rows" :columns="columns" rowKey="id">
+  <DataTable
+    :rows="rows"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    searchable
+    filterable
+    exportManager
+    exportFilename="change-requests.csv"
+  >
     <template #body-cell-crNumber="{ row }">
       <RouterLink
         :to="getCompanyPath(`/change-requests/${row.id}`)"
@@ -80,5 +119,5 @@ const columns = [
         </RouterLink>
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

@@ -78,6 +78,64 @@ export const WithIconsBadgesAndIndicator = {
   }),
 }
 
+/**
+ * Overflow: when the tabs are wider than their container the row scrolls
+ * (wheel / trackpad / touch) with the scrollbar hidden. A gradient fade + a
+ * floating chevron appear on each overflowing edge and disappear at the
+ * start/end. Resize the Storybook canvas to see the affordances toggle, and
+ * select a far-off tab (or use Arrow/Home/End) to watch it scroll into view.
+ */
+export const ManyTabsOverflow = {
+  render: (args) => ({
+    components: { BaseTabs, BaseTabPanel },
+    setup() {
+      const active = ref('section-1')
+      const tabs = Array.from({ length: 40 }, (_, i) => ({
+        value: `section-${i + 1}`,
+        label: `Section ${i + 1}`,
+      }))
+      return { args, active, tabs }
+    },
+    template: `
+      <div class="tw:max-w-2xl">
+        <BaseTabs v-bind="args" v-model="active" :tabs="tabs" ariaLabel="Many tabs">
+          <BaseTabPanel
+            v-for="n in 40"
+            :key="n"
+            :value="'section-' + n"
+            class="tw:pt-4"
+          >Section {{ n }} content</BaseTabPanel>
+        </BaseTabs>
+      </div>`,
+  }),
+}
+
+export const ManyTabsOverflowPills = {
+  args: { variant: 'pills' },
+  render: (args) => ({
+    components: { BaseTabs, BaseTabPanel },
+    setup() {
+      const active = ref('tag-1')
+      const tabs = Array.from({ length: 40 }, (_, i) => ({
+        value: `tag-${i + 1}`,
+        label: `Tag ${i + 1}`,
+      }))
+      return { args, active, tabs }
+    },
+    template: `
+      <div class="tw:max-w-2xl">
+        <BaseTabs v-bind="args" v-model="active" :tabs="tabs" ariaLabel="Many pill tabs">
+          <BaseTabPanel
+            v-for="n in 40"
+            :key="n"
+            :value="'tag-' + n"
+            class="tw:pt-4"
+          >Tag {{ n }} content</BaseTabPanel>
+        </BaseTabs>
+      </div>`,
+  }),
+}
+
 export const WithDisabledTab = {
   render: (args) => ({
     components: { BaseTabs, BaseTabPanel },

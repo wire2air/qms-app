@@ -501,29 +501,7 @@ const capaDetailConfig = computed(() =>
           clickToEdit
           clickToEditLabel="Add a description…"
           placeholder="Add a description…"
-          class="tw:mb-4"
         />
-
-        <div class="tw:grid tw:grid-cols-3 tw:gap-3">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Priority</div>
-            <CapaPriorityBadgeById :priorityId="capa.priorityId" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Type</div>
-            <CapaTypeBadgeById :typeId="capa.typeId" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Source</div>
-            <CapaSourceBadgeById :sourceId="capa.sourceType" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Initiated</div>
-            <span class="tw:text-sm tw:font-medium">
-              {{ capa.initiatedAt?.formatDate('date') || '—' }}
-            </span>
-          </div>
-        </div>
       </FormSection>
 
       <!-- Admin-defined custom fields. Self-hides when none configured. -->
@@ -562,37 +540,36 @@ const capaDetailConfig = computed(() =>
     </template>
 
     <template v-if="capa" #rail>
-      <!-- 1. Status & schedule -->
-      <BaseRailCard title="Status &amp; schedule">
-        <BaseDetailField label="Number">
-          <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
-            {{ capa.capaNumber }}
-          </BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Status">
-          <CapaStatusBadgeById :statusId="capa.statusId" />
-        </BaseDetailField>
-        <BaseDetailField label="Due">
-          <BaseDateField v-if="isEditable" v-model="capa.dueDate" mode="date" class="tw:w-full" />
-          <BaseText
-            v-else
-            variant="body"
-            weight="medium"
-            :class="isOverdue ? 'tw:text-red-600' : ''"
-          >
-            {{ capa.dueDate?.formatDate('date') || '—' }}
-          </BaseText>
-        </BaseDetailField>
-        <BaseDetailField
-          v-if="capa.verifiedAt"
-          label="Verified"
-          :value="capa.verifiedAt.formatDate('dateTime')"
-        />
-        <BaseDetailField
-          v-if="capa.closedAt"
-          label="Closed"
-          :value="capa.closedAt.formatDate('dateTime')"
-        />
+      <!-- 1. General — number, status, priority, type, source, initiated.
+           Responsive grid: pairs up two-per-row when the rail is wide enough,
+           collapses to one-per-row when narrow. -->
+      <BaseRailCard title="General">
+        <div class="tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
+          <BaseDetailField label="Number">
+            <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
+              {{ capa.capaNumber }}
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Status">
+            <CapaStatusBadgeById :statusId="capa.statusId" />
+          </BaseDetailField>
+          <BaseDetailField label="Priority">
+            <CapaPriorityBadgeById v-if="capa.priorityId" :priorityId="capa.priorityId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Type">
+            <CapaTypeBadgeById v-if="capa.typeId" :typeId="capa.typeId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Source">
+            <CapaSourceBadgeById v-if="capa.sourceType" :sourceId="capa.sourceType" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField
+            label="Initiated"
+            :value="capa.initiatedAt ? capa.initiatedAt.formatDate('date') : null"
+          />
+        </div>
       </BaseRailCard>
 
       <!-- 2. People -->
@@ -624,7 +601,32 @@ const capaDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
-      <!-- 3. Notify (cc) — groups/people emailed + in-app on status change -->
+      <!-- 3. Schedule — due, verified, closed -->
+      <BaseRailCard title="Schedule">
+        <BaseDetailField label="Due">
+          <BaseDateField v-if="isEditable" v-model="capa.dueDate" mode="date" class="tw:w-full" />
+          <BaseText
+            v-else
+            variant="body"
+            weight="medium"
+            :class="isOverdue ? 'tw:text-red-600' : ''"
+          >
+            {{ capa.dueDate?.formatDate('date') || '—' }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField
+          v-if="capa.verifiedAt"
+          label="Verified"
+          :value="capa.verifiedAt.formatDate('dateTime')"
+        />
+        <BaseDetailField
+          v-if="capa.closedAt"
+          label="Closed"
+          :value="capa.closedAt.formatDate('dateTime')"
+        />
+      </BaseRailCard>
+
+      <!-- 4. Notify (cc) — groups/people emailed + in-app on status change -->
       <BaseRailCard title="Notify (cc)">
         <NotificationCcField
           v-model:groupIds="capa.notifyGroupIds"
@@ -634,7 +636,7 @@ const capaDetailConfig = computed(() =>
         />
       </BaseRailCard>
 
-      <!-- 4. Related — workflow template link -->
+      <!-- 5. Related — workflow template link -->
       <BaseRailCard v-if="workflow && workflowVersion" title="Related">
         <!-- Workflow template card -->
         <RouterLink

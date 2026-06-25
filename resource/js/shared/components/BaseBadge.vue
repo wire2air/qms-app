@@ -10,7 +10,7 @@ const props = defineProps({
   // 'sm' | 'md' (default). Folded in from the former BaseChip.
   size: {
     type: String,
-    default: 'md',
+    default: 'sm',
     validator: (v) => ['sm', 'md'].includes(v),
   },
 })
@@ -41,7 +41,7 @@ const isGhostTrigger = computed(() => props.selectable && isPlainTrigger.value)
       selectable && 'tw:cursor-pointer',
       isGhostTrigger
         ? [size === 'sm' ? 'tw:text-xs' : 'tw:text-sm', 'tw:text-on-main']
-        : ['tw:rounded-full tw:border tw:border-current/20', sizeClass],
+        : ['tw:rounded-md tw:border tw:border-current/20', sizeClass],
     ]"
   >
     <div

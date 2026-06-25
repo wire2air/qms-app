@@ -1,11 +1,9 @@
 <script setup>
 import {
-  IconFileText,
   IconLock,
   IconAlertCircle,
   IconShieldCheck,
   IconPrinter,
-  IconDownload,
   IconColumns,
   IconCircleCheck,
   IconCircleX,
@@ -36,7 +34,7 @@ import {
  * against is the "log book". Filter state is local to this component
  * so each page mounts a separate, independent table.
  */
-defineProps({
+const props = defineProps({
   // When true the component renders compact (no filter chrome, fewer
   // columns). Used by RecordsHome to keep the secondary section tight.
   compact: { type: Boolean, default: false },
@@ -445,7 +443,7 @@ function toggleColumn(name) {
 // Only available when a single log book is selected. Exporting a mixed
 // view would produce columns that don't apply to every row.
 
-function exportCsv() {
+function exportCsv(exportRows) {
   if (!isLogBookMode.value) return
   const cols = visibleColumns.value
   const header = [
@@ -459,7 +457,8 @@ function exportCsv() {
     const s = v == null ? '' : String(v)
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
   }
-  const rows = records.value.map((r) => {
+  const sourceRows = Array.isArray(exportRows) ? exportRows : records.value
+  const rows = sourceRows.map((r) => {
     const payload = payloadFor(r)
     return [
       r.recordNumber ?? r.id,
@@ -483,6 +482,67 @@ function exportCsv() {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+// ─── DataTable columns ───────────────────────────────────────────────
+// Reactive: the base set plus schema-derived columns when a single log
+// book is selected, the bulk-review checkbox column when reviewable rows
+// are in view, and the lock column outside compact mode.
+const columns = computed(() => {
+  const cols = []
+  if (showBulkColumn.value) {
+    cols.push({
+      name: '__select',
+      label: '',
+      field: 'id',
+      align: 'left',
+      sortable: false,
+      hideable: false,
+      filterType: false,
+    })
+  }
+  cols.push({
+    name: 'primary',
+    label: isLogBookMode.value ? 'Entry ID' : 'Form',
+    field: isLogBookMode.value ? 'recordNumber' : 'logBookId',
+    align: 'left',
+    sortable: true,
+  })
+  if (!isLogBookMode.value) {
+    cols.push({
+      name: 'classification',
+      label: 'Classification',
+      field: 'recordClassification',
+      align: 'left',
+    })
+  }
+  cols.push({ name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: true })
+  cols.push({
+    name: 'submitted',
+    label: 'Submitted',
+    field: 'submittedAt',
+    align: 'left',
+    sortable: true,
+  })
+  for (const col of visibleColumns.value) {
+    cols.push({
+      name: `field_${col.name}`,
+      label: col.label || col.name,
+      field: (row) => formatCellValue(col, payloadFor(row)[col.name]),
+      align: 'left',
+    })
+  }
+  if (!props.compact) {
+    cols.push({ name: 'lock', label: 'Lock', field: 'lockAt', align: 'left', sortable: false })
+  }
+  return cols
+})
+
+// Export — reuse the schema-aware serializer. The DataTable export
+// manager opens its dialog; we own the serialization via @export so the
+// CSV matches the log-book columns (only meaningful in log-book mode).
+function onExport({ rows }) {
+  exportCsv(rows)
 }
 
 function printList() {
@@ -572,9 +632,10 @@ function printList() {
         <BaseDateField v-model="dateRange" mode="range" valueFormat="iso" clearable placeholder="All time" />
       </div>
 
-      <!-- Right-aligned actions: column picker + print + export.
-           Only meaningful when a single log book is selected — mixed
-           log books can't share columns, so the buttons are gated. -->
+      <!-- Right-aligned actions: schema column picker (log-book mode only;
+           controls which schema-derived columns the table + export show)
+           and Print. Search / density / export live in the DataTable
+           toolbar below. -->
       <div class="tw:flex-1" />
       <div v-if="isLogBookMode" class="tw:flex tw:items-center tw:gap-2 tw:relative">
         <button
@@ -593,15 +654,6 @@ function printList() {
         >
           <IconPrinter :size="14" />
           Print
-        </button>
-        <button
-          type="button"
-          class="tw:px-2 tw:py-1 tw:text-xs tw:rounded tw:bg-main tw:border tw:border-divider tw:text-on-main tw:flex tw:items-center tw:gap-1 tw:hover:bg-main-hover"
-          :disabled="records.length === 0"
-          @click="exportCsv"
-        >
-          <IconDownload :size="14" />
-          Export CSV
         </button>
 
         <!-- Column picker dropdown — checkbox list of scalar fields.
@@ -633,25 +685,126 @@ function printList() {
       </div>
     </div>
 
-    <div
-      v-if="records.length === 0"
-      class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:gap-3 tw:py-10 tw:text-secondary"
+    <DataTable
+      :rows="records"
+      :columns="columns"
+      rowKey="id"
+      mobileCards
+      searchable
+      densitySelector
+      exportManager
+      exportFilename="log-entries.csv"
+      noDataLabel="No logs yet."
+      @export="onExport"
     >
-      <IconFileText :size="40" class="tw:opacity-60" />
-      <div class="tw:text-sm">No logs yet.</div>
-    </div>
+      <!-- Bulk-review header checkbox — toggles all UNDER_REVIEW rows.
+           Selection lives in external state (DataTable's built-in select
+           can't gate to reviewable rows only). -->
+      <template #header-cell-__select>
+        <input
+          type="checkbox"
+          aria-label="Select all reviewable rows"
+          :checked="allSelectableSelected"
+          :indeterminate.prop="selectedIds.size > 0 && !allSelectableSelected"
+          @change="toggleSelectAll"
+        />
+      </template>
 
-    <div v-else>
-      <!-- Mobile / portrait-tablet: card list (the wide table doesn't fit
-           a phone held in the hand on the floor). Tap a card to open the
-           same preview the table rows open. Bulk-review stays desktop. -->
-      <div class="tw:md:hidden tw:flex tw:flex-col tw:gap-2">
+      <template #body-cell-__select="{ row }">
+        <input
+          v-if="row.statusId === 'UNDER_REVIEW'"
+          type="checkbox"
+          aria-label="Select row for review"
+          :checked="selectedIds.has(row.id)"
+          @click.stop
+          @change="toggleSelected(row.id)"
+        />
+      </template>
+
+      <template #body-cell-primary="{ row }">
         <button
-          v-for="row in records"
-          :key="row.id"
           type="button"
-          class="tw:w-full tw:text-left tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-3 tw:active:bg-main-hover tw:transition"
-          :class="selectedIds.has(row.id) ? 'tw:border-primary tw:bg-primary/5' : ''"
+          class="tw:text-left tw:hover:text-primary"
+          :aria-label="`Open log entry ${row.recordNumber || row.id}`"
+          @click="openRecord(row.id)"
+        >
+          <template v-if="isLogBookMode">
+            <span class="tw:font-mono tw:text-on-main tw:text-xs">
+              {{ row.recordNumber || row.id }}
+            </span>
+          </template>
+          <template v-else>
+            <span class="tw:font-medium tw:text-on-main tw:block">{{ templateTitle(row) }}</span>
+            <span class="tw:text-xs tw:text-secondary tw:truncate tw:block">{{ row.id }}</span>
+          </template>
+        </button>
+      </template>
+
+      <template #body-cell-classification="{ row }">
+        <span
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
+          :class="classificationBadgeClass(row.recordClassification)"
+        >
+          <IconShieldCheck v-if="row.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
+          {{ row.recordClassification?.replace('_', ' ') }}
+        </span>
+      </template>
+
+      <template #body-cell-status="{ row }">
+        <div class="tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
+          <span
+            class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-bold tw:rounded tw:px-2 tw:py-0.5"
+            :class="statusBadgeClass(row.statusId)"
+          >
+            <IconLock v-if="row.statusId === 'LOCKED'" :size="10" />
+            <IconAlertCircle v-if="row.statusId === 'UNDER_REVIEW'" :size="10" />
+            {{ fieldRecordStatusLabel(row.statusId) }}
+          </span>
+          <span
+            v-if="openFlagCount(row.id) > 0"
+            class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-orange-100 tw:text-orange-700 tw:border tw:border-orange-300"
+            :title="`${openFlagCount(row.id)} open flag${openFlagCount(row.id) === 1 ? '' : 's'}`"
+          >
+            <IconFlag :size="10" />
+            {{ openFlagCount(row.id) }}
+          </span>
+        </div>
+      </template>
+
+      <template #body-cell-submitted="{ row }">
+        <span class="tw:text-secondary tw:text-xs">{{ fmtDate(row.submittedAt) }}</span>
+      </template>
+
+      <template #body-cell-lock="{ row }">
+        <template v-if="row.statusId === 'LOCKED'">
+          <span class="tw:text-xs tw:text-gray-700">
+            completed
+            <span v-if="row.lockReason" class="tw:text-secondary">
+              ({{ row.lockReason.toLowerCase() }})
+            </span>
+          </span>
+        </template>
+        <template v-else-if="row.lockAt && lockCountdown(row.lockAt)">
+          <span class="tw:text-xs tw:text-amber-700">editable for {{ lockCountdown(row.lockAt) }}</span>
+        </template>
+        <template v-else-if="row.lockAt">
+          <span class="tw:text-xs tw:text-secondary">expires {{ fmtDate(row.lockAt) }}</span>
+        </template>
+        <template v-else>
+          <span v-if="row.statusId === 'SUBMITTED'" class="tw:text-xs tw:text-amber-700">
+            editable (until next entry or review)
+          </span>
+          <span v-else class="tw:text-secondary">—</span>
+        </template>
+      </template>
+
+      <!-- Mobile / portrait-tablet card (the wide table doesn't fit a phone
+           held in the hand on the floor). Tap opens the same preview. -->
+      <template #mobile-card="{ row }">
+        <button
+          type="button"
+          class="tw:w-full tw:text-left"
+          :class="selectedIds.has(row.id) ? 'tw:text-primary' : ''"
           @click="openRecord(row.id)"
         >
           <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
@@ -697,169 +850,8 @@ function printList() {
             </div>
           </div>
         </button>
-      </div>
-
-      <!-- Desktop / landscape: full table -->
-      <div
-        class="tw:hidden tw:md:block tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden"
-      >
-        <table class="tw:w-full tw:text-sm">
-          <thead class="tw:bg-main">
-            <tr class="tw:text-left">
-              <!-- Bulk-review checkbox column — only rendered when the
-                 viewer can review AND there's at least one UNDER_REVIEW
-                 row in the current filter. Header checkbox toggles all
-                 reviewable rows (non-reviewable rows stay untouched). -->
-              <th v-if="showBulkColumn" class="tw:px-3 tw:py-2 tw:w-8">
-                <input
-                  type="checkbox"
-                  :checked="allSelectableSelected"
-                  :indeterminate.prop="selectedIds.size > 0 && !allSelectableSelected"
-                  @change="toggleSelectAll"
-                />
-              </th>
-              <!-- "Form" column is replaced by the Entry ID in log-book
-                 mode (the form is the same for every row, so showing
-                 it on each row is wasted space). -->
-              <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">
-                {{ isLogBookMode ? 'Entry ID' : 'Form' }}
-              </th>
-              <!-- Classification column hidden in log-book mode (all rows
-                 share the same classification — visible in the header). -->
-              <th v-if="!isLogBookMode" class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">
-                Classification
-              </th>
-              <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Status</th>
-              <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Submitted</th>
-              <!-- Schema-derived dynamic columns. Only render when a
-                 single log book is selected. -->
-              <th
-                v-for="col in visibleColumns"
-                :key="col.name"
-                class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary"
-              >
-                {{ col.label || col.name }}
-              </th>
-              <th v-if="!compact" class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">
-                Lock
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <BaseClickableRow
-              v-for="row in records"
-              :key="row.id"
-              tag="tr"
-              class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-              :class="selectedIds.has(row.id) ? 'tw:bg-primary/5' : ''"
-              :aria-label="`Open log entry ${row.recordNumber || row.id}`"
-              @click="openRecord(row.id)"
-            >
-              <!-- Per-row bulk checkbox. Only reviewable rows
-                 (UNDER_REVIEW) get an interactive checkbox; others
-                 render an empty cell so column alignment stays clean. -->
-              <td v-if="showBulkColumn" class="tw:px-3 tw:py-2 tw:w-8" @click.stop>
-                <input
-                  v-if="row.statusId === 'UNDER_REVIEW'"
-                  type="checkbox"
-                  :checked="selectedIds.has(row.id)"
-                  @change="toggleSelected(row.id)"
-                />
-              </td>
-              <td class="tw:px-3 tw:py-2">
-                <template v-if="isLogBookMode">
-                  <div class="tw:font-mono tw:text-on-main tw:text-xs">
-                    {{ row.recordNumber || row.id }}
-                  </div>
-                </template>
-                <template v-else>
-                  <div class="tw:font-medium tw:text-on-main">{{ templateTitle(row) }}</div>
-                  <div class="tw:text-xs tw:text-secondary tw:truncate">{{ row.id }}</div>
-                </template>
-              </td>
-              <td v-if="!isLogBookMode" class="tw:px-3 tw:py-2">
-                <span
-                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
-                  :class="classificationBadgeClass(row.recordClassification)"
-                >
-                  <IconShieldCheck
-                    v-if="row.recordClassification === 'CONTROLLED_RECORD'"
-                    :size="10"
-                  />
-                  {{ row.recordClassification?.replace('_', ' ') }}
-                </span>
-              </td>
-              <td class="tw:px-3 tw:py-2">
-                <div class="tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
-                  <span
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-bold tw:rounded tw:px-2 tw:py-0.5"
-                    :class="statusBadgeClass(row.statusId)"
-                  >
-                    <IconLock v-if="row.statusId === 'LOCKED'" :size="10" />
-                    <IconAlertCircle v-if="row.statusId === 'UNDER_REVIEW'" :size="10" />
-                    {{ fieldRecordStatusLabel(row.statusId) }}
-                  </span>
-                  <!-- Open-flag chip — only shown when the record has at
-                     least one unresolved flag. Click-through still
-                     opens the preview so the supervisor can read the
-                     flag notes / resolve. -->
-                  <span
-                    v-if="openFlagCount(row.id) > 0"
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-orange-100 tw:text-orange-700 tw:border tw:border-orange-300"
-                    :title="`${openFlagCount(row.id)} open flag${openFlagCount(row.id) === 1 ? '' : 's'}`"
-                  >
-                    <IconFlag :size="10" />
-                    {{ openFlagCount(row.id) }}
-                  </span>
-                </div>
-              </td>
-              <td class="tw:px-3 tw:py-2 tw:text-secondary tw:text-xs">
-                {{ fmtDate(row.submittedAt) }}
-              </td>
-              <!-- Schema-derived dynamic cells. The actual values live
-                 on the current revision, not on the FieldRecord row —
-                 payloadFor() resolves the lookup. formatCellValue
-                 handles primitives, dates, arrays uniformly. -->
-              <td
-                v-for="col in visibleColumns"
-                :key="col.name"
-                class="tw:px-3 tw:py-2 tw:text-on-main tw:text-xs"
-              >
-                {{ formatCellValue(col, payloadFor(row)[col.name]) }}
-              </td>
-              <td v-if="!compact" class="tw:px-3 tw:py-2 tw:text-xs">
-                <template v-if="row.statusId === 'LOCKED'">
-                  <span class="tw:text-gray-700">
-                    completed
-                    <span v-if="row.lockReason" class="tw:text-secondary">
-                      ({{ row.lockReason.toLowerCase() }})
-                    </span>
-                  </span>
-                </template>
-                <template v-else-if="row.lockAt && lockCountdown(row.lockAt)">
-                  <span class="tw:text-amber-700">
-                    editable for {{ lockCountdown(row.lockAt) }}
-                  </span>
-                </template>
-                <template v-else-if="row.lockAt">
-                  <span class="tw:text-secondary">expires {{ fmtDate(row.lockAt) }}</span>
-                </template>
-                <template v-else>
-                  <!-- No lockAt — either NONE/UNTIL_NEXT_ENTRY/UNTIL_REVIEW
-                     edit-window mode, or status is non-editable already
-                     (UNDER_REVIEW / APPROVED / REJECTED / VOIDED). Show
-                     a hint so supervisors aren't left wondering. -->
-                  <span v-if="row.statusId === 'SUBMITTED'" class="tw:text-amber-700">
-                    editable (until next entry or review)
-                  </span>
-                  <span v-else class="tw:text-secondary">—</span>
-                </template>
-              </td>
-            </BaseClickableRow>
-          </tbody>
-        </table>
-      </div>
-    </div>
+      </template>
+    </DataTable>
 
     <!-- Detail panel — mounted into body so it overlays everything;
          live queries inside auto-refresh when the row is updated. -->

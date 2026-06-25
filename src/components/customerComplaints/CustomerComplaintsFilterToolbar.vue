@@ -1,6 +1,5 @@
 <script setup>
 import {
-  IconSearch,
   IconX,
   IconBookmark,
   IconTrash,
@@ -13,7 +12,11 @@ import {
   IconUsersGroup,
   IconCalendar,
 } from '@tabler/icons-vue'
+import { useComplaintFilterOptions } from './useComplaintFilterOptions.js'
 
+// Quick filtering: the entity-aware Filter menu, quick-view pills and saved views.
+// Free-text search + advanced ad-hoc column filtering live in the DataTable's own
+// toolbar below (so there's no duplicate search box up here).
 const props = defineProps({
   formOptions: { type: Array, default: () => [] },
   savedViews: { type: Array, default: () => [] },
@@ -34,34 +37,10 @@ const filterPills = [
   { value: 'spam', label: 'Spam', color: 'red' },
 ]
 
-const SENTIMENTS = [
-  { id: 'POSITIVE', name: 'Positive' },
-  { id: 'NEUTRAL', name: 'Neutral' },
-  { id: 'NEGATIVE', name: 'Negative' },
-  { id: 'URGENT', name: 'Urgent' },
-]
-
-const PRIORITIES = [
-  { id: 'LOW', name: 'Low' },
-  { id: 'MEDIUM', name: 'Medium' },
-  { id: 'HIGH', name: 'High' },
-  { id: 'CRITICAL', name: 'Critical' },
-]
-
-// Option sources for the cascading filter menu.
-const statuses = useLiveQuery(
-  (db) => db.CustomerComplaintStatus.where().orderBy('displayOrder').exec(),
-  { models: ['CustomerComplaintStatus'], initial: [] },
-)
-const sources = useLiveQuery(
-  (db) => db.CustomerComplaintSource.where().orderBy('displayOrder').exec(),
-  { models: ['CustomerComplaintSource'], initial: [] },
-)
-const users = useLiveQuery(
-  async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
-  { models: ['User'], initial: [] },
-)
-const teams = useLiveQuery((db) => db.Team.where().exec(), { models: ['Team'], initial: [] })
+// Option sources for the cascading filter menu — shared with the table's advanced
+// filter via useComplaintFilterOptions (single source of truth, no drift).
+const { PRIORITIES, SENTIMENTS, statuses, sources, users, teams, userLabel } =
+  useComplaintFilterOptions()
 
 // Multi-select dimensions use the default 'check' mode (arrays); single-value
 // dimensions (form / sentiment / group) use 'radio' so the model key stays a
@@ -94,10 +73,7 @@ const filterItems = computed(() => [
     icon: IconUser,
     group: 'assignedTo',
     searchable: true,
-    options: users.value.map((u) => ({
-      value: u.id,
-      label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email,
-    })),
+    options: users.value.map((u) => ({ value: u.id, label: userLabel(u) })),
   },
   {
     id: 'sentiment',
@@ -195,27 +171,7 @@ function clearAll() {
   <div
     class="tw:sticky tw:top-0 tw:z-sticky tw:flex tw:flex-col tw:gap-2.5 tw:bg-main tw:pt-1 tw:pb-2.5"
   >
-    <!-- Row 1 — search + filter menu -->
-    <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
-      <div class="tw:relative tw:min-w-[12rem] tw:flex-1 tw:max-w-sm">
-        <IconSearch
-          :size="16"
-          class="tw:pointer-events-none tw:absolute tw:left-2.5 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary"
-        />
-        <input
-          v-model="filters.search"
-          type="text"
-          placeholder="Search ticket, subject, customer…"
-          class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-card tw:py-1.5 tw:ps-8 tw:pe-3 tw:text-sm tw:text-on-main tw:outline-none tw:transition-colors tw:focus:border-primary"
-        />
-      </div>
-
-      <div class="tw:ms-auto tw:flex tw:flex-wrap tw:items-center tw:gap-2">
-        <BaseFilterMenu v-model="filters" :items="filterItems" />
-      </div>
-    </div>
-
-    <!-- Row 2 — quick views + saved views -->
+    <!-- Row 1 — quick-view pills + filter menu + saved views -->
     <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
       <BaseQuickFilterPills v-model="activeFilter" :pills="filterPills" ariaLabel="Quick views" />
 
@@ -246,9 +202,13 @@ function clearAll() {
         <IconBookmark :size="12" />
         Save view
       </button>
+
+      <div class="tw:ms-auto tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+        <BaseFilterMenu v-model="filters" :items="filterItems" />
+      </div>
     </div>
 
-    <!-- Row 3 — applied filters as removable tokens -->
+    <!-- Row 2 — applied filters as removable tokens -->
     <div v-if="hasChips" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
       <span class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
         Filters

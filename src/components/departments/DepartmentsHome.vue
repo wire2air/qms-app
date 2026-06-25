@@ -14,7 +14,7 @@ const canDeleteDepartment = computed(() => isAllowed(['departments:delete']))
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `departments`.
 const list = useListLayout({
-  filters: { search: '', siteId: null },
+  filters: { siteId: null },
   total: () => departments.value.length,
   empty: () => departments.value.length === 0,
   syncUrl: true,
@@ -22,14 +22,10 @@ const list = useListLayout({
 
 // Live query for departments
 const departments = useLiveQueryWithDeps(
-  [() => list.filters.value.search, () => list.filters.value.siteId],
-  async (db, [search, siteId]) => {
+  [() => list.filters.value.siteId],
+  async (db, [siteId]) => {
     let results = await db.Department.where().exec()
     if (siteId) results = results.filter((d) => d.siteId === siteId)
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter((d) => d.name.toLowerCase().includes(q))
-    }
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
