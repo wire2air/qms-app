@@ -35,32 +35,48 @@ const families = useLiveQuery(async (db) => db.ProductFamily.where().exec(), {
 })
 const familyMap = computed(() => new Map(families.value.map((f) => [f.id, f.name])))
 
+// Option sources for the advanced filter's entity-column dropdowns.
+const productTypes = useLiveQuery(async (db) => db.ProductType.where().exec(), {
+  models: ['ProductType'],
+  initial: [],
+})
+const productStatuses = useLiveQuery(async (db) => db.ProductStatus.where().exec(), {
+  models: ['ProductStatus'],
+  initial: [],
+})
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+
 const selected = ref([])
 const selectedRows = computed(() => props.rows.filter((r) => selected.value.includes(r.id)))
 
-const columns = [
-  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true, hideable: false },
-  { name: 'sku', label: 'SKU', field: 'sku', align: 'left', sortable: true },
-  { name: 'family', label: 'FAMILY', field: 'productFamilyId', align: 'left', sortable: false },
-  {
-    name: 'productType',
-    label: 'PRODUCT TYPE',
-    field: 'productTypeId',
-    align: 'left',
-    sortable: false,
-  },
-  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+const columns = computed(() => {
+  const filterCfg = {
+    family: { filterType: 'select', filterOptions: selectOpts(families.value) },
+    productType: { filterType: 'select', filterOptions: selectOpts(productTypes.value) },
+    status: { filterType: 'select', filterOptions: selectOpts(productStatuses.value) },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true, hideable: false },
+    { name: 'sku', label: 'SKU', field: 'sku', align: 'left', sortable: true },
+    { name: 'family', label: 'FAMILY', field: 'productFamilyId', align: 'left', sortable: false },
+    {
+      name: 'productType',
+      label: 'PRODUCT TYPE',
+      field: 'productTypeId',
+      align: 'left',
+      sortable: false,
+    },
+    { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function onEdit(row) {
   emit('edit', row)
@@ -138,16 +154,20 @@ function downloadCsv(rows, cols) {
 
     <ProductsImportCsvDialog v-model="showImportDialog" :columns="columns" />
 
-    <BaseTable
+    <DataTable
       v-model:pagination="pagination"
+      v-model:sort="sort"
       v-model:selected="selected"
       :rows="rows"
       :columns="columns"
       :loading="loading"
       rowKey="id"
+      :mobileCards="false"
       selectable
-      columnToggle
-      showDensityToggle
+      columnManager
+      densitySelector
+      filterable
+      persistKey="products"
       @rowClick="openDetail"
     >
       <template #bulk-actions="{ clear }">
@@ -206,6 +226,6 @@ function downloadCsv(rows, cols) {
           <BaseMenu :items="rowMenuItems(row)" />
         </div>
       </template>
-    </BaseTable>
+    </DataTable>
   </div>
 </template>

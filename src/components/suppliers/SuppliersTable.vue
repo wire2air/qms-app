@@ -19,30 +19,49 @@ const props = defineProps({
 
 const emit = defineEmits(['delete', 'edit'])
 
-const columns = [
-  { name: 'name', label: 'SUPPLIER NAME', field: 'name', align: 'left', sortable: true, hideable: false },
-  { name: 'code', label: 'CODE', field: 'code', align: 'left', sortable: true },
-  { name: 'category', label: 'CATEGORY', field: 'category', align: 'left', sortable: true },
-  { name: 'riskLevel', label: 'RISK LEVEL', field: 'riskLevel', align: 'left', sortable: true },
-  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
-  {
-    name: 'lastEvaluation',
-    label: 'LAST EVALUATION',
-    field: 'lastEvaluationDate',
-    align: 'left',
-    sortable: true,
-  },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+// Option sources for the advanced filter's entity-column dropdowns.
+// Category & risk level are static enums whose stored value IS the label.
+const CATEGORY_OPTIONS = ['Raw Materials', 'Component', 'Service', 'Software'].map((v) => ({
+  value: v,
+  label: v,
+}))
+const RISK_LEVEL_OPTIONS = ['Low', 'Medium', 'High'].map((v) => ({ value: v, label: v }))
+const supplierStatuses = useLiveQuery((db) => db.SupplierStatus.where().exec(), {
+  models: ['SupplierStatus'],
+  initial: [],
 })
+
+const columns = computed(() => {
+  const filterCfg = {
+    category: { filterType: 'select', filterOptions: CATEGORY_OPTIONS },
+    riskLevel: { filterType: 'select', filterOptions: RISK_LEVEL_OPTIONS },
+    status: {
+      filterType: 'select',
+      filterOptions: supplierStatuses.value.map((s) => ({ value: s.id, label: s.name })),
+    },
+    lastEvaluation: { filterType: 'date' },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'SUPPLIER NAME', field: 'name', align: 'left', sortable: true, hideable: false },
+    { name: 'code', label: 'CODE', field: 'code', align: 'left', sortable: true },
+    { name: 'category', label: 'CATEGORY', field: 'category', align: 'left', sortable: true },
+    { name: 'riskLevel', label: 'RISK LEVEL', field: 'riskLevel', align: 'left', sortable: true },
+    { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
+    {
+      name: 'lastEvaluation',
+      label: 'LAST EVALUATION',
+      field: 'lastEvaluationDate',
+      align: 'left',
+      sortable: true,
+    },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function getInitials(name) {
   if (!name) return '??'
@@ -64,13 +83,17 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="rows"
     :columns="columns"
     rowKey="id"
-    columnToggle
-    showDensityToggle
+    :mobileCards="false"
+    columnManager
+    densitySelector
+    filterable
+    persistKey="suppliers"
   >
     <!-- Name Column -->
     <template #body-cell-name="{ row }">
@@ -131,5 +154,5 @@ function rowMenuItems(row) {
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

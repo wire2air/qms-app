@@ -23,30 +23,56 @@ function isOverdue(row) {
   return row.dueDate < DateTime.now()
 }
 
-const columns = [
-  { name: 'capaNumber', label: 'CAPA NUMBER', field: 'capaNumber', align: 'left', sortable: true, hideable: false },
-  { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
-  { name: 'priority', label: 'PRIORITY', field: 'priorityId', align: 'left', sortable: false },
-  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
-  { name: 'type', label: 'TYPE', field: 'typeId', align: 'left', sortable: false },
-  {
-    name: 'effectivenessCheck',
-    label: 'EFFECTIVENESS CHECK',
-    field: 'effectivenessCheck',
-    align: 'left',
-    sortable: false,
-  },
-  {
-    name: 'scheduledCycle',
-    label: 'CYCLE',
-    field: 'scheduledCycle',
-    align: 'left',
-    sortable: false,
-  },
-  { name: 'dueDate', label: 'DUE DATE', field: 'dueDate', align: 'left', sortable: true },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
+// Option sources for the advanced filter's entity-column dropdowns.
+const capaPriorities = useLiveQuery((db) => db.CapaPriority.where().exec(), {
+  models: ['CapaPriority'],
+  initial: [],
+})
+const capaStatuses = useLiveQuery((db) => db.CapaStatus.where().exec(), {
+  models: ['CapaStatus'],
+  initial: [],
+})
+const capaTypes = useLiveQuery((db) => db.CapaType.where().exec(), {
+  models: ['CapaType'],
+  initial: [],
+})
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    priority: { filterType: 'select', filterOptions: selectOpts(capaPriorities.value) },
+    status: { filterType: 'select', filterOptions: selectOpts(capaStatuses.value) },
+    type: { filterType: 'select', filterOptions: selectOpts(capaTypes.value) },
+    dueDate: { filterType: 'date' },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'capaNumber', label: 'CAPA NUMBER', field: 'capaNumber', align: 'left', sortable: true, hideable: false },
+    { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
+    { name: 'priority', label: 'PRIORITY', field: 'priorityId', align: 'left', sortable: false },
+    { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
+    { name: 'type', label: 'TYPE', field: 'typeId', align: 'left', sortable: false },
+    {
+      name: 'effectivenessCheck',
+      label: 'EFFECTIVENESS CHECK',
+      field: 'effectivenessCheck',
+      align: 'left',
+      sortable: false,
+    },
+    {
+      name: 'scheduledCycle',
+      label: 'CYCLE',
+      field: 'scheduledCycle',
+      align: 'left',
+      sortable: false,
+    },
+    { name: 'dueDate', label: 'DUE DATE', field: 'dueDate', align: 'left', sortable: true },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 function formatCycle(cycle) {
   if (!cycle?.value || !cycle?.unit) return null
@@ -54,13 +80,8 @@ function formatCycle(cycle) {
   return `${cycle.value} ${unit}`
 }
 
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function rowMenuItems(row) {
   const items = []
@@ -75,13 +96,17 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="rows"
     :columns="columns"
     rowKey="id"
-    columnToggle
-    showDensityToggle
+    :mobileCards="false"
+    columnManager
+    densitySelector
+    filterable
+    persistKey="capas"
   >
     <template #body-cell-capaNumber="{ row }">
       <RouterLink
@@ -151,5 +176,5 @@ function rowMenuItems(row) {
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>

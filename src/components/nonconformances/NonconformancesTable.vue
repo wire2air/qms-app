@@ -22,24 +22,37 @@ function isOverdue(row) {
   return row.dueDate < DateTime.now()
 }
 
-const columns = [
+// Option sources for the advanced filter's entity-column dropdowns.
+const ncStatuses = useLiveQuery((db) => db.NcStatus.where().exec(), {
+  models: ['NcStatus'],
+  initial: [],
+})
+const ncTypes = useLiveQuery((db) => db.NcType.where().exec(), { models: ['NcType'], initial: [] })
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+
+const columns = computed(() => {
   // Severity is shown as the accent dot on the title (no separate colored pill
   // column); Created is dropped to keep the table readable without overflow.
-  { name: 'ncNumber', label: 'NC #', field: 'ncNumber', align: 'left', sortable: true, hideable: false },
-  { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
-  { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: false },
-  { name: 'type', label: 'Type', field: 'typeId', align: 'left', sortable: false },
-  { name: 'dueDate', label: 'Due date', field: 'dueDate', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: null, // rows arrive pre-sorted (newest first) from the query
-  descending: true,
-  total: null,
+  const filterCfg = {
+    status: { filterType: 'select', filterOptions: selectOpts(ncStatuses.value) },
+    type: { filterType: 'select', filterOptions: selectOpts(ncTypes.value) },
+    dueDate: { filterType: 'date' },
+  }
+  return [
+    { name: 'ncNumber', label: 'NC #', field: 'ncNumber', align: 'left', sortable: true, hideable: false },
+    { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
+    { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: false },
+    { name: 'type', label: 'Type', field: 'typeId', align: 'left', sortable: false },
+    { name: 'dueDate', label: 'Due date', field: 'dueDate', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
+
+const pagination = ref({ page: 1, pageSize: 50 })
+// rows arrive pre-sorted (newest first) from the query
+const sort = ref([])
 // Dense by default — this is a high-volume work list, not a dashboard.
 const density = ref('compact')
 
@@ -56,14 +69,18 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     v-model:density="density"
     :rows="rows"
     :columns="columns"
     rowKey="id"
-    columnToggle
-    showDensityToggle
+    :mobileCards="false"
+    columnManager
+    densitySelector
+    filterable
+    persistKey="nonconformances"
   >
     <template #body-cell-ncNumber="{ row }">
       <RouterLink
@@ -111,5 +128,5 @@ function rowMenuItems(row) {
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 </template>
