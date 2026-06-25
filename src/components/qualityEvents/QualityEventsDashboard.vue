@@ -37,7 +37,7 @@ const kpis = computed(() => {
   const now = DateTime.now()
   const startOfMonth = now.startOf('month')
   const open = all.filter((e) => OPEN_STATUSES.includes(e.statusId))
-  const overdueReviews = open.filter((e) => e.reviewDate && e.reviewDate < now && !e.reviewSummary)
+  const overdueReviews = open.filter((e) => e.reviewDueDate && e.reviewDueDate < now && !e.reviewSummary)
   const thisMonth = all.filter((e) => e.reportedDate && e.reportedDate >= startOfMonth)
   const escalated = all.filter((e) => e.statusId === 'ESCALATED' || escalatedEventIds.value.has(e.id))
   const closed = all.filter((e) => e.statusId === 'CLOSED')

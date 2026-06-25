@@ -17,8 +17,17 @@ export function buildInspectionLotSections(_lot) {
  *  Submit for QA Disposition (COMPLETED).
  */
 export function buildInspectionLotActions(gates = {}, handlers = {}) {
-  const { canExecute, canDispose, statusId, acting } = gates
+  const { canExecute, canDispose, canCreateEvent, statusId, acting, creatingEvent } = gates
   return [
+    {
+      id: 'create-event',
+      label: 'Create Event',
+      variant: 'outline',
+      priority: 95,
+      visible: !!canCreateEvent,
+      loading: !!creatingEvent,
+      onSelect: handlers.createEvent,
+    },
     {
       id: 'submit',
       label: 'Submit for QA Disposition',

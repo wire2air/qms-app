@@ -15,6 +15,14 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  isFilter: {
+    type: Boolean,
+    default: false,
+  },
+  nullLabel: {
+    type: String,
+    default: null,
+  },
 })
 
 const modelValue = defineModel({
@@ -55,6 +63,10 @@ function onSiteCreated(newSite) {
 function getArray() {
   return Array.isArray(modelValue.value) ? modelValue.value : []
 }
+
+const resolvedNullLabel = computed(
+  () => props.nullLabel ?? (props.isFilter ? '— All sites —' : '— Select site —'),
+)
 </script>
 
 <template>
@@ -63,20 +75,20 @@ function getArray() {
       <BaseSelectMenu
         v-model="modelValue"
         :items="sites"
-        nullLabel="— All sites —"
-        :required="required"
-        :multiple="multiple"
+        :nullLabel="resolvedNullLabel"
+        :required="props.required"
+        :multiple="props.multiple"
       >
         <template #button="scope">
           <slot name="button" v-bind="scope">
             <!-- MULTIPLE MODE -->
-            <template v-if="multiple">
+            <template v-if="props.multiple">
               <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
                 <SiteBadgeById
                   v-for="siteId in getArray()"
                   :key="siteId"
                   :siteId="siteId"
-                  :clearable="!required || getArray().length > 1"
+                  :clearable="!props.required || getArray().length > 1"
                   @clear="() => scope.clear(siteId)"
                 />
               </div>
@@ -90,7 +102,7 @@ function getArray() {
               <SiteBadgeById
                 v-if="modelValue"
                 :siteId="modelValue"
-                :clearable="!required"
+                :clearable="!props.required"
                 selectable
                 @clear="() => scope.clear(modelValue)"
               />

@@ -9,6 +9,7 @@
  */
 export const RECORD_REF = {
   InspectionLot: { model: 'InspectionLot', numberField: 'lotNumber', label: 'Lot', path: (id) => `/qc-inspection/lots/${id}` },
+  QualityEvent: { model: 'QualityEvent', numberField: 'eventNumber', label: 'Event', path: (id) => `/qualityEvents/${id}` },
   Nonconformance: { model: 'Nonconformance', numberField: 'ncNumber', label: 'NC', path: (id) => `/nonconformances/${id}` },
   Capa: { model: 'Capa', numberField: 'capaNumber', label: 'CAPA', path: (id) => `/capas/${id}` },
   ChangeRequest: { model: 'ChangeRequest', numberField: 'crNumber', label: 'CR', path: (id) => `/change-requests/${id}` },

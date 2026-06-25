@@ -160,6 +160,14 @@ const navItems = computed(() => {
         icon: IconShield,
         to: getCompanyPath('/capas'),
       },
+      // Quality Events shared with this supplier (shared_with_user →
+      // QualityEvent). The list is RLS-scoped to events shared with them;
+      // no permission gate (suppliers don't carry qualityEvents:read).
+      {
+        label: 'Quality Events',
+        icon: IconEye,
+        to: getCompanyPath('/qualityEvents'),
+      },
       // Audits surface visible when an internal team adds the
       // supplier user to an audit's team (audit_team_members) — RLS
       // lets the supplier through the membership branch even without
@@ -199,7 +207,7 @@ const navItems = computed(() => {
       to: getCompanyPath('/nonconformances'),
     },
     {
-      label: 'Events & Observations',
+      label: 'Quality Events',
       permissions: ['qualityEvents:read'],
       icon: IconEye,
       to: getCompanyPath('/qualityEvents'),

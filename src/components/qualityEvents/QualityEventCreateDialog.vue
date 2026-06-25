@@ -1,10 +1,28 @@
 <script setup>
 import { post } from '@/api'
+import { currentSession } from '@/utils/currentSession.js'
+import { DateTime } from 'luxon'
+
+const props = defineProps({
+  initialValues: { type: Object, default: () => ({}) },
+  title: { type: String, default: 'Log Event' },
+  submitLabel: { type: String, default: 'Log Event' },
+  lockAssignedTo: { type: Boolean, default: false },
+})
 
 const emit = defineEmits(['created'])
 const open = defineModel({ type: Boolean, default: false })
 const toast = useToast()
 const saving = ref(false)
+
+const currentUser = useLiveQueryWithDeps(
+  [() => currentSession.value?.userId ?? currentSession.value?.id],
+  async (db, [uid]) => {
+    if (!uid) return null
+    return await db.User.findByPk(uid)
+  },
+  { models: ['User'], initial: null },
+)
 
 const blank = () => ({
   title: '',
@@ -13,20 +31,87 @@ const blank = () => ({
   severityId: null,
   departmentId: null,
   siteId: null,
+  supplierId: null,
   assignedToUserId: null,
-  occurrenceDate: null,
+  notifyGroupIds: null,
+  notifyUserIds: null,
+  sourceType: 'MANUAL',
+  inspectionLotId: null,
+  occurrenceDate: DateTime.now().startOf('day'),
   anonymousSubmission: false,
 })
 const form = ref(blank())
 
+function hasRichTextContent(value) {
+  const raw = (value || '').split('\n[qms-attachments]::')[0]
+  const text = raw
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.length > 0
+}
+
+function applyUserDefaults(target) {
+  const me = currentUser.value
+  if (!me) return target
+  return {
+    ...target,
+    siteId: target.siteId ?? me.siteId ?? null,
+    departmentId: target.departmentId ?? me.departmentId ?? null,
+  }
+}
+
 watch(open, (v) => {
-  if (v) form.value = blank()
+  if (v) {
+    form.value = { ...applyUserDefaults(blank()), ...props.initialValues }
+    if (typeof form.value.occurrenceDate === 'string') {
+      const dt = DateTime.fromISO(form.value.occurrenceDate)
+      form.value.occurrenceDate = dt.isValid ? dt.startOf('day') : DateTime.now().startOf('day')
+    } else if (form.value.occurrenceDate instanceof Date) {
+      form.value.occurrenceDate = DateTime.fromJSDate(form.value.occurrenceDate).startOf('day')
+    } else if (!form.value.occurrenceDate) {
+      form.value.occurrenceDate = DateTime.now().startOf('day')
+    }
+  }
 })
+
+watch(
+  () => currentUser.value,
+  (me) => {
+    if (!open.value || !me) return
+    if (!form.value.siteId && me.siteId) form.value.siteId = me.siteId
+    if (!form.value.departmentId && me.departmentId) form.value.departmentId = me.departmentId
+  },
+)
 
 async function handleSave(close) {
   if (!form.value.title.trim()) {
     toast.warning('Title is required')
     return
+  }
+  if (!hasRichTextContent(form.value.description)) {
+    toast.warning('Issue is required')
+    return
+  }
+  if (!form.value.categoryId) {
+    toast.warning('Category is required')
+    return
+  }
+  if (!form.value.severityId) {
+    toast.warning('Severity is required')
+    return
+  }
+  if (!form.value.siteId) {
+    toast.warning('Site is required')
+    return
+  }
+  if ((form.value.sourceType || 'MANUAL') !== 'QC_INSPECTION') {
+    if (!form.value.departmentId) {
+      toast.warning('Department is required')
+      return
+    }
   }
   saving.value = true
   try {
@@ -39,7 +124,12 @@ async function handleSave(close) {
       severityId: form.value.severityId,
       departmentId: form.value.departmentId,
       siteId: form.value.siteId,
+      supplierId: form.value.supplierId,
       assignedToUserId: form.value.assignedToUserId,
+      notifyGroupIds: form.value.notifyGroupIds,
+      notifyUserIds: form.value.notifyUserIds,
+      sourceType: form.value.sourceType || 'MANUAL',
+      inspectionLotId: form.value.inspectionLotId || null,
       occurrenceDate: form.value.occurrenceDate
         ? form.value.occurrenceDate.toFormat?.('yyyy-LL-dd') ?? form.value.occurrenceDate
         : null,
@@ -57,39 +147,60 @@ async function handleSave(close) {
 </script>
 
 <template>
-  <BaseDialog v-model="open" title="Log Event" maxWidth="lg">
+  <BaseDialog v-model="open" :title="title" maxWidth="xl">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
       <BaseField v-slot="{ id: fieldId }" label="Title" required>
         <BaseTextInput :id="fieldId" v-model="form.title" placeholder="Short summary of the observation" />
       </BaseField>
 
-      <BaseField v-slot="{ id: fieldId }" label="Description">
-        <BaseTextarea
-          :id="fieldId"
-          v-model="form.description"
-          :rows="3"
-          placeholder="What did you observe? Where? Any immediate context."
-        />
+      <BaseField label="Issue" required>
+        <div class="issue-editor">
+          <RichTextAttachments
+            v-model="form.description"
+            :readonly="false"
+            placeholder="What did you observe? Where? Any immediate context."
+          />
+        </div>
       </BaseField>
 
       <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-        <BaseField label="Category">
-          <EventCategorySelectMenu v-model="form.categoryId" :required="false" />
+        <BaseField label="Category" required>
+          <EventCategorySelectMenu v-model="form.categoryId" :required="true" />
         </BaseField>
-        <BaseField label="Severity">
-          <EventSeveritySelectMenu v-model="form.severityId" :required="false" />
+        <BaseField label="Severity" required>
+          <EventSeveritySelectMenu v-model="form.severityId" :required="true" />
         </BaseField>
-        <BaseField label="Site / Location">
-          <SiteSelectMenu v-model="form.siteId" :required="false" />
+        <BaseField label="Site / Location" required>
+          <SiteSelectMenu
+            v-model="form.siteId"
+            :required="true"
+            nullLabel="— Select site —"
+          />
         </BaseField>
         <BaseField label="Department">
-          <DepartmentSelectMenu v-model="form.departmentId" :required="false" />
+          <DepartmentSelectMenu
+            v-model="form.departmentId"
+            :siteId="form.siteId"
+            :required="false"
+            nullLabel="— Select department —"
+          />
+        </BaseField>
+        <BaseField label="Supplier">
+          <SupplierSelectMenu
+            v-model="form.supplierId"
+            :required="false"
+            nullLabel="— Select supplier —"
+          />
         </BaseField>
         <BaseField label="Assign To">
-          <UserSelectMenu v-model="form.assignedToUserId" :required="false" />
+          <UserSelectMenu
+            v-model="form.assignedToUserId"
+            :required="false"
+            :disabled="lockAssignedTo"
+          />
         </BaseField>
         <BaseField v-slot="{ id: fieldId }" label="Occurrence Date">
-          <BaseDatePicker :id="fieldId" v-model="form.occurrenceDate" />
+          <BaseDateField :id="fieldId" v-model="form.occurrenceDate" mode="date" />
         </BaseField>
       </div>
 
@@ -103,7 +214,7 @@ async function handleSave(close) {
 
     <template #footer="{ close }">
       <BaseDialogFooter
-        submitLabel="Log Event"
+        :submitLabel="submitLabel"
         :loading="saving"
         :disabled="saving"
         @cancel="close"
@@ -112,3 +223,9 @@ async function handleSave(close) {
     </template>
   </BaseDialog>
 </template>
+
+<style scoped>
+.issue-editor :deep(.tiptap-editor-wrapper) {
+  min-height: 180px;
+}
+</style>

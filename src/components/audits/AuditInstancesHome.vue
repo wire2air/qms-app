@@ -124,7 +124,7 @@ const instances = useLiveQueryWithDeps(
           nullLabel="— All statuses —"
           class="tw:w-44"
         />
-        <SupplierSelectMenu v-model="supplierFilter" class="tw:w-48" />
+        <SupplierSelectMenu v-model="supplierFilter" :isFilter="true" class="tw:w-48" />
         <BaseFilterMenu v-model="auditFilters" :items="auditDateFilterItems" />
         <div class="tw:text-xs tw:text-secondary">
           {{ instances.length }} audit{{ instances.length === 1 ? '' : 's' }}

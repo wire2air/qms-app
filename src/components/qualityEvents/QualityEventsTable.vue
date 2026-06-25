@@ -28,7 +28,9 @@ const columns = [
 function daysOpen(row) {
   const start = row.reportedDate || row.createdAt
   if (!start) return '—'
-  const end = ['CLOSED', 'CANCELLED'].includes(row.statusId) ? row.decisionDate || DateTime.now() : DateTime.now()
+  const end = ['CLOSED', 'CANCELLED'].includes(row.statusId)
+    ? row.updatedAt || DateTime.now()
+    : DateTime.now()
   const d = Math.max(0, Math.floor(end.diff(start, 'days').days))
   return d
 }

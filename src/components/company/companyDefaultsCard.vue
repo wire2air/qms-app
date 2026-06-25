@@ -189,6 +189,20 @@ const approvalRuleOptions = [
           class="tw:max-w-xs"
         />
       </div>
+
+      <hr class="tw:border-divider" />
+
+      <!-- Quality Event Defaults -->
+      <div class="tw:flex tw:flex-col tw:gap-5">
+        <BaseText variant="overline">Quality Event Defaults</BaseText>
+        <BaseTextInput
+          v-model.number="company.settings.defaultQualityEventReviewSlaDays"
+          label="Review Due SLA (days)"
+          type="number"
+          hint="Default review due date = event created date + this many days"
+          class="tw:max-w-xs"
+        />
+      </div>
     </div>
   </div>
 </template>

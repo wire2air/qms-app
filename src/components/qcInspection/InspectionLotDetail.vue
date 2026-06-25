@@ -35,6 +35,7 @@ const showEdit = ref(false)
 const canExecute = computed(() => isAllowed(['qcInspection:lot:execute']))
 const canDispose = computed(() => isAllowed(['qcInspection:lot:dispose']))
 const canCreateNc = computed(() => isAllowed(['nonconformances:create']))
+const canCreateEvent = computed(() => isAllowed(['qualityEvents:create']))
 
 const lot = useLiveQueryWithDeps(
   [() => props.id],
@@ -308,6 +309,8 @@ async function act(path, okMsg) {
 // characteristics) and we land the user on the NC page to pick the
 // workflow (supplier-facing or not) and complete it.
 const creatingNc = ref(false)
+const creatingEvent = ref(false)
+const showCreateEvent = ref(false)
 async function createNcFromLot() {
   if (creatingNc.value) return
   creatingNc.value = true
@@ -324,6 +327,40 @@ async function createNcFromLot() {
     creatingNc.value = false
   }
 }
+
+function openCreateEvent() {
+  showCreateEvent.value = true
+}
+
+function onEventCreated() {
+  showCreateEvent.value = false
+  creatingEvent.value = false
+  toast.success('Event created from this inspection lot')
+}
+
+const qcEventInitialValues = computed(() => {
+  const lotNumber = lot.value?.lotNumber || '—'
+  const batchNumber = lot.value?.batchNumber || '—'
+  const poNumber = lot.value?.poNumber || '—'
+  const supplierName = supplier.value?.name || '—'
+  const productName = product.value?.name || '—'
+  const inspectionPoint = POINT_LABELS[lot.value?.inspectionPoint] || lot.value?.inspectionPoint || '—'
+  return {
+    title: `QC Observation — Lot ${lotNumber}`,
+    description:
+      `Captured from QC inspection.\n` +
+      `- Lot: ${lotNumber}\n` +
+      `- Batch: ${batchNumber}\n` +
+      `- PO: ${poNumber}\n` +
+      `- Supplier: ${supplierName}\n` +
+      `- Product: ${productName}\n` +
+      `- Inspection point: ${inspectionPoint}`,
+    assignedToUserId: lot.value?.assignedTo || null,
+    supplierId: lot.value?.supplierId || null,
+    sourceType: 'QC_INSPECTION',
+    inspectionLotId: lot.value?.id || null,
+  }
+})
 
 // Disposition notes stay editable after disposition — the QA approver may
 // want to refine the reasoning recorded at disposition time.
@@ -357,8 +394,10 @@ const inspectionLotActions = computed(() =>
     {
       canExecute: canExecute.value,
       canDispose: canDispose.value,
+      canCreateEvent: canCreateEvent.value,
       statusId: lot.value?.statusId,
       acting: acting.value,
+      creatingEvent: creatingEvent.value,
     },
     {
       edit() {
@@ -368,6 +407,9 @@ const inspectionLotActions = computed(() =>
       complete: () => act('complete', 'Lot completed'),
       submit() {
         showSubmit.value = true
+      },
+      createEvent() {
+        openCreateEvent()
       },
     },
   ),
@@ -384,7 +426,8 @@ const inspectionLotDetailConfig = computed(() =>
 </script>
 
 <template>
-  <BaseDetailLayout
+  <div class="tw:contents">
+    <BaseDetailLayout
     :config="inspectionLotDetailConfig"
     :record="lot"
     :loading="loading"
@@ -731,8 +774,18 @@ const inspectionLotDetailConfig = computed(() =>
 
     </div>
     </template>
-  </BaseDetailLayout>
+    </BaseDetailLayout>
 
-  <InspectionLotSubmitDialog v-model="showSubmit" :lotId="props.id" />
-  <InspectionLotCreateDialog v-model="showEdit" :editLot="lot" />
+    <QualityEventCreateDialog
+      v-model="showCreateEvent"
+      title="Create Event"
+      submitLabel="Create Event"
+      :initialValues="qcEventInitialValues"
+      :lockAssignedTo="true"
+      @created="onEventCreated"
+    />
+
+    <InspectionLotSubmitDialog v-model="showSubmit" :lotId="props.id" />
+    <InspectionLotCreateDialog v-model="showEdit" :editLot="lot" />
+  </div>
 </template>

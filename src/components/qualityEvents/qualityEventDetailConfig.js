@@ -1,4 +1,4 @@
-import { IconArrowUpRight } from '@tabler/icons-vue'
+import { IconArrowUpRight, IconHistory, IconCircleCheck } from '@tabler/icons-vue'
 
 /**
  * Contextual banners, sections, and header actions for a Quality Event detail
@@ -30,19 +30,39 @@ export function buildQualityEventSections(_event) {
 }
 
 /** Header action descriptors. gates = resolved booleans/strings; handlers = callbacks.
- *  Escalate is the only header action — available while the event is open.
+ *  Owner-only actions (Close / Escalate) are available to the assigned reviewer.
  */
 export function buildQualityEventActions(gates = {}, handlers = {}) {
-  const { canUpdate, statusId } = gates
+  const { canOwnerActions, statusId, closing } = gates
   return [
+    {
+      id: 'close',
+      label: 'Close',
+      icon: IconCircleCheck,
+      variant: 'primary',
+      priority: 110,
+      visible: !!canOwnerActions && !['CLOSED', 'CANCELLED'].includes(statusId),
+      disabled: !!closing,
+      loading: !!closing,
+      onSelect: handlers.close,
+    },
     {
       id: 'escalate',
       label: 'Escalate',
       icon: IconArrowUpRight,
       variant: 'primary',
       priority: 100,
-      visible: !!canUpdate && !['CLOSED', 'CANCELLED'].includes(statusId),
+      visible: !!canOwnerActions && !['CLOSED', 'CANCELLED'].includes(statusId),
       onSelect: handlers.escalate,
+    },
+    {
+      id: 'audit',
+      label: 'Audit Log',
+      icon: IconHistory,
+      variant: 'secondary',
+      priority: 15,
+      visible: true,
+      onSelect: handlers.openAudit,
     },
   ]
 }
