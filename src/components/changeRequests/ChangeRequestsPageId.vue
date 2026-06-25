@@ -356,29 +356,7 @@ const changeRequestDetailConfig = computed(() =>
           clickToEdit
           clickToEditLabel="Add a description…"
           placeholder="Describe the change…"
-          class="tw:mb-4"
         />
-
-        <div class="tw:grid tw:grid-cols-3 tw:gap-3">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Change Type</div>
-            <ChangeTypeBadgeById :changeTypeId="cr.changeTypeId" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Classification</div>
-            <span class="tw:text-sm tw:font-medium">{{ cr.classification || '—' }}</span>
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Priority</div>
-            <ChangeRequestPriorityBadgeById :priorityId="cr.priorityId" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <div class="tw:text-xs tw:text-secondary">Initiated</div>
-            <span class="tw:text-sm tw:font-medium">
-              {{ cr.initiatedAt ? cr.initiatedAt.formatDate('date') : '—' }}
-            </span>
-          </div>
-        </div>
       </FormSection>
 
       <!-- Admin-defined custom fields. Self-hides when none configured. -->
@@ -445,6 +423,21 @@ const changeRequestDetailConfig = computed(() =>
         <BaseDetailField label="Status">
           <ChangeRequestStatusBadgeById :statusId="cr.statusId" />
         </BaseDetailField>
+        <BaseDetailField label="Change Type">
+          <ChangeTypeBadgeById v-if="cr.changeTypeId" :changeTypeId="cr.changeTypeId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Classification">
+          <BaseText variant="body" weight="medium">{{ cr.classification || '—' }}</BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Priority">
+          <ChangeRequestPriorityBadgeById v-if="cr.priorityId" :priorityId="cr.priorityId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField
+          label="Initiated"
+          :value="cr.initiatedAt ? cr.initiatedAt.formatDate('date') : null"
+        />
       </BaseRailCard>
 
       <!-- 2. Ownership -->
