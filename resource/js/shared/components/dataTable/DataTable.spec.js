@@ -107,6 +107,25 @@ describe('DataTable — selection', () => {
     expect(last.map(String).sort()).toEqual(['1', '2', '3'])
   })
 
+  it('writes selected keys back in their original (numeric) type', async () => {
+    const captured = []
+    const numRows = [
+      { id: 1, name: 'A', role: 'x' },
+      { id: 2, name: 'B', role: 'y' },
+    ]
+    const w = mount(DataTable, {
+      props: {
+        columns,
+        rows: numRows,
+        selectable: true,
+        hidePagination: true,
+        'onUpdate:selected': (v) => captured.push(v),
+      },
+    })
+    await w.find('thead input[type="checkbox"]').setValue(true)
+    expect(captured.at(-1)).toEqual([1, 2]) // numbers, not '1','2'
+  })
+
   it('reflects an incoming v-model:selected as checked rows + aria-selected', () => {
     const w = mount(DataTable, {
       props: { columns, rows, selectable: true, selected: [2], hidePagination: true },
@@ -167,6 +186,33 @@ describe('DataTable — toolbar features', () => {
     expect(w.find('tbody tr').text()).toContain('Alpha')
   })
 
+  it('hides columns declared `hidden: true` by default (still toggleable)', () => {
+    const cols = [
+      { name: 'name', label: 'Name', field: 'name' },
+      { name: 'role', label: 'Role', field: 'role', hidden: true },
+    ]
+    const w = mount(DataTable, { props: { columns: cols, rows, hidePagination: true } })
+    const labels = w.findAll('thead th').map((th) => th.text())
+    expect(labels).toContain('Name')
+    expect(labels).not.toContain('Role')
+    expect(w.vm.table.getColumn('role').getCanHide()).toBe(true) // still user-toggleable
+  })
+
+  it('hides a column added AFTER mount that declares hidden:true (reactive seed)', async () => {
+    const w = mount(DataTable, {
+      props: { columns: [{ name: 'name', label: 'Name', field: 'name' }], rows, hidePagination: true },
+    })
+    expect(w.findAll('thead th')).toHaveLength(1)
+    await w.setProps({
+      columns: [
+        { name: 'name', label: 'Name', field: 'name' },
+        { name: 'extra', label: 'Extra', field: 'extra', hidden: true },
+      ],
+    })
+    await w.vm.$nextTick()
+    expect(w.findAll('thead th').map((th) => th.text())).not.toContain('Extra')
+  })
+
   it('reacts to engine column visibility (column manager wiring)', async () => {
     const w = mount(DataTable, { props: { columns, rows, columnManager: true, hidePagination: true } })
     expect(w.findAll('thead th')).toHaveLength(2)
@@ -210,9 +256,9 @@ describe('DataTable — virtualization', () => {
 })
 
 describe('DataTable — mobile cards', () => {
-  it('renders a stacked card list (not a table) on a mobile viewport', async () => {
+  it('renders a stacked card list (not a table) on a mobile viewport when opted in', async () => {
     mockMatchMedia(true)
-    const w = mount(DataTable, { props: { columns, rows, hidePagination: true } })
+    const w = mount(DataTable, { props: { columns, rows, mobileCards: true, hidePagination: true } })
     await w.vm.$nextTick()
     expect(w.find('table').exists()).toBe(false)
     // First column is the card title; remaining columns become labelled meta.
@@ -228,9 +274,9 @@ describe('DataTable — mobile cards', () => {
     expect(w.find('table').exists()).toBe(true)
   })
 
-  it('keeps the table on mobile when mobileCards is disabled', async () => {
+  it('keeps the table on mobile by default (cards are opt-in)', async () => {
     mockMatchMedia(true)
-    const w = mount(DataTable, { props: { columns, rows, mobileCards: false, hidePagination: true } })
+    const w = mount(DataTable, { props: { columns, rows, hidePagination: true } })
     await w.vm.$nextTick()
     expect(w.find('table').exists()).toBe(true)
   })
@@ -304,7 +350,7 @@ describe('DataTable — structured filters', () => {
 
   it('renders the filter bar when filterable', () => {
     const w = mount(DataTable, { props: { columns, rows, filterable: true, hidePagination: true } })
-    expect(w.text()).toContain('Filter')
+    expect(w.text()).toContain('Advanced filter')
   })
 })
 

@@ -88,11 +88,11 @@ function toColumnDefs(columns, resizableDefault = false) {
  * @param {object} [opts.initial] initial state slices ({ sorting, pagination, ... })
  */
 export function useDataTable(opts) {
-  const get = (v, fallback) => {
+  function get(v, fallback) {
     const r = typeof v === 'function' ? v() : v
     return r == null ? fallback : r
   }
-  const keyOf = (row) => {
+  function keyOf(row) {
     const k = get(opts.rowKey, 'id')
     return String(typeof k === 'function' ? k(row) : row[k])
   }
@@ -105,21 +105,48 @@ export function useDataTable(opts) {
   const expanded = ref(opts.initial?.expanded ?? {})
   const columnVisibility = ref(opts.initial?.columnVisibility ?? {})
   const columnOrder = ref(opts.initial?.columnOrder ?? [])
-  // Seed pinning from any `pin: 'left' | 'right'` declared on the column defs.
-  const seedPinning = { left: [], right: [] }
-  for (const c of get(opts.columns, [])) {
-    if (c.pin === 'left') seedPinning.left.push(c.name)
-    else if (c.pin === 'right') seedPinning.right.push(c.name)
-  }
-  const columnPinning = ref(opts.initial?.columnPinning ?? seedPinning)
+  const columnPinning = ref(opts.initial?.columnPinning ?? { left: [], right: [] })
   const columnSizing = ref(opts.initial?.columnSizing ?? {})
+
+  // Seed each column's declared defaults (`hidden: true`, `pin: 'left'|'right'`)
+  // exactly once — when first seen. This runs for columns present at init AND for
+  // columns that arrive later (e.g. async custom fields), without clobbering any
+  // user/persisted change to a column already tracked.
+  const seededDefaults = new Set()
+  function seedColumnDefaults(c) {
+    if (seededDefaults.has(c.name)) return
+    seededDefaults.add(c.name)
+    if (c.hidden && !(c.name in columnVisibility.value)) {
+      columnVisibility.value = { ...columnVisibility.value, [c.name]: false }
+    }
+    if (c.pin === 'left' || c.pin === 'right') {
+      const known = new Set([...(columnPinning.value.left || []), ...(columnPinning.value.right || [])])
+      if (!known.has(c.name)) {
+        const next = {
+          left: [...(columnPinning.value.left || [])],
+          right: [...(columnPinning.value.right || [])],
+        }
+        next[c.pin].push(c.name)
+        columnPinning.value = next
+      }
+    }
+  }
+  for (const c of get(opts.columns, [])) seedColumnDefaults(c)
+  watch(
+    () => get(opts.columns, []).map((c) => c.name).join('|'),
+    () => {
+      for (const c of get(opts.columns, [])) seedColumnDefaults(c)
+    },
+  )
 
   const columnDefs = computed(() =>
     toColumnDefs(get(opts.columns, []), get(opts.resizableColumns, false)),
   )
 
-  const setter = (stateRef) => (updater) => {
-    stateRef.value = typeof updater === 'function' ? updater(stateRef.value) : updater
+  function setter(stateRef) {
+    return (updater) => {
+      stateRef.value = typeof updater === 'function' ? updater(stateRef.value) : updater
+    }
   }
 
   const table = useVueTable({

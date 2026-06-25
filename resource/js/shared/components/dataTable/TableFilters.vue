@@ -71,7 +71,7 @@ function clearAll() {
           class="tw:flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-dashed tw:border-divider tw:px-2 tw:py-1 tw:text-xs tw:font-medium tw:text-secondary tw:transition-colors tw:hover:border-primary tw:hover:text-on-main"
         >
           <IconPlus :size="13" />
-          <span v-if="!conditions.length">Filter</span>
+          <span v-if="!conditions.length">Advanced filter</span>
         </button>
       </template>
       <template #content="{ close }">

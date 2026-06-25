@@ -43,8 +43,16 @@ const overflowActions = computed(() =>
   visibleActions.value.filter((a) => !quickActions.value.includes(a)),
 )
 
+function isDisabled(a) {
+  return pred(a.disabled, false)
+}
+// A link action only renders as a RouterLink when it's enabled — a disabled
+// action with a `to` must render as a disabled button, not a live link.
+function asLink(a) {
+  return !!a.to && !isDisabled(a)
+}
 function run(a) {
-  if (pred(a.disabled, false)) return
+  if (isDisabled(a)) return
   a.onClick?.(props.row)
 }
 </script>
@@ -52,12 +60,12 @@ function run(a) {
 <template>
   <div class="tw:flex tw:items-center tw:justify-end tw:gap-1" @click.stop>
     <component
-      :is="a.to ? 'RouterLink' : 'button'"
+      :is="asLink(a) ? 'RouterLink' : 'button'"
       v-for="a in quickActions"
       :key="a.key"
-      :to="a.to ? resolveTo(a) : undefined"
-      :type="a.to ? undefined : 'button'"
-      :disabled="!a.to && pred(a.disabled, false)"
+      :to="asLink(a) ? resolveTo(a) : undefined"
+      :type="asLink(a) ? undefined : 'button'"
+      :disabled="!asLink(a) && isDisabled(a)"
       :aria-label="a.label"
       :title="a.label"
       class="tw:flex tw:size-7 tw:items-center tw:justify-center tw:rounded-md tw:transition-colors tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/40 disabled:tw:cursor-not-allowed disabled:tw:opacity-40"
@@ -66,7 +74,7 @@ function run(a) {
           ? 'tw:text-secondary tw:hover:bg-red-50 tw:hover:text-red-600'
           : 'tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main'
       "
-      @click="!a.to && run(a)"
+      @click="!asLink(a) && run(a)"
     >
       <component :is="a.icon" v-if="a.icon" :size="16" />
       <span v-else class="tw:text-xs tw:font-medium">{{ a.label }}</span>
@@ -86,12 +94,12 @@ function run(a) {
       <template #content="{ close }">
         <div class="tw:w-48 tw:p-1" role="menu">
           <component
-            :is="a.to ? 'RouterLink' : 'button'"
+            :is="asLink(a) ? 'RouterLink' : 'button'"
             v-for="a in overflowActions"
             :key="a.key"
-            :to="a.to ? resolveTo(a) : undefined"
-            :type="a.to ? undefined : 'button'"
-            :disabled="!a.to && pred(a.disabled, false)"
+            :to="asLink(a) ? resolveTo(a) : undefined"
+            :type="asLink(a) ? undefined : 'button'"
+            :disabled="!asLink(a) && isDisabled(a)"
             role="menuitem"
             class="tw:flex tw:w-full tw:items-center tw:gap-2.5 tw:rounded-md tw:px-3 tw:py-2 tw:text-left tw:text-sm tw:transition-colors disabled:tw:cursor-not-allowed disabled:tw:opacity-40"
             :class="
@@ -101,7 +109,7 @@ function run(a) {
             "
             @click="
               () => {
-                if (!a.to) run(a)
+                if (!asLink(a)) run(a)
                 close()
               }
             "

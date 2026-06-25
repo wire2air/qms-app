@@ -24,13 +24,17 @@ function mountManager() {
 }
 
 describe('TableColumnManager', () => {
-  it('lists only hideable, labelled columns', () => {
+  it('lists every labelled column (for reorder) but locks visibility on non-hideable ones', () => {
     const { w } = mountManager()
     const items = w.findAll('[role="menuitemcheckbox"]')
     const labels = items.map((i) => i.text())
     expect(labels.some((l) => l.includes('Name'))).toBe(true)
     expect(labels.some((l) => l.includes('Role'))).toBe(true)
-    expect(labels.some((l) => l.includes('Locked'))).toBe(false) // hideable:false
+    // Non-hideable columns now appear too (so they can be reordered)…
+    const locked = items.find((i) => i.text().includes('Locked'))
+    expect(locked).toBeTruthy()
+    // …but their visibility toggle is disabled.
+    expect(locked.attributes('disabled')).toBeDefined()
   })
 
   it('toggles a column off and back on', async () => {
@@ -42,6 +46,22 @@ describe('TableColumnManager', () => {
     expect(roleItem.attributes('aria-checked')).toBe('false')
     await roleItem.trigger('click')
     expect(host.vm.table.getColumn('role').getIsVisible()).toBe(true)
+  })
+
+  it('reorders a column up/down via the engine columnOrder', async () => {
+    const { host, w } = mountManager()
+    const order = () => host.vm.table.getAllLeafColumns().map((c) => c.id)
+    expect(order()).toEqual(['name', 'role', 'locked'])
+
+    // One up-button per column, in row order [name, role, locked]; move "role" up.
+    const upButtons = w.findAll('[aria-label="Move column up"]')
+    await upButtons[1].trigger('click')
+    expect(order()).toEqual(['role', 'name', 'locked'])
+
+    // Move it back down.
+    const downButtons = w.findAll('[aria-label="Move column down"]')
+    await downButtons[0].trigger('click') // "role" is now first
+    expect(order()).toEqual(['name', 'role', 'locked'])
   })
 
   it('pins and unpins a column to the left', async () => {
@@ -57,12 +77,16 @@ describe('TableColumnManager', () => {
   })
 
   it('refuses to hide the last visible column', async () => {
-    const { host, w } = mountManager()
+    // All-hideable columns so the guard is actually reachable.
+    const cols2 = [
+      { name: 'a', label: 'Alpha', field: 'a' },
+      { name: 'b', label: 'Bravo', field: 'b' },
+    ]
+    const host = mount(DataTable, { props: { columns: cols2, rows: [{ id: 1, a: 'x', b: 'y' }] } })
+    const w = mount(TableColumnManager, { props: { table: host.vm.table }, global: { stubs } })
     const items = w.findAll('[role="menuitemcheckbox"]')
-    const name = items.find((i) => i.text().includes('Name'))
-    const role = items.find((i) => i.text().includes('Role'))
-    await role.trigger('click') // hide Role → only Name left
-    await name.trigger('click') // attempt to hide Name → blocked
-    expect(host.vm.table.getColumn('name').getIsVisible()).toBe(true)
+    await items.find((i) => i.text().includes('Bravo')).trigger('click') // hide b → only a
+    await items.find((i) => i.text().includes('Alpha')).trigger('click') // blocked
+    expect(host.vm.table.getColumn('a').getIsVisible()).toBe(true)
   })
 })

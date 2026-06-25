@@ -11,10 +11,6 @@ const pageInfo = ref({
 })
 providePageInfo(pageInfo)
 
-// Wire <DataTable persistKey> view-state persistence to the synced User.settings
-// bag (IndexedDB + cross-device). No-op until a user session is hydrated.
-provideDataTablePersist()
-
 // B7 — route-metadata: keep document.title in sync with the route (registry in
 // src/router/routeMeta.js). Unmatched routes fall back to the bare app name.
 useRouteMeta()
@@ -25,6 +21,11 @@ useNavigationCommands()
 const route = useRoute()
 const openRoutes = ['/form']
 const loading = ref(true)
+
+// Wire <DataTable persistKey> view-state persistence to the synced User.settings
+// bag (IndexedDB + cross-device). Gated on `!loading` so the User query waits
+// until the syncEngine's IndexedDB is installed (querying earlier throws).
+provideDataTablePersist(() => !loading.value)
 const showFormBuilder = computed(() => {
   return route.name === '/templates/[[id]]' && route.query.mode === 'schema'
 })

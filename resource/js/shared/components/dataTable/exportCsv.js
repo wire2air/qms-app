@@ -9,7 +9,11 @@
 import { getCellValue } from './useDataTable.js'
 
 function csvCell(value) {
-  const s = value == null ? '' : String(value)
+  let s = value == null ? '' : String(value)
+  // Neutralize CSV formula injection: a leading =, +, -, @ (or control char) is
+  // executed as a formula by Excel/Sheets. Prefix with a single quote so the
+  // value renders as text. (https://owasp.org/www-community/attacks/CSV_Injection)
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
   // Quote when the cell contains a delimiter, quote, or newline (RFC 4180).
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }

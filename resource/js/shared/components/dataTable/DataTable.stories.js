@@ -214,6 +214,7 @@ export const Virtualized = {
  * Narrow the canvas under 768px (or use the viewport toolbar) to see it.
  */
 export const MobileCards = {
+  args: { mobileCards: true },
   render: (args) => ({
     components: { DataTable },
     setup() {

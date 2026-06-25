@@ -3,7 +3,7 @@
  * One filter condition as an editable chip: "<field> <operator> <value>".
  * Clicking opens a popover to change the operator and value; the × removes it.
  */
-import { IconX } from '@tabler/icons-vue'
+import { IconX, IconCheck } from '@tabler/icons-vue'
 import { operatorsFor, operatorMeta, operatorNeedsValue } from './filterModel.js'
 
 const props = defineProps({
@@ -26,15 +26,48 @@ const options = computed(() =>
 )
 
 function setOperator(op) {
+  const meta = operatorMeta(filterType.value, op)
   const needs = operatorNeedsValue(filterType.value, op)
-  emit('update', { ...props.condition, operator: op, value: needs ? props.condition.value : null })
+  let value = needs ? props.condition.value : null
+  // Coerce the value to match the new operator's input kind so the value control
+  // (and valueLabel) never sees the wrong shape — e.g. 'is' (scalar) → 'is any of'
+  // (array) must not leave a bare string under a multiselect input.
+  if (needs && meta?.input === 'multiselect') {
+    value = Array.isArray(value) ? value : value == null || value === '' ? [] : [value]
+  } else if (needs && Array.isArray(value)) {
+    value = value[0] ?? null
+  }
+  emit('update', { ...props.condition, operator: op, value })
 }
 function setValue(v) {
   emit('update', { ...props.condition, value: v })
 }
-function toggleMulti(val) {
-  const cur = Array.isArray(props.condition.value) ? props.condition.value : []
-  setValue(cur.includes(val) ? cur.filter((x) => x !== val) : [...cur, val])
+function onTextInput(e) {
+  const raw = e.target.value
+  // Clearing a number input must deactivate the filter (null), not become 0.
+  setValue(inputKind.value === 'number' ? (raw === '' ? null : Number(raw)) : raw)
+}
+
+// Inline searchable option list (rendered directly in the chip popover — a
+// nested popover here mispositions, so we avoid one).
+const optionSearch = ref('')
+const filteredOptions = computed(() => {
+  const q = optionSearch.value.trim().toLowerCase()
+  return q ? options.value.filter((o) => String(o.label).toLowerCase().includes(q)) : options.value
+})
+function isSelected(val) {
+  if (inputKind.value === 'multiselect') {
+    return Array.isArray(props.condition.value) && props.condition.value.includes(val)
+  }
+  return props.condition.value === val
+}
+function pickOption(val) {
+  if (inputKind.value === 'multiselect') {
+    const cur = Array.isArray(props.condition.value) ? props.condition.value : []
+    setValue(cur.includes(val) ? cur.filter((x) => x !== val) : [...cur, val])
+  } else {
+    setValue(props.condition.value === val ? null : val)
+  }
 }
 
 const valueLabel = computed(() => {
@@ -44,9 +77,8 @@ const valueLabel = computed(() => {
   if (inputKind.value === 'boolean') return v ? 'true' : 'false'
   if (inputKind.value === 'select') return options.value.find((o) => o.value === v)?.label ?? String(v)
   if (inputKind.value === 'multiselect') {
-    return v
-      .map((x) => options.value.find((o) => o.value === x)?.label ?? x)
-      .join(', ')
+    const list = Array.isArray(v) ? v : [v]
+    return list.map((x) => options.value.find((o) => o.value === x)?.label ?? x).join(', ')
   }
   return String(v)
 })
@@ -88,7 +120,7 @@ const valueLabel = computed(() => {
               aria-label="Value"
               placeholder="Value"
               class="tw:h-8 tw:rounded-md tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:text-sm tw:text-on-main focus-visible:tw:outline-none focus-visible:tw:ring-2 focus-visible:tw:ring-primary/30"
-              @input="setValue(inputKind === 'number' ? Number($event.target.value) : $event.target.value)"
+              @input="onTextInput"
             />
           </template>
 
@@ -103,31 +135,41 @@ const valueLabel = computed(() => {
             <option value="false">false</option>
           </select>
 
-          <select
-            v-else-if="inputKind === 'select'"
-            :value="condition.value ?? ''"
-            aria-label="Value"
-            class="tw:h-8 tw:rounded-md tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:text-sm tw:text-on-main"
-            @change="setValue($event.target.value)"
+          <!-- Searchable option list (single + multi), inline to avoid a nested popover. -->
+          <div
+            v-else-if="inputKind === 'select' || inputKind === 'multiselect'"
+            class="tw:flex tw:flex-col tw:gap-1.5"
           >
-            <option value="" disabled>Select…</option>
-            <option v-for="o in options" :key="o.value" :value="o.value">{{ o.label }}</option>
-          </select>
-
-          <div v-else-if="inputKind === 'multiselect'" class="tw:flex tw:max-h-40 tw:flex-col tw:gap-1 tw:overflow-auto">
-            <label
-              v-for="o in options"
-              :key="o.value"
-              class="tw:flex tw:items-center tw:gap-2 tw:rounded tw:px-1 tw:py-1 tw:text-sm tw:text-on-main tw:hover:bg-main-hover"
-            >
-              <input
-                type="checkbox"
-                class="tw:size-3.5 tw:accent-primary"
-                :checked="Array.isArray(condition.value) && condition.value.includes(o.value)"
-                @change="toggleMulti(o.value)"
-              />
-              {{ o.label }}
-            </label>
+            <input
+              v-model="optionSearch"
+              type="text"
+              placeholder="Search…"
+              aria-label="Search values"
+              class="tw:h-8 tw:rounded-md tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:text-sm tw:text-on-main focus-visible:tw:outline-none focus-visible:tw:ring-2 focus-visible:tw:ring-primary/30"
+            />
+            <div class="tw:flex tw:max-h-44 tw:flex-col tw:gap-0.5 tw:overflow-auto">
+              <button
+                v-for="o in filteredOptions"
+                :key="o.value"
+                type="button"
+                class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:rounded-md tw:px-2 tw:py-1.5 tw:text-left tw:text-sm tw:transition-colors tw:hover:bg-main-hover"
+                :class="isSelected(o.value) ? 'tw:text-primary' : 'tw:text-on-main'"
+                @click="pickOption(o.value)"
+              >
+                <span class="tw:truncate">{{ o.label }}</span>
+                <IconCheck
+                  v-if="isSelected(o.value)"
+                  :size="14"
+                  class="tw:shrink-0 tw:text-primary"
+                />
+              </button>
+              <p
+                v-if="!filteredOptions.length"
+                class="tw:px-2 tw:py-1.5 tw:text-sm tw:text-secondary"
+              >
+                No matches
+              </p>
+            </div>
           </div>
         </div>
       </template>

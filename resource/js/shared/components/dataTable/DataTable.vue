@@ -62,9 +62,10 @@ const props = defineProps({
   // Row windowing for large datasets. true, or { estimateRowHeight }. Implies an
   // internal scroll region (defaults maxHeight to 60vh) and disables pagination.
   virtualize: { type: [Boolean, Object], default: false },
-  // Below this breakpoint the table renders as a stacked card list (not a shrunk
-  // grid). Set `mobileCards: false` to keep the horizontal-scroll table instead.
-  mobileCards: { type: Boolean, default: true },
+  // Opt-in: below `mobileBreakpoint` render a stacked card list instead of a
+  // horizontal-scroll table. Off by default (cards read best when columns declare
+  // a `mobile` priority); set `mobileCards` (true) per table to enable.
+  mobileCards: { type: Boolean, default: false },
   mobileBreakpoint: { type: String, default: 'md', validator: (v) => ['sm', 'md', 'lg'].includes(v) },
   // Per-row actions (array or row→array). When set, a right-aligned actions column
   // is appended automatically and rendered via TableRowActions (and in mobile cards).
@@ -163,6 +164,11 @@ function sameSet(a, b) {
   const s = new Set(a.map(String))
   return b.every((x) => s.has(String(x)))
 }
+// Raw (original-typed) row key, so we can write selected ids back to the parent in
+// their original type instead of the stringified ids the engine uses internally.
+function rawRowKey(row) {
+  return typeof props.rowKey === 'function' ? props.rowKey(row) : row[props.rowKey]
+}
 
 watch(
   selected,
@@ -178,7 +184,11 @@ watch(
   () => table.getState().rowSelection,
   (sel) => {
     const keys = selectionKeys(sel)
-    if (!sameSet(keys, selected.value || [])) selected.value = keys
+    if (sameSet(keys, selected.value || [])) return
+    // Map the engine's stringified keys back to original-typed values via the
+    // loaded rows, so a consumer binding numeric ids gets numbers back.
+    const byStr = new Map(props.rows.map((r) => [String(rawRowKey(r)), rawRowKey(r)]))
+    selected.value = keys.map((k) => (byStr.has(k) ? byStr.get(k) : k))
   },
   { deep: true },
 )
@@ -464,7 +474,9 @@ function handleExport() {
 // isolated tests) simply means no persistence.
 const viewPersist = inject('qms:dataTableViewPersist', null)
 if (props.persistKey && viewPersist) {
-  const isReady = () => viewPersist.ready?.value ?? true
+  function persistReady() {
+    return viewPersist.ready?.value ?? true
+  }
 
   function snapshotState() {
     const s = table.getState()
@@ -473,6 +485,7 @@ if (props.persistKey && viewPersist) {
       sort: sort.value,
       filters: filters.value,
       columnVisibility: s.columnVisibility,
+      columnOrder: s.columnOrder,
       columnPinning: s.columnPinning,
     }
   }
@@ -488,15 +501,16 @@ if (props.persistKey && viewPersist) {
       if (Array.isArray(saved.sort)) sort.value = saved.sort
       if (saved.filters !== undefined) filters.value = saved.filters
       if (saved.columnVisibility) table.setColumnVisibility(saved.columnVisibility)
+      if (Array.isArray(saved.columnOrder)) table.setColumnOrder(saved.columnOrder)
       if (saved.columnPinning) table.setColumnPinning(saved.columnPinning)
     }
     baseline = JSON.stringify(snapshotState())
   }
   // The user row loads async from IDB — apply once the adapter reports ready.
-  watch(isReady, (ready) => ready && applyPersisted(), { immediate: true })
+  watch(persistReady, (ready) => ready && applyPersisted(), { immediate: true })
 
   const persistState = useDebounceFn(async () => {
-    if (!isReady() || !applied) return
+    if (!persistReady() || !applied) return
     const next = JSON.stringify(snapshotState())
     if (next === baseline) return // unchanged since last load/save
     baseline = next
@@ -508,6 +522,7 @@ if (props.persistKey && viewPersist) {
       sort,
       filters,
       () => table.getState().columnVisibility,
+      () => table.getState().columnOrder,
       () => table.getState().columnPinning,
     ],
     () => applied && persistState(),

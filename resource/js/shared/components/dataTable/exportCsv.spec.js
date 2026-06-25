@@ -36,6 +36,14 @@ describe('exportCsv', () => {
     expect(rowsToCsv([{ statusId: 'OPEN' }], cols)).toBe('Status\r\n#OPEN')
   })
 
+  it('neutralizes CSV formula-injection prefixes (=, +, -, @)', () => {
+    const cols = [{ name: 'subject', label: 'Subject', field: 'subject' }]
+    expect(rowsToCsv([{ subject: '=HYPERLINK(1)' }], cols)).toBe("Subject\r\n'=HYPERLINK(1)")
+    expect(rowsToCsv([{ subject: '+1' }], cols)).toBe("Subject\r\n'+1")
+    expect(rowsToCsv([{ subject: '@x' }], cols)).toBe("Subject\r\n'@x")
+    expect(rowsToCsv([{ subject: 'safe' }], cols)).toBe('Subject\r\nsafe') // untouched
+  })
+
   it('exports luxon DateTime as an ISO date', () => {
     const dt = { toISODate: () => '2026-06-25' }
     expect(exportValue({ when: dt }, { name: 'when', field: 'when' })).toBe('2026-06-25')
