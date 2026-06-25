@@ -19,7 +19,7 @@
  *   <BasePage width="wide" fullHeight>
  *     <PageHeader :icon="IconUsers" title="Users" />
  *     <BaseFilterBar v-model:search="filters.search">…</BaseFilterBar>
- *     <BaseTable … class="tw:flex-1 tw:min-h-0" />
+ *     <DataTable … class="tw:flex-1 tw:min-h-0" />
  *   </BasePage>
  *
  * Width tiers (centered with mx-auto):

@@ -18,7 +18,7 @@ function flag(v) {
  * Headless core for the list/index page (Enterprise Page Framework A3 / L1).
  * Composes filter state (useTableFilters), pagination math (usePagination),
  * selection, resolved content state, and optional URL query-sync into one API
- * a list page can bind straight onto <BaseFilterBar> + <BaseTable>.
+ * a list page can bind straight onto <BaseFilterBar> + <DataTable>.
  *
  * @param {Object} o
  * @param {Record<string, any>} [o.filters]  initial/default filter values (also defines the key set + types)
@@ -71,7 +71,7 @@ export function useListLayout(o = {}) {
   // DataTable v-model shapes — `tablePagination` ({ page, pageSize }) + `sort`
   // ([{ id, desc }]) — backed by the same page/rowsPerPage/sortBy/descending refs
   // (so URL-sync still works). Use these when binding to <DataTable>; the legacy
-  // `pagination` above stays for any remaining <BaseTable> consumers.
+  // `pagination` object above is retained for any non-DataTable paginated consumer.
   const tablePagination = computed({
     get: () => ({ page: page.value, pageSize: rowsPerPage.value }),
     set: (v) => {

@@ -34,8 +34,8 @@ Remaining follow-ups (not migration blockers):
 ## 0. Strategy & ground rules
 
 - **One table per PR.** Each is independently shippable and eyeball-verifiable.
-- **The adapter stays** until the last consumer is migrated. Don't delete
-  `BaseTable.vue` mid-rollout.
+- ~~**The adapter stays** until the last consumer is migrated.~~ **Done — `BaseTable.vue`
+  has been deleted (2026-06-25); all lists are on `<DataTable>`.**
 - **Search now lives IN the table (scoped), not the page.** Earlier the page toolbar owned
   the search box. That has been **consolidated**: the shared DataTable has a built-in
   **scoped search** (`searchable` — a search box + a "Search in" column-scope dropdown that
@@ -209,9 +209,11 @@ Advanced-filter rollout (follow-up pass) landed across the migrated tables in tw
 ## 5. Final cleanup (after the last table)
 
 - [x] Confirm zero `<BaseTable>` consumers remain (`grep -r "<BaseTable" src/`) — **confirmed 2026-06-25, none remain.**
-- [ ] Either **delete** `BaseTable.vue` (+ its spec/story) or leave it as a thin
-      documented shim. Update CLAUDE.md/migration cheatsheet to point new tables at
-      `<DataTable>`.
+- [x] **Deleted `BaseTable.vue` + `BaseTable.spec.js` + `BaseTable.stories.js`** (2026-06-25).
+      `BaseListLayout.stories.js` was repointed to `<DataTable>`; CLAUDE.md rule #13 + the
+      Quasar cheatsheet (`QTable → DataTable`) + page-layout note now point at `DataTable`;
+      stale `<BaseTable>` doc-comments in `useListLayout.js`/`BasePage.vue` updated. Build +
+      tests green after removal.
 - [ ] Remove now-dead legacy bits (`usePagination`/`useTableFilters`/`BaseFilterBar`)
       only if no non-table consumers remain.
 - [ ] Add a `lint:tables` check (mirror `lint:layout`) that flags new raw `<table>` and
