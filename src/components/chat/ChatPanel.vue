@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-vue'
 import { useChatPanel } from '@/composables/useChatPanel'
 import { useChatStream } from '@/composables/useChatStream'
+import { buildRecordIndex } from '@/utils/recordRef.js'
 
 /**
  * AI chat slide-out (see AI_PLAN.md §6).
@@ -37,6 +38,11 @@ useHotkeys({
 // internally (loads history when set), so we keep it synced with the panel's
 // activeThreadId rather than recreating the composable.
 const chat = useChatStream({ threadId: panel.activeThreadId.value })
+
+// Record-number → detail-link index, built from the tool-call results in the
+// stream. ChatMessage uses it to linkify record identifiers (EV-…, NC-…, …) in
+// the assistant markdown so users can click through to the record.
+const recordIndex = computed(() => buildRecordIndex(chat.items.value))
 
 // Panel → chat
 watch(panel.activeThreadId, (id) => {
@@ -242,7 +248,7 @@ watch(
 
               <template v-for="item in chat.items.value" :key="item.id">
                 <ChatToolCallCard v-if="item.kind === 'tool_call'" :card="item" />
-                <ChatMessage v-else :item="item" />
+                <ChatMessage v-else :item="item" :recordIndex="recordIndex" />
               </template>
 
               <!-- "thinking" indicator while we wait on the first assistant text -->
