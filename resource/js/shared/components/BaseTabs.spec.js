@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import BaseTabs from './BaseTabs.vue'
@@ -126,5 +126,133 @@ describe('BaseTabs', () => {
     expect(tabs[1].text()).toContain('5')
     // the indicator dot is an aria-hidden span
     expect(tabs[1].find('span[aria-hidden="true"]').exists()).toBe(true)
+  })
+})
+
+describe('BaseTabs — overflow navigation', () => {
+  // jsdom reports 0 for layout, so stub the scroller dimensions to simulate
+  // (no) overflow, and stub the scroll methods jsdom doesn't implement.
+  let scrollWidth = 0
+  let clientWidth = 0
+  const descriptors = {}
+
+  beforeEach(() => {
+    for (const prop of ['scrollWidth', 'clientWidth']) {
+      descriptors[prop] = Object.getOwnPropertyDescriptor(HTMLElement.prototype, prop)
+    }
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+      configurable: true,
+      get() {
+        return scrollWidth
+      },
+    })
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get() {
+        return clientWidth
+      },
+    })
+    HTMLElement.prototype.scrollBy = vi.fn()
+    HTMLElement.prototype.scrollIntoView = vi.fn()
+  })
+
+  afterEach(() => {
+    for (const prop of ['scrollWidth', 'clientWidth']) {
+      if (descriptors[prop]) Object.defineProperty(HTMLElement.prototype, prop, descriptors[prop])
+      else delete HTMLElement.prototype[prop]
+    }
+    scrollWidth = 0
+    clientWidth = 0
+    vi.restoreAllMocks()
+  })
+
+  const manyTabs = Array.from({ length: 30 }, (_, i) => ({
+    value: `t${i}`,
+    label: `Tab ${i}`,
+  }))
+
+  function mountOverflow() {
+    return mount(BaseTabs, {
+      props: { tabs: manyTabs, modelValue: 't0', ariaLabel: 'Many' },
+      attachTo: document.body,
+    })
+  }
+
+  it('hides both nav chevrons when content fits (no overflow)', async () => {
+    scrollWidth = 200
+    clientWidth = 400 // content narrower than viewport → no overflow
+    const w = mountOverflow()
+    await nextTick()
+    const chevrons = w.findAll('button[aria-hidden="true"]')
+    expect(chevrons).toHaveLength(2)
+    chevrons.forEach((c) => expect(c.classes()).toContain('tw:opacity-0'))
+  })
+
+  it('shows the next chevron when content overflows', async () => {
+    scrollWidth = 2000
+    clientWidth = 400 // content wider than viewport → overflow
+    const w = mountOverflow()
+    await nextTick()
+    await nextTick()
+    const [prev, next] = w.findAll('button[aria-hidden="true"]')
+    // At the start: nothing to the left, content to the right.
+    expect(prev.classes()).toContain('tw:opacity-0')
+    expect(next.classes()).toContain('tw:opacity-100')
+  })
+
+  it('chevron click scrolls the row smoothly instead of jumping', async () => {
+    scrollWidth = 2000
+    clientWidth = 400
+    const w = mountOverflow()
+    await nextTick()
+    await nextTick()
+    const next = w.findAll('button[aria-hidden="true"]')[1]
+    await next.trigger('click')
+    expect(HTMLElement.prototype.scrollBy).toHaveBeenCalledWith(
+      expect.objectContaining({ behavior: 'smooth' }),
+    )
+    const { left } = HTMLElement.prototype.scrollBy.mock.calls[0][0]
+    expect(left).toBeGreaterThan(0) // scrolls toward the end
+  })
+
+  it('nav chevrons are out of the tab order and hidden from AT', async () => {
+    scrollWidth = 2000
+    clientWidth = 400
+    const w = mountOverflow()
+    await nextTick()
+    const chevrons = w.findAll('button[aria-hidden="true"]')
+    chevrons.forEach((c) => {
+      expect(c.attributes('tabindex')).toBe('-1')
+      expect(c.attributes('aria-hidden')).toBe('true')
+    })
+  })
+
+  it('scrolls the active tab into view on selection', async () => {
+    scrollWidth = 2000
+    clientWidth = 400
+    const w = mountOverflow()
+    await nextTick()
+    HTMLElement.prototype.scrollIntoView.mockClear()
+    await w.findAll('[role="tab"]')[12].trigger('click')
+    await nextTick()
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalled()
+  })
+
+  it('omits fades and buttons when scrollable is false', async () => {
+    scrollWidth = 2000
+    clientWidth = 400
+    const w = mount(BaseTabs, {
+      props: {
+        tabs: manyTabs,
+        modelValue: 't0',
+        ariaLabel: 'Many',
+        navButtons: false,
+        fade: false,
+      },
+      attachTo: document.body,
+    })
+    await nextTick()
+    expect(w.findAll('button[aria-hidden="true"]')).toHaveLength(0)
+    expect(w.find('.base-tabs__fade').exists()).toBe(false)
   })
 })
