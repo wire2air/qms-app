@@ -121,6 +121,7 @@ export default {
     "provide": true,
     "provideAuditLogs": true,
     "provideAuth": true,
+    "provideDataTablePersist": true,
     "provideDepartments": true,
     "provideImpersonate": true,
     "provideLocal": true,

@@ -72,6 +72,31 @@ export const Selectable = {
   }),
 }
 
+/**
+ * Rows become keyboard-operable when a `@row-click` listener is attached: each row
+ * is focusable (Tab), shows a focus ring, and activates on Enter/Space or click
+ * (rule #8 / WCAG 2.1.1, 4.1.2). Tab through the rows and press Enter to try it.
+ */
+export const InteractiveRows = {
+  render: (args) => ({
+    components: { BaseTable },
+    setup() {
+      const lastClicked = ref(null)
+      function onRowClick(row) {
+        lastClicked.value = row.name
+      }
+      return { args, columns, rows, lastClicked, onRowClick }
+    },
+    template: `
+      <div class="tw:flex tw:flex-col tw:gap-3">
+        <p class="tw:text-sm tw:text-secondary">
+          Last activated: <span class="tw:font-semibold tw:text-on-main">{{ lastClicked ?? '—' }}</span>
+        </p>
+        <BaseTable v-bind="args" :columns="columns" :rows="rows" @row-click="onRowClick" />
+      </div>`,
+  }),
+}
+
 export const Loading = {
   args: { loading: true },
   render: (args) => ({

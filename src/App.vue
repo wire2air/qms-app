@@ -4,11 +4,16 @@ import { initCurrentCompany, companies } from '@/utils/currentCompany'
 import { isPublicRoute as isPublicRouteFn, isAuthRoute } from '@/constants/authRoutes'
 import { initSync, deleteAllSyncDatabases } from '@/utils/initSyncEngine.js'
 import { currentSubdomain, gotoTenant } from '@/utils/tenant'
+import { provideDataTablePersist } from '@/composables/useDataTablePersist'
 
 const pageInfo = ref({
   showHeader: true,
 })
 providePageInfo(pageInfo)
+
+// Wire <DataTable persistKey> view-state persistence to the synced User.settings
+// bag (IndexedDB + cross-device). No-op until a user session is hydrated.
+provideDataTablePersist()
 
 // B7 — route-metadata: keep document.title in sync with the route (registry in
 // src/router/routeMeta.js). Unmatched routes fall back to the bare app name.

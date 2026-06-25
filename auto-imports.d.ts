@@ -118,6 +118,7 @@ declare global {
   const provide: typeof import('vue').provide
   const provideAuditLogs: typeof import('./src/composables/useAuditLogs.js').provideAuditLogs
   const provideAuth: typeof import('./src/composables/useAuth.js').provideAuth
+  const provideDataTablePersist: typeof import('./src/composables/useDataTablePersist.js').provideDataTablePersist
   const provideDepartments: typeof import('./src/composables/useDepartments.js').provideDepartments
   const provideImpersonate: typeof import('./src/composables/useImpersonate.js').provideImpersonate
   const provideLocal: typeof import('@vueuse/core').provideLocal
