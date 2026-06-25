@@ -34,6 +34,7 @@ const to = computed(() =>
 )
 const TONE = {
   InspectionLot: 'tw:bg-teal-100 tw:text-teal-700',
+  QualityEvent: 'tw:bg-sky-100 tw:text-sky-700',
   Nonconformance: 'tw:bg-rose-100 tw:text-rose-700',
   Capa: 'tw:bg-amber-100 tw:text-amber-700',
   ChangeRequest: 'tw:bg-indigo-100 tw:text-indigo-700',

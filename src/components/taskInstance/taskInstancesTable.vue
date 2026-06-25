@@ -148,6 +148,21 @@ const changeRequestMap = useLiveQueryWithDeps(
   { models: ['ChangeRequest'], initial: {} },
 )
 
+const qualityEventMap = useLiveQueryWithDeps(
+  [
+    () =>
+      taskInstances.value.filter((i) => i.entityType === 'QualityEvent').map((i) => i.entityId),
+  ],
+  async (db, [eventIds]) => {
+    const ids = [...new Set(eventIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const events = await Promise.all(ids.map((id) => db.QualityEvent.findByPk(id)))
+    return Object.fromEntries(events.filter(Boolean).map((e) => [e.id, e]))
+  },
+
+  { models: ['QualityEvent'], initial: {} },
+)
+
 // Approval tasks for a versioned AuditStandard — entityType
 // 'AuditStandardVersion', entityId is the version row. Title is
 // the parent standard's name; subtitle is the version label
@@ -349,6 +364,11 @@ const filteredInstances = computed(() => {
       if (!cr) return false
       return cr.title?.toLowerCase().includes(q) || cr.crNumber?.toLowerCase().includes(q)
     }
+    if (instance.entityType === 'QualityEvent') {
+      const ev = qualityEventMap.value[instance.entityId]
+      if (!ev) return false
+      return ev.title?.toLowerCase().includes(q) || ev.eventNumber?.toLowerCase().includes(q)
+    }
     if (instance.entityType === 'LogBookVersion') {
       const lb = logBookVersionMap.value[instance.entityId]?.logBook
       return !!lb && (lb.title?.toLowerCase().includes(q) || lb.code?.toLowerCase().includes(q))
@@ -410,6 +430,7 @@ const EntityType = {
   DocumentVersion: 'Document',
   Nonconformance: 'Nonconformance',
   ChangeRequest: 'Change Request',
+  QualityEvent: 'Quality Event',
   TrainingAssignee: 'Training',
   TrainingInstance: 'Training Verification',
   Capa: 'CAPA',
@@ -470,6 +491,8 @@ function titleFor(row) {
       return getCapa(row)?.title || ''
     case 'ChangeRequest':
       return getChangeRequest(row)?.title || ''
+    case 'QualityEvent':
+      return getQualityEvent(row)?.title || ''
     case 'LogBookVersion':
       return logBookVersionMap.value[row.entityId]?.logBook?.title || ''
     case 'AssignmentInstance':
@@ -527,6 +550,10 @@ function getCapa(instance) {
 
 function getChangeRequest(instance) {
   return changeRequestMap.value[instance.entityId] || null
+}
+
+function getQualityEvent(instance) {
+  return qualityEventMap.value[instance.entityId] || null
 }
 
 function isDuePast(dueDate) {
@@ -591,6 +618,9 @@ function entityRoute(row) {
   if (row.entityType === 'ChangeRequest') {
     return getCompanyPath(`change-requests/${row.entityId}`)
   }
+  if (row.entityType === 'QualityEvent') {
+    return getCompanyPath(`qualityEvents/${row.entityId}`)
+  }
   if (row.entityType === 'DocumentVersion') {
     const doc = documentMap.value[row.entityId]?.doc
     return doc ? getCompanyPath(`documents/${doc.id}`) : null
@@ -646,6 +676,8 @@ function rowTitle(row) {
       return getCapa(row)?.title || '—'
     case 'ChangeRequest':
       return getChangeRequest(row)?.title || '—'
+    case 'QualityEvent':
+      return getQualityEvent(row)?.title || '—'
     case 'LogBookVersion':
       return logBookVersionMap.value[row.entityId]?.logBook?.title || 'Log book'
     case 'AssignmentInstance':
@@ -672,6 +704,8 @@ function rowSubtitle(row) {
       return getCapa(row)?.capaNumber || ''
     case 'ChangeRequest':
       return getChangeRequest(row)?.crNumber || ''
+    case 'QualityEvent':
+      return getQualityEvent(row)?.eventNumber || ''
     case 'LogBookVersion':
       return logBookVersionMap.value[row.entityId]?.logBook?.code || ''
     case 'AssignmentInstance':
@@ -817,6 +851,14 @@ defineExpose({ exportCsv })
               </span>
               <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
                 {{ getChangeRequest(row)?.crNumber || '—' }}
+              </span>
+            </template>
+            <template v-else-if="row.entityType === 'QualityEvent'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ getQualityEvent(row)?.title || '—' }}
+              </span>
+              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+                {{ getQualityEvent(row)?.eventNumber || '—' }}
               </span>
             </template>
             <template v-else-if="row.entityType === 'LogBookVersion'">

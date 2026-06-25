@@ -11,6 +11,7 @@ import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const { confirm } = useConfirm()
 
@@ -32,8 +33,6 @@ const list = useListLayout({
   empty: () => events.value.length === 0,
   syncUrl: true,
 })
-
-const showCreate = ref(false)
 
 const OPEN_STATUSES = ['DRAFT', 'OPEN', 'UNDER_REVIEW', 'AWAITING_DECISION', 'ESCALATED']
 
@@ -148,9 +147,10 @@ async function onDeleteRow(row) {
   }
 }
 
-function onCreated(event) {
-  showCreate.value = false
-  if (event?.id) router.push(getCompanyPath(`/qualityEvents/${event.id}`))
+function openCreateDialog() {
+  if (route.query.create !== '1') {
+    router.replace({ query: { ...route.query, create: '1' } })
+  }
 }
 </script>
 
@@ -177,13 +177,20 @@ function onCreated(event) {
 
     <template #actions>
       <BaseButton
+        type="button"
         variant="outline"
         @click="router.push(getCompanyPath('/qualityEvents/dashboard'))"
       >
         <IconLayoutDashboard :size="16" class="tw:mr-1" />
         Dashboard
       </BaseButton>
-      <BaseButton v-if="canCreate" variant="primary" @click="showCreate = true">Log Event</BaseButton>
+      <BaseButton v-if="canCreate" type="button" variant="primary" @click="openCreateDialog">
+        Log Event
+      </BaseButton>
+    </template>
+
+    <template v-if="canCreate" #empty-action>
+      <BaseButton type="button" variant="primary" @click="openCreateDialog">Log Event</BaseButton>
     </template>
 
     <template #stats>
@@ -204,6 +211,5 @@ function onCreated(event) {
       @delete="onDeleteRow"
     />
 
-    <QualityEventCreateDialog v-model="showCreate" @created="onCreated" />
   </BaseListLayout>
 </template>

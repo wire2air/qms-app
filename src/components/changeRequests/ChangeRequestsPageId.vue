@@ -6,7 +6,7 @@ import {
 } from './changeRequestDetailConfig.js'
 import { IconAlertTriangle } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { currentSession, isAllowed } from '@/utils/currentSession.js'
+import { currentSession, isAllowed, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
@@ -336,7 +336,7 @@ const changeRequestDetailConfig = computed(() =>
       <div class="tw:flex tw:items-center tw:gap-2">
         <DetailActionBar :actions="changeRequestActions" />
         <AskAiButton
-          v-if="cr?.id"
+          v-if="canUseAi && cr?.id"
           entityType="ChangeRequest"
           :entityId="cr.id"
           :entityTitle="cr.title"

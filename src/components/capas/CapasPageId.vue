@@ -1,6 +1,6 @@
 <script setup>
 import { buildCapaBanners, buildCapaSections, buildCapaActions } from './capaDetailConfig.js'
-import { currentSession, isAllowed } from '@/utils/currentSession.js'
+import { currentSession, isAllowed, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
@@ -448,7 +448,7 @@ const capaDetailConfig = computed(() =>
       <div class="tw:flex tw:items-center tw:gap-2">
         <DetailActionBar :actions="capaActions" />
         <AskAiButton
-          v-if="capa?.id"
+          v-if="canUseAi && capa?.id"
           entityType="Capa"
           :entityId="capa.id"
           :entityTitle="capa.title"

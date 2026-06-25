@@ -14,7 +14,7 @@ function clearAll() {
 <template>
   <BaseFilterBar :showClear="showClear" @clear="clearAll">
     <template #filters>
-      <SiteSelectMenu v-model="filters.siteId" :required="false" />
+      <SiteSelectMenu v-model="filters.siteId" :required="false" :isFilter="true" />
     </template>
   </BaseFilterBar>
 </template>

@@ -1,6 +1,6 @@
 <script setup>
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { isAllowed, currentSession, canUseAi } from '@/utils/currentSession.js'
 import { useDocuments } from '@/composables/useDocuments.js'
 // Bespoke header controls still need these; the toolbar buttons are now
 // DetailActionBar descriptors (icons live in documentDetailConfig.js).
@@ -512,14 +512,14 @@ const documentDetailConfig = computed(() =>
     <template #actions>
       <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
         <AskAiButton
-              v-if="document?.id"
+              v-if="canUseAi && document?.id"
               entityType="Document"
               :entityId="document.id"
               :entityTitle="document.title"
               :entityNumber="document.docNumber"
             />
             <button
-              v-if="selectedVersion?.id"
+              v-if="canUseAi && selectedVersion?.id"
               class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
               title="AI-generated summary of this version"
               @click="showAiSummary = true"
@@ -528,7 +528,7 @@ const documentDetailConfig = computed(() =>
               Summarize
             </button>
             <button
-              v-if="canShowAiDiff"
+              v-if="canUseAi && canShowAiDiff"
               class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
               :title="`Explain what changed since v${versionLabelFor(aiDiffFromVersion)}`"
               @click="showAiDiff = true"

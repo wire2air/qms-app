@@ -1,5 +1,5 @@
 <script setup>
-defineProps({
+const props = defineProps({
   required: {
     type: Boolean,
     default: false,
@@ -7,6 +7,14 @@ defineProps({
   multiple: {
     type: Boolean,
     default: false,
+  },
+  isFilter: {
+    type: Boolean,
+    default: false,
+  },
+  nullLabel: {
+    type: String,
+    default: null,
   },
 })
 
@@ -23,26 +31,30 @@ const suppliers = useLiveQuery((db) => db.Supplier.where('statusId', 'APPROVED')
 function getArray() {
   return Array.isArray(modelValue.value) ? modelValue.value : []
 }
+
+const resolvedNullLabel = computed(
+  () => props.nullLabel ?? (props.isFilter ? '— All suppliers —' : '— Select supplier —'),
+)
 </script>
 
 <template>
   <BaseSelectMenu
     v-model="modelValue"
     :items="suppliers"
-    :required="required"
-    :multiple="multiple"
-    nullLabel="— All suppliers —"
+    :required="props.required"
+    :multiple="props.multiple"
+    :nullLabel="resolvedNullLabel"
   >
     <template #button="scope">
       <slot name="button" v-bind="scope">
         <!-- MULTIPLE MODE -->
-        <template v-if="multiple">
+        <template v-if="props.multiple">
           <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
             <SupplierBadgeById
               v-for="supplierId in getArray()"
               :key="supplierId"
               :supplierId="supplierId"
-              :clearable="!required || getArray().length > 1"
+              :clearable="!props.required || getArray().length > 1"
               @clear="() => scope.clear(supplierId)"
             />
           </div>
@@ -56,7 +68,7 @@ function getArray() {
           <SupplierBadgeById
             v-if="modelValue"
             :supplierId="modelValue"
-            :clearable="!required"
+            :clearable="!props.required"
             selectable
             @clear="() => scope.clear(modelValue)"
           />

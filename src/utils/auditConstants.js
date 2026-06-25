@@ -54,6 +54,7 @@ export const AUDIT_ACTIONS = {
   LOCK: 'LOCK',
   ROTATE: 'ROTATE',
   CANCEL: 'CANCEL',
+  ACKNOWLEDGED: 'ACKNOWLEDGED',
 }
 
 export const ACTION_COLORS = {
@@ -61,6 +62,7 @@ export const ACTION_COLORS = {
   ACTIVATE: 'tw:bg-green-100 tw:text-green-700',
   RESTORE: 'tw:bg-green-100 tw:text-green-700',
   REQUALIFY: 'tw:bg-green-100 tw:text-green-700',
+  ACKNOWLEDGED: 'tw:bg-green-100 tw:text-green-700',
   APPROVE: 'tw:bg-emerald-100 tw:text-emerald-700',
   COMPLETE: 'tw:bg-emerald-100 tw:text-emerald-700',
   STEP_APPROVED: 'tw:bg-emerald-100 tw:text-emerald-700',
@@ -101,6 +103,7 @@ export const ACTION_ICONS = {
   CANCEL: 'IconBan',
   CLOSE: 'IconLock',
   REOPEN: 'IconLockOpen',
+  ACKNOWLEDGED: 'IconCheck',
 }
 
 export const MODULE_OPTIONS = [
@@ -329,6 +332,13 @@ export const ENTITY_LABEL_RESOLVERS = {
     const e = await db.Nonconformance.findByPk(id, { force: true })
     return e
       ? { label: e.ncNumber || e.title || id, displayType: 'Nonconformance', displayId: id }
+      : null
+  },
+
+  async QualityEvent(id, db) {
+    const e = await db.QualityEvent.findByPk(id, { force: true })
+    return e
+      ? { label: e.eventNumber || e.title || id, displayType: 'QualityEvent', displayId: id }
       : null
   },
 
