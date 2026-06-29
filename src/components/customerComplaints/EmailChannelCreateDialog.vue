@@ -85,7 +85,7 @@ async function onValidSubmit() {
             <p class="tw:text-xs tw:text-secondary">
               A new address on your Qability domain — works immediately, no setup.
             </p>
-            <p class="tw:text-xs tw:font-mono tw:text-secondary tw:mt-1">
+            <p class="tw:text-xs tw:font-mono tw:text-secondary tw:mt-1 tw:break-all">
               support@{{ companyMailDomain }}
             </p>
           </BaseClickableRow>
