@@ -102,7 +102,7 @@ async function onValidSubmit() {
           </p>
         </div>
 
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField
             label="NC title"
             required

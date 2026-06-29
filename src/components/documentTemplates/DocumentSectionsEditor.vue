@@ -81,7 +81,7 @@ function moveSectionDown(index) {
           <!-- Edit mode -->
           <template v-if="!isReadonly(section)">
             <div class="tw:flex-1 tw:flex tw:flex-col tw:gap-2">
-              <div class="tw:grid tw:grid-cols-2 tw:gap-2">
+              <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-2">
                 <BaseTextInput v-model="section.title" placeholder="Section title" size="sm" />
                 <select
                   v-model="section.sectionType"

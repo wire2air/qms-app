@@ -161,7 +161,7 @@ async function onValidSubmit() {
         </BaseField>
 
         <!-- Two short fields pair on one row. -->
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField label="Type" required :value="form.programTypeId" :rules="[required()]">
             <BaseInlineSelect
               v-model="form.programTypeId"
@@ -181,7 +181,7 @@ async function onValidSubmit() {
           </BaseField>
         </div>
 
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField label="Lead Auditor">
             <UserSelectMenu v-model="form.leadAuditorUserId" />
           </BaseField>
@@ -193,7 +193,7 @@ async function onValidSubmit() {
         <!-- Supplier + Auditee. For a supplier audit the auditee is one of the
              SUPPLIER's users (supplier selected first); for internal audits it's
              an internal user. Both get notified + read-only audit access. -->
-        <div v-if="supplierRequired" class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div v-if="supplierRequired" class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField
             label="Supplier"
             required
@@ -221,7 +221,7 @@ async function onValidSubmit() {
         <!-- Internal: Department + Auditee on one line; the auditee list is
              filtered to the chosen department. (Department is omitted for
              supplier audits — it has no meaning there.) -->
-        <div v-else class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div v-else class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField label="Department">
             <DepartmentSelectMenu v-model="form.departmentId" />
           </BaseField>

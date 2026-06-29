@@ -312,7 +312,7 @@ onBeforeUnmount(() => {
           Choose the root cause analysis approach for this investigation.
         </p>
 
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <button
             v-for="m in METHODS"
             :key="m.key"

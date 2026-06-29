@@ -163,7 +163,7 @@ async function handleSave(close) {
         </div>
       </BaseField>
 
-      <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+      <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
         <BaseField label="Category" required>
           <EventCategorySelectMenu v-model="form.categoryId" :required="true" />
         </BaseField>

@@ -321,7 +321,7 @@ async function handleRestore(row) {
             </template>
           </BaseField>
 
-          <div class="tw:grid tw:grid-cols-3 tw:gap-3">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-3 tw:gap-3">
             <BaseField label="Color" :value="form.color">
               <template #default="field">
                 <input

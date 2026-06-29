@@ -347,7 +347,7 @@ const showDeactivated = ref(false)
             </template>
           </BaseField>
 
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
             <div>
               <BaseField label="Colour" :value="form.color">
                 <template #default="field">

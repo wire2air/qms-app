@@ -15,7 +15,10 @@ const isFull = computed(() => props.variant === 'full')
     class="tw:flex tw:flex-col tw:gap-2 tw:bg-card tw:px-1 tw:py-3 tw:transition-shadow tw:duration-150 tw:motion-reduce:transition-none"
     :class="scrolled ? 'tw:border-b tw:border-divider tw:shadow-raised' : ''"
   >
-    <div class="tw:flex tw:items-start tw:justify-between tw:gap-4">
+    <!-- flex-wrap lets the actions drop to their own full-width row on phones
+         (the actions block is max-sm:w-full). On desktop everything fits on one
+         line, so nothing wraps and the layout is unchanged. -->
+    <div class="tw:flex tw:flex-wrap tw:items-start tw:justify-between tw:gap-x-4 tw:gap-y-2">
       <div class="tw:flex tw:items-center tw:gap-3 tw:min-w-0">
         <BaseAvatar v-if="isFull && (avatarName || icon)" :name="avatarName || title" shape="square" size="md" />
         <component :is="icon" v-else-if="icon" :size="22" aria-hidden="true" />
@@ -26,7 +29,9 @@ const isFull = computed(() => props.variant === 'full')
           <slot name="status" />
         </div>
       </div>
-      <div class="tw:shrink-0">
+      <!-- On phones the actions take their own full-width row and stay
+           right-aligned (the menu / overflow button sits on the right). -->
+      <div class="tw:shrink-0 tw:max-sm:flex tw:max-sm:w-full tw:max-sm:justify-end">
         <slot name="actions"><DetailActionBar :actions="actions" /></slot>
       </div>
     </div>

@@ -836,7 +836,7 @@ function printList() {
           </div>
           <div
             v-if="visibleColumns.length"
-            class="tw:mt-2 tw:grid tw:grid-cols-2 tw:gap-x-3 tw:gap-y-1"
+            class="tw:mt-2 tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-x-3 tw:gap-y-1"
           >
             <div
               v-for="col in visibleColumns"

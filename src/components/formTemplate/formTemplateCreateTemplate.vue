@@ -326,7 +326,7 @@ function prevStep() {
                width when the doc-type field is hidden. -->
           <div
             class="tw:grid tw:gap-4"
-            :class="defaultClassification ? 'tw:grid-cols-1' : 'tw:grid-cols-2'"
+            :class="defaultClassification ? 'tw:grid-cols-1' : 'tw:grid-cols-1 tw:sm:grid-cols-2'"
           >
             <BaseField
               v-if="!defaultClassification"
@@ -415,7 +415,7 @@ function prevStep() {
           step.
         </div>
 
-        <div class="tw:grid tw:grid-cols-2 tw:gap-4 tw:overflow-auto tw:max-h-125 tw:p-1">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-4 tw:overflow-auto tw:max-h-125 tw:p-1">
           <!-- Blank Option -->
           <BaseClickableRow
             class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:p-8 tw:border tw:border-divider tw:rounded-xl tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"

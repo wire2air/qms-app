@@ -173,7 +173,7 @@ async function onSubmit() {
           }}
         </div>
 
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField label="Type" required :value="form.findingTypeId" :rules="[required()]">
             <template #default="field">
               <BaseInlineSelect
@@ -210,7 +210,7 @@ async function onSubmit() {
           <DepartmentSelectMenu v-model="form.departmentId" />
         </BaseField>
 
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField v-slot="{ id: fieldId }" label="Severity (1–10)">
             <BaseTextInput :id="fieldId" v-model="form.severityScore" type="number" />
           </BaseField>

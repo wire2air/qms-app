@@ -188,7 +188,7 @@ async function onValidSubmit() {
   <BaseDialog v-model="model" :title="form ? 'Edit Form' : 'New Complaint Form'" maxWidth="lg">
     <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField label="Form name" required :value="draft.name" :rules="[required()]">
             <template #default="field">
               <BaseTextInput
@@ -302,7 +302,7 @@ async function onValidSubmit() {
         <!-- Branding -->
         <div class="tw:flex tw:flex-col tw:gap-2">
           <BaseText variant="overline">Public page branding</BaseText>
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
             <BaseField label="Header title">
               <template #default="field">
                 <BaseTextInput

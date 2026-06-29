@@ -92,7 +92,7 @@ async function onSubmit() {
         <!-- Main Content -->
         <div class="tw:col-span-12 tw:sm:col-span-8 tw:p-4">
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
               <BaseField label="First Name" required :value="form.firstName" :rules="[required()]">
                 <template #default="field">
                   <BaseTextInput v-bind="field" v-model="form.firstName" placeholder="e.g. John" />

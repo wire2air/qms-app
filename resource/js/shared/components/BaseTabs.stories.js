@@ -9,7 +9,8 @@ export default {
   component: BaseTabs,
   tags: ['autodocs'],
   args: {
-    variant: 'underline',
+    // 'segmented' is the default variant (premium enclosed pill control).
+    variant: 'segmented',
   },
 }
 
@@ -28,6 +29,28 @@ export const Default = {
     },
     template: `
       <BaseTabs v-bind="args" v-model="active" :tabs="tabs" ariaLabel="Demo tabs">
+        <BaseTabPanel value="overview" class="tw:pt-4">Overview content</BaseTabPanel>
+        <BaseTabPanel value="activity" class="tw:pt-4">Activity content</BaseTabPanel>
+        <BaseTabPanel value="settings" class="tw:pt-4">Settings content</BaseTabPanel>
+      </BaseTabs>`,
+  }),
+}
+
+export const Underline = {
+  args: { variant: 'underline' },
+  render: (args) => ({
+    components: { BaseTabs, BaseTabPanel },
+    setup() {
+      const active = ref('overview')
+      const tabs = [
+        { value: 'overview', label: 'Overview' },
+        { value: 'activity', label: 'Activity' },
+        { value: 'settings', label: 'Settings' },
+      ]
+      return { args, active, tabs }
+    },
+    template: `
+      <BaseTabs v-bind="args" v-model="active" :tabs="tabs" ariaLabel="Underline tabs">
         <BaseTabPanel value="overview" class="tw:pt-4">Overview content</BaseTabPanel>
         <BaseTabPanel value="activity" class="tw:pt-4">Activity content</BaseTabPanel>
         <BaseTabPanel value="settings" class="tw:pt-4">Settings content</BaseTabPanel>
