@@ -18,6 +18,9 @@ const canCreate = computed(() => isAllowed(['nonconformances:create']))
 const canUpdate = computed(() => isAllowed(['nonconformances:update']))
 const canDelete = computed(() => isAllowed(['nonconformances:delete']))
 
+const { confirm } = useConfirm()
+const toast = useToast()
+
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `ncs`. `activeFilter` (the
 // quick-filter pill) lives in the same filter bag so it shares URL-sync +
@@ -159,6 +162,25 @@ const kpiItems = computed(() => [
 function onRaiseNc() {
   router.push(getCompanyPath('/nonconformances/create'))
 }
+
+// The table emits `delete`; without a listener the row-menu Delete did nothing
+// (no dialog, no removal). Confirm, then soft-delete (the model is paranoid).
+async function onDeleteNc(row) {
+  const label = row.ncNumber ? `${row.ncNumber} — ${row.title}` : row.title
+  const ok = await confirm({
+    title: 'Delete Nonconformance',
+    message: `Delete nonconformance '${label}'? It will be removed from the list.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await row.delete()
+    toast.success('Nonconformance deleted')
+  } catch (e) {
+    toast.error(e?.message || 'Failed to delete nonconformance')
+  }
+}
 </script>
 
 <template>
@@ -219,6 +241,7 @@ function onRaiseNc() {
       :canUpdate="canUpdate"
       :canDelete="canDelete"
       @edit="(row) => router.push(getCompanyPath(`/nonconformances/${row.id}`))"
+      @delete="onDeleteNc"
     />
   </BaseListLayout>
 </template>
