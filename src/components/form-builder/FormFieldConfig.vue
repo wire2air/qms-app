@@ -206,7 +206,7 @@ function updateRowColClass(value) {
 
         <!-- Number/Slider Settings -->
         <template v-if="isNumberType">
-          <div class="tw:grid tw:grid-cols-3 tw:gap-3">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-3 tw:gap-3">
             <BaseTextInput v-model.number="field.min" type="number" label="Min" size="sm" />
             <BaseTextInput v-model.number="field.max" type="number" label="Max" size="sm" />
             <BaseTextInput v-model.number="field.step" type="number" label="Step" size="sm" />
@@ -295,7 +295,7 @@ function updateRowColClass(value) {
 
         <template v-if="field.type === 'repeater'">
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
               <BaseTextInput v-model.number="field.minItems" type="number" label="Min Items" />
               <BaseTextInput v-model.number="field.maxItems" type="number" label="Max Items" />
             </div>

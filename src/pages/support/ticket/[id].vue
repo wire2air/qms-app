@@ -110,7 +110,11 @@ async function submitRating() {
 </script>
 
 <template>
-  <div class="tw:min-h-screen tw:bg-gray-50 tw:py-10 tw:px-4">
+  <!-- h-screen + overflow-y-auto, not min-h-screen: the app shell locks the
+       body (overflow-hidden) and sizes #app to the viewport, so this public
+       page must own its own vertical scroll or the conversation's latest
+       messages + reply box get clipped and become unreachable. -->
+  <div class="tw:h-screen tw:overflow-y-auto tw:bg-gray-50 tw:py-10 tw:px-4">
     <div class="tw:max-w-2xl tw:mx-auto">
       <!-- Loading -->
       <div v-if="loading" class="tw:flex tw:justify-center tw:py-20">

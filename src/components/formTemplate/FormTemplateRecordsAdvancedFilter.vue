@@ -64,7 +64,7 @@ function resetFilters() {
         :key="section.id"
         class="tw:flex tw:items-start tw:gap-2"
       >
-        <div class="tw:grid tw:grid-cols-3 tw:gap-2 tw:flex-1">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-3 tw:gap-2 tw:flex-1">
           <BaseField label="Column">
             <BaseSelectMenu v-model="section.column" :items="columnOptions" required />
           </BaseField>

@@ -612,7 +612,7 @@ const ncDetailConfig = computed(() =>
       <!-- Disposition card -->
       <FormSection title="Disposition">
         <template v-if="isEditable">
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
             <BaseField label="Disposition">
               <NcDispositionTypeSelectMenu v-model="nc.dispositionTypeId" :required="false" />
             </BaseField>
@@ -708,7 +708,7 @@ const ncDetailConfig = computed(() =>
         </template>
 
         <template v-else>
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
             <div class="tw:flex tw:flex-col tw:gap-1">
               <div class="tw:text-xs tw:text-secondary">Disposition</div>
               <NcDispositionTypeBadgeById

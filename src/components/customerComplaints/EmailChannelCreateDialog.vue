@@ -67,7 +67,7 @@ async function onValidSubmit() {
     <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
         <!-- Connection type choice -->
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseClickableRow
             class="tw:rounded-xl tw:border-2 tw:p-4 tw:transition-all"
             :class="
@@ -85,7 +85,7 @@ async function onValidSubmit() {
             <p class="tw:text-xs tw:text-secondary">
               A new address on your Qability domain — works immediately, no setup.
             </p>
-            <p class="tw:text-xs tw:font-mono tw:text-secondary tw:mt-1">
+            <p class="tw:text-xs tw:font-mono tw:text-secondary tw:mt-1 tw:break-all">
               support@{{ companyMailDomain }}
             </p>
           </BaseClickableRow>

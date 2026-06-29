@@ -239,7 +239,7 @@ const trainingInstanceDetailConfig = computed(() =>
 
     <template v-if="instance" #section-details>
       <!-- Summary stats -->
-      <div class="tw:grid tw:grid-cols-4 tw:gap-3">
+      <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-4 tw:gap-3">
         <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Assigned</p>
           <p class="tw:text-2xl tw:font-black tw:text-on-sidebar tw:mt-1">{{ stats.total }}</p>

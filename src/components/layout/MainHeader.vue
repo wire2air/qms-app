@@ -54,13 +54,17 @@ async function resetSync() {
   </div>
 
   <header
-    class="tw:sticky tw:top-0 tw:z-raised tw:border-b tw:border-divider tw:bg-sidebar/80 tw:backdrop-blur-md tw:pe-4 tw:ps-2 tw:py-3"
+    class="tw:sticky tw:top-0 tw:z-raised tw:border-b tw:border-divider tw:bg-sidebar/80 tw:backdrop-blur-md tw:pe-2 tw:sm:pe-4 tw:ps-1 tw:sm:ps-2 tw:py-2 tw:sm:py-3"
   >
-    <div class="tw:flex tw:flex-nowrap tw:items-center tw:gap-4">
+    <!-- On mobile the row wraps so the search drops to its own full-width line
+         below the title + controls (a single GlobalSearch instance, reordered
+         with flex `order`). On lg+ it's one nowrap row with the search centered. -->
+    <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-x-2 tw:gap-y-2 tw:lg:flex-nowrap tw:lg:gap-4">
       <!-- Left zone: sidebar toggle + the page title (teleported by PageHeader) -->
-      <div class="tw:flex tw:min-w-0 tw:shrink tw:items-center tw:gap-2">
+      <div class="tw:flex tw:min-w-0 tw:shrink tw:items-center tw:gap-1 tw:sm:gap-2 tw:lg:order-1">
         <button
-          class="tw:p-2 tw:rounded-full tw:text-primary tw:hover:bg-main-hover tw:transition-colors tw:shrink-0"
+          aria-label="Toggle navigation"
+          class="tw:flex tw:size-10 tw:shrink-0 tw:items-center tw:justify-center tw:rounded-full tw:text-primary tw:hover:bg-main-hover tw:transition-colors"
           @click="toggleSidebar"
         >
           <IconMenu2 :size="20" />
@@ -69,20 +73,23 @@ async function resetSync() {
         <div id="main-header-title" class="tw:min-w-0" />
       </div>
 
-      <!-- Center zone: global search, centered between title and actions -->
-      <div class="tw:flex tw:flex-1 tw:justify-center">
-        <div id="main-header-search" class="tw:w-full tw:max-w-xl">
+      <!-- Search: own full-width row on mobile (order-last); centered & flex-1 on lg. -->
+      <div
+        id="main-header-search"
+        class="tw:order-last tw:w-full tw:lg:order-2 tw:lg:w-auto tw:lg:flex tw:lg:flex-1 tw:lg:justify-center"
+      >
+        <div class="tw:w-full tw:lg:max-w-xl">
           <GlobalSearch />
         </div>
       </div>
 
       <!-- Right zone: page actions (teleported by PageHeader) + global controls -->
-      <div class="tw:flex tw:shrink-0 tw:items-center tw:gap-4">
-        <div id="main-header-actions" class="tw:flex tw:items-center tw:gap-2" />
+      <div class="tw:ms-auto tw:flex tw:shrink-0 tw:items-center tw:gap-1 tw:sm:gap-2 tw:lg:order-3 tw:lg:gap-4">
+        <div id="main-header-actions" class="tw:flex tw:items-center tw:gap-1 tw:sm:gap-2" />
         <ThemeToggle :size="20" />
         <button
           v-if="canUseAi"
-          class="tw:p-2 tw:rounded-full tw:text-primary tw:hover:bg-main-hover tw:transition-colors"
+          class="tw:flex tw:size-10 tw:items-center tw:justify-center tw:rounded-full tw:text-primary tw:hover:bg-main-hover tw:transition-colors"
           title="AI Assistant (⌘J)"
           @click="chatPanel.toggle()"
         >
@@ -91,7 +98,7 @@ async function resetSync() {
         <NotificationsBell />
         <button
           v-if="showHardReset"
-          class="tw:p-2 tw:rounded-full tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
+          class="tw:hidden tw:size-10 tw:sm:flex tw:items-center tw:justify-center tw:rounded-full tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
           :disabled="resetting"
           @click="resetSync"
         >

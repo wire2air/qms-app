@@ -6,77 +6,75 @@ const props = defineProps({
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4">
-    <BaseField v-slot="{ id: fieldId }" label="Title">
-      <BaseTextInput
-        v-if="editable"
-        :id="fieldId"
-        v-model="props.training.title"
-        placeholder="Training title"
-      />
-      <p v-else class="tw:text-sm tw:text-on-sidebar">{{ training.title || '—' }}</p>
+  <div class="tw:flex tw:flex-col tw:gap-5">
+    <BaseField v-if="editable" v-slot="{ id: fieldId }" label="Title">
+      <BaseTextInput :id="fieldId" v-model="props.training.title" placeholder="Training title" />
     </BaseField>
+    <BaseDetailField v-else label="Title" :value="training.title" />
 
-    <BaseField v-slot="{ id: fieldId }" label="Description">
+    <BaseField v-if="editable" v-slot="{ id: fieldId }" label="Description">
       <BaseTextarea
-        v-if="editable"
         :id="fieldId"
         v-model="props.training.description"
         placeholder="Brief description"
         :rows="3"
       />
-      <p v-else class="tw:text-sm tw:text-on-sidebar tw:whitespace-pre-wrap">
-        {{ training.description || '—' }}
-      </p>
     </BaseField>
+    <BaseDetailField v-else label="Description">
+      <BaseText variant="body" class="tw:whitespace-pre-wrap tw:text-on-main">
+        {{ training.description || '—' }}
+      </BaseText>
+    </BaseDetailField>
 
-    <div class="tw:grid tw:grid-cols-3 tw:gap-4">
-      <BaseField v-slot="{ id: fieldId }" label="Completion Due (days)">
-        <BaseTextInput
-          v-if="editable"
-          :id="fieldId"
-          v-model.number="props.training.completionDueDays"
-          type="number"
-          placeholder="e.g. 14"
-          min="1"
+    <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-3 tw:gap-4">
+      <template v-if="editable">
+        <BaseField v-slot="{ id: fieldId }" label="Completion Due (days)">
+          <BaseTextInput
+            :id="fieldId"
+            v-model.number="props.training.completionDueDays"
+            type="number"
+            placeholder="e.g. 14"
+            min="1"
+          />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Passing Score (%)">
+          <BaseTextInput
+            :id="fieldId"
+            v-model.number="props.training.passingScore"
+            type="number"
+            placeholder="70"
+            min="0"
+            max="100"
+          />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Max Attempts">
+          <BaseTextInput
+            :id="fieldId"
+            v-model.number="props.training.maxAttempts"
+            type="number"
+            placeholder="1"
+            min="1"
+            max="10"
+          />
+        </BaseField>
+      </template>
+      <template v-else>
+        <BaseDetailField
+          label="Completion Due (days)"
+          :value="training.completionDueDays ? `${training.completionDueDays} days` : 'No deadline'"
         />
-        <p v-else class="tw:text-sm tw:text-on-sidebar">
-          {{ training.completionDueDays ? `${training.completionDueDays} days` : 'No deadline' }}
-        </p>
-      </BaseField>
-
-      <BaseField v-slot="{ id: fieldId }" label="Passing Score (%)">
-        <BaseTextInput
-          v-if="editable"
-          :id="fieldId"
-          v-model.number="props.training.passingScore"
-          type="number"
-          placeholder="70"
-          min="0"
-          max="100"
-        />
-        <p v-else class="tw:text-sm tw:text-on-sidebar">{{ training.passingScore }}%</p>
-      </BaseField>
-
-      <BaseField v-slot="{ id: fieldId }" label="Max Attempts">
-        <BaseTextInput
-          v-if="editable"
-          :id="fieldId"
-          v-model.number="props.training.maxAttempts"
-          type="number"
-          placeholder="1"
-          min="1"
-          max="10"
-        />
-        <p v-else class="tw:text-sm tw:text-on-sidebar">{{ training.maxAttempts ?? 1 }}</p>
-      </BaseField>
+        <BaseDetailField label="Passing Score (%)" :value="`${training.passingScore}%`" />
+        <BaseDetailField label="Max Attempts" :value="training.maxAttempts ?? 1" />
+      </template>
     </div>
 
-    <BaseField label="Training Manager">
-      <UserSelectMenu v-if="editable" v-model="props.training.managerId" nullLabel="No manager" />
-      <UserBadgeById v-else-if="training.managerId" :userId="training.managerId" />
-      <span v-else class="tw:text-sm tw:text-secondary">—</span>
+    <BaseField v-if="editable" label="Training Manager">
+      <UserSelectMenu v-model="props.training.managerId" nullLabel="No manager" />
     </BaseField>
+    <BaseDetailField v-else label="Training Manager">
+      <UserBadgeById v-if="training.managerId" :userId="training.managerId" />
+      <span v-else class="tw:text-sm tw:text-secondary">—</span>
+    </BaseDetailField>
 
     <div class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:p-3 tw:rounded-lg tw:border tw:border-divider">
       <div>

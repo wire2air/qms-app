@@ -6,10 +6,16 @@ const props = defineProps({
   maxVisible: { type: Number, default: 3 },
 })
 
+// On phones a row of full-width action buttons crowds the title and overflows
+// horizontally — keep only the primary action inline and push the rest into the
+// overflow (⋯) menu. Desktop (>=640px) keeps the full `maxVisible` count.
+const isNarrow = useMediaQuery('(max-width: 639px)')
+const effMaxVisible = computed(() => (isNarrow.value ? 1 : props.maxVisible))
+
 const { actionBuckets } = useDetailLayout({
   loading: false,
   actions: () => props.actions,
-  maxVisibleActions: props.maxVisible,
+  maxVisibleActions: () => effMaxVisible.value,
 })
 
 const overflowItems = computed(() =>

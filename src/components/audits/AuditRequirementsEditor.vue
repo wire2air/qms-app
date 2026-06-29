@@ -685,7 +685,7 @@ async function handleBulkEnrich() {
 
           <!-- Tab: Clause details -->
           <div v-show="editTab === 'clause'" class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
               <BaseField label="Department">
                 <DepartmentSelectMenu v-model="form.departmentId" />
               </BaseField>
@@ -710,7 +710,7 @@ async function handleBulkEnrich() {
               />
             </BaseField>
             <!-- Expected Evidence is now the checklist above (#24). -->
-            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
               <BaseField v-slot="{ id: fieldId }" label="Display Order">
                 <BaseTextInput
                   :id="fieldId"

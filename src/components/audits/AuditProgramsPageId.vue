@@ -327,7 +327,7 @@ const auditProgramDetailConfig = computed(() =>
             {{ program.description || (isEditable ? 'Add a description…' : '—') }}
           </BaseClickableRow>
 
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
             <div class="tw:flex tw:flex-col tw:gap-1">
               <div class="tw:text-xs tw:text-secondary">Type</div>
               <BaseInlineSelect
@@ -382,7 +382,7 @@ const auditProgramDetailConfig = computed(() =>
 
         <!-- Schedule card -->
         <FormSection title="Schedule" :icon="IconCalendarTime">
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
             <div class="tw:flex tw:flex-col tw:gap-1">
               <div class="tw:text-xs tw:text-secondary">Frequency</div>
               <BaseInlineSelect
