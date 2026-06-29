@@ -38,6 +38,11 @@ const props = defineProps({
   // --- chrome ---
   label: { type: String, default: '' },
   placeholder: { type: String, default: 'Select…' },
+  // Optional in-list "All" option for non-required (filter) selects. When set and
+  // !required, a synthetic row is prepended to the list; picking it clears the
+  // selection (null / []), and the trigger shows this label instead of the
+  // placeholder. Mirrors BaseSelectMenu's nullLabel so filter wrappers migrate 1:1.
+  nullLabel: { type: String, default: null },
   instructions: { type: String, default: '' },
   errorMsg: { type: String, default: '' },
   hint: { type: String, default: '' },
@@ -115,8 +120,20 @@ const visibleOptions = computed(() => {
 })
 
 // --- flat display rows (headers + options) ---------------------------------
+// --- nullable "All" option (filters) ---------------------------------------
+// Strip the dated em-dash convention ("— All statuses —" → "All statuses").
+const displayNullLabel = computed(() =>
+  (props.nullLabel || '').replace(/^—\s*/, '').replace(/\s*—$/, '').trim(),
+)
+const showNull = computed(() => !!props.nullLabel && !props.required)
+
 const displayRows = computed(() => {
   const rows = []
+  // The "All" row sits at the top of an unfiltered list (hidden while searching,
+  // since it isn't a search match). Focusable so keyboard nav can reach it.
+  if (showNull.value && !query.value) {
+    rows.push({ kind: 'null', key: '__null__', label: displayNullLabel.value, focusable: true })
+  }
   const opts = visibleOptions.value
   if (isGrouped.value) {
     const groups = new Map()
@@ -182,7 +199,7 @@ const activeDescendant = computed(() => {
 const { onKeydown } = useSelectKeyboard({
   rows: displayRows,
   activeIndex,
-  onSelect: (row) => selectOption(row.option),
+  onSelect: (row) => (row.kind === 'null' ? selectNull() : selectOption(row.option)),
   onClose: () => closePopover(),
   onBackspace: () => {
     if (props.multiple && Array.isArray(model.value) && model.value.length) {
@@ -252,6 +269,14 @@ function clearSelection() {
   model.value = props.multiple ? [] : null
   emit('clear')
   validate()
+}
+
+const nullSelected = computed(() => !hasValue.value)
+
+// Picking "All" is a clear-to-empty; closes on single-select like any choice.
+function selectNull() {
+  clearSelection()
+  if (!props.multiple) closePopover()
 }
 
 // Required selects auto-fill the first option once the list is known — matches
@@ -419,7 +444,14 @@ defineExpose({ validate, resetValidation, focus: () => {} })
         <slot name="prepend" />
 
         <div class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-1">
-          <slot v-if="hasValue" name="selected" :value="model" :options="selectedOptions">
+          <slot
+            v-if="hasValue"
+            name="selected"
+            :value="model"
+            :options="selectedOptions"
+            :remove="removeValue"
+            :clear="clearSelection"
+          >
             <!-- Chips (multiple + useChips) -->
             <div v-if="multiple && useChips" class="tw:flex tw:flex-wrap tw:gap-1">
               <BaseBadge
@@ -435,7 +467,7 @@ defineExpose({ validate, resetValidation, focus: () => {} })
               {{ multiple ? summaryLabel : singleLabel }}
             </span>
           </slot>
-          <span v-else class="tw:truncate tw:text-placeholder">{{ placeholder }}</span>
+          <span v-else class="tw:truncate tw:text-placeholder">{{ showNull ? displayNullLabel : placeholder }}</span>
         </div>
 
         <BaseSpinner v-if="loading" class="tw:size-4 tw:shrink-0" />
@@ -543,6 +575,23 @@ defineExpose({ validate, resetValidation, focus: () => {} })
               {{ row.label }}
             </div>
             <button
+              v-else-if="row.kind === 'null'"
+              :id="rowDomId(index)"
+              type="button"
+              role="option"
+              :aria-selected="nullSelected"
+              class="tw:flex tw:min-h-11 tw:sm:min-h-9 tw:w-full tw:items-center tw:justify-between tw:gap-2 tw:rounded-lg tw:px-3 tw:py-2 tw:text-start tw:text-sm tw:transition-colors"
+              :class="[
+                nullSelected ? 'tw:bg-primary/10 tw:text-primary' : 'tw:text-on-main tw:hover:bg-primary/5',
+                activeIndex === index && 'tw:ring-2 tw:ring-inset tw:ring-primary/40',
+              ]"
+              @click="selectNull"
+              @mousemove="activeIndex = index"
+            >
+              <span class="tw:font-medium">{{ row.label }}</span>
+              <IconCheck v-if="nullSelected" :size="16" class="tw:shrink-0" />
+            </button>
+            <button
               v-else
               :id="rowDomId(index)"
               type="button"
@@ -607,6 +656,23 @@ defineExpose({ validate, resetValidation, focus: () => {} })
           >
             {{ row.label }}
           </div>
+          <button
+            v-else-if="row.kind === 'null'"
+            :id="rowDomId(index)"
+            type="button"
+            role="option"
+            :aria-selected="nullSelected"
+            class="tw:flex tw:min-h-11 tw:sm:min-h-9 tw:w-full tw:items-center tw:justify-between tw:gap-2 tw:rounded-lg tw:px-3 tw:py-2 tw:text-start tw:text-sm tw:transition-colors"
+            :class="[
+              nullSelected ? 'tw:bg-primary/10 tw:text-primary' : 'tw:text-on-main tw:hover:bg-primary/5',
+              activeIndex === index && 'tw:ring-2 tw:ring-inset tw:ring-primary/40',
+            ]"
+            @click="selectNull"
+            @mousemove="activeIndex = index"
+          >
+            <span class="tw:font-medium">{{ row.label }}</span>
+            <IconCheck v-if="nullSelected" :size="16" class="tw:shrink-0" />
+          </button>
           <button
             v-else
             :id="rowDomId(index)"

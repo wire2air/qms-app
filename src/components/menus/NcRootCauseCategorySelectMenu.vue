@@ -11,47 +11,30 @@ const categories = useLiveQuery(
 
   { models: ['NcRootCauseCategory'], initial: [] },
 )
-
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
 </script>
 
 <template>
-  <BaseSelectMenu
+  <BaseSelect
     v-model="modelValue"
-    :items="categories"
-    nullLabel="— All categories —"
+    :options="categories"
+    optionLabel="name"
+    optionValue="id"
     :required="required"
     :multiple="multiple"
+    :clearable="!required"
+    nullLabel="— All categories —"
   >
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <BaseBadge
-              v-for="id in getArray()"
-              :key="id"
-              class="tw:bg-gray-100 tw:text-gray-700"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(id)"
-              >{{ id }}</BaseBadge
-            >
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Category</span>
-        </template>
-        <template v-else>
-          <BaseBadge
-            v-if="modelValue"
-            class="tw:bg-gray-100 tw:text-gray-700"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-            >{{ modelValue }}</BaseBadge
-          >
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Category</span>
-        </template>
-      </slot>
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <BaseBadge
+          v-for="o in options"
+          :key="o.value"
+          class="tw:bg-gray-100 tw:text-gray-700"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+          >{{ o.label }}</BaseBadge
+        >
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

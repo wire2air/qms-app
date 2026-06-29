@@ -19,44 +19,29 @@ const statuses = useLiveQuery((db) => db.FormStatus.where().orderBy('displayOrde
   models: ['FormStatus'],
   initial: [],
 })
-
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="statuses" nullLabel="— All statuses —" :required="required" :multiple="multiple">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <!-- MULTIPLE MODE -->
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <FormTemplateStatusBadgeById
-              v-for="statusId in getArray()"
-              :key="statusId"
-              :statusId="statusId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(statusId)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select Statuses
-          </span>
-        </template>
-
-        <!-- SINGLE MODE -->
-        <template v-else>
-          <FormTemplateStatusBadgeById
-            v-if="modelValue"
-            :statusId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Status </span>
-        </template>
-      </slot>
+  <BaseSelect
+    v-model="modelValue"
+    :options="statuses"
+    optionLabel="name"
+    optionValue="id"
+    :required="required"
+    :multiple="multiple"
+    :clearable="!required"
+    nullLabel="— All statuses —"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <FormTemplateStatusBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :statusId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

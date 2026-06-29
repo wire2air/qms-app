@@ -10,45 +10,29 @@ const statuses = useLiveQuery((db) => db.NcStatus.where().orderBy('displayOrder'
   models: ['NcStatus'],
   initial: [],
 })
-
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
 </script>
 
 <template>
-  <BaseSelectMenu
+  <BaseSelect
     v-model="modelValue"
-    :items="statuses"
+    :options="statuses"
+    optionLabel="name"
+    optionValue="id"
     :required="required"
     :multiple="multiple"
+    :clearable="!required"
     nullLabel="— All statuses —"
   >
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <NcStatusBadgeById
-              v-for="id in getArray()"
-              :key="id"
-              :statusId="id"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(id)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Status</span>
-        </template>
-        <template v-else>
-          <NcStatusBadgeById
-            v-if="modelValue"
-            :statusId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Status</span>
-        </template>
-      </slot>
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <NcStatusBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :statusId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

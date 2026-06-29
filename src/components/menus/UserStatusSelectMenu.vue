@@ -18,23 +18,25 @@ const items = computed(() => [
 </script>
 
 <template>
-  <BaseSelectMenu
+  <BaseSelect
     v-model="modelValue"
-    :items="items"
-    nullLabel="— All statuses —"
+    :options="items"
+    optionLabel="name"
+    optionValue="id"
     :required="required"
+    :clearable="!required"
+    nullLabel="— All statuses —"
   >
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
         <UserStatusBadgeById
-          v-if="modelValue"
-          :statusId="modelValue"
-          :clearable="!required"
-          selectable
-          @clear="() => scope.clear(modelValue)"
+          v-for="o in options"
+          :key="o.value"
+          :statusId="o.value"
+          :clearable="false"
+          @clear="() => remove(o)"
         />
-        <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Status </span>
-      </slot>
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

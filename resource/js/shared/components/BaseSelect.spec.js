@@ -130,4 +130,67 @@ describe('BaseSelect', () => {
     // local list untouched despite no match
     expect(options()).toHaveLength(3)
   })
+
+  describe('nullLabel "All" option', () => {
+    it('prepends a synthetic null option when set and not required', async () => {
+      await open({ nullLabel: '— All fruit —' })
+      expect(options()).toHaveLength(4)
+      expect(options()[0].textContent).toContain('All fruit')
+    })
+
+    it('does not render the null option when required', async () => {
+      await open({ nullLabel: '— All fruit —', required: true })
+      expect(options()).toHaveLength(3)
+      expect(options()[0].textContent).toContain('Apple')
+    })
+
+    it('clears the selection to null when the null option is picked', async () => {
+      await open({ nullLabel: '— All fruit —', modelValue: 'b' })
+      options()[0].click()
+      await nextTick()
+      expect(wrapper.emitted()['update:modelValue'].at(-1)).toEqual([null])
+      expect(wrapper.emitted().clear).toBeTruthy()
+    })
+
+    it('shows the null label in the trigger when nothing is selected', () => {
+      wrapper = mount(BaseSelect, {
+        props: {
+          options: OPTIONS,
+          optionLabel: 'name',
+          optionValue: 'id',
+          nullLabel: '— All fruit —',
+          placeholder: 'Pick one',
+        },
+      })
+      expect(wrapper.text()).toContain('All fruit')
+      expect(wrapper.text()).not.toContain('Pick one')
+    })
+  })
+
+  it('exposes remove() to the #selected slot for per-item clear', async () => {
+    wrapper = mount(BaseSelect, {
+      props: {
+        options: OPTIONS,
+        optionLabel: 'name',
+        optionValue: 'id',
+        multiple: true,
+        modelValue: ['a', 'b'],
+      },
+      slots: {
+        selected: `<template #selected="{ options, remove }">
+          <button
+            v-for="o in options"
+            :key="o.value"
+            :data-remove="o.value"
+            @click.stop="remove(o)"
+          >{{ o.label }}</button>
+        </template>`,
+      },
+      attachTo: document.body,
+    })
+    await nextTick()
+    document.body.querySelector('[data-remove="a"]').click()
+    await nextTick()
+    expect(wrapper.emitted()['update:modelValue'].at(-1)).toEqual([['b']])
+  })
 })

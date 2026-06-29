@@ -38,67 +38,47 @@ const equipment = useLiveQuery(
 
   { models: ['Equipment'], initial: [] },
 )
-
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
 </script>
 
 <template>
-  <BaseSelectMenu
+  <BaseSelect
     v-model="modelValue"
-    :items="equipment"
+    :options="equipment"
+    optionLabel="name"
+    optionValue="id"
     :required="required"
     :multiple="multiple"
+    :clearable="!required"
     :nullLabel="nullLabel"
     :disabled="disabled"
   >
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <EquipmentBadgeById
-              v-for="equipmentId in getArray()"
-              :key="equipmentId"
-              :equipmentId="equipmentId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(equipmentId)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            — All equipment —
-          </span>
-        </template>
-        <template v-else>
-          <EquipmentBadgeById
-            v-if="modelValue"
-            :equipmentId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            — All equipment —
-          </span>
-        </template>
-      </slot>
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <EquipmentBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :equipmentId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
 
-    <template #item="{ item }">
+    <template #option="{ opt }">
       <div class="tw:flex tw:flex-col">
         <span class="tw:flex tw:items-center tw:gap-1.5">
-          <span>{{ item.name }}</span>
+          <span>{{ opt.raw.name }}</span>
           <span
-            v-if="item.statusId === 'OUT_OF_SERVICE'"
+            v-if="opt.raw.statusId === 'OUT_OF_SERVICE'"
             class="tw:text-micro tw:font-bold tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-1 tw:py-0.5"
           >
             Out of service
           </span>
         </span>
-        <span v-if="item.code" class="tw:text-xs tw:text-placeholder tw:font-mono">
-          {{ item.code }}
+        <span v-if="opt.raw.code" class="tw:text-xs tw:text-placeholder tw:font-mono">
+          {{ opt.raw.code }}
         </span>
       </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

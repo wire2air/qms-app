@@ -18,18 +18,25 @@ const statuses = useLiveQuery(async (db) => db.DocumentTemplateStatus.where().ex
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="statuses" nullLabel="— All statuses —" :required="required">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
+  <BaseSelect
+    v-model="modelValue"
+    :options="statuses"
+    optionLabel="name"
+    optionValue="id"
+    :required="required"
+    :clearable="!required"
+    nullLabel="— All statuses —"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
         <DocumentTemplateStatusBadgeById
-          v-if="modelValue"
-          :statusId="modelValue"
-          :clearable="!required"
-          selectable
-          @clear="() => scope.clear(modelValue)"
+          v-for="o in options"
+          :key="o.value"
+          :statusId="o.value"
+          :clearable="false"
+          @clear="() => remove(o)"
         />
-        <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Status </span>
-      </slot>
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>
