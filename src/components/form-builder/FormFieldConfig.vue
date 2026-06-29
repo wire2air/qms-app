@@ -39,6 +39,68 @@ const hasTypeSettings = computed(() => TYPE_SETTINGS_TYPES.has(field.value?.type
 const isNumberType = computed(() => NUMBER_TYPES.has(field.value?.type))
 const hasOptions = computed(() => OPTIONS_TYPES.has(field.value?.type))
 
+// Heading field settings — segmented-control options.
+const HEADING_SIZES = [
+  { value: 'default', label: 'Default' },
+  { value: 'large', label: 'Large' },
+  { value: 'small', label: 'Small' },
+]
+const HEADING_ALIGNS = [
+  { value: 'left', label: 'Left' },
+  { value: 'center', label: 'Center' },
+  { value: 'right', label: 'Right' },
+]
+
+// Workflow setting — when this template is a module, each section with a step
+// type becomes a workflow step on Start (a synthesized, non-reusable workflow
+// whose step form schema is the section's own fields).
+//   ACTION   = the section's input fields are editable when the step is assigned.
+//   APPROVAL = the assignee approves (Approve / Reject), no form fields.
+const STEP_TYPES = [
+  { id: 'NONE', name: 'Not a step' },
+  { id: 'ACTION', name: 'Action — assignee completes this section' },
+  { id: 'APPROVAL', name: 'Approval — assignee signs off' },
+]
+const APPROVAL_RULES = [
+  { id: 'ALL', name: 'All — every approver must approve' },
+  { id: 'ANY', name: 'Any — one approver is enough' },
+]
+const stepType = computed({
+  // Treat the legacy 'FILL' value as ACTION.
+  get: () => {
+    const t = field.value?.routing?.type
+    return t === 'FILL' ? 'ACTION' : t || 'NONE'
+  },
+  set: (v) => {
+    if (v === 'NONE') {
+      field.value.routing = undefined
+    } else {
+      field.value.routing = { ...(field.value.routing || {}), type: v }
+    }
+  },
+})
+const approvalRule = computed({
+  get: () => field.value?.routing?.approvalRule || 'ALL',
+  set: (v) => {
+    field.value.routing = { ...(field.value.routing || {}), approvalRule: v }
+  },
+})
+const stepRoles = computed({
+  get: () => {
+    const r = field.value?.routing
+    if (r?.roles?.length) return r.roles
+    return r?.assigneeRole ? [r.assigneeRole] : []
+  },
+  set: (v) => {
+    field.value.routing = { ...(field.value.routing || {}), roles: v, assigneeRole: undefined }
+  },
+})
+// BaseSelectMenu renders the selected value via its #button slot — resolve the
+// chosen option's label for these plain (non-entity) selects.
+function optionLabel(items, id) {
+  return items.find((o) => o.id === id)?.name || ''
+}
+
 // When the admin picks an RCA / Risk template, embed a snapshot of the
 // template content onto the field definition. The runtime FE field
 // components (RcaField, RiskAssessmentField) prefer the embedded
@@ -170,6 +232,44 @@ function updateRowColClass(value) {
               Start collapsed
             </BaseCheckbox>
           </div>
+
+          <!-- Workflow setting — only meaningful when this template is a module.
+               Each section with a step type becomes a workflow step (in section
+               order) when a record is Started. -->
+          <div class="tw:mt-3 tw:flex tw:flex-col tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
+            <label class="tw:text-sm tw:font-medium tw:text-on-main">Workflow setting</label>
+            <BaseField label="Step type">
+              <BaseSelectMenu v-model="stepType" :items="STEP_TYPES">
+                <template #button="{ selected }">
+                  <span class="tw:truncate tw:text-sm tw:text-on-main">
+                    {{ optionLabel(STEP_TYPES, selected) }}
+                  </span>
+                </template>
+              </BaseSelectMenu>
+            </BaseField>
+
+            <template v-if="stepType === 'APPROVAL'">
+              <BaseField label="Approval rule">
+                <BaseSelectMenu v-model="approvalRule" :items="APPROVAL_RULES">
+                  <template #button="{ selected }">
+                    <span class="tw:truncate tw:text-sm tw:text-on-main">
+                      {{ optionLabel(APPROVAL_RULES, selected) }}
+                    </span>
+                  </template>
+                </BaseSelectMenu>
+              </BaseField>
+              <p class="tw:text-xs tw:text-secondary">
+                The assignee gets Approve / Reject when the step is initiated.
+              </p>
+            </template>
+            <p v-else-if="stepType === 'ACTION'" class="tw:text-xs tw:text-secondary">
+              This section's fields are editable for the assignee when the step is initiated.
+            </p>
+
+            <BaseField v-if="stepType !== 'NONE'" label="Roles (optional)">
+              <RoleSelectMenu v-model="stepRoles" multiple />
+            </BaseField>
+          </div>
         </template>
 
         <!-- Row Settings -->
@@ -269,6 +369,60 @@ function updateRowColClass(value) {
               <BaseRichTextEditor v-model="field.html" />
             </div>
           </BaseField>
+        </template>
+
+        <!-- Heading Settings — heading + subheading text, size + alignment. -->
+        <template v-if="field.type === 'header'">
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <BaseTextInput v-model="field.text" label="Heading Text" placeholder="Heading" />
+            <BaseTextInput
+              v-model="field.subtext"
+              label="Subheading Text"
+              placeholder="Add smaller text below the heading"
+            />
+            <div>
+              <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1.5">
+                Heading Size
+              </label>
+              <div class="tw:flex tw:gap-1 tw:p-1 tw:bg-main-hover tw:rounded-lg">
+                <button
+                  v-for="opt in HEADING_SIZES"
+                  :key="opt.value"
+                  type="button"
+                  class="tw:flex-1 tw:py-1.5 tw:text-sm tw:font-medium tw:rounded-md tw:transition-colors"
+                  :class="
+                    (field.size || 'large') === opt.value
+                      ? 'tw:bg-main tw:text-primary tw:shadow-sm'
+                      : 'tw:text-secondary tw:hover:text-on-main'
+                  "
+                  @click="field.size = opt.value"
+                >
+                  {{ opt.label }}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1.5">
+                Text Alignment
+              </label>
+              <div class="tw:flex tw:gap-1 tw:p-1 tw:bg-main-hover tw:rounded-lg">
+                <button
+                  v-for="opt in HEADING_ALIGNS"
+                  :key="opt.value"
+                  type="button"
+                  class="tw:flex-1 tw:py-1.5 tw:text-sm tw:font-medium tw:rounded-md tw:transition-colors"
+                  :class="
+                    (field.align || 'center') === opt.value
+                      ? 'tw:bg-main tw:text-primary tw:shadow-sm'
+                      : 'tw:text-secondary tw:hover:text-on-main'
+                  "
+                  @click="field.align = opt.value"
+                >
+                  {{ opt.label }}
+                </button>
+              </div>
+            </div>
+          </div>
         </template>
       </div>
 

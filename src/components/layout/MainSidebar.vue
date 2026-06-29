@@ -123,6 +123,32 @@ const logoUrl = computed(() => {
   return currentCompany.value?.companyIconUrl
 })
 
+// Admin-defined modules (form templates promoted via the module factory) drive
+// their own nav entries — the first data-driven part of the menu. Gated by the
+// module's own `<internalName>:read` permission.
+const moduleTemplates = useLiveQuery(
+  async (db) => (await db.FormTemplate.where().exec()).filter((t) => t.isModule && t.internalName),
+  { initial: [], models: ['FormTemplate'] },
+)
+const moduleNavItems = computed(() =>
+  (moduleTemplates.value || []).map((t) => ({
+    label: t.moduleConfig?.displayName || t.title,
+    permissions: [`${t.internalName}:read`],
+    icon: IconForms,
+    to: getCompanyPath(`/m/${t.internalName}`),
+  })),
+)
+// Suppliers don't hold `<key>:read`; RLS already scopes moduleTemplates to the
+// modules they have a shared record of, so list the modules they can see with
+// no permission gate.
+const supplierModuleNavItems = computed(() =>
+  (moduleTemplates.value || []).map((t) => ({
+    label: t.moduleConfig?.displayName || t.title,
+    icon: IconForms,
+    to: getCompanyPath(`/m/${t.internalName}`),
+  })),
+)
+
 // Navigation items
 const navItems = computed(() => {
   // EXTERNAL_SUPPLIER users get a stripped-down menu — just the things
@@ -145,6 +171,8 @@ const navItems = computed(() => {
         icon: IconCheckbox,
         to: getCompanyPath('/task-instances'),
       },
+      // Admin-defined modules with a record shared to this supplier.
+      ...supplierModuleNavItems.value,
       {
         label: 'Documents',
         icon: IconFileText,
@@ -189,6 +217,8 @@ const navItems = computed(() => {
       icon: IconTable,
       to: getCompanyPath('/records'),
     },
+    // Admin-defined modules (data-driven).
+    ...moduleNavItems.value,
     {
       label: 'Document Control',
       permissions: ['documents:read'],

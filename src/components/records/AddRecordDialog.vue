@@ -128,9 +128,6 @@ function buildEsignFromVerified(v) {
   return v
 }
 
-// Inline validation error for the Document Type field (UTILITY path only).
-const docTypeError = ref('')
-
 // Dialog state
 const step = ref('select') // 'select' | 'form' | 'success'
 
@@ -140,7 +137,6 @@ const selectedTemplate = ref(null)
 
 // Form state
 const formData = ref({})
-const documentTypeId = ref(null)
 const submitting = ref(false)
 const createdRecord = ref(null)
 
@@ -210,7 +206,6 @@ const filteredTemplates = computed(() => {
 function selectTemplate(template) {
   selectedTemplate.value = template
   formData.value = {}
-  documentTypeId.value = template.documentTypeId || null
   step.value = 'form'
 }
 
@@ -226,25 +221,25 @@ watch(
   { immediate: true },
 )
 
-const createRecord = useLiveMutation(async (db, { templateId, documentTypeId, payload }) => {
+const createRecord = useLiveMutation(async (db, { templateId, payload }) => {
   const template = await db.FormTemplate.findByPk(templateId)
   if (!template) throw new Error('Template not found')
 
   const { code } = template
 
-  // Get or create counter scoped to this documentTypeId
+  // One counter per template — the record number is `<code>-NNNN`.
   const allCounters = await db.RecordCounter.where().exec()
-  let counter = allCounters.find((c) => c.documentTypeId === documentTypeId)
+  let counter = allCounters.find((c) => c.templateId === templateId)
 
   if (!counter) {
-    counter = db.RecordCounter.create({ documentTypeId, currentValue: 1 })
+    counter = db.RecordCounter.create({ templateId, currentValue: 1 })
   } else {
     counter.currentValue += 1
   }
 
-  const recordNumber = `${code}-${documentTypeId}-${String(counter.currentValue).padStart(4, '0')}`
+  const recordNumber = `${code}-${String(counter.currentValue).padStart(4, '0')}`
 
-  const record = db.Record.create({ templateId, documentTypeId, payload, recordNumber })
+  const record = db.Record.create({ templateId, payload, recordNumber })
   await record.save()
   await counter.save()
 
@@ -370,19 +365,13 @@ async function submitFieldRecord(payload, esign) {
 
 async function handleSubmit(data) {
   // UTILITY templates keep the legacy SyncEngine path — they write to
-  // the `records` table and require a document type selection.
+  // the `records` table (numbered `<code>-NNNN`, one sequence per template).
   if (!isInspectionRecord.value) {
-    if (!documentTypeId.value) {
-      docTypeError.value = 'Document Type is required.'
-      return
-    }
-    docTypeError.value = ''
     submitting.value = true
     try {
       const frozen = await freezeOptionLabels(db, templateSchema.value, data)
       const record = await createRecord({
         templateId: selectedTemplate.value.id,
-        documentTypeId: documentTypeId.value,
         payload: frozen,
       })
       createdRecord.value = record
@@ -445,8 +434,6 @@ function goBackToSelect() {
   flagOnSubmit.value = false
   flagSeverity.value = 'WARN'
   flagNotes.value = ''
-  documentTypeId.value = null
-  docTypeError.value = ''
 }
 
 function handleClose() {
@@ -622,20 +609,6 @@ const templateSchema = computed(() => {
                 </div>
 
                 <div class="tw:p-4 tw:flex tw:flex-col tw:gap-4">
-                  <!-- Document Type selector only applies to UTILITY records;
-                       inspection records derive the doctype from their log book. -->
-                  <BaseField
-                    v-if="!isInspectionRecord"
-                    label="Document Type"
-                    required
-                    :error="docTypeError"
-                  >
-                    <DocumentTypeSelectMenu
-                      v-model="documentTypeId"
-                      required
-                      @update:modelValue="docTypeError = ''"
-                    />
-                  </BaseField>
                   <DynamicForm
                     v-model="formData"
                     :fields="templateSchema"

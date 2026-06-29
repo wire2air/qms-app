@@ -22,8 +22,21 @@ const model = defineModel({ type: String, default: '' })
 
 const canvasRef = ref(null)
 let pad
+// Our last emitted value, so the model watcher can ignore the echo of our own
+// endStroke and only re-render genuinely external changes (e.g. loading a saved
+// record into a readonly form).
+let lastEmitted = ''
 
-// Scale the backing store to devicePixelRatio so the stroke stays crisp.
+// Paint a data-URL value onto the canvas (or clear when empty). Restores a saved
+// signature on mount, after a resize, and on external model changes.
+function render(dataUrl) {
+  if (!pad) return
+  if (dataUrl) pad.fromDataURL(dataUrl)
+  else pad.clear()
+}
+
+// Scale the backing store to devicePixelRatio so the stroke stays crisp. A
+// resize resets the buffer, so re-render the current value afterwards.
 function resizeCanvas() {
   const canvas = canvasRef.value
   if (!canvas) return
@@ -31,20 +44,22 @@ function resizeCanvas() {
   canvas.width = canvas.offsetWidth * ratio
   canvas.height = canvas.offsetHeight * ratio
   canvas.getContext('2d').scale(ratio, ratio)
-  pad?.clear() // clearing is required after a resize (the buffer was reset)
+  render(model.value)
 }
 
 function clear() {
   pad?.clear()
+  lastEmitted = ''
   model.value = ''
 }
 
 onMounted(() => {
   pad = new SignaturePad(canvasRef.value, { penColor: props.penColor })
   pad.addEventListener('endStroke', () => {
-    model.value = pad.isEmpty() ? '' : pad.toDataURL()
+    lastEmitted = pad.isEmpty() ? '' : pad.toDataURL()
+    model.value = lastEmitted
   })
-  resizeCanvas()
+  resizeCanvas() // also restores an existing model value
   window.addEventListener('resize', resizeCanvas)
   if (props.disabled) pad.off()
 })
@@ -53,6 +68,12 @@ watch(
   () => props.disabled,
   (d) => (d ? pad?.off() : pad?.on()),
 )
+
+// Render values set from outside (e.g. a saved record loading after mount),
+// ignoring the echo of our own endStroke emit.
+watch(model, (val) => {
+  if (val !== lastEmitted) render(val)
+})
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resizeCanvas)

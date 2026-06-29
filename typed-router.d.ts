@@ -331,6 +331,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/m/[moduleKey]/[[id]]': RouteRecordInfo<
+      '/m/[moduleKey]/[[id]]',
+      '/m/:moduleKey/:id?',
+      { moduleKey: ParamValue<true>, id?: ParamValueZeroOrOne<true> },
+      { moduleKey: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
     '/my-training/[id]': RouteRecordInfo<
       '/my-training/[id]',
       '/my-training/:id',
@@ -864,6 +871,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/lookups.vue': {
       routes:
         | '/lookups'
+      views:
+        | never
+    }
+    'src/pages/m/[moduleKey]/[[id]].vue': {
+      routes:
+        | '/m/[moduleKey]/[[id]]'
       views:
         | never
     }

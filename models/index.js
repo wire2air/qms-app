@@ -115,6 +115,7 @@ import { CapaType } from './capaType'
 import { CapaSource } from './capaSource'
 import { CapaPriority } from './capaPriority'
 import { CapaRecord } from './capaRecord'
+import { ModuleSectionRecord } from './moduleSectionRecord'
 import { CapaEffectivenessCheck } from './capaEffectivenessCheck'
 import { CapaEffectivenessCheckStatus } from './capaEffectivenessCheckStatus'
 import { RcaTemplate } from './rcaTemplate'
@@ -307,6 +308,7 @@ export const db = {
   CapaSource,
   CapaPriority,
   CapaRecord,
+  ModuleSectionRecord,
   CapaEffectivenessCheck,
   CapaEffectivenessCheckStatus,
   RcaTemplate,

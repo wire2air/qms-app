@@ -169,6 +169,29 @@ function isColorPickerField(field) {
   return field.type === 'colorPicker'
 }
 
+function isSignatureField(field) {
+  return field.type === 'signature'
+}
+
+function isHeaderField(field) {
+  return field.type === 'header'
+}
+
+function headerSizeClass(field) {
+  return (
+    { default: 'tw:text-xl', large: 'tw:text-3xl', small: 'tw:text-base' }[field.size || 'large'] ||
+    'tw:text-3xl'
+  )
+}
+
+function headerAlignClass(field) {
+  return (
+    { left: 'tw:text-left', center: 'tw:text-center', right: 'tw:text-right' }[
+      field.align || 'center'
+    ] || 'tw:text-center'
+  )
+}
+
 function isSectionField(field) {
   return field.type === 'section'
 }
@@ -205,13 +228,16 @@ function isRenderableField(field) {
     !isPhotoField(field) &&
     !isSeparatorField(field) &&
     !isInstructionsField(field) &&
-    !isColorPickerField(field)
+    !isColorPickerField(field) &&
+    !isSignatureField(field) &&
+    !isHeaderField(field)
   )
 }
 
 function getVisibleFields(fields) {
   const result = []
   for (const field of fields) {
+    if (field.hidden) continue // "Hide field" — omit from the readonly/submitted view
     if (isSectionField(field)) {
       if (field.children?.length) {
         result.push(field)
@@ -455,6 +481,29 @@ function getChecklistColumnLabel(col) {
             {{ getFieldValue(field) }}
           </span>
         </div>
+        <span v-else class="tw:text-sm tw:text-secondary">—</span>
+      </div>
+
+      <!-- Heading — display-only heading + optional subheading -->
+      <div v-else-if="isHeaderField(field)" class="tw:col-span-3" :class="headerAlignClass(field)">
+        <div class="tw:font-bold tw:text-on-main" :class="headerSizeClass(field)">
+          {{ field.text }}
+        </div>
+        <div v-if="field.subtext" class="tw:text-sm tw:text-secondary tw:mt-1">
+          {{ field.subtext }}
+        </div>
+      </div>
+
+      <!-- Signature — the saved PNG data-URL rendered as an image -->
+      <div v-else-if="isSignatureField(field)" class="tw:flex tw:flex-col tw:gap-0.5">
+        <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <img
+          v-if="getFieldValue(field)"
+          :src="getFieldValue(field)"
+          :alt="field.label || 'Signature'"
+          class="tw:rounded tw:border tw:border-divider tw:bg-white tw:object-contain"
+          :style="{ maxWidth: '320px', maxHeight: '160px' }"
+        />
         <span v-else class="tw:text-sm tw:text-secondary">—</span>
       </div>
 

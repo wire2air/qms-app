@@ -34,6 +34,9 @@ useSortable(canvasRef, props.fields, {
   ghostClass: 'sortable-ghost',
   chosenClass: 'sortable-chosen',
   dragClass: 'sortable-drag',
+  // Pointer-based drag — cards embed real inputs (live component preview) that
+  // break native HTML5 DnD. Kept consistent across the 'form-fields' group.
+  forceFallback: true,
   fallbackOnBody: true,
   swapThreshold: 0.65,
   onAdd(evt) {
@@ -71,7 +74,7 @@ function onAddField(payload) {
 <template>
   <div
     ref="canvasRef"
-    class="tw:flex-1 tw:min-h-100 tw:bg-sidebar tw:border-2 tw:border-dashed tw:border-divider tw:rounded-2xl tw:p-5 tw:transition-all tw:duration-200 tw:overflow-y-auto tw:flex tw:flex-col tw:gap-4"
+    class="tw:flex-1 tw:min-h-100 tw:bg-sidebar tw:border-2 tw:border-dashed tw:border-divider tw:rounded-2xl tw:p-5 tw:transition-all tw:duration-200 tw:overflow-y-auto tw:flex tw:flex-wrap tw:content-start tw:gap-4"
     :class="{
       'tw:border-primary tw:bg-primary/50': isDragging,
       'tw:items-center tw:justify-center': fields.length === 0,

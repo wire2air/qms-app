@@ -156,3 +156,30 @@ export const MODULES = {
   AUDIT: AUDIT_INSTANCE_MODULE,
   AUDIT_STANDARD_VERSION: AUDIT_STANDARD_VERSION_MODULE,
 }
+
+/**
+ * Admin-defined modules (generic module factory) ride the same engine. They
+ * share ONE descriptor shape; the `resourceType` is the module's form-template
+ * `internalName` (dynamic), so build a descriptor per record. Per-section answers
+ * go onto the ModuleSectionRecord model — records.payload is assembled on
+ * completion by the backend handler. apiPath 'form-modules' must back the
+ * step-action endpoints (reject/reassign/send-back/complete).
+ *
+ * @param {string} moduleKey   — the record's moduleKey (= template.internalName)
+ * @param {string} [displayName]
+ * @returns {WorkflowModule}
+ */
+export function formModuleFor(moduleKey, displayName) {
+  return {
+    key: 'FORM',
+    displayName: displayName || 'Module',
+    resourceType: moduleKey,
+    apiPath: 'form-modules',
+    resourceIdParam: 'recordId',
+    recordModelName: 'ModuleSectionRecord',
+    recordResourceFk: 'recordId',
+    resourceModel: { modelName: 'Record' },
+    workflowVersionModuleId: 'FORM',
+    getStepFormContextFields: () => ({}),
+  }
+}

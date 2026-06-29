@@ -8,12 +8,20 @@ import {
   actionsForObject,
   NO_VALUE_OPERATORS,
   LIST_OPERATORS,
+  MODULE_ACTIONS,
+  moduleOperatorsForField,
 } from '@/utils/automationObjects'
 import { required } from '@shared/components/form/validators.js'
 
-const props = defineProps({ ruleId: { type: String, default: null } })
+const props = defineProps({
+  ruleId: { type: String, default: null },
+  // Module mode: fix the object type to a module key + supply its fields.
+  fixedObjectType: { type: String, default: null },
+  moduleFields: { type: Array, default: null },
+})
 const emit = defineEmits(['saved'])
 const open = defineModel({ type: Boolean, default: false })
+const isModuleMode = computed(() => !!props.fixedObjectType)
 const toast = useToast()
 const saving = ref(false)
 const formRef = ref(null)
@@ -28,7 +36,7 @@ const existing = useLiveQueryWithDeps(
 function blankDraft() {
   return {
     name: '',
-    objectType: 'QualityEvent',
+    objectType: props.fixedObjectType || 'QualityEvent',
     trigger: 'CREATED',
     logic: 'AND',
     conditions: [],
@@ -64,8 +72,12 @@ watch(open, (v) => {
   }
 })
 
-const fields = computed(() => fieldsForObject(draft.value.objectType))
-const availableActions = computed(() => actionsForObject(draft.value.objectType))
+const fields = computed(() =>
+  isModuleMode.value ? props.moduleFields || [] : fieldsForObject(draft.value.objectType),
+)
+const availableActions = computed(() =>
+  isModuleMode.value ? MODULE_ACTIONS : actionsForObject(draft.value.objectType),
+)
 
 // BaseSelectMenu expects { id, name } items.
 const objectItems = AUTOMATION_OBJECTS.map((o) => ({ id: o.value, name: o.label }))
@@ -75,7 +87,7 @@ function addCondition() {
   const f = fields.value[0]
   draft.value.conditions.push({
     field: f?.key || '',
-    operator: operatorsForField(draft.value.objectType, f?.key)[0]?.value || 'is',
+    operator: operatorsFor(f?.key)[0]?.value || 'is',
     value: '',
   })
 }
@@ -83,7 +95,9 @@ function removeCondition(i) {
   draft.value.conditions.splice(i, 1)
 }
 function operatorsFor(fieldKey) {
-  return operatorsForField(draft.value.objectType, fieldKey)
+  return isModuleMode.value
+    ? moduleOperatorsForField(props.moduleFields, fieldKey)
+    : operatorsForField(draft.value.objectType, fieldKey)
 }
 function onFieldChange(cond) {
   cond.operator = operatorsFor(cond.field)[0]?.value || 'is'
@@ -202,7 +216,7 @@ async function onValidSubmit() {
               <span class="tw:text-xs tw:text-secondary">Rule is evaluated when on</span>
             </div>
           </BaseField>
-          <BaseField label="Object">
+          <BaseField v-if="!isModuleMode" label="Object">
             <BaseSelectMenu v-model="draft.objectType" :items="objectItems" :required="true" />
           </BaseField>
           <BaseField label="Trigger">

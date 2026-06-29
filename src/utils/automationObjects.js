@@ -8,6 +8,7 @@ export const AUTOMATION_TRIGGERS = [
   { value: 'CREATED', label: 'When created' },
   { value: 'STATUS_CHANGED', label: 'When status changes' },
   { value: 'UPDATED', label: 'When updated' },
+  { value: 'SCHEDULED', label: 'On a daily schedule (time-based)' },
 ]
 
 export const OPERATORS_BY_TYPE = {
@@ -33,6 +34,10 @@ export const OPERATORS_BY_TYPE = {
   date: [
     { value: 'before', label: 'before' },
     { value: 'after', label: 'after' },
+    { value: 'older_than_days', label: 'is older than (days ago)' },
+    { value: 'within_days', label: 'is within the last (days)' },
+    { value: 'older_than_months', label: 'is older than (months ago)' },
+    { value: 'within_months', label: 'is within the last (months)' },
     { value: 'is_empty', label: 'is empty' },
     { value: 'is_not_empty', label: 'is not empty' },
   ],
@@ -159,3 +164,59 @@ export function actionsForObject(objectType) {
   const allowed = new Set(OBJECT_BY_VALUE[objectType]?.allowedActions ?? [])
   return ACTION_TYPES.filter((a) => allowed.has(a.value))
 }
+
+// ── Module (admin-defined form) automation ───────────────────────────────────
+// Module rules condition on the form's own fields + a few whitelisted first-class
+// fields (Status, DateCreated, DateCompleted, DueDate). Field keys match the
+// flattened evaluation row: form fields by name (hoisted from payload), first-
+// class by column. Actions are the notify set.
+
+export const MODULE_FIRST_CLASS_FIELDS = [
+  { key: 'status_id', label: 'Status', type: 'enum' },
+  { key: 'created_at', label: 'Date Created', type: 'date' },
+  { key: 'completed_at', label: 'Date Completed', type: 'date' },
+  { key: 'due_date', label: 'Due Date', type: 'date' },
+]
+
+const FORM_TYPE_TO_AUTOMATION = {
+  input: 'string',
+  text: 'string',
+  textarea: 'string',
+  email: 'string',
+  phone: 'string',
+  url: 'string',
+  number: 'number',
+  currency: 'number',
+  date: 'date',
+  datetime: 'date',
+  time: 'date',
+  select: 'enum',
+  dropdown: 'enum',
+  radio: 'enum',
+  multiselect: 'enum',
+  checkbox: 'boolean',
+  switch: 'boolean',
+  toggle: 'boolean',
+}
+
+/** Condition fields for a module form = form schema fields + first-class. */
+export function moduleAutomationFields(schema) {
+  const out = []
+  const walk = (nodes) => {
+    for (const n of nodes || []) {
+      if (Array.isArray(n?.children)) walk(n.children)
+      const type = FORM_TYPE_TO_AUTOMATION[n?.type]
+      if (type && n?.name) out.push({ key: n.name, label: n.label || n.name, type })
+    }
+  }
+  walk(schema || [])
+  return [...MODULE_FIRST_CLASS_FIELDS, ...out]
+}
+
+export function moduleOperatorsForField(moduleFields, fieldKey) {
+  const f = (moduleFields || []).find((x) => x.key === fieldKey)
+  return OPERATORS_BY_TYPE[f?.type || 'string'] ?? OPERATORS_BY_TYPE.string
+}
+
+const MODULE_ALLOWED_ACTIONS = ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER']
+export const MODULE_ACTIONS = ACTION_TYPES.filter((a) => MODULE_ALLOWED_ACTIONS.includes(a.value))

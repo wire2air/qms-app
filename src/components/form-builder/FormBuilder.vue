@@ -58,7 +58,9 @@ const {
   clearSchema,
 } = useFormBuilder(props.initialSchema)
 
-const leftDrawerOpen = ref(false)
+// Field palette open by default — it's the primary tool for building a form,
+// so the designer should land with it visible (toggle still collapses it).
+const leftDrawerOpen = ref(true)
 const rightDrawerOpen = ref(false)
 const showPreview = ref(false)
 const showJsonDialog = ref(false)

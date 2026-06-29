@@ -1,5 +1,5 @@
 <script setup>
-import { IconTrash, IconEdit, IconCode } from '@tabler/icons-vue'
+import { IconTrash, IconEdit, IconCode, IconRocket } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
@@ -41,6 +41,7 @@ const relativeUpdatedAt = computed(() => template.value?.updatedAt?.formatDate('
 const canUpdate = computed(() => isAllowed(['formTemplates:update']))
 const canDelete = computed(() => isAllowed(['formTemplates:delete']))
 const loading = computed(() => template.value === undefined)
+const showPromote = ref(false)
 
 // Auto-save for template fields
 useAutoSave(template, { onError: (err) => toast.error(err.message || 'Failed to save') })
@@ -116,8 +117,30 @@ async function handleDelete() {
         >
           View records
         </BaseButton>
+        <BaseButton
+          v-if="canUpdate && !template.isModule"
+          variant="primary"
+          @click="showPromote = true"
+        >
+          <IconRocket :size="16" class="tw:mr-1" />
+          Promote to Module
+        </BaseButton>
+        <BaseButton
+          v-else-if="template.isModule"
+          variant="outline"
+          :to="getCompanyPath(`/m/${template.internalName}`)"
+        >
+          Open Module
+        </BaseButton>
       </div>
     </SafeTeleport>
+
+    <PromoteToModuleDialog
+      v-if="template"
+      v-model="showPromote"
+      :templateId="template.id"
+      :suggestedName="template.title"
+    />
 
     <!-- Main Content Area (Fields Preview) -->
     <div class="tw:grow tw:flex tw:flex-col tw:min-w-0 tw:overflow-hidden">
@@ -251,9 +274,13 @@ async function handleDelete() {
             </div>
           </div>
 
-          <!-- Inspections & Logs classification editor -->
-          <div class="tw:space-y-4 tw:pt-4 tw:border-t tw:border-divider">
-            <FormTemplateClassificationEditor :template="template" />
+          <!-- Automation (module templates only) -->
+          <div
+            v-if="template.isModule"
+            class="tw:space-y-3 tw:pt-4 tw:border-t tw:border-divider"
+          >
+            <BaseText as="h4" variant="overline" class="tw:block">Automation</BaseText>
+            <FormTemplateAutomationRules :templateId="template.id" />
           </div>
 
           <!-- JSON Configuration -->
