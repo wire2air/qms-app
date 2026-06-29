@@ -249,8 +249,20 @@ function trustedHtml(message) {
 </template>
 
 <style scoped>
+/* Internal-note mode renders as a light "sticky note" in BOTH themes: a fixed
+   cream background with dark amber text. The background is intentionally not
+   theme-aware, so the editor's default text (var(--on-main) = white in dark
+   mode) would be invisible on cream — pin the text and placeholder to dark
+   amber instead (amber-900 / amber-700). */
 .cc-note-editor :deep(.rich-text-editor-content) {
   background-color: #fffbeb;
+  color: #78350f;
+}
+.cc-note-editor :deep(.ProseMirror) {
+  color: #78350f;
+}
+.cc-note-editor :deep(.ProseMirror p.is-editor-empty:first-child::before) {
+  color: #b45309;
 }
 .cc-reply-editor :deep(.rich-text-editor-content) {
   min-height: 6rem;
