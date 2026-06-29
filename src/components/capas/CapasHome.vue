@@ -17,6 +17,9 @@ const canCreate = computed(() => isAllowed(['capas:create']))
 const canUpdate = computed(() => isAllowed(['capas:update']))
 const canDelete = computed(() => isAllowed(['capas:delete']))
 
+const { confirm } = useConfirm()
+const toast = useToast()
+
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `capas`.
 const list = useListLayout({
@@ -159,6 +162,25 @@ const kpiItems = computed(() => [
 function onCreateCapa() {
   router.push(getCompanyPath('/capas/create'))
 }
+
+// The table emits `delete`; without a listener the row-menu Delete did nothing
+// (no dialog, no removal). Confirm, then soft-delete (the model is paranoid).
+async function onDeleteCapa(row) {
+  const label = row.capaNumber ? `${row.capaNumber} — ${row.title}` : row.title
+  const ok = await confirm({
+    title: 'Delete CAPA',
+    message: `Delete CAPA '${label}'? It will be removed from the list.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await row.delete()
+    toast.success('CAPA deleted')
+  } catch (e) {
+    toast.error(e?.message || 'Failed to delete CAPA')
+  }
+}
 </script>
 
 <template>
@@ -211,6 +233,7 @@ function onCreateCapa() {
       :canUpdate="canUpdate"
       :canDelete="canDelete"
       @edit="(row) => router.push(getCompanyPath(`/capas/${row.id}`))"
+      @delete="onDeleteCapa"
     />
   </BaseListLayout>
 </template>
