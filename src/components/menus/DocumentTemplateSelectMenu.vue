@@ -22,43 +22,29 @@ const templates = useLiveQuery(
 
   { models: ['DocumentTemplate'], initial: [] },
 )
-
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="templates" nullLabel="— All templates —" :required="required" :multiple="multiple">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <DocumentTemplateBadgeById
-              v-for="templateId in getArray()"
-              :key="templateId"
-              :documentTemplateId="templateId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(templateId)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select Templates
-          </span>
-        </template>
-        <template v-else>
-          <DocumentTemplateBadgeById
-            v-if="modelValue"
-            :documentTemplateId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select Template
-          </span>
-        </template>
-      </slot>
+  <BaseSelect
+    v-model="modelValue"
+    :options="templates"
+    optionLabel="name"
+    optionValue="id"
+    nullLabel="— All templates —"
+    :required="required"
+    :multiple="multiple"
+    :clearable="!required"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <DocumentTemplateBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :documentTemplateId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

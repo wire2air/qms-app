@@ -404,7 +404,7 @@ const qualityEventDetailConfig = computed(() =>
     </template>
 
     <template #status>
-      <div v-if="event" class="tw:w-48">
+      <div v-if="event" class="tw:w-full tw:sm:w-48">
         <QualityEventStatusSelectMenu v-if="canUpdate" v-model="event.statusId" />
         <QualityEventStatusBadgeById v-else :statusId="event.statusId" />
       </div>
@@ -589,7 +589,7 @@ const qualityEventDetailConfig = computed(() =>
     <!-- Organized attributes in the right rail (mirrors the NC page). Editable
          inline when canUpdate; glanceable badges/values otherwise. -->
     <template v-if="event" #rail>
-      <BaseRailCard title="Classification">
+      <BaseRailCard title="Classification" grid>
         <BaseDetailField label="Category">
           <EventCategorySelectMenu v-if="canUpdate" v-model="event.categoryId" :required="false" />
           <EventCategoryBadgeById v-else-if="event.categoryId" :categoryId="event.categoryId" />
@@ -602,7 +602,7 @@ const qualityEventDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
-      <BaseRailCard title="Location">
+      <BaseRailCard title="Location" grid>
         <BaseDetailField label="Site / Location">
           <SiteSelectMenu
             v-if="canUpdate"
@@ -644,7 +644,7 @@ const qualityEventDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
-      <BaseRailCard title="People">
+      <BaseRailCard title="People" grid>
         <BaseDetailField label="Assigned To">
           <UserSelectMenu v-if="canUpdate" v-model="event.assignedToUserId" :required="false" />
           <UserBadgeById

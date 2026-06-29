@@ -537,7 +537,7 @@ const auditStandardDetailConfig = computed(() =>
 
     <template v-if="standard" #rail>
       <!-- 1. General info -->
-      <BaseRailCard title="General">
+      <BaseRailCard title="General" grid>
         <BaseDetailField label="Code">
           <code
             class="tw:text-xs tw:font-mono tw:text-on-main tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"

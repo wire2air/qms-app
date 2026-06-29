@@ -25,18 +25,25 @@ const items = computed(() => [
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="items" nullLabel="— All languages —" :required="required">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
+  <BaseSelect
+    v-model="modelValue"
+    :options="items"
+    optionLabel="name"
+    optionValue="id"
+    :required="required"
+    :clearable="!required"
+    nullLabel="— All languages —"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
         <LanguageBadge
-          v-if="modelValue"
-          :languageId="modelValue"
-          :clearable="!required"
-          selectable
-          @clear="() => scope.clear(modelValue)"
+          v-for="o in options"
+          :key="o.value"
+          :languageId="o.value"
+          :clearable="false"
+          @clear="() => remove(o)"
         />
-        <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Language </span>
-      </slot>
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

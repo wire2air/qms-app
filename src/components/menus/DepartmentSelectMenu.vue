@@ -67,10 +67,6 @@ function onDepartmentCreated(newDept) {
   }
 }
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
-
 const resolvedNullLabel = computed(
   () => props.nullLabel ?? (props.isFilter ? '— All departments —' : '— Select department —'),
 )
@@ -79,46 +75,30 @@ const resolvedNullLabel = computed(
 <template>
   <div class="tw:flex tw:items-center tw:gap-2">
     <div class="tw:flex-1 tw:min-w-0">
-      <BaseSelectMenu
+      <BaseSelect
         v-model="modelValue"
-        :items="departments"
+        :options="departments"
+        optionLabel="name"
+        optionValue="id"
         :nullLabel="resolvedNullLabel"
         :required="props.required"
         :multiple="props.multiple"
+        :clearable="!props.required"
       >
-        <template #button="scope">
-          <slot name="button" v-bind="scope">
-            <!-- MULTIPLE MODE -->
-            <template v-if="props.multiple">
-              <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-                <DepartmentBadgeById
-                  v-for="id in getArray()"
-                  :key="id"
-                  :departmentId="id"
-                  :clearable="!props.required || getArray().length > 1"
-                  @clear="() => scope.clear(id)"
-                />
-              </div>
+        <template v-if="$slots.button" #trigger="scope">
+          <slot name="button" v-bind="scope" />
+        </template>
 
-              <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-                Select Departments
-              </span>
-            </template>
-
-            <!-- SINGLE MODE -->
-            <template v-else>
-              <DepartmentBadgeById
-                v-if="modelValue"
-                :departmentId="modelValue"
-                :clearable="!props.required"
-                selectable
-                @clear="() => scope.clear(modelValue)"
-              />
-              <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-                Select Department
-              </span>
-            </template>
-          </slot>
+        <template #selected="{ options, remove }">
+          <div class="tw:flex tw:flex-wrap tw:gap-1">
+            <DepartmentBadgeById
+              v-for="o in options"
+              :key="o.value"
+              :departmentId="o.value"
+              :clearable="props.multiple && (!props.required || options.length > 1)"
+              @clear="() => remove(o)"
+            />
+          </div>
         </template>
 
         <template v-if="canCreateDepartment" #footer="{ close }">
@@ -131,7 +111,7 @@ const resolvedNullLabel = computed(
             Add New Department
           </button>
         </template>
-      </BaseSelectMenu>
+      </BaseSelect>
     </div>
 
     <DepartmentsCreateUpdateDialog

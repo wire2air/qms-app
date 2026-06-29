@@ -13,16 +13,25 @@ const modelValue = defineModel({ type: [String, null], default: null })
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="QUALITY_EVENT_STATUSES" :required="required">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
+  <BaseSelect
+    v-model="modelValue"
+    :options="QUALITY_EVENT_STATUSES"
+    optionLabel="name"
+    optionValue="id"
+    :required="required"
+    :clearable="!required"
+    nullLabel="All"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
         <QualityEventStatusBadgeById
-          v-if="modelValue"
-          :statusId="modelValue"
-          selectable
+          v-for="o in options"
+          :key="o.value"
+          :statusId="o.value"
+          :clearable="false"
+          @clear="() => remove(o)"
         />
-        <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Status</span>
-      </slot>
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

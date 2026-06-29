@@ -19,7 +19,7 @@ const hasState = computed(() => !NO_STATE_TYPES.has(field.value.type))
       State
     </BaseText>
 
-    <div class="tw:grid tw:grid-cols-3 tw:gap-2">
+    <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-2">
       <BaseCheckbox v-model="field.required">Required</BaseCheckbox>
       <BaseCheckbox v-model="field.readonly">Readonly</BaseCheckbox>
       <BaseCheckbox v-model="field.disabled">Disabled</BaseCheckbox>

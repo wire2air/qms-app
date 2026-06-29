@@ -168,7 +168,7 @@ defineExpose({ addStep })
 
 <template>
   <aside
-    class="tw:w-80 tw:lg:w-96 tw:bg-main-hover tw:border-r tw:border-divider tw:flex tw:flex-col tw:shrink-0"
+    class="tw:w-full tw:lg:w-80 tw:xl:w-96 tw:bg-main-hover tw:border-r tw:border-divider tw:flex tw:flex-col tw:shrink-0"
   >
     <!-- Header -->
     <div class="tw:p-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between">

@@ -573,7 +573,7 @@ const capaDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- 2. People -->
-      <BaseRailCard title="People">
+      <BaseRailCard title="People" grid>
         <!-- Initiator = who raised the CAPA (createdBy, immutable). -->
         <BaseDetailField label="Initiator">
           <UserBadgeById v-if="capa.createdBy" :userId="capa.createdBy" />

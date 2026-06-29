@@ -345,7 +345,7 @@ const roleDetailConfig = computed(() =>
             <BaseTextInput
               v-model="searchTerm"
               placeholder="Search permissions..."
-              class="tw:w-64 tw:pl-9"
+              class="tw:w-full tw:pl-9"
             />
           </div>
           <button

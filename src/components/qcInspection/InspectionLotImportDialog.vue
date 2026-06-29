@@ -181,8 +181,8 @@ function downloadTemplate() {
         <div class="tw:px-3 tw:py-2 tw:bg-main-hover tw:text-xs tw:font-semibold">
           {{ validRows.length }} valid · {{ errorRows.length }} with errors
         </div>
-        <div class="tw:max-h-64 tw:overflow-y-auto">
-          <table class="tw:w-full tw:text-xs">
+        <div class="tw:max-h-64 tw:overflow-auto">
+          <table class="tw:w-full tw:min-w-[520px] tw:text-xs">
             <thead class="tw:text-secondary tw:uppercase">
               <tr>
                 <th class="tw:text-left tw:px-3 tw:py-1.5">Line</th>

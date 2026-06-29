@@ -13,48 +13,32 @@ const categories = useLiveQuery((db) => db.EventCategory.where().orderBy('displa
   initial: [],
 })
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
-
 const resolvedNullLabel = computed(
   () => props.nullLabel ?? (props.isFilter ? '— All categories —' : '— Select category —'),
 )
 </script>
 
 <template>
-  <BaseSelectMenu
+  <BaseSelect
     v-model="modelValue"
-    :items="categories"
+    :options="categories"
+    optionLabel="name"
+    optionValue="id"
     :required="props.required"
     :multiple="props.multiple"
+    :clearable="!props.required"
     :nullLabel="resolvedNullLabel"
   >
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="props.multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <EventCategoryBadgeById
-              v-for="id in getArray()"
-              :key="id"
-              :categoryId="id"
-              :clearable="!props.required || getArray().length > 1"
-              @clear="() => scope.clear(id)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Category</span>
-        </template>
-        <template v-else>
-          <EventCategoryBadgeById
-            v-if="modelValue"
-            :categoryId="modelValue"
-            :clearable="!props.required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Category</span>
-        </template>
-      </slot>
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <EventCategoryBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :categoryId="o.value"
+          :clearable="props.multiple && (!props.required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

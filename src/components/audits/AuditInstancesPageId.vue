@@ -743,40 +743,36 @@ const auditInstanceDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- Overview -->
-      <BaseRailCard title="Overview">
-        <div class="tw:flex tw:flex-col tw:gap-2">
-          <BaseDetailField label="Audit Number" layout="inline">
-            <code class="tw:text-xs tw:font-mono tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded">
-              {{ auditInstance.auditNumber || '—' }}
-            </code>
-          </BaseDetailField>
-          <BaseDetailField label="Type" layout="inline" :value="auditInstance.programTypeId" />
-          <BaseDetailField label="Progress" layout="inline">
-            <span class="tw:text-xs tw:font-medium"
-              >{{ responseCount }} / {{ clauseCount }} clauses</span
-            >
-          </BaseDetailField>
-          <BaseDetailField label="Findings" layout="inline">
-            <span class="tw:text-xs tw:font-medium">
-              {{ findingsByStatus.open }} open / {{ findingsByStatus.total }} total
-            </span>
-          </BaseDetailField>
-          <BaseDetailField
-            label="Started"
-            layout="inline"
-            :value="auditInstance.startedAt ? auditInstance.startedAt.formatDate('date') : null"
-          />
-          <BaseDetailField
-            label="Completed"
-            layout="inline"
-            :value="auditInstance.completedAt ? auditInstance.completedAt.formatDate('date') : null"
-          />
-          <div v-if="saving" class="tw:text-caption tw:text-secondary tw:italic tw:pt-1">
-            Saving…
-          </div>
-          <div v-else-if="saveError" class="tw:text-caption tw:text-red-600 tw:pt-1">
-            {{ saveError }}
-          </div>
+      <BaseRailCard title="Overview" grid>
+        <BaseDetailField label="Audit Number">
+          <code class="tw:text-xs tw:font-mono tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded">
+            {{ auditInstance.auditNumber || '—' }}
+          </code>
+        </BaseDetailField>
+        <BaseDetailField label="Type" :value="auditInstance.programTypeId" />
+        <BaseDetailField label="Progress">
+          <span class="tw:text-xs tw:font-medium"
+            >{{ responseCount }} / {{ clauseCount }} clauses</span
+          >
+        </BaseDetailField>
+        <BaseDetailField label="Findings">
+          <span class="tw:text-xs tw:font-medium">
+            {{ findingsByStatus.open }} open / {{ findingsByStatus.total }} total
+          </span>
+        </BaseDetailField>
+        <BaseDetailField
+          label="Started"
+          :value="auditInstance.startedAt ? auditInstance.startedAt.formatDate('date') : null"
+        />
+        <BaseDetailField
+          label="Completed"
+          :value="auditInstance.completedAt ? auditInstance.completedAt.formatDate('date') : null"
+        />
+        <div v-if="saving" class="tw:col-span-full tw:text-caption tw:text-secondary tw:italic tw:pt-1">
+          Saving…
+        </div>
+        <div v-else-if="saveError" class="tw:col-span-full tw:text-caption tw:text-red-600 tw:pt-1">
+          {{ saveError }}
         </div>
       </BaseRailCard>
 

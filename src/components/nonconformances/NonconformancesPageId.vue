@@ -909,7 +909,7 @@ const ncDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- 2. People — initiator, responsible party, site, department -->
-      <BaseRailCard title="People">
+      <BaseRailCard title="People" grid>
         <!-- Initiator = who raised the NC (createdBy, immutable). -->
         <BaseDetailField label="Initiator">
           <UserBadgeById v-if="nc.createdBy" :userId="nc.createdBy" />

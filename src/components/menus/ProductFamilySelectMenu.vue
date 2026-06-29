@@ -33,46 +33,35 @@ function onFamilyCreated(newFamily) {
   }
 }
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
-
 const canCreate = computed(() => props.allowCreate && isAllowed(['company:manage', 'owner']))
 </script>
 
 <template>
-  <BaseSelectMenu
+  <BaseSelect
     v-model="modelValue"
-    :items="families"
+    :options="families"
+    optionLabel="name"
+    optionValue="id"
     :required="required"
     :multiple="multiple"
-    v-bind="nullLabel !== undefined ? { nullLabel } : {}"
+    :clearable="!required"
+    :nullLabel="nullLabel ?? 'All'"
+    placeholder="Select Family"
   >
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <ProductFamilyBadgeById
-              v-for="id in getArray()"
-              :key="id"
-              :productFamilyId="id"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(id)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Family</span>
-        </template>
-        <template v-else>
-          <ProductFamilyBadgeById
-            v-if="modelValue"
-            :productFamilyId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Family</span>
-        </template>
-      </slot>
+    <template v-if="$slots.button" #trigger="scope">
+      <slot name="button" v-bind="scope" />
+    </template>
+
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <ProductFamilyBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :productFamilyId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
 
     <template v-if="canCreate" #footer="{ close }">
@@ -85,7 +74,7 @@ const canCreate = computed(() => props.allowCreate && isAllowed(['company:manage
         Add New Family
       </button>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 
   <ProductFamilyCreateDialog
     v-if="showCreateDialog"
