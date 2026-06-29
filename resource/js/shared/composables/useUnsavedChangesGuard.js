@@ -14,9 +14,13 @@
  *     router.push(`/records/${id}`)
  *   }
  *
- * `isDirty` may be a ref or a getter. Pass `confirm`/`message` to override the
- * default window.confirm (e.g. a BaseDialog-based confirm).
+ * `isDirty` may be a ref or a getter. The router-bound `useUnsavedChangesGuard`
+ * prompts with the in-app `useConfirm` dialog (BaseDialog) by default; pass
+ * `confirm`/`message` to override. The pure `createUnsavedGuard` core falls back
+ * to `window.confirm` only when no `confirm` is supplied (kept for tests).
  */
+import { useConfirm } from './useConfirm.js'
+
 const DEFAULT_MESSAGE = 'You have unsaved changes. Leave this page and discard them?'
 
 // Pure decision core — no router, fully testable.
@@ -42,8 +46,23 @@ export function createUnsavedGuard(isDirty, options = {}) {
 }
 
 export function useUnsavedChangesGuard(isDirty, options = {}) {
-  const guard = createUnsavedGuard(isDirty, options)
-  // Returning false from the hook aborts the navigation.
+  // Default to the in-app confirm dialog (BaseDialog via useConfirm) instead of
+  // the native window.confirm, which appears as a jarring browser-chrome popup
+  // when switching modules with a dirty Create form. confirmLeave() then returns
+  // a Promise<boolean>, which vue-router's navigation guard awaits.
+  const { confirm: confirmDialog } = useConfirm()
+  const guard = createUnsavedGuard(isDirty, {
+    confirm: (message) =>
+      confirmDialog({
+        title: 'Discard changes?',
+        message,
+        okLabel: 'Discard',
+        cancelLabel: 'Keep editing',
+        danger: true,
+      }),
+    ...options,
+  })
+  // Returning false (or a Promise resolving false) from the hook aborts the nav.
   onBeforeRouteLeave(() => guard.confirmLeave())
   return guard
 }
