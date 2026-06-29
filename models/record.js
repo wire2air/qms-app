@@ -27,7 +27,7 @@ export class Record extends BaseModel {
   @Property({ type: String, uuid: true, required: true }) id = ''
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) templateId = ''
-  @Property({ type: String, required: true }) documentTypeId = ''
+  @Property({ type: String }) documentTypeId = ''
   @Property({ type: String, required: true }) recordNumber = ''
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: Object }) payload = null
@@ -36,8 +36,8 @@ export class Record extends BaseModel {
   // --- generic-module envelope ---
   @Property({ type: String }) ownerUserId = ''
   @Property({ type: String }) workflowInstanceId = ''
-  @Property({ type: Object }) notifyUserIds = []
-  @Property({ type: Object }) notifyGroupIds = []
+  @Property({ type: Array }) notifyUserIds = []
+  @Property({ type: Array }) notifyGroupIds = []
   @Property({ type: String }) moduleKey = ''
   @Property({ type: String }) siteId = ''
   @Property({ type: String }) departmentId = ''
