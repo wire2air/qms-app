@@ -82,6 +82,15 @@ const availableActions = computed(() =>
 // BaseSelectMenu expects { id, name } items.
 const objectItems = AUTOMATION_OBJECTS.map((o) => ({ id: o.value, name: o.label }))
 const triggerItems = AUTOMATION_TRIGGERS.map((t) => ({ id: t.value, name: t.label }))
+const logicItems = [
+  { id: 'AND', name: 'Match ALL (AND)' },
+  { id: 'OR', name: 'Match ANY (OR)' },
+]
+const fieldItems = computed(() => fields.value.map((f) => ({ id: f.key, name: f.label })))
+const actionItems = computed(() => availableActions.value.map((a) => ({ id: a.value, name: a.label })))
+function operatorItems(fieldKey) {
+  return operatorsFor(fieldKey).map((op) => ({ id: op.value, name: op.label }))
+}
 
 function addCondition() {
   const f = fields.value[0]
@@ -111,7 +120,7 @@ function addAction(type) {
 function removeAction(i) {
   draft.value.actions.splice(i, 1)
 }
-const newActionType = ref('')
+const newActionType = ref(null)
 
 // When the object changes, reset conditions/actions that may no longer apply.
 watch(
@@ -229,13 +238,9 @@ async function onValidSubmit() {
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
             <div class="tw:flex tw:items-center tw:gap-2">
               <span class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary">Conditions</span>
-              <select
-                v-model="draft.logic"
-                class="tw:border tw:border-divider tw:rounded tw:px-2 tw:py-1 tw:text-xs"
-              >
-                <option value="AND">Match ALL (AND)</option>
-                <option value="OR">Match ANY (OR)</option>
-              </select>
+              <div class="tw:w-44">
+                <BaseSelectMenu v-model="draft.logic" :items="logicItems" :required="true" size="sm" />
+              </div>
             </div>
             <BaseButton variant="outline" size="sm" @click="addCondition">
               <IconPlus :size="14" class="tw:mr-1" /> Add condition
@@ -249,21 +254,17 @@ async function onValidSubmit() {
             :key="i"
             class="tw:flex tw:items-center tw:gap-2 tw:mb-2"
           >
-            <select
-              v-model="cond.field"
-              class="tw:border tw:border-divider tw:rounded tw:px-2 tw:py-1.5 tw:text-sm tw:w-40"
-              @change="onFieldChange(cond)"
-            >
-              <option v-for="f in fields" :key="f.key" :value="f.key">{{ f.label }}</option>
-            </select>
-            <select
-              v-model="cond.operator"
-              class="tw:border tw:border-divider tw:rounded tw:px-2 tw:py-1.5 tw:text-sm tw:w-40"
-            >
-              <option v-for="op in operatorsFor(cond.field)" :key="op.value" :value="op.value">
-                {{ op.label }}
-              </option>
-            </select>
+            <div class="tw:w-40 tw:shrink-0">
+              <BaseSelectMenu
+                v-model="cond.field"
+                :items="fieldItems"
+                :required="true"
+                @update:modelValue="onFieldChange(cond)"
+              />
+            </div>
+            <div class="tw:w-40 tw:shrink-0">
+              <BaseSelectMenu v-model="cond.operator" :items="operatorItems(cond.field)" :required="true" />
+            </div>
             <BaseTextInput
               v-if="!NO_VALUE_OPERATORS.has(cond.operator)"
               v-model="cond.value"
@@ -290,15 +291,14 @@ async function onValidSubmit() {
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
             <span class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary">Actions</span>
             <div class="tw:flex tw:items-center tw:gap-2">
-              <select
-                v-model="newActionType"
-                class="tw:border tw:border-divider tw:rounded tw:px-2 tw:py-1 tw:text-xs"
-              >
-                <option value="">Add action…</option>
-                <option v-for="a in availableActions" :key="a.value" :value="a.value">
-                  {{ a.label }}
-                </option>
-              </select>
+              <div class="tw:w-48">
+                <BaseSelectMenu
+                  v-model="newActionType"
+                  :items="actionItems"
+                  nullLabel="Add action…"
+                  size="sm"
+                />
+              </div>
               <BaseButton
                 variant="outline"
                 size="sm"
@@ -306,7 +306,7 @@ async function onValidSubmit() {
                 @click="
                   () => {
                     addAction(newActionType)
-                    newActionType = ''
+                    newActionType = null
                   }
                 "
               >
