@@ -401,7 +401,7 @@ function toggleWeekday(d) {
     </select>
 
     <!-- Advanced mode — raw five fields. -->
-    <div v-if="mode === MODE.ADVANCED" class="tw:grid tw:grid-cols-5 tw:gap-1.5">
+    <div v-if="mode === MODE.ADVANCED" class="tw:grid tw:grid-cols-2 tw:sm:grid-cols-3 tw:lg:grid-cols-5 tw:gap-1.5">
       <div class="tw:flex tw:flex-col">
         <span class="tw:text-micro tw:text-secondary tw:uppercase">Minute</span>
         <input

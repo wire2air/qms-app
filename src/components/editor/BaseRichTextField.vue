@@ -73,7 +73,7 @@ const showEditor = computed(() => props.editable && (!props.clickToEdit || editi
     >
       <div
         v-if="hasContent"
-        class="tw:prose tw:max-w-none tw:hover:text-primary"
+        class="tw:prose tw:dark:prose-invert tw:max-w-none tw:hover:text-primary"
         :class="textClass"
         v-html="model"
       />
@@ -82,7 +82,7 @@ const showEditor = computed(() => props.editable && (!props.clickToEdit || editi
 
     <!-- Read-only view (not editable) -->
     <template v-else>
-      <div v-if="hasContent" class="tw:prose tw:max-w-none" :class="textClass" v-html="model" />
+      <div v-if="hasContent" class="tw:prose tw:dark:prose-invert tw:max-w-none" :class="textClass" v-html="model" />
       <p v-else :class="textClass">{{ emptyLabel }}</p>
     </template>
   </div>

@@ -63,7 +63,7 @@ const STATUS_PILLS = [
     "
   >
     <template #stats>
-      <div class="tw:grid tw:grid-cols-3 tw:gap-3">
+      <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
         <div
           class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
         >

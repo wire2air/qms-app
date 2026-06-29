@@ -26,5 +26,5 @@ const html = computed(() =>
 </script>
 
 <template>
-  <div class="tw:prose tw:prose-sm tw:max-w-none tw:text-on-main" v-html="html"></div>
+  <div class="tw:prose tw:dark:prose-invert tw:prose-sm tw:max-w-none tw:text-on-main" v-html="html"></div>
 </template>

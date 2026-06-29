@@ -532,7 +532,7 @@ defineExpose({
       :tippyOptions="{ duration: 100 }"
     >
       <div
-        class="tw:flex tw:items-center tw:gap-1 tw:p-1 tw:bg-white tw:rounded-lg tw:shadow-xl tw:border tw:border-divider"
+        class="tw:flex tw:flex-wrap tw:max-w-[90vw] tw:items-center tw:gap-1 tw:p-1 tw:bg-white tw:rounded-lg tw:shadow-xl tw:border tw:border-divider"
       >
         <!-- Link Input Mode -->
         <template v-if="showLinkInput">

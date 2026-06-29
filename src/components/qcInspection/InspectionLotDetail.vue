@@ -648,7 +648,8 @@ const inspectionLotDetailConfig = computed(() =>
           </p>
         </div>
 
-        <table v-else class="tw:w-full tw:text-sm">
+        <div v-else class="tw:overflow-x-auto">
+        <table class="tw:w-full tw:min-w-[640px] tw:text-sm">
           <thead class="tw:text-secondary tw:text-xs tw:uppercase">
             <tr>
               <th class="tw:text-left tw:px-5 tw:py-2">Test</th>
@@ -756,6 +757,7 @@ const inspectionLotDetailConfig = computed(() =>
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
 
       <!-- Attributes (defect) inspection — additive; shown when a standard

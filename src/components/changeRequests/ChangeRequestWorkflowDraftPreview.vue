@@ -95,12 +95,13 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
       The selected workflow has no steps configured.
     </div>
 
-    <div v-else class="tw:flex tw:flex-col tw:gap-3">
+    <div v-else class="tw:@container tw:flex tw:flex-col tw:gap-3">
       <div
         v-for="(step, idx) in templateSteps"
         :key="step.id"
-        class="tw:flex tw:items-center tw:gap-3 tw:px-4 tw:py-3 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30"
+        class="tw:flex tw:flex-col tw:gap-3 tw:px-4 tw:py-3 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30 tw:@2xl:flex-row tw:@2xl:items-center"
       >
+        <div class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-3">
         <span
           class="tw:flex tw:items-center tw:justify-center tw:w-7 tw:h-7 tw:rounded-full tw:bg-primary/10 tw:text-primary tw:text-xs tw:font-bold tw:shrink-0"
         >
@@ -117,7 +118,8 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
             {{ step.description }}
           </div>
         </div>
-        <div class="tw:w-72 tw:shrink-0">
+        </div>
+        <div class="tw:w-full tw:shrink-0 tw:@2xl:w-72">
           <UserSelectMenu
             v-if="isOwner"
             :modelValue="currentAssignee(step.id)"

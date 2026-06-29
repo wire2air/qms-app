@@ -262,7 +262,7 @@ function getChecklistColumnLabel(col) {
 </script>
 
 <template>
-  <div class="tw:grid tw:grid-cols-3 tw:gap-3">
+  <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-3 tw:gap-3">
     <template v-for="field in getVisibleFields(fields)" :key="field.name || field.label">
       <!-- Section with children (full-width) -->
       <template v-if="isSectionField(field)">

@@ -54,7 +54,7 @@ async function resetSync() {
   </div>
 
   <header
-    class="tw:sticky tw:top-0 tw:z-raised tw:border-b tw:border-divider tw:bg-sidebar/80 tw:backdrop-blur-md tw:pe-2 tw:sm:pe-4 tw:ps-1 tw:sm:ps-2 tw:py-2 tw:sm:py-3"
+    class="tw:sticky tw:top-0 tw:z-sticky tw:border-b tw:border-divider tw:bg-sidebar/80 tw:backdrop-blur-md tw:pe-2 tw:sm:pe-4 tw:ps-1 tw:sm:ps-2 tw:py-2 tw:sm:py-3"
   >
     <!-- On mobile the row wraps so the search drops to its own full-width line
          below the title + controls (a single GlobalSearch instance, reordered

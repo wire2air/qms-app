@@ -270,6 +270,7 @@ async function createNewVersion(plan) {
           <!-- Custom table rows -->
           <div v-if="p.planType === 'CUSTOM' && p.customPlanTable?.rows?.length">
             <BaseText variant="overline" class="tw:block tw:mb-2"> Custom Plan Table </BaseText>
+            <div class="tw:overflow-x-auto">
             <table class="tw:text-xs tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
               <thead class="tw:bg-white tw:text-secondary tw:uppercase">
                 <tr>
@@ -294,6 +295,7 @@ async function createNewVersion(plan) {
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
 
           <!-- Metadata -->

@@ -445,7 +445,7 @@ const changeRequestDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- 2. Ownership -->
-      <BaseRailCard title="Ownership">
+      <BaseRailCard title="Ownership" grid>
         <!-- Initiator = who raised the change request (createdBy, immutable). -->
         <BaseDetailField label="Initiator">
           <UserBadgeById v-if="cr.createdBy" :userId="cr.createdBy" />
