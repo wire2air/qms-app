@@ -39,6 +39,15 @@ const replyHtml = ref('')
 const sending = ref(false)
 // Public reply (emailed) vs internal note (agent-only, yellow).
 const replyMode = ref('PUBLIC_REPLY')
+const replyEditorRef = ref(null)
+
+// Reset the reply box after a send. Clearing the v-model alone doesn't reset
+// BaseRichTextEditor (its setContent ignores empty values and a post-keystroke
+// cooldown suppresses the push), so we also clear the editor document directly.
+function resetReply() {
+  replyHtml.value = ''
+  replyEditorRef.value?.editor?.commands.clearContent()
+}
 
 function htmlToPlainText(html) {
   const doc = new DOMParser().parseFromString(html ?? '', 'text/html')
@@ -57,7 +66,7 @@ async function sendReply() {
       bodyHtml: replyHtml.value,
       kind: replyMode.value,
     })
-    replyHtml.value = ''
+    resetReply()
   } catch (e) {
     toast.notify({ type: 'negative', message: e.message || 'Failed to send' })
   } finally {
@@ -199,6 +208,7 @@ function trustedHtml(message) {
         :class="replyMode === 'INTERNAL_NOTE' ? 'cc-note-editor' : ''"
       >
         <BaseRichTextEditor
+          ref="replyEditorRef"
           v-model="replyHtml"
           :placeholder="
             replyMode === 'INTERNAL_NOTE'
