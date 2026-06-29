@@ -55,8 +55,8 @@ const showEmpty = computed(() => !hasSlot.value && resolvedValue.value === null)
   <div :class="layout === 'inline' ? 'tw:flex tw:items-center tw:justify-between tw:gap-3' : ''">
     <p
       v-if="label || $slots.label"
-      class="tw:text-secondary tw:text-label"
-      :class="layout === 'stacked' ? 'tw:mb-1' : 'tw:shrink-0'"
+      class="tw:text-[11px] tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
+      :class="layout === 'stacked' ? 'tw:mb-1' : 'tw:shrink-0 tw:normal-case'"
     >
       <slot name="label">{{ label }}</slot>
     </p>

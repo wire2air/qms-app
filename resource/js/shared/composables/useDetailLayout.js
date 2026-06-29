@@ -38,7 +38,7 @@ export function useDetailLayout(o = {}) {
   )
 
   const actionBuckets = computed(() =>
-    bucketActions(resolvedActions.value, o.maxVisibleActions ?? 3),
+    bucketActions(resolvedActions.value, toValue(o.maxVisibleActions) ?? 3),
   )
 
   // Scroll-aware chrome: true once the scroll region has moved.

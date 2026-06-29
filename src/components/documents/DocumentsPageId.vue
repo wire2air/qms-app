@@ -510,7 +510,7 @@ const documentDetailConfig = computed(() =>
     </template>
 
     <template #actions>
-      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2 tw:max-sm:justify-end">
         <AskAiButton
               v-if="canUseAi && document?.id"
               entityType="Document"

@@ -465,7 +465,7 @@ const auditStandardDetailConfig = computed(() =>
           {{ standard.description || (isEditable ? 'Add a description…' : '—') }}
         </BaseClickableRow>
 
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <div class="tw:flex tw:flex-col tw:gap-1">
             <div class="tw:text-xs tw:text-secondary">Type</div>
             <AuditStandardTypeSelectMenu v-if="isEditable" v-model="standard.auditStandardTypeId" />

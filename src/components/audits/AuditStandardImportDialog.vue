@@ -221,7 +221,7 @@ function safeParseJson(raw) {
         </div>
 
         <!-- Identity -->
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField label="Code" required :value="code" :rules="[required()]">
             <template #default="field">
               <BaseTextInput v-bind="field" v-model="code" placeholder="e.g. ISO-9001-INTERNAL" />
@@ -298,7 +298,7 @@ function safeParseJson(raw) {
               I confirm we hold a valid licence for the content being imported.
             </label>
           </BaseField>
-          <div class="tw:grid tw:grid-cols-2 tw:gap-2">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-2">
             <BaseField label="Licence reference" optional>
               <template #default="field">
                 <BaseTextInput

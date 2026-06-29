@@ -67,7 +67,7 @@ async function onValidSubmit() {
     <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
         <!-- Connection type choice -->
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseClickableRow
             class="tw:rounded-xl tw:border-2 tw:p-4 tw:transition-all"
             :class="

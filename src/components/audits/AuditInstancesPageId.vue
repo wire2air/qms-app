@@ -455,7 +455,7 @@ const auditInstanceDetailConfig = computed(() =>
       <div class="tw:flex tw:flex-col tw:gap-4">
         <!-- Details card -->
         <FormSection title="Audit Details">
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3 tw:mb-4">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3 tw:mb-4">
             <div class="tw:flex tw:flex-col tw:gap-1">
               <div class="tw:text-xs tw:text-secondary">Standard</div>
               <AuditStandardBadgeById

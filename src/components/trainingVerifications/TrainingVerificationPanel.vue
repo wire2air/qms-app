@@ -258,7 +258,7 @@ async function onEsignVerified(esign) {
       <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mb-3">
         Manager Competency Verification
       </BaseText>
-      <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+      <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
         <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">
           <input
             v-model="form.demonstratedUnderstanding"

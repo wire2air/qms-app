@@ -349,7 +349,7 @@ const showDeactivated = ref(false)
             </template>
           </BaseField>
 
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
             <BaseField
               label="Colour"
               hint="Used as the badge background tint. Leave empty for neutral grey."

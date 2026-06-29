@@ -38,11 +38,12 @@ const props = defineProps({
   //   badge     — count pill after the label (string|number)
   //   indicator — small attention dot (Boolean)
   tabs: { type: Array, required: true },
-  // 'underline' (default) or 'pills'.
+  // 'segmented' (default) — enclosed pill group with an elevated active tab;
+  // 'underline' — classic underline row; 'pills' — solid primary active pill.
   variant: {
     type: String,
-    default: 'underline',
-    validator: (v) => ['underline', 'pills'].includes(v),
+    default: 'segmented',
+    validator: (v) => ['segmented', 'underline', 'pills'].includes(v),
   },
   // Accessible name for the tablist (WCAG — every tablist needs one).
   ariaLabel: { type: String, default: undefined },
@@ -217,13 +218,31 @@ watch(model, () => {
 
 /* ──────────────────────────── Styling ──────────────────────────── */
 
-const listClass = computed(() => [
-  'base-tabs__scroller tw:relative tw:flex tw:flex-nowrap tw:overflow-x-auto',
-  props.variant === 'pills' ? 'tw:gap-1' : 'tw:gap-1 tw:border-b tw:border-divider',
-])
+// The segmented track hugs its content (and scrolls within max-width on overflow)
+// so it reads as a contained control rather than a full-width bar.
+const viewportClass = computed(() =>
+  props.variant === 'segmented' ? 'tw:relative tw:w-fit tw:max-w-full' : 'tw:relative',
+)
+
+const listClass = computed(() => {
+  const base = 'base-tabs__scroller tw:relative tw:flex tw:flex-nowrap tw:overflow-x-auto'
+  if (props.variant === 'segmented')
+    return [base, 'tw:gap-1 tw:rounded-xl tw:border tw:border-divider tw:bg-main-unselected tw:p-1']
+  if (props.variant === 'pills') return [base, 'tw:gap-1']
+  return [base, 'tw:gap-1 tw:border-b tw:border-divider']
+})
 
 function tabClass(tab) {
   const active = isActive(tab)
+  if (props.variant === 'segmented') {
+    return [
+      'tw:inline-flex tw:items-center tw:gap-1.5 tw:whitespace-nowrap tw:rounded-lg tw:px-3.5 tw:py-1.5 tw:text-sm tw:font-medium tw:transition-all tw:duration-200 tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/30',
+      active
+        ? 'tw:bg-card tw:text-on-main tw:shadow-sm'
+        : 'tw:text-secondary tw:hover:text-on-main',
+      tab.disabled && 'tw:cursor-not-allowed tw:opacity-50',
+    ]
+  }
   if (props.variant === 'pills') {
     return [
       'tw:inline-flex tw:items-center tw:gap-1.5 tw:whitespace-nowrap tw:rounded-lg tw:px-3 tw:py-1.5 tw:text-sm tw:font-medium tw:transition-colors tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/30',
@@ -245,7 +264,7 @@ function tabClass(tab) {
   <div>
     <!-- Overflow viewport: anchors the fades + floating buttons without taking
          layout space, so they never cause layout shift. -->
-    <div class="tw:relative">
+    <div :class="viewportClass">
       <div
         ref="scroller"
         role="tablist"

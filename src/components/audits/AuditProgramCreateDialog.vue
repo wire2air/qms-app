@@ -146,7 +146,7 @@ async function onValidSubmit() {
           </template>
         </BaseField>
 
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField label="Type" required :value="form.programTypeId" :rules="[required()]">
             <BaseInlineSelect
               v-model="form.programTypeId"
@@ -200,7 +200,7 @@ async function onValidSubmit() {
           <AuditStandardSelectMenu v-model="form.auditStandardId" />
         </BaseField>
 
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField label="Manager">
             <UserSelectMenu v-model="form.managerUserId" />
           </BaseField>
@@ -209,7 +209,7 @@ async function onValidSubmit() {
           </BaseField>
         </div>
 
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField label="Site">
             <SiteSelectMenu v-model="form.siteId" />
           </BaseField>
