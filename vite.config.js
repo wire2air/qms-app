@@ -27,7 +27,11 @@ export default defineConfig(({ mode }) => {
 
   // Proxy configuration for API calls
   const proxy = {
-    '/api': {
+    // Match the `/api/` path SEGMENT, not the bare `/api` string. Frontend
+    // routes that merely start with "api" (e.g. /api-keys, /api-tokens) must
+    // NOT be proxied to the backend on a hard reload — they're SPA routes.
+    // Real API calls are always `/api/v1/...`, so the trailing slash is safe.
+    '/api/': {
       target: env.VITE_PROXY_API_TARGET,
       changeOrigin: true,
       rewrite: (path) => path.replace(/^\/api/, ''),
