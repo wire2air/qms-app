@@ -72,13 +72,32 @@ watch(
     editValues.value = { ...(v ?? {}) }
   },
 )
+// Only emit when the local copy genuinely differs from the prop. The parent
+// assigns each emitted object straight back to complaint.customFields (a new
+// reference every time), which re-fires the prop watcher above and reassigns
+// editValues — without this content check the prop→editValues→emit→prop cycle
+// never converges and the page freezes (and would also fight the auto-save
+// writeback echo).
 watch(
   editValues,
   (v) => {
-    if (props.editable) emit('update:customFields', { ...v })
+    if (!props.editable) return
+    if (isDeepEqual(v, props.customFields ?? {})) return
+    emit('update:customFields', { ...v })
   },
   { deep: true },
 )
+
+// Structural equality for plain custom-field bags (primitives + nested
+// objects/arrays produced by DynamicForm). No deep-equal util in the project.
+function isDeepEqual(a, b) {
+  if (a === b) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
+  const keysA = Object.keys(a)
+  const keysB = Object.keys(b)
+  if (keysA.length !== keysB.length) return false
+  return keysA.every((k) => isDeepEqual(a[k], b[k]))
+}
 
 // Schema-less tickets: simple key/value attribute editor.
 const newKey = ref('')

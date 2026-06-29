@@ -477,7 +477,7 @@ function prevStep() {
           <BaseButton
             v-else
             :disabled="selectedPreset === null || templateForm.isSubmitting"
-            @click="formRef?.submit()"
+            @click="onSubmit"
           >
             <IconBrush :size="16" class="tw:mr-1" />
             Design Form

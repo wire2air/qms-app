@@ -48,8 +48,12 @@ async function handleSubmit({ systemValues, customValues }) {
 </script>
 
 <template>
+  <!-- h-screen + overflow-y-auto, not min-h-screen: the app shell locks the
+       body (overflow-hidden) and sizes #app to the viewport, so this public
+       page must own its own vertical scroll or tall forms get clipped and the
+       Submit button becomes unreachable. -->
   <div
-    class="tw:min-h-screen tw:bg-gray-50 tw:py-10 tw:px-4"
+    class="tw:h-screen tw:overflow-y-auto tw:bg-gray-50 tw:py-10 tw:px-4"
     :style="form?.branding?.backgroundColor ? { backgroundColor: form.branding.backgroundColor } : {}"
   >
     <div class="tw:max-w-2xl tw:mx-auto">
