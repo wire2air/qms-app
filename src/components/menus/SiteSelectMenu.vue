@@ -60,10 +60,6 @@ function onSiteCreated(newSite) {
   nextTick(() => createIconRef.value?.focus?.())
 }
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
-
 const resolvedNullLabel = computed(
   () => props.nullLabel ?? (props.isFilter ? '— All sites —' : '— Select site —'),
 )
@@ -72,45 +68,31 @@ const resolvedNullLabel = computed(
 <template>
   <div class="tw:flex tw:items-center tw:gap-2">
     <div class="tw:flex-1 tw:min-w-0">
-      <BaseSelectMenu
+      <BaseSelect
         v-model="modelValue"
-        :items="sites"
+        :options="sites"
+        optionLabel="name"
+        optionValue="id"
         :nullLabel="resolvedNullLabel"
         :required="props.required"
         :multiple="props.multiple"
+        :clearable="!props.required"
       >
-        <template #button="scope">
-          <slot name="button" v-bind="scope">
-            <!-- MULTIPLE MODE -->
-            <template v-if="props.multiple">
-              <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-                <SiteBadgeById
-                  v-for="siteId in getArray()"
-                  :key="siteId"
-                  :siteId="siteId"
-                  :clearable="!props.required || getArray().length > 1"
-                  @clear="() => scope.clear(siteId)"
-                />
-              </div>
-              <BaseBadge v-else class="tw:text-sm tw:font-medium tw:text-placeholder" selectable>
-                Select Sites
-              </BaseBadge>
-            </template>
+        <!-- Consumer may fully replace the trigger with a compact "+ Add" button. -->
+        <template v-if="$slots.button" #trigger="scope">
+          <slot name="button" v-bind="scope" />
+        </template>
 
-            <!-- SINGLE MODE -->
-            <template v-else>
-              <SiteBadgeById
-                v-if="modelValue"
-                :siteId="modelValue"
-                :clearable="!props.required"
-                selectable
-                @clear="() => scope.clear(modelValue)"
-              />
-              <BaseBadge v-else class="tw:text-sm tw:font-medium tw:text-placeholder" selectable>
-                Select Site
-              </BaseBadge>
-            </template>
-          </slot>
+        <template #selected="{ options, remove }">
+          <div class="tw:flex tw:flex-wrap tw:gap-1">
+            <SiteBadgeById
+              v-for="o in options"
+              :key="o.value"
+              :siteId="o.value"
+              :clearable="props.multiple && (!props.required || options.length > 1)"
+              @clear="() => remove(o)"
+            />
+          </div>
         </template>
 
         <template v-if="canCreateSite" #footer="{ close }">
@@ -123,7 +105,7 @@ const resolvedNullLabel = computed(
             Add New Site
           </button>
         </template>
-      </BaseSelectMenu>
+      </BaseSelect>
     </div>
 
     <SitesCreateUpdateDialog

@@ -30,41 +30,33 @@ const roles = computed(() => {
   return allRoles.value.filter((r) => !excluded.has(r.id))
 })
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="roles" :required="required" :multiple="multiple">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <!-- MULTIPLE MODE -->
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <RoleBadgeById
-              v-for="roleId in getArray()"
-              :key="roleId"
-              :roleId="roleId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(roleId)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> — All roles — </span>
-        </template>
-
-        <!-- SINGLE MODE -->
-        <template v-else>
-          <RoleBadgeById
-            v-if="modelValue"
-            :roleId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> — All roles — </span>
-        </template>
-      </slot>
+  <BaseSelect
+    v-model="modelValue"
+    :options="roles"
+    optionLabel="name"
+    optionValue="id"
+    :required="required"
+    :multiple="multiple"
+    :clearable="!required"
+    nullLabel="— All roles —"
+  >
+    <template v-if="$slots.button" #trigger="scope">
+      <slot name="button" v-bind="scope" />
     </template>
-  </BaseSelectMenu>
+
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <RoleBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :roleId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
+    </template>
+  </BaseSelect>
 </template>

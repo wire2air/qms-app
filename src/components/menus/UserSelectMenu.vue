@@ -120,66 +120,48 @@ const filteredUsers = computed(() => {
   })
 })
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
 </script>
 
 <template>
-  <BaseSelectMenu
+  <BaseSelect
     v-model="modelValue"
-    :items="filteredUsers"
+    :options="filteredUsers"
+    optionLabel="name"
+    optionValue="id"
     :required="required"
     :multiple="multiple"
+    :clearable="!required"
     :nullLabel="nullLabel"
   >
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <!-- MULTIPLE MODE -->
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
-            <UserBadgeById
-              v-for="userId in getArray()"
-              :key="userId"
-              :userId="userId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(userId)"
-            />
-            <!-- Explicit "add more" affordance — without it the badge
-                 row visually reads as final / single-select. Click is
-                 captured by the surrounding popover trigger and opens
-                 the menu. -->
-            <span
-              class="tw:inline-flex tw:items-center tw:gap-0.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:bg-primary/10 tw:rounded tw:px-1.5 tw:py-0.5 tw:cursor-pointer tw:border tw:border-dashed tw:border-primary/40"
-            >
-              <IconPlus :size="12" />
-              Add
-            </span>
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">{{ nullLabel }}</span>
-        </template>
-
-        <!-- SINGLE MODE -->
-        <template v-else>
-          <UserBadgeById
-            v-if="modelValue"
-            :userId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">{{ nullLabel }}</span>
-        </template>
-      </slot>
-    </template>
-
-    <template #item="{ item }">
-      <div class="tw:flex tw:flex-col">
-        <span>{{ item.name }}</span>
-        <span v-if="rolesByUserId[item.id]" class="tw:text-xs tw:text-placeholder">
-          {{ rolesByUserId[item.id] }}
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
+        <UserBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :userId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+        <!-- Explicit "add more" affordance — without it the badge row visually
+             reads as final / single-select. Click bubbles to the trigger and
+             opens the menu. -->
+        <span
+          v-if="multiple"
+          class="tw:inline-flex tw:items-center tw:gap-0.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:bg-primary/10 tw:rounded tw:px-1.5 tw:py-0.5 tw:cursor-pointer tw:border tw:border-dashed tw:border-primary/40"
+        >
+          <IconPlus :size="12" />
+          Add
         </span>
       </div>
     </template>
-  </BaseSelectMenu>
+
+    <template #option="{ opt }">
+      <div class="tw:flex tw:flex-col">
+        <span>{{ opt.label }}</span>
+        <span v-if="rolesByUserId[opt.value]" class="tw:text-xs tw:text-placeholder">
+          {{ rolesByUserId[opt.value] }}
+        </span>
+      </div>
+    </template>
+  </BaseSelect>
 </template>

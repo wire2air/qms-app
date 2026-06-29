@@ -167,6 +167,45 @@ describe('BaseSelect', () => {
     })
   })
 
+  it('renders a #footer slot with a working close() callback', async () => {
+    wrapper = mount(BaseSelect, {
+      props: { options: OPTIONS, optionLabel: 'name', optionValue: 'id' },
+      slots: {
+        footer: `<template #footer="{ close }"><button data-add @click="close">Add new</button></template>`,
+      },
+      attachTo: document.body,
+    })
+    await wrapper.get('[aria-haspopup="listbox"]').trigger('click')
+    await nextTick()
+    await nextTick()
+    const add = document.body.querySelector('[data-add]')
+    // Footer renders below the option list, inside the open panel.
+    expect(add).toBeTruthy()
+    expect(add.textContent).toBe('Add new')
+    expect(options()).toHaveLength(3)
+    // close() is wired (BasePopover dismissal itself isn't exercised in jsdom).
+    expect(() => add.click()).not.toThrow()
+  })
+
+  it('replaces the trigger chrome with a #trigger slot when provided', () => {
+    wrapper = mount(BaseSelect, {
+      props: { options: OPTIONS, optionLabel: 'name', optionValue: 'id' },
+      slots: { trigger: `<button data-add>+ Add</button>` },
+    })
+    expect(wrapper.find('[data-add]').exists()).toBe(true)
+    // default combobox chrome is not rendered
+    expect(wrapper.find('[role="combobox"]').exists()).toBe(false)
+  })
+
+  it('exposes open/close/toggle methods', () => {
+    wrapper = mount(BaseSelect, {
+      props: { options: OPTIONS, optionLabel: 'name', optionValue: 'id' },
+    })
+    expect(typeof wrapper.vm.open).toBe('function')
+    expect(typeof wrapper.vm.close).toBe('function')
+    expect(typeof wrapper.vm.toggle).toBe('function')
+  })
+
   it('exposes remove() to the #selected slot for per-item clear', async () => {
     wrapper = mount(BaseSelect, {
       props: {
