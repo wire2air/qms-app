@@ -28,55 +28,32 @@ const suppliers = useLiveQuery((db) => db.Supplier.where('statusId', 'APPROVED')
   initial: [],
 })
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
-
 const resolvedNullLabel = computed(
   () => props.nullLabel ?? (props.isFilter ? '— All suppliers —' : '— Select supplier —'),
 )
 </script>
 
 <template>
-  <BaseSelectMenu
+  <BaseSelect
     v-model="modelValue"
-    :items="suppliers"
+    :options="suppliers"
+    optionLabel="name"
+    optionValue="id"
     :required="props.required"
     :multiple="props.multiple"
+    :clearable="!props.required"
     :nullLabel="resolvedNullLabel"
   >
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <!-- MULTIPLE MODE -->
-        <template v-if="props.multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <SupplierBadgeById
-              v-for="supplierId in getArray()"
-              :key="supplierId"
-              :supplierId="supplierId"
-              :clearable="!props.required || getArray().length > 1"
-              @clear="() => scope.clear(supplierId)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select Suppliers
-          </span>
-        </template>
-
-        <!-- SINGLE MODE -->
-        <template v-else>
-          <SupplierBadgeById
-            v-if="modelValue"
-            :supplierId="modelValue"
-            :clearable="!props.required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select Supplier
-          </span>
-        </template>
-      </slot>
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <SupplierBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :supplierId="o.value"
+          :clearable="props.multiple && (!props.required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

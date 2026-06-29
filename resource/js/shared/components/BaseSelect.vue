@@ -393,7 +393,27 @@ const sizeClasses = computed(() =>
     : 'tw:min-h-11 tw:sm:min-h-9 tw:py-1.5 tw:text-sm tw:sm:text-12',
 )
 
-defineExpose({ validate, resetValidation, focus: () => {} })
+// Programmatic open/close — e.g. a parent "+ add" button that pops the menu.
+// Desktop is BasePopover-controlled, so we click the trigger to toggle it open;
+// mobile drives its own sheet ref.
+function openProgrammatically() {
+  if (isOpen.value) return
+  if (isMobile.value) mobileOpen.value = true
+  else document.getElementById(baseId)?.click()
+}
+function toggle() {
+  if (isOpen.value) closePopover()
+  else openProgrammatically()
+}
+
+defineExpose({
+  validate,
+  resetValidation,
+  focus: () => {},
+  open: openProgrammatically,
+  close: closePopover,
+  toggle,
+})
 </script>
 
 <template>
@@ -416,8 +436,19 @@ defineExpose({ validate, resetValidation, focus: () => {} })
 
     <!-- ============================ shared trigger ============================ -->
     <DefineTrigger v-slot="{ open, focusable }">
+      <!-- Full trigger override (e.g. a compact "+ Add" button that just opens
+           the picker; the consumer renders the selection elsewhere). Clicking it
+           bubbles to the popover wrapper and toggles the menu. -->
+      <slot
+        v-if="slots.trigger"
+        name="trigger"
+        :open="open"
+        :hasValue="hasValue"
+        :selectedOptions="selectedOptions"
+      />
       <!-- Trigger — mirrors BaseTextInput chrome for zero layout shift. -->
       <div
+        v-else
         :id="baseId"
         role="combobox"
         aria-haspopup="listbox"
@@ -729,6 +760,10 @@ defineExpose({ validate, resetValidation, focus: () => {} })
         {{ query ? `${optionCount} of ${normalizedOptions.length}` : optionCount }}
         {{ optionCount === 1 ? 'option' : 'options' }}
       </div>
+
+      <!-- Consumer footer (e.g. an inline "Add new …" create action). `close`
+           dismisses the panel — desktop popover or mobile sheet alike. -->
+      <slot name="footer" :close="closePopover" />
     </DefineMenu>
 
     <!-- ============================ desktop: anchored popover ============================ -->

@@ -1,5 +1,5 @@
 <script setup>
-defineProps({
+const props = defineProps({
   required: { type: Boolean, default: false },
   multiple: { type: Boolean, default: false },
   hideNullOption: { type: Boolean, default: false },
@@ -7,7 +7,7 @@ defineProps({
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
-const triggerElRef = ref(null)
+const selectRef = ref(null)
 
 const allDocuments = useLiveQuery(
   async (db) => db.Document.where().orderBy('docNumber', 'asc').exec(),
@@ -28,56 +28,38 @@ const items = computed(() => {
     .map((d) => ({ id: d.id, name: `${d.docNumber} – ${d.title}` }))
 })
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
+// Callers (e.g. TrainingDocumentSelector) open the picker programmatically.
+const nullLabel = computed(() => (props.hideNullOption ? null : '— All documents —'))
 
 defineExpose({
   open() {
-    triggerElRef.value?.click()
+    selectRef.value?.open()
   },
 })
 </script>
 
 <template>
-  <BaseSelectMenu
+  <BaseSelect
+    ref="selectRef"
     v-model="modelValue"
-    :items="items"
+    :options="items"
+    optionLabel="name"
+    optionValue="id"
     :required="required"
     :multiple="multiple"
-    :hideNullOption="hideNullOption"
+    :clearable="!required"
+    :nullLabel="nullLabel"
   >
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <div ref="triggerElRef">
-          <template v-if="multiple">
-            <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-              <DocumentBadgeById
-                v-for="docId in getArray()"
-                :key="docId"
-                :documentId="docId"
-                :clearable="!required || getArray().length > 1"
-                @clear="() => scope.clear(docId)"
-              />
-            </div>
-            <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
-              >— All documents —</span
-            >
-          </template>
-          <template v-else>
-            <DocumentBadgeById
-              v-if="modelValue"
-              :documentId="modelValue"
-              :clearable="!required"
-              selectable
-              @clear="() => scope.clear(modelValue)"
-            />
-            <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"
-              >— All documents —</span
-            >
-          </template>
-        </div>
-      </slot>
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <DocumentBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :documentId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>
