@@ -121,7 +121,7 @@ function isActive(item) {
 
 <template>
   <div
-    class="tw:flex tw:items-center tw:gap-1 tw:p-1 tw:bg-sidebar tw:border-b tw:border-divider tw:rounded-t"
+    class="tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:p-1 tw:bg-sidebar tw:border-b tw:border-divider tw:rounded-t"
   >
     <template v-for="(item, index) in toolbarItems" :key="index">
       <div v-if="item.divider" class="tw:w-px tw:h-5 tw:bg-divider tw:mx-0.5" />

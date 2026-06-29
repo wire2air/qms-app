@@ -497,7 +497,7 @@ const auditProgramDetailConfig = computed(() =>
     </template>
 
     <template v-if="program" #rail>
-      <BaseRailCard title="Overview">
+      <BaseRailCard title="Overview" grid>
         <BaseDetailField label="Active">
           <BaseSwitch v-if="isEditable" v-model="program.active" />
           <BaseBadge

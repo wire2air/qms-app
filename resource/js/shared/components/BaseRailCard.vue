@@ -6,6 +6,10 @@ const props = defineProps({
   icon: { type: [Object, Function], default: null },
   collapsible: { type: Boolean, default: true },
   defaultOpen: { type: Boolean, default: true },
+  // Lay the body fields out in an auto-fit 2-column grid (matches the "General"
+  // card). Each field keeps a 8rem min, so it collapses to 1 column when the
+  // rail is narrow. Default stacks the fields.
+  grid: { type: Boolean, default: false },
 })
 
 const open = ref(props.defaultOpen)
@@ -44,7 +48,13 @@ function toggle() {
       <component :is="icon" v-if="icon" :size="14" aria-hidden="true" />
       {{ title }}
     </h3>
-    <div v-if="open" :id="bodyId">
+    <div
+      v-if="open"
+      :id="bodyId"
+      :class="
+        grid ? 'tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]' : ''
+      "
+    >
       <slot />
     </div>
   </BaseCard>

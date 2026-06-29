@@ -440,7 +440,7 @@ function libraryAssigneeStats(instanceId) {
         </div>
 
         <!-- Summary stats -->
-        <div class="tw:grid tw:grid-cols-5 tw:gap-3 tw:mt-4">
+        <div class="tw:grid tw:grid-cols-2 tw:sm:grid-cols-3 tw:lg:grid-cols-5 tw:gap-3 tw:mt-4">
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
             <p class="tw:text-micro tw:uppercase tw:font-bold tw:text-secondary">Total</p>
             <p class="tw:text-lg tw:font-bold tw:text-on-sidebar">{{ stats.total }}</p>
@@ -591,7 +591,7 @@ function libraryAssigneeStats(instanceId) {
         </RouterLink>
 
         <!-- Per-instance stats strip (mirrors the auto-training card above) -->
-        <div class="tw:grid tw:grid-cols-4 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-2 tw:sm:grid-cols-4 tw:gap-3">
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
             <p class="tw:text-micro tw:uppercase tw:font-bold tw:text-secondary">Assigned</p>
             <p class="tw:text-lg tw:font-bold tw:text-on-sidebar">

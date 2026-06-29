@@ -6,6 +6,7 @@ import {
   IconArchive,
   IconRestore,
   IconTrash,
+  IconChevronLeft,
 } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
@@ -553,17 +554,30 @@ watch(steps, () => {
 
       <!-- Two-Pane Designer -->
       <div v-if="selectedVersion" class="tw:flex tw:flex-1 tw:overflow-hidden">
-        <!-- Left Pane: Step List -->
+        <!-- Left Pane: Step List — full-width on mobile; collapses once a step is
+             open (below lg) so the editor gets the screen. Back button restores. -->
         <WorkflowStepList
           v-model:stepId="selectedStepId"
           :versionId="selectedVersionId"
           :canUpdate="canUpdate"
           :showChildSteps="showChildSteps"
+          :class="selectedStepId && 'tw:max-lg:hidden'"
         />
 
-        <!-- Right Pane: Step Editor -->
-        <div class="tw:flex-1 tw:overflow-y-auto tw:bg-main tw:p-8">
-          <div v-if="selectedStepId" class="tw:max-w-4xl tw:mx-auto tw:space-y-10">
+        <!-- Right Pane: Step Editor — hidden on mobile until a step is selected. -->
+        <div
+          class="tw:flex tw:flex-1 tw:flex-col tw:overflow-y-auto tw:bg-main tw:p-4 tw:md:p-8"
+          :class="!selectedStepId && 'tw:max-lg:hidden'"
+        >
+          <div v-if="selectedStepId" class="tw:w-full tw:max-w-4xl tw:mx-auto tw:space-y-10">
+            <!-- Mobile-only: return to the step list -->
+            <button
+              type="button"
+              class="tw:lg:hidden tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:font-medium tw:text-secondary tw:hover:text-on-main"
+              @click="selectedStepId = null"
+            >
+              <IconChevronLeft :size="16" /> Steps
+            </button>
             <WorkflowStepEditor
               :stepId="selectedStepId"
               :canUpdate="canUpdate"

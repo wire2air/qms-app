@@ -51,22 +51,14 @@ declare global {
   const filtersToQuery: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').filtersToQuery
   const formatChordParts: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').formatChordParts
   const formatField: typeof import('./src/composables/useDateField.js').formatField
-  const forwardRefs: typeof import('./resource/js/shared/composables/forwardRef.js').forwardRefs
   const fromModel: typeof import('./src/composables/useDateField.js').fromModel
   const fuzzyScore: typeof import('./resource/js/shared/composables/commandHelpers.js').fuzzyScore
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
   const getCurrentWatcher: typeof import('vue').getCurrentWatcher
   const getProp: typeof import('./resource/js/shared/composables/object.js').getProp
-  const getPropValue: typeof import('./resource/js/shared/composables/props.js').getPropValue
-  const getPropValueFn: typeof import('./resource/js/shared/composables/props.js').getPropValueFn
   const groupCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').groupCommands
   const h: typeof import('vue').h
-  const hDir: typeof import('./resource/js/shared/composables/render.js').hDir
-  const hMergeSlot: typeof import('./resource/js/shared/composables/render.js').hMergeSlot
-  const hMergeSlotSafely: typeof import('./resource/js/shared/composables/render.js').hMergeSlotSafely
-  const hSlot: typeof import('./resource/js/shared/composables/render.js').hSlot
-  const hUniqueSlot: typeof import('./resource/js/shared/composables/render.js').hUniqueSlot
   const hasChildren: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').hasChildren
   const ignorableWatch: typeof import('@vueuse/core').ignorableWatch
   const inject: typeof import('vue').inject
@@ -330,7 +322,6 @@ declare global {
   const useRafFn: typeof import('@vueuse/core').useRafFn
   const useRecordTrail: typeof import('./src/composables/useRecordTrail.js').useRecordTrail
   const useRefHistory: typeof import('@vueuse/core').useRefHistory
-  const useRender: typeof import('./resource/js/shared/composables/render.js').useRender
   const useResizeObserver: typeof import('@vueuse/core').useResizeObserver
   const useRolePermissions: typeof import('./src/composables/useRolePermissions.js').useRolePermissions
   const useRoles: typeof import('./src/composables/useRoles.js').useRoles
@@ -343,6 +334,9 @@ declare global {
   const useScriptTag: typeof import('@vueuse/core').useScriptTag
   const useScroll: typeof import('@vueuse/core').useScroll
   const useScrollLock: typeof import('@vueuse/core').useScrollLock
+  const useSelectFilter: typeof import('./resource/js/shared/composables/useSelectFilter.js').useSelectFilter
+  const useSelectKeyboard: typeof import('./resource/js/shared/composables/useSelectKeyboard.js').useSelectKeyboard
+  const useSelectOptions: typeof import('./resource/js/shared/composables/useSelectOptions.js').useSelectOptions
   const useSessionStorage: typeof import('@vueuse/core').useSessionStorage
   const useShare: typeof import('@vueuse/core').useShare
   const useSidebar: typeof import('./src/composables/useSidebar.js').useSidebar

@@ -298,7 +298,7 @@ const complaintDetailConfig = computed(() =>
 
     <template v-if="complaint" #rail>
       <!-- 1. General -->
-      <BaseRailCard title="General">
+      <BaseRailCard title="General" grid>
         <BaseDetailField label="Ticket number">
           <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
             {{ complaint.complaintNumber || '—' }}
@@ -313,7 +313,7 @@ const complaintDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- 2. Assignment -->
-      <BaseRailCard title="Assignment">
+      <BaseRailCard title="Assignment" grid>
         <BaseDetailField label="Priority">
           <CustomerComplaintPrioritySelectMenu v-if="isEditable" v-model="complaint.priorityId" />
           <CustomerComplaintPriorityBadgeById

@@ -546,7 +546,7 @@ async function newVersion() {
                 />
               </BaseField>
             </div>
-            <BaseField v-if="c.requiresInstrument" label="Preferred instrument" class="tw:mt-2 tw:w-72">
+            <BaseField v-if="c.requiresInstrument" label="Preferred instrument" class="tw:mt-2 tw:w-full tw:sm:w-72">
               <EquipmentSelectMenu
                 v-model="c.preferredEquipmentId"
                 nullLabel="— None (pick at capture) —"

@@ -79,7 +79,7 @@ function openFindingsInstance(f) {
       <!-- Trend strip — three stat tiles that compress the supplier's
            audit history into one line: open right now, open Majors,
            last-12-months volume. -->
-      <div class="tw:grid tw:grid-cols-3 tw:gap-3">
+      <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
         <div class="tw:flex tw:flex-col tw:items-center tw:p-2 tw:rounded-lg tw:bg-main-hover">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ stats.open }}</span>
           <span class="tw:text-micro tw:text-secondary tw:uppercase tw:tracking-wider">Open</span>
