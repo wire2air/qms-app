@@ -18,41 +18,29 @@ const templates = useLiveQuery(
 
   { models: ['FormTemplate'], initial: [] },
 )
-
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="templates" :required="required" :multiple="multiple">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <FormTemplateBadgeById
-              v-for="id in getArray()"
-              :key="id"
-              :formTemplateId="id"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(id)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">— All forms —</span>
-        </template>
-        <template v-else>
-          <FormTemplateBadgeById
-            v-if="modelValue"
-            :formTemplateId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            — All forms —
-          </span>
-        </template>
-      </slot>
+  <BaseSelect
+    v-model="modelValue"
+    :options="templates"
+    optionLabel="name"
+    optionValue="id"
+    :required="required"
+    :multiple="multiple"
+    :clearable="!required"
+    nullLabel="— All forms —"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <FormTemplateBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :formTemplateId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>
