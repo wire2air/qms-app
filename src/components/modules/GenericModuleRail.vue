@@ -48,34 +48,34 @@ watch(
   <BaseRailCard v-if="record" title="Details">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:text-sm">
       <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-xs tw:font-medium tw:text-secondary">Initiator</label>
+        <p class="tw:text-xs tw:font-medium tw:text-secondary">Initiator</p>
         <UserBadgeById v-if="record.userId" :userId="record.userId" />
         <span v-else class="tw:text-secondary">—</span>
       </div>
 
       <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-xs tw:font-medium tw:text-secondary">Owner</label>
+        <p class="tw:text-xs tw:font-medium tw:text-secondary">Owner</p>
         <UserSelectMenu v-if="editable" v-model="record.ownerUserId" kind="INTERNAL" />
         <UserBadgeById v-else-if="record.ownerUserId" :userId="record.ownerUserId" />
         <span v-else class="tw:text-secondary">—</span>
       </div>
 
       <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-xs tw:font-medium tw:text-secondary">Site</label>
+        <p class="tw:text-xs tw:font-medium tw:text-secondary">Site</p>
         <SiteSelectMenu v-if="editable" v-model="record.siteId" />
         <SiteBadgeById v-else-if="record.siteId" :siteId="record.siteId" />
         <span v-else class="tw:text-secondary">—</span>
       </div>
 
       <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-xs tw:font-medium tw:text-secondary">Department</label>
+        <p class="tw:text-xs tw:font-medium tw:text-secondary">Department</p>
         <DepartmentSelectMenu v-if="editable" v-model="record.departmentId" />
         <DepartmentBadgeById v-else-if="record.departmentId" :departmentId="record.departmentId" />
         <span v-else class="tw:text-secondary">—</span>
       </div>
 
       <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-xs tw:font-medium tw:text-secondary">Due date</label>
+        <p class="tw:text-xs tw:font-medium tw:text-secondary">Due date</p>
         <BaseDateField v-if="editable" v-model="record.dueDate" mode="date" />
         <span v-else-if="record.dueDate" class="tw:text-on-main">{{
           record.dueDate.formatDate?.('date') ?? record.dueDate
