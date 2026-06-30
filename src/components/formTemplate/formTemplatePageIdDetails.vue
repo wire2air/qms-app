@@ -1,5 +1,5 @@
 <script setup>
-import { IconTrash, IconEdit, IconCode, IconRocket } from '@tabler/icons-vue'
+import { IconTrash, IconEdit, IconCode, IconRocket, IconBolt } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
@@ -116,6 +116,14 @@ async function handleDelete() {
           :to="getCompanyPath(`/templates/${template.id}?mode=records`)"
         >
           View records
+        </BaseButton>
+        <BaseButton
+          v-if="template.isModule"
+          variant="outline"
+          :to="getCompanyPath(`/templates/${template.id}?mode=automation`)"
+        >
+          <IconBolt :size="16" class="tw:mr-1" />
+          Automation
         </BaseButton>
         <BaseButton
           v-if="canUpdate && !template.isModule"
@@ -272,15 +280,6 @@ async function handleDelete() {
                 </div>
               </BaseField>
             </div>
-          </div>
-
-          <!-- Automation (module templates only) -->
-          <div
-            v-if="template.isModule"
-            class="tw:space-y-3 tw:pt-4 tw:border-t tw:border-divider"
-          >
-            <BaseText as="h4" variant="overline" class="tw:block">Automation</BaseText>
-            <FormTemplateAutomationRules :templateId="template.id" />
           </div>
 
           <!-- JSON Configuration -->
