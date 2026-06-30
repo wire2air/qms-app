@@ -226,6 +226,26 @@ watch(
   { immediate: true },
 )
 
+// Reset transient dialog state whenever the dialog reopens, so a prior
+// success/form view (e.g. the "Record Created!" screen) doesn't persist
+// into the next "Add Record" session.
+watch(model, (isOpen) => {
+  if (!isOpen) return
+  step.value = 'select'
+  selectedTemplate.value = null
+  formData.value = {}
+  documentTypeId.value = null
+  createdRecord.value = null
+  submitting.value = false
+  templateSearch.value = ''
+  docTypeError.value = ''
+  // Re-apply the "launched with a specific log book" shortcut on reopen.
+  if (props.logBookId) {
+    const match = inspectionTemplates.value.find((t) => t.id === props.logBookId)
+    if (match) selectTemplate(match)
+  }
+})
+
 const createRecord = useLiveMutation(async (db, { templateId, documentTypeId, payload }) => {
   const template = await db.FormTemplate.findByPk(templateId)
   if (!template) throw new Error('Template not found')

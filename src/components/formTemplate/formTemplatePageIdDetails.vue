@@ -57,12 +57,19 @@ async function handleSitesChange(newSiteIds) {
   const toAdd = newSiteIds.filter((id) => !currentIds.includes(id))
   const toRemove = currentIds.filter((id) => !newSiteIds.includes(id))
 
-  for (const siteId of toAdd) {
-    await addSiteOnTemplate({ templateId: props.id, siteId })
-  }
-  for (const siteId of toRemove) {
-    const match = siteAssignments.value.find((sa) => sa.siteId === siteId)
-    if (match) await match.delete()
+  // Surface the failure instead of leaving an unhandled rejection in the
+  // console. The save can be rejected server-side (e.g. RLS on
+  // sites_on_templates) — pessimistic saves mean a throw == nothing changed.
+  try {
+    for (const siteId of toAdd) {
+      await addSiteOnTemplate({ templateId: props.id, siteId })
+    }
+    for (const siteId of toRemove) {
+      const match = siteAssignments.value.find((sa) => sa.siteId === siteId)
+      if (match) await match.delete()
+    }
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update assigned sites')
   }
 }
 

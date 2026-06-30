@@ -5,6 +5,7 @@ import {
   IconAlertCircle,
   IconCalendar,
   IconCalendarCheck,
+  IconTrash,
 } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
@@ -21,7 +22,9 @@ import { DateTime } from 'luxon'
  */
 const canCreate = computed(() => isAllowed(['equipment:create']))
 const canUpdate = computed(() => isAllowed(['equipment:update']))
+const canDelete = computed(() => isAllowed(['equipment:delete']))
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const showCreateDialog = ref(false)
 
@@ -168,6 +171,26 @@ function onUpdated() {
   editingEquipment.value = null
 }
 
+// ─── Delete ───────────────────────────────────────────────────────
+// Equipment is paranoid, so delete() soft-deletes (sets deletedAt) and the
+// live query drops it automatically. row is the live model instance from the
+// query, so it carries .delete().
+async function onDelete(row) {
+  const ok = await confirm({
+    title: 'Delete Equipment',
+    message: `Are you sure you want to delete '${row.name}' (${row.code})? This cannot be undone.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await row.delete()
+    toast.success('Equipment deleted')
+  } catch (err) {
+    toast.error(err?.message || 'Failed to delete equipment')
+  }
+}
+
 // ─── Record calibration (quick action) ────────────────────────────
 // Stamps "calibrated today" and rolls next_calibration_due forward by the
 // instrument's interval (server-side). Documentation of the event still goes
@@ -271,17 +294,29 @@ async function recordCalibration(e) {
       </template>
 
       <template #body-cell-actions="{ row }">
-        <button
-          v-if="canUpdate && row.requiresCalibration"
-          type="button"
-          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:disabled:opacity-50"
-          :disabled="recordingId === row.id"
-          title="Mark calibrated today and roll the next-due date forward"
-          @click.stop="recordCalibration(row)"
-        >
-          <IconCalendarCheck :size="14" />
-          {{ recordingId === row.id ? 'Recording…' : 'Record calibration' }}
-        </button>
+        <div class="tw:flex tw:items-center tw:justify-end tw:gap-3">
+          <button
+            v-if="canUpdate && row.requiresCalibration"
+            type="button"
+            class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:disabled:opacity-50"
+            :disabled="recordingId === row.id"
+            title="Mark calibrated today and roll the next-due date forward"
+            @click.stop="recordCalibration(row)"
+          >
+            <IconCalendarCheck :size="14" />
+            {{ recordingId === row.id ? 'Recording…' : 'Record calibration' }}
+          </button>
+          <button
+            v-if="canDelete"
+            type="button"
+            class="tw:inline-flex tw:items-center tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            title="Delete equipment"
+            aria-label="Delete equipment"
+            @click.stop="onDelete(row)"
+          >
+            <IconTrash :size="16" />
+          </button>
+        </div>
       </template>
     </DataTable>
 
