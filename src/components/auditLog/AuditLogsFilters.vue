@@ -32,34 +32,34 @@ const hasActiveFilters = computed(
       </div>
 
       <!-- Module filter -->
-      <BaseSelectMenu
+      <BaseSelect
         v-model="filters.modules"
-        :items="moduleItems"
+        :options="moduleItems"
+        optionLabel="name"
+        optionValue="id"
         multiple
         placeholder="All modules"
         style="min-width: 160px"
       >
-        <template #button>
-          <span class="tw:text-sm">
-            {{ filters.modules.length ? `${filters.modules.length} module(s)` : 'All modules' }}
-          </span>
+        <template #selected="{ options }">
+          <span class="tw:text-sm">{{ options.length }} module(s)</span>
         </template>
-      </BaseSelectMenu>
+      </BaseSelect>
 
       <!-- Action filter -->
-      <BaseSelectMenu
+      <BaseSelect
         v-model="filters.actions"
-        :items="actionOptions"
+        :options="actionOptions"
+        optionLabel="name"
+        optionValue="id"
         multiple
         placeholder="All actions"
         style="min-width: 140px"
       >
-        <template #button>
-          <span class="tw:text-sm">
-            {{ filters.actions.length ? `${filters.actions.length} action(s)` : 'All actions' }}
-          </span>
+        <template #selected="{ options }">
+          <span class="tw:text-sm">{{ options.length }} action(s)</span>
         </template>
-      </BaseSelectMenu>
+      </BaseSelect>
 
       <!-- Performed by -->
       <UserSelectMenu v-model="filters.performedBy" nullLabel="Any user" style="min-width: 140px" />

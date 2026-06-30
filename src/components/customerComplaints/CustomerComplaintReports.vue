@@ -117,7 +117,13 @@ const BREAKDOWN_SECTIONS = [
       subtitle="Ticket volume, response performance and satisfaction across the support queue."
     >
       <template #actions>
-        <BaseSelectMenu v-model="rangeDays" :items="RANGES" :required="true" />
+        <BaseSelect
+          v-model="rangeDays"
+          :options="RANGES"
+          optionLabel="name"
+          optionValue="id"
+          :required="true"
+        />
         <BaseButton variant="outline" @click="router.push(getCompanyPath('/customer-complaints'))">
           <IconArrowLeft :size="16" class="tw:mr-1" />
           Back to tickets

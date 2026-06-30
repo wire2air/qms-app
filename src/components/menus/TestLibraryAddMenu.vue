@@ -1,11 +1,13 @@
 <script setup>
 /**
  * "Add from library" picker for the spec builder. Lists active Test Library
- * entries (DefectCatalog) with checkboxes; the user can tick several and click
- * "Add" to push them all at once. Emits `pick` with the array of chosen
+ * entries (DefectCatalog) with a tick state; the user can select several and
+ * click "Add" to push them all at once. Emits `pick` with the array of chosen
  * entries, so the parent can prepend pre-filled characteristics in one go.
  * Optionally filtered by productTypeId.
  */
+import { IconCheck } from '@tabler/icons-vue'
+
 const props = defineProps({
   productTypeId: { type: String, default: null },
 })
@@ -35,36 +37,43 @@ function applySelection(close) {
 </script>
 
 <template>
-  <BaseSelectMenu
-    v-model="sel"
-    :items="tests"
-    :multiple="true"
-    :required="false"
-    :hideNullOption="true"
-  >
-    <template #button>
-      <span class="tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:font-medium tw:text-primary">
+  <BaseSelect v-model="sel" :options="tests" optionLabel="name" optionValue="id" :multiple="true">
+    <template #trigger>
+      <button
+        type="button"
+        class="tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:font-medium tw:text-primary"
+      >
         + Add from library
-      </span>
+      </button>
     </template>
-    <template #item="{ item }">
+
+    <template #option="{ opt, selected }">
       <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:w-full">
-        <span>{{ item.name }} <span class="tw:text-xs tw:text-secondary">· {{ item.testType }}</span></span>
-        <DefectSeverityBadgeById :severityId="item.defaultSeverity" />
+        <span>
+          {{ opt.raw.name }}
+          <span class="tw:text-xs tw:text-secondary">· {{ opt.raw.testType }}</span>
+        </span>
+        <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
+          <DefectSeverityBadgeById :severityId="opt.raw.defaultSeverity" />
+          <IconCheck v-if="selected" :size="16" class="tw:text-primary" />
+        </div>
       </div>
     </template>
+
     <template #footer="{ close }">
       <button
         type="button"
         class="tw:w-full tw:flex tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-2.5 tw:text-sm tw:font-medium tw:border-t tw:border-divider tw:transition-colors"
-        :class="sel.length
-          ? 'tw:text-primary tw:hover:bg-primary/5'
-          : 'tw:text-secondary tw:cursor-not-allowed'"
+        :class="
+          sel.length
+            ? 'tw:text-primary tw:hover:bg-primary/5'
+            : 'tw:text-secondary tw:cursor-not-allowed'
+        "
         :disabled="!sel.length"
         @click="applySelection(close)"
       >
         Add {{ sel.length || '' }} {{ sel.length === 1 ? 'test' : 'tests' }}
       </button>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

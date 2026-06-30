@@ -48,8 +48,12 @@ function blankDraft() {
 }
 const draft = ref(blankDraft())
 
-watch(open, (v) => {
-  if (!v) return
+// Tracks which rule the draft has been hydrated from, so we hydrate exactly
+// once per open (after the live query resolves) without clobbering in-progress
+// edits on later sync updates.
+const hydratedFor = ref(null)
+
+function hydrateDraft() {
   if (props.ruleId && existing.value) {
     const r = existing.value
     draft.value = {
@@ -67,9 +71,25 @@ watch(open, (v) => {
       departmentIds: [...(r.departmentIds || [])],
       isActive: r.isActive,
     }
-  } else {
+    hydratedFor.value = props.ruleId
+  } else if (!props.ruleId) {
     draft.value = blankDraft()
+    hydratedFor.value = null
   }
+}
+
+watch(open, (v) => {
+  if (!v) {
+    hydratedFor.value = null
+    return
+  }
+  hydrateDraft()
+})
+
+// The live query returns null first, then the record. Re-hydrate once it
+// arrives so the edit form shows the rule's actual saved data.
+watch(existing, () => {
+  if (open.value && props.ruleId && hydratedFor.value !== props.ruleId) hydrateDraft()
 })
 
 const fields = computed(() =>

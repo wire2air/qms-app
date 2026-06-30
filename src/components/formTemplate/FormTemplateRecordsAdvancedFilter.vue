@@ -66,10 +66,22 @@ function resetFilters() {
       >
         <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-3 tw:gap-2 tw:flex-1">
           <BaseField label="Column">
-            <BaseSelectMenu v-model="section.column" :items="columnOptions" required />
+            <BaseSelect
+              v-model="section.column"
+              :options="columnOptions"
+              optionLabel="name"
+              optionValue="id"
+              required
+            />
           </BaseField>
           <BaseField label="Operator">
-            <BaseSelectMenu v-model="section.operator" :items="operatorOptions" required />
+            <BaseSelect
+              v-model="section.operator"
+              :options="operatorOptions"
+              optionLabel="name"
+              optionValue="id"
+              required
+            />
           </BaseField>
           <BaseField v-slot="{ id: fieldId }" label="Value">
             <BaseTextInput :id="fieldId" v-model="section.value" size="sm" />

@@ -42,14 +42,6 @@ const collaborators = computed(() =>
   collaboratorRecords.value.map((r) => ({ ...r, user: usersById.value[r.userId] })),
 )
 
-// BaseSelectMenu requires items with { id, name }
-const userItems = computed(() =>
-  allUsers.value.map((u) => ({
-    id: u.id,
-    name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email,
-  })),
-)
-
 const addCollaborator = useLiveMutation(async (db, userId) => {
   const record = db.UserOnDocument.create({ documentId: props.documentId, userId })
   await record.save()
@@ -78,23 +70,21 @@ async function toggleCollaborator(userId) {
     <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
       <BaseText variant="overline" class="tw:block">Collaborators</BaseText>
 
-      <BaseSelectMenu
-        v-if="canEdit"
-        :items="userItems"
-        :modelValue="collaboratorUserIds"
-        multiple
-        required
-      >
+      <BasePopover v-if="canEdit" placement="bottom-end" :arrow="false">
         <template #button>
           <button
+            type="button"
+            aria-label="Add collaborator"
             class="tw:flex tw:items-center tw:justify-center tw:w-6 tw:h-6 tw:rounded-md tw:hover:bg-sidebar-hover tw:text-secondary tw:transition-colors"
           >
             <IconPlus :size="14" />
           </button>
         </template>
 
-        <template #items>
-          <div class="tw:max-h-56 tw:overflow-y-auto tw:p-1">
+        <template #content>
+          <div
+            class="tw:w-72 tw:max-w-[90vw] tw:bg-card tw:rounded-xl tw:border tw:border-divider tw:shadow-floating tw:max-h-56 tw:overflow-y-auto tw:p-1"
+          >
             <button
               v-for="user in allUsers"
               :key="user.id"
@@ -126,7 +116,7 @@ async function toggleCollaborator(userId) {
             </div>
           </div>
         </template>
-      </BaseSelectMenu>
+      </BasePopover>
     </div>
 
     <div v-if="collaborators.length > 0" class="tw:flex tw:-space-x-2">

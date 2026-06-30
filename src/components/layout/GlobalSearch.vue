@@ -10,6 +10,7 @@
 import { IconSearch, IconFileText, IconAlertTriangle, IconClipboardCheck, IconX } from '@tabler/icons-vue'
 import { get } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { companyCode } from '@/utils/currentSession'
+import { getCompanyPath } from '@/utils/routeHelpers'
 
 const TYPE_META = {
   Document: { label: 'Documents', path: 'documents', icon: IconFileText },
@@ -101,7 +102,10 @@ function goTo(row) {
   if (!row || !companyCode.value) return
   const path = TYPE_META[row.entityType]?.path
   if (!path) return
-  router.push(`/${companyCode.value}/${path}/${row.entityId}`)
+  // Routes are flat under subdomain tenancy — the company lives in the host,
+  // NOT the URL path. Prefixing companyCode produced /ACME/documents/:id, which
+  // matches no route and fell through to the 404 catch-all.
+  router.push(getCompanyPath(`/${path}/${row.entityId}`))
   close()
 }
 

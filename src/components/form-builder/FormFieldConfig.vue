@@ -280,20 +280,15 @@ function updateRowColClass(value) {
 
         <!-- Row Settings -->
         <template v-if="field.type === 'row'">
-          <BaseSelectMenu
+          <BaseSelect
             :modelValue="field.colClass"
-            :items="colClassItems"
+            :options="colClassItems"
+            optionLabel="name"
+            optionValue="id"
             :required="true"
+            placeholder="Select Item Width"
             @update:modelValue="updateRowColClass"
-          >
-            <template #button>
-              <span class="tw:text-sm tw:font-medium">
-                {{
-                  colClassItems.find((i) => i.id === field.colClass)?.name || 'Select Item Width'
-                }}
-              </span>
-            </template>
-          </BaseSelectMenu>
+          />
           <p class="tw:text-xs tw:text-secondary tw:mt-1">
             Sets the width for all items in this row
           </p>
@@ -315,13 +310,14 @@ function updateRowColClass(value) {
 
         <!-- Datetime Settings -->
         <template v-if="field.type === 'datetime'">
-          <BaseSelectMenu v-model="field.mode" :items="datetimeModeItems" :required="true">
-            <template #button>
-              <span class="tw:text-sm tw:font-medium">
-                {{ datetimeModeItems.find((i) => i.id === field.mode)?.name || 'Select Mode' }}
-              </span>
-            </template>
-          </BaseSelectMenu>
+          <BaseSelect
+            v-model="field.mode"
+            :options="datetimeModeItems"
+            optionLabel="name"
+            optionValue="id"
+            :required="true"
+            placeholder="Select Mode"
+          />
           <p class="tw:text-xs tw:text-secondary tw:mt-1">Format for date/time selection</p>
         </template>
 

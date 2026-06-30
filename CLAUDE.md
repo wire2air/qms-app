@@ -18,7 +18,7 @@ Non-negotiable in new and touched code. Migration sections below show what to re
 10. **Dates are luxon `DateTime`.** The axios response transformer already converts backend dates to `DateTime` instances. Format with the project-wide `dt.formatDate()` — never `.toFormat()`, `.toISO()`, or any ad-hoc formatting in components.
 11. **Soft deletes are automatic.** Never manually filter `!record.deletedAt` — the syncEngine excludes soft-deleted records from queries by default. Use `{ force: true }` only when you explicitly need them (e.g. computing the next version number).
 12. **`useLiveMutation` for creates** — don't call `db.Model.create()` + `save()` directly inside a component method.
-13. **Use `Base*` first.** `BaseTextInput`, `BaseTextarea`, `BaseColorPicker`, `BaseDialog`, `BaseSelectMenu`, `BaseClickableRow`, etc. live in `resource/js/shared/components/`. Reuse before building. **For tables use `DataTable`** (`resource/js/shared/components/dataTable/`) — the old `BaseTable` has been removed; all lists are on `DataTable`.
+13. **Use `Base*` first.** `BaseTextInput`, `BaseTextarea`, `BaseColorPicker`, `BaseDialog`, `BaseSelect`, `BaseClickableRow`, etc. live in `resource/js/shared/components/`. Reuse before building. **For tables use `DataTable`** (`resource/js/shared/components/dataTable/`) — the old `BaseTable` has been removed; all lists are on `DataTable`.
 14. **Reuse before adding** — especially badges and select menus, which follow the [triad pattern](#component-pattern-badge-triad-xbadge--xbadgebyid--xselectmenu).
 15. **Every page root is `<BasePage>`.** Never set page-level padding, max-width, or section gap by hand (no `tw:p-5`, no ad-hoc `tw:max-w-*`, no `tw:gap-3` at the page root). `BasePage` owns width/padding/rhythm. See [Page layout](#page-layout).
 
@@ -92,14 +92,14 @@ Every record detail page uses `BaseDetailLayout` (not `BaseDetailPage`, which is
 
 ## Component pattern: badge triad (XBadge → XBadgeById → XSelectMenu)
 
-Every entity that appears as a badge or in a select menu follows this triad. **Never use `BaseSelectMenu` directly for an entity** — always wrap it.
+Every entity that appears as a badge or in a select menu follows this triad. **Never use `BaseSelect` directly for an entity** — always wrap it.
 
 ### Roles
 
 ```
 XBadge       — receives a full object; styling only (SCHEME_MAP: id → class)
 XBadgeById   — receives an id; resolves to an object (IDB or static map); renders <XBadge>
-XSelectMenu  — uses BaseSelectMenu + XBadgeById in the button slot
+XSelectMenu  — uses BaseSelect + XBadgeById in the #selected slot
 ```
 
 Invariants:
@@ -151,42 +151,40 @@ const site = useLiveQueryWithDeps([() => props.siteId], async (db, [siteId]) => 
 defineProps({
   required: { type: Boolean, default: false },
   multiple: { type: Boolean, default: false },
+  nullLabel: { type: String, default: '— Select site —' },
 })
 const modelValue = defineModel({ type: [String, Array, null], default: null })
-const sites = useLiveQuery(async (db) => db.Site.where().exec(), { initial: [] })
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
+const sites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
 </script>
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="sites" :required="required" :multiple="multiple">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <SiteBadgeById
-              v-for="siteId in getArray()"
-              :key="siteId"
-              :siteId="siteId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(siteId)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Sites</span>
-        </template>
-        <template v-else>
-          <SiteBadgeById
-            v-if="modelValue"
-            :siteId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Site</span>
-        </template>
-      </slot>
+  <BaseSelect
+    v-model="modelValue"
+    :options="sites"
+    optionLabel="name"
+    optionValue="id"
+    :nullLabel="nullLabel"
+    :required="required"
+    :multiple="multiple"
+    :clearable="!required"
+  >
+    <!-- Consumer may fully replace the trigger (e.g. a compact "+ Add" button). -->
+    <template v-if="$slots.button" #trigger="scope">
+      <slot name="button" v-bind="scope" />
     </template>
-  </BaseSelectMenu>
+
+    <!-- `options` is the array of selected entries; renders for single + multiple. -->
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <SiteBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :siteId="o.value"
+          :clearable="!required || options.length > 1"
+          @clear="() => remove(o)"
+        />
+      </div>
+    </template>
+  </BaseSelect>
 </template>
 ```
 
@@ -235,7 +233,7 @@ const status = computed(
 </template>
 ```
 
-`UserStatusBadge` is identical in shape to `TaskInstanceStatusBadge` (object prop, `SCHEME_MAP`). `UserStatusSelectMenu` is identical in shape to `SiteSelectMenu` but feeds `BaseSelectMenu` a static `items` array of the `STATUS_MAP` values.
+`UserStatusBadge` is identical in shape to `TaskInstanceStatusBadge` (object prop, `SCHEME_MAP`). `UserStatusSelectMenu` is identical in shape to `SiteSelectMenu` but feeds `BaseSelect` a static `options` array of the `STATUS_MAP` values.
 
 ### File locations
 
@@ -248,7 +246,7 @@ const status = computed(
 - [ ] SyncEngine model exists? Create `XBadgeById` with `useLiveQueryWithDeps` → `findByPk`.
 - [ ] No model (enum)? Create `XBadgeById` with a static `STATUS_MAP`.
 - [ ] Need a select menu? Create `XSelectMenu` using the matching pattern.
-- [ ] Don't use `BaseSelectMenu` directly. Don't render an entity inline with `useLiveQuery` + display logic when an `XBadgeById` exists.
+- [ ] Don't use `BaseSelect` directly. Don't render an entity inline with `useLiveQuery` + display logic when an `XBadgeById` exists.
 
 ---
 
@@ -363,7 +361,7 @@ The project is actively migrating off Quasar. Replace on touch.
 | -------------------------------- | -------------------------------------------------------------------- |
 | `QBtn` / `WBtn`                  | `<button>` + Tailwind, or `BaseButton`                               |
 | `QInput` / `WInput`              | `BaseTextInput` (or `<input>` + Tailwind)                            |
-| `QSelect` / `WSelect`            | `BaseSelectMenu` — or an `XSelectMenu` if one exists for that entity |
+| `QSelect` / `WSelect`            | `BaseSelect` / `BaseInlineSelect`, or `XSelectMenu` for that entity  |
 | `QDialog`                        | `BaseDialog`                                                         |
 | `QCard`                          | `<div>` + Tailwind, or `BaseCard`                                    |
 | `QTable`                         | `DataTable` (`shared/components/dataTable/`)                         |

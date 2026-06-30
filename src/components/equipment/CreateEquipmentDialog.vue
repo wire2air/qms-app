@@ -1,6 +1,7 @@
 <script setup>
 import { IconX, IconCheck, IconCircleX } from '@tabler/icons-vue'
-import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { DateTime } from 'luxon'
 import { required, minValue } from '@shared/components/form/validators.js'
 
 /**
@@ -119,9 +120,58 @@ watch(open, (isOpen) => {
   isSubmitting.value = false
 })
 
-// Common payload for both POST and PATCH. `code` is omitted on
-// PATCH below — the backend updatable list also excludes it, but
-// being explicit here makes the intent obvious.
+// Edit mode persists via the SyncEngine (rule #4: Equipment is a synced model,
+// so a PATCH RPC was wrong — it updated the server but never wrote IDB, so the
+// live-query list kept showing stale data and the edit "didn't apply").
+const updateEquipment = useLiveMutation(async (db, { id, fields }) => {
+  const eq = await db.Equipment.findByPk(id)
+  if (!eq) throw new Error('Equipment not found')
+  Object.assign(eq, fields)
+  await eq.save()
+  return eq
+})
+
+// The date inputs speak yyyy-MM-dd strings; the model's date Properties are
+// DateTime-typed, so convert back on the way into a SyncEngine save.
+function toDateTime(s) {
+  return s ? DateTime.fromISO(s) : null
+}
+
+// Field set for an Equipment model save (edit mode). Mirrors buildPayload() but
+// with DateTime-typed dates, and replicates the REST service's RETIRED →
+// retiredAt auto-stamp (the GraphQL update bypasses that service).
+function buildModelFields() {
+  const fields = {
+    name: name.value.trim(),
+    description: description.value?.trim() || null,
+    manufacturer: manufacturer.value?.trim() || null,
+    model: model.value?.trim() || null,
+    serialNumber: serialNumber.value?.trim() || null,
+    category: category.value || null,
+    siteId: siteId.value || null,
+    departmentId: departmentId.value || null,
+    supplierId: supplierId.value || null,
+    ownerUserId: ownerUserId.value || null,
+    statusId: statusId.value,
+    requiresCalibration: requiresCalibration.value,
+    calibrationIntervalMonths: requiresCalibration.value
+      ? Number(calibrationIntervalMonths.value) || null
+      : null,
+    locationText: locationText.value?.trim() || null,
+    notes: notes.value?.trim() || null,
+    installedAt: toDateTime(installedAt.value),
+    retiredAt: toDateTime(retiredAt.value),
+    nextCalibrationDue: toDateTime(nextCalibrationDue.value),
+    nextPmDue: toDateTime(nextPmDue.value),
+  }
+  if (fields.statusId === 'RETIRED' && !fields.retiredAt) {
+    fields.retiredAt = DateTime.now()
+  }
+  return fields
+}
+
+// Common payload for create (POST). `code` is sent only on create — the
+// backend updatable list excludes it and edit mode locks the field.
 function buildPayload() {
   return {
     name: name.value.trim(),
@@ -156,8 +206,11 @@ async function onSubmit() {
   saveError.value = ''
   try {
     if (isEditing.value) {
-      const res = await patch(`/v1/services/equipment/${props.equipment.id}`, buildPayload())
-      emit('updated', res?.equipment ?? res)
+      const updated = await updateEquipment({
+        id: props.equipment.id,
+        fields: buildModelFields(),
+      })
+      emit('updated', updated)
       open.value = false
       toast.success('Equipment updated')
       return

@@ -332,10 +332,13 @@ const complaintDetailConfig = computed(() =>
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
         <BaseDetailField label="Sentiment">
-          <BaseSelectMenu
+          <BaseSelect
             v-if="isEditable"
             v-model="complaint.sentiment"
-            :items="[
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Select sentiment"
+            :options="[
               { id: 'POSITIVE', name: 'Positive' },
               { id: 'NEUTRAL', name: 'Neutral' },
               { id: 'NEGATIVE', name: 'Negative' },

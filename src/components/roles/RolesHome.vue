@@ -82,7 +82,11 @@ watch(
     </template>
 
     <RolesList :roles="roles" :loading="false" />
-
-    <RoleCreateDialog v-model="showCreateDialog" />
   </BaseListLayout>
+
+  <!-- Kept OUTSIDE BaseListLayout: its content slot only renders in the `ready`
+       state, so leaving the dialog inside would unmount it whenever creating a
+       role flips the shared `loading` ref (the list shows its skeleton),
+       remounting a fresh dialog and re-opening it. -->
+  <RoleCreateDialog v-model="showCreateDialog" />
 </template>
