@@ -59,10 +59,6 @@ const availableItems = computed(() =>
   allLatestVersions.value.filter((v) => !sharedVersionIds.value.has(v.id)),
 )
 
-const selectedVersion = computed(
-  () => allLatestVersions.value.find((v) => v.id === selectedVersionId.value) || null,
-)
-
 const addDoc = useLiveMutation(async (db, { supplierId, documentVersionId }) => {
   const sd = db.SupplierDocument.create({ supplierId, documentVersionId })
   await sd.save()
@@ -92,18 +88,14 @@ watch(open, (val) => {
   <BaseDialog v-model="open" title="Share Document" maxWidth="sm">
     <div class="tw:p-4 tw:space-y-4">
       <BaseField label="Select Document">
-        <BaseSelectMenu v-model="selectedVersionId" :items="availableItems" :required="true">
-          <template #button="scope">
-            <slot name="button" v-bind="scope">
-              <BaseBadge v-if="selectedVersion" class="tw:text-sm tw:font-medium" selectable="">
-                {{ selectedVersion.name }}
-              </BaseBadge>
-              <BaseBadge v-else class="tw:text-sm tw:font-medium tw:text-placeholder" selectable>
-                Choose a document
-              </BaseBadge>
-            </slot>
-          </template>
-        </BaseSelectMenu>
+        <BaseSelect
+          v-model="selectedVersionId"
+          :options="availableItems"
+          optionLabel="name"
+          optionValue="id"
+          :required="true"
+          placeholder="Choose a document"
+        />
       </BaseField>
     </div>
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">

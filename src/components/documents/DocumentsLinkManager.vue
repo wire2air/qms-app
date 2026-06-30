@@ -201,16 +201,22 @@ function getLinkTypeBadgeClass(linkType) {
     <BaseDialog v-model="showAddDialog" title="Add Document Link" persistent>
       <div class="tw:space-y-4">
         <BaseField label="Target Document">
-          <BaseSelectMenu
+          <BaseSelect
             v-model="linkForm.targetDocumentId"
-            :items="availableDocuments"
+            :options="availableDocuments"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Select a document"
             :required="true"
           />
         </BaseField>
         <BaseField label="Link Type">
-          <BaseSelectMenu
+          <BaseSelect
             v-model="linkForm.linkType"
-            :items="[
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Select a link type"
+            :options="[
               { id: 'RELATED', name: 'Related' },
               { id: 'SUPERSEDES', name: 'Supersedes' },
               { id: 'REFERENCES', name: 'References' },

@@ -353,17 +353,13 @@ function goBack() {
               </template>
             </BaseField>
             <BaseField label="Classification" optional>
-              <BaseSelectMenu
+              <BaseSelect
                 v-model="form.classification"
-                :items="CLASSIFICATIONS"
+                :options="CLASSIFICATIONS"
+                optionLabel="name"
+                optionValue="id"
                 nullLabel="— Select classification —"
-              >
-                <template #button="{ selected: id }">
-                  <BaseBadge selectable>
-                    {{ CLASSIFICATIONS.find((c) => c.id === id)?.name || id }}
-                  </BaseBadge>
-                </template>
-              </BaseSelectMenu>
+              />
             </BaseField>
             <BaseField
               id="cr-priority"
@@ -505,22 +501,15 @@ function goBack() {
             :rules="[required()]"
           >
             <template #default="field">
-              <BaseSelectMenu
+              <BaseSelect
                 v-bind="field"
                 v-model="form.workflowVersionId"
-                :items="workflowVersionOptions"
+                :options="workflowVersionOptions"
+                optionLabel="name"
+                optionValue="id"
                 :required="true"
                 nullLabel="— Select workflow —"
-              >
-                <template #button="{ selected: id }">
-                  <BaseBadge v-if="id" selectable>
-                    {{ workflowVersionOptions.find((o) => o.id === id)?.name || id }}
-                  </BaseBadge>
-                  <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-                    Select workflow
-                  </span>
-                </template>
-              </BaseSelectMenu>
+              />
             </template>
           </BaseField>
         </FormSection>

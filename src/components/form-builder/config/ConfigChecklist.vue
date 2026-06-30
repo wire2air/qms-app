@@ -153,15 +153,14 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
               <IconTrash :size="16" />
             </button>
           </div>
-          <BaseSelectMenu v-model="col.inputType" :items="columnInputTypeItems" :required="true">
-            <template #button>
-              <span class="tw:text-sm tw:font-medium">
-                {{
-                  columnInputTypeItems.find((i) => i.id === col.inputType)?.name || 'Select Type'
-                }}
-              </span>
-            </template>
-          </BaseSelectMenu>
+          <BaseSelect
+            v-model="col.inputType"
+            :options="columnInputTypeItems"
+            optionLabel="name"
+            optionValue="id"
+            :required="true"
+            placeholder="Select Type"
+          />
         </div>
       </div>
       <button

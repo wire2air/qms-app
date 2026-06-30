@@ -277,24 +277,24 @@ const groupDetailConfig = computed(() =>
                   {{ memberCount }}
                 </span>
               </div>
-              <BaseSelectMenu
+              <BaseSelect
                 :modelValue="userIdsOnTeam"
-                :items="filteredUsers"
+                :options="filteredUsers"
+                optionLabel="name"
+                optionValue="id"
                 :required="true"
                 :multiple="true"
                 @update:modelValue="onAddMembers"
               >
-                <template #button="scope">
-                  <slot name="button" v-bind="scope">
-                    <button
-                      class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
-                    >
-                      <IconUserPlus :size="14" />
-                      Add Members
-                    </button>
-                  </slot>
+                <template #trigger>
+                  <button
+                    class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
+                  >
+                    <IconUserPlus :size="14" />
+                    Add Members
+                  </button>
                 </template>
-              </BaseSelectMenu>
+              </BaseSelect>
             </div>
 
             <!-- Member List -->

@@ -52,36 +52,25 @@ function removeCondition(index) {
     >
       <span class="tw:text-xs tw:font-bold tw:text-secondary">IF</span>
 
-      <BaseSelectMenu
+      <BaseSelect
         v-model="condition.conditionField"
-        :items="conditionFieldItems"
+        :options="conditionFieldItems"
+        optionLabel="name"
+        optionValue="id"
         required
+        placeholder="Select field"
         class="tw:w-40"
-      >
-        <template #button>
-          <BaseBadge selectable>
-            {{
-              conditionFieldItems.find((i) => i.id === condition.conditionField)?.name ||
-              'Select field'
-            }}
-          </BaseBadge>
-        </template>
-      </BaseSelectMenu>
+      />
 
-      <BaseSelectMenu
+      <BaseSelect
         v-model="condition.conditionOperator"
-        :items="conditionOperatorItems"
+        :options="conditionOperatorItems"
+        optionLabel="name"
+        optionValue="id"
         required
+        placeholder="IS"
         class="tw:w-36"
-      >
-        <template #button>
-          <BaseBadge selectable>
-            {{
-              conditionOperatorItems.find((i) => i.id === condition.conditionOperator)?.name || 'IS'
-            }}
-          </BaseBadge>
-        </template>
-      </BaseSelectMenu>
+      />
 
       <BaseTextInput
         v-model="condition.conditionValue"
@@ -92,18 +81,15 @@ function removeCondition(index) {
 
       <span class="tw:text-xs tw:font-bold tw:text-secondary">THEN</span>
 
-      <BaseSelectMenu
+      <BaseSelect
         v-model="condition.actionType"
-        :items="actionTypeItems"
+        :options="actionTypeItems"
+        optionLabel="name"
+        optionValue="id"
         required
+        placeholder="Add Role"
         class="tw:w-32"
-      >
-        <template #button>
-          <BaseBadge selectable>
-            {{ actionTypeItems.find((i) => i.id === condition.actionType)?.name || 'Add Role' }}
-          </BaseBadge>
-        </template>
-      </BaseSelectMenu>
+      />
 
       <!-- Action Target - shows inline text for now, role/user selection handled by parent -->
       <div

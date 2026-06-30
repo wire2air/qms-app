@@ -47,7 +47,13 @@ const retryLimitOptions = [
           <BaseDateField v-model="form.assessmentDueDate" mode="date" />
         </BaseField>
         <BaseField label="Retry limit">
-          <BaseSelectMenu v-model="form.retryLimit" :items="retryLimitOptions" :required="true" />
+          <BaseSelect
+            v-model="form.retryLimit"
+            :options="retryLimitOptions"
+            optionLabel="name"
+            optionValue="id"
+            :required="true"
+          />
         </BaseField>
       </div>
       <div class="tw:mt-8 tw:pt-6 tw:border-t tw:border-divider">

@@ -40,13 +40,14 @@ const formattedMaxSize = computed(() => {
   <div class="tw:mb-4 tw:last:mb-0">
     <div class="tw:flex tw:flex-col tw:gap-3">
       <BaseField label="File Type" hint="Category for uploaded files">
-        <BaseSelectMenu v-model="field.fileType" :items="fileTypeOptions" :required="true">
-          <template #button>
-            <span class="tw:text-sm tw:font-medium">
-              {{ fileTypeOptions.find((i) => i.id === field.fileType)?.name || 'Select File Type' }}
-            </span>
-          </template>
-        </BaseSelectMenu>
+        <BaseSelect
+          v-model="field.fileType"
+          :options="fileTypeOptions"
+          optionLabel="name"
+          optionValue="id"
+          :required="true"
+          placeholder="Select File Type"
+        />
       </BaseField>
       <BaseTextInput
         v-model="field.accept"
