@@ -79,26 +79,66 @@ const availableActions = computed(() =>
   isModuleMode.value ? MODULE_ACTIONS : actionsForObject(draft.value.objectType),
 )
 
-// BaseSelectMenu expects { id, name } items.
-const objectItems = AUTOMATION_OBJECTS.map((o) => ({ id: o.value, name: o.label }))
-const triggerItems = AUTOMATION_TRIGGERS.map((t) => ({ id: t.value, name: t.label }))
-const logicItems = [
-  { id: 'AND', name: 'Match ALL (AND)' },
-  { id: 'OR', name: 'Match ANY (OR)' },
+// BaseSelect maps via optionLabel/optionValue; the source arrays already carry
+// { label } + { value } (fields use { key }), so pass them straight through.
+const logicOptions = [
+  { value: 'AND', label: 'Match ALL (AND)' },
+  { value: 'OR', label: 'Match ANY (OR)' },
 ]
-const fieldItems = computed(() => fields.value.map((f) => ({ id: f.key, name: f.label })))
-const actionItems = computed(() => availableActions.value.map((a) => ({ id: a.value, name: a.label })))
-function operatorItems(fieldKey) {
-  return operatorsFor(fieldKey).map((op) => ({ id: op.value, name: op.label }))
+
+// ── Type-aware condition value input ─────────────────────────────────────────
+// enum/option fields (Status, form dropdowns) get a real select — multi when the
+// operator is in/not_in; date fields get a date picker for before/after, and a
+// numeric input for the relative-date operators (older_than/within X).
+const recordStatuses = useLiveQuery((db) => db.RecordStatus.where().exec(), {
+  models: ['RecordStatus'],
+  initial: [],
+})
+// Module records only use this lifecycle subset (DRAFT → PENDING → COMPLETE →
+// CLOSED, REJECTED; OPEN is legacy). The other record_statuses — Approved /
+// Review / Obsolete — belong to document records, so exclude them. Listed in
+// lifecycle order; label comes from the seeded status.
+const MODULE_STATUS_IDS = ['DRAFT', 'OPEN', 'PENDING', 'COMPLETE', 'CLOSED', 'REJECTED']
+const statusOptions = computed(() =>
+  MODULE_STATUS_IDS.map((id) => recordStatuses.value.find((s) => s.id === id))
+    .filter(Boolean)
+    .map((s) => ({ value: s.id, label: s.name })),
+)
+function fieldFor(key) {
+  return fields.value.find((f) => f.key === key)
+}
+function optionsForField(field) {
+  if (field?.options?.length) return field.options
+  // status_id carries no inline options — source the lifecycle statuses.
+  if (isModuleMode.value && field?.key === 'status_id') return statusOptions.value
+  return []
+}
+const DATE_PICK_OPERATORS = new Set(['before', 'after'])
+function valueKind(cond) {
+  if (NO_VALUE_OPERATORS.has(cond.operator)) return 'none'
+  const field = fieldFor(cond.field)
+  const type = field?.type
+  if (type === 'date') return DATE_PICK_OPERATORS.has(cond.operator) ? 'date' : 'number'
+  if ((type === 'enum' || type === 'lookup') && optionsForField(field).length) return 'select'
+  if (type === 'number') return cond.operator === 'between' ? 'text' : 'number'
+  return 'text'
+}
+// Reset value to the right empty shape for the current field/operator.
+function resetCondValue(cond) {
+  if (LIST_OPERATORS.has(cond.operator)) cond.value = []
+  else if (valueKind(cond) === 'date') cond.value = null
+  else cond.value = ''
 }
 
 function addCondition() {
   const f = fields.value[0]
-  draft.value.conditions.push({
+  const cond = {
     field: f?.key || '',
     operator: operatorsFor(f?.key)[0]?.value || 'is',
     value: '',
-  })
+  }
+  resetCondValue(cond)
+  draft.value.conditions.push(cond)
 }
 function removeCondition(i) {
   draft.value.conditions.splice(i, 1)
@@ -110,12 +150,35 @@ function operatorsFor(fieldKey) {
 }
 function onFieldChange(cond) {
   cond.operator = operatorsFor(cond.field)[0]?.value || 'is'
-  cond.value = ''
+  resetCondValue(cond)
+}
+function onOperatorChange(cond) {
+  resetCondValue(cond)
 }
 
+// CREATE_TASK config UI options.
+const ASSIGN_TO_OPTIONS = [
+  { value: 'OWNER', label: 'Owner / Assignee' },
+  { value: 'REQUESTER', label: 'Requester / Creator' },
+  { value: 'USERS', label: 'Specific user(s)' },
+  { value: 'GROUP', label: 'Team / Group' },
+]
+const TASK_KIND_OPTIONS = [
+  { value: 'ACTION', label: 'Action (to-do)' },
+  { value: 'EFFECTIVENESS_CHECK', label: 'Effectiveness Check' },
+  { value: 'REVIEW', label: 'Review' },
+  { value: 'ACK', label: 'Acknowledgement' },
+]
+
+function defaultActionConfig(type) {
+  if (type === 'CREATE_TASK') {
+    return { assignTo: 'OWNER', taskKindId: 'ACTION', userIds: [], groupIds: [], dueOffsetDays: '', note: '' }
+  }
+  return {}
+}
 function addAction(type) {
   if (!type) return
-  draft.value.actions.push({ type, config: {} })
+  draft.value.actions.push({ type, config: defaultActionConfig(type) })
 }
 function removeAction(i) {
   draft.value.actions.splice(i, 1)
@@ -136,10 +199,10 @@ watch(
 function normalizeValue(cond) {
   if (NO_VALUE_OPERATORS.has(cond.operator)) return undefined
   if (LIST_OPERATORS.has(cond.operator)) {
-    return String(cond.value ?? '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
+    const arr = Array.isArray(cond.value)
+      ? cond.value
+      : String(cond.value ?? '').split(',')
+    return arr.map((s) => String(s).trim()).filter(Boolean)
   }
   return cond.value
 }
@@ -226,10 +289,20 @@ async function onValidSubmit() {
             </div>
           </BaseField>
           <BaseField v-if="!isModuleMode" label="Object">
-            <BaseSelectMenu v-model="draft.objectType" :items="objectItems" :required="true" />
+            <BaseSelect
+              v-model="draft.objectType"
+              :options="AUTOMATION_OBJECTS"
+              :required="true"
+              :searchable="false"
+            />
           </BaseField>
           <BaseField label="Trigger">
-            <BaseSelectMenu v-model="draft.trigger" :items="triggerItems" :required="true" />
+            <BaseSelect
+              v-model="draft.trigger"
+              :options="AUTOMATION_TRIGGERS"
+              :required="true"
+              :searchable="false"
+            />
           </BaseField>
         </div>
 
@@ -239,7 +312,12 @@ async function onValidSubmit() {
             <div class="tw:flex tw:items-center tw:gap-2">
               <span class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary">Conditions</span>
               <div class="tw:w-44">
-                <BaseSelectMenu v-model="draft.logic" :items="logicItems" :required="true" size="sm" />
+                <BaseSelect
+                  v-model="draft.logic"
+                  :options="logicOptions"
+                  :required="true"
+                  :searchable="false"
+                />
               </div>
             </div>
             <BaseButton variant="outline" size="sm" @click="addCondition">
@@ -255,25 +333,52 @@ async function onValidSubmit() {
             class="tw:flex tw:items-center tw:gap-2 tw:mb-2"
           >
             <div class="tw:w-40 tw:shrink-0">
-              <BaseSelectMenu
+              <BaseSelect
                 v-model="cond.field"
-                :items="fieldItems"
+                :options="fields"
+                optionValue="key"
                 :required="true"
                 @update:modelValue="onFieldChange(cond)"
               />
             </div>
-            <div class="tw:w-40 tw:shrink-0">
-              <BaseSelectMenu v-model="cond.operator" :items="operatorItems(cond.field)" :required="true" />
+            <div class="tw:w-52 tw:shrink-0">
+              <BaseSelect
+                v-model="cond.operator"
+                :options="operatorsFor(cond.field)"
+                :required="true"
+                :searchable="false"
+                @update:modelValue="onOperatorChange(cond)"
+              />
             </div>
+            <!-- value — type/operator aware: dropdown for option fields, date
+                 picker for before/after, number for relative-date, else text -->
+            <BaseSelect
+              v-if="valueKind(cond) === 'select'"
+              v-model="cond.value"
+              :options="optionsForField(fieldFor(cond.field))"
+              :multiple="LIST_OPERATORS.has(cond.operator)"
+              placeholder="Select value"
+              class="tw:flex-1"
+            />
+            <BaseDateField
+              v-else-if="valueKind(cond) === 'date'"
+              v-model="cond.value"
+              mode="date"
+              valueFormat="iso"
+              size="sm"
+              class="tw:flex-1"
+            />
             <BaseTextInput
-              v-if="!NO_VALUE_OPERATORS.has(cond.operator)"
+              v-else-if="valueKind(cond) !== 'none'"
               v-model="cond.value"
               size="sm"
               class="tw:flex-1"
               :placeholder="
                 LIST_OPERATORS.has(cond.operator)
                   ? 'comma,separated,values'
-                  : 'value (code / id / text)'
+                  : valueKind(cond) === 'number'
+                    ? 'number'
+                    : 'value (code / id / text)'
               "
             />
             <button
@@ -292,11 +397,11 @@ async function onValidSubmit() {
             <span class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary">Actions</span>
             <div class="tw:flex tw:items-center tw:gap-2">
               <div class="tw:w-48">
-                <BaseSelectMenu
+                <BaseSelect
                   v-model="newActionType"
-                  :items="actionItems"
-                  nullLabel="Add action…"
-                  size="sm"
+                  :options="availableActions"
+                  placeholder="Add action…"
+                  :searchable="false"
                 />
               </div>
               <BaseButton
@@ -349,6 +454,47 @@ async function onValidSubmit() {
                       .filter(Boolean))
                 "
               />
+              <div
+                v-else-if="action.type === 'CREATE_TASK'"
+                class="tw:flex tw:flex-col tw:gap-2"
+              >
+                <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-2">
+                  <BaseSelect
+                    v-model="action.config.assignTo"
+                    :options="ASSIGN_TO_OPTIONS"
+                    :searchable="false"
+                    placeholder="Assign to…"
+                  />
+                  <BaseSelect
+                    v-model="action.config.taskKindId"
+                    :options="TASK_KIND_OPTIONS"
+                    :searchable="false"
+                    placeholder="Task type"
+                  />
+                </div>
+                <UserSelectMenu
+                  v-if="action.config.assignTo === 'USERS'"
+                  v-model="action.config.userIds"
+                  :multiple="true"
+                />
+                <GroupSelectMenu
+                  v-else-if="action.config.assignTo === 'GROUP'"
+                  v-model="action.config.groupIds"
+                  :multiple="true"
+                />
+                <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-2">
+                  <BaseTextInput
+                    v-model="action.config.dueOffsetDays"
+                    size="sm"
+                    placeholder="Due in (days, optional)"
+                  />
+                  <BaseTextInput
+                    v-model="action.config.note"
+                    size="sm"
+                    placeholder="Note for assignee (optional)"
+                  />
+                </div>
+              </div>
               <p v-else-if="action.type === 'SEND_SMS'" class="tw:text-xs tw:text-amber-700">
                 Requires SMS setup (Twilio). Stored, but won't send until configured.
               </p>
