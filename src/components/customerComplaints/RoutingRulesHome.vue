@@ -324,21 +324,22 @@ async function handleDelete(rule) {
               :key="index"
               class="tw:flex tw:flex-wrap tw:items-center tw:gap-2"
             >
-              <BaseSelectMenu
+              <BaseSelect
                 v-model="condition.field"
-                :items="CONDITION_FIELDS"
+                :options="CONDITION_FIELDS"
+                optionLabel="name"
+                optionValue="id"
                 required
                 class="tw:w-40"
-              >
-                <template #button>
-                  <BaseBadge selectable>{{ fieldLabel(condition.field) }}</BaseBadge>
-                </template>
-              </BaseSelectMenu>
-              <BaseSelectMenu v-model="condition.op" :items="OPERATORS" required class="tw:w-40">
-                <template #button>
-                  <BaseBadge selectable>{{ opLabel(condition.op) }}</BaseBadge>
-                </template>
-              </BaseSelectMenu>
+              />
+              <BaseSelect
+                v-model="condition.op"
+                :options="OPERATORS"
+                optionLabel="name"
+                optionValue="id"
+                required
+                class="tw:w-40"
+              />
               <BaseTextInput
                 v-if="needsValue(condition.op)"
                 v-model="condition.value"
@@ -371,11 +372,14 @@ async function handleDelete(rule) {
               :key="index"
               class="tw:flex tw:flex-wrap tw:items-center tw:gap-2"
             >
-              <BaseSelectMenu v-model="action.type" :items="ACTION_TYPES" required class="tw:w-44">
-                <template #button>
-                  <BaseBadge selectable>{{ actionLabel(action) }}</BaseBadge>
-                </template>
-              </BaseSelectMenu>
+              <BaseSelect
+                v-model="action.type"
+                :options="ACTION_TYPES"
+                optionLabel="name"
+                optionValue="id"
+                required
+                class="tw:w-44"
+              />
               <UserSelectMenu
                 v-if="['ASSIGN_USER', 'NOTIFY_USER'].includes(action.type)"
                 v-model="action.userId"
@@ -388,36 +392,26 @@ async function handleDelete(rule) {
                 required
                 class="tw:flex-1 tw:min-w-40"
               />
-              <BaseSelectMenu
+              <BaseSelect
                 v-else-if="action.type === 'SET_PRIORITY'"
                 v-model="action.priorityId"
-                :items="PRIORITIES"
+                :options="PRIORITIES"
+                optionLabel="name"
+                optionValue="id"
                 required
+                placeholder="Select priority"
                 class="tw:flex-1 tw:min-w-40"
-              >
-                <template #button>
-                  <BaseBadge selectable>
-                    {{
-                      PRIORITIES.find((p) => p.id === action.priorityId)?.name || 'Select priority'
-                    }}
-                  </BaseBadge>
-                </template>
-              </BaseSelectMenu>
-              <BaseSelectMenu
+              />
+              <BaseSelect
                 v-else-if="action.type === 'SET_SENTIMENT'"
                 v-model="action.sentiment"
-                :items="SENTIMENTS"
+                :options="SENTIMENTS"
+                optionLabel="name"
+                optionValue="id"
                 required
+                placeholder="Select sentiment"
                 class="tw:flex-1 tw:min-w-40"
-              >
-                <template #button>
-                  <BaseBadge selectable>
-                    {{
-                      SENTIMENTS.find((s) => s.id === action.sentiment)?.name || 'Select sentiment'
-                    }}
-                  </BaseBadge>
-                </template>
-              </BaseSelectMenu>
+              />
               <span v-else class="tw:flex-1" />
               <button class="tw:text-secondary tw:hover:text-red-600" @click="removeAction(index)">
                 <IconX :size="14" />

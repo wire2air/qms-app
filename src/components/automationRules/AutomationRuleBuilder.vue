@@ -67,7 +67,7 @@ watch(open, (v) => {
 const fields = computed(() => fieldsForObject(draft.value.objectType))
 const availableActions = computed(() => actionsForObject(draft.value.objectType))
 
-// BaseSelectMenu expects { id, name } items.
+// BaseSelect expects { id, name } items.
 const objectItems = AUTOMATION_OBJECTS.map((o) => ({ id: o.value, name: o.label }))
 const triggerItems = AUTOMATION_TRIGGERS.map((t) => ({ id: t.value, name: t.label }))
 
@@ -203,10 +203,22 @@ async function onValidSubmit() {
             </div>
           </BaseField>
           <BaseField label="Object">
-            <BaseSelectMenu v-model="draft.objectType" :items="objectItems" :required="true" />
+            <BaseSelect
+              v-model="draft.objectType"
+              :options="objectItems"
+              optionLabel="name"
+              optionValue="id"
+              :required="true"
+            />
           </BaseField>
           <BaseField label="Trigger">
-            <BaseSelectMenu v-model="draft.trigger" :items="triggerItems" :required="true" />
+            <BaseSelect
+              v-model="draft.trigger"
+              :options="triggerItems"
+              optionLabel="name"
+              optionValue="id"
+              :required="true"
+            />
           </BaseField>
         </div>
 

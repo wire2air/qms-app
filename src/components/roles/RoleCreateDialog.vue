@@ -116,13 +116,14 @@ watch(show, (val) => {
       />
 
       <BaseField label="Copy From">
-        <BaseSelectMenu v-model="form.copyFromRoleId" :items="copyFromOptions" :required="true">
-          <template #button>
-            <span class="tw:text-sm tw:font-medium">
-              {{ copyFromOptions.find((o) => o.id === form.copyFromRoleId)?.name || 'Select...' }}
-            </span>
-          </template>
-        </BaseSelectMenu>
+        <BaseSelect
+          v-model="form.copyFromRoleId"
+          :options="copyFromOptions"
+          optionLabel="name"
+          optionValue="id"
+          :required="true"
+          placeholder="Select..."
+        />
       </BaseField>
 
       <div

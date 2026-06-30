@@ -244,42 +244,41 @@ async function confirm() {
                  unlike "×"). When nothing's picked yet the whole button
                  area shows the placeholder text — clicking anywhere
                  opens the dropdown, no "+" needed. -->
-            <BaseSelectMenu
+            <BaseSelect
               v-if="step.candidates.length"
               v-model="selections[step.id]"
-              :items="step.candidates"
+              :options="step.candidates"
+              optionLabel="name"
+              optionValue="id"
               :multiple="true"
               :required="true"
+              placeholder="Select reviewer(s)…"
             >
-              <template #button="scope">
-                <div
-                  v-if="Array.isArray(selections[step.id]) && selections[step.id].length"
-                  class="tw:flex tw:flex-wrap tw:items-center tw:gap-1"
-                >
+              <template #selected="{ options, remove }">
+                <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
                   <span
-                    v-for="uid in selections[step.id]"
-                    :key="uid"
+                    v-for="opt in options"
+                    :key="opt.value"
                     class="tw:text-xs tw:font-medium tw:bg-primary/10 tw:text-primary tw:px-2 tw:py-0.5 tw:rounded-full tw:flex tw:items-center tw:gap-1"
                   >
-                    {{ step.candidates.find((c) => c.id === uid)?.name || uid }}
+                    {{ opt.label }}
                     <button
                       class="tw:text-primary/70 tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:text-xs tw:leading-none"
-                      @click.stop="scope.clear(uid)"
+                      @click.stop="remove(opt)"
                     >
                       &times;
                     </button>
                   </span>
                   <span
-                    v-if="selections[step.id].length < step.candidates.length"
+                    v-if="options.length < step.candidates.length"
                     class="tw:text-xs tw:font-medium tw:bg-transparent tw:text-primary tw:border tw:border-dashed tw:border-primary/40 tw:hover:border-primary tw:hover:bg-primary/5 tw:px-2 tw:py-0.5 tw:rounded-full tw:flex tw:items-center tw:gap-1 tw:cursor-pointer tw:transition-colors"
                   >
                     <IconPlus :size="12" />
                     Add reviewer
                   </span>
                 </div>
-                <span v-else class="tw:text-sm tw:text-placeholder"> Select reviewer(s)… </span>
               </template>
-            </BaseSelectMenu>
+            </BaseSelect>
 
             <p
               v-else-if="step.roleNames.length"

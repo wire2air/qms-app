@@ -361,9 +361,12 @@ async function onValidSubmit() {
               <BaseColorPicker v-model="draft.branding.backgroundColor" />
             </BaseField>
             <BaseField label="Font" class="tw:col-span-2">
-              <BaseSelectMenu
+              <BaseSelect
                 v-model="draft.branding.font"
-                :items="[
+                optionLabel="name"
+                optionValue="id"
+                placeholder="System (default)"
+                :options="[
                   { id: 'system-ui, sans-serif', name: 'System (default)' },
                   { id: 'Georgia, serif', name: 'Serif' },
                   { id: '\'Courier New\', monospace', name: 'Monospace' },

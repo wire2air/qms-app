@@ -34,13 +34,13 @@ const timezoneItems = computed(() => {
 
 <template>
   <BaseField :label="props.label" :hint="props.hint">
-    <BaseSelectMenu v-model="model" :items="timezoneItems" :required="true">
-      <template #button>
-        <BaseBadge v-if="model" class="tw:text-sm tw:text-on-sidebar tw:font-medium">
-          {{ timezoneItems.find((item) => item.id === model)?.name || model }}
-        </BaseBadge>
-        <span v-else class="tw:text-sm tw:text-placeholder tw:font-medium"> Select Timezone </span>
-      </template>
-    </BaseSelectMenu>
+    <BaseSelect
+      v-model="model"
+      :options="timezoneItems"
+      optionLabel="name"
+      optionValue="id"
+      :required="true"
+      placeholder="Select Timezone"
+    />
   </BaseField>
 </template>
