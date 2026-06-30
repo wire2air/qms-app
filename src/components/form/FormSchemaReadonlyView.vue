@@ -85,6 +85,8 @@ function formatDisplayValue(field, rawVal) {
     case 'textarea':
     case 'number':
     case 'slider':
+    case 'email':
+    case 'phone':
       return String(rawVal)
 
     case 'textEditor':

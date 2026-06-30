@@ -10,6 +10,8 @@ import {
   IconChevronRight,
 } from '@tabler/icons-vue'
 import BaseTextInput from '@shared/components/BaseTextInput.vue'
+import BaseEmailInput from '@shared/components/BaseEmailInput.vue'
+import BasePhoneInput from '@shared/components/BasePhoneInput.vue'
 import BaseCheckbox from '@shared/components/BaseCheckbox.vue'
 import BaseSwitch from '@shared/components/BaseSwitch.vue'
 import BaseColorPicker from '@shared/components/BaseColorPicker.vue'
@@ -23,9 +25,46 @@ import { useValidator } from '@shared/composables/validator.js'
 import BasePhoto from '@shared/components/BasePhoto.vue'
 import BaseSpinner from '@shared/components/BaseSpinner.vue'
 import BaseUploader from '@/components/common/BaseUploader.vue'
-import { required } from '@vuelidate/validators'
+import { required, email as emailValidator, helpers } from '@vuelidate/validators'
 import { getFormComponent } from './formComponentRegistry.js'
 import { fieldWidthSpan } from '@/constants/formBuilderConfig'
+
+function safeRegExp(src) {
+  try {
+    return src ? new RegExp(src) : null
+  } catch {
+    return null
+  }
+}
+
+// A phone passes if: a custom regex matches; else its national digit count
+// equals the mask's '#' count; else it has at least 7 digits. Empty passes —
+// `required` owns emptiness.
+function makePhoneValidator(field) {
+  const re = safeRegExp(field.formatRegex)
+  const maskCount = field.mask ? (field.mask.match(/#/g) || []).length : 0
+  return (value) => {
+    if (!helpers.req(value)) return true
+    const v = String(value)
+    if (re) return re.test(v)
+    const national = v.replace(/^\+\d{1,4}\s*/, '').replace(/\D/g, '')
+    return maskCount ? national.length === maskCount : national.length >= 7
+  }
+}
+
+// Built-in validation rules an input field's type contributes, on top of
+// `required`. Email → email check (or a custom regex); phone → phone check.
+function buildTypeRules(field) {
+  const rules = {}
+  if (field.type === 'email') {
+    const re = safeRegExp(field.formatRegex)
+    if (re) rules.format = helpers.withMessage('Invalid format.', helpers.regex(re))
+    else rules.email = helpers.withMessage('Enter a valid email address.', emailValidator)
+  } else if (field.type === 'phone') {
+    rules.phone = helpers.withMessage('Enter a valid phone number.', makePhoneValidator(field))
+  }
+  return rules
+}
 
 export default defineComponent({
   name: 'DynamicForm',
@@ -76,6 +115,7 @@ export default defineComponent({
         if (field.required) {
           obj.required = required
         }
+        Object.assign(obj, buildTypeRules(field))
       }
 
       if ('children' in field && Array.isArray(field.children)) {
@@ -222,6 +262,16 @@ export default defineComponent({
           return h(BaseTextInput, {
             ...inputFieldProps,
             type: field.type === 'input' || field.type === 'text' ? 'text' : field.type,
+          })
+
+        case 'email':
+          return h(BaseEmailInput, inputFieldProps)
+
+        case 'phone':
+          return h(BasePhoneInput, {
+            ...inputFieldProps,
+            defaultCountry: field.defaultCountry,
+            mask: field.mask,
           })
 
         case 'textarea':

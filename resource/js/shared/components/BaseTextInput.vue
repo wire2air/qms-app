@@ -45,6 +45,7 @@ const props = defineProps({
         'text',
         'password',
         'email',
+        'tel',
         'datetime-local',
         'date',
         'number',

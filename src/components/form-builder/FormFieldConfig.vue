@@ -219,6 +219,12 @@ function updateRowColClass(value) {
         <!-- File Settings -->
         <ConfigFile v-if="field.type === 'file'" v-model:field="field" />
 
+        <!-- Email Settings -->
+        <ConfigEmail v-if="field.type === 'email'" v-model:field="field" />
+
+        <!-- Phone Settings -->
+        <ConfigPhone v-if="field.type === 'phone'" v-model:field="field" />
+
         <!-- Rating Settings -->
         <template v-if="field.type === 'rating'">
           <BaseTextInput v-model.number="field.max" type="number" label="Max Stars" />

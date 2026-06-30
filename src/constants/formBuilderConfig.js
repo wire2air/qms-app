@@ -3,6 +3,8 @@ import {
   IconNotes,
   IconHash,
   IconLock,
+  IconMail,
+  IconPhone,
   IconSelector,
   IconSquareCheck,
   IconListCheck,
@@ -43,6 +45,8 @@ export const FIELD_TYPES = Object.freeze({
   input: { icon: IconTextSize, label: 'Text Input', category: 'input' },
   textarea: { icon: IconNotes, label: 'Text Area', category: 'input' },
   number: { icon: IconHash, label: 'Number', category: 'input' },
+  email: { icon: IconMail, label: 'Email Address', category: 'input' },
+  phone: { icon: IconPhone, label: 'Phone Number', category: 'input' },
   password: { icon: IconLock, label: 'Password', category: 'input' },
 
   // Selection Types
@@ -208,6 +212,18 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
   get slider() {
     return this.number
   },
+  email: {
+    // Blank = use the built-in email validation; set a custom regex to override.
+    formatRegex: '',
+  },
+  phone: {
+    defaultCountry: 'US',
+    // '#' = a digit; literals are kept. Drives both the input mask and the
+    // default validation (required digit count).
+    mask: '###-###-####',
+    // Blank = validate by the mask's digit count; set a regex to override.
+    formatRegex: '',
+  },
   rating: {
     max: 5,
     icon: 'star_border',
@@ -283,7 +299,15 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
   },
 })
 
-export const PLACEHOLDER_TYPES = new Set(['input', 'textarea', 'number', 'password', 'select'])
+export const PLACEHOLDER_TYPES = new Set([
+  'input',
+  'textarea',
+  'number',
+  'password',
+  'select',
+  'email',
+  'phone',
+])
 export const NO_HINT_TYPES = new Set([
   'separator',
   'section',
@@ -295,6 +319,8 @@ export const NO_HINT_TYPES = new Set([
 export const TYPE_SETTINGS_TYPES = new Set([
   'number',
   'slider',
+  'email',
+  'phone',
   'select',
   'radio',
   'optionGroup',
