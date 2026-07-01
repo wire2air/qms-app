@@ -835,6 +835,7 @@ declare module 'vue' {
     RecordTrailBreadcrumb: typeof import('./src/components/common/RecordTrailBreadcrumb.vue')['default']
     RelatedStandardBadge: typeof import('./src/components/badges/RelatedStandardBadge.vue')['default']
     RelatedStandardBadgeById: typeof import('./src/components/badges/RelatedStandardBadgeById.vue')['default']
+    RelatedStandardsCard: typeof import('./src/components/company/RelatedStandardsCard.vue')['default']
     RelatedStandardSelectMenu: typeof import('./src/components/menus/RelatedStandardSelectMenu.vue')['default']
     ResetPasswordForm: typeof import('./src/components/auth/ResetPasswordForm.vue')['default']
     RichTextAttachments: typeof import('./src/components/shared/RichTextAttachments.vue')['default']
