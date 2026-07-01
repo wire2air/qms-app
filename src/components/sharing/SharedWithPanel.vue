@@ -51,29 +51,26 @@ function viaLabel(s) {
 </script>
 
 <template>
-  <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
+  <!-- Only surfaces once the record is actually shared externally (a supplier
+       user granted via workflow-step assignment). No shares → no panel. -->
+  <section
+    v-if="shares.length"
+    class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+  >
     <div class="tw:flex tw:items-center tw:gap-2">
       <IconUsers :size="18" class="tw:text-primary" />
       <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">
         External access
-        <span v-if="shares.length" class="tw:text-secondary tw:font-normal">
-          ({{ shares.length }})
-        </span>
+        <span class="tw:text-secondary tw:font-normal">({{ shares.length }})</span>
       </h3>
     </div>
 
     <p class="tw:text-caption tw:text-secondary tw:italic">
       Supplier users are granted read access automatically when a workflow step assigns them to this
-      {{ entityType.toLowerCase() }}. Internal users with the relevant read permission don't need an
-      explicit grant.
+      {{ entityType.toLowerCase() }}.
     </p>
 
-    <div v-if="shares.length === 0" class="tw:text-xs tw:text-secondary tw:italic">
-      Nobody outside the default permission scope has access to this
-      {{ entityType.toLowerCase() }} yet.
-    </div>
-
-    <ul v-else class="tw:flex tw:flex-col tw:gap-1.5">
+    <ul class="tw:flex tw:flex-col tw:gap-1.5">
       <li
         v-for="share in shares"
         :key="share.id"
