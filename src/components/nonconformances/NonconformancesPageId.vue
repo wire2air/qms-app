@@ -585,9 +585,6 @@ const ncDetailConfig = computed(() =>
           />
         </div>
       </FormSection>
-
-      <!-- Admin-defined custom fields (Settings → Custom Fields). Self-hides when none configured. (merged from develop) -->
-      <CustomFieldsCard entityType="Nonconformance" :entityId="id" :editable="isEditable" />
     </template>
 
     <template v-if="nc" #section-workflow>
@@ -907,6 +904,10 @@ const ncDetailConfig = computed(() =>
           </BaseDetailField>
         </div>
       </BaseRailCard>
+
+      <!-- Admin-defined custom fields (Settings → Custom Fields), right after
+           General. Self-hides when none configured. -->
+      <CustomFieldsCard entityType="Nonconformance" :entityId="id" :editable="isEditable" />
 
       <!-- 2. People — initiator, responsible party, site, department -->
       <BaseRailCard title="People" grid>

@@ -490,6 +490,7 @@ const documentDetailConfig = computed(() =>
     :config="documentDetailConfig"
     :record="document"
     :loading="!document"
+    :rail="activeContentTab !== 'training'"
   >
     <template #title>
       <span v-if="document">

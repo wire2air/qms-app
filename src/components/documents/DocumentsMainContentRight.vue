@@ -241,6 +241,10 @@ watch(
       </div>
     </BaseRailCard>
 
+    <!-- Admin-defined custom fields, right after Properties. Self-hides when
+         none configured. -->
+    <CustomFieldsCard entityType="Document" :entityId="document.id" :editable="canEdit" />
+
     <!-- Workflow -->
     <BaseRailCard title="Workflow" :icon="IconHierarchy">
       <div class="tw:flex tw:flex-col tw:gap-2">
@@ -331,9 +335,6 @@ watch(
         </div>
       </nav>
     </BaseRailCard>
-
-    <!-- Admin-defined custom fields. Self-hides when none configured. -->
-    <CustomFieldsCard entityType="Document" :entityId="document.id" :editable="canEdit" />
 
     <!-- Workflow Selection Dialog -->
     <BaseDialog v-model="showWorkflowDialog" title="Select Workflow" maxWidth="lg">
