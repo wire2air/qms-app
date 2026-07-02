@@ -149,7 +149,7 @@ function apply() {
         </p>
 
         <div v-if="op === 'custom'">
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Instruction</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Instruction</p>
           <BaseTextInput
             v-model="instruction"
             placeholder="e.g. rephrase as a formal nonconformity statement"
@@ -162,7 +162,7 @@ function apply() {
         </div>
 
         <div v-else-if="result">
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Result (edit before applying)</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Result (edit before applying)</p>
           <!-- autosize + maxRows so the box grows with the text and then
                scrolls — a plain rows= textarea clips (overflow hidden). -->
           <BaseTextarea v-model="result" autosize :rows="6" :maxRows="14" />

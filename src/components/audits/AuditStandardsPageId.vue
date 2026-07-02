@@ -748,7 +748,7 @@ const auditStandardDetailConfig = computed(() =>
       </div>
 
       <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
           License Reference (optional)
         </p>
         <BaseTextInput
@@ -757,7 +757,7 @@ const auditStandardDetailConfig = computed(() =>
         />
       </div>
       <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
           License Expires (optional)
         </p>
         <BaseTextInput v-model="attestForm.customerLicenseExpiresAt" type="date" />

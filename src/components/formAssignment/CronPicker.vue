@@ -403,7 +403,7 @@ function toggleWeekday(d) {
     <!-- Advanced mode — raw five fields. -->
     <div v-if="mode === MODE.ADVANCED" class="tw:grid tw:grid-cols-2 tw:sm:grid-cols-3 tw:lg:grid-cols-5 tw:gap-1.5">
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-micro tw:text-secondary tw:uppercase">Minute</span>
+        <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">Minute</span>
         <input
           type="text"
           :value="fields.minute"
@@ -412,7 +412,7 @@ function toggleWeekday(d) {
         />
       </div>
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-micro tw:text-secondary tw:uppercase">Hour</span>
+        <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">Hour</span>
         <input
           type="text"
           :value="fields.hour"
@@ -421,7 +421,7 @@ function toggleWeekday(d) {
         />
       </div>
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-micro tw:text-secondary tw:uppercase">Dom</span>
+        <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">Dom</span>
         <input
           type="text"
           :value="fields.dom"
@@ -430,7 +430,7 @@ function toggleWeekday(d) {
         />
       </div>
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-micro tw:text-secondary tw:uppercase">Month</span>
+        <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">Month</span>
         <input
           type="text"
           :value="fields.month"
@@ -439,7 +439,7 @@ function toggleWeekday(d) {
         />
       </div>
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-micro tw:text-secondary tw:uppercase">Dow</span>
+        <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">Dow</span>
         <input
           type="text"
           :value="fields.dow"

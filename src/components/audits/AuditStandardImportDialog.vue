@@ -319,7 +319,7 @@ function safeParseJson(raw) {
         <!-- Input format picker. Stacked vertically (was a 3-up grid that
              crowded the labels). Each row reads as "type + description". -->
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Format</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Format</p>
           <!-- Single format (CSV template). Render the guidance without the
                selector chrome since there's nothing to choose. -->
           <div class="tw:flex tw:flex-col tw:gap-2">

@@ -539,7 +539,7 @@ function unlinkedKinds(finding) {
           >
             <div class="tw:flex tw:items-center tw:justify-between">
               <span
-                class="tw:text-micro tw:uppercase tw:font-semibold tw:tracking-wide tw:text-secondary"
+                class="tw:text-caption tw:uppercase tw:font-semibold tw:tracking-wider tw:text-secondary"
               >
                 CAPA / Response
               </span>
@@ -551,7 +551,7 @@ function unlinkedKinds(finding) {
               </span>
               <span
                 v-else-if="isOverdue(finding)"
-                class="tw:text-micro tw:text-red-700 tw:font-bold tw:uppercase"
+                class="tw:text-caption tw:text-red-700 tw:font-semibold tw:uppercase tw:tracking-wider"
               >
                 Overdue
               </span>
@@ -600,7 +600,7 @@ function unlinkedKinds(finding) {
                kinds surface as "+ Link" pills that open the picker. -->
           <div v-if="!supplierMode" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:items-center">
             <p
-              class="tw:text-micro tw:text-secondary tw:uppercase tw:font-semibold tw:tracking-wide tw:mr-1"
+              class="tw:text-caption tw:text-secondary tw:uppercase tw:font-semibold tw:tracking-wider tw:mr-1"
             >
               Linked:
             </p>

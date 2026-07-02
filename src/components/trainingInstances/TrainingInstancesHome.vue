@@ -73,7 +73,7 @@ const STATUS_PILLS = [
             <IconSchool :size="20" />
           </div>
           <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+            <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
               Active
             </div>
             <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.active }}</div>
@@ -88,7 +88,7 @@ const STATUS_PILLS = [
             <IconCircleCheck :size="20" />
           </div>
           <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+            <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
               Completed
             </div>
             <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.completed }}</div>
@@ -103,7 +103,7 @@ const STATUS_PILLS = [
             <IconClock :size="20" />
           </div>
           <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+            <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
               Overdue
             </div>
             <div

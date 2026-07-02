@@ -268,7 +268,7 @@ const groupDetailConfig = computed(() =>
               class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
             >
               <div class="tw:flex tw:items-center tw:gap-2">
-                <h3 class="tw:text-sm tw:font-semibold tw:text-on-main tw:text-sm tw:uppercase tw:tracking-wide">
+                <h3 class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
                   Members
                 </h3>
                 <span

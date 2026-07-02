@@ -82,7 +82,7 @@ function openFindingsInstance(f) {
       <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
         <div class="tw:flex tw:flex-col tw:items-center tw:p-2 tw:rounded-lg tw:bg-main-hover">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ stats.open }}</span>
-          <span class="tw:text-micro tw:text-secondary tw:uppercase tw:tracking-wider">Open</span>
+          <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">Open</span>
         </div>
         <div
           class="tw:flex tw:flex-col tw:items-center tw:p-2 tw:rounded-lg"
@@ -94,13 +94,13 @@ function openFindingsInstance(f) {
           >
             {{ stats.majorOpen }}
           </span>
-          <span class="tw:text-micro tw:text-secondary tw:uppercase tw:tracking-wider">
+          <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">
             Major NC
           </span>
         </div>
         <div class="tw:flex tw:flex-col tw:items-center tw:p-2 tw:rounded-lg tw:bg-main-hover">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ stats.last12m }}</span>
-          <span class="tw:text-micro tw:text-secondary tw:uppercase tw:tracking-wider">
+          <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">
             Last 12 mo
           </span>
         </div>

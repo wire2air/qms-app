@@ -442,21 +442,21 @@ function libraryAssigneeStats(instanceId) {
         <!-- Summary stats -->
         <div class="tw:grid tw:grid-cols-2 tw:sm:grid-cols-3 tw:lg:grid-cols-5 tw:gap-3 tw:mt-4">
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-micro tw:uppercase tw:font-bold tw:text-secondary">Total</p>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Total</p>
             <p class="tw:text-lg tw:font-bold tw:text-on-sidebar">{{ stats.total }}</p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-micro tw:uppercase tw:font-bold tw:text-secondary">Verified</p>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Verified</p>
             <p class="tw:text-lg tw:font-bold tw:text-green-600">{{ stats.verified }}</p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-micro tw:uppercase tw:font-bold tw:text-secondary">Pending</p>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Pending</p>
             <p class="tw:text-lg tw:font-bold tw:text-amber-600">
               {{ stats.completed + stats.inProgress }}
             </p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-micro tw:uppercase tw:font-bold tw:text-secondary">Failed</p>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Failed</p>
             <p
               class="tw:text-lg tw:font-bold"
               :class="stats.failed > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
@@ -465,7 +465,7 @@ function libraryAssigneeStats(instanceId) {
             </p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-micro tw:uppercase tw:font-bold tw:text-secondary">Retrain</p>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Retrain</p>
             <p
               class="tw:text-lg tw:font-bold"
               :class="stats.retrainRequired > 0 ? 'tw:text-orange-600' : 'tw:text-on-sidebar'"
@@ -593,25 +593,25 @@ function libraryAssigneeStats(instanceId) {
         <!-- Per-instance stats strip (mirrors the auto-training card above) -->
         <div class="tw:grid tw:grid-cols-2 tw:sm:grid-cols-4 tw:gap-3">
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-micro tw:uppercase tw:font-bold tw:text-secondary">Assigned</p>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Assigned</p>
             <p class="tw:text-lg tw:font-bold tw:text-on-sidebar">
               {{ libraryAssigneeStats(inst.id).total }}
             </p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-micro tw:uppercase tw:font-bold tw:text-secondary">Verified</p>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Verified</p>
             <p class="tw:text-lg tw:font-bold tw:text-green-600">
               {{ libraryAssigneeStats(inst.id).verified }}
             </p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-micro tw:uppercase tw:font-bold tw:text-secondary">Completed</p>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Completed</p>
             <p class="tw:text-lg tw:font-bold tw:text-amber-600">
               {{ libraryAssigneeStats(inst.id).completed }}
             </p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-micro tw:uppercase tw:font-bold tw:text-secondary">Failed</p>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Failed</p>
             <p class="tw:text-lg tw:font-bold tw:text-red-600">
               {{ libraryAssigneeStats(inst.id).failed }}
             </p>

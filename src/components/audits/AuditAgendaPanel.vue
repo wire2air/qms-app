@@ -150,7 +150,7 @@ async function send() {
     <!-- Requested documents — sent to the supplier with the agenda. -->
     <div class="tw:mb-3 tw:pt-3 tw:border-t tw:border-divider">
       <p
-        class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2 tw:flex tw:items-center tw:gap-1"
+        class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-2 tw:flex tw:items-center tw:gap-1"
       >
         <IconPaperclip :size="14" /> Requested Documents
       </p>

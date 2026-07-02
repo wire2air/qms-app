@@ -168,7 +168,7 @@ watch(
               v-if="showHistory"
               class="tw:absolute tw:right-0 tw:top-full tw:mt-2 tw:w-80 tw:max-h-96 tw:overflow-hidden tw:flex tw:flex-col tw:bg-main tw:border tw:border-divider tw:rounded-xl tw:shadow-xl tw:z-modal"
             >
-              <div class="tw:px-3 tw:py-2 tw:border-b tw:border-divider tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">
+              <div class="tw:px-3 tw:py-2 tw:border-b tw:border-divider tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
                 Chat history
               </div>
               <div class="tw:flex-1 tw:overflow-y-auto">

@@ -241,18 +241,18 @@ const trainingInstanceDetailConfig = computed(() =>
       <!-- Summary stats -->
       <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-4 tw:gap-3">
         <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Assigned</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Assigned</p>
           <p class="tw:text-2xl tw:font-bold tw:text-on-sidebar tw:mt-1">{{ stats.total }}</p>
         </div>
         <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Verified</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Verified</p>
           <p class="tw:text-2xl tw:font-bold tw:text-green-600 tw:mt-1">{{ stats.verified }}</p>
           <p v-if="stats.completed" class="tw:text-xs tw:text-amber-700 tw:mt-0.5">
             +{{ stats.completed }} pending
           </p>
         </div>
         <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Retraining</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Retraining</p>
           <p
             class="tw:text-2xl tw:font-bold tw:mt-1"
             :class="stats.retrainRequired > 0 ? 'tw:text-orange-600' : 'tw:text-on-sidebar'"
@@ -264,7 +264,7 @@ const trainingInstanceDetailConfig = computed(() =>
           </p>
         </div>
         <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Pass rate</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Pass rate</p>
           <p
             class="tw:text-2xl tw:font-bold tw:mt-1"
             :class="
@@ -384,7 +384,7 @@ const trainingInstanceDetailConfig = computed(() =>
         </div>
       </div>
       <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Reason</p>
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Reason</p>
         <BaseTextarea
           v-model="removeReason"
           :rows="3"
@@ -466,7 +466,7 @@ const trainingInstanceDetailConfig = computed(() =>
         </div>
       </div>
       <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Reason</p>
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Reason</p>
         <BaseTextarea
           v-model="cancelReason"
           :rows="3"

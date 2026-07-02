@@ -92,7 +92,7 @@ const statusPills = computed(() => [
             <IconBook :size="20" />
           </div>
           <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+            <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
               Total
             </div>
             <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.total }}</div>
@@ -107,7 +107,7 @@ const statusPills = computed(() => [
             <IconCircleCheck :size="20" />
           </div>
           <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+            <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
               Active
             </div>
             <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.active }}</div>
@@ -122,7 +122,7 @@ const statusPills = computed(() => [
             <IconClock :size="20" />
           </div>
           <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+            <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
               Draft
             </div>
             <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.draft }}</div>
@@ -137,7 +137,7 @@ const statusPills = computed(() => [
             <IconSchool :size="20" />
           </div>
           <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+            <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
               Archived
             </div>
             <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.archived }}</div>

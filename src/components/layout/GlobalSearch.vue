@@ -195,7 +195,7 @@ onClickOutside(rootEl, () => close())
       <template v-else>
         <div v-for="group in grouped" :key="group.type" class="tw:py-1">
           <div
-            class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:pt-2 tw:pb-1 tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+            class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:pt-2 tw:pb-1 tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
           >
             <component :is="group.meta.icon" :size="14" />
             {{ group.meta.label }}

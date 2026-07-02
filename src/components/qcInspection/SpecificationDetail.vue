@@ -470,7 +470,7 @@ async function newVersion() {
           >
             <div
               v-if="c.id == null"
-              class="tw:flex tw:items-center tw:gap-1.5 tw:mb-2 tw:text-micro tw:font-bold tw:uppercase tw:tracking-wide tw:text-red-600"
+              class="tw:flex tw:items-center tw:gap-1.5 tw:mb-2 tw:text-caption tw:font-bold tw:uppercase tw:tracking-wider tw:text-red-600"
             >
               <span class="tw:inline-block tw:w-1.5 tw:h-1.5 tw:rounded-full tw:bg-red-500"></span>
               New test — fill in &amp; Save

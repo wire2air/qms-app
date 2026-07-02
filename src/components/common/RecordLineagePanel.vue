@@ -39,7 +39,7 @@ const show = computed(() => causedBy.value.length > 0 || ledTo.value.length > 0)
   >
     <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
       <IconSitemap :size="16" />
-      <span class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wider">Related records</span>
+      <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider">Related records</span>
     </div>
 
     <div v-if="causedBy.length" class="tw:flex tw:flex-col tw:gap-1.5">

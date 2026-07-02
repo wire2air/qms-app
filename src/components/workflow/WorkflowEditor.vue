@@ -425,7 +425,7 @@ watch(steps, () => {
             <template #content="{ close }">
               <div class="tw:w-64 tw:py-2">
                 <p
-                  class="tw:px-3 tw:py-1 tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide"
+                  class="tw:px-3 tw:py-1 tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
                 >
                   Version History
                 </p>

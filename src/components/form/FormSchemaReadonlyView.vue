@@ -269,7 +269,7 @@ function getChecklistColumnLabel(col) {
         <div class="tw:col-span-3">
           <div
             v-if="field.label"
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mt-1 tw:mb-2"
+            class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mt-1 tw:mb-2"
           >
             {{ field.label }}
           </div>
@@ -292,7 +292,7 @@ function getChecklistColumnLabel(col) {
         <div class="tw:col-span-3">
           <div
             v-if="field.label"
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mt-1 tw:mb-2"
+            class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mt-1 tw:mb-2"
           >
             {{ field.label }}
           </div>

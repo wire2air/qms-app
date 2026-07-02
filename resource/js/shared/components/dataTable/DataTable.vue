@@ -414,8 +414,10 @@ function alignTh(align) {
       : 'tw:text-left'
 }
 function alignTd(align) {
+  // Right-aligned columns are numeric by convention — tabular figures keep
+  // digits vertically aligned down the column (no monospace in the app).
   return align === 'right'
-    ? 'tw:text-right'
+    ? 'tw:text-right tw:tabular-nums'
     : align === 'center'
       ? 'tw:text-center'
       : 'tw:text-left'
@@ -930,7 +932,7 @@ defineExpose({ table })
                   </span>
                   <span
                     v-if="multiSort && column.getSortIndex() >= 0 && column.getIsSorted()"
-                    class="tw:ml-0.5 tw:rounded tw:bg-primary/15 tw:px-1 tw:text-micro tw:font-semibold tw:text-primary"
+                    class="tw:ml-0.5 tw:rounded tw:bg-primary/15 tw:px-1 tw:text-micro tw:font-semibold tw:text-primary tw:tabular-nums"
                   >
                     {{ column.getSortIndex() + 1 }}
                   </span>

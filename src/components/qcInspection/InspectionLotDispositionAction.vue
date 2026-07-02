@@ -120,12 +120,12 @@ async function record({ method, provider, token } = {}) {
 <template>
   <div v-if="taskInstance" class="tw:flex tw:flex-col tw:gap-3">
     <div class="tw:flex tw:flex-col tw:gap-1.5">
-      <span class="tw:text-xs tw:font-semibold tw:text-amber-800 tw:uppercase tw:tracking-wide">Disposition</span>
+      <span class="tw:text-caption tw:font-semibold tw:text-amber-800 tw:uppercase tw:tracking-wider">Disposition</span>
       <NcDispositionTypeSelectMenu v-model="dispositionTypeId" :required="false" class="tw:w-72" />
     </div>
 
     <div class="tw:flex tw:flex-col tw:gap-1.5">
-      <span class="tw:text-xs tw:font-semibold tw:text-amber-800 tw:uppercase tw:tracking-wide">Disposition notes</span>
+      <span class="tw:text-caption tw:font-semibold tw:text-amber-800 tw:uppercase tw:tracking-wider">Disposition notes</span>
       <BaseTextarea
         v-model="notes"
         :rows="3"

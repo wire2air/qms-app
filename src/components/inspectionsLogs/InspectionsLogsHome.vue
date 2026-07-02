@@ -112,7 +112,7 @@ function go(path) {
           <IconChecklist :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
             My queue
           </div>
           <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.myDue }}</div>
@@ -129,7 +129,7 @@ function go(path) {
           <IconAlertCircle :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
             Awaiting your review
           </div>
           <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.underReview }}</div>
@@ -144,7 +144,7 @@ function go(path) {
           <IconHistory :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
             Missed this week
           </div>
           <div
@@ -164,7 +164,7 @@ function go(path) {
           <IconListCheck :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
             Submitted this week
           </div>
           <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">

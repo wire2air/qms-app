@@ -181,7 +181,7 @@ watch(open, (val) => {
       </BaseField>
 
       <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Product Family</p>
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Product Family</p>
         <ProductFamilySelectMenu v-model="form.productFamilyId" nullLabel="— No family —" />
       </div>
 

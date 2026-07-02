@@ -239,7 +239,7 @@ function selectToday() {
         <span
           v-for="(lbl, i) in weekdayLabels"
           :key="i"
-          class="tw:py-1 tw:text-micro tw:font-medium tw:uppercase tw:text-secondary"
+          class="tw:py-1 tw:text-caption tw:font-medium tw:uppercase tw:tracking-wider tw:text-secondary"
         >
           {{ lbl }}
         </span>

@@ -259,7 +259,7 @@ async function createNewVersion(plan) {
                 :key="sa.severity"
                 class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:px-3 tw:py-1.5 tw:text-center"
               >
-                <div class="tw:text-micro tw:text-secondary tw:uppercase">
+                <div class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">
                   {{ sa.severity }}
                 </div>
                 <div class="tw:font-semibold tw:text-on-main tw:text-sm">AQL {{ sa.aql }}%</div>

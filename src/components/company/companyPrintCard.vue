@@ -124,7 +124,7 @@ function openPreview() {
             </div>
           </BaseField>
           <div class="tw:flex tw:flex-col tw:items-center tw:gap-1.5">
-            <span class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
+            <span class="tw:text-caption tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wider">
               Preview
             </span>
             <div

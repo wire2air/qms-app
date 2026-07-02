@@ -49,7 +49,7 @@ const valueTint = (item) => (item.emphasize ? tint(item.color) : 'tw:text-on-mai
         aria-hidden="true"
       />
       <div class="tw:min-w-0">
-        <div class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary tw:truncate">
+        <div class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary tw:truncate">
           {{ item.label }}
         </div>
         <div class="tw:text-lg tw:font-bold tw:leading-tight" :class="valueTint(item)">

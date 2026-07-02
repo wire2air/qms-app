@@ -145,6 +145,18 @@ Scope: `src/`, `resource/`, `index.html`, global CSS. Excludes `node_modules`, `
   - Badge: `BaseBadge` metrics (12px medium) — no bespoke pills
   - Weight ceiling: `font-bold` (700). No `font-black`/`font-extrabold` in UI text.
   - Muted text: `tw:text-secondary` only.
+- **Tabular numerals for stacked numbers** (post-review polish): right-aligned DataTable columns
+  get `tw:tabular-nums` centrally (`alignTd`), plus KPI values, count pills (tabs, filters,
+  quick-filter pills), and dashboard counts — proportional digits don't column-align, and there
+  is no monospace fallback anymore.
+- **One overline treatment enforced in feature code too**: every plain (non-pill) uppercase
+  label is `tw:text-caption` (`tw:text-table-header` in hand-rolled `<th>`s) with
+  `tw:font-semibold` and `tw:tracking-wider`. Pills/chips with backgrounds keep BaseBadge
+  metrics. `tracking-tight`
+  on uppercase was a typographic error and is gone.
+- **`tw:text-base` (16px) is a sanctioned step**, not drift: it is the `lg` control size
+  (BaseButton/BaseDateField/BaseAvatar lg), avatar-initial scaling, and dense↔large display
+  toggles. Body copy stays on `text-sm`/`text-body`.
 - **No monospace on screen at all** (decided after review — the owner chose absolute font
   uniformity over the mono-for-machine-values convention). All `tw:font-mono` usages removed
   (identifiers first, then code/JSON/keys/cron too); `--default-mono-font-family` points at the

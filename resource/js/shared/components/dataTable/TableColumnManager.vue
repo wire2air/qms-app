@@ -91,7 +91,7 @@ function reset() {
     <template #content>
       <div class="tw:w-64 tw:p-1">
         <div
-          class="tw:flex tw:items-center tw:justify-between tw:px-3 tw:py-1.5 tw:text-xs tw:font-semibold tw:tracking-wide tw:text-secondary tw:uppercase"
+          class="tw:flex tw:items-center tw:justify-between tw:px-3 tw:py-1.5 tw:text-caption tw:font-semibold tw:tracking-wider tw:text-secondary tw:uppercase"
         >
           <span>Columns</span>
           <button

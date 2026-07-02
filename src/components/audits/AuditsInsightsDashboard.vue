@@ -247,7 +247,7 @@ function openFindingsInstance(f) {
           <div v-for="row in findingsByCategory" :key="row.id" class="tw:flex tw:flex-col tw:gap-1">
             <div class="tw:flex tw:items-center tw:justify-between tw:text-xs">
               <span class="tw:text-on-main tw:font-medium tw:truncate">{{ row.name }}</span>
-              <span class="tw:text-secondary">{{ row.count }}</span>
+              <span class="tw:text-secondary tw:tabular-nums">{{ row.count }}</span>
             </div>
             <div class="tw:h-2 tw:bg-main-hover tw:rounded-full tw:overflow-hidden">
               <div
@@ -268,7 +268,7 @@ function openFindingsInstance(f) {
           <div v-for="row in findingsByType" :key="row.id" class="tw:flex tw:flex-col tw:gap-1">
             <div class="tw:flex tw:items-center tw:justify-between tw:text-xs">
               <span class="tw:text-on-main tw:font-medium">{{ row.name }}</span>
-              <span class="tw:text-secondary">{{ row.count }}</span>
+              <span class="tw:text-secondary tw:tabular-nums">{{ row.count }}</span>
             </div>
             <div class="tw:h-2 tw:bg-main-hover tw:rounded-full tw:overflow-hidden">
               <div
@@ -300,7 +300,7 @@ function openFindingsInstance(f) {
           <div v-for="row in leadBacklog" :key="row.userId" class="tw:flex tw:flex-col tw:gap-1">
             <div class="tw:flex tw:items-center tw:justify-between tw:text-xs">
               <span class="tw:text-on-main tw:font-medium tw:truncate">{{ row.name }}</span>
-              <span class="tw:text-secondary">{{ row.count }}</span>
+              <span class="tw:text-secondary tw:tabular-nums">{{ row.count }}</span>
             </div>
             <div class="tw:h-2 tw:bg-main-hover tw:rounded-full tw:overflow-hidden">
               <div

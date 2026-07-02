@@ -66,7 +66,7 @@ const hasActiveFilters = computed(
 
       <!-- Date from -->
       <div class="tw:flex tw:flex-col tw:gap-0.5">
-        <span class="tw:text-micro tw:font-medium tw:text-secondary tw:uppercase tw:tracking-wide"
+        <span class="tw:text-caption tw:font-medium tw:text-secondary tw:uppercase tw:tracking-wider"
           >Start date</span
         >
         <BaseDateField v-model="filters.dateFrom" mode="date" />
@@ -74,7 +74,7 @@ const hasActiveFilters = computed(
 
       <!-- Date to -->
       <div class="tw:flex tw:flex-col tw:gap-0.5">
-        <span class="tw:text-micro tw:font-medium tw:text-secondary tw:uppercase tw:tracking-wide"
+        <span class="tw:text-caption tw:font-medium tw:text-secondary tw:uppercase tw:tracking-wider"
           >End date</span
         >
         <BaseDateField v-model="filters.dateTo" mode="date" />

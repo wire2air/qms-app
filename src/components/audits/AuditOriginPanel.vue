@@ -165,7 +165,7 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
         <!-- Evidence captured against this finding (files + linked records). -->
         <div v-if="f.evidence && f.evidence.length" class="tw:flex tw:flex-col tw:gap-1">
           <div
-            class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+            class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
           >
             Evidence ({{ f.evidence.length }})
           </div>

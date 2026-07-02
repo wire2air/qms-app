@@ -84,7 +84,7 @@ function clearAll() {
           <span class="tw:hidden sm:tw:inline">Filter</span>
           <span
             v-if="conditions.length"
-            class="tw:rounded tw:bg-primary/15 tw:px-1 tw:text-micro tw:font-semibold tw:text-primary"
+            class="tw:rounded tw:bg-primary/15 tw:px-1 tw:text-micro tw:font-semibold tw:text-primary tw:tabular-nums"
           >
             {{ conditions.length }}
           </span>

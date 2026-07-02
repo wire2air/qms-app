@@ -628,7 +628,7 @@ const inspectionLotDetailConfig = computed(() =>
                 :key="c.id"
                 class="tw:bg-blue-50/40 tw:rounded-lg tw:p-3 tw:border tw:border-blue-100"
               >
-                <div class="tw:text-micro tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wide tw:mb-1.5">
+                <div class="tw:text-caption tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wider tw:mb-1.5">
                   {{ c.name }} — Instructions
                 </div>
                 <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
@@ -650,7 +650,7 @@ const inspectionLotDetailConfig = computed(() =>
 
         <div v-else class="tw:overflow-x-auto">
         <table class="tw:w-full tw:min-w-[640px] tw:text-sm">
-          <thead class="tw:text-secondary tw:text-xs tw:uppercase">
+          <thead class="tw:text-secondary tw:text-table-header tw:uppercase tw:tracking-wider">
             <tr>
               <th class="tw:text-left tw:px-5 tw:py-2">Test</th>
               <th class="tw:text-left tw:px-5 tw:py-2">Spec</th>
@@ -728,7 +728,7 @@ const inspectionLotDetailConfig = computed(() =>
               <!-- ── Row 2: evidence & comments (collapsible) ────────── -->
               <tr v-if="isDetailOpen(c.id) && canCaptureEvidence(c)" :key="`e-${c.id}`" class="tw:border-t tw:border-divider/50 tw:bg-sidebar/40">
                 <td :colspan="anyRequiresInstrument ? 5 : 4" class="tw:px-5 tw:py-2.5">
-                  <div class="tw:text-micro tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">Evidence &amp; Comments</div>
+                  <div class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mb-1.5">Evidence &amp; Comments</div>
                   <RichTextAttachments
                     v-model="entries[c.id].notes"
                     :readonly="!canEditResults"
@@ -740,7 +740,7 @@ const inspectionLotDetailConfig = computed(() =>
               <!-- ── Row 3: instructions from spec (collapsible) ─────── -->
               <tr v-if="isDetailOpen(c.id) && c.testMethod" :key="`i-${c.id}`" class="tw:border-t tw:border-divider/50 tw:bg-blue-50/40">
                 <td :colspan="anyRequiresInstrument ? 5 : 4" class="tw:px-5 tw:py-2.5">
-                  <div class="tw:text-micro tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wide tw:mb-1.5">Instructions</div>
+                  <div class="tw:text-caption tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wider tw:mb-1.5">Instructions</div>
                   <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
                 </td>
               </tr>

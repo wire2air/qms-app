@@ -276,7 +276,7 @@ async function onSubmit() {
         <div class="tw:flex tw:flex-col tw:gap-3">
           <div class="tw:flex tw:items-center tw:justify-between">
             <div
-              class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+              class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
             >
               Risk Levels
             </div>
@@ -327,7 +327,7 @@ async function onSubmit() {
           <div class="tw:flex tw:flex-col tw:gap-2 tw:shrink-0">
             <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
               <div
-                class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+                class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
               >
                 Likelihood
               </div>
@@ -412,7 +412,7 @@ async function onSubmit() {
 
             <!-- Severity axis label -->
             <div
-              class="tw:text-micro tw:text-secondary tw:text-center tw:mb-1 tw:uppercase tw:tracking-wide tw:font-semibold"
+              class="tw:text-caption tw:text-secondary tw:text-center tw:mb-1 tw:uppercase tw:tracking-wider tw:font-semibold"
             >
               ← Severity →
             </div>
@@ -451,7 +451,7 @@ async function onSubmit() {
           <div class="tw:flex tw:items-center tw:justify-between">
             <div class="tw:flex tw:flex-col tw:gap-0.5">
               <div
-                class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+                class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
               >
                 Detectability (FMEA 3-factor RPN)
               </div>

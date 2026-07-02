@@ -174,7 +174,7 @@ function handleClick() {
             <span
               v-if="statusBadge"
               :class="statusBadge.class"
-              class="tw:text-micro tw:uppercase tw:font-bold tw:flex tw:items-center tw:gap-0.5"
+              class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:flex tw:items-center tw:gap-0.5"
             >
               <component :is="statusBadge.icon" :size="10" />
               {{ statusBadge.text }}

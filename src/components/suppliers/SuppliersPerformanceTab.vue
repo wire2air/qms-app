@@ -94,13 +94,13 @@ function viewAllCapas() {
             class="tw:flex tw:items-center tw:gap-2 tw:text-left tw:rounded tw:px-2 tw:py-1.5 tw:bg-white tw:border tw:border-divider tw:hover:border-primary tw:cursor-pointer"
             @click="openAudit(a.id)"
           >
-            <span class="tw:text-sm tw:text-secondary tw:shrink-0">{{
+            <span class="tw:text-sm tw:text-secondary tw:shrink-0 tw:tabular-nums">{{
               a.auditNumber
             }}</span>
             <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{
               a.displayMeta?.standardName || 'Audit'
             }}</span>
-            <span class="tw:text-micro tw:uppercase tw:font-semibold tw:text-secondary">{{
+            <span class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">{{
               a.statusId
             }}</span>
           </button>
@@ -129,11 +129,11 @@ function viewAllCapas() {
             class="tw:flex tw:items-center tw:gap-2 tw:text-left tw:rounded tw:px-2 tw:py-1.5 tw:bg-white tw:border tw:border-divider tw:hover:border-primary tw:cursor-pointer"
             @click="openNc(n.id)"
           >
-            <span class="tw:text-sm tw:text-secondary tw:shrink-0">{{
+            <span class="tw:text-sm tw:text-secondary tw:shrink-0 tw:tabular-nums">{{
               n.ncNumber
             }}</span>
             <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{ n.title }}</span>
-            <span class="tw:text-micro tw:uppercase tw:font-semibold tw:text-secondary">{{
+            <span class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">{{
               n.statusId
             }}</span>
           </button>
@@ -169,11 +169,11 @@ function viewAllCapas() {
             class="tw:flex tw:items-center tw:gap-2 tw:text-left tw:rounded tw:px-2 tw:py-1.5 tw:bg-white tw:border tw:border-divider tw:hover:border-primary tw:cursor-pointer"
             @click="openCapa(c.id)"
           >
-            <span class="tw:text-sm tw:text-secondary tw:shrink-0">{{
+            <span class="tw:text-sm tw:text-secondary tw:shrink-0 tw:tabular-nums">{{
               c.capaNumber
             }}</span>
             <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{ c.title }}</span>
-            <span class="tw:text-micro tw:uppercase tw:font-semibold tw:text-secondary">{{
+            <span class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">{{
               c.statusId
             }}</span>
           </button>

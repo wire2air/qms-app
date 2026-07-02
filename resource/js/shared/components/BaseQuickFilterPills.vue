@@ -67,7 +67,7 @@ function select(pill) {
       {{ pill.label }}
       <span
         v-if="pill.count != null && pill.count !== ''"
-        class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-main-hover tw:px-1.5 tw:text-micro tw:font-semibold"
+        class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-main-hover tw:px-1.5 tw:text-micro tw:font-semibold tw:tabular-nums"
         :class="isActive(pill) ? 'tw:bg-black/5' : 'tw:text-secondary'"
       >
         {{ pill.count }}

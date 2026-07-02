@@ -176,7 +176,7 @@ async function handleAcknowledge() {
       <!-- ── RESPOND MODE ──────────────────────────────────────────── -->
       <template v-else-if="mode === 'respond'">
         <div>
-          <div class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
             Question from {{ userLabel(requester) }}
           </div>
           <p
@@ -202,7 +202,7 @@ async function handleAcknowledge() {
       <!-- ── VIEW MODE ─────────────────────────────────────────────── -->
       <template v-else>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
             Question from {{ userLabel(requester) }}
           </div>
           <p
@@ -212,7 +212,7 @@ async function handleAcknowledge() {
           </p>
         </div>
         <div v-if="rfi?.response">
-          <div class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
             Response from {{ userLabel(recipient) }}
           </div>
           <p

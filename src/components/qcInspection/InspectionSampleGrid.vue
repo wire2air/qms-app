@@ -223,7 +223,7 @@ defineExpose({ buildPayload })
             </div>
           </th>
           <th
-            class="tw:px-3 tw:py-2 tw:text-left tw:text-xs tw:text-secondary tw:uppercase tw:border-b tw:border-divider tw:w-20"
+            class="tw:px-3 tw:py-2 tw:text-left tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider tw:w-20"
           >
             Unit
           </th>

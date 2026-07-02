@@ -1153,7 +1153,7 @@ const ncDetailConfig = computed(() =>
         </div>
 
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
             Completion Notes (optional)
           </p>
           <BaseTextarea

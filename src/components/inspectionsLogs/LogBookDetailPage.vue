@@ -1301,7 +1301,7 @@ const logBookDetailConfig = computed(() =>
                         <LogBookVersionStatusBadge :statusId="v.statusId" />
                         <span
                           v-if="v.id === effectiveVersionId"
-                          class="tw:text-micro tw:font-bold tw:uppercase tw:text-green-700"
+                          class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-green-700"
                         >
                           Current
                         </span>

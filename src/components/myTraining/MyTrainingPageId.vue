@@ -374,7 +374,7 @@ const myTrainingDetailConfig = computed(() =>
         <div v-else-if="step === 'material'" class="tw:flex tw:flex-col tw:gap-4">
           <FormSection title="Training Material">
             <div v-if="instance.snapshot?.documentIds?.length" class="tw:mb-4">
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-2">
                 Reference Documents
               </p>
               <div class="tw:flex tw:flex-col tw:gap-1">
@@ -397,7 +397,7 @@ const myTrainingDetailConfig = computed(() =>
             </div>
 
             <div v-if="instance.snapshot?.externalLinks?.length">
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">Links</p>
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-2">Links</p>
               <div class="tw:flex tw:flex-col tw:gap-1">
                 <a
                   v-for="link in instance.snapshot.externalLinks"

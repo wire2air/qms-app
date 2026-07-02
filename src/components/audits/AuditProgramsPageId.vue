@@ -526,13 +526,13 @@ const auditProgramDetailConfig = computed(() =>
   <BaseDialog v-model="showAddAuditorDialog" title="Add Auditor" maxWidth="md">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
       <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
           User <span class="tw:text-red-500">*</span>
         </p>
         <UserSelectMenu v-model="addAuditorForm.userId" />
       </div>
       <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Role</p>
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Role</p>
         <BaseInlineSelect
           v-model="addAuditorForm.roleOnAudit"
           :items="[

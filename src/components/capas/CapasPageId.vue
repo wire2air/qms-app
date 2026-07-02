@@ -649,7 +649,7 @@ const capaDetailConfig = computed(() =>
           "
           class="tw:flex tw:flex-col tw:gap-2 tw:hover:text-primary tw:transition-colors"
         >
-          <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">
+          <div class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider tw:font-semibold">
             Workflow template
           </div>
           <div class="tw:flex tw:items-center tw:justify-between tw:gap-2">
