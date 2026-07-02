@@ -110,7 +110,7 @@ function rowMenuItems(row) {
 
     <!-- Version Column -->
     <template #body-cell-version="{ row }">
-      <span class="tw:text-sm tw:text-secondary tw:font-mono">v{{ row.version }}</span>
+      <span class="tw:text-sm tw:text-secondary">v{{ row.version }}</span>
     </template>
 
     <!-- Status Column -->

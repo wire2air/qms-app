@@ -124,7 +124,7 @@ function openPreview() {
             </div>
           </BaseField>
           <div class="tw:flex tw:flex-col tw:items-center tw:gap-1.5">
-            <span class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide">
+            <span class="tw:text-caption tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wider">
               Preview
             </span>
             <div
@@ -138,7 +138,7 @@ function openPreview() {
               />
               <div
                 v-else
-                class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:text-gray-400 tw:text-[9px] tw:text-center"
+                class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:text-gray-400 tw:text-micro tw:text-center"
               >
                 <IconBuilding :size="22" />
                 <span>Company Logo</span>
@@ -198,7 +198,7 @@ function openPreview() {
               <BaseTextInput
                 v-model="company.settings.printSettings.accentColor"
                 placeholder="#111827"
-                class="tw:flex-1 tw:font-mono"
+                class="tw:flex-1"
               />
               <button
                 v-if="ps.accentColor"

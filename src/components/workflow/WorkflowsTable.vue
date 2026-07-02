@@ -129,7 +129,7 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     </template>
 
     <template #body-cell-version="{ row }">
-      <span class="tw:text-sm tw:text-secondary tw:font-mono">
+      <span class="tw:text-sm tw:text-secondary">
         v{{
           workflowMetaMap[row.id]?.version?.versionLabel ||
           `${workflowMetaMap[row.id]?.version?.versionMajor ?? 1}.${workflowMetaMap[row.id]?.version?.versionMinor ?? 0}`

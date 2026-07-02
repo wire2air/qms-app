@@ -437,7 +437,7 @@ const capaDetailConfig = computed(() =>
     </template>
 
     <template v-if="capa" #meta>
-      <span class="tw:font-mono">{{ capa.capaNumber }}</span>
+      <span class="">{{ capa.capaNumber }}</span>
       <template v-if="capa.typeId"> · <CapaTypeBadgeById :typeId="capa.typeId" /></template>
       <template v-if="capa.initiatedAt">
         · Initiated {{ capa.initiatedAt.formatDate('date') }}</template
@@ -546,7 +546,7 @@ const capaDetailConfig = computed(() =>
       <BaseRailCard title="General">
         <div class="tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
           <BaseDetailField label="Number">
-            <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
+            <BaseText variant="body" weight="medium" class="tw:break-words">
               {{ capa.capaNumber }}
             </BaseText>
           </BaseDetailField>
@@ -649,7 +649,7 @@ const capaDetailConfig = computed(() =>
           "
           class="tw:flex tw:flex-col tw:gap-2 tw:hover:text-primary tw:transition-colors"
         >
-          <div class="tw:text-xs tw:text-secondary tw:uppercase tw:font-semibold">
+          <div class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider tw:font-semibold">
             Workflow template
           </div>
           <div class="tw:flex tw:items-center tw:justify-between tw:gap-2">
@@ -657,7 +657,7 @@ const capaDetailConfig = computed(() =>
               {{ workflow.name }}
             </span>
             <span
-              class="tw:text-xs tw:font-mono tw:text-secondary tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
+              class="tw:text-xs tw:text-secondary tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
             >
               v{{ workflowVersionLabel(workflowVersion) }}
             </span>

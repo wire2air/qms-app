@@ -53,7 +53,7 @@ function menuItems() {
               {{ template.title }}
             </h4>
             <span
-              class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main tw:text-secondary tw:font-mono"
+              class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main tw:text-secondary"
             >
               Code: {{ template.code }}
             </span>

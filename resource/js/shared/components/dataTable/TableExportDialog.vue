@@ -84,7 +84,7 @@ function confirm() {
     <div class="tw:flex tw:flex-col tw:gap-5 tw:p-1">
       <!-- Format -->
       <div v-if="formats.length > 1">
-        <p class="tw:mb-1.5 tw:text-xs tw:font-semibold tw:tracking-wide tw:text-secondary tw:uppercase">
+        <p class="tw:mb-1.5 tw:text-caption tw:font-semibold tw:tracking-wider tw:text-secondary tw:uppercase">
           Format
         </p>
         <div class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:p-0.5">
@@ -107,7 +107,7 @@ function confirm() {
 
       <!-- Row scope -->
       <div>
-        <p class="tw:mb-1.5 tw:text-xs tw:font-semibold tw:tracking-wide tw:text-secondary tw:uppercase">
+        <p class="tw:mb-1.5 tw:text-caption tw:font-semibold tw:tracking-wider tw:text-secondary tw:uppercase">
           Rows
         </p>
         <div class="tw:flex tw:flex-col tw:gap-1.5">
@@ -124,7 +124,7 @@ function confirm() {
 
       <!-- Columns -->
       <div>
-        <p class="tw:mb-1.5 tw:text-xs tw:font-semibold tw:tracking-wide tw:text-secondary tw:uppercase">
+        <p class="tw:mb-1.5 tw:text-caption tw:font-semibold tw:tracking-wider tw:text-secondary tw:uppercase">
           Columns
         </p>
 

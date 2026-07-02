@@ -103,11 +103,11 @@ const hasAssessment = computed({
             <BaseText as="h4" weight="bold" class="tw:mb-3">Who needs this training</BaseText>
             <div class="tw:space-y-4">
               <div>
-                <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Roles</p>
+                <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Roles</p>
                 <RoleSelectMenu v-model="config.roleIds" :multiple="true" />
               </div>
               <div>
-                <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Specific Users</p>
+                <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Specific Users</p>
                 <UserSelectMenu v-model="config.userIds" :multiple="true" />
               </div>
             </div>
@@ -192,7 +192,7 @@ const hasAssessment = computed({
         <aside class="tw:flex tw:flex-col tw:gap-5">
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:space-y-4">
             <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
                 Training Manager
                 <span class="tw:text-red-600 tw:font-normal">*</span>
               </p>
@@ -210,15 +210,15 @@ const hasAssessment = computed({
               </p>
             </div>
             <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Due (days after effective)</p>
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Due (days after effective)</p>
               <BaseTextInput v-model.number="config.completionDueDays" type="number" min="1" />
             </div>
             <div v-if="hasAssessment">
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Passing Score (%)</p>
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Passing Score (%)</p>
               <BaseTextInput v-model.number="config.passingScore" type="number" min="0" max="100" />
             </div>
             <div v-if="hasAssessment">
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Max Attempts</p>
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Max Attempts</p>
               <BaseTextInput v-model.number="config.maxAttempts" type="number" min="1" max="10" />
             </div>
           </div>

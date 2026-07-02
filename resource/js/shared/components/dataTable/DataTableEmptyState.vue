@@ -84,7 +84,7 @@ const isError = computed(() => props.variant === 'error')
     <div class="tw:flex tw:flex-col tw:gap-1">
       <p class="tw:text-sm tw:font-semibold tw:text-on-main">{{ resolvedTitle }}</p>
       <p class="tw:max-w-sm tw:text-sm tw:text-secondary">{{ resolvedDescription }}</p>
-      <p v-if="errorText" class="tw:mt-1 tw:font-mono tw:text-xs tw:text-red-500/80">
+      <p v-if="errorText" class="tw:mt-1 tw:text-xs tw:text-red-500/80">
         {{ errorText }}
       </p>
     </div>

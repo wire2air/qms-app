@@ -77,7 +77,7 @@ function onRecordCreated() {
     <template #filters>
       <!-- Standalone records (legacy `records` table) -->
       <div class="tw:flex tw:items-center tw:justify-between tw:mt-2">
-        <h3 class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:uppercase tw:tracking-wide">
+        <h3 class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
           Standalone Records
         </h3>
         <span class="tw:text-xs tw:text-secondary">

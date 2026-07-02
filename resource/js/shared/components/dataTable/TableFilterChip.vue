@@ -101,7 +101,7 @@ const valueLabel = computed(() => {
       </template>
       <template #content>
         <div class="tw:flex tw:w-60 tw:flex-col tw:gap-2 tw:p-2">
-          <div class="tw:text-micro tw:font-semibold tw:tracking-wide tw:text-secondary tw:uppercase">
+          <div class="tw:text-caption tw:font-semibold tw:tracking-wider tw:text-secondary tw:uppercase">
             {{ column.label }}
           </div>
           <select

@@ -563,7 +563,7 @@ const logBookDetailConfig = computed(() =>
           logBook.recordClassification === 'CONTROLLED_RECORD'
             ? 'tw:bg-red-50 tw:text-red-700 tw:border-red-200'
             : 'tw:bg-amber-50 tw:text-amber-700 tw:border-amber-200'
-        "
+       "
       >
         <IconShieldCheck v-if="logBook.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
         {{ logBook.recordClassification?.replace('_', ' ') }}
@@ -571,7 +571,7 @@ const logBookDetailConfig = computed(() =>
     </template>
 
     <template v-if="logBook" #meta>
-      <span class="tw:font-mono tw:uppercase">{{ logBook.code }}</span>
+      <span class="tw:uppercase">{{ logBook.code }}</span>
       <span> · schema v{{ logBook.schemaVersion }}</span>
       <span v-if="isSaving" class="tw:text-amber-600"> · saving…</span>
     </template>
@@ -601,7 +601,7 @@ const logBookDetailConfig = computed(() =>
                     <div class="tw:text-xs tw:text-secondary tw:mt-0.5">
                       <template v-if="hasEffectiveVersion">
                         Effective:
-                        <span class="tw:font-mono tw:text-on-main">{{ logBook.code }}</span>
+                        <span class="tw:text-on-main">{{ logBook.code }}</span>
                         <span v-if="effectiveVersion"> · {{ versionLabel(effectiveVersion) }}</span>
                       </template>
                       <template v-else
@@ -833,7 +833,7 @@ const logBookDetailConfig = computed(() =>
                       :disabled="!canEditDetails"
                     />
                     <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
-                      Feeds <span class="tw:font-mono">{DEPTCODE}</span> in the Record Id prefix.
+                      Feeds <span class="">{DEPTCODE}</span> in the Record Id prefix.
                     </p>
                   </BaseField>
                 </div>
@@ -870,14 +870,14 @@ const logBookDetailConfig = computed(() =>
                       placeholder="FRM-{DEPTCODE}-{TYPECODE}"
                     />
                     <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
-                      Tokens <span class="tw:font-mono tw:text-on-main">{DEPTCODE}</span> /
-                      <span class="tw:font-mono tw:text-on-main">{TYPECODE}</span> resolve from
+                      Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /
+                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from
                       Department + Log book type on save. Current:
-                      <span class="tw:font-mono tw:text-on-main">{{ logBook.code }}</span>
+                      <span class="tw:text-on-main">{{ logBook.code }}</span>
                     </p>
                   </template>
                   <template v-else>
-                    <div class="tw:font-mono tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
+                    <div class="tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
                     <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
                       Locked — the log book has an effective version, so record IDs stay consistent.
                     </p>
@@ -1219,7 +1219,7 @@ const logBookDetailConfig = computed(() =>
                         row.active
                           ? 'tw:bg-green-100 tw:text-green-700'
                           : 'tw:bg-gray-100 tw:text-gray-700'
-                      "
+                     "
                     >
                       {{ row.active ? 'Active' : 'Inactive' }}
                     </span>
@@ -1291,17 +1291,17 @@ const logBookDetailConfig = computed(() =>
                     class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:rounded tw:border tw:border-divider tw:p-3"
                     :class="
                       v.id === effectiveVersionId ? 'tw:bg-green-50/40 tw:border-green-200' : ''
-                    "
+                   "
                   >
                     <div class="tw:min-w-0">
                       <div class="tw:flex tw:items-center tw:gap-2">
-                        <span class="tw:font-mono tw:text-sm tw:font-semibold tw:text-on-main">
+                        <span class="tw:text-sm tw:font-semibold tw:text-on-main">
                           {{ versionLabel(v) }}
                         </span>
                         <LogBookVersionStatusBadge :statusId="v.statusId" />
                         <span
                           v-if="v.id === effectiveVersionId"
-                          class="tw:text-micro tw:font-bold tw:uppercase tw:text-green-700"
+                          class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-green-700"
                         >
                           Current
                         </span>
@@ -1373,7 +1373,7 @@ const logBookDetailConfig = computed(() =>
               <div class="tw:text-lg tw:font-medium tw:text-on-main">
                 {{ logBook?.title || 'Log book schema' }}
               </div>
-              <span class="tw:text-xs tw:text-secondary tw:font-mono">
+              <span class="tw:text-xs tw:text-secondary">
                 v{{ logBook?.schemaVersion ?? 1 }}
               </span>
             </div>

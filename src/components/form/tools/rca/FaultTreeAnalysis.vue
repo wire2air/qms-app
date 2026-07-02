@@ -49,7 +49,7 @@ const rootNode = computed(() => (props.config.nodes ?? []).find((n) => n.type ==
       v-if="rootNode"
       class="tw:border-2 tw:border-primary tw:rounded-lg tw:p-3 tw:text-center"
     >
-      <div class="tw:text-xs tw:font-semibold tw:text-primary tw:uppercase tw:mb-1">Top Event</div>
+      <div class="tw:text-caption tw:font-semibold tw:text-primary tw:uppercase tw:tracking-wider tw:mb-1">Top Event</div>
       <div class="tw:font-semibold tw:text-on-main">
         {{ rootNode.label || config.topEvent || 'Undesired Event' }}
       </div>
@@ -68,7 +68,7 @@ const rootNode = computed(() => (props.config.nodes ?? []).find((n) => n.type ==
         >
           <div class="tw:flex tw:flex-col tw:shrink-0 tw:items-start tw:gap-0.5">
             <span
-              class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide"
+              class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider"
               :class="node.type === 'basic' ? 'tw:text-orange-500' : 'tw:text-blue-500'"
             >
               {{ node.type === 'basic' ? 'Basic' : 'Event' }}
@@ -99,7 +99,7 @@ const rootNode = computed(() => (props.config.nodes ?? []).find((n) => n.type ==
       v-if="(modelValue.criticalPath ?? []).length"
       class="tw:bg-bad/10 tw:border tw:border-bad/20 tw:rounded-lg tw:p-3"
     >
-      <div class="tw:text-xs tw:font-semibold tw:text-bad tw:uppercase tw:mb-1">Critical Path</div>
+      <div class="tw:text-caption tw:font-semibold tw:text-bad tw:uppercase tw:tracking-wider tw:mb-1">Critical Path</div>
       <div class="tw:flex tw:flex-wrap tw:gap-1">
         <span
           v-for="nodeId in modelValue.criticalPath"

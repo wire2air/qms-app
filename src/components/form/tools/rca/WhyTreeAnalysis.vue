@@ -85,7 +85,7 @@ function toggleRootCause(nodeId) {
   <div class="tw:flex tw:flex-col tw:gap-4">
     <!-- Problem statement -->
     <div class="tw:flex tw:flex-col tw:gap-1">
-      <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">
+      <label class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
         {{ config.problemPrompt || 'Problem Statement' }}
       </label>
       <BaseTextarea

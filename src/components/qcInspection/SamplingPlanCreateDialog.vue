@@ -492,8 +492,8 @@ async function onSubmit() {
             class="tw:mt-3 tw:p-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:flex tw:flex-col tw:gap-1"
           >
             <div class="tw:text-sm tw:font-semibold tw:text-on-main">
-              Code letter <span class="tw:font-mono">{{ preview.codeLetter }}</span> · Sample size
-              <span class="tw:font-mono">{{ preview.sampleSize }}</span>
+              Code letter <span class="">{{ preview.codeLetter }}</span> · Sample size
+              <span class="">{{ preview.sampleSize }}</span>
             </div>
             <div
               v-for="s in preview.perSeverity"

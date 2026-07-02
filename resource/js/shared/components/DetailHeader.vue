@@ -24,7 +24,7 @@ const isFull = computed(() => props.variant === 'full')
         <component :is="icon" v-else-if="icon" :size="22" aria-hidden="true" />
         <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
           <slot name="title">
-            <h1 class="tw:truncate tw:text-section-title tw:font-bold tw:text-on-main">{{ title }}</h1>
+            <h1 class="tw:truncate tw:text-section-title tw:font-semibold tw:tracking-tight tw:text-on-main">{{ title }}</h1>
           </slot>
           <slot name="status" />
         </div>

@@ -282,7 +282,7 @@ function toggleWeekday(d) {
             mode === MODE.FREQUENCY
               ? 'tw:bg-primary/10 tw:text-primary tw:font-semibold'
               : 'tw:text-secondary tw:hover:text-on-main'
-          "
+         "
           @click="mode = MODE.FREQUENCY"
         >
           Frequency
@@ -294,7 +294,7 @@ function toggleWeekday(d) {
             mode === MODE.PRESET
               ? 'tw:bg-primary/10 tw:text-primary tw:font-semibold'
               : 'tw:text-secondary tw:hover:text-on-main'
-          "
+         "
           @click="mode = MODE.PRESET"
         >
           Presets
@@ -306,7 +306,7 @@ function toggleWeekday(d) {
             mode === MODE.ADVANCED
               ? 'tw:bg-primary/10 tw:text-primary tw:font-semibold'
               : 'tw:text-secondary tw:hover:text-on-main'
-          "
+         "
           @click="mode = MODE.ADVANCED"
         >
           Advanced
@@ -350,7 +350,7 @@ function toggleWeekday(d) {
             weekdays.includes(d.value)
               ? 'tw:bg-primary tw:text-white tw:border-primary'
               : 'tw:bg-card tw:text-on-main tw:border-divider tw:hover:bg-main-hover'
-          "
+         "
           @click="toggleWeekday(d.value)"
         >
           {{ d.label }}
@@ -360,7 +360,7 @@ function toggleWeekday(d) {
       <div
         v-if="
           [FREQ.MONTHLY, FREQ.QUARTERLY, FREQ.SEMI_ANNUAL, FREQ.ANNUAL].includes(frequency)
-        "
+       "
         class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap"
       >
         <span class="tw:text-xs tw:font-semibold tw:text-secondary">On day</span>
@@ -403,53 +403,53 @@ function toggleWeekday(d) {
     <!-- Advanced mode — raw five fields. -->
     <div v-if="mode === MODE.ADVANCED" class="tw:grid tw:grid-cols-2 tw:sm:grid-cols-3 tw:lg:grid-cols-5 tw:gap-1.5">
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-micro tw:text-secondary tw:uppercase">Minute</span>
+        <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">Minute</span>
         <input
           type="text"
           :value="fields.minute"
-          class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-xs tw:font-mono"
+          class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-xs"
           @change="(e) => setField('minute', e.target.value)"
         />
       </div>
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-micro tw:text-secondary tw:uppercase">Hour</span>
+        <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">Hour</span>
         <input
           type="text"
           :value="fields.hour"
-          class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-xs tw:font-mono"
+          class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-xs"
           @change="(e) => setField('hour', e.target.value)"
         />
       </div>
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-micro tw:text-secondary tw:uppercase">Dom</span>
+        <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">Dom</span>
         <input
           type="text"
           :value="fields.dom"
-          class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-xs tw:font-mono"
+          class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-xs"
           @change="(e) => setField('dom', e.target.value)"
         />
       </div>
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-micro tw:text-secondary tw:uppercase">Month</span>
+        <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">Month</span>
         <input
           type="text"
           :value="fields.month"
-          class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-xs tw:font-mono"
+          class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-xs"
           @change="(e) => setField('month', e.target.value)"
         />
       </div>
       <div class="tw:flex tw:flex-col">
-        <span class="tw:text-micro tw:text-secondary tw:uppercase">Dow</span>
+        <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">Dow</span>
         <input
           type="text"
           :value="fields.dow"
-          class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-xs tw:font-mono"
+          class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-xs"
           @change="(e) => setField('dow', e.target.value)"
         />
       </div>
     </div>
 
-    <div class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary tw:font-mono">
+    <div class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary ">
       <span class="tw:text-on-main tw:font-bold">{{ modelValue || '—' }}</span>
       <span v-if="timezone" class="tw:text-secondary">({{ timezone }})</span>
     </div>

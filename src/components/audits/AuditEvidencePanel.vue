@@ -341,9 +341,9 @@ async function uploadPhotoFile(file) {
         <div class="tw:flex-1 tw:min-w-0">
           <p class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">
             {{ l.entityType }}
-            <code class="tw:text-xs tw:text-secondary tw:font-mono tw:ml-1">
+            <span class="tw:text-xs tw:text-secondary tw:ml-1">
               {{ l.entityId?.slice(0, 8) }}
-            </code>
+            </span>
           </p>
           <div v-if="editingCaption === l.id" class="tw:mt-1">
             <BaseTextInput

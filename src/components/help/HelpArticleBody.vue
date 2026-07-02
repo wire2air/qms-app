@@ -73,7 +73,6 @@ function onBodyClick(e) {
   text-decoration: underline;
 }
 .help-prose :deep(code) {
-  font-family: ui-monospace, monospace;
   font-size: 0.85em;
   background: var(--color-main-hover, #f1f5f9);
   padding: 0.1em 0.35em;

@@ -155,7 +155,7 @@ function goLogs() {
           <div class="tw:flex-1 tw:min-w-0">
             <div class="tw:font-semibold tw:text-on-main tw:truncate">{{ lb.title }}</div>
             <div class="tw:text-xs tw:text-secondary tw:truncate">
-              <span class="tw:font-mono tw:uppercase">{{ lb.code }}</span>
+              <span class="tw:uppercase">{{ lb.code }}</span>
               · {{ typeLabel(lb) }}
             </div>
           </div>

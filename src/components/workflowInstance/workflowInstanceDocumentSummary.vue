@@ -24,7 +24,7 @@ defineEmits(['viewDocument'])
           </span>
           <span class="tw:text-secondary tw:text-sm">#{{ doc?.docNumber }}</span>
         </div>
-        <h1 class="tw:text-2xl tw:font-bold tw:text-on-main tw:leading-tight">
+        <h1 class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main tw:leading-tight">
           {{ doc?.title }}
         </h1>
         <div

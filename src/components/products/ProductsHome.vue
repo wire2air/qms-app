@@ -159,7 +159,7 @@ async function restoreProduct(product) {
         >
           <div class="tw:min-w-0">
             <span class="tw:font-medium tw:text-secondary tw:line-through">{{ p.name }}</span>
-            <code class="tw:text-micro tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary">{{ p.sku }}</code>
+            <span class="tw:text-micro tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary">{{ p.sku }}</span>
             <span v-if="p.deletedAt" class="tw:text-xs tw:text-secondary tw:ml-2">
               deleted {{ p.deletedAt.formatDate('date') }}
             </span>

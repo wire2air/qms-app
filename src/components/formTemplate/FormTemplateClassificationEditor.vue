@@ -132,7 +132,7 @@ const NEXT_ENTRY_SCOPES = [
       </div>
       <span
         v-if="isSaving"
-        class="tw:text-micro tw:text-secondary tw:uppercase tw:tracking-wide"
+        class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider"
       >
         Saving…
       </span>

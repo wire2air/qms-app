@@ -223,7 +223,7 @@ defineExpose({ buildPayload })
             </div>
           </th>
           <th
-            class="tw:px-3 tw:py-2 tw:text-left tw:text-xs tw:text-secondary tw:uppercase tw:border-b tw:border-divider tw:w-20"
+            class="tw:px-3 tw:py-2 tw:text-left tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider tw:w-20"
           >
             Unit
           </th>
@@ -232,7 +232,7 @@ defineExpose({ buildPayload })
       <tbody>
         <tr v-for="s in sampleRows" :key="s" class="tw:border-b tw:border-divider/60">
           <td
-            class="tw:sticky tw:left-0 tw:z-raised tw:bg-sidebar tw:px-3 tw:py-1.5 tw:text-xs tw:font-mono tw:text-secondary tw:border-r tw:border-divider tw:text-center"
+            class="tw:sticky tw:left-0 tw:z-raised tw:bg-sidebar tw:px-3 tw:py-1.5 tw:text-xs tw:text-secondary tw:border-r tw:border-divider tw:text-center"
           >
             {{ s }}
           </td>

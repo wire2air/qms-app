@@ -119,7 +119,7 @@ const widthClass = computed(() => {
 const fontClass = computed(() => {
   switch (props.size) {
     case 'xs':
-      return 'tw:text-[10px]'
+      return 'tw:text-micro'
     case 'sm':
       return 'tw:text-xs'
     case 'lg':
@@ -161,7 +161,7 @@ const classes = computed(() => {
 
   if (props.iconOnly) {
     const textSizeClass =
-      props.size === 'xs' ? 'tw:text-[10px]' : props.size === 'sm' ? 'tw:text-xs' : 'tw:text-xl'
+      props.size === 'xs' ? 'tw:text-micro' : props.size === 'sm' ? 'tw:text-xs' : 'tw:text-xl'
     cls.push(`tw:!rounded-lg ${widthClass.value} ${heightClass.value} ${textSizeClass}`)
   }
 

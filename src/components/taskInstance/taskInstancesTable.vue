@@ -809,7 +809,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ trainingInstanceMap[row.entityId]?.snapshot?.title || '—' }}
               </span>
-              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                 Verification · {{ row.entityId.slice(0, 8) }}
               </span>
             </template>
@@ -818,7 +818,7 @@ defineExpose({ exportCsv })
                 {{ getNc(row)?.title || '—' }}
               </span>
               <div class="tw:flex tw:items-center tw:gap-1.5">
-                <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+                <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                   {{ getNc(row)?.ncNumber || '—' }}
                 </span>
                 <span
@@ -834,7 +834,7 @@ defineExpose({ exportCsv })
                 {{ getCapa(row)?.title || '—' }}
               </span>
               <div class="tw:flex tw:items-center tw:gap-1.5">
-                <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+                <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                   {{ getCapa(row)?.capaNumber || '—' }}
                 </span>
                 <span
@@ -849,7 +849,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ getChangeRequest(row)?.title || '—' }}
               </span>
-              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                 {{ getChangeRequest(row)?.crNumber || '—' }}
               </span>
             </template>
@@ -857,7 +857,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ getQualityEvent(row)?.title || '—' }}
               </span>
-              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                 {{ getQualityEvent(row)?.eventNumber || '—' }}
               </span>
             </template>
@@ -865,7 +865,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ logBookVersionMap[row.entityId]?.logBook?.title || 'Log book' }}
               </span>
-              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                 {{ logBookVersionMap[row.entityId]?.logBook?.code || '—' }} · v{{
                   logBookVersionMap[row.entityId]?.version?.versionMajor ?? '?'
                 }}.{{ logBookVersionMap[row.entityId]?.version?.versionMinor ?? 0 }}
@@ -875,7 +875,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ assignmentInstanceMap[row.entityId]?.logBook?.title || 'Scheduled inspection' }}
               </span>
-              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                 {{
                   assignmentInstanceMap[row.entityId]?.logBook?.code || 'Scheduled log / inspection'
                 }}
@@ -885,7 +885,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ fieldRecordMap[row.entityId]?.logBook?.title || 'Flagged log entry' }}
               </span>
-              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                 {{ fieldRecordMap[row.entityId]?.record?.recordNumber || 'Needs your attention' }}
               </span>
             </template>
@@ -893,7 +893,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ auditInstanceMap[row.entityId]?.standard?.name || 'Audit' }}
               </span>
-              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                 {{ auditInstanceMap[row.entityId]?.audit?.auditNumber || '—' }}
               </span>
             </template>
@@ -901,7 +901,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ auditStandardVersionMap[row.entityId]?.standard?.name || 'Audit Standard' }}
               </span>
-              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                 {{
                   auditStandardVersionMap[row.entityId]?.version
                     ? `v${auditStandardVersionMap[row.entityId].version.versionMajor}.${auditStandardVersionMap[row.entityId].version.versionMinor}`
@@ -913,7 +913,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ inspectionLotMap[row.entityId]?.lotNumber || 'Inspection Lot' }}
               </span>
-              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                 {{ inspectionLotMap[row.entityId]?.inspectionPoint || '—' }}
               </span>
             </template>
@@ -922,12 +922,12 @@ defineExpose({ exportCsv })
                 {{ getDocument(row)?.title || '—' }}
               </span>
               <div class="tw:flex tw:items-center tw:gap-1.5">
-                <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+                <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                   {{ getDocument(row)?.docNumber || '—' }}
                 </span>
                 <template v-if="getVersion(row)">
                   <span class="tw:text-micro tw:text-secondary">·</span>
-                  <span class="tw:text-micro tw:text-primary tw:font-mono tw:tracking-tight">
+                  <span class="tw:text-micro tw:text-primary tw:tracking-tight">
                     {{
                       getVersion(row).versionLabel
                         ? `v${getVersion(row).versionLabel}`

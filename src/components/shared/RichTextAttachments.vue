@@ -298,5 +298,5 @@ function isImage(att) {
 .rich-text-readonly :deep(li) { margin: 0.15em 0; }
 .rich-text-readonly :deep(a) { color: var(--color-primary); text-decoration: underline; }
 .rich-text-readonly :deep(img) { max-width: 100%; border-radius: 4px; }
-.rich-text-readonly :deep(code) { background: var(--color-sidebar); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.85em; font-family: monospace; }
+.rich-text-readonly :deep(code) { background: var(--color-sidebar); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.85em; }
 </style>

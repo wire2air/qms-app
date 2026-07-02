@@ -117,7 +117,7 @@ async function pickAndUpload(item) {
     <div class="tw:flex tw:items-center tw:gap-3">
       <IconClipboardList :size="28" class="tw:text-primary tw:shrink-0" />
       <div class="tw:flex-1">
-        <h1 class="tw:text-2xl tw:font-bold tw:text-on-main">Document Requests</h1>
+        <h1 class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main">Document Requests</h1>
         <p class="tw:text-sm tw:text-secondary">
           Every document the client has asked you for. Upload each one — you can replace an
           already-sent file at any time until the request is closed.
@@ -125,7 +125,7 @@ async function pickAndUpload(item) {
       </div>
       <!-- Diagnostic counters — handy until the sync pipeline is stable.
            Strip these once we're confident new requests reliably surface. -->
-      <div class="tw:text-right tw:text-xs tw:text-secondary tw:font-mono">
+      <div class="tw:text-right tw:text-xs tw:text-secondary">
         <div>{{ requests.length }} request{{ requests.length === 1 ? '' : 's' }}</div>
         <div>{{ items.length }} item{{ items.length === 1 ? '' : 's' }} in IDB</div>
         <div v-if="currentSession?.supplierId" class="tw:text-micro">

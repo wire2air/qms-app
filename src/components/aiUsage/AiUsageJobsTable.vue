@@ -104,7 +104,7 @@ function statusClass(s) {
     </template>
 
     <template #body-cell-task="{ row }">
-      <span class="tw:font-mono tw:text-xs tw:whitespace-nowrap">{{ row.task }}</span>
+      <span class="tw:text-xs tw:whitespace-nowrap">{{ row.task }}</span>
     </template>
 
     <template #body-cell-source="{ row }">
@@ -121,19 +121,19 @@ function statusClass(s) {
     </template>
 
     <template #body-cell-in="{ row }">
-      <span class="tw:font-mono tw:text-xs">{{ row.inputTokens ?? '—' }}</span>
+      <span class="tw:text-xs">{{ row.inputTokens ?? '—' }}</span>
     </template>
 
     <template #body-cell-out="{ row }">
-      <span class="tw:font-mono tw:text-xs">{{ row.outputTokens ?? '—' }}</span>
+      <span class="tw:text-xs">{{ row.outputTokens ?? '—' }}</span>
     </template>
 
     <template #body-cell-duration="{ row }">
-      <span class="tw:font-mono tw:text-xs">{{ fmtMs(row.durationMs) }}</span>
+      <span class="tw:text-xs">{{ fmtMs(row.durationMs) }}</span>
     </template>
 
     <template #body-cell-cost="{ row }">
-      <span class="tw:font-mono tw:text-xs">{{ fmtUsd(row.costUsd) }}</span>
+      <span class="tw:text-xs">{{ fmtUsd(row.costUsd) }}</span>
     </template>
   </DataTable>
 </template>

@@ -37,7 +37,7 @@ function isOverdue(c) {
     >
       <div class="tw:flex-1 tw:min-w-0">
         <div class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">{{ c.title }}</div>
-        <div class="tw:text-xs tw:text-secondary tw:font-mono">{{ c.capaNumber }}</div>
+        <div class="tw:text-xs tw:text-secondary">{{ c.capaNumber }}</div>
       </div>
       <span
         v-if="c.dueDate"

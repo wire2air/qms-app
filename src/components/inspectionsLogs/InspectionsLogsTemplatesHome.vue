@@ -238,7 +238,7 @@ const columns = [
           class="tw:font-medium tw:text-on-main tw:hover:text-primary"
         >
           {{ row.title }}
-          <span class="tw:block tw:text-xs tw:text-secondary tw:font-mono tw:uppercase">{{
+          <span class="tw:block tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">{{
             row.code
           }}</span>
         </RouterLink>

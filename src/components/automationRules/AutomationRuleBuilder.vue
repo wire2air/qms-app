@@ -246,7 +246,7 @@ async function onValidSubmit() {
         <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3">
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
             <div class="tw:flex tw:items-center tw:gap-2">
-              <span class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary">Conditions</span>
+              <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">Conditions</span>
               <select
                 v-model="draft.logic"
                 class="tw:border tw:border-divider tw:rounded tw:px-2 tw:py-1 tw:text-xs"
@@ -306,7 +306,7 @@ async function onValidSubmit() {
         <!-- Actions -->
         <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3">
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
-            <span class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary">Actions</span>
+            <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">Actions</span>
             <div class="tw:flex tw:items-center tw:gap-2">
               <select
                 v-model="newActionType"
@@ -384,7 +384,7 @@ async function onValidSubmit() {
 
         <!-- Scope -->
         <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3">
-          <span class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary"
+          <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
             >Scope (optional)</span
           >
           <p class="tw:text-xs tw:text-secondary tw:mb-2">Leave empty to apply company-wide.</p>

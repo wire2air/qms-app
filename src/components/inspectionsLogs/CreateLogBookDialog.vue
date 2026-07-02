@@ -268,17 +268,17 @@ async function save() {
           <div class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:flex-col tw:gap-0.5">
             <div>
               Use
-              <span class="tw:font-mono tw:text-on-main">{DEPTCODE}</span>
+              <span class="tw:text-on-main">{DEPTCODE}</span>
               and
-              <span class="tw:font-mono tw:text-on-main">{TYPECODE}</span>
+              <span class="tw:text-on-main">{TYPECODE}</span>
               to insert the selected Department + Log Book Type. Leave plain text for a literal
               code.
             </div>
             <div>
               Resolved:
-              <span class="tw:font-mono tw:text-on-main">{{ resolvedCodePreview }}</span>
+              <span class="tw:text-on-main">{{ resolvedCodePreview }}</span>
               · entries numbered
-              <span class="tw:font-mono tw:text-on-main">{{ resolvedCodePreview }}-0001</span>
+              <span class="tw:text-on-main">{{ resolvedCodePreview }}-0001</span>
             </div>
           </div>
         </template>
@@ -345,7 +345,7 @@ async function save() {
         <BaseField label="Department">
           <DepartmentSelectMenu v-model="departmentId" />
           <div class="tw:text-xs tw:text-secondary tw:mt-1">
-            Feeds <span class="tw:font-mono">{DEPTCODE}</span> in the Record ID prefix.
+            Feeds <span class="">{DEPTCODE}</span> in the Record ID prefix.
           </div>
         </BaseField>
       </div>

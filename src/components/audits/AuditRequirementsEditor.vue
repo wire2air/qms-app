@@ -392,11 +392,11 @@ async function handleBulkEnrich() {
           :aria-expanded="expandedIds.has(row.id)"
           @click="toggleExpanded(row.id)"
         >
-          <code
-            class="tw:text-xs tw:font-mono tw:bg-white tw:text-on-main tw:rounded tw:px-2 tw:py-0.5 tw:font-semibold tw:shrink-0"
+          <span
+            class="tw:text-xs tw:bg-white tw:text-on-main tw:rounded tw:px-2 tw:py-0.5 tw:font-semibold tw:shrink-0"
           >
             {{ row.clauseNumber }}
-          </code>
+          </span>
           <div class="tw:flex-1 tw:min-w-0">
             <div class="tw:text-sm tw:font-medium tw:text-on-main">{{ row.title }}</div>
             <div v-if="row.question" class="tw:text-xs tw:text-secondary tw:mt-0.5">
@@ -451,7 +451,7 @@ async function handleBulkEnrich() {
           class="tw:px-3 tw:py-3 tw:border-t tw:border-divider tw:flex tw:flex-col tw:gap-3 tw:bg-white"
         >
           <div v-if="row.description">
-            <div class="tw:text-micro tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
+            <div class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary tw:mb-1">
               Description
             </div>
             <div class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">
@@ -459,7 +459,7 @@ async function handleBulkEnrich() {
             </div>
           </div>
           <div v-if="row.guidance">
-            <div class="tw:text-micro tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
+            <div class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary tw:mb-1">
               Guidance
             </div>
             <div class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">
@@ -481,7 +481,7 @@ async function handleBulkEnrich() {
             :key="cl.label"
           >
             <div v-if="cl.items.length">
-              <div class="tw:text-micro tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
+              <div class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary tw:mb-1">
                 {{ cl.label }}
               </div>
               <ul class="tw:flex tw:flex-col tw:gap-1">
@@ -503,7 +503,7 @@ async function handleBulkEnrich() {
 
           <!-- People / roles to interview. -->
           <div v-if="row.peopleToInterview && row.peopleToInterview.length">
-            <div class="tw:text-micro tw:font-bold tw:uppercase tw:text-secondary tw:mb-1">
+            <div class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary tw:mb-1">
               People / roles to interview
             </div>
             <div class="tw:flex tw:flex-wrap tw:gap-1.5">
@@ -610,7 +610,7 @@ async function handleBulkEnrich() {
               :key="cl.key"
             >
               <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-                <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">{{ cl.label }}</p>
+                <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">{{ cl.label }}</p>
                 <button
                   type="button"
                   class="tw:text-xs tw:font-medium tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:inline-flex tw:items-center tw:gap-1"
@@ -639,7 +639,7 @@ async function handleBulkEnrich() {
                   </button>
                 </div>
               </div>
-              <p v-else class="tw:text-xs tw:text-secondary tw:italic">{{ cl.empty }}</p>
+              <p v-else class="tw:text-xs tw:text-secondary">{{ cl.empty }}</p>
             </div>
 
             <!-- People / roles to interview (free-text roles/titles). -->

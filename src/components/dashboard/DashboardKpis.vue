@@ -108,7 +108,7 @@ const cards = computed(() => [
           {{ card.sub }}
         </span>
       </div>
-      <div class="tw:text-3xl tw:font-bold tw:text-on-main">{{ card.value }}</div>
+      <div class="tw:text-3xl tw:font-bold tw:text-on-main tw:tabular-nums">{{ card.value }}</div>
       <div class="tw:text-sm tw:text-secondary">{{ card.title }}</div>
     </RouterLink>
   </ContentGrid>

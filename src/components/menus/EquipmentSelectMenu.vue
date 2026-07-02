@@ -75,7 +75,7 @@ const equipment = useLiveQuery(
             Out of service
           </span>
         </span>
-        <span v-if="opt.raw.code" class="tw:text-xs tw:text-placeholder tw:font-mono">
+        <span v-if="opt.raw.code" class="tw:text-xs tw:text-placeholder">
           {{ opt.raw.code }}
         </span>
       </div>

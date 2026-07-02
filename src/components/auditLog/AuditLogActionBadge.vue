@@ -10,7 +10,7 @@ const props = defineProps({
 })
 
 const colorClass = computed(
-  () => ACTION_COLORS[props.action] || 'tw:bg-slate-100 tw:text-slate-700',
+  () => ACTION_COLORS[props.action] || 'tw:bg-gray-100 tw:text-gray-700',
 )
 const iconName = computed(() => ACTION_ICONS[props.action] || 'IconHistory')
 const iconComponent = computed(() => TablerIcons[iconName.value] || TablerIcons.IconHistory)

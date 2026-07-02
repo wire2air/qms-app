@@ -173,11 +173,11 @@ const features = [
 }
 
 .branding-title {
-  font-size: 3.25rem;
-  font-weight: 800;
+  font-size: 3rem;
+  font-weight: 700;
   line-height: 1;
   margin: 26px 0 10px;
-  letter-spacing: -1.5px;
+  letter-spacing: -0.025em;
 }
 
 .branding-subtitle {
@@ -294,8 +294,8 @@ const features = [
 }
 .mobile-brand-name {
   font-size: 1.4rem;
-  font-weight: 800;
-  letter-spacing: -0.5px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
   color: var(--on-main);
 }
 

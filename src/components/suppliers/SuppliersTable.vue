@@ -116,7 +116,7 @@ function rowMenuItems(row) {
     <!-- Code Column -->
     <template #body-cell-code="{ row }">
       <span
-        class="tw:inline-flex tw:items-center tw:rounded tw:border tw:border-primary tw:px-2 tw:py-0.5 tw:text-xs tw:font-mono tw:font-medium tw:text-primary"
+        class="tw:inline-flex tw:items-center tw:rounded tw:border tw:border-primary tw:px-2 tw:py-0.5 tw:text-xs tw:font-medium tw:text-primary"
         >{{ row.code }}</span
       >
     </template>

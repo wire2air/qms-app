@@ -94,7 +94,7 @@ const ALLIANCE_ROWS = [
     <!-- A.1 Company Data -->
     <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
       <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Company Data</h3>
+        <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">Company Data</h3>
       </div>
       <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
         <div>
@@ -123,7 +123,7 @@ const ALLIANCE_ROWS = [
     <!-- A.3 Company Details -->
     <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
       <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Company Details</h3>
+        <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">Company Details</h3>
       </div>
       <div class="tw:p-6 tw:flex tw:flex-col tw:gap-5">
         <div>
@@ -157,7 +157,7 @@ const ALLIANCE_ROWS = [
     <!-- A.4 Alliances / Partnerships -->
     <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
       <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Alliances / Partnerships</h3>
+        <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">Alliances / Partnerships</h3>
       </div>
       <div class="tw:p-6 tw:flex tw:flex-col tw:gap-3">
         <div v-for="[key, label] in ALLIANCE_ROWS" :key="key" class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-3 tw:items-end">

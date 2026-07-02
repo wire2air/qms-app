@@ -34,7 +34,7 @@ const helpHome = computed(() => getCompanyPath('/help'))
 
     <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_240px] tw:gap-8">
       <article>
-        <h1 class="tw:text-2xl tw:font-bold tw:text-on-main tw:mb-2">{{ article.title }}</h1>
+        <h1 class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main tw:mb-2">{{ article.title }}</h1>
         <HelpArticleBody :slug="slug" />
       </article>
 

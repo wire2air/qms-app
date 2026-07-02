@@ -134,7 +134,7 @@ watch(
   <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-6 tw:flex tw:flex-col tw:gap-5">
     <div class="tw:flex tw:items-center tw:gap-2">
       <IconSparkles :size="20" class="tw:text-primary" />
-      <h3 class="tw:text-lg tw:font-bold tw:text-on-main">AI Configuration</h3>
+      <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">AI Configuration</h3>
     </div>
 
     <div v-if="loading" class="tw:text-sm tw:text-secondary">Loading…</div>

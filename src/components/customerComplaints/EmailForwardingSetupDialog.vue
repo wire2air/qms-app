@@ -67,7 +67,7 @@ async function handleVerify() {
         <div class="tw:flex tw:flex-col tw:gap-1">
           <BaseText variant="overline">Forward emails from</BaseText>
           <code
-            class="tw:text-sm tw:font-mono tw:bg-gray-50 tw:border tw:border-divider tw:rounded-md tw:px-3 tw:py-2"
+            class="tw:text-sm tw:bg-gray-50 tw:border tw:border-divider tw:rounded-md tw:px-3 tw:py-2"
           >
             {{ channel.publicEmail }}
           </code>
@@ -79,7 +79,7 @@ async function handleVerify() {
           <BaseText variant="overline">To</BaseText>
           <div class="tw:flex tw:items-center tw:gap-2">
             <code
-              class="tw:flex-1 tw:text-sm tw:font-mono tw:bg-gray-50 tw:border tw:border-divider tw:rounded-md tw:px-3 tw:py-2 tw:truncate"
+              class="tw:flex-1 tw:text-sm tw:bg-gray-50 tw:border tw:border-divider tw:rounded-md tw:px-3 tw:py-2 tw:truncate"
             >
               {{ channel.inboundAddress }}
             </code>
@@ -97,7 +97,7 @@ async function handleVerify() {
         <BaseText as="h3" weight="semibold" color="inherit" class="tw:mb-1">How verification works</BaseText>
         <p>
           Click <em>Send verification email</em> — we email a verification message to
-          <span class="tw:font-mono">{{ channel.publicEmail }}</span
+          <span class="">{{ channel.publicEmail }}</span
           >. When your forwarding rule passes it back to us, the address flips to
           <strong>Verified</strong> automatically and starts creating tickets.
         </p>

@@ -78,7 +78,7 @@ const history = useLiveQueryWithDeps(
           :to="getCompanyPath(`/customer-complaints/${prev.id}`)"
           class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:hover:bg-main-hover tw:rounded tw:px-1.5 tw:py-1"
         >
-          <span class="tw:font-mono tw:text-secondary tw:shrink-0">{{ prev.complaintNumber }}</span>
+          <span class="tw:text-secondary tw:shrink-0">{{ prev.complaintNumber }}</span>
           <span class="tw:truncate tw:flex-1">{{ prev.subject }}</span>
           <CustomerComplaintStatusBadgeById :statusId="prev.statusId" class="tw:shrink-0" />
         </RouterLink>

@@ -374,7 +374,7 @@ const myTrainingDetailConfig = computed(() =>
         <div v-else-if="step === 'material'" class="tw:flex tw:flex-col tw:gap-4">
           <FormSection title="Training Material">
             <div v-if="instance.snapshot?.documentIds?.length" class="tw:mb-4">
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-2">
                 Reference Documents
               </p>
               <div class="tw:flex tw:flex-col tw:gap-1">
@@ -397,7 +397,7 @@ const myTrainingDetailConfig = computed(() =>
             </div>
 
             <div v-if="instance.snapshot?.externalLinks?.length">
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">Links</p>
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-2">Links</p>
               <div class="tw:flex tw:flex-col tw:gap-1">
                 <a
                   v-for="link in instance.snapshot.externalLinks"
@@ -495,7 +495,7 @@ const myTrainingDetailConfig = computed(() =>
             class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-8 tw:max-w-sm tw:w-full tw:flex tw:flex-col tw:items-center tw:gap-4"
           >
             <div
-              class="tw:w-16 tw:h-16 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-2xl tw:font-black"
+              class="tw:w-16 tw:h-16 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-2xl tw:font-bold"
               :class="
                 submitResult?.passed
                   ? 'tw:bg-green-100 tw:text-green-700'
@@ -534,7 +534,7 @@ const myTrainingDetailConfig = computed(() =>
             class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-6 tw:flex tw:items-center tw:gap-4"
           >
             <div
-              class="tw:w-14 tw:h-14 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-xl tw:font-black tw:shrink-0"
+              class="tw:w-14 tw:h-14 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-xl tw:font-bold tw:shrink-0"
               :class="
                 effectiveAssignee?.status === 'COMPLETED'
                   ? 'tw:bg-green-100 tw:text-green-700'

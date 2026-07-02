@@ -163,7 +163,7 @@ function onKeydown(e) {
           <hr v-if="node.type === 'divider'" class="tw:my-1 tw:border-divider" />
           <div
             v-else-if="node.type === 'section'"
-            class="tw:px-2 tw:py-1 tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+            class="tw:px-2 tw:py-1 tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
           >
             {{ node.label }}
           </div>

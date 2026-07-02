@@ -119,10 +119,10 @@ const maxWidthClass = {
                 class="tw:flex tw:shrink-0 tw:items-start tw:justify-between tw:gap-3 tw:px-6 tw:pt-5 tw:pb-4 tw:border-b tw:border-divider"
               >
                 <div class="tw:min-w-0">
-                  <DialogTitle as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
+                  <DialogTitle as="h3" class="tw:text-section-title tw:font-semibold tw:text-on-main">
                     <slot name="title">{{ title }}</slot>
                   </DialogTitle>
-                  <p v-if="subtitle" class="tw:text-xs tw:text-secondary tw:mt-0.5">
+                  <p v-if="subtitle" class="tw:text-label tw:text-secondary tw:mt-0.5">
                     {{ subtitle }}
                   </p>
                 </div>

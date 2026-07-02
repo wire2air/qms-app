@@ -23,7 +23,7 @@ export const Group = {
         <BaseRadio v-bind="args" v-model="size" value="sm" name="size" label="Small" />
         <BaseRadio v-bind="args" v-model="size" value="md" name="size" label="Medium" />
         <BaseRadio v-bind="args" v-model="size" value="lg" name="size" label="Large" />
-        <p class="tw:text-caption tw:text-secondary">Selected: <span class="tw:font-mono">{{ size }}</span></p>
+        <p class="tw:text-caption tw:text-secondary">Selected: <span class="">{{ size }}</span></p>
       </div>`,
   }),
 }

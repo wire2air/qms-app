@@ -93,7 +93,7 @@ function rowMenuItems(row) {
 
     <template #body-cell-url="{ row }">
       <div class="tw:flex tw:items-center tw:gap-1.5">
-        <code class="tw:text-xs tw:font-mono tw:text-secondary tw:truncate">
+        <code class="tw:text-xs tw:text-secondary tw:truncate">
           /support/{{ row.slug }}
         </code>
         <button class="tw:text-secondary tw:hover:text-primary tw:shrink-0" @click="copyUrl(row)">
@@ -122,7 +122,7 @@ function rowMenuItems(row) {
           row.stateId === 'ACTIVE'
             ? 'tw:bg-green-100 tw:text-green-700'
             : 'tw:bg-gray-100 tw:text-gray-600'
-        "
+       "
       >
         {{ row.stateId === 'ACTIVE' ? 'Active' : 'Disabled' }}
       </BaseBadge>

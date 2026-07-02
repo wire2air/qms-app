@@ -71,7 +71,7 @@ async function handleActivate() {
           <span class="tw:text-xs tw:text-secondary">ID: {{ role.code || role.id }}</span>
         </div>
 
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-sidebar tw:mb-2">
+        <h3 class="tw:text-lg tw:font-semibold tw:text-on-sidebar tw:mb-2">
           {{ role.name }}
         </h3>
         <p class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:max-w-3xl">
