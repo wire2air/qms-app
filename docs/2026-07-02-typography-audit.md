@@ -145,10 +145,9 @@ Scope: `src/`, `resource/`, `index.html`, global CSS. Excludes `node_modules`, `
   - Badge: `BaseBadge` metrics (12px medium) — no bespoke pills
   - Weight ceiling: `font-bold` (700). No `font-black`/`font-extrabold` in UI text.
   - Muted text: `tw:text-secondary` only.
-- **Monospace is reserved for machine-readable content, never record identifiers** (added after
-  review — record numbers rendered in the system mono font read as "a second font"). Swept
-  `tw:font-mono` (and identifier-wrapping `<code>` tags, which are mono by default) off NC/CAPA/
-  audit/complaint/document numbers, SKUs, lot/clause/version numbers across 83+ files. Mono
-  remains ONLY for: code/JSON blocks, API keys & PATs, cron expressions, template tokens
-  (`{DEPTCODE}`), CSV/import previews, email/DNS setup values, hashes, raw copyable UUIDs, and
-  admin machine-code slugs in settings cards.
+- **No monospace on screen at all** (decided after review — the owner chose absolute font
+  uniformity over the mono-for-machine-values convention). All `tw:font-mono` usages removed
+  (identifiers first, then code/JSON/keys/cron too); `--default-mono-font-family` points at the
+  Inter stack so `<pre>`/`<code>`/`<kbd>` render Inter; scoped `ui-monospace` rules removed from
+  chat/editor/help components; `tw:font-mono` is hard-banned by the design-system ratchet.
+  Print modules keep their own scoped print stack (print output only).

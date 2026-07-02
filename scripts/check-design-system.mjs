@@ -32,6 +32,15 @@ const RULES = [
     hint: 'raw text-[Npx] — use a --text-* token (tw:text-micro/caption/label/body/…) or BaseText/BaseHeading',
   },
   {
+    id: 'no-font-mono',
+    re: /tw:font-mono/g,
+    // One typeface on screen (2026-07-02 typography audit): Inter everywhere,
+    // including <pre>/<code> (see --default-mono-font-family in base.css).
+    // Print modules use their own scoped print stack, not this class.
+    baseline: 0,
+    hint: 'tw:font-mono is banned — the app renders one typeface (Inter); code/pre already inherit it',
+  },
+  {
     id: 'no-raw-label',
     re: /<label\b/g,
     baseline: 134,

@@ -122,7 +122,7 @@ function handleDialogClose() {
             :modelValue="createdToken"
             readonly
             :type="revealed ? 'text' : 'password'"
-            class="tw:flex-1 tw:font-mono"
+            class="tw:flex-1"
           />
           <button
             class="tw:rounded-lg tw:border tw:border-divider tw:p-2 tw:hover:bg-main-hover tw:transition-colors"
@@ -143,9 +143,9 @@ function handleDialogClose() {
 
         <div class="tw:text-xs tw:text-secondary">
           Configure your MCP client to send this as the
-          <code class="tw:font-mono tw:bg-main-hover tw:px-1 tw:rounded">Authorization</code> header
+          <code class="tw:bg-main-hover tw:px-1 tw:rounded">Authorization</code> header
           when calling
-          <code class="tw:font-mono tw:bg-main-hover tw:px-1 tw:rounded">/v1/services/ai/mcp</code>.
+          <code class="tw:bg-main-hover tw:px-1 tw:rounded">/v1/services/ai/mcp</code>.
         </div>
       </div>
     </template>

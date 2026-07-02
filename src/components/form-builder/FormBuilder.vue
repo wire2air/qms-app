@@ -270,7 +270,7 @@ function copyJson() {
                   canUndo
                     ? 'tw:text-secondary tw:hover:bg-main-hover'
                     : 'tw:text-secondary/30 tw:cursor-not-allowed'
-                "
+               "
                 :disabled="!canUndo"
                 title="Undo"
                 @click="undo"
@@ -283,7 +283,7 @@ function copyJson() {
                   canRedo
                     ? 'tw:text-secondary tw:hover:bg-main-hover'
                     : 'tw:text-secondary/30 tw:cursor-not-allowed'
-                "
+               "
                 :disabled="!canRedo"
                 title="Redo"
                 @click="redo"
@@ -301,7 +301,7 @@ function copyJson() {
                   showPreview
                     ? 'tw:text-primary tw:bg-primary/10'
                     : 'tw:text-secondary tw:hover:bg-main-hover'
-                "
+               "
                 :title="showPreview ? 'Edit Mode' : 'Preview'"
                 @click="togglePreview"
               >
@@ -435,7 +435,7 @@ function copyJson() {
               </button>
             </div>
             <pre
-              class="tw:flex-1 tw:p-4 tw:overflow-auto tw:font-mono tw:text-sm tw:leading-relaxed tw:text-on-main"
+              class="tw:flex-1 tw:p-4 tw:overflow-auto tw:text-sm tw:leading-relaxed tw:text-on-main"
             ><code>{{ jsonContent }}</code></pre>
           </div>
         </div>

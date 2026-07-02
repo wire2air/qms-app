@@ -198,7 +198,7 @@ function openPreview() {
               <BaseTextInput
                 v-model="company.settings.printSettings.accentColor"
                 placeholder="#111827"
-                class="tw:flex-1 tw:font-mono"
+                class="tw:flex-1"
               />
               <button
                 v-if="ps.accentColor"

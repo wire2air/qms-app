@@ -77,7 +77,7 @@ export const ZIndex = {
         <p class="tw:text-caption tw:text-secondary tw:mb-2">Use the name, never a raw z-&lt;number&gt;.</p>
         <div v-for="[name, val] in LAYERS" :key="name"
              class="tw:flex tw:justify-between tw:rounded-lg tw:bg-card tw:border tw:border-divider tw:px-3 tw:py-2 tw:text-sm">
-          <span class="tw:font-mono tw:text-primary">tw:{{ name }}</span>
+          <span class="tw:text-primary">tw:{{ name }}</span>
           <span class="tw:text-secondary">{{ val }}</span>
         </div>
       </div>`,

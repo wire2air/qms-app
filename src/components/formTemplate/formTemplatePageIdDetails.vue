@@ -190,7 +190,7 @@ async function handleDelete() {
               <div class="tw:space-y-1">
                 <label class="tw:text-xs tw:font-medium tw:text-secondary">ID</label>
                 <div
-                  class="tw:text-sm tw:font-mono tw:bg-main tw:p-2 tw:rounded tw:text-on-main tw:break-all"
+                  class="tw:text-sm tw:bg-main tw:p-2 tw:rounded tw:text-on-main tw:break-all"
                 >
                   {{ template.id }}
                 </div>
@@ -223,7 +223,7 @@ async function handleDelete() {
               <div class="tw:space-y-1 tw:flex tw:flex-col">
                 <label class="tw:text-xs tw:font-medium tw:text-secondary">Template Code</label>
                 <div
-                  class="tw:text-xs tw:font-mono tw:bg-main-hover tw:px-2 tw:py-1 tw:rounded tw:text-on-main tw:inline-flex tw:w-fit"
+                  class="tw:text-xs tw:bg-main-hover tw:px-2 tw:py-1 tw:rounded tw:text-on-main tw:inline-flex tw:w-fit"
                 >
                   {{ template.code }}
                 </div>
@@ -271,7 +271,7 @@ async function handleDelete() {
             <BaseText as="h4" variant="overline" class="tw:block">JSON Configuration</BaseText>
             <div class="tw:rounded-lg tw:bg-code tw:p-3 tw:overflow-hidden">
               <pre
-                class="tw:text-micro tw:text-good tw:font-mono tw:leading-relaxed tw:whitespace-pre-wrap"
+                class="tw:text-micro tw:text-good tw:leading-relaxed tw:whitespace-pre-wrap"
               ><code>{{ JSON.stringify(template.config, null, 2) }}</code></pre>
             </div>
           </div>

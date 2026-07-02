@@ -563,7 +563,7 @@ const logBookDetailConfig = computed(() =>
           logBook.recordClassification === 'CONTROLLED_RECORD'
             ? 'tw:bg-red-50 tw:text-red-700 tw:border-red-200'
             : 'tw:bg-amber-50 tw:text-amber-700 tw:border-amber-200'
-        "
+       "
       >
         <IconShieldCheck v-if="logBook.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
         {{ logBook.recordClassification?.replace('_', ' ') }}
@@ -601,7 +601,7 @@ const logBookDetailConfig = computed(() =>
                     <div class="tw:text-xs tw:text-secondary tw:mt-0.5">
                       <template v-if="hasEffectiveVersion">
                         Effective:
-                        <span class="tw:font-mono tw:text-on-main">{{ logBook.code }}</span>
+                        <span class="tw:text-on-main">{{ logBook.code }}</span>
                         <span v-if="effectiveVersion"> · {{ versionLabel(effectiveVersion) }}</span>
                       </template>
                       <template v-else
@@ -833,7 +833,7 @@ const logBookDetailConfig = computed(() =>
                       :disabled="!canEditDetails"
                     />
                     <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
-                      Feeds <span class="tw:font-mono">{DEPTCODE}</span> in the Record Id prefix.
+                      Feeds <span class="">{DEPTCODE}</span> in the Record Id prefix.
                     </p>
                   </BaseField>
                 </div>
@@ -870,10 +870,10 @@ const logBookDetailConfig = computed(() =>
                       placeholder="FRM-{DEPTCODE}-{TYPECODE}"
                     />
                     <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
-                      Tokens <span class="tw:font-mono tw:text-on-main">{DEPTCODE}</span> /
-                      <span class="tw:font-mono tw:text-on-main">{TYPECODE}</span> resolve from
+                      Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /
+                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from
                       Department + Log book type on save. Current:
-                      <span class="tw:font-mono tw:text-on-main">{{ logBook.code }}</span>
+                      <span class="tw:text-on-main">{{ logBook.code }}</span>
                     </p>
                   </template>
                   <template v-else>
@@ -1219,7 +1219,7 @@ const logBookDetailConfig = computed(() =>
                         row.active
                           ? 'tw:bg-green-100 tw:text-green-700'
                           : 'tw:bg-gray-100 tw:text-gray-700'
-                      "
+                     "
                     >
                       {{ row.active ? 'Active' : 'Inactive' }}
                     </span>
@@ -1291,7 +1291,7 @@ const logBookDetailConfig = computed(() =>
                     class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:rounded tw:border tw:border-divider tw:p-3"
                     :class="
                       v.id === effectiveVersionId ? 'tw:bg-green-50/40 tw:border-green-200' : ''
-                    "
+                   "
                   >
                     <div class="tw:min-w-0">
                       <div class="tw:flex tw:items-center tw:gap-2">

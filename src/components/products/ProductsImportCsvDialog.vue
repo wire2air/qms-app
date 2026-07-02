@@ -271,7 +271,7 @@ const previewRows = computed(() => parsedRows.value.slice(0, 5))
                 class="tw:border-b tw:border-divider tw:last:border-0"
               >
                 <td class="tw:px-3 tw:py-2 tw:text-on-main">{{ row.name || '—' }}</td>
-                <td class="tw:px-3 tw:py-2 tw:text-secondary tw:font-mono tw:text-xs">
+                <td class="tw:px-3 tw:py-2 tw:text-secondary tw:text-xs">
                   {{ row.sku || '—' }}
                 </td>
                 <td class="tw:px-3 tw:py-2 tw:text-secondary">{{ row.productFamilyId || '—' }}</td>

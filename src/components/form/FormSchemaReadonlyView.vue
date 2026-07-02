@@ -451,7 +451,7 @@ function getChecklistColumnLabel(col) {
             class="tw:inline-block tw:size-4 tw:rounded tw:border tw:border-divider tw:shrink-0"
             :style="{ backgroundColor: getFieldValue(field) }"
           />
-          <span class="tw:text-sm tw:font-medium tw:font-mono tw:text-on-main">
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">
             {{ getFieldValue(field) }}
           </span>
         </div>

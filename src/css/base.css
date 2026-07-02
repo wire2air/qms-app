@@ -9,11 +9,13 @@
 
 @theme {
   /* ==============================================
-   * Font family — the ONE app typeface.
+   * Font family — the ONE app typeface. No exceptions on screen.
    * Inter Variable (self-hosted via @fontsource-variable/inter, wght 100–900).
    * Overriding --font-sans flows into Tailwind's --default-font-family, so
-   * html/body and every element inherit it — components never declare their
-   * own font-family (print modules and `tw:font-mono` code surfaces excepted).
+   * html/body and every element inherit it. --default-mono-font-family is
+   * pointed at the same stack so <pre>/<code>/<kbd> render Inter too —
+   * `tw:font-mono` is banned in app code (print modules keep their own
+   * scoped print stack).
    * ============================================== */
   --font-sans:
     'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
@@ -267,6 +269,17 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+  }
+
+  /* One typeface on screen: <pre>/<code>/<kbd>/<samp> inherit Inter instead of
+   * the preflight ui-monospace default. Print modules opt back into their own
+   * scoped print stack. (A plain rule, not @theme --default-mono-font-family —
+   * unused theme vars get pruned from the build.) */
+  pre,
+  code,
+  kbd,
+  samp {
+    font-family: inherit;
   }
 
   /* Global Scrollbar */

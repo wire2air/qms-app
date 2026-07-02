@@ -377,7 +377,7 @@ function safeParseJson(raw) {
                  before submit. -->
             <div
               v-if="activeFormat?.requiredFields"
-              class="tw:rounded tw:bg-gray-50 tw:border tw:border-gray-200 tw:px-2 tw:py-1.5 tw:text-caption tw:text-gray-700 tw:font-mono tw:break-all"
+              class="tw:rounded tw:bg-gray-50 tw:border tw:border-gray-200 tw:px-2 tw:py-1.5 tw:text-caption tw:text-gray-700 tw:break-all"
             >
               {{ activeFormat.requiredFields }}
             </div>
@@ -385,7 +385,7 @@ function safeParseJson(raw) {
               v-model="content"
               :rows="12"
               :placeholder="activeFormat?.sample ?? ''"
-              class="tw:font-mono tw:text-label"
+              class="tw:text-label"
             />
           </div>
         </BaseField>

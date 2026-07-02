@@ -124,7 +124,7 @@ async function handleDelete() {
 
     <p class="tw:text-sm tw:text-secondary tw:mb-4">
       Emails sent to any of these addresses become complaint tickets. System addresses on
-      <span class="tw:font-mono">{{ companyMailDomain || '…' }}</span> work immediately; external
+      <span class="">{{ companyMailDomain || '…' }}</span> work immediately; external
       addresses need forwarding set up and verified before they receive tickets. Agent replies are
       sent from the address the ticket arrived on.
     </p>
@@ -161,7 +161,7 @@ async function handleDelete() {
       @update:modelValue="(v) => !v && (deleteTarget = null)"
     >
       <p class="tw:text-sm tw:text-on-main tw:p-1">
-        Delete <span class="tw:font-mono">{{ deleteTarget?.address }}</span
+        Delete <span class="">{{ deleteTarget?.address }}</span
         >? Email sent to it will <strong>no longer create tickets</strong>. Existing tickets keep
         their history. Update any forwarding rules pointing at it.
       </p>

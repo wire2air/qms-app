@@ -74,7 +74,7 @@ async function onValidSubmit() {
               channelType === 'SYSTEM'
                 ? 'tw:border-primary tw:bg-primary/5'
                 : 'tw:border-divider tw:hover:border-primary/50'
-            "
+           "
             aria-label="Create system address"
             @click="selectType('SYSTEM')"
           >
@@ -85,7 +85,7 @@ async function onValidSubmit() {
             <p class="tw:text-xs tw:text-secondary">
               A new address on your Qability domain — works immediately, no setup.
             </p>
-            <p class="tw:text-xs tw:font-mono tw:text-secondary tw:mt-1 tw:break-all">
+            <p class="tw:text-xs tw:text-secondary tw:mt-1 tw:break-all">
               support@{{ companyMailDomain }}
             </p>
           </BaseClickableRow>
@@ -95,7 +95,7 @@ async function onValidSubmit() {
               channelType === 'FORWARDING'
                 ? 'tw:border-primary tw:bg-primary/5'
                 : 'tw:border-divider tw:hover:border-primary/50'
-            "
+           "
             aria-label="Connect external address"
             @click="selectType('FORWARDING')"
           >
@@ -138,7 +138,7 @@ async function onValidSubmit() {
                 class="tw:flex-1"
                 @keyup.enter="formRef?.submit()"
               />
-              <span class="tw:text-sm tw:font-mono tw:text-secondary tw:whitespace-nowrap">
+              <span class="tw:text-sm tw:text-secondary tw:whitespace-nowrap">
                 @{{ companyMailDomain }}
               </span>
             </div>

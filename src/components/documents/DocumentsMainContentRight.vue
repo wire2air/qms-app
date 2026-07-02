@@ -224,7 +224,7 @@ watch(
             </p>
             <p
               v-if="currentVersion.snapshotSha256"
-              class="tw:text-micro tw:font-mono tw:text-secondary tw:break-all"
+              class="tw:text-micro tw:text-secondary tw:break-all"
               :title="currentVersion.snapshotSha256"
             >
               sha256: {{ currentVersion.snapshotSha256.slice(0, 16) }}…
@@ -306,7 +306,7 @@ watch(
             activeSection === section.id
               ? 'tw:text-primary tw:bg-primary/5'
               : 'tw:text-secondary tw:hover:bg-sidebar-hover'
-          "
+         "
           @click.prevent="scrollToSection(section.id)"
         >
           <span
@@ -315,7 +315,7 @@ watch(
               activeSection === section.id
                 ? 'tw:text-primary/50'
                 : 'tw:text-secondary tw:group-hover:text-primary/50'
-            "
+           "
           >
             {{ index + 1 }}.
           </span>

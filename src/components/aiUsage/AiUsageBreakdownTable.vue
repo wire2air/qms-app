@@ -57,7 +57,7 @@ function fmt(value, format) {
     </template>
 
     <template #body-cell="{ row, col }">
-      <span :class="col.align === 'right' ? 'tw:font-mono tw:text-xs' : ''">
+      <span :class="col.align === 'right' ? ' tw:text-xs' : ''">
         {{ fmt(row[col.name], col.format) }}
       </span>
     </template>
