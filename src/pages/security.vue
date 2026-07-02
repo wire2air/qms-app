@@ -6,6 +6,7 @@
 import { get, post } from '@/api'
 import MfaSetupWizard from '@/components/security/MfaSetupWizard.vue'
 import PasswordStrengthMeter from '@/components/auth/PasswordStrengthMeter.vue'
+import SecurityDashboard from '@/components/security/SecurityDashboard.vue'
 import ActiveSessions from '@/components/security/ActiveSessions.vue'
 import TrustedDevices from '@/components/security/TrustedDevices.vue'
 import LoginHistory from '@/components/security/LoginHistory.vue'
@@ -165,6 +166,8 @@ function downloadNewCodes() {
 <template>
   <BasePage width="narrow">
     <PageHeader :icon="IconShieldLock" title="Security" />
+
+    <SecurityDashboard />
 
     <PageSection title="Two-factor authentication" :icon="IconShieldCheck">
       <BaseCard>

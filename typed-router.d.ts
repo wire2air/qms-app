@@ -51,6 +51,13 @@ declare module 'vue-router/auto-routes' {
       { companyId?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/admin-security': RouteRecordInfo<
+      '/admin-security',
+      '/admin-security',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/ai-usage': RouteRecordInfo<
       '/ai-usage',
       '/ai-usage',
@@ -638,6 +645,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/admin/impersonate/[[companyId]].vue': {
       routes:
         | '/admin/impersonate/[[companyId]]'
+      views:
+        | never
+    }
+    'src/pages/admin-security.vue': {
+      routes:
+        | '/admin-security'
       views:
         | never
     }

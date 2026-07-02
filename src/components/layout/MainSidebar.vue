@@ -325,6 +325,13 @@ const navItems = computed(() => {
           to: getCompanyPath('/organization-security'),
         },
         {
+          // Admin actions on users' security state + the tenant event feed.
+          label: 'Security Center',
+          permissions: ['security:manage'],
+          icon: IconShieldCheck,
+          to: getCompanyPath('/admin-security'),
+        },
+        {
           // Config-driven notification engine (entity create / status-change →
           // notify groups / people / owner / initiator over in-app + email).
           label: 'Notifications',
