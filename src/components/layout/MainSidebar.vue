@@ -317,6 +317,14 @@ const navItems = computed(() => {
           to: getCompanyPath('/settings'),
         },
         {
+          // Tenant auth policy: login methods, allowed domains, MFA + session
+          // policy. Login-method toggles are enforced; the rest is stored.
+          label: 'Organization Security',
+          permissions: ['security:manage'],
+          icon: IconShield,
+          to: getCompanyPath('/organization-security'),
+        },
+        {
           // Config-driven notification engine (entity create / status-change →
           // notify groups / people / owner / initiator over in-app + email).
           label: 'Notifications',

@@ -27,6 +27,27 @@ const lastName = ref('')
 
 const isSignup = computed(() => props.mode === 'signup')
 
+// Which login methods this tenant allows (drives which buttons show). Defaults
+// to all-on so the form renders immediately; refined once the fetch resolves.
+const methods = ref({ email: true, google: true, microsoft: true })
+onMounted(async () => {
+  // Show a message if a disabled federated method was attempted (redirect back).
+  const url = new URL(window.location.href)
+  if (url.searchParams.get('error') === 'method_disabled') {
+    toast.error('That sign-in method is disabled for this workspace.')
+  }
+  if (isSignup.value) return
+  try {
+    const res = await fetch('/api/v1/auth/login-methods')
+    if (res.ok) {
+      const data = await res.json()
+      if (data?.methods) methods.value = data.methods
+    }
+  } catch {
+    /* keep permissive defaults */
+  }
+})
+
 // When login succeeds but the account has MFA enrolled, the backend returns a
 // pending-MFA challenge instead of a session. We swap the form for the verifier.
 const mfaState = ref(null)
@@ -221,6 +242,7 @@ async function submitForm() {
     <div class="tw:pt-4">
       <div class="tw:flex tw:flex-col tw:gap-3">
         <button
+          v-if="methods.google"
           class="tw:flex tw:items-center tw:justify-center tw:w-full tw:gap-2 tw:px-5 tw:py-3.5 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
           :disabled="loadingMicrosoft"
           @click="loginWithGoogle"
@@ -250,6 +272,7 @@ async function submitForm() {
         </button>
 
         <button
+          v-if="methods.microsoft"
           class="tw:flex tw:items-center tw:justify-center tw:w-full tw:gap-2 tw:px-5 tw:py-3.5 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
           :disabled="loadingGoogle"
           @click="loginWithMicrosoft"
@@ -266,14 +289,17 @@ async function submitForm() {
           <span class="tw:font-medium tw:text-sm">Continue with Microsoft</span>
         </button>
 
-        <div class="tw:flex tw:items-center tw:gap-4 tw:my-3">
+        <div
+          v-if="methods.email && (methods.google || methods.microsoft)"
+          class="tw:flex tw:items-center tw:gap-4 tw:my-3"
+        >
           <hr class="tw:flex-1 tw:border-divider" />
           <span class="tw:text-xs tw:text-secondary tw:whitespace-nowrap">or</span>
           <hr class="tw:flex-1 tw:border-divider" />
         </div>
 
         <!-- email/password login form -->
-        <div class="tw:flex tw:flex-col tw:gap-3">
+        <div v-if="methods.email || isSignup" class="tw:flex tw:flex-col tw:gap-3">
           <template v-if="isSignup">
             <BaseTextInput v-model="firstName" placeholder="First Name" @keyup.enter="submitForm">
               <template #icon>

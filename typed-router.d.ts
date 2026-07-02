@@ -366,6 +366,13 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/organization-security': RouteRecordInfo<
+      '/organization-security',
+      '/organization-security',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/print': RouteRecordInfo<
       '/print',
       '/print',
@@ -901,6 +908,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/option-sets/[[id]].vue': {
       routes:
         | '/option-sets/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/organization-security.vue': {
+      routes:
+        | '/organization-security'
       views:
         | never
     }
