@@ -143,7 +143,7 @@ function auditHref(a) {
     <div class="tw:flex tw:items-center tw:gap-3">
       <IconShieldCheck :size="28" class="tw:text-primary tw:shrink-0" />
       <div>
-        <h1 class="tw:text-2xl tw:font-bold tw:text-on-main">Welcome, {{ firstName }}</h1>
+        <h1 class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main">Welcome, {{ firstName }}</h1>
         <p class="tw:text-sm tw:text-secondary">
           Everything below has been explicitly shared with you by the client. Read-only by default,
           except where you've been included in an approval or action workflow.
@@ -175,7 +175,7 @@ function auditHref(a) {
             :href="docHref(d)"
             class="tw:flex tw:items-center tw:gap-1.5 tw:text-on-main tw:hover:text-primary tw:flex-1"
           >
-            <span class="tw:font-mono tw:text-xs tw:text-secondary">{{ d.docNumber }}</span>
+            <span class="tw:text-xs tw:text-secondary">{{ d.docNumber }}</span>
             <span class="tw:font-medium">{{ d.title }}</span>
             <IconExternalLink :size="12" class="tw:text-secondary" />
           </a>
@@ -212,7 +212,7 @@ function auditHref(a) {
             :href="capaHref(c)"
             class="tw:flex tw:items-center tw:gap-1.5 tw:text-on-main tw:hover:text-primary tw:flex-1"
           >
-            <span class="tw:font-mono tw:text-xs tw:text-secondary">{{ c.capaNumber }}</span>
+            <span class="tw:text-xs tw:text-secondary">{{ c.capaNumber }}</span>
             <span class="tw:font-medium">{{ c.title }}</span>
             <IconExternalLink :size="12" class="tw:text-secondary" />
           </a>
@@ -249,7 +249,7 @@ function auditHref(a) {
             :href="ncHref(n)"
             class="tw:flex tw:items-center tw:gap-1.5 tw:text-on-main tw:hover:text-primary tw:flex-1"
           >
-            <span class="tw:font-mono tw:text-xs tw:text-secondary">{{ n.ncNumber }}</span>
+            <span class="tw:text-xs tw:text-secondary">{{ n.ncNumber }}</span>
             <span class="tw:font-medium">{{ n.title }}</span>
             <IconExternalLink :size="12" class="tw:text-secondary" />
           </a>
@@ -288,7 +288,7 @@ function auditHref(a) {
             :href="auditHref(a)"
             class="tw:flex tw:items-center tw:gap-1.5 tw:text-on-main tw:hover:text-primary tw:flex-1"
           >
-            <span class="tw:font-mono tw:text-xs tw:text-secondary">{{ a.auditNumber }}</span>
+            <span class="tw:text-xs tw:text-secondary">{{ a.auditNumber }}</span>
             <span v-if="a.scheduledDate" class="tw:text-xs tw:text-secondary">
               {{ a.scheduledDate.formatDate?.('date') ?? a.scheduledDate }}
             </span>

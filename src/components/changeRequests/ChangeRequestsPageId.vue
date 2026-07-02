@@ -323,7 +323,7 @@ const changeRequestDetailConfig = computed(() =>
     </template>
 
     <template v-if="cr" #meta>
-      <span class="tw:font-mono">{{ cr.crNumber }}</span>
+      <span class="">{{ cr.crNumber }}</span>
       <template v-if="cr.changeTypeId">
         · <ChangeTypeBadgeById :changeTypeId="cr.changeTypeId"
       /></template>
@@ -419,7 +419,7 @@ const changeRequestDetailConfig = computed(() =>
       <BaseRailCard title="General">
         <div class="tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
           <BaseDetailField label="CR number">
-            <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
+            <BaseText variant="body" weight="medium" class="tw:break-words">
               {{ cr.crNumber || '—' }}
             </BaseText>
           </BaseDetailField>

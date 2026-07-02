@@ -240,7 +240,7 @@ const LEGEND = [
                   @click="openAudit(a)"
                 >
                   <div
-                    class="tw:font-mono tw:font-semibold tw:text-on-main tw:text-micro tw:truncate"
+                    class="tw:font-semibold tw:text-on-main tw:text-micro tw:truncate"
                   >
                     {{ a.auditNumber || 'Audit' }}
                   </div>

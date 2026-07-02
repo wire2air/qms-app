@@ -72,7 +72,7 @@ function openFindingsInstance(f) {
       >
         <IconBolt :size="20" class="tw:text-red-600" />
       </div>
-      <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Audit Findings</h3>
+      <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">Audit Findings</h3>
     </div>
 
     <div class="tw:p-6 tw:space-y-4">
@@ -122,9 +122,9 @@ function openFindingsInstance(f) {
           class="tw:flex tw:items-start tw:gap-2 tw:py-2 tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:bg-main-hover/40 tw:rounded tw:px-1"
           @click="openFindingsInstance(f)"
         >
-          <code class="tw:text-micro tw:font-mono tw:text-secondary tw:mt-0.5 tw:shrink-0">
+          <span class="tw:text-micro tw:text-secondary tw:mt-0.5 tw:shrink-0">
             {{ f.findingNumber }}
-          </code>
+          </span>
           <div class="tw:flex tw:flex-col tw:gap-0.5 tw:flex-1 tw:min-w-0">
             <p class="tw:text-xs tw:text-on-main tw:line-clamp-1">{{ f.description }}</p>
             <div class="tw:flex tw:items-center tw:gap-1.5 tw:flex-wrap">

@@ -641,7 +641,7 @@ const auditInstanceDetailConfig = computed(() =>
       <BaseRailCard title="Conformance" :icon="IconClipboardCheck" class="tw:hidden tw:lg:block">
         <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
           <div
-            class="tw:text-3xl tw:font-extrabold"
+            class="tw:text-3xl tw:font-bold"
             :class="scoring.pass ? 'tw:text-emerald-600' : 'tw:text-red-600'"
           >
             {{ scoring.conformancePct == null ? '—' : `${scoring.conformancePct}%` }}
@@ -745,9 +745,9 @@ const auditInstanceDetailConfig = computed(() =>
       <!-- Overview -->
       <BaseRailCard title="Overview" grid>
         <BaseDetailField label="Audit Number">
-          <code class="tw:text-xs tw:font-mono tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded">
+          <span class="tw:text-xs tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded">
             {{ auditInstance.auditNumber || '—' }}
-          </code>
+          </span>
         </BaseDetailField>
         <BaseDetailField label="Type" :value="auditInstance.programTypeId" />
         <BaseDetailField label="Progress">

@@ -141,7 +141,7 @@ async function saveCell(cell) {
       <div
         class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-3"
       >
-        <h3 class="tw:font-bold tw:text-on-main">
+        <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">
           {{ selected.name }} — plan cells
           <span v-if="!selectedEditable" class="tw:text-xs tw:font-normal tw:text-secondary"
             >(read-only — clone to edit)</span
@@ -168,7 +168,7 @@ async function saveCell(cell) {
           </thead>
           <tbody>
             <tr v-for="c in visibleCells" :key="c.id" class="tw:border-t tw:border-divider">
-              <td class="tw:px-5 tw:py-1.5 tw:font-mono">{{ c.codeLetter }}</td>
+              <td class="tw:px-5 tw:py-1.5">{{ c.codeLetter }}</td>
               <td class="tw:px-5 tw:py-1.5">{{ c.aql }}</td>
               <td class="tw:px-5 tw:py-1.5 tw:text-secondary tw:text-xs">{{ c.severity }}</td>
               <td class="tw:px-5 tw:py-1.5">

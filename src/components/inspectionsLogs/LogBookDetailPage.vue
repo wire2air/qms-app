@@ -571,7 +571,7 @@ const logBookDetailConfig = computed(() =>
     </template>
 
     <template v-if="logBook" #meta>
-      <span class="tw:font-mono tw:uppercase">{{ logBook.code }}</span>
+      <span class="tw:uppercase">{{ logBook.code }}</span>
       <span> · schema v{{ logBook.schemaVersion }}</span>
       <span v-if="isSaving" class="tw:text-amber-600"> · saving…</span>
     </template>
@@ -877,7 +877,7 @@ const logBookDetailConfig = computed(() =>
                     </p>
                   </template>
                   <template v-else>
-                    <div class="tw:font-mono tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
+                    <div class="tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
                     <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
                       Locked — the log book has an effective version, so record IDs stay consistent.
                     </p>
@@ -1295,7 +1295,7 @@ const logBookDetailConfig = computed(() =>
                   >
                     <div class="tw:min-w-0">
                       <div class="tw:flex tw:items-center tw:gap-2">
-                        <span class="tw:font-mono tw:text-sm tw:font-semibold tw:text-on-main">
+                        <span class="tw:text-sm tw:font-semibold tw:text-on-main">
                           {{ versionLabel(v) }}
                         </span>
                         <LogBookVersionStatusBadge :statusId="v.statusId" />
@@ -1373,7 +1373,7 @@ const logBookDetailConfig = computed(() =>
               <div class="tw:text-lg tw:font-medium tw:text-on-main">
                 {{ logBook?.title || 'Log book schema' }}
               </div>
-              <span class="tw:text-xs tw:text-secondary tw:font-mono">
+              <span class="tw:text-xs tw:text-secondary">
                 v{{ logBook?.schemaVersion ?? 1 }}
               </span>
             </div>

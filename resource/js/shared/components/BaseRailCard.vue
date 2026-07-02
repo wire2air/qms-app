@@ -25,7 +25,7 @@ function toggle() {
     <button
       v-if="collapsible"
       type="button"
-      class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:text-label tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+      class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
       :aria-expanded="open ? 'true' : 'false'"
       :aria-controls="bodyId"
       @click="toggle"
@@ -43,7 +43,7 @@ function toggle() {
     </button>
     <h3
       v-else
-      class="tw:flex tw:items-center tw:gap-2 tw:text-label tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+      class="tw:flex tw:items-center tw:gap-2 tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
     >
       <component :is="icon" v-if="icon" :size="14" aria-hidden="true" />
       {{ title }}

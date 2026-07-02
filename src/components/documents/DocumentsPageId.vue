@@ -505,7 +505,7 @@ const documentDetailConfig = computed(() =>
     </template>
 
     <template v-if="selectedVersion" #meta>
-      <span class="tw:font-mono">{{ document?.docNumber }}</span>
+      <span class="">{{ document?.docNumber }}</span>
       <span> · v{{ versionLabel }} ({{ selectedVersion.statusId }})</span>
     </template>
 

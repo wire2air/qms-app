@@ -135,11 +135,11 @@ async function submitRating() {
         <div class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-6 tw:mb-4">
           <div class="tw:flex tw:items-start tw:justify-between tw:gap-3">
             <div class="tw:min-w-0">
-              <div class="tw:text-xs tw:font-mono tw:text-secondary">
+              <div class="tw:text-xs tw:text-secondary">
                 {{ ticket.complaintNumber }}
                 <template v-if="ticket.companyName">· {{ ticket.companyName }} Support</template>
               </div>
-              <h1 class="tw:text-xl tw:font-bold tw:text-on-sidebar tw:mt-1">
+              <h1 class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main tw:mt-1">
                 {{ ticket.subject }}
               </h1>
               <div class="tw:text-xs tw:text-secondary tw:mt-1">

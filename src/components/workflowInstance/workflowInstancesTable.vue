@@ -230,7 +230,7 @@ function routeForInstance(instance) {
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
             {{ getNc(row)?.title || '—' }}
           </span>
-          <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+          <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
             {{ getNc(row)?.ncNumber || row.id.slice(0, 8) }}
           </span>
         </template>
@@ -238,7 +238,7 @@ function routeForInstance(instance) {
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
             {{ getCapa(row)?.title || '—' }}
           </span>
-          <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+          <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
             {{ getCapa(row)?.capaNumber || row.id.slice(0, 8) }}
           </span>
         </template>
@@ -246,7 +246,7 @@ function routeForInstance(instance) {
           <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
             {{ getDocument(row)?.title || '—' }}
           </span>
-          <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+          <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
             {{ getDocument(row)?.docNumber || row.id.slice(0, 8) }}
           </span>
         </template>

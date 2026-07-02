@@ -42,12 +42,12 @@ const documentSections = computed(() => props.version.sections || [])
             {{ version.statusName || version.statusId }}
           </BaseBadge>
 
-          <span class="tw:text-secondary tw:text-sm tw:font-mono">
+          <span class="tw:text-secondary tw:text-sm">
             {{ document.docNumber }} v{{ versionLabel }}
           </span>
         </div>
         <h2
-          class="tw:font-extrabold tw:text-on-sidebar tw:leading-tight"
+          class="tw:font-bold tw:text-on-sidebar tw:leading-tight"
           :class="dense ? 'tw:text-xl' : 'tw:text-3xl'"
         >
           {{ document.title }}

@@ -126,7 +126,7 @@ async function send() {
           @change="toggle(c.requirementId)"
         />
         <span>
-          <span class="tw:font-mono tw:font-semibold tw:text-secondary">{{ c.clauseNumber }}</span>
+          <span class="tw:font-semibold tw:text-secondary">{{ c.clauseNumber }}</span>
           <span class="tw:text-on-main">
             {{ c.title }}{{ c.question ? `: ${c.question}` : '' }}</span
           >

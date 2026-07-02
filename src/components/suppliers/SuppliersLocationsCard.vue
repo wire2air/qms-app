@@ -108,7 +108,7 @@ async function setPrimary(loc) {
         >
           <IconBuildingFactory2 :size="20" class="tw:text-secondary" />
         </div>
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Locations</h3>
+        <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">Locations</h3>
         <span
           v-if="locations.length"
           class="tw:text-xs tw:font-semibold tw:text-secondary tw:bg-white tw:border tw:border-divider tw:rounded-full tw:px-2 tw:py-0.5"

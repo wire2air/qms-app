@@ -180,7 +180,7 @@ const showDeactivated = ref(false)
       class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
     >
       <div>
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Product Families</h2>
+        <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Product Families</h2>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
           Brand lines or product ranges used to group items in the Item Master. Scoped to this
           company.

@@ -421,7 +421,7 @@ const auditStandardDetailConfig = computed(() =>
     </template>
 
     <template v-if="standard" #meta>
-      <code class="tw:font-mono tw:text-xs">{{ standard.code }}</code>
+      <span class="tw:text-xs">{{ standard.code }}</span>
       <template v-if="standard.auditStandardTypeId">
         · <AuditStandardTypeBadgeById :standardTypeId="standard.auditStandardTypeId" />
       </template>
@@ -539,11 +539,11 @@ const auditStandardDetailConfig = computed(() =>
       <!-- 1. General info -->
       <BaseRailCard title="General" grid>
         <BaseDetailField label="Code">
-          <code
-            class="tw:text-xs tw:font-mono tw:text-on-main tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
+          <span
+            class="tw:text-xs tw:text-on-main tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
           >
             {{ standard.code }}
-          </code>
+          </span>
         </BaseDetailField>
         <BaseDetailField label="Status">
           <BaseBadge
@@ -618,7 +618,7 @@ const auditStandardDetailConfig = computed(() =>
             <IconDownload :size="14" class="tw:shrink-0 tw:mt-0.5" />
             <span>{{ sourceAsset.originalFilename || sourceAsset.filename }}</span>
           </a>
-          <div class="tw:text-micro tw:text-secondary tw:font-mono">
+          <div class="tw:text-micro tw:text-secondary">
             {{ sourceAsset.mimeType }} · {{ ((sourceAsset.fileSize || 0) / 1024).toFixed(1) }} KB
           </div>
           <div v-if="isEditable" class="tw:flex tw:gap-1 tw:mt-1">
@@ -676,7 +676,7 @@ const auditStandardDetailConfig = computed(() =>
             :key="v.id"
             class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:py-1.5 tw:text-xs tw:group"
           >
-            <span class="tw:font-mono tw:shrink-0">
+            <span class="tw:shrink-0">
               v{{ v.versionMajor }}.{{ v.versionMinor }}
             </span>
             <div class="tw:flex tw:items-center tw:gap-1 tw:min-w-0">

@@ -291,7 +291,7 @@ function tabClass(tab) {
           <!-- Optional count pill (e.g. "Versions 3"). -->
           <span
             v-if="tab.badge != null && tab.badge !== ''"
-            class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-main-hover tw:px-1.5 tw:text-[10px] tw:font-bold tw:text-secondary"
+            class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-main-hover tw:px-1.5 tw:text-micro tw:font-semibold tw:text-secondary"
             :class="isActive(tab) && 'tw:bg-primary/10 tw:text-primary'"
           >
             {{ tab.badge }}

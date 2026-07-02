@@ -115,7 +115,7 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     <template #body-cell-complaintNumber="{ row }">
       <RouterLink
         :to="getCompanyPath(`/customer-complaints/${row.id}`)"
-        class="tw:font-mono tw:text-xs tw:text-secondary tw:hover:text-primary"
+        class="tw:text-xs tw:text-secondary tw:hover:text-primary"
       >
         {{ row.complaintNumber || '—' }}
       </RouterLink>

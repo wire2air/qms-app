@@ -110,7 +110,7 @@ const supplierDetailConfig = computed(() =>
     </template>
 
     <template v-if="supplier" #meta>
-      <span class="tw:font-mono">{{ supplier.code }}</span>
+      <span class="">{{ supplier.code }}</span>
       <span> · Supplier Record</span>
     </template>
 

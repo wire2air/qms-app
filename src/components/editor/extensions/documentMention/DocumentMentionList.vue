@@ -118,7 +118,7 @@ defineExpose({ onKeyDown })
 }
 
 .mention-dropdown-empty {
-  color: #999;
+  color: var(--secondary);
   font-size: 0.8125rem;
   padding: 0.5rem 0.625rem;
 }

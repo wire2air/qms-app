@@ -20,7 +20,7 @@ const actions = [
   { label: 'My Tasks', icon: IconChecklist, to: '/task-instances', chip: 'tw:bg-blue-100 tw:text-blue-600' },
   { label: 'Documents', icon: IconFolderOpen, to: '/documents', chip: 'tw:bg-good/10 tw:text-good' },
   { label: 'QC Inspection', icon: IconTestPipe, to: '/qc-inspection', chip: 'tw:bg-violet-100 tw:text-violet-600' },
-  { label: 'Audits', icon: IconClipboardCheck, to: '/audits/instances', chip: 'tw:bg-slate-100 tw:text-slate-600' },
+  { label: 'Audits', icon: IconClipboardCheck, to: '/audits/instances', chip: 'tw:bg-gray-100 tw:text-gray-600' },
 ]
 </script>
 

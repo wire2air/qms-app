@@ -806,7 +806,7 @@ defineExpose({ table })
                     class="tw:flex tw:flex-col tw:gap-0.5"
                   >
                     <dt
-                      class="tw:text-micro tw:font-medium tw:tracking-wide tw:text-placeholder tw:uppercase"
+                      class="tw:text-table-header tw:font-semibold tw:tracking-wider tw:text-secondary tw:uppercase"
                     >
                       {{ col.label }}
                     </dt>
@@ -878,7 +878,7 @@ defineExpose({ table })
               :aria-sort="ariaSort(column)"
               :style="cellStyle(column, true)"
               :class="[
-                'tw:relative tw:border-b tw:border-divider tw:bg-main tw:px-4 tw:text-xs tw:font-bold tw:tracking-widest tw:uppercase tw:whitespace-nowrap tw:select-none tw:transition-colors',
+                'tw:relative tw:border-b tw:border-divider tw:bg-main tw:px-4 tw:text-table-header tw:font-semibold tw:tracking-wider tw:uppercase tw:whitespace-nowrap tw:select-none tw:transition-colors',
                 pad.th,
                 stickyClass,
                 alignTh(column.columnDef.meta.align),
@@ -930,7 +930,7 @@ defineExpose({ table })
                   </span>
                   <span
                     v-if="multiSort && column.getSortIndex() >= 0 && column.getIsSorted()"
-                    class="tw:ml-0.5 tw:rounded tw:bg-primary/15 tw:px-1 tw:text-[10px] tw:font-semibold tw:text-primary"
+                    class="tw:ml-0.5 tw:rounded tw:bg-primary/15 tw:px-1 tw:text-micro tw:font-semibold tw:text-primary"
                   >
                     {{ column.getSortIndex() + 1 }}
                   </span>

@@ -13,11 +13,11 @@ defineProps({
 <template>
   <BaseBadge v-bind="$attrs" class="tw:bg-blue-50 tw:text-blue-700 tw:border tw:border-blue-200">
     <span class="tw:font-medium">{{ standard?.name || standard?.code || standard?.id || '—' }}</span>
-    <code
+    <span
       v-if="standard?.code && standard?.name"
       class="tw:text-micro tw:ml-1 tw:text-blue-500"
     >
       {{ standard.code }}
-    </code>
+    </span>
   </BaseBadge>
 </template>

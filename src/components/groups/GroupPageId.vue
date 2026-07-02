@@ -222,7 +222,7 @@ const groupDetailConfig = computed(() =>
             <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Team ID</label>
             <div class="tw:flex tw:items-center tw:gap-2 tw:group">
               <code
-                class="tw:text-xs tw:text-on-main tw:bg-main tw:font-mono tw:break-all tw:p-1 tw:rounded tw:flex-1"
+                class="tw:text-xs tw:text-on-main tw:bg-main tw:break-all tw:p-1 tw:rounded tw:flex-1"
               >
                 {{ id }}
               </code>
@@ -268,7 +268,7 @@ const groupDetailConfig = computed(() =>
               class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
             >
               <div class="tw:flex tw:items-center tw:gap-2">
-                <h3 class="tw:font-bold tw:text-on-main tw:text-sm tw:uppercase tw:tracking-wide">
+                <h3 class="tw:text-sm tw:font-semibold tw:text-on-main tw:text-sm tw:uppercase tw:tracking-wide">
                   Members
                 </h3>
                 <span

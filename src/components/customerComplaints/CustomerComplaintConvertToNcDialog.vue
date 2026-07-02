@@ -91,7 +91,7 @@ async function onValidSubmit() {
             <span
               v-for="c in complaints"
               :key="c.id"
-              class="tw:text-xs tw:font-mono tw:bg-gray-100 tw:text-gray-700 tw:rounded tw:px-2 tw:py-0.5"
+              class="tw:text-xs tw:bg-gray-100 tw:text-gray-700 tw:rounded tw:px-2 tw:py-0.5"
             >
               {{ c.complaintNumber }}
             </span>

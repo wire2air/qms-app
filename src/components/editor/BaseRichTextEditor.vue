@@ -698,7 +698,7 @@ defineExpose({
     background: var(--main-hover);
     padding: 0.125rem 0.25rem;
     border-radius: 3px;
-    font-family: 'Courier New', monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.9em;
   }
 

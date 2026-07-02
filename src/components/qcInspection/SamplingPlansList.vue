@@ -327,7 +327,7 @@ async function createNewVersion(plan) {
                 :key="prev.id"
                 class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary tw:py-1 tw:border-b tw:border-divider tw:last:border-0"
               >
-                <span class="tw:font-mono tw:font-medium tw:text-on-main">v{{ prev.version }}</span>
+                <span class="tw:font-medium tw:text-on-main">v{{ prev.version }}</span>
                 <span>{{ prev.name }}</span>
                 <span v-if="prev.planType === 'STANDARD'"
                   >· {{ standardName(prev.standardCode) }} {{ prev.inspectionLevel }}</span

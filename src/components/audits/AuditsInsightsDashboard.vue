@@ -247,7 +247,7 @@ function openFindingsInstance(f) {
           <div v-for="row in findingsByCategory" :key="row.id" class="tw:flex tw:flex-col tw:gap-1">
             <div class="tw:flex tw:items-center tw:justify-between tw:text-xs">
               <span class="tw:text-on-main tw:font-medium tw:truncate">{{ row.name }}</span>
-              <span class="tw:text-secondary tw:font-mono">{{ row.count }}</span>
+              <span class="tw:text-secondary">{{ row.count }}</span>
             </div>
             <div class="tw:h-2 tw:bg-main-hover tw:rounded-full tw:overflow-hidden">
               <div
@@ -268,7 +268,7 @@ function openFindingsInstance(f) {
           <div v-for="row in findingsByType" :key="row.id" class="tw:flex tw:flex-col tw:gap-1">
             <div class="tw:flex tw:items-center tw:justify-between tw:text-xs">
               <span class="tw:text-on-main tw:font-medium">{{ row.name }}</span>
-              <span class="tw:text-secondary tw:font-mono">{{ row.count }}</span>
+              <span class="tw:text-secondary">{{ row.count }}</span>
             </div>
             <div class="tw:h-2 tw:bg-main-hover tw:rounded-full tw:overflow-hidden">
               <div
@@ -300,7 +300,7 @@ function openFindingsInstance(f) {
           <div v-for="row in leadBacklog" :key="row.userId" class="tw:flex tw:flex-col tw:gap-1">
             <div class="tw:flex tw:items-center tw:justify-between tw:text-xs">
               <span class="tw:text-on-main tw:font-medium tw:truncate">{{ row.name }}</span>
-              <span class="tw:text-secondary tw:font-mono">{{ row.count }}</span>
+              <span class="tw:text-secondary">{{ row.count }}</span>
             </div>
             <div class="tw:h-2 tw:bg-main-hover tw:rounded-full tw:overflow-hidden">
               <div
@@ -336,7 +336,7 @@ function openFindingsInstance(f) {
             @click="openInstance(i)"
           >
             <div class="tw:flex tw:flex-col tw:gap-0.5 tw:min-w-0 tw:flex-1">
-              <code class="tw:text-xs tw:font-mono tw:text-secondary">{{ i.auditNumber }}</code>
+              <span class="tw:text-xs tw:text-secondary">{{ i.auditNumber }}</span>
               <AuditStandardBadgeById v-if="i.auditStandardId" :standardId="i.auditStandardId" />
             </div>
             <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
@@ -371,9 +371,9 @@ function openFindingsInstance(f) {
           class="tw:flex tw:items-start tw:gap-3 tw:py-2 tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:bg-main-hover/40 tw:px-1 tw:rounded"
           @click="openFindingsInstance(f)"
         >
-          <code class="tw:text-xs tw:font-mono tw:text-secondary tw:mt-0.5 tw:shrink-0">
+          <span class="tw:text-xs tw:text-secondary tw:mt-0.5 tw:shrink-0">
             {{ f.findingNumber }}
-          </code>
+          </span>
           <div class="tw:flex tw:flex-col tw:gap-0.5 tw:flex-1 tw:min-w-0">
             <p class="tw:text-sm tw:text-on-main tw:line-clamp-1">{{ f.description }}</p>
             <div class="tw:flex tw:items-center tw:gap-1.5 tw:flex-wrap">

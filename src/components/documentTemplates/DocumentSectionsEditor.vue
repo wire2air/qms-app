@@ -60,7 +60,7 @@ function moveSectionDown(index) {
       class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
     >
       <IconLayoutList :size="22" class="tw:text-primary" />
-      <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">
+      <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">
         Sections ({{ sections?.length || 0 }})
       </h2>
     </div>

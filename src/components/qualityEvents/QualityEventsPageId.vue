@@ -411,7 +411,7 @@ const qualityEventDetailConfig = computed(() =>
     </template>
 
     <template v-if="event" #meta>
-      <span class="tw:font-mono">{{ event.eventNumber }}</span>
+      <span class="">{{ event.eventNumber }}</span>
       <template v-if="event.categoryId">
         · <EventCategoryBadgeById :categoryId="event.categoryId" />
       </template>
@@ -577,7 +577,7 @@ const qualityEventDetailConfig = computed(() =>
             >
               <IconArrowUpRight :size="16" class="tw:text-orange-600" />
               <span class="tw:text-sm tw:font-medium tw:text-on-main">{{ link.toType }}</span>
-              <span class="tw:text-xs tw:text-secondary tw:font-mono">{{ link.toId }}</span>
+              <span class="tw:text-xs tw:text-secondary">{{ link.toId }}</span>
               <span class="tw:ml-auto tw:text-xs tw:text-secondary">{{ link.relation }}</span>
             </RouterLink>
           </div>

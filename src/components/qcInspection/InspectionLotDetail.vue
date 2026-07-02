@@ -436,7 +436,7 @@ const inspectionLotDetailConfig = computed(() =>
     notFoundDescription="This inspection lot could not be found."
   >
     <template #title>
-      <span class="tw:font-mono tw:text-base tw:font-semibold tw:text-on-main">{{
+      <span class="tw:text-base tw:font-semibold tw:text-on-main">{{
         lot?.lotNumber
       }}</span>
     </template>
@@ -468,7 +468,7 @@ const inspectionLotDetailConfig = computed(() =>
         >
           <span v-if="product" class="tw:text-on-main tw:font-medium">
             {{ product.name
-            }}<span v-if="product.sku" class="tw:font-mono tw:font-normal tw:text-secondary">
+            }}<span v-if="product.sku" class="tw:font-normal tw:text-secondary">
               · {{ product.sku }}</span
             >
           </span>
@@ -571,7 +571,7 @@ const inspectionLotDetailConfig = computed(() =>
       <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
         <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
           <div class="tw:flex tw:items-center tw:gap-3">
-            <h3 class="tw:font-bold tw:text-on-main">Results</h3>
+            <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Results</h3>
             <div
               v-if="canExecute && isCapturing"
               class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden tw:text-xs tw:font-medium"

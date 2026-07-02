@@ -176,7 +176,7 @@ async function onEsignVerified(esign) {
     <!-- Header -->
     <div class="tw:flex tw:items-start tw:justify-between">
       <div>
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">
+        <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">
           {{ instance.snapshot?.title || '—' }}
         </h2>
         <p class="tw:text-sm tw:text-secondary">

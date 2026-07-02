@@ -139,7 +139,7 @@ function onVerified() {
         class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:justify-between"
       >
         <div>
-          <h1 class="tw:text-2xl tw:font-bold tw:text-on-sidebar">
+          <h1 class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main">
             Training Verification Dashboard
           </h1>
           <p class="tw:text-sm tw:text-secondary">
@@ -149,11 +149,11 @@ function onVerified() {
         <div class="tw:flex tw:gap-3">
           <div class="tw:bg-blue-50 tw:rounded-lg tw:px-4 tw:py-2 tw:border tw:border-blue-200">
             <p class="tw:text-xs tw:text-blue-700 tw:font-medium">Pending Instances</p>
-            <p class="tw:text-2xl tw:font-black tw:text-blue-700">{{ filteredInstances.length }}</p>
+            <p class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-blue-700">{{ filteredInstances.length }}</p>
           </div>
           <div class="tw:bg-green-50 tw:rounded-lg tw:px-4 tw:py-2 tw:border tw:border-green-200">
             <p class="tw:text-xs tw:text-green-700 tw:font-medium">Closed This Week</p>
-            <p class="tw:text-2xl tw:font-black tw:text-green-700">{{ closedThisWeek }}</p>
+            <p class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-green-700">{{ closedThisWeek }}</p>
           </div>
         </div>
       </div>

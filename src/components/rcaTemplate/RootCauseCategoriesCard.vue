@@ -206,7 +206,7 @@ const showDeactivated = ref(false)
       class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
     >
       <div>
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Root Cause Categories</h2>
+        <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Root Cause Categories</h2>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
           Categories the supplier / analyst picks when finalising a Root Cause Analysis. Seeded with
           the Fishbone 6Ms (People / Machine / Method / Material / Measurement / Environment) +

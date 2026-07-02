@@ -56,7 +56,7 @@ const usersMap = useLiveQueryWithDeps(
   >
     <div class="tw:flex tw:flex-wrap tw:items-start tw:justify-between tw:gap-2 tw:mb-3">
       <div class="tw:min-w-0 tw:flex-1">
-        <h3 class="tw:font-bold tw:text-on-main tw:wrap-break-word">
+        <h3 class="tw:text-sm tw:font-semibold tw:text-on-main tw:wrap-break-word">
           Step {{ displayNumber ?? instanceStep?.stepNumber }}: {{ instanceStep?.name }}
         </h3>
         <p class="tw:text-xs tw:text-secondary">

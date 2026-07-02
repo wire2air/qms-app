@@ -265,13 +265,13 @@ watch(
                  you can read each row in one glance. -->
               <span
                 v-if="isApprovalStep(step)"
-                class="tw:text-micro tw:rounded tw:bg-amber-50 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:font-mono tw:uppercase"
+                class="tw:text-micro tw:rounded tw:bg-amber-50 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:uppercase"
               >
                 Approval
               </span>
               <span
                 v-else
-                class="tw:text-micro tw:rounded tw:bg-slate-100 tw:text-slate-600 tw:px-1.5 tw:py-0.5 tw:font-mono tw:uppercase"
+                class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-gray-600 tw:px-1.5 tw:py-0.5 tw:uppercase"
               >
                 {{ step.stepType || 'Action' }}
               </span>

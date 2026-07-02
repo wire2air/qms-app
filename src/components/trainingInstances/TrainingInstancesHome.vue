@@ -76,7 +76,7 @@ const STATUS_PILLS = [
             <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
               Active
             </div>
-            <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.active }}</div>
+            <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.active }}</div>
           </div>
         </div>
         <div
@@ -91,7 +91,7 @@ const STATUS_PILLS = [
             <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
               Completed
             </div>
-            <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.completed }}</div>
+            <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.completed }}</div>
           </div>
         </div>
         <div
@@ -107,7 +107,7 @@ const STATUS_PILLS = [
               Overdue
             </div>
             <div
-              class="tw:text-2xl tw:font-black"
+              class="tw:text-2xl tw:font-bold"
               :class="stats.overdue > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
             >
               {{ stats.overdue }}

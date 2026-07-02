@@ -389,7 +389,7 @@ async function newVersion() {
             placeholder="Specification name"
             @update:modelValue="markHeaderDirty"
           />
-          <h1 v-else class="tw:text-2xl tw:font-bold tw:text-on-main">{{ spec.name }}</h1>
+          <h1 v-else class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main">{{ spec.name }}</h1>
           <SpecificationStatusBadgeById :statusId="spec.statusId" />
         </div>
         <div v-if="!canEditDraft" class="tw:text-sm tw:text-secondary tw:mt-1">
@@ -445,7 +445,7 @@ async function newVersion() {
         <div
           class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
         >
-          <h3 class="tw:font-bold tw:text-on-main">Characteristics</h3>
+          <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Characteristics</h3>
           <div v-if="canEditDraft" class="tw:flex tw:items-center tw:gap-3">
             <TestLibraryAddMenu
               :productTypeId="header.scope === 'productType' ? header.productTypeId : null"
@@ -610,7 +610,7 @@ async function newVersion() {
             <SpecificationStatusBadgeById :statusId="spec.statusId" />
           </BaseDetailField>
           <BaseDetailField label="Version">
-            <BaseText variant="body" weight="medium" class="tw:font-mono">v{{ spec.version }}</BaseText>
+            <BaseText variant="body" weight="medium" class="">v{{ spec.version }}</BaseText>
           </BaseDetailField>
           <BaseDetailField label="Code">
             <BaseTextInput
@@ -620,7 +620,7 @@ async function newVersion() {
               placeholder="e.g. SPEC-001"
               @update:modelValue="markHeaderDirty"
             />
-            <BaseText v-else variant="body" weight="medium" class="tw:font-mono">
+            <BaseText v-else variant="body" weight="medium" class="">
               {{ spec.code || '—' }}
             </BaseText>
           </BaseDetailField>
@@ -668,7 +668,7 @@ async function newVersion() {
             <template v-else>
               <BaseText v-if="product" variant="body">
                 {{ product.name }}
-                <span v-if="product.sku" class="tw:text-xs tw:text-secondary tw:font-mono"
+                <span v-if="product.sku" class="tw:text-xs tw:text-secondary"
                   >· {{ product.sku }}</span
                 >
                 <span v-if="product.deletedAt" class="tw:text-xs tw:text-bad tw:ml-1">(deleted)</span>
@@ -727,7 +727,7 @@ async function newVersion() {
       class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden"
     >
       <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover">
-        <h3 class="tw:font-bold tw:text-on-main">Version History</h3>
+        <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Version History</h3>
       </div>
       <DataTable
         :rows="versionHistory"
@@ -741,7 +741,7 @@ async function newVersion() {
         <template #body-cell-version="{ row }">
           <button
             type="button"
-            class="tw:font-mono tw:font-medium tw:text-on-main tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+            class="tw:font-medium tw:text-on-main tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
             :aria-label="`Open specification version ${row.version}`"
             @click="openSpec(row.id)"
           >

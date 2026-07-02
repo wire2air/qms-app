@@ -41,7 +41,7 @@ const columns = [
 <template>
   <div v-if="verdict" class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
     <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-3">
-      <h3 class="tw:font-bold tw:text-on-main">AQL Acceptance</h3>
+      <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">AQL Acceptance</h3>
       <span
         class="tw:text-xs tw:font-bold tw:px-2.5 tw:py-1 tw:rounded-full"
         :class="verdict.verdict === 'REJECT' ? 'tw:bg-red-100 tw:text-red-700' : 'tw:bg-green-100 tw:text-green-700'"

@@ -97,7 +97,7 @@ function openLot(id) {
     <template #body-cell-lotNumber="{ row }">
       <RouterLink
         :to="getCompanyPath(`/qc-inspection/lots/${row.id}`)"
-        class="tw:font-mono tw:text-on-main tw:hover:text-primary"
+        class="tw:text-on-main tw:hover:text-primary"
       >
         {{ row.lotNumber }}
       </RouterLink>

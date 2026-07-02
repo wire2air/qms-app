@@ -729,7 +729,7 @@ function printList() {
           @click="openRecord(row.id)"
         >
           <template v-if="isLogBookMode">
-            <span class="tw:font-mono tw:text-on-main tw:text-xs">
+            <span class="tw:text-on-main tw:text-xs">
               {{ row.recordNumber || row.id }}
             </span>
           </template>

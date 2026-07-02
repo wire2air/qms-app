@@ -601,7 +601,7 @@ const templateSchema = computed(() => {
                   <div class="tw:flex tw:items-center tw:gap-3">
                     <div class="tw:flex tw:flex-col tw:gap-0.5">
                       <div class="tw:font-bold tw:text-on-sidebar">{{ template.title }}</div>
-                      <div class="tw:text-xs tw:text-secondary tw:font-mono tw:uppercase">
+                      <div class="tw:text-xs tw:text-secondary tw:uppercase">
                         {{ template.code }}
                       </div>
                     </div>

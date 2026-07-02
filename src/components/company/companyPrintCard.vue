@@ -138,7 +138,7 @@ function openPreview() {
               />
               <div
                 v-else
-                class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:text-gray-400 tw:text-[9px] tw:text-center"
+                class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:text-gray-400 tw:text-micro tw:text-center"
               >
                 <IconBuilding :size="22" />
                 <span>Company Logo</span>

@@ -142,7 +142,7 @@ async function handleDelete() {
             class="tw:mb-8 tw:flex tw:items-center tw:justify-between tw:border-b tw:border-divider tw:pb-4 tw:shrink-0"
           >
             <div>
-              <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Fields Preview</h3>
+              <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">Fields Preview</h3>
               <p class="tw:text-sm tw:text-secondary">
                 Live representation of the form generated from metadata.
               </p>

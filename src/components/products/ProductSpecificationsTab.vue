@@ -138,7 +138,7 @@ async function deleteSpec(id) {
           @click="openSpec(row.id)"
         >
           {{ row.name }}
-          <span v-if="row.code" class="tw:text-xs tw:text-secondary tw:font-mono"
+          <span v-if="row.code" class="tw:text-xs tw:text-secondary"
             >· {{ row.code }}</span
           >
         </button>

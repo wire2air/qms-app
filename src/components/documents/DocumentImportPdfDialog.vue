@@ -411,7 +411,7 @@ const parseProgressPct = computed(() => {
             >
               <div class="tw:flex tw:items-center tw:gap-2 tw:mb-1">
                 <span
-                  class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-primary/10 tw:text-primary tw:font-mono"
+                  class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-primary/10 tw:text-primary"
                 >
                   {{ i + 1 }}
                 </span>

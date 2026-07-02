@@ -61,7 +61,7 @@ async function handleSave(schema) {
     <!-- Section Header -->
     <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
       <IconForms :size="22" />
-      <h2 class="tw:text-lg tw:font-bold tw:text-on-main">Form Schema</h2>
+      <h2 class="tw:text-lg tw:font-semibold tw:text-on-main">Form Schema</h2>
     </div>
     <p class="tw:text-xs tw:text-secondary">
       Define the data fields that assignees must fill in when completing this step.

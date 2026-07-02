@@ -1,4 +1,5 @@
 @import 'tailwindcss' prefix(tw);
+@import '@fontsource-variable/inter';
 @plugin "@tailwindcss/forms";
 @plugin "@tailwindcss/typography";
 @plugin "@tailwindcss/aspect-ratio";
@@ -7,6 +8,17 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+  /* ==============================================
+   * Font family — the ONE app typeface.
+   * Inter Variable (self-hosted via @fontsource-variable/inter, wght 100–900).
+   * Overriding --font-sans flows into Tailwind's --default-font-family, so
+   * html/body and every element inherit it — components never declare their
+   * own font-family (print modules and `tw:font-mono` code surfaces excepted).
+   * ============================================== */
+  --font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+
   /* Main */
   --color-main: var(--main);
   --color-on-main: var(--on-main);
@@ -237,6 +249,24 @@
     /* Legacy grey scale → neutral aliases */
     --grey-4: var(--color-neutral-400);
     --grey-5: var(--secondary);
+  }
+
+  /* ==============================================
+   * Typography baseline
+   * ==============================================
+   * body font-size = the `body` token (14px), so text WITHOUT an explicit
+   * tw:text-* class matches the app's body size instead of the 16px browser
+   * default (this is what the dead text-12/text-14 classes silently fell
+   * back to). rem-based utilities are unaffected (rem tracks <html>, which
+   * stays 16px). Antialiasing matches how Inter is tuned for SaaS UIs.
+   * ============================================== */
+  body {
+    /* @theme vars are emitted with the tw prefix (--tw-text-body). */
+    font-size: var(--tw-text-body, 14px);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   /* Global Scrollbar */

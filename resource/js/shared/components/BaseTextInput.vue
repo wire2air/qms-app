@@ -138,7 +138,7 @@ const inline = computed(() => props.labelLeft || props.labelRight)
 const cssClass = computed(() => {
   let c =
     'tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:text-sm tw:text-main-text tw:placeholder-main-text-muted tw:transition-[border-color,box-shadow] tw:duration-200 tw:focus:outline-none tw:focus:border-primary tw:focus:ring-2 tw:focus:ring-primary/30 tw:disabled:cursor-not-allowed tw:disabled:opacity-60 tw:disabled:bg-main-unselected'
-  if (props.size === 'sm') c += ' tw:py-1.5 tw:text-12'
+  if (props.size === 'sm') c += ' tw:py-1.5 tw:text-xs'
   else c += ' tw:py-2.5'
 
   // Left padding - conditional based on icon slot
@@ -188,11 +188,10 @@ defineExpose({
     >
       <label
         v-if="label || slots.label"
-        class="tw:dark:text-white"
+        class="tw:text-label tw:font-medium tw:text-on-main"
         :class="{
           'tw:inline-block': !inline,
           'tw:-mb-2': !inline && size === 'md',
-          'tw:text-12': size === 'sm',
           'tw:mr-2': labelLeft,
           'tw:ml-2': labelRight,
         }"
@@ -205,10 +204,9 @@ defineExpose({
       </label>
       <div
         v-if="instructions"
-        class="tw:text-grey-5 tw:dark:text-grey-4 tw:max-w-none tw:dark:prose-invert [&>p>a]:tw:underline"
+        class="tw:text-caption tw:text-secondary tw:max-w-none tw:dark:prose-invert [&>p>a]:tw:underline"
         :class="{
-          'tw:text-14 tw:mb-4': size === 'md',
-          'tw:text-12': size === 'sm',
+          'tw:mb-4': size === 'md',
         }"
         v-html="renderedInstructions"
       />

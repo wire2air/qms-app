@@ -205,7 +205,7 @@ async function confirm() {
             <!-- Step header — name + ALL/ANY runtime policy + role chip(s) -->
             <div class="tw:mb-3 tw:flex tw:items-start tw:justify-between tw:gap-3">
               <div>
-                <h3 class="tw:font-bold tw:text-on-main">
+                <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">
                   Step {{ step.stepOrder }}: {{ step.name }}
                 </h3>
                 <p class="tw:text-xs tw:text-secondary tw:mt-0.5">

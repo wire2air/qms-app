@@ -52,7 +52,7 @@ const className = computed(() => {
 
 <template>
   <span
-    class="tw:inline-flex tw:items-center tw:text-micro tw:font-semibold tw:rounded tw:px-2 tw:py-0.5 tw:whitespace-nowrap"
+    class="tw:inline-flex tw:items-center tw:text-xs tw:font-medium tw:rounded-md tw:border tw:border-current/20 tw:px-2 tw:py-0.5 tw:whitespace-nowrap"
     :class="className"
   >
     {{ label }}

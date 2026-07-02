@@ -304,7 +304,7 @@ async function handleReviewersConfirmed(reviewers) {
           Linked to Nonconformance
           <RouterLink
             :to="getCompanyPath(`/nonconformances/${sourceNc.id}`)"
-            class="tw:font-mono tw:font-semibold tw:underline tw:ml-1"
+            class="tw:font-semibold tw:underline tw:ml-1"
           >
             {{ sourceNc.ncNumber }}
           </RouterLink>

@@ -124,7 +124,7 @@ watch(
     <BaseRailCard title="Properties" :icon="IconSettings">
       <div class="tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
         <BaseDetailField label="Document ID">
-          <BaseText variant="body" weight="medium" class="tw:font-mono tw:text-on-main">
+          <BaseText variant="body" weight="medium" class="tw:text-on-main">
             {{ document.docNumber }}
           </BaseText>
         </BaseDetailField>

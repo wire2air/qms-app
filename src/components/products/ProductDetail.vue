@@ -79,7 +79,7 @@ const productDetailConfig = computed(() =>
     </template>
 
     <template v-if="product" #meta>
-      <span class="tw:font-mono">{{ product.sku }}</span>
+      <span class="">{{ product.sku }}</span>
     </template>
 
     <template #actions>
@@ -94,7 +94,7 @@ const productDetailConfig = computed(() =>
         </div>
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">SKU</p>
-          <p class="tw:text-on-sidebar tw:font-mono">{{ product.sku }}</p>
+          <p class="tw:text-on-sidebar">{{ product.sku }}</p>
         </div>
         <div>
           <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Product Family</p>

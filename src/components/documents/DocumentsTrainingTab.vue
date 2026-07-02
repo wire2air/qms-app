@@ -413,7 +413,7 @@ function libraryAssigneeStats(instanceId) {
       >
         <div class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:mb-3">
           <div>
-            <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">
+            <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">
               {{ latestInstance.snapshot?.title || training.title }}
             </h2>
             <p

@@ -54,10 +54,10 @@ function open() {
     :title="`Open linked ${kind}`"
     @click.stop="open"
   >
-    <span class="tw:font-mono">{{ code }}</span>
+    <span class="">{{ code }}</span>
     <span
       v-if="status"
-      class="tw:rounded tw:bg-white/70 tw:px-1 tw:text-[9px] tw:font-semibold tw:uppercase tw:tracking-wide"
+      class="tw:rounded tw:bg-white/70 tw:px-1 tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide"
     >
       {{ status }}
     </span>

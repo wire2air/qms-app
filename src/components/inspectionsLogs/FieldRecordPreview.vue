@@ -907,7 +907,7 @@ function close() {
               :key="rev.id"
               class="tw:flex tw:items-start tw:gap-3 tw:pb-3 tw:border-b tw:border-divider tw:last:border-b-0 tw:last:pb-0"
             >
-              <div class="tw:shrink-0 tw:text-xs tw:font-mono tw:text-secondary tw:mt-0.5">
+              <div class="tw:shrink-0 tw:text-xs tw:text-secondary tw:mt-0.5">
                 #{{ rev.revisionNumber }}
               </div>
               <div class="tw:flex-1 tw:min-w-0">
@@ -927,7 +927,7 @@ function close() {
                   </span>
                   <span
                     v-if="rev.reviewOutcome"
-                    class="tw:text-micro tw:font-mono tw:text-secondary"
+                    class="tw:text-micro tw:text-secondary"
                   >
                     {{ rev.reviewOutcome }}
                   </span>

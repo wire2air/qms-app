@@ -489,7 +489,7 @@ function handleSubmit(data, done) {
           </div>
           <div class="tw:p-4">
             <pre
-              class="tw:bg-[#1e293b] tw:text-[#4ade80] tw:p-4 tw:rounded-lg tw:font-mono tw:text-xs tw:overflow-x-auto tw:max-h-100 tw:m-0"
+              class="tw:bg-code tw:text-green-500 tw:p-4 tw:rounded-lg tw:font-mono tw:text-xs tw:overflow-x-auto tw:max-h-100 tw:m-0"
             >
               {{ JSON.stringify(formData, null, 2) }}
             </pre>

@@ -45,7 +45,7 @@ const pending = useLiveQuery(
         <div class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">
           {{ p.doc?.title || 'Document' }}
         </div>
-        <div class="tw:text-xs tw:text-secondary tw:font-mono">
+        <div class="tw:text-xs tw:text-secondary">
           {{ p.doc?.docNumber }} · v{{
             p.version.versionLabel || `${p.version.versionMajor}.${p.version.versionMinor}`
           }}

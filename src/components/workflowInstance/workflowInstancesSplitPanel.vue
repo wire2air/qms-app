@@ -37,7 +37,7 @@ const canActOnStep = computed(() => myTask.value?.statusId === 'ASSIGNED')
           >
             Current Task
           </span>
-          <BaseText variant="overline" class="tw:font-mono">
+          <BaseText variant="overline" class="">
             {{ doc?.docNumber || instance.id.slice(0, 8) }}
           </BaseText>
         </div>

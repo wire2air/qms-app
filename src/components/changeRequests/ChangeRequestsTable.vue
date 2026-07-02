@@ -65,7 +65,7 @@ const columns = computed(() => {
     <template #body-cell-crNumber="{ row }">
       <RouterLink
         :to="getCompanyPath(`/change-requests/${row.id}`)"
-        class="tw:text-xs tw:font-mono tw:font-medium tw:text-primary tw:hover:underline"
+        class="tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
       >
         {{ row.crNumber || '—' }}
       </RouterLink>

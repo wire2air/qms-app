@@ -26,7 +26,7 @@ defineProps({
         >
           <IconShieldCheck :size="20" class="tw:text-sky-600" />
         </div>
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Risk Profile</h3>
+        <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">Risk Profile</h3>
       </div>
       <div class="tw:p-6 tw:space-y-6">
         <div>

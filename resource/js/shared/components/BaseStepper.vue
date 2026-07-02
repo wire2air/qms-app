@@ -106,7 +106,7 @@ function onClick(step, index) {
             >
               {{ step.title }}
             </span>
-            <span v-if="step.description" class="tw:mt-0.5 tw:block tw:text-[11px] tw:text-secondary">
+            <span v-if="step.description" class="tw:mt-0.5 tw:block tw:text-caption tw:text-secondary">
               {{ step.description }}
             </span>
           </span>

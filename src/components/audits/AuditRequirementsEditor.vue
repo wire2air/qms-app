@@ -392,11 +392,11 @@ async function handleBulkEnrich() {
           :aria-expanded="expandedIds.has(row.id)"
           @click="toggleExpanded(row.id)"
         >
-          <code
-            class="tw:text-xs tw:font-mono tw:bg-white tw:text-on-main tw:rounded tw:px-2 tw:py-0.5 tw:font-semibold tw:shrink-0"
+          <span
+            class="tw:text-xs tw:bg-white tw:text-on-main tw:rounded tw:px-2 tw:py-0.5 tw:font-semibold tw:shrink-0"
           >
             {{ row.clauseNumber }}
-          </code>
+          </span>
           <div class="tw:flex-1 tw:min-w-0">
             <div class="tw:text-sm tw:font-medium tw:text-on-main">{{ row.title }}</div>
             <div v-if="row.question" class="tw:text-xs tw:text-secondary tw:mt-0.5">
@@ -639,7 +639,7 @@ async function handleBulkEnrich() {
                   </button>
                 </div>
               </div>
-              <p v-else class="tw:text-xs tw:text-secondary tw:italic">{{ cl.empty }}</p>
+              <p v-else class="tw:text-xs tw:text-secondary">{{ cl.empty }}</p>
             </div>
 
             <!-- People / roles to interview (free-text roles/titles). -->
