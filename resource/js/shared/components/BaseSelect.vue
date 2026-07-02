@@ -473,7 +473,13 @@ defineExpose({
       >
         <slot name="prepend" />
 
-        <div class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-1">
+        <!-- Single-select shows the value as bare text: strip the badge's pill
+             border so it doesn't read as a box-in-a-box inside the trigger.
+             Multi-select keeps chip borders. -->
+        <div
+          class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-1"
+          :class="!multiple && 'tw:[&_*]:border-transparent!'"
+        >
           <slot
             v-if="hasValue"
             name="selected"
