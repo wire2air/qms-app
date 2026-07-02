@@ -5,6 +5,7 @@
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { get, post } from '@/api'
 import MfaSetupWizard from '@/components/security/MfaSetupWizard.vue'
+import PasswordStrengthMeter from '@/components/auth/PasswordStrengthMeter.vue'
 import {
   IconShieldLock,
   IconShieldCheck,
@@ -13,6 +14,8 @@ import {
   IconAlertTriangle,
   IconCopy,
   IconDownload,
+  IconKey,
+  IconLock,
 } from '@tabler/icons-vue'
 
 defineOptions({ name: 'SecurityPage' })
@@ -90,6 +93,43 @@ async function confirmVerify() {
     dialogCode.value = ''
   } finally {
     dialogBusy.value = false
+  }
+}
+
+// ── Change password ─────────────────────────────────────────────────────────
+const currentPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const newValid = ref(false)
+const changingPw = ref(false)
+const pwError = ref('')
+
+const canChangePw = computed(
+  () =>
+    currentPassword.value &&
+    newValid.value &&
+    newPassword.value &&
+    newPassword.value === confirmPassword.value,
+)
+
+async function changePassword() {
+  if (changingPw.value || !canChangePw.value) return
+  changingPw.value = true
+  pwError.value = ''
+  try {
+    await post(
+      '/v1/auth/password/change',
+      { currentPassword: currentPassword.value, newPassword: newPassword.value },
+      { loader: changingPw, showError: false },
+    )
+    toast.success('Password updated')
+    currentPassword.value = ''
+    newPassword.value = ''
+    confirmPassword.value = ''
+  } catch (err) {
+    pwError.value = err?.message || 'Could not update your password. Try another.'
+  } finally {
+    changingPw.value = false
   }
 }
 
@@ -197,6 +237,63 @@ function downloadNewCodes() {
       </BaseCard>
     </PageSection>
 
+    <PageSection title="Password" :icon="IconKey">
+      <BaseCard>
+        <div class="tw:flex tw:flex-col tw:gap-4 tw:max-w-md">
+          <BaseTextInput
+            v-model="currentPassword"
+            type="password"
+            label="Current password"
+            placeholder="Current password"
+            autocomplete="current-password"
+            :disabled="changingPw"
+          >
+            <template #icon><IconLock :size="16" class="tw:text-secondary" /></template>
+          </BaseTextInput>
+
+          <div class="tw:flex tw:flex-col tw:gap-2">
+            <BaseTextInput
+              v-model="newPassword"
+              type="password"
+              label="New password"
+              placeholder="New password"
+              autocomplete="new-password"
+              :disabled="changingPw"
+            >
+              <template #icon><IconLock :size="16" class="tw:text-secondary" /></template>
+            </BaseTextInput>
+            <PasswordStrengthMeter v-model="newPassword" @update:valid="newValid = $event" />
+          </div>
+
+          <BaseTextInput
+            v-model="confirmPassword"
+            type="password"
+            label="Confirm new password"
+            placeholder="Confirm new password"
+            autocomplete="new-password"
+            :disabled="changingPw"
+            :errorMsg="
+              confirmPassword && newPassword !== confirmPassword ? 'Passwords do not match' : pwError
+            "
+            @keyup.enter="changePassword"
+          >
+            <template #icon><IconLock :size="16" class="tw:text-secondary" /></template>
+          </BaseTextInput>
+
+          <div>
+            <BaseButton
+              variant="primary"
+              :isLoading="changingPw"
+              :disabled="!canChangePw"
+              @click="changePassword"
+            >
+              Update password
+            </BaseButton>
+          </div>
+        </div>
+      </BaseCard>
+    </PageSection>
+
     <!-- Verify dialog for disable / regenerate -->
     <BaseDialog v-model="dialogOpen" :title="dialogTitle">
       <div class="tw:flex tw:flex-col tw:gap-4">
@@ -212,7 +309,7 @@ function downloadNewCodes() {
             <code
               v-for="c in newCodes"
               :key="c"
-              class="tw:text-center tw:font-mono tw:text-sm tw:tracking-wider tw:text-on-main"
+              class="tw:text-center tw:text-sm tw:tracking-wider tw:text-on-main"
             >
               {{ c }}
             </code>

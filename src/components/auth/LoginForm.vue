@@ -2,6 +2,7 @@
 import { IconUser, IconMail, IconLock, IconBuilding, IconArrowLeft } from '@tabler/icons-vue'
 import { currentSubdomain, rootDomain, apexOrigin } from '@/utils/tenant'
 import MfaVerifyForm from '@/components/auth/MfaVerifyForm.vue'
+import ForcePasswordChangeForm from '@/components/auth/ForcePasswordChangeForm.vue'
 
 const props = defineProps({
   mode: {
@@ -29,6 +30,9 @@ const isSignup = computed(() => props.mode === 'signup')
 // When login succeeds but the account has MFA enrolled, the backend returns a
 // pending-MFA challenge instead of a session. We swap the form for the verifier.
 const mfaState = ref(null)
+// When the account must set a new password first (first login / expiry), the
+// backend returns a pending-change challenge; we swap in the force-change form.
+const mustChangeState = ref(null)
 
 // The tenant whose /signin we're on (acme.qability.com → "acme"), or null on the
 // apex host. When set, the form offers a way back to the workspace picker so a
@@ -117,7 +121,13 @@ async function submitForm() {
       const ct = response.headers.get('content-type')
       if (ct && ct.includes('application/json')) {
         const data = await response.json()
-        if (data?.mfaRequired) {
+        if (data?.mustChangePassword) {
+          mustChangeState.value = {
+            pendingToken: data.pendingToken,
+            reason: data.reason || 'FIRST_LOGIN',
+            email: email.value,
+          }
+        } else if (data?.mfaRequired) {
           mfaState.value = {
             pendingToken: data.pendingToken,
             availableFactors: data.availableFactors || ['totp'],
@@ -155,8 +165,21 @@ async function submitForm() {
 </script>
 
 <template>
+  <ForcePasswordChangeForm
+    v-if="mustChangeState"
+    :pendingToken="mustChangeState.pendingToken"
+    :email="mustChangeState.email"
+    :reason="mustChangeState.reason"
+    @mfa="
+      (m) => {
+        mfaState = { ...m, email: mustChangeState.email }
+        mustChangeState = null
+      }
+    "
+    @cancel="mustChangeState = null"
+  />
   <MfaVerifyForm
-    v-if="mfaState"
+    v-else-if="mfaState"
     :pendingToken="mfaState.pendingToken"
     :availableFactors="mfaState.availableFactors"
     :email="mfaState.email"

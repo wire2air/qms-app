@@ -135,7 +135,7 @@ function finish() {
         <div class="tw:w-full">
           <p class="tw:text-caption tw:text-secondary tw:mb-1">Can't scan? Enter this key manually:</p>
           <code
-            class="tw:block tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:px-3 tw:py-2 tw:text-center tw:font-mono tw:text-sm tw:tracking-widest tw:break-all tw:text-on-main"
+            class="tw:block tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:px-3 tw:py-2 tw:text-center tw:text-sm tw:tracking-widest tw:break-all tw:text-on-main"
           >
             {{ secret }}
           </code>
@@ -177,7 +177,7 @@ function finish() {
         <code
           v-for="c in recoveryCodes"
           :key="c"
-          class="tw:text-center tw:font-mono tw:text-sm tw:tracking-wider tw:text-on-main"
+          class="tw:text-center tw:text-sm tw:tracking-wider tw:text-on-main"
         >
           {{ c }}
         </code>
@@ -192,10 +192,7 @@ function finish() {
         </BaseButton>
       </div>
 
-      <label class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main tw:cursor-pointer">
-        <input v-model="acknowledged" type="checkbox" class="tw:mt-0.5" />
-        <span>I've saved my recovery codes somewhere safe.</span>
-      </label>
+      <BaseCheckbox v-model="acknowledged" label="I've saved my recovery codes somewhere safe." />
 
       <div class="tw:flex tw:justify-end">
         <BaseButton variant="primary" :disabled="!acknowledged" @click="finish">
