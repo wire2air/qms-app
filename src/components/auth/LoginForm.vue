@@ -1,6 +1,7 @@
 <script setup>
 import { IconUser, IconMail, IconLock, IconBuilding, IconArrowLeft } from '@tabler/icons-vue'
 import { currentSubdomain, rootDomain, apexOrigin } from '@/utils/tenant'
+import MfaVerifyForm from '@/components/auth/MfaVerifyForm.vue'
 
 const props = defineProps({
   mode: {
@@ -24,6 +25,10 @@ const firstName = ref('')
 const lastName = ref('')
 
 const isSignup = computed(() => props.mode === 'signup')
+
+// When login succeeds but the account has MFA enrolled, the backend returns a
+// pending-MFA challenge instead of a session. We swap the form for the verifier.
+const mfaState = ref(null)
 
 // The tenant whose /signin we're on (acme.qability.com → "acme"), or null on the
 // apex host. When set, the form offers a way back to the workspace picker so a
@@ -105,6 +110,20 @@ async function submitForm() {
       }
       if (response.redirected) {
         window.location.href = response.url
+        return
+      }
+      // A 200 without a redirect means the account needs a second factor:
+      // the body carries a short-lived pending token + the allowed methods.
+      const ct = response.headers.get('content-type')
+      if (ct && ct.includes('application/json')) {
+        const data = await response.json()
+        if (data?.mfaRequired) {
+          mfaState.value = {
+            pendingToken: data.pendingToken,
+            availableFactors: data.availableFactors || ['totp'],
+            email: email.value,
+          }
+        }
       }
       return
     }
@@ -136,7 +155,14 @@ async function submitForm() {
 </script>
 
 <template>
-  <div class="tw:w-full tw:max-w-105">
+  <MfaVerifyForm
+    v-if="mfaState"
+    :pendingToken="mfaState.pendingToken"
+    :availableFactors="mfaState.availableFactors"
+    :email="mfaState.email"
+    @cancel="mfaState = null"
+  />
+  <div v-else class="tw:w-full tw:max-w-105">
     <div class="tw:pb-1">
       <div class="tw:text-2xl tw:font-bold tw:text-on-main">
         {{ mode === 'signup' ? 'Sign up to continue' : 'Welcome back' }}

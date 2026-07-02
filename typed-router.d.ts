@@ -457,6 +457,13 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/security': RouteRecordInfo<
+      '/security',
+      '/security',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/settings': RouteRecordInfo<
       '/settings',
       '/settings',
@@ -972,6 +979,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/roles/[[id]].vue': {
       routes:
         | '/roles/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/security.vue': {
+      routes:
+        | '/security'
       views:
         | never
     }

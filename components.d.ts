@@ -690,6 +690,8 @@ declare module 'vue' {
     MainHeader: typeof import('./src/components/layout/MainHeader.vue')['default']
     MainSidebar: typeof import('./src/components/layout/MainSidebar.vue')['default']
     MentionList: typeof import('./src/components/editor/extensions/MentionList.vue')['default']
+    MfaSetupWizard: typeof import('./src/components/security/MfaSetupWizard.vue')['default']
+    MfaVerifyForm: typeof import('./src/components/auth/MfaVerifyForm.vue')['default']
     ModuleBadge: typeof import('./src/components/badges/ModuleBadge.vue')['default']
     ModuleBadgeById: typeof import('./src/components/badges/ModuleBadgeById.vue')['default']
     Modules: typeof import('./src/components/print/modules/index.js')['default']
