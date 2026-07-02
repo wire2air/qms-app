@@ -17,7 +17,9 @@ const template = useLiveQueryWithDeps(
   { models: ['FormTemplate'] },
 )
 const objectType = computed(() => template.value?.internalName || '')
-const moduleFields = computed(() => moduleAutomationFields(template.value?.schema || []))
+const moduleFields = computed(() =>
+  moduleAutomationFields(template.value?.schema || [], template.value?.moduleConfig || null),
+)
 
 const rules = useLiveQueryWithDeps(
   [() => objectType.value],

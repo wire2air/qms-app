@@ -22,6 +22,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Module templates only: show the per-field Scoring sub-panel (stored on
+  // field.scoring). Off for plain forms / log books / workflow steps where the
+  // scoring engine never runs.
+  showScoring: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const field = defineModel('field', {
@@ -38,6 +45,24 @@ const canPlaceInSection = computed(
 const hasTypeSettings = computed(() => TYPE_SETTINGS_TYPES.has(field.value?.type))
 const isNumberType = computed(() => NUMBER_TYPES.has(field.value?.type))
 const hasOptions = computed(() => OPTIONS_TYPES.has(field.value?.type))
+
+// Input types that can contribute to a module record's weighted score.
+const SCORABLE_TYPES = new Set([
+  'checkbox',
+  'toggle',
+  'select',
+  'radio',
+  'optionGroup',
+  'number',
+  'slider',
+  'rating',
+  'textarea',
+  'textEditor',
+  'file',
+])
+const isScorable = computed(
+  () => props.showScoring && SCORABLE_TYPES.has(field.value?.type),
+)
 
 // Heading field settings — segmented-control options.
 const HEADING_SIZES = [
@@ -427,6 +452,9 @@ function updateRowColClass(value) {
           </div>
         </template>
       </div>
+
+      <!-- Scoring (module templates only) -->
+      <ConfigFieldScoring v-if="isScorable" v-model:field="field" />
 
       <!-- Styling -->
       <ConfigStyling v-model:field="field" />

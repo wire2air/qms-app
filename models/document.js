@@ -48,7 +48,8 @@ export class Document extends BaseModel {
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) workflowVersionId = ''
   @Property({ type: String, required: true }) prefix = ''
-  @Property({ type: String }) relatedStandardId = ''
+  // Nullable UUID FK to the RelatedStandard lookup — default null (not '').
+  @Property({ type: String }) relatedStandardId = null
   @Property({ type: Number, required: true }) periodicReviewMonths = 12
   @Property({ type: Boolean }) autoEffectiveOnApproval = true
   // Periodic review (ISO 9001 / 13485 — confirm doc still valid every N months).

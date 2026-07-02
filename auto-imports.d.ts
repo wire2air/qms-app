@@ -15,6 +15,8 @@ declare global {
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
   const bucketActions: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').bucketActions
   const buildBreadcrumbs: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').buildBreadcrumbs
+  const collectScoredFields: typeof import('./src/composables/useModuleScoring.js').collectScoredFields
+  const computeFormScore: typeof import('./src/composables/useModuleScoring.js').computeFormScore
   const computed: typeof import('vue').computed
   const computedAsync: typeof import('@vueuse/core').computedAsync
   const computedEager: typeof import('@vueuse/core').computedEager
@@ -138,6 +140,7 @@ declare global {
   const resolveChildren: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').resolveChildren
   const resolveComponent: typeof import('vue').resolveComponent
   const resolveDetailState: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').resolveDetailState
+  const resolveFieldScore: typeof import('./src/composables/useModuleScoring.js').resolveFieldScore
   const resolveListState: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').resolveListState
   const resolveNavModel: typeof import('./resource/js/shared/composables/detailNavHelpers.js').resolveNavModel
   const resolveRef: typeof import('@vueuse/core').resolveRef
@@ -153,6 +156,7 @@ declare global {
   const shouldSearch: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').shouldSearch
   const syncRef: typeof import('@vueuse/core').syncRef
   const syncRefs: typeof import('@vueuse/core').syncRefs
+  const templateHasScoring: typeof import('./src/composables/useModuleScoring.js').templateHasScoring
   const templateRef: typeof import('@vueuse/core').templateRef
   const throttledRef: typeof import('@vueuse/core').throttledRef
   const throttledWatch: typeof import('@vueuse/core').throttledWatch
@@ -290,6 +294,7 @@ declare global {
   const useMemoize: typeof import('@vueuse/core').useMemoize
   const useMemory: typeof import('@vueuse/core').useMemory
   const useModel: typeof import('vue').useModel
+  const useModuleScoring: typeof import('./src/composables/useModuleScoring.js').useModuleScoring
   const useMounted: typeof import('@vueuse/core').useMounted
   const useMouse: typeof import('@vueuse/core').useMouse
   const useMouseInElement: typeof import('@vueuse/core').useMouseInElement

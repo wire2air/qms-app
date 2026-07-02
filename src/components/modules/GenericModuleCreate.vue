@@ -6,6 +6,9 @@ import { IconForms } from '@tabler/icons-vue'
 
 const props = defineProps({ moduleKey: { type: String, required: true } })
 const router = useRouter()
+const route = useRoute()
+// Optional supplier context (create-from-supplier, e.g. "New Qualification").
+const supplierId = computed(() => route.query.supplierId || null)
 
 const template = useLiveQueryWithDeps(
   [() => props.moduleKey],
@@ -40,6 +43,7 @@ async function create() {
     const res = await post('/v1/services/form-modules/records', {
       templateId: template.value.id,
       payload: formData.value,
+      ...(supplierId.value ? { supplierId: supplierId.value } : {}),
     })
     const record = res?.record ?? res
     router.push(getCompanyPath(`/m/${props.moduleKey}/${record.id}`))

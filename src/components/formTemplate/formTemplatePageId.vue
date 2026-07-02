@@ -36,6 +36,9 @@ const breadcrumbItems = computed(() => {
   if (mode.value === 'automation') {
     items.push({ label: 'Automation' })
   }
+  if (mode.value === 'scoring') {
+    items.push({ label: 'Scoring' })
+  }
 
   return items
 })
@@ -56,4 +59,6 @@ const breadcrumbItems = computed(() => {
     v-else-if="mode === 'automation' && template"
     :templateId="props.id"
   />
+
+  <FormTemplateScoring v-else-if="mode === 'scoring' && template" :templateId="props.id" />
 </template>

@@ -33,6 +33,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Module templates only: surface the per-field Scoring sub-panel in the field
+  // editor (stored on field.scoring). Off by default so plain forms / log books
+  // / workflow-step builders are unaffected.
+  showScoring: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['save', 'update:schema'])
@@ -410,6 +417,7 @@ function copyJson() {
                 v-model:field="selectedField"
                 :path="selectedFieldPath"
                 :showSectionPlacement="showSectionPlacement"
+                :showScoring="showScoring"
               />
             </div>
           </aside>

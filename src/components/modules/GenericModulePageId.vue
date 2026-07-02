@@ -1,6 +1,6 @@
 <script setup>
 import { IconForms } from '@tabler/icons-vue'
-import { currentSession } from '@/utils/currentSession'
+import { currentSession, canUseAi } from '@/utils/currentSession'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import DynamicForm from '@/components/form/DynamicForm.js'
 
@@ -47,8 +47,17 @@ const title = computed(
   () => template.value?.moduleConfig?.displayName || template.value?.title || 'Record',
 )
 
+// Scoring — live preview while editable, sealed result once COMPLETE/terminal.
+const moduleScoring = computed(() => template.value?.moduleConfig?.scoring || null)
+const sealedScoring = computed(() =>
+  isComplete.value || isTerminal.value ? record.value?.scoringResult || null : null,
+)
+
 // Owner-level section answers — autosave while editable.
 const formData = ref({})
+// Payload for the live score preview: the sealed record payload overlaid with
+// the owner's in-progress edits.
+const livePayload = computed(() => ({ ...(record.value?.payload || {}), ...formData.value }))
 const ownerFormRef = ref(null)
 const seeded = ref(false)
 watch(
@@ -145,6 +154,14 @@ async function closeRecord() {
         <FormSchemaReadonlyView v-else :fields="ownerFields" :values="record.payload || {}" />
       </BaseCard>
 
+      <!-- AI sidecar: on-demand scoring of AI-enabled fields (owner-editable
+           only; results feed the weighted score). Hidden for non-AI tenants. -->
+      <ModuleAiEvaluationCard
+        v-if="canUseAi && ownerEditable"
+        v-model:payload="formData"
+        :schema="ownerFields"
+      />
+
       <!-- Draft: read-only preview of the routed sections (the workflow steps). -->
       <BaseCard v-if="isDraft && hasRoutedSections">
         <GenericModuleWorkflowPreview :schema="fields" />
@@ -162,9 +179,15 @@ async function closeRecord() {
         </BaseCard>
       </div>
 
-      <!-- Right rail: optional first-class fields. -->
-      <div class="tw:w-full tw:lg:w-72 tw:shrink-0">
+      <!-- Right rail: optional first-class fields + live/sealed score. -->
+      <div class="tw:w-full tw:lg:w-72 tw:shrink-0 tw:flex tw:flex-col tw:gap-4">
         <GenericModuleRail :recordId="id" :editable="!isTerminal" />
+        <ScoringSummaryCard
+          :schema="fields"
+          :payload="livePayload"
+          :moduleScoring="moduleScoring"
+          :sealed="sealedScoring"
+        />
       </div>
     </div>
 

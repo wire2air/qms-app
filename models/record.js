@@ -5,7 +5,7 @@ import { DateTime } from 'luxon'
 @ClientModel('records', {
   primaryKey: 'id',
   syncField: 'updatedAt',
-  customIndex: 'templateId, moduleKey',
+  customIndex: 'templateId, moduleKey, supplierId',
 })
 export class Record extends BaseModel {
   static paranoid = true // Enable soft deletes using deletedAt field
@@ -43,6 +43,10 @@ export class Record extends BaseModel {
   @Property({ type: String }) departmentId = ''
   @Property({ type: DateTime }) dueDate = null
   @Property({ type: DateTime }) completedAt = null
+  @Property({ type: String }) supplierId = ''
+  @Property({ type: DateTime }) nextReviewDate = null
+  // Computed weighted score + rating band, sealed on workflow complete.
+  @Property({ type: Object }) scoringResult = null
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)

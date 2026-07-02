@@ -1,5 +1,5 @@
 <script setup>
-import { IconTrash, IconEdit, IconCode, IconRocket, IconBolt } from '@tabler/icons-vue'
+import { IconTrash, IconEdit, IconCode, IconRocket, IconBolt, IconChartBar } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
@@ -131,6 +131,14 @@ async function handleDelete() {
         >
           <IconBolt :size="16" class="tw:mr-1" />
           Automation
+        </BaseButton>
+        <BaseButton
+          v-if="template.isModule"
+          variant="outline"
+          :to="getCompanyPath(`/templates/${template.id}?mode=scoring`)"
+        >
+          <IconChartBar :size="16" class="tw:mr-1" />
+          Scoring
         </BaseButton>
         <BaseButton
           v-if="canUpdate && !template.isModule"

@@ -177,7 +177,24 @@ export const MODULE_FIRST_CLASS_FIELDS = [
   { key: 'created_at', label: 'Date Created', type: 'date' },
   { key: 'completed_at', label: 'Date Completed', type: 'date' },
   { key: 'due_date', label: 'Due Date', type: 'date' },
+  { key: 'next_review_date', label: 'Next Review Date', type: 'date' },
 ]
+
+// Scoring fields, only offered when the module has rating bands configured. Keys
+// match the worker's buildModuleEvalRow hoist (scoring_total / scoring_rating).
+function moduleScoringFields(moduleConfig) {
+  const bands = moduleConfig?.scoring?.bands
+  if (!bands?.length) return []
+  return [
+    { key: 'scoring_total', label: 'Score', type: 'number' },
+    {
+      key: 'scoring_rating',
+      label: 'Rating',
+      type: 'enum',
+      options: bands.map((b) => ({ value: b.label, label: b.label })),
+    },
+  ]
+}
 
 const FORM_TYPE_TO_AUTOMATION = {
   input: 'string',
@@ -209,8 +226,11 @@ function toOption(o) {
   return { value: o, label: String(o) }
 }
 
-/** Condition fields for a module form = form schema fields + first-class. */
-export function moduleAutomationFields(schema) {
+/**
+ * Condition fields for a module form = first-class + scoring (when bands exist)
+ * + form schema fields.
+ */
+export function moduleAutomationFields(schema, moduleConfig = null) {
   const out = []
   const walk = (nodes) => {
     for (const n of nodes || []) {
@@ -228,7 +248,7 @@ export function moduleAutomationFields(schema) {
     }
   }
   walk(schema || [])
-  return [...MODULE_FIRST_CLASS_FIELDS, ...out]
+  return [...MODULE_FIRST_CLASS_FIELDS, ...moduleScoringFields(moduleConfig), ...out]
 }
 
 export function moduleOperatorsForField(moduleFields, fieldKey) {
