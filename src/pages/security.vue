@@ -6,6 +6,9 @@
 import { get, post } from '@/api'
 import MfaSetupWizard from '@/components/security/MfaSetupWizard.vue'
 import PasswordStrengthMeter from '@/components/auth/PasswordStrengthMeter.vue'
+import ActiveSessions from '@/components/security/ActiveSessions.vue'
+import TrustedDevices from '@/components/security/TrustedDevices.vue'
+import LoginHistory from '@/components/security/LoginHistory.vue'
 import {
   IconShieldLock,
   IconShieldCheck,
@@ -16,6 +19,9 @@ import {
   IconDownload,
   IconKey,
   IconLock,
+  IconDevices,
+  IconDeviceDesktop,
+  IconHistory,
 } from '@tabler/icons-vue'
 
 defineOptions({ name: 'SecurityPage' })
@@ -292,6 +298,18 @@ function downloadNewCodes() {
           </div>
         </div>
       </BaseCard>
+    </PageSection>
+
+    <PageSection title="Active sessions" :icon="IconDevices">
+      <ActiveSessions />
+    </PageSection>
+
+    <PageSection title="Devices" :icon="IconDeviceDesktop">
+      <TrustedDevices />
+    </PageSection>
+
+    <PageSection title="Recent activity" :icon="IconHistory">
+      <LoginHistory />
     </PageSection>
 
     <!-- Verify dialog for disable / regenerate -->

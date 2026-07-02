@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AcceptInvitationForm: typeof import('./src/components/auth/AcceptInvitationForm.vue')['default']
+    ActiveSessions: typeof import('./src/components/security/ActiveSessions.vue')['default']
     AddRecordDialog: typeof import('./src/components/records/AddRecordDialog.vue')['default']
     AdvancedImage: typeof import('./src/components/editor/extensions/image/advancedImage.js')['default']
     AiPatCreateDialog: typeof import('./src/components/aiPat/aiPatCreateDialog.vue')['default']
@@ -687,6 +688,7 @@ declare module 'vue' {
     LogBookVersionSubmitDialog: typeof import('./src/components/inspectionsLogs/LogBookVersionSubmitDialog.vue')['default']
     LoggingDashboard: typeof import('./src/components/inspectionsLogs/LoggingDashboard.vue')['default']
     LoginForm: typeof import('./src/components/auth/LoginForm.vue')['default']
+    LoginHistory: typeof import('./src/components/security/LoginHistory.vue')['default']
     LookupsHome: typeof import('./src/components/company/LookupsHome.vue')['default']
     MainHeader: typeof import('./src/components/layout/MainHeader.vue')['default']
     MainSidebar: typeof import('./src/components/layout/MainSidebar.vue')['default']
@@ -992,6 +994,7 @@ declare module 'vue' {
     TrainingStatusBadgeById: typeof import('./src/components/badges/TrainingStatusBadgeById.vue')['default']
     TrainingVerificationPanel: typeof import('./src/components/trainingVerifications/TrainingVerificationPanel.vue')['default']
     TrainingVerificationsHome: typeof import('./src/components/trainingVerifications/TrainingVerificationsHome.vue')['default']
+    TrustedDevices: typeof import('./src/components/security/TrustedDevices.vue')['default']
     Typography: typeof import('./resource/js/shared/components/typography/typography.js')['default']
     'Typography.spec': typeof import('./resource/js/shared/components/typography/typography.spec.js')['default']
     UseComplaintFilterOptions: typeof import('./src/components/customerComplaints/useComplaintFilterOptions.js')['default']
