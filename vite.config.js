@@ -79,17 +79,6 @@ export default defineConfig(({ mode }) => {
       },
     },
 
-    // Preserve class/function names through minification. The syncEngine keys
-    // every model by its runtime class name (constructor.name / @ClientModel
-    // context.name) and emits syncBus events under it, while components subscribe
-    // with literal model-name strings — e.g. useLiveQuery(fn, { models: ['Site'] }).
-    // Without keepNames, esbuild renames `class Site` → `Xe`, the emit name and the
-    // listener string stop matching, and EVERY live query silently stops re-running
-    // in the production build (works in dev because the dev server doesn't minify).
-    esbuild: {
-      keepNames: true,
-    },
-
     // Dev server configuration
     server: {
       open: true, // opens browser window automatically
