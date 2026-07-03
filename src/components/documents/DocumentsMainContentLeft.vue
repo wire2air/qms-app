@@ -37,18 +37,21 @@ const currentVersion = useLiveQueryWithDeps(
   { models: ['DocumentVersion'] },
 )
 
+// Editable only while the SELECTED version is a working draft (DRAFT/REJECTED).
+// Once submitted for review, approved, or effective, the title and everything
+// else is locked. `document.statusId` is only ACTIVE/ARCHIVED, so the version
+// status is what gates editing.
 const canEdit = computed(
   () =>
-    isAllowed(['documents:update']) && document.value?.statusId !== 'ARCHIVED' && !props.reviewMode,
+    isAllowed(['documents:update']) &&
+    document.value?.statusId !== 'ARCHIVED' &&
+    !props.reviewMode &&
+    ['DRAFT', 'REJECTED'].includes(currentVersion.value?.statusId),
 )
 
-const canUpdateVersion = computed(() => {
-  return (
-    canEdit.value &&
-    currentVersion.value &&
-    ['DRAFT', 'REJECTED'].includes(currentVersion.value.statusId)
-  )
-})
+// canEdit now already encodes the version-status gate; kept as a named alias
+// for the sections list, which reads it as its edit permission.
+const canUpdateVersion = canEdit
 
 const versionLabel = computed(() => {
   const v = currentVersion.value
@@ -78,7 +81,9 @@ const versionLabel = computed(() => {
           </div>
 
           <span class="tw:text-secondary tw:text-sm tw:font-mono">
-            {{ document.docNumber }} v{{ versionLabel }}
+            <template v-if="document.docNumber">{{ document.docNumber }} </template>v{{
+              versionLabel
+            }}
           </span>
         </div>
         <BaseTextInput

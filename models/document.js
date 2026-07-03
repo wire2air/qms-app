@@ -6,7 +6,7 @@ import { DateTime } from 'luxon'
   primaryKey: 'id',
   syncField: 'updatedAt',
   customIndex: 'docNumber',
-  schemaVersion: 4,
+  schemaVersion: 5,
 })
 export class Document extends BaseModel {
   static paranoid = true // Enable soft deletes using deletedAt field
@@ -35,10 +35,13 @@ export class Document extends BaseModel {
   }
 
   @Property({ type: String, uuid: true, required: true }) id = ''
-  @Property({ type: String, required: true }) docNumber = ''
+  // Assigned on first submit-for-review (deferred from create), so a draft
+  // deleted before submission never consumes a sequence number. Null while draft.
+  @Property({ type: String }) docNumber = null
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) departmentId = ''
-  @Property({ type: String, required: true }) documentTypeId = ''
+  // Document Type is no longer captured in the UI; kept nullable for legacy rows.
+  @Property({ type: String }) documentTypeId = null
   @Property({ type: String }) documentTemplateId = ''
   @Property({ type: String, required: true }) userId = ''
   // Owner = userId (accountable); author = originator (creator, reassignable).

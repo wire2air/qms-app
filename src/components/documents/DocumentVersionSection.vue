@@ -1,5 +1,5 @@
 <script setup>
-import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { isAllowed, currentSession, canUseAi } from '@/utils/currentSession.js'
 import { IconMessageCheck, IconMessageExclamation, IconLoader2, IconTrash } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -163,8 +163,13 @@ const debouncedSaveComment = useDebounceFn(async () => {
 
 <template>
   <div v-if="section" class="tw:break-inside-avoid">
-    <!-- Section Title -->
-    <div v-if="canUpdateSection" class="tw:flex tw:items-center tw:gap-2 tw:mb-4">
+    <!-- Section Title — editable only for user-added (add-on) sections. Sections
+         inherited from a template are fixed (can't be deleted), so their title
+         is locked too and renders as an H2 heading for a clean document flow. -->
+    <div
+      v-if="canUpdateSection && section.isAddOn"
+      class="tw:flex tw:items-center tw:gap-2 tw:mb-4"
+    >
       <span>{{ index + 1 }}.</span>
       <BaseTextInput v-model="section.title" size="sm" class="tw:flex-1" />
       <button
@@ -176,14 +181,14 @@ const debouncedSaveComment = useDebounceFn(async () => {
         <IconTrash :size="16" />
       </button>
     </div>
-    <h3
+    <h2
       v-else
-      class="tw:font-bold tw:flex tw:items-center tw:gap-2"
+      class="tw:font-bold tw:flex tw:items-center tw:gap-2 tw:mb-4"
       :class="dense ? 'tw:text-base' : 'tw:text-xl'"
     >
       <span>{{ index + 1 }}.</span>
       <span>{{ section.title }}</span>
-    </h3>
+    </h2>
 
     <!-- Section Content -->
     <div class="section-content">
@@ -194,7 +199,11 @@ const debouncedSaveComment = useDebounceFn(async () => {
         :editable="canUpdateSection"
         :sectionNumber="index + 1"
         class="tw:border-0! tw:min-h-fit!"
-      />
+      >
+        <template #toolbar-extra="{ editor }">
+          <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
+        </template>
+      </BaseRichTextEditor>
 
       <BaseUploader
         v-if="section.sectionType === 'attachment'"

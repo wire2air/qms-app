@@ -1,5 +1,6 @@
 <script setup>
 import { IconLayoutList, IconArrowUp, IconArrowDown, IconTrash, IconPlus } from '@tabler/icons-vue'
+import { canUseAi } from '@/utils/currentSession.js'
 
 const props = defineProps({
   readonly: { type: [Boolean, Function], default: false },
@@ -94,7 +95,11 @@ function moveSectionDown(index) {
                 </select>
               </div>
               <div v-if="section.sectionType === 'text'">
-                <BaseRichTextEditor v-model="section.content" :sectionNumber="sectionIndex + 1" />
+                <BaseRichTextEditor v-model="section.content" :sectionNumber="sectionIndex + 1">
+                  <template #toolbar-extra="{ editor }">
+                    <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
+                  </template>
+                </BaseRichTextEditor>
               </div>
               <div v-else-if="section.sectionType === 'attachment'">
                 <BaseUploader v-model="section.attachments" :hideHeader="true" />

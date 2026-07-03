@@ -20,7 +20,7 @@ const props = defineProps({
 
 const toast = useToast()
 const router = useRouter()
-const { setEffective, cancelReview } = useDocuments()
+const { setEffective, cancelReview, deleteDraftVersion } = useDocuments()
 
 // State
 const document = useLiveQueryWithDeps(
@@ -38,10 +38,16 @@ const versions = useLiveQueryWithDeps(
   { initial: [], models: ['DocumentVersion', 'Document'] },
 )
 
+// Latest SURVIVING version — drives the next version number + section/training
+// cloning. Deliberately excludes soft-deleted versions: a draft that was
+// created and then deleted must free its version number, otherwise the next
+// draft skips ahead (v1 → delete v2 → v3.0) and leaves an auditable gap. Since
+// a new version can't be started while a draft is in flight (see canCreate),
+// the latest survivor here is always the highest committed version.
 const latestVersion = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [documentId]) => {
-    return db.DocumentVersion.where('documentId', documentId, { force: true })
+    return db.DocumentVersion.where('documentId', documentId)
       .orderBy('createdAt', 'desc')
       .first()
   },
@@ -198,6 +204,87 @@ const trainingAssessmentMissing = computed(
   () => !!selectedVersion.value?.trainingConfig?.enabled && !selectedVersion.value?.trainingConfig?.assessment?.length,
 )
 
+// ── Submit-for-review completeness gate ──────────────────────────────────
+// A draft can't go for review until every section is filled in: a non-blank
+// title plus content (rich text for text sections, ≥1 file for attachment
+// sections). A document with no sections at all is incomplete too.
+const selectedVersionSections = useLiveQueryWithDeps(
+  [() => selectedVersion.value?.id],
+  async (db, [versionId]) =>
+    versionId
+      ? db.DocumentSection.where('documentVersionId', versionId).orderBy('order', 'asc').exec()
+      : [],
+  { initial: [], models: ['DocumentSection'] },
+)
+
+function isBlankRichText(html) {
+  if (!html) return true
+  // Strip tags + non-breaking spaces; whitespace-only counts as blank.
+  const text = String(html)
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.length === 0
+}
+
+function sectionIsIncomplete(section) {
+  if (!section.title || !section.title.trim()) return true
+  if (section.sectionType === 'attachment') {
+    const files = section.attachments
+    return !(Array.isArray(files) ? files.length > 0 : !!files)
+  }
+  // text (default) — needs non-blank content
+  return isBlankRichText(section.content)
+}
+
+const incompleteSections = computed(() =>
+  selectedVersionSections.value.filter(sectionIsIncomplete),
+)
+const showIncompleteDialog = ref(false)
+
+// ─── AI: section-aware drafting (view page) ───────────────────────────────
+// Draft/improve the body of the current draft version's sections in place. Only
+// available while the selected version is editable (DRAFT / REJECTED).
+const showDraftSectionsDialog = ref(false)
+const isVersionEditable = computed(
+  () => canEdit.value && ['DRAFT', 'REJECTED'].includes(selectedVersion.value?.statusId),
+)
+const canDraftWithAi = computed(
+  () => canUseAi.value && isOwnerOrAuthor.value && isVersionEditable.value,
+)
+
+const applyAiSections = useLiveMutation(async (db, sections) => {
+  // Match each returned section to the current version's row by title (index
+  // fallback), and write only the ones the AI actually changed.
+  const existing = await db.DocumentSection.where('documentVersionId', selectedVersion.value.id)
+    .orderBy('order', 'asc')
+    .exec()
+  const byTitle = new Map(existing.map((s) => [s.title?.trim().toLowerCase(), s]))
+  let applied = 0
+  for (let i = 0; i < sections.length; i++) {
+    const out = sections[i]
+    if (!out.changed) continue
+    const target = byTitle.get(out.title?.trim().toLowerCase()) ?? existing[i]
+    if (!target) continue
+    target.content = out.content
+    await target.save()
+    applied++
+  }
+  return applied
+})
+
+async function handleAiSectionsDraft({ sections }) {
+  try {
+    const applied = await applyAiSections(sections)
+    toast.success(
+      applied ? `AI draft applied to ${applied} section${applied === 1 ? '' : 's'}.` : 'No changes to apply.',
+    )
+  } catch (e) {
+    toast.error(e?.message || 'Failed to apply AI draft.')
+  }
+}
+
 // Permissions
 // Co-author model: the Owner (userId, accountable) OR the Author (authorId,
 // originator) OR a company owner may drive the document's content / version /
@@ -284,12 +371,56 @@ function handleArchived() {
   router.push(getCompanyPath('/documents'))
 }
 
-async function handleDeleteVersion() {
-  await selectedVersion.value.delete()
-  // watch(versions) will auto-select the next available version
+// ── Draft deletion — hard delete, e-signed, with an audited reason ─────────
+// Deleting a DRAFT/REJECTED version removes the row entirely (frees its version
+// number). When it's the document's only version, the whole draft document
+// goes. Both require a reason + e-sign PIN, recorded in the audit log.
+const showDeleteReasonDialog = ref(false)
+const showDeleteEsignDialog = ref(false)
+const deleteReason = ref('')
+const deleting = ref(false)
+const deletingWholeDocument = computed(() => (versions.value?.length ?? 0) <= 1)
+
+function handleDeleteVersion() {
+  deleteReason.value = ''
+  showDeleteReasonDialog.value = true
+}
+
+function confirmDeleteReason() {
+  if (!deleteReason.value.trim()) return
+  showDeleteReasonDialog.value = false
+  showDeleteEsignDialog.value = true
+}
+
+async function onDeleteEsignVerified({ method, token }) {
+  if (deleting.value || !selectedVersion.value) return
+  deleting.value = true
+  try {
+    const { deletedDocument } = await deleteDraftVersion(props.id, selectedVersion.value.id, {
+      method,
+      token,
+      reason: deleteReason.value.trim(),
+    })
+    showDeleteEsignDialog.value = false
+    toast.success(deletedDocument ? 'Draft document deleted' : 'Draft version deleted')
+    if (deletedDocument) {
+      router.push(getCompanyPath('/documents'))
+    }
+    // Otherwise the versions live query drops the removed version and
+    // watch(versions) auto-selects the next available one.
+  } catch (e) {
+    toast.error(e?.message || 'Failed to delete draft')
+  } finally {
+    deleting.value = false
+  }
 }
 
 function handleSubmitForReview() {
+  // Gate: every section must be complete (and at least one must exist).
+  if (!selectedVersionSections.value.length || incompleteSections.value.length) {
+    showIncompleteDialog.value = true
+    return
+  }
   // Gate: training enabled but no audience → remind before the workflow picker.
   if (trainingAudienceMissing.value) {
     showTrainingReminder.value = true
@@ -520,6 +651,15 @@ const documentDetailConfig = computed(() =>
               :entityNumber="document.docNumber"
             />
             <button
+              v-if="canDraftWithAi && selectedVersion?.id"
+              class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
+              title="Use AI to draft or improve this document's sections"
+              @click="showDraftSectionsDialog = true"
+            >
+              <IconSparkles :size="13" />
+              Draft with AI
+            </button>
+            <button
               v-if="canUseAi && selectedVersion?.id"
               class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
               title="AI-generated summary of this version"
@@ -645,6 +785,45 @@ const documentDetailConfig = computed(() =>
         :versionId="selectedVersion?.id"
       />
 
+      <!-- Incomplete-sections reminder before submitting for review. -->
+      <BaseDialog v-model="showIncompleteDialog" title="Finish all sections" maxWidth="md">
+        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+          <div
+            class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+          >
+            <IconAlertTriangle :size="20" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
+            <div class="tw:text-sm tw:text-amber-900">
+              <template v-if="!selectedVersionSections.length">
+                This document has no sections yet. Add and complete at least one section before
+                submitting it for review.
+              </template>
+              <template v-else>
+                Every section needs a title and content before this document can go for review.
+                The following {{ incompleteSections.length }}
+                {{ incompleteSections.length === 1 ? 'section is' : 'sections are' }} still
+                incomplete:
+              </template>
+            </div>
+          </div>
+          <ul
+            v-if="incompleteSections.length"
+            class="tw:flex tw:flex-col tw:gap-1 tw:text-sm tw:text-secondary tw:pl-1"
+          >
+            <li
+              v-for="s in incompleteSections"
+              :key="s.id"
+              class="tw:flex tw:items-center tw:gap-2"
+            >
+              <span class="tw:text-red-500">•</span>
+              <span>{{ s.title?.trim() || 'Untitled section' }}</span>
+            </li>
+          </ul>
+        </div>
+        <template #footer="{ close }">
+          <BaseButton variant="primary" @click="close">Got it</BaseButton>
+        </template>
+      </BaseDialog>
+
       <!-- Training-not-set reminder before submitting for review. -->
       <BaseDialog v-model="showTrainingReminder" title="Finish training setup" maxWidth="md">
         <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
@@ -711,6 +890,55 @@ const documentDetailConfig = computed(() =>
         :toVersionId="selectedVersion?.id"
         :fromLabel="versionLabelFor(aiDiffFromVersion)"
         :toLabel="versionLabelFor(selectedVersion)"
+      />
+      <!-- Section-aware AI drafting — fills / improves the current draft's
+           sections in place; highlights the sections it changed. -->
+      <DocumentDraftSectionsDialog
+        v-model="showDraftSectionsDialog"
+        :versionId="selectedVersion?.id"
+        @apply="handleAiSectionsDraft"
+      />
+
+      <!-- Draft deletion — capture a reason, then confirm with an e-sign PIN,
+           then hard-delete (see deleteDraftVersion). -->
+      <BaseDialog
+        v-model="showDeleteReasonDialog"
+        :title="deletingWholeDocument ? 'Delete draft document' : 'Delete draft version'"
+        maxWidth="md"
+      >
+        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+          <div
+            class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-red-50 tw:border tw:border-red-200"
+          >
+            <IconAlertTriangle :size="20" class="tw:text-red-600 tw:shrink-0 tw:mt-0.5" />
+            <div class="tw:text-sm tw:text-red-900">
+              This permanently deletes
+              <template v-if="deletingWholeDocument">
+                this draft document and all its content.
+              </template>
+              <template v-else>version {{ versionLabel }} and its content.</template>
+              It can't be undone. You'll confirm with your e-signature PIN.
+            </div>
+          </div>
+          <BaseField label="Reason for deletion" required>
+            <BaseTextarea
+              v-model="deleteReason"
+              :rows="3"
+              placeholder="Why is this draft being deleted? (recorded in the audit log)"
+            />
+          </BaseField>
+        </div>
+        <template #footer="{ close }">
+          <BaseButton variant="outline" @click="close">Cancel</BaseButton>
+          <BaseButton variant="danger" :disabled="!deleteReason.trim()" @click="confirmDeleteReason">
+            Continue
+          </BaseButton>
+        </template>
+      </BaseDialog>
+
+      <WorkflowInstanceEsignAuthDialog
+        v-model="showDeleteEsignDialog"
+        @verified="onDeleteEsignVerified"
       />
       <DocumentsNewVersionDialog
         v-model="showNewVersionDialog"

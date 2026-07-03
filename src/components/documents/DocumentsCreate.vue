@@ -87,29 +87,11 @@ watch(form, () => (isDirty.value = true), { deep: true })
 const { allowLeave } = useUnsavedChangesGuard(isDirty)
 
 const createDocument = useLiveMutation(async (db, formData) => {
-  // Resolve placeholders in prefix → {SITE_CODE}, {DEPARTMENT_CODE}
-  let resolvedPrefix = formData.prefix
-
-  if (/\{SITE_CODE\}/i.test(resolvedPrefix)) {
-    const site = await db.Site.findByPk(formData.siteId)
-    if (!site) throw new Error(`Site not found: ${formData.siteId}`)
-    resolvedPrefix = resolvedPrefix.replace(/\{SITE_CODE\}/gi, site.code)
-  }
-
-  if (/\{DEPARTMENT_CODE\}/i.test(resolvedPrefix)) {
-    const department = await db.Department.findByPk(formData.departmentId)
-    if (!department) throw new Error(`Department not found: ${formData.departmentId}`)
-    resolvedPrefix = resolvedPrefix.replace(/\{DEPARTMENT_CODE\}/gi, department.code)
-  }
-
-  // Get or create counter scoped to the resolved prefix
-  let documentCounter = await db.DocumentCounter.where('prefix', resolvedPrefix).first()
-  if (!documentCounter) {
-    documentCounter = db.DocumentCounter.create({ prefix: resolvedPrefix, currentValue: 1 })
-  } else {
-    documentCounter.currentValue += 1
-  }
-
+  // The document number is NOT minted here. It's assigned by the backend when
+  // the draft is first submitted for review (submitForReview controller), so a
+  // draft that's deleted before submission never burns a sequence number that
+  // auditors would flag as a gap. The prefix is stored on the document and the
+  // counter is resolved/incremented server-side at submit time.
   const doc = db.Document.create({
     title: formData.title,
     documentTypeId: formData.documentTypeId,
@@ -124,10 +106,9 @@ const createDocument = useLiveMutation(async (db, formData) => {
     autoEffectiveOnApproval: formData.autoEffectiveOnApproval,
     workflowVersionId: formData.workflowVersionId,
     statusId: 'ACTIVE',
-    docNumber: `${resolvedPrefix}-${String(documentCounter.currentValue).padStart(3, '0')}`,
+    docNumber: null,
   })
   await doc.save()
-  await documentCounter.save()
 
   const version = db.DocumentVersion.create({
     documentId: doc.id,
