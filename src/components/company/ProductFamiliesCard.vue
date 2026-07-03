@@ -180,7 +180,7 @@ const showDeactivated = ref(false)
       class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
     >
       <div>
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Product Families</h2>
+        <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Product Families</h2>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
           Brand lines or product ranges used to group items in the Item Master. Scoped to this
           company.
@@ -277,7 +277,7 @@ const showDeactivated = ref(false)
 
           <div v-if="!editing">
             <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
                 Code <span class="tw:text-red-500">*</span>
                 <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
                   (auto-derived from name)

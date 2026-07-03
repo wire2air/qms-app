@@ -31,7 +31,7 @@ export const Default = {
     template: `
       <div class="tw:flex tw:flex-col tw:gap-3">
         <BaseQuickFilterPills v-bind="args" v-model="active" />
-        <p class="tw:text-caption tw:text-secondary">Active: <span class="tw:font-mono">{{ active }}</span></p>
+        <p class="tw:text-caption tw:text-secondary">Active: <span class="">{{ active }}</span></p>
       </div>`,
   }),
 }

@@ -516,7 +516,7 @@ const ncDetailConfig = computed(() =>
     </template>
 
     <template v-if="nc" #meta>
-      <span class="tw:font-mono">{{ nc.ncNumber }}</span>
+      <span class="">{{ nc.ncNumber }}</span>
       <template v-if="nc.typeId"> · <NcTypeBadgeById :typeId="nc.typeId" /></template>
       <template v-if="nc.detectedAt"> · Detected {{ nc.detectedAt.formatDate('date') }}</template>
     </template>
@@ -788,7 +788,7 @@ const ncDetailConfig = computed(() =>
             class="tw:flex tw:items-center tw:justify-between tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
           >
             <div class="tw:flex tw:items-center tw:gap-3 tw:min-w-0">
-              <span class="tw:text-xs tw:font-mono tw:text-secondary">
+              <span class="tw:text-xs tw:text-secondary">
                 {{ linked.capaNumber }}
               </span>
               <span class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">
@@ -810,7 +810,7 @@ const ncDetailConfig = computed(() =>
       <BaseRailCard title="General">
         <div class="tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
           <BaseDetailField label="NC number">
-            <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
+            <BaseText variant="body" weight="medium" class="tw:break-words">
               {{ nc.ncNumber || '—' }}
             </BaseText>
           </BaseDetailField>
@@ -1042,19 +1042,19 @@ const ncDetailConfig = computed(() =>
         </BaseDetailField>
         <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
           <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" />
-          <BaseText v-else variant="body" weight="medium" class="tw:font-mono tw:break-words">
+          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
             {{ nc.poNumber }}
           </BaseText>
         </BaseDetailField>
         <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
           <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" />
-          <BaseText v-else variant="body" weight="medium" class="tw:font-mono tw:break-words">
+          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
             {{ nc.orderNumber }}
           </BaseText>
         </BaseDetailField>
         <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
           <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" />
-          <BaseText v-else variant="body" weight="medium" class="tw:font-mono tw:break-words">
+          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
             {{ nc.lotNumber }}
           </BaseText>
         </BaseDetailField>
@@ -1154,7 +1154,7 @@ const ncDetailConfig = computed(() =>
         </div>
 
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
             Completion Notes (optional)
           </p>
           <BaseTextarea

@@ -148,7 +148,7 @@ function updateWhyTreeProblemPrompt(problemPrompt) {
           :key="why.id"
           class="tw:flex tw:items-center tw:gap-2"
         >
-          <span class="tw:text-sm tw:text-secondary tw:font-mono tw:w-6 tw:shrink-0">{{ idx + 1 }}.</span>
+          <span class="tw:text-sm tw:text-secondary tw:w-6 tw:shrink-0">{{ idx + 1 }}.</span>
           <BaseTextInput
             :modelValue="why.prompt"
             placeholder="e.g. Why did this occur?"

@@ -415,9 +415,9 @@ function unlinkedKinds(finding) {
             <IconChevronDown v-if="expanded[finding.id]" :size="16" />
             <IconChevronRight v-else :size="16" />
           </button>
-          <code class="tw:text-xs tw:font-mono tw:text-secondary tw:mt-0.5">
+          <span class="tw:text-xs tw:text-secondary tw:mt-0.5">
             {{ finding.findingNumber }}
-          </code>
+          </span>
           <div class="tw:flex-1 tw:min-w-0 tw:flex tw:flex-col tw:gap-1">
             <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
               <AuditFindingTypeBadgeById :typeId="finding.findingTypeId" />
@@ -539,7 +539,7 @@ function unlinkedKinds(finding) {
           >
             <div class="tw:flex tw:items-center tw:justify-between">
               <span
-                class="tw:text-micro tw:uppercase tw:font-semibold tw:tracking-wide tw:text-secondary"
+                class="tw:text-caption tw:uppercase tw:font-semibold tw:tracking-wider tw:text-secondary"
               >
                 CAPA / Response
               </span>
@@ -551,7 +551,7 @@ function unlinkedKinds(finding) {
               </span>
               <span
                 v-else-if="isOverdue(finding)"
-                class="tw:text-micro tw:text-red-700 tw:font-bold tw:uppercase"
+                class="tw:text-caption tw:text-red-700 tw:font-semibold tw:uppercase tw:tracking-wider"
               >
                 Overdue
               </span>
@@ -600,7 +600,7 @@ function unlinkedKinds(finding) {
                kinds surface as "+ Link" pills that open the picker. -->
           <div v-if="!supplierMode" class="tw:flex tw:flex-wrap tw:gap-1.5 tw:items-center">
             <p
-              class="tw:text-micro tw:text-secondary tw:uppercase tw:font-semibold tw:tracking-wide tw:mr-1"
+              class="tw:text-caption tw:text-secondary tw:uppercase tw:font-semibold tw:tracking-wider tw:mr-1"
             >
               Linked:
             </p>

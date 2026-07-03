@@ -528,7 +528,7 @@ const selectedCount = computed(
               height: PROBLEM_H + 'px',
             }"
           >
-            <div class="tw:text-xs tw:font-bold tw:uppercase tw:tracking-wider tw:text-red-500 tw:mb-1 tw:shrink-0">
+            <div class="tw:text-caption tw:font-bold tw:uppercase tw:tracking-wider tw:text-red-500 tw:mb-1 tw:shrink-0">
               Problem
             </div>
             <textarea

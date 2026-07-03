@@ -87,7 +87,7 @@ const menuItems = computed(() => {
             {{ token.name }}
           </div>
           <code
-            class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary tw:font-mono"
+            class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary"
           >
             {{ token.prefix }}…
           </code>

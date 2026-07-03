@@ -238,27 +238,27 @@ const previewRows = computed(() => parsedRows.value.slice(0, 5))
             <thead>
               <tr class="tw:bg-main tw:border-b tw:border-divider">
                 <th
-                  class="tw:px-3 tw:py-2 tw:text-left tw:font-semibold tw:text-secondary tw:text-xs tw:uppercase tw:tracking-wide"
+                  class="tw:px-3 tw:py-2 tw:text-left tw:font-semibold tw:text-secondary tw:text-caption tw:uppercase tw:tracking-wider"
                 >
                   Name
                 </th>
                 <th
-                  class="tw:px-3 tw:py-2 tw:text-left tw:font-semibold tw:text-secondary tw:text-xs tw:uppercase tw:tracking-wide"
+                  class="tw:px-3 tw:py-2 tw:text-left tw:font-semibold tw:text-secondary tw:text-caption tw:uppercase tw:tracking-wider"
                 >
                   SKU
                 </th>
                 <th
-                  class="tw:px-3 tw:py-2 tw:text-left tw:font-semibold tw:text-secondary tw:text-xs tw:uppercase tw:tracking-wide"
+                  class="tw:px-3 tw:py-2 tw:text-left tw:font-semibold tw:text-secondary tw:text-caption tw:uppercase tw:tracking-wider"
                 >
                   Family
                 </th>
                 <th
-                  class="tw:px-3 tw:py-2 tw:text-left tw:font-semibold tw:text-secondary tw:text-xs tw:uppercase tw:tracking-wide"
+                  class="tw:px-3 tw:py-2 tw:text-left tw:font-semibold tw:text-secondary tw:text-caption tw:uppercase tw:tracking-wider"
                 >
                   Product Type
                 </th>
                 <th
-                  class="tw:px-3 tw:py-2 tw:text-left tw:font-semibold tw:text-secondary tw:text-xs tw:uppercase tw:tracking-wide"
+                  class="tw:px-3 tw:py-2 tw:text-left tw:font-semibold tw:text-secondary tw:text-caption tw:uppercase tw:tracking-wider"
                 >
                   Status
                 </th>
@@ -271,7 +271,7 @@ const previewRows = computed(() => parsedRows.value.slice(0, 5))
                 class="tw:border-b tw:border-divider tw:last:border-0"
               >
                 <td class="tw:px-3 tw:py-2 tw:text-on-main">{{ row.name || '—' }}</td>
-                <td class="tw:px-3 tw:py-2 tw:text-secondary tw:font-mono tw:text-xs">
+                <td class="tw:px-3 tw:py-2 tw:text-secondary tw:text-xs">
                   {{ row.sku || '—' }}
                 </td>
                 <td class="tw:px-3 tw:py-2 tw:text-secondary">{{ row.productFamilyId || '—' }}</td>

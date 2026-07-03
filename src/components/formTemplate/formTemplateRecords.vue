@@ -735,7 +735,7 @@ async function handleExport(format) {
     <!-- Inline Edit Dialog -->
     <BaseDialog v-model="showEditDialog" maxWidth="lg">
       <div class="tw:flex tw:justify-between tw:items-center tw:mb-4">
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">
+        <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">
           Edit: {{ editingField?.label || '' }}
         </h3>
         <button

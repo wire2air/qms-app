@@ -11,7 +11,7 @@ defineOptions({
     <div class="tw:flex tw:flex-col tw:items-center tw:gap-8">
       <div class="tw:text-[30vh] tw:font-bold tw:leading-none tw:opacity-20">404</div>
 
-      <div class="tw:text-3xl tw:font-bold tw:opacity-60">Oops. Nothing here...</div>
+      <div class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-secondary">Oops. Nothing here...</div>
 
       <RouterLink
         to="/"

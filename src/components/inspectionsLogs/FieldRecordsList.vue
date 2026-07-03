@@ -677,7 +677,7 @@ function printList() {
               @change="toggleColumn(f.name)"
             />
             <span class="tw:text-on-main">{{ f.label || f.name }}</span>
-            <span class="tw:text-micro tw:text-secondary tw:ml-auto tw:uppercase">
+            <span class="tw:text-caption tw:text-secondary tw:ml-auto tw:uppercase tw:tracking-wider">
               {{ f.type }}
             </span>
           </label>
@@ -729,7 +729,7 @@ function printList() {
           @click="openRecord(row.id)"
         >
           <template v-if="isLogBookMode">
-            <span class="tw:font-mono tw:text-on-main tw:text-xs">
+            <span class="tw:text-on-main tw:text-xs">
               {{ row.recordNumber || row.id }}
             </span>
           </template>

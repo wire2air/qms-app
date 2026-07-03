@@ -170,8 +170,8 @@ function downloadTemplate() {
       </div>
 
       <p class="tw:text-xs tw:text-secondary">
-        Required columns: <span class="tw:font-mono">inspection_point</span> (INCOMING / IN_PROCESS /
-        FINAL / OUTGOING) and <span class="tw:font-mono">product_sku</span>. Optional:
+        Required columns: <span class="">inspection_point</span> (INCOMING / IN_PROCESS /
+        FINAL / OUTGOING) and <span class="">product_sku</span>. Optional:
         quantity, batch_number, po_number, receipt_number, work_order, notes. Each row resolves its
         inspection plan, specification and sample size exactly like a manually created lot.
       </p>

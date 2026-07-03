@@ -100,14 +100,14 @@ function rowMenuItems(row) {
   >
     <template #body-cell-address="{ row }">
       <div class="tw:flex tw:flex-col tw:gap-0.5">
-        <span class="tw:text-sm tw:font-mono tw:font-medium">{{ row.address }}</span>
+        <span class="tw:text-sm tw:font-medium">{{ row.address }}</span>
         <div class="tw:flex tw:items-center tw:gap-1">
           <BaseBadge v-if="row.isDefault" class="tw:bg-amber-100 tw:text-amber-700 tw:text-micro">
             Default
           </BaseBadge>
           <span
             v-if="row.channelType === 'FORWARDING'"
-            class="tw:text-caption tw:text-secondary tw:font-mono"
+            class="tw:text-caption tw:text-secondary"
             :title="`Forwarding target: ${row.inboundAddress}`"
           >
             → {{ row.inboundAddress }}

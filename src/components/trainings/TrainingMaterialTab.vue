@@ -91,7 +91,7 @@ function helpSlug(url) {
     <!-- External Links -->
     <div>
       <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">External Links</p>
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">External Links</p>
         <button
           v-if="editable"
           class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline"

@@ -326,7 +326,7 @@ function goBack() {
                 class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
               >
                 <IconInfoCircle :size="20" class="tw:text-primary" />
-                <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Basic Information</h2>
+                <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Basic Information</h2>
               </div>
               <div class="tw:p-6 tw:flex tw:flex-col tw:gap-4">
                 <BaseField v-slot="{ id: fieldId }" label="Supplier Name" required>
@@ -369,7 +369,7 @@ function goBack() {
                 class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
               >
                 <IconMail :size="20" class="tw:text-primary" />
-                <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Contact Details</h2>
+                <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Contact Details</h2>
               </div>
               <div class="tw:p-6 tw:flex tw:flex-col tw:gap-4">
                 <div v-if="form.contacts.length > 0" class="tw:space-y-3">
@@ -414,7 +414,7 @@ function goBack() {
               class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
             >
               <IconMapPin :size="20" class="tw:text-primary" />
-              <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Registered Address</h2>
+              <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Registered Address</h2>
             </div>
             <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-4">
               <BaseField v-slot="{ id: fieldId }" label="Street Address" class="tw:md:col-span-2">
@@ -444,7 +444,7 @@ function goBack() {
               class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
             >
               <IconMapPin :size="20" class="tw:text-primary" />
-              <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Site Assignment</h2>
+              <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Site Assignment</h2>
             </div>
             <div class="tw:p-6">
               <SiteSelectMenu v-model="form.siteIds" :multiple="true" />
@@ -459,7 +459,7 @@ function goBack() {
                 class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
               >
                 <IconShieldCheck :size="20" class="tw:text-primary" />
-                <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Risk Assessment</h2>
+                <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Risk Assessment</h2>
               </div>
               <div class="tw:p-6">
                 <BaseText variant="overline" class="tw:block tw:mb-3">Self-Declared Risk Level</BaseText>
@@ -475,7 +475,7 @@ function goBack() {
                 class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
               >
                 <IconFileCheck :size="20" class="tw:text-primary" />
-                <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Compliance Documents</h2>
+                <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Compliance Documents</h2>
               </div>
               <div class="tw:p-6 tw:space-y-6">
                 <!-- Certificates -->

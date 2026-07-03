@@ -13,7 +13,7 @@ const groups = grouped()
 <template>
   <div class="tw:max-w-5xl tw:mx-auto tw:px-6 tw:py-8">
     <div class="tw:mb-8">
-      <h1 class="tw:text-2xl tw:font-bold tw:text-on-main tw:mb-1">Help Center</h1>
+      <h1 class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main tw:mb-1">Help Center</h1>
       <p class="tw:text-secondary tw:mb-5">
         Guides and reference for using the Qability QMS. Search, or browse by topic below.
       </p>

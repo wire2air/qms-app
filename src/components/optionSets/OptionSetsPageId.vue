@@ -163,7 +163,7 @@ const optionSetDetailConfig = computed(() =>
                 class="tw:flex tw:items-center tw:gap-1 tw:group"
               >
                 <!-- Number -->
-                <div class="tw:w-6 tw:text-secondary tw:text-xs tw:font-mono">{{ idx + 1 }}.</div>
+                <div class="tw:w-6 tw:text-secondary tw:text-xs">{{ idx + 1 }}.</div>
 
                 <!-- Option Content -->
                 <div class="tw:flex-1">

@@ -436,7 +436,7 @@ const inspectionLotDetailConfig = computed(() =>
     notFoundDescription="This inspection lot could not be found."
   >
     <template #title>
-      <span class="tw:font-mono tw:text-base tw:font-semibold tw:text-on-main">{{
+      <span class="tw:text-base tw:font-semibold tw:text-on-main">{{
         lot?.lotNumber
       }}</span>
     </template>
@@ -468,7 +468,7 @@ const inspectionLotDetailConfig = computed(() =>
         >
           <span v-if="product" class="tw:text-on-main tw:font-medium">
             {{ product.name
-            }}<span v-if="product.sku" class="tw:font-mono tw:font-normal tw:text-secondary">
+            }}<span v-if="product.sku" class="tw:font-normal tw:text-secondary">
               · {{ product.sku }}</span
             >
           </span>
@@ -571,7 +571,7 @@ const inspectionLotDetailConfig = computed(() =>
       <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
         <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
           <div class="tw:flex tw:items-center tw:gap-3">
-            <h3 class="tw:font-bold tw:text-on-main">Results</h3>
+            <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Results</h3>
             <div
               v-if="canExecute && isCapturing"
               class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden tw:text-xs tw:font-medium"
@@ -628,7 +628,7 @@ const inspectionLotDetailConfig = computed(() =>
                 :key="c.id"
                 class="tw:bg-blue-50/40 tw:rounded-lg tw:p-3 tw:border tw:border-blue-100"
               >
-                <div class="tw:text-micro tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wide tw:mb-1.5">
+                <div class="tw:text-caption tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wider tw:mb-1.5">
                   {{ c.name }} — Instructions
                 </div>
                 <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
@@ -650,7 +650,7 @@ const inspectionLotDetailConfig = computed(() =>
 
         <div v-else class="tw:overflow-x-auto">
         <table class="tw:w-full tw:min-w-[640px] tw:text-sm">
-          <thead class="tw:text-secondary tw:text-xs tw:uppercase">
+          <thead class="tw:text-secondary tw:text-table-header tw:uppercase tw:tracking-wider">
             <tr>
               <th class="tw:text-left tw:px-5 tw:py-2">Test</th>
               <th class="tw:text-left tw:px-5 tw:py-2">Spec</th>
@@ -728,7 +728,7 @@ const inspectionLotDetailConfig = computed(() =>
               <!-- ── Row 2: evidence & comments (collapsible) ────────── -->
               <tr v-if="isDetailOpen(c.id) && canCaptureEvidence(c)" :key="`e-${c.id}`" class="tw:border-t tw:border-divider/50 tw:bg-sidebar/40">
                 <td :colspan="anyRequiresInstrument ? 5 : 4" class="tw:px-5 tw:py-2.5">
-                  <div class="tw:text-micro tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5">Evidence &amp; Comments</div>
+                  <div class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mb-1.5">Evidence &amp; Comments</div>
                   <RichTextAttachments
                     v-model="entries[c.id].notes"
                     :readonly="!canEditResults"
@@ -740,7 +740,7 @@ const inspectionLotDetailConfig = computed(() =>
               <!-- ── Row 3: instructions from spec (collapsible) ─────── -->
               <tr v-if="isDetailOpen(c.id) && c.testMethod" :key="`i-${c.id}`" class="tw:border-t tw:border-divider/50 tw:bg-blue-50/40">
                 <td :colspan="anyRequiresInstrument ? 5 : 4" class="tw:px-5 tw:py-2.5">
-                  <div class="tw:text-micro tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wide tw:mb-1.5">Instructions</div>
+                  <div class="tw:text-caption tw:font-semibold tw:text-blue-600 tw:uppercase tw:tracking-wider tw:mb-1.5">Instructions</div>
                   <RichTextAttachments :modelValue="c.testMethod" :readonly="true" />
                 </td>
               </tr>

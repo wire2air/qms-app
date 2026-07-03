@@ -111,7 +111,7 @@ async function handleDelete(response) {
 
     <p class="tw:text-sm tw:text-secondary tw:mb-4">
       Saved replies agents insert from the ticket reply box. Use placeholders:
-      <code v-for="(ph, i) in PLACEHOLDERS" :key="ph" class="tw:font-mono tw:text-xs"
+      <code v-for="(ph, i) in PLACEHOLDERS" :key="ph" class="tw:text-xs"
         >{{ ph }}{{ i < PLACEHOLDERS.length - 1 ? ', ' : '' }}</code
       >
       — substituted at insert time.

@@ -193,7 +193,7 @@ async function handleSubmit() {
   font-size: 3rem;
   font-weight: 700;
   margin: 24px 0 8px;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.025em;
 }
 
 .branding-subtitle {

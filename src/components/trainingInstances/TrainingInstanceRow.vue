@@ -72,7 +72,7 @@ const completedAt = computed(() => {
 
     <!-- Launched -->
     <div class="tw:flex tw:flex-col tw:shrink-0 tw:w-24">
-      <span class="tw:text-xs tw:text-secondary tw:uppercase tw:font-medium">Launched</span>
+      <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider tw:font-medium">Launched</span>
       <span class="tw:text-sm tw:text-on-sidebar">{{
         instance.createdAt?.formatDate('date')
       }}</span>
@@ -82,14 +82,14 @@ const completedAt = computed(() => {
     <div class="tw:flex tw:flex-col tw:shrink-0 tw:w-36">
       <span
         v-if="completedAt"
-        class="tw:text-xs tw:text-green-600 tw:uppercase tw:font-medium tw:flex tw:items-center tw:gap-1"
+        class="tw:text-caption tw:text-green-600 tw:uppercase tw:tracking-wider tw:font-medium tw:flex tw:items-center tw:gap-1"
       >
         <IconCircleCheck :size="11" />
         Completed
       </span>
       <span
         v-else
-        class="tw:text-xs tw:text-secondary tw:uppercase tw:font-medium tw:flex tw:items-center tw:gap-1"
+        class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider tw:font-medium tw:flex tw:items-center tw:gap-1"
       >
         <IconClock :size="11" />
         Due
@@ -110,7 +110,7 @@ const completedAt = computed(() => {
     <!-- Assigned -->
     <div class="tw:flex tw:flex-col tw:shrink-0 tw:w-20">
       <span
-        class="tw:text-xs tw:text-secondary tw:uppercase tw:font-medium tw:flex tw:items-center tw:gap-1"
+        class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider tw:font-medium tw:flex tw:items-center tw:gap-1"
       >
         <IconUsers :size="11" />
         Assigned
@@ -121,7 +121,7 @@ const completedAt = computed(() => {
     <!-- Completion progress -->
     <div class="tw:flex tw:flex-col tw:flex-1 tw:min-w-32">
       <div class="tw:flex tw:justify-between tw:items-baseline">
-        <span class="tw:text-xs tw:text-secondary tw:uppercase tw:font-medium">Progress</span>
+        <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider tw:font-medium">Progress</span>
         <span class="tw:text-xs tw:text-secondary">{{ stats.submitted }}/{{ stats.total }}</span>
       </div>
       <div class="tw:h-1.5 tw:bg-gray-100 tw:rounded-full tw:overflow-hidden tw:mt-1">
@@ -134,7 +134,7 @@ const completedAt = computed(() => {
 
     <!-- Pass rate -->
     <div class="tw:flex tw:flex-col tw:shrink-0 tw:w-20 tw:items-end">
-      <span class="tw:text-xs tw:text-secondary tw:uppercase tw:font-medium">Pass rate</span>
+      <span class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider tw:font-medium">Pass rate</span>
       <span
         class="tw:text-sm tw:font-semibold"
         :class="

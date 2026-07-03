@@ -135,28 +135,28 @@ const BREAKDOWN_SECTIONS = [
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-5 tw:gap-3">
       <BaseCard>
         <BaseText variant="overline">Created</BaseText>
-        <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ metrics.created }}</div>
+        <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ metrics.created }}</div>
       </BaseCard>
       <BaseCard>
         <BaseText variant="overline">Resolved</BaseText>
-        <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ metrics.resolved }}</div>
+        <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ metrics.resolved }}</div>
       </BaseCard>
       <BaseCard>
         <BaseText variant="overline">Avg first response</BaseText>
-        <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
+        <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">
           {{ formatHours(metrics.avgFirstResponse) }}
         </div>
       </BaseCard>
       <BaseCard>
         <BaseText variant="overline">Avg resolution</BaseText>
-        <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
+        <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">
           {{ formatHours(metrics.avgResolution) }}
         </div>
       </BaseCard>
       <BaseCard>
         <BaseText variant="overline">CSAT</BaseText>
         <div class="tw:flex tw:items-baseline tw:gap-1">
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
+          <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">
             {{ metrics.csatAvg != null ? metrics.csatAvg.toFixed(1) : '—' }}
           </div>
           <IconStarFilled v-if="metrics.csatAvg != null" :size="14" class="tw:text-amber-400" />

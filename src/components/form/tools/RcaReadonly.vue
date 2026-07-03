@@ -35,13 +35,13 @@ const template = useLiveQueryWithDeps(
       v-if="values.outcome?.rootCause"
       class="tw:bg-primary/5 tw:border tw:border-primary/20 tw:rounded-lg tw:p-3"
     >
-      <div class="tw:text-xs tw:font-semibold tw:text-primary tw:uppercase tw:mb-1">Root Cause</div>
+      <div class="tw:text-caption tw:font-semibold tw:text-primary tw:uppercase tw:tracking-wider tw:mb-1">Root Cause</div>
       <p class="tw:text-sm tw:text-on-main">{{ values.outcome.rootCause }}</p>
     </div>
 
     <!-- Fishbone summary -->
     <template v-if="values._method === 'fishbone' && values.fishbone">
-      <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase">
+      <div class="tw:text-caption tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wider">
         Contributing Causes
       </div>
       <div class="tw:flex tw:flex-wrap tw:gap-1">

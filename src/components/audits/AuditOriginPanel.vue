@@ -85,7 +85,7 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
           >
         </div>
         <div class="tw:text-sm tw:text-secondary">
-          <span class="tw:font-mono tw:font-medium tw:text-primary">{{
+          <span class="tw:font-medium tw:text-primary">{{
             origin.audit.auditNumber || 'Audit'
           }}</span>
           <template v-if="origin.audit.standardName"> · {{ origin.audit.standardName }}</template>
@@ -115,7 +115,7 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
           <IconAlertTriangle :size="15" class="tw:text-amber-600 tw:shrink-0" />
           <span
             v-if="f.findingNumber"
-            class="tw:text-xs tw:font-mono tw:font-medium tw:text-primary"
+            class="tw:text-xs tw:font-medium tw:text-primary"
           >
             {{ f.findingNumber }}
           </span>
@@ -142,7 +142,7 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
           <div class="tw:flex tw:items-center tw:gap-2">
             <span
               v-if="f.requirement.clauseNumber"
-              class="tw:text-xs tw:font-mono tw:font-semibold tw:text-secondary"
+              class="tw:text-xs tw:font-semibold tw:text-secondary"
             >
               {{ f.requirement.clauseNumber }}
             </span>
@@ -165,7 +165,7 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
         <!-- Evidence captured against this finding (files + linked records). -->
         <div v-if="f.evidence && f.evidence.length" class="tw:flex tw:flex-col tw:gap-1">
           <div
-            class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+            class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
           >
             Evidence ({{ f.evidence.length }})
           </div>

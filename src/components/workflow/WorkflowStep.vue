@@ -384,7 +384,7 @@ function activityLabel(statusId) {
       class="tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
     >
       <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
-        <span class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+        <span class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
           {{ displayNumber ?? instanceStep.stepNumber }}. {{ instanceStep.name || 'Step' }}
         </span>
         <BaseBadge class="tw:text-micro" :class="getStepStatusClass(instanceStep.statusId)">

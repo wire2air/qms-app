@@ -27,7 +27,7 @@ const props = defineProps({
 })
 
 const SIZE = {
-  xs: 'tw:size-6 tw:text-[10px]',
+  xs: 'tw:size-6 tw:text-micro',
   sm: 'tw:size-8 tw:text-xs',
   md: 'tw:size-10 tw:text-sm',
   lg: 'tw:size-12 tw:text-base',

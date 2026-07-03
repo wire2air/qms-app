@@ -25,15 +25,25 @@ const RULES = [
   {
     id: 'no-raw-text-px',
     re: /text-\[[0-9]+px\]/g,
-    // Swept 359 (10/11/12px → text-micro/caption/label, pixel-identical). The 3
-    // left are 8px/9px outliers with no token — tighten to 0 once decided.
-    baseline: 3,
+    // Swept 359 (10/11/12px → text-micro/caption/label, pixel-identical), then
+    // the last 8px/9px outliers → text-micro (2026-07-02 typography audit).
+    // Fully banned.
+    baseline: 0,
     hint: 'raw text-[Npx] — use a --text-* token (tw:text-micro/caption/label/body/…) or BaseText/BaseHeading',
+  },
+  {
+    id: 'no-font-mono',
+    re: /tw:font-mono/g,
+    // One typeface on screen (2026-07-02 typography audit): Inter everywhere,
+    // including <pre>/<code> (see --default-mono-font-family in base.css).
+    // Print modules use their own scoped print stack, not this class.
+    baseline: 0,
+    hint: 'tw:font-mono is banned — the app renders one typeface (Inter); code/pre already inherit it',
   },
   {
     id: 'no-raw-label',
     re: /<label\b/g,
-    baseline: 136,
+    baseline: 134,
     hint: 'raw <label> — route the field through BaseField / BaseLabel (id + for + ARIA)',
   },
   {
@@ -42,7 +52,7 @@ const RULES = [
     // Tightened after the ds-label sweep retired several raw headings. Still
     // includes the supplier-portal merge's un-swept src/pages/supplier/*
     // headings — tracked debt to sweep to BaseHeading later.
-    baseline: 125,
+    baseline: 113,
     hint: 'raw <h1-6> — use BaseHeading (semantic level + visual size)',
   },
 ]

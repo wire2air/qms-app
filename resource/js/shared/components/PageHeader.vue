@@ -36,7 +36,7 @@ defineProps({
         class="tw:shrink-0 tw:text-primary"
         aria-hidden="true"
       />
-      <h1 class="tw:truncate tw:text-lg tw:font-bold tw:tracking-tight">
+      <h1 class="tw:truncate tw:text-section-title tw:font-semibold tw:tracking-tight">
         <slot name="title">{{ title }}</slot>
       </h1>
     </div>

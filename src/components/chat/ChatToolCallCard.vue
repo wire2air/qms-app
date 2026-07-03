@@ -63,7 +63,7 @@ const resultJson = computed(() => {
     >
       <component :is="statusIcon" :size="14" :class="statusClass" class="tw:flex-none" />
       <IconTool :size="14" class="tw:text-secondary tw:flex-none" />
-      <span class="tw:font-mono tw:font-semibold tw:text-on-main">{{ card.toolName }}</span>
+      <span class="tw:font-semibold tw:text-on-main">{{ card.toolName }}</span>
       <span v-if="argsPreview" class="tw:text-secondary tw:truncate">({{ argsPreview }})</span>
       <span class="tw:flex-1 tw:text-secondary tw:truncate tw:text-right">{{ summary }}</span>
       <component
@@ -75,11 +75,11 @@ const resultJson = computed(() => {
     <div v-if="expanded" class="tw:border-t tw:border-divider tw:p-3 tw:bg-main tw:text-xs">
       <div v-if="argsPreview" class="tw:mb-2">
         <div class="tw:text-secondary tw:mb-1 tw:font-semibold">Arguments</div>
-        <pre class="tw:bg-sidebar tw:rounded tw:p-2 tw:overflow-x-auto tw:text-xs tw:font-mono">{{ JSON.stringify(card.args, null, 2) }}</pre>
+        <pre class="tw:bg-sidebar tw:rounded tw:p-2 tw:overflow-x-auto tw:text-xs ">{{ JSON.stringify(card.args, null, 2) }}</pre>
       </div>
       <div v-if="resultJson">
         <div class="tw:text-secondary tw:mb-1 tw:font-semibold">{{ card.isError ? 'Error' : 'Result' }}</div>
-        <pre class="tw:bg-sidebar tw:rounded tw:p-2 tw:overflow-x-auto tw:text-xs tw:font-mono tw:max-h-64">{{ resultJson }}</pre>
+        <pre class="tw:bg-sidebar tw:rounded tw:p-2 tw:overflow-x-auto tw:text-xs tw:max-h-64">{{ resultJson }}</pre>
       </div>
     </div>
   </div>

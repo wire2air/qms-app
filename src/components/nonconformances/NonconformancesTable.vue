@@ -94,7 +94,7 @@ function rowMenuItems(row) {
     <template #body-cell-ncNumber="{ row }">
       <RouterLink
         :to="getCompanyPath(`/nonconformances/${row.id}`)"
-        class="tw:font-mono tw:text-xs tw:text-secondary tw:hover:text-primary"
+        class="tw:text-xs tw:text-secondary tw:hover:text-primary"
       >
         {{ row.ncNumber || '—' }}
       </RouterLink>

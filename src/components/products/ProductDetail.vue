@@ -79,7 +79,7 @@ const productDetailConfig = computed(() =>
     </template>
 
     <template v-if="product" #meta>
-      <span class="tw:font-mono">{{ product.sku }}</span>
+      <span class="">{{ product.sku }}</span>
     </template>
 
     <template #actions>
@@ -89,15 +89,15 @@ const productDetailConfig = computed(() =>
     <template v-if="product" #tab-overview>
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-5 tw:max-w-3xl">
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Name</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Name</p>
           <p class="tw:text-on-sidebar">{{ product.name }}</p>
         </div>
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">SKU</p>
-          <p class="tw:text-on-sidebar tw:font-mono">{{ product.sku }}</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">SKU</p>
+          <p class="tw:text-on-sidebar">{{ product.sku }}</p>
         </div>
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Product Family</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Product Family</p>
           <ProductFamilyBadgeById
             v-if="product.productFamilyId"
             :productFamilyId="product.productFamilyId"
@@ -105,7 +105,7 @@ const productDetailConfig = computed(() =>
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </div>
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Product Type</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Product Type</p>
           <ProductTypeBadgeById
             v-if="product.productTypeId"
             :productTypeId="product.productTypeId"
@@ -113,12 +113,12 @@ const productDetailConfig = computed(() =>
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </div>
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Status</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Status</p>
           <ProductStatusBadgeById v-if="product.statusId" :statusId="product.statusId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </div>
         <div class="tw:md:col-span-2">
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Description</p>
           <p class="tw:text-on-sidebar tw:whitespace-pre-wrap">{{ product.description || '—' }}</p>
         </div>
       </div>

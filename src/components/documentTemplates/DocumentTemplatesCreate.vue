@@ -227,7 +227,7 @@ function goBack() {
                 class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
               >
                 <IconInfoCircle :size="22" class="tw:text-primary" />
-                <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Basic Information</h2>
+                <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Basic Information</h2>
               </div>
               <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6">
                 <BaseField
@@ -298,7 +298,7 @@ function goBack() {
                 class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
               >
                 <IconSettings :size="22" class="tw:text-primary" />
-                <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Default Settings</h2>
+                <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Default Settings</h2>
               </div>
               <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-x-12 tw:gap-y-6">
                 <div>

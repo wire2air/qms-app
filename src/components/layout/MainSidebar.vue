@@ -632,7 +632,7 @@ const navItems = computed(() => {
             >
               <UserAvatar :user="currentUser" class="tw:size-8" />
               <div class="tw:flex tw:min-w-0 tw:flex-1 tw:flex-col tw:items-start">
-                <div class="tw:max-w-full tw:truncate tw:text-sm tw:font-bold tw:text-on-sidebar">
+                <div class="tw:max-w-full tw:truncate tw:text-sm tw:font-semibold tw:text-on-sidebar">
                   {{ currentUser.fullName }}
                 </div>
                 <div class="tw:max-w-full tw:truncate tw:text-xs tw:text-secondary">

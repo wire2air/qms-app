@@ -150,7 +150,6 @@ function onContentClick(e) {
   background: rgba(0, 0, 0, 0.05);
   padding: 0.1rem 0.3rem;
   border-radius: 0.25rem;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, monospace;
   font-size: 0.85em;
 }
 .chat-md pre {

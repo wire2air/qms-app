@@ -156,7 +156,7 @@ function formatSize(bytes) {
         >
           <IconFileDescription :size="20" class="tw:text-secondary" />
         </div>
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Documents</h3>
+        <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">Documents</h3>
         <span
           v-if="documents.length"
           class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-gray-200 tw:text-gray-700 tw:px-2 tw:py-0.5 tw:text-micro tw:font-bold"

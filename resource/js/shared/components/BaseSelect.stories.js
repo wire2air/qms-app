@@ -48,7 +48,7 @@ export const Basic = {
           placeholder="Select priority"
           clearable
         />
-        <p class="tw:mt-2 tw:text-12 tw:text-secondary">Value: {{ JSON.stringify(model) }}</p>
+        <p class="tw:mt-2 tw:text-label tw:text-secondary">Value: {{ JSON.stringify(model) }}</p>
       </div>`,
   }),
 }
@@ -69,7 +69,7 @@ export const Multiple = {
           show-select-all
           clearable
         />
-        <p class="tw:mt-2 tw:text-12 tw:text-secondary">Value: {{ JSON.stringify(model) }}</p>
+        <p class="tw:mt-2 tw:text-label tw:text-secondary">Value: {{ JSON.stringify(model) }}</p>
       </div>`,
   }),
 }
@@ -121,12 +121,12 @@ export const CustomOptionSlot = {
         <BaseSelect v-model="model" :options="people" option-label="name" option-value="id" label="Custom rows">
           <template #option="{ opt, selected }">
             <span class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-2">
-              <span class="tw:flex tw:size-7 tw:items-center tw:justify-center tw:rounded-full tw:bg-primary/10 tw:text-12 tw:font-semibold tw:text-primary">
+              <span class="tw:flex tw:size-7 tw:items-center tw:justify-center tw:rounded-full tw:bg-primary/10 tw:text-label tw:font-semibold tw:text-primary">
                 {{ opt.label.split(' ').map(p => p[0]).join('') }}
               </span>
               <span class="tw:min-w-0">
                 <span class="tw:block tw:truncate tw:font-medium">{{ opt.label }}</span>
-                <span class="tw:block tw:truncate tw:text-12 tw:text-secondary">{{ opt.raw.team }}</span>
+                <span class="tw:block tw:truncate tw:text-label tw:text-secondary">{{ opt.raw.team }}</span>
               </span>
               <span v-if="selected" class="tw:ml-auto tw:text-primary">✓</span>
             </span>

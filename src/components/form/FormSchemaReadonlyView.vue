@@ -323,7 +323,7 @@ function getChecklistColumnLabel(col) {
         <div class="tw:col-span-3">
           <div
             v-if="field.label"
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mt-1 tw:mb-2"
+            class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mt-1 tw:mb-2"
           >
             {{ field.label }}
           </div>
@@ -346,7 +346,7 @@ function getChecklistColumnLabel(col) {
         <div class="tw:col-span-3">
           <div
             v-if="field.label"
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mt-1 tw:mb-2"
+            class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mt-1 tw:mb-2"
           >
             {{ field.label }}
           </div>
@@ -505,7 +505,7 @@ function getChecklistColumnLabel(col) {
             class="tw:inline-block tw:size-4 tw:rounded tw:border tw:border-divider tw:shrink-0"
             :style="{ backgroundColor: getFieldValue(field) }"
           />
-          <span class="tw:text-sm tw:font-medium tw:font-mono tw:text-on-main">
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">
             {{ getFieldValue(field) }}
           </span>
         </div>

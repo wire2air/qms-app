@@ -257,7 +257,7 @@ const remainingCount = computed(() =>
           class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30 tw:p-3 tw:text-xs tw:flex tw:flex-col tw:gap-1"
         >
           <div class="tw:flex tw:items-center tw:gap-2">
-            <code class="tw:text-caption tw:font-mono tw:text-primary">
+            <code class="tw:text-caption tw:text-primary">
               {{ preview.code }}
             </code>
             <span class="tw:text-secondary">·</span>
@@ -281,7 +281,7 @@ const remainingCount = computed(() =>
             :key="row.clauseNumber"
             class="tw:flex tw:gap-3 tw:px-3 tw:py-2 tw:text-xs"
           >
-            <code class="tw:font-mono tw:text-secondary tw:shrink-0 tw:w-20">
+            <code class="tw:text-secondary tw:shrink-0 tw:w-20">
               {{ row.clauseNumber }}
             </code>
             <div class="tw:flex tw:flex-col tw:gap-0.5 tw:flex-1 tw:min-w-0">
@@ -325,7 +325,7 @@ const remainingCount = computed(() =>
     <div v-if="replaceConfirm" class="tw:flex tw:flex-col tw:gap-3 tw:p-1 tw:text-sm">
       <p class="tw:text-on-main">
         A standard with code
-        <code class="tw:font-mono tw:bg-main-hover tw:px-1.5 tw:py-0.5 tw:rounded">
+        <code class="tw:bg-main-hover tw:px-1.5 tw:py-0.5 tw:rounded">
           {{ replaceConfirm.existingCode }}
         </code>
         already exists for this company:

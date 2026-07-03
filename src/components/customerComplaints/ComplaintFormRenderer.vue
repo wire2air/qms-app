@@ -125,7 +125,7 @@ const logoUrl = computed(() => props.definition?.branding?.logoUrl || null)
         alt=""
         class="tw:h-10 tw:mb-3 tw:object-contain tw:object-left"
       />
-      <h1 class="tw:text-xl tw:font-bold tw:text-white">{{ headerTitle }}</h1>
+      <h1 class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-white">{{ headerTitle }}</h1>
       <p v-if="definition.companyName" class="tw:text-white/80 tw:text-sm tw:mt-0.5">
         {{ definition.companyName }}
       </p>

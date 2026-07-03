@@ -81,7 +81,7 @@ function viewAllCapas() {
           class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
         >
           <IconClipboardCheck :size="18" class="tw:text-secondary" />
-          <h3 class="tw:font-bold tw:text-on-main">Open Audits</h3>
+          <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Open Audits</h3>
           <span class="tw:ml-auto tw:text-sm tw:font-semibold tw:text-secondary">{{
             openAudits.length
           }}</span>
@@ -94,13 +94,13 @@ function viewAllCapas() {
             class="tw:flex tw:items-center tw:gap-2 tw:text-left tw:rounded tw:px-2 tw:py-1.5 tw:bg-white tw:border tw:border-divider tw:hover:border-primary tw:cursor-pointer"
             @click="openAudit(a.id)"
           >
-            <span class="tw:text-sm tw:font-mono tw:text-secondary tw:shrink-0">{{
+            <span class="tw:text-sm tw:text-secondary tw:shrink-0 tw:tabular-nums">{{
               a.auditNumber
             }}</span>
             <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{
               a.displayMeta?.standardName || 'Audit'
             }}</span>
-            <span class="tw:text-micro tw:uppercase tw:font-semibold tw:text-secondary">{{
+            <span class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">{{
               a.statusId
             }}</span>
           </button>
@@ -116,7 +116,7 @@ function viewAllCapas() {
           class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
         >
           <IconAlertTriangle :size="18" class="tw:text-secondary" />
-          <h3 class="tw:font-bold tw:text-on-main">Open NCs</h3>
+          <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Open NCs</h3>
           <span class="tw:ml-auto tw:text-sm tw:font-semibold tw:text-secondary">{{
             openNcs.length
           }}</span>
@@ -129,11 +129,11 @@ function viewAllCapas() {
             class="tw:flex tw:items-center tw:gap-2 tw:text-left tw:rounded tw:px-2 tw:py-1.5 tw:bg-white tw:border tw:border-divider tw:hover:border-primary tw:cursor-pointer"
             @click="openNc(n.id)"
           >
-            <span class="tw:text-sm tw:font-mono tw:text-secondary tw:shrink-0">{{
+            <span class="tw:text-sm tw:text-secondary tw:shrink-0 tw:tabular-nums">{{
               n.ncNumber
             }}</span>
             <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{ n.title }}</span>
-            <span class="tw:text-micro tw:uppercase tw:font-semibold tw:text-secondary">{{
+            <span class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">{{
               n.statusId
             }}</span>
           </button>
@@ -156,7 +156,7 @@ function viewAllCapas() {
           class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
         >
           <IconTool :size="18" class="tw:text-secondary" />
-          <h3 class="tw:font-bold tw:text-on-main">Open CAPAs</h3>
+          <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Open CAPAs</h3>
           <span class="tw:ml-auto tw:text-sm tw:font-semibold tw:text-secondary">{{
             openCapas.length
           }}</span>
@@ -169,11 +169,11 @@ function viewAllCapas() {
             class="tw:flex tw:items-center tw:gap-2 tw:text-left tw:rounded tw:px-2 tw:py-1.5 tw:bg-white tw:border tw:border-divider tw:hover:border-primary tw:cursor-pointer"
             @click="openCapa(c.id)"
           >
-            <span class="tw:text-sm tw:font-mono tw:text-secondary tw:shrink-0">{{
+            <span class="tw:text-sm tw:text-secondary tw:shrink-0 tw:tabular-nums">{{
               c.capaNumber
             }}</span>
             <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{ c.title }}</span>
-            <span class="tw:text-micro tw:uppercase tw:font-semibold tw:text-secondary">{{
+            <span class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">{{
               c.statusId
             }}</span>
           </button>

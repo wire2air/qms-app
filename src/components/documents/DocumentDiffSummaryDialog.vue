@@ -164,7 +164,7 @@ watch(show, (open) => {
         <!-- Added sections -->
         <div v-if="result.addedSections?.length">
           <div
-            class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-green-700 tw:font-semibold tw:uppercase tw:tracking-wide tw:mb-2"
+            class="tw:flex tw:items-center tw:gap-2 tw:text-caption tw:text-green-700 tw:font-semibold tw:uppercase tw:tracking-wider tw:mb-2"
           >
             <IconPlus :size="14" />
             Added ({{ result.addedSections.length }})
@@ -184,7 +184,7 @@ watch(show, (open) => {
         <!-- Removed sections -->
         <div v-if="result.removedSections?.length">
           <div
-            class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-red-700 tw:font-semibold tw:uppercase tw:tracking-wide tw:mb-2"
+            class="tw:flex tw:items-center tw:gap-2 tw:text-caption tw:text-red-700 tw:font-semibold tw:uppercase tw:tracking-wider tw:mb-2"
           >
             <IconMinus :size="14" />
             Removed ({{ result.removedSections.length }})

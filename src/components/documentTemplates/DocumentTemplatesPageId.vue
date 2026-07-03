@@ -162,7 +162,7 @@ const documentTemplateDetailConfig = computed(() =>
     </template>
 
     <template v-if="template" #meta>
-      <span class="tw:font-mono">{{ template.prefix }}</span>
+      <span class="">{{ template.prefix }}</span>
     </template>
 
     <template #actions>
@@ -174,7 +174,7 @@ const documentTemplateDetailConfig = computed(() =>
         <div class="tw:flex tw:flex-col tw:gap-3">
           <BaseDetailField label="Document Prefix">
             <BaseTextInput v-if="canEdit" v-model="template.prefix" placeholder="Prefix" size="sm" />
-            <span v-else class="tw:font-mono tw:font-bold tw:text-on-main">{{ template.prefix }}</span>
+            <span v-else class="tw:font-bold tw:text-on-main">{{ template.prefix }}</span>
           </BaseDetailField>
           <BaseDetailField label="Department">
             <DepartmentSelectMenu v-if="canEdit" v-model="template.departmentId" />
@@ -218,7 +218,7 @@ const documentTemplateDetailConfig = computed(() =>
           class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
         >
           <IconSettings :size="22" class="tw:text-primary" />
-          <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Default Settings</h2>
+          <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Default Settings</h2>
         </div>
         <div class="tw:p-6 tw:grid tw:grid-cols-2 tw:md:grid-cols-3 tw:gap-6">
           <div>

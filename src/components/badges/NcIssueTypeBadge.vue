@@ -12,7 +12,7 @@ defineProps({
 const SCHEME_MAP = {
   OUT_OF_SPEC: { class: 'tw:bg-rose-100 tw:text-rose-700' },
   RECEIVING: { class: 'tw:bg-amber-100 tw:text-amber-700' },
-  MISSING_STANDARD: { class: 'tw:bg-slate-100 tw:text-slate-700' },
+  MISSING_STANDARD: { class: 'tw:bg-gray-100 tw:text-gray-700' },
 }
 
 const scheme = (code) => SCHEME_MAP[code] || { class: 'tw:bg-gray-100 tw:text-gray-600' }

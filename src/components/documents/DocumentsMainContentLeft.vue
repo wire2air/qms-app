@@ -80,7 +80,7 @@ const versionLabel = computed(() => {
             <DocumentPeriodicReviewBadge :document="document" :canEdit="canEdit" />
           </div>
 
-          <span class="tw:text-secondary tw:text-sm tw:font-mono">
+          <span class="tw:text-secondary tw:text-sm">
             <template v-if="document.docNumber">{{ document.docNumber }} </template>v{{
               versionLabel
             }}
@@ -89,12 +89,12 @@ const versionLabel = computed(() => {
         <BaseTextInput
           v-if="canEdit"
           v-model="document.title"
-          class="tw:font-extrabold"
+          class="tw:font-bold"
           :class="dense ? 'tw:text-xl' : 'tw:text-3xl'"
         />
         <h2
           v-else
-          class="tw:font-extrabold tw:text-on-sidebar tw:leading-tight"
+          class="tw:font-bold tw:text-on-sidebar tw:leading-tight"
           :class="dense ? 'tw:text-xl' : 'tw:text-3xl'"
         >
           {{ document.title }}

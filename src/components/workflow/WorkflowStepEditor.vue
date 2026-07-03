@@ -132,7 +132,7 @@ watch(
     <div class="tw:space-y-6">
       <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:mb-2">
         <IconNote :size="22" />
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-main">Step Configuration: {{ step.name }}</h2>
+        <h2 class="tw:text-lg tw:font-semibold tw:text-on-main">Step Configuration: {{ step.name }}</h2>
       </div>
 
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6">
@@ -359,7 +359,7 @@ watch(
     <div v-if="showAllowedOutcomes" v-show="false" class="tw:space-y-4">
       <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
         <IconListCheck :size="22" />
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-main">Allowed Outcomes</h2>
+        <h2 class="tw:text-lg tw:font-semibold tw:text-on-main">Allowed Outcomes</h2>
       </div>
       <p class="tw:text-xs tw:text-secondary">
         Actions the assignee can take to complete this step. Each outcome triggers a different path

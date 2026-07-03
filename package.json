@@ -28,6 +28,7 @@
   "dependencies": {
     "@azure/msal-browser": "^5.4.0",
     "@floating-ui/dom": "^1.7.6",
+    "@fontsource-variable/inter": "^5.2.8",
     "@grafana/faro-web-sdk": "^2.7.0",
     "@grafana/faro-web-tracing": "^2.7.0",
     "@headlessui/vue": "^1.7.23",

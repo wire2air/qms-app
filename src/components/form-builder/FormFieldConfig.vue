@@ -392,7 +392,7 @@ function updateRowColClass(value) {
           <BaseField label="Content">
             <p class="tw:text-xs tw:text-secondary tw:mb-2">
               Tip: type
-              <span class="tw:font-mono tw:bg-main tw:rounded tw:px-1">#</span>
+              <span class="tw:bg-main tw:rounded tw:px-1">#</span>
               to mention a document and create a clickable link.
             </p>
             <div class="tw:border tw:border-divider tw:rounded-md tw:overflow-hidden">

@@ -112,7 +112,7 @@ async function removeDefect(d) {
     </template>
 
     <template #body-cell-code="{ row }">
-      <span class="tw:font-mono tw:text-xs tw:text-secondary">{{ row.code }}</span>
+      <span class="tw:text-xs tw:text-secondary">{{ row.code }}</span>
     </template>
 
     <template #body-cell-testType="{ row }">

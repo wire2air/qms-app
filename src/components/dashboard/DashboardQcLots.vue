@@ -28,7 +28,7 @@ const lots = useLiveQuery(
       class="tw:flex tw:items-center tw:gap-3 tw:px-4 tw:py-2.5 tw:border-t tw:first:border-t-0 tw:border-divider tw:hover:bg-main-hover tw:transition-colors"
     >
       <div class="tw:flex-1 tw:min-w-0">
-        <div class="tw:text-sm tw:font-medium tw:text-on-main tw:font-mono tw:truncate">
+        <div class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">
           {{ l.lotNumber }}
         </div>
         <div class="tw:text-xs tw:text-secondary">{{ l.inspectionPoint }}</div>

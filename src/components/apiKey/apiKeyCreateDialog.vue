@@ -114,7 +114,7 @@ function resetAndClose() {
         </div>
 
         <div class="tw:flex tw:items-center tw:gap-2">
-          <BaseTextInput :modelValue="createdKey" readonly class="tw:flex-1 tw:font-mono" />
+          <BaseTextInput :modelValue="createdKey" readonly class="tw:flex-1 " />
           <button
             class="tw:rounded-lg tw:border tw:border-divider tw:p-2 tw:hover:bg-main-hover tw:transition-colors"
             title="Copy to clipboard"

@@ -60,9 +60,9 @@ onUnmounted(() => {
           <div class="tw:text-base tw:font-semibold tw:text-on-main">Unknown print module</div>
           <div class="tw:text-sm tw:text-secondary tw:mt-1">
             URL must include
-            <code class="tw:font-mono tw:bg-main-hover tw:px-1 tw:rounded">?module=…</code>
+            <code class="tw:bg-main-hover tw:px-1 tw:rounded">?module=…</code>
             with one of:
-            <code class="tw:font-mono tw:bg-main-hover tw:px-1 tw:rounded">
+            <code class="tw:bg-main-hover tw:px-1 tw:rounded">
               {{ listModules().join(', ') }}
             </code>
           </div>

@@ -51,7 +51,7 @@ const complaints = useLiveQueryWithDeps(
         class="tw:flex tw:items-center tw:justify-between tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
       >
         <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
-          <span class="tw:text-xs tw:font-mono tw:text-secondary">
+          <span class="tw:text-xs tw:text-secondary">
             {{ complaint.complaintNumber }}
           </span>
           <span class="tw:text-sm tw:font-medium tw:truncate">{{ complaint.subject }}</span>

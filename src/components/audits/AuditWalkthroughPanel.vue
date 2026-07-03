@@ -511,9 +511,9 @@ function summarizeFinding() {
             "
             @click="goToStep(row.requirementId)"
           >
-            <code class="tw:text-micro tw:font-mono tw:text-secondary">{{
+            <span class="tw:text-micro tw:text-secondary">{{
               row.clauseNumber
-            }}</code>
+            }}</span>
             <span
               class="tw:text-xs tw:truncate"
               :class="row.depth === 0 ? 'tw:font-semibold' : ''"
@@ -539,9 +539,9 @@ function summarizeFinding() {
         <div class="tw:flex tw:items-start tw:justify-between tw:gap-3">
           <div class="tw:min-w-0">
             <div class="tw:flex tw:items-center tw:gap-2">
-              <code class="tw:text-xs tw:font-mono tw:text-secondary">{{
+              <span class="tw:text-xs tw:text-secondary">{{
                 currentClause.clauseNumber
-              }}</code>
+              }}</span>
               <BaseText as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
                 {{ currentClause.title }}
               </BaseText>
@@ -624,9 +624,9 @@ function summarizeFinding() {
               class="tw:flex tw:items-center tw:gap-2 tw:text-left tw:rounded tw:px-2 tw:py-1.5 tw:bg-white tw:border tw:border-divider tw:hover:border-primary tw:cursor-pointer"
               @click="goToStep(child.requirementId)"
             >
-              <code class="tw:text-micro tw:font-mono tw:text-secondary tw:shrink-0">{{
+              <span class="tw:text-micro tw:text-secondary tw:shrink-0">{{
                 child.clauseNumber
-              }}</code>
+              }}</span>
               <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{ child.title }}</span>
               <span
                 v-if="responsesById[child.requirementId]?.resultId"
@@ -655,12 +655,12 @@ function summarizeFinding() {
             class="tw:bg-slate-100 tw:px-3 tw:py-2 tw:border-b tw:border-slate-200 tw:flex tw:items-center tw:justify-between tw:gap-2"
           >
             <div class="tw:flex tw:items-center tw:gap-1.5 tw:min-w-0">
-              <IconNotebook :size="14" class="tw:text-slate-600 tw:shrink-0" />
+              <IconNotebook :size="14" class="tw:text-secondary tw:shrink-0" />
               <p
-                class="tw:text-caption tw:font-bold tw:uppercase tw:tracking-wide tw:text-slate-600 tw:truncate"
+                class="tw:text-caption tw:font-bold tw:uppercase tw:tracking-wide tw:text-secondary tw:truncate"
               >
                 Auditor's Notebook
-                <span class="tw:font-normal tw:normal-case tw:text-slate-500"
+                <span class="tw:font-normal tw:normal-case tw:text-secondary"
                   >— private, not shared in the finding</span
                 >
               </p>
@@ -669,14 +669,14 @@ function summarizeFinding() {
               <button
                 v-if="notebookOpen && currentHasChecklistItems"
                 type="button"
-                class="tw:text-micro tw:font-medium tw:text-slate-600 tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                class="tw:text-micro tw:font-medium tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
                 @click="hideAnswered = !hideAnswered"
               >
                 {{ hideAnswered ? 'Show all' : 'Hide answered' }}
               </button>
               <button
                 type="button"
-                class="tw:text-slate-600 tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:flex tw:items-center"
+                class="tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:flex tw:items-center"
                 :title="notebookOpen ? 'Collapse notebook' : 'Expand notebook'"
                 @click="notebookOpen = !notebookOpen"
               >

@@ -207,9 +207,9 @@ async function handleLink() {
         >
           <div class="tw:flex tw:flex-col tw:gap-0.5 tw:flex-1 tw:min-w-0">
             <div class="tw:flex tw:items-center tw:gap-2">
-              <code class="tw:text-xs tw:font-mono tw:text-secondary">
+              <span class="tw:text-xs tw:text-secondary">
                 {{ activeKind.numberAccessor(row) }}
-              </code>
+              </span>
               <span class="tw:text-sm tw:font-medium tw:truncate">
                 {{ activeKind.titleAccessor(row) }}
               </span>

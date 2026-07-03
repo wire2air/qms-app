@@ -146,7 +146,7 @@ defineExpose({
     <div v-if="label || slots.label || instructions" class="tw:mb-2">
       <label
         v-if="label || slots.label"
-        class="tw:dark:text-white"
+        class="tw:text-label tw:font-medium tw:text-on-main"
         :class="{ 'tw:inline-block': inline }"
         :for="inputId"
       >
@@ -155,7 +155,7 @@ defineExpose({
           <span v-if="required" class="tw:text-red">*</span>
         </slot>
       </label>
-      <p v-if="instructions" class="tw:text-14 tw:text-grey-5 tw:dark:text-grey-4 tw:mb-2">
+      <p v-if="instructions" class="tw:text-caption tw:text-secondary tw:mb-2">
         {{ instructions }}
       </p>
     </div>
@@ -167,7 +167,7 @@ defineExpose({
       <textarea
         :id="id"
         ref="inputEl"
-        class="tw:disabled:text-grey-5 tw:w-full tw:resize-none tw:rounded-xl tw:border-none tw:bg-transparent tw:focus:ring-0 tw:focus:outline-0 tw:disabled:cursor-not-allowed tw:transition-[border,box-shadow] tw:duration-300"
+        class="tw:disabled:text-grey-5 tw:w-full tw:resize-none tw:rounded-xl tw:border-none tw:bg-transparent tw:text-sm tw:focus:ring-0 tw:focus:outline-0 tw:disabled:cursor-not-allowed tw:transition-[border,box-shadow] tw:duration-300"
         :class="inputClass"
         :name="name"
         :value="model"

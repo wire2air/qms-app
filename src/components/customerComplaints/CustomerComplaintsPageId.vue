@@ -223,7 +223,7 @@ const complaintDetailConfig = computed(() =>
     </template>
 
     <template v-if="complaint" #meta>
-      <span class="tw:font-mono">{{ complaint.complaintNumber }}</span>
+      <span class="">{{ complaint.complaintNumber }}</span>
       <template v-if="complaint.sourceId">
         · <CustomerComplaintSourceBadgeById :sourceId="complaint.sourceId" />
       </template>
@@ -303,7 +303,7 @@ const complaintDetailConfig = computed(() =>
       <!-- 1. General -->
       <BaseRailCard title="General" grid>
         <BaseDetailField label="Ticket number">
-          <BaseText variant="body" weight="medium" class="tw:font-mono tw:break-words">
+          <BaseText variant="body" weight="medium" class="tw:break-words">
             {{ complaint.complaintNumber || '—' }}
           </BaseText>
         </BaseDetailField>
@@ -458,7 +458,7 @@ const complaintDetailConfig = computed(() =>
             class="tw:flex tw:items-center tw:justify-between tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
           >
             <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
-              <span class="tw:text-xs tw:font-mono tw:text-secondary">{{ nc.ncNumber }}</span>
+              <span class="tw:text-xs tw:text-secondary">{{ nc.ncNumber }}</span>
               <span class="tw:text-sm tw:font-medium tw:truncate">{{ nc.title }}</span>
             </div>
             <NcStatusBadgeById :statusId="nc.statusId" />

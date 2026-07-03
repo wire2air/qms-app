@@ -85,6 +85,17 @@ export default defineConfig(({ mode }) => {
       proxy,
     },
 
+    // Preview server (`pnpm preview`) — serves the built/minified bundle. Vite's
+    // preview server does NOT inherit `server.proxy`, so we reuse the same proxy
+    // and pin the port to 5173 so tenant subdomains (acme.localhost:5173) resolve
+    // and /api + /socket.io reach the local backend exactly as they do in dev.
+    // `strictPort` fails fast if 5173 is taken (e.g. the dev server is running).
+    preview: {
+      port: 5173,
+      strictPort: true,
+      proxy,
+    },
+
     // Prevent Vite from pre-bundling all optional peer deps of @vueuse/integrations
     optimizeDeps: {
       exclude: ['@vueuse/integrations'],

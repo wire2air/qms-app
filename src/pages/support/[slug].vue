@@ -84,7 +84,7 @@ async function handleSubmit({ systemValues, customValues }) {
         </p>
         <p class="tw:text-sm tw:text-secondary">
           Your reference number:
-          <span class="tw:font-mono tw:font-bold tw:text-on-main">{{ submittedNumber }}</span>
+          <span class="tw:font-bold tw:text-on-main">{{ submittedNumber }}</span>
         </p>
       </div>
 

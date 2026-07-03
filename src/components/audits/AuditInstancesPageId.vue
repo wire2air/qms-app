@@ -542,7 +542,7 @@ const auditInstanceDetailConfig = computed(() =>
           <!-- Scope / Objectives — click-to-edit, long form -->
           <div class="tw:flex tw:flex-col tw:gap-3">
             <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Scope</p>
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Scope</p>
               <BaseTextarea
                 v-if="editingScope && isEditable"
                 v-model="auditInstance.scope"
@@ -562,7 +562,7 @@ const auditInstanceDetailConfig = computed(() =>
               </BaseClickableRow>
             </div>
             <div>
-              <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
                 Objectives
               </p>
               <BaseTextarea
@@ -641,7 +641,7 @@ const auditInstanceDetailConfig = computed(() =>
       <BaseRailCard title="Conformance" :icon="IconClipboardCheck" class="tw:hidden tw:lg:block">
         <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
           <div
-            class="tw:text-3xl tw:font-extrabold"
+            class="tw:text-3xl tw:font-bold"
             :class="scoring.pass ? 'tw:text-emerald-600' : 'tw:text-red-600'"
           >
             {{ scoring.conformancePct == null ? '—' : `${scoring.conformancePct}%` }}
@@ -745,9 +745,9 @@ const auditInstanceDetailConfig = computed(() =>
       <!-- Overview -->
       <BaseRailCard title="Overview" grid>
         <BaseDetailField label="Audit Number">
-          <code class="tw:text-xs tw:font-mono tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded">
+          <span class="tw:text-xs tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded">
             {{ auditInstance.auditNumber || '—' }}
-          </code>
+          </span>
         </BaseDetailField>
         <BaseDetailField label="Type" :value="auditInstance.programTypeId" />
         <BaseDetailField label="Progress">
@@ -801,13 +801,13 @@ const auditInstanceDetailConfig = computed(() =>
   <BaseDialog v-model="showAddMemberDialog" title="Add Team Member" maxWidth="md">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
       <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
           User <span class="tw:text-red-500">*</span>
         </p>
         <UserSelectMenu v-model="addMemberForm.userId" />
       </div>
       <div>
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Role</p>
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Role</p>
         <BaseInlineSelect
           v-model="addMemberForm.roleOnAudit"
           :items="[

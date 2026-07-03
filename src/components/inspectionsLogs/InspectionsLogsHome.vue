@@ -112,10 +112,10 @@ function go(path) {
           <IconChecklist :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
             My queue
           </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.myDue }}</div>
+          <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.myDue }}</div>
         </div>
       </div>
       <button
@@ -129,10 +129,10 @@ function go(path) {
           <IconAlertCircle :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
             Awaiting your review
           </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.underReview }}</div>
+          <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.underReview }}</div>
         </div>
       </button>
       <div
@@ -144,11 +144,11 @@ function go(path) {
           <IconHistory :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
             Missed this week
           </div>
           <div
-            class="tw:text-2xl tw:font-black"
+            class="tw:text-2xl tw:font-bold"
             :class="stats.missedThisWeek > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
           >
             {{ stats.missedThisWeek }}
@@ -164,10 +164,10 @@ function go(path) {
           <IconListCheck :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
             Submitted this week
           </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
+          <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">
             {{ stats.submittedThisWeek }}
           </div>
         </div>

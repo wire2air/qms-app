@@ -252,7 +252,7 @@ async function recordCalibration(e) {
     >
       <template #body-cell-name="{ row }">
         <div class="tw:font-medium tw:text-on-main">{{ row.name }}</div>
-        <div class="tw:text-xs tw:text-secondary tw:font-mono">
+        <div class="tw:text-xs tw:text-secondary">
           {{ row.code }}
           <span v-if="row.serialNumber">· {{ row.serialNumber }}</span>
         </div>

@@ -101,7 +101,7 @@ function rowMenuItems(row) {
     <template #body-cell-eventNumber="{ row }">
       <RouterLink
         :to="getCompanyPath(`/qualityEvents/${row.id}`)"
-        class="tw:font-mono tw:text-xs tw:text-secondary tw:hover:text-primary"
+        class="tw:text-xs tw:text-secondary tw:hover:text-primary"
       >
         {{ row.eventNumber || '—' }}
       </RouterLink>

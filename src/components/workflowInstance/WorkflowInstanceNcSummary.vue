@@ -24,7 +24,7 @@ defineEmits(['viewNc'])
           </span>
           <span v-if="nc?.ncNumber" class="tw:text-secondary tw:text-sm">#{{ nc.ncNumber }}</span>
         </div>
-        <h1 class="tw:text-2xl tw:font-bold tw:text-on-main tw:leading-tight">
+        <h1 class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main tw:leading-tight">
           {{ nc?.title || '—' }}
         </h1>
         <div

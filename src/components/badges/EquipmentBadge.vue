@@ -27,7 +27,7 @@ const scheme = (id) => SCHEME_MAP[id] || { class: 'tw:text-on-main' }
       <IconTool :size="14" class="tw:text-secondary" />
     </template>
     {{ equipment?.name || equipment?.id || '—' }}
-    <span v-if="equipment?.code" class="tw:text-xs tw:text-secondary tw:font-mono tw:ml-1">
+    <span v-if="equipment?.code" class="tw:text-xs tw:text-secondary tw:ml-1">
       · {{ equipment.code }}
     </span>
   </BaseBadge>

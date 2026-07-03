@@ -390,7 +390,7 @@ const summaryLabel = computed(() => {
 const sizeClasses = computed(() =>
   props.size === 'md'
     ? 'tw:min-h-11 tw:sm:min-h-10 tw:py-2 tw:text-sm'
-    : 'tw:min-h-11 tw:sm:min-h-9 tw:py-1.5 tw:text-sm tw:sm:text-12',
+    : 'tw:min-h-11 tw:sm:min-h-9 tw:py-1.5 tw:text-sm tw:sm:text-xs',
 )
 
 // Programmatic open/close — e.g. a parent "+ add" button that pops the menu.
@@ -421,8 +421,7 @@ defineExpose({
     <label
       v-if="label || slots.label"
       :id="labelId"
-      class="tw:font-medium tw:text-on-main tw:dark:text-white"
-      :class="size === 'md' ? 'tw:text-sm' : 'tw:text-12'"
+      class="tw:text-label tw:font-medium tw:text-on-main"
     >
       <slot name="label">
         {{ label }}
@@ -432,7 +431,7 @@ defineExpose({
         ({{ selectedOptions.length }}{{ maxValues != null ? ` / ${maxValues}` : '' }})
       </span>
     </label>
-    <p v-if="instructions" class="tw:text-secondary tw:text-12">{{ instructions }}</p>
+    <p v-if="instructions" class="tw:text-caption tw:text-secondary">{{ instructions }}</p>
 
     <!-- ============================ shared trigger ============================ -->
     <DefineTrigger v-slot="{ open, focusable }">
@@ -474,7 +473,13 @@ defineExpose({
       >
         <slot name="prepend" />
 
-        <div class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-1">
+        <!-- Single-select shows the value as bare text: strip the badge's pill
+             border so it doesn't read as a box-in-a-box inside the trigger.
+             Multi-select keeps chip borders. -->
+        <div
+          class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-1"
+          :class="!multiple && 'tw:[&_*]:border-transparent!'"
+        >
           <slot
             v-if="hasValue"
             name="selected"
@@ -550,7 +555,7 @@ defineExpose({
       <!-- Select all / clear all (multiple) -->
       <div
         v-if="multiple && (showSelectAll || clearable)"
-        class="tw:flex tw:items-center tw:justify-between tw:border-b tw:border-divider tw:px-3 tw:py-1.5 tw:text-12"
+        class="tw:flex tw:items-center tw:justify-between tw:border-b tw:border-divider tw:px-3 tw:py-1.5 tw:text-label"
       >
         <button
           v-if="showSelectAll"
@@ -600,7 +605,7 @@ defineExpose({
           <template v-for="{ data: row, index } in virtualRows" :key="row.key">
             <div
               v-if="row.kind === 'header'"
-              class="tw:px-3 tw:py-1.5 tw:text-11 tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
+              class="tw:px-3 tw:py-1.5 tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
               role="presentation"
             >
               {{ row.label }}
@@ -658,7 +663,7 @@ defineExpose({
                   </span>
                   <span
                     v-if="row.option.description"
-                    class="tw:block tw:truncate tw:text-12 tw:text-secondary"
+                    class="tw:block tw:truncate tw:text-label tw:text-secondary"
                   >
                     {{ row.option.description }}
                   </span>
@@ -682,7 +687,7 @@ defineExpose({
         <template v-for="(row, index) in displayRows" :key="row.key">
           <div
             v-if="row.kind === 'header'"
-            class="tw:px-3 tw:py-1.5 tw:text-11 tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
+            class="tw:px-3 tw:py-1.5 tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
             role="presentation"
           >
             {{ row.label }}
@@ -740,7 +745,7 @@ defineExpose({
                 </span>
                 <span
                   v-if="row.option.description"
-                  class="tw:block tw:truncate tw:text-12 tw:text-secondary"
+                  class="tw:block tw:truncate tw:text-label tw:text-secondary"
                 >
                   {{ row.option.description }}
                 </span>
@@ -755,7 +760,7 @@ defineExpose({
       <!-- Count footer -->
       <div
         v-if="!loading && displayRows.length"
-        class="tw:border-t tw:border-divider tw:px-3 tw:py-1.5 tw:text-11 tw:text-secondary"
+        class="tw:border-t tw:border-divider tw:px-3 tw:py-1.5 tw:text-caption tw:text-secondary"
       >
         {{ query ? `${optionCount} of ${normalizedOptions.length}` : optionCount }}
         {{ optionCount === 1 ? 'option' : 'options' }}
@@ -837,7 +842,7 @@ defineExpose({
     </template>
 
     <BaseErrorText v-if="displayError">{{ displayError }}</BaseErrorText>
-    <p v-else-if="hint || slots.hint" class="tw:text-12 tw:text-secondary">
+    <p v-else-if="hint || slots.hint" class="tw:text-caption tw:text-secondary">
       <slot name="hint">{{ hint }}</slot>
     </p>
   </div>

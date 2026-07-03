@@ -109,7 +109,7 @@ const STATUS_CLASS = {
   REJECTED: 'tw:bg-red-100 tw:text-red-800',
   APPROVED: 'tw:bg-emerald-100 tw:text-emerald-800',
   EFFECTIVE: 'tw:bg-green-100 tw:text-green-900',
-  SUPERSEDED: 'tw:bg-slate-100 tw:text-slate-700',
+  SUPERSEDED: 'tw:bg-gray-100 tw:text-gray-700',
   ARCHIVED: 'tw:bg-stone-200 tw:text-stone-700',
 }
 
@@ -157,7 +157,7 @@ const columns = [
       noDataLabel="No versions found for this document."
     >
       <template #body-cell-version="{ row }">
-        <span class="tw:font-mono tw:font-semibold tw:whitespace-nowrap">
+        <span class="tw:font-semibold tw:whitespace-nowrap">
           {{ versionLabel(row) }}
         </span>
       </template>

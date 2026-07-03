@@ -330,7 +330,10 @@ async function onValidSubmit() {
         <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3">
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
             <div class="tw:flex tw:items-center tw:gap-2">
-              <span class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary">Conditions</span>
+              <span
+                class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
+                >Conditions</span
+              >
               <div class="tw:w-44">
                 <BaseSelect
                   v-model="draft.logic"
@@ -414,7 +417,7 @@ async function onValidSubmit() {
         <!-- Actions -->
         <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3">
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
-            <span class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary">Actions</span>
+            <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">Actions</span>
             <div class="tw:flex tw:items-center tw:gap-2">
               <div class="tw:w-48">
                 <BaseSelect
@@ -532,7 +535,7 @@ async function onValidSubmit() {
 
         <!-- Scope -->
         <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3">
-          <span class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary"
+          <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
             >Scope (optional)</span
           >
           <p class="tw:text-xs tw:text-secondary tw:mb-2">Leave empty to apply company-wide.</p>

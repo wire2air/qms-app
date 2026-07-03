@@ -133,7 +133,7 @@ const instances = useLiveQuery(
     <template #body-cell-number="{ row }">
       <RouterLink
         :to="getCompanyPath(`/audits/instances/${row.id}`)"
-        class="tw:font-mono tw:text-xs tw:text-on-main tw:hover:text-primary"
+        class="tw:text-xs tw:text-on-main tw:hover:text-primary"
       >
         {{ row.auditNumber || row.id.slice(0, 8) }}
       </RouterLink>
