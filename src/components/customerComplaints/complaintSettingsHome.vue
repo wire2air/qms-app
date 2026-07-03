@@ -7,6 +7,7 @@ import {
   IconRoute,
   IconClockHour4,
   IconMailPause,
+  IconPlug,
 } from '@tabler/icons-vue'
 
 /**
@@ -26,6 +27,7 @@ const tabs = computed(() => [
   { value: 'canned-responses', label: 'Canned Responses', icon: IconMessage2 },
   { value: 'routing', label: 'Routing', icon: IconRoute },
   { value: 'sla', label: 'SLA', icon: IconClockHour4 },
+  { value: 'integrations', label: 'Integrations', icon: IconPlug },
   { value: 'suspended', label: 'Suspended Emails', icon: IconMailPause },
 ])
 
@@ -77,6 +79,11 @@ watch(
           <!-- Tab: SLA — response/resolution targets + lifecycle automation -->
           <BaseTabPanel value="sla">
             <ComplaintSlaSettings />
+          </BaseTabPanel>
+
+          <!-- Tab: Integrations — connect third-party support desks (Zendesk, …) -->
+          <BaseTabPanel value="integrations">
+            <SupportIntegrationsHome />
           </BaseTabPanel>
 
           <!-- Tab: Suspended — quarantined inbound mail -->

@@ -107,6 +107,8 @@ import { CustomerComplaintMessage } from './customerComplaintMessage'
 import { CustomerComplaintAttachment } from './customerComplaintAttachment'
 import { NcSourceLink } from './ncSourceLink'
 import { ComplaintCannedResponse } from './complaintCannedResponse'
+import { ExternalTicketLink } from './externalTicketLink'
+import { IntegrationSyncEvent } from './integrationSyncEvent'
 import { Customer } from './customer'
 import { CustomerOrganization } from './customerOrganization'
 import { CapaCounter } from './capaCounter'
@@ -298,6 +300,8 @@ export const db = {
   CustomerComplaintAttachment,
   NcSourceLink,
   ComplaintCannedResponse,
+  ExternalTicketLink,
+  IntegrationSyncEvent,
   Customer,
   CustomerOrganization,
   Capa,

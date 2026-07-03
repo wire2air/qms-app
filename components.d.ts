@@ -919,6 +919,7 @@ declare module 'vue' {
     SupplierStatusBadgeById: typeof import('./src/components/badges/SupplierStatusBadgeById.vue')['default']
     SupplierStatusSelectMenu: typeof import('./src/components/menus/SupplierStatusSelectMenu.vue')['default']
     SuppliersUsersTab: typeof import('./src/components/suppliers/SuppliersUsersTab.vue')['default']
+    SupportIntegrationsHome: typeof import('./src/components/customerComplaints/SupportIntegrationsHome.vue')['default']
     SuspendedEmailsHome: typeof import('./src/components/customerComplaints/SuspendedEmailsHome.vue')['default']
     Switchback: typeof import('./resource/js/shared/components/Switchback.vue')['default']
     TableBulkActionBar: typeof import('./resource/js/shared/components/dataTable/TableBulkActionBar.vue')['default']
