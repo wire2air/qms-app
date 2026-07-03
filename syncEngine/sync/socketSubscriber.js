@@ -45,9 +45,15 @@ function attachSyncListener(socket) {
     const { table: tableNameInPostgres, action, pkValue } = payload
     if (!tableNameInPostgres || !action || !pkValue) return
 
-    const tableName = toCamelCase(tableNameInPostgres)
-    const meta = MetaCache.getByTable(tableName)
+    const meta = MetaCache.getByTable(toCamelCase(tableNameInPostgres))
     if (!meta) return
+
+    // IndexedDB store name is the model's OWN tableName, NOT the raw postgres
+    // table name from the socket. They diverge for uncountable-noun tables
+    // (postgres `equipment` vs the IDB store `equipments`); using the socket
+    // name here would put()/delete() against the wrong/nonexistent store and the
+    // fetched record would never reach the live query.
+    const tableName = meta.tableName
 
     const echoKey = `${meta.modelName}:${pkValue}`
     if (recentlyWritten.has(echoKey)) return
