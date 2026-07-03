@@ -40,13 +40,24 @@ const tiles = computed(() => {
   const d = data.value
   if (!d) return []
   const pw = d.passwordHealth
-  const pwValue = pw?.expired ? 'Expired' : pw?.expiresInDays != null ? `${pw.expiresInDays}d` : 'OK'
+  // Password tile: show what the number means (days until it must be changed).
+  let pwValue = 'OK'
+  let pwLabel = 'Password'
+  let pwHint = 'Your password meets policy'
+  if (pw?.expired) {
+    pwValue = 'Expired'
+    pwHint = 'Your password has expired — change it'
+  } else if (pw?.expiresInDays != null) {
+    pwValue = `${pw.expiresInDays}d`
+    pwLabel = 'Password expires'
+    pwHint = `Your password must be changed in ${pw.expiresInDays} days`
+  }
   const enrolled = !!d.mfaStatus?.enrolled
   return [
-    { label: 'Two-factor', value: enrolled ? 'On' : 'Off', icon: enrolled ? IconShieldCheck : IconShieldOff, tint: enrolled ? 'green' : 'red' },
-    { label: 'Password', value: pwValue, icon: IconKey, tint: pw?.expired ? 'red' : 'blue' },
-    { label: 'Active sessions', value: d.sessionsCount ?? 0, icon: IconDevices, tint: 'blue' },
-    { label: 'Devices', value: d.devicesCount ?? 0, icon: IconDeviceDesktop, tint: 'blue' },
+    { label: 'Two-factor', value: enrolled ? 'On' : 'Off', icon: enrolled ? IconShieldCheck : IconShieldOff, tint: enrolled ? 'green' : 'red', hint: enrolled ? 'Two-factor authentication is on' : 'Two-factor authentication is off' },
+    { label: pwLabel, value: pwValue, icon: IconKey, tint: pw?.expired ? 'red' : 'blue', hint: pwHint },
+    { label: 'Active sessions', value: d.sessionsCount ?? 0, icon: IconDevices, tint: 'blue', hint: 'Devices you are currently signed in on' },
+    { label: 'Devices', value: d.devicesCount ?? 0, icon: IconDeviceDesktop, tint: 'blue', hint: 'Devices that have signed in to your account' },
   ]
 })
 </script>
@@ -89,6 +100,7 @@ const tiles = computed(() => {
         <div
           v-for="t in tiles"
           :key="t.label"
+          :title="t.hint"
           class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2.5"
         >
           <div
