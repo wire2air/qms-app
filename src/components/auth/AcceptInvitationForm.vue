@@ -2,6 +2,7 @@
 import { IconAlertCircle, IconConfetti, IconLock } from '@tabler/icons-vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { currentSubdomain, tenantOrigin } from '@/utils/tenant'
+import PasswordStrengthMeter from '@/components/auth/PasswordStrengthMeter.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -17,6 +18,12 @@ const email = ref('')
 const companyCode = ref(null)
 const tokenValid = ref(false)
 const validating = ref(true)
+
+// Password requirements popover — anchored to the field while focused. The
+// meter's `valid` (server-checked policy, client-checklist fallback) gates the
+// submit so the invite can't be accepted with a password the backend rejects.
+const passwordFocused = ref(false)
+const passwordValid = ref(false)
 
 onMounted(async () => {
   token.value = route.query.token || ''
@@ -48,8 +55,8 @@ function validatePasswordValue(passwordValue) {
   if (!passwordValue) {
     return 'Password is required'
   }
-  if (passwordValue.length < 8) {
-    return 'Password must be at least 8 characters long'
+  if (!passwordValid.value) {
+    return "Password doesn't meet the requirements"
   }
   return null
 }
@@ -144,18 +151,49 @@ function goToLogin() {
             <span class="tw:font-medium tw:text-on-main">Email:</span> {{ email }}
           </div>
 
-          <BaseTextInput
-            v-model="password"
-            type="password"
-            placeholder="Set new password"
-            autocomplete="new-password"
-            :disabled="loading"
-            @keyup.enter="handleSubmit"
-          >
-            <template #icon>
-              <IconLock :size="16" class="tw:text-secondary" />
-            </template>
-          </BaseTextInput>
+          <div class="tw:relative">
+            <BaseTextInput
+              v-model="password"
+              type="password"
+              placeholder="Set new password"
+              autocomplete="new-password"
+              :disabled="loading"
+              @focus="passwordFocused = true"
+              @blur="passwordFocused = false"
+              @keyup.enter="handleSubmit"
+            >
+              <template #icon>
+                <IconLock :size="16" class="tw:text-secondary" />
+              </template>
+            </BaseTextInput>
+
+            <!-- Requirements popover — floats under the field while focused.
+                 pointer-events-none so clicks pass through to the confirm
+                 field beneath instead of being spent dismissing it. -->
+            <Transition
+              enterActiveClass="tw:transition tw:duration-150 tw:ease-out"
+              enterFromClass="tw:-translate-y-1 tw:opacity-0"
+              enterToClass="tw:translate-y-0 tw:opacity-100"
+              leaveActiveClass="tw:transition tw:duration-100 tw:ease-in"
+              leaveFromClass="tw:translate-y-0 tw:opacity-100"
+              leaveToClass="tw:-translate-y-1 tw:opacity-0"
+            >
+              <div
+                v-show="passwordFocused"
+                class="tw:pointer-events-none tw:absolute tw:inset-x-0 tw:top-full tw:z-20 tw:mt-2 tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:p-3 tw:shadow-floating"
+              >
+                <p class="tw:mb-2 tw:text-xs tw:font-medium tw:text-secondary">
+                  Your password must have:
+                </p>
+                <PasswordStrengthMeter
+                  v-model="password"
+                  :userInputs="[email, firstName, lastName]"
+                  showEmpty
+                  @update:valid="passwordValid = $event"
+                />
+              </div>
+            </Transition>
+          </div>
 
           <BaseTextInput
             v-model="confirmPassword"
@@ -163,6 +201,11 @@ function goToLogin() {
             placeholder="Confirm new password"
             autocomplete="new-password"
             :disabled="loading"
+            :errorMsg="
+              confirmPassword.length > 0 && password !== confirmPassword
+                ? 'Passwords do not match'
+                : ''
+            "
             @keyup.enter="handleSubmit"
           >
             <template #icon>
@@ -170,13 +213,9 @@ function goToLogin() {
             </template>
           </BaseTextInput>
 
-          <div class="tw:text-xs tw:text-secondary">
-            Password must be at least 8 characters long
-          </div>
-
           <button
             class="tw:w-full tw:py-3 tw:px-4 tw:rounded-lg tw:bg-primary tw:text-white tw:font-medium tw:text-sm tw:hover:opacity-90 tw:transition-opacity tw:cursor-pointer tw:border-0 disabled:tw:opacity-50 disabled:tw:cursor-not-allowed"
-            :disabled="loading || !password || !confirmPassword"
+            :disabled="loading || !passwordValid || !confirmPassword || password !== confirmPassword"
             @click="handleSubmit"
           >
             <span v-if="loading" class="tw:inline-flex tw:items-center tw:justify-center tw:gap-2">

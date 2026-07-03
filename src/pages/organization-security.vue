@@ -4,7 +4,14 @@
 // will be enforced by the MFA-enforcement and session-management phases.
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { get, patch } from '@/api'
-import { IconShieldLock, IconLogin, IconWorld, IconDeviceMobile, IconClock } from '@tabler/icons-vue'
+import {
+  IconShieldLock,
+  IconLogin,
+  IconWorld,
+  IconDeviceMobile,
+  IconClock,
+  IconKey,
+} from '@tabler/icons-vue'
 
 defineOptions({ name: 'OrganizationSecurityPage' })
 
@@ -13,6 +20,7 @@ const toast = useToast()
 const TABS = [
   { value: 'methods', label: 'Login methods', icon: IconLogin },
   { value: 'domains', label: 'Allowed domains', icon: IconWorld },
+  { value: 'password', label: 'Password policy', icon: IconKey },
   { value: 'mfa', label: 'MFA policy', icon: IconDeviceMobile },
   { value: 'sessions', label: 'Sessions', icon: IconClock },
 ]
@@ -22,6 +30,16 @@ const MFA_MODES = [
   { value: 'OPTIONAL', label: 'Optional — users choose' },
   { value: 'REQUIRED_FOR_ADMINS', label: 'Required for admins' },
   { value: 'REQUIRED_FOR_ALL', label: 'Required for everyone' },
+]
+
+// zxcvbn score floor a password must reach. 0 turns the strength gate off and
+// leaves only the character-class rules.
+const STRENGTH_OPTIONS = [
+  { value: 0, label: 'Off — no strength requirement' },
+  { value: 1, label: 'Weak' },
+  { value: 2, label: 'Fair' },
+  { value: 3, label: 'Good (recommended)' },
+  { value: 4, label: 'Strong' },
 ]
 
 const form = ref(null)
@@ -69,6 +87,23 @@ async function save() {
     sessionAbsoluteHours: Number(f.sessionAbsoluteHours),
     rememberMeEnabled: f.rememberMeEnabled,
     rememberMeAbsoluteHours: Number(f.rememberMeAbsoluteHours),
+  }
+  const pp = f.passwordPolicy
+  if (pp) {
+    payload.passwordPolicy = {
+      minLength: Number(pp.minLength),
+      requireUpper: pp.requireUpper,
+      requireLower: pp.requireLower,
+      requireNumber: pp.requireNumber,
+      requireSymbol: pp.requireSymbol,
+      minStrengthScore: Number(pp.minStrengthScore),
+      historyDepth: Number(pp.historyDepth),
+      expiryDays: Number(pp.expiryDays),
+      forceChangeOnFirstLogin: pp.forceChangeOnFirstLogin,
+      blockBreached: pp.blockBreached,
+      maxFailedAttempts: Number(pp.maxFailedAttempts),
+      lockoutDurationMinutes: Number(pp.lockoutDurationMinutes),
+    }
   }
   try {
     const data = await patch('/v1/admin/security/settings', payload, {
@@ -128,6 +163,119 @@ async function save() {
             v-model="form.allowedEmailDomains"
             placeholder="e.g. acme.com — press Enter to add"
           />
+        </div>
+
+        <!-- Password policy -->
+        <div
+          v-else-if="activeTab === 'password' && form.passwordPolicy"
+          class="tw:flex tw:flex-col tw:gap-4"
+        >
+          <p class="tw:text-sm tw:text-secondary">
+            Rules every member's password must satisfy. Applies to sign-up, password
+            resets, and forced changes. Tightening these does not retroactively
+            invalidate existing passwords until they next change.
+          </p>
+
+          <div class="tw:grid tw:grid-cols-1 tw:gap-4 tw:sm:grid-cols-2">
+            <div>
+              <p class="tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">Minimum length</p>
+              <BaseTextInput v-model="form.passwordPolicy.minLength" type="number" :min="6" :max="128" />
+            </div>
+            <div>
+              <p class="tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">Minimum strength</p>
+              <BaseSelect
+                v-model="form.passwordPolicy.minStrengthScore"
+                :options="STRENGTH_OPTIONS"
+                optionLabel="label"
+                optionValue="value"
+                :required="true"
+              />
+            </div>
+          </div>
+
+          <hr class="tw:border-divider" />
+
+          <p class="tw:text-sm tw:font-medium tw:text-on-main">Character requirements</p>
+          <div class="tw:flex tw:items-center tw:justify-between">
+            <span class="tw:text-sm tw:text-on-main">Require an uppercase letter</span>
+            <BaseSwitch v-model="form.passwordPolicy.requireUpper" label="Require uppercase" />
+          </div>
+          <div class="tw:flex tw:items-center tw:justify-between">
+            <span class="tw:text-sm tw:text-on-main">Require a lowercase letter</span>
+            <BaseSwitch v-model="form.passwordPolicy.requireLower" label="Require lowercase" />
+          </div>
+          <div class="tw:flex tw:items-center tw:justify-between">
+            <span class="tw:text-sm tw:text-on-main">Require a number</span>
+            <BaseSwitch v-model="form.passwordPolicy.requireNumber" label="Require number" />
+          </div>
+          <div class="tw:flex tw:items-center tw:justify-between">
+            <span class="tw:text-sm tw:text-on-main">Require a symbol</span>
+            <BaseSwitch v-model="form.passwordPolicy.requireSymbol" label="Require symbol" />
+          </div>
+
+          <hr class="tw:border-divider" />
+
+          <div class="tw:flex tw:items-center tw:justify-between">
+            <div>
+              <span class="tw:text-sm tw:text-on-main">Block breached passwords</span>
+              <p class="tw:text-caption tw:text-secondary">
+                Reject passwords found in known data breaches (HaveIBeenPwned).
+              </p>
+            </div>
+            <BaseSwitch v-model="form.passwordPolicy.blockBreached" label="Block breached passwords" />
+          </div>
+          <div class="tw:flex tw:items-center tw:justify-between">
+            <div>
+              <span class="tw:text-sm tw:text-on-main">Force change on first login</span>
+              <p class="tw:text-caption tw:text-secondary">
+                Members created by an admin must set a new password on first sign-in.
+              </p>
+            </div>
+            <BaseSwitch
+              v-model="form.passwordPolicy.forceChangeOnFirstLogin"
+              label="Force change on first login"
+            />
+          </div>
+
+          <div class="tw:grid tw:grid-cols-1 tw:gap-4 tw:sm:grid-cols-2">
+            <div>
+              <p class="tw:text-sm tw:text-on-main tw:mb-1">Password expires after (days)</p>
+              <BaseTextInput v-model="form.passwordPolicy.expiryDays" type="number" :min="0" :max="3650" />
+              <p class="tw:text-caption tw:text-secondary tw:mt-1">0 = never expires.</p>
+            </div>
+            <div>
+              <p class="tw:text-sm tw:text-on-main tw:mb-1">Remember last N passwords</p>
+              <BaseTextInput v-model="form.passwordPolicy.historyDepth" type="number" :min="0" :max="50" />
+              <p class="tw:text-caption tw:text-secondary tw:mt-1">
+                Block reuse of this many recent passwords. 0 = off.
+              </p>
+            </div>
+          </div>
+
+          <hr class="tw:border-divider" />
+
+          <p class="tw:text-sm tw:font-medium tw:text-on-main">Account lockout</p>
+          <div class="tw:grid tw:grid-cols-1 tw:gap-4 tw:sm:grid-cols-2">
+            <div>
+              <p class="tw:text-sm tw:text-on-main tw:mb-1">Lock after N failed attempts</p>
+              <BaseTextInput
+                v-model="form.passwordPolicy.maxFailedAttempts"
+                type="number"
+                :min="0"
+                :max="100"
+              />
+              <p class="tw:text-caption tw:text-secondary tw:mt-1">0 = never lock.</p>
+            </div>
+            <div>
+              <p class="tw:text-sm tw:text-on-main tw:mb-1">Lockout duration (minutes)</p>
+              <BaseTextInput
+                v-model="form.passwordPolicy.lockoutDurationMinutes"
+                type="number"
+                :min="1"
+                :max="1440"
+              />
+            </div>
+          </div>
         </div>
 
         <!-- MFA policy -->

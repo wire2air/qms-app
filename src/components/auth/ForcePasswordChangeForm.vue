@@ -12,7 +12,7 @@ const props = defineProps({
   reason: { type: String, default: 'FIRST_LOGIN' }, // FIRST_LOGIN | EXPIRED
 })
 
-const emit = defineEmits(['mfa', 'cancel'])
+const emit = defineEmits(['mfa', 'enroll', 'cancel'])
 
 const toast = useToast()
 
@@ -61,6 +61,10 @@ async function submit() {
           pendingToken: data.pendingToken,
           availableFactors: data.availableFactors || ['totp'],
         })
+        return
+      }
+      if (data?.mfaEnrollmentRequired) {
+        emit('enroll', { pendingToken: data.pendingToken })
         return
       }
       window.location.reload()

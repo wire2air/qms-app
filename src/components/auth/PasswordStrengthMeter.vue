@@ -12,6 +12,10 @@ const props = defineProps({
   // Email/name fragments the strength check should penalise (forwarded to the
   // server validate call, which drops them if unused).
   userInputs: { type: Array, default: () => [] },
+  // Render the requirements checklist even while the password is empty (used
+  // by popover placements that show "what a valid password needs" up front).
+  // The strength bar still waits for input.
+  showEmpty: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:valid'])
@@ -26,12 +30,12 @@ onMounted(async () => {
     const data = await get('/v1/auth/password/policy', { showError: false })
     policy.value = data.policy
   } catch {
-    policy.value = { minLength: 12, requireUpper: true, requireLower: true, requireNumber: true, requireSymbol: false }
+    policy.value = { minLength: 8, requireUpper: true, requireLower: true, requireNumber: true, requireSymbol: false }
   }
 })
 
-// Client-side checklist — instant, mirrors the policy structure.
-const checks = computed(() => {
+// Structural checks — instant, client-verifiable (length + character classes).
+const structuralChecks = computed(() => {
   const p = policy.value
   const pw = password.value || ''
   if (!p) return []
@@ -40,6 +44,23 @@ const checks = computed(() => {
   if (p.requireLower) list.push({ label: 'A lowercase letter', ok: /[a-z]/.test(pw) })
   if (p.requireNumber) list.push({ label: 'A number', ok: /[0-9]/.test(pw) })
   if (p.requireSymbol) list.push({ label: 'A symbol', ok: /[^A-Za-z0-9]/.test(pw) })
+  return list
+})
+
+// Full checklist shown to the user. Adds the strength requirement when the
+// policy enforces one — otherwise a password can pass every structural check
+// yet still be rejected as "too weak", with no visible reason (which reads as a
+// dead submit button). `score` comes from the server validate call.
+const checks = computed(() => {
+  const p = policy.value
+  if (!p) return []
+  const list = [...structuralChecks.value]
+  if (p.minStrengthScore > 0) {
+    list.push({
+      label: 'Not too weak or predictable',
+      ok: (password.value || '').length > 0 && score.value >= p.minStrengthScore,
+    })
+  }
   return list
 })
 
@@ -70,8 +91,9 @@ const runValidate = useDebounceFn(async () => {
     meetsPolicy.value = !!data.meetsPolicy
     emit('update:valid', meetsPolicy.value)
   } catch {
-    // On a validation-endpoint hiccup, fall back to the client checklist.
-    const ok = checks.value.every((c) => c.ok)
+    // On a validation-endpoint hiccup, fall back to the structural checks only
+    // — the strength item needs the server score, so don't block on it here.
+    const ok = structuralChecks.value.every((c) => c.ok)
     meetsPolicy.value = ok
     emit('update:valid', ok)
   }
@@ -81,9 +103,9 @@ watch(password, runValidate, { immediate: true })
 </script>
 
 <template>
-  <div v-if="password" class="tw:flex tw:flex-col tw:gap-2">
+  <div v-if="password || showEmpty" class="tw:flex tw:flex-col tw:gap-2">
     <!-- Strength bar -->
-    <div class="tw:flex tw:items-center tw:gap-2">
+    <div v-if="password" class="tw:flex tw:items-center tw:gap-2">
       <div class="tw:flex tw:h-1.5 tw:flex-1 tw:gap-1">
         <div
           v-for="i in 4"

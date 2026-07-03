@@ -3,6 +3,8 @@ import { IconUser, IconMail, IconLock, IconBuilding, IconArrowLeft } from '@tabl
 import { currentSubdomain, rootDomain, apexOrigin } from '@/utils/tenant'
 import MfaVerifyForm from '@/components/auth/MfaVerifyForm.vue'
 import ForcePasswordChangeForm from '@/components/auth/ForcePasswordChangeForm.vue'
+import ForceMfaEnrollmentForm from '@/components/auth/ForceMfaEnrollmentForm.vue'
+import PasswordStrengthMeter from '@/components/auth/PasswordStrengthMeter.vue'
 
 const props = defineProps({
   mode: {
@@ -54,6 +56,10 @@ const mfaState = ref(null)
 // When the account must set a new password first (first login / expiry), the
 // backend returns a pending-change challenge; we swap in the force-change form.
 const mustChangeState = ref(null)
+// When the org requires MFA, the user isn't enrolled, and their grace window has
+// elapsed, the backend returns a pending-enrolment token; we swap in the forced
+// MFA setup form.
+const enrollState = ref(null)
 
 // The tenant whose /signin we're on (acme.qability.com → "acme"), or null on the
 // apex host. When set, the form offers a way back to the workspace picker so a
@@ -67,6 +73,16 @@ function goToWorkspacePicker() {
   window.location.assign(`${apexOrigin()}/signin`)
 }
 
+// Signup is not tenant-scoped — it always lives on the apex host. From a tenant
+// subdomain the link must cross origins; on the apex it resolves to itself.
+const signupUrl = computed(() => `${apexOrigin()}/signup`)
+
+// Signup password feedback: a requirements popover anchored to the field while
+// it has focus. `passwordValid` is the meter's policy verdict (server-checked,
+// client-checklist fallback) and gates the signup submit.
+const passwordFocused = ref(false)
+const passwordValid = ref(false)
+
 const isFormValid = computed(() => {
   if (!email.value || !password.value) return false
   if (isSignup.value) {
@@ -75,7 +91,7 @@ const isFormValid = computed(() => {
       lastName.value &&
       confirmPassword.value &&
       password.value === confirmPassword.value &&
-      password.value.length >= 8
+      passwordValid.value
     )
   }
   return true
@@ -154,6 +170,11 @@ async function submitForm() {
             availableFactors: data.availableFactors || ['totp'],
             email: email.value,
           }
+        } else if (data?.mfaEnrollmentRequired) {
+          enrollState.value = {
+            pendingToken: data.pendingToken,
+            email: email.value,
+          }
         }
       }
       return
@@ -197,6 +218,12 @@ async function submitForm() {
         mustChangeState = null
       }
     "
+    @enroll="
+      (e) => {
+        enrollState = { ...e, email: mustChangeState.email }
+        mustChangeState = null
+      }
+    "
     @cancel="mustChangeState = null"
   />
   <MfaVerifyForm
@@ -205,6 +232,12 @@ async function submitForm() {
     :availableFactors="mfaState.availableFactors"
     :email="mfaState.email"
     @cancel="mfaState = null"
+  />
+  <ForceMfaEnrollmentForm
+    v-else-if="enrollState"
+    :pendingToken="enrollState.pendingToken"
+    :email="enrollState.email"
+    @expired="enrollState = null"
   />
   <div v-else class="tw:w-full tw:max-w-105">
     <div class="tw:pb-1">
@@ -326,12 +359,14 @@ async function submitForm() {
             </template>
           </BaseTextInput>
 
-          <div>
+          <div class="tw:relative">
             <BaseTextInput
               v-model="password"
               type="password"
               placeholder="Password"
-              autocomplete="current-password"
+              :autocomplete="isSignup ? 'new-password' : 'current-password'"
+              @focus="passwordFocused = true"
+              @blur="passwordFocused = false"
               @keyup.enter="submitForm"
             >
               <template #icon>
@@ -341,6 +376,35 @@ async function submitForm() {
             <p v-if="isSignup" class="tw:text-xs tw:text-secondary tw:mt-1">
               At least 8 characters
             </p>
+
+            <!-- Requirements popover — floats under the field while it has focus.
+                 pointer-events-none: informational only; clicks pass through to
+                 whatever sits beneath (e.g. the confirm field) so no dead click
+                 is spent dismissing it. -->
+            <Transition
+              enterActiveClass="tw:transition tw:duration-150 tw:ease-out"
+              enterFromClass="tw:-translate-y-1 tw:opacity-0"
+              enterToClass="tw:translate-y-0 tw:opacity-100"
+              leaveActiveClass="tw:transition tw:duration-100 tw:ease-in"
+              leaveFromClass="tw:translate-y-0 tw:opacity-100"
+              leaveToClass="tw:-translate-y-1 tw:opacity-0"
+            >
+              <div
+                v-if="isSignup"
+                v-show="passwordFocused"
+                class="tw:pointer-events-none tw:absolute tw:inset-x-0 tw:top-full tw:z-20 tw:mt-2 tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:p-3 tw:shadow-floating"
+              >
+                <p class="tw:mb-2 tw:text-xs tw:font-medium tw:text-secondary">
+                  Your password must have:
+                </p>
+                <PasswordStrengthMeter
+                  v-model="password"
+                  :userInputs="[email, firstName, lastName]"
+                  showEmpty
+                  @update:valid="passwordValid = $event"
+                />
+              </div>
+            </Transition>
           </div>
 
           <BaseTextInput
@@ -394,7 +458,7 @@ async function submitForm() {
         </template>
         <template v-else>
           Don't have an account?
-          <a href="/signup" class="tw:text-primary!">Sign up</a>
+          <a :href="signupUrl" class="tw:text-primary!">Sign up</a>
         </template>
       </div>
       <div class="tw:text-xs tw:text-secondary tw:text-center tw:mt-2">

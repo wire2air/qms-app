@@ -583,6 +583,7 @@ declare module 'vue' {
     'FilterModel.spec': typeof import('./resource/js/shared/components/dataTable/filterModel.spec.js')['default']
     FishboneAnalysis: typeof import('./src/components/form/tools/rca/FishboneAnalysis.vue')['default']
     FiveWhyAnalysis: typeof import('./src/components/form/tools/rca/FiveWhyAnalysis.vue')['default']
+    ForceMfaEnrollmentForm: typeof import('./src/components/auth/ForceMfaEnrollmentForm.vue')['default']
     ForcePasswordChangeForm: typeof import('./src/components/auth/ForcePasswordChangeForm.vue')['default']
     ForgotPasswordForm: typeof import('./src/components/auth/ForgotPasswordForm.vue')['default']
     FormAssignmentEditor: typeof import('./src/components/formAssignment/FormAssignmentEditor.vue')['default']
