@@ -17,6 +17,8 @@ import {
 import { get, post, del } from '@/api'
 
 const toast = useToast()
+const route = useRoute()
+const router = useRouter()
 
 const providers = ref([])
 const statuses = ref({}) // key -> status object
@@ -24,6 +26,9 @@ const loading = ref(true)
 const busyKey = ref(null)
 
 const dialog = ref({ open: false, meta: null, form: {}, saving: false, error: '' })
+// When a provider supports OAuth, default the dialog to the OAuth path and let
+// the user reveal the API-token fields.
+const oauthOnly = ref(true)
 
 function urlKey(meta) {
   return String(meta.key).toLowerCase()
@@ -50,10 +55,47 @@ async function loadAll() {
   }
 }
 
+function supportsOAuth(meta) {
+  return Boolean(meta?.authTypes?.includes('OAUTH2') && meta?.oauthConfigured)
+}
+
 function openConnect(meta) {
   const form = {}
   for (const f of meta.configFields || []) form[f.name] = ''
+  oauthOnly.value = supportsOAuth(meta) // OAuth-first when available
   dialog.value = { open: true, meta, form, saving: false, error: '' }
+}
+
+async function connectOAuth(meta) {
+  const subdomain = String(dialog.value.form.subdomain || '').trim()
+  if (!subdomain) {
+    dialog.value.error = 'Enter your Zendesk subdomain first'
+    return
+  }
+  try {
+    const res = await get(
+      `/v1/services/integrations/${urlKey(meta)}/oauth/authorize?subdomain=${encodeURIComponent(subdomain)}`,
+    )
+    if (res?.url) window.location.href = res.url
+  } catch (err) {
+    dialog.value.error = err?.message || 'Could not start OAuth'
+  }
+}
+
+// Surface the OAuth round-trip result (?<provider>=connected|error), then strip it.
+function handleOAuthReturn() {
+  const q = route.query
+  let hit = false
+  for (const [k, v] of Object.entries(q)) {
+    if (v === 'connected') {
+      toast.success(`${k[0].toUpperCase()}${k.slice(1)} connected`)
+      hit = true
+    } else if (v === 'error') {
+      toast.error(q.message || `${k} connection failed`)
+      hit = true
+    }
+  }
+  if (hit) router.replace({ query: { tab: 'integrations' } })
 }
 
 async function submitConnect() {
@@ -99,7 +141,10 @@ async function disconnect(meta) {
   }
 }
 
-onMounted(loadAll)
+onMounted(async () => {
+  await loadAll()
+  handleOAuthReturn()
+})
 </script>
 
 <template>
@@ -186,7 +231,13 @@ onMounted(loadAll)
     <!-- Connect dialog — fields driven by the provider's configFields -->
     <BaseDialog v-model="dialog.open" :title="`Connect ${dialog.meta?.displayName || ''}`" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
-        <div v-for="field in dialog.meta?.configFields || []" :key="field.name" class="tw:flex tw:flex-col tw:gap-1">
+        <!-- Subdomain first — OAuth needs it -->
+        <div
+          v-for="field in dialog.meta?.configFields || []"
+          v-show="!supportsOAuth(dialog.meta) ? true : field.name === 'subdomain' || !oauthOnly"
+          :key="field.name"
+          class="tw:flex tw:flex-col tw:gap-1"
+        >
           <label class="tw:text-sm tw:font-medium">
             {{ field.label }}<span v-if="field.required" class="tw:text-red-500">*</span>
           </label>
@@ -197,15 +248,34 @@ onMounted(loadAll)
           />
           <p v-if="field.help" class="tw:text-xs tw:text-secondary">{{ field.help }}</p>
         </div>
+
+        <!-- OAuth option (platform client configured on the server) -->
+        <template v-if="supportsOAuth(dialog.meta)">
+          <BaseButton variant="primary" size="sm" class="tw:self-start" @click="connectOAuth(dialog.meta)">
+            <IconPlugConnected :size="14" class="tw:mr-1" /> Connect with OAuth
+          </BaseButton>
+          <button
+            type="button"
+            class="tw:text-xs tw:text-secondary tw:underline tw:self-start"
+            @click="oauthOnly = !oauthOnly"
+          >
+            {{ oauthOnly ? 'or use an API token instead' : 'hide API token option' }}
+          </button>
+        </template>
+
         <p v-if="dialog.error" class="tw:text-sm tw:text-red-600">{{ dialog.error }}</p>
       </div>
       <template #footer="{ close }">
         <BaseDialogFooter
-          submitLabel="Connect"
+          v-if="!supportsOAuth(dialog.meta) || !oauthOnly"
+          submitLabel="Connect with API token"
           :loading="dialog.saving"
           @cancel="close"
           @submit="submitConnect"
         />
+        <div v-else class="tw:flex tw:justify-end tw:p-3">
+          <BaseButton variant="outline" size="sm" @click="close">Cancel</BaseButton>
+        </div>
       </template>
     </BaseDialog>
   </div>
