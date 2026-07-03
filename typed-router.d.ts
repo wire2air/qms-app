@@ -51,6 +51,13 @@ declare module 'vue-router/auto-routes' {
       { companyId?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/admin-security': RouteRecordInfo<
+      '/admin-security',
+      '/admin-security',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/ai-usage': RouteRecordInfo<
       '/ai-usage',
       '/ai-usage',
@@ -366,6 +373,13 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/organization-security': RouteRecordInfo<
+      '/organization-security',
+      '/organization-security',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/print': RouteRecordInfo<
       '/print',
       '/print',
@@ -455,6 +469,13 @@ declare module 'vue-router/auto-routes' {
       '/roles/:id?',
       { id?: ParamValueZeroOrOne<true> },
       { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/security': RouteRecordInfo<
+      '/security',
+      '/security',
+      Record<never, never>,
+      Record<never, never>,
       | never
     >,
     '/settings': RouteRecordInfo<
@@ -624,6 +645,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/admin/impersonate/[[companyId]].vue': {
       routes:
         | '/admin/impersonate/[[companyId]]'
+      views:
+        | never
+    }
+    'src/pages/admin-security.vue': {
+      routes:
+        | '/admin-security'
       views:
         | never
     }
@@ -897,6 +924,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/organization-security.vue': {
+      routes:
+        | '/organization-security'
+      views:
+        | never
+    }
     'src/pages/print.vue': {
       routes:
         | '/print'
@@ -972,6 +1005,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/roles/[[id]].vue': {
       routes:
         | '/roles/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/security.vue': {
+      routes:
+        | '/security'
       views:
         | never
     }

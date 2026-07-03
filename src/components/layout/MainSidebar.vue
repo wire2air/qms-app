@@ -114,6 +114,16 @@ const currentUser = computed(() => {
   }
 })
 
+// The signed-in user's RBAC role assignments (for the account menu).
+const myRoleAssignments = useLiveQueryWithDeps(
+  [() => currentUser.value?.id],
+  async (db, [userId]) => {
+    if (!userId) return []
+    return db.RoleOnUser.where('userId', userId).exec()
+  },
+  { models: ['RoleOnUser'], initial: [] },
+)
+
 // Prefer the dark-mode logo variant (uploaded in Company Settings →
 // Branding) when the dark theme is active; fall back to the regular icon.
 const logoUrl = computed(() => {
@@ -315,6 +325,21 @@ const navItems = computed(() => {
           permissions: ['company:manage'],
           icon: IconAdjustments,
           to: getCompanyPath('/settings'),
+        },
+        {
+          // Tenant auth policy: login methods, allowed domains, MFA + session
+          // policy. Login-method toggles are enforced; the rest is stored.
+          label: 'Organization Security',
+          permissions: ['security:manage'],
+          icon: IconShield,
+          to: getCompanyPath('/organization-security'),
+        },
+        {
+          // Admin actions on users' security state + the tenant event feed.
+          label: 'Security Center',
+          permissions: ['security:manage'],
+          icon: IconShieldCheck,
+          to: getCompanyPath('/admin-security'),
         },
         {
           // Config-driven notification engine (entity create / status-change →
@@ -614,13 +639,31 @@ const navItems = computed(() => {
           </template>
 
           <template #content="{ close }">
-            <div class="tw:w-60 tw:py-1">
+            <div class="tw:w-64 tw:py-1">
               <div class="tw:px-3 tw:py-2">
-                <div class="tw:truncate tw:text-sm tw:font-semibold tw:text-on-sidebar">
-                  {{ currentUser.fullName }}
+                <div class="tw:flex tw:items-center tw:gap-2">
+                  <span class="tw:truncate tw:text-sm tw:font-semibold tw:text-on-sidebar">
+                    {{ currentUser.fullName }}
+                  </span>
+                  <BaseBadge v-if="currentUser.isOwner" class="tw:bg-primary/10 tw:text-primary">
+                    Owner
+                  </BaseBadge>
                 </div>
-                <div class="tw:truncate tw:text-xs tw:text-secondary">
+                <div class="tw:truncate tw:text-xs tw:text-secondary" :title="currentUser.email">
+                  {{ currentUser.email }}
+                </div>
+                <div
+                  v-if="currentUser.jobTitle && currentUser.jobTitle !== 'User'"
+                  class="tw:truncate tw:text-caption tw:text-secondary"
+                >
                   {{ currentUser.jobTitle }}
+                </div>
+                <div v-if="myRoleAssignments.length" class="tw:mt-1.5 tw:flex tw:flex-wrap tw:gap-1">
+                  <RoleBadgeById
+                    v-for="ra in myRoleAssignments"
+                    :key="ra.id"
+                    :roleId="ra.roleId"
+                  />
                 </div>
               </div>
 
@@ -633,6 +676,15 @@ const navItems = computed(() => {
               >
                 <IconSettings :size="16" class="tw:text-secondary" />
                 Settings
+              </RouterLink>
+
+              <RouterLink
+                :to="getCompanyPath('/security')"
+                class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
+                @click="close()"
+              >
+                <IconShieldCheck :size="16" class="tw:text-secondary" />
+                Security
               </RouterLink>
 
               <RouterLink

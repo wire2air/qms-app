@@ -77,7 +77,7 @@ export function tenantOrigin(code) {
 export function apexOrigin() {
   const { protocol, port } = window.location
   const portSuffix = port ? `:${port}` : ''
-  return `${protocol}//app.${rootDomain()}${portSuffix}`
+  return `${protocol}//${rootDomain()}${portSuffix}`
 }
 
 /**

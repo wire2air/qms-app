@@ -108,6 +108,19 @@ export const ROUTE_META = {
   },
 
   // ── Admin / settings ─────────────────────────────────────────────
+  '/security': { title: 'Security', icon: IconShieldCheck },
+  '/organization-security': {
+    title: 'Organization Security',
+    icon: IconShield,
+    permission: 'security:manage',
+    parent: '/settings',
+  },
+  '/admin-security': {
+    title: 'Security Center',
+    icon: IconShield,
+    permission: 'security:manage',
+    parent: '/settings',
+  },
   '/audit-logs': { title: 'Audit Logs', icon: IconShieldCheck },
   '/settings': { title: 'Settings', icon: IconSettings, permission: 'company:manage' },
   '/notification-rules': {

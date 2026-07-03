@@ -2,6 +2,7 @@
 import { IconLock } from '@tabler/icons-vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { currentSubdomain, tenantOrigin } from '@/utils/tenant'
+import PasswordStrengthMeter from '@/components/auth/PasswordStrengthMeter.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -12,6 +13,7 @@ const password = ref('')
 const confirmPassword = ref('')
 const token = ref('')
 const companyCode = ref(null)
+const meetsPolicy = ref(false)
 
 // Get token from URL query parameter
 onMounted(() => {
@@ -102,6 +104,8 @@ function goToLogin() {
           </template>
         </BaseTextInput>
 
+        <PasswordStrengthMeter v-model="password" @update:valid="meetsPolicy = $event" />
+
         <BaseTextInput
           v-model="confirmPassword"
           type="password"
@@ -115,11 +119,9 @@ function goToLogin() {
           </template>
         </BaseTextInput>
 
-        <div class="tw:text-xs tw:text-secondary">Password must be at least 8 characters long</div>
-
         <button
           class="tw:w-full tw:py-3 tw:px-4 tw:rounded-lg tw:bg-primary tw:text-white tw:font-medium tw:text-sm tw:hover:opacity-90 tw:transition-opacity tw:cursor-pointer tw:border-0 disabled:tw:opacity-50 disabled:tw:cursor-not-allowed"
-          :disabled="loading || !password || !confirmPassword"
+          :disabled="loading || !password || !confirmPassword || !meetsPolicy"
           @click="handleSubmit"
         >
           <span v-if="loading" class="tw:inline-flex tw:items-center tw:justify-center tw:gap-2">
