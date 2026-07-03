@@ -6,6 +6,28 @@ import { ValidationError } from '@syncEngine/index'
 const DEFAULT_DEBOUNCE = 50
 
 /**
+ * Resolve a component-facing model name (e.g. 'Site') to the syncBus channel the
+ * engine actually emits on. The engine keys sync events by the model's RUNTIME
+ * class name — `instance.constructor.name` in directSaveStrategy and the
+ * equivalent `meta.modelName` in socketSubscriber (both provably the same string,
+ * since every save does `getSchema(instance.constructor.name)` and succeeds).
+ * A production build minifies class names (`class Site` → e.g. 'Xe'), but `db`
+ * is keyed by the un-minified property name, and `db[name]` is that same class,
+ * so `db[name].name` yields the exact runtime identifier the emit side uses —
+ * matching in dev (unminified) and prod (minified) alike.
+ *
+ * Without this, minified builds silently never re-run any live query: components
+ * subscribe to the literal 'Site' while every event fires under 'Xe'. That's why
+ * live updates work on the dev server but not on the deployed (minified) build.
+ *
+ * '*' (wildcard) and any unknown name pass through unchanged.
+ */
+function resolveSyncChannel(name) {
+  if (name === '*') return '*'
+  return db[name]?.name ?? name
+}
+
+/**
  * useLiveQuery — run an async query and re-execute on sync events.
  *
  * Returns a shallowRef so BaseModel instances are never wrapped in a Proxy
@@ -37,7 +59,7 @@ export function useLiveQuery(
   refresh()
 
   // Subscribe to sync events (model-scoped, debounced)
-  const modelList = Array.isArray(models) ? models : [models]
+  const modelList = (Array.isArray(models) ? models : [models]).map(resolveSyncChannel)
   const unsubscribes = modelList.map((m) => syncBus.on(m, refresh, { debounce }))
 
   onScopeDispose(() => unsubscribes.forEach((fn) => fn()))
@@ -84,7 +106,7 @@ export function useLiveQueryWithDeps(
   )
 
   // Re-run on sync events — reuse the last resolved dep values
-  const modelList = Array.isArray(models) ? models : [models]
+  const modelList = (Array.isArray(models) ? models : [models]).map(resolveSyncChannel)
   const unsubscribes = modelList.map((m) =>
     syncBus.on(m, () => refresh(lastDepValues), { debounce }),
   )
