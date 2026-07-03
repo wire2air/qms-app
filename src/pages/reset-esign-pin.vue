@@ -112,6 +112,7 @@ async function handleSubmit() {
                 <BaseTextInput
                   v-model="pin"
                   type="password"
+                  noReveal
                   placeholder="New PIN (min 4 characters)"
                   autocomplete="new-password"
                   :disabled="loading"
@@ -123,6 +124,7 @@ async function handleSubmit() {
                 <BaseTextInput
                   v-model="confirmPin"
                   type="password"
+                  noReveal
                   placeholder="Confirm new PIN"
                   autocomplete="new-password"
                   :disabled="loading"

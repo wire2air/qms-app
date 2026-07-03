@@ -1,7 +1,7 @@
 <script setup>
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { IconX } from '@tabler/icons-vue'
+import { IconX, IconEye, IconEyeOff } from '@tabler/icons-vue'
 
 // --- Props & models ---
 const props = defineProps({
@@ -101,6 +101,12 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Opt out of the show/hide toggle that `type="password"` fields get by
+  // default — e.g. e-signature PIN fields that stay masked.
+  noReveal: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // --- Emits ---
@@ -132,6 +138,17 @@ function clear() {
   model.value = ''
 }
 
+// Password fields get a show/hide toggle unless `noReveal` is set. When
+// revealed, the native input type flips to `text` so the value is visible.
+const revealed = ref(false)
+const showReveal = computed(() => props.type === 'password' && !props.noReveal)
+const effectiveType = computed(() =>
+  showReveal.value && revealed.value ? 'text' : props.type,
+)
+function toggleReveal() {
+  revealed.value = !revealed.value
+}
+
 // --- Watchers & computed ---
 const inline = computed(() => props.labelLeft || props.labelRight)
 
@@ -148,8 +165,10 @@ const cssClass = computed(() => {
     c += ' tw:pl-3'
   }
 
-  // Right padding - conditional based on clear button
-  if (props.clearBtn) {
+  // Right padding - reserve room for the clear button and/or reveal toggle
+  if (props.clearBtn && showReveal.value) {
+    c += ' tw:pr-16'
+  } else if (props.clearBtn || showReveal.value) {
     c += ' tw:pr-10'
   } else {
     c += ' tw:pr-3'
@@ -230,7 +249,7 @@ defineExpose({
         :aria-disabled="disabled"
         :aria-invalid="errorMsg ? 'true' : undefined"
         :aria-describedby="errorMsg ? errId : undefined"
-        :type="type"
+        :type="effectiveType"
         :required="required"
         :min="min"
         :max="max"
@@ -245,10 +264,22 @@ defineExpose({
       <BaseButton
         v-if="showClearBtn"
         variant="transparent"
-        class="tw:absolute tw:right-1 tw:top-1/2 tw:-translate-y-1/2"
+        class="tw:absolute tw:top-1/2 tw:-translate-y-1/2"
+        :class="showReveal ? 'tw:right-9' : 'tw:right-1'"
+        aria-label="Clear"
         @click="clear"
       >
         <IconX class="tw:size-5" />
+      </BaseButton>
+      <BaseButton
+        v-if="showReveal"
+        variant="transparent"
+        class="tw:absolute tw:right-1 tw:top-1/2 tw:-translate-y-1/2 tw:text-main-text-hover"
+        :aria-label="revealed ? 'Hide password' : 'Show password'"
+        @click="toggleReveal"
+      >
+        <IconEyeOff v-if="revealed" class="tw:size-5" />
+        <IconEye v-else class="tw:size-5" />
       </BaseButton>
     </div>
 
