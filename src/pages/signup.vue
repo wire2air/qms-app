@@ -13,6 +13,7 @@ import LoginForm from '@/components/auth/LoginForm.vue'
 import TimezoneDropdown from '@/components/common/TimezoneDropdown.vue'
 import { useCompanyForm } from '@/composables/useCompanyForm.js'
 import { currentSession, initSession, logoutCurrentSession } from '@/utils/currentSession.js'
+import { gotoTenant } from '@/utils/tenant.js'
 
 defineOptions({
   name: 'SignupPage',
@@ -37,11 +38,12 @@ async function checkSession() {
   try {
     await initSession()
 
-    // If user already has companies, redirect to first company
+    // If user already has companies, forward into the first one's subdomain
+    // (via the backend auth handoff, so the session cookie lands there too).
     const companies = currentSession.value?.companies
     if (companies && Object.keys(companies).length > 0) {
       const firstCompanyCode = Object.values(companies)[0].code
-      window.location.href = `/${firstCompanyCode}/`
+      gotoTenant(firstCompanyCode, '/dashboard')
       return
     }
 

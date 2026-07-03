@@ -189,6 +189,7 @@ function backToEnter() {
         <BaseTextInput
           v-model="pin"
           type="password"
+          noReveal
           placeholder="Enter your e-signature PIN"
           autocomplete="off"
           @keyup.enter="signWithPin"
@@ -234,12 +235,13 @@ function backToEnter() {
 
       <!-- Set PIN (first time) -->
       <div v-else-if="mode === 'set'" class="tw:flex tw:flex-col tw:gap-3">
-        <BaseTextInput v-model="pin" type="password" placeholder="New PIN (min 4 characters)" autocomplete="off">
+        <BaseTextInput v-model="pin" type="password" noReveal placeholder="New PIN (min 4 characters)" autocomplete="off">
           <template #icon><IconLock :size="18" class="tw:text-secondary" /></template>
         </BaseTextInput>
         <BaseTextInput
           v-model="confirmPin"
           type="password"
+          noReveal
           placeholder="Confirm PIN"
           autocomplete="off"
           @keyup.enter="setAndSign"
@@ -253,15 +255,16 @@ function backToEnter() {
 
       <!-- Change PIN -->
       <div v-else class="tw:flex tw:flex-col tw:gap-3">
-        <BaseTextInput v-model="currentPin" type="password" placeholder="Current PIN" autocomplete="off">
+        <BaseTextInput v-model="currentPin" type="password" noReveal placeholder="Current PIN" autocomplete="off">
           <template #icon><IconLock :size="18" class="tw:text-secondary" /></template>
         </BaseTextInput>
-        <BaseTextInput v-model="pin" type="password" placeholder="New PIN (min 4 characters)" autocomplete="off">
+        <BaseTextInput v-model="pin" type="password" noReveal placeholder="New PIN (min 4 characters)" autocomplete="off">
           <template #icon><IconLock :size="18" class="tw:text-secondary" /></template>
         </BaseTextInput>
         <BaseTextInput
           v-model="confirmPin"
           type="password"
+          noReveal
           placeholder="Confirm new PIN"
           autocomplete="off"
           @keyup.enter="changePin"

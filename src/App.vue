@@ -3,7 +3,7 @@ import { initSession, currentSession, canUseAi } from '@/utils/currentSession'
 import { initCurrentCompany, companies } from '@/utils/currentCompany'
 import { isPublicRoute as isPublicRouteFn, isAuthRoute } from '@/constants/authRoutes'
 import { initSync, deleteAllSyncDatabases } from '@/utils/initSyncEngine.js'
-import { currentSubdomain, gotoTenant } from '@/utils/tenant'
+import { currentSubdomain, gotoTenant, apexOrigin } from '@/utils/tenant'
 import { provideDataTablePersist } from '@/composables/useDataTablePersist'
 
 const pageInfo = ref({
@@ -85,10 +85,19 @@ async function bootApp() {
   if (isOpenRoute) return
 
   if (isPublicRoute) {
+    // Signup is not tenant-scoped — it only renders on the apex host. A tenant
+    // subdomain forwards to the apex signup before any session logic runs.
+    if (currentPath.startsWith('/signup') && subdomain) {
+      window.location.assign(`${apexOrigin()}/signup`)
+      return
+    }
+
     // Public/auth pages render on any host. If already authenticated and on an
     // auth page, forward into the user's tenant app (its own subdomain).
+    // /signup is exempt: the signup page owns its session handling (it renders
+    // the add-workspace flow for company-less users and forwards the rest).
     await initSession()
-    if (currentSession.value && isAuthRoute(currentPath)) {
+    if (currentSession.value && isAuthRoute(currentPath) && !currentPath.startsWith('/signup')) {
       await initCurrentCompany()
       if (companies.value?.length > 0) {
         gotoTenant(companies.value[0].code, '/dashboard')
