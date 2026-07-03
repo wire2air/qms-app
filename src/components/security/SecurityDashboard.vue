@@ -1,6 +1,6 @@
 <script setup>
-// Per-user security overview: composite score + stat tiles. Reads the
-// aggregated dashboard endpoint. Action RPC — see CLAUDE.md rule #4 exception.
+// Per-user security overview: composite score ring + compact stat tiles. Reads
+// the aggregated dashboard endpoint. Action RPC — see CLAUDE.md rule #4 exception.
 import { get } from '@/api'
 import { IconShieldCheck, IconShieldOff, IconKey, IconDevices, IconDeviceDesktop } from '@tabler/icons-vue'
 
@@ -28,37 +28,53 @@ const R = 42
 const CIRC = 2 * Math.PI * R
 const dash = computed(() => `${(CIRC * (data.value?.securityScore ?? 0)) / 100} ${CIRC}`)
 
-const passwordValue = computed(() => {
-  const p = data.value?.passwordHealth
-  if (!p) return '—'
-  if (p.expired) return 'Expired'
-  if (p.expiresInDays != null) return `${p.expiresInDays}d left`
-  return 'OK'
+// Static tint classes so Tailwind emits them.
+const TINT = {
+  green: { box: 'tw:bg-green-50', text: 'tw:text-green-600' },
+  red: { box: 'tw:bg-red-50', text: 'tw:text-red-600' },
+  blue: { box: 'tw:bg-blue-50', text: 'tw:text-blue-600' },
+}
+
+// Short, non-clipping values for the tiles.
+const tiles = computed(() => {
+  const d = data.value
+  if (!d) return []
+  const pw = d.passwordHealth
+  const pwValue = pw?.expired ? 'Expired' : pw?.expiresInDays != null ? `${pw.expiresInDays}d` : 'OK'
+  const enrolled = !!d.mfaStatus?.enrolled
+  return [
+    { label: 'Two-factor', value: enrolled ? 'On' : 'Off', icon: enrolled ? IconShieldCheck : IconShieldOff, tint: enrolled ? 'green' : 'red' },
+    { label: 'Password', value: pwValue, icon: IconKey, tint: pw?.expired ? 'red' : 'blue' },
+    { label: 'Active sessions', value: d.sessionsCount ?? 0, icon: IconDevices, tint: 'blue' },
+    { label: 'Devices', value: d.devicesCount ?? 0, icon: IconDeviceDesktop, tint: 'blue' },
+  ]
 })
 </script>
 
 <template>
   <BaseCard v-if="data">
-    <div class="tw:flex tw:flex-col tw:gap-6 tw:sm:flex-row tw:sm:items-center">
+    <div class="tw:flex tw:flex-col tw:gap-5 tw:lg:flex-row tw:lg:items-center">
       <!-- Score ring -->
-      <div class="tw:flex tw:items-center tw:gap-4">
-        <div class="tw:relative tw:size-24 tw:shrink-0">
-          <svg class="tw:size-24 tw:-rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" :r="R" fill="none" stroke="currentColor" stroke-width="8" class="tw:text-divider" />
+      <div
+        class="tw:flex tw:items-center tw:gap-4 tw:lg:w-60 tw:lg:shrink-0 tw:lg:border-r tw:lg:border-divider tw:lg:pr-6"
+      >
+        <div class="tw:relative tw:size-20 tw:shrink-0">
+          <svg class="tw:size-20 tw:-rotate-90" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" :r="R" fill="none" stroke="currentColor" stroke-width="9" class="tw:text-divider" />
             <circle
               cx="50"
               cy="50"
               :r="R"
               fill="none"
               stroke="currentColor"
-              stroke-width="8"
+              stroke-width="9"
               stroke-linecap="round"
               :stroke-dasharray="dash"
               :class="scoreBand.ring"
             />
           </svg>
           <div class="tw:absolute tw:inset-0 tw:flex tw:flex-col tw:items-center tw:justify-center">
-            <span class="tw:text-2xl tw:font-bold tw:text-on-main">{{ data.securityScore }}</span>
+            <span class="tw:text-xl tw:font-bold tw:text-on-main tw:leading-none">{{ data.securityScore }}</span>
             <span class="tw:text-caption tw:text-secondary">/ 100</span>
           </div>
         </div>
@@ -68,22 +84,24 @@ const passwordValue = computed(() => {
         </div>
       </div>
 
-      <!-- Stat tiles -->
-      <div class="tw:grid tw:flex-1 tw:grid-cols-2 tw:gap-3 tw:sm:grid-cols-4">
-        <BaseStatCard
-          label="Two-factor"
-          :value="data.mfaStatus?.enrolled ? 'On' : 'Off'"
-          :icon="data.mfaStatus?.enrolled ? IconShieldCheck : IconShieldOff"
-          :iconColor="data.mfaStatus?.enrolled ? 'green' : 'red'"
-        />
-        <BaseStatCard
-          label="Password"
-          :value="passwordValue"
-          :icon="IconKey"
-          :iconColor="data.passwordHealth?.expired ? 'red' : 'blue'"
-        />
-        <BaseStatCard label="Sessions" :value="data.sessionsCount" :icon="IconDevices" iconColor="blue" />
-        <BaseStatCard label="Devices" :value="data.devicesCount" :icon="IconDeviceDesktop" iconColor="blue" />
+      <!-- Stat tiles: 2×2 on small screens, 4-across only when there's room -->
+      <div class="tw:grid tw:flex-1 tw:grid-cols-2 tw:gap-3 tw:lg:grid-cols-4">
+        <div
+          v-for="t in tiles"
+          :key="t.label"
+          class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2.5"
+        >
+          <div
+            class="tw:flex tw:size-9 tw:shrink-0 tw:items-center tw:justify-center tw:rounded-lg"
+            :class="TINT[t.tint].box"
+          >
+            <component :is="t.icon" :size="18" :class="TINT[t.tint].text" aria-hidden="true" />
+          </div>
+          <div class="tw:min-w-0">
+            <div class="tw:text-base tw:font-semibold tw:text-on-main tw:leading-tight">{{ t.value }}</div>
+            <div class="tw:truncate tw:text-caption tw:text-secondary">{{ t.label }}</div>
+          </div>
+        </div>
       </div>
     </div>
   </BaseCard>

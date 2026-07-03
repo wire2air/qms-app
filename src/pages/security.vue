@@ -164,7 +164,7 @@ function downloadNewCodes() {
 </script>
 
 <template>
-  <BasePage width="narrow">
+  <BasePage width="standard">
     <PageHeader :icon="IconShieldLock" title="Security" />
 
     <SecurityDashboard />
