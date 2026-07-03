@@ -131,7 +131,7 @@ function applyFilters(results, f) {
   return results
 }
 
-function applyActiveFilter(results, af) {
+function applyActiveFilter(results, af, teamIds = []) {
   const userId = currentSession.value?.userId
   // Spam is its own view — every other view excludes spam tickets.
   if (af === 'spam') return results.filter((r) => r.isSpam)
@@ -139,6 +139,15 @@ function applyActiveFilter(results, af) {
   if (af === 'all_open') return results.filter((r) => OPEN_STATUSES.includes(r.statusId))
   if (af === 'mine')
     return results.filter((r) => r.assignedTo === userId && OPEN_STATUSES.includes(r.statusId))
+  // QA review queue: active tickets assigned to me OR to a team I'm on.
+  if (af === 'my_queue') {
+    const teamSet = new Set(teamIds)
+    return results.filter(
+      (r) =>
+        (r.assignedTo === userId || (r.assignedTeamId && teamSet.has(r.assignedTeamId))) &&
+        !['CLOSED', 'CONVERTED_TO_NC'].includes(r.statusId),
+    )
+  }
   if (af === 'unassigned')
     return results.filter((r) => !r.assignedTo && OPEN_STATUSES.includes(r.statusId))
   if (af === 'waiting') return results.filter((r) => r.statusId === 'WAITING_CUSTOMER')
@@ -153,13 +162,29 @@ const allComplaints = useLiveQuery((db) => db.CustomerComplaint.where().exec(), 
   initial: [],
 })
 
+// Team ids the current user belongs to — drives the "QA Review" (my_queue) view.
+const myTeamIds = useLiveQuery(
+  async (db) => {
+    const uid = currentSession.value?.userId
+    if (!uid) return []
+    return (await db.UserOnTeam.where().exec())
+      .filter((r) => r.userId === uid)
+      .map((r) => r.teamId)
+  },
+  { models: ['UserOnTeam'], initial: [] },
+)
+
 const complaints = useLiveQueryWithDeps(
-  [() => JSON.stringify({ ...filters.value }), () => activeFilter.value],
+  [
+    () => JSON.stringify({ ...filters.value }),
+    () => activeFilter.value,
+    () => myTeamIds.value.join(','),
+  ],
   async (db, [_filtersJson, af]) => {
     const f = { ...filters.value }
     let results = await db.CustomerComplaint.where().exec()
     results = applyFilters(results, f)
-    results = applyActiveFilter(results, af)
+    results = applyActiveFilter(results, af, myTeamIds.value)
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )

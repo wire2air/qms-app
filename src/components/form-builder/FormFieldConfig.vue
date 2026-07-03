@@ -241,6 +241,9 @@ function updateRowColClass(value) {
         <!-- Select/Radio/OptionGroup Settings -->
         <ConfigOptions v-if="hasOptions" v-model:field="field" />
 
+        <!-- Lookup (entity-backed) Settings -->
+        <ConfigLookup v-if="field.type === 'lookup'" v-model:field="field" />
+
         <!-- File Settings -->
         <ConfigFile v-if="field.type === 'file'" v-model:field="field" />
 

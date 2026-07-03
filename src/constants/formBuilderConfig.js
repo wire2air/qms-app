@@ -28,6 +28,7 @@ import {
   IconInfoCircle,
   IconSignature,
   IconHeading,
+  IconDatabaseSearch,
 } from '@tabler/icons-vue'
 
 export const CATEGORY_LABELS = Object.freeze({
@@ -54,6 +55,9 @@ export const FIELD_TYPES = Object.freeze({
   checkbox: { icon: IconSquareCheck, label: 'Checkbox', category: 'selection' },
   optionGroup: { icon: IconListCheck, label: 'Option Group', category: 'selection' },
   checklist: { icon: IconTable, label: 'Checklist', category: 'selection' },
+  // Entity-backed dropdown: options resolve live from a company table
+  // (Item Master / Supplier / Site / Department / User). Stores the entity id.
+  lookup: { icon: IconDatabaseSearch, label: 'Lookup (entity)', category: 'selection' },
 
   // Special Types
   datetime: { icon: IconCalendar, label: 'Date/Time', category: 'special' },
@@ -187,6 +191,10 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
     options: [],
     groupType: 'radio',
     inline: false,
+  },
+  lookup: {
+    // Which company table this field resolves against (see LOOKUP_ENTITIES).
+    lookupEntity: 'product',
   },
   checklist: {
     rows: ['Row 1'],
@@ -324,6 +332,7 @@ export const TYPE_SETTINGS_TYPES = new Set([
   'select',
   'radio',
   'optionGroup',
+  'lookup',
   'checklist',
   'file',
   'rating',
@@ -338,6 +347,60 @@ export const TYPE_SETTINGS_TYPES = new Set([
 ])
 export const NUMBER_TYPES = new Set(['number', 'slider'])
 export const OPTIONS_TYPES = new Set(['select', 'radio', 'optionGroup'])
+
+// Company tables a `lookup` field can bind to. `selectMenu` renders the edit
+// control (emits the entity id); `badgeById` renders the readonly value; `idProp`
+// is that badge's id prop; `model` + `labelFields` resolve the display label when
+// sealing the payload. Keep in sync with the entity triads under
+// components/menus + components/badges.
+export const LOOKUP_ENTITIES = [
+  {
+    value: 'product',
+    label: 'Product / Item Master',
+    selectMenu: 'ProductSelectMenu',
+    badgeById: 'ProductBadgeById',
+    idProp: 'productId',
+    model: 'Product',
+    labelFields: ['name'],
+  },
+  {
+    value: 'supplier',
+    label: 'Supplier',
+    selectMenu: 'SupplierSelectMenu',
+    badgeById: 'SupplierBadgeById',
+    idProp: 'supplierId',
+    model: 'Supplier',
+    labelFields: ['name'],
+  },
+  {
+    value: 'site',
+    label: 'Site',
+    selectMenu: 'SiteSelectMenu',
+    badgeById: 'SiteBadgeById',
+    idProp: 'siteId',
+    model: 'Site',
+    labelFields: ['name'],
+  },
+  {
+    value: 'department',
+    label: 'Department',
+    selectMenu: 'DepartmentSelectMenu',
+    badgeById: 'DepartmentBadgeById',
+    idProp: 'departmentId',
+    model: 'Department',
+    labelFields: ['name'],
+  },
+  {
+    value: 'user',
+    label: 'User',
+    selectMenu: 'UserSelectMenu',
+    badgeById: 'UserBadgeById',
+    idProp: 'userId',
+    model: 'User',
+    labelFields: ['firstName', 'lastName'],
+  },
+]
+export const LOOKUP_ENTITY_BY_VALUE = Object.fromEntries(LOOKUP_ENTITIES.map((e) => [e.value, e]))
 export const NO_LABEL_TYPES = new Set(['row', 'column', 'instructions', 'header'])
 export const NO_STATE_TYPES = new Set([
   'row',

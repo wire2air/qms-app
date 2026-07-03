@@ -28,6 +28,20 @@ import BaseUploader from '@/components/common/BaseUploader.vue'
 import { required, email as emailValidator, helpers } from '@vuelidate/validators'
 import { getFormComponent } from './formComponentRegistry.js'
 import { fieldWidthSpan } from '@/constants/formBuilderConfig'
+import ProductSelectMenu from '@/components/menus/ProductSelectMenu.vue'
+import SupplierSelectMenu from '@/components/menus/SupplierSelectMenu.vue'
+import SiteSelectMenu from '@/components/menus/SiteSelectMenu.vue'
+import DepartmentSelectMenu from '@/components/menus/DepartmentSelectMenu.vue'
+import UserSelectMenu from '@/components/menus/UserSelectMenu.vue'
+
+// Entity pickers a `lookup` field can render, keyed by field.lookupEntity.
+const LOOKUP_MENUS = {
+  product: ProductSelectMenu,
+  supplier: SupplierSelectMenu,
+  site: SiteSelectMenu,
+  department: DepartmentSelectMenu,
+  user: UserSelectMenu,
+}
 
 function safeRegExp(src) {
   try {
@@ -406,6 +420,38 @@ export default defineComponent({
             optionSetId: field.optionSetId,
             optionSet: field.optionSet,
           })
+
+        case 'lookup': {
+          const Menu = LOOKUP_MENUS[field.lookupEntity || 'product']
+          const control = Menu
+            ? h(Menu, {
+                modelValue: scope.value,
+                'onUpdate:modelValue': (val) => {
+                  scope.value = val
+                },
+                required: field.required,
+                disabled:
+                  props.readonly || field.readonly || props.disabled || field.disabled
+                    ? true
+                    : undefined,
+              })
+            : h(
+                'div',
+                { class: 'tw:text-sm tw:text-red-500' },
+                `Unknown lookup source: ${field.lookupEntity}`,
+              )
+          return h('div', { class: 'tw:flex tw:flex-col tw:gap-1' }, [
+            field.label
+              ? h(
+                  'div',
+                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
+                  field.label,
+                )
+              : null,
+            control,
+            field.hint ? h('div', { class: 'tw:text-xs tw:text-secondary' }, field.hint) : null,
+          ])
+        }
 
         case 'slider':
           return h('div', { class: 'tw:px-2' }, [

@@ -292,6 +292,9 @@ const complaintDetailConfig = computed(() =>
         :complaintNumber="complaint.complaintNumber"
       />
 
+      <!-- QA Investigation — internal QA notes, separate from the conversation. -->
+      <CustomerComplaintQaNotes :complaintId="id" :canUpdate="isEditable" />
+
       <!-- Attachments -->
       <CustomerComplaintAttachmentsPanel :complaintId="id" :canUpdate="isEditable" />
     </template>
@@ -311,6 +314,9 @@ const complaintDetailConfig = computed(() =>
           <CustomerComplaintSourceBadgeById :sourceId="complaint.sourceId" />
         </BaseDetailField>
       </BaseRailCard>
+
+      <!-- Admin-defined custom fields (self-hides when none configured). -->
+      <CustomFieldsCard entityType="CustomerComplaint" :entityId="id" :editable="isEditable" />
 
       <!-- 2. Assignment -->
       <BaseRailCard title="Assignment" grid>
