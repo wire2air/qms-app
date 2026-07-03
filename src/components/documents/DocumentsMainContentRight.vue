@@ -41,9 +41,17 @@ const currentVersion = useLiveQueryWithDeps(
   { models: ['DocumentVersion'] },
 )
 
+// Editable only while the SELECTED version is a working draft. Once it's
+// submitted (IN_REVIEW), approved, effective, or superseded, the document and
+// all its metadata are locked — you must create a new draft version to change
+// anything. `document.statusId` is only the ACTIVE/ARCHIVED lifecycle flag, so
+// it can't gate this on its own; the version status is what matters.
 const canEdit = computed(
   () =>
-    isAllowed(['documents:update']) && document.value?.statusId !== 'ARCHIVED' && !props.reviewMode,
+    isAllowed(['documents:update']) &&
+    document.value?.statusId !== 'ARCHIVED' &&
+    !props.reviewMode &&
+    ['DRAFT', 'REJECTED'].includes(currentVersion.value?.statusId),
 )
 
 // State
@@ -124,8 +132,16 @@ watch(
     <BaseRailCard title="Properties" :icon="IconSettings">
       <div class="tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
         <BaseDetailField label="Document ID">
-          <BaseText variant="body" weight="medium" class="tw:text-on-main">
+          <BaseText
+            v-if="document.docNumber"
+            variant="body"
+            weight="medium"
+            class="tw:text-on-main"
+          >
             {{ document.docNumber }}
+          </BaseText>
+          <BaseText v-else variant="body" class="tw:text-secondary tw:italic">
+            Assigned on submit
           </BaseText>
         </BaseDetailField>
 
@@ -141,11 +157,6 @@ watch(
           <UserSelectMenu v-if="canEdit" v-model="document.authorId" :required="true" />
           <UserBadgeById v-else-if="document.authorId" :userId="document.authorId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </BaseDetailField>
-
-        <BaseDetailField label="Type">
-          <DocumentTypeSelectMenu v-if="canEdit" v-model="document.documentTypeId" required />
-          <DocumentTypeBadgeById v-else :documentTypeId="document.documentTypeId" :iconOnly="false" />
         </BaseDetailField>
 
         <BaseDetailField label="Status">
@@ -241,6 +252,10 @@ watch(
       </div>
     </BaseRailCard>
 
+    <!-- Admin-defined custom fields, right after Properties. Self-hides when
+         none configured. -->
+    <CustomFieldsCard entityType="Document" :entityId="document.id" :editable="canEdit" />
+
     <!-- Workflow -->
     <BaseRailCard title="Workflow" :icon="IconHierarchy">
       <div class="tw:flex tw:flex-col tw:gap-2">
@@ -331,9 +346,6 @@ watch(
         </div>
       </nav>
     </BaseRailCard>
-
-    <!-- Admin-defined custom fields. Self-hides when none configured. -->
-    <CustomFieldsCard entityType="Document" :entityId="document.id" :editable="canEdit" />
 
     <!-- Workflow Selection Dialog -->
     <BaseDialog v-model="showWorkflowDialog" title="Select Workflow" maxWidth="lg">

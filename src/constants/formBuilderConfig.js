@@ -3,6 +3,8 @@ import {
   IconNotes,
   IconHash,
   IconLock,
+  IconMail,
+  IconPhone,
   IconSelector,
   IconSquareCheck,
   IconListCheck,
@@ -24,6 +26,9 @@ import {
   IconSitemap,
   IconLayoutGrid,
   IconInfoCircle,
+  IconSignature,
+  IconHeading,
+  IconDatabaseSearch,
 } from '@tabler/icons-vue'
 
 export const CATEGORY_LABELS = Object.freeze({
@@ -41,6 +46,8 @@ export const FIELD_TYPES = Object.freeze({
   input: { icon: IconTextSize, label: 'Text Input', category: 'input' },
   textarea: { icon: IconNotes, label: 'Text Area', category: 'input' },
   number: { icon: IconHash, label: 'Number', category: 'input' },
+  email: { icon: IconMail, label: 'Email Address', category: 'input' },
+  phone: { icon: IconPhone, label: 'Phone Number', category: 'input' },
   password: { icon: IconLock, label: 'Password', category: 'input' },
 
   // Selection Types
@@ -48,6 +55,9 @@ export const FIELD_TYPES = Object.freeze({
   checkbox: { icon: IconSquareCheck, label: 'Checkbox', category: 'selection' },
   optionGroup: { icon: IconListCheck, label: 'Option Group', category: 'selection' },
   checklist: { icon: IconTable, label: 'Checklist', category: 'selection' },
+  // Entity-backed dropdown: options resolve live from a company table
+  // (Item Master / Supplier / Site / Department / User). Stores the entity id.
+  lookup: { icon: IconDatabaseSearch, label: 'Lookup (entity)', category: 'selection' },
 
   // Special Types
   datetime: { icon: IconCalendar, label: 'Date/Time', category: 'special' },
@@ -58,8 +68,12 @@ export const FIELD_TYPES = Object.freeze({
   toggle: { icon: IconToggleRight, label: 'Toggle', category: 'special' },
   colorPicker: { icon: IconPalette, label: 'Color Picker', category: 'special' },
   textEditor: { icon: IconBold, label: 'Rich Text', category: 'special' },
+  signature: { icon: IconSignature, label: 'Signature', category: 'special' },
 
   // Layout Types
+  // Display-only heading + optional subheading, with size + alignment. Not an
+  // input; doesn't produce a value.
+  header: { icon: IconHeading, label: 'Heading', category: 'layout' },
   section: { icon: IconLayoutList, label: 'Section', category: 'layout' },
   row: { icon: IconColumns, label: 'Row', category: 'layout' },
   column: { icon: IconLayoutRows, label: 'Column', category: 'layout' },
@@ -130,6 +144,24 @@ export const WIDGET_CONFIG = Object.freeze({
   },
 })
 
+// Field layout widths → 12-column grid span. Fields flow left-to-right and
+// pack into rows; all spans evenly divide 12 so rows never leave a gap
+// (½+½, ⅓+⅓+⅓, ¼+¼+¼+¼). Used by the form builder (Width control + canvas)
+// and DynamicForm (record-time render). `width` lives on each field's schema.
+export const FIELD_WIDTHS = Object.freeze([
+  { value: 'full', label: 'Full', span: 12 },
+  { value: 'half', label: '½', span: 6 },
+  { value: 'third', label: '⅓', span: 4 },
+  { value: 'quarter', label: '¼', span: 3 },
+])
+
+const WIDTH_SPAN = Object.freeze(Object.fromEntries(FIELD_WIDTHS.map((w) => [w.value, w.span])))
+
+/** Resolve a field's `width` to its 12-col span (defaults to full = 12). */
+export function fieldWidthSpan(width) {
+  return WIDTH_SPAN[width] ?? 12
+}
+
 export const FIELD_TYPES_CONFIG = Object.freeze({
   base: {
     name: '',
@@ -139,6 +171,13 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
     required: false,
     readonly: false,
     disabled: false,
+    // Layout width — fields flow left-to-right and pack into rows by their
+    // span (see FIELD_WIDTHS). 'full' = a row to itself. Missing = treated as
+    // full, so pre-existing schemas are unaffected.
+    width: 'full',
+    // Hide on the rendered/submitted form (still shown + editable in the
+    // builder). Missing = visible, so pre-existing schemas are unaffected.
+    hidden: false,
     class: '',
     style: '',
   },
@@ -152,6 +191,10 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
     options: [],
     groupType: 'radio',
     inline: false,
+  },
+  lookup: {
+    // Which company table this field resolves against (see LOOKUP_ENTITIES).
+    lookupEntity: 'product',
   },
   checklist: {
     rows: ['Row 1'],
@@ -176,6 +219,18 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
   },
   get slider() {
     return this.number
+  },
+  email: {
+    // Blank = use the built-in email validation; set a custom regex to override.
+    formatRegex: '',
+  },
+  phone: {
+    defaultCountry: 'US',
+    // '#' = a digit; literals are kept. Drives both the input mask and the
+    // default validation (required digit count).
+    mask: '###-###-####',
+    // Blank = validate by the mask's digit count; set a regex to override.
+    formatRegex: '',
   },
   rating: {
     max: 5,
@@ -202,6 +257,16 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
   },
   datetime: {
     mode: 'datetime',
+  },
+  signature: {
+    // Canvas height in px (BaseSignaturePad). Value is stored as a data-URL string.
+    height: 180,
+  },
+  header: {
+    text: 'Heading',
+    subtext: '',
+    size: 'large', // 'default' | 'large' | 'small'
+    align: 'center', // 'left' | 'center' | 'right'
   },
   section: {
     collapsible: false,
@@ -242,14 +307,32 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
   },
 })
 
-export const PLACEHOLDER_TYPES = new Set(['input', 'textarea', 'number', 'password', 'select'])
-export const NO_HINT_TYPES = new Set(['separator', 'section', 'row', 'column', 'instructions'])
+export const PLACEHOLDER_TYPES = new Set([
+  'input',
+  'textarea',
+  'number',
+  'password',
+  'select',
+  'email',
+  'phone',
+])
+export const NO_HINT_TYPES = new Set([
+  'separator',
+  'section',
+  'row',
+  'column',
+  'instructions',
+  'header',
+])
 export const TYPE_SETTINGS_TYPES = new Set([
   'number',
   'slider',
+  'email',
+  'phone',
   'select',
   'radio',
   'optionGroup',
+  'lookup',
   'checklist',
   'file',
   'rating',
@@ -260,10 +343,65 @@ export const TYPE_SETTINGS_TYPES = new Set([
   'rca',
   'riskAssessment',
   'instructions',
+  'header',
 ])
 export const NUMBER_TYPES = new Set(['number', 'slider'])
 export const OPTIONS_TYPES = new Set(['select', 'radio', 'optionGroup'])
-export const NO_LABEL_TYPES = new Set(['row', 'column', 'instructions'])
+
+// Company tables a `lookup` field can bind to. `selectMenu` renders the edit
+// control (emits the entity id); `badgeById` renders the readonly value; `idProp`
+// is that badge's id prop; `model` + `labelFields` resolve the display label when
+// sealing the payload. Keep in sync with the entity triads under
+// components/menus + components/badges.
+export const LOOKUP_ENTITIES = [
+  {
+    value: 'product',
+    label: 'Product / Item Master',
+    selectMenu: 'ProductSelectMenu',
+    badgeById: 'ProductBadgeById',
+    idProp: 'productId',
+    model: 'Product',
+    labelFields: ['name'],
+  },
+  {
+    value: 'supplier',
+    label: 'Supplier',
+    selectMenu: 'SupplierSelectMenu',
+    badgeById: 'SupplierBadgeById',
+    idProp: 'supplierId',
+    model: 'Supplier',
+    labelFields: ['name'],
+  },
+  {
+    value: 'site',
+    label: 'Site',
+    selectMenu: 'SiteSelectMenu',
+    badgeById: 'SiteBadgeById',
+    idProp: 'siteId',
+    model: 'Site',
+    labelFields: ['name'],
+  },
+  {
+    value: 'department',
+    label: 'Department',
+    selectMenu: 'DepartmentSelectMenu',
+    badgeById: 'DepartmentBadgeById',
+    idProp: 'departmentId',
+    model: 'Department',
+    labelFields: ['name'],
+  },
+  {
+    value: 'user',
+    label: 'User',
+    selectMenu: 'UserSelectMenu',
+    badgeById: 'UserBadgeById',
+    idProp: 'userId',
+    model: 'User',
+    labelFields: ['firstName', 'lastName'],
+  },
+]
+export const LOOKUP_ENTITY_BY_VALUE = Object.fromEntries(LOOKUP_ENTITIES.map((e) => [e.value, e]))
+export const NO_LABEL_TYPES = new Set(['row', 'column', 'instructions', 'header'])
 export const NO_STATE_TYPES = new Set([
   'row',
   'column',
@@ -272,6 +410,7 @@ export const NO_STATE_TYPES = new Set([
   'rca',
   'riskAssessment',
   'instructions',
+  'header',
 ])
 
 export const DATETIME_MODE_OPTIONS = [

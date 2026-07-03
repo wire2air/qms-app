@@ -10,9 +10,12 @@ import {
   IconChevronRight,
 } from '@tabler/icons-vue'
 import BaseTextInput from '@shared/components/BaseTextInput.vue'
+import BaseEmailInput from '@shared/components/BaseEmailInput.vue'
+import BasePhoneInput from '@shared/components/BasePhoneInput.vue'
 import BaseCheckbox from '@shared/components/BaseCheckbox.vue'
 import BaseSwitch from '@shared/components/BaseSwitch.vue'
 import BaseColorPicker from '@shared/components/BaseColorPicker.vue'
+import BaseSignaturePad from '@shared/components/BaseSignaturePad.vue'
 import BaseRichTextEditor from '@/components/editor/BaseRichTextEditor.vue'
 import BaseDateField from '@shared/components/BaseDateField.vue'
 import OptionSetSelect from '@/components/common/OptionSetSelect.vue'
@@ -22,8 +25,60 @@ import { useValidator } from '@shared/composables/validator.js'
 import BasePhoto from '@shared/components/BasePhoto.vue'
 import BaseSpinner from '@shared/components/BaseSpinner.vue'
 import BaseUploader from '@/components/common/BaseUploader.vue'
-import { required } from '@vuelidate/validators'
+import { required, email as emailValidator, helpers } from '@vuelidate/validators'
 import { getFormComponent } from './formComponentRegistry.js'
+import { fieldWidthSpan } from '@/constants/formBuilderConfig'
+import ProductSelectMenu from '@/components/menus/ProductSelectMenu.vue'
+import SupplierSelectMenu from '@/components/menus/SupplierSelectMenu.vue'
+import SiteSelectMenu from '@/components/menus/SiteSelectMenu.vue'
+import DepartmentSelectMenu from '@/components/menus/DepartmentSelectMenu.vue'
+import UserSelectMenu from '@/components/menus/UserSelectMenu.vue'
+
+// Entity pickers a `lookup` field can render, keyed by field.lookupEntity.
+const LOOKUP_MENUS = {
+  product: ProductSelectMenu,
+  supplier: SupplierSelectMenu,
+  site: SiteSelectMenu,
+  department: DepartmentSelectMenu,
+  user: UserSelectMenu,
+}
+
+function safeRegExp(src) {
+  try {
+    return src ? new RegExp(src) : null
+  } catch {
+    return null
+  }
+}
+
+// A phone passes if: a custom regex matches; else its national digit count
+// equals the mask's '#' count; else it has at least 7 digits. Empty passes —
+// `required` owns emptiness.
+function makePhoneValidator(field) {
+  const re = safeRegExp(field.formatRegex)
+  const maskCount = field.mask ? (field.mask.match(/#/g) || []).length : 0
+  return (value) => {
+    if (!helpers.req(value)) return true
+    const v = String(value)
+    if (re) return re.test(v)
+    const national = v.replace(/^\+\d{1,4}\s*/, '').replace(/\D/g, '')
+    return maskCount ? national.length === maskCount : national.length >= 7
+  }
+}
+
+// Built-in validation rules an input field's type contributes, on top of
+// `required`. Email → email check (or a custom regex); phone → phone check.
+function buildTypeRules(field) {
+  const rules = {}
+  if (field.type === 'email') {
+    const re = safeRegExp(field.formatRegex)
+    if (re) rules.format = helpers.withMessage('Invalid format.', helpers.regex(re))
+    else rules.email = helpers.withMessage('Enter a valid email address.', emailValidator)
+  } else if (field.type === 'phone') {
+    rules.phone = helpers.withMessage('Enter a valid phone number.', makePhoneValidator(field))
+  }
+  return rules
+}
 
 export default defineComponent({
   name: 'DynamicForm',
@@ -74,6 +129,7 @@ export default defineComponent({
         if (field.required) {
           obj.required = required
         }
+        Object.assign(obj, buildTypeRules(field))
       }
 
       if ('children' in field && Array.isArray(field.children)) {
@@ -103,6 +159,7 @@ export default defineComponent({
 
     // Check if field should be visible based on condition
     function isFieldVisible(field) {
+      if (field.hidden) return false // "Hide field" — omit from the rendered form
       if (!field.condition) return true
       if (typeof field.condition === 'function') {
         return field.condition(modelValue.value)
@@ -221,6 +278,16 @@ export default defineComponent({
             type: field.type === 'input' || field.type === 'text' ? 'text' : field.type,
           })
 
+        case 'email':
+          return h(BaseEmailInput, inputFieldProps)
+
+        case 'phone':
+          return h(BasePhoneInput, {
+            ...inputFieldProps,
+            defaultCountry: field.defaultCountry,
+            mask: field.mask,
+          })
+
         case 'textarea':
           // BaseRichTextEditor doesn't accept a `label` prop, so wrap with an
           // explicit label row. Same reason datetime/colorPicker/slider do.
@@ -325,12 +392,66 @@ export default defineComponent({
             h(BaseColorPicker, fieldProps),
           ])
 
+        case 'signature':
+          // BaseSignaturePad's model is a String data-URL; it only takes
+          // height/penColor/disabled, so pass those explicitly rather than the
+          // generic fieldProps (which carry label/required/etc it doesn't use).
+          return h('div', { class: 'tw:flex tw:flex-col tw:gap-1' }, [
+            field.label
+              ? h('div', { class: 'tw:text-sm tw:font-medium tw:text-secondary' }, field.label)
+              : null,
+            h(BaseSignaturePad, {
+              modelValue: scope.value ?? '',
+              height: field.height || 180,
+              disabled:
+                props.readonly || field.readonly || props.disabled || field.disabled || false,
+              [updateModelValueEvent]: (val) => {
+                scope.value = val
+              },
+            }),
+            field.hint
+              ? h('div', { class: 'tw:text-xs tw:text-secondary' }, field.hint)
+              : null,
+          ])
+
         case 'select':
           return h(OptionSetSelect, {
             ...selectFieldProps,
             optionSetId: field.optionSetId,
             optionSet: field.optionSet,
           })
+
+        case 'lookup': {
+          const Menu = LOOKUP_MENUS[field.lookupEntity || 'product']
+          const control = Menu
+            ? h(Menu, {
+                modelValue: scope.value,
+                'onUpdate:modelValue': (val) => {
+                  scope.value = val
+                },
+                required: field.required,
+                disabled:
+                  props.readonly || field.readonly || props.disabled || field.disabled
+                    ? true
+                    : undefined,
+              })
+            : h(
+                'div',
+                { class: 'tw:text-sm tw:text-red-500' },
+                `Unknown lookup source: ${field.lookupEntity}`,
+              )
+          return h('div', { class: 'tw:flex tw:flex-col tw:gap-1' }, [
+            field.label
+              ? h(
+                  'div',
+                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
+                  field.label,
+                )
+              : null,
+            control,
+            field.hint ? h('div', { class: 'tw:text-xs tw:text-secondary' }, field.hint) : null,
+          ])
+        }
 
         case 'slider':
           return h('div', { class: 'tw:px-2' }, [
@@ -584,8 +705,8 @@ export default defineComponent({
         h('div', { class: 'tw:text-base tw:mb-4 tw:font-medium' }, field.label),
         h(
           'div',
-          { class: 'tw:flex tw:flex-col tw:gap-4' },
-          createFields(field.children, sectionAncestors),
+          { class: 'tw:grid tw:grid-cols-1 tw:sm:grid-cols-12 tw:gap-4' },
+          createGridFields(field.children, sectionAncestors),
         ),
       ])
     }
@@ -612,6 +733,24 @@ export default defineComponent({
           style: field.style,
           innerHTML: field.html || '',
         })
+      }
+
+      if (field.type === 'header') {
+        // Display-only heading + optional subheading. No payload value.
+        const sizeClass =
+          { default: 'tw:text-xl', large: 'tw:text-3xl', small: 'tw:text-base' }[
+            field.size || 'large'
+          ] || 'tw:text-3xl'
+        const alignClass =
+          { left: 'tw:text-left', center: 'tw:text-center', right: 'tw:text-right' }[
+            field.align || 'center'
+          ] || 'tw:text-center'
+        return h('div', { class: ['header-field tw:mb-2', alignClass, field.class], style: field.style }, [
+          h('div', { class: [sizeClass, 'tw:font-bold tw:text-on-main'] }, field.text || ''),
+          field.subtext
+            ? h('div', { class: 'tw:text-sm tw:text-secondary tw:mt-1' }, field.subtext)
+            : null,
+        ])
       }
 
       if (field.type === 'section') {
@@ -699,6 +838,31 @@ export default defineComponent({
         .filter((field) => field !== null)
     }
 
+    // Width-aware variant: each field becomes a cell in a 12-column grid,
+    // spanning its `width` (full/half/third/quarter) so fields pack into rows.
+    // The caller MUST render the result inside GRID_CONTAINER_CLASS. The span
+    // is an inline style (Tailwind can't JIT a dynamic col-span-N); on the
+    // mobile single-column grid every span clamps to full width. Layout fields
+    // (section/row/column) default to full and keep their own inner layout.
+    function createGridFields(fields, ancestors = []) {
+      if (!fields) {
+        return []
+      }
+
+      return fields
+        .map((field, index) => {
+          const vnode = createField(field, ancestors, index)
+          if (vnode === null) return null
+          const span = fieldWidthSpan(field.width)
+          return h(
+            'div',
+            { key: field.name || index, style: { gridColumn: `span ${span} / span ${span}` } },
+            [vnode],
+          )
+        })
+        .filter((vnode) => vnode !== null)
+    }
+
     async function submit(e) {
       if (e?.preventDefault) e.preventDefault()
       computedLoading.value = true
@@ -730,7 +894,13 @@ export default defineComponent({
         contents.push(slots.header())
       }
 
-      contents.push(h('div', { class: 'tw:flex tw:flex-col tw:gap-4' }, createFields(props.fields)))
+      contents.push(
+        h(
+          'div',
+          { class: 'tw:grid tw:grid-cols-1 tw:sm:grid-cols-12 tw:gap-4' },
+          createGridFields(props.fields),
+        ),
+      )
 
       if (slots.footer) {
         contents.push(slots.footer({ submit }))

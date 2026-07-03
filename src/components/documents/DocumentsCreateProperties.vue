@@ -32,43 +32,6 @@ watch(resolvedTemplate, (template) => {
   form.value.autoEffectiveOnApproval = template.autoEffectiveOnApproval
 })
 
-// Short prefix code per document type. The seeded ids are mostly
-// usable as-is (SOP / DOC / NC / CAPA …) but a few are too long for
-// a document number prefix; map those to the conventional shorthand.
-const DOCUMENT_TYPE_PREFIX_CODE = {
-  WORK_INSTRUCTION: 'WI',
-  POLICY: 'POL',
-  SPECIFICATION: 'SPEC',
-  RECORD: 'REC',
-  AUDIT: 'AUD',
-  RISK: 'RSK',
-  CHANGE: 'CHG',
-  MANUAL: 'MAN',
-  FORM: 'FRM',
-}
-function prefixCodeForType(typeId) {
-  if (!typeId) return null
-  return DOCUMENT_TYPE_PREFIX_CODE[typeId] ?? typeId
-}
-
-// When the user (or the AI / PDF import) picks a document type, fill
-// the prefix with {CODE}-{SITE_CODE}-{DEPARTMENT_CODE} so the document
-// number is generated from the type — matching the NC / CAPA hardcoded
-// convention the user asked for. We only do this when no template is
-// selected; templates carry their own prefix and shouldn't be
-// overwritten by a type change.
-watch(
-  () => form.value.documentTypeId,
-  (typeId) => {
-    if (!typeId) return
-    if (form.value.documentTemplateId) return
-    const code = prefixCodeForType(typeId)
-    if (!code) return
-    form.value.prefix = `${code}-{SITE_CODE}-{DEPARTMENT_CODE}`
-  },
-  { immediate: true },
-)
-
 // Prefix auto-uppercase
 const prefix = computed({
   get: () => form.value.prefix,
@@ -158,13 +121,6 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
           v-model="form.documentTemplateId"
           :required="true"
         />
-      </template>
-    </BaseField>
-
-    <!-- Document Type -->
-    <BaseField label="Document Type" required :value="form.documentTypeId" :rules="[required()]">
-      <template #default="field">
-        <DocumentTypeSelectMenu v-bind="field" v-model="form.documentTypeId" :required="true" />
       </template>
     </BaseField>
 

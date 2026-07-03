@@ -44,8 +44,9 @@ export class LogBook extends BaseModel {
   @Property({ type: String }) departmentId = ''
   @Property({ type: String }) location = ''
 
-  // Compliance references
-  @Property({ type: String }) relatedStandardId = ''
+  // Compliance references — nullable UUID FK to the RelatedStandard lookup,
+  // default null (not '') so an unset value never hits the UUID FK column.
+  @Property({ type: String }) relatedStandardId = null
   @Property({ type: String }) regulatoryCitation = ''
   @Property({ type: Number }) retentionMonths = null
 

@@ -34,6 +34,9 @@ const props = defineProps({
   isSupplierFacing: { type: Boolean, default: false },
   supplierId: { type: String, default: null },
   ownerId: { type: String, default: null },
+  // Synthesized steps (admin-defined modules) have no WorkflowStepRole rows yet
+  // — pass their role ids directly. When null, fall back to querying by step.id.
+  roleIds: { type: Array, default: null },
 })
 
 const modelValue = defineModel({ type: String, default: null })
@@ -58,17 +61,18 @@ const usesSupplierPicker = computed(() => props.isSupplierFacing && !isApprovalS
 // for role-gated steps and auto-selected a user who shouldn't have been
 // eligible (see the LogBook submit-dialog regression report).
 const stepRoles = useLiveQueryWithDeps(
-  [() => props.step.id],
+  [() => props.step.id, () => props.roleIds],
 
-  async (db, [stepId]) => {
+  async (db, [stepId, roleIds]) => {
+    if (roleIds != null) return [] // roles supplied via prop (synthesized step)
     if (!stepId) return []
     return db.WorkflowStepRole.where('stepId', stepId).exec()
   },
   { models: ['WorkflowStepRole'] },
 )
 
-const stepRolesLoaded = computed(() => stepRoles.value !== undefined)
-const stepRoleIds = computed(() => (stepRoles.value ?? []).map((r) => r.roleId))
+const stepRolesLoaded = computed(() => props.roleIds != null || stepRoles.value !== undefined)
+const stepRoleIds = computed(() => props.roleIds ?? (stepRoles.value ?? []).map((r) => r.roleId))
 
 // Resolve role names for the empty-state hint — when a step has roles
 // and no eligible users hold them, the hint reads "No users assigned

@@ -30,6 +30,8 @@ const activeFilter = defineModel('activeFilter', { type: String, required: true 
 const filterPills = [
   { value: 'all_open', label: 'All open' },
   { value: 'mine', label: 'My tickets' },
+  // QA review queue: tickets assigned to me OR to a team I belong to.
+  { value: 'my_queue', label: 'QA Review' },
   { value: 'unassigned', label: 'Unassigned' },
   { value: 'waiting', label: 'Waiting customer' },
   { value: 'resolved', label: 'Resolved' },

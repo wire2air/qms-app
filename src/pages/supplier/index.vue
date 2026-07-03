@@ -22,6 +22,7 @@ import {
   IconShieldCheck,
   IconExternalLink,
   IconChecklist,
+  IconForms,
 } from '@tabler/icons-vue'
 import { currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -122,6 +123,27 @@ const sharedNcs = useLiveQueryWithDeps(
 
   { models: ['Nonconformance'], initial: [] },
 )
+
+// Admin-defined module records — shared via SharedWithUser keyed by the
+// module_key (anything that isn't a built-in share entity type).
+const BUILTIN_SHARE_TYPES = new Set(['Document', 'Capa', 'Nonconformance'])
+const sharedRecordIds = computed(() =>
+  myShares.value.filter((s) => !BUILTIN_SHARE_TYPES.has(s.entityType)).map((s) => s.entityId),
+)
+const sharedRecords = useLiveQueryWithDeps(
+  [() => sharedRecordIds.value],
+  async (db, [ids]) => {
+    if (!ids.length) return []
+    const all = await db.Record.where().exec()
+    const idSet = new Set(ids)
+    return all.filter((r) => idSet.has(r.id))
+  },
+
+  { models: ['Record'], initial: [] },
+)
+function recordHref(r) {
+  return getCompanyPath(`m/${r.moduleKey}/${r.id}`)
+}
 
 function docHref(d) {
   return getCompanyPath(`documents/${d.id}`)
@@ -257,6 +279,45 @@ function auditHref(a) {
             class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
           >
             {{ n.statusId }}
+          </span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Shared Records — admin-defined module records routed to this supplier
+         user. Opening one shows the section workflow; their assigned step is
+         editable, the rest read-only. -->
+    <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-2">
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <IconForms :size="18" class="tw:text-primary" />
+        <h2 class="tw:text-base tw:font-semibold tw:text-on-main">
+          Shared Records
+          <span v-if="sharedRecords.length" class="tw:text-secondary tw:font-normal tw:text-sm">
+            ({{ sharedRecords.length }})
+          </span>
+        </h2>
+      </div>
+      <p v-if="sharedRecords.length === 0" class="tw:text-xs tw:text-secondary tw:italic tw:py-2">
+        No records shared with you yet.
+      </p>
+      <ul v-else class="tw:flex tw:flex-col tw:divide-y tw:divide-divider">
+        <li
+          v-for="r in sharedRecords"
+          :key="r.id"
+          class="tw:flex tw:items-center tw:gap-3 tw:py-2 tw:text-sm"
+        >
+          <a
+            :href="recordHref(r)"
+            class="tw:flex tw:items-center tw:gap-1.5 tw:text-on-main tw:hover:text-primary tw:flex-1"
+          >
+            <span class="tw:font-mono tw:text-xs tw:text-secondary">{{ r.recordNumber }}</span>
+            <span class="tw:font-medium">{{ r.moduleKey }}</span>
+            <IconExternalLink :size="12" class="tw:text-secondary" />
+          </a>
+          <span
+            class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
+          >
+            {{ r.statusId }}
           </span>
         </li>
       </ul>

@@ -18,10 +18,19 @@ const list = useListLayout({
   syncUrl: true,
 })
 
-const records = useLiveQuery((db) => db.Record.where().exec(), {
-  models: ['Record'],
-  initial: [],
-})
+// Only plain (non-module) form entries belong here — module records have their
+// own left-nav menu + list, so excluding them keeps this list to anonymous /
+// utility form submissions.
+const records = useLiveQuery(
+  async (db) => {
+    const all = await db.Record.where().exec()
+    return all.filter((r) => !r.moduleKey)
+  },
+  {
+    models: ['Record'],
+    initial: [],
+  },
+)
 
 const loading = computed(() => records.value === undefined)
 

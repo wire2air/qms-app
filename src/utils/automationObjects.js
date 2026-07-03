@@ -8,6 +8,7 @@ export const AUTOMATION_TRIGGERS = [
   { value: 'CREATED', label: 'When created' },
   { value: 'STATUS_CHANGED', label: 'When status changes' },
   { value: 'UPDATED', label: 'When updated' },
+  { value: 'SCHEDULED', label: 'On a daily schedule (time-based)' },
 ]
 
 export const OPERATORS_BY_TYPE = {
@@ -33,6 +34,10 @@ export const OPERATORS_BY_TYPE = {
   date: [
     { value: 'before', label: 'before' },
     { value: 'after', label: 'after' },
+    { value: 'older_than_days', label: 'older than (days)' },
+    { value: 'within_days', label: 'within (days)' },
+    { value: 'older_than_months', label: 'older than (months)' },
+    { value: 'within_months', label: 'within (months)' },
     { value: 'is_empty', label: 'is empty' },
     { value: 'is_not_empty', label: 'is not empty' },
   ],
@@ -43,14 +48,14 @@ export const OPERATORS_BY_TYPE = {
   enum: [
     { value: 'is', label: 'is' },
     { value: 'is_not', label: 'is not' },
-    { value: 'in', label: 'in (comma list)' },
-    { value: 'not_in', label: 'not in (comma list)' },
+    { value: 'in', label: 'is any of' },
+    { value: 'not_in', label: 'is none of' },
   ],
   lookup: [
     { value: 'is', label: 'is' },
     { value: 'is_not', label: 'is not' },
-    { value: 'in', label: 'in (comma list)' },
-    { value: 'not_in', label: 'not in (comma list)' },
+    { value: 'in', label: 'is any of' },
+    { value: 'not_in', label: 'is none of' },
   ],
 }
 
@@ -71,6 +76,7 @@ export const ACTION_TYPES = [
   { value: 'NOTIFY_EMAIL', label: 'Notify Email address(es)', config: 'emails' },
   { value: 'SEND_SMS', label: 'Send SMS/MMS', config: 'sms' },
   { value: 'CREATE_NC', label: 'Create Nonconformance', config: null },
+  { value: 'CREATE_TASK', label: 'Create Task', config: 'task' },
 ]
 export const ACTION_LABEL = Object.fromEntries(ACTION_TYPES.map((a) => [a.value, a.label]))
 
@@ -159,3 +165,102 @@ export function actionsForObject(objectType) {
   const allowed = new Set(OBJECT_BY_VALUE[objectType]?.allowedActions ?? [])
   return ACTION_TYPES.filter((a) => allowed.has(a.value))
 }
+
+// ── Module (admin-defined form) automation ───────────────────────────────────
+// Module rules condition on the form's own fields + a few whitelisted first-class
+// fields (Status, DateCreated, DateCompleted, DueDate). Field keys match the
+// flattened evaluation row: form fields by name (hoisted from payload), first-
+// class by column. Actions are the notify set.
+
+export const MODULE_FIRST_CLASS_FIELDS = [
+  { key: 'status_id', label: 'Status', type: 'enum' },
+  { key: 'created_at', label: 'Date Created', type: 'date' },
+  { key: 'completed_at', label: 'Date Completed', type: 'date' },
+  { key: 'due_date', label: 'Due Date', type: 'date' },
+  { key: 'next_review_date', label: 'Next Review Date', type: 'date' },
+]
+
+// Scoring fields, only offered when the module has rating bands configured. Keys
+// match the worker's buildModuleEvalRow hoist (scoring_total / scoring_rating).
+function moduleScoringFields(moduleConfig) {
+  const bands = moduleConfig?.scoring?.bands
+  if (!bands?.length) return []
+  return [
+    { key: 'scoring_total', label: 'Score', type: 'number' },
+    {
+      key: 'scoring_rating',
+      label: 'Rating',
+      type: 'enum',
+      options: bands.map((b) => ({ value: b.label, label: b.label })),
+    },
+  ]
+}
+
+const FORM_TYPE_TO_AUTOMATION = {
+  input: 'string',
+  text: 'string',
+  textarea: 'string',
+  email: 'string',
+  phone: 'string',
+  url: 'string',
+  number: 'number',
+  currency: 'number',
+  date: 'date',
+  datetime: 'date',
+  time: 'date',
+  select: 'enum',
+  dropdown: 'enum',
+  radio: 'enum',
+  multiselect: 'enum',
+  checkbox: 'boolean',
+  switch: 'boolean',
+  toggle: 'boolean',
+}
+
+/** Normalize a form option (plain string or { value/label } object) to { value, label }. */
+function toOption(o) {
+  if (o && typeof o === 'object') {
+    const value = o.value ?? o.id ?? o.label ?? o.name
+    return { value, label: o.label ?? o.name ?? String(value) }
+  }
+  return { value: o, label: String(o) }
+}
+
+/**
+ * Condition fields for a module form = first-class + scoring (when bands exist)
+ * + form schema fields.
+ */
+export function moduleAutomationFields(schema, moduleConfig = null) {
+  const out = []
+  const walk = (nodes) => {
+    for (const n of nodes || []) {
+      if (Array.isArray(n?.children)) walk(n.children)
+      const type = FORM_TYPE_TO_AUTOMATION[n?.type]
+      if (type && n?.name) {
+        const field = { key: n.name, label: n.label || n.name, type }
+        // Carry the option choices so the rule builder can offer a real
+        // dropdown (single/multi by operator) instead of a free-text value.
+        if (type === 'enum' && Array.isArray(n.options) && n.options.length) {
+          field.options = n.options.map(toOption)
+        }
+        out.push(field)
+      }
+    }
+  }
+  walk(schema || [])
+  return [...MODULE_FIRST_CLASS_FIELDS, ...moduleScoringFields(moduleConfig), ...out]
+}
+
+export function moduleOperatorsForField(moduleFields, fieldKey) {
+  const f = (moduleFields || []).find((x) => x.key === fieldKey)
+  return OPERATORS_BY_TYPE[f?.type || 'string'] ?? OPERATORS_BY_TYPE.string
+}
+
+const MODULE_ALLOWED_ACTIONS = [
+  'NOTIFY_GROUP',
+  'NOTIFY_USER',
+  'NOTIFY_REQUESTER',
+  'NOTIFY_OWNER',
+  'CREATE_TASK',
+]
+export const MODULE_ACTIONS = ACTION_TYPES.filter((a) => MODULE_ALLOWED_ACTIONS.includes(a.value))

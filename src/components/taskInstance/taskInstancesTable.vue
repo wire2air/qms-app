@@ -337,6 +337,67 @@ const fieldRecordMap = useLiveQueryWithDeps(
   { models: ['FieldRecord', 'LogBook', 'LogBookType'], initial: {} },
 )
 
+// Admin-defined module tasks carry a dynamic entityType (the module's
+// internalName / module_key), so they fall through every built-in branch.
+// Anything NOT in this set is treated as a module record — resolved to its
+// Record + template below.
+const BUILTIN_ENTITY_TYPES = new Set([
+  'DocumentVersion',
+  'Nonconformance',
+  'Capa',
+  'ChangeRequest',
+  'QualityEvent',
+  'LogBookVersion',
+  'AssignmentInstance',
+  'FieldRecord',
+  'AuditInstance',
+  'AuditStandardVersion',
+  'InspectionLot',
+  'TrainingAssignee',
+  'TrainingInstance',
+])
+
+const moduleRecordMap = useLiveQueryWithDeps(
+  [
+    () =>
+      taskInstances.value
+        .filter((i) => !BUILTIN_ENTITY_TYPES.has(i.entityType))
+        .map((i) => i.entityId),
+  ],
+  async (db, [entityIds]) => {
+    const ids = [...new Set(entityIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const records = await Promise.all(ids.map((id) => db.Record.findByPk(id)))
+    const templateIds = [
+      ...new Set(records.filter(Boolean).map((r) => r.templateId).filter(Boolean)),
+    ]
+    const templates = await Promise.all(templateIds.map((id) => db.FormTemplate.findByPk(id)))
+    const tplById = Object.fromEntries(templates.filter(Boolean).map((t) => [t.id, t]))
+    const map = {}
+    for (const r of records.filter(Boolean)) {
+      map[r.id] = { record: r, template: tplById[r.templateId] || null }
+    }
+    return map
+  },
+  { models: ['Record', 'FormTemplate'], initial: {} },
+)
+
+// A task → its module Record entry (null for built-in entity types).
+function moduleRecordFor(row) {
+  return moduleRecordMap.value[row.entityId] || null
+}
+function moduleLabelFor(row) {
+  const entry = moduleRecordFor(row)
+  // Prefer the module's display name; fall back to its key (module_key) when the
+  // template isn't synced (e.g. before RLS grants it), never a bare "Record".
+  return (
+    entry?.template?.moduleConfig?.displayName ||
+    entry?.template?.title ||
+    entry?.record?.moduleKey ||
+    'Record'
+  )
+}
+
 const filteredInstances = computed(() => {
   if (!props.search) return taskInstances.value
   const q = props.search.toLowerCase()
@@ -403,6 +464,14 @@ const filteredInstances = computed(() => {
     if (instance.entityType === 'InspectionLot') {
       const lot = inspectionLotMap.value[instance.entityId]
       return !!lot && lot.lotNumber?.toLowerCase().includes(q)
+    }
+    if (!BUILTIN_ENTITY_TYPES.has(instance.entityType)) {
+      const entry = moduleRecordFor(instance)
+      if (!entry) return false
+      return (
+        entry.record?.recordNumber?.toLowerCase().includes(q) ||
+        entry.template?.title?.toLowerCase().includes(q)
+      )
     }
     const doc = documentMap.value[instance.entityId]?.doc
     if (!doc) return false
@@ -509,8 +578,11 @@ function titleFor(row) {
       return auditStandardVersionMap.value[row.entityId]?.standard?.name || ''
     case 'InspectionLot':
       return inspectionLotMap.value[row.entityId]?.lotNumber || ''
-    default:
+    default: {
+      const entry = moduleRecordFor(row)
+      if (entry) return entry.record?.recordNumber || moduleLabelFor(row)
       return getDocument(row)?.title || ''
+    }
   }
 }
 
@@ -659,6 +731,10 @@ function entityRoute(row) {
   if (row.entityType === 'InspectionLot') {
     return getCompanyPath(`qc-inspection/lots/${row.entityId}`)
   }
+  const moduleEntry = moduleRecordFor(row)
+  if (moduleEntry?.record?.moduleKey) {
+    return getCompanyPath(`m/${moduleEntry.record.moduleKey}/${row.entityId}`)
+  }
   return null
 }
 
@@ -692,8 +768,11 @@ function rowTitle(row) {
       return auditStandardVersionMap.value[row.entityId]?.standard?.name || 'Audit Standard'
     case 'InspectionLot':
       return inspectionLotMap.value[row.entityId]?.lotNumber || 'Inspection Lot'
-    default:
+    default: {
+      const entry = moduleRecordFor(row)
+      if (entry) return moduleLabelFor(row)
       return getDocument(row)?.title || '—'
+    }
   }
 }
 function rowSubtitle(row) {
@@ -725,7 +804,7 @@ function rowSubtitle(row) {
       return lot?.inspectionPoint || ''
     }
     default:
-      return ''
+      return moduleRecordFor(row)?.record?.recordNumber || ''
   }
 }
 
@@ -917,6 +996,14 @@ defineExpose({ exportCsv })
                 {{ inspectionLotMap[row.entityId]?.inspectionPoint || '—' }}
               </span>
             </template>
+            <template v-else-if="moduleRecordFor(row)">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ moduleLabelFor(row) }}
+              </span>
+              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+                {{ moduleRecordFor(row)?.record?.recordNumber || '—' }}
+              </span>
+            </template>
             <template v-else>
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ getDocument(row)?.title || '—' }}
@@ -1007,6 +1094,9 @@ defineExpose({ exportCsv })
           </span>
           <span v-else-if="row.entityType === 'InspectionLot'" class="tw:text-sm tw:text-on-main">
             QA Disposition
+          </span>
+          <span v-else-if="moduleRecordFor(row)" class="tw:text-sm tw:text-on-main">
+            {{ moduleLabelFor(row) }}
           </span>
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </template>

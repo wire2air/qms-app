@@ -95,7 +95,12 @@ function cancelEditTitle() {
 
     <!-- Form Builder -->
     <template v-else-if="template">
-      <FormBuilder :title="builderTitle" :initialSchema="initialSchema" @save="saveSchema">
+      <FormBuilder
+        :title="builderTitle"
+        :initialSchema="initialSchema"
+        :showScoring="!!template.isModule"
+        @save="saveSchema"
+      >
         <template #title>
           <div
             v-if="isEditingTitle"

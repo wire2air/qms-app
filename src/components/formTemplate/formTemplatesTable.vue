@@ -1,5 +1,5 @@
 <script setup>
-import { IconEye, IconEdit, IconBrush, IconTrash } from '@tabler/icons-vue'
+import { IconEye, IconEdit, IconBrush, IconTrash, IconShare } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
@@ -71,12 +71,22 @@ function openPreview(row) {
   showPreviewDialog.value = true
 }
 
+const shareTemplate = ref(null)
+const showShare = ref(false)
+function openShare(row) {
+  shareTemplate.value = row
+  showShare.value = true
+}
+
 function rowMenuItems(row) {
   const items = [{ name: 'View', icon: IconEye, click: () => navigateToTemplate(row) }]
   if (props.canUpdate) {
     items.push({ name: 'Design', icon: IconBrush, click: () => navigateToTemplate(row, 'schema') })
   }
   items.push({ name: 'Preview', icon: IconEdit, click: () => openPreview(row) })
+  // Every template is shareable: module → internal create link; plain form →
+  // public anonymous fill link. The dialog picks the right one.
+  items.push({ name: 'Share link', icon: IconShare, click: () => openShare(row) })
   if (props.canDelete) {
     items.push({ name: 'Delete', icon: IconTrash, click: () => emit('delete', row) })
   }
@@ -140,4 +150,6 @@ function rowMenuItems(row) {
       @close="showPreviewDialog = false"
     />
   </BaseDialog>
+
+  <ShareFormDialog v-model="showShare" :template="shareTemplate" />
 </template>

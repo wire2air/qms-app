@@ -8,12 +8,20 @@ import {
   actionsForObject,
   NO_VALUE_OPERATORS,
   LIST_OPERATORS,
+  MODULE_ACTIONS,
+  moduleOperatorsForField,
 } from '@/utils/automationObjects'
 import { required } from '@shared/components/form/validators.js'
 
-const props = defineProps({ ruleId: { type: String, default: null } })
+const props = defineProps({
+  ruleId: { type: String, default: null },
+  // Module mode: fix the object type to a module key + supply its fields.
+  fixedObjectType: { type: String, default: null },
+  moduleFields: { type: Array, default: null },
+})
 const emit = defineEmits(['saved'])
 const open = defineModel({ type: Boolean, default: false })
+const isModuleMode = computed(() => !!props.fixedObjectType)
 const toast = useToast()
 const saving = ref(false)
 const formRef = ref(null)
@@ -28,7 +36,7 @@ const existing = useLiveQueryWithDeps(
 function blankDraft() {
   return {
     name: '',
-    objectType: 'QualityEvent',
+    objectType: props.fixedObjectType || 'QualityEvent',
     trigger: 'CREATED',
     logic: 'AND',
     conditions: [],
@@ -84,40 +92,118 @@ watch(existing, () => {
   if (open.value && props.ruleId && hydratedFor.value !== props.ruleId) hydrateDraft()
 })
 
-const fields = computed(() => fieldsForObject(draft.value.objectType))
-const availableActions = computed(() => actionsForObject(draft.value.objectType))
+const fields = computed(() =>
+  isModuleMode.value ? props.moduleFields || [] : fieldsForObject(draft.value.objectType),
+)
+const availableActions = computed(() =>
+  isModuleMode.value ? MODULE_ACTIONS : actionsForObject(draft.value.objectType),
+)
 
-// BaseSelect expects { id, name } items.
-const objectItems = AUTOMATION_OBJECTS.map((o) => ({ id: o.value, name: o.label }))
-const triggerItems = AUTOMATION_TRIGGERS.map((t) => ({ id: t.value, name: t.label }))
+// BaseSelect maps via optionLabel/optionValue; the source arrays already carry
+// { label } + { value } (fields use { key }), so pass them straight through.
+const logicOptions = [
+  { value: 'AND', label: 'Match ALL (AND)' },
+  { value: 'OR', label: 'Match ANY (OR)' },
+]
+
+// ── Type-aware condition value input ─────────────────────────────────────────
+// enum/option fields (Status, form dropdowns) get a real select — multi when the
+// operator is in/not_in; date fields get a date picker for before/after, and a
+// numeric input for the relative-date operators (older_than/within X).
+const recordStatuses = useLiveQuery((db) => db.RecordStatus.where().exec(), {
+  models: ['RecordStatus'],
+  initial: [],
+})
+// Module records only use this lifecycle subset (DRAFT → PENDING → COMPLETE →
+// CLOSED, REJECTED; OPEN is legacy). The other record_statuses — Approved /
+// Review / Obsolete — belong to document records, so exclude them. Listed in
+// lifecycle order; label comes from the seeded status.
+const MODULE_STATUS_IDS = ['DRAFT', 'OPEN', 'PENDING', 'COMPLETE', 'CLOSED', 'REJECTED']
+const statusOptions = computed(() =>
+  MODULE_STATUS_IDS.map((id) => recordStatuses.value.find((s) => s.id === id))
+    .filter(Boolean)
+    .map((s) => ({ value: s.id, label: s.name })),
+)
+function fieldFor(key) {
+  return fields.value.find((f) => f.key === key)
+}
+function optionsForField(field) {
+  if (field?.options?.length) return field.options
+  // status_id carries no inline options — source the lifecycle statuses.
+  if (isModuleMode.value && field?.key === 'status_id') return statusOptions.value
+  return []
+}
+const DATE_PICK_OPERATORS = new Set(['before', 'after'])
+function valueKind(cond) {
+  if (NO_VALUE_OPERATORS.has(cond.operator)) return 'none'
+  const field = fieldFor(cond.field)
+  const type = field?.type
+  if (type === 'date') return DATE_PICK_OPERATORS.has(cond.operator) ? 'date' : 'number'
+  if ((type === 'enum' || type === 'lookup') && optionsForField(field).length) return 'select'
+  if (type === 'number') return cond.operator === 'between' ? 'text' : 'number'
+  return 'text'
+}
+// Reset value to the right empty shape for the current field/operator.
+function resetCondValue(cond) {
+  if (LIST_OPERATORS.has(cond.operator)) cond.value = []
+  else if (valueKind(cond) === 'date') cond.value = null
+  else cond.value = ''
+}
 
 function addCondition() {
   const f = fields.value[0]
-  draft.value.conditions.push({
+  const cond = {
     field: f?.key || '',
-    operator: operatorsForField(draft.value.objectType, f?.key)[0]?.value || 'is',
+    operator: operatorsFor(f?.key)[0]?.value || 'is',
     value: '',
-  })
+  }
+  resetCondValue(cond)
+  draft.value.conditions.push(cond)
 }
 function removeCondition(i) {
   draft.value.conditions.splice(i, 1)
 }
 function operatorsFor(fieldKey) {
-  return operatorsForField(draft.value.objectType, fieldKey)
+  return isModuleMode.value
+    ? moduleOperatorsForField(props.moduleFields, fieldKey)
+    : operatorsForField(draft.value.objectType, fieldKey)
 }
 function onFieldChange(cond) {
   cond.operator = operatorsFor(cond.field)[0]?.value || 'is'
-  cond.value = ''
+  resetCondValue(cond)
+}
+function onOperatorChange(cond) {
+  resetCondValue(cond)
 }
 
+// CREATE_TASK config UI options.
+const ASSIGN_TO_OPTIONS = [
+  { value: 'OWNER', label: 'Owner / Assignee' },
+  { value: 'REQUESTER', label: 'Requester / Creator' },
+  { value: 'USERS', label: 'Specific user(s)' },
+  { value: 'GROUP', label: 'Team / Group' },
+]
+const TASK_KIND_OPTIONS = [
+  { value: 'ACTION', label: 'Action (to-do)' },
+  { value: 'EFFECTIVENESS_CHECK', label: 'Effectiveness Check' },
+  { value: 'REVIEW', label: 'Review' },
+  { value: 'ACK', label: 'Acknowledgement' },
+]
+
+function defaultActionConfig(type) {
+  if (type === 'CREATE_TASK') {
+    return { assignTo: 'OWNER', taskKindId: 'ACTION', userIds: [], groupIds: [], dueOffsetDays: '', note: '' }
+  }
+  return {}
+}
 function addAction(type) {
   if (!type) return
-  draft.value.actions.push({ type, config: {} })
+  draft.value.actions.push({ type, config: defaultActionConfig(type) })
 }
 function removeAction(i) {
   draft.value.actions.splice(i, 1)
 }
-const newActionType = ref('')
+const newActionType = ref(null)
 
 // When the object changes, reset conditions/actions that may no longer apply.
 watch(
@@ -133,10 +219,10 @@ watch(
 function normalizeValue(cond) {
   if (NO_VALUE_OPERATORS.has(cond.operator)) return undefined
   if (LIST_OPERATORS.has(cond.operator)) {
-    return String(cond.value ?? '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
+    const arr = Array.isArray(cond.value)
+      ? cond.value
+      : String(cond.value ?? '').split(',')
+    return arr.map((s) => String(s).trim()).filter(Boolean)
   }
   return cond.value
 }
@@ -222,22 +308,20 @@ async function onValidSubmit() {
               <span class="tw:text-xs tw:text-secondary">Rule is evaluated when on</span>
             </div>
           </BaseField>
-          <BaseField label="Object">
+          <BaseField v-if="!isModuleMode" label="Object">
             <BaseSelect
               v-model="draft.objectType"
-              :options="objectItems"
-              optionLabel="name"
-              optionValue="id"
+              :options="AUTOMATION_OBJECTS"
               :required="true"
+              :searchable="false"
             />
           </BaseField>
           <BaseField label="Trigger">
             <BaseSelect
               v-model="draft.trigger"
-              :options="triggerItems"
-              optionLabel="name"
-              optionValue="id"
+              :options="AUTOMATION_TRIGGERS"
               :required="true"
+              :searchable="false"
             />
           </BaseField>
         </div>
@@ -246,14 +330,18 @@ async function onValidSubmit() {
         <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3">
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
             <div class="tw:flex tw:items-center tw:gap-2">
-              <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">Conditions</span>
-              <select
-                v-model="draft.logic"
-                class="tw:border tw:border-divider tw:rounded tw:px-2 tw:py-1 tw:text-xs"
+              <span
+                class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
+                >Conditions</span
               >
-                <option value="AND">Match ALL (AND)</option>
-                <option value="OR">Match ANY (OR)</option>
-              </select>
+              <div class="tw:w-44">
+                <BaseSelect
+                  v-model="draft.logic"
+                  :options="logicOptions"
+                  :required="true"
+                  :searchable="false"
+                />
+              </div>
             </div>
             <BaseButton variant="outline" size="sm" @click="addCondition">
               <IconPlus :size="14" class="tw:mr-1" /> Add condition
@@ -267,30 +355,53 @@ async function onValidSubmit() {
             :key="i"
             class="tw:flex tw:items-center tw:gap-2 tw:mb-2"
           >
-            <select
-              v-model="cond.field"
-              class="tw:border tw:border-divider tw:rounded tw:px-2 tw:py-1.5 tw:text-sm tw:w-40"
-              @change="onFieldChange(cond)"
-            >
-              <option v-for="f in fields" :key="f.key" :value="f.key">{{ f.label }}</option>
-            </select>
-            <select
-              v-model="cond.operator"
-              class="tw:border tw:border-divider tw:rounded tw:px-2 tw:py-1.5 tw:text-sm tw:w-40"
-            >
-              <option v-for="op in operatorsFor(cond.field)" :key="op.value" :value="op.value">
-                {{ op.label }}
-              </option>
-            </select>
+            <div class="tw:w-40 tw:shrink-0">
+              <BaseSelect
+                v-model="cond.field"
+                :options="fields"
+                optionValue="key"
+                :required="true"
+                @update:modelValue="onFieldChange(cond)"
+              />
+            </div>
+            <div class="tw:w-52 tw:shrink-0">
+              <BaseSelect
+                v-model="cond.operator"
+                :options="operatorsFor(cond.field)"
+                :required="true"
+                :searchable="false"
+                @update:modelValue="onOperatorChange(cond)"
+              />
+            </div>
+            <!-- value — type/operator aware: dropdown for option fields, date
+                 picker for before/after, number for relative-date, else text -->
+            <BaseSelect
+              v-if="valueKind(cond) === 'select'"
+              v-model="cond.value"
+              :options="optionsForField(fieldFor(cond.field))"
+              :multiple="LIST_OPERATORS.has(cond.operator)"
+              placeholder="Select value"
+              class="tw:flex-1"
+            />
+            <BaseDateField
+              v-else-if="valueKind(cond) === 'date'"
+              v-model="cond.value"
+              mode="date"
+              valueFormat="iso"
+              size="sm"
+              class="tw:flex-1"
+            />
             <BaseTextInput
-              v-if="!NO_VALUE_OPERATORS.has(cond.operator)"
+              v-else-if="valueKind(cond) !== 'none'"
               v-model="cond.value"
               size="sm"
               class="tw:flex-1"
               :placeholder="
                 LIST_OPERATORS.has(cond.operator)
                   ? 'comma,separated,values'
-                  : 'value (code / id / text)'
+                  : valueKind(cond) === 'number'
+                    ? 'number'
+                    : 'value (code / id / text)'
               "
             />
             <button
@@ -308,15 +419,14 @@ async function onValidSubmit() {
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
             <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">Actions</span>
             <div class="tw:flex tw:items-center tw:gap-2">
-              <select
-                v-model="newActionType"
-                class="tw:border tw:border-divider tw:rounded tw:px-2 tw:py-1 tw:text-xs"
-              >
-                <option value="">Add action…</option>
-                <option v-for="a in availableActions" :key="a.value" :value="a.value">
-                  {{ a.label }}
-                </option>
-              </select>
+              <div class="tw:w-48">
+                <BaseSelect
+                  v-model="newActionType"
+                  :options="availableActions"
+                  placeholder="Add action…"
+                  :searchable="false"
+                />
+              </div>
               <BaseButton
                 variant="outline"
                 size="sm"
@@ -324,7 +434,7 @@ async function onValidSubmit() {
                 @click="
                   () => {
                     addAction(newActionType)
-                    newActionType = ''
+                    newActionType = null
                   }
                 "
               >
@@ -367,6 +477,47 @@ async function onValidSubmit() {
                       .filter(Boolean))
                 "
               />
+              <div
+                v-else-if="action.type === 'CREATE_TASK'"
+                class="tw:flex tw:flex-col tw:gap-2"
+              >
+                <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-2">
+                  <BaseSelect
+                    v-model="action.config.assignTo"
+                    :options="ASSIGN_TO_OPTIONS"
+                    :searchable="false"
+                    placeholder="Assign to…"
+                  />
+                  <BaseSelect
+                    v-model="action.config.taskKindId"
+                    :options="TASK_KIND_OPTIONS"
+                    :searchable="false"
+                    placeholder="Task type"
+                  />
+                </div>
+                <UserSelectMenu
+                  v-if="action.config.assignTo === 'USERS'"
+                  v-model="action.config.userIds"
+                  :multiple="true"
+                />
+                <GroupSelectMenu
+                  v-else-if="action.config.assignTo === 'GROUP'"
+                  v-model="action.config.groupIds"
+                  :multiple="true"
+                />
+                <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-2">
+                  <BaseTextInput
+                    v-model="action.config.dueOffsetDays"
+                    size="sm"
+                    placeholder="Due in (days, optional)"
+                  />
+                  <BaseTextInput
+                    v-model="action.config.note"
+                    size="sm"
+                    placeholder="Note for assignee (optional)"
+                  />
+                </div>
+              </div>
               <p v-else-if="action.type === 'SEND_SMS'" class="tw:text-xs tw:text-amber-700">
                 Requires SMS setup (Twilio). Stored, but won't send until configured.
               </p>

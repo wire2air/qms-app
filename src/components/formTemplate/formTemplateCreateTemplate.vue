@@ -71,11 +71,10 @@ function classificationConfigDefaults(cls) {
 const templateForm = reactive({
   title: '',
   code: '',
+  // I&L log books still auto-stamp INSPECTION_LOG (the watch below); regular
+  // module/form templates leave this null — numbering is keyed by code.
   documentTypeId: null,
   status: 'DRAFT',
-  trainingRequired: false,
-  retrainingOnRevision: false,
-  selectedSites: [],
   schema: [],
   isAvailable: null,
   isChecking: false,
@@ -83,11 +82,7 @@ const templateForm = reactive({
   isValid: computed(() => {
     const titleValid = templateForm.title.trim().length > 0
     const codeValid = /^[a-z0-9-_]+$/i.test(templateForm.code.trim())
-    // I&L log books skip the manual Document Type pick; the watch
-    // below stamps INSPECTION_LOG so the field is always populated.
-    const documentTypeValid =
-      props.defaultClassification !== null || templateForm.documentTypeId !== null
-    return titleValid && codeValid && documentTypeValid && templateForm.code.trim().length >= 2
+    return titleValid && codeValid && templateForm.code.trim().length >= 2
   }),
 })
 
@@ -195,22 +190,17 @@ const createTemplate = useLiveMutation(async (db, formData) => {
   const template = db.FormTemplate.create({
     title: formData.title,
     code: formData.code,
+    // Only the I&L path stamps a document type; module/form templates leave it null.
     documentTypeId: formData.documentTypeId,
     statusId,
     schema: formData.schema || [],
     config: {
-      trainingRequired: formData.trainingRequired,
-      retrainingOnRevision: formData.retrainingOnRevision,
+      trainingRequired: false,
+      retrainingOnRevision: false,
       ...(inspectionsConfig ?? {}),
     },
   })
   await template.save()
-
-  // Create site assignments
-  for (const siteId of formData.selectedSites) {
-    const sot = db.SiteOnTemplate.create({ siteId, templateId: template.id })
-    await sot.save()
-  }
 
   return template
 })
@@ -252,9 +242,6 @@ function resetForm() {
   templateForm.code = ''
   templateForm.documentTypeId = null
   templateForm.status = 'DRAFT'
-  templateForm.trainingRequired = false
-  templateForm.retrainingOnRevision = false
-  templateForm.selectedSites = []
   templateForm.schema = []
   templateForm.isAvailable = null
   templateForm.isChecking = false
@@ -320,30 +307,8 @@ function prevStep() {
             </template>
           </BaseField>
 
-          <!-- Document Type & Code Row.
-               Document Type is hidden in I&L mode — log books are auto-
-               stamped with the INSPECTION_LOG doc type. Code spans full
-               width when the doc-type field is hidden. -->
-          <div
-            class="tw:grid tw:gap-4"
-            :class="defaultClassification ? 'tw:grid-cols-1' : 'tw:grid-cols-1 tw:sm:grid-cols-2'"
-          >
-            <BaseField
-              v-if="!defaultClassification"
-              label="Document Type"
-              required
-              :value="templateForm.documentTypeId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <DocumentTypeSelectMenu
-                  v-bind="field"
-                  v-model="templateForm.documentTypeId"
-                  required
-                />
-              </template>
-            </BaseField>
-
+          <!-- Code drives record numbering (<CODE>-NNNN). -->
+          <div class="tw:grid tw:gap-4 tw:grid-cols-1">
             <BaseField
               label="Code"
               required
@@ -376,35 +341,6 @@ function prevStep() {
             </BaseField>
           </div>
 
-          <!-- Training Configuration — hidden in I&L mode. Inspection &
-               log entries are quick floor-worker actions; tying them to
-               training assignments is a controlled-document concern, not
-               a record-entry one. Admin can still flip these on the
-               template detail page if they need to. -->
-          <div v-if="!defaultClassification" class="tw:bg-main-hover tw:p-3 tw:rounded-lg">
-            <BaseText variant="overline" class="tw:block tw:mb-3">Training Configuration</BaseText>
-            <div class="tw:flex tw:flex-col tw:gap-3">
-              <div class="tw:flex tw:justify-between tw:items-center">
-                <span class="tw:text-sm tw:text-on-main">Training Required?</span>
-                <BaseSwitch v-model="templateForm.trainingRequired" />
-              </div>
-              <div class="tw:text-xs tw:text-secondary tw:-mt-2">
-                If enabled, users must link a training course when creating a record.
-              </div>
-
-              <div class="tw:flex tw:justify-between tw:items-center">
-                <span class="tw:text-sm tw:text-on-main">Retraining Required on Revision?</span>
-                <BaseSwitch v-model="templateForm.retrainingOnRevision" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Site Availability -->
-          <BaseField label="Site Availability" :value="templateForm.selectedSites">
-            <template #default="field">
-              <SiteSelectMenu v-bind="field" v-model="templateForm.selectedSites" multiple />
-            </template>
-          </BaseField>
         </BaseForm>
       </div>
 

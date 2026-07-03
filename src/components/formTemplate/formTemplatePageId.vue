@@ -26,12 +26,18 @@ const breadcrumbItems = computed(() => {
     { label: 'Form Templates', to: getCompanyPath('/templates') },
     {
       label: template.value?.title || 'Template Details',
-      to: mode.value === 'records' ? getCompanyPath(`/templates/${props.id}`) : undefined,
+      to: mode.value !== 'details' ? getCompanyPath(`/templates/${props.id}`) : undefined,
     },
   ]
 
   if (mode.value === 'records') {
     items.push({ label: 'Records' })
+  }
+  if (mode.value === 'automation') {
+    items.push({ label: 'Automation' })
+  }
+  if (mode.value === 'scoring') {
+    items.push({ label: 'Scoring' })
   }
 
   return items
@@ -48,4 +54,11 @@ const breadcrumbItems = computed(() => {
   <FormTemplatePageIdDetails v-if="mode === 'details'" :id="props.id" />
 
   <FormTemplateRecords v-else-if="mode === 'records' && template" :templateId="props.id" />
+
+  <FormTemplateAutomation
+    v-else-if="mode === 'automation' && template"
+    :templateId="props.id"
+  />
+
+  <FormTemplateScoring v-else-if="mode === 'scoring' && template" :templateId="props.id" />
 </template>

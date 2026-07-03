@@ -10,6 +10,12 @@ import { currentSession, isAllowed, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
+import {
+  CHANGE_NATURES,
+  CHANGE_DURATIONS,
+  YES_NO_OPTIONS,
+  crOptionLabel,
+} from './changeRequestOptions.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -441,6 +447,65 @@ const changeRequestDetailConfig = computed(() =>
             label="Initiated"
             :value="cr.initiatedAt ? cr.initiatedAt.formatDate('date') : null"
           />
+        </div>
+      </BaseRailCard>
+
+      <!-- 1b. Change Details — intake classifiers captured at create; editable
+           inline until the CR is terminal. -->
+      <BaseRailCard title="Change Details">
+        <div class="tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
+          <BaseDetailField label="Planned or Emergency">
+            <BaseSelect
+              v-if="isEditable"
+              v-model="cr.changeNature"
+              :options="CHANGE_NATURES"
+              optionLabel="name"
+              optionValue="id"
+              nullLabel="—"
+            />
+            <BaseText v-else variant="body" weight="medium">
+              {{ crOptionLabel(CHANGE_NATURES, cr.changeNature) || '—' }}
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Temporary or Permanent">
+            <BaseSelect
+              v-if="isEditable"
+              v-model="cr.changeDuration"
+              :options="CHANGE_DURATIONS"
+              optionLabel="name"
+              optionValue="id"
+              nullLabel="—"
+            />
+            <BaseText v-else variant="body" weight="medium">
+              {{ crOptionLabel(CHANGE_DURATIONS, cr.changeDuration) || '—' }}
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Regulatory Impact">
+            <BaseSelect
+              v-if="isEditable"
+              v-model="cr.regulatoryImpact"
+              :options="YES_NO_OPTIONS"
+              optionLabel="name"
+              optionValue="id"
+              nullLabel="—"
+            />
+            <BaseText v-else variant="body" weight="medium">
+              {{ crOptionLabel(YES_NO_OPTIONS, cr.regulatoryImpact) || '—' }}
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Customer Notification Required">
+            <BaseSelect
+              v-if="isEditable"
+              v-model="cr.customerNotificationRequired"
+              :options="YES_NO_OPTIONS"
+              optionLabel="name"
+              optionValue="id"
+              nullLabel="—"
+            />
+            <BaseText v-else variant="body" weight="medium">
+              {{ crOptionLabel(YES_NO_OPTIONS, cr.customerNotificationRequired) || '—' }}
+            </BaseText>
+          </BaseDetailField>
         </div>
       </BaseRailCard>
 

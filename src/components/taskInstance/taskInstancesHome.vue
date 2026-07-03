@@ -21,8 +21,10 @@ const props = defineProps({
 const tableRef = ref(null)
 
 // Filter state + resolved content state. URL sync stays off (see header note).
+// Default the Status filter to "Assigned" so the inbox opens on the tasks that
+// still need action, not the full history.
 const list = useListLayout({
-  filters: { search: '', statusId: null, createdAt: null },
+  filters: { search: '', statusId: 'ASSIGNED', createdAt: null },
   syncUrl: false,
 })
 

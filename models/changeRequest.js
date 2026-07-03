@@ -30,6 +30,12 @@ export class ChangeRequest extends BaseModel {
   @Property({ type: String, required: true }) priorityId = ''
   @Property({ type: String, required: true }) changeTypeId = ''
   @Property({ type: String }) classification = null
+  // Change-control intake attributes (detail right rail). Fixed enums:
+  // PLANNED|EMERGENCY, TEMPORARY|PERMANENT, and two YES|NO flags.
+  @Property({ type: String }) changeNature = null
+  @Property({ type: String }) changeDuration = null
+  @Property({ type: String }) regulatoryImpact = null
+  @Property({ type: String }) customerNotificationRequired = null
   @Property({ type: String, required: true }) siteId = ''
   @Property({ type: String, required: true }) departmentId = ''
   @Property({ type: String, required: true }) ownerId = ''

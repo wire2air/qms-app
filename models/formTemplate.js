@@ -25,6 +25,11 @@ export class FormTemplate extends BaseModel {
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: Number }) version = 1
   @Property({ type: Object }) config = null
+  // --- generic-module definition (set when promoted to a module) ---
+  @Property({ type: String }) internalName = ''
+  @Property({ type: Boolean }) isModule = false
+  @Property({ type: String }) icon = ''
+  @Property({ type: Object }) moduleConfig = null
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)

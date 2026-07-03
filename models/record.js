@@ -2,7 +2,11 @@ import { currentSession } from '@/utils/currentSession'
 import { BaseModel, ClientModel, Property } from '@syncEngine/index'
 import { DateTime } from 'luxon'
 
-@ClientModel('records', { primaryKey: 'id', syncField: 'updatedAt', customIndex: 'templateId' })
+@ClientModel('records', {
+  primaryKey: 'id',
+  syncField: 'updatedAt',
+  customIndex: 'templateId, moduleKey, supplierId',
+})
 export class Record extends BaseModel {
   static paranoid = true // Enable soft deletes using deletedAt field
   constructor(...args) {
@@ -23,12 +27,26 @@ export class Record extends BaseModel {
   @Property({ type: String, uuid: true, required: true }) id = ''
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) templateId = ''
-  @Property({ type: String, required: true }) documentTypeId = ''
+  @Property({ type: String }) documentTypeId = ''
   @Property({ type: String, required: true }) recordNumber = ''
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: Object }) payload = null
   @Property({ type: String }) submissionIp = ''
   @Property({ type: String, required: true }) userId = ''
+  // --- generic-module envelope ---
+  @Property({ type: String }) ownerUserId = ''
+  @Property({ type: String }) workflowInstanceId = ''
+  @Property({ type: Array }) notifyUserIds = []
+  @Property({ type: Array }) notifyGroupIds = []
+  @Property({ type: String }) moduleKey = ''
+  @Property({ type: String }) siteId = ''
+  @Property({ type: String }) departmentId = ''
+  @Property({ type: DateTime }) dueDate = null
+  @Property({ type: DateTime }) completedAt = null
+  @Property({ type: String }) supplierId = ''
+  @Property({ type: DateTime }) nextReviewDate = null
+  // Computed weighted score + rating band, sealed on workflow complete.
+  @Property({ type: Object }) scoringResult = null
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)

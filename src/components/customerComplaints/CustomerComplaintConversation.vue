@@ -26,7 +26,10 @@ const messages = useLiveQueryWithDeps(
   async (db, [complaintId]) => {
     if (!complaintId) return []
     const rows = await db.CustomerComplaintMessage.where('complaintId', complaintId).exec()
-    return rows.sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0))
+    // QA_NOTE messages live in the dedicated QA Investigation section, not here.
+    return rows
+      .filter((m) => m.kind !== 'QA_NOTE')
+      .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0))
   },
 
   { models: ['CustomerComplaintMessage'], initial: [] },

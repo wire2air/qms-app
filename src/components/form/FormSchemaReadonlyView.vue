@@ -2,11 +2,36 @@
 import { IconStarFilled, IconStar } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 import { getFormComponent } from './formComponentRegistry.js'
+import { LOOKUP_ENTITY_BY_VALUE } from '@/constants/formBuilderConfig'
+import ProductBadgeById from '@/components/badges/ProductBadgeById.vue'
+import SupplierBadgeById from '@/components/badges/SupplierBadgeById.vue'
+import SiteBadgeById from '@/components/badges/SiteBadgeById.vue'
+import DepartmentBadgeById from '@/components/badges/DepartmentBadgeById.vue'
+import UserBadgeById from '@/components/badges/UserBadgeById.vue'
 
 const props = defineProps({
   fields: { type: Array, required: true },
   values: { type: Object, default: () => ({}) },
 })
+
+// Entity badges for readonly `lookup` fields (resolve the stored id live).
+const LOOKUP_BADGES = {
+  product: ProductBadgeById,
+  supplier: SupplierBadgeById,
+  site: SiteBadgeById,
+  department: DepartmentBadgeById,
+  user: UserBadgeById,
+}
+function isLookupField(field) {
+  return field.type === 'lookup'
+}
+function lookupBadge(field) {
+  return LOOKUP_BADGES[field.lookupEntity] || null
+}
+// The id prop the entity's BadgeById expects (e.g. ProductBadgeById → productId).
+function lookupIdProp(field) {
+  return LOOKUP_ENTITY_BY_VALUE[field.lookupEntity]?.idProp || 'id'
+}
 
 // ─── Option set resolution ────────────────────────────────────────────────────
 // Only fetch the FK for fields that DON'T already carry an embedded
@@ -85,6 +110,8 @@ function formatDisplayValue(field, rawVal) {
     case 'textarea':
     case 'number':
     case 'slider':
+    case 'email':
+    case 'phone':
       return String(rawVal)
 
     case 'textEditor':
@@ -169,6 +196,29 @@ function isColorPickerField(field) {
   return field.type === 'colorPicker'
 }
 
+function isSignatureField(field) {
+  return field.type === 'signature'
+}
+
+function isHeaderField(field) {
+  return field.type === 'header'
+}
+
+function headerSizeClass(field) {
+  return (
+    { default: 'tw:text-xl', large: 'tw:text-3xl', small: 'tw:text-base' }[field.size || 'large'] ||
+    'tw:text-3xl'
+  )
+}
+
+function headerAlignClass(field) {
+  return (
+    { left: 'tw:text-left', center: 'tw:text-center', right: 'tw:text-right' }[
+      field.align || 'center'
+    ] || 'tw:text-center'
+  )
+}
+
 function isSectionField(field) {
   return field.type === 'section'
 }
@@ -205,13 +255,17 @@ function isRenderableField(field) {
     !isPhotoField(field) &&
     !isSeparatorField(field) &&
     !isInstructionsField(field) &&
-    !isColorPickerField(field)
+    !isColorPickerField(field) &&
+    !isSignatureField(field) &&
+    !isHeaderField(field) &&
+    !isLookupField(field)
   )
 }
 
 function getVisibleFields(fields) {
   const result = []
   for (const field of fields) {
+    if (field.hidden) continue // "Hide field" — omit from the readonly/submitted view
     if (isSectionField(field)) {
       if (field.children?.length) {
         result.push(field)
@@ -458,6 +512,29 @@ function getChecklistColumnLabel(col) {
         <span v-else class="tw:text-sm tw:text-secondary">—</span>
       </div>
 
+      <!-- Heading — display-only heading + optional subheading -->
+      <div v-else-if="isHeaderField(field)" class="tw:col-span-3" :class="headerAlignClass(field)">
+        <div class="tw:font-bold tw:text-on-main" :class="headerSizeClass(field)">
+          {{ field.text }}
+        </div>
+        <div v-if="field.subtext" class="tw:text-sm tw:text-secondary tw:mt-1">
+          {{ field.subtext }}
+        </div>
+      </div>
+
+      <!-- Signature — the saved PNG data-URL rendered as an image -->
+      <div v-else-if="isSignatureField(field)" class="tw:flex tw:flex-col tw:gap-0.5">
+        <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <img
+          v-if="getFieldValue(field)"
+          :src="getFieldValue(field)"
+          :alt="field.label || 'Signature'"
+          class="tw:rounded tw:border tw:border-divider tw:bg-white tw:object-contain"
+          :style="{ maxWidth: '320px', maxHeight: '160px' }"
+        />
+        <span v-else class="tw:text-sm tw:text-secondary">—</span>
+      </div>
+
       <!-- Custom registered field (rca, riskAssessment, …) — full-width -->
       <div v-else-if="isCustomField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5">
         <div v-if="field.label" class="tw:text-caption tw:text-secondary tw:font-medium">
@@ -469,6 +546,20 @@ function getChecklistColumnLabel(col) {
           :values="getFieldValue(field) || {}"
           :formValues="values"
         />
+      </div>
+
+      <!-- Lookup (entity-backed) — resolve the stored id to a live badge. -->
+      <div v-else-if="isLookupField(field)" class="tw:flex tw:flex-col tw:gap-0.5">
+        <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <template v-if="getFieldValue(field) && lookupBadge(field)">
+          <component
+            :is="lookupBadge(field)"
+            v-for="v in Array.isArray(getFieldValue(field)) ? getFieldValue(field) : [getFieldValue(field)]"
+            :key="v"
+            v-bind="{ [lookupIdProp(field)]: v }"
+          />
+        </template>
+        <span v-else class="tw:text-sm tw:text-secondary">—</span>
       </div>
 
       <!-- Standard field (grid cell) -->

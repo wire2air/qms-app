@@ -13,6 +13,11 @@ import { currentSession } from '@/utils/currentSession.js'
 import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
 import { required } from '@shared/components/form/validators.js'
 import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
+import {
+  CHANGE_NATURES,
+  CHANGE_DURATIONS,
+  YES_NO_OPTIONS,
+} from '@/components/changeRequests/changeRequestOptions.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -82,6 +87,10 @@ const form = ref({
   description: '',
   changeTypeId: null,
   classification: null,
+  changeNature: null,
+  changeDuration: null,
+  regulatoryImpact: null,
+  customerNotificationRequired: null,
   priorityId: 'MEDIUM',
   siteId: null,
   departmentId: null,
@@ -359,6 +368,42 @@ function goBack() {
                 optionLabel="name"
                 optionValue="id"
                 nullLabel="— Select classification —"
+              />
+            </BaseField>
+            <BaseField label="Planned or Emergency" optional>
+              <BaseSelect
+                v-model="form.changeNature"
+                :options="CHANGE_NATURES"
+                optionLabel="name"
+                optionValue="id"
+                nullLabel="— Select —"
+              />
+            </BaseField>
+            <BaseField label="Temporary or Permanent" optional>
+              <BaseSelect
+                v-model="form.changeDuration"
+                :options="CHANGE_DURATIONS"
+                optionLabel="name"
+                optionValue="id"
+                nullLabel="— Select —"
+              />
+            </BaseField>
+            <BaseField label="Regulatory Impact" optional>
+              <BaseSelect
+                v-model="form.regulatoryImpact"
+                :options="YES_NO_OPTIONS"
+                optionLabel="name"
+                optionValue="id"
+                nullLabel="— Select —"
+              />
+            </BaseField>
+            <BaseField label="Customer Notification Required" optional>
+              <BaseSelect
+                v-model="form.customerNotificationRequired"
+                :options="YES_NO_OPTIONS"
+                optionLabel="name"
+                optionValue="id"
+                nullLabel="— Select —"
               />
             </BaseField>
             <BaseField

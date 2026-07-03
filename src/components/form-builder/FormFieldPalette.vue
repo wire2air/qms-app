@@ -83,6 +83,12 @@ watch(
         ghostClass: 'sortable-ghost',
         chosenClass: 'sortable-chosen',
         dragClass: 'sortable-drag',
+        // Pointer-based drag (not native HTML5 DnD). Cards on the canvas now
+        // embed real inputs/contenteditable (the live component preview), which
+        // hijack native drag — forceFallback sidesteps that. Must match across
+        // every sortable in the shared 'form-fields' group.
+        forceFallback: true,
+        fallbackOnBody: true,
         onStart() {
           emit('dragStart')
         },

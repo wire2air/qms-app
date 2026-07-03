@@ -1,5 +1,13 @@
 <script setup>
-import { IconEdit, IconCircleCheck, IconTrash } from '@tabler/icons-vue'
+import {
+  IconEdit,
+  IconCircleCheck,
+  IconTrash,
+  IconProgress,
+  IconLock,
+  IconClipboardCheck,
+  IconCircleX,
+} from '@tabler/icons-vue'
 
 const props = defineProps({
   status: {
@@ -12,6 +20,27 @@ const statusConfig = {
   DRAFT: {
     class: 'tw:bg-gray-100 tw:text-gray-700',
     icon: IconEdit,
+  },
+  // Generic-module lifecycle: Draft → Pending → Complete → Closed (+ Rejected)
+  PENDING: {
+    class: 'tw:bg-blue-100 tw:text-blue-700',
+    icon: IconProgress,
+  },
+  OPEN: {
+    class: 'tw:bg-blue-100 tw:text-blue-700',
+    icon: IconProgress,
+  },
+  COMPLETE: {
+    class: 'tw:bg-teal-100 tw:text-teal-700',
+    icon: IconClipboardCheck,
+  },
+  REJECTED: {
+    class: 'tw:bg-red-100 tw:text-red-700',
+    icon: IconCircleX,
+  },
+  CLOSED: {
+    class: 'tw:bg-green-100 tw:text-green-700',
+    icon: IconLock,
   },
   APPROVED: {
     class: 'tw:bg-green-100 tw:text-green-700',
