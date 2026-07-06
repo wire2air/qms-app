@@ -53,7 +53,8 @@ const loading = computed(() => groups.value === undefined)
     </template>
 
     <GroupsList :groups="groups" :loading="loading" :canDelete="canDeleteGroup" />
-
-    <GroupsCreateDialog v-model="showCreateDialog" />
   </BaseListLayout>
+
+  <!-- Kept OUTSIDE BaseListLayout: prevents unmount/remount when list state changes. -->
+  <GroupsCreateDialog v-model="showCreateDialog" />
 </template>

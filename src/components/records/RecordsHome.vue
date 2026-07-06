@@ -98,8 +98,10 @@ function onRecordCreated() {
     <div>
       <RecordsTable :rows="records" :loading="loading" @delete="onDeleteRecord" />
     </div>
-
-    <!-- Add Record Dialog -->
-    <AddRecordDialog v-model="showAddDialog" @created="onRecordCreated" />
   </BaseListLayout>
+
+  <!-- Kept OUTSIDE BaseListLayout: its content slot only renders in the `ready`
+       state, so leaving the dialog inside would unmount it whenever the list state
+       changes, losing the dialog state. -->
+  <AddRecordDialog v-model="showAddDialog" @created="onRecordCreated" />
 </template>
