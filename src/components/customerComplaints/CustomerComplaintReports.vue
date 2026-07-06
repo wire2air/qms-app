@@ -6,7 +6,14 @@ import { DateTime } from 'luxon'
 /**
  * Complaint reports — computed client-side from IndexedDB (live, no
  * backend aggregation endpoint). Spam tickets are excluded everywhere.
+ * Shared by the support (Customer Complaints) and QA (Complaints) modules;
+ * `backTo` points the back button at whichever list opened it.
  */
+const props = defineProps({
+  backTo: { type: String, default: '/customer-complaints' },
+  backLabel: { type: String, default: 'Back to tickets' },
+})
+
 const router = useRouter()
 
 const RANGES = [
@@ -124,9 +131,9 @@ const BREAKDOWN_SECTIONS = [
           optionValue="id"
           :required="true"
         />
-        <BaseButton variant="outline" @click="router.push(getCompanyPath('/customer-complaints'))">
+        <BaseButton variant="outline" @click="router.push(getCompanyPath(props.backTo))">
           <IconArrowLeft :size="16" class="tw:mr-1" />
-          Back to tickets
+          {{ props.backLabel }}
         </BaseButton>
       </template>
     </PageHeader>

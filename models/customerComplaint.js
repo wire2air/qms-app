@@ -6,7 +6,7 @@ import { DateTime } from 'luxon'
   primaryKey: 'id',
   syncField: 'updatedAt',
   customIndex: 'companyId, statusId, assignedTo',
-  schemaVersion: 1,
+  schemaVersion: 2,
 })
 export class CustomerComplaint extends BaseModel {
   static paranoid = true
@@ -69,6 +69,34 @@ export class CustomerComplaint extends BaseModel {
   // Nullable — email-created tickets have no acting user.
   @Property({ type: String }) createdBy = /** @type {String} */ (null)
   @Property({ type: String }) updatedBy = /** @type {String} */ (null)
+  // ─── QMS expansion — first-class fields (see complaint-qms-expansion plan) ───
+  @Property({ type: String }) complaintSourceId = /** @type {String} */ (null)
+  @Property({ type: String }) regionId = /** @type {String} */ (null)
+  @Property({ type: String }) countryId = /** @type {String} */ (null)
+  @Property({ type: String }) stateProvince = /** @type {String} */ (null)
+  @Property({ type: String }) siteId = /** @type {String} */ (null)
+  @Property({ type: String }) productId = /** @type {String} */ (null)
+  @Property({ type: String }) productCodeSku = /** @type {String} */ (null)
+  @Property({ type: String }) batchLotSerial = /** @type {String} */ (null)
+  @Property({ type: Number }) quantityAffected = /** @type {Number} */ (null)
+  @Property({ type: String }) orderInvoiceNumber = /** @type {String} */ (null)
+  @Property({ type: String }) customerTypeId = /** @type {String} */ (null)
+  @Property({ type: String }) categoryId = /** @type {String} */ (null)
+  @Property({ type: String }) subCategoryId = /** @type {String} */ (null)
+  @Property({ type: String }) complaintTypeId = /** @type {String} */ (null)
+  @Property({ type: String }) severityId = /** @type {String} */ (null)
+  @Property({ type: String }) riskLevelId = /** @type {String} */ (null)
+  @Property({ type: Boolean }) regulatoryReportable = false
+  @Property({ type: Boolean }) safetyIssue = false
+  @Property({ type: String }) ownerId = /** @type {String} */ (null)
+  @Property({ type: String }) investigation = /** @type {String} */ (null)
+  @Property({ type: String }) reviewSummary = /** @type {String} */ (null)
+  @Property({ type: DateTime }) investigationStartedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) resolutionTargetAt = /** @type {DateTime} */ (null)
+  @Property({ type: Boolean }) closureApprovalRequired = false
+  @Property({ type: String }) closureApprovedBy = /** @type {String} */ (null)
+  @Property({ type: DateTime }) closureApprovedAt = /** @type {DateTime} */ (null)
+  @Property({ type: String }) closureEsignId = /** @type {String} */ (null)
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)

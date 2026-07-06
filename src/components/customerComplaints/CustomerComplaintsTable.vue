@@ -11,6 +11,10 @@ const props = defineProps({
   // re-emits the confirmed selection.
   exportColumns: { type: Array, default: null },
   exportFormats: { type: Array, default: () => ['csv'] },
+  // Where a row navigates on click. Defaults to the support detail page; the QA
+  // Complaints list overrides this to '/complaints' so rows open the QA
+  // investigation page instead.
+  detailBasePath: { type: String, default: '/customer-complaints' },
 })
 
 defineEmits(['open', 'export'])
@@ -114,7 +118,7 @@ const sort = ref([{ id: 'createdAt', desc: true }])
   >
     <template #body-cell-complaintNumber="{ row }">
       <RouterLink
-        :to="getCompanyPath(`/customer-complaints/${row.id}`)"
+        :to="getCompanyPath(`${detailBasePath}/${row.id}`)"
         class="tw:text-xs tw:text-secondary tw:hover:text-primary"
       >
         {{ row.complaintNumber || '—' }}
@@ -123,7 +127,7 @@ const sort = ref([{ id: 'createdAt', desc: true }])
 
     <template #body-cell-subject="{ row }">
       <RouterLink
-        :to="getCompanyPath(`/customer-complaints/${row.id}`)"
+        :to="getCompanyPath(`${detailBasePath}/${row.id}`)"
         class="tw:flex tw:items-center tw:gap-2 tw:text-on-main tw:hover:text-primary"
       >
         <span class="tw:font-medium">{{ row.subject }}</span>
