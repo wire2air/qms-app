@@ -62,6 +62,25 @@ function codeUnique() {
   return codeAvailable.value || 'Code already in use'
 }
 
+// Name uniqueness (case-insensitive, per company) — backed by the DB
+// sites_company_name_unique partial index. Excludes the current row in edit mode.
+const nameAvailable = useLiveQueryWithDeps(
+  [() => props.id, () => form.value.name],
+  async (db, [id, name]) => {
+    const n = (name || '').trim().toLowerCase()
+    if (!n) return true
+    const all = await db.Site.where().exec()
+    return !all.some((s) => (s.name || '').trim().toLowerCase() === n && s.id !== id)
+  },
+  { models: ['Site'], initial: true },
+)
+const nameInUseError = computed(() =>
+  form.value.name && !nameAvailable.value ? 'A site with this name already exists' : '',
+)
+function nameUnique() {
+  return nameAvailable.value || 'A site with this name already exists'
+}
+
 // Populate form when site loads in edit mode
 watch(
   site,
@@ -130,6 +149,9 @@ async function onSubmit() {
         timezone: form.value.timezone,
         displayOrder: await getDisplayOrder(),
       })
+      // createSite returns undefined when the save failed (useLiveMutation has
+      // already surfaced a toast). Keep the dialog open so the user can retry.
+      if (!newSite) return
       emit('created', newSite)
     } else {
       site.value.name = form.value.name
@@ -169,7 +191,13 @@ watch(open, (val) => {
     </template>
 
     <BaseForm ref="formRef" hideFooter @submit="onSubmit">
-      <BaseField label="Site Name" required :value="form.name" :rules="[required()]">
+      <BaseField
+        label="Site Name"
+        required
+        :value="form.name"
+        :rules="[required(), nameUnique]"
+        :error="nameInUseError"
+      >
         <template #default="field">
           <BaseTextInput
             v-bind="field"

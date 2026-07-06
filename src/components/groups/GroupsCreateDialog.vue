@@ -27,6 +27,25 @@ const createGroup = useLiveMutation(async (db, { name, color, isLeadership, user
   return team
 })
 
+// Name uniqueness (case-insensitive, per company) — backed by the DB
+// teams_company_name_unique partial index.
+const nameAvailable = useLiveQueryWithDeps(
+  [() => form.value.name],
+  async (db, [name]) => {
+    const n = (name || '').trim().toLowerCase()
+    if (!n) return true
+    const all = await db.Team.where().exec()
+    return !all.some((t) => (t.name || '').trim().toLowerCase() === n)
+  },
+  { models: ['Team'], initial: true },
+)
+const nameInUseError = computed(() =>
+  form.value.name && !nameAvailable.value ? 'A group with this name already exists' : '',
+)
+function nameUnique() {
+  return nameAvailable.value || 'A group with this name already exists'
+}
+
 watch(open, (val) => {
   if (!val) {
     form.value = { name: '', color: '#6366f1', isLeadership: false, userIds: [] }
@@ -39,7 +58,10 @@ async function onSubmit() {
   isSubmitting.value = true
   saveError.value = null
   try {
-    await createGroup({ ...form.value })
+    const team = await createGroup({ ...form.value })
+    // Undefined means the save failed (useLiveMutation already toasted). Keep the
+    // dialog open so the user can correct and retry.
+    if (!team) return
     open.value = false
   } catch (err) {
     saveError.value = err.message || 'Failed to create group'
@@ -56,7 +78,13 @@ async function onSubmit() {
         <!-- Main Content -->
         <div class="tw:col-span-12 tw:sm:col-span-8 tw:p-4">
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <BaseField label="Group Name" required :value="form.name" :rules="[required()]">
+            <BaseField
+              label="Group Name"
+              required
+              :value="form.name"
+              :rules="[required(), nameUnique]"
+              :error="nameInUseError"
+            >
               <template #default="field">
                 <BaseTextInput
                   v-bind="field"

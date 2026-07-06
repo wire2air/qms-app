@@ -19,6 +19,22 @@ const form = ref({
   copyFromRoleId: 'custom',
 })
 
+// Block duplicate role names (case-insensitive) before submit — previously the
+// same name could be used for multiple roles.
+const nameAvailable = computed(() => {
+  const n = form.value.name.trim().toLowerCase()
+  if (!n) return true
+  return !roles.value.some((r) => (r.name || '').trim().toLowerCase() === n)
+})
+
+const nameInUseError = computed(() =>
+  form.value.name && !nameAvailable.value ? 'A role with this name already exists' : '',
+)
+
+function nameUnique() {
+  return nameAvailable.value || 'A role with this name already exists'
+}
+
 // Computed options for the "Copy from" select
 const copyFromOptions = computed(() => [
   {
@@ -96,7 +112,8 @@ watch(show, (val) => {
         label="Role Name"
         required
         :value="form.name"
-        :rules="[required('Role name is required')]"
+        :rules="[required('Role name is required'), nameUnique]"
+        :error="nameInUseError"
       >
         <template #default="field">
           <BaseTextInput

@@ -80,7 +80,7 @@ function run(a) {
       <span v-else class="tw:text-xs tw:font-medium">{{ a.label }}</span>
     </component>
 
-    <BasePopover v-if="overflowActions.length" placement="bottom-end">
+    <BasePopover v-if="overflowActions.length" placement="bottom-end" :arrow="false">
       <template #button>
         <button
           type="button"

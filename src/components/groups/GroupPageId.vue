@@ -282,7 +282,6 @@ const groupDetailConfig = computed(() =>
                 :options="filteredUsers"
                 optionLabel="name"
                 optionValue="id"
-                :required="true"
                 :multiple="true"
                 @update:modelValue="onAddMembers"
               >

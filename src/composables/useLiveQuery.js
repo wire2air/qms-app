@@ -135,9 +135,31 @@ export function useLiveMutation(mutationFn) {
         })
         return
       }
+      // Every other failure (GraphQL/DB errors, unique-constraint violations,
+      // network) must reach the user — a pessimistic save that throws changed
+      // nothing, so silently console.error'ing it left the UI with no feedback
+      // at all (e.g. duplicate site/department create appeared to do nothing).
       console.error(err)
+      toast.notify({ message: friendlyMutationError(err), type: 'error' })
+      return
     }
   }
 
   return mutate
+}
+
+/**
+ * Turn a raw mutation error into a user-facing message. PostGraphile masks
+ * server-side errors in production to "An error occurred (logged with hash: …)";
+ * surface something human instead of that opaque string.
+ */
+function friendlyMutationError(err) {
+  const msg = err?.message || ''
+  if (!msg || /logged with hash/i.test(msg) || /^an error occurred/i.test(msg)) {
+    return 'Something went wrong. Please try again.'
+  }
+  if (/duplicate key|unique constraint|already exists/i.test(msg)) {
+    return 'That already exists. Please use a different value.'
+  }
+  return msg
 }
