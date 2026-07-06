@@ -3,6 +3,7 @@
 // review the tenant's security event feed. Action RPCs (verb endpoints + a
 // filtered ledger read). Action RPC — see CLAUDE.md rule #4 exception.
 import { get, post } from '@/api'
+import { currentSession } from '@/utils/currentSession.js'
 import {
   IconShieldCog,
   IconLockOpen,
@@ -81,8 +82,14 @@ async function execute(key) {
 
 const availableActions = computed(() => {
   if (!overview.value) return []
-  const keys = ['unlock', 'reset-mfa', 'force-password-reset', 'force-logout']
-  keys.push(overview.value.user?.status === 'INACTIVE' ? 'activate' : 'suspend')
+  const isCurrentUser = selectedUserId.value === currentSession.value?.id
+  const keys = ['unlock', 'reset-mfa', 'force-password-reset']
+  if (!isCurrentUser) keys.push('force-logout')
+  if (overview.value.user?.status === 'INACTIVE') {
+    keys.push('activate')
+  } else if (!isCurrentUser) {
+    keys.push('suspend')
+  }
   return keys
 })
 

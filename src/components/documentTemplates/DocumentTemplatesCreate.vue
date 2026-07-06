@@ -247,7 +247,7 @@ function goBack() {
 
                 <BaseField
                   required
-                  hint='Prefix for document numbers. Supports placeholders: {SITE_CODE}, {DEPARTMENT_CODE} (e.g. "DOC", "SOP-{SITE_CODE}").'
+                  hint='Prefix for document numbers. Use uppercase letters, numbers, hyphens only. Supports placeholders: {SITE_CODE}, {DEPARTMENT_CODE}. Spaces not allowed (e.g. "DOC", "SOP-{SITE_CODE}").'
                   :value="form.prefix"
                   :rules="[
                     required('Document prefix is required'),
