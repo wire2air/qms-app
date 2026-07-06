@@ -3,6 +3,7 @@
 // review the tenant's security event feed. Action RPCs (verb endpoints + a
 // filtered ledger read). Action RPC — see CLAUDE.md rule #4 exception.
 import { get, post } from '@/api'
+import { currentSession } from '@/utils/currentSession'
 import {
   IconShieldCog,
   IconLockOpen,
@@ -53,7 +54,20 @@ const ACTIONS = {
   activate: { label: 'Activate user', endpoint: 'activate', icon: IconCircleCheck, danger: false, confirm: false },
 }
 
+// The admin must not force-logout or suspend their own account — doing so would
+// lock them out mid-action. These actions are hidden for the current user
+// (backend enforces the same guard as a backstop).
+const SELF_BLOCKED_ACTIONS = ['force-logout', 'suspend']
+const isSelfSelected = computed(() => {
+  const currentUserId = currentSession.value?.userId ?? currentSession.value?.id
+  return !!selectedUserId.value && selectedUserId.value === currentUserId
+})
+
 function startAction(key) {
+  if (isSelfSelected.value && SELF_BLOCKED_ACTIONS.includes(key)) {
+    toast.error('You cannot perform this action on your own account.')
+    return
+  }
   const a = ACTIONS[key]
   if (a.confirm) {
     pending.value = { key, ...a }
@@ -83,6 +97,8 @@ const availableActions = computed(() => {
   if (!overview.value) return []
   const keys = ['unlock', 'reset-mfa', 'force-password-reset', 'force-logout']
   keys.push(overview.value.user?.status === 'INACTIVE' ? 'activate' : 'suspend')
+  // Never offer self-destructive actions on your own account.
+  if (isSelfSelected.value) return keys.filter((k) => !SELF_BLOCKED_ACTIONS.includes(k))
   return keys
 })
 
@@ -187,6 +203,9 @@ function loadMoreEvents() {
                 {{ ACTIONS[key].label }}
               </BaseButton>
             </div>
+            <p v-if="isSelfSelected" class="tw:text-caption tw:text-secondary">
+              Force logout and suspend are unavailable for your own account.
+            </p>
           </div>
         </BaseCard>
       </PageSection>

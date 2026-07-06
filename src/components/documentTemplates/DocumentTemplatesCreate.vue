@@ -81,7 +81,10 @@ watch(
 )
 
 function onPrefixInput(value) {
-  form.value.prefix = value.toUpperCase()
+  // Strip whitespace as it is typed/pasted: a space is never valid in a prefix
+  // (backend format rule rejects it), yet it previously slipped past the
+  // uniqueness-only availability check and only failed on submit.
+  form.value.prefix = value.toUpperCase().replace(/\s+/g, '')
 }
 
 // Prefix validation rules
@@ -138,6 +141,13 @@ const pageTitle = computed(() =>
 
 async function checkPrefix(prefix) {
   if (!prefix || prefix.length < 2) {
+    prefixAvailable.value = null
+    return
+  }
+  // Availability only checks uniqueness — never show the green "ok" tick for a
+  // malformed prefix (e.g. one with a space), or it reads as valid and then
+  // fails format validation on submit.
+  if (prefixValidFormat(prefix) !== true) {
     prefixAvailable.value = null
     return
   }

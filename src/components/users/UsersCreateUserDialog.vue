@@ -41,6 +41,28 @@ const form = ref({
   languageId: 'en-US',
 })
 
+// Email uniqueness check (per-company — the IDB is company-scoped). Mirrors the
+// site/department code check so duplicates are blocked before hitting the server
+// instead of silently creating a second user with the same email.
+const emailAvailable = useLiveQueryWithDeps(
+  [() => form.value.email],
+  async (db, [emailValue]) => {
+    const e = (emailValue || '').trim().toLowerCase()
+    if (!e) return true
+    const all = await db.User.where().exec()
+    return !all.some((u) => (u.email || '').trim().toLowerCase() === e)
+  },
+  { models: ['User'], initial: true },
+)
+
+const emailInUseError = computed(() =>
+  form.value.email && !emailAvailable.value ? 'A user with this email already exists' : '',
+)
+
+function emailUnique() {
+  return emailAvailable.value || 'A user with this email already exists'
+}
+
 // Reset form when closed
 watch(open, (val) => {
   if (!val) {
@@ -106,7 +128,13 @@ async function onSubmit() {
               </BaseField>
             </div>
 
-            <BaseField label="Email" required :value="form.email" :rules="[required(), email()]">
+            <BaseField
+              label="Email"
+              required
+              :value="form.email"
+              :rules="[required(), email(), emailUnique]"
+              :error="emailInUseError"
+            >
               <template #default="field">
                 <BaseTextInput
                   v-bind="field"

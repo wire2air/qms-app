@@ -95,11 +95,24 @@ function onRecordCreated() {
       </div>
     </template>
 
+    <!-- Empty-state CTA so users can add the first record without a populated list. -->
+    <template v-if="canCreateRecord" #empty-action>
+      <button
+        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:bg-primary tw:text-white tw:font-bold tw:rounded-lg tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:cursor-pointer"
+        @click="showAddDialog = true"
+      >
+        <IconPlus :size="18" />
+        Add Record
+      </button>
+    </template>
+
     <div>
       <RecordsTable :rows="records" :loading="loading" @delete="onDeleteRecord" />
     </div>
-
-    <!-- Add Record Dialog -->
-    <AddRecordDialog v-model="showAddDialog" @created="onRecordCreated" />
   </BaseListLayout>
+
+  <!-- Add Record Dialog lives OUTSIDE BaseListLayout: its default slot only
+       renders in the 'ready' state, so a dialog placed there is unmounted while
+       the list is empty and the "Add Record" button would do nothing. -->
+  <AddRecordDialog v-model="showAddDialog" @created="onRecordCreated" />
 </template>

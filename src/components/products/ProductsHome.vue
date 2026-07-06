@@ -134,6 +134,11 @@ async function restoreProduct(product) {
       <ProductsFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
+    <!-- Empty-state CTA so users can add the first item without a populated list. -->
+    <template v-if="canCreateProduct" #empty-action>
+      <BaseButton @click="openDialog()"> Add New Item </BaseButton>
+    </template>
+
     <ProductsTable
       :rows="products"
       :canUpdate="canUpdateProduct"
@@ -176,16 +181,20 @@ async function restoreProduct(product) {
       </div>
     </div>
 
-    <!-- Create/Edit Product Dialog -->
-    <ProductsCreateUpdateDialog v-if="showDialog" :id="selectedProductId" v-model="showDialog" />
-
-    <!-- Bulk Delete Confirm Dialog -->
-    <BaseConfirmDialog
-      v-model="confirmBulkDelete.open"
-      title="Delete Products"
-      :message="`Delete ${confirmBulkDelete.rows.length} selected item${confirmBulkDelete.rows.length === 1 ? '' : 's'}? This cannot be undone.`"
-      okLabel="Delete"
-      @ok="confirmBulkDeleteProducts"
-    />
   </BaseListLayout>
+
+  <!-- Dialogs live OUTSIDE BaseListLayout: its default slot only renders in the
+       'ready' state, so a dialog placed there is unmounted while the list is empty
+       and the "Add New Item" button would do nothing. -->
+  <!-- Create/Edit Product Dialog -->
+  <ProductsCreateUpdateDialog v-if="showDialog" :id="selectedProductId" v-model="showDialog" />
+
+  <!-- Bulk Delete Confirm Dialog -->
+  <BaseConfirmDialog
+    v-model="confirmBulkDelete.open"
+    title="Delete Products"
+    :message="`Delete ${confirmBulkDelete.rows.length} selected item${confirmBulkDelete.rows.length === 1 ? '' : 's'}? This cannot be undone.`"
+    okLabel="Delete"
+    @ok="confirmBulkDeleteProducts"
+  />
 </template>

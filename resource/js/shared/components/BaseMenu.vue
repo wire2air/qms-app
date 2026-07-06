@@ -51,7 +51,7 @@ function onMenuKeydown(e) {
 </script>
 
 <template>
-  <BasePopover placement="bottom-end" :shift="8">
+  <BasePopover placement="bottom-end" :shift="8" :arrow="false">
     <template #button>
       <slot name="trigger">
         <button
