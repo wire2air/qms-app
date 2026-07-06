@@ -2,6 +2,7 @@
 import { IconForms } from '@tabler/icons-vue'
 import { currentSession, canUseAi } from '@/utils/currentSession'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { getCompanyPath } from '@/utils/routeHelpers.js'
 import DynamicForm from '@/components/form/DynamicForm.js'
 
 const props = defineProps({
@@ -40,6 +41,16 @@ const isOwner = computed(() =>
 )
 // The owner edits the owner-level sections until the record is closed/rejected.
 const ownerEditable = computed(() => isOwner.value && !isTerminal.value)
+
+const loading = computed(() => record.value === undefined)
+const notFound = computed(() => !loading.value && !record.value)
+
+const router = useRouter()
+watch(notFound, (nf) => {
+  if (nf) {
+    router.push(getCompanyPath('/form-modules'))
+  }
+})
 
 const showStart = ref(false)
 const showShareSupplier = ref(false)
