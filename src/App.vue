@@ -235,6 +235,10 @@ onMounted(async () => {
     <!-- AI sidecar — global slide-out chat (see backend/ai/README.md, AI_PLAN.md §6).
          Gated on canUseAi so tenants without the add-on don't even mount it. -->
     <ChatPanel v-if="canUseAi" />
+
+    <!-- Prompts a reload when an admin changes this user's permissions while
+         they're signed in (the syncEngine only re-bootstraps IDB on reload). -->
+    <PermissionChangeDialog />
   </div>
 </template>
 

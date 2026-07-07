@@ -13,11 +13,21 @@
  * Note: socketSubscriber emits a syncBus event even when the record fetch is
  * RLS-denied (returns null), so this fires for every company user, not just those
  * who can read the role/permission tables.
+ *
+ * When the current user's OWN effective permissions actually change, we flip
+ * `permissionsChanged` so the app can prompt a full reload — the in-memory
+ * refresh updates permission *checks*, but data the syncEngine already
+ * bootstrapped into IndexedDB (under the old permissions) is only re-fetched on
+ * a hard reload, so newly-granted modules would otherwise show empty.
  */
 import { syncBus } from '@syncEngine/core/syncBus.js'
 import router from '@/router'
 import { refreshPermissions } from '@/utils/currentSession'
 import { evaluateRoute } from '@/router/permissionGuard'
+
+// Reactive flag: true when this user's permissions changed since page load.
+// A component (PermissionChangeDialog) watches it to prompt a reload.
+export const permissionsChanged = ref(false)
 
 // Models whose changes can alter someone's effective permissions.
 const PERMISSION_MODELS = ['Role', 'RoleOnUser', 'PermissionOnRole', 'Permission']
@@ -28,8 +38,10 @@ let unsubscribes = []
 let debounceTimer = null
 
 async function refreshAndReguard() {
-  await refreshPermissions()
-  // If the just-updated permissions revoke access to the current page, bounce.
+  const { changed } = await refreshPermissions()
+  if (changed) permissionsChanged.value = true
+  // If the just-updated permissions revoke access to the current page, bounce
+  // immediately (don't wait for the user to accept the reload prompt).
   const decision = evaluateRoute(router.currentRoute.value)
   if (decision !== true) await router.replace(decision)
 }
@@ -54,4 +66,5 @@ export function teardownPermissionSync() {
   clearTimeout(debounceTimer)
   unsubscribes.forEach((off) => off?.())
   unsubscribes = []
+  permissionsChanged.value = false
 }
