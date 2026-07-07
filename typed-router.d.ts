@@ -408,6 +408,13 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/profile': RouteRecordInfo<
+      '/profile',
+      '/profile',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/qc-inspection/': RouteRecordInfo<
       '/qc-inspection/',
       '/qc-inspection',
@@ -965,6 +972,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/products/[[id]].vue': {
       routes:
         | '/products/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/profile.vue': {
+      routes:
+        | '/profile'
       views:
         | never
     }
