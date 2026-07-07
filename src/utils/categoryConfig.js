@@ -15,6 +15,14 @@ import {
   IconSparkles,
   IconClipboardList,
   IconTool,
+  IconHeadset,
+  IconReplace,
+  IconEye,
+  IconClipboardCheck,
+  IconChecklist,
+  IconListDetails,
+  IconBolt,
+  IconShieldCheck,
 } from '@tabler/icons-vue'
 
 /**
@@ -159,8 +167,119 @@ export const CATEGORY_METADATA = {
     icon: IconTool,
     description: 'Manage the equipment catalog (instruments, machines, sensors).',
   },
+  // Quality records
+  customerComplaints: {
+    label: 'Customer Complaints',
+    icon: IconHeadset,
+    description: 'Manage access for Customer Complaints',
+  },
+  changeRequests: {
+    label: 'Change Requests',
+    icon: IconReplace,
+    description: 'Manage access for Change Requests',
+  },
+  qualityEvents: {
+    label: 'Quality Events',
+    icon: IconEye,
+    description: 'Manage access for Quality Events',
+  },
+  // Audits
+  audits: {
+    label: 'Audits',
+    icon: IconClipboardCheck,
+    description: 'Manage access for Audits',
+  },
+  auditPrograms: {
+    label: 'Audit Programs',
+    icon: IconClipboardCheck,
+    description: 'Manage access for Audit Programs',
+  },
+  auditStandards: {
+    label: 'Audit Standards',
+    icon: IconChecklist,
+    description: 'Manage access for Audit Standards',
+  },
+  auditFindings: {
+    label: 'Audit Findings',
+    icon: IconShield,
+    description: 'Manage access for Audit Findings',
+  },
+  auditEvidence: {
+    label: 'Audit Evidence',
+    icon: IconFileText,
+    description: 'Upload and manage audit evidence',
+  },
+  auditStandardTypes: {
+    label: 'Audit Standard Types',
+    icon: IconList,
+    description: 'Manage audit standard types',
+  },
+  auditFindingCategories: {
+    label: 'Audit Finding Categories',
+    icon: IconList,
+    description: 'Manage audit finding categories',
+  },
+  trainingVerifications: {
+    label: 'Training Verification',
+    icon: IconSchool,
+    description: 'Manage access for Training Verification',
+  },
+  // Administration
+  customFields: {
+    label: 'Custom Fields',
+    icon: IconListDetails,
+    description: 'Manage custom fields',
+  },
+  automationRules: {
+    label: 'Automation Rules',
+    icon: IconBolt,
+    description: 'Manage automation & notification rules',
+  },
+  security: {
+    label: 'Security',
+    icon: IconShieldCheck,
+    description: 'Manage organization security & user security state',
+  },
+  // Lookups & categories
+  ncDispositionTypes: {
+    label: 'NC Disposition Types',
+    icon: IconList,
+    description: 'Manage nonconformance disposition types',
+  },
+  ncIssueTypes: {
+    label: 'NC Issue Types',
+    icon: IconList,
+    description: 'Manage nonconformance issue types',
+  },
+  hazardCategories: {
+    label: 'Hazard Categories',
+    icon: IconList,
+    description: 'Manage hazard categories',
+  },
+  rootCauseCategories: {
+    label: 'Root Cause Categories',
+    icon: IconSitemap,
+    description: 'Manage root cause categories',
+  },
+  supplierCertificateTypes: {
+    label: 'Supplier Certificate Types',
+    icon: IconTruck,
+    description: 'Manage supplier certificate types',
+  },
+  relatedStandards: {
+    label: 'Related Standards',
+    icon: IconList,
+    description: 'Configure related standards',
+  },
 }
 
+// A category renders in the Roles editor ONLY if it appears in a section here.
+// Any category with seeded permission rows that is missing from this list is
+// invisible in the UI (grantable only via the API) — so every module with
+// standard `category:action` permissions must be listed.
+// NOTE: `qcInspection` (3-part ids like `qcInspection:lot:read`) and `portal`
+// (external-supplier-only, non-CRUD actions) are intentionally NOT listed —
+// the current checkbox matrix can't represent them; they need dedicated UI.
 export const PERMISSION_SECTIONS = [
   {
     name: 'Company Management',
@@ -174,17 +293,59 @@ export const PERMISSION_SECTIONS = [
       'optionSets',
       'suppliers',
       'products',
+      'security',
+    ],
+  },
+  {
+    name: 'Quality Records',
+    categories: [
       'nonconformances',
       'capas',
+      'changeRequests',
+      'customerComplaints',
+      'qualityEvents',
+    ],
+  },
+  {
+    name: 'Audits',
+    categories: [
+      'audits',
+      'auditPrograms',
+      'auditStandards',
+      'auditFindings',
+      'auditEvidence',
+      'auditStandardTypes',
+      'auditFindingCategories',
     ],
   },
   {
     name: 'Configuration',
-    categories: ['formTemplates', 'rcaTemplates', 'riskAssessmentTemplates', 'records', 'documents', 'document-templates', 'workflows'],
+    categories: [
+      'formTemplates',
+      'rcaTemplates',
+      'riskAssessmentTemplates',
+      'records',
+      'documents',
+      'document-templates',
+      'workflows',
+      'customFields',
+      'automationRules',
+    ],
+  },
+  {
+    name: 'Lookups & Categories',
+    categories: [
+      'ncDispositionTypes',
+      'ncIssueTypes',
+      'hazardCategories',
+      'rootCauseCategories',
+      'supplierCertificateTypes',
+      'relatedStandards',
+    ],
   },
   {
     name: 'Training',
-    categories: ['trainings', 'trainingInstances', 'trainingMatrix'],
+    categories: ['trainings', 'trainingInstances', 'trainingMatrix', 'trainingVerifications'],
   },
   {
     // I&L Round 0 sections — Log Entries / Log Books / Equipment /

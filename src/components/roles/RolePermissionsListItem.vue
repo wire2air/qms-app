@@ -11,6 +11,7 @@ defineProps({
   permissionActions: { type: Array, required: true },
   isSelected: { type: Function, required: true },
   togglePermission: { type: Function, required: true },
+  isActionLocked: { type: Function, required: true },
   getPermissionForAction: { type: Function, required: true },
   canUpdateRole: { type: Boolean, default: false },
 })
@@ -95,7 +96,12 @@ function toggle(key) {
             <BaseCheckbox
               v-if="getPermissionForAction(item.group.permissions, action)"
               :modelValue="isSelected(getPermissionForAction(item.group.permissions, action))"
-              :disabled="!canUpdateRole"
+              :disabled="!canUpdateRole || isActionLocked(item.group.permissions, action)"
+              :title="
+                isActionLocked(item.group.permissions, action)
+                  ? 'Read is required while create, update or delete is enabled'
+                  : undefined
+              "
               @update:modelValue="
                 togglePermission(getPermissionForAction(item.group.permissions, action))
               "

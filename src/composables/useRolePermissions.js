@@ -136,17 +136,78 @@ export function useRolePermissions() {
     return selectedPermissions.value.includes(permission.id)
   }
 
+  // Write actions that are meaningless without `read`: the backend RLS gates the
+  // SELECT (read-back) of every create/update/delete mutation on `<resource>:read`,
+  // so a role granted a write action but not read can INSERT a row yet fails the
+  // mutation's return query. `read` is therefore a hard prerequisite for any write.
+  const WRITE_ACTIONS = new Set(['create', 'update', 'delete', 'manage'])
+
+  // Permission ids are `resource:action`, where resource may itself contain a
+  // colon (e.g. `qcInspection:lot:read`). The action is always the last segment.
+  function actionOf(id) {
+    const parts = id.split(':')
+    return parts[parts.length - 1]
+  }
+  function resourceOf(id) {
+    const parts = id.split(':')
+    return parts.slice(0, -1).join(':')
+  }
+  function permissionExists(id) {
+    return permissions.value.some((p) => p.id === id)
+  }
+  function select(id) {
+    if (!selectedPermissions.value.includes(id)) selectedPermissions.value.push(id)
+  }
+  function deselect(id) {
+    const index = selectedPermissions.value.indexOf(id)
+    if (index > -1) selectedPermissions.value.splice(index, 1)
+  }
+
   /**
-   * Toggle a permission selection
+   * Toggle a permission selection, keeping the read-implied-by-write invariant:
+   *  - enabling create/update/delete/manage also enables `<resource>:read`
+   *  - disabling `<resource>:read` also clears that resource's write actions
    * @param {Object} permission - Permission object with id
    */
   function togglePermission(permission) {
-    const index = selectedPermissions.value.indexOf(permission.id)
-    if (index > -1) {
-      selectedPermissions.value.splice(index, 1)
+    const { id } = permission
+    const action = actionOf(id)
+    const resource = resourceOf(id)
+    const isCurrentlySelected = selectedPermissions.value.includes(id)
+
+    if (isCurrentlySelected) {
+      deselect(id)
+      // Removing read invalidates every write on the same resource.
+      if (action === 'read') {
+        permissions.value.forEach((p) => {
+          if (resourceOf(p.id) === resource && WRITE_ACTIONS.has(actionOf(p.id))) {
+            deselect(p.id)
+          }
+        })
+      }
     } else {
-      selectedPermissions.value.push(permission.id)
+      select(id)
+      // Any write action implies read.
+      if (WRITE_ACTIONS.has(action)) {
+        const readId = `${resource}:read`
+        if (permissionExists(readId)) select(readId)
+      }
     }
+  }
+
+  /**
+   * Whether an action's checkbox should be locked. `read` is locked (forced on)
+   * while any write action for the same resource is selected, so the user can't
+   * put the role into the invalid write-without-read state.
+   * @param {Array} categoryPermissions - permissions for one resource
+   * @param {string} action
+   * @returns {boolean}
+   */
+  function isActionLocked(categoryPermissions, action) {
+    if (action !== 'read') return false
+    return categoryPermissions.some(
+      (p) => WRITE_ACTIONS.has(actionOf(p.id)) && selectedPermissions.value.includes(p.id),
+    )
   }
 
   /**
@@ -200,6 +261,7 @@ export function useRolePermissions() {
     fetchPermissions,
     isSelected,
     togglePermission,
+    isActionLocked,
     getPermissionForAction,
     selectAll,
     clearAll,

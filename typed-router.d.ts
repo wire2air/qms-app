@@ -352,6 +352,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/no-access': RouteRecordInfo<
+      '/no-access',
+      '/no-access',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/nonconformances/[[id]]': RouteRecordInfo<
       '/nonconformances/[[id]]',
       '/nonconformances/:id?',
@@ -910,6 +917,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/my-training/[id].vue': {
       routes:
         | '/my-training/[id]'
+      views:
+        | never
+    }
+    'src/pages/no-access.vue': {
+      routes:
+        | '/no-access'
       views:
         | never
     }
