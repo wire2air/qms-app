@@ -1,5 +1,5 @@
 <script setup>
-import { IconCircleCheck, IconBan, IconUsers, IconHistory } from '@tabler/icons-vue'
+import { IconCircleCheck, IconBan, IconUsers, IconHistory, IconShield } from '@tabler/icons-vue'
 import { useRoles } from '@/composables/useRoles.js'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { isAllowed } from '@/utils/currentSession.js'
@@ -58,68 +58,64 @@ async function handleActivate() {
 
 <template>
   <BaseClickableRow
-    class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:p-4 tw:hover:shadow-md tw:hover:border-primary/30 tw:transition-all tw:group tw:relative"
+    class="tw:group tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-3.5 tw:py-2.5 tw:transition-all tw:hover:border-primary/40 tw:hover:shadow-sm"
     :aria-label="`Open role ${role.name}`"
     @click="navigateToRole"
   >
-    <div class="tw:flex tw:justify-between tw:items-start tw:gap-4">
-      <div class="tw:flex-1">
-        <div class="tw:flex tw:items-center tw:gap-2 tw:mb-2">
-          <!-- Role Badges -->
-          <RoleStatusBadge v-if="role.statusId" :status="role.statusId" />
-          <span class="tw:text-xs tw:text-secondary">•</span>
-          <span class="tw:text-xs tw:text-secondary">ID: {{ role.code || role.id }}</span>
-        </div>
-
-        <h3 class="tw:text-lg tw:font-semibold tw:text-on-sidebar tw:mb-2">
-          {{ role.name }}
-        </h3>
-        <p class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:max-w-3xl">
-          {{ role.description || 'No description provided' }}
-        </p>
-      </div>
-
-      <!-- More Options Button -->
-      <BaseMenu v-if="canUpdateRole" @click.stop>
-        <template #items>
-          <button
-            v-if="isInactive"
-            class="tw:group tw:flex tw:w-full tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-green-700 tw:transition-colors tw:hover:bg-main-hover tw:bg-transparent tw:border-0 tw:cursor-pointer"
-            @click="handleActivate"
-          >
-            <IconCircleCheck :size="16" class="tw:shrink-0" />
-            Activate Role
-          </button>
-          <button
-            v-else
-            class="tw:group tw:flex tw:w-full tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-amber-700 tw:transition-colors tw:hover:bg-main-hover tw:bg-transparent tw:border-0 tw:cursor-pointer"
-            @click="handleDeactivate"
-          >
-            <IconBan :size="16" class="tw:shrink-0" />
-            Deactivate Role
-          </button>
-        </template>
-      </BaseMenu>
-    </div>
-
-    <!-- Role Metadata Footer -->
+    <!-- Icon tile -->
     <div
-      class="tw:mt-2 tw:flex tw:flex-wrap tw:items-center tw:gap-6 tw:border-t tw:border-divider tw:pt-2"
+      class="tw:flex tw:h-9 tw:w-9 tw:shrink-0 tw:items-center tw:justify-center tw:rounded-lg tw:bg-primary/10 tw:text-primary"
     >
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-        <IconUsers :size="16" class="tw:text-secondary" />
-        <span class="tw:font-medium tw:text-on-sidebar">
-          {{ role.userCount || 0 }} Assigned Users
-        </span>
-      </div>
-
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-        <IconHistory :size="16" class="tw:text-secondary" />
-        <span class="tw:text-secondary"
-          >Last Modified: {{ role.updatedAt.formatDate('date') }}</span
-        >
-      </div>
-
+      <IconShield :size="18" />
     </div>
+
+    <!-- Name + description -->
+    <div class="tw:min-w-0 tw:flex-1">
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <h3 class="tw:truncate tw:text-sm tw:font-semibold tw:text-on-sidebar">{{ role.name }}</h3>
+        <RoleStatusBadge v-if="role.statusId" :status="role.statusId" />
+      </div>
+      <p class="tw:truncate tw:text-xs tw:text-secondary">
+        {{ role.description || 'No description provided' }}
+      </p>
+    </div>
+
+    <!-- Assigned users -->
+    <div
+      class="tw:hidden tw:shrink-0 tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:sm:flex"
+    >
+      <IconUsers :size="15" class="tw:shrink-0" />
+      <span class="tw:whitespace-nowrap">{{ role.userCount || 0 }} users</span>
+    </div>
+
+    <!-- Last modified -->
+    <div
+      class="tw:hidden tw:w-28 tw:shrink-0 tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:md:flex"
+    >
+      <IconHistory :size="15" class="tw:shrink-0" />
+      <span class="tw:whitespace-nowrap">{{ role.updatedAt?.formatDate('date') }}</span>
+    </div>
+
+    <!-- More options -->
+    <BaseMenu v-if="canUpdateRole" @click.stop>
+      <template #items>
+        <button
+          v-if="isInactive"
+          class="tw:group tw:flex tw:w-full tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-green-700 tw:transition-colors tw:hover:bg-main-hover tw:bg-transparent tw:border-0 tw:cursor-pointer"
+          @click="handleActivate"
+        >
+          <IconCircleCheck :size="16" class="tw:shrink-0" />
+          Activate Role
+        </button>
+        <button
+          v-else
+          class="tw:group tw:flex tw:w-full tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-amber-700 tw:transition-colors tw:hover:bg-main-hover tw:bg-transparent tw:border-0 tw:cursor-pointer"
+          @click="handleDeactivate"
+        >
+          <IconBan :size="16" class="tw:shrink-0" />
+          Deactivate Role
+        </button>
+      </template>
+    </BaseMenu>
   </BaseClickableRow>
 </template>

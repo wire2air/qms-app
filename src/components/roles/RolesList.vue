@@ -13,7 +13,7 @@ defineProps({
 </script>
 
 <template>
-  <div class="tw:flex-1 tw:overflow-y-auto tw:space-y-4">
+  <div class="tw:flex-1 tw:overflow-y-auto tw:space-y-2">
     <div v-if="loading" class="tw:flex tw:flex-col tw:gap-3">
       <div
         v-for="i in 4"
