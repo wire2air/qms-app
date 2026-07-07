@@ -45,6 +45,7 @@ const {
   fetchPermissions,
   isSelected,
   togglePermission,
+  isActionLocked,
   getPermissionForAction,
   selectAll,
   setSelectedPermissions,
@@ -365,6 +366,7 @@ const roleDetailConfig = computed(() =>
         :permissionActions="permissionActions"
         :isSelected="isSelected"
         :togglePermission="togglePermission"
+        :isActionLocked="isActionLocked"
         :getPermissionForAction="getPermissionForAction"
         :canUpdateRole="canUpdateRole"
       />

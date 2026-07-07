@@ -33,7 +33,9 @@ const showCreateDialog = ref(false)
 const viewMode = useCompanyLocalStorage('templates-view-mode', 'list')
 const { confirm } = useConfirm()
 
-const canCreateTemplate = computed(() => isAllowed(['formTemplates:create']))
+// Create needs read too: the create mutation reads the new row back through the
+// `formTemplates:read` RLS SELECT policy, so create-without-read fails at the DB.
+const canCreateTemplate = computed(() => isAllowed(['formTemplates:create', 'formTemplates:read']))
 const canUpdateTemplate = computed(() => isAllowed(['formTemplates:update']))
 const canDeleteTemplate = computed(() => isAllowed(['formTemplates:delete']))
 

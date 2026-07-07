@@ -108,6 +108,31 @@ export async function hydrateSession() {
   return await fetchUserSession({ hydrate: true })
 }
 
+/**
+ * Re-fetch ONLY the current user's effective permissions from the session
+ * endpoint and update the in-memory session, without the full re-boot that
+ * initSession() does. `/v1/auth/session` recomputes permissions from the DB on
+ * every call, so this picks up role/permission changes made by an admin while
+ * the user is logged in — the fix for stale permissions that previously required
+ * a full page reload. Best-effort: on failure the old permissions stand (a hard
+ * reload still refreshes them).
+ */
+export async function refreshPermissions() {
+  if (!currentSession.value) return
+  try {
+    const response = await apiClient.get('/v1/auth/session', { _retried: true })
+    const session = response.data?.session
+    if (!session || !Array.isArray(session.permissions)) return
+    currentSession.value = {
+      ...currentSession.value,
+      permissions: session.permissions,
+      isOwner: session.isOwner ?? currentSession.value.isOwner,
+    }
+  } catch {
+    // Ignore — keep existing permissions until the next successful refresh/reload.
+  }
+}
+
 async function fetchUserSession(options = {}) {
   // Subdomain tenancy: the backend resolves the active company from the request
   // host (acme.qability.com), so no companyCode query param is sent anymore.
