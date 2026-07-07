@@ -86,32 +86,48 @@ function firstSegment(path) {
   return path.split('/').filter(Boolean)[0] || ''
 }
 
+// Path segments that mean "the create/new form" (e.g. /documents/create).
+// Record ids are UUIDs, so these never collide with a real detail route.
+const CREATE_SEGMENTS = new Set(['create', 'new'])
+
+// Derive the create permission from a module's base (list) permission:
+// `documents:read` → `documents:create`; a `:manage`/`:create`/`:update` gate
+// (settings, automation-rules, inspections-logs…) already covers creation, so
+// use it as-is.
+function createPermissionFrom(basePerm) {
+  return basePerm.endsWith(':read') ? basePerm.replace(/:read$/, ':create') : basePerm
+}
+
 /**
  * Resolve the permission required to view `to`, or null if the route is open.
  * @param {import('vue-router').RouteLocationNormalized} to
  * @returns {string|null}
  */
 export function requiredPermissionFor(to) {
-  const seg = firstSegment(to.path)
+  const segs = to.path.split('/').filter(Boolean)
+  const seg = segs[0]
   if (!seg) return null
 
-  // Admin subtree — list and detail both gated.
-  if (ADMIN_PERMISSIONS[seg]) return ADMIN_PERMISSIONS[seg]
-
-  // Admin-defined modules: /m/:internalName → `${internalName}:read`.
+  // Admin-defined modules: /m/:internalName (…/create → `${internalName}:create`).
   if (seg === 'm') {
-    const internalName = to.path.split('/').filter(Boolean)[1]
-    return internalName ? `${internalName}:read` : null
+    const internalName = segs[1]
+    if (!internalName) return null
+    return CREATE_SEGMENTS.has(segs[2]) ? `${internalName}:create` : `${internalName}:read`
   }
 
-  // Record modules — only the bare list route is gated.
-  if (RECORD_LIST_PERMISSIONS[seg]) {
-    const normalized = to.path.replace(/\/+$/, '')
-    const isListRoute = normalized === `/${seg}`
-    return isListRoute ? RECORD_LIST_PERMISSIONS[seg] : null
-  }
+  const basePerm = ADMIN_PERMISSIONS[seg] || RECORD_LIST_PERMISSIONS[seg]
+  if (!basePerm) return null
 
-  return null
+  // Create/new page: require the module's create permission, so a user without
+  // it can't reach the form even by direct URL (segs like /documents/create).
+  if (CREATE_SEGMENTS.has(segs[1])) return createPermissionFrom(basePerm)
+
+  // Admin subtree — list and detail both gated on the base permission.
+  if (ADMIN_PERMISSIONS[seg]) return basePerm
+
+  // Record modules — only the bare list route is gated; detail defers to RLS.
+  const normalized = to.path.replace(/\/+$/, '')
+  return normalized === `/${seg}` ? basePerm : null
 }
 
 /**

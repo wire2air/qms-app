@@ -43,6 +43,16 @@ describe('requiredPermissionFor', () => {
     expect(requiredPermissionFor(route('/capas/abc-123'))).toBeNull()
   })
 
+  it('gates create/new pages on the module create permission', () => {
+    expect(requiredPermissionFor(route('/documents/create'))).toBe('documents:create')
+    expect(requiredPermissionFor(route('/documents/new'))).toBe('documents:create')
+    expect(requiredPermissionFor(route('/suppliers/create'))).toBe('suppliers:create')
+    expect(requiredPermissionFor(route('/users/create'))).toBe('users:create')
+    // :manage / :create gates already cover creation — used as-is.
+    expect(requiredPermissionFor(route('/inspections-logs/create'))).toBe('fieldRecords:create')
+    expect(requiredPermissionFor(route('/m/inspections/create'))).toBe('inspections:create')
+  })
+
   it('resolves admin-defined module routes to <internalName>:read', () => {
     expect(requiredPermissionFor(route('/m/inspections'))).toBe('inspections:read')
     expect(requiredPermissionFor(route('/m'))).toBeNull()
@@ -85,6 +95,16 @@ describe('evaluateRoute — internal users', () => {
   it('allows record-module DETAIL routes even without the module read permission', () => {
     setSession({ isOwner: false, permissions: [] })
     expect(evaluateRoute(route('/documents/abc-123'))).toBe(true)
+  })
+
+  it('blocks the create page without the module create permission', () => {
+    setSession({ isOwner: false, permissions: ['documents:read'] })
+    expect(evaluateRoute(route('/documents/create'))).toMatchObject({ path: '/no-access' })
+  })
+
+  it('allows the create page when the user holds the create permission', () => {
+    setSession({ isOwner: false, permissions: ['documents:read', 'documents:create'] })
+    expect(evaluateRoute(route('/documents/create'))).toBe(true)
   })
 
   it('blocks the record-module LIST route without permission', () => {
