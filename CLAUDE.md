@@ -2,6 +2,37 @@
 
 > Frontend-specific rules. For monorepo architecture (api/worker/sync services, the logical-replication → IndexedDB pipeline, backend conventions), see the root [`../../CLAUDE.md`](../../CLAUDE.md). Don't duplicate cross-service context here.
 
+## Quick reference — building a new feature (READ FIRST)
+
+**Reuse before building. Never start from scratch — nearly every piece already exists.** Follow this order; each row links to the full pattern below.
+
+1. **Data.** Model lives in `models/` (decorator-based `@ClientModel`/`@Property`). Read via `useLiveQuery` / `useLiveQueryWithDeps`, write via `useLiveMutation`. **Never** `get`/`post` from `@/api` for entity CRUD (action RPCs only — see rule #4). → [SyncEngine API](#syncengine-api-reference)
+2. **Show an entity** (badge, chip, select). Use the **badge triad** `XBadge → XBadgeById → XSelectMenu` — check `src/components/badges/` and `src/components/menus/` first. **Never** `BaseSelect` directly for an entity. → [badge triad](#component-pattern-badge-triad-xbadge--xbadgebyid--xselectmenu)
+3. **UI primitive.** Reuse a `Base*` from `resource/js/shared/components/` before writing markup. **No Quasar `Q*` / `W*`.** → table below.
+4. **Page shell.** Root = `<BasePage>` + `PageHeader` + `BaseFilterBar` + `PageSection`. Record detail page = `BaseDetailLayout` + `defineDetailConfig`. → [Page layout](#page-layout) · [Detail pages](#detail-pages)
+5. **Editing a record.** Inline edit + auto-save (deep watcher + `useDebounceFn`), no separate edit dialog. → [inline edit](#component-pattern-inline-edit--auto-save)
+6. **Always:** `function foo(){}` (not arrow) · `defineModel` for v-model · Tailwind `tw:` prefix · no `<form>` · icons from `@tabler/icons-vue` (explicit import) · dates via `dt.formatDate()`.
+
+**"I need to…" → use this (don't rebuild):**
+
+| Need                        | Use                                                              |
+| --------------------------- | --------------------------------------------------------------- |
+| Read one/many records       | `useLiveQueryWithDeps([() => id], (db,[id]) => db.Model…)`       |
+| Create / update / delete    | `useLiveMutation` (create) · `instance.save()` · `.delete()`    |
+| A new model                 | decorator class in `models/` (`@ClientModel`, `@Property`)      |
+| Show entity as badge/select | `XBadge` / `XBadgeById` / `XSelectMenu` in `src/components/`     |
+| Text field / textarea       | `BaseTextInput` / `BaseTextarea`                                 |
+| Dropdown (non-entity)       | `BaseSelect` / `BaseInlineSelect`                                |
+| Table / list                | `DataTable` (`resource/js/shared/components/dataTable/`)         |
+| Dialog / drawer / tooltip   | `BaseDialog` / `BaseDrawer` / `BaseTooltip`                      |
+| Button, chip, spinner       | `BaseButton` / `BaseChip` / `BaseSpinner`                        |
+| Page skeleton               | `BasePage` + `PageHeader` + `PageSection` + `ContentGrid`        |
+| Filter/search toolbar       | `BaseFilterBar` · tabs → `BaseTabs`                              |
+| Record detail page          | `BaseDetailLayout` + `defineDetailConfig` + `DetailRail`         |
+| An icon                     | `import { IconX } from '@tabler/icons-vue'`                      |
+
+Before adding anything new, `ls resource/js/shared/components/` (primitives) and `src/components/<feature>/` (feature components) — the thing you're about to build is probably already there.
+
 ## Rules
 
 Non-negotiable in new and touched code. Migration sections below show what to replace and how.
