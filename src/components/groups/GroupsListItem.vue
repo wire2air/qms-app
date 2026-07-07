@@ -42,46 +42,44 @@ async function onDelete() {
 
 <template>
   <BaseClickableRow
-    class="tw:block tw:border tw:border-divider tw:rounded-xl tw:p-3 tw:hover:bg-main-hover tw:transition-colors"
+    class="tw:flex tw:items-center tw:gap-3 tw:border tw:border-divider tw:rounded-lg tw:bg-sidebar tw:px-3.5 tw:py-2.5 tw:hover:border-primary/40 tw:hover:shadow-sm tw:transition-all"
     :aria-label="`Open group ${group.name}`"
     @click="onClick"
   >
-    <div class="tw:flex tw:items-center tw:gap-3">
-      <!-- Avatar with group color -->
-      <TeamAvatar :team="group" class="tw:size-12" />
+    <!-- Avatar with group color -->
+    <TeamAvatar :team="group" class="tw:size-9 tw:shrink-0" />
 
-      <!-- Group Info -->
-      <div class="tw:flex-1 tw:min-w-0">
-        <div class="tw:text-lg tw:font-bold tw:text-on-main">
-          {{ group.name }}
-        </div>
-        <div class="tw:text-sm tw:text-secondary">
-          {{ memberCount }} member{{ memberCount !== 1 ? 's' : '' }}
-        </div>
+    <!-- Group Info -->
+    <div class="tw:flex-1 tw:min-w-0">
+      <div class="tw:truncate tw:text-sm tw:font-semibold tw:text-on-main">
+        {{ group.name }}
       </div>
-
-      <!-- Leadership Badge -->
-      <span
-        v-if="group.isLeadership"
-        class="tw:flex-none tw:text-xs tw:font-semibold tw:bg-primary/10 tw:text-primary tw:px-2.5 tw:py-1 tw:rounded-full"
-      >
-        Leadership
-      </span>
-
-      <!-- Actions Menu -->
-      <div v-if="canDelete" class="tw:flex-none" @click.stop>
-        <BaseMenu>
-          <template #items>
-            <button
-              class="tw:flex tw:items-center tw:gap-2 tw:w-full tw:px-3 tw:py-2 tw:text-sm tw:text-red-600 tw:hover:bg-red-50 tw:transition-colors"
-              @click="onDelete"
-            >
-              <IconTrash :size="14" />
-              Delete
-            </button>
-          </template>
-        </BaseMenu>
+      <div class="tw:truncate tw:text-xs tw:text-secondary">
+        {{ memberCount }} member{{ memberCount !== 1 ? 's' : '' }}
       </div>
+    </div>
+
+    <!-- Leadership Badge -->
+    <span
+      v-if="group.isLeadership"
+      class="tw:flex-none tw:text-xs tw:font-semibold tw:bg-primary/10 tw:text-primary tw:px-2.5 tw:py-1 tw:rounded-full"
+    >
+      Leadership
+    </span>
+
+    <!-- Actions Menu -->
+    <div v-if="canDelete" class="tw:flex-none" @click.stop>
+      <BaseMenu>
+        <template #items>
+          <button
+            class="tw:flex tw:items-center tw:gap-2 tw:w-full tw:px-3 tw:py-2 tw:text-sm tw:text-red-600 tw:hover:bg-red-50 tw:transition-colors"
+            @click="onDelete"
+          >
+            <IconTrash :size="14" />
+            Delete
+          </button>
+        </template>
+      </BaseMenu>
     </div>
   </BaseClickableRow>
 </template>
