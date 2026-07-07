@@ -12,7 +12,7 @@ const isFull = computed(() => props.variant === 'full')
 
 <template>
   <header
-    class="tw:flex tw:flex-col tw:gap-2 tw:bg-card tw:px-1 tw:py-3 tw:transition-shadow tw:duration-150 tw:motion-reduce:transition-none"
+    class="tw:flex tw:flex-col tw:gap-2 tw:bg-card tw:px-4 tw:lg:px-5 tw:py-3 tw:transition-shadow tw:duration-150 tw:motion-reduce:transition-none"
     :class="scrolled ? 'tw:border-b tw:border-divider tw:shadow-raised' : ''"
   >
     <!-- flex-wrap lets the actions drop to their own full-width row on phones
