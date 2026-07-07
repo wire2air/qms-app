@@ -7,6 +7,18 @@ const showCreateDialog = ref(false)
 const canCreateGroup = computed(() => isAllowed(['teams:create']))
 const canDeleteGroup = computed(() => isAllowed(['teams:delete']))
 
+const { confirm } = useConfirm()
+
+async function onDelete(group) {
+  const ok = await confirm({
+    title: 'Delete Group',
+    message: `Are you sure you want to delete '${group.name}'? This action cannot be undone.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (ok) await group.delete()
+}
+
 const list = useListLayout({
   filters: { search: '' },
   total: () => groups.value.length,
@@ -52,7 +64,12 @@ const loading = computed(() => groups.value === undefined)
       <GroupsFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
-    <GroupsList :groups="groups" :loading="loading" :canDelete="canDeleteGroup" />
+    <GroupsTable
+      :rows="groups"
+      :loading="loading"
+      :canDelete="canDeleteGroup"
+      @delete="onDelete"
+    />
 
     <GroupsCreateDialog v-model="showCreateDialog" />
   </BaseListLayout>

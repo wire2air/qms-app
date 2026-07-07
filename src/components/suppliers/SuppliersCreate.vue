@@ -254,7 +254,7 @@ async function saveSupplier() {
 
     const contacts = form.value.contacts.filter((c) => c.email?.trim() || c.phoneNumber?.trim())
 
-    await createSupplier({
+    const created = await createSupplier({
       name: form.value.name.trim(),
       code: form.value.code.trim(),
       category: form.value.category,
@@ -269,6 +269,15 @@ async function saveSupplier() {
       certificateAssets,
       licenseAssets,
     })
+
+    // useLiveMutation swallows failures (it shows its own error toast) and
+    // returns undefined — so DON'T claim success or navigate away unless the
+    // supplier actually came back. Previously this always showed "created" and
+    // routed away even when the create errored, hiding the real failure.
+    if (!created) {
+      generalError.value = 'Failed to create supplier. Please try again.'
+      return
+    }
 
     toast.notify({ type: 'positive', message: 'Supplier created successfully' })
     router.push(getCompanyPath('/suppliers'))

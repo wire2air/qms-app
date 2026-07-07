@@ -1,5 +1,5 @@
 <script setup>
-import { IconShield, IconPlus, IconSearch, IconFilter } from '@tabler/icons-vue'
+import { IconShield, IconPlus } from '@tabler/icons-vue'
 import { useRoles } from '@/composables/useRoles.js'
 import { isAllowed } from '@/utils/currentSession.js'
 
@@ -7,36 +7,57 @@ import { isAllowed } from '@/utils/currentSession.js'
  * Roles — admin list page.
  *
  * Built on the Enterprise Page Framework list template: `useListLayout`
- * (filter UI state + URL sync + resolved content state) + `BaseListLayout`
- * (header / filters / state region). Data + filtering still live in the
- * `useRoles()` provide/inject composable (axios-backed), which owns the
- * `roles`/`loading`/`filters` it returns; `useListLayout`'s filter ref drives
- * the toolbar and mirrors into that composable's `filters` so its existing
- * watch-and-refetch keeps working.
+ * (resolved content state) + `BaseListLayout` (header / state region). Data
+ * lives in the `useRoles()` provide/inject composable (axios-backed), which
+ * owns `roles`/`loading` and provides `userCount` per role. The list itself is
+ * a `DataTable` (RolesTable) with built-in search / sort / filter / export —
+ * matching SitesTable and the other admin lists.
  */
-const { roles, loading, filters: rolesFilters } = useRoles()
+// useRoles fetches on mount (its currentCompany watch is immediate) and provides
+// userCount per role. Search / sort / filter now happen client-side in the DataTable.
+const { roles, loading, activateRole, deactivateRole } = useRoles()
 const showCreateDialog = ref(false)
 
+const toast = useToast()
+const { confirm } = useConfirm()
+
 const canCreateRole = computed(() => isAllowed(['roles:create']))
+const canUpdateRole = computed(() => isAllowed(['roles:update']))
 
 const list = useListLayout({
-  filters: { search: '', statusId: null }, // Show all roles by default
+  filters: {},
   total: () => roles.value.length,
   loading: () => loading.value,
   empty: () => !loading.value && roles.value.length === 0,
   syncUrl: true,
 })
 
-// Mirror the layout's filter UI state into the useRoles composable, which owns
-// the watch-and-refetch. Immediate so the "all roles" default applies on mount.
-watch(
-  list.filters,
-  (f) => {
-    rolesFilters.value.search = f.search
-    rolesFilters.value.statusId = f.statusId
-  },
-  { deep: true, immediate: true },
-)
+async function onActivate(role) {
+  const ok = await confirm({
+    title: 'Activate Role',
+    message: `Are you sure you want to activate the role "${role.name}"?`,
+    okLabel: 'Activate',
+  })
+  if (!ok) return
+  const success = await activateRole(role.id)
+  toast[success ? 'success' : 'error'](
+    success ? 'Role activated successfully' : 'Failed to activate role',
+  )
+}
+
+async function onDeactivate(role) {
+  const ok = await confirm({
+    title: 'Deactivate Role',
+    message: `Are you sure you want to deactivate the role "${role.name}"? This will set its status to Inactive.`,
+    okLabel: 'Deactivate',
+    danger: true,
+  })
+  if (!ok) return
+  const success = await deactivateRole(role.id)
+  toast[success ? 'success' : 'error'](
+    success ? 'Role deactivated successfully' : 'Failed to deactivate role',
+  )
+}
 </script>
 
 <template>
@@ -60,28 +81,13 @@ watch(
       </button>
     </template>
 
-    <template #filters>
-      <div class="tw:flex tw:items-center tw:gap-3">
-        <div class="tw:relative tw:flex-1">
-          <IconSearch
-            :size="18"
-            class="tw:absolute tw:left-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
-          />
-          <BaseTextInput
-            v-model="list.filters.value.search"
-            placeholder="Search roles by name or description..."
-            class="tw:pl-9"
-          />
-        </div>
-        <button
-          class="tw:p-2 tw:text-secondary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:text-on-main"
-        >
-          <IconFilter :size="20" />
-        </button>
-      </div>
-    </template>
-
-    <RolesList :roles="roles" :loading="false" />
+    <RolesTable
+      :rows="roles"
+      :loading="loading"
+      :canUpdate="canUpdateRole"
+      @activate="onActivate"
+      @deactivate="onDeactivate"
+    />
   </BaseListLayout>
 
   <!-- Kept OUTSIDE BaseListLayout: its content slot only renders in the `ready`

@@ -5,6 +5,8 @@ import { isPublicRoute as isPublicRouteFn, isAuthRoute } from '@/constants/authR
 import { initSync, deleteAllSyncDatabases } from '@/utils/initSyncEngine.js'
 import { currentSubdomain, gotoTenant, apexOrigin } from '@/utils/tenant'
 import { provideDataTablePersist } from '@/composables/useDataTablePersist'
+import { evaluateRoute } from '@/router/permissionGuard'
+import { initPermissionSync } from '@/utils/permissionSync'
 
 const pageInfo = ref({
   showHeader: true,
@@ -134,6 +136,9 @@ async function bootApp() {
   // Install syncEngine with the company-scoped IndexedDB.
   if (currentSession.value?.companyId) {
     await initSync(currentSession.value.companyId)
+    // Keep the current user's permissions live: refresh them when role /
+    // permission records change (see permissionSync).
+    initPermissionSync()
   }
 }
 
@@ -148,6 +153,13 @@ const RECOVERY_FLAG = 'qms.boot.autoRecoveryAttempted'
 onMounted(async () => {
   try {
     await bootApp()
+
+    // The permission guard lets navigation through while the session is still
+    // loading (currentSession undefined). Now that boot has resolved it, re-run
+    // the guard against the landing route so a hard reload / deep link to a
+    // route the user lacks permission for is redirected to /no-access.
+    const decision = evaluateRoute(router.currentRoute.value)
+    if (decision !== true) await router.replace(decision)
   } catch (err) {
     console.error('[App] Boot failed', err)
     if (sessionStorage.getItem(RECOVERY_FLAG) !== '1') {
@@ -223,6 +235,10 @@ onMounted(async () => {
     <!-- AI sidecar — global slide-out chat (see backend/ai/README.md, AI_PLAN.md §6).
          Gated on canUseAi so tenants without the add-on don't even mount it. -->
     <ChatPanel v-if="canUseAi" />
+
+    <!-- Prompts a reload when an admin changes this user's permissions while
+         they're signed in (the syncEngine only re-bootstraps IDB on reload). -->
+    <PermissionChangeDialog />
   </div>
 </template>
 

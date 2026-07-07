@@ -2,6 +2,10 @@
 // Personal profile — the signed-in user's own name, avatar, color, and
 // preferences (language, timezone, appearance). All fields are SyncEngine-
 // modeled: inline edit + autosave. Rendered as a tab on pages/profile.vue.
+//
+// Layout: an identity hero (avatar + name + role/email) sits above two grouped
+// cards — Profile details and Preferences — matching the sibling Security tab's
+// rhythm (each tab opens with a hero card, then gap-6 PageSection + BaseCard).
 import ThemeToggle from '@/components/layout/ThemeToggle.vue'
 import { currentSession } from '@/utils/currentSession.js'
 import { uploadFile } from '@/utils/uploadService.js'
@@ -10,6 +14,7 @@ import {
   IconAdjustments,
   IconCamera,
   IconMail,
+  IconLock,
   IconPalette,
 } from '@tabler/icons-vue'
 
@@ -27,6 +32,18 @@ const user = useLiveQueryWithDeps(
 const loading = computed(() => user.value === undefined)
 
 const { isSaving, saveError } = useAutoSave(user)
+
+// Identity display for the hero (read-only reflection of the fields below).
+const fullName = computed(() => {
+  const name = `${user.value?.firstName || ''} ${user.value?.lastName || ''}`.trim()
+  return name || 'Your name'
+})
+const identityLine = computed(() => {
+  const parts = []
+  if (user.value?.jobTitle) parts.push(user.value.jobTitle)
+  if (user.value?.email) parts.push(user.value.email)
+  return parts.join('  ·  ')
+})
 
 // ── Avatar ────────────────────────────────────────────────────────────────
 const showAvatarDialog = ref(false)
@@ -69,72 +86,99 @@ async function handleAvatarDelete() {
   </div>
 
   <div v-else-if="user" class="tw:flex tw:flex-col tw:gap-6">
-    <div class="tw:flex tw:justify-end tw:min-h-4">
+    <!-- Autosave status — only rendered while active, so no empty reserved strip -->
+    <div v-if="isSaving || saveError" class="tw:flex tw:justify-end">
       <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary">
         <BaseSpinner size="xs" />
         Saving…
       </div>
-      <p v-else-if="saveError" class="tw:text-sm tw:text-red-500">{{ saveError }}</p>
+      <p v-else class="tw:text-sm tw:text-red-500">{{ saveError }}</p>
     </div>
 
-    <!-- ── Profile ─────────────────────────────────────────────────────── -->
+    <!-- ── Identity hero ─────────────────────────────────────────────────── -->
+    <BaseCard padding="lg">
+      <div class="tw:flex tw:flex-col tw:items-center tw:gap-5 tw:text-center tw:sm:flex-row tw:sm:items-center tw:sm:text-left">
+        <BaseClickableRow
+          class="tw:relative tw:group tw:shrink-0 tw:rounded-full"
+          aria-label="Change profile picture"
+          @click="showAvatarDialog = true"
+        >
+          <UserAvatar :user="user" class="tw:size-20" />
+          <div
+            class="tw:absolute tw:inset-0 tw:flex tw:items-center tw:justify-center tw:rounded-full tw:bg-black/50 tw:opacity-0 tw:transition-opacity tw:pointer-events-none tw:group-hover:opacity-100"
+          >
+            <IconCamera :size="24" class="tw:text-white" />
+          </div>
+        </BaseClickableRow>
+
+        <div class="tw:min-w-0 tw:flex-1">
+          <BaseHeading :level="2" as="page-title" truncate>{{ fullName }}</BaseHeading>
+          <p class="tw:mt-0.5 tw:text-sm tw:text-secondary tw:truncate">{{ identityLine }}</p>
+        </div>
+
+        <BaseButton variant="outline" size="sm" class="tw:shrink-0" @click="showAvatarDialog = true">
+          <IconCamera :size="16" /> Change photo
+        </BaseButton>
+      </div>
+    </BaseCard>
+
+    <!-- ── Profile details ───────────────────────────────────────────────── -->
     <PageSection title="Profile" :icon="IconUserCircle">
       <BaseCard>
-        <div class="tw:flex tw:flex-col tw:gap-6 tw:sm:flex-row tw:sm:items-start">
-          <!-- Avatar -->
-          <div class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:shrink-0">
-            <BaseClickableRow
-              class="tw:relative tw:group"
-              aria-label="Change profile picture"
-              @click="showAvatarDialog = true"
-            >
-              <UserAvatar :user="user" class="tw:size-24" />
-              <div
-                class="tw:absolute tw:inset-0 tw:bg-black/50 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:pointer-events-none"
-              >
-                <IconCamera :size="28" class="tw:text-white" />
-              </div>
-            </BaseClickableRow>
-            <button
-              class="tw:text-xs tw:text-primary tw:hover:underline"
-              @click="showAvatarDialog = true"
-            >
-              Change photo
-            </button>
+        <div class="tw:flex tw:flex-col tw:gap-5">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-4">
+            <BaseTextInput
+              v-model="user.firstName"
+              label="First name"
+              placeholder="First name"
+              size="md"
+            />
+            <BaseTextInput
+              v-model="user.lastName"
+              label="Last name"
+              placeholder="Last name"
+              size="md"
+            />
           </div>
 
-          <!-- Fields -->
-          <div class="tw:flex tw:flex-1 tw:flex-col tw:gap-4 tw:w-full">
-            <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-4">
-              <BaseTextInput v-model="user.firstName" label="First name" placeholder="First name" />
-              <BaseTextInput v-model="user.lastName" label="Last name" placeholder="Last name" />
+          <BaseTextInput
+            v-model="user.jobTitle"
+            label="Job title"
+            placeholder="e.g. Quality Manager"
+            size="md"
+          />
+
+          <!-- Email — read-only (it's the login identifier) -->
+          <div>
+            <p class="tw:text-label tw:font-medium tw:text-on-main tw:mb-1.5">Email address</p>
+            <div
+              class="tw:flex tw:items-center tw:gap-2.5 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover tw:px-3.5 tw:py-2.5"
+            >
+              <IconMail :size="16" class="tw:shrink-0 tw:text-secondary" />
+              <span class="tw:min-w-0 tw:flex-1 tw:truncate tw:text-sm tw:text-on-main">
+                {{ user.email }}
+              </span>
+              <IconLock :size="14" class="tw:shrink-0 tw:text-secondary" aria-hidden="true" />
             </div>
+            <p class="tw:mt-1.5 tw:text-caption tw:text-secondary">
+              Contact an administrator to change the email you sign in with.
+            </p>
+          </div>
 
-            <BaseTextInput v-model="user.jobTitle" label="Job title" placeholder="e.g. Quality Manager" />
-
-            <!-- Email — read-only (it's the login identifier) -->
-            <div>
-              <p class="tw:text-secondary tw:mb-1 tw:text-sm">Email address</p>
-              <div
-                class="tw:flex tw:items-center tw:gap-2 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover tw:px-3 tw:py-2"
-              >
-                <IconMail :size="16" class="tw:text-secondary" />
-                <span class="tw:text-sm tw:text-on-main">{{ user.email }}</span>
-              </div>
-              <p class="tw:text-caption tw:text-secondary tw:mt-1">
-                Contact an administrator to change the email you sign in with.
-              </p>
-            </div>
-
-            <!-- Color -->
-            <div>
-              <p class="tw:text-secondary tw:mb-2 tw:text-sm">Your color</p>
-              <div class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:bg-main-hover tw:rounded-lg">
-                <BaseColorPicker v-model="user.color" />
-                <div>
-                  <p class="tw:text-sm tw:font-bold tw:text-on-main">{{ user.color || '#2563eb' }}</p>
-                  <p class="tw:text-xs tw:text-secondary">Used for your avatar and identification</p>
-                </div>
+          <!-- Color -->
+          <div>
+            <p class="tw:text-label tw:font-medium tw:text-on-main tw:mb-1.5">Your color</p>
+            <div
+              class="tw:flex tw:items-center tw:gap-3.5 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover tw:px-3.5 tw:py-3"
+            >
+              <BaseColorPicker v-model="user.color" />
+              <div class="tw:min-w-0">
+                <p class="tw:text-sm tw:font-semibold tw:text-on-main">
+                  {{ user.color || '#2563eb' }}
+                </p>
+                <p class="tw:text-caption tw:text-secondary">
+                  Used for your avatar and identification
+                </p>
               </div>
             </div>
           </div>
@@ -145,27 +189,32 @@ async function handleAvatarDelete() {
     <!-- ── Preferences ─────────────────────────────────────────────────── -->
     <PageSection title="Preferences" :icon="IconAdjustments">
       <BaseCard>
-        <div class="tw:flex tw:flex-col tw:gap-6">
+        <div class="tw:flex tw:flex-col tw:gap-5">
           <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-4">
-            <div>
-              <p class="tw:text-secondary tw:mb-1 tw:text-sm">Preferred language</p>
+            <BaseField label="Preferred language">
               <LanguageSelectMenu v-model="user.languageId" :required="true" />
-            </div>
-            <div>
-              <p class="tw:text-secondary tw:mb-1 tw:text-sm">Timezone</p>
-              <TimezoneDropdown v-model="user.timeZone" />
-            </div>
+            </BaseField>
+            <TimezoneDropdown v-model="user.timeZone" label="Timezone" />
           </div>
 
-          <div class="tw:flex tw:items-center tw:justify-between tw:border-t tw:border-divider tw:pt-4">
-            <div class="tw:flex tw:items-center tw:gap-2">
-              <IconPalette :size="18" class="tw:text-secondary" />
-              <div>
+          <!-- Appearance -->
+          <div
+            class="tw:flex tw:items-center tw:justify-between tw:gap-4 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover tw:px-3.5 tw:py-3"
+          >
+            <div class="tw:flex tw:min-w-0 tw:items-center tw:gap-3">
+              <div
+                class="tw:flex tw:size-9 tw:shrink-0 tw:items-center tw:justify-center tw:rounded-lg tw:bg-primary/10"
+              >
+                <IconPalette :size="18" class="tw:text-primary" />
+              </div>
+              <div class="tw:min-w-0">
                 <p class="tw:text-sm tw:font-medium tw:text-on-main">Appearance</p>
-                <p class="tw:text-caption tw:text-secondary">Switch between light and dark themes</p>
+                <p class="tw:text-caption tw:text-secondary">
+                  Switch between light and dark themes
+                </p>
               </div>
             </div>
-            <ThemeToggle :size="20" />
+            <ThemeToggle :size="20" class="tw:shrink-0" />
           </div>
         </div>
       </BaseCard>

@@ -11,7 +11,9 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const router = useRouter()
 
-const canCreateSupplier = computed(() => isAllowed(['suppliers:create']))
+// Create needs read too: the create mutation reads the new row back through the
+// `suppliers:read` RLS SELECT policy, so create-without-read fails at the DB.
+const canCreateSupplier = computed(() => isAllowed(['suppliers:create', 'suppliers:read']))
 const canUpdateSupplier = computed(() => isAllowed(['suppliers:update']))
 const canDeleteSupplier = computed(() => isAllowed(['suppliers:delete']))
 

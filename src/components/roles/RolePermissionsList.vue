@@ -4,6 +4,7 @@ defineProps({
   permissionActions: { type: Array, required: true },
   isSelected: { type: Function, required: true },
   togglePermission: { type: Function, required: true },
+  isActionLocked: { type: Function, required: true },
   getPermissionForAction: { type: Function, required: true },
   canUpdateRole: { type: Boolean, default: false },
 })
@@ -23,6 +24,7 @@ const model = defineModel({
       :permissionActions="permissionActions"
       :isSelected="isSelected"
       :togglePermission="togglePermission"
+      :isActionLocked="isActionLocked"
       :getPermissionForAction="getPermissionForAction"
       :canUpdateRole="canUpdateRole"
     />
