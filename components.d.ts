@@ -787,6 +787,8 @@ declare module 'vue' {
     'PageSection.spec': typeof import('./resource/js/shared/components/PageSection.spec.js')['default']
     'PageSection.stories': typeof import('./resource/js/shared/components/PageSection.stories.js')['default']
     PasswordStrengthMeter: typeof import('./src/components/auth/PasswordStrengthMeter.vue')['default']
+    PersonalProfile: typeof import('./src/components/profile/PersonalProfile.vue')['default']
+    PersonalSecurity: typeof import('./src/components/security/PersonalSecurity.vue')['default']
     PrintLayout: typeof import('./src/components/print/PrintLayout.vue')['default']
     PrintShell: typeof import('./src/components/print/PrintShell.vue')['default']
     PrintTeleport: typeof import('./resource/js/shared/components/general/PrintTeleport.vue')['default']

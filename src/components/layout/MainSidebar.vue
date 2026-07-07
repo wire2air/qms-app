@@ -700,6 +700,15 @@ const navItems = computed(() => {
               <hr class="tw:my-1 tw:border-divider" />
 
               <RouterLink
+                :to="getCompanyPath('/profile')"
+                class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
+                @click="close()"
+              >
+                <IconUserCircle :size="16" class="tw:text-secondary" />
+                My Profile
+              </RouterLink>
+
+              <RouterLink
                 :to="getCompanyPath('/settings')"
                 class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
                 @click="close()"
@@ -709,7 +718,7 @@ const navItems = computed(() => {
               </RouterLink>
 
               <RouterLink
-                :to="getCompanyPath('/security')"
+                :to="getCompanyPath('/profile?tab=security')"
                 class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
                 @click="close()"
               >
