@@ -13,6 +13,7 @@ import {
 import { post } from '@/api'
 import { uploadFile } from '@/composables/useFileUpload'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { currentSession } from '@/utils/currentSession.js'
 import { required } from '@shared/components/form/validators.js'
 import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
 import DynamicForm from '@/components/form/DynamicForm.js'
@@ -33,20 +34,20 @@ const submitError = ref('')
 const form = ref({
   subject: '',
   description: '',
-  priorityId: null,
-  sourceId: 'OTHER',
+  // QMS source (complaint_source_types lookup UUID).
+  sourceId: null,
   customerName: '',
   customerEmail: '',
   customerCompany: '',
   customerPhone: '',
+  // Responsible party (Owner). Empty → the creator becomes owner.
+  ownerId: null,
   // QMS first-class fields.
-  complaintSourceId: null,
   regionId: null,
   countryId: null,
   stateProvince: '',
   siteId: null,
   productId: null,
-  productCodeSku: '',
   batchLotSerial: '',
   quantityAffected: null,
   orderInvoiceNumber: '',
@@ -58,6 +59,8 @@ const form = ref({
   riskLevelId: null,
   regulatoryReportable: false,
   safetyIssue: false,
+  complianceRelated: false,
+  potentialRecall: false,
 })
 
 const pendingAssets = ref([])
@@ -74,7 +77,7 @@ const { allowLeave } = useUnsavedChangesGuard(isDirty)
 // the complaint is created (we need its id first). Self-hides when no custom
 // fields are configured for CustomerComplaint.
 const fieldSet = useLiveQuery(
-  async (db) => db.EntityFieldSet.where('entityType', 'CustomerComplaint').first(),
+  async (db) => db.EntityFieldSet.where('entityType', 'Complaint').first(),
   { models: ['EntityFieldSet'] },
 )
 const customFieldSchema = computed(() =>
@@ -84,10 +87,24 @@ const hasCustomFields = computed(() => customFieldSchema.value.length > 0)
 const customFields = ref({})
 watch(customFields, () => (isDirty.value = true), { deep: true })
 
+// Default the Site to the logged-in user's site (overridable).
+const currentUser = useLiveQueryWithDeps(
+  [() => currentSession.value?.userId ?? currentSession.value?.id],
+  async (db, [uid]) => (uid ? db.User.findByPk(uid) : null),
+  { models: ['User'], initial: null },
+)
+watch(
+  currentUser,
+  (u) => {
+    if (u?.siteId && !form.value.siteId) form.value.siteId = u.siteId
+  },
+  { immediate: true },
+)
+
 const saveCustomFields = useLiveMutation(async (db, { entityId, payload, schema }) => {
   const frozen = await freezeOptionLabels(db, schema, payload)
   const row = db.EntityFieldValue.create({
-    entityType: 'CustomerComplaint',
+    entityType: 'Complaint',
     entityId,
     payload: frozen,
     formSchema: schema,
@@ -153,37 +170,35 @@ async function onSubmit() {
   saving.value = true
   submitError.value = ''
   try {
-    const response = await post('/v1/services/customerComplaints', {
+    const response = await post('/v1/services/complaints', {
       subject: form.value.subject.trim(),
       description: form.value.description || null,
-      priorityId: form.value.priorityId,
-      sourceId: form.value.sourceId || 'OTHER',
+      sourceId: form.value.sourceId || null,
       customerName: form.value.customerName || null,
       customerEmail: form.value.customerEmail || null,
       customerCompany: form.value.customerCompany || null,
       customerPhone: form.value.customerPhone || null,
-      // QMS first-class fields.
-      complaintSourceId: form.value.complaintSourceId,
+      ownerId: form.value.ownerId || null,
       regionId: form.value.regionId,
       countryId: form.value.countryId,
       stateProvince: form.value.stateProvince || null,
       siteId: form.value.siteId,
       productId: form.value.productId,
-      productCodeSku: form.value.productCodeSku || null,
       batchLotSerial: form.value.batchLotSerial || null,
       quantityAffected: form.value.quantityAffected,
       orderInvoiceNumber: form.value.orderInvoiceNumber || null,
       customerTypeId: form.value.customerTypeId,
       categoryId: form.value.categoryId,
       subCategoryId: form.value.subCategoryId,
-      complaintTypeId: form.value.complaintTypeId,
+      typeId: form.value.complaintTypeId,
       severityId: form.value.severityId,
       riskLevelId: form.value.riskLevelId,
       regulatoryReportable: form.value.regulatoryReportable,
       safetyIssue: form.value.safetyIssue,
-      assetIds: pendingAssets.value.map((a) => a.id),
+      complianceRelated: form.value.complianceRelated,
+      potentialRecall: form.value.potentialRecall,
     })
-    const newId = response.customerComplaint.id
+    const newId = response.complaint.id
     // Additional information: seal the custom-field answers onto the new record.
     // The complaint already exists at this point, so a failure here is
     // non-fatal — surface it but still open the record (fields can be added
@@ -256,40 +271,17 @@ async function onSubmit() {
               </template>
             </BaseField>
             <BaseField label="Description">
-              <BaseTextarea
+              <RichTextAttachments
                 v-model="form.description"
-                placeholder="Describe the complaint in the customer's words…"
-                :rows="5"
+                placeholder="Describe the complaint in the customer's words — attach photos/evidence as needed…"
               />
             </BaseField>
-            <BaseFieldRow :columns="2">
-              <BaseField label="Source">
-                <div class="tw:flex tw:gap-2">
-                  <BaseButton
-                    v-for="s in ['WEB', 'PHONE', 'OTHER']"
-                    :key="s"
-                    class="tw:flex-1 tw:justify-center"
-                    :variant="form.sourceId === s ? 'primary' : 'outline'"
-                    @click="form.sourceId = s"
-                  >
-                    {{ s.charAt(0) + s.slice(1).toLowerCase() }}
-                  </BaseButton>
-                </div>
-              </BaseField>
-              <BaseField label="Priority">
-                <div class="tw:flex tw:gap-2">
-                  <BaseButton
-                    v-for="p in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']"
-                    :key="p"
-                    class="tw:flex-1 tw:justify-center"
-                    :variant="form.priorityId === p ? 'primary' : 'outline'"
-                    @click="form.priorityId = form.priorityId === p ? null : p"
-                  >
-                    {{ p.charAt(0) + p.slice(1).toLowerCase() }}
-                  </BaseButton>
-                </div>
-              </BaseField>
-            </BaseFieldRow>
+            <BaseField
+              label="Owner (responsible party)"
+              hint="Any user; leave empty to own it yourself. The QA review workflow starts assigned to the owner."
+            >
+              <UserSelectMenu v-model="form.ownerId" :required="false" />
+            </BaseField>
           </div>
         </FormSection>
 
@@ -298,7 +290,7 @@ async function onSubmit() {
           <div class="tw:flex tw:flex-col tw:gap-3">
             <BaseFieldRow :columns="2">
               <BaseField label="Complaint source">
-                <ComplaintLookupSelectMenu v-model="form.complaintSourceId" model="ComplaintSourceType" />
+                <ComplaintLookupSelectMenu v-model="form.sourceId" model="ComplaintSourceType" />
               </BaseField>
               <BaseField label="Region">
                 <ComplaintLookupSelectMenu v-model="form.regionId" model="ComplaintRegion" />
@@ -325,12 +317,9 @@ async function onSubmit() {
         <FormSection id="qc-product" title="Product specifics" :icon="IconPackage" optional>
           <div class="tw:flex tw:flex-col tw:gap-3">
             <BaseField label="Product / Service involved">
-              <ProductSelectMenu v-model="form.productId" :required="false" />
+              <ProductSelectMenu v-model="form.productId" :required="false" nullLabel="— Select —" />
             </BaseField>
-            <BaseFieldRow :columns="2">
-              <BaseField label="Product code / SKU">
-                <BaseTextInput v-model="form.productCodeSku" placeholder="SKU" />
-              </BaseField>
+            <BaseFieldRow :columns="3">
               <BaseField label="Batch / Lot / Serial">
                 <BaseTextInput v-model="form.batchLotSerial" placeholder="e.g. LOT-2026-014" />
               </BaseField>
@@ -359,20 +348,14 @@ async function onSubmit() {
                   :parentId="form.categoryId"
                 />
               </BaseField>
-              <BaseField label="Complaint type">
-                <ComplaintLookupSelectMenu v-model="form.complaintTypeId" model="ComplaintType" />
-              </BaseField>
               <BaseField label="Severity">
                 <ComplaintLookupSelectMenu v-model="form.severityId" model="ComplaintSeverity" />
               </BaseField>
-              <BaseField label="Risk level">
-                <ComplaintLookupSelectMenu v-model="form.riskLevelId" model="ComplaintRiskLevel" />
-              </BaseField>
             </BaseFieldRow>
-            <div class="tw:flex tw:flex-wrap tw:gap-4">
-              <BaseCheckbox v-model="form.regulatoryReportable" label="Regulatory reportable" />
-              <BaseCheckbox v-model="form.safetyIssue" label="Safety issue" />
-            </div>
+            <p class="tw:text-xs tw:text-secondary">
+              Risk level, reportability and the safety / compliance / recall flags are set by QA
+              during review.
+            </p>
           </div>
         </FormSection>
 

@@ -17,6 +17,7 @@ import BaseSwitch from '@shared/components/BaseSwitch.vue'
 import BaseColorPicker from '@shared/components/BaseColorPicker.vue'
 import BaseSignaturePad from '@shared/components/BaseSignaturePad.vue'
 import BaseRichTextEditor from '@/components/editor/BaseRichTextEditor.vue'
+import RichTextAttachments from '@/components/shared/RichTextAttachments.vue'
 import BaseDateField from '@shared/components/BaseDateField.vue'
 import OptionSetSelect from '@/components/common/OptionSetSelect.vue'
 import OptionSetOptionGroup from '@/components/common/OptionSetOptionGroup.vue'
@@ -321,6 +322,20 @@ export default defineComponent({
                 )
               : null,
             h(BaseRichTextEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly }),
+          ])
+
+        // Rich text + inline file/image attachments packed into a single string
+        // (RichTextAttachments). One field replaces the textEditor+file pair.
+        case 'richTextAttachment':
+          return h('div', { class: 'tw:flex tw:flex-col' }, [
+            field.label
+              ? h(
+                  'div',
+                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
+                  field.label,
+                )
+              : null,
+            h(RichTextAttachments, inputFieldProps),
           ])
 
         case 'date': {

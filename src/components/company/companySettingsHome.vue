@@ -126,7 +126,10 @@ watch(
 
         <!-- Tab: Defaults -->
         <BaseTabPanel value="defaults">
-          <CompanyDefaultsCard />
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <CompanyDefaultsCard />
+            <ComplaintSettingsCard />
+          </div>
         </BaseTabPanel>
 
         <!-- Tab: Print -->

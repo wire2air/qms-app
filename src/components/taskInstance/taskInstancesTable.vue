@@ -76,6 +76,35 @@ const ncMap = useLiveQueryWithDeps(
   { models: ['Nonconformance'], initial: {} },
 )
 
+const complaintMap = useLiveQueryWithDeps(
+  [
+    () =>
+      taskInstances.value
+        .filter((i) => i.entityType === 'CustomerComplaint')
+        .map((i) => i.entityId),
+  ],
+  async (db, [complaintIds]) => {
+    const ids = [...new Set(complaintIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const complaints = await Promise.all(ids.map((id) => db.CustomerComplaint.findByPk(id)))
+    return Object.fromEntries(complaints.filter(Boolean).map((c) => [c.id, c]))
+  },
+
+  { models: ['CustomerComplaint'], initial: {} },
+)
+
+const qmsComplaintMap = useLiveQueryWithDeps(
+  [() => taskInstances.value.filter((i) => i.entityType === 'Complaint').map((i) => i.entityId)],
+  async (db, [complaintIds]) => {
+    const ids = [...new Set(complaintIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const complaints = await Promise.all(ids.map((id) => db.Complaint.findByPk(id)))
+    return Object.fromEntries(complaints.filter(Boolean).map((c) => [c.id, c]))
+  },
+
+  { models: ['Complaint'], initial: {} },
+)
+
 const trainingAssigneeMap = useLiveQueryWithDeps(
   [
     () =>
@@ -345,6 +374,8 @@ const BUILTIN_ENTITY_TYPES = new Set([
   'DocumentVersion',
   'Nonconformance',
   'Capa',
+  'CustomerComplaint',
+  'Complaint',
   'ChangeRequest',
   'QualityEvent',
   'LogBookVersion',
@@ -503,6 +534,8 @@ const EntityType = {
   TrainingAssignee: 'Training',
   TrainingInstance: 'Training Verification',
   Capa: 'CAPA',
+  CustomerComplaint: 'Support Complaint',
+  Complaint: 'Complaint',
   LogBookVersion: 'Log Book',
   AssignmentInstance: 'Inspection / Log',
   FieldRecord: 'Flagged Log',
@@ -558,6 +591,10 @@ function titleFor(row) {
       return getNc(row)?.title || ''
     case 'Capa':
       return getCapa(row)?.title || ''
+    case 'CustomerComplaint':
+      return getComplaint(row)?.subject || ''
+    case 'Complaint':
+      return getQmsComplaint(row)?.subject || ''
     case 'ChangeRequest':
       return getChangeRequest(row)?.title || ''
     case 'QualityEvent':
@@ -618,6 +655,14 @@ function getNc(instance) {
 
 function getCapa(instance) {
   return capaMap.value[instance.entityId] || null
+}
+
+function getComplaint(instance) {
+  return complaintMap.value[instance.entityId] || null
+}
+
+function getQmsComplaint(instance) {
+  return qmsComplaintMap.value[instance.entityId] || null
 }
 
 function getChangeRequest(instance) {
@@ -687,6 +732,12 @@ function entityRoute(row) {
   if (row.entityType === 'Capa') {
     return getCompanyPath(`capas/${row.entityId}`)
   }
+  if (row.entityType === 'CustomerComplaint') {
+    return getCompanyPath(`customer-complaints/${row.entityId}`)
+  }
+  if (row.entityType === 'Complaint') {
+    return getCompanyPath(`complaints/${row.entityId}`)
+  }
   if (row.entityType === 'ChangeRequest') {
     return getCompanyPath(`change-requests/${row.entityId}`)
   }
@@ -750,6 +801,10 @@ function rowTitle(row) {
       return getNc(row)?.title || '—'
     case 'Capa':
       return getCapa(row)?.title || '—'
+    case 'CustomerComplaint':
+      return getComplaint(row)?.subject || '—'
+    case 'Complaint':
+      return getQmsComplaint(row)?.subject || '—'
     case 'ChangeRequest':
       return getChangeRequest(row)?.title || '—'
     case 'QualityEvent':
@@ -781,6 +836,10 @@ function rowSubtitle(row) {
       return getNc(row)?.ncNumber || ''
     case 'Capa':
       return getCapa(row)?.capaNumber || ''
+    case 'CustomerComplaint':
+      return getComplaint(row)?.complaintNumber || ''
+    case 'Complaint':
+      return getQmsComplaint(row)?.complaintNumber || ''
     case 'ChangeRequest':
       return getChangeRequest(row)?.crNumber || ''
     case 'QualityEvent':
@@ -923,6 +982,22 @@ defineExpose({ exportCsv })
                   Information request
                 </span>
               </div>
+            </template>
+            <template v-else-if="row.entityType === 'CustomerComplaint'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ getComplaint(row)?.subject || '—' }}
+              </span>
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
+                {{ getComplaint(row)?.complaintNumber || '—' }}
+              </span>
+            </template>
+            <template v-else-if="row.entityType === 'Complaint'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ getQmsComplaint(row)?.subject || '—' }}
+              </span>
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
+                {{ getQmsComplaint(row)?.complaintNumber || '—' }}
+              </span>
             </template>
             <template v-else-if="row.entityType === 'ChangeRequest'">
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
@@ -1094,6 +1169,12 @@ defineExpose({ exportCsv })
           </span>
           <span v-else-if="row.entityType === 'InspectionLot'" class="tw:text-sm tw:text-on-main">
             QA Disposition
+          </span>
+          <span
+            v-else-if="row.entityType === 'CustomerComplaint' || row.entityType === 'Complaint'"
+            class="tw:text-sm tw:text-on-main"
+          >
+            Complaint Review
           </span>
           <span v-else-if="moduleRecordFor(row)" class="tw:text-sm tw:text-on-main">
             {{ moduleLabelFor(row) }}

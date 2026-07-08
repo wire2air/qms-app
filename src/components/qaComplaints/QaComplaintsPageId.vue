@@ -25,8 +25,8 @@ const { visit: visitTrail } = useRecordTrail()
 
 const complaint = useLiveQueryWithDeps(
   [() => props.id],
-  async (db, [id]) => db.CustomerComplaint.findByPk(id),
-  { models: ['CustomerComplaint'] },
+  async (db, [id]) => db.Complaint.findByPk(id),
+  { models: ['Complaint'] },
 )
 watch(
   complaint,
@@ -44,17 +44,31 @@ const breadcrumbs = computed(() => [
   { label: complaint.value?.complaintNumber || complaint.value?.subject || 'Loading…' },
 ])
 
-const canUpdate = computed(() => isAllowed(['customerComplaints:update']))
+const canUpdate = computed(() => isAllowed(['complaints:update']))
 const canConvert = computed(
-  () => isAllowed(['customerComplaints:update']) && isAllowed(['nonconformances:create']),
+  () => isAllowed(['complaints:update']) && isAllowed(['nonconformances:create']),
 )
 
 const isTerminal = computed(() => ['CLOSED', 'CONVERTED_TO_NC'].includes(complaint.value?.statusId))
 const isEditable = computed(() => complaint.value && !isTerminal.value && canUpdate.value)
 
+// The complaint narrative is only editable for manually-entered complaints —
+// imported / external-source (email, web form, integrations) descriptions are
+// the original captured content and stay read-only.
+const MANUAL_SOURCES = ['WEB', 'PHONE', 'OTHER']
+const isManualSource = computed(() => MANUAL_SOURCES.includes(complaint.value?.sourceId))
+const descriptionEditable = computed(() => isEditable.value && isManualSource.value)
+
+// Quality-Event-style tabs.
+const activeTab = ref('details')
+const tabs = [
+  { value: 'details', label: 'Complaint details' },
+  { value: 'review', label: 'QA Review' },
+  { value: 'escalations', label: 'Escalations' },
+]
+
 // Inline edit auto-save (description / priority / assignee / group).
 const { saveError } = useAutoSave(complaint)
-const editingDescription = ref(false)
 
 // ─── Lifecycle action RPCs (status / disposition) ────────────────────────────
 const acting = ref(false)
@@ -63,7 +77,7 @@ async function runAction(path, body = {}) {
   acting.value = true
   saveError.value = null
   try {
-    await post(`/v1/services/customerComplaints/${props.id}/${path}`, body)
+    await post(`/v1/services/complaints/${props.id}/${path}`, body)
   } catch (e) {
     saveError.value = e.message || 'Action failed'
     toast.notify({ type: 'negative', message: saveError.value })
@@ -72,36 +86,14 @@ async function runAction(path, body = {}) {
   }
 }
 
-const showCloseDialog = ref(false)
-const closeComment = ref('')
-
-async function handleClose() {
-  await runAction('close', { comment: closeComment.value.trim() || null })
-  showCloseDialog.value = false
-  closeComment.value = ''
-}
-
-// ─── Owner closure approval (e-sign) ──────────────────────────────────────────
+// ─── Owner + e-sign close ─────────────────────────────────────────────────────
 const currentUserId = computed(() => currentSession.value?.userId)
 const isOwner = computed(
   () => complaint.value?.ownerId && complaint.value.ownerId === currentUserId.value,
 )
-const pendingApproval = computed(() => complaint.value?.statusId === 'PENDING_APPROVAL')
 
 const showApproveDialog = ref(false)
-const approvePin = ref('')
 const approveComment = ref('')
-
-async function handleApproveClosure() {
-  await runAction('approveClosure', {
-    method: 'PIN',
-    token: approvePin.value,
-    comment: approveComment.value.trim() || null,
-  })
-  showApproveDialog.value = false
-  approvePin.value = ''
-  approveComment.value = ''
-}
 
 // ─── Convert to NC ────────────────────────────────────────────────────────────
 const showConvertDialog = ref(false)
@@ -131,11 +123,84 @@ const linkedNcs = useLiveQueryWithDeps(
   { models: ['Nonconformance'], initial: [] },
 )
 
+// ─── Related complaints (trending — same product / category / lot, last 90d) ───
+const relatedComplaints = useLiveQueryWithDeps(
+  [
+    () => complaint.value?.productId,
+    () => complaint.value?.categoryId,
+    () => complaint.value?.batchLotSerial,
+    () => props.id,
+  ],
+  async (db, [productId, categoryId, batch, id]) => {
+    if (!productId && !categoryId && !batch) return []
+    const cutoff = DateTime.now().minus({ days: 90 })
+    const rows = await db.Complaint.where().exec()
+    return rows
+      .filter(
+        (r) =>
+          r.id !== id &&
+          !r.isSpam &&
+          ((productId && r.productId === productId) ||
+            (categoryId && r.categoryId === categoryId) ||
+            (batch && r.batchLotSerial && r.batchLotSerial === batch)) &&
+          (!r.createdAt || r.createdAt >= cutoff),
+      )
+      .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+      .slice(0, 8)
+  },
+  { models: ['Complaint'], initial: [] },
+)
+
+// ─── QA-review workflow instance + close gating ──────────────────────────────
+const workflowInstance = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    const rows = await db.WorkflowInstance.where('[resourceType+resourceId]', [
+      'Complaint',
+      id,
+    ]).exec()
+    return (
+      rows.find((w) => w.statusId === 'IN_PROGRESS') ||
+      rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))[0] ||
+      null
+    )
+  },
+  { models: ['WorkflowInstance'], initial: null },
+)
+const workflowInstanceId = computed(() => workflowInstance.value?.id ?? null)
+const openStepsCount = useLiveQueryWithDeps(
+  [() => workflowInstanceId.value],
+  async (db, [wiId]) => {
+    if (!wiId) return 0
+    const steps = await db.WorkflowInstanceStep.where('workflowInstanceId', wiId).exec()
+    return steps.filter((s) => !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId)).length
+  },
+  { models: ['WorkflowInstanceStep'], initial: 0 },
+)
+const closeBlockedReason = computed(() => {
+  if (!workflowInstanceId.value) return 'No workflow yet — submit for review first.'
+  if (openStepsCount.value > 0)
+    return `${openStepsCount.value} workflow step${openStepsCount.value === 1 ? '' : 's'} still open.`
+  return null
+})
+
+async function handleSubmitForReview() {
+  await runAction('submitForReview', {})
+}
+async function handleMarkComplete() {
+  await runAction('markComplete', {
+    comment: approveComment.value.trim() || null,
+  })
+  showApproveDialog.value = false
+  approveComment.value = ''
+}
+
 // ─── Audit log ────────────────────────────────────────────────────────────────
 const showAuditLog = ref(false)
 const auditIncludeEntities = computed(() => [
-  { entityType: 'CustomerComplaint', entityIds: [props.id] },
-  { entityType: 'CustomerComplaints', entityIds: [props.id] },
+  { entityType: 'Complaint', entityIds: [props.id] },
+  { entityType: 'Complaints', entityIds: [props.id] },
 ])
 
 // ─── Header actions ───────────────────────────────────────────────────────────
@@ -143,51 +208,37 @@ const complaintActions = computed(() => {
   const statusId = complaint.value?.statusId
   return [
     {
+      // Escalation — shown last of the primary actions (after Close / Hold).
       id: 'convert',
       label: 'Create NC',
       variant: 'primary',
-      priority: 100,
+      priority: 80,
       visible: canConvert.value && !isTerminal.value,
       disabled: acting.value,
       onSelect: () => (showConvertDialog.value = true),
     },
     {
-      id: 'approveClosure',
-      label: 'Approve closure',
+      // Fallback: start the QA-review workflow if one isn't running yet
+      // (normally it auto-starts at create/accept).
+      id: 'submit',
+      label: 'Submit for review',
       variant: 'primary',
       priority: 95,
-      visible: pendingApproval.value && isOwner.value,
+      visible: isEditable.value && !workflowInstanceId.value,
       disabled: acting.value,
-      onSelect: () => (showApproveDialog.value = true),
+      onSelect: handleSubmitForReview,
     },
     {
-      id: 'resolve',
-      label: 'Resolve',
-      variant: 'outline',
-      priority: 80,
-      visible: isEditable.value && !pendingApproval.value && statusId !== 'RESOLVED',
-      disabled: acting.value,
-      onSelect: () => runAction('resolve'),
-    },
-    {
-      id: 'hold',
-      label: 'Put on hold',
-      variant: 'outline',
-      priority: 70,
-      visible: isEditable.value && !pendingApproval.value && statusId !== 'ON_HOLD',
-      disabled: acting.value,
-      onSelect: () => runAction('hold'),
-    },
-    {
-      // Backend routes Close → PENDING_APPROVAL when the company requires owner
-      // approval, otherwise closes directly.
+      // Owner closes once every workflow step is complete. Approval is handled
+      // by the workflow's own APPROVAL steps, so no separate e-sign here.
       id: 'close',
       label: 'Close',
-      variant: 'outline',
-      priority: 60,
-      visible: isEditable.value && !pendingApproval.value,
-      disabled: acting.value,
-      onSelect: () => (showCloseDialog.value = true),
+      variant: 'primary',
+      priority: 100,
+      visible: isOwner.value && !isTerminal.value && !!workflowInstanceId.value,
+      disabled: acting.value || !!closeBlockedReason.value,
+      tooltip: closeBlockedReason.value || undefined,
+      onSelect: () => (showApproveDialog.value = true),
     },
     {
       id: 'reopen',
@@ -214,19 +265,10 @@ const complaintDetailConfig = computed(() =>
     variant: 'standard',
     width: 'standard',
     breadcrumbs: breadcrumbs.value,
-    banners: () =>
-      isTerminal.value
-        ? [
-            {
-              id: 'read-only',
-              tone: 'neutral',
-              title: 'Read-only',
-              message: `This complaint is ${complaint.value?.statusId === 'CONVERTED_TO_NC' ? 'escalated to NC' : 'closed'} and read-only.`,
-            },
-          ]
-        : [],
+    // No read-only banner — the status chip in the title conveys closed/converted.
+    banners: () => [],
     actions: complaintActions.value,
-    sections: [{ id: 'investigation', label: 'Investigation' }],
+    sections: [{ id: 'details', label: 'Details' }],
   }),
 )
 </script>
@@ -247,13 +289,13 @@ const complaintDetailConfig = computed(() =>
     </template>
 
     <template #status>
-      <CustomerComplaintStatusBadgeById v-if="complaint" :statusId="complaint.statusId" />
+      <ComplaintStatusBadgeById v-if="complaint" :statusId="complaint.statusId" />
     </template>
 
     <template v-if="complaint" #meta>
       <span>{{ complaint.complaintNumber }}</span>
       <template v-if="complaint.sourceId">
-        · <CustomerComplaintSourceBadgeById :sourceId="complaint.sourceId" />
+        · <ComplaintLookupBadge :id="complaint.sourceId" model="ComplaintSourceType" />
       </template>
       <template v-if="complaint.createdAt"> · {{ complaint.createdAt.formatDate('date') }} </template>
     </template>
@@ -263,7 +305,7 @@ const complaintDetailConfig = computed(() =>
         <DetailActionBar :actions="complaintActions" />
         <AskAiButton
           v-if="complaint?.id"
-          entityType="CustomerComplaint"
+          entityType="Complaint"
           :entityId="complaint.id"
           :entityTitle="complaint.subject"
           :entityNumber="complaint.complaintNumber"
@@ -271,63 +313,237 @@ const complaintDetailConfig = computed(() =>
       </div>
     </template>
 
-    <template v-if="complaint" #section-investigation>
+    <template v-if="complaint" #section-details>
       <RecordTrailBreadcrumb />
       <div
         v-if="saveError"
-        class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm"
+        class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm tw:mb-3"
       >
         {{ saveError }}
       </div>
 
-      <!-- Complaint summary (read-only reference for the investigator) -->
-      <FormSection title="Complaint">
-        <BaseTextarea
-          v-if="editingDescription && isEditable"
-          v-model="complaint.description"
-          placeholder="Description…"
-          :rows="4"
-          class="tw:mb-2"
-          @blur="editingDescription = false"
-        />
-        <div v-else class="tw:mb-2" @click="isEditable && (editingDescription = true)">
-          <p
-            class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:whitespace-pre-wrap"
-            :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-          >
-            {{ complaint.description || (isEditable ? 'Add a description…' : '—') }}
-          </p>
-        </div>
-      </FormSection>
+      <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Complaint detail">
+        <!-- ══ Complaint details ══ -->
+        <BaseTabPanel value="details">
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <FormSection title="Complaint">
+              <RichTextAttachments
+                v-model="complaint.description"
+                :readonly="!descriptionEditable"
+                placeholder="Describe the complaint — attach photos/evidence as needed…"
+              />
+              <p v-if="!isManualSource" class="tw:text-xs tw:text-secondary tw:mt-2">
+                Imported / external-source complaint — the original description is read-only.
+              </p>
+            </FormSection>
 
-      <!-- Investigation (rich text + attachments) — structured, QA-completed. -->
-      <FormSection title="Investigation">
-        <RichTextAttachments
-          v-model="complaint.investigation"
-          :readonly="!isEditable"
-          placeholder="Document the investigation — findings, analysis, evidence…"
-        />
-      </FormSection>
+            <BaseRailCard title="Product & origin">
+              <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:md:grid-cols-3 tw:gap-x-4 tw:gap-y-3">
+                <BaseDetailField label="Product / Service">
+                  <ProductSelectMenu
+                    v-if="isEditable"
+                    v-model="complaint.productId"
+                    :required="false"
+                    nullLabel="— Select —"
+                  />
+                  <ProductBadgeById v-else-if="complaint.productId" :productId="complaint.productId" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Batch / Lot / Serial">
+                  <BaseTextInput v-if="isEditable" v-model="complaint.batchLotSerial" size="sm" />
+                  <BaseText v-else color="secondary">{{ complaint.batchLotSerial || '—' }}</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Quantity affected">
+                  <BaseTextInput v-if="isEditable" v-model.number="complaint.quantityAffected" type="number" size="sm" />
+                  <BaseText v-else color="secondary">{{ complaint.quantityAffected ?? '—' }}</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Order / Invoice #">
+                  <BaseTextInput v-if="isEditable" v-model="complaint.orderInvoiceNumber" size="sm" />
+                  <BaseText v-else color="secondary">{{ complaint.orderInvoiceNumber || '—' }}</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Region">
+                  <ComplaintLookupSelectMenu v-if="isEditable" v-model="complaint.regionId" model="ComplaintRegion" />
+                  <ComplaintLookupBadge v-else :id="complaint.regionId" model="ComplaintRegion" />
+                </BaseDetailField>
+                <BaseDetailField label="Country">
+                  <ComplaintLookupSelectMenu
+                    v-if="isEditable"
+                    v-model="complaint.countryId"
+                    model="ComplaintCountry"
+                    parentField="regionId"
+                    :parentId="complaint.regionId"
+                  />
+                  <ComplaintLookupBadge v-else :id="complaint.countryId" model="ComplaintCountry" />
+                </BaseDetailField>
+                <BaseDetailField label="State / Province">
+                  <BaseTextInput v-if="isEditable" v-model="complaint.stateProvince" size="sm" />
+                  <BaseText v-else color="secondary">{{ complaint.stateProvince || '—' }}</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Site / Branch">
+                  <SiteSelectMenu v-if="isEditable" v-model="complaint.siteId" :required="false" />
+                  <SiteBadgeById v-else-if="complaint.siteId" :siteId="complaint.siteId" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+              </div>
+            </BaseRailCard>
 
-      <!-- Review Summary (rich text + attachments). -->
-      <FormSection title="Review summary">
-        <RichTextAttachments
-          v-model="complaint.reviewSummary"
-          :readonly="!isEditable"
-          placeholder="Reviewer's summary and conclusion…"
-        />
-      </FormSection>
+            <BaseRailCard title="Classification" grid>
+              <BaseDetailField label="Complaint source">
+                <ComplaintLookupSelectMenu
+                  v-if="isEditable"
+                  v-model="complaint.complaintSourceId"
+                  model="ComplaintSourceType"
+                />
+                <ComplaintLookupBadge v-else :id="complaint.complaintSourceId" model="ComplaintSourceType" />
+              </BaseDetailField>
+              <BaseDetailField label="Category">
+                <ComplaintLookupSelectMenu
+                  v-if="isEditable"
+                  v-model="complaint.categoryId"
+                  model="ComplaintCategory"
+                />
+                <ComplaintLookupBadge v-else :id="complaint.categoryId" model="ComplaintCategory" />
+              </BaseDetailField>
+              <BaseDetailField label="Sub-category">
+                <ComplaintLookupSelectMenu
+                  v-if="isEditable"
+                  v-model="complaint.subCategoryId"
+                  model="ComplaintSubCategory"
+                  parentField="categoryId"
+                  :parentId="complaint.categoryId"
+                />
+                <ComplaintLookupBadge v-else :id="complaint.subCategoryId" model="ComplaintSubCategory" />
+              </BaseDetailField>
+              <BaseDetailField label="Severity">
+                <ComplaintLookupSelectMenu
+                  v-if="isEditable"
+                  v-model="complaint.severityId"
+                  model="ComplaintSeverity"
+                />
+                <ComplaintLookupBadge v-else :id="complaint.severityId" model="ComplaintSeverity" />
+              </BaseDetailField>
+            </BaseRailCard>
 
-      <!-- QA Investigation notes — internal thread (no customer conversation). -->
-      <CustomerComplaintQaNotes :complaintId="id" :canUpdate="isEditable" />
+            <!-- Additional information — custom fields (Zendesk/import extras). -->
+            <CustomFieldsCard entityType="Complaint" :entityId="id" :editable="isEditable" />
+          </div>
+        </BaseTabPanel>
 
-      <!-- Attachments (photos / evidence) -->
-      <CustomerComplaintAttachmentsPanel :complaintId="id" :canUpdate="isEditable" />
+        <!-- ══ QA Review ══ -->
+        <BaseTabPanel value="review">
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <!-- QA assessment — determined by QA during review. -->
+            <BaseRailCard title="QA assessment">
+              <div class="tw:flex tw:flex-col tw:gap-4">
+                <BaseDetailField label="Risk level">
+                  <ComplaintLookupSelectMenu
+                    v-if="isEditable"
+                    v-model="complaint.riskLevelId"
+                    model="ComplaintRiskLevel"
+                  />
+                  <ComplaintLookupBadge v-else :id="complaint.riskLevelId" model="ComplaintRiskLevel" />
+                </BaseDetailField>
+                <div v-if="isEditable" class="tw:flex tw:flex-wrap tw:gap-x-6 tw:gap-y-2">
+                  <BaseCheckbox v-model="complaint.regulatoryReportable" label="Regulatory reportable" />
+                  <BaseCheckbox v-model="complaint.safetyIssue" label="Safety issue" />
+                  <BaseCheckbox v-model="complaint.complianceRelated" label="Compliance related" />
+                  <BaseCheckbox v-model="complaint.potentialRecall" label="Potential recall" />
+                  <BaseCheckbox v-model="complaint.repeatIssue" label="Repeat / recurring issue" />
+                </div>
+                <div v-else class="tw:flex tw:flex-wrap tw:gap-2">
+                  <BaseBadge v-if="complaint.regulatoryReportable" class="tw:bg-amber-100 tw:text-amber-700">Regulatory reportable</BaseBadge>
+                  <BaseBadge v-if="complaint.safetyIssue" class="tw:bg-red-100 tw:text-red-700">Safety issue</BaseBadge>
+                  <BaseBadge v-if="complaint.complianceRelated" class="tw:bg-amber-100 tw:text-amber-700">Compliance related</BaseBadge>
+                  <BaseBadge v-if="complaint.potentialRecall" class="tw:bg-red-100 tw:text-red-700">Potential recall</BaseBadge>
+                  <BaseBadge v-if="complaint.repeatIssue" class="tw:bg-purple-100 tw:text-purple-700">Repeat issue</BaseBadge>
+                  <span
+                    v-if="!complaint.regulatoryReportable && !complaint.safetyIssue && !complaint.complianceRelated && !complaint.potentialRecall && !complaint.repeatIssue"
+                    class="tw:text-sm tw:text-secondary"
+                  >
+                    No flags set.
+                  </span>
+                </div>
+              </div>
+            </BaseRailCard>
+
+            <!-- QA review workflow — Investigation → Review Summary → Approval.
+                 Rendered directly (no wrapping panel) like NcWorkflowDetail; the
+                 step cards are the cards, and the tab already reads "QA Review". -->
+            <ComplaintWorkflowDetail
+              :complaintId="id"
+              :workflowInstanceId="workflowInstanceId"
+              :isOwner="isOwner"
+            />
+          </div>
+        </BaseTabPanel>
+
+        <!-- ══ Escalations ══ -->
+        <BaseTabPanel value="escalations">
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <div v-if="canConvert && !isTerminal" class="tw:flex tw:justify-end">
+              <BaseButton variant="primary" :disabled="acting" @click="showConvertDialog = true">
+                Create NC
+              </BaseButton>
+            </div>
+
+            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
+              <BaseText variant="overline" class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
+                Linked NC
+              </BaseText>
+              <div v-if="linkedNcs.length" class="tw:flex tw:flex-col tw:gap-2">
+                <RouterLink
+                  v-for="nc in linkedNcs"
+                  :key="nc.id"
+                  :to="getCompanyPath(`/nonconformances/${nc.id}`)"
+                  class="tw:flex tw:items-center tw:justify-between tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
+                >
+                  <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
+                    <span class="tw:text-xs tw:text-secondary">{{ nc.ncNumber }}</span>
+                    <span class="tw:text-sm tw:font-medium tw:truncate">{{ nc.title }}</span>
+                  </div>
+                  <NcStatusBadgeById :statusId="nc.statusId" />
+                </RouterLink>
+              </div>
+              <div v-else class="tw:text-sm tw:text-secondary tw:italic">
+                No NC escalated from this complaint.
+              </div>
+            </div>
+
+            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
+              <div class="tw:flex tw:items-center tw:justify-between tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
+                <BaseText variant="overline">Related complaints</BaseText>
+                <span
+                  v-if="relatedComplaints.length"
+                  class="tw:text-micro tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:font-semibold"
+                >
+                  {{ relatedComplaints.length }} in 90d
+                </span>
+              </div>
+              <div v-if="relatedComplaints.length" class="tw:flex tw:flex-col tw:gap-2">
+                <RouterLink
+                  v-for="rc in relatedComplaints"
+                  :key="rc.id"
+                  :to="getCompanyPath(`/complaints/${rc.id}`)"
+                  class="tw:flex tw:items-center tw:justify-between tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
+                >
+                  <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
+                    <span class="tw:text-xs tw:text-secondary">{{ rc.complaintNumber }}</span>
+                    <span class="tw:text-sm tw:font-medium tw:truncate">{{ rc.subject }}</span>
+                  </div>
+                  <ComplaintStatusBadgeById :statusId="rc.statusId" />
+                </RouterLink>
+              </div>
+              <div v-else class="tw:text-sm tw:text-secondary tw:italic">
+                No related complaints by product, category or lot.
+              </div>
+            </div>
+          </div>
+        </BaseTabPanel>
+      </BaseTabs>
     </template>
 
     <template v-if="complaint" #rail>
-      <!-- ══ UNSTRUCTURED / PROVENANCE (from intake, import or Zendesk) ══ -->
-      <!-- 1. General -->
+      <!-- Glanceable summary; detailed fields live in the tabs. -->
       <BaseRailCard title="Complaint" grid>
         <BaseDetailField label="Complaint number">
           <BaseText variant="body" weight="medium" class="tw:break-words">
@@ -335,15 +551,20 @@ const complaintDetailConfig = computed(() =>
           </BaseText>
         </BaseDetailField>
         <BaseDetailField label="Status">
-          <CustomerComplaintStatusBadgeById :statusId="complaint.statusId" />
+          <ComplaintStatusBadgeById :statusId="complaint.statusId" />
         </BaseDetailField>
         <BaseDetailField label="Intake source">
-          <CustomerComplaintSourceBadgeById :sourceId="complaint.sourceId" />
+          <ComplaintLookupSelectMenu
+            v-if="isEditable"
+            v-model="complaint.sourceId"
+            model="ComplaintSourceType"
+          />
+          <ComplaintLookupBadge v-else :id="complaint.sourceId" model="ComplaintSourceType" />
         </BaseDetailField>
         <BaseDetailField label="Received" :value="complaint.createdAt?.formatDate('date')" />
       </BaseRailCard>
 
-      <!-- 2. Customer information (unstructured — arrives with the complaint) -->
+      <!-- Customer information -->
       <BaseRailCard title="Customer information" grid>
         <BaseDetailField label="Name" :value="complaint.customerName || '—'" />
         <BaseDetailField label="Company" :value="complaint.customerCompany || '—'" />
@@ -355,150 +576,15 @@ const complaintDetailConfig = computed(() =>
             v-model="complaint.customerTypeId"
             model="ComplaintCustomerType"
           />
-          <ComplaintLookupBadge
-            v-else
-            :id="complaint.customerTypeId"
-            model="ComplaintCustomerType"
-          />
+          <ComplaintLookupBadge v-else :id="complaint.customerTypeId" model="ComplaintCustomerType" />
         </BaseDetailField>
       </BaseRailCard>
 
-      <!-- 3. Additional information — custom fields (Zendesk/import extras). -->
-      <CustomFieldsCard entityType="CustomerComplaint" :entityId="id" :editable="isEditable" />
-
-      <!-- ══ STRUCTURED — completed by the QA team ══ -->
-      <!-- 4. Classification -->
-      <BaseRailCard title="Classification" grid>
-        <BaseDetailField label="Complaint source">
-          <ComplaintLookupSelectMenu
-            v-if="isEditable"
-            v-model="complaint.complaintSourceId"
-            model="ComplaintSourceType"
-          />
-          <ComplaintLookupBadge v-else :id="complaint.complaintSourceId" model="ComplaintSourceType" />
-        </BaseDetailField>
-        <BaseDetailField label="Category">
-          <ComplaintLookupSelectMenu
-            v-if="isEditable"
-            v-model="complaint.categoryId"
-            model="ComplaintCategory"
-          />
-          <ComplaintLookupBadge v-else :id="complaint.categoryId" model="ComplaintCategory" />
-        </BaseDetailField>
-        <BaseDetailField label="Sub-category">
-          <ComplaintLookupSelectMenu
-            v-if="isEditable"
-            v-model="complaint.subCategoryId"
-            model="ComplaintSubCategory"
-            parentField="categoryId"
-            :parentId="complaint.categoryId"
-          />
-          <ComplaintLookupBadge v-else :id="complaint.subCategoryId" model="ComplaintSubCategory" />
-        </BaseDetailField>
-        <BaseDetailField label="Type">
-          <ComplaintLookupSelectMenu
-            v-if="isEditable"
-            v-model="complaint.complaintTypeId"
-            model="ComplaintType"
-          />
-          <ComplaintLookupBadge v-else :id="complaint.complaintTypeId" model="ComplaintType" />
-        </BaseDetailField>
-        <BaseDetailField label="Severity">
-          <ComplaintLookupSelectMenu
-            v-if="isEditable"
-            v-model="complaint.severityId"
-            model="ComplaintSeverity"
-          />
-          <ComplaintLookupBadge v-else :id="complaint.severityId" model="ComplaintSeverity" />
-        </BaseDetailField>
-        <BaseDetailField label="Risk level">
-          <ComplaintLookupSelectMenu
-            v-if="isEditable"
-            v-model="complaint.riskLevelId"
-            model="ComplaintRiskLevel"
-          />
-          <ComplaintLookupBadge v-else :id="complaint.riskLevelId" model="ComplaintRiskLevel" />
-        </BaseDetailField>
-        <BaseDetailField label="Regulatory reportable">
-          <BaseCheckbox v-if="isEditable" v-model="complaint.regulatoryReportable" />
-          <BaseText v-else color="secondary">{{ complaint.regulatoryReportable ? 'Yes' : 'No' }}</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Safety issue">
-          <BaseCheckbox v-if="isEditable" v-model="complaint.safetyIssue" />
-          <BaseText v-else color="secondary">{{ complaint.safetyIssue ? 'Yes' : 'No' }}</BaseText>
-        </BaseDetailField>
-      </BaseRailCard>
-
-      <!-- 5. Product & origin -->
-      <BaseRailCard title="Product & origin" grid>
-        <BaseDetailField label="Product / Service">
-          <ProductSelectMenu v-if="isEditable" v-model="complaint.productId" :required="false" />
-          <ProductBadgeById v-else-if="complaint.productId" :productId="complaint.productId" />
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Product code / SKU">
-          <BaseTextInput v-if="isEditable" v-model="complaint.productCodeSku" size="sm" />
-          <BaseText v-else color="secondary">{{ complaint.productCodeSku || '—' }}</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Batch / Lot / Serial">
-          <BaseTextInput v-if="isEditable" v-model="complaint.batchLotSerial" size="sm" />
-          <BaseText v-else color="secondary">{{ complaint.batchLotSerial || '—' }}</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Quantity affected">
-          <BaseTextInput v-if="isEditable" v-model.number="complaint.quantityAffected" type="number" size="sm" />
-          <BaseText v-else color="secondary">{{ complaint.quantityAffected ?? '—' }}</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Order / Invoice #">
-          <BaseTextInput v-if="isEditable" v-model="complaint.orderInvoiceNumber" size="sm" />
-          <BaseText v-else color="secondary">{{ complaint.orderInvoiceNumber || '—' }}</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Region">
-          <ComplaintLookupSelectMenu v-if="isEditable" v-model="complaint.regionId" model="ComplaintRegion" />
-          <ComplaintLookupBadge v-else :id="complaint.regionId" model="ComplaintRegion" />
-        </BaseDetailField>
-        <BaseDetailField label="Country">
-          <ComplaintLookupSelectMenu
-            v-if="isEditable"
-            v-model="complaint.countryId"
-            model="ComplaintCountry"
-            parentField="regionId"
-            :parentId="complaint.regionId"
-          />
-          <ComplaintLookupBadge v-else :id="complaint.countryId" model="ComplaintCountry" />
-        </BaseDetailField>
-        <BaseDetailField label="State / Province">
-          <BaseTextInput v-if="isEditable" v-model="complaint.stateProvince" size="sm" />
-          <BaseText v-else color="secondary">{{ complaint.stateProvince || '—' }}</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Site / Branch">
-          <SiteSelectMenu v-if="isEditable" v-model="complaint.siteId" :required="false" />
-          <SiteBadgeById v-else-if="complaint.siteId" :siteId="complaint.siteId" />
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-      </BaseRailCard>
-
-      <!-- 6. Ownership, assignment & SLA -->
+      <!-- Ownership, assignment & SLA -->
       <BaseRailCard title="Ownership & SLA" grid>
         <BaseDetailField label="Owner">
           <UserBadgeById v-if="complaint.ownerId" :userId="complaint.ownerId" />
           <BaseText v-else color="secondary" class="tw:italic">Unassigned</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Investigator">
-          <UserBadgeById v-if="complaint.assignedTo" :userId="complaint.assignedTo" />
-          <BaseText v-else color="secondary" class="tw:italic">Unassigned</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Group">
-          <GroupSelectMenu v-if="isEditable" v-model="complaint.assignedTeamId" />
-          <GroupBadgeById v-else-if="complaint.assignedTeamId" :teamId="complaint.assignedTeamId" />
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Priority">
-          <CustomerComplaintPrioritySelectMenu v-if="isEditable" v-model="complaint.priorityId" />
-          <CustomerComplaintPriorityBadgeById
-            v-else-if="complaint.priorityId"
-            :priorityId="complaint.priorityId"
-          />
-          <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
         <BaseDetailField
           v-if="complaint.investigationStartedAt"
@@ -523,79 +609,24 @@ const complaintDetailConfig = computed(() =>
           <UserBadgeById :userId="complaint.closureApprovedBy" />
         </BaseDetailField>
       </BaseRailCard>
-
-      <!-- 7. Linked NC -->
-      <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-        <BaseText variant="overline" class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
-          Linked NC
-        </BaseText>
-        <div v-if="linkedNcs.length" class="tw:flex tw:flex-col tw:gap-2">
-          <RouterLink
-            v-for="nc in linkedNcs"
-            :key="nc.id"
-            :to="getCompanyPath(`/nonconformances/${nc.id}`)"
-            class="tw:flex tw:items-center tw:justify-between tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
-          >
-            <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
-              <span class="tw:text-xs tw:text-secondary">{{ nc.ncNumber }}</span>
-              <span class="tw:text-sm tw:font-medium tw:truncate">{{ nc.title }}</span>
-            </div>
-            <NcStatusBadgeById :statusId="nc.statusId" />
-          </RouterLink>
-        </div>
-        <div v-else class="tw:text-sm tw:text-secondary tw:italic">
-          No NC escalated from this complaint.
-        </div>
-      </div>
     </template>
   </BaseDetailLayout>
 
-  <!-- Close dialog -->
-  <BaseDialog v-model="showCloseDialog" title="Close Complaint" maxWidth="md">
+  <!-- Owner closes the complaint — gated on all workflow steps complete.
+       Approval is handled by the workflow's own APPROVAL steps, so no e-sign. -->
+  <BaseDialog v-model="showApproveDialog" title="Close complaint" maxWidth="md">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
       <p class="tw:text-sm tw:text-on-main">
-        Closing marks this complaint as done. If the customer replies by email, the support ticket
-        reopens automatically.
+        All workflow steps are complete. Closing marks this complaint resolved.
       </p>
-      <BaseTextarea v-model="closeComment" :rows="3" placeholder="Closing comment (optional)…" />
+      <BaseTextarea v-model="approveComment" :rows="2" placeholder="Closing comment (optional)…" />
     </div>
     <template #footer="{ close }">
       <BaseDialogFooter
-        submitLabel="Close Complaint"
+        submitLabel="Close complaint"
         :loading="acting"
         @cancel="close"
-        @submit="handleClose"
-      />
-    </template>
-  </BaseDialog>
-
-  <!-- Owner closure approval (e-sign PIN) -->
-  <BaseDialog v-model="showApproveDialog" title="Approve closure" maxWidth="md">
-    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-      <p class="tw:text-sm tw:text-on-main">
-        As the owner, approving closes this complaint. Enter your e-signature PIN to sign the
-        approval.
-      </p>
-      <BaseField label="E-signature PIN" required :value="approvePin">
-        <template #default="field">
-          <BaseTextInput
-            v-bind="field"
-            v-model="approvePin"
-            type="password"
-            placeholder="••••"
-            autocomplete="off"
-          />
-        </template>
-      </BaseField>
-      <BaseTextarea v-model="approveComment" :rows="2" placeholder="Approval comment (optional)…" />
-    </div>
-    <template #footer="{ close }">
-      <BaseDialogFooter
-        submitLabel="Sign & close"
-        :loading="acting"
-        :disabled="!approvePin"
-        @cancel="close"
-        @submit="handleApproveClosure"
+        @submit="handleMarkComplete"
       />
     </template>
   </BaseDialog>
@@ -604,6 +635,7 @@ const complaintDetailConfig = computed(() =>
   <CustomerComplaintConvertToNcDialog
     v-model="showConvertDialog"
     :complaints="complaint ? [complaint] : []"
+    apiPath="complaints"
     @converted="onConverted"
   />
 

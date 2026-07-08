@@ -27,6 +27,7 @@ const tabs = [
   { value: 'complaint-types', label: 'Complaint Types' },
   { value: 'complaint-severities', label: 'Complaint Severities' },
   { value: 'complaint-risk-levels', label: 'Complaint Risk Levels' },
+  { value: 'complaint-report-schemes', label: 'Complaint Report Schemes' },
 ]
 const validTabIds = new Set(tabs.map((t) => t.value))
 
@@ -108,6 +109,13 @@ model="ComplaintSeverity" title="Severity" :hasColor="true"
           <ComplaintLookupCard
 model="ComplaintRiskLevel" title="Risk Level" :hasColor="true"
             subtitle="Risk classification with colour + rank." />
+        </BaseTabPanel>
+        <BaseTabPanel value="complaint-report-schemes">
+          <ComplaintLookupCard
+            model="ComplaintReportScheme"
+            title="Report Scheme"
+            subtitle="Regulatory reporting schemes for the reportability assessment (FDA MDR, EU MDR, MoCRA…)."
+          />
         </BaseTabPanel>
       </BaseTabs>
     </div>

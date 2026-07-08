@@ -15,6 +15,10 @@ const props = defineProps({
   // Complaints list overrides this to '/complaints' so rows open the QA
   // investigation page instead.
   detailBasePath: { type: String, default: '/customer-complaints' },
+  // QA complaints track the responsible party in `ownerId`, not the support
+  // agent `assignedTo`. When true the ASSIGNED column resolves the owner (with
+  // assignedTo as fallback) and is labelled OWNER.
+  ownerAsAssignee: { type: Boolean, default: false },
 })
 
 defineEmits(['open', 'export'])
@@ -81,10 +85,17 @@ const columns = computed(() => {
   ].map((c) => ({
     ...c,
     align: 'left',
+    label: c.name === 'assignedTo' && props.ownerAsAssignee ? 'OWNER' : c.label,
     hidden: !DEFAULT_VISIBLE.has(c.name),
     ...(filterCfg[c.name] || {}),
   }))
 })
+
+// The person shown in the ASSIGNED/OWNER column: the QA owner (with agent
+// fallback) in QA mode, else the support agent.
+function assigneeId(row) {
+  return props.ownerAsAssignee ? row.ownerId || row.assignedTo : row.assignedTo
+}
 
 function customValue(row, columnName) {
   const key = columnName.slice('custom:'.length)
@@ -161,7 +172,7 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     </template>
 
     <template #body-cell-assignedTo="{ row }">
-      <UserBadgeById v-if="row.assignedTo" :userId="row.assignedTo" />
+      <UserBadgeById v-if="assigneeId(row)" :userId="assigneeId(row)" />
       <span v-else class="tw:text-sm tw:text-secondary tw:italic">Unassigned</span>
     </template>
 

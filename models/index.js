@@ -115,6 +115,11 @@ import { ComplaintSubCategory } from './complaintSubCategory'
 import { ComplaintType } from './complaintType'
 import { ComplaintSeverity } from './complaintSeverity'
 import { ComplaintRiskLevel } from './complaintRiskLevel'
+import { ComplaintReportScheme } from './complaintReportScheme'
+// Standalone QMS Complaint (separate from support customer_complaints).
+import { Complaint } from './complaint'
+import { ComplaintRecord } from './complaintRecord'
+import { ComplaintStatus } from './complaintStatus'
 import { NcSourceLink } from './ncSourceLink'
 import { ComplaintCannedResponse } from './complaintCannedResponse'
 import { Customer } from './customer'
@@ -316,6 +321,10 @@ export const db = {
   ComplaintType,
   ComplaintSeverity,
   ComplaintRiskLevel,
+  ComplaintReportScheme,
+  Complaint,
+  ComplaintRecord,
+  ComplaintStatus,
   NcSourceLink,
   ComplaintCannedResponse,
   Customer,

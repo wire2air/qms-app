@@ -14,6 +14,8 @@ import { required } from '@shared/components/form/validators.js'
  */
 const props = defineProps({
   complaints: { type: Array, default: () => [] },
+  // API base: 'customerComplaints' (support) or 'complaints' (QMS complaint).
+  apiPath: { type: String, default: 'customerComplaints' },
 })
 
 const emit = defineEmits(['converted'])
@@ -56,7 +58,7 @@ async function onValidSubmit() {
   saving.value = true
   saveError.value = ''
   try {
-    const response = await post('/v1/services/customerComplaints/convertToNc', {
+    const response = await post(`/v1/services/${props.apiPath}/convertToNc`, {
       complaintIds: props.complaints.map((c) => c.id),
       title: form.value.title.trim(),
       siteId: form.value.siteId,

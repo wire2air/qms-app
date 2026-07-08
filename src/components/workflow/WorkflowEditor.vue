@@ -74,7 +74,13 @@ const workflow = useLiveQueryWithDeps(
 // per-step toggle now, so we leave the approvalRule unforced for CC and
 // Document workflows and let the author pick ALL vs ANY on each APPROVAL
 // step. NC + CAPA keep their forced rule for backwards compat.
-const WORKFLOW_MODULES_WITH_STEP_CONFIG = ['NON_CONFORMANCE', 'CAPA', 'CHANGE_CONTROL']
+const WORKFLOW_MODULES_WITH_STEP_CONFIG = [
+  'NON_CONFORMANCE',
+  'CAPA',
+  'CHANGE_CONTROL',
+  'CUSTOMER_COMPLAINT',
+  'COMPLAINT',
+]
 const MODULES_WITH_CHILD_STEPS = ['CAPA', 'CHANGE_CONTROL']
 const showAllowedOutcomes = computed(() =>
   WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),

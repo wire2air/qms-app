@@ -18,10 +18,10 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
  */
 const router = useRouter()
 
-const canCreate = computed(() => isAllowed(['customerComplaints:create']))
-const canUpdate = computed(() => isAllowed(['customerComplaints:update']))
+const canCreate = computed(() => isAllowed(['complaints:create']))
+const canUpdate = computed(() => isAllowed(['complaints:update']))
 const canConvert = computed(
-  () => isAllowed(['customerComplaints:update']) && isAllowed(['nonconformances:create']),
+  () => isAllowed(['complaints:update']) && isAllowed(['nonconformances:create']),
 )
 
 const list = useListLayout({
@@ -41,7 +41,18 @@ const VIEWS = [
   { value: 'open', label: 'Open' },
   { value: 'closed', label: 'Closed' },
 ]
-const OPEN_STATUSES = ['NEW', 'OPEN', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_CUSTOMER', 'ON_HOLD']
+// Active (non-closed) states. UNDER_REVIEW / PENDING_APPROVAL are QMS-workflow
+// states — an owner reviewing before close — so they count as open, not limbo.
+const OPEN_STATUSES = [
+  'NEW',
+  'OPEN',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'WAITING_CUSTOMER',
+  'ON_HOLD',
+  'UNDER_REVIEW',
+  'PENDING_APPROVAL',
+]
 const CLOSED_STATUSES = ['CLOSED', 'CONVERTED_TO_NC']
 
 // Team ids the current user belongs to — drives the "QA Review" view.
@@ -54,8 +65,8 @@ const myTeamIds = useLiveQuery(
   { models: ['UserOnTeam'], initial: [] },
 )
 
-const allComplaints = useLiveQuery((db) => db.CustomerComplaint.where().exec(), {
-  models: ['CustomerComplaint'],
+const allComplaints = useLiveQuery((db) => db.Complaint.where().exec(), {
+  models: ['Complaint'],
   initial: [],
 })
 
@@ -64,7 +75,7 @@ const complaints = useLiveQueryWithDeps(
   async (db, [search, af]) => {
     const uid = currentSession.value?.userId
     const teamSet = new Set(myTeamIds.value)
-    let results = (await db.CustomerComplaint.where().exec()).filter((r) => !r.isSpam)
+    let results = (await db.Complaint.where().exec()).filter((r) => !r.isSpam)
 
     if (search) {
       const q = search.toLowerCase()
@@ -78,9 +89,14 @@ const complaints = useLiveQueryWithDeps(
     }
 
     if (af === 'qa_review') {
+      // My QA queue: complaints I own (the workflow's responsible party — e.g.
+      // an UNDER_REVIEW complaint sitting on the owner for final review) or that
+      // are assigned to me / my team, and not yet closed.
       results = results.filter(
         (r) =>
-          (r.assignedTo === uid || (r.assignedTeamId && teamSet.has(r.assignedTeamId))) &&
+          (r.ownerId === uid ||
+            r.assignedTo === uid ||
+            (r.assignedTeamId && teamSet.has(r.assignedTeamId))) &&
           !CLOSED_STATUSES.includes(r.statusId),
       )
     } else if (af === 'open') {
@@ -91,7 +107,7 @@ const complaints = useLiveQueryWithDeps(
 
     return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { models: ['CustomerComplaint'], initial: [] },
+  { models: ['Complaint'], initial: [] },
 )
 
 const stats = computed(() => {
@@ -188,11 +204,13 @@ function onConverted(ncId) {
       :rows="complaints"
       :selectable="canConvert || canUpdate"
       detailBasePath="/complaints"
+      :ownerAsAssignee="true"
     />
 
     <CustomerComplaintConvertToNcDialog
       v-model="showConvertDialog"
       :complaints="selectedComplaints"
+      apiPath="complaints"
       @converted="onConverted"
     />
   </BaseListLayout>
