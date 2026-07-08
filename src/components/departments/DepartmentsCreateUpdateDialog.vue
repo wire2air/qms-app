@@ -62,6 +62,25 @@ function codeUnique() {
   return codeAvailable.value || 'Code already in use'
 }
 
+// Name uniqueness (case-insensitive, per company) — backed by the DB
+// departments_company_name_unique partial index. Excludes the current row in edit mode.
+const nameAvailable = useLiveQueryWithDeps(
+  [() => props.id, () => form.value.name],
+  async (db, [id, name]) => {
+    const n = (name || '').trim().toLowerCase()
+    if (!n) return true
+    const all = await db.Department.where().exec()
+    return !all.some((d) => (d.name || '').trim().toLowerCase() === n && d.id !== id)
+  },
+  { models: ['Department'], initial: true },
+)
+const nameInUseError = computed(() =>
+  form.value.name && !nameAvailable.value ? 'A department with this name already exists' : '',
+)
+function nameUnique() {
+  return nameAvailable.value || 'A department with this name already exists'
+}
+
 // Populate form when department loads in edit mode
 watch(
   department,
@@ -137,6 +156,9 @@ async function onSubmit() {
         supervisorUserId: form.value.supervisorUserId || null,
         displayOrder: await getDisplayOrder(),
       })
+      // Undefined means the save failed (useLiveMutation already toasted the
+      // error). Keep the dialog open so the user can correct and retry.
+      if (!newDept) return
       emit('created', newDept)
     } else {
       department.value.name = form.value.name
@@ -169,7 +191,13 @@ async function onSubmit() {
     </template>
 
     <BaseForm ref="formRef" hideFooter @submit="onSubmit">
-      <BaseField label="Department Name" required :value="form.name" :rules="[required()]">
+      <BaseField
+        label="Department Name"
+        required
+        :value="form.name"
+        :rules="[required(), nameUnique]"
+        :error="nameInUseError"
+      >
         <template #default="field">
           <BaseTextInput
             v-bind="field"

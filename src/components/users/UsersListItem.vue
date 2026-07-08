@@ -40,18 +40,21 @@ function onClick() {
 
 <template>
   <BaseClickableRow
-    class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:bg-sidebar tw:rounded-lg tw:border tw:border-divider tw:hover:border-primary/30 tw:transition-colors"
+    class="tw:flex tw:items-center tw:gap-3 tw:px-3.5 tw:py-2.5 tw:bg-sidebar tw:rounded-lg tw:border tw:border-divider tw:hover:border-primary/40 tw:hover:shadow-sm tw:transition-all"
     :aria-label="`View ${user.firstName} ${user.lastName}`"
     @click="onClick"
   >
-    <UserAvatar :user="user" class="tw:size-14" />
+    <UserAvatar :user="user" class="tw:size-9 tw:shrink-0" />
 
     <div class="tw:flex-1 tw:min-w-0">
-      <div class="tw:text-lg tw:font-bold tw:text-on-main">
+      <div class="tw:truncate tw:text-sm tw:font-semibold tw:text-on-main">
         {{ user.firstName }} {{ user.lastName }}
       </div>
-      <div class="tw:text-sm tw:text-secondary">{{ user.email }}</div>
-      <div class="tw:text-xs tw:text-secondary tw:mt-1">{{ roleNames }}</div>
+      <div class="tw:truncate tw:text-xs tw:text-secondary">{{ user.email }}</div>
+    </div>
+
+    <div class="tw:hidden tw:max-w-56 tw:shrink-0 tw:truncate tw:text-xs tw:text-secondary tw:md:block">
+      {{ roleNames }}
     </div>
 
     <div class="tw:flex-none">

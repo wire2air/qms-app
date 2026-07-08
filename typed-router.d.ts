@@ -366,6 +366,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/no-access': RouteRecordInfo<
+      '/no-access',
+      '/no-access',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/nonconformances/[[id]]': RouteRecordInfo<
       '/nonconformances/[[id]]',
       '/nonconformances/:id?',
@@ -413,6 +420,13 @@ declare module 'vue-router/auto-routes' {
       '/products/:id?',
       { id?: ParamValueZeroOrOne<true> },
       { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/profile': RouteRecordInfo<
+      '/profile',
+      '/profile',
+      Record<never, never>,
+      Record<never, never>,
       | never
     >,
     '/qc-inspection/': RouteRecordInfo<
@@ -939,6 +953,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/no-access.vue': {
+      routes:
+        | '/no-access'
+      views:
+        | never
+    }
     'src/pages/nonconformances/[[id]].vue': {
       routes:
         | '/nonconformances/[[id]]'
@@ -978,6 +998,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/products/[[id]].vue': {
       routes:
         | '/products/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/profile.vue': {
+      routes:
+        | '/profile'
       views:
         | never
     }
