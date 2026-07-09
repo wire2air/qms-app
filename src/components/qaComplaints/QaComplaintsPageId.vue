@@ -3,7 +3,7 @@ import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { post } from '@/api'
+import { get, post } from '@/api'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 /**
@@ -147,32 +147,37 @@ const linkedNcs = useLiveQueryWithDeps(
   { models: ['Nonconformance'], initial: [] },
 )
 
-// ─── Related complaints (trending — same product / category / lot, last 90d) ───
-const relatedComplaints = useLiveQueryWithDeps(
-  [
-    () => complaint.value?.productId,
-    () => complaint.value?.categoryId,
-    () => complaint.value?.batchLotSerial,
-    () => props.id,
-  ],
-  async (db, [productId, categoryId, batch, id]) => {
-    if (!productId && !categoryId && !batch) return []
-    const cutoff = DateTime.now().minus({ days: 90 })
-    const rows = await db.Complaint.where().exec()
-    return rows
-      .filter(
-        (r) =>
-          r.id !== id &&
-          !r.isSpam &&
-          ((productId && r.productId === productId) ||
-            (categoryId && r.categoryId === categoryId) ||
-            (batch && r.batchLotSerial && r.batchLotSerial === batch)) &&
-          (!r.createdAt || r.createdAt >= cutoff),
-      )
-      .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
-      .slice(0, 8)
-  },
-  { models: ['Complaint'], initial: [] },
+// ─── Similar complaints (Postgres full-text "more like this") ─────────────────
+// Server-ranked by term overlap on the indexed content (subject/description/
+// investigation/review). Fuzzy + stemmed — catches wording/typo variants the
+// old exact product/category/batch match missed. No AI.
+const relatedComplaints = ref([])
+async function loadSimilar() {
+  if (!props.id) return
+  try {
+    // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+    const resp = await get(`/v1/services/complaints/${props.id}/similar`)
+    relatedComplaints.value = (resp?.results ?? []).map((r) => ({
+      id: r.complaintId,
+      complaintNumber: r.complaintNumber,
+      subject: r.subject,
+      statusId: r.statusId,
+    }))
+  } catch {
+    relatedComplaints.value = []
+  }
+}
+watch(() => props.id, loadSimilar, { immediate: true })
+// The source's index updates async after edits — refetch once it settles.
+watch(
+  () =>
+    [
+      complaint.value?.subject,
+      complaint.value?.description,
+      complaint.value?.investigation,
+      complaint.value?.reviewSummary,
+    ].join('|'),
+  useDebounceFn(loadSimilar, 2500),
 )
 
 // ─── Manually-linked similar complaints (record_links relation SIMILAR) ───────
@@ -599,12 +604,12 @@ const complaintDetailConfig = computed(() =>
 
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
               <div class="tw:flex tw:items-center tw:justify-between tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
-                <BaseText variant="overline">Related complaints</BaseText>
+                <BaseText variant="overline">Similar complaints</BaseText>
                 <span
                   v-if="relatedComplaints.length"
                   class="tw:text-micro tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:font-semibold"
                 >
-                  {{ relatedComplaints.length }} in 90d
+                  {{ relatedComplaints.length }} found
                 </span>
               </div>
               <div v-if="relatedComplaints.length" class="tw:flex tw:flex-col tw:gap-2">
@@ -622,7 +627,7 @@ const complaintDetailConfig = computed(() =>
                 </RouterLink>
               </div>
               <div v-else class="tw:text-sm tw:text-secondary tw:italic">
-                No related complaints by product, category or lot.
+                No similar complaints found by text match.
               </div>
             </div>
 
