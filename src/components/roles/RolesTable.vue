@@ -1,5 +1,5 @@
 <script setup>
-import { IconCircleCheck, IconBan } from '@tabler/icons-vue'
+import { IconCircleCheck, IconBan, IconCopy } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
@@ -15,9 +15,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  canCreate: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-const emit = defineEmits(['activate', 'deactivate'])
+const emit = defineEmits(['activate', 'deactivate', 'clone'])
 
 const router = useRouter()
 
@@ -43,11 +47,18 @@ function openRole(row) {
 }
 
 function rowMenuItems(row) {
-  if (!props.canUpdate) return []
-  if (row.statusId === 'INACTIVE') {
-    return [{ name: 'Activate Role', icon: IconCircleCheck, click: () => emit('activate', row) }]
+  const items = []
+  if (props.canCreate) {
+    items.push({ name: 'Clone Role', icon: IconCopy, click: () => emit('clone', row) })
   }
-  return [{ name: 'Deactivate Role', icon: IconBan, click: () => emit('deactivate', row) }]
+  if (props.canUpdate) {
+    items.push(
+      row.statusId === 'INACTIVE'
+        ? { name: 'Activate Role', icon: IconCircleCheck, click: () => emit('activate', row) }
+        : { name: 'Deactivate Role', icon: IconBan, click: () => emit('deactivate', row) },
+    )
+  }
+  return items
 }
 </script>
 
@@ -89,7 +100,7 @@ function rowMenuItems(row) {
     </template>
 
     <template #body-cell-actions="{ row }">
-      <div v-if="canUpdate" class="tw:flex tw:justify-end">
+      <div v-if="canUpdate || canCreate" class="tw:flex tw:justify-end">
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>

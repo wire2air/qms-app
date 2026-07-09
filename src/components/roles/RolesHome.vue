@@ -17,6 +17,17 @@ import { isAllowed } from '@/utils/currentSession.js'
 // userCount per role. Search / sort / filter now happen client-side in the DataTable.
 const { roles, loading, activateRole, deactivateRole } = useRoles()
 const showCreateDialog = ref(false)
+const cloneSource = ref(null)
+
+function openCreate() {
+  cloneSource.value = null
+  showCreateDialog.value = true
+}
+
+function onClone(role) {
+  cloneSource.value = role
+  showCreateDialog.value = true
+}
 
 const toast = useToast()
 const { confirm } = useConfirm()
@@ -74,7 +85,7 @@ async function onDeactivate(role) {
       <button
         v-if="canCreateRole"
         class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:bg-primary tw:text-white tw:font-bold tw:rounded-lg tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:cursor-pointer"
-        @click="showCreateDialog = true"
+        @click="openCreate"
       >
         <IconPlus :size="18" />
         Create New Role
@@ -85,8 +96,10 @@ async function onDeactivate(role) {
       :rows="roles"
       :loading="loading"
       :canUpdate="canUpdateRole"
+      :canCreate="canCreateRole"
       @activate="onActivate"
       @deactivate="onDeactivate"
+      @clone="onClone"
     />
   </BaseListLayout>
 
@@ -94,5 +107,5 @@ async function onDeactivate(role) {
        state, so leaving the dialog inside would unmount it whenever creating a
        role flips the shared `loading` ref (the list shows its skeleton),
        remounting a fresh dialog and re-opening it. -->
-  <RoleCreateDialog v-model="showCreateDialog" />
+  <RoleCreateDialog v-model="showCreateDialog" :cloneSource="cloneSource" />
 </template>

@@ -871,6 +871,7 @@ declare module 'vue' {
     RoleDetailConfig: typeof import('./src/components/roles/roleDetailConfig.js')['default']
     'RoleDetailConfig.spec': typeof import('./src/components/roles/roleDetailConfig.spec.js')['default']
     RolePageId: typeof import('./src/components/roles/RolePageId.vue')['default']
+    RolePermissionMatrix: typeof import('./src/components/roles/RolePermissionMatrix.vue')['default']
     RolePermissionsList: typeof import('./src/components/roles/RolePermissionsList.vue')['default']
     RolePermissionsListItem: typeof import('./src/components/roles/RolePermissionsListItem.vue')['default']
     RoleSelectMenu: typeof import('./src/components/menus/RoleSelectMenu.vue')['default']

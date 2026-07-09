@@ -1,7 +1,6 @@
 <script setup>
-import { IconHistory, IconSearch, IconSquareCheck } from '@tabler/icons-vue'
+import { IconHistory, IconSearch } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { useRolePermissions } from '@/composables/useRolePermissions.js'
 import { useRoles } from '@/composables/useRoles.js'
 import { isAllowed } from '@/utils/currentSession.js'
 import { buildRoleSections, buildRoleActions } from './roleDetailConfig.js'
@@ -36,20 +35,9 @@ const descriptionInputRef = ref(null)
 // User assignment dialog
 const showUsersDialog = ref(false)
 
-// Use the permissions composable
-const {
-  searchTerm,
-  selectedPermissions,
-  permissionActions,
-  sectionedGroups,
-  fetchPermissions,
-  isSelected,
-  togglePermission,
-  isActionLocked,
-  getPermissionForAction,
-  selectAll,
-  setSelectedPermissions,
-} = useRolePermissions()
+// Permission matrix (self-contained; persisted via its exposed save()).
+const matrixRef = ref(null)
+const permSearch = ref('')
 
 const breadcrumbItems = computed(() => [
   { label: 'Roles', to: getCompanyPath('/roles') },
@@ -152,10 +140,6 @@ async function fetchRoleData() {
     }
 
     role.value = fetchedRole
-
-    // Extract and set selected permissions
-    const permissionIds = fetchedRole.permissionAssignments?.map((pa) => pa.permission.id) || []
-    setSelectedPermissions(permissionIds)
   } finally {
     loading.value = false
   }
@@ -172,17 +156,18 @@ async function saveChanges() {
 
   try {
     const updateData = {
-      permissionIds: selectedPermissions.value,
+      name: role.value.name,
+      description: role.value.description ?? '',
     }
-
-    updateData.name = role.value.name
-    updateData.description = role.value.description ?? ''
 
     const result = await updateRole(props.id, updateData)
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to update role')
     }
+
+    // Persist the permission matrix via its own audited endpoint.
+    await matrixRef.value?.save()
 
     toast.success('Role updated successfully')
 
@@ -207,7 +192,6 @@ function goBack() {
 // Initialize
 onMounted(() => {
   fetchRoleData()
-  fetchPermissions()
 })
 
 // Watch for id changes
@@ -344,31 +328,20 @@ const roleDetailConfig = computed(() =>
               class="tw:absolute tw:left-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
             />
             <BaseTextInput
-              v-model="searchTerm"
-              placeholder="Search permissions..."
+              v-model="permSearch"
+              placeholder="Search modules..."
               class="tw:w-full tw:pl-9"
             />
           </div>
-          <button
-            v-if="canUpdateRole"
-            class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:font-semibold tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline"
-            @click="selectAll"
-          >
-            <IconSquareCheck :size="18" />
-            Select All
-          </button>
         </div>
       </div>
 
-      <!-- Permission Groups -->
-      <RolePermissionsList
-        v-model="sectionedGroups"
-        :permissionActions="permissionActions"
-        :isSelected="isSelected"
-        :togglePermission="togglePermission"
-        :isActionLocked="isActionLocked"
-        :getPermissionForAction="getPermissionForAction"
-        :canUpdateRole="canUpdateRole"
+      <!-- Module × action × scope matrix -->
+      <RolePermissionMatrix
+        ref="matrixRef"
+        :roleId="id"
+        :canUpdate="canUpdateRole"
+        :search="permSearch"
       />
     </template>
   </BaseDetailLayout>
