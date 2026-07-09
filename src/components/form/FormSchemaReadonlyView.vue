@@ -380,6 +380,22 @@ function getChecklistColumnLabel(col) {
         </div>
       </div>
 
+      <!-- Rich text + attachments field (full-width). Rendered via the
+           component so the HTML renders AND the attachment/document links show;
+           v-html alone would leak the encoded "[qms-attachments]::" marker. -->
+      <div
+        v-else-if="field.type === 'richTextAttachment'"
+        class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5"
+      >
+        <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <RichTextAttachments
+          v-if="getFieldValue(field)"
+          :modelValue="getFieldValue(field)"
+          :readonly="true"
+        />
+        <span v-else class="tw:text-xs tw:text-secondary tw:italic">Not provided</span>
+      </div>
+
       <!-- HTML / textEditor field (full-width) -->
       <div v-else-if="isHtmlField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5">
         <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>

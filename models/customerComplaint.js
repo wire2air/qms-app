@@ -6,7 +6,7 @@ import { DateTime } from 'luxon'
   primaryKey: 'id',
   syncField: 'updatedAt',
   customIndex: 'companyId, statusId, assignedTo',
-  schemaVersion: 1,
+  schemaVersion: 5,
 })
 export class CustomerComplaint extends BaseModel {
   static paranoid = true

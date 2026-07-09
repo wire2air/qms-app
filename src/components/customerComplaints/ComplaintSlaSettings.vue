@@ -24,15 +24,23 @@ const DEFAULTS = {
   resolutionHours: 72,
   autoCloseDays: 7,
   followUpAfterDays: 30,
+  // QMS: resolution target in DAYS, stamped on the complaint at Accept.
+  resolutionDays: 0,
+}
+// Non-numeric QMS settings kept separate from the numeric clean loop below.
+const BOOL_DEFAULTS = {
+  // When on, Close routes to owner approval (PENDING_APPROVAL) and the owner
+  // must e-sign to close.
+  requireClosureApproval: false,
 }
 
-const draft = ref({ ...DEFAULTS })
+const draft = ref({ ...DEFAULTS, ...BOOL_DEFAULTS })
 
 watch(
   company,
   (c) => {
     if (!c) return
-    draft.value = { ...DEFAULTS, ...(c.settings?.complaintSettings ?? {}) }
+    draft.value = { ...DEFAULTS, ...BOOL_DEFAULTS, ...(c.settings?.complaintSettings ?? {}) }
   },
   { immediate: true },
 )
@@ -46,8 +54,10 @@ async function handleSave() {
     const clean = {}
     for (const [key, fallback] of Object.entries(DEFAULTS)) {
       const n = Number(draft.value[key])
-      clean[key] = Number.isFinite(n) && n > 0 ? n : fallback
+      // resolutionDays may legitimately be 0 (no QMS target); others clamp > 0.
+      clean[key] = Number.isFinite(n) && n >= 0 ? (key === 'resolutionDays' ? n : n > 0 ? n : fallback) : fallback
     }
+    clean.requireClosureApproval = !!draft.value.requireClosureApproval
     company.value.settings = {
       ...(company.value.settings ?? {}),
       complaintSettings: clean,
@@ -72,6 +82,11 @@ const FIELDS = [
     key: 'resolutionHours',
     label: 'Resolution target (hours)',
     hint: 'Tickets should be resolved within this window from creation.',
+  },
+  {
+    key: 'resolutionDays',
+    label: 'QMS resolution target (days)',
+    hint: 'When a complaint is accepted, its resolution target date is stamped this many days out. 0 = no target.',
   },
   {
     key: 'autoCloseDays',
@@ -102,6 +117,13 @@ const FIELDS = [
         :hint="field.hint"
       >
         <BaseTextInput :id="fieldId" v-model="draft[field.key]" type="number" class="tw:w-32" />
+      </BaseField>
+
+      <BaseField
+        label="Require owner approval to close"
+        hint="When on, closing a complaint routes to the owner for approval; the owner must e-sign (PIN) to close."
+      >
+        <BaseCheckbox v-model="draft.requireClosureApproval" label="Owner e-sign approval required on close" />
       </BaseField>
 
       <div class="tw:flex tw:justify-end tw:pt-2 tw:border-t tw:border-divider">

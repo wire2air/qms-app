@@ -665,16 +665,17 @@ const qualityEventDetailConfig = computed(() =>
       </BaseRailCard>
 
       <BaseRailCard title="Schedule">
+        <!-- Reported date is the intake timestamp (read-only) — shown first.
+             Uses the :value prop so it renders in the canonical rail value
+             style (text-body / medium / on-main), consistent with other fields. -->
+        <BaseDetailField
+          label="Reported Date"
+          :value="event.reportedDate ? toDateTime(event.reportedDate)?.formatDate('datetime') : null"
+        />
         <BaseDetailField label="Occurrence Date">
           <BaseDateField v-if="canUpdate" v-model="event.occurrenceDate" mode="date" />
           <BaseText v-else color="secondary">
             {{ event.occurrenceDate ? toDateTime(event.occurrenceDate)?.formatDate('date') : '—' }}
-          </BaseText>
-        </BaseDetailField>
-        <!-- Reported date is the intake timestamp (read-only). -->
-        <BaseDetailField label="Reported Date">
-          <BaseText color="secondary">
-            {{ event.reportedDate ? toDateTime(event.reportedDate)?.formatDate('datetime') : '—' }}
           </BaseText>
         </BaseDetailField>
         <BaseDetailField label="Review Due Date">

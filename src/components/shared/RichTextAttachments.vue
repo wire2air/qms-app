@@ -44,9 +44,28 @@ function parse(raw) {
   }
 }
 
+// Tiptap emits trailing (and sometimes leading) empty paragraphs — "real
+// text<p></p><p></p>". Strip empty paragraphs at both edges so we never
+// persist a stray "<p></p>", and collapse an all-blank value to '' so
+// `required` validation works. Interior empty paragraphs (deliberate spacing)
+// are left untouched.
+const EMPTY_P_LEADING = /^(?:\s*<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*)+/i
+const EMPTY_P_TRAILING = /(?:\s*<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*)+$/i
+
+function normalizeHtml(html) {
+  const trimmed = (html || '').replace(EMPTY_P_LEADING, '').replace(EMPTY_P_TRAILING, '')
+  const stripped = trimmed
+    .replace(/<p>(\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '')
+    .replace(/<br\s*\/?>/gi, '')
+    .replace(/&nbsp;/gi, '')
+    .trim()
+  return stripped ? trimmed : ''
+}
+
 function serialize(html, attachments) {
-  if (!attachments.length) return html
-  return `${html}${MARKER}${JSON.stringify(attachments)}`
+  const normalized = normalizeHtml(html)
+  if (!attachments.length) return normalized
+  return `${normalized}${MARKER}${JSON.stringify(attachments)}`
 }
 
 // ── Draft state ───────────────────────────────────────────────────────────────
