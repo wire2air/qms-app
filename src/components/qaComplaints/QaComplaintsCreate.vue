@@ -47,6 +47,8 @@ const form = ref({
   countryId: null,
   stateProvince: '',
   siteId: null,
+  supplierId: null,
+  sampleReceived: null,
   productId: null,
   batchLotSerial: '',
   quantityAffected: null,
@@ -183,6 +185,8 @@ async function onSubmit() {
       countryId: form.value.countryId,
       stateProvince: form.value.stateProvince || null,
       siteId: form.value.siteId,
+      supplierId: form.value.supplierId,
+      sampleReceived: form.value.sampleReceived,
       productId: form.value.productId,
       batchLotSerial: form.value.batchLotSerial || null,
       quantityAffected: form.value.quantityAffected,
@@ -316,9 +320,15 @@ async function onSubmit() {
         <!-- Product specifics -->
         <FormSection id="qc-product" title="Product specifics" :icon="IconPackage" optional>
           <div class="tw:flex tw:flex-col tw:gap-3">
-            <BaseField label="Product / Service involved">
-              <ProductSelectMenu v-model="form.productId" :required="false" nullLabel="— Select —" />
-            </BaseField>
+            <BaseFieldRow :columns="2">
+              <BaseField label="Product / Service involved">
+                <ProductSelectMenu v-model="form.productId" :required="false" nullLabel="— Select —" />
+              </BaseField>
+              <BaseField label="Supplier">
+                <SupplierSelectMenu v-model="form.supplierId" :required="false" nullLabel="— Select —" />
+              </BaseField>
+            </BaseFieldRow>
+            <BaseCheckbox v-model="form.sampleReceived" label="Complaint sample received" />
             <BaseFieldRow :columns="3">
               <BaseField label="Batch / Lot / Serial">
                 <BaseTextInput v-model="form.batchLotSerial" placeholder="e.g. LOT-2026-014" />

@@ -8,7 +8,7 @@ import { DateTime } from 'luxon'
   primaryKey: 'id',
   syncField: 'updatedAt',
   customIndex: 'companyId, statusId, ownerId',
-  schemaVersion: 1,
+  schemaVersion: 2,
 })
 export class Complaint extends BaseModel {
   static paranoid = true
@@ -41,6 +41,8 @@ export class Complaint extends BaseModel {
   @Property({ type: String }) stateProvince = /** @type {String} */ (null)
   @Property({ type: String }) customerTypeId = /** @type {String} */ (null)
   @Property({ type: String }) siteId = /** @type {String} */ (null)
+  @Property({ type: String }) supplierId = /** @type {String} */ (null)
+  @Property({ type: Boolean }) sampleReceived = /** @type {Boolean} */ (null)
 
   // Product / lot.
   @Property({ type: String }) productId = /** @type {String} */ (null)
