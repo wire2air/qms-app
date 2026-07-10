@@ -41,9 +41,9 @@ const breadcrumbs = computed(() => [
   { label: complaint.value?.complaintNumber || complaint.value?.subject || 'Loading…' },
 ])
 
-const canUpdate = computed(() => isAllowed(['customerComplaints:update']))
+const canUpdate = computed(() => isAllowed(['complaint_management:update']))
 const canConvert = computed(
-  () => isAllowed(['customerComplaints:update']) && isAllowed(['nonconformances:create']),
+  () => isAllowed(['complaint_management:update']) && isAllowed(['ncr:create']),
 )
 
 const isTerminal = computed(() => ['CLOSED', 'CONVERTED_TO_NC'].includes(complaint.value?.statusId))

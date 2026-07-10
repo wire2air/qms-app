@@ -36,7 +36,7 @@ const breadcrumbs = computed(() => [
 ])
 
 // ─── Inline disposition auto-save ─────────────────────────────────────────────
-const canUpdate = computed(() => isAllowed(['nonconformances:update']))
+const canUpdate = computed(() => isAllowed(['ncr:update']))
 // Page-level fields (title, description, disposition, containment, etc.)
 // are owner-controlled. Anyone else with NC module access can READ the
 // record (default module behavior) but must not edit it — workflow-step
@@ -410,8 +410,8 @@ const sourceLot = useLiveQueryWithDeps(
 )
 
 // ─── Linked CAPAs ─────────────────────────────────────────────────────────────
-const canCreateCapa = computed(() => isAllowed(['capas:create']))
-const canCreateChangeRequest = computed(() => isAllowed(['changeRequests:create']))
+const canCreateCapa = computed(() => isAllowed(['capa:create']))
+const canCreateChangeRequest = computed(() => isAllowed(['change_control:create']))
 
 const linkedCapas = useLiveQueryWithDeps(
   [() => props.id],

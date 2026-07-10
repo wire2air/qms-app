@@ -57,7 +57,7 @@ function mirrorToCurrentCompany(c) {
 // admin can turn it on; gating on the canUseAi session flag would hide
 // the very switch you need to flip.
 const canManageAi = computed(() => isAllowed(['ai:manage']))
-const canManageCompany = computed(() => isAllowed(['company:manage']))
+const canManageCompany = computed(() => isAllowed(['company_settings:manage']))
 
 
 const tabs = computed(() => {

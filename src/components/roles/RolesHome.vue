@@ -32,8 +32,8 @@ function onClone(role) {
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const canCreateRole = computed(() => isAllowed(['roles:create']))
-const canUpdateRole = computed(() => isAllowed(['roles:update']))
+const canCreateRole = computed(() => isAllowed(['role_permission_management:create']))
+const canUpdateRole = computed(() => isAllowed(['role_permission_management:update']))
 
 const list = useListLayout({
   filters: {},

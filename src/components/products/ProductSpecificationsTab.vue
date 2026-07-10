@@ -26,7 +26,7 @@ const showEsign = ref(false)
 const approvingId = ref(null)
 const deletingId = ref(null)
 
-const canManage = computed(() => isAllowed(['qcInspection:spec:write']))
+const canManage = computed(() => isAllowed(['inspection_spec:write']))
 
 const backLabel = computed(() =>
   props.productName ? `Back to ${props.productName} specifications` : 'Back to specifications',

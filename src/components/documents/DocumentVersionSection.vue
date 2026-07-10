@@ -38,7 +38,7 @@ const section = useLiveQueryWithDeps(
 )
 
 const canUpdateSection = computed(
-  () => props.canEdit && section.value && isAllowed(['documents:update']),
+  () => props.canEdit && section.value && isAllowed(['document_control:update']),
 )
 
 const canDeleteSection = computed(() => canUpdateSection.value && section.value?.isAddOn === true)

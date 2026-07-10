@@ -25,9 +25,9 @@ const showCreateDialog = ref(false)
 const editTemplate = ref(null)
 const { confirm } = useConfirm()
 
-const canCreate = computed(() => isAllowed(['riskAssessmentTemplates:create']))
-const canUpdate = computed(() => isAllowed(['riskAssessmentTemplates:update']))
-const canDelete = computed(() => isAllowed(['riskAssessmentTemplates:delete']))
+const canCreate = computed(() => isAllowed(['risk_assessment_templates:create']))
+const canUpdate = computed(() => isAllowed(['risk_assessment_templates:update']))
+const canDelete = computed(() => isAllowed(['risk_assessment_templates:delete']))
 
 const templates = useLiveQuery(
   async (db) => {

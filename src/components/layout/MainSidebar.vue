@@ -231,7 +231,7 @@ const navItems = computed(() => {
     ...moduleNavItems.value,
     {
       label: 'Document Control',
-      permissions: ['documents:read'],
+      permissions: ['document_control:read'],
       icon: IconFileText,
       to: getCompanyPath('/documents'),
     },
@@ -242,31 +242,31 @@ const navItems = computed(() => {
     },
     {
       label: 'Nonconformances',
-      permissions: ['nonconformances:read'],
+      permissions: ['ncr:read'],
       icon: IconAlertCircle,
       to: getCompanyPath('/nonconformances'),
     },
     {
       label: 'Quality Events',
-      permissions: ['qualityEvents:read'],
+      permissions: ['quality_events:read'],
       icon: IconEye,
       to: getCompanyPath('/qualityEvents'),
     },
     {
       label: 'Customer Complaints',
-      permissions: ['customerComplaints:read'],
+      permissions: ['complaint_management:read'],
       icon: IconHeadset,
       to: getCompanyPath('/customer-complaints'),
     },
     {
       label: 'CAPAs',
-      permissions: ['capas:read'],
+      permissions: ['capa:read'],
       icon: IconShield,
       to: getCompanyPath('/capas'),
     },
     {
       label: 'Change Requests',
-      permissions: ['changeRequests:read'],
+      permissions: ['change_control:read'],
       icon: IconReplace,
       to: getCompanyPath('/change-requests'),
     },
@@ -277,7 +277,7 @@ const navItems = computed(() => {
       // audit can still see it via the row-level RLS even without
       // this permission (handled at the RLS layer, see
       // audit_instances_select_rls).
-      permissions: ['audits:read'],
+      permissions: ['audit_management:read'],
       to: getCompanyPath('/audits'),
     },
     {
@@ -287,13 +287,13 @@ const navItems = computed(() => {
       // hides individual cards based on finer-grained permissions
       // (inspections:assign for plans, fieldRecords:review for the
       // review queue, etc.).
-      permissions: ['fieldRecords:create'],
+      permissions: ['field_records:create'],
       to: getCompanyPath('/inspections-logs'),
     },
     {
       label: 'QC Inspection',
       icon: IconTestPipe,
-      permissions: ['qcInspection:lot:read'],
+      permissions: ['inspection_qc:read'],
       to: getCompanyPath('/qc-inspection'),
     },
     {
@@ -302,7 +302,7 @@ const navItems = computed(() => {
       // WebView later. Distinct from the admin "Inspections & Logs".
       label: 'Logging',
       icon: IconClipboardCheck,
-      permissions: ['fieldRecords:create'],
+      permissions: ['field_records:create'],
       to: getCompanyPath('/logging'),
     },
     {
@@ -316,25 +316,25 @@ const navItems = computed(() => {
         },
         {
           label: 'Training Library',
-          permissions: ['trainings:read'],
+          permissions: ['training:read'],
           icon: IconSchool,
           to: getCompanyPath('/trainings'),
         },
         {
           label: 'Training Instances',
-          permissions: ['trainingInstances:read'],
+          permissions: ['training_instances:read'],
           icon: IconSchool,
           to: getCompanyPath('/training-instances'),
         },
         {
           label: 'Training Verification',
-          permissions: ['trainingVerifications:read'],
+          permissions: ['training_verifications:read'],
           icon: IconSchool,
           to: getCompanyPath('/training-verifications'),
         },
         {
           label: 'Training Matrix',
-          permissions: ['trainingMatrix:read'],
+          permissions: ['training_matrix:read'],
           icon: IconSchool,
           to: getCompanyPath('/training-matrix'),
         },
@@ -352,7 +352,7 @@ const navItems = computed(() => {
       children: [
         {
           label: 'General',
-          permissions: ['company:manage'],
+          permissions: ['company_settings:manage'],
           icon: IconAdjustments,
           to: getCompanyPath('/settings'),
         },
@@ -375,7 +375,7 @@ const navItems = computed(() => {
           // Config-driven notification engine (entity create / status-change →
           // notify groups / people / owner / initiator over in-app + email).
           label: 'Notifications',
-          permissions: ['company:manage'],
+          permissions: ['company_settings:manage'],
           icon: IconBell,
           to: getCompanyPath('/notification-rules'),
         },
@@ -383,7 +383,7 @@ const navItems = computed(() => {
           // Condition-based automation / notification rules (object → AND/OR
           // conditions → actions: notify, create NC, …). Scoped per site/dept.
           label: 'Automation Rules',
-          permissions: ['automationRules:manage'],
+          permissions: ['automation_rules:manage'],
           icon: IconBolt,
           to: getCompanyPath('/automation-rules'),
         },
@@ -392,7 +392,7 @@ const navItems = computed(() => {
           // Document / Training). Rendered as the "Additional information" card
           // on each detail page; stored in entity_field_values (JSONB), sealed.
           label: 'Custom Fields',
-          permissions: ['customFields:manage'],
+          permissions: ['custom_fields:manage'],
           icon: IconListDetails,
           to: getCompanyPath('/custom-fields'),
         },
@@ -400,25 +400,25 @@ const navItems = computed(() => {
           // The Customer Complaint module's own admin hub (email
           // channels now; forms / custom fields / routing as they land).
           label: 'Complaint Settings',
-          permissions: ['customerComplaints:update'],
+          permissions: ['complaint_management:update'],
           icon: IconHeadset,
           to: getCompanyPath('/complaint-settings'),
         },
         {
           label: 'Form Templates',
-          permissions: ['formTemplates:read'],
+          permissions: ['forms_templates:read'],
           icon: IconForms,
           to: getCompanyPath('/templates'),
         },
         {
           label: 'Workflow Templates',
-          permissions: ['workflows:read'],
+          permissions: ['workflows_templates:read'],
           icon: IconArrowsShuffle,
           to: getCompanyPath('/workflow-templates'),
         },
         {
           label: 'Document Templates',
-          permissions: ['document-templates:read'],
+          permissions: ['document_templates:read'],
           icon: IconArticle,
           to: getCompanyPath('/document-templates'),
         },
@@ -444,19 +444,19 @@ const navItems = computed(() => {
         },
         {
           label: 'Suppliers',
-          permissions: ['suppliers:read'],
+          permissions: ['supplier_management:read'],
           icon: IconTruck,
           to: getCompanyPath('/suppliers'),
         },
         {
           label: 'RCA Templates',
-          permissions: ['rcaTemplates:read'],
+          permissions: ['rca_templates:read'],
           icon: IconSitemap,
           to: getCompanyPath('/rca-templates'),
         },
         {
           label: 'Risk Assessment Templates',
-          permissions: ['riskAssessmentTemplates:read'],
+          permissions: ['risk_assessment_templates:read'],
           icon: IconLayoutGrid,
           to: getCompanyPath('/risk-assessment-templates'),
         },
@@ -467,7 +467,7 @@ const navItems = computed(() => {
         // there for old bookmarks.
         {
           label: 'Lookups',
-          permissions: ['company:manage'],
+          permissions: ['company_settings:manage'],
           icon: IconList,
           to: getCompanyPath('/lookups'),
         },
@@ -483,13 +483,13 @@ const navItems = computed(() => {
         },
         {
           label: 'Users',
-          permissions: ['users:read'],
+          permissions: ['user_management:read'],
           icon: IconUsers,
           to: getCompanyPath('/users'),
         },
         {
           label: 'Roles',
-          permissions: ['roles:read'],
+          permissions: ['role_permission_management:read'],
           icon: IconShield,
           to: getCompanyPath('/roles'),
         },

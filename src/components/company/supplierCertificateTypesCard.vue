@@ -25,7 +25,7 @@ const toast = useToast()
 const { confirm } = useConfirm()
 
 const canManage = computed(
-  () => !!currentSession.value?.isOwner || isAllowed(['supplierCertificateTypes:manage']),
+  () => !!currentSession.value?.isOwner || isAllowed(['supplier_certificate_types:manage']),
 )
 
 const certificateTypes = useLiveQuery(

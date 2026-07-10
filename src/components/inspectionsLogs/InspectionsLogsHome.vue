@@ -25,8 +25,8 @@ import { DateTime } from 'luxon'
 const router = useRouter()
 
 const canAssign = computed(() => isAllowed(['inspections:assign']))
-const canReview = computed(() => isAllowed(['fieldRecords:review']))
-const canCreateTemplate = computed(() => isAllowed(['formTemplates:create']))
+const canReview = computed(() => isAllowed(['field_records:review']))
+const canCreateTemplate = computed(() => isAllowed(['forms_templates:create']))
 
 // Round 1: scope the "Awaiting review" stat tile to the user's
 // supervised log books (the digest queue in #2 reads the same shape).

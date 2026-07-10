@@ -20,7 +20,7 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
  */
 const router = useRouter()
 
-const canSubmit = computed(() => isAllowed(['fieldRecords:create']))
+const canSubmit = computed(() => isAllowed(['field_records:create']))
 
 function goSubmit() {
   // Single pick-a-log-book surface: the logging dashboard.

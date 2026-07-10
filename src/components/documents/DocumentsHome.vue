@@ -114,7 +114,7 @@ const statsTotal = computed(() => (allDocumentsForStats.value ?? []).length)
 
 // Create needs read too: the create mutation reads the new row back through the
 // `documents:read` RLS SELECT policy, so create-without-read fails at the DB.
-const canCreate = computed(() => isAllowed(['documents:create', 'documents:read']))
+const canCreate = computed(() => isAllowed(['document_control:create', 'document_control:read']))
 
 function navigateToCreate() {
   router.push(getCompanyPath('/documents/create'))

@@ -27,12 +27,12 @@ watch(
   },
 )
 
-const canManageSpecs = computed(() => isAllowed(['qcInspection:spec:write']))
-const canCreateLots = computed(() => isAllowed(['qcInspection:lot:create']))
-const canManagePlans = computed(() => isAllowed(['qcInspection:plan:create']))
-const canManageStandards = computed(() => isAllowed(['qcInspection:standards:write']))
-const canManageTemplates = computed(() => isAllowed(['qcInspection:template:write']))
-const canManageDefects = computed(() => isAllowed(['qcInspection:catalog:write']))
+const canManageSpecs = computed(() => isAllowed(['inspection_spec:write']))
+const canCreateLots = computed(() => isAllowed(['inspection_qc:create']))
+const canManagePlans = computed(() => isAllowed(['inspection_plan:create']))
+const canManageStandards = computed(() => isAllowed(['inspection_standards:write']))
+const canManageTemplates = computed(() => isAllowed(['inspection_templates:write']))
+const canManageDefects = computed(() => isAllowed(['inspection_catalog:write']))
 </script>
 
 <template>

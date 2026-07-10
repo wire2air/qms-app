@@ -44,7 +44,7 @@ const filteredUsers = computed(() => {
   })
 })
 
-const canUpdateRole = computed(() => isAllowed(['roles:update']))
+const canUpdateRole = computed(() => isAllowed(['role_permission_management:update']))
 
 // Fetch all company users
 async function fetchAllUsers() {

@@ -23,7 +23,7 @@ defineProps({
 const router = useRouter()
 const toast = useToast()
 
-const canArchive = computed(() => isAllowed(['document-templates:delete']))
+const canArchive = computed(() => isAllowed(['document_templates:delete']))
 
 function navigateToDetail(row) {
   router.push(getCompanyPath(`/document-templates/${row.id}`))

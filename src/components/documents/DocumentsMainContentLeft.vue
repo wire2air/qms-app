@@ -43,7 +43,7 @@ const currentVersion = useLiveQueryWithDeps(
 // status is what gates editing.
 const canEdit = computed(
   () =>
-    isAllowed(['documents:update']) &&
+    isAllowed(['document_control:update']) &&
     document.value?.statusId !== 'ARCHIVED' &&
     !props.reviewMode &&
     ['DRAFT', 'REJECTED'].includes(currentVersion.value?.statusId),

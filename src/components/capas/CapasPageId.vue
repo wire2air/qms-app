@@ -349,7 +349,7 @@ function workflowVersionLabel(v) {
 const editingTitle = ref(false)
 
 // Cross-module shortcut: spawn a Change Request seeded from this CAPA.
-const canCreateChangeRequest = computed(() => isAllowed(['changeRequests:create']))
+const canCreateChangeRequest = computed(() => isAllowed(['change_control:create']))
 function onCreateLinkedChangeRequest() {
   router.push({
     path: getCompanyPath('/change-requests/create'),

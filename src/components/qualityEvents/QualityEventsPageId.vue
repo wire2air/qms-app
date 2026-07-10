@@ -15,7 +15,7 @@ import {
 const props = defineProps({ id: { type: String, required: true } })
 
 const toast = useToast()
-const canUpdate = computed(() => isAllowed(['qualityEvents:update']))
+const canUpdate = computed(() => isAllowed(['quality_events:update']))
 const currentUserId = computed(() => currentSession.value?.userId ?? currentSession.value?.id ?? null)
 const isSupplierPortalUser = computed(() => currentSession.value?.kind === 'EXTERNAL_SUPPLIER')
 

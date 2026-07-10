@@ -13,7 +13,7 @@ const props = defineProps({
   },
 })
 
-const canUpdateUser = computed(() => isAllowed(['users:update']))
+const canUpdateUser = computed(() => isAllowed(['user_management:update']))
 
 const user = useLiveQueryWithDeps(
   [() => props.id],

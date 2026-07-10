@@ -90,7 +90,7 @@ const isAuthorisedEditor = computed(() => {
 // revision to change anything).
 const canUpdate = computed(
   () =>
-    isAllowed(['documents:update']) &&
+    isAllowed(['document_control:update']) &&
     isAuthorisedEditor.value &&
     version.value &&
     ['DRAFT', 'REJECTED'].includes(version.value.statusId),

@@ -13,9 +13,9 @@ const router = useRouter()
 
 // Create needs read too: the create mutation reads the new row back through the
 // `suppliers:read` RLS SELECT policy, so create-without-read fails at the DB.
-const canCreateSupplier = computed(() => isAllowed(['suppliers:create', 'suppliers:read']))
-const canUpdateSupplier = computed(() => isAllowed(['suppliers:update']))
-const canDeleteSupplier = computed(() => isAllowed(['suppliers:delete']))
+const canCreateSupplier = computed(() => isAllowed(['supplier_management:create', 'supplier_management:read']))
+const canUpdateSupplier = computed(() => isAllowed(['supplier_management:update']))
+const canDeleteSupplier = computed(() => isAllowed(['supplier_management:delete']))
 
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `suppliers`.

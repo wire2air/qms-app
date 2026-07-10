@@ -19,7 +19,7 @@ const role = ref(null)
 const loading = ref(false)
 const error = ref(null)
 
-const canUpdateRole = computed(() => isAllowed(['roles:update']))
+const canUpdateRole = computed(() => isAllowed(['role_permission_management:update']))
 
 // Get useRoles composable
 const { fetchRole, updateRole, deactivateRole, activateRole } = useRoles()

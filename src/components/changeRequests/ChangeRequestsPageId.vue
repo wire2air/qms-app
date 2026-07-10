@@ -50,8 +50,8 @@ const isOwner = computed(() => {
   const uid = currentSession.value?.userId
   return !!uid && (cr.value?.ownerId === uid || cr.value?.createdBy === uid)
 })
-const canUpdate = computed(() => isAllowed(['changeRequests:update']))
-const canDelete = computed(() => isAllowed(['changeRequests:delete']))
+const canUpdate = computed(() => isAllowed(['change_control:update']))
+const canDelete = computed(() => isAllowed(['change_control:delete']))
 
 const isEditable = computed(
   () => cr.value && cr.value.statusId === 'DRAFT' && canUpdate.value && isOwner.value,

@@ -20,9 +20,9 @@ import { DateTime } from 'luxon'
  * (filter state + URL sync + pagination + resolved content state) +
  * `BaseListLayout` (header / filters / state region) + `BaseTable`.
  */
-const canCreate = computed(() => isAllowed(['equipment:create']))
-const canUpdate = computed(() => isAllowed(['equipment:update']))
-const canDelete = computed(() => isAllowed(['equipment:delete']))
+const canCreate = computed(() => isAllowed(['calibration_equipment:create']))
+const canUpdate = computed(() => isAllowed(['calibration_equipment:update']))
+const canDelete = computed(() => isAllowed(['calibration_equipment:delete']))
 const toast = useToast()
 const { confirm } = useConfirm()
 

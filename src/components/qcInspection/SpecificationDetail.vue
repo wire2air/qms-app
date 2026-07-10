@@ -42,7 +42,7 @@ function openSpec(id) {
   else router.push(getCompanyPath(`/qc-inspection/specifications/${id}`))
 }
 
-const canManage = computed(() => isAllowed(['qcInspection:spec:write']))
+const canManage = computed(() => isAllowed(['inspection_spec:write']))
 
 const spec = useLiveQueryWithDeps(
   [() => props.id],

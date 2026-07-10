@@ -13,9 +13,9 @@ import { DateTime } from 'luxon'
 const router = useRouter()
 const route = useRoute()
 
-const canCreate = computed(() => isAllowed(['capas:create']))
-const canUpdate = computed(() => isAllowed(['capas:update']))
-const canDelete = computed(() => isAllowed(['capas:delete']))
+const canCreate = computed(() => isAllowed(['capa:create']))
+const canUpdate = computed(() => isAllowed(['capa:update']))
+const canDelete = computed(() => isAllowed(['capa:delete']))
 
 const { confirm } = useConfirm()
 const toast = useToast()

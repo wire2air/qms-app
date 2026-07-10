@@ -2,8 +2,8 @@
 import { IconPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 
-const canCreate = computed(() => isAllowed(['trainingMatrix:create']))
-const canDelete = computed(() => isAllowed(['trainingMatrix:delete']))
+const canCreate = computed(() => isAllowed(['training_matrix:create']))
+const canDelete = computed(() => isAllowed(['training_matrix:delete']))
 
 const toast = useToast()
 
