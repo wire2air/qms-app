@@ -146,6 +146,12 @@ const showReveal = computed(() => props.type === 'password' && !props.noReveal)
 const effectiveType = computed(() =>
   showReveal.value && revealed.value ? 'text' : props.type,
 )
+
+// Browser spellcheck only makes sense for free-text inputs — never on emails,
+// passwords, numbers, phone numbers, URLs, etc.
+const spellcheckAttr = computed(() =>
+  ['text', 'search', undefined, null, ''].includes(props.type) ? 'true' : 'false',
+)
 function toggleReveal() {
   revealed.value = !revealed.value
 }
@@ -256,6 +262,7 @@ defineExpose({
         :max="max"
         :step="step"
         :pattern="pattern"
+        :spellcheck="spellcheckAttr"
         dir="auto"
         autocomplete="off"
         @input="model = $event.target.value"

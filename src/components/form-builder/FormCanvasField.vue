@@ -1,7 +1,7 @@
 <script setup>
-import { IconCopy, IconTrash, IconGripVertical, IconCirclePlus } from '@tabler/icons-vue'
+import { IconCopy, IconTrash, IconGripVertical, IconCirclePlus, IconInfoCircle } from '@tabler/icons-vue'
 import { useSortable } from '@vueuse/integrations/useSortable'
-import { FIELD_TYPES, FIELD_WIDTHS } from '@/constants/formBuilderConfig'
+import { FIELD_WIDTHS, FIELD_TYPES } from '@/constants/formBuilderConfig'
 import DynamicForm from '@/components/form/DynamicForm.js'
 
 const props = defineProps({
@@ -31,11 +31,49 @@ const emit = defineEmits(['select', 'remove', 'duplicate', 'moveField', 'addFiel
 
 const childrenDropzoneRef = ref(null)
 
+// Click-to-edit for a layout container's title (section/row/column), which is
+// the only place a container's label surfaces now that leaf fields render
+// WYSIWYG with no chrome header.
+const editingLabel = ref(false)
+// Click-to-edit for an Instructions block's rich-text content, in place.
+const editingInstructions = ref(false)
+// Click-to-edit for a Header field's heading + subheading, in place. The
+// size/align classes mirror DynamicForm's live header render.
+const editingHeading = ref(false)
+const editingSubheading = ref(false)
+const headerSizeClass = computed(
+  () =>
+    ({ default: 'tw:text-xl', large: 'tw:text-3xl', small: 'tw:text-base' })[
+      props.field.size || 'large'
+    ] || 'tw:text-3xl',
+)
+const headerAlignClass = computed(
+  () =>
+    ({ left: 'tw:text-left', center: 'tw:text-center', right: 'tw:text-right' })[
+      props.field.align || 'center'
+    ] || 'tw:text-center',
+)
+
 const LAYOUT_TYPES = new Set(['section', 'row', 'column', 'repeater'])
 
-const fieldIcon = computed(() => FIELD_TYPES[props.field.type]?.icon || null)
-
 const isLayoutField = computed(() => LAYOUT_TYPES.has(props.field.type))
+
+// An Input Table is a repeater flagged with widget: 'inputTable'. It's edited by
+// its columns (not nested drop zones), so it gets its own builder card instead
+// of the raw repeater header + dropzone.
+const isInputTable = computed(() => props.field.widget === 'inputTable')
+
+// Built-in purpose text for the field type, shown in the card's info tooltip.
+const fieldDescription = computed(() =>
+  isInputTable.value
+    ? FIELD_TYPES.inputTable?.description
+    : FIELD_TYPES[props.field.type]?.description,
+)
+
+// A short type label for the container's slim header (e.g. "Section").
+const layoutTypeLabel = computed(
+  () => props.field.type.charAt(0).toUpperCase() + props.field.type.slice(1),
+)
 
 const hasChildren = computed(() => Boolean(props.field.children || props.field.template))
 
@@ -74,7 +112,15 @@ const cardWidthStyle = computed(() => {
 // — the card itself already carries the field's width at the canvas-grid level.
 // hidden:false so a "Hide field" field still renders in the builder card (it's
 // only hidden on the live form); the card shows a "Hidden" badge instead.
-const previewFields = computed(() => [{ ...props.field, width: 'full', hidden: false }])
+// label:'' so DynamicForm doesn't render the field's own label — the card
+// renders a click-to-edit label above it instead (see the leaf-field branch),
+// giving every field the same in-place label editing as the special ones.
+const previewFields = computed(() => [
+  { ...props.field, width: 'full', hidden: false, label: '' },
+])
+
+// Leaf fields (not display-only separators) get an editable label on the card.
+const showEditableLabel = computed(() => props.field.type !== 'separator')
 
 // Initialize sortable for nested children dropzone
 watch(
@@ -135,15 +181,24 @@ function onRemove() {
 function onDuplicate() {
   emit('duplicate', props.path)
 }
+
+// Entering an inline editor also selects the field, so the properties panel
+// (size, alignment, width, …) opens alongside the in-place edit.
+function beginEdit(which) {
+  emit('select', props.path)
+  if (which === 'label') editingLabel.value = true
+  else if (which === 'instructions') editingInstructions.value = true
+  else if (which === 'heading') editingHeading.value = true
+  else if (which === 'subheading') editingSubheading.value = true
+}
 </script>
 
 <template>
   <BaseClickableRow
-    class="tw:bg-main tw:border-2 tw:border-divider tw:rounded-xl tw:p-3 tw:transition-all tw:duration-200 tw:relative tw:group"
+    class="tw:relative tw:group tw:p-2 tw:border-2 tw:border-transparent tw:transition-colors"
     :class="{
-      'tw:border-primary tw:ring-4 tw:ring-primary/10 tw:bg-main-selected': isSelected,
-      'tw:bg-main-hover/30': isLayoutField,
-      'tw:hover:border-primary/50 tw:hover:shadow-lg': !isSelected,
+      'tw:border-primary tw:bg-primary/5': isSelected,
+      'tw:hover:border-primary/40': !isSelected,
       'tw:opacity-60': field.hidden,
     }"
     :style="cardWidthStyle"
@@ -151,11 +206,44 @@ function onDuplicate() {
     :aria-label="`Select field ${field.label || field.name || field.type}`"
     @click.stop="onSelect"
   >
-    <!-- Field Controls (Top Right) -->
+    <!-- Floating controls — drag grip + duplicate + delete, plus the Hidden /
+         width badges. No per-field chrome wrapper: the field renders WYSIWYG and
+         these appear only on hover or when the field is selected. The grip is
+         the drag handle (SortableJS `handle: '.drag-handle'`). -->
     <div
       class="tw:absolute tw:top-2 tw:right-2 tw:flex tw:items-center tw:gap-1 tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:z-raised"
       :class="{ 'tw:opacity-100': isSelected }"
     >
+      <span
+        v-if="field.hidden"
+        class="tw:text-xs tw:font-semibold tw:text-amber-700 tw:bg-amber-50 tw:rounded tw:px-1.5 tw:py-0.5"
+        title="Hidden on the live form"
+      >
+        Hidden
+      </span>
+      <span
+        v-if="widthLabel"
+        class="tw:text-xs tw:font-semibold tw:text-secondary tw:bg-main-hover tw:rounded tw:px-1.5 tw:py-0.5"
+        title="Field width on the form"
+      >
+        {{ widthLabel }}
+      </span>
+      <span v-if="fieldDescription" @click.stop @mousedown.stop>
+        <BaseTooltip :content="fieldDescription" placement="top">
+          <span
+            class="tw:p-1.5 tw:rounded-lg tw:bg-main tw:border tw:border-divider tw:shadow-sm tw:text-secondary tw:hover:bg-main-hover tw:cursor-help tw:inline-flex tw:transition-colors"
+          >
+            <IconInfoCircle :size="14" />
+          </span>
+        </BaseTooltip>
+      </span>
+      <button
+        class="drag-handle tw:p-1.5 tw:rounded-lg tw:bg-main tw:border tw:border-divider tw:shadow-sm tw:text-secondary tw:hover:bg-main-hover tw:cursor-grab tw:active:cursor-grabbing tw:transition-colors"
+        title="Drag to reorder"
+        @click.stop
+      >
+        <IconGripVertical :size="14" />
+      </button>
       <button
         class="tw:p-1.5 tw:rounded-lg tw:bg-main tw:border tw:border-divider tw:shadow-sm tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
         title="Duplicate Field"
@@ -172,61 +260,159 @@ function onDuplicate() {
       </button>
     </div>
 
-    <!-- Field Header -->
-    <div
-      class="tw:flex tw:items-center tw:gap-2 drag-handle tw:cursor-grab tw:active:cursor-grabbing"
-    >
-      <div
-        class="tw:w-10 tw:h-10 tw:bg-main-hover tw:rounded-lg tw:flex tw:items-center tw:justify-center tw:shrink-0"
-      >
-        <component :is="fieldIcon" v-if="fieldIcon" :size="20" class="tw:text-primary" />
-      </div>
-      <div class="tw:flex tw:flex-col tw:overflow-hidden">
-        <div class="tw:text-sm tw:font-bold tw:text-on-main tw:truncate">
-          {{ field.label || field.name || field.type }}
-        </div>
-        <BaseText as="div" variant="overline" color="inherit" class="tw:text-secondary/60">
-          {{ field.type }}
-        </BaseText>
-      </div>
-      <div class="tw:flex-1" />
-      <span
-        v-if="field.hidden"
-        class="tw:text-xs tw:font-semibold tw:text-amber-700 tw:bg-amber-50 tw:rounded tw:px-1.5 tw:py-0.5"
-        title="Hidden on the live form"
-      >
-        Hidden
-      </span>
-      <span
-        v-if="widthLabel"
-        class="tw:text-xs tw:font-semibold tw:text-secondary tw:bg-main-hover tw:rounded tw:px-1.5 tw:py-0.5"
-        title="Field width on the form"
-      >
-        {{ widthLabel }}
-      </span>
-      <IconGripVertical
-        :size="20"
-        class="tw:text-divider tw:cursor-grab tw:active:cursor-grabbing"
+    <!-- Layout containers keep a slim, editable title (it renders on the live
+         form for sections) — no big icon box or type chrome. Leaf fields have
+         no header at all; they render WYSIWYG below. Input Tables render their
+         own label via the preview, so they skip this header. -->
+    <div v-if="isLayoutField && !isInputTable" class="tw:flex tw:items-center tw:gap-2 tw:pr-24">
+      <BaseTextInput
+        v-if="editingLabel"
+        v-model="field.label"
+        size="sm"
+        placeholder="Section title"
+        @click.stop
+        @mousedown.stop
+        @keyup.enter="editingLabel = false"
+        @keyup.esc="editingLabel = false"
+        @blur="editingLabel = false"
       />
+      <template v-else>
+        <span
+          class="tw:text-sm tw:font-bold tw:text-on-main tw:truncate tw:cursor-text tw:hover:text-primary"
+          title="Click to rename"
+          @click.stop="beginEdit('label')"
+          @mousedown.stop
+        >
+          {{ field.label || layoutTypeLabel }}
+        </span>
+        <span class="tw:text-micro tw:uppercase tw:tracking-wide tw:text-secondary/60">
+          {{ layoutTypeLabel }}
+        </span>
+      </template>
     </div>
 
-    <!-- Preview — generic disabled input for input-style fields,
-         live HTML render for the Instructions block so authors see
-         the exact callout the floor user will see. -->
-    <div
-      v-if="field.type === 'instructions'"
-      class="tw:pointer-events-none tw:mt-2 tw:rounded-lg tw:border tw:border-blue-200 tw:bg-blue-50 tw:px-4 tw:py-3 tw:text-sm tw:prose tw:prose-sm tw:max-w-none"
-      v-html="field.html || '<em class=\'tw:text-secondary\'>Empty instructions — add content in the properties panel.</em>'"
-    />
-    <!-- Live render of the field's actual component (read-only), so the card
-         shows exactly what the floor user will see. pointer-events-none keeps
-         clicks/drag flowing to the card for select + reorder. -->
-    <div v-else-if="!isLayoutField" class="tw:pointer-events-none tw:mt-2">
-      <DynamicForm :fields="previewFields" :modelValue="{}" readonly />
+    <!-- Instructions — click the callout to edit its content in place with the
+         same rich-text editor as the properties panel. @click/@mousedown.stop so
+         editing doesn't start a drag or toggle card selection. -->
+    <template v-if="field.type === 'instructions'">
+      <div
+        v-if="editingInstructions"
+        class="tw:mt-2 tw:rounded-lg tw:border tw:border-blue-300 tw:overflow-hidden"
+        @click.stop
+        @mousedown.stop
+      >
+        <BaseRichTextEditor v-model="field.html" />
+        <div class="tw:flex tw:justify-end tw:bg-blue-50 tw:px-2 tw:py-1.5">
+          <button
+            type="button"
+            class="tw:text-xs tw:font-medium tw:text-primary tw:hover:bg-primary/10 tw:rounded tw:px-2 tw:py-1 tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            @click.stop="editingInstructions = false"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+      <div
+        v-else
+        class="tw:mt-2 tw:rounded-lg tw:border tw:border-blue-200 tw:bg-blue-50 tw:px-4 tw:py-3 tw:text-sm tw:prose tw:prose-sm tw:max-w-none tw:cursor-text tw:hover:border-blue-300"
+        title="Click to edit"
+        @click.stop="beginEdit('instructions')"
+        @mousedown.stop
+        v-html="field.html || '<em class=\'tw:text-secondary\'>Empty instructions — click to add content.</em>'"
+      />
+    </template>
+    <!-- Header — heading + subheading edit in place, matching the live render's
+         size + alignment. Click either line to edit; Enter/blur commits. -->
+    <div v-else-if="field.type === 'header'" class="tw:mt-2" :class="headerAlignClass">
+      <BaseTextInput
+        v-if="editingHeading"
+        v-model="field.text"
+        size="sm"
+        placeholder="Heading text"
+        @click.stop
+        @mousedown.stop
+        @keyup.enter="editingHeading = false"
+        @keyup.esc="editingHeading = false"
+        @blur="editingHeading = false"
+      />
+      <div
+        v-else
+        class="tw:font-bold tw:text-on-main tw:cursor-text tw:hover:text-primary"
+        :class="headerSizeClass"
+        title="Click to edit heading"
+        @click.stop="beginEdit('heading')"
+        @mousedown.stop
+      >
+        {{ field.text || 'Heading' }}
+      </div>
+
+      <BaseTextInput
+        v-if="editingSubheading"
+        v-model="field.subtext"
+        size="sm"
+        placeholder="Subheading text"
+        class="tw:mt-1"
+        @click.stop
+        @mousedown.stop
+        @keyup.enter="editingSubheading = false"
+        @keyup.esc="editingSubheading = false"
+        @blur="editingSubheading = false"
+      />
+      <div
+        v-else
+        class="tw:text-sm tw:mt-1 tw:cursor-text tw:hover:text-primary"
+        :class="field.subtext ? 'tw:text-secondary' : 'tw:text-placeholder tw:italic'"
+        title="Click to edit subheading"
+        @click.stop="beginEdit('subheading')"
+        @mousedown.stop
+      >
+        {{ field.subtext || 'Add smaller text below the heading' }}
+      </div>
+    </div>
+    <!-- Checklist gets an interactive builder matrix (add/remove rows & columns
+         inline) instead of the read-only preview, so authors edit the grid
+         directly on the canvas. -->
+    <ChecklistBuilderCard v-else-if="field.type === 'checklist'" :field="field" />
+    <!-- Input Table — column-based builder (renders like the preview, add/remove
+         columns via dialog, no add-row; respondents add rows at fill time). -->
+    <InputTableBuilderCard v-else-if="isInputTable" :field="field" />
+    <!-- Leaf field — a click-to-edit label above the real component preview.
+         The label edits in place like the header/checklist/section labels;
+         the preview renders label-less (previewFields blanks it) so there's no
+         duplicate. pointer-events-none on the preview keeps clicks/drag flowing
+         to the card for select + reorder. -->
+    <div v-else-if="!isLayoutField" class="tw:mt-2">
+      <div v-if="showEditableLabel" class="tw:mb-1">
+        <BaseTextInput
+          v-if="editingLabel"
+          v-model="field.label"
+          size="sm"
+          placeholder="Field label"
+          @click.stop
+          @mousedown.stop
+          @keyup.enter="editingLabel = false"
+          @keyup.esc="editingLabel = false"
+          @blur="editingLabel = false"
+        />
+        <div
+          v-else
+          class="tw:inline-flex tw:items-center tw:gap-0.5 tw:text-sm tw:font-medium tw:text-secondary tw:cursor-text tw:hover:text-primary"
+          title="Click to rename"
+          @click.stop="beginEdit('label')"
+          @mousedown.stop
+        >
+          {{ field.label || '(no label)' }}
+          <span v-if="field.required" class="tw:text-bad">*</span>
+        </div>
+      </div>
+      <div class="tw:pointer-events-none">
+        <DynamicForm :fields="previewFields" :modelValue="{}" />
+      </div>
     </div>
 
-    <!-- Children for layout fields -->
-    <div v-if="isLayoutField && hasChildren" class="tw:mt-3">
+    <!-- Children for layout fields (Input Tables manage columns via their own
+         card, so they don't expose the nested drop zone). -->
+    <div v-if="isLayoutField && hasChildren && !isInputTable" class="tw:mt-3">
       <div
         ref="childrenDropzoneRef"
         class="tw:min-h-20 tw:p-3 tw:bg-main/50 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-xl tw:flex tw:flex-wrap tw:content-start tw:gap-2 tw:transition-all"

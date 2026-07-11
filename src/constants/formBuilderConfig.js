@@ -29,6 +29,7 @@ import {
   IconSignature,
   IconHeading,
   IconDatabaseSearch,
+  IconFileText,
 } from '@tabler/icons-vue'
 
 export const CATEGORY_LABELS = Object.freeze({
@@ -41,60 +42,218 @@ export const CATEGORY_LABELS = Object.freeze({
 })
 
 // Field type definitions with icons and labels
+// Each entry: icon + label + category + a one-line `description` explaining the
+// field's purpose (shown as a tooltip in the palette and on the canvas card).
 export const FIELD_TYPES = Object.freeze({
   // Input Types
-  input: { icon: IconTextSize, label: 'Text Input', category: 'input' },
-  textarea: { icon: IconNotes, label: 'Text Area', category: 'input' },
-  number: { icon: IconHash, label: 'Number', category: 'input' },
-  email: { icon: IconMail, label: 'Email Address', category: 'input' },
-  phone: { icon: IconPhone, label: 'Phone Number', category: 'input' },
-  password: { icon: IconLock, label: 'Password', category: 'input' },
+  input: {
+    icon: IconTextSize,
+    label: 'Text Input',
+    category: 'input',
+    description: 'A single-line box for short free text — names, references, titles.',
+  },
+  textarea: {
+    icon: IconNotes,
+    label: 'Text Area',
+    category: 'input',
+    description: 'A multi-line box for longer free text — descriptions, notes, comments.',
+  },
+  number: {
+    icon: IconHash,
+    label: 'Number',
+    category: 'input',
+    description: 'A numeric entry for quantities, counts, or measurements.',
+  },
+  email: {
+    icon: IconMail,
+    label: 'Email Address',
+    category: 'input',
+    description: 'An email field that validates the address format.',
+  },
+  phone: {
+    icon: IconPhone,
+    label: 'Phone Number',
+    category: 'input',
+    description: 'A phone number field with a country-code selector.',
+  },
+  password: {
+    icon: IconLock,
+    label: 'Password',
+    category: 'input',
+    description: 'A masked text field for secrets or passwords.',
+  },
 
   // Selection Types
-  select: { icon: IconSelector, label: 'Dropdown', category: 'selection' },
-  checkbox: { icon: IconSquareCheck, label: 'Checkbox', category: 'selection' },
-  optionGroup: { icon: IconListCheck, label: 'Option Group', category: 'selection' },
-  checklist: { icon: IconTable, label: 'Checklist', category: 'selection' },
-  // Entity-backed dropdown: options resolve live from a company table
-  // (Item Master / Supplier / Site / Department / User). Stores the entity id.
-  lookup: { icon: IconDatabaseSearch, label: 'Lookup (entity)', category: 'selection' },
+  select: {
+    icon: IconSelector,
+    label: 'Dropdown',
+    category: 'selection',
+    description: 'A single choice picked from a fixed list of options.',
+  },
+  checkbox: {
+    icon: IconSquareCheck,
+    label: 'Checkbox',
+    category: 'selection',
+    description: 'A single yes/no tick, or a multi-select set when you add options.',
+  },
+  optionGroup: {
+    icon: IconListCheck,
+    label: 'Option Group',
+    category: 'selection',
+    description: 'A single choice shown as radio buttons (best for a few options).',
+  },
+  checklist: {
+    icon: IconTable,
+    label: 'Checklist',
+    category: 'widget',
+    description: 'A rows×columns grid — items down the side, a fixed answer set (e.g. Yes/No/N/A) across the top.',
+  },
+  lookup: {
+    icon: IconDatabaseSearch,
+    label: 'Lookup (entity)',
+    category: 'selection',
+    description: 'A dropdown whose options load live from a company table — Item, Supplier, Site, Department, or User.',
+  },
 
   // Special Types
-  datetime: { icon: IconCalendar, label: 'Date/Time', category: 'special' },
-  file: { icon: IconPaperclip, label: 'File Upload', category: 'special' },
-  photo: { icon: IconCamera, label: 'Photo', category: 'special' },
-  rating: { icon: IconStar, label: 'Rating', category: 'special' },
-  slider: { icon: IconAdjustments, label: 'Slider', category: 'special' },
-  toggle: { icon: IconToggleRight, label: 'Toggle', category: 'special' },
-  colorPicker: { icon: IconPalette, label: 'Color Picker', category: 'special' },
-  textEditor: { icon: IconBold, label: 'Rich Text', category: 'special' },
-  signature: { icon: IconSignature, label: 'Signature', category: 'special' },
+  datetime: {
+    icon: IconCalendar,
+    label: 'Date/Time',
+    category: 'special',
+    description: 'A date and/or time picker.',
+  },
+  file: {
+    icon: IconPaperclip,
+    label: 'File Upload',
+    category: 'special',
+    description: 'Lets respondents attach one or more files.',
+  },
+  photo: {
+    icon: IconCamera,
+    label: 'Photo',
+    category: 'special',
+    description: 'Capture from the camera or upload a photo.',
+  },
+  rating: {
+    icon: IconStar,
+    label: 'Rating',
+    category: 'special',
+    description: 'A star rating on a fixed scale.',
+  },
+  slider: {
+    icon: IconAdjustments,
+    label: 'Slider',
+    category: 'special',
+    description: 'Pick a number on a sliding scale.',
+  },
+  toggle: {
+    icon: IconToggleRight,
+    label: 'Toggle',
+    category: 'special',
+    description: 'A simple on/off switch.',
+  },
+  colorPicker: {
+    icon: IconPalette,
+    label: 'Color Picker',
+    category: 'special',
+    description: 'Pick a colour value.',
+  },
+  textEditor: {
+    icon: IconBold,
+    label: 'Rich Text',
+    category: 'special',
+    description: 'A rich-text editor for formatted content the respondent writes.',
+  },
+  richTextAttachment: {
+    icon: IconFileText,
+    label: 'Rich Text + Attachments',
+    category: 'special',
+    description: 'A rich-text editor with inline images and file attachments in one field (replaces a Rich Text + File Upload pair).',
+  },
+  signature: {
+    icon: IconSignature,
+    label: 'Signature',
+    category: 'special',
+    description: 'Capture a drawn signature.',
+  },
 
   // Layout Types
-  // Display-only heading + optional subheading, with size + alignment. Not an
-  // input; doesn't produce a value.
-  header: { icon: IconHeading, label: 'Heading', category: 'layout' },
-  section: { icon: IconLayoutList, label: 'Section', category: 'layout' },
-  row: { icon: IconColumns, label: 'Row', category: 'layout' },
-  column: { icon: IconLayoutRows, label: 'Column', category: 'layout' },
-  repeater: { icon: IconRepeat, label: 'Repeater', category: 'layout' },
-  separator: { icon: IconMinus, label: 'Separator', category: 'layout' },
-  // Display-only block — gives form authors a place to put rich
-  // instructions (links to SOPs via the # mention shortcut, headings,
-  // bold callouts, etc.). Not an input; doesn't produce a value.
-  instructions: { icon: IconInfoCircle, label: 'Instructions', category: 'layout' },
+  header: {
+    icon: IconHeading,
+    label: 'Heading',
+    category: 'layout',
+    description: 'A display-only heading with optional subheading. Not an input.',
+  },
+  section: {
+    icon: IconLayoutList,
+    label: 'Section',
+    category: 'layout',
+    description: 'Groups related fields under a titled, optionally collapsible block.',
+  },
+  row: {
+    icon: IconColumns,
+    label: 'Row',
+    category: 'layout',
+    description: 'Lays out its child fields side by side.',
+  },
+  column: {
+    icon: IconLayoutRows,
+    label: 'Column',
+    category: 'layout',
+    description: 'Stacks its child fields vertically.',
+  },
+  repeater: {
+    icon: IconRepeat,
+    label: 'Repeater',
+    category: 'layout',
+    description: 'A repeating group of fields respondents can add multiple times.',
+  },
+  separator: {
+    icon: IconMinus,
+    label: 'Separator',
+    category: 'layout',
+    description: 'A horizontal divider line. Not an input.',
+  },
+  instructions: {
+    icon: IconInfoCircle,
+    label: 'Instructions',
+    category: 'layout',
+    description: 'A display-only rich-text block for guidance (link SOPs via #). Not an input.',
+  },
 
   // widgets
-  inputTable: { icon: IconGrid3x3, label: 'Input Table', category: 'widget' },
+  inputTable: {
+    icon: IconGrid3x3,
+    label: 'Input Table',
+    category: 'widget',
+    description: 'A table of fields (columns) respondents fill in row by row — e.g. a line-item or product list.',
+  },
 
   // tools
-  rca: { icon: IconSitemap, label: 'Root Cause Analysis', category: 'tools' },
-  riskAssessment: { icon: IconLayoutGrid, label: 'Risk Assessment', category: 'tools' },
+  rca: {
+    icon: IconSitemap,
+    label: 'Root Cause Analysis',
+    category: 'tools',
+    description: 'A Root Cause Analysis widget (5-Whys / Fishbone).',
+  },
+  riskAssessment: {
+    icon: IconLayoutGrid,
+    label: 'Risk Assessment',
+    category: 'tools',
+    description: 'A risk assessment matrix (likelihood × severity).',
+  },
 })
 
 export const WIDGET_CONFIG = Object.freeze({
   inputTable: {
     type: 'repeater',
+    // Marks this repeater as an Input Table so the builder shows the column
+    // manager (add/remove columns) instead of the raw nested-repeater drop zone.
+    // At runtime it's still an ordinary repeater; respondents add rows.
+    widget: 'inputTable',
+    // 'table' → real table (item label = fixed first column); 'cards' → stacked
+    // item cards (the plain-repeater look). Toggle in the settings panel.
+    layout: 'table',
     name: 'inputtable_1',
     label: 'Input Table',
     placeholder: '',

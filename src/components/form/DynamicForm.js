@@ -18,6 +18,7 @@ import BaseColorPicker from '@shared/components/BaseColorPicker.vue'
 import BaseSignaturePad from '@shared/components/BaseSignaturePad.vue'
 import BaseRichTextEditor from '@/components/editor/BaseRichTextEditor.vue'
 import RichTextAttachments from '@/components/shared/RichTextAttachments.vue'
+import { tableStyleClasses, cx } from '@/utils/tableStyle'
 import BaseDateField from '@shared/components/BaseDateField.vue'
 import OptionSetSelect from '@/components/common/OptionSetSelect.vue'
 import OptionSetOptionGroup from '@/components/common/OptionSetOptionGroup.vue'
@@ -514,8 +515,13 @@ export default defineComponent({
         case 'file':
           return h(BaseUploader, {
             ...fieldProps,
+            // All form uploads land in the ASSET bucket; the old per-field
+            // "File Type" category (company logo / avatar / editor image) was a
+            // storage-bucket concept, not a form concern, so it's no longer set.
             fileType: field.fileType || 'ASSET',
-            accept: field.accept || 'image/*,video/*,application/pdf,.docx,.doc',
+            // Blank accept = any readable format (a QMS default). Only restrict
+            // when the author explicitly set an allow-list on the field.
+            accept: field.accept || '',
             label: field.label || 'Supporting Documents',
             maxSize: field.maxSize || 100 * 1024 * 1024,
             multiple: field.multiple !== false,
@@ -557,7 +563,8 @@ export default defineComponent({
           ])
         }
 
-        case 'checklist':
+        case 'checklist': {
+          const ts = tableStyleClasses(field)
           return h(BaseChecklist, {
             ...fieldProps,
             rows: field.rows || [],
@@ -567,11 +574,13 @@ export default defineComponent({
             optionValue: field.optionValue,
             hint: field.hint,
             dense: field.dense,
-            tableClass: field.tableClass,
-            headerClass: field.headerClass,
-            rowLabelClass: field.rowLabelClass,
-            cellClass: field.cellClass,
+            tableClass: cx(field.tableClass, ts.tableClass),
+            headerClass: cx(field.headerClass, ts.headerClass, ts.headerCellClass),
+            rowLabelClass: cx(field.rowLabelClass, ts.cellClass),
+            cellClass: cx(field.cellClass, ts.cellClass),
+            rowClass: ts.rowClass,
           })
+        }
 
         case 'photo':
           return h(BasePhoto, {
@@ -619,6 +628,13 @@ export default defineComponent({
         setProp(modelValue.value, path, initialItems, true)
       }
 
+      // Table layout — each item is a row, the item label is a fixed first
+      // column, and each template field is a column. Same data model as the
+      // card layout (paths unchanged), so switching layout doesn't move data.
+      if (field.layout === 'table') {
+        return createRepeaterTable(field, path, minItems, maxItems)
+      }
+
       const repeaterItems = items.map((item, itemIndex) => {
         const itemFields = field.template.map((templateField, fieldIndex) =>
           createField(templateField, [path, String(itemIndex)], fieldIndex),
@@ -659,6 +675,118 @@ export default defineComponent({
         field.label ? h('div', { class: 'tw:text-base tw:mb-2' }, field.label) : null,
         ...repeaterItems,
         !props.readonly && !props.disabled && items.length < maxItems
+          ? h(
+              'button',
+              {
+                class:
+                  'tw:mt-2 tw:flex tw:items-center tw:gap-1 tw:px-3 tw:py-1.5 tw:text-primary tw:rounded-lg tw:hover:bg-primary/10 tw:transition-colors tw:text-sm tw:font-medium',
+                onClick: () => addRepeaterItem(field, path),
+              },
+              [h(IconPlus, { size: 14 }), field.addLabel || 'Add Item'],
+            )
+          : null,
+      ])
+    }
+
+    function createRepeaterTable(field, path, minItems, maxItems) {
+      const items = getProp(modelValue.value, path) || []
+      const canEdit = !props.readonly && !props.disabled
+      const ts = tableStyleClasses(field)
+
+      // Columns are the template fields. The seeded Input Table wraps them in a
+      // single row (template[0]); a hand-built repeater may list them flat.
+      const rowWrap =
+        field.template.length === 1 && field.template[0].type === 'row'
+          ? field.template[0]
+          : null
+      const columns = rowWrap ? rowWrap.children || [] : field.template
+
+      // Cell path must match the card layout exactly. When the columns live in a
+      // named row wrapper, that name is part of the item's key path.
+      const cellAncestors = (i) => {
+        const a = [path, String(i)]
+        if (rowWrap && rowWrap.name) a.push(rowWrap.name)
+        return a
+      }
+
+      const headerCells = [
+        h(
+          'th',
+          {
+            class: cx(
+              'tw:text-left tw:text-sm tw:font-medium tw:px-2 tw:py-1.5 tw:w-px tw:whitespace-nowrap',
+              ts.headerClass,
+              ts.headerCellClass,
+            ),
+          },
+          '',
+        ),
+        ...columns.map((col) =>
+          h(
+            'th',
+            {
+              class: cx(
+                'tw:text-left tw:text-sm tw:font-medium tw:px-2 tw:py-1.5',
+                ts.headerClass,
+                ts.headerCellClass,
+              ),
+            },
+            col.label || '',
+          ),
+        ),
+        canEdit ? h('th', { class: cx('tw:w-px', ts.headerClass) }, '') : null,
+      ]
+
+      const bodyRows = items.map((item, i) => {
+        const cells = [
+          h(
+            'td',
+            {
+              class: cx(
+                'tw:px-2 tw:py-1.5 tw:text-sm tw:text-on-main tw:whitespace-nowrap tw:align-middle',
+                ts.cellClass,
+              ),
+            },
+            `${field.itemLabel || 'Item'} ${i + 1}`,
+          ),
+          ...columns.map((col, ci) =>
+            // label blanked — the column header carries it, not each cell.
+            h('td', { class: cx('tw:px-2 tw:py-1.5 tw:align-top', ts.cellClass) }, [
+              createField({ ...col, label: '' }, cellAncestors(i), ci),
+            ]),
+          ),
+          canEdit
+            ? h(
+                'td',
+                { class: cx('tw:px-2 tw:py-1.5 tw:align-middle', ts.cellClass) },
+                items.length > minItems
+                  ? [
+                      h(
+                        'button',
+                        {
+                          class:
+                            'tw:p-1.5 tw:rounded tw:text-red-500 tw:hover:bg-red-50 tw:transition-colors',
+                          onClick: () => removeRepeaterItem(field, path, i),
+                        },
+                        [h(IconTrash, { size: 16 })],
+                      ),
+                    ]
+                  : [],
+              )
+            : null,
+        ]
+        return h('tr', { key: i, class: cx('tw:border-t tw:border-divider', ts.rowClass) }, cells)
+      })
+
+      return h('div', { class: ['repeater-field', field.class], style: field.style }, [
+        field.label ? h('div', { class: 'tw:text-base tw:mb-2' }, field.label) : null,
+        h('div', { class: 'tw:overflow-x-auto tw:border tw:border-divider tw:rounded-lg' }, [
+          h('table', { class: cx('tw:w-full tw:border-collapse', ts.tableClass) }, [
+            h('thead', {}, [h('tr', {}, headerCells)]),
+            h('tbody', {}, bodyRows),
+          ]),
+        ]),
+        canEdit && items.length < maxItems
           ? h(
               'button',
               {
