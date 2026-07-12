@@ -19,7 +19,6 @@ import {
   IconUsersGroup,
   IconKey,
   IconRobot,
-  IconShieldHalf,
   IconChartBar,
   IconUserCircle,
   IconLogout,
@@ -50,7 +49,6 @@ import {
   logoutCurrentSession,
   currentSession,
   isAllowed,
-  isAdmin,
   isPlatformAdmin,
   isSupplier,
 } from '@/utils/currentSession'
@@ -527,26 +525,11 @@ const navItems = computed(() => {
         return isAllowed(item.permissions)
       }),
     },
-    ...(isAdmin.value
-      ? [
-          {}, // Divider
-          {
-            label: 'Admin',
-            icon: IconShieldHalf,
-            children: [
-              {
-                label: 'Impersonate',
-                icon: IconUserCircle,
-                to: getCompanyPath('/admin/impersonate'),
-              },
-            ],
-          },
-        ]
-      : []),
     // Platform Console — cross-tenant control plane. Gated on the platform-admin
     // standing from the session (not company permissions); every /platform/*
-    // route is re-checked server-side by requirePlatformAdmin. Paths are NOT
-    // company-scoped (subdomain tenancy doesn't apply to the control plane).
+    // route is re-checked server-side by requirePlatformAdmin. Impersonation
+    // lives here (not under a tenant "Admin" menu) because it is a cross-tenant
+    // control-plane capability. Non-/platform paths (impersonate) stay as-is.
     ...(isPlatformAdmin.value
       ? [
           {}, // Divider
@@ -556,6 +539,7 @@ const navItems = computed(() => {
             children: [
               { label: 'Overview', icon: IconLayoutGrid, to: '/platform' },
               { label: 'Tenants', icon: IconBuildingCommunity, to: '/platform/companies' },
+              { label: 'Impersonate', icon: IconUserCircle, to: getCompanyPath('/admin/impersonate') },
               { label: 'Operators', icon: IconShield, to: '/platform/admins' },
               { label: 'Audit', icon: IconListDetails, to: '/platform/audit' },
             ],

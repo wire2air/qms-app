@@ -681,6 +681,7 @@ declare module 'vue' {
     ImpersonateList: typeof import('./src/components/impersonate/ImpersonateList.vue')['default']
     ImpersonateListItem: typeof import('./src/components/impersonate/ImpersonateListItem.vue')['default']
     ImpersonatePageId: typeof import('./src/components/impersonate/ImpersonatePageId.vue')['default']
+    ImpersonateStartDialog: typeof import('./src/components/impersonate/ImpersonateStartDialog.vue')['default']
     InformationRequestDialog: typeof import('./src/components/informationRequests/InformationRequestDialog.vue')['default']
     InformationRequestsSection: typeof import('./src/components/informationRequests/InformationRequestsSection.vue')['default']
     InspectionDefectsPanel: typeof import('./src/components/qcInspection/InspectionDefectsPanel.vue')['default']

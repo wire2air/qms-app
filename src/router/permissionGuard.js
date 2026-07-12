@@ -144,10 +144,11 @@ export function evaluateRoute(to) {
 
   const seg = firstSegment(to.path)
 
-  // Platform Console — cross-tenant control plane, gated on platform-admin
-  // standing (not company permissions). Blocked for everyone else, including
-  // suppliers. The backend re-checks every /v1/platform/* call regardless.
-  if (seg === 'platform') {
+  // Platform-admin control plane — the /platform console AND impersonation
+  // (/admin/impersonate) are cross-tenant capabilities gated on platform-admin
+  // standing, not company permissions. Blocked for everyone else, including
+  // suppliers. The backend re-checks every call regardless (requirePlatformAdmin).
+  if (seg === 'platform' || to.path.startsWith('/admin/impersonate')) {
     if (isPlatformAdmin.value) return true
     return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
   }
