@@ -37,6 +37,31 @@ export function setCompanyStatus(id, status, reason) {
   )
 }
 
+// ── Credential support ops (on a tenant user) ────────────────────────────────
+export function sendUserPasswordReset(companyId, userId, reason) {
+  return post(
+    `/v1/platform/companies/${companyId}/users/${userId}/send-password-reset`,
+    { reason },
+    { showSuccess: 'Password reset email sent' },
+  )
+}
+
+export function unlockUser(companyId, userId, reason) {
+  return post(
+    `/v1/platform/companies/${companyId}/users/${userId}/unlock`,
+    { reason },
+    { showSuccess: 'Account unlocked' },
+  )
+}
+
+export function resetUserMfa(companyId, userId, reason) {
+  return post(
+    `/v1/platform/companies/${companyId}/users/${userId}/reset-mfa`,
+    { reason },
+    { showSuccess: 'MFA reset' },
+  )
+}
+
 // ── Operators ────────────────────────────────────────────────────────────────
 export function listPlatformAdmins() {
   return get('/v1/platform/admins', { loader: false })

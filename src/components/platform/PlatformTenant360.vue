@@ -10,8 +10,17 @@ import {
   IconMapPin,
   IconSitemap,
   IconSettings,
+  IconKey,
+  IconLockOpen,
+  IconShieldOff,
 } from '@tabler/icons-vue'
-import { getCompany, listCompanyUsers } from '@/api/platform.js'
+import {
+  getCompany,
+  listCompanyUsers,
+  sendUserPasswordReset,
+  unlockUser,
+  resetUserMfa,
+} from '@/api/platform.js'
 import { hasPlatformRole } from '@/utils/currentSession.js'
 
 const props = defineProps({
@@ -34,15 +43,77 @@ const stats = computed(() => [
   { label: 'Departments', value: counts.value.departments ?? '—', icon: IconSitemap },
 ])
 
-const userColumns = [
-  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
-  { name: 'email', label: 'EMAIL', field: 'email', align: 'left', sortable: true },
-  { name: 'jobTitle', label: 'JOB TITLE', field: 'jobTitle', align: 'left' },
-  { name: 'kind', label: 'KIND', field: 'kind', align: 'left' },
-  { name: 'isOwner', label: 'OWNER', field: 'isOwner', align: 'left', sortable: true },
-]
+const canSupport = computed(() => hasPlatformRole('support'))
+const canAdmin = computed(() => hasPlatformRole('admin'))
+
+const userColumns = computed(() => {
+  const cols = [
+    { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
+    { name: 'email', label: 'EMAIL', field: 'email', align: 'left', sortable: true },
+    { name: 'jobTitle', label: 'JOB TITLE', field: 'jobTitle', align: 'left' },
+    { name: 'kind', label: 'KIND', field: 'kind', align: 'left' },
+    { name: 'isOwner', label: 'OWNER', field: 'isOwner', align: 'left', sortable: true },
+  ]
+  if (canSupport.value) cols.push({ name: 'actions', label: '', field: 'actions', align: 'right' })
+  return cols
+})
 const userPagination = ref({ page: 1, pageSize: 25 })
 const userSort = ref([{ id: 'isOwner', desc: true }])
+
+// ── Credential support ops ───────────────────────────────────────────────────
+const CREDENTIAL_ACTIONS = {
+  reset: {
+    title: 'Send password reset',
+    confirmLabel: 'Send reset email',
+    danger: false,
+    describe: (u) => `Email a single-use password-reset link to ${u.email} on their tenant.`,
+    run: sendUserPasswordReset,
+  },
+  unlock: {
+    title: 'Unlock account',
+    confirmLabel: 'Unlock',
+    danger: false,
+    describe: (u) => `Clear the lockout on ${u.email} so they can sign in again.`,
+    run: unlockUser,
+  },
+  mfa: {
+    title: 'Reset MFA',
+    confirmLabel: 'Reset MFA',
+    danger: true,
+    describe: (u) =>
+      `Remove all MFA factors for ${u.email}. They will re-enrol on next login. Verify identity first.`,
+    run: resetUserMfa,
+  },
+}
+
+const actionDialog = ref(false)
+const pendingKey = ref(null)
+const pendingUser = ref(null)
+const dialogCfg = computed(() => CREDENTIAL_ACTIONS[pendingKey.value] || {})
+
+function openAction(key, user) {
+  pendingKey.value = key
+  pendingUser.value = user
+  actionDialog.value = true
+}
+
+async function onCredentialConfirm(reason) {
+  const cfg = CREDENTIAL_ACTIONS[pendingKey.value]
+  if (!cfg || !pendingUser.value) return
+  await cfg.run(props.companyId, pendingUser.value.id, reason)
+  actionDialog.value = false
+}
+
+function userMenuItems(user) {
+  const items = [
+    { name: 'Send password reset', icon: IconKey, click: () => openAction('reset', user) },
+    { name: 'Unlock account', icon: IconLockOpen, click: () => openAction('unlock', user) },
+  ]
+  if (canAdmin.value) {
+    items.push({ name: 'Reset MFA', icon: IconShieldOff, click: () => openAction('mfa', user) })
+  }
+  return items
+}
 
 async function load() {
   loading.value = true
@@ -173,8 +244,23 @@ function onStatusUpdated(newStatus) {
             </span>
             <span v-else class="tw:text-secondary tw:text-sm">—</span>
           </template>
+
+          <template #body-cell-actions="{ row }">
+            <div class="tw:flex tw:justify-end" @click.stop>
+              <BaseMenu :items="userMenuItems(row)" />
+            </div>
+          </template>
         </DataTable>
       </PageSection>
+
+      <CredentialActionDialog
+        v-model="actionDialog"
+        :title="dialogCfg.title"
+        :confirmLabel="dialogCfg.confirmLabel"
+        :danger="dialogCfg.danger"
+        :description="pendingUser && dialogCfg.describe ? dialogCfg.describe(pendingUser) : ''"
+        @confirm="onCredentialConfirm"
+      />
 
       <CompanyStatusDialog
         v-model="statusDialog"

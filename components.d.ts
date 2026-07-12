@@ -418,6 +418,7 @@ declare module 'vue' {
     Countries: typeof import('./resource/js/shared/components/phone/countries.js')['default']
     CreateEquipmentDialog: typeof import('./src/components/equipment/CreateEquipmentDialog.vue')['default']
     CreateLogBookDialog: typeof import('./src/components/inspectionsLogs/CreateLogBookDialog.vue')['default']
+    CredentialActionDialog: typeof import('./src/components/platform/CredentialActionDialog.vue')['default']
     CronPicker: typeof import('./src/components/formAssignment/CronPicker.vue')['default']
     CustomerComplaintAttachmentsPanel: typeof import('./src/components/customerComplaints/CustomerComplaintAttachmentsPanel.vue')['default']
     CustomerComplaintConversation: typeof import('./src/components/customerComplaints/CustomerComplaintConversation.vue')['default']
