@@ -547,6 +547,9 @@ const navItems = computed(() => {
         ]
       : []),
   ].filter((item) => {
+    // Drop a group whose children were all permission-filtered away, so a user
+    // with none of the child permissions never sees an empty expandable header.
+    if (item.children && item.children.length === 0) return false
     // If no permissions specified, always show
     if (!item.permissions || item.permissions.length === 0) return true
 

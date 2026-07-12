@@ -1049,6 +1049,7 @@ declare module 'vue' {
     UserCard: typeof import('./src/components/users/UserCard.vue')['default']
     UserDetailConfig: typeof import('./src/components/users/userDetailConfig.js')['default']
     'UserDetailConfig.spec': typeof import('./src/components/users/userDetailConfig.spec.js')['default']
+    UserEffectivePermissions: typeof import('./src/components/users/UserEffectivePermissions.vue')['default']
     UserMention: typeof import('./src/components/editor/extensions/userMention/userMention.js')['default']
     UserPageId: typeof import('./src/components/users/UserPageId.vue')['default']
     UserRoleListItemById: typeof import('./src/components/users/UserRoleListItemById.vue')['default']
