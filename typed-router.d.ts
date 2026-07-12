@@ -394,6 +394,41 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/platform/': RouteRecordInfo<
+      '/platform/',
+      '/platform',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/admins': RouteRecordInfo<
+      '/platform/admins',
+      '/platform/admins',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/audit': RouteRecordInfo<
+      '/platform/audit',
+      '/platform/audit',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/companies/': RouteRecordInfo<
+      '/platform/companies/',
+      '/platform/companies',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/companies/[id]': RouteRecordInfo<
+      '/platform/companies/[id]',
+      '/platform/companies/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
     '/print': RouteRecordInfo<
       '/print',
       '/print',
@@ -960,6 +995,36 @@ declare module 'vue-router/auto-routes' {
     'src/pages/organization-security.vue': {
       routes:
         | '/organization-security'
+      views:
+        | never
+    }
+    'src/pages/platform/index.vue': {
+      routes:
+        | '/platform/'
+      views:
+        | never
+    }
+    'src/pages/platform/admins.vue': {
+      routes:
+        | '/platform/admins'
+      views:
+        | never
+    }
+    'src/pages/platform/audit.vue': {
+      routes:
+        | '/platform/audit'
+      views:
+        | never
+    }
+    'src/pages/platform/companies/index.vue': {
+      routes:
+        | '/platform/companies/'
+      views:
+        | never
+    }
+    'src/pages/platform/companies/[id].vue': {
+      routes:
+        | '/platform/companies/[id]'
       views:
         | never
     }

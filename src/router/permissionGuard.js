@@ -22,7 +22,7 @@
  *  - Routes with no entry here are open (dashboard, equipment, sites, task
  *    instances, …) — same as the sidebar showing them with no permission gate.
  */
-import { isAllowed, currentSession, isSupplier } from '@/utils/currentSession'
+import { isAllowed, currentSession, isSupplier, isPlatformAdmin } from '@/utils/currentSession'
 
 // Admin / configuration modules — guarded across the whole subtree (list + detail).
 // key = first path segment, value = required permission.
@@ -143,6 +143,14 @@ export function evaluateRoute(to) {
   if (!currentSession.value) return true
 
   const seg = firstSegment(to.path)
+
+  // Platform Console — cross-tenant control plane, gated on platform-admin
+  // standing (not company permissions). Blocked for everyone else, including
+  // suppliers. The backend re-checks every /v1/platform/* call regardless.
+  if (seg === 'platform') {
+    if (isPlatformAdmin.value) return true
+    return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
+  }
 
   // EXTERNAL_SUPPLIER: allow their RLS-shared record modules, block admin routes.
   if (isSupplier.value) {

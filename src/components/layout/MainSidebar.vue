@@ -42,6 +42,7 @@ import {
   IconListDetails,
   IconEye,
   IconBolt,
+  IconWorld,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { isDark } from '@/utils/theme.js'
@@ -50,6 +51,7 @@ import {
   currentSession,
   isAllowed,
   isAdmin,
+  isPlatformAdmin,
   isSupplier,
 } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
@@ -537,6 +539,25 @@ const navItems = computed(() => {
                 icon: IconUserCircle,
                 to: getCompanyPath('/admin/impersonate'),
               },
+            ],
+          },
+        ]
+      : []),
+    // Platform Console — cross-tenant control plane. Gated on the platform-admin
+    // standing from the session (not company permissions); every /platform/*
+    // route is re-checked server-side by requirePlatformAdmin. Paths are NOT
+    // company-scoped (subdomain tenancy doesn't apply to the control plane).
+    ...(isPlatformAdmin.value
+      ? [
+          {}, // Divider
+          {
+            label: 'Platform',
+            icon: IconWorld,
+            children: [
+              { label: 'Overview', icon: IconLayoutGrid, to: '/platform' },
+              { label: 'Tenants', icon: IconBuildingCommunity, to: '/platform/companies' },
+              { label: 'Operators', icon: IconShield, to: '/platform/admins' },
+              { label: 'Audit', icon: IconListDetails, to: '/platform/audit' },
             ],
           },
         ]

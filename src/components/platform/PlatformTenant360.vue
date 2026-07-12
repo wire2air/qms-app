@@ -1,0 +1,193 @@
+<script setup>
+// Platform Console — Tenant 360. Single tenant: metadata, lifecycle status,
+// at-a-glance counts, and its users (metadata only — platform operators are
+// outsiders to the tenant compliance boundary; no tenant CONTENT is shown).
+import {
+  IconBuildingCommunity,
+  IconArrowLeft,
+  IconUsers,
+  IconCrown,
+  IconMapPin,
+  IconSitemap,
+  IconSettings,
+} from '@tabler/icons-vue'
+import { getCompany, listCompanyUsers } from '@/api/platform.js'
+import { hasPlatformRole } from '@/utils/currentSession.js'
+
+const props = defineProps({
+  companyId: { type: String, required: true },
+})
+
+const router = useRouter()
+
+const company = ref(null)
+const counts = ref({})
+const users = ref([])
+const loading = ref(true)
+const canSetStatus = computed(() => hasPlatformRole('admin'))
+const statusDialog = ref(false)
+
+const stats = computed(() => [
+  { label: 'Users', value: counts.value.users ?? '—', icon: IconUsers },
+  { label: 'Owners', value: counts.value.owners ?? '—', icon: IconCrown },
+  { label: 'Sites', value: counts.value.sites ?? '—', icon: IconMapPin },
+  { label: 'Departments', value: counts.value.departments ?? '—', icon: IconSitemap },
+])
+
+const userColumns = [
+  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
+  { name: 'email', label: 'EMAIL', field: 'email', align: 'left', sortable: true },
+  { name: 'jobTitle', label: 'JOB TITLE', field: 'jobTitle', align: 'left' },
+  { name: 'kind', label: 'KIND', field: 'kind', align: 'left' },
+  { name: 'isOwner', label: 'OWNER', field: 'isOwner', align: 'left', sortable: true },
+]
+const userPagination = ref({ page: 1, pageSize: 25 })
+const userSort = ref([{ id: 'isOwner', desc: true }])
+
+async function load() {
+  loading.value = true
+  try {
+    const [detail, userData] = await Promise.all([
+      getCompany(props.companyId),
+      listCompanyUsers(props.companyId),
+    ])
+    company.value = detail?.company || null
+    counts.value = detail?.counts || {}
+    users.value = (userData?.users || []).map((u) => ({
+      ...u,
+      name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || '—',
+    }))
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(load)
+
+function onStatusUpdated(newStatus) {
+  if (company.value) company.value.status = newStatus
+  load()
+}
+</script>
+
+<template>
+  <BasePage width="wide">
+    <PageHeader :icon="IconBuildingCommunity" :title="company?.name || 'Tenant'">
+      <template #actions>
+        <BaseButton variant="secondary" @click="router.push('/platform/companies')">
+          <template #icon><IconArrowLeft :size="16" /></template>
+          All tenants
+        </BaseButton>
+        <BaseButton
+          v-if="canSetStatus && company"
+          variant="primary"
+          @click="statusDialog = true"
+        >
+          <template #icon><IconSettings :size="16" /></template>
+          Set status
+        </BaseButton>
+      </template>
+    </PageHeader>
+
+    <div v-if="loading" class="tw:flex tw:justify-center tw:py-16">
+      <BaseSpinner />
+    </div>
+
+    <template v-else-if="company">
+      <!-- Summary -->
+      <PageSection title="Summary" :icon="IconBuildingCommunity">
+        <BaseCard>
+          <div class="tw:grid tw:grid-cols-2 tw:gap-6 tw:md:grid-cols-4">
+            <div>
+              <p class="tw:text-secondary tw:text-xs tw:mb-1">Code</p>
+              <p class="tw:font-mono tw:text-on-main">{{ company.code }}</p>
+            </div>
+            <div>
+              <p class="tw:text-secondary tw:text-xs tw:mb-1">Status</p>
+              <CompanyStatusBadge :status="company.status" />
+            </div>
+            <div>
+              <p class="tw:text-secondary tw:text-xs tw:mb-1">Created</p>
+              <p class="tw:text-on-main">{{ company.createdAt?.formatDate('date') || '—' }}</p>
+            </div>
+            <div>
+              <p class="tw:text-secondary tw:text-xs tw:mb-1">Status changed</p>
+              <p class="tw:text-on-main">
+                {{ company.statusChangedAt?.formatDate('datetime') || '—' }}
+              </p>
+            </div>
+            <div v-if="company.statusReason" class="tw:col-span-2 tw:md:col-span-4">
+              <p class="tw:text-secondary tw:text-xs tw:mb-1">Status reason</p>
+              <p class="tw:text-on-main">{{ company.statusReason }}</p>
+            </div>
+          </div>
+        </BaseCard>
+      </PageSection>
+
+      <!-- Counts -->
+      <ContentGrid min="12rem">
+        <BaseCard v-for="s in stats" :key="s.label">
+          <div class="tw:flex tw:items-center tw:gap-3">
+            <div
+              class="tw:flex tw:items-center tw:justify-center tw:rounded-lg tw:size-10 tw:bg-primary/10 tw:text-primary"
+            >
+              <component :is="s.icon" :size="20" />
+            </div>
+            <div>
+              <p class="tw:text-2xl tw:font-bold tw:text-on-main tw:leading-none">{{ s.value }}</p>
+              <p class="tw:text-secondary tw:text-xs tw:mt-1">{{ s.label }}</p>
+            </div>
+          </div>
+        </BaseCard>
+      </ContentGrid>
+
+      <!-- Users -->
+      <PageSection title="Users" :icon="IconUsers">
+        <DataTable
+          v-model:pagination="userPagination"
+          v-model:sort="userSort"
+          :rows="users"
+          :columns="userColumns"
+          rowKey="id"
+          :mobileCards="false"
+          searchable
+        >
+          <template #body-cell-name="{ row }">
+            <div class="tw:font-medium tw:text-on-main">{{ row.name }}</div>
+          </template>
+          <template #body-cell-email="{ row }">
+            <span class="tw:text-sm tw:text-secondary">{{ row.email }}</span>
+          </template>
+          <template #body-cell-jobTitle="{ row }">
+            <span class="tw:text-sm tw:text-secondary">{{ row.jobTitle || '—' }}</span>
+          </template>
+          <template #body-cell-kind="{ row }">
+            <span class="tw:text-sm tw:text-secondary">{{ row.kind || 'INTERNAL' }}</span>
+          </template>
+          <template #body-cell-isOwner="{ row }">
+            <span
+              v-if="row.isOwner"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-semibold tw:text-amber-600"
+            >
+              <IconCrown :size="14" /> Owner
+            </span>
+            <span v-else class="tw:text-secondary tw:text-sm">—</span>
+          </template>
+        </DataTable>
+      </PageSection>
+
+      <CompanyStatusDialog
+        v-model="statusDialog"
+        :company="company"
+        @updated="onStatusUpdated"
+      />
+    </template>
+
+    <BaseEmptyState
+      v-else
+      :icon="IconBuildingCommunity"
+      title="Tenant not found"
+      description="This tenant may have been removed."
+    />
+  </BasePage>
+</template>
