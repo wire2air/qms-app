@@ -9,6 +9,7 @@ import {
   buildDesiredPermissions,
   isModuleModified,
   clampScope,
+  writeScopeOptionsFor,
 } from '@/utils/permissionMatrixModel.js'
 
 const props = defineProps({
@@ -20,7 +21,7 @@ const props = defineProps({
 const loading = ref(false)
 const saving = ref(false)
 const catalog = ref({ sections: [], modules: [], actions: [], scopes: [] })
-const state = reactive({}) // moduleId -> { scope, caps: {} }
+const state = reactive({}) // moduleId -> { readScope, writeScope, caps: {} }
 const original = ref({}) // snapshot for modified detection
 const collapsed = reactive({}) // section -> bool
 const filterMode = ref('all') // 'all' | 'granted' | 'modified'
@@ -37,11 +38,19 @@ function scopeOptionsFor(m) {
     ...m.scopes.map((sid) => ({ label: SCOPE_LABELS[sid] || sid, value: sid, description: SCOPE_HINTS[sid] })),
   ]
 }
+// Write reach can be as wide as read, never wider.
+function writeScopeOptions(m) {
+  return writeScopeOptionsFor(m.scopes, state[m.id]?.readScope, scopeRank.value).map((sid) => ({
+    label: SCOPE_LABELS[sid] || sid,
+    value: sid,
+    description: SCOPE_HINTS[sid],
+  }))
+}
 function supportsCap(m, actionId) {
   return m.actions.includes(actionId)
 }
 function moduleGranted(id) {
-  return !!state[id]?.scope
+  return !!state[id]?.readScope
 }
 function moduleModified(id) {
   return isModuleModified(state[id], original.value[id])
@@ -76,20 +85,38 @@ function sectionGranted(group) {
 }
 
 // ── Mutations ───────────────────────────────────────────────────────────────
-function setScope(id, scope) {
-  if (!state[id]) state[id] = { scope: null, caps: {} }
-  state[id].scope = scope
-  if (!scope) state[id].caps = {} // no read reach ⇒ no capabilities
+function ensure(id) {
+  if (!state[id]) state[id] = { readScope: null, writeScope: null, caps: {} }
+  return state[id]
+}
+function setReadScope(id, scope) {
+  const s = ensure(id)
+  s.readScope = scope
+  if (!scope) {
+    s.writeScope = null
+    s.caps = {} // no read reach ⇒ no write, no capabilities
+    return
+  }
+  // Write defaults to the read reach and can never exceed it.
+  const cap = scopeRank.value[scope] ?? 0
+  if (!s.writeScope || (scopeRank.value[s.writeScope] ?? 0) > cap) s.writeScope = scope
+}
+function setWriteScope(id, scope) {
+  const s = ensure(id)
+  if (!s.readScope) return
+  const cap = scopeRank.value[s.readScope] ?? 0
+  s.writeScope = (scopeRank.value[scope] ?? 0) > cap ? s.readScope : scope
 }
 function toggleCap(id, action, val) {
-  if (!state[id]) state[id] = { scope: null, caps: {} }
-  state[id].caps[action] = val
+  ensure(id).caps[action] = val
 }
 function applyPreset(presetId) {
   const p = PERMISSION_PRESETS.find((x) => x.id === presetId)
   if (!p) return
   for (const m of catalog.value.modules) {
-    setScope(m.id, clampScope(p.scope, m.scopes))
+    setReadScope(m.id, clampScope(p.scope, m.scopes))
+    // Preset writeScope defaults to its read scope (uniform), clamped per module.
+    setWriteScope(m.id, clampScope(p.writeScope || p.scope, m.scopes))
     const caps = {}
     for (const c of p.caps) if (m.actions.includes(c)) caps[c] = true
     state[m.id].caps = caps
@@ -118,9 +145,12 @@ async function copyFromRole(sourceRoleId) {
     readActionId.value,
   )
   for (const m of catalog.value.modules) {
-    if (!state[m.id]) state[m.id] = { scope: null, caps: {} }
-    state[m.id].scope = projected[m.id]?.scope ?? null
-    state[m.id].caps = { ...(projected[m.id]?.caps || {}) }
+    const p = projected[m.id] || {}
+    state[m.id] = {
+      readScope: p.readScope ?? null,
+      writeScope: p.writeScope ?? null,
+      caps: { ...(p.caps || {}) },
+    }
   }
 }
 function onCopyFrom(id) {
@@ -130,7 +160,7 @@ function makeAdmin() {
   applyPreset('administrator')
 }
 function clearAll() {
-  for (const m of catalog.value.modules) setScope(m.id, null)
+  for (const m of catalog.value.modules) setReadScope(m.id, null)
 }
 function toggleSection(name) {
   collapsed[name] = !collapsed[name]
@@ -166,7 +196,8 @@ async function load() {
       readActionId.value,
     )
     for (const k of Object.keys(state)) delete state[k]
-    for (const m of catalog.value.modules) state[m.id] = projected[m.id] || { scope: null, caps: {} }
+    for (const m of catalog.value.modules)
+      state[m.id] = projected[m.id] || { readScope: null, writeScope: null, caps: {} }
     original.value = JSON.parse(JSON.stringify(projected))
     for (const s of catalog.value.sections) if (collapsed[s] === undefined) collapsed[s] = false
   } finally {
@@ -177,7 +208,12 @@ async function load() {
 async function save() {
   saving.value = true
   try {
-    const permissions = buildDesiredPermissions(catalog.value.modules, state, readActionId.value)
+    const permissions = buildDesiredPermissions(
+      catalog.value.modules,
+      state,
+      readActionId.value,
+      scopeRank.value,
+    )
     await put(`/v1/services/authz/roles/${props.roleId}/permissions`, { permissions }, { loader: saving })
     await load() // reflect canonical stored state
   } finally {
@@ -204,8 +240,9 @@ defineExpose({ save })
     <div class="tw:flex tw:items-start tw:gap-2 tw:text-xs tw:text-secondary">
       <IconInfoCircle :size="15" class="tw:mt-0.5 tw:shrink-0" />
       <span>
-        <b>Access</b> sets how many records the role can read (the scope). The capability
-        checkboxes apply <i>within</i> that access — a capability needs an access level first.
+        <b>Access</b> sets how many records the role can read. <b>Can edit</b> sets how far its
+        capabilities reach — it can be narrower than read (e.g. read a whole Site but only approve
+        your Own), never wider. A capability needs an access level first.
       </span>
     </div>
 
@@ -310,6 +347,7 @@ defineExpose({ save })
             <tr class="tw:text-left tw:text-xs tw:uppercase tw:tracking-wide tw:text-secondary tw:border-b tw:border-divider">
               <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Module</th>
               <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Access <span class="tw:normal-case tw:opacity-60">(read)</span></th>
+              <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Can edit <span class="tw:normal-case tw:opacity-60">(write)</span></th>
               <th
                 v-for="a in capabilityColumns"
                 :key="a.id"
@@ -336,7 +374,7 @@ defineExpose({ save })
               </td>
               <td class="tw:p-2 tw:w-40">
                 <BaseSelect
-                  :modelValue="state[m.id]?.scope ?? null"
+                  :modelValue="state[m.id]?.readScope ?? null"
                   :options="scopeOptionsFor(m)"
                   optionDescription="description"
                   size="sm"
@@ -344,16 +382,31 @@ defineExpose({ save })
                   :searchable="false"
                   :disabled="!canUpdate"
                   :placeholder="NO_ACCESS_LABEL"
-                  @update:modelValue="(v) => setScope(m.id, v)"
+                  @update:modelValue="(v) => setReadScope(m.id, v)"
                 />
+              </td>
+              <td class="tw:p-2 tw:w-40">
+                <BaseSelect
+                  v-if="state[m.id]?.readScope"
+                  :modelValue="state[m.id]?.writeScope ?? state[m.id]?.readScope"
+                  :options="writeScopeOptions(m)"
+                  optionDescription="description"
+                  size="sm"
+                  dense
+                  :searchable="false"
+                  :clearable="false"
+                  :disabled="!canUpdate"
+                  @update:modelValue="(v) => setWriteScope(m.id, v)"
+                />
+                <span v-else class="tw:text-secondary tw:opacity-30">—</span>
               </td>
               <td v-for="a in capabilityColumns" :key="a.id" class="tw:p-2 tw:text-center">
                 <div v-if="supportsCap(m, a.id)" class="tw:flex tw:justify-center">
                   <BaseCheckbox
                     :modelValue="!!state[m.id]?.caps[a.id]"
-                    :disabled="!canUpdate || !state[m.id]?.scope"
+                    :disabled="!canUpdate || !state[m.id]?.readScope"
                     :aria-label="`${a.name} — ${m.name}`"
-                    :title="!state[m.id]?.scope ? 'Set an access level first' : `${a.name} ${m.name}`"
+                    :title="!state[m.id]?.readScope ? 'Set an access level first' : `${a.name} ${m.name}`"
                     @update:modelValue="(v) => toggleCap(m.id, a.id, v)"
                   />
                 </div>
