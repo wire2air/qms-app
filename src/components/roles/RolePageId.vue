@@ -1,7 +1,6 @@
 <script setup>
 import { IconHistory, IconSearch, IconLock } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { useRoles } from '@/composables/useRoles.js'
 import { isAllowed } from '@/utils/currentSession.js'
 import { buildRoleSections, buildRoleActions } from './roleDetailConfig.js'
 
@@ -17,7 +16,6 @@ const router = useRouter()
 const { confirm } = useConfirm()
 const role = ref(null)
 const loading = ref(false)
-const error = ref(null)
 
 // Snapshot of the last-saved name/description, to detect unsaved edits (M4).
 const savedMeta = ref({ name: '', description: '' })
@@ -33,8 +31,42 @@ const canUpdateRole = computed(() => isAllowed(['role_permission_management:upda
 const isLocked = computed(() => !!role.value?.locked)
 const canEdit = computed(() => canUpdateRole.value && !isLocked.value)
 
-// Get useRoles composable
-const { fetchRole, updateRole, deactivateRole, activateRole, setRoleLock } = useRoles()
+// Live source of truth (pooled db.Role instance) + a plain-object editable copy
+// (`role`). Inline edits mutate the copy only; Save applies it to the instance
+// and persists, so Cancel/discard never leaves a dirty pooled instance.
+const liveRole = useLiveQueryWithDeps([() => props.id], (db, [id]) =>
+  id ? db.Role.findByPk(id) : null,
+)
+const roleAssignments = useLiveQueryWithDeps(
+  [() => props.id],
+  (db, [id]) => (id ? db.RoleOnUser.where('roleId', id).exec() : []),
+  { initial: [] },
+)
+const initialLoading = computed(() => liveRole.value === undefined)
+const notFound = computed(() => liveRole.value === null)
+
+watch(
+  liveRole,
+  (r) => {
+    if (!r) return
+    // Seed/refresh the editable copy when switching roles or when there are no
+    // unsaved edits (don't clobber the user's in-progress changes on a sync push).
+    if (!role.value || role.value.id !== r.id || !metaDirty.value) {
+      role.value = {
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        statusId: r.statusId,
+        locked: r.locked,
+        companyId: r.companyId,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      }
+      savedMeta.value = { name: r.name ?? '', description: r.description ?? '' }
+    }
+  },
+  { immediate: true },
+)
 
 // Inline editing state
 const isEditingName = ref(false)
@@ -58,11 +90,10 @@ const breadcrumbItems = computed(() => [
   { label: role.value?.name || 'Role Details' },
 ])
 
-const usersCount = computed(() => role.value?.userAssignments?.length || 0)
+const usersCount = computed(() => roleAssignments.value.length)
 
-const assignedUsers = computed(() => {
-  return role.value?.userAssignments?.map((ua) => ua.user) || []
-})
+// The dialog seeds its selection + "currently assigned" badge from ids.
+const assignedUsers = computed(() => roleAssignments.value.map((ra) => ({ id: ra.userId })))
 
 // Open users dialog
 function openUsersDialog() {
@@ -100,6 +131,23 @@ function stopEditDescription() {
 
 const isInactive = computed(() => role.value?.statusId === 'INACTIVE')
 
+// Persist a single field on the live instance (status / lock). These are
+// standalone actions, independent of the name/description explicit-save flow.
+// The DB lock trigger rejects business edits on a locked role (surfaced as an
+// error toast); toggling `locked` itself is always allowed.
+async function persistField(patch, successMsg) {
+  const inst = liveRole.value
+  if (!inst) return
+  Object.assign(inst, patch)
+  try {
+    await inst.save()
+    role.value = { ...role.value, ...patch }
+    toast.success(successMsg)
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update role')
+  }
+}
+
 async function handleDeactivate() {
   if (
     !(await confirm({
@@ -110,25 +158,7 @@ async function handleDeactivate() {
     }))
   )
     return
-  const success = await deactivateRole(props.id)
-  if (success) {
-    role.value = { ...role.value, statusId: 'INACTIVE' }
-    toast.success('Role deactivated successfully')
-  } else {
-    toast.error('Failed to deactivate role')
-  }
-}
-
-async function handleLock() {
-  await setRoleLock(props.id, true)
-  role.value = { ...role.value, locked: true }
-  toast.success('Role locked — it is now protected from edits')
-}
-
-async function handleUnlock() {
-  await setRoleLock(props.id, false)
-  role.value = { ...role.value, locked: false }
-  toast.success('Role unlocked')
+  await persistField({ statusId: 'INACTIVE' }, 'Role deactivated successfully')
 }
 
 async function handleActivate() {
@@ -140,74 +170,42 @@ async function handleActivate() {
     }))
   )
     return
-  const success = await activateRole(props.id)
-  if (success) {
-    role.value = { ...role.value, statusId: 'ACTIVE' }
-    toast.success('Role activated successfully')
-  } else {
-    toast.error('Failed to activate role')
-  }
+  await persistField({ statusId: 'ACTIVE' }, 'Role activated successfully')
 }
 
-// Fetch role details
-async function fetchRoleData() {
-  if (!props.id) {
-    return
-  }
-
-  loading.value = true
-  error.value = null
-
-  try {
-    const fetchedRole = await fetchRole(props.id)
-
-    if (!fetchedRole) {
-      throw new Error('Role not found')
-    }
-
-    role.value = fetchedRole
-    savedMeta.value = { name: fetchedRole.name, description: fetchedRole.description ?? '' }
-  } finally {
-    loading.value = false
-  }
+async function handleLock() {
+  await persistField({ locked: true }, 'Role locked — it is now protected from edits')
 }
 
-// Save changes
+async function handleUnlock() {
+  await persistField({ locked: false }, 'Role unlocked')
+}
+
+// Save changes — apply the editable copy's name/description to the live db.Role
+// instance and persist (syncEngine), then save the permission matrix via its own
+// audited endpoint. Only touches the instance here, so discard stays clean.
 async function saveChanges() {
-  if (!props.id) {
-    return
-  }
+  const inst = liveRole.value
+  if (!inst) return
 
   loading.value = true
-  error.value = null
-
   try {
-    const updateData = {
-      name: role.value.name,
-      description: role.value.description ?? '',
-    }
+    inst.name = role.value.name
+    inst.description = role.value.description ?? ''
+    await inst.save()
 
-    const result = await updateRole(props.id, updateData)
-
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to update role')
-    }
-
-    // Persist the permission matrix via its own audited endpoint.
+    // Permission matrix (authz plane — unchanged action-RPC).
     await matrixRef.value?.save()
 
-    toast.success('Role updated successfully')
-
-    // Update local role with response + refresh the saved snapshot so the
-    // route-leave guard doesn't fire on the goBack() below.
-    role.value = result.role
-    savedMeta.value = { name: result.role.name, description: result.role.description ?? '' }
-
-    // Stop editing modes
+    savedMeta.value = { name: inst.name, description: inst.description ?? '' }
+    role.value = { ...role.value, name: inst.name, description: inst.description }
     isEditingName.value = false
     isEditingDescription.value = false
 
+    toast.success('Role updated successfully')
     goBack()
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update role')
   } finally {
     loading.value = false
   }
@@ -231,20 +229,7 @@ onBeforeRouteLeave(async () => {
   })
 })
 
-// Initialize
-onMounted(() => {
-  fetchRoleData()
-})
-
-// Watch for id changes
-watch(
-  () => props.id,
-  () => {
-    if (props.id) {
-      fetchRoleData()
-    }
-  },
-)
+// (Data loads reactively via the liveRole / roleAssignments live queries above.)
 
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
 const roleActions = computed(() =>
@@ -282,8 +267,8 @@ const roleDetailConfig = computed(() =>
   <BaseDetailLayout
     :config="roleDetailConfig"
     :record="role"
-    :loading="loading && !role"
-    :notFound="error && !role"
+    :loading="initialLoading && !role"
+    :notFound="notFound && !role"
     notFoundTitle="Role not found"
     notFoundDescription="This role could not be found."
   >
@@ -417,7 +402,6 @@ const roleDetailConfig = computed(() =>
     :roleId="id"
     :roleName="role?.name"
     :assignedUsers="assignedUsers"
-    @saved="fetchRoleData"
   />
 
   <!-- Access history (permission + membership changes) -->

@@ -5,11 +5,11 @@ import { isAllowed } from '@/utils/currentSession.js'
 /**
  * Roles — admin list page (C3: syncEngine-backed).
  *
- * The list reads live from the syncEngine (`db.Role` + `db.RoleOnUser` for the
- * per-role user count) so it stays consistent across tabs. Activate/Deactivate
- * persist through the model's `.save()` (DB lock trigger blocks a locked role).
- * The detail page (RolePageId) + create dialog still use the axios `useRoles`
- * layer (explicit-save flow); their writes reflect here via sync broadcasts.
+ * The whole roles surface is now syncEngine-backed (C3): the list reads live
+ * from `db.Role` (+ `db.RoleOnUser` for the per-role user count) and status
+ * changes persist through the model's `.save()` (the DB lock trigger blocks a
+ * locked role). Detail (RolePageId) and create (RoleCreateDialog) also use
+ * db.Role, so every change reflects live across the surface.
  */
 const showCreateDialog = ref(false)
 const cloneSource = ref(null)

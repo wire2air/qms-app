@@ -1,7 +1,6 @@
 <script setup>
 import { IconCirclePlus, IconInfoCircle } from '@tabler/icons-vue'
 import { required } from '@shared/components/form/validators.js'
-import { useRoles } from '@/composables/useRoles.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. Copies the
 // source role's scoped permission grants (authz model) into the new role.
 import { get, put } from '@/api'
@@ -14,7 +13,12 @@ const emit = defineEmits(['created'])
 
 const show = defineModel({ type: Boolean, default: false })
 
-const { roles, createRole } = useRoles()
+const roles = useLiveQuery((db) => db.Role.where().exec(), { models: ['Role'], initial: [] })
+const createRole = useLiveMutation(async (db, payload) => {
+  const r = db.Role.create(payload)
+  await r.save()
+  return r
+})
 
 const formRef = ref(null)
 const isSubmitting = ref(false)
@@ -75,15 +79,11 @@ async function onSubmit() {
   isSubmitting.value = true
   saveError.value = ''
   try {
-    const result = await createRole({
+    const created = await createRole({
       name: form.value.name.trim(),
       description: form.value.description.trim() || '',
       statusId: 'ACTIVE',
     })
-    if (!result?.success) {
-      saveError.value = 'Failed to create role'
-      return
-    }
     // Copy the source role's scoped permissions into the new role.
     if (form.value.copyFromRoleId !== 'custom') {
       const src = await get(`/v1/services/authz/roles/${form.value.copyFromRoleId}/permissions`)
@@ -93,10 +93,10 @@ async function onSubmit() {
         scope: p.scope,
       }))
       if (permissions.length) {
-        await put(`/v1/services/authz/roles/${result.role.id}/permissions`, { permissions })
+        await put(`/v1/services/authz/roles/${created.id}/permissions`, { permissions })
       }
     }
-    emit('created', result.role)
+    emit('created', created)
     show.value = false
   } catch (err) {
     saveError.value = err?.message || 'Failed to create role'
