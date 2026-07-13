@@ -1,5 +1,5 @@
 <script setup>
-import { IconShieldCheck, IconEraser, IconChevronRight, IconInfoCircle } from '@tabler/icons-vue'
+import { IconShieldCheck, IconEraser, IconChevronRight, IconInfoCircle, IconCheck } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. The authz
 // permission matrix is a decision-plane outcome, not a synced model record.
 import { get, put } from '@/api'
@@ -53,8 +53,10 @@ function writeScopeOptions(m) {
     description: SCOPE_HINTS[sid],
   }))
 }
-function supportsCap(m, actionId) {
-  return m.actions.includes(actionId)
+// Capabilities a module actually supports (non-read actions), in global display
+// order. Drives the per-row chip cell so only real actions render.
+function moduleCaps(m) {
+  return capabilityColumns.value.filter((a) => m.actions.includes(a.id))
 }
 function moduleGranted(id) {
   return !!state[id]?.readScope
@@ -348,13 +350,7 @@ defineExpose({ save, hasUnsavedChanges: () => modifiedCount.value > 0 })
               <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Module</th>
               <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Access <span class="tw:normal-case tw:opacity-60">(read)</span></th>
               <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Can edit <span class="tw:normal-case tw:opacity-60">(write)</span></th>
-              <th
-                v-for="a in capabilityColumns"
-                :key="a.id"
-                class="tw:p-2 tw:font-medium tw:text-center tw:whitespace-nowrap"
-              >
-                {{ a.name }}
-              </th>
+              <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Capabilities</th>
             </tr>
           </thead>
           <tbody>
@@ -400,15 +396,30 @@ defineExpose({ save, hasUnsavedChanges: () => modifiedCount.value > 0 })
                 />
                 <span v-else class="tw:text-secondary tw:opacity-30">—</span>
               </td>
-              <td v-for="a in capabilityColumns" :key="a.id" class="tw:p-2 tw:text-center">
-                <div v-if="supportsCap(m, a.id)" class="tw:flex tw:justify-center">
-                  <BaseCheckbox
-                    :modelValue="!!state[m.id]?.caps[a.id]"
+              <td class="tw:p-2">
+                <div v-if="moduleCaps(m).length" class="tw:flex tw:flex-wrap tw:gap-1.5">
+                  <button
+                    v-for="a in moduleCaps(m)"
+                    :key="a.id"
+                    type="button"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-full tw:border tw:px-2.5 tw:py-1 tw:text-xs tw:font-medium tw:transition-colors"
+                    :class="[
+                      state[m.id]?.caps[a.id]
+                        ? 'tw:bg-primary tw:text-white tw:border-primary'
+                        : 'tw:bg-transparent tw:text-secondary tw:border-divider',
+                      !canUpdate || !state[m.id]?.readScope
+                        ? 'tw:opacity-40 tw:cursor-not-allowed'
+                        : 'tw:cursor-pointer tw:hover:border-primary',
+                    ]"
                     :disabled="!canUpdate || !state[m.id]?.readScope"
+                    :aria-pressed="!!state[m.id]?.caps[a.id]"
                     :aria-label="`${a.name} — ${m.name}`"
                     :title="!state[m.id]?.readScope ? 'Set an access level first' : `${a.name} ${m.name}`"
-                    @update:modelValue="(v) => toggleCap(m.id, a.id, v)"
-                  />
+                    @click="toggleCap(m.id, a.id, !state[m.id]?.caps[a.id])"
+                  >
+                    <IconCheck v-if="state[m.id]?.caps[a.id]" :size="13" class="tw:shrink-0" />
+                    {{ a.name }}
+                  </button>
                 </div>
                 <span v-else class="tw:text-secondary tw:opacity-30">—</span>
               </td>
