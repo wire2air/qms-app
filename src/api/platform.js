@@ -11,7 +11,7 @@
  * gate (isPlatformAdmin) is convenience only.
  */
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { get, post, del } from '@/api'
+import { get, post, patch, del } from '@/api'
 
 // ── Tenants ──────────────────────────────────────────────────────────────────
 export function listCompanies(search) {
@@ -60,6 +60,45 @@ export function resetUserMfa(companyId, userId, reason) {
     { reason },
     { showSuccess: 'MFA reset' },
   )
+}
+
+// ── Entitlements (C2) — a tenant's plan + per-module overrides ───────────────
+export function getCompanyEntitlements(id) {
+  return get(`/v1/platform/companies/${id}/entitlements`, { loader: false })
+}
+
+export function setCompanyPlan(id, planId) {
+  return post(`/v1/platform/companies/${id}/plan`, { planId }, { showSuccess: 'Plan updated' })
+}
+
+// enabled: true (add-on) · false (remove) · null (clear override → revert to plan)
+export function setCompanyModule(id, moduleId, enabled) {
+  return post(
+    `/v1/platform/companies/${id}/modules/${moduleId}`,
+    { enabled },
+    { showSuccess: 'Module entitlement updated' },
+  )
+}
+
+// ── Plan catalog (global) ────────────────────────────────────────────────────
+export function listPlans() {
+  return get('/v1/platform/plans', { loader: false })
+}
+
+export function createPlan(payload) {
+  return post('/v1/platform/plans', payload, { showSuccess: 'Plan created' })
+}
+
+export function updatePlan(planId, patchBody) {
+  return patch(`/v1/platform/plans/${planId}`, patchBody, { showSuccess: 'Plan updated' })
+}
+
+export function addPlanModule(planId, moduleId) {
+  return post(`/v1/platform/plans/${planId}/modules/${moduleId}`, {}, { loader: false })
+}
+
+export function removePlanModule(planId, moduleId) {
+  return del(`/v1/platform/plans/${planId}/modules/${moduleId}`, { loader: false })
 }
 
 // ── Operators ────────────────────────────────────────────────────────────────

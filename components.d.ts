@@ -798,6 +798,7 @@ declare module 'vue' {
     PlatformAudit: typeof import('./src/components/platform/PlatformAudit.vue')['default']
     PlatformCompanies: typeof import('./src/components/platform/PlatformCompanies.vue')['default']
     PlatformOverview: typeof import('./src/components/platform/PlatformOverview.vue')['default']
+    PlatformPlans: typeof import('./src/components/platform/PlatformPlans.vue')['default']
     PlatformTenant360: typeof import('./src/components/platform/PlatformTenant360.vue')['default']
     PrintLayout: typeof import('./src/components/print/PrintLayout.vue')['default']
     PrintShell: typeof import('./src/components/print/PrintShell.vue')['default']

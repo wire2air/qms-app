@@ -13,6 +13,9 @@ import {
   IconKey,
   IconLockOpen,
   IconShieldOff,
+  IconLicense,
+  IconCircleCheck,
+  IconCircleX,
 } from '@tabler/icons-vue'
 import {
   getCompany,
@@ -20,6 +23,9 @@ import {
   sendUserPasswordReset,
   unlockUser,
   resetUserMfa,
+  getCompanyEntitlements,
+  setCompanyPlan,
+  setCompanyModule,
 } from '@/api/platform.js'
 import { hasPlatformRole } from '@/utils/currentSession.js'
 
@@ -45,6 +51,67 @@ const stats = computed(() => [
 
 const canSupport = computed(() => hasPlatformRole('support'))
 const canAdmin = computed(() => hasPlatformRole('admin'))
+
+// ── Entitlements (C2) ────────────────────────────────────────────────────────
+const entitlement = ref({ subscription: null, plans: [], modules: [] })
+const planDraft = ref(null)
+const savingPlan = ref(false)
+const modulePagination = ref({ page: 1, pageSize: 25 })
+const moduleSort = ref([{ id: 'section', desc: false }])
+
+const planDirty = computed(
+  () => planDraft.value && planDraft.value !== entitlement.value.subscription?.planId,
+)
+
+const moduleColumns = computed(() => {
+  const cols = [
+    { name: 'name', label: 'MODULE', field: 'name', align: 'left', sortable: true },
+    { name: 'section', label: 'SECTION', field: 'section', align: 'left', sortable: true },
+    { name: 'entitled', label: 'ENTITLED', field: 'entitled', align: 'left', sortable: true },
+    { name: 'source', label: 'SOURCE', field: 'source', align: 'left' },
+  ]
+  if (canAdmin.value) cols.push({ name: 'actions', label: '', field: 'actions', align: 'right' })
+  return cols
+})
+
+function moduleMenuItems(row) {
+  return [
+    { name: 'Force on (add-on)', icon: IconCircleCheck, click: () => onSetModule(row, true) },
+    { name: 'Force off (remove)', icon: IconCircleX, click: () => onSetModule(row, false) },
+    {
+      name: 'Reset to plan',
+      icon: IconLicense,
+      disabled: row.source !== 'override',
+      click: () => onSetModule(row, null),
+    },
+  ]
+}
+
+async function loadEntitlements() {
+  const data = await getCompanyEntitlements(props.companyId)
+  entitlement.value = {
+    subscription: data?.subscription || null,
+    plans: data?.plans || [],
+    modules: data?.modules || [],
+  }
+  planDraft.value = data?.subscription?.planId || null
+}
+
+async function onSavePlan() {
+  if (!planDirty.value) return
+  savingPlan.value = true
+  try {
+    await setCompanyPlan(props.companyId, planDraft.value)
+    await loadEntitlements()
+  } finally {
+    savingPlan.value = false
+  }
+}
+
+async function onSetModule(row, enabled) {
+  await setCompanyModule(props.companyId, row.id, enabled)
+  await loadEntitlements()
+}
 
 const userColumns = computed(() => {
   const cols = [
@@ -121,6 +188,7 @@ async function load() {
     const [detail, userData] = await Promise.all([
       getCompany(props.companyId),
       listCompanyUsers(props.companyId),
+      loadEntitlements(),
     ])
     company.value = detail?.company || null
     counts.value = detail?.counts || {}
@@ -149,11 +217,7 @@ function onStatusUpdated(newStatus) {
           <template #icon><IconArrowLeft :size="16" /></template>
           All tenants
         </BaseButton>
-        <BaseButton
-          v-if="canSetStatus && company"
-          variant="primary"
-          @click="statusDialog = true"
-        >
+        <BaseButton v-if="canSetStatus && company" variant="primary" @click="statusDialog = true">
           <template #icon><IconSettings :size="16" /></template>
           Set status
         </BaseButton>
@@ -212,6 +276,91 @@ function onStatusUpdated(newStatus) {
         </BaseCard>
       </ContentGrid>
 
+      <!-- Plan & Entitlements (C2) -->
+      <PageSection title="Plan & Entitlements" :icon="IconLicense">
+        <BaseCard>
+          <div
+            class="tw:flex tw:flex-col tw:gap-4 tw:sm:flex-row tw:sm:items-end tw:sm:justify-between"
+          >
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <p class="tw:text-secondary tw:text-xs">Current plan</p>
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <span class="tw:font-semibold tw:text-on-main">
+                  {{ entitlement.subscription?.planName || 'No subscription' }}
+                </span>
+                <BaseBadge v-if="entitlement.subscription" class="tw:bg-gray-100 tw:text-gray-600">
+                  {{ entitlement.subscription.status }}
+                </BaseBadge>
+              </div>
+            </div>
+            <div v-if="canAdmin" class="tw:flex tw:items-end tw:gap-2">
+              <div class="tw:min-w-52">
+                <p class="tw:text-secondary tw:text-xs tw:mb-1">Assign plan</p>
+                <BaseSelect
+                  v-model="planDraft"
+                  :options="entitlement.plans"
+                  optionLabel="name"
+                  optionValue="id"
+                  :required="true"
+                />
+              </div>
+              <BaseButton
+                variant="primary"
+                :disabled="!planDirty || savingPlan"
+                :loading="savingPlan"
+                @click="onSavePlan"
+              >
+                Save
+              </BaseButton>
+            </div>
+          </div>
+        </BaseCard>
+
+        <div class="tw:mt-4">
+          <DataTable
+            v-model:pagination="modulePagination"
+            v-model:sort="moduleSort"
+            :rows="entitlement.modules"
+            :columns="moduleColumns"
+            rowKey="id"
+            :mobileCards="false"
+            searchable
+          >
+            <template #body-cell-name="{ row }">
+              <span class="tw:font-medium tw:text-on-main">{{ row.name }}</span>
+            </template>
+            <template #body-cell-section="{ row }">
+              <span class="tw:text-sm tw:text-secondary">{{ row.section }}</span>
+            </template>
+            <template #body-cell-entitled="{ row }">
+              <span
+                v-if="row.entitled"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-semibold tw:text-green-600"
+              >
+                <IconCircleCheck :size="14" /> Entitled
+              </span>
+              <span
+                v-else
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-semibold tw:text-gray-500"
+              >
+                <IconCircleX :size="14" /> Not entitled
+              </span>
+            </template>
+            <template #body-cell-source="{ row }">
+              <BaseBadge v-if="row.source === 'override'" class="tw:bg-amber-100 tw:text-amber-700">
+                Override{{ row.overrideEnabled === false ? ' (off)' : '' }}
+              </BaseBadge>
+              <span v-else class="tw:text-sm tw:text-secondary">Plan</span>
+            </template>
+            <template #body-cell-actions="{ row }">
+              <div class="tw:flex tw:justify-end" @click.stop>
+                <BaseMenu :items="moduleMenuItems(row)" />
+              </div>
+            </template>
+          </DataTable>
+        </div>
+      </PageSection>
+
       <!-- Users -->
       <PageSection title="Users" :icon="IconUsers">
         <DataTable
@@ -262,11 +411,7 @@ function onStatusUpdated(newStatus) {
         @confirm="onCredentialConfirm"
       />
 
-      <CompanyStatusDialog
-        v-model="statusDialog"
-        :company="company"
-        @updated="onStatusUpdated"
-      />
+      <CompanyStatusDialog v-model="statusDialog" :company="company" @updated="onStatusUpdated" />
     </template>
 
     <BaseEmptyState

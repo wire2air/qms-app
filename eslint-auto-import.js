@@ -339,7 +339,6 @@ export default {
     "useRecordTrail": true,
     "useRefHistory": true,
     "useResizeObserver": true,
-    "useRolePermissions": true,
     "useRoles": true,
     "useRoute": true,
     "useRouteMeta": true,

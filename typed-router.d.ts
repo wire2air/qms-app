@@ -429,6 +429,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/platform/plans': RouteRecordInfo<
+      '/platform/plans',
+      '/platform/plans',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/print': RouteRecordInfo<
       '/print',
       '/print',
@@ -1025,6 +1032,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/platform/companies/[id].vue': {
       routes:
         | '/platform/companies/[id]'
+      views:
+        | never
+    }
+    'src/pages/platform/plans.vue': {
+      routes:
+        | '/platform/plans'
       views:
         | never
     }
