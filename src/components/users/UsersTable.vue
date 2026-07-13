@@ -1,5 +1,7 @@
 <script setup>
+import { IconUsersPlus } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
+import { isAllowed } from '@/utils/currentSession.js'
 
 defineProps({
   rows: {
@@ -13,6 +15,32 @@ defineProps({
 })
 
 const router = useRouter()
+
+// Bulk role assignment (M2) — only for users who can manage user roles.
+const canAssignRoles = computed(() => isAllowed(['user_management:update']))
+const selected = ref([])
+const assignDialog = ref(false)
+const assignTargetIds = ref([])
+
+const bulkActions = computed(() =>
+  canAssignRoles.value
+    ? [
+        {
+          key: 'assign-role',
+          label: 'Assign role',
+          icon: IconUsersPlus,
+          run: (ids) => {
+            assignTargetIds.value = [...ids]
+            assignDialog.value = true
+          },
+        },
+      ]
+    : [],
+)
+
+function onAssigned() {
+  selected.value = []
+}
 
 // Search / status / role filtering is owned by UsersFilterToolbar + quick-filter
 // pills on the page, so the table's own search/filter chrome is disabled — it
@@ -36,6 +64,7 @@ function openUser(row) {
   <DataTable
     v-model:pagination="pagination"
     v-model:sort="sort"
+    v-model:selected="selected"
     :rows="rows"
     :columns="columns"
     :loading="loading"
@@ -43,6 +72,8 @@ function openUser(row) {
     :mobileCards="false"
     :searchable="false"
     :filterable="false"
+    :selectable="canAssignRoles"
+    :bulkActions="bulkActions"
     exportManager
     exportFilename="users.csv"
     @rowClick="openUser"
@@ -66,4 +97,10 @@ function openUser(row) {
       <UserStatusBadgeById :statusId="row.userStatusId" />
     </template>
   </DataTable>
+
+  <UsersBulkAssignRoleDialog
+    v-model="assignDialog"
+    :userIds="assignTargetIds"
+    @assigned="onAssigned"
+  />
 </template>

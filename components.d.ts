@@ -1054,6 +1054,7 @@ declare module 'vue' {
     UserPageId: typeof import('./src/components/users/UserPageId.vue')['default']
     UserRoleListItemById: typeof import('./src/components/users/UserRoleListItemById.vue')['default']
     UserRolesCell: typeof import('./src/components/users/UserRolesCell.vue')['default']
+    UsersBulkAssignRoleDialog: typeof import('./src/components/users/UsersBulkAssignRoleDialog.vue')['default']
     UsersCreateUserDialog: typeof import('./src/components/users/UsersCreateUserDialog.vue')['default']
     UserSelectMenu: typeof import('./src/components/menus/UserSelectMenu.vue')['default']
     UsersFilterToolbar: typeof import('./src/components/users/UsersFilterToolbar.vue')['default']
