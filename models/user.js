@@ -27,7 +27,11 @@ export class User extends BaseModel {
   @Property({ type: String, required: true }) email = ''
   @Property({ type: String, required: true }) userStatusId = 'INACTIVE'
   @Property({ type: String, required: true }) companyId = ''
+  // Free-text title — for supplier users, and a denormalized copy of the
+  // employee-title name for internal users (read by the session + display sites).
   @Property({ type: String }) jobTitle = ''
+  // Internal staff: FK into the per-tenant employee_titles lookup.
+  @Property({ type: String }) employeeTitleId = null
   @Property({ type: String }) languageId = ''
   @Property({ type: String, required: true }) timeZone = 'UTC'
   @Property({ type: Boolean }) inviteSent = false

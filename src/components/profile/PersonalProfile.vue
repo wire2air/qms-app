@@ -141,12 +141,22 @@ async function handleAvatarDelete() {
             />
           </div>
 
-          <BaseTextInput
-            v-model="user.jobTitle"
-            label="Job title"
-            placeholder="e.g. Quality Manager"
-            size="md"
-          />
+          <div>
+            <p class="tw:text-label tw:font-medium tw:text-on-main tw:mb-1.5">Employee title</p>
+            <!-- Internal staff pick from the company employee-title lookup;
+                 supplier users keep free text. jobTitle mirrors the name. -->
+            <EmployeeTitleSelectMenu
+              v-if="user.kind !== 'EXTERNAL_SUPPLIER'"
+              v-model="user.employeeTitleId"
+              @update:name="(n) => (user.jobTitle = n || null)"
+            />
+            <BaseTextInput
+              v-else
+              v-model="user.jobTitle"
+              placeholder="e.g. Quality Manager"
+              size="md"
+            />
+          </div>
 
           <!-- Email — read-only (it's the login identifier) -->
           <div>

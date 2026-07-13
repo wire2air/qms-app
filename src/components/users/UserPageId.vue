@@ -123,6 +123,15 @@ async function saveUser() {
   }
 }
 
+// Employee title is the employee_titles FK (user.employeeTitleId); mirror the
+// chosen title's name into user.jobTitle so the session + display sites keep
+// working, then persist both in one save.
+function onEmployeeTitleName(name) {
+  if (!user.value) return
+  user.value.jobTitle = name || null
+  saveUser()
+}
+
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
 const userActions = computed(() =>
   buildUserActions(
@@ -276,8 +285,8 @@ const userDetailConfig = computed(() =>
               <p class="tw:text-secondary tw:mb-1">Employee Title</p>
               <EmployeeTitleSelectMenu
                 v-if="canUpdateUser"
-                v-model="user.jobTitle"
-                @update:modelValue="saveUser"
+                v-model="user.employeeTitleId"
+                @update:name="onEmployeeTitleName"
               />
               <span v-else class="tw:text-sm tw:text-on-main">{{ user?.jobTitle || '—' }}</span>
             </div>
