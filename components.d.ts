@@ -795,6 +795,7 @@ declare module 'vue' {
     PersonalProfile: typeof import('./src/components/profile/PersonalProfile.vue')['default']
     PersonalSecurity: typeof import('./src/components/security/PersonalSecurity.vue')['default']
     PlatformAdmins: typeof import('./src/components/platform/PlatformAdmins.vue')['default']
+    PlatformApprovals: typeof import('./src/components/platform/PlatformApprovals.vue')['default']
     PlatformAudit: typeof import('./src/components/platform/PlatformAudit.vue')['default']
     PlatformCompanies: typeof import('./src/components/platform/PlatformCompanies.vue')['default']
     PlatformOverview: typeof import('./src/components/platform/PlatformOverview.vue')['default']

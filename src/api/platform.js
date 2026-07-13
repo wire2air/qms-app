@@ -101,6 +101,61 @@ export function removePlanModule(planId, moduleId) {
   return del(`/v1/platform/plans/${planId}/modules/${moduleId}`, { loader: false })
 }
 
+// ── Governance / safety (destructive-op approvals, blast radius, legal hold) ──
+export function getBlastRadius(id) {
+  return get(`/v1/platform/companies/${id}/blast-radius`, { loader: false })
+}
+
+export function requestCompanyPurge(id, { reason, delayHours }) {
+  return post(
+    `/v1/platform/companies/${id}/purge-request`,
+    { reason, delayHours },
+    { showSuccess: 'Purge requested — awaiting a second operator’s approval' },
+  )
+}
+
+export function setLegalHold(id, hold, reason) {
+  return post(
+    `/v1/platform/companies/${id}/legal-hold`,
+    { hold, reason },
+    { showSuccess: hold ? 'Legal hold placed' : 'Legal hold cleared' },
+  )
+}
+
+export function listApprovals(status) {
+  return get('/v1/platform/approvals', { params: status ? { status } : {}, loader: false })
+}
+
+export function approveApproval(id) {
+  return post(`/v1/platform/approvals/${id}/approve`, {}, { showSuccess: 'Request approved' })
+}
+
+export function rejectApproval(id, reason) {
+  return post(
+    `/v1/platform/approvals/${id}/reject`,
+    { reason },
+    { showSuccess: 'Request rejected' },
+  )
+}
+
+export function cancelApproval(id, reason) {
+  return post(
+    `/v1/platform/approvals/${id}/cancel`,
+    { reason },
+    { showSuccess: 'Request cancelled' },
+  )
+}
+
+// Approval lifecycle states + display metadata.
+export const APPROVAL_STATUSES = [
+  { id: 'pending', label: 'Pending', class: 'tw:bg-amber-100 tw:text-amber-700' },
+  { id: 'approved', label: 'Approved (scheduled)', class: 'tw:bg-blue-100 tw:text-blue-700' },
+  { id: 'executed', label: 'Executed', class: 'tw:bg-gray-800 tw:text-white' },
+  { id: 'rejected', label: 'Rejected', class: 'tw:bg-red-100 tw:text-red-700' },
+  { id: 'cancelled', label: 'Cancelled', class: 'tw:bg-gray-200 tw:text-gray-600' },
+  { id: 'failed', label: 'Failed / vetoed', class: 'tw:bg-red-100 tw:text-red-700' },
+]
+
 // ── Operators ────────────────────────────────────────────────────────────────
 export function listPlatformAdmins() {
   return get('/v1/platform/admins', { loader: false })

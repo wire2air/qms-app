@@ -408,6 +408,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/platform/approvals': RouteRecordInfo<
+      '/platform/approvals',
+      '/platform/approvals',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/platform/audit': RouteRecordInfo<
       '/platform/audit',
       '/platform/audit',
@@ -1014,6 +1021,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/platform/admins.vue': {
       routes:
         | '/platform/admins'
+      views:
+        | never
+    }
+    'src/pages/platform/approvals.vue': {
+      routes:
+        | '/platform/approvals'
       views:
         | never
     }

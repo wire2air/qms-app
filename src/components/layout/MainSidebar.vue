@@ -43,6 +43,7 @@ import {
   IconBolt,
   IconWorld,
   IconLicense,
+  IconGavel,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { isDark } from '@/utils/theme.js'
@@ -558,6 +559,7 @@ const navItems = computed(() => {
                 icon: IconUserCircle,
                 to: getCompanyPath('/admin/impersonate'),
               },
+              { label: 'Approvals', icon: IconGavel, to: '/platform/approvals' },
               { label: 'Operators', icon: IconShield, to: '/platform/admins' },
               { label: 'Audit', icon: IconListDetails, to: '/platform/audit' },
             ],
