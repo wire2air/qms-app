@@ -1,5 +1,5 @@
 import { currentCompany } from '@/utils/currentCompany.js'
-import { get, post, put } from '@/api'
+import { get, post, put, patch } from '@/api'
 
 const symbol = Symbol('useRoles')
 
@@ -145,6 +145,16 @@ function RolesState() {
     return true
   }
 
+  // Lock / unlock a role (protect it from edits).
+  async function setRoleLock(id, locked) {
+    error.value = null
+    await patch(`/v1/services/roles/${id}/lock`, { locked }, { loader: loading })
+    const result = await fetchRole(id)
+    const roleIndex = roles.value.findIndex((r) => r.id === id)
+    if (roleIndex !== -1) roles.value[roleIndex] = result
+    return { success: true, role: result }
+  }
+
   return {
     roles,
     loading,
@@ -156,6 +166,7 @@ function RolesState() {
     createRole,
     deactivateRole,
     activateRole,
+    setRoleLock,
   }
 }
 

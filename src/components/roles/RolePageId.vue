@@ -1,5 +1,5 @@
 <script setup>
-import { IconHistory, IconSearch } from '@tabler/icons-vue'
+import { IconHistory, IconSearch, IconLock } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { useRoles } from '@/composables/useRoles.js'
 import { isAllowed } from '@/utils/currentSession.js'
@@ -19,10 +19,22 @@ const role = ref(null)
 const loading = ref(false)
 const error = ref(null)
 
+// Snapshot of the last-saved name/description, to detect unsaved edits (M4).
+const savedMeta = ref({ name: '', description: '' })
+const metaDirty = computed(
+  () =>
+    !!role.value &&
+    (role.value.name !== savedMeta.value.name ||
+      (role.value.description ?? '') !== savedMeta.value.description),
+)
+
 const canUpdateRole = computed(() => isAllowed(['role_permission_management:update']))
+// A locked role is protected — editing controls are disabled until it's unlocked.
+const isLocked = computed(() => !!role.value?.locked)
+const canEdit = computed(() => canUpdateRole.value && !isLocked.value)
 
 // Get useRoles composable
-const { fetchRole, updateRole, deactivateRole, activateRole } = useRoles()
+const { fetchRole, updateRole, deactivateRole, activateRole, setRoleLock } = useRoles()
 
 // Inline editing state
 const isEditingName = ref(false)
@@ -57,7 +69,7 @@ function openUsersDialog() {
 
 // Inline editing functions
 async function startEditName() {
-  if (!canUpdateRole.value) return
+  if (!canEdit.value) return
   editedName.value = role.value.name
   isEditingName.value = true
   await nextTick()
@@ -72,7 +84,7 @@ function stopEditName() {
 }
 
 async function startEditDescription() {
-  if (!canUpdateRole.value) return
+  if (!canEdit.value) return
   editedDescription.value = role.value.description || ''
   isEditingDescription.value = true
   await nextTick()
@@ -103,6 +115,18 @@ async function handleDeactivate() {
   } else {
     toast.error('Failed to deactivate role')
   }
+}
+
+async function handleLock() {
+  await setRoleLock(props.id, true)
+  role.value = { ...role.value, locked: true }
+  toast.success('Role locked — it is now protected from edits')
+}
+
+async function handleUnlock() {
+  await setRoleLock(props.id, false)
+  role.value = { ...role.value, locked: false }
+  toast.success('Role unlocked')
 }
 
 async function handleActivate() {
@@ -140,6 +164,7 @@ async function fetchRoleData() {
     }
 
     role.value = fetchedRole
+    savedMeta.value = { name: fetchedRole.name, description: fetchedRole.description ?? '' }
   } finally {
     loading.value = false
   }
@@ -171,8 +196,10 @@ async function saveChanges() {
 
     toast.success('Role updated successfully')
 
-    // Update local role with response
+    // Update local role with response + refresh the saved snapshot so the
+    // route-leave guard doesn't fire on the goBack() below.
     role.value = result.role
+    savedMeta.value = { name: result.role.name, description: result.role.description ?? '' }
 
     // Stop editing modes
     isEditingName.value = false
@@ -188,6 +215,19 @@ async function saveChanges() {
 function goBack() {
   router.back()
 }
+
+// Warn before leaving with unsaved name/description or permission-matrix edits
+// (M4 — the two are persisted by separate calls, so losing either is easy).
+onBeforeRouteLeave(async () => {
+  const dirty = metaDirty.value || matrixRef.value?.hasUnsavedChanges?.()
+  if (!dirty) return true
+  return await confirm({
+    title: 'Discard unsaved changes?',
+    message: 'This role has unsaved changes. Leave without saving them?',
+    okLabel: 'Leave',
+    danger: true,
+  })
+})
 
 // Initialize
 onMounted(() => {
@@ -208,12 +248,21 @@ watch(
 const roleActions = computed(() =>
   buildRoleActions(
     {
-      canUpdate: canUpdateRole.value,
+      canUpdate: canEdit.value,
+      canLock: canUpdateRole.value,
+      locked: isLocked.value,
       hasRole: !!role.value,
       isInactive: isInactive.value,
       saving: loading.value,
     },
-    { save: saveChanges, cancel: goBack, activate: handleActivate, deactivate: handleDeactivate },
+    {
+      save: saveChanges,
+      cancel: goBack,
+      activate: handleActivate,
+      deactivate: handleDeactivate,
+      lock: handleLock,
+      unlock: handleUnlock,
+    },
   ),
 )
 const roleDetailConfig = computed(() =>
@@ -246,16 +295,24 @@ const roleDetailConfig = computed(() =>
         @keyup.enter="stopEditName"
         @keyup.escape="stopEditName"
       />
-      <BaseClickableRow
-        v-else
-        class="tw:text-base tw:font-semibold tw:text-on-main"
-        :class="canUpdateRole ? 'tw:hover:text-primary' : ''"
-        :disabled="!canUpdateRole"
-        aria-label="Edit role name"
-        @click="canUpdateRole && startEditName()"
-      >
-        {{ role?.name }}
-      </BaseClickableRow>
+      <div v-else class="tw:flex tw:items-center tw:gap-2">
+        <BaseClickableRow
+          class="tw:text-base tw:font-semibold tw:text-on-main"
+          :class="canEdit ? 'tw:hover:text-primary' : ''"
+          :disabled="!canEdit"
+          aria-label="Edit role name"
+          @click="canEdit && startEditName()"
+        >
+          {{ role?.name }}
+        </BaseClickableRow>
+        <span
+          v-if="isLocked"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-full tw:bg-amber-100 tw:px-2 tw:py-0.5 tw:text-xs tw:font-semibold tw:text-amber-700"
+          title="This role is locked — unlock it to make changes"
+        >
+          <IconLock :size="12" /> Locked
+        </span>
+      </div>
     </template>
 
     <template #status>
@@ -287,14 +344,14 @@ const roleDetailConfig = computed(() =>
         <BaseClickableRow
           v-else
           class="tw:text-sm tw:text-secondary tw:leading-relaxed"
-          :class="canUpdateRole ? 'tw:hover:text-on-sidebar' : ''"
-          :disabled="!canUpdateRole"
+          :class="canEdit ? 'tw:hover:text-on-sidebar' : ''"
+          :disabled="!canEdit"
           aria-label="Edit role description"
-          @click="canUpdateRole && startEditDescription()"
+          @click="canEdit && startEditDescription()"
         >
           {{
             role.description ||
-            (canUpdateRole ? 'No description provided (click to edit)' : 'No description provided')
+            (canEdit ? 'No description provided (click to edit)' : 'No description provided')
           }}
         </BaseClickableRow>
       </BaseRailCard>
@@ -340,7 +397,7 @@ const roleDetailConfig = computed(() =>
       <RolePermissionMatrix
         ref="matrixRef"
         :roleId="id"
-        :canUpdate="canUpdateRole"
+        :canUpdate="canEdit"
         :search="permSearch"
       />
     </template>

@@ -231,7 +231,8 @@ watch(
   },
 )
 
-defineExpose({ save })
+// hasUnsavedChanges() lets the parent page warn before navigating away.
+defineExpose({ save, hasUnsavedChanges: () => modifiedCount.value > 0 })
 </script>
 
 <template>

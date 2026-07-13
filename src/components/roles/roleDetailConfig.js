@@ -13,9 +13,13 @@ export function buildRoleSections(_role) {
   return [{ id: 'permissions', label: 'Permissions' }]
 }
 
-/** Header action descriptors. gates = resolved booleans; handlers = callbacks. */
+/**
+ * Header action descriptors. gates = resolved booleans; handlers = callbacks.
+ * `canUpdate` is the EDIT gate (false when the role is locked); `canLock` is the
+ * raw permission (so lock/unlock stay available on a locked role).
+ */
 export function buildRoleActions(gates = {}, handlers = {}) {
-  const { canUpdate, hasRole, isInactive, saving } = gates
+  const { canUpdate, canLock, locked, hasRole, isInactive, saving } = gates
   return [
     {
       id: 'save',
@@ -34,6 +38,22 @@ export function buildRoleActions(gates = {}, handlers = {}) {
       priority: 60,
       visible: !!canUpdate,
       onSelect: handlers.cancel,
+    },
+    {
+      id: 'unlock',
+      label: 'Unlock',
+      variant: 'secondary',
+      priority: 45,
+      visible: !!hasRole && !!canLock && !!locked,
+      onSelect: handlers.unlock,
+    },
+    {
+      id: 'lock',
+      label: 'Lock',
+      variant: 'secondary',
+      priority: 45,
+      visible: !!hasRole && !!canLock && !locked,
+      onSelect: handlers.lock,
     },
     {
       id: 'activate',

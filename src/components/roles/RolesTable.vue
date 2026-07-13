@@ -1,5 +1,5 @@
 <script setup>
-import { IconCircleCheck, IconBan, IconCopy } from '@tabler/icons-vue'
+import { IconCircleCheck, IconBan, IconCopy, IconLock } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
@@ -51,7 +51,8 @@ function rowMenuItems(row) {
   if (props.canCreate) {
     items.push({ name: 'Clone Role', icon: IconCopy, click: () => emit('clone', row) })
   }
-  if (props.canUpdate) {
+  // A locked role is protected — no status changes until it's unlocked.
+  if (props.canUpdate && !row.locked) {
     items.push(
       row.statusId === 'INACTIVE'
         ? { name: 'Activate Role', icon: IconCircleCheck, click: () => emit('activate', row) }
@@ -78,7 +79,15 @@ function rowMenuItems(row) {
     @rowClick="openRole"
   >
     <template #body-cell-name="{ row }">
-      <div class="tw:font-semibold tw:text-on-main">{{ row.name }}</div>
+      <div class="tw:flex tw:items-center tw:gap-1.5">
+        <span class="tw:font-semibold tw:text-on-main">{{ row.name }}</span>
+        <IconLock
+          v-if="row.locked"
+          :size="14"
+          class="tw:text-amber-600"
+          title="Locked — protected from edits"
+        />
+      </div>
     </template>
 
     <template #body-cell-description="{ row }">
