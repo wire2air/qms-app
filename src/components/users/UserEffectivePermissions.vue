@@ -79,7 +79,8 @@ watch(() => props.userId, load, { immediate: true })
 
     <div v-else class="tw:flex tw:flex-col tw:gap-3">
       <p class="tw:text-xs tw:text-secondary">
-        Resolved from assigned roles. <em>Read</em> is implied by any grant on a module.
+        Resolved from assigned roles and roles inherited via teams. <em>Read</em> is implied by any
+        grant on a module.
       </p>
       <div
         v-for="m in modules"
@@ -100,8 +101,16 @@ watch(() => props.userId, load, { immediate: true })
               {{ humanize(a.action) }}
               <span class="tw:text-secondary">· {{ SCOPE_LABEL[a.scope] || a.scope }}</span>
             </span>
-            <span class="tw:text-secondary tw:truncate" :title="`via role ${a.roleName}`">
+            <span
+              class="tw:text-secondary tw:truncate"
+              :title="
+                a.sourceType === 'team'
+                  ? `via role ${a.roleName} (Team ${a.viaTeam})`
+                  : `via role ${a.roleName}`
+              "
+            >
               via {{ a.roleName }}
+              <span v-if="a.sourceType === 'team'" class="tw:text-primary">· Team {{ a.viaTeam }}</span>
             </span>
           </div>
         </div>
