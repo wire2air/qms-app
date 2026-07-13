@@ -1,9 +1,9 @@
 /**
  * Sections and header actions for a Role detail page. Pure — caller resolves
  * the role + gate flags/handlers. Status is shown as a header badge (no banner).
- * NOTE: this page uses an explicit Save flow (not autosave) and axios-backed
- * composables — that data layer is pre-existing and preserved as-is; only the
- * layout is migrated.
+ * NOTE: this page uses an explicit Save flow (not autosave); its data layer is
+ * now the syncEngine (`db.Role`) — the caller keeps a plain editable copy and
+ * persists to the live instance on Save (C3).
  */
 
 /** Anchor-nav sections. The permissions matrix is the single body section (no
