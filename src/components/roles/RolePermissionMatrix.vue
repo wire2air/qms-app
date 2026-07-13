@@ -25,8 +25,15 @@ const state = reactive({}) // moduleId -> { readScope, writeScope, caps: {} }
 const original = ref({}) // snapshot for modified detection
 const collapsed = reactive({}) // section -> bool
 const filterMode = ref('all') // 'all' | 'granted' | 'modified'
-const sourceRoles = ref([]) // other roles, for "Copy from…"
 const { confirm } = useConfirm()
+
+// Other roles, for "Copy from…" — live from the syncEngine (C3).
+const allRoles = useLiveQuery((db) => db.Role.where().exec(), { models: ['Role'], initial: [] })
+const sourceRoles = computed(() =>
+  (allRoles.value || [])
+    .filter((r) => r.id !== props.roleId)
+    .map((r) => ({ label: r.name, value: r.id })),
+)
 
 const readActionId = computed(() => catalog.value.actions.find((a) => a.isRead)?.id || 'read')
 const capabilityColumns = computed(() => catalog.value.actions.filter((a) => !a.isRead))
@@ -179,14 +186,6 @@ async function load() {
       modules: cat.modules || [],
       actions: cat.actions || [],
       scopes: cat.scopes || [],
-    }
-    try {
-      const rolesResp = await get('/v1/services/roles')
-      sourceRoles.value = (rolesResp.roles || [])
-        .filter((r) => r.id !== props.roleId)
-        .map((r) => ({ label: r.name, value: r.id }))
-    } catch {
-      sourceRoles.value = []
     }
     const data = await get(`/v1/services/authz/roles/${props.roleId}/permissions`)
     const projected = projectGrantsToState(
