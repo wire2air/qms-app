@@ -330,7 +330,7 @@ const navItems = computed(() => {
           to: getCompanyPath('/trainings'),
         },
         {
-          label: 'Training Instances',
+          label: 'Training Matrix',
           permissions: ['trainingInstances:read'],
           icon: IconSchool,
           to: getCompanyPath('/training-instances'),
@@ -342,10 +342,10 @@ const navItems = computed(() => {
           to: getCompanyPath('/training-verifications'),
         },
         {
-          label: 'Training Matrix',
-          permissions: ['trainingMatrix:read'],
+          label: 'Training Curriculum',
+          permissions: ['trainingCurriculum:read'],
           icon: IconSchool,
-          to: getCompanyPath('/training-matrix'),
+          to: getCompanyPath('/training-curriculum'),
         },
       ],
     },

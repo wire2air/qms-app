@@ -42,6 +42,8 @@ export class User extends BaseModel {
   @Property({ type: String }) supplierId = null
   @Property({ type: String }) siteId = null
   @Property({ type: String }) departmentId = null
+  @Property({ type: String }) supervisorId = null
+  @Property({ type: DateTime }) hireDate = null
   // Per-user app preferences (§39): dashboard widgets, table columns,
   // one-time notification flags. Use the useUserSettings composable.
   @Property({ type: Object }) settings = /** @type {Object} */ ({})

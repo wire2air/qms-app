@@ -597,6 +597,13 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/training-curriculum': RouteRecordInfo<
+      '/training-curriculum',
+      '/training-curriculum',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/training-instances/[[id]]': RouteRecordInfo<
       '/training-instances/[[id]]',
       '/training-instances/:id?',
@@ -604,9 +611,9 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
-    '/training-matrix': RouteRecordInfo<
-      '/training-matrix',
-      '/training-matrix',
+    '/training-reports': RouteRecordInfo<
+      '/training-reports',
+      '/training-reports',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -1151,15 +1158,21 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/training-curriculum.vue': {
+      routes:
+        | '/training-curriculum'
+      views:
+        | never
+    }
     'src/pages/training-instances/[[id]].vue': {
       routes:
         | '/training-instances/[[id]]'
       views:
         | never
     }
-    'src/pages/training-matrix.vue': {
+    'src/pages/training-reports.vue': {
       routes:
-        | '/training-matrix'
+        | '/training-reports'
       views:
         | never
     }

@@ -198,7 +198,7 @@ const showTrainingReminder = ref(false)
 const trainingAudienceMissing = computed(() => {
   const tc = selectedVersion.value?.trainingConfig
   if (!tc?.enabled) return false
-  return !(tc.roleIds?.length || tc.userIds?.length)
+  return !(tc.curriculumIds?.length || tc.userIds?.length)
 })
 const trainingAssessmentMissing = computed(
   () => !!selectedVersion.value?.trainingConfig?.enabled && !selectedVersion.value?.trainingConfig?.assessment?.length,

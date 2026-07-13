@@ -6,13 +6,13 @@ defineProps({
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
-// Only ACTIVE, non-doc-driven trainings show in the picker. Doc-driven trainings
-// are launched by the document effective trigger, not via direct selection.
+// ACTIVE trainings — including document-driven ones, so they can be added to
+// curricula (the doc-effective flow also auto-adds them to the selected curricula).
 const trainings = useLiveQuery(
   async (db) =>
     db.Training.where()
       .exec()
-      .then((all) => all.filter((t) => t.status === 'ACTIVE' && !t.sourceDocumentId)),
+      .then((all) => all.filter((t) => t.status === 'ACTIVE')),
 
   { models: ['Training'], initial: [] },
 )
@@ -22,7 +22,7 @@ const trainings = useLiveQuery(
   <BaseSelect
     v-model="modelValue"
     :options="trainings"
-    optionLabel="name"
+    optionLabel="title"
     optionValue="id"
     :required="required"
     :multiple="multiple"

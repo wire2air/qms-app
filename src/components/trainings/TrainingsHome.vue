@@ -18,22 +18,18 @@ const list = useListLayout({
   syncUrl: true,
 })
 
-// Document-driven trainings (sourceDocumentId != null) are hidden — their config
-// lives on the document and they're an implementation detail.
-const allTrainings = useLiveQuery(
-  async (db) => {
-    const all = await db.Training.where().exec()
-    return all.filter((t) => !t.sourceDocumentId)
-  },
-
-  { models: ['Training'], initial: [] },
-)
+// Document-driven trainings (sourceDocumentId != null) now show in the library
+// too — they're first-class trainings that can belong to curricula. The source
+// document is surfaced via the linked-document indicator on the row.
+const allTrainings = useLiveQuery(async (db) => db.Training.where().exec(), {
+  models: ['Training'],
+  initial: [],
+})
 
 const trainings = useLiveQueryWithDeps(
   [() => list.filters.value.status],
   async (db, [status]) => {
     let results = await db.Training.where().exec()
-    results = results.filter((r) => !r.sourceDocumentId)
     if (status) results = results.filter((r) => r.status === status)
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),

@@ -51,6 +51,13 @@ function rowMenuItems(row) {
         class="tw:flex tw:items-center tw:gap-2 tw:text-on-main tw:hover:text-primary"
       >
         <span class="tw:font-medium">{{ row.title }}</span>
+        <span
+          v-if="row.sourceDocumentId"
+          class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary tw:bg-main-hover tw:rounded tw:px-1.5 tw:py-0.5"
+          title="Generated from a controlled document"
+        >
+          From document
+        </span>
       </RouterLink>
     </template>
 

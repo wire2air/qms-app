@@ -1,6 +1,6 @@
 import {
   IconRocket,
-  IconLayoutGrid,
+  IconBook,
   IconArrowBackUp,
   IconArchive,
   IconCircleCheck,
@@ -66,7 +66,7 @@ export function buildTrainingActions(gates = {}, handlers = {}) {
     },
     {
       id: 'launch',
-      label: 'Launch',
+      label: 'Ad-Hoc Training',
       icon: IconRocket,
       variant: 'primary',
       priority: 100,
@@ -74,13 +74,13 @@ export function buildTrainingActions(gates = {}, handlers = {}) {
       onSelect: handlers.launch,
     },
     {
-      id: 'addMatrix',
-      label: 'Add to Training Matrix',
-      icon: IconLayoutGrid,
+      id: 'addToCurriculum',
+      label: 'Add to Curriculum',
+      icon: IconBook,
       variant: 'secondary',
       priority: 70,
       visible: !!canManage && isActive,
-      onSelect: handlers.addMatrix,
+      onSelect: handlers.addToCurriculum,
     },
     {
       id: 'unpublish',
