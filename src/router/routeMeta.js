@@ -121,6 +121,12 @@ export const ROUTE_META = {
     permission: 'security:manage',
     parent: '/settings',
   },
+  '/vendor-access-log': {
+    title: 'Vendor Access',
+    icon: IconShield,
+    permission: 'security:manage',
+    parent: '/settings',
+  },
   '/audit-logs': { title: 'Audit Logs', icon: IconShieldCheck },
   '/settings': { title: 'Settings', icon: IconSettings, permission: 'company_settings:manage' },
   '/notification-rules': {

@@ -38,6 +38,7 @@ import {
 import { hasPlatformRole } from '@/utils/currentSession.js'
 import { useConfirm } from '@shared/composables/useConfirm.js'
 import { useToast } from '@shared/composables/useToast.js'
+import { useStepUp } from '@/composables/useStepUp'
 
 const props = defineProps({
   companyId: { type: String, required: true },
@@ -195,6 +196,7 @@ function userMenuItems(user) {
 // ── Danger Zone (governance) ─────────────────────────────────────────────────
 const { confirm } = useConfirm()
 const toast = useToast()
+const { stepUpOpen, run, onVerified } = useStepUp()
 const blast = ref(null)
 const legalHoldBusy = ref(false)
 const legalHoldDialog = ref(false)
@@ -227,8 +229,10 @@ async function onToggleLegalHold() {
     if (!ok) return
     legalHoldBusy.value = true
     try {
-      await setLegalHold(props.companyId, false)
-      await loadBlast()
+      await run(async () => {
+        await setLegalHold(props.companyId, false)
+        await loadBlast()
+      })
     } finally {
       legalHoldBusy.value = false
     }
@@ -240,9 +244,11 @@ async function onToggleLegalHold() {
 async function onPlaceLegalHold(reason) {
   legalHoldBusy.value = true
   try {
-    await setLegalHold(props.companyId, true, reason)
-    legalHoldDialog.value = false
-    await loadBlast()
+    await run(async () => {
+      await setLegalHold(props.companyId, true, reason)
+      legalHoldDialog.value = false
+      await loadBlast()
+    })
   } finally {
     legalHoldBusy.value = false
   }
@@ -265,12 +271,14 @@ async function onRequestPurge() {
   }
   purgeBusy.value = true
   try {
-    await requestCompanyPurge(props.companyId, {
-      reason: f.reason.trim(),
-      delayHours: Number(f.delayHours) || 72,
+    await run(async () => {
+      await requestCompanyPurge(props.companyId, {
+        reason: f.reason.trim(),
+        delayHours: Number(f.delayHours) || 72,
+      })
+      purgeDialog.value = false
+      await loadBlast()
     })
-    purgeDialog.value = false
-    await loadBlast()
   } finally {
     purgeBusy.value = false
   }
@@ -663,6 +671,8 @@ function onStatusUpdated(newStatus) {
       </BaseDialog>
 
       <CompanyStatusDialog v-model="statusDialog" :company="company" @updated="onStatusUpdated" />
+
+      <StepUpDialog v-model="stepUpOpen" @verified="onVerified" />
     </template>
 
     <BaseEmptyState

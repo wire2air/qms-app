@@ -386,6 +386,14 @@ const navItems = computed(() => {
           to: getCompanyPath('/admin-security'),
         },
         {
+          // Read-only ledger of platform-operator (vendor) actions on this
+          // workspace — the tenant-visible transparency surface.
+          label: 'Vendor Access',
+          permissions: ['security:manage'],
+          icon: IconShield,
+          to: getCompanyPath('/vendor-access-log'),
+        },
+        {
           // Config-driven notification engine (entity create / status-change →
           // notify groups / people / owner / initiator over in-app + email).
           label: 'Notifications',

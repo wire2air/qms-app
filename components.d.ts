@@ -923,6 +923,7 @@ declare module 'vue' {
     SpecificationsList: typeof import('./src/components/qcInspection/SpecificationsList.vue')['default']
     SpecificationStatusBadge: typeof import('./src/components/badges/SpecificationStatusBadge.vue')['default']
     SpecificationStatusBadgeById: typeof import('./src/components/badges/SpecificationStatusBadgeById.vue')['default']
+    StepUpDialog: typeof import('./src/components/platform/StepUpDialog.vue')['default']
     StickyFormFooter: typeof import('./resource/js/shared/components/form/StickyFormFooter.vue')['default']
     'StickyFormFooter.stories': typeof import('./resource/js/shared/components/form/StickyFormFooter.stories.js')['default']
     Suggestion: typeof import('./src/components/editor/extensions/documentMention/suggestion.js')['default']

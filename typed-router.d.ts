@@ -667,6 +667,13 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/vendor-access-log': RouteRecordInfo<
+      '/vendor-access-log',
+      '/vendor-access-log',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/workflow-instances/[[id]]': RouteRecordInfo<
       '/workflow-instances/[[id]]',
       '/workflow-instances/:id?',
@@ -1243,6 +1250,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/users/[[id]].vue': {
       routes:
         | '/users/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/vendor-access-log.vue': {
+      routes:
+        | '/vendor-access-log'
       views:
         | never
     }

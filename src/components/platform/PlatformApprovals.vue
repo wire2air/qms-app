@@ -13,8 +13,10 @@ import {
   APPROVAL_STATUSES,
 } from '@/api/platform.js'
 import { hasPlatformRole, currentSession } from '@/utils/currentSession.js'
+import { useStepUp } from '@/composables/useStepUp'
 
 const { confirm } = useConfirm()
+const { stepUpOpen, run, onVerified } = useStepUp()
 
 const rows = ref([])
 const loading = ref(false)
@@ -87,8 +89,10 @@ async function onApprove(row) {
     danger: true,
   })
   if (!ok) return
-  await approveApproval(row.id)
-  await load()
+  await run(async () => {
+    await approveApproval(row.id)
+    await load()
+  })
 }
 
 function openReason(kind, row) {
@@ -216,5 +220,7 @@ const reasonCfg = computed(() => {
       "
       @confirm="onReasonConfirm"
     />
+
+    <StepUpDialog v-model="stepUpOpen" @verified="onVerified" />
   </BasePage>
 </template>

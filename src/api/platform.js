@@ -101,6 +101,13 @@ export function removePlanModule(planId, moduleId) {
   return del(`/v1/platform/plans/${planId}/modules/${moduleId}`, { loader: false })
 }
 
+// ── Step-up re-authentication ─────────────────────────────────────────────────
+// Refreshes the operator's step-up marker so a privileged action (purge, legal
+// hold, approval) is allowed. The server 403s STEP_UP_REQUIRED until this runs.
+export function platformStepUp({ password }) {
+  return post('/v1/platform/step-up', { password })
+}
+
 // ── Governance / safety (destructive-op approvals, blast radius, legal hold) ──
 export function getBlastRadius(id) {
   return get(`/v1/platform/companies/${id}/blast-radius`, { loader: false })
