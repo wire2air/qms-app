@@ -21,6 +21,9 @@ export class Role extends BaseModel {
   @Property({ type: String, required: true }) name = ''
   @Property({ type: String }) description = ''
   @Property({ type: String }) statusId = 'ACTIVE'
+  // A locked role is protected from edits (enforced in the DB by the
+  // roles_lock_guard trigger). Toggled via PATCH /roles/:id/lock.
+  @Property({ type: Boolean }) locked = false
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)
