@@ -11,7 +11,7 @@
  * gate (isPlatformAdmin) is convenience only.
  */
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { get, post, del } from '@/api'
+import { get, post, patch, del } from '@/api'
 
 // ── Tenants ──────────────────────────────────────────────────────────────────
 export function listCompanies(search) {
@@ -61,6 +61,107 @@ export function resetUserMfa(companyId, userId, reason) {
     { showSuccess: 'MFA reset' },
   )
 }
+
+// ── Entitlements (C2) — a tenant's plan + per-module overrides ───────────────
+export function getCompanyEntitlements(id) {
+  return get(`/v1/platform/companies/${id}/entitlements`, { loader: false })
+}
+
+export function setCompanyPlan(id, planId) {
+  return post(`/v1/platform/companies/${id}/plan`, { planId }, { showSuccess: 'Plan updated' })
+}
+
+// enabled: true (add-on) · false (remove) · null (clear override → revert to plan)
+export function setCompanyModule(id, moduleId, enabled) {
+  return post(
+    `/v1/platform/companies/${id}/modules/${moduleId}`,
+    { enabled },
+    { showSuccess: 'Module entitlement updated' },
+  )
+}
+
+// ── Plan catalog (global) ────────────────────────────────────────────────────
+export function listPlans() {
+  return get('/v1/platform/plans', { loader: false })
+}
+
+export function createPlan(payload) {
+  return post('/v1/platform/plans', payload, { showSuccess: 'Plan created' })
+}
+
+export function updatePlan(planId, patchBody) {
+  return patch(`/v1/platform/plans/${planId}`, patchBody, { showSuccess: 'Plan updated' })
+}
+
+export function addPlanModule(planId, moduleId) {
+  return post(`/v1/platform/plans/${planId}/modules/${moduleId}`, {}, { loader: false })
+}
+
+export function removePlanModule(planId, moduleId) {
+  return del(`/v1/platform/plans/${planId}/modules/${moduleId}`, { loader: false })
+}
+
+// ── Step-up re-authentication ─────────────────────────────────────────────────
+// Refreshes the operator's step-up marker so a privileged action (purge, legal
+// hold, approval) is allowed. The server 403s STEP_UP_REQUIRED until this runs.
+export function platformStepUp({ password }) {
+  return post('/v1/platform/step-up', { password })
+}
+
+// ── Governance / safety (destructive-op approvals, blast radius, legal hold) ──
+export function getBlastRadius(id) {
+  return get(`/v1/platform/companies/${id}/blast-radius`, { loader: false })
+}
+
+export function requestCompanyPurge(id, { reason, delayHours }) {
+  return post(
+    `/v1/platform/companies/${id}/purge-request`,
+    { reason, delayHours },
+    { showSuccess: 'Purge requested — awaiting a second operator’s approval' },
+  )
+}
+
+export function setLegalHold(id, hold, reason) {
+  return post(
+    `/v1/platform/companies/${id}/legal-hold`,
+    { hold, reason },
+    { showSuccess: hold ? 'Legal hold placed' : 'Legal hold cleared' },
+  )
+}
+
+export function listApprovals(status) {
+  return get('/v1/platform/approvals', { params: status ? { status } : {}, loader: false })
+}
+
+export function approveApproval(id) {
+  return post(`/v1/platform/approvals/${id}/approve`, {}, { showSuccess: 'Request approved' })
+}
+
+export function rejectApproval(id, reason) {
+  return post(
+    `/v1/platform/approvals/${id}/reject`,
+    { reason },
+    { showSuccess: 'Request rejected' },
+  )
+}
+
+export function cancelApproval(id, reason) {
+  return post(
+    `/v1/platform/approvals/${id}/cancel`,
+    { reason },
+    { showSuccess: 'Request cancelled' },
+  )
+}
+
+// Approval lifecycle states + display metadata.
+export const APPROVAL_STATUSES = [
+  { id: 'pending', label: 'Pending', class: 'tw:bg-amber-100 tw:text-amber-700' },
+  { id: 'approved', label: 'Approved (scheduled)', class: 'tw:bg-blue-100 tw:text-blue-700' },
+  { id: 'executed', label: 'Executed', class: 'tw:bg-gray-800 tw:text-white' },
+  { id: 'rejected', label: 'Rejected', class: 'tw:bg-red-100 tw:text-red-700' },
+  { id: 'cancelled', label: 'Cancelled', class: 'tw:bg-gray-200 tw:text-gray-600' },
+  { id: 'failed', label: 'Failed / vetoed', class: 'tw:bg-red-100 tw:text-red-700' },
+]
 
 // ── Operators ────────────────────────────────────────────────────────────────
 export function listPlatformAdmins() {

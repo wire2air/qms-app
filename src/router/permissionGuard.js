@@ -48,6 +48,7 @@ const ADMIN_PERMISSIONS = {
   settings: 'company_settings:manage',
   'organization-security': 'security:manage',
   'admin-security': 'security:manage',
+  'vendor-access-log': 'security:manage',
 }
 
 // Record modules — guard the LIST route only; detail routes defer to RLS so

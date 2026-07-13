@@ -42,6 +42,8 @@ import {
   IconEye,
   IconBolt,
   IconWorld,
+  IconLicense,
+  IconGavel,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { isDark } from '@/utils/theme.js'
@@ -49,6 +51,7 @@ import {
   logoutCurrentSession,
   currentSession,
   isAllowed,
+  isModuleEntitled,
   isPlatformAdmin,
   isSupplier,
 } from '@/utils/currentSession'
@@ -62,6 +65,17 @@ const { reset: resetTrail } = useRecordTrail()
 
 const { visible, isDesktop, closeMobile } = useSidebar()
 const route = useRoute()
+
+// Entitlement (commercial) gate for a nav item, in addition to its RBAC
+// permission. A module nav item carries `permissions: ['<module_id>:read']`, so
+// its module id is the prefix of the first permission. Hide the item when the
+// tenant's plan doesn't include that module. Fail-open (isModuleEntitled) means
+// unlimited tenants — every tenant today — see no change.
+function isNavItemEntitled(item) {
+  if (!item.permissions || item.permissions.length === 0) return true
+  const moduleId = item.permissions[0].split(':')[0]
+  return isModuleEntitled(moduleId)
+}
 
 // On a small screen the sidebar overlays the page; close it after the user
 // navigates so it doesn't linger over the destination.
@@ -372,6 +386,14 @@ const navItems = computed(() => {
           to: getCompanyPath('/admin-security'),
         },
         {
+          // Read-only ledger of platform-operator (vendor) actions on this
+          // workspace — the tenant-visible transparency surface.
+          label: 'Vendor Access',
+          permissions: ['security:manage'],
+          icon: IconShield,
+          to: getCompanyPath('/vendor-access-log'),
+        },
+        {
           // Config-driven notification engine (entity create / status-change →
           // notify groups / people / owner / initiator over in-app + email).
           label: 'Notifications',
@@ -524,7 +546,7 @@ const navItems = computed(() => {
         // If no permissions specified, always show
         if (!item.permissions || item.permissions.length === 0) return true
 
-        return isAllowed(item.permissions)
+        return isAllowed(item.permissions) && isNavItemEntitled(item)
       }),
     },
     // Platform Console — cross-tenant control plane. Gated on the platform-admin
@@ -541,7 +563,13 @@ const navItems = computed(() => {
             children: [
               { label: 'Overview', icon: IconLayoutGrid, to: '/platform' },
               { label: 'Tenants', icon: IconBuildingCommunity, to: '/platform/companies' },
-              { label: 'Impersonate', icon: IconUserCircle, to: getCompanyPath('/admin/impersonate') },
+              { label: 'Plans', icon: IconLicense, to: '/platform/plans' },
+              {
+                label: 'Impersonate',
+                icon: IconUserCircle,
+                to: getCompanyPath('/admin/impersonate'),
+              },
+              { label: 'Approvals', icon: IconGavel, to: '/platform/approvals' },
               { label: 'Operators', icon: IconShield, to: '/platform/admins' },
               { label: 'Audit', icon: IconListDetails, to: '/platform/audit' },
             ],
@@ -555,7 +583,7 @@ const navItems = computed(() => {
     // If no permissions specified, always show
     if (!item.permissions || item.permissions.length === 0) return true
 
-    return isAllowed(item.permissions)
+    return isAllowed(item.permissions) && isNavItemEntitled(item)
   })
 })
 </script>
@@ -575,200 +603,205 @@ const navItems = computed(() => {
         v-if="visible"
         class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen tw:fixed tw:inset-y-0 tw:left-0 tw:z-overlay tw:lg:static tw:lg:z-auto"
       >
-      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-4 tw:flex-1 tw:overflow-hidden">
-        <!-- Brand — links home (dashboard) -->
-        <RouterLink
-          :to="getCompanyPath('/dashboard')"
-          class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:-m-1 tw:p-1 tw:hover:bg-main-hover tw:transition-colors"
-          @click="resetTrail"
-        >
-          <div v-if="logoUrl">
-            <img :src="logoUrl" alt="Company Logo" class="tw:w-10 tw:h-10 tw:rounded" />
-          </div>
-          <div
-            v-else
-            class="tw:bg-primary tw:flex tw:items-center tw:justify-center tw:rounded-lg tw:size-10 tw:text-white"
+        <div class="tw:flex tw:flex-col tw:gap-4 tw:p-4 tw:flex-1 tw:overflow-hidden">
+          <!-- Brand — links home (dashboard) -->
+          <RouterLink
+            :to="getCompanyPath('/dashboard')"
+            class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:-m-1 tw:p-1 tw:hover:bg-main-hover tw:transition-colors"
+            @click="resetTrail"
           >
-            <IconChartBar :size="24" />
-          </div>
-          <div class="tw:flex tw:flex-col">
-            <div class="tw:text-on-sidebar tw:text-base tw:font-bold tw:leading-tight">
-              {{ isSupplier ? 'Supplier Portal' : 'QMS Admin' }}
+            <div v-if="logoUrl">
+              <img :src="logoUrl" alt="Company Logo" class="tw:w-10 tw:h-10 tw:rounded" />
             </div>
-            <div class="tw:text-secondary tw:text-xs tw:font-medium">
-              {{ isSupplier ? 'Documents & Tasks' : 'Quality Management' }}
+            <div
+              v-else
+              class="tw:bg-primary tw:flex tw:items-center tw:justify-center tw:rounded-lg tw:size-10 tw:text-white"
+            >
+              <IconChartBar :size="24" />
             </div>
-          </div>
-        </RouterLink>
-
-        <!-- Nav Links -->
-        <nav class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:overflow-auto">
-          <template v-for="item in navItems">
-            <!-- Parent item with children -->
-            <template v-if="item.children">
-              <button
-                :key="`${item.label}-btn`"
-                class="tw:flex tw:items-center tw:gap-3 tw:w-full tw:px-3 tw:py-2 tw:rounded-lg tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:bg-transparent tw:border-0 tw:cursor-pointer"
-                @click="toggleGroup(item.label)"
-              >
-                <component :is="item.icon" :size="20" />
-                <span class="tw:text-sm tw:font-medium tw:flex-1 tw:text-left">{{
-                  item.label
-                }}</span>
-                <component
-                  :is="isGroupExpanded(item.label) ? IconChevronDown : IconChevronRight"
-                  :size="16"
-                />
-              </button>
-              <div
-                v-if="isGroupExpanded(item.label)"
-                :key="`${item.label}-children`"
-                class="tw:ml-3 tw:flex tw:flex-col tw:gap-0.5"
-              >
-                <RouterLink
-                  v-for="child in item.children"
-                  :key="child.label"
-                  :to="child.to"
-                  class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:px-3 tw:py-2 tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:no-underline"
-                  :class="isActive(child.to) ? 'tw:bg-main-selected tw:text-primary' : ''"
-                  @click="resetTrail"
-                >
-                  <component :is="child.icon" :size="20" />
-                  <span class="tw:text-sm tw:font-medium">{{ child.label }}</span>
-                </RouterLink>
+            <div class="tw:flex tw:flex-col">
+              <div class="tw:text-on-sidebar tw:text-base tw:font-bold tw:leading-tight">
+                {{ isSupplier ? 'Supplier Portal' : 'QMS Admin' }}
               </div>
+              <div class="tw:text-secondary tw:text-xs tw:font-medium">
+                {{ isSupplier ? 'Documents & Tasks' : 'Quality Management' }}
+              </div>
+            </div>
+          </RouterLink>
+
+          <!-- Nav Links -->
+          <nav class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:overflow-auto">
+            <template v-for="item in navItems">
+              <!-- Parent item with children -->
+              <template v-if="item.children">
+                <button
+                  :key="`${item.label}-btn`"
+                  class="tw:flex tw:items-center tw:gap-3 tw:w-full tw:px-3 tw:py-2 tw:rounded-lg tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                  @click="toggleGroup(item.label)"
+                >
+                  <component :is="item.icon" :size="20" />
+                  <span class="tw:text-sm tw:font-medium tw:flex-1 tw:text-left">{{
+                    item.label
+                  }}</span>
+                  <component
+                    :is="isGroupExpanded(item.label) ? IconChevronDown : IconChevronRight"
+                    :size="16"
+                  />
+                </button>
+                <div
+                  v-if="isGroupExpanded(item.label)"
+                  :key="`${item.label}-children`"
+                  class="tw:ml-3 tw:flex tw:flex-col tw:gap-0.5"
+                >
+                  <RouterLink
+                    v-for="child in item.children"
+                    :key="child.label"
+                    :to="child.to"
+                    class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:px-3 tw:py-2 tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:no-underline"
+                    :class="isActive(child.to) ? 'tw:bg-main-selected tw:text-primary' : ''"
+                    @click="resetTrail"
+                  >
+                    <component :is="child.icon" :size="20" />
+                    <span class="tw:text-sm tw:font-medium">{{ child.label }}</span>
+                  </RouterLink>
+                </div>
+              </template>
+
+              <!-- Single item without children -->
+              <RouterLink
+                v-else-if="item.to"
+                :key="item.label"
+                :to="item.to"
+                class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:px-3 tw:py-2 tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:no-underline"
+                :class="isActive(item.to) ? 'tw:bg-main-selected tw:text-primary!' : ''"
+                @click="resetTrail"
+              >
+                <component :is="item.icon" :size="24" />
+                <span class="tw:text-sm tw:font-medium">{{ item.label }}</span>
+              </RouterLink>
+
+              <!-- Divider -->
+              <hr v-else :key="item.label" class="tw:border-t tw:border-divider tw:my-2" />
+            </template>
+          </nav>
+        </div>
+
+        <!-- Profile / Account menu -->
+        <div class="tw:px-3 tw:py-2 tw:border-t tw:border-divider">
+          <BasePopover v-if="currentUser" placement="top-start" :arrow="false">
+            <template #button>
+              <button
+                class="tw:flex tw:w-full tw:items-center tw:gap-3 tw:rounded-lg tw:p-1.5 tw:hover:bg-sidebar-hover tw:transition-colors"
+              >
+                <UserAvatar :user="currentUser" class="tw:size-8" />
+                <div class="tw:flex tw:min-w-0 tw:flex-1 tw:flex-col tw:items-start">
+                  <div
+                    class="tw:max-w-full tw:truncate tw:text-sm tw:font-semibold tw:text-on-sidebar"
+                  >
+                    {{ currentUser.fullName }}
+                  </div>
+                  <div class="tw:max-w-full tw:truncate tw:text-xs tw:text-secondary">
+                    {{ currentUser.jobTitle }}
+                  </div>
+                </div>
+                <IconChevronDown :size="16" class="tw:shrink-0 tw:text-secondary" />
+              </button>
             </template>
 
-            <!-- Single item without children -->
-            <RouterLink
-              v-else-if="item.to"
-              :key="item.label"
-              :to="item.to"
-              class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:px-3 tw:py-2 tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:no-underline"
-              :class="isActive(item.to) ? 'tw:bg-main-selected tw:text-primary!' : ''"
-              @click="resetTrail"
-            >
-              <component :is="item.icon" :size="24" />
-              <span class="tw:text-sm tw:font-medium">{{ item.label }}</span>
-            </RouterLink>
+            <template #content="{ close }">
+              <div class="tw:w-64 tw:py-1">
+                <div class="tw:px-3 tw:py-2">
+                  <div class="tw:flex tw:items-center tw:gap-2">
+                    <span class="tw:truncate tw:text-sm tw:font-semibold tw:text-on-sidebar">
+                      {{ currentUser.fullName }}
+                    </span>
+                    <BaseBadge v-if="currentUser.isOwner" class="tw:bg-primary/10 tw:text-primary">
+                      Owner
+                    </BaseBadge>
+                  </div>
+                  <div class="tw:truncate tw:text-xs tw:text-secondary" :title="currentUser.email">
+                    {{ currentUser.email }}
+                  </div>
+                  <div
+                    v-if="currentUser.jobTitle && currentUser.jobTitle !== 'User'"
+                    class="tw:truncate tw:text-caption tw:text-secondary"
+                  >
+                    {{ currentUser.jobTitle }}
+                  </div>
+                  <div
+                    v-if="myRoleAssignments.length"
+                    class="tw:mt-1.5 tw:flex tw:flex-wrap tw:gap-1"
+                  >
+                    <RoleBadgeById
+                      v-for="ra in myRoleAssignments"
+                      :key="ra.id"
+                      :roleId="ra.roleId"
+                    />
+                  </div>
+                </div>
 
-            <!-- Divider -->
-            <hr v-else :key="item.label" class="tw:border-t tw:border-divider tw:my-2" />
-          </template>
-        </nav>
-      </div>
+                <hr class="tw:my-1 tw:border-divider" />
 
-      <!-- Profile / Account menu -->
-      <div class="tw:px-3 tw:py-2 tw:border-t tw:border-divider">
-        <BasePopover v-if="currentUser" placement="top-start" :arrow="false">
-          <template #button>
-            <button
-              class="tw:flex tw:w-full tw:items-center tw:gap-3 tw:rounded-lg tw:p-1.5 tw:hover:bg-sidebar-hover tw:transition-colors"
-            >
-              <UserAvatar :user="currentUser" class="tw:size-8" />
-              <div class="tw:flex tw:min-w-0 tw:flex-1 tw:flex-col tw:items-start">
-                <div class="tw:max-w-full tw:truncate tw:text-sm tw:font-semibold tw:text-on-sidebar">
-                  {{ currentUser.fullName }}
-                </div>
-                <div class="tw:max-w-full tw:truncate tw:text-xs tw:text-secondary">
-                  {{ currentUser.jobTitle }}
-                </div>
-              </div>
-              <IconChevronDown :size="16" class="tw:shrink-0 tw:text-secondary" />
-            </button>
-          </template>
-
-          <template #content="{ close }">
-            <div class="tw:w-64 tw:py-1">
-              <div class="tw:px-3 tw:py-2">
-                <div class="tw:flex tw:items-center tw:gap-2">
-                  <span class="tw:truncate tw:text-sm tw:font-semibold tw:text-on-sidebar">
-                    {{ currentUser.fullName }}
-                  </span>
-                  <BaseBadge v-if="currentUser.isOwner" class="tw:bg-primary/10 tw:text-primary">
-                    Owner
-                  </BaseBadge>
-                </div>
-                <div class="tw:truncate tw:text-xs tw:text-secondary" :title="currentUser.email">
-                  {{ currentUser.email }}
-                </div>
-                <div
-                  v-if="currentUser.jobTitle && currentUser.jobTitle !== 'User'"
-                  class="tw:truncate tw:text-caption tw:text-secondary"
+                <RouterLink
+                  :to="getCompanyPath('/profile')"
+                  class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
+                  @click="close()"
                 >
-                  {{ currentUser.jobTitle }}
-                </div>
-                <div v-if="myRoleAssignments.length" class="tw:mt-1.5 tw:flex tw:flex-wrap tw:gap-1">
-                  <RoleBadgeById
-                    v-for="ra in myRoleAssignments"
-                    :key="ra.id"
-                    :roleId="ra.roleId"
-                  />
-                </div>
-              </div>
-
-              <hr class="tw:my-1 tw:border-divider" />
-
-              <RouterLink
-                :to="getCompanyPath('/profile')"
-                class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
-                @click="close()"
-              >
-                <IconUserCircle :size="16" class="tw:text-secondary" />
-                My Profile
-              </RouterLink>
-
-              <RouterLink
-                :to="getCompanyPath('/settings')"
-                class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
-                @click="close()"
-              >
-                <IconSettings :size="16" class="tw:text-secondary" />
-                Settings
-              </RouterLink>
-
-              <RouterLink
-                :to="getCompanyPath('/profile?tab=security')"
-                class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
-                @click="close()"
-              >
-                <IconShieldCheck :size="16" class="tw:text-secondary" />
-                Security
-              </RouterLink>
-
-              <RouterLink
-                :to="getCompanyPath('/help')"
-                class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
-                @click="close()"
-              >
-                <IconHelpCircle :size="16" class="tw:text-secondary" />
-                Help Center
-              </RouterLink>
-
-              <div
-                class="tw:flex tw:items-center tw:justify-between tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar"
-              >
-                <span class="tw:flex tw:items-center tw:gap-2">
                   <IconUserCircle :size="16" class="tw:text-secondary" />
-                  Appearance
-                </span>
-                <ThemeToggle :size="18" />
+                  My Profile
+                </RouterLink>
+
+                <RouterLink
+                  :to="getCompanyPath('/settings')"
+                  class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
+                  @click="close()"
+                >
+                  <IconSettings :size="16" class="tw:text-secondary" />
+                  Settings
+                </RouterLink>
+
+                <RouterLink
+                  :to="getCompanyPath('/profile?tab=security')"
+                  class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
+                  @click="close()"
+                >
+                  <IconShieldCheck :size="16" class="tw:text-secondary" />
+                  Security
+                </RouterLink>
+
+                <RouterLink
+                  :to="getCompanyPath('/help')"
+                  class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
+                  @click="close()"
+                >
+                  <IconHelpCircle :size="16" class="tw:text-secondary" />
+                  Help Center
+                </RouterLink>
+
+                <div
+                  class="tw:flex tw:items-center tw:justify-between tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar"
+                >
+                  <span class="tw:flex tw:items-center tw:gap-2">
+                    <IconUserCircle :size="16" class="tw:text-secondary" />
+                    Appearance
+                  </span>
+                  <ThemeToggle :size="18" />
+                </div>
+
+                <hr class="tw:my-1 tw:border-divider" />
+
+                <button
+                  class="tw:flex tw:w-full tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-bad tw:transition-colors tw:hover:bg-main-hover"
+                  @click="logoutCurrentSession"
+                >
+                  <IconLogout :size="16" />
+                  Log out
+                </button>
               </div>
-
-              <hr class="tw:my-1 tw:border-divider" />
-
-              <button
-                class="tw:flex tw:w-full tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-bad tw:transition-colors tw:hover:bg-main-hover"
-                @click="logoutCurrentSession"
-              >
-                <IconLogout :size="16" />
-                Log out
-              </button>
-            </div>
-          </template>
-        </BasePopover>
-      </div>
-    </aside>
+            </template>
+          </BasePopover>
+        </div>
+      </aside>
     </Transition>
   </div>
 </template>

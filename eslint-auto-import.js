@@ -359,6 +359,7 @@ export default {
     "useSorted": true,
     "useSpeechRecognition": true,
     "useSpeechSynthesis": true,
+    "useStepUp": true,
     "useStepper": true,
     "useStorage": true,
     "useStorageAsync": true,

@@ -13,6 +13,13 @@ import {
   IconKey,
   IconLockOpen,
   IconShieldOff,
+  IconLicense,
+  IconCircleCheck,
+  IconCircleX,
+  IconAlertTriangle,
+  IconTrash,
+  IconLock,
+  IconClock,
 } from '@tabler/icons-vue'
 import {
   getCompany,
@@ -20,8 +27,18 @@ import {
   sendUserPasswordReset,
   unlockUser,
   resetUserMfa,
+  getCompanyEntitlements,
+  setCompanyPlan,
+  setCompanyModule,
+  getBlastRadius,
+  requestCompanyPurge,
+  setLegalHold,
+  cancelApproval,
 } from '@/api/platform.js'
 import { hasPlatformRole } from '@/utils/currentSession.js'
+import { useConfirm } from '@shared/composables/useConfirm.js'
+import { useToast } from '@shared/composables/useToast.js'
+import { useStepUp } from '@/composables/useStepUp'
 
 const props = defineProps({
   companyId: { type: String, required: true },
@@ -45,6 +62,67 @@ const stats = computed(() => [
 
 const canSupport = computed(() => hasPlatformRole('support'))
 const canAdmin = computed(() => hasPlatformRole('admin'))
+
+// ── Entitlements (C2) ────────────────────────────────────────────────────────
+const entitlement = ref({ subscription: null, plans: [], modules: [] })
+const planDraft = ref(null)
+const savingPlan = ref(false)
+const modulePagination = ref({ page: 1, pageSize: 25 })
+const moduleSort = ref([{ id: 'section', desc: false }])
+
+const planDirty = computed(
+  () => planDraft.value && planDraft.value !== entitlement.value.subscription?.planId,
+)
+
+const moduleColumns = computed(() => {
+  const cols = [
+    { name: 'name', label: 'MODULE', field: 'name', align: 'left', sortable: true },
+    { name: 'section', label: 'SECTION', field: 'section', align: 'left', sortable: true },
+    { name: 'entitled', label: 'ENTITLED', field: 'entitled', align: 'left', sortable: true },
+    { name: 'source', label: 'SOURCE', field: 'source', align: 'left' },
+  ]
+  if (canAdmin.value) cols.push({ name: 'actions', label: '', field: 'actions', align: 'right' })
+  return cols
+})
+
+function moduleMenuItems(row) {
+  return [
+    { name: 'Force on (add-on)', icon: IconCircleCheck, click: () => onSetModule(row, true) },
+    { name: 'Force off (remove)', icon: IconCircleX, click: () => onSetModule(row, false) },
+    {
+      name: 'Reset to plan',
+      icon: IconLicense,
+      disabled: row.source !== 'override',
+      click: () => onSetModule(row, null),
+    },
+  ]
+}
+
+async function loadEntitlements() {
+  const data = await getCompanyEntitlements(props.companyId)
+  entitlement.value = {
+    subscription: data?.subscription || null,
+    plans: data?.plans || [],
+    modules: data?.modules || [],
+  }
+  planDraft.value = data?.subscription?.planId || null
+}
+
+async function onSavePlan() {
+  if (!planDirty.value) return
+  savingPlan.value = true
+  try {
+    await setCompanyPlan(props.companyId, planDraft.value)
+    await loadEntitlements()
+  } finally {
+    savingPlan.value = false
+  }
+}
+
+async function onSetModule(row, enabled) {
+  await setCompanyModule(props.companyId, row.id, enabled)
+  await loadEntitlements()
+}
 
 const userColumns = computed(() => {
   const cols = [
@@ -115,12 +193,117 @@ function userMenuItems(user) {
   return items
 }
 
+// ── Danger Zone (governance) ─────────────────────────────────────────────────
+const { confirm } = useConfirm()
+const toast = useToast()
+const { stepUpOpen, run, onVerified } = useStepUp()
+const blast = ref(null)
+const legalHoldBusy = ref(false)
+const legalHoldDialog = ref(false)
+const purgeDialog = ref(false)
+const purgeForm = ref({ reason: '', delayHours: 72, confirmCode: '' })
+const purgeBusy = ref(false)
+
+const legalHold = computed(() => blast.value?.company?.legalHold)
+const openPurge = computed(() => blast.value?.openRequest || null)
+const canRequestPurge = computed(
+  () => blast.value?.company?.status === 'cancelled' && !legalHold.value && !openPurge.value,
+)
+const purgeConfirmOk = computed(
+  () =>
+    purgeForm.value.confirmCode.trim().toLowerCase() ===
+    (blast.value?.company?.code || '').toLowerCase(),
+)
+
+async function loadBlast() {
+  blast.value = await getBlastRadius(props.companyId)
+}
+
+async function onToggleLegalHold() {
+  if (legalHold.value) {
+    const ok = await confirm({
+      title: 'Clear legal hold',
+      message: `Remove the legal hold on ${company.value?.name}? Purge becomes possible again.`,
+      okLabel: 'Clear hold',
+    })
+    if (!ok) return
+    legalHoldBusy.value = true
+    try {
+      await run(async () => {
+        await setLegalHold(props.companyId, false)
+        await loadBlast()
+      })
+    } finally {
+      legalHoldBusy.value = false
+    }
+  } else {
+    legalHoldDialog.value = true
+  }
+}
+
+async function onPlaceLegalHold(reason) {
+  legalHoldBusy.value = true
+  try {
+    await run(async () => {
+      await setLegalHold(props.companyId, true, reason)
+      legalHoldDialog.value = false
+      await loadBlast()
+    })
+  } finally {
+    legalHoldBusy.value = false
+  }
+}
+
+function openPurgeDialog() {
+  purgeForm.value = { reason: '', delayHours: 72, confirmCode: '' }
+  purgeDialog.value = true
+}
+
+async function onRequestPurge() {
+  const f = purgeForm.value
+  if (!f.reason.trim()) {
+    toast.notify({ type: 'negative', message: 'A reason is required' })
+    return
+  }
+  if (!purgeConfirmOk.value) {
+    toast.notify({ type: 'negative', message: 'Type the tenant code to confirm' })
+    return
+  }
+  purgeBusy.value = true
+  try {
+    await run(async () => {
+      await requestCompanyPurge(props.companyId, {
+        reason: f.reason.trim(),
+        delayHours: Number(f.delayHours) || 72,
+      })
+      purgeDialog.value = false
+      await loadBlast()
+    })
+  } finally {
+    purgeBusy.value = false
+  }
+}
+
+async function onCancelPurge() {
+  const ok = await confirm({
+    title: 'Cancel scheduled purge',
+    message: 'Cancel the scheduled purge for this tenant?',
+    okLabel: 'Cancel purge',
+    danger: true,
+  })
+  if (!ok) return
+  await cancelApproval(openPurge.value.id, 'Cancelled from Tenant 360')
+  await loadBlast()
+}
+
 async function load() {
   loading.value = true
   try {
     const [detail, userData] = await Promise.all([
       getCompany(props.companyId),
       listCompanyUsers(props.companyId),
+      loadEntitlements(),
+      loadBlast(),
     ])
     company.value = detail?.company || null
     counts.value = detail?.counts || {}
@@ -149,11 +332,7 @@ function onStatusUpdated(newStatus) {
           <template #icon><IconArrowLeft :size="16" /></template>
           All tenants
         </BaseButton>
-        <BaseButton
-          v-if="canSetStatus && company"
-          variant="primary"
-          @click="statusDialog = true"
-        >
+        <BaseButton v-if="canSetStatus && company" variant="primary" @click="statusDialog = true">
           <template #icon><IconSettings :size="16" /></template>
           Set status
         </BaseButton>
@@ -212,6 +391,91 @@ function onStatusUpdated(newStatus) {
         </BaseCard>
       </ContentGrid>
 
+      <!-- Plan & Entitlements (C2) -->
+      <PageSection title="Plan & Entitlements" :icon="IconLicense">
+        <BaseCard>
+          <div
+            class="tw:flex tw:flex-col tw:gap-4 tw:sm:flex-row tw:sm:items-end tw:sm:justify-between"
+          >
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <p class="tw:text-secondary tw:text-xs">Current plan</p>
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <span class="tw:font-semibold tw:text-on-main">
+                  {{ entitlement.subscription?.planName || 'No subscription' }}
+                </span>
+                <BaseBadge v-if="entitlement.subscription" class="tw:bg-gray-100 tw:text-gray-600">
+                  {{ entitlement.subscription.status }}
+                </BaseBadge>
+              </div>
+            </div>
+            <div v-if="canAdmin" class="tw:flex tw:items-end tw:gap-2">
+              <div class="tw:min-w-52">
+                <p class="tw:text-secondary tw:text-xs tw:mb-1">Assign plan</p>
+                <BaseSelect
+                  v-model="planDraft"
+                  :options="entitlement.plans"
+                  optionLabel="name"
+                  optionValue="id"
+                  :required="true"
+                />
+              </div>
+              <BaseButton
+                variant="primary"
+                :disabled="!planDirty || savingPlan"
+                :loading="savingPlan"
+                @click="onSavePlan"
+              >
+                Save
+              </BaseButton>
+            </div>
+          </div>
+        </BaseCard>
+
+        <div class="tw:mt-4">
+          <DataTable
+            v-model:pagination="modulePagination"
+            v-model:sort="moduleSort"
+            :rows="entitlement.modules"
+            :columns="moduleColumns"
+            rowKey="id"
+            :mobileCards="false"
+            searchable
+          >
+            <template #body-cell-name="{ row }">
+              <span class="tw:font-medium tw:text-on-main">{{ row.name }}</span>
+            </template>
+            <template #body-cell-section="{ row }">
+              <span class="tw:text-sm tw:text-secondary">{{ row.section }}</span>
+            </template>
+            <template #body-cell-entitled="{ row }">
+              <span
+                v-if="row.entitled"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-semibold tw:text-green-600"
+              >
+                <IconCircleCheck :size="14" /> Entitled
+              </span>
+              <span
+                v-else
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-semibold tw:text-gray-500"
+              >
+                <IconCircleX :size="14" /> Not entitled
+              </span>
+            </template>
+            <template #body-cell-source="{ row }">
+              <BaseBadge v-if="row.source === 'override'" class="tw:bg-amber-100 tw:text-amber-700">
+                Override{{ row.overrideEnabled === false ? ' (off)' : '' }}
+              </BaseBadge>
+              <span v-else class="tw:text-sm tw:text-secondary">Plan</span>
+            </template>
+            <template #body-cell-actions="{ row }">
+              <div class="tw:flex tw:justify-end" @click.stop>
+                <BaseMenu :items="moduleMenuItems(row)" />
+              </div>
+            </template>
+          </DataTable>
+        </div>
+      </PageSection>
+
       <!-- Users -->
       <PageSection title="Users" :icon="IconUsers">
         <DataTable
@@ -253,6 +517,105 @@ function onStatusUpdated(newStatus) {
         </DataTable>
       </PageSection>
 
+      <!-- Danger Zone (governance) -->
+      <PageSection v-if="canAdmin && blast" title="Danger Zone" :icon="IconAlertTriangle">
+        <BaseCard class="tw:border tw:border-red-200 dark:tw:border-red-900/50">
+          <div class="tw:flex tw:flex-col tw:gap-5">
+            <!-- Legal hold -->
+            <div class="tw:flex tw:items-start tw:justify-between tw:gap-4">
+              <div>
+                <div class="tw:flex tw:items-center tw:gap-2">
+                  <component :is="legalHold ? IconLock : IconLockOpen" :size="16" />
+                  <span class="tw:font-semibold tw:text-on-main">Legal hold</span>
+                  <BaseBadge v-if="legalHold" class="tw:bg-indigo-100 tw:text-indigo-700">
+                    On hold
+                  </BaseBadge>
+                </div>
+                <p class="tw:text-sm tw:text-secondary tw:mt-1">
+                  A legal hold vetoes purge — the tenant can't be destroyed while held.
+                  <span v-if="legalHold && blast.company.legalHoldReason">
+                    Reason: {{ blast.company.legalHoldReason }}
+                  </span>
+                </p>
+              </div>
+              <BaseButton
+                :variant="legalHold ? 'secondary' : 'primary'"
+                size="sm"
+                :disabled="legalHoldBusy"
+                @click="onToggleLegalHold"
+              >
+                {{ legalHold ? 'Clear hold' : 'Place hold' }}
+              </BaseButton>
+            </div>
+
+            <hr class="tw:border-red-100 dark:tw:border-red-900/40" />
+
+            <!-- Blast radius + purge -->
+            <div>
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <IconTrash :size="16" class="tw:text-red-600" />
+                <span class="tw:font-semibold tw:text-on-main">Purge tenant</span>
+              </div>
+              <p class="tw:text-sm tw:text-secondary tw:mt-1">
+                Irreversibly deletes this tenant and all its data across
+                <span class="tw:font-semibold">{{ blast.tablesSwept }}</span> tables. Requires a
+                second operator's approval and a cooling-off window before it runs.
+              </p>
+
+              <div class="tw:mt-3 tw:flex tw:flex-wrap tw:gap-2">
+                <span
+                  v-for="c in blast.counts"
+                  :key="c.label"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:bg-gray-100 dark:tw:bg-gray-800 tw:px-2 tw:py-1 tw:text-xs"
+                >
+                  <span class="tw:font-semibold tw:text-on-main">{{ c.count }}</span>
+                  <span class="tw:text-secondary">{{ c.label }}</span>
+                </span>
+              </div>
+
+              <!-- Open request state -->
+              <div
+                v-if="openPurge"
+                class="tw:mt-4 tw:flex tw:items-center tw:justify-between tw:gap-3 tw:rounded-lg tw:bg-amber-50 dark:tw:bg-amber-950/30 tw:px-3 tw:py-2"
+              >
+                <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
+                  <IconClock :size="16" class="tw:text-amber-600" />
+                  <span class="tw:text-on-main">
+                    Purge {{ openPurge.status }}
+                    <template v-if="openPurge.status === 'approved' && openPurge.executeAfter">
+                      — runs {{ openPurge.executeAfter?.formatDate('datetime') }}
+                    </template>
+                    <template v-else> — awaiting a second operator's approval </template>
+                  </span>
+                </div>
+                <BaseButton variant="secondary" size="sm" @click="onCancelPurge">Cancel</BaseButton>
+              </div>
+
+              <!-- Request button -->
+              <div v-else class="tw:mt-4">
+                <BaseTooltip
+                  v-if="!canRequestPurge"
+                  :text="
+                    legalHold
+                      ? 'Tenant is under legal hold'
+                      : 'Tenant must be cancelled before it can be purged'
+                  "
+                >
+                  <BaseButton variant="danger" size="sm" disabled>
+                    <template #icon><IconTrash :size="16" /></template>
+                    Request purge
+                  </BaseButton>
+                </BaseTooltip>
+                <BaseButton v-else variant="danger" size="sm" @click="openPurgeDialog">
+                  <template #icon><IconTrash :size="16" /></template>
+                  Request purge
+                </BaseButton>
+              </div>
+            </div>
+          </div>
+        </BaseCard>
+      </PageSection>
+
       <CredentialActionDialog
         v-model="actionDialog"
         :title="dialogCfg.title"
@@ -262,11 +625,54 @@ function onStatusUpdated(newStatus) {
         @confirm="onCredentialConfirm"
       />
 
-      <CompanyStatusDialog
-        v-model="statusDialog"
-        :company="company"
-        @updated="onStatusUpdated"
+      <CredentialActionDialog
+        v-model="legalHoldDialog"
+        title="Place legal hold"
+        confirmLabel="Place hold"
+        :description="`Place a legal hold on ${company?.name}. Purge will be blocked until the hold is cleared.`"
+        @confirm="onPlaceLegalHold"
       />
+
+      <BaseDialog v-model="purgeDialog" title="Request tenant purge">
+        <div class="tw:flex tw:flex-col tw:gap-4">
+          <div
+            class="tw:flex tw:items-start tw:gap-2 tw:rounded-lg tw:bg-red-50 dark:tw:bg-red-950/30 tw:p-3"
+          >
+            <IconAlertTriangle :size="18" class="tw:text-red-600 tw:mt-0.5 tw:shrink-0" />
+            <p class="tw:text-sm tw:text-on-main">
+              This requests the irreversible deletion of
+              <span class="tw:font-semibold">{{ company?.name }}</span> and all its data. It runs
+              only after a second operator approves and the cooling-off window elapses.
+            </p>
+          </div>
+          <BaseTextarea v-model="purgeForm.reason" label="Reason" :rows="2" :required="true" />
+          <BaseTextInput
+            v-model="purgeForm.delayHours"
+            type="number"
+            label="Cooling-off window (hours)"
+            hint="Delay before the purge runs once approved. Default 72h."
+          />
+          <BaseTextInput
+            v-model="purgeForm.confirmCode"
+            :label="`Type the tenant code (${company?.code}) to confirm`"
+            :placeholder="company?.code"
+          />
+        </div>
+        <template #footer="{ close }">
+          <BaseButton variant="secondary" :disabled="purgeBusy" @click="close">Cancel</BaseButton>
+          <BaseButton
+            variant="danger"
+            :disabled="purgeBusy || !purgeConfirmOk || !purgeForm.reason.trim()"
+            @click="onRequestPurge"
+          >
+            {{ purgeBusy ? 'Requesting…' : 'Request purge' }}
+          </BaseButton>
+        </template>
+      </BaseDialog>
+
+      <CompanyStatusDialog v-model="statusDialog" :company="company" @updated="onStatusUpdated" />
+
+      <StepUpDialog v-model="stepUpOpen" @verified="onVerified" />
     </template>
 
     <BaseEmptyState
