@@ -473,11 +473,13 @@ const navItems = computed(() => {
         },
         {
           label: 'Sites',
+          permissions: ['sites:read'],
           icon: IconBuilding,
           to: getCompanyPath('/sites'),
         },
         {
           label: 'Departments',
+          permissions: ['departments:read'],
           icon: IconBuildingCommunity,
           to: getCompanyPath('/departments'),
         },

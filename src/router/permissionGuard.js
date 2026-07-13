@@ -19,7 +19,7 @@
  *    module-wide `:read` permission (e.g. an auditor assigned to one audit).
  *  - EXTERNAL_SUPPLIER users get their own allow-list: the record modules RLS
  *    shares with them stay open, every admin module is blocked.
- *  - Routes with no entry here are open (dashboard, equipment, sites, task
+ *  - Routes with no entry here are open (dashboard, equipment, task
  *    instances, …) — same as the sidebar showing them with no permission gate.
  */
 import { isAllowed, currentSession, isSupplier, isPlatformAdmin } from '@/utils/currentSession'
@@ -30,6 +30,8 @@ const ADMIN_PERMISSIONS = {
   users: 'user_management:read',
   roles: 'role_permission_management:read',
   groups: 'teams:read',
+  sites: 'sites:read',
+  departments: 'departments:read',
   suppliers: 'supplier_management:read',
   products: 'products:read',
   templates: 'forms_templates:read',
