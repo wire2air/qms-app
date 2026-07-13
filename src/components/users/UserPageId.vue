@@ -1,5 +1,5 @@
 <script setup>
-import { IconMail, IconPlus, IconCamera } from '@tabler/icons-vue'
+import { IconMail, IconPlus, IconCamera, IconCrown } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { isAllowed } from '@/utils/currentSession.js'
@@ -167,16 +167,26 @@ const userDetailConfig = computed(() =>
           @blur="editingName = false"
         />
       </div>
-      <BaseClickableRow
-        v-else
-        class="tw:text-base tw:font-semibold tw:text-on-main"
-        :class="canUpdateUser ? 'tw:hover:text-primary' : ''"
-        :disabled="!canUpdateUser"
-        aria-label="Edit user name"
-        @click="canUpdateUser && (editingName = true)"
-      >
-        {{ user?.firstName }} {{ user?.lastName }}
-      </BaseClickableRow>
+      <div v-else class="tw:flex tw:items-center tw:gap-2">
+        <BaseClickableRow
+          class="tw:text-base tw:font-semibold tw:text-on-main"
+          :class="canUpdateUser ? 'tw:hover:text-primary' : ''"
+          :disabled="!canUpdateUser"
+          aria-label="Edit user name"
+          @click="canUpdateUser && (editingName = true)"
+        >
+          {{ user?.firstName }} {{ user?.lastName }}
+        </BaseClickableRow>
+        <!-- Owner standing bypasses all roles/permissions (L3) — make it visible
+             so an "owner has everything" isn't mistaken for granted access. -->
+        <span
+          v-if="user?.isOwner"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-full tw:bg-amber-100 tw:px-2 tw:py-0.5 tw:text-xs tw:font-semibold tw:text-amber-700"
+          title="Company owner — full access, bypasses roles and permissions"
+        >
+          <IconCrown :size="12" /> Owner
+        </span>
+      </div>
     </template>
 
     <template #status>
