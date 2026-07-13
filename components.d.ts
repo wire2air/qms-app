@@ -874,6 +874,7 @@ declare module 'vue' {
     RiskAssessmentTemplateSelectMenu: typeof import('./src/components/menus/RiskAssessmentTemplateSelectMenu.vue')['default']
     RiskAssessmentTemplatesHome: typeof import('./src/components/riskAssessmentTemplate/RiskAssessmentTemplatesHome.vue')['default']
     RiskAssessmentTemplatesTable: typeof import('./src/components/riskAssessmentTemplate/RiskAssessmentTemplatesTable.vue')['default']
+    RoleAuditDrawer: typeof import('./src/components/roles/RoleAuditDrawer.vue')['default']
     RoleBadge: typeof import('./src/components/badges/RoleBadge.vue')['default']
     RoleBadgeById: typeof import('./src/components/badges/RoleBadgeById.vue')['default']
     RoleCreateDialog: typeof import('./src/components/roles/RoleCreateDialog.vue')['default']

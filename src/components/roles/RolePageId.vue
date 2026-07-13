@@ -46,6 +46,8 @@ const descriptionInputRef = ref(null)
 
 // User assignment dialog
 const showUsersDialog = ref(false)
+// Access-history drawer (M5)
+const showAudit = ref(false)
 
 // Permission matrix (self-contained; persisted via its exposed save()).
 const matrixRef = ref(null)
@@ -320,10 +322,15 @@ const roleDetailConfig = computed(() =>
     </template>
 
     <template v-if="role" #meta>
-      <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+      <button
+        type="button"
+        class="tw:inline-flex tw:items-center tw:gap-1.5 tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-inherit tw:hover:text-primary"
+        title="View access history"
+        @click="showAudit = true"
+      >
         <IconHistory :size="14" />
         Last Modified {{ role.updatedAt.formatDate('date') }}
-      </span>
+      </button>
     </template>
 
     <template #actions>
@@ -412,4 +419,7 @@ const roleDetailConfig = computed(() =>
     :assignedUsers="assignedUsers"
     @saved="fetchRoleData"
   />
+
+  <!-- Access history (permission + membership changes) -->
+  <RoleAuditDrawer v-model="showAudit" :roleId="id" />
 </template>
