@@ -23,7 +23,11 @@ const showEsignDialog = ref(false)
 const feedbackAction = ref('') // 'REJECT' or 'REQUEST_CHANGES'
 const pendingAction = ref(null)
 const comment = ref('')
+const commentError = ref('')
 const actionLoading = ref(false)
+
+// Reject / Request Changes are rejection-type outcomes — a comment (the reason)
+// is mandatory. The backend enforces the same rule (workflowActionSchema).
 
 const dialogTitle = computed(() => {
   return feedbackAction.value === 'REJECT' ? 'Reject Step' : 'Request Changes'
@@ -94,16 +98,22 @@ function onApprove() {
 function onReject() {
   feedbackAction.value = 'REJECT'
   comment.value = ''
+  commentError.value = ''
   showFeedbackDialog.value = true
 }
 
 function onRequestChanges() {
   feedbackAction.value = 'REQUEST_CHANGES'
   comment.value = ''
+  commentError.value = ''
   showFeedbackDialog.value = true
 }
 
 function onConfirmFeedback() {
+  if (!comment.value.trim()) {
+    commentError.value = 'A comment is required.'
+    return
+  }
   showFeedbackDialog.value = false
   openIdentityDialog(feedbackAction.value === 'REJECT' ? 'reject' : 'requestChanges')
 }
@@ -157,11 +167,13 @@ function onConfirmFeedback() {
 
       <BaseTextarea
         v-model="comment"
-        label="Comment (optional)"
+        label="Comment (required)"
         :rows="3"
         autosize
         class="tw:mt-4"
+        @update:modelValue="commentError = ''"
       />
+      <p v-if="commentError" class="tw:mt-1 tw:text-xs tw:text-red-600">{{ commentError }}</p>
 
       <template #footer="{ close }">
         <BaseDialogFooter

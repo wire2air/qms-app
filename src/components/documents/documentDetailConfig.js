@@ -10,7 +10,6 @@ import {
   IconChartBar,
   IconClipboardList,
   IconFileDescription,
-  IconMessage,
   IconTrash,
   IconArchive,
 } from '@tabler/icons-vue'
@@ -160,15 +159,6 @@ export function buildDocumentActions(gates = {}, handlers = {}) {
       priority: 30,
       visible: true,
       onSelect: handlers.export,
-    },
-    {
-      id: 'discussion',
-      label: 'Discussion',
-      icon: IconMessage,
-      variant: 'secondary',
-      priority: 25,
-      visible: true,
-      onSelect: handlers.discussion,
     },
     {
       id: 'deleteVersion',
