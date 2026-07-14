@@ -1,17 +1,29 @@
 <script setup>
 import { IconCirclePlus, IconInfoCircle } from '@tabler/icons-vue'
 import { required } from '@shared/components/form/validators.js'
-import { useRoles } from '@/composables/useRoles.js'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. Copies the
+// source role's scoped permission grants (authz model) into the new role.
+import { get, put } from '@/api'
+
+const props = defineProps({
+  cloneSource: { type: Object, default: null },
+})
 
 const emit = defineEmits(['created'])
 
 const show = defineModel({ type: Boolean, default: false })
 
-const { roles, createRole } = useRoles()
+const roles = useLiveQuery((db) => db.Role.where().exec(), { models: ['Role'], initial: [] })
+const createRole = useLiveMutation(async (db, payload) => {
+  const r = db.Role.create(payload)
+  await r.save()
+  return r
+})
 
 const formRef = ref(null)
 const isSubmitting = ref(false)
 const saveError = ref('')
+const copyCount = ref(0)
 
 const form = ref({
   name: '',
@@ -19,8 +31,9 @@ const form = ref({
   copyFromRoleId: 'custom',
 })
 
-// Block duplicate role names (case-insensitive) before submit — previously the
-// same name could be used for multiple roles.
+const isClone = computed(() => !!props.cloneSource)
+
+// Block duplicate role names (case-insensitive) before submit.
 const nameAvailable = computed(() => {
   const n = form.value.name.trim().toLowerCase()
   if (!n) return true
@@ -35,13 +48,8 @@ function nameUnique() {
   return nameAvailable.value || 'A role with this name already exists'
 }
 
-// Computed options for the "Copy from" select
 const copyFromOptions = computed(() => [
-  {
-    id: 'custom',
-    name: 'Custom',
-    description: 'Start with no permissions',
-  },
+  { id: 'custom', name: 'Custom', description: 'Start with no permissions' },
   ...roles.value.map((role) => ({
     id: role.id,
     name: role.name,
@@ -49,31 +57,47 @@ const copyFromOptions = computed(() => [
   })),
 ])
 
-// Permission IDs to copy from the selected role
-const selectedRolePermissions = computed(() => {
-  if (form.value.copyFromRoleId === 'custom') return []
-  const selectedRole = roles.value.find((role) => role.id === form.value.copyFromRoleId)
-  return selectedRole?.permissionAssignments?.map((pa) => pa.permissionId) ?? []
-})
+// Count the source role's scoped permission grants for the hint (authz model).
+watch(
+  () => form.value.copyFromRoleId,
+  async (id) => {
+    if (!id || id === 'custom') {
+      copyCount.value = 0
+      return
+    }
+    try {
+      const src = await get(`/v1/services/authz/roles/${id}/permissions`)
+      copyCount.value = (src.permissions || []).length
+    } catch {
+      copyCount.value = 0
+    }
+  },
+)
 
 async function onSubmit() {
   if (isSubmitting.value) return
   isSubmitting.value = true
   saveError.value = ''
   try {
-    const payload = {
+    const created = await createRole({
       name: form.value.name.trim(),
       description: form.value.description.trim() || '',
       statusId: 'ACTIVE',
-      permissionIds: selectedRolePermissions.value,
+    })
+    // Copy the source role's scoped permissions into the new role.
+    if (form.value.copyFromRoleId !== 'custom') {
+      const src = await get(`/v1/services/authz/roles/${form.value.copyFromRoleId}/permissions`)
+      const permissions = (src.permissions || []).map((p) => ({
+        module: p.module,
+        action: p.action,
+        scope: p.scope,
+      }))
+      if (permissions.length) {
+        await put(`/v1/services/authz/roles/${created.id}/permissions`, { permissions })
+      }
     }
-    const result = await createRole(payload)
-    if (result?.success) {
-      emit('created', result.role)
-      show.value = false
-    } else {
-      saveError.value = 'Failed to create role'
-    }
+    emit('created', created)
+    show.value = false
   } catch (err) {
     saveError.value = err?.message || 'Failed to create role'
   } finally {
@@ -81,12 +105,19 @@ async function onSubmit() {
   }
 }
 
-// Reset form when dialog closes
+// Prefill on open: a fresh create, or a clone seeded from the source role.
 watch(show, (val) => {
-  if (!val) {
+  if (!val) return
+  if (props.cloneSource) {
+    form.value = {
+      name: `Copy of ${props.cloneSource.name}`,
+      description: props.cloneSource.description || '',
+      copyFromRoleId: props.cloneSource.id,
+    }
+  } else {
     form.value = { name: '', description: '', copyFromRoleId: 'custom' }
-    saveError.value = ''
   }
+  saveError.value = ''
 })
 </script>
 
@@ -99,12 +130,16 @@ watch(show, (val) => {
         >
           <IconCirclePlus class="tw:size-5 tw:text-primary" />
         </div>
-        <span>Create Role</span>
+        <span>{{ isClone ? 'Clone Role' : 'Create Role' }}</span>
       </div>
     </template>
 
     <div class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:mb-2">
-      Define a new role with specific permissions to control access to features and data.
+      {{
+        isClone
+          ? 'Create a new role that starts from the selected role’s permissions. You can adjust them after.'
+          : 'Define a new role with specific permissions to control access to features and data.'
+      }}
     </div>
 
     <BaseForm ref="formRef" hideFooter @submit="onSubmit">
@@ -150,10 +185,8 @@ watch(show, (val) => {
         <div class="tw:flex tw:items-center tw:gap-2">
           <IconInfoCircle :size="16" class="tw:text-primary" />
           <span>
-            {{ selectedRolePermissions.length }} permission{{
-              selectedRolePermissions.length !== 1 ? 's' : ''
-            }}
-            will be copied from the selected role
+            {{ copyCount }} permission grant{{ copyCount !== 1 ? 's' : '' }} will be copied from the
+            selected role
           </span>
         </div>
       </div>
@@ -161,7 +194,7 @@ watch(show, (val) => {
 
     <template #footer>
       <BaseDialogFooter
-        submitLabel="Create Role"
+        :submitLabel="isClone ? 'Clone Role' : 'Create Role'"
         :loading="isSubmitting"
         :error="saveError"
         @cancel="show = false"

@@ -30,9 +30,9 @@ const showCreateDialog = ref(false)
 const editTemplate = ref(null)
 const { confirm } = useConfirm()
 
-const canCreate = computed(() => isAllowed(['rcaTemplates:create']))
-const canUpdate = computed(() => isAllowed(['rcaTemplates:update']))
-const canDelete = computed(() => isAllowed(['rcaTemplates:delete']))
+const canCreate = computed(() => isAllowed(['rca_templates:create']))
+const canUpdate = computed(() => isAllowed(['rca_templates:update']))
+const canDelete = computed(() => isAllowed(['rca_templates:delete']))
 
 const templates = useLiveQuery(
   async (db) => {

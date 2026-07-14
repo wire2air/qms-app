@@ -19,54 +19,57 @@
  *    module-wide `:read` permission (e.g. an auditor assigned to one audit).
  *  - EXTERNAL_SUPPLIER users get their own allow-list: the record modules RLS
  *    shares with them stay open, every admin module is blocked.
- *  - Routes with no entry here are open (dashboard, equipment, sites, task
+ *  - Routes with no entry here are open (dashboard, equipment, task
  *    instances, …) — same as the sidebar showing them with no permission gate.
  */
-import { isAllowed, currentSession, isSupplier } from '@/utils/currentSession'
+import { isAllowed, currentSession, isSupplier, isPlatformAdmin } from '@/utils/currentSession'
 
 // Admin / configuration modules — guarded across the whole subtree (list + detail).
 // key = first path segment, value = required permission.
 const ADMIN_PERMISSIONS = {
-  users: 'users:read',
-  roles: 'roles:read',
+  users: 'user_management:read',
+  roles: 'role_permission_management:read',
   groups: 'teams:read',
-  suppliers: 'suppliers:read',
+  sites: 'sites:read',
+  departments: 'departments:read',
+  suppliers: 'supplier_management:read',
   products: 'products:read',
-  templates: 'formTemplates:read',
-  'form-templates': 'formTemplates:read',
-  'workflow-templates': 'workflows:read',
-  'document-templates': 'document-templates:read',
-  'rca-templates': 'rcaTemplates:read',
-  'risk-assessment-templates': 'riskAssessmentTemplates:read',
-  'automation-rules': 'automationRules:manage',
-  'custom-fields': 'customFields:manage',
-  'complaint-settings': 'customerComplaints:update',
-  'notification-rules': 'company:manage',
-  lookups: 'company:manage',
-  settings: 'company:manage',
+  templates: 'forms_templates:read',
+  'form-templates': 'forms_templates:read',
+  'workflow-templates': 'workflows_templates:read',
+  'document-templates': 'document_templates:read',
+  'rca-templates': 'rca_templates:read',
+  'risk-assessment-templates': 'risk_assessment_templates:read',
+  'automation-rules': 'automation_rules:manage',
+  'custom-fields': 'custom_fields:manage',
+  'complaint-settings': 'complaint_management:update',
+  'notification-rules': 'company_settings:manage',
+  lookups: 'company_settings:manage',
+  settings: 'company_settings:manage',
   'organization-security': 'security:manage',
   'admin-security': 'security:manage',
+  'vendor-access-log': 'security:manage',
 }
 
 // Record modules — guard the LIST route only; detail routes defer to RLS so
 // assignees / shared users keep their row-level access.
 const RECORD_LIST_PERMISSIONS = {
-  documents: 'documents:read',
-  nonconformances: 'nonconformances:read',
-  qualityEvents: 'qualityEvents:read',
-  'customer-complaints': 'customerComplaints:read',
-  capas: 'capas:read',
-  'change-requests': 'changeRequests:read',
-  audits: 'audits:read',
+  documents: 'document_control:read',
+  nonconformances: 'ncr:read',
+  qualityEvents: 'quality_events:read',
+  'customer-complaints': 'complaint_management:read',
+  capas: 'capa:read',
+  'change-requests': 'change_control:read',
+  audits: 'audit_management:read',
   records: 'records:read',
-  trainings: 'trainings:read',
-  'training-instances': 'trainingInstances:read',
-  'training-verifications': 'trainingVerifications:read',
-  'training-curriculum': 'trainingCurriculum:read',
-  'training-reports': 'trainingInstances:read',
-  'inspections-logs': 'fieldRecords:create',
-  'qc-inspection': 'qcInspection:lot:read',
-  logging: 'fieldRecords:create',
+  trainings: 'training:read',
+  'training-instances': 'training_instances:read',
+  'training-verifications': 'training_verifications:read',
+  'training-curriculum': 'training:read',
+  'training-reports': 'training_instances:read',
+  'inspections-logs': 'field_records:create',
+  'qc-inspection': 'inspection_qc:read',
+  logging: 'field_records:create',
 }
 
 // Record modules an EXTERNAL_SUPPLIER may reach even without the module `:read`
@@ -144,6 +147,15 @@ export function evaluateRoute(to) {
   if (!currentSession.value) return true
 
   const seg = firstSegment(to.path)
+
+  // Platform-admin control plane — the /platform console AND impersonation
+  // (/admin/impersonate) are cross-tenant capabilities gated on platform-admin
+  // standing, not company permissions. Blocked for everyone else, including
+  // suppliers. The backend re-checks every call regardless (requirePlatformAdmin).
+  if (seg === 'platform' || to.path.startsWith('/admin/impersonate')) {
+    if (isPlatformAdmin.value) return true
+    return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
+  }
 
   // EXTERNAL_SUPPLIER: allow their RLS-shared record modules, block admin routes.
   if (isSupplier.value) {

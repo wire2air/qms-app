@@ -17,7 +17,7 @@ const emit = defineEmits(['view'])
 
 const toast = useToast()
 
-const canArchive = computed(() => isAllowed(['documents:delete']))
+const canArchive = computed(() => isAllowed(['document_control:delete']))
 
 const { confirm } = useConfirm()
 

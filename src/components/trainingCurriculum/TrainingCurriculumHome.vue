@@ -12,10 +12,11 @@
 import { IconPlus, IconTrash, IconBook } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 
-const canManage = computed(() =>
-  isAllowed(['trainingCurriculum:create', 'trainingCurriculum:update']),
-)
-const canDelete = computed(() => isAllowed(['trainingCurriculum:delete']))
+// Training curriculum is part of the training module in native authz — its RLS
+// gates on training:read / training:update (see database/rls.sql). Soft-delete
+// is an UPDATE (app_user has no DELETE grant), so canDelete gates on update too.
+const canManage = computed(() => isAllowed(['training:update']))
+const canDelete = computed(() => isAllowed(['training:update']))
 
 const toast = useToast()
 const { confirm } = useConfirm()

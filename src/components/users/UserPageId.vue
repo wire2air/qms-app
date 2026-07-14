@@ -1,5 +1,5 @@
 <script setup>
-import { IconMail, IconInfoCircle, IconPlus, IconCamera } from '@tabler/icons-vue'
+import { IconMail, IconPlus, IconCamera, IconCrown } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { isAllowed } from '@/utils/currentSession.js'
@@ -13,7 +13,7 @@ const props = defineProps({
   },
 })
 
-const canUpdateUser = computed(() => isAllowed(['users:update']))
+const canUpdateUser = computed(() => isAllowed(['user_management:update']))
 
 const user = useLiveQueryWithDeps(
   [() => props.id],
@@ -187,16 +187,26 @@ const userDetailConfig = computed(() =>
           @blur="editingName = false"
         />
       </div>
-      <BaseClickableRow
-        v-else
-        class="tw:text-base tw:font-semibold tw:text-on-main"
-        :class="canUpdateUser ? 'tw:hover:text-primary' : ''"
-        :disabled="!canUpdateUser"
-        aria-label="Edit user name"
-        @click="canUpdateUser && (editingName = true)"
-      >
-        {{ user?.firstName }} {{ user?.lastName }}
-      </BaseClickableRow>
+      <div v-else class="tw:flex tw:items-center tw:gap-2">
+        <BaseClickableRow
+          class="tw:text-base tw:font-semibold tw:text-on-main"
+          :class="canUpdateUser ? 'tw:hover:text-primary' : ''"
+          :disabled="!canUpdateUser"
+          aria-label="Edit user name"
+          @click="canUpdateUser && (editingName = true)"
+        >
+          {{ user?.firstName }} {{ user?.lastName }}
+        </BaseClickableRow>
+        <!-- Owner standing bypasses all roles/permissions (L3) — make it visible
+             so an "owner has everything" isn't mistaken for granted access. -->
+        <span
+          v-if="user?.isOwner"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-full tw:bg-amber-100 tw:px-2 tw:py-0.5 tw:text-xs tw:font-semibold tw:text-amber-700"
+          title="Company owner — full access, bypasses roles and permissions"
+        >
+          <IconCrown :size="12" /> Owner
+        </span>
+      </div>
     </template>
 
     <template #status>
@@ -398,23 +408,17 @@ const userDetailConfig = computed(() =>
                 @clear="handleRolesChange(assignedRoleIds.filter((id) => id !== roleId))"
               />
             </div>
-            <div class="tw:bg-primary/5 tw:rounded-lg tw:p-4">
-              <div
-                class="tw:flex tw:items-center tw:gap-2 tw:text-primary tw:text-xs tw:font-bold tw:mb-1"
-              >
-                <IconInfoCircle :size="14" />
-                Permission Note
-              </div>
-              <p class="tw:text-xs tw:text-secondary">
-                User currently has limited access to administrative configurations but full access
-                to workflows.
-              </p>
-            </div>
           </template>
           <div v-else class="tw:text-center tw:py-4">
             <p class="tw:text-sm tw:text-secondary">No roles assigned yet</p>
           </div>
         </div>
+      </BaseRailCard>
+
+      <!-- Effective access — the real "why does this user have X" view, replacing
+           the former hardcoded Permission Note. -->
+      <BaseRailCard title="Effective Access">
+        <UserEffectivePermissions :userId="props.id" />
       </BaseRailCard>
     </template>
   </BaseDetailLayout>

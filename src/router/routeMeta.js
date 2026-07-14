@@ -36,7 +36,7 @@ import {
 /** @type {Record<string, import('@shared/composables/routeMetaHelpers.js').RouteMetaEntry>} */
 export const ROUTE_META = {
   // ── Quality records ──────────────────────────────────────────────
-  '/documents': { title: 'Documents', icon: IconFileText, permission: 'documents:read' },
+  '/documents': { title: 'Documents', icon: IconFileText, permission: 'document_control:read' },
   '/documents/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Document',
     icon: IconFileText,
@@ -45,14 +45,14 @@ export const ROUTE_META = {
   '/nonconformances': {
     title: 'Nonconformances',
     icon: IconAlertCircle,
-    permission: 'nonconformances:read',
+    permission: 'ncr:read',
   },
   '/nonconformances/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Nonconformance',
     icon: IconAlertCircle,
     parent: '/nonconformances',
   },
-  '/capas': { title: 'CAPAs', icon: IconShield, permission: 'capas:read' },
+  '/capas': { title: 'CAPAs', icon: IconShield, permission: 'capa:read' },
   '/capas/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'CAPA',
     icon: IconShield,
@@ -61,7 +61,7 @@ export const ROUTE_META = {
   '/customer-complaints': {
     title: 'Customer Complaints',
     icon: IconHeadset,
-    permission: 'customerComplaints:read',
+    permission: 'complaint_management:read',
   },
   '/customer-complaints/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Complaint',
@@ -71,14 +71,14 @@ export const ROUTE_META = {
   '/change-requests': {
     title: 'Change Requests',
     icon: IconReplace,
-    permission: 'changeRequests:read',
+    permission: 'change_control:read',
   },
   '/change-requests/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Change Request',
     icon: IconReplace,
     parent: '/change-requests',
   },
-  '/audits': { title: 'Audits', icon: IconClipboardCheck, permission: 'audits:read' },
+  '/audits': { title: 'Audits', icon: IconClipboardCheck, permission: 'audit_management:read' },
   '/records': { title: 'Records', icon: IconTable, permission: 'records:read' },
 
   // ── Operations ───────────────────────────────────────────────────
@@ -86,16 +86,16 @@ export const ROUTE_META = {
   '/inspections-logs': {
     title: 'Inspections & Logs',
     icon: IconClipboardList,
-    permission: 'fieldRecords:create',
+    permission: 'field_records:create',
   },
   '/qc-inspection': {
     title: 'QC Inspection',
     icon: IconTestPipe,
-    permission: 'qcInspection:lot:read',
+    permission: 'inspection_qc:read',
   },
 
   // ── Training ─────────────────────────────────────────────────────
-  '/trainings': { title: 'Training Library', icon: IconSchool, permission: 'trainings:read' },
+  '/trainings': { title: 'Training Library', icon: IconSchool, permission: 'training:read' },
   '/trainings/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Training',
     icon: IconSchool,
@@ -104,17 +104,17 @@ export const ROUTE_META = {
   '/training-instances': {
     title: 'Training Matrix',
     icon: IconSchool,
-    permission: 'trainingInstances:read',
+    permission: 'training_instances:read',
   },
   '/training-curriculum': {
     title: 'Training Curriculum',
     icon: IconSchool,
-    permission: 'trainingCurriculum:read',
+    permission: 'training:read',
   },
   '/training-reports': {
     title: 'Matrix Report',
     icon: IconSchool,
-    permission: 'trainingInstances:read',
+    permission: 'training_instances:read',
   },
 
   // ── Admin / settings ─────────────────────────────────────────────
@@ -131,19 +131,25 @@ export const ROUTE_META = {
     permission: 'security:manage',
     parent: '/settings',
   },
+  '/vendor-access-log': {
+    title: 'Vendor Access',
+    icon: IconShield,
+    permission: 'security:manage',
+    parent: '/settings',
+  },
   '/audit-logs': { title: 'Audit Logs', icon: IconShieldCheck },
-  '/settings': { title: 'Settings', icon: IconSettings, permission: 'company:manage' },
+  '/settings': { title: 'Settings', icon: IconSettings, permission: 'company_settings:manage' },
   '/notification-rules': {
     title: 'Notification Settings',
     icon: IconBell,
-    permission: 'company:manage',
+    permission: 'company_settings:manage',
     parent: '/settings',
   },
-  '/templates': { title: 'Form Templates', icon: IconForms, permission: 'formTemplates:read' },
+  '/templates': { title: 'Form Templates', icon: IconForms, permission: 'forms_templates:read' },
   '/workflow-templates': {
     title: 'Workflow Templates',
     icon: IconArrowsShuffle,
-    permission: 'workflows:read',
+    permission: 'workflows_templates:read',
   },
   '/workflow-templates/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Workflow',

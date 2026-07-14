@@ -11,7 +11,7 @@ import { required } from '@shared/components/form/validators.js'
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const canConfigure = computed(() => isAllowed(['relatedStandards:configure']))
+const canConfigure = computed(() => isAllowed(['related_standards:configure']))
 
 const columns = [
   { name: 'name', label: 'NAME', field: 'name', align: 'left' },

@@ -4,7 +4,7 @@ import { isAllowed } from '@/utils/currentSession.js'
 
 const showCreateDialog = ref(false)
 
-const canCreateUser = computed(() => isAllowed(['users:create']))
+const canCreateUser = computed(() => isAllowed(['user_management:create']))
 
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty`/`loading` are lazy getters that read `users`.

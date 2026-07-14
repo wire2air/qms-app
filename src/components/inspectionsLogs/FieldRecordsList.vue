@@ -52,8 +52,8 @@ function closeRecord() {
 }
 
 const userId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
-const canReadAll = computed(() => isAllowed(['fieldRecords:read_all']))
-const canReview = computed(() => isAllowed(['fieldRecords:review']))
+const canReadAll = computed(() => isAllowed(['field_records:read_all']))
+const canReview = computed(() => isAllowed(['field_records:review']))
 const toast = useToast()
 
 // Log books the current user supervises — drives the "Needs my review"

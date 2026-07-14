@@ -17,7 +17,7 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 // they're on the team for via the audit_team_members membership
 // branch). 'New Audit' stays gated on audits:create so users without
 // it don't see a button they can't use.
-const canCreate = computed(() => isAllowed(['audits:create']))
+const canCreate = computed(() => isAllowed(['audit_management:create']))
 
 const showCreateDialog = ref(false)
 

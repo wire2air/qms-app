@@ -11,8 +11,8 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const router = useRouter()
 
-const canRead = computed(() => isAllowed(['auditStandards:read']))
-const canCreate = computed(() => isAllowed(['auditStandards:create']))
+const canRead = computed(() => isAllowed(['audit_standards:read']))
+const canCreate = computed(() => isAllowed(['audit_standards:create']))
 
 const showCreateDialog = ref(false)
 const showImportDialog = ref(false)

@@ -54,8 +54,6 @@ import { Module } from './module'
 import { Notification } from './notification'
 import { NotificationType } from './notificationType'
 import { OptionSet } from './optionSet'
-import { Permission } from './permission'
-import { PermissionOnRole } from './permissionOnRole'
 import { Product } from './product'
 import { ProductFamily } from './productFamily'
 import { ProductStatus } from './productStatus'
@@ -66,6 +64,7 @@ import { RecordStatus } from './recordStatus'
 import { RelatedStandard } from './relatedStandard'
 import { RiskLevel } from './riskLevel'
 import { Role } from './role'
+import { RoleOnTeam } from './roleOnTeam'
 import { RoleOnUser } from './roleOnUser'
 import { RoleOnWorkflowInstanceStep } from './roleOnWorkflowInstanceStep'
 import { RoleStatus } from './roleStatus'
@@ -264,8 +263,6 @@ export const db = {
   Notification,
   NotificationType,
   OptionSet,
-  Permission,
-  PermissionOnRole,
   Product,
   ProductFamily,
   ProductStatus,
@@ -276,6 +273,7 @@ export const db = {
   RelatedStandard,
   RiskLevel,
   Role,
+  RoleOnTeam,
   RoleOnUser,
   RoleOnWorkflowInstanceStep,
   RoleStatus,

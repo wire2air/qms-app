@@ -41,9 +41,9 @@ const props = defineProps({
 const emit = defineEmits(['close', 'changed'])
 const toast = useToast()
 
-const canReview = computed(() => isAllowed(['fieldRecords:review']))
-const canAmend = computed(() => isAllowed(['fieldRecords:amend']))
-const canVoid = computed(() => isAllowed(['fieldRecords:void']))
+const canReview = computed(() => isAllowed(['field_records:review']))
+const canAmend = computed(() => isAllowed(['field_records:amend']))
+const canVoid = computed(() => isAllowed(['field_records:void']))
 
 // `currentSession.id` is NOT reliably the user id — the session object spreads
 // `...activeCompany` over it, so it ends up as the membership/company id. The

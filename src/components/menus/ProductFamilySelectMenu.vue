@@ -33,7 +33,7 @@ function onFamilyCreated(newFamily) {
   }
 }
 
-const canCreate = computed(() => props.allowCreate && isAllowed(['company:manage', 'owner']))
+const canCreate = computed(() => props.allowCreate && isAllowed(['company_settings:manage', 'owner']))
 </script>
 
 <template>

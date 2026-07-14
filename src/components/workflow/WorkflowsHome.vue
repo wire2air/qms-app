@@ -19,7 +19,7 @@ const list = useListLayout({
   syncUrl: true,
 })
 
-const canCreateWorkflow = computed(() => isAllowed(['workflows:create']))
+const canCreateWorkflow = computed(() => isAllowed(['workflows_templates:create']))
 
 const viewSwitches = [
   { icon: IconLayoutList, value: 'list', tooltip: 'List View' },

@@ -1,7 +1,8 @@
 <script setup>
-import { IconUsersGroup, IconMenu2, IconRefresh, IconSparkles } from '@tabler/icons-vue'
+import { IconUsersGroup, IconMenu2, IconRefresh, IconSparkles, IconEye } from '@tabler/icons-vue'
 import {
   isImpersonating,
+  isReadOnlyImpersonation,
   originalUserName,
   returnToOriginalUser,
   currentSession,
@@ -34,12 +35,19 @@ async function resetSync() {
 </script>
 
 <template>
-  <!-- Impersonation Banner -->
+  <!-- Impersonation Banner — colour + badge make the access mode unmistakable:
+       blue/read-only (safe) vs amber/write (can mutate tenant data). -->
   <div
     v-if="isImpersonating"
-    class="tw:bg-amber-500 tw:text-white tw:text-center tw:py-2 tw:px-4 tw:text-sm tw:font-medium tw:flex tw:items-center tw:justify-center tw:gap-2"
+    class="tw:text-white tw:text-center tw:py-2 tw:px-4 tw:text-sm tw:font-medium tw:flex tw:items-center tw:justify-center tw:gap-2"
+    :class="isReadOnlyImpersonation ? 'tw:bg-blue-600' : 'tw:bg-amber-500'"
   >
-    <IconUsersGroup :size="18" />
+    <component :is="isReadOnlyImpersonation ? IconEye : IconUsersGroup" :size="18" />
+    <span
+      class="tw:inline-flex tw:items-center tw:rounded-full tw:bg-white/25 tw:px-2 tw:py-0.5 tw:text-xs tw:font-bold tw:uppercase tw:tracking-wide"
+    >
+      {{ isReadOnlyImpersonation ? 'Read-only' : 'Write' }}
+    </span>
     <span>
       You are impersonating <strong>{{ impersonatedName }}</strong
       >.

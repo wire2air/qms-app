@@ -189,12 +189,12 @@ const isDraftVersion = computed(() => selectedVersion.value?.statusId === 'DRAFT
 
 const canUpdate = computed(() => {
   if (!workflow.value || !selectedVersion.value) return false
-  return isDraftVersion.value && isAllowed(['workflows:update'])
+  return isDraftVersion.value && isAllowed(['workflows_templates:update'])
 })
 
 const canCreateDraft = computed(() => {
   const haveDraftVersion = versions.value.some((v) => v.statusId === 'DRAFT')
-  return isAllowed(['workflows:update']) && !haveDraftVersion
+  return isAllowed(['workflows_templates:update']) && !haveDraftVersion
 })
 
 // ─── Version / workflow lifecycle (keyed off the SELECTED version) ──
@@ -205,8 +205,8 @@ const canCreateDraft = computed(() => {
 // be attached to records / have in-flight instances).
 const isArchived = computed(() => workflow.value?.statusId === 'ARCHIVED')
 const isOnlyVersion = computed(() => (versions.value?.length ?? 0) <= 1)
-const canArchiveWorkflow = computed(() => isAllowed(['workflows:update']))
-const canDeleteWorkflow = computed(() => isAllowed(['workflows:delete']))
+const canArchiveWorkflow = computed(() => isAllowed(['workflows_templates:update']))
+const canDeleteWorkflow = computed(() => isAllowed(['workflows_templates:delete']))
 const workflowStatusBusy = ref(false)
 
 async function setWorkflowStatus(statusId) {

@@ -46,9 +46,9 @@ const standard = useLiveQueryWithDeps(
 )
 const loading = computed(() => standard.value === undefined)
 
-const canUpdate = computed(() => isAllowed(['auditStandards:update']))
-const canDelete = computed(() => isAllowed(['auditStandards:delete']))
-const canCreate = computed(() => isAllowed(['auditStandards:create']))
+const canUpdate = computed(() => isAllowed(['audit_standards:update']))
+const canDelete = computed(() => isAllowed(['audit_standards:delete']))
+const canCreate = computed(() => isAllowed(['audit_standards:create']))
 const showCloneDialog = ref(false)
 const isOwner = computed(() => !!currentSession.value?.isOwner)
 const isEditable = computed(() => canUpdate.value || isOwner.value)

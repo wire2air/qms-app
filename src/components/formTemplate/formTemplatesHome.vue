@@ -35,9 +35,9 @@ const { confirm } = useConfirm()
 
 // Create needs read too: the create mutation reads the new row back through the
 // `formTemplates:read` RLS SELECT policy, so create-without-read fails at the DB.
-const canCreateTemplate = computed(() => isAllowed(['formTemplates:create', 'formTemplates:read']))
-const canUpdateTemplate = computed(() => isAllowed(['formTemplates:update']))
-const canDeleteTemplate = computed(() => isAllowed(['formTemplates:delete']))
+const canCreateTemplate = computed(() => isAllowed(['forms_templates:create', 'forms_templates:read']))
+const canUpdateTemplate = computed(() => isAllowed(['forms_templates:update']))
+const canDeleteTemplate = computed(() => isAllowed(['forms_templates:delete']))
 
 // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
 const filters = ref({

@@ -17,7 +17,7 @@ const props = defineProps({
 
 const router = useRouter()
 const toast = useToast()
-const canManage = computed(() => isAllowed(['trainingInstances:manage']))
+const canManage = computed(() => isAllowed(['training_instances:manage']))
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const instance = useLiveQueryWithDeps(

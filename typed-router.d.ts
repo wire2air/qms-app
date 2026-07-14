@@ -408,6 +408,55 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/platform/': RouteRecordInfo<
+      '/platform/',
+      '/platform',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/admins': RouteRecordInfo<
+      '/platform/admins',
+      '/platform/admins',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/approvals': RouteRecordInfo<
+      '/platform/approvals',
+      '/platform/approvals',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/audit': RouteRecordInfo<
+      '/platform/audit',
+      '/platform/audit',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/companies/': RouteRecordInfo<
+      '/platform/companies/',
+      '/platform/companies',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/companies/[id]': RouteRecordInfo<
+      '/platform/companies/[id]',
+      '/platform/companies/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/platform/plans': RouteRecordInfo<
+      '/platform/plans',
+      '/platform/plans',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/print': RouteRecordInfo<
       '/print',
       '/print',
@@ -637,6 +686,13 @@ declare module 'vue-router/auto-routes' {
       '/users/:id?',
       { id?: ParamValueZeroOrOne<true> },
       { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/vendor-access-log': RouteRecordInfo<
+      '/vendor-access-log',
+      '/vendor-access-log',
+      Record<never, never>,
+      Record<never, never>,
       | never
     >,
     '/workflow-instances/[[id]]': RouteRecordInfo<
@@ -996,6 +1052,48 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/platform/index.vue': {
+      routes:
+        | '/platform/'
+      views:
+        | never
+    }
+    'src/pages/platform/admins.vue': {
+      routes:
+        | '/platform/admins'
+      views:
+        | never
+    }
+    'src/pages/platform/approvals.vue': {
+      routes:
+        | '/platform/approvals'
+      views:
+        | never
+    }
+    'src/pages/platform/audit.vue': {
+      routes:
+        | '/platform/audit'
+      views:
+        | never
+    }
+    'src/pages/platform/companies/index.vue': {
+      routes:
+        | '/platform/companies/'
+      views:
+        | never
+    }
+    'src/pages/platform/companies/[id].vue': {
+      routes:
+        | '/platform/companies/[id]'
+      views:
+        | never
+    }
+    'src/pages/platform/plans.vue': {
+      routes:
+        | '/platform/plans'
+      views:
+        | never
+    }
     'src/pages/print.vue': {
       routes:
         | '/print'
@@ -1191,6 +1289,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/users/[[id]].vue': {
       routes:
         | '/users/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/vendor-access-log.vue': {
+      routes:
+        | '/vendor-access-log'
       views:
         | never
     }
