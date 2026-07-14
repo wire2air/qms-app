@@ -50,11 +50,14 @@ describe('requiredPermissionFor', () => {
     expect(requiredPermissionFor(route('/users/create'))).toBe('user_management:create')
     // :manage / :create gates already cover creation — used as-is.
     expect(requiredPermissionFor(route('/inspections-logs/create'))).toBe('field_records:create')
-    expect(requiredPermissionFor(route('/m/inspections/create'))).toBe('inspections:create')
+    // /m/:internalName is an admin-defined custom module — internalName is a
+    // dynamic slug, NOT a native authz module. Use a fictional name so this
+    // stays distinct from any real module in the catalog.
+    expect(requiredPermissionFor(route('/m/gemba_walks/create'))).toBe('gemba_walks:create')
   })
 
   it('resolves admin-defined module routes to <internalName>:read', () => {
-    expect(requiredPermissionFor(route('/m/inspections'))).toBe('inspections:read')
+    expect(requiredPermissionFor(route('/m/gemba_walks'))).toBe('gemba_walks:read')
     expect(requiredPermissionFor(route('/m'))).toBeNull()
   })
 
