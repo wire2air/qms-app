@@ -20,7 +20,7 @@ import {
   IconTrash,
   IconSend,
   IconLoader2,
-  IconInfoCircle,
+  IconHelpCircle,
 } from '@tabler/icons-vue'
 import UserAvatarById from '../avatars/UserAvatarById.vue'
 
@@ -138,7 +138,14 @@ async function handleDelete(msg) {
         content="Invite co-authors to contribute to this draft. Each collaborator gets a task and email notification, and you can discuss changes in the chat below before submitting for review."
         placement="bottom"
       >
-        <IconInfoCircle :size="15" class="tw:text-secondary tw:cursor-help tw:shrink-0" />
+        <button
+          type="button"
+          class="tw:inline-flex tw:cursor-help tw:rounded-full tw:text-secondary tw:hover:text-on-main tw:shrink-0 tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/40"
+          aria-label="About collaboration"
+          @click.stop.prevent
+        >
+          <IconHelpCircle class="tw:size-4" />
+        </button>
       </BaseTooltip>
       <div v-if="hasCollaborators" class="tw:flex tw:-space-x-2">
         <UserAvatar
