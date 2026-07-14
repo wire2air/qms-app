@@ -20,6 +20,7 @@ import {
   IconTrash,
   IconSend,
   IconLoader2,
+  IconInfoCircle,
 } from '@tabler/icons-vue'
 import UserAvatarById from '../avatars/UserAvatarById.vue'
 
@@ -130,9 +131,15 @@ async function handleDelete(msg) {
 </script>
 
 <template>
-  <BaseRailCard v-if="canEdit || hasCollaborators" title="Collaborators" :icon="IconUsersGroup">
+  <BaseRailCard v-if="canEdit || hasCollaborators" title="Collaboration" :icon="IconUsersGroup">
     <!-- Collaborator management -->
     <div class="tw:flex tw:items-center tw:gap-2">
+      <BaseTooltip
+        content="Invite co-authors to contribute to this draft. Each collaborator gets a task and email notification, and you can discuss changes in the chat below before submitting for review."
+        placement="bottom"
+      >
+        <IconInfoCircle :size="15" class="tw:text-secondary tw:cursor-help tw:shrink-0" />
+      </BaseTooltip>
       <div v-if="hasCollaborators" class="tw:flex tw:-space-x-2">
         <UserAvatar
           v-for="collab in collaborators"
