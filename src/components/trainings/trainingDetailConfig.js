@@ -12,29 +12,20 @@ import {
  * template) detail page. Pure — caller resolves the training + gate flags/handlers.
  */
 
-/** Contextual banners. DRAFT is the only editable state; ACTIVE is published
- *  and locked, ARCHIVED is read-only.
+/** Contextual help for the current status, shown as a tooltip next to the
+ *  status badge in the header (rather than a full-width banner). DRAFT is the
+ *  only editable state; ACTIVE is published and locked, ARCHIVED is read-only.
+ *  Returns '' when there's nothing to explain (DRAFT).
  */
-export function buildTrainingBanners(training) {
-  if (!training) return []
-  const banners = []
+export function trainingStatusHelp(training) {
+  if (!training) return ''
   if (training.status === 'ARCHIVED') {
-    banners.push({
-      id: 'archived',
-      tone: 'neutral',
-      title: 'Archived',
-      message: 'This training is archived and read-only.',
-    })
-  } else if (training.status === 'ACTIVE') {
-    banners.push({
-      id: 'published',
-      tone: 'info',
-      title: 'Published',
-      message:
-        'This training is published and locked for editing. Unpublish (only possible while no instances exist) to make changes.',
-    })
+    return 'This training is archived and read-only.'
   }
-  return banners
+  if (training.status === 'ACTIVE') {
+    return 'This training is published and locked for editing. Unpublish (only possible while no instances exist) to make changes.'
+  }
+  return ''
 }
 
 /** Anchor-nav sections. The page organizes fields into its own 5 tabs inside a

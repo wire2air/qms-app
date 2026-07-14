@@ -1,9 +1,9 @@
 <script setup>
-import { IconCircleCheck, IconTrash } from '@tabler/icons-vue'
+import { IconCircleCheck, IconTrash, IconInfoCircle } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import {
-  buildTrainingBanners,
+  trainingStatusHelp,
   buildTrainingSections,
   buildTrainingActions,
 } from './trainingDetailConfig.js'
@@ -136,7 +136,7 @@ const breadcrumbs = computed(() => [
   { label: 'Training Library', to: getCompanyPath('/trainings') },
   { label: training.value?.title || 'Loading…' },
 ])
-const trainingBanners = computed(() => buildTrainingBanners(training.value))
+const statusHelp = computed(() => trainingStatusHelp(training.value))
 const trainingActions = computed(() =>
   buildTrainingActions(
     {
@@ -170,7 +170,6 @@ const trainingDetailConfig = computed(() =>
     variant: 'standard',
     width: 'standard',
     breadcrumbs: breadcrumbs.value,
-    banners: () => trainingBanners.value,
     actions: trainingActions.value,
     sections: buildTrainingSections(training.value),
   }),
@@ -191,7 +190,12 @@ const trainingDetailConfig = computed(() =>
     </template>
 
     <template #status>
-      <TrainingStatusBadgeById v-if="training" :statusId="training.status" />
+      <div v-if="training" class="tw:flex tw:items-center tw:gap-1.5">
+        <TrainingStatusBadgeById :statusId="training.status" />
+        <BaseTooltip v-if="statusHelp" :content="statusHelp" placement="bottom">
+          <IconInfoCircle :size="15" class="tw:text-secondary tw:cursor-help" />
+        </BaseTooltip>
+      </div>
     </template>
 
     <template v-if="training && training.description" #meta>
