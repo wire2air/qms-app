@@ -17,8 +17,8 @@ const siteId = ref(null)
 const departmentId = ref(null)
 const roleId = ref(null)
 const userId = ref(null)
-const dateFrom = ref(null)
-const dateTo = ref(null)
+// Single range control ({ start, end }) instead of two from/to fields.
+const dateRange = ref(null)
 
 const STATUSES = ['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'VERIFIED', 'FAILED', 'RETRAIN_REQUIRED']
 
@@ -29,8 +29,8 @@ const getFilters = () => ({
   departmentId: departmentId.value,
   roleId: roleId.value,
   userId: userId.value,
-  from: dateFrom.value?.toISODate?.() || '',
-  to: dateTo.value?.toISODate?.() || '',
+  from: dateRange.value?.start?.toISODate?.() || '',
+  to: dateRange.value?.end?.toISODate?.() || '',
 })
 const { rows } = useTrainingMatrixReport(getFilters)
 
@@ -41,8 +41,7 @@ function resetFilters() {
   departmentId.value = null
   roleId.value = null
   userId.value = null
-  dateFrom.value = null
-  dateTo.value = null
+  dateRange.value = null
 }
 
 const HEADERS = ['Employee', 'Roles', 'Training', 'Status', 'Completed', 'Type', 'Ad-hoc reason']
@@ -73,8 +72,8 @@ function printReport() {
   if (departmentId.value) params.set('department', departmentId.value)
   if (roleId.value) params.set('role', roleId.value)
   if (userId.value) params.set('user', userId.value)
-  if (dateFrom.value?.toISODate) params.set('from', dateFrom.value.toISODate())
-  if (dateTo.value?.toISODate) params.set('to', dateTo.value.toISODate())
+  if (dateRange.value?.start?.toISODate) params.set('from', dateRange.value.start.toISODate())
+  if (dateRange.value?.end?.toISODate) params.set('to', dateRange.value.end.toISODate())
   window.open(getCompanyPath(`/print?${params.toString()}`), '_blank', 'noopener,noreferrer')
 }
 </script>
@@ -124,13 +123,9 @@ function printReport() {
           <label class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1 tw:block">Employee</label>
           <UserSelectMenu v-model="userId" nullLabel="All employees" />
         </div>
-        <div>
-          <label class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1 tw:block">Completed from</label>
-          <BaseDateField v-model="dateFrom" />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1 tw:block">Completed to</label>
-          <BaseDateField v-model="dateTo" />
+        <div class="tw:sm:col-span-2">
+          <label class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1 tw:block">Completed</label>
+          <BaseDateField v-model="dateRange" mode="range" :clearable="true" placeholder="Any date" />
         </div>
       </div>
       <div class="tw:mt-3">
