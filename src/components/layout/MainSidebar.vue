@@ -44,6 +44,7 @@ import {
   IconWorld,
   IconLicense,
   IconGavel,
+  IconMessageReport,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { isDark } from '@/utils/theme.js'
@@ -271,6 +272,14 @@ const navItems = computed(() => {
       permissions: ['complaint_management:read'],
       icon: IconHeadset,
       to: getCompanyPath('/customer-complaints'),
+    },
+    {
+      // QA lens over the same complaint records — investigation-focused, no
+      // customer-reply surface. Backed by the same customer_complaints table.
+      label: 'Complaints',
+      permissions: ['customerComplaints:read'],
+      icon: IconMessageReport,
+      to: getCompanyPath('/complaints'),
     },
     {
       label: 'CAPAs',

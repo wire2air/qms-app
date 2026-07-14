@@ -96,6 +96,22 @@ export const CR_MODULE = {
   },
 }
 
+// Standalone QMS Complaint (separate `complaints` table + /complaints API).
+export const COMPLAINT_MODULE = {
+  key: 'CMP',
+  displayName: 'Complaint',
+  resourceType: 'Complaint',
+  apiPath: 'complaints',
+  resourceIdParam: 'complaintId',
+  recordModelName: 'ComplaintRecord',
+  recordResourceFk: 'complaintId',
+  resourceModel: { modelName: 'Complaint' },
+  workflowVersionModuleId: 'COMPLAINT',
+  getStepFormContextFields(resource) {
+    return { _parent_problem: resource?.description ?? '' }
+  },
+}
+
 // LogBookVersion runs through the same generic workflow engine but
 // doesn't have everything a full controlled-resource module needs
 // (no per-step record model — log-book entries are FieldRecords on a

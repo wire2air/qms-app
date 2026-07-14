@@ -106,6 +106,21 @@ import { CustomerComplaintStatus } from './customerComplaintStatus'
 import { CustomerComplaintSource } from './customerComplaintSource'
 import { CustomerComplaintMessage } from './customerComplaintMessage'
 import { CustomerComplaintAttachment } from './customerComplaintAttachment'
+// Complaint QMS lookups (per-tenant).
+import { ComplaintSourceType } from './complaintSourceType'
+import { ComplaintRegion } from './complaintRegion'
+import { ComplaintCountry } from './complaintCountry'
+import { ComplaintCustomerType } from './complaintCustomerType'
+import { ComplaintCategory } from './complaintCategory'
+import { ComplaintSubCategory } from './complaintSubCategory'
+import { ComplaintType } from './complaintType'
+import { ComplaintSeverity } from './complaintSeverity'
+import { ComplaintRiskLevel } from './complaintRiskLevel'
+import { ComplaintReportScheme } from './complaintReportScheme'
+// Standalone QMS Complaint (separate from support customer_complaints).
+import { Complaint } from './complaint'
+import { ComplaintRecord } from './complaintRecord'
+import { ComplaintStatus } from './complaintStatus'
 import { NcSourceLink } from './ncSourceLink'
 import { ComplaintCannedResponse } from './complaintCannedResponse'
 import { Customer } from './customer'
@@ -299,6 +314,19 @@ export const db = {
   CustomerComplaintSource,
   CustomerComplaintMessage,
   CustomerComplaintAttachment,
+  ComplaintSourceType,
+  ComplaintRegion,
+  ComplaintCountry,
+  ComplaintCustomerType,
+  ComplaintCategory,
+  ComplaintSubCategory,
+  ComplaintType,
+  ComplaintSeverity,
+  ComplaintRiskLevel,
+  ComplaintReportScheme,
+  Complaint,
+  ComplaintRecord,
+  ComplaintStatus,
   NcSourceLink,
   ComplaintCannedResponse,
   Customer,

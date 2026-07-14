@@ -16,6 +16,7 @@ export const RECORD_REF = {
   Capa: { model: 'Capa', numberField: 'capaNumber', label: 'CAPA', path: (id) => `/capas/${id}` },
   ChangeRequest: { model: 'ChangeRequest', numberField: 'crNumber', label: 'CR', path: (id) => `/change-requests/${id}` },
   CustomerComplaint: { model: 'CustomerComplaint', numberField: 'complaintNumber', label: 'Complaint', path: (id) => `/customer-complaints/${id}` },
+  Complaint: { model: 'Complaint', numberField: 'complaintNumber', label: 'Complaint', path: (id) => `/complaints/${id}` },
   // Findings live inside an audit — no standalone detail route.
   AuditFinding: { model: 'AuditFinding', numberField: 'findingNumber', label: 'Finding', path: null },
   TrainingInstance: { model: 'TrainingInstance', numberField: 'title', label: 'Training', path: (id) => `/training-instances/${id}` },

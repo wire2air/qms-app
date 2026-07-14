@@ -516,9 +516,13 @@ defineExpose({
         >
           <IconX :size="16" />
         </button>
+        <!-- Single-select showing a clear ×: the × is enough affordance, so
+             drop the chevron for a cleaner look. Empty or non-clearable
+             (e.g. required) single-selects keep it as a dropdown cue;
+             multi-select keeps IconSelector. -->
         <component
           :is="multiple ? IconSelector : IconChevronDown"
-          v-if="!loading"
+          v-if="!loading && !(showClear && !multiple)"
           :size="16"
           class="tw:shrink-0 tw:text-secondary"
           aria-hidden="true"

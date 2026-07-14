@@ -17,6 +17,17 @@ const tabs = [
   { value: 'event-categories', label: 'Event Categories' },
   { value: 'event-severities', label: 'Event Severities' },
   { value: 'related-standards', label: 'Related Standards' },
+  // Complaint QMS lookups (per-tenant).
+  { value: 'complaint-sources', label: 'Complaint Sources' },
+  { value: 'complaint-regions', label: 'Complaint Regions' },
+  { value: 'complaint-countries', label: 'Complaint Countries' },
+  { value: 'complaint-customer-types', label: 'Complaint Customer Types' },
+  { value: 'complaint-categories', label: 'Complaint Categories' },
+  { value: 'complaint-sub-categories', label: 'Complaint Sub-categories' },
+  { value: 'complaint-types', label: 'Complaint Types' },
+  { value: 'complaint-severities', label: 'Complaint Severities' },
+  { value: 'complaint-risk-levels', label: 'Complaint Risk Levels' },
+  { value: 'complaint-report-schemes', label: 'Complaint Report Schemes' },
 ]
 const validTabIds = new Set(tabs.map((t) => t.value))
 
@@ -51,6 +62,61 @@ watch(
         <BaseTabPanel value="event-categories"><EventCategoriesCard /></BaseTabPanel>
         <BaseTabPanel value="event-severities"><EventSeveritiesCard /></BaseTabPanel>
         <BaseTabPanel value="related-standards"><RelatedStandardsCard /></BaseTabPanel>
+
+        <BaseTabPanel value="complaint-sources">
+          <ComplaintLookupCard
+model="ComplaintSourceType" title="Complaint Source"
+            subtitle="Who reported the complaint (Customer, Distributor, Sales Rep…). Scoped to this company." />
+        </BaseTabPanel>
+        <BaseTabPanel value="complaint-regions">
+          <ComplaintLookupCard
+model="ComplaintRegion" title="Region"
+            subtitle="Geographic regions a complaint can originate from." />
+        </BaseTabPanel>
+        <BaseTabPanel value="complaint-countries">
+          <ComplaintLookupCard
+model="ComplaintCountry" title="Country"
+            parentModel="ComplaintRegion" parentField="regionId" parentLabel="Region"
+            subtitle="Countries of origin, grouped by region." />
+        </BaseTabPanel>
+        <BaseTabPanel value="complaint-customer-types">
+          <ComplaintLookupCard
+model="ComplaintCustomerType" title="Customer Type"
+            subtitle="End User, Distributor, Healthcare Facility, …" />
+        </BaseTabPanel>
+        <BaseTabPanel value="complaint-categories">
+          <ComplaintLookupCard
+model="ComplaintCategory" title="Category"
+            subtitle="Top-level complaint classification (parent of sub-categories)." />
+        </BaseTabPanel>
+        <BaseTabPanel value="complaint-sub-categories">
+          <ComplaintLookupCard
+model="ComplaintSubCategory" title="Sub-category"
+            parentModel="ComplaintCategory" parentField="categoryId" parentLabel="Category"
+            subtitle="Dependent detail under a category (QA fills this during investigation)." />
+        </BaseTabPanel>
+        <BaseTabPanel value="complaint-types">
+          <ComplaintLookupCard
+model="ComplaintType" title="Complaint Type"
+            subtitle="Product, Service, Delivery, Billing, …" />
+        </BaseTabPanel>
+        <BaseTabPanel value="complaint-severities">
+          <ComplaintLookupCard
+model="ComplaintSeverity" title="Severity" :hasColor="true"
+            subtitle="Severity classification with colour + rank." />
+        </BaseTabPanel>
+        <BaseTabPanel value="complaint-risk-levels">
+          <ComplaintLookupCard
+model="ComplaintRiskLevel" title="Risk Level" :hasColor="true"
+            subtitle="Risk classification with colour + rank." />
+        </BaseTabPanel>
+        <BaseTabPanel value="complaint-report-schemes">
+          <ComplaintLookupCard
+            model="ComplaintReportScheme"
+            title="Report Scheme"
+            subtitle="Regulatory reporting schemes for the reportability assessment (FDA MDR, EU MDR, MoCRA…)."
+          />
+        </BaseTabPanel>
       </BaseTabs>
     </div>
   </BasePage>

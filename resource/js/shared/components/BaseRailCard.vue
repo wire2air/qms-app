@@ -52,7 +52,9 @@ function toggle() {
       v-if="open"
       :id="bodyId"
       :class="
-        grid ? 'tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]' : ''
+        grid
+          ? 'tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]'
+          : 'tw:flex tw:flex-col tw:gap-3'
       "
     >
       <slot />

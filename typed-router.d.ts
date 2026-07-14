@@ -149,6 +149,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/complaints/[[id]]': RouteRecordInfo<
+      '/complaints/[[id]]',
+      '/complaints/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/complaints/reports': RouteRecordInfo<
+      '/complaints/reports',
+      '/complaints/reports',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/custom-fields': RouteRecordInfo<
       '/custom-fields',
       '/custom-fields',
@@ -806,6 +820,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/complaint-settings.vue': {
       routes:
         | '/complaint-settings'
+      views:
+        | never
+    }
+    'src/pages/complaints/[[id]].vue': {
+      routes:
+        | '/complaints/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/complaints/reports.vue': {
+      routes:
+        | '/complaints/reports'
       views:
         | never
     }

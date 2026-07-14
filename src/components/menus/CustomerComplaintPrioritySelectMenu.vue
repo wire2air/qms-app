@@ -2,6 +2,8 @@
 defineProps({
   required: { type: Boolean, default: false },
   multiple: { type: Boolean, default: false },
+  // "— All priorities —" for filter bars; pass "— Select —" in forms.
+  nullLabel: { type: String, default: '— All priorities —' },
 })
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
@@ -23,7 +25,7 @@ const items = [
     :required="required"
     :multiple="multiple"
     :clearable="!required"
-    nullLabel="— All priorities —"
+    :nullLabel="nullLabel"
   >
     <template #selected="{ options, remove }">
       <div class="tw:flex tw:flex-wrap tw:gap-1">
