@@ -527,6 +527,7 @@ declare module 'vue' {
     DocumentsAddSectionDialog: typeof import('./src/components/documents/DocumentsAddSectionDialog.vue')['default']
     DocumentsChangeControlTab: typeof import('./src/components/documents/DocumentsChangeControlTab.vue')['default']
     DocumentsChatCard: typeof import('./src/components/documents/DocumentsChatCard.vue')['default']
+    DocumentsCollaborationCard: typeof import('./src/components/documents/DocumentsCollaborationCard.vue')['default']
     DocumentsCollaborators: typeof import('./src/components/documents/DocumentsCollaborators.vue')['default']
     DocumentsCreate: typeof import('./src/components/documents/DocumentsCreate.vue')['default']
     DocumentsCreateChangeControl: typeof import('./src/components/documents/DocumentsCreateChangeControl.vue')['default']
