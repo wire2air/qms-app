@@ -119,7 +119,7 @@ async function handleDelete() {
 
 // ─── Launch dialog ─────────────────────────────────────────────────────────────
 const showLaunchDialog = ref(false)
-const showAddMatrixDialog = ref(false)
+const showAddCurriculumDialog = ref(false)
 
 // ─── Tabs ──────────────────────────────────────────────────────────────────────
 const activeTab = ref('details')
@@ -127,7 +127,7 @@ const tabs = [
   { value: 'details', label: 'Details' },
   { value: 'material', label: 'Material' },
   { value: 'assessment', label: 'Assessment' },
-  { value: 'assignees', label: 'Assignees' },
+  { value: 'curriculum', label: 'Curriculum' },
   { value: 'instances', label: 'Instances' },
 ]
 
@@ -154,8 +154,8 @@ const trainingActions = computed(() =>
       launch() {
         showLaunchDialog.value = true
       },
-      addMatrix() {
-        showAddMatrixDialog.value = true
+      addToCurriculum() {
+        showAddCurriculumDialog.value = true
       },
       unpublish: handleUnpublish,
       archive: handleArchive,
@@ -233,11 +233,12 @@ const trainingDetailConfig = computed(() =>
             </div>
           </BaseTabPanel>
 
-          <BaseTabPanel value="assignees">
+          <BaseTabPanel value="curriculum">
             <div class="tw:flex tw:flex-col tw:gap-4">
-              <TrainingAssigneesTab
+              <TrainingCurriculumTab
                 :trainingId="training.id"
-                :canUpdate="isEditable && canUpdate"
+                :trainingTitle="training.title"
+                :canUpdate="canUpdate"
               />
             </div>
           </BaseTabPanel>
@@ -260,7 +261,11 @@ const trainingDetailConfig = computed(() =>
       :trainingId="training.id"
       :trainingTitle="training.title"
     />
-    <TrainingMatrixAddDialog v-model="showAddMatrixDialog" :trainingId="training.id" />
+    <TrainingAddToCurriculumDialog
+      v-model="showAddCurriculumDialog"
+      :trainingId="training.id"
+      :trainingTitle="training.title"
+    />
 
     <!-- Publish confirmation -->
     <BaseDialog v-model="showPublishConfirm" title="Publish Training" maxWidth="md">

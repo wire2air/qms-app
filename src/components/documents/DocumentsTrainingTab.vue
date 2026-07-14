@@ -177,7 +177,7 @@ function ensureConfig() {
       completionDueDays: 7,
       passingScore: 80,
       maxAttempts: 1,
-      roleIds: [],
+      curriculumIds: [],
       userIds: [],
       assessment: [],
     }

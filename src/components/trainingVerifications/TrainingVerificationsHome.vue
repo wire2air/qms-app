@@ -36,38 +36,36 @@ const myTrainings = useLiveQueryWithDeps(
 )
 const myTrainingIds = computed(() => myTrainings.value.map((t) => t.id))
 
-// Instances that still need manager verification — either explicitly in
-// PENDING_VERIFICATION or legacy COMPLETED instances with un-verified assignees.
-const pendingInstancesWithCounts = useLiveQueryWithDeps(
+// All my-training instances that have anything to verify or already verified.
+// state='pending' when any assignee still awaits review (COMPLETED/FAILED),
+// else 'completed' once everyone verifiable is VERIFIED.
+const statusFilter = ref('pending') // 'all' | 'pending' | 'completed'
+const verifiableInstances = useLiveQueryWithDeps(
   [() => myTrainingIds.value, () => props.instanceId],
   async (db, [ids, scopedInstanceId]) => {
     if (!ids?.length) return []
     let candidates
     if (scopedInstanceId) {
       const one = await db.TrainingInstance.findByPk(scopedInstanceId)
-      if (!one || !ids.includes(one.trainingId)) return []
-      if (!['PENDING_VERIFICATION', 'COMPLETED'].includes(one.status)) return []
-      candidates = [one]
+      candidates = one && ids.includes(one.trainingId) ? [one] : []
     } else {
       const all = await db.TrainingInstance.where().exec()
-      candidates = all.filter(
-        (i) =>
-          ['PENDING_VERIFICATION', 'COMPLETED'].includes(i.status) && ids.includes(i.trainingId),
-      )
+      candidates = all.filter((i) => ids.includes(i.trainingId))
     }
     const results = []
     for (const inst of candidates) {
       const assignees = await db.TrainingAssignee.where('trainingInstanceId', inst.id).exec()
-      // FAILED counts as "pending review" too — the manager still needs to
-      // act (typically retrain, sometimes override-approve), and the backend
-      // already moves the instance to PENDING_VERIFICATION when all retries
-      // are exhausted.
       const pending = assignees.filter((a) => a.status === 'COMPLETED' || a.status === 'FAILED')
-      if (pending.length > 0) {
-        results.push({ instance: inst, pendingCount: pending.length, totalCount: assignees.length })
-      }
+      const verified = assignees.filter((a) => a.status === 'VERIFIED')
+      if (!pending.length && !verified.length) continue
+      results.push({
+        instance: inst,
+        pendingCount: pending.length,
+        verifiedCount: verified.length,
+        totalCount: assignees.length,
+        state: pending.length ? 'pending' : 'completed',
+      })
     }
-    // Newest first
     results.sort(
       (a, b) =>
         (b.instance.createdAt?.toMillis?.() ?? 0) - (a.instance.createdAt?.toMillis?.() ?? 0),
@@ -78,12 +76,28 @@ const pendingInstancesWithCounts = useLiveQueryWithDeps(
   { models: ['TrainingInstance', 'TrainingAssignee'], initial: [] },
 )
 
+const statusChips = computed(() => [
+  { value: 'all', label: 'All', count: verifiableInstances.value.length },
+  {
+    value: 'pending',
+    label: 'Pending',
+    count: verifiableInstances.value.filter((r) => r.state === 'pending').length,
+  },
+  {
+    value: 'completed',
+    label: 'Completed',
+    count: verifiableInstances.value.filter((r) => r.state === 'completed').length,
+  },
+])
+
 const filteredInstances = computed(() => {
-  if (!list.filters.value.search) return pendingInstancesWithCounts.value
-  const needle = list.filters.value.search.toLowerCase()
-  return pendingInstancesWithCounts.value.filter((row) =>
-    row.instance.snapshot?.title?.toLowerCase().includes(needle),
-  )
+  let rows = verifiableInstances.value
+  if (statusFilter.value !== 'all') rows = rows.filter((r) => r.state === statusFilter.value)
+  if (list.filters.value.search) {
+    const needle = list.filters.value.search.toLowerCase()
+    rows = rows.filter((r) => r.instance.snapshot?.title?.toLowerCase().includes(needle))
+  }
+  return rows
 })
 
 // Selected instance + auto-default to first available
@@ -96,7 +110,7 @@ watchEffect(() => {
 
 const selectedInstance = computed(
   () =>
-    pendingInstancesWithCounts.value.find((r) => r.instance.id === selectedInstanceId.value)
+    verifiableInstances.value.find((r) => r.instance.id === selectedInstanceId.value)
       ?.instance,
 )
 
@@ -115,7 +129,7 @@ function onVerified() {
   // The current instance may still have other pending assignees; the live query refreshes,
   // and if the instance disappears from the list (all verified), pick the next one.
   setTimeout(() => {
-    const stillThere = pendingInstancesWithCounts.value.some(
+    const stillThere = verifiableInstances.value.some(
       (r) => r.instance.id === selectedInstanceId.value,
     )
     if (!stillThere) {
@@ -171,11 +185,28 @@ function onVerified() {
         </div>
         <BaseTextInput v-model="list.filters.value.search" placeholder="Search training..." size="sm" />
 
+        <div class="tw:flex tw:gap-1.5">
+          <button
+            v-for="chip in statusChips"
+            :key="chip.value"
+            type="button"
+            class="tw:px-3 tw:py-1 tw:text-xs tw:font-medium tw:rounded-full tw:border tw:transition-colors"
+            :class="
+              statusFilter === chip.value
+                ? 'tw:bg-primary tw:text-white tw:border-primary'
+                : 'tw:border-divider tw:text-secondary tw:hover:bg-main-hover'
+            "
+            @click="statusFilter = chip.value"
+          >
+            {{ chip.label }} ({{ chip.count }})
+          </button>
+        </div>
+
         <p
           v-if="!filteredInstances.length"
           class="tw:text-sm tw:text-secondary tw:italic tw:p-4 tw:text-center"
         >
-          No instances pending verification.
+          No {{ statusFilter === 'all' ? '' : statusFilter }} training instances.
         </p>
 
         <div v-else class="tw:flex tw:flex-col tw:gap-2">

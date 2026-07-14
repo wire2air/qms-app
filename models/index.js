@@ -163,7 +163,9 @@ import { TrainingRole } from './trainingRole'
 import { TrainingUser } from './trainingUser'
 import { TrainingExternalLink } from './trainingExternalLink'
 import { TrainingDocumentLink } from './trainingDocumentLink'
-import { TrainingMatrix } from './trainingMatrix'
+import { Curriculum } from './curriculum'
+import { CurriculumTraining } from './curriculumTraining'
+import { RoleCurriculum } from './roleCurriculum'
 import { TrainingVerification } from './trainingVerification'
 import { InformationRequest } from './informationRequest'
 import { ChangeRequest } from './changeRequest'
@@ -363,13 +365,15 @@ export const db = {
   AuditDocumentRequest,
   AuditCounter,
   Training,
+  Curriculum,
+  CurriculumTraining,
+  RoleCurriculum,
   TrainingInstance,
   TrainingAssignee,
   TrainingRole,
   TrainingUser,
   TrainingExternalLink,
   TrainingDocumentLink,
-  TrainingMatrix,
   TrainingVerification,
   InformationRequest,
   ChangeRequest,

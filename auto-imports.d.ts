@@ -378,6 +378,7 @@ declare global {
   const useToast: typeof import('./resource/js/shared/composables/useToast.js').useToast
   const useToggle: typeof import('@vueuse/core').useToggle
   const useTooltipData: typeof import('./resource/js/shared/composables/useTooltipData.js').useTooltipData
+  const useTrainingMatrixReport: typeof import('./src/composables/useTrainingMatrixReport.js').useTrainingMatrixReport
   const useTransition: typeof import('@vueuse/core').useTransition
   const useUnsavedChangesGuard: typeof import('./resource/js/shared/composables/useUnsavedChangesGuard.js').useUnsavedChangesGuard
   const useUrlSearchParams: typeof import('@vueuse/core').useUrlSearchParams

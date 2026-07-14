@@ -204,6 +204,10 @@ const editor = useEditor({
   content: modelValue.value,
   editable: props.editable,
   editorProps: {
+    // Enable the browser's native spellchecker on the editable surface.
+    attributes: {
+      spellcheck: 'true',
+    },
     // Image paste/drop are handled inside AdvancedImage's own ProseMirror
     // plugin — we intentionally don't intercept clipboard images here so the
     // extension owns the full upload/placeholder pipeline.
@@ -489,6 +493,12 @@ defineExpose({
       @uploadImage="handleToolbarImageUpload"
       @takePhoto="showCameraDialog = true"
     >
+      <!-- Browser-native voice-to-text — a free, no-AI mic built into every
+           editor. Skipped when a call site injects its own toolbar tools via
+           toolbar-extra (e.g. the AI Whisper mic) so we don't double up.
+           Renders nothing on browsers without SpeechRecognition. -->
+      <BaseVoiceButton v-if="editable && !$slots['toolbar-extra']" :append="appendText" />
+
       <!-- AI-free extension point: sidecar tools (e.g. voice-to-text) inject
            here. The base editor stays AI-agnostic; injected tools get the
            editor + appendText to write into the document. -->

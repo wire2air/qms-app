@@ -3,7 +3,7 @@ import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { post } from '@/api'
+import { get, post } from '@/api'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 /**
@@ -86,14 +86,38 @@ async function runAction(path, body = {}) {
   }
 }
 
-// ─── Owner + e-sign close ─────────────────────────────────────────────────────
+// ─── Owner + approval (approve = close) ───────────────────────────────────────
 const currentUserId = computed(() => currentSession.value?.userId)
 const isOwner = computed(
   () => complaint.value?.ownerId && complaint.value.ownerId === currentUserId.value,
 )
 
-const showApproveDialog = ref(false)
-const approveComment = ref('')
+// The current user's actionable task on the active APPROVAL step — drives the
+// top "Approve & Close" action. Approving it completes the workflow, which
+// auto-closes the complaint (see complaintHandler.onComplete).
+const showEsignDialog = ref(false)
+const myApprovalTask = useLiveQueryWithDeps(
+  [() => workflowInstanceId.value, () => currentUserId.value],
+  async (db, [wiId, uid]) => {
+    if (!wiId || !uid) return null
+    const steps = await db.WorkflowInstanceStep.where('workflowInstanceId', wiId).exec()
+    const approvalStep = steps.find((s) => s.stepType === 'APPROVAL' && s.statusId === 'IN_PROGRESS')
+    if (!approvalStep) return null
+    const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
+      'WorkflowInstanceStep',
+      approvalStep.id,
+    ]).exec()
+    return (
+      tasks.find(
+        (t) =>
+          t.assignedTo === uid &&
+          t.taskKindId === 'APPROVAL' &&
+          ['ASSIGNED', 'FORM_SUBMITTED', 'PENDING'].includes(t.statusId),
+      ) || null
+    )
+  },
+  { models: ['WorkflowInstanceStep', 'TaskInstance'], initial: null },
+)
 
 // ─── Convert to NC ────────────────────────────────────────────────────────────
 const showConvertDialog = ref(false)
@@ -123,33 +147,90 @@ const linkedNcs = useLiveQueryWithDeps(
   { models: ['Nonconformance'], initial: [] },
 )
 
-// ─── Related complaints (trending — same product / category / lot, last 90d) ───
-const relatedComplaints = useLiveQueryWithDeps(
-  [
-    () => complaint.value?.productId,
-    () => complaint.value?.categoryId,
-    () => complaint.value?.batchLotSerial,
-    () => props.id,
-  ],
-  async (db, [productId, categoryId, batch, id]) => {
-    if (!productId && !categoryId && !batch) return []
-    const cutoff = DateTime.now().minus({ days: 90 })
-    const rows = await db.Complaint.where().exec()
-    return rows
-      .filter(
-        (r) =>
-          r.id !== id &&
-          !r.isSpam &&
-          ((productId && r.productId === productId) ||
-            (categoryId && r.categoryId === categoryId) ||
-            (batch && r.batchLotSerial && r.batchLotSerial === batch)) &&
-          (!r.createdAt || r.createdAt >= cutoff),
-      )
-      .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
-      .slice(0, 8)
+// ─── Similar complaints (Postgres full-text "more like this") ─────────────────
+// Server-ranked by term overlap on the indexed content (subject/description/
+// investigation/review). Fuzzy + stemmed — catches wording/typo variants the
+// old exact product/category/batch match missed. No AI.
+const relatedComplaints = ref([])
+async function loadSimilar() {
+  if (!props.id) return
+  try {
+    // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+    const resp = await get(`/v1/services/complaints/${props.id}/similar`)
+    relatedComplaints.value = (resp?.results ?? []).map((r) => ({
+      id: r.complaintId,
+      complaintNumber: r.complaintNumber,
+      subject: r.subject,
+      statusId: r.statusId,
+    }))
+  } catch {
+    relatedComplaints.value = []
+  }
+}
+watch(() => props.id, loadSimilar, { immediate: true })
+// The source's index updates async after edits — refetch once it settles.
+watch(
+  () =>
+    [
+      complaint.value?.subject,
+      complaint.value?.description,
+      complaint.value?.investigation,
+      complaint.value?.reviewSummary,
+    ].join('|'),
+  useDebounceFn(loadSimilar, 2500),
+)
+
+// ─── Manually-linked similar complaints (record_links relation SIMILAR) ───────
+const similarLinks = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return []
+    const all = await db.RecordLink.where().exec()
+    return all.filter(
+      (l) =>
+        l.relation === 'SIMILAR' &&
+        ((l.fromType === 'Complaint' && l.fromId === id) ||
+          (l.toType === 'Complaint' && l.toId === id)),
+    )
+  },
+  { models: ['RecordLink'], initial: [] },
+)
+const linkedSimilarIds = computed(() =>
+  similarLinks.value.map((l) => (l.fromId === props.id ? l.toId : l.fromId)),
+)
+const linkedSimilar = useLiveQueryWithDeps(
+  [() => linkedSimilarIds.value.join(',')],
+  async (db, [idsStr]) => {
+    if (!idsStr) return []
+    const rows = await Promise.all(idsStr.split(',').map((id) => db.Complaint.findByPk(id)))
+    return rows.filter(Boolean)
   },
   { models: ['Complaint'], initial: [] },
 )
+
+// Picker options — complaints available to link (exclude self + already linked).
+const pickerComplaintId = ref(null)
+const linkableOptions = useLiveQueryWithDeps(
+  [() => props.id, () => linkedSimilarIds.value.join(',')],
+  async (db, [id, linkedStr]) => {
+    const linked = new Set(linkedStr ? linkedStr.split(',') : [])
+    const rows = await db.Complaint.where().exec()
+    return rows
+      .filter((r) => r.id !== id && !linked.has(r.id))
+      .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+      .map((r) => ({ id: r.id, name: `${r.complaintNumber || '—'} — ${r.subject}` }))
+  },
+  { models: ['Complaint'], initial: [] },
+)
+
+async function addSimilarLink(targetId) {
+  if (!targetId) return
+  await runAction('linkSimilar', { targetComplaintId: targetId })
+  pickerComplaintId.value = null
+}
+async function removeSimilarLink(targetId) {
+  await runAction('unlinkSimilar', { targetComplaintId: targetId })
+}
 
 // ─── QA-review workflow instance + close gating ──────────────────────────────
 const workflowInstance = useLiveQueryWithDeps(
@@ -169,31 +250,30 @@ const workflowInstance = useLiveQueryWithDeps(
   { models: ['WorkflowInstance'], initial: null },
 )
 const workflowInstanceId = computed(() => workflowInstance.value?.id ?? null)
-const openStepsCount = useLiveQueryWithDeps(
-  [() => workflowInstanceId.value],
-  async (db, [wiId]) => {
-    if (!wiId) return 0
-    const steps = await db.WorkflowInstanceStep.where('workflowInstanceId', wiId).exec()
-    return steps.filter((s) => !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId)).length
-  },
-  { models: ['WorkflowInstanceStep'], initial: 0 },
-)
-const closeBlockedReason = computed(() => {
-  if (!workflowInstanceId.value) return 'No workflow yet — submit for review first.'
-  if (openStepsCount.value > 0)
-    return `${openStepsCount.value} workflow step${openStepsCount.value === 1 ? '' : 's'} still open.`
-  return null
-})
 
 async function handleSubmitForReview() {
   await runAction('submitForReview', {})
 }
-async function handleMarkComplete() {
-  await runAction('markComplete', {
-    comment: approveComment.value.trim() || null,
-  })
-  showApproveDialog.value = false
-  approveComment.value = ''
+
+// Approve the pending approval task (e-signed) → workflow completes → auto-close.
+async function onApprovalEsign(esign) {
+  showEsignDialog.value = false
+  if (!myApprovalTask.value) return
+  acting.value = true
+  saveError.value = null
+  try {
+    const body = { action: 'COMPLETE_AND_ADVANCE', outcomeId: 'COMPLETE_AND_ADVANCE' }
+    if (esign?.method) body.method = esign.method
+    if (esign?.token) body.token = esign.token
+    if (esign?.provider) body.provider = esign.provider
+    await post(`/v1/services/taskInstances/${myApprovalTask.value.id}/action`, body)
+    toast.notify({ type: 'positive', message: 'Approved and closed' })
+  } catch (e) {
+    saveError.value = e.message || 'Approval failed'
+    toast.notify({ type: 'negative', message: saveError.value })
+  } finally {
+    acting.value = false
+  }
 }
 
 // ─── Audit log ────────────────────────────────────────────────────────────────
@@ -229,16 +309,15 @@ const complaintActions = computed(() => {
       onSelect: handleSubmitForReview,
     },
     {
-      // Owner closes once every workflow step is complete. Approval is handled
-      // by the workflow's own APPROVAL steps, so no separate e-sign here.
-      id: 'close',
-      label: 'Close',
+      // Approve = close: the pending approver signs off at the top (Document-
+      // control style) — approving the final step auto-closes the complaint.
+      id: 'approveClose',
+      label: 'Approve & Close',
       variant: 'primary',
       priority: 100,
-      visible: isOwner.value && !isTerminal.value && !!workflowInstanceId.value,
-      disabled: acting.value || !!closeBlockedReason.value,
-      tooltip: closeBlockedReason.value || undefined,
-      onSelect: () => (showApproveDialog.value = true),
+      visible: !!myApprovalTask.value && !isTerminal.value,
+      disabled: acting.value,
+      onSelect: () => (showEsignDialog.value = true),
     },
     {
       id: 'reopen',
@@ -348,6 +427,20 @@ const complaintDetailConfig = computed(() =>
                   />
                   <ProductBadgeById v-else-if="complaint.productId" :productId="complaint.productId" />
                   <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Supplier">
+                  <SupplierSelectMenu
+                    v-if="isEditable"
+                    v-model="complaint.supplierId"
+                    :required="false"
+                    nullLabel="— Select —"
+                  />
+                  <SupplierBadgeById v-else-if="complaint.supplierId" :supplierId="complaint.supplierId" />
+                  <BaseText v-else color="secondary">—</BaseText>
+                </BaseDetailField>
+                <BaseDetailField label="Sample received">
+                  <BaseCheckbox v-if="isEditable" v-model="complaint.sampleReceived" label="Received" />
+                  <BaseText v-else color="secondary">{{ complaint.sampleReceived ? 'Yes' : complaint.sampleReceived === false ? 'No' : '—' }}</BaseText>
                 </BaseDetailField>
                 <BaseDetailField label="Batch / Lot / Serial">
                   <BaseTextInput v-if="isEditable" v-model="complaint.batchLotSerial" size="sm" />
@@ -511,12 +604,12 @@ const complaintDetailConfig = computed(() =>
 
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
               <div class="tw:flex tw:items-center tw:justify-between tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
-                <BaseText variant="overline">Related complaints</BaseText>
+                <BaseText variant="overline">Similar complaints</BaseText>
                 <span
                   v-if="relatedComplaints.length"
                   class="tw:text-micro tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:font-semibold"
                 >
-                  {{ relatedComplaints.length }} in 90d
+                  {{ relatedComplaints.length }} found
                 </span>
               </div>
               <div v-if="relatedComplaints.length" class="tw:flex tw:flex-col tw:gap-2">
@@ -534,7 +627,51 @@ const complaintDetailConfig = computed(() =>
                 </RouterLink>
               </div>
               <div v-else class="tw:text-sm tw:text-secondary tw:italic">
-                No related complaints by product, category or lot.
+                No similar complaints found by text match.
+              </div>
+            </div>
+
+            <!-- Manually-linked similar complaints (for a recurring issue) -->
+            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
+              <BaseText variant="overline" class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
+                Similar complaints (linked)
+              </BaseText>
+              <div v-if="linkedSimilar.length" class="tw:flex tw:flex-col tw:gap-2 tw:mb-3">
+                <div
+                  v-for="sc in linkedSimilar"
+                  :key="sc.id"
+                  class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2"
+                >
+                  <RouterLink
+                    :to="getCompanyPath(`/complaints/${sc.id}`)"
+                    class="tw:flex tw:items-center tw:gap-2 tw:min-w-0 tw:hover:text-primary"
+                  >
+                    <span class="tw:text-xs tw:text-secondary">{{ sc.complaintNumber }}</span>
+                    <span class="tw:text-sm tw:font-medium tw:truncate">{{ sc.subject }}</span>
+                  </RouterLink>
+                  <button
+                    v-if="isEditable"
+                    type="button"
+                    class="tw:text-xs tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer tw:shrink-0"
+                    @click="removeSimilarLink(sc.id)"
+                  >
+                    Unlink
+                  </button>
+                </div>
+              </div>
+              <div v-else class="tw:text-sm tw:text-secondary tw:italic tw:mb-3">
+                None linked yet.
+              </div>
+              <div v-if="isEditable" class="tw:flex tw:items-center tw:gap-2">
+                <BaseSelect
+                  v-model="pickerComplaintId"
+                  :options="linkableOptions"
+                  optionLabel="name"
+                  optionValue="id"
+                  placeholder="Search a complaint to link…"
+                  class="tw:flex-1"
+                  @update:modelValue="addSimilarLink"
+                />
               </div>
             </div>
           </div>
@@ -612,24 +749,8 @@ const complaintDetailConfig = computed(() =>
     </template>
   </BaseDetailLayout>
 
-  <!-- Owner closes the complaint — gated on all workflow steps complete.
-       Approval is handled by the workflow's own APPROVAL steps, so no e-sign. -->
-  <BaseDialog v-model="showApproveDialog" title="Close complaint" maxWidth="md">
-    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-      <p class="tw:text-sm tw:text-on-main">
-        All workflow steps are complete. Closing marks this complaint resolved.
-      </p>
-      <BaseTextarea v-model="approveComment" :rows="2" placeholder="Closing comment (optional)…" />
-    </div>
-    <template #footer="{ close }">
-      <BaseDialogFooter
-        submitLabel="Close complaint"
-        :loading="acting"
-        @cancel="close"
-        @submit="handleMarkComplete"
-      />
-    </template>
-  </BaseDialog>
+  <!-- Approver signs off at the top → workflow completes → complaint auto-closes. -->
+  <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onApprovalEsign" />
 
   <!-- Convert to NC -->
   <CustomerComplaintConvertToNcDialog

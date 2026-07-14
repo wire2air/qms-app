@@ -136,10 +136,10 @@ export const CATEGORY_METADATA = {
     icon: IconSchool,
     description: 'Manage access for Training Instances',
   },
-  trainingMatrix: {
-    label: 'Training Matrix',
+  trainingCurriculum: {
+    label: 'Training Curriculum',
     icon: IconSchool,
-    description: 'Manage access for Training Matrix',
+    description: 'Manage access for Training Curriculum',
   },
   ai: {
     label: 'AI Assistant',
@@ -345,7 +345,7 @@ export const PERMISSION_SECTIONS = [
   },
   {
     name: 'Training',
-    categories: ['trainings', 'trainingInstances', 'trainingMatrix', 'trainingVerifications'],
+    categories: ['trainings', 'trainingInstances', 'trainingCurriculum', 'trainingVerifications'],
   },
   {
     // I&L Round 0 sections — Log Entries / Log Books / Equipment /

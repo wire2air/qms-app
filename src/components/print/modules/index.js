@@ -24,6 +24,8 @@ export const printModules = {
   LogBook: () => import('./LogBookPrint.vue'),
   // Audit report — header + conformance score + requirement results + findings.
   AuditInstance: () => import('./AuditInstancePrint.vue'),
+  // Training Matrix report — employee × training with roles/status/type, filtered.
+  TrainingMatrix: () => import('./TrainingMatrixPrint.vue'),
   // Future:
   // Nonconformance: () => import('./NonconformancePrint.vue'),
 }

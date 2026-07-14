@@ -10,11 +10,14 @@ import {
   IconDeviceFloppy,
   IconX,
   IconCopy,
+  IconSparkles,
 } from '@tabler/icons-vue'
 import { useFormBuilder } from '@/composables/useFormBuilder'
+import { canUseAi } from '@/utils/currentSession'
 import FormFieldPalette from './FormFieldPalette.vue'
 import FormCanvas from './FormCanvas.vue'
 import FormFieldConfig from './FormFieldConfig.vue'
+import FormAiGenerateDialog from '@/components/ai/FormAiGenerateDialog.vue'
 import DynamicForm from '@/components/form/DynamicForm.js'
 
 const props = defineProps({
@@ -63,6 +66,7 @@ const {
   canRedo,
   exportSchema,
   clearSchema,
+  applyAiSchema,
 } = useFormBuilder(props.initialSchema)
 
 // Field palette open by default — it's the primary tool for building a form,
@@ -229,6 +233,27 @@ function copyJson() {
   navigator.clipboard.writeText(jsonContent.value)
   toast.success('JSON copied to clipboard')
 }
+
+// ── AI generate whole form ───────────────────────────────────────────────────
+const showAiDialog = ref(false)
+async function handleAiApply(result) {
+  const count = Array.isArray(result?.fields) ? result.fields.length : 0
+  if (!count) return
+  // Applying replaces the schema — confirm when there's existing work.
+  if (schema.value?.length > 0) {
+    const ok = await confirm({
+      title: 'Replace current form?',
+      message: `This replaces the current ${schema.value.length} field${
+        schema.value.length === 1 ? '' : 's'
+      } with the ${count} AI-generated field${count === 1 ? '' : 's'}. You can undo this.`,
+      okLabel: 'Replace',
+      danger: true,
+    })
+    if (!ok) return
+  }
+  applyAiSchema(result)
+  toast.success(`Generated ${count} field${count === 1 ? '' : 's'}`)
+}
 </script>
 
 <template>
@@ -335,6 +360,11 @@ function copyJson() {
             </div>
 
             <div class="tw:w-px tw:h-6 tw:bg-divider tw:mx-2" />
+
+            <BaseButton v-if="canUseAi" variant="outline" @click="showAiDialog = true">
+              <IconSparkles :size="18" />
+              Generate with AI
+            </BaseButton>
 
             <BaseButton variant="primary" @click="onSave">
               <IconDeviceFloppy :size="18" />
@@ -451,6 +481,9 @@ function copyJson() {
         </div>
       </template>
     </BaseDialog>
+
+    <!-- AI generate dialog (owns the AI call; we only react to @apply). -->
+    <FormAiGenerateDialog v-if="canUseAi" v-model="showAiDialog" @apply="handleAiApply" />
 
     <!-- Clear Confirmation Dialog -->
   </div>

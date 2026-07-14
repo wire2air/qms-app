@@ -2,14 +2,14 @@ import { currentSession } from '@/utils/currentSession'
 import { BaseModel, ClientModel, Property } from '@syncEngine/index'
 import { DateTime } from 'luxon'
 
-@ClientModel('trainingMatrix', {
+@ClientModel('curriculumTrainings', {
   primaryKey: 'id',
   syncField: 'updatedAt',
-  customIndex: 'companyId',
+  customIndex: 'curriculumId',
   loadStrategy: 'instant',
-  schemaVersion: 2,
+  schemaVersion: 1,
 })
-export class TrainingMatrix extends BaseModel {
+export class CurriculumTraining extends BaseModel {
   static paranoid = true
 
   constructor(...args) {
@@ -24,10 +24,9 @@ export class TrainingMatrix extends BaseModel {
 
   @Property({ type: String, uuid: true, required: true }) id = ''
   @Property({ type: String, required: true }) companyId = ''
+  @Property({ type: String, required: true }) curriculumId = ''
   @Property({ type: String, required: true }) trainingId = ''
-  @Property({ type: String, required: true }) roleId = ''
-  @Property({ type: Boolean }) isActive = true
-  @Property({ type: String }) createdBy = null
+  @Property({ type: Number }) displayOrder = 0
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)

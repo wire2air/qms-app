@@ -66,6 +66,19 @@ function toggleExpand(id) {
 const assessmentQuestions = computed(() => props.instance?.snapshot?.assessment ?? [])
 const passingScore = computed(() => props.instance?.snapshot?.passingScore ?? 70)
 
+// Pass/fail: COMPLETED assignees passed the assessment; FAILED exhausted retries.
+const isPassed = (a) => a.status === 'COMPLETED'
+const selectedAssignees = computed(() =>
+  pendingAssignees.value.filter((a) => selectedAssigneeIds.value.includes(a.id)),
+)
+// Approve (+ competency criteria) is only offered when EVERY selected employee
+// passed. A mixed or all-failed selection can only be rejected → retraining.
+const allSelectedPassed = computed(
+  () => selectedAssignees.value.length > 0 && selectedAssignees.value.every(isPassed),
+)
+// Effective decision sent to the backend: a failed selection is always a reject.
+const effectiveReject = computed(() => form.value.retrainingRequired || !allSelectedPassed.value)
+
 function toggleAll() {
   if (selectedAssigneeIds.value.length === pendingAssignees.value.length) {
     selectedAssigneeIds.value = []
@@ -125,7 +138,9 @@ function openSignDialog() {
     assigneeError.value = 'Select at least one employee'
     return
   }
-  if (!form.value.retrainingRequired) {
+  // Approval requires the three competency confirmations. A failed selection is
+  // always a reject, so the competency gate doesn't apply.
+  if (!effectiveReject.value) {
     if (
       !form.value.demonstratedUnderstanding ||
       !form.value.canPerformIndependently ||
@@ -143,10 +158,11 @@ async function onEsignVerified(esign) {
   try {
     const data = await post(`/v1/services/trainingInstances/${props.instance.id}/verify`, {
       assigneeIds: selectedAssigneeIds.value,
-      demonstratedUnderstanding: form.value.demonstratedUnderstanding,
-      canPerformIndependently: form.value.canPerformIndependently,
-      practicalObservationCompleted: form.value.practicalObservationCompleted,
-      retrainingRequired: form.value.retrainingRequired,
+      demonstratedUnderstanding: !effectiveReject.value && form.value.demonstratedUnderstanding,
+      canPerformIndependently: !effectiveReject.value && form.value.canPerformIndependently,
+      practicalObservationCompleted:
+        !effectiveReject.value && form.value.practicalObservationCompleted,
+      retrainingRequired: effectiveReject.value,
       notes: form.value.notes,
       signatureMethod: esign?.method ?? 'password',
     })
@@ -215,6 +231,12 @@ async function onEsignVerified(esign) {
               @change="toggleAssignee(a.id)"
             />
             <UserBadgeById :userId="a.userId" />
+            <span
+              class="tw:text-xs tw:font-semibold tw:px-1.5 tw:py-0.5 tw:rounded"
+              :class="isPassed(a) ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-red-100 tw:text-red-700'"
+            >
+              {{ isPassed(a) ? 'Passed' : 'Failed' }}
+            </span>
             <span class="tw:text-xs tw:text-secondary tw:ml-auto"
               >Score: {{ a.score ?? '—' }}%</span
             >
@@ -253,8 +275,17 @@ async function onEsignVerified(esign) {
 
     <p v-if="assigneeError" class="tw:text-sm tw:text-red-600">{{ assigneeError }}</p>
 
-    <!-- Competency criteria -->
-    <div class="tw:border tw:border-divider tw:rounded-lg tw:p-4">
+    <!-- Mixed/failed selection: approval is not available -->
+    <div
+      v-if="selectedAssigneeIds.length && !allSelectedPassed"
+      class="tw:border tw:border-amber-200 tw:bg-amber-50/60 tw:rounded-lg tw:p-3 tw:text-sm tw:text-amber-800"
+    >
+      One or more selected employees didn't pass — only <strong>Reject &amp; Retraining</strong> is
+      available. Select only passed employees to approve.
+    </div>
+
+    <!-- Competency criteria — only when every selected employee passed -->
+    <div v-if="allSelectedPassed" class="tw:border tw:border-divider tw:rounded-lg tw:p-4">
       <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mb-3">
         Manager Competency Verification
       </BaseText>
@@ -291,8 +322,12 @@ async function onEsignVerified(esign) {
 
     <p v-if="competencyError" class="tw:text-sm tw:text-red-600">{{ competencyError }}</p>
 
-    <!-- Reject -->
-    <div class="tw:border tw:border-amber-200 tw:bg-amber-50/40 tw:rounded-lg tw:p-4">
+    <!-- Reject toggle — a choice only when approval is possible (all passed).
+         For a failed/mixed selection reject is forced, so the toggle is hidden. -->
+    <div
+      v-if="allSelectedPassed"
+      class="tw:border tw:border-amber-200 tw:bg-amber-50/40 tw:rounded-lg tw:p-4"
+    >
       <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">
         <input v-model="form.retrainingRequired" type="checkbox" class="tw:mt-0.5" />
         <div>
@@ -321,13 +356,13 @@ async function onEsignVerified(esign) {
     <div class="tw:flex tw:items-center tw:justify-between tw:pt-3 tw:border-t tw:border-divider">
       <p class="tw:text-xs tw:text-secondary">
         {{
-          form.retrainingRequired
+          effectiveReject
             ? 'A new training instance will be launched for the selected employees.'
             : 'Selected employees will be marked Verified upon approval.'
         }}
       </p>
       <BaseButton
-        v-if="!form.retrainingRequired"
+        v-if="allSelectedPassed && !form.retrainingRequired"
         variant="primary"
         :loading="submitting"
         :disabled="!selectedAssigneeIds.length"

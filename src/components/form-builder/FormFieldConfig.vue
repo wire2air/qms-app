@@ -324,6 +324,33 @@ function updateRowColClass(value) {
 
         <template v-if="field.type === 'repeater'">
           <div class="tw:flex tw:flex-col tw:gap-3">
+            <div>
+              <label class="tw:text-sm tw:font-medium tw:text-secondary tw:mb-1 tw:block">
+                Layout
+              </label>
+              <div class="tw:flex tw:gap-1 tw:bg-main-hover tw:rounded-lg tw:p-1">
+                <button
+                  v-for="opt in [
+                    { v: 'table', l: 'Table' },
+                    { v: 'cards', l: 'Cards' },
+                  ]"
+                  :key="opt.v"
+                  type="button"
+                  class="tw:flex-1 tw:px-3 tw:py-1.5 tw:text-sm tw:rounded-md tw:transition-colors"
+                  :class="
+                    (field.layout || 'cards') === opt.v
+                      ? 'tw:bg-main tw:text-primary tw:font-medium tw:shadow-sm'
+                      : 'tw:text-secondary tw:hover:text-on-main'
+                  "
+                  @click="field.layout = opt.v"
+                >
+                  {{ opt.l }}
+                </button>
+              </div>
+              <p class="tw:text-xs tw:text-secondary tw:mt-1">
+                Table shows the item label as a fixed first column; Cards stacks each item.
+              </p>
+            </div>
             <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
               <BaseTextInput v-model.number="field.minItems" type="number" label="Min Items" />
               <BaseTextInput v-model.number="field.maxItems" type="number" label="Max Items" />
@@ -335,6 +362,12 @@ function updateRowColClass(value) {
 
         <!-- Checklist Settings -->
         <ConfigChecklist v-if="field.type === 'checklist'" v-model:field="field" />
+
+        <!-- Table Style — shared by Checklist and Input Table -->
+        <ConfigTableStyle
+          v-if="field.type === 'checklist' || field.widget === 'inputTable'"
+          v-model:field="field"
+        />
 
         <!-- Datetime Settings -->
         <template v-if="field.type === 'datetime'">

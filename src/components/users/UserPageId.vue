@@ -112,6 +112,26 @@ async function handleAvatarDelete() {
   }
 }
 
+// Persist an inline field edit (title / hire date / supervisor).
+const userSaveToast = useToast()
+async function saveUser() {
+  if (!user.value) return
+  try {
+    await user.value.save()
+  } catch (e) {
+    userSaveToast.error(e?.message || 'Failed to save')
+  }
+}
+
+// Employee title is the employee_titles FK (user.employeeTitleId); mirror the
+// chosen title's name into user.jobTitle so the session + display sites keep
+// working, then persist both in one save.
+function onEmployeeTitleName(name) {
+  if (!user.value) return
+  user.value.jobTitle = name || null
+  saveUser()
+}
+
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
 const userActions = computed(() =>
   buildUserActions(
@@ -256,6 +276,45 @@ const userDetailConfig = computed(() =>
               />
               <template v-else>
                 <DepartmentBadgeById v-if="user?.departmentId" :departmentId="user.departmentId" />
+                <span v-else class="tw:text-sm tw:text-secondary">—</span>
+              </template>
+            </div>
+
+            <!-- Employee Title -->
+            <div>
+              <p class="tw:text-secondary tw:mb-1">Employee Title</p>
+              <EmployeeTitleSelectMenu
+                v-if="canUpdateUser"
+                v-model="user.employeeTitleId"
+                @update:name="onEmployeeTitleName"
+              />
+              <span v-else class="tw:text-sm tw:text-on-main">{{ user?.jobTitle || '—' }}</span>
+            </div>
+
+            <!-- Hire Date -->
+            <div>
+              <p class="tw:text-secondary tw:mb-1">Hire Date</p>
+              <BaseDateField
+                v-if="canUpdateUser"
+                v-model="user.hireDate"
+                @update:modelValue="saveUser"
+              />
+              <span v-else class="tw:text-sm tw:text-on-main">
+                {{ user?.hireDate ? dt.formatDate(user.hireDate) : '—' }}
+              </span>
+            </div>
+
+            <!-- Supervisor — drives training-manager defaulting (they verify) -->
+            <div>
+              <p class="tw:text-secondary tw:mb-1">Supervisor</p>
+              <UserSelectMenu
+                v-if="canUpdateUser"
+                v-model="user.supervisorId"
+                nullLabel="— No supervisor —"
+                @update:modelValue="saveUser"
+              />
+              <template v-else>
+                <UserBadgeById v-if="user?.supervisorId" :userId="user.supervisorId" />
                 <span v-else class="tw:text-sm tw:text-secondary">—</span>
               </template>
             </div>

@@ -17,6 +17,7 @@ const tabs = [
   { value: 'event-categories', label: 'Event Categories' },
   { value: 'event-severities', label: 'Event Severities' },
   { value: 'related-standards', label: 'Related Standards' },
+  { value: 'employee-titles', label: 'Employee Titles' },
   // Complaint QMS lookups (per-tenant).
   { value: 'complaint-sources', label: 'Complaint Sources' },
   { value: 'complaint-regions', label: 'Complaint Regions' },
@@ -62,6 +63,13 @@ watch(
         <BaseTabPanel value="event-categories"><EventCategoriesCard /></BaseTabPanel>
         <BaseTabPanel value="event-severities"><EventSeveritiesCard /></BaseTabPanel>
         <BaseTabPanel value="related-standards"><RelatedStandardsCard /></BaseTabPanel>
+        <BaseTabPanel value="employee-titles">
+          <ComplaintLookupCard
+            model="EmployeeTitle"
+            title="Employee Title"
+            subtitle="Job titles for people records — pre-seeded with industry-standard quality / manufacturing titles. Scoped to this company."
+          />
+        </BaseTabPanel>
 
         <BaseTabPanel value="complaint-sources">
           <ComplaintLookupCard

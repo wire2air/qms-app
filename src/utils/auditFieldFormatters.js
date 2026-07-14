@@ -271,9 +271,14 @@ export const AUDIT_FIELD_FORMATTERS = {
     lastName: { label: 'Last Name', type: 'text' },
     email: { label: 'Email', type: 'text' },
     userStatusId: { label: 'Status', type: 'status', statusModel: 'UserStatus' },
-    jobTitle: { label: 'Job Title', type: 'text' },
+    jobTitle: { label: 'Employee Title', type: 'text' },
+    // FK mirrors jobTitle (which carries the readable name) — hide to avoid
+    // double-reporting the same title change.
+    employeeTitleId: { label: 'Employee Title', type: 'fk', refModel: 'EmployeeTitle', hidden: true },
     departmentId: { label: 'Department', type: 'fk', refModel: 'Department' },
     siteId: { label: 'Site', type: 'fk', refModel: 'Site' },
+    supervisorId: { label: 'Supervisor', type: 'fk', refModel: 'User' },
+    hireDate: { label: 'Hire Date', type: 'text' },
   },
 
   Role: {

@@ -35,7 +35,7 @@ const DEFAULT_TRAINING_CONFIG = {
   completionDueDays: 7,
   passingScore: 80,
   maxAttempts: 1,
-  roleIds: [],
+  curriculumIds: [],
   userIds: [],
   assessment: [],
 }
