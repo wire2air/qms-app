@@ -3,7 +3,7 @@
  * Generic admin card for a per-tenant complaint lookup. One component drives all
  * 9 lookups (source/region/country/customer-type/category/sub-category/type/
  * severity/risk). Reads + writes via syncEngine (RLS allows app_user writes with
- * customerComplaints:update), so no per-lookup REST controller is needed.
+ * complaint_management:update or complaints:update), so no per-lookup REST controller is needed.
  *
  * Optional: `hasColor` adds a colour picker (severity/risk); `parentModel` +
  * `parentField` + `parentLabel` add a required parent select (Country→Region,
@@ -25,7 +25,9 @@ const props = defineProps({
 
 const toast = useToast()
 const { confirm } = useConfirm()
-const canConfigure = computed(() => isAllowed(['customerComplaints:update']))
+const canConfigure = computed(
+  () => isAllowed(['complaint_management:update']) || isAllowed(['complaints:update']),
+)
 
 const rows = useLiveQueryWithDeps(
   [() => props.model],

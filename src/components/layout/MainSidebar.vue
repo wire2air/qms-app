@@ -274,10 +274,11 @@ const navItems = computed(() => {
       to: getCompanyPath('/customer-complaints'),
     },
     {
-      // QA lens over the same complaint records — investigation-focused, no
-      // customer-reply surface. Backed by the same customer_complaints table.
+      // Standalone QMS quality complaints (the `complaints` table) with the
+      // QA-review workflow — an independent module from the support Customer
+      // Complaints entry above (which is backed by customer_complaints).
       label: 'Complaints',
-      permissions: ['customerComplaints:read'],
+      permissions: ['complaints:read'],
       icon: IconMessageReport,
       to: getCompanyPath('/complaints'),
     },
