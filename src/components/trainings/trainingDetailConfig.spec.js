@@ -1,27 +1,25 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
-  buildTrainingBanners,
+  trainingStatusHelp,
   buildTrainingSections,
   buildTrainingActions,
 } from './trainingDetailConfig.js'
 
-describe('buildTrainingBanners', () => {
-  it('returns [] when training is null', () => {
-    expect(buildTrainingBanners(null)).toEqual([])
+describe('trainingStatusHelp', () => {
+  it('returns "" when training is null', () => {
+    expect(trainingStatusHelp(null)).toBe('')
   })
 
-  it('adds an archived read-only banner when ARCHIVED', () => {
-    const b = buildTrainingBanners({ status: 'ARCHIVED' })
-    expect(b.find((x) => x.id === 'archived')?.tone).toBe('neutral')
+  it('explains read-only when ARCHIVED', () => {
+    expect(trainingStatusHelp({ status: 'ARCHIVED' })).toMatch(/archived/i)
   })
 
-  it('adds a published info banner when ACTIVE', () => {
-    const b = buildTrainingBanners({ status: 'ACTIVE' })
-    expect(b.find((x) => x.id === 'published')?.tone).toBe('info')
+  it('explains published + locked when ACTIVE', () => {
+    expect(trainingStatusHelp({ status: 'ACTIVE' })).toMatch(/published and locked/i)
   })
 
-  it('no banner when DRAFT', () => {
-    expect(buildTrainingBanners({ status: 'DRAFT' })).toEqual([])
+  it('no help text when DRAFT', () => {
+    expect(trainingStatusHelp({ status: 'DRAFT' })).toBe('')
   })
 })
 
@@ -40,9 +38,9 @@ describe('buildTrainingActions', () => {
     expect(ids({ canManage: true, status: 'DRAFT' }).sort()).toEqual(['delete', 'publish'])
   })
 
-  it('ACTIVE (canManage) shows launch + addMatrix + archive (no unpublish unless allowed)', () => {
+  it('ACTIVE (canManage) shows launch + addToCurriculum + archive (no unpublish unless allowed)', () => {
     expect(ids({ canManage: true, status: 'ACTIVE' }).sort()).toEqual([
-      'addMatrix',
+      'addToCurriculum',
       'archive',
       'launch',
     ])
@@ -82,7 +80,7 @@ describe('buildTrainingActions', () => {
     const handlers = {
       openPublish: vi.fn(),
       launch: vi.fn(),
-      addMatrix: vi.fn(),
+      addToCurriculum: vi.fn(),
       unpublish: vi.fn(),
       archive: vi.fn(),
       openDelete: vi.fn(),
@@ -90,7 +88,7 @@ describe('buildTrainingActions', () => {
     const a = buildTrainingActions({}, handlers)
     a.find((x) => x.id === 'publish').onSelect()
     a.find((x) => x.id === 'launch').onSelect()
-    a.find((x) => x.id === 'addMatrix').onSelect()
+    a.find((x) => x.id === 'addToCurriculum').onSelect()
     a.find((x) => x.id === 'unpublish').onSelect()
     a.find((x) => x.id === 'archive').onSelect()
     a.find((x) => x.id === 'delete').onSelect()

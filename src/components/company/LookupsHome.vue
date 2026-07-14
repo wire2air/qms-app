@@ -1,38 +1,40 @@
 <script setup>
 /**
- * Lookups — tenant master data that used to live under Company Settings →
- * Lookups as one long stacked page. Now a standalone page with one tab per
- * lookup so each list gets the full width and is directly deep-linkable
- * (?tab=<id>). The cards themselves are unchanged — only the layout moved.
+ * Lookups — tenant master data. There are now ~20 lookups, so instead of one
+ * long horizontal tab strip the picker is a single grouped, searchable
+ * dropdown; the chosen lookup's card renders below it. Selection is still
+ * deep-linkable via ?tab=<id>. Only the active card mounts (v-if), so its live
+ * queries don't run for lookups you're not looking at.
  */
 import { IconList } from '@tabler/icons-vue'
 
 const tabs = [
-  { value: 'nc-dispositions', label: 'NC Dispositions' },
-  { value: 'nc-issue-types', label: 'NC Issue Types' },
-  { value: 'product-families', label: 'Product Families' },
-  { value: 'supplier-certificate-types', label: 'Supplier Certificates' },
-  { value: 'audit-standard-types', label: 'Audit Standard Types' },
-  { value: 'audit-finding-categories', label: 'Audit Finding Categories' },
-  { value: 'event-categories', label: 'Event Categories' },
-  { value: 'event-severities', label: 'Event Severities' },
-  { value: 'related-standards', label: 'Related Standards' },
-  { value: 'employee-titles', label: 'Employee Titles' },
+  { value: 'nc-dispositions', label: 'NC Dispositions', group: 'Nonconformance' },
+  { value: 'nc-issue-types', label: 'NC Issue Types', group: 'Nonconformance' },
+  { value: 'product-families', label: 'Product Families', group: 'Products & Suppliers' },
+  { value: 'supplier-certificate-types', label: 'Supplier Certificates', group: 'Products & Suppliers' },
+  { value: 'audit-standard-types', label: 'Audit Standard Types', group: 'Audit' },
+  { value: 'audit-finding-categories', label: 'Audit Finding Categories', group: 'Audit' },
+  { value: 'event-categories', label: 'Event Categories', group: 'Events' },
+  { value: 'event-severities', label: 'Event Severities', group: 'Events' },
+  { value: 'related-standards', label: 'Related Standards', group: 'People & Standards' },
+  { value: 'employee-titles', label: 'Employee Titles', group: 'People & Standards' },
   // Complaint QMS lookups (per-tenant).
-  { value: 'complaint-sources', label: 'Complaint Sources' },
-  { value: 'complaint-regions', label: 'Complaint Regions' },
-  { value: 'complaint-countries', label: 'Complaint Countries' },
-  { value: 'complaint-customer-types', label: 'Complaint Customer Types' },
-  { value: 'complaint-categories', label: 'Complaint Categories' },
-  { value: 'complaint-sub-categories', label: 'Complaint Sub-categories' },
-  { value: 'complaint-types', label: 'Complaint Types' },
-  { value: 'complaint-severities', label: 'Complaint Severities' },
-  { value: 'complaint-risk-levels', label: 'Complaint Risk Levels' },
-  { value: 'complaint-report-schemes', label: 'Complaint Report Schemes' },
+  { value: 'complaint-sources', label: 'Complaint Sources', group: 'Complaints' },
+  { value: 'complaint-regions', label: 'Complaint Regions', group: 'Complaints' },
+  { value: 'complaint-countries', label: 'Complaint Countries', group: 'Complaints' },
+  { value: 'complaint-customer-types', label: 'Complaint Customer Types', group: 'Complaints' },
+  { value: 'complaint-categories', label: 'Complaint Categories', group: 'Complaints' },
+  { value: 'complaint-sub-categories', label: 'Complaint Sub-categories', group: 'Complaints' },
+  { value: 'complaint-types', label: 'Complaint Types', group: 'Complaints' },
+  { value: 'complaint-severities', label: 'Complaint Severities', group: 'Complaints' },
+  { value: 'complaint-risk-levels', label: 'Complaint Risk Levels', group: 'Complaints' },
+  { value: 'complaint-report-schemes', label: 'Complaint Report Schemes', group: 'Complaints' },
 ]
 const validTabIds = new Set(tabs.map((t) => t.value))
 
 const route = useRoute()
+const router = useRouter()
 const activeTab = ref(validTabIds.has(route.query.tab) ? route.query.tab : 'nc-dispositions')
 watch(
   () => route.query.tab,
@@ -40,6 +42,10 @@ watch(
     if (v && validTabIds.has(v)) activeTab.value = v
   },
 )
+// Keep the URL in sync so the current lookup is deep-linkable / bookmarkable.
+watch(activeTab, (v) => {
+  if (route.query.tab !== v) router.replace({ query: { ...route.query, tab: v } })
+})
 </script>
 
 <template>
@@ -51,81 +57,103 @@ watch(
     />
 
     <div class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
-      <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Lookups">
-        <BaseTabPanel value="nc-dispositions"><NcDispositionTypesCard /></BaseTabPanel>
-        <BaseTabPanel value="nc-issue-types"><NcIssueTypesCard /></BaseTabPanel>
-        <BaseTabPanel value="product-families"><ProductFamiliesCard /></BaseTabPanel>
-        <BaseTabPanel value="supplier-certificate-types">
-          <SupplierCertificateTypesCard />
-        </BaseTabPanel>
-        <BaseTabPanel value="audit-standard-types"><AuditStandardTypesCard /></BaseTabPanel>
-        <BaseTabPanel value="audit-finding-categories"><AuditFindingCategoriesCard /></BaseTabPanel>
-        <BaseTabPanel value="event-categories"><EventCategoriesCard /></BaseTabPanel>
-        <BaseTabPanel value="event-severities"><EventSeveritiesCard /></BaseTabPanel>
-        <BaseTabPanel value="related-standards"><RelatedStandardsCard /></BaseTabPanel>
-        <BaseTabPanel value="employee-titles">
-          <ComplaintLookupCard
-            model="EmployeeTitle"
-            title="Employee Title"
-            subtitle="Job titles for people records — pre-seeded with industry-standard quality / manufacturing titles. Scoped to this company."
-          />
-        </BaseTabPanel>
+      <div class="tw:max-w-sm">
+        <label class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1 tw:block">Lookup</label>
+        <BaseSelect
+          v-model="activeTab"
+          :options="tabs"
+          optionLabel="label"
+          optionValue="value"
+          optionGroup="group"
+          :clearable="false"
+          ariaLabel="Select lookup"
+        />
+      </div>
 
-        <BaseTabPanel value="complaint-sources">
-          <ComplaintLookupCard
-model="ComplaintSourceType" title="Complaint Source"
-            subtitle="Who reported the complaint (Customer, Distributor, Sales Rep…). Scoped to this company." />
-        </BaseTabPanel>
-        <BaseTabPanel value="complaint-regions">
-          <ComplaintLookupCard
-model="ComplaintRegion" title="Region"
-            subtitle="Geographic regions a complaint can originate from." />
-        </BaseTabPanel>
-        <BaseTabPanel value="complaint-countries">
-          <ComplaintLookupCard
-model="ComplaintCountry" title="Country"
-            parentModel="ComplaintRegion" parentField="regionId" parentLabel="Region"
-            subtitle="Countries of origin, grouped by region." />
-        </BaseTabPanel>
-        <BaseTabPanel value="complaint-customer-types">
-          <ComplaintLookupCard
-model="ComplaintCustomerType" title="Customer Type"
-            subtitle="End User, Distributor, Healthcare Facility, …" />
-        </BaseTabPanel>
-        <BaseTabPanel value="complaint-categories">
-          <ComplaintLookupCard
-model="ComplaintCategory" title="Category"
-            subtitle="Top-level complaint classification (parent of sub-categories)." />
-        </BaseTabPanel>
-        <BaseTabPanel value="complaint-sub-categories">
-          <ComplaintLookupCard
-model="ComplaintSubCategory" title="Sub-category"
-            parentModel="ComplaintCategory" parentField="categoryId" parentLabel="Category"
-            subtitle="Dependent detail under a category (QA fills this during investigation)." />
-        </BaseTabPanel>
-        <BaseTabPanel value="complaint-types">
-          <ComplaintLookupCard
-model="ComplaintType" title="Complaint Type"
-            subtitle="Product, Service, Delivery, Billing, …" />
-        </BaseTabPanel>
-        <BaseTabPanel value="complaint-severities">
-          <ComplaintLookupCard
-model="ComplaintSeverity" title="Severity" :hasColor="true"
-            subtitle="Severity classification with colour + rank." />
-        </BaseTabPanel>
-        <BaseTabPanel value="complaint-risk-levels">
-          <ComplaintLookupCard
-model="ComplaintRiskLevel" title="Risk Level" :hasColor="true"
-            subtitle="Risk classification with colour + rank." />
-        </BaseTabPanel>
-        <BaseTabPanel value="complaint-report-schemes">
-          <ComplaintLookupCard
-            model="ComplaintReportScheme"
-            title="Report Scheme"
-            subtitle="Regulatory reporting schemes for the reportability assessment (FDA MDR, EU MDR, MoCRA…)."
-          />
-        </BaseTabPanel>
-      </BaseTabs>
+      <NcDispositionTypesCard v-if="activeTab === 'nc-dispositions'" />
+      <NcIssueTypesCard v-else-if="activeTab === 'nc-issue-types'" />
+      <ProductFamiliesCard v-else-if="activeTab === 'product-families'" />
+      <SupplierCertificateTypesCard v-else-if="activeTab === 'supplier-certificate-types'" />
+      <AuditStandardTypesCard v-else-if="activeTab === 'audit-standard-types'" />
+      <AuditFindingCategoriesCard v-else-if="activeTab === 'audit-finding-categories'" />
+      <EventCategoriesCard v-else-if="activeTab === 'event-categories'" />
+      <EventSeveritiesCard v-else-if="activeTab === 'event-severities'" />
+      <RelatedStandardsCard v-else-if="activeTab === 'related-standards'" />
+      <ComplaintLookupCard
+        v-else-if="activeTab === 'employee-titles'"
+        model="EmployeeTitle"
+        title="Employee Title"
+        subtitle="Job titles for people records — pre-seeded with industry-standard quality / manufacturing titles. Scoped to this company."
+      />
+
+      <ComplaintLookupCard
+        v-else-if="activeTab === 'complaint-sources'"
+        model="ComplaintSourceType"
+        title="Complaint Source"
+        subtitle="Who reported the complaint (Customer, Distributor, Sales Rep…). Scoped to this company."
+      />
+      <ComplaintLookupCard
+        v-else-if="activeTab === 'complaint-regions'"
+        model="ComplaintRegion"
+        title="Region"
+        subtitle="Geographic regions a complaint can originate from."
+      />
+      <ComplaintLookupCard
+        v-else-if="activeTab === 'complaint-countries'"
+        model="ComplaintCountry"
+        title="Country"
+        parentModel="ComplaintRegion"
+        parentField="regionId"
+        parentLabel="Region"
+        subtitle="Countries of origin, grouped by region."
+      />
+      <ComplaintLookupCard
+        v-else-if="activeTab === 'complaint-customer-types'"
+        model="ComplaintCustomerType"
+        title="Customer Type"
+        subtitle="End User, Distributor, Healthcare Facility, …"
+      />
+      <ComplaintLookupCard
+        v-else-if="activeTab === 'complaint-categories'"
+        model="ComplaintCategory"
+        title="Category"
+        subtitle="Top-level complaint classification (parent of sub-categories)."
+      />
+      <ComplaintLookupCard
+        v-else-if="activeTab === 'complaint-sub-categories'"
+        model="ComplaintSubCategory"
+        title="Sub-category"
+        parentModel="ComplaintCategory"
+        parentField="categoryId"
+        parentLabel="Category"
+        subtitle="Dependent detail under a category (QA fills this during investigation)."
+      />
+      <ComplaintLookupCard
+        v-else-if="activeTab === 'complaint-types'"
+        model="ComplaintType"
+        title="Complaint Type"
+        subtitle="Product, Service, Delivery, Billing, …"
+      />
+      <ComplaintLookupCard
+        v-else-if="activeTab === 'complaint-severities'"
+        model="ComplaintSeverity"
+        title="Severity"
+        :hasColor="true"
+        subtitle="Severity classification with colour + rank."
+      />
+      <ComplaintLookupCard
+        v-else-if="activeTab === 'complaint-risk-levels'"
+        model="ComplaintRiskLevel"
+        title="Risk Level"
+        :hasColor="true"
+        subtitle="Risk classification with colour + rank."
+      />
+      <ComplaintLookupCard
+        v-else-if="activeTab === 'complaint-report-schemes'"
+        model="ComplaintReportScheme"
+        title="Report Scheme"
+        subtitle="Regulatory reporting schemes for the reportability assessment (FDA MDR, EU MDR, MoCRA…)."
+      />
     </div>
   </BasePage>
 </template>

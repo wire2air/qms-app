@@ -1,5 +1,13 @@
 <script setup>
-import { IconPhoto, IconDeviceFloppy, IconCloudUpload, IconTrash } from '@tabler/icons-vue'
+import {
+  IconPhoto,
+  IconDeviceFloppy,
+  IconCloudUpload,
+  IconTrash,
+  IconCamera,
+  IconCameraRotate,
+  IconArrowLeft,
+} from '@tabler/icons-vue'
 import { Cropper } from 'vue-advanced-cropper'
 import 'vue-advanced-cropper/dist/style.css'
 
@@ -33,41 +41,114 @@ const model = defineModel({ type: Boolean, default: false })
 const selectedImage = ref(null)
 const cropper = ref(null)
 const processing = ref(false)
+const fileInput = ref(null)
+const sourceError = ref('')
 
 const hasCurrentImage = computed(() => !!props.currentImageUrl)
 
-// Select Image File
-function selectImage() {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = 'image/*'
-
-  input.onchange = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validate file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be less than 10MB')
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      selectedImage.value = e.target.result
-    }
-    reader.readAsDataURL(file)
-  }
-
-  input.click()
+// ── File selection (real hidden input — a detached input.click() can be
+// blocked by the browser's user-activation rules, which is why "upload" could
+// silently do nothing). ────────────────────────────────────────────────────
+function openFilePicker() {
+  sourceError.value = ''
+  fileInput.value?.click()
 }
 
-// Save Cropped Image
+function onFileChange(e) {
+  const file = e.target.files?.[0]
+  // Reset so picking the same file again still fires change.
+  e.target.value = ''
+  loadFileIntoCropper(file)
+}
+
+function loadFileIntoCropper(file) {
+  if (!file) return
+  if (!file.type?.startsWith('image/')) {
+    sourceError.value = 'Please choose an image file.'
+    return
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    sourceError.value = 'File size must be less than 10MB.'
+    return
+  }
+  sourceError.value = ''
+  const reader = new FileReader()
+  reader.onload = (ev) => {
+    selectedImage.value = ev.target.result
+  }
+  reader.readAsDataURL(file)
+}
+
+// ── Camera capture ──────────────────────────────────────────────────────────
+const cameraActive = ref(false)
+const videoEl = ref(null)
+const mediaStream = ref(null)
+const facingMode = ref('user')
+const hasMultipleCameras = ref(false)
+
+async function startCamera() {
+  sourceError.value = ''
+  if (!navigator.mediaDevices?.getUserMedia) {
+    sourceError.value = 'Camera is not available in this browser.'
+    return
+  }
+  try {
+    cameraActive.value = true
+    await nextTick()
+    mediaStream.value = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facingMode.value },
+      audio: false,
+    })
+    if (videoEl.value) {
+      videoEl.value.srcObject = mediaStream.value
+      await videoEl.value.play().catch(() => {})
+    }
+    // Only offer the flip control when there's more than one camera.
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      hasMultipleCameras.value = devices.filter((d) => d.kind === 'videoinput').length > 1
+    } catch {
+      hasMultipleCameras.value = false
+    }
+  } catch (err) {
+    cameraActive.value = false
+    sourceError.value =
+      err?.name === 'NotAllowedError'
+        ? 'Camera permission was denied. Allow access and try again.'
+        : 'Could not start the camera.'
+  }
+}
+
+function stopCamera() {
+  if (mediaStream.value) {
+    mediaStream.value.getTracks().forEach((t) => t.stop())
+    mediaStream.value = null
+  }
+  if (videoEl.value) videoEl.value.srcObject = null
+  cameraActive.value = false
+}
+
+async function flipCamera() {
+  facingMode.value = facingMode.value === 'user' ? 'environment' : 'user'
+  stopCamera()
+  await startCamera()
+}
+
+function capturePhoto() {
+  const video = videoEl.value
+  if (!video || !video.videoWidth) return
+  const canvas = document.createElement('canvas')
+  canvas.width = video.videoWidth
+  canvas.height = video.videoHeight
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height)
+  selectedImage.value = canvas.toDataURL('image/jpeg', 0.92)
+  stopCamera()
+}
+
+// ── Save cropped image ──────────────────────────────────────────────────────
 async function save() {
   if (!cropper.value) return
-
   processing.value = true
-
   try {
     const { canvas } = cropper.value.getResult()
 
@@ -83,51 +164,38 @@ async function save() {
       finalCanvas = resizeCanvas
     }
 
-    // Convert canvas to blob
     const blob = await new Promise((resolve) => {
-      finalCanvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.9)
+      finalCanvas.toBlob((b) => resolve(b), 'image/jpeg', 0.9)
     })
-
-    // Create file from blob
     const file = new File([blob], 'image.jpg', { type: 'image/jpeg' })
 
     emit('save', { file, blob, canvas: finalCanvas })
-
     selectedImage.value = null
   } catch (err) {
     console.error('Error processing image:', err)
-    alert('Failed to process image. Please try again.')
+    sourceError.value = 'Failed to process image. Please try again.'
   } finally {
     processing.value = false
   }
 }
 
-// Delete Image
 function deleteImage() {
   emit('delete')
 }
 
-// Cancel
+function backToSource() {
+  selectedImage.value = null
+  sourceError.value = ''
+}
+
 function cancel() {
+  stopCamera()
   selectedImage.value = null
   model.value = false
 }
 
-function loadFileIntoCropper(file) {
-  if (!file) return
-  if (file.size > 10 * 1024 * 1024) {
-    alert('File size must be less than 10MB')
-    return
-  }
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    selectedImage.value = e.target.result
-  }
-  reader.readAsDataURL(file)
-}
-
 // When opened with a pre-selected file (e.g. from the editor toolbar), skip the
-// in-dialog file picker and drop straight into crop mode.
+// in-dialog picker and drop straight into crop mode.
 watch(
   [model, () => props.initialFile],
   ([open, file]) => {
@@ -136,27 +204,32 @@ watch(
   { immediate: true },
 )
 
-// Reset when dialog closes
-watch(model, (newVal) => {
-  if (!newVal) {
+// Reset + release the camera when the dialog closes.
+watch(model, (open) => {
+  if (!open) {
+    stopCamera()
     selectedImage.value = null
     processing.value = false
+    sourceError.value = ''
   }
 })
+
+onBeforeUnmount(stopCamera)
 </script>
 
 <template>
   <BaseDialog v-model="model" :title="title">
     <div class="tw:space-y-6">
-      <!-- Show Cropper when image is selected -->
+      <!-- Hidden file input (reliable click target) -->
+      <input ref="fileInput" type="file" accept="image/*" class="tw:hidden" @change="onFileChange" />
+
+      <!-- Crop mode — an image is selected -->
       <div v-if="selectedImage" class="tw:space-y-4">
         <div class="tw:h-96 tw:bg-main tw:rounded-lg tw:overflow-hidden">
           <Cropper
             ref="cropper"
             :src="selectedImage"
-            :stencilProps="{
-              aspectRatio,
-            }"
+            :stencilProps="{ aspectRatio }"
             class="tw:h-full"
           />
         </div>
@@ -168,19 +241,25 @@ watch(model, (newVal) => {
         </p>
       </div>
 
-      <!-- Show Current Image Preview when no image selected -->
+      <!-- Camera mode — live preview -->
+      <div v-else-if="cameraActive" class="tw:space-y-4">
+        <div class="tw:h-96 tw:bg-black tw:rounded-lg tw:overflow-hidden tw:flex tw:items-center tw:justify-center">
+          <video ref="videoEl" autoplay playsinline muted class="tw:h-full tw:w-full tw:object-cover"></video>
+        </div>
+        <p class="tw:text-xs tw:text-center tw:text-secondary">Position yourself, then capture.</p>
+      </div>
+
+      <!-- Current image preview -->
       <div v-else-if="hasCurrentImage" class="tw:flex tw:flex-col tw:items-center tw:gap-4 tw:py-4">
         <img
           :src="currentImageUrl"
           alt="Current image"
           class="tw:size-32 tw:rounded-lg tw:object-cover tw:border tw:border-divider"
         />
-        <div class="tw:text-center">
-          <p class="tw:text-xs tw:text-secondary">Current image</p>
-        </div>
+        <p class="tw:text-xs tw:text-secondary">Current image</p>
       </div>
 
-      <!-- No image state -->
+      <!-- Empty state -->
       <div v-else class="tw:flex tw:flex-col tw:items-center tw:gap-4 tw:py-8">
         <div
           class="tw:size-32 tw:rounded-lg tw:bg-main tw:flex tw:items-center tw:justify-center tw:border tw:border-divider"
@@ -190,34 +269,76 @@ watch(model, (newVal) => {
         <p class="tw:text-xs tw:text-secondary">No image selected</p>
       </div>
 
-      <!-- Action Buttons -->
+      <p v-if="sourceError" class="tw:text-xs tw:text-center tw:text-red-600">{{ sourceError }}</p>
+
+      <!-- Actions -->
       <div class="tw:grid tw:grid-cols-1 tw:gap-3">
-        <button
-          v-if="selectedImage"
-          class="tw:flex tw:items-center tw:justify-center tw:gap-2 tw:w-full tw:px-4 tw:py-2.5 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0 disabled:tw:opacity-60"
-          :disabled="processing"
-          @click="save"
-        >
-          <BaseSpinner v-if="processing" size="sm" color="white" />
-          <IconDeviceFloppy v-else :size="18" />
-          Save
-        </button>
-        <button
-          v-else
-          class="tw:flex tw:items-center tw:justify-center tw:gap-2 tw:w-full tw:px-4 tw:py-2.5 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0"
-          @click="selectImage"
-        >
-          <IconCloudUpload :size="18" />
-          Upload New Image
-        </button>
-        <button
-          v-if="hasCurrentImage && !selectedImage"
-          class="tw:flex tw:items-center tw:justify-center tw:gap-2 tw:w-full tw:px-4 tw:py-2.5 tw:text-sm tw:font-bold tw:text-red-600 tw:bg-transparent tw:rounded-lg tw:cursor-pointer tw:hover:bg-red-50 tw:transition-colors tw:border tw:border-red-300"
-          @click="deleteImage"
-        >
-          <IconTrash :size="18" />
-          Delete Image
-        </button>
+        <!-- Crop mode -->
+        <template v-if="selectedImage">
+          <button
+            class="tw:flex tw:items-center tw:justify-center tw:gap-2 tw:w-full tw:px-4 tw:py-2.5 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0 disabled:tw:opacity-60"
+            :disabled="processing"
+            @click="save"
+          >
+            <BaseSpinner v-if="processing" size="sm" color="white" />
+            <IconDeviceFloppy v-else :size="18" />
+            Save
+          </button>
+          <button
+            class="tw:flex tw:items-center tw:justify-center tw:gap-2 tw:w-full tw:px-4 tw:py-2.5 tw:text-sm tw:font-medium tw:text-secondary tw:bg-transparent tw:rounded-lg tw:cursor-pointer tw:hover:bg-sidebar tw:transition-colors tw:border-0"
+            :disabled="processing"
+            @click="backToSource"
+          >
+            <IconArrowLeft :size="18" /> Choose a different image
+          </button>
+        </template>
+
+        <!-- Camera mode -->
+        <template v-else-if="cameraActive">
+          <button
+            class="tw:flex tw:items-center tw:justify-center tw:gap-2 tw:w-full tw:px-4 tw:py-2.5 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0"
+            @click="capturePhoto"
+          >
+            <IconCamera :size="18" /> Capture
+          </button>
+          <button
+            v-if="hasMultipleCameras"
+            class="tw:flex tw:items-center tw:justify-center tw:gap-2 tw:w-full tw:px-4 tw:py-2.5 tw:text-sm tw:font-medium tw:text-secondary tw:bg-transparent tw:rounded-lg tw:cursor-pointer tw:hover:bg-sidebar tw:transition-colors tw:border tw:border-divider"
+            @click="flipCamera"
+          >
+            <IconCameraRotate :size="18" /> Switch camera
+          </button>
+          <button
+            class="tw:flex tw:items-center tw:justify-center tw:gap-2 tw:w-full tw:px-4 tw:py-2.5 tw:text-sm tw:font-medium tw:text-secondary tw:bg-transparent tw:rounded-lg tw:cursor-pointer tw:hover:bg-sidebar tw:transition-colors tw:border-0"
+            @click="stopCamera"
+          >
+            <IconArrowLeft :size="18" /> Back
+          </button>
+        </template>
+
+        <!-- Source selection (empty / current-image state) -->
+        <template v-else>
+          <button
+            class="tw:flex tw:items-center tw:justify-center tw:gap-2 tw:w-full tw:px-4 tw:py-2.5 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0"
+            @click="openFilePicker"
+          >
+            <IconCloudUpload :size="18" /> Upload New Image
+          </button>
+          <button
+            class="tw:flex tw:items-center tw:justify-center tw:gap-2 tw:w-full tw:px-4 tw:py-2.5 tw:text-sm tw:font-medium tw:text-on-main tw:bg-transparent tw:rounded-lg tw:cursor-pointer tw:hover:bg-sidebar tw:transition-colors tw:border tw:border-divider"
+            @click="startCamera"
+          >
+            <IconCamera :size="18" /> Take Photo
+          </button>
+          <button
+            v-if="hasCurrentImage"
+            class="tw:flex tw:items-center tw:justify-center tw:gap-2 tw:w-full tw:px-4 tw:py-2.5 tw:text-sm tw:font-bold tw:text-red-600 tw:bg-transparent tw:rounded-lg tw:cursor-pointer tw:hover:bg-red-50 tw:transition-colors tw:border tw:border-red-300"
+            @click="deleteImage"
+          >
+            <IconTrash :size="18" /> Delete Image
+          </button>
+        </template>
+
         <button
           class="tw:flex tw:items-center tw:justify-center tw:w-full tw:px-4 tw:py-2.5 tw:text-sm tw:font-medium tw:text-secondary tw:bg-transparent tw:rounded-lg tw:cursor-pointer tw:hover:bg-sidebar tw:transition-colors tw:border-0"
           @click="cancel"

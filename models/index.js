@@ -165,6 +165,7 @@ import { TrainingDocumentLink } from './trainingDocumentLink'
 import { Curriculum } from './curriculum'
 import { CurriculumTraining } from './curriculumTraining'
 import { RoleCurriculum } from './roleCurriculum'
+import { EmployeeTitle } from './employeeTitle'
 import { TrainingVerification } from './trainingVerification'
 import { InformationRequest } from './informationRequest'
 import { ChangeRequest } from './changeRequest'
@@ -366,6 +367,7 @@ export const db = {
   Curriculum,
   CurriculumTraining,
   RoleCurriculum,
+  EmployeeTitle,
   TrainingInstance,
   TrainingAssignee,
   TrainingRole,
