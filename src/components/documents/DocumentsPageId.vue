@@ -803,8 +803,6 @@ const documentDetailConfig = computed(() =>
       <SharedWithPanel entityType="Document" :entityId="props.id" />
       <!-- Collaborator's own task — self-hides unless the viewer has one open. -->
       <DocumentCollaboratorTaskCard :documentId="props.id" />
-      <!-- Discussion thread — now a persistent rail card ("Chat"). -->
-      <DocumentsChatCard :documentId="props.id" />
     </template>
   </BaseDetailLayout>
 

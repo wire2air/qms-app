@@ -252,6 +252,9 @@ watch(
       </div>
     </BaseRailCard>
 
+    <!-- Chat — sits right below Properties so the discussion is close to hand. -->
+    <DocumentsChatCard :documentId="documentId" />
+
     <!-- Admin-defined custom fields, right after Properties. Self-hides when
          none configured. -->
     <CustomFieldsCard entityType="Document" :entityId="document.id" :editable="canEdit" />

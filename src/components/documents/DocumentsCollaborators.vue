@@ -1,5 +1,6 @@
 <script setup>
 import { IconPlus } from '@tabler/icons-vue'
+import { currentSession } from '@/utils/currentSession.js'
 
 const props = defineProps({
   documentId: {
@@ -14,9 +15,24 @@ const props = defineProps({
 
 const isUpdating = ref(false)
 
-const allUsers = useLiveQuery(
-  async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
+const document = useLiveQueryWithDeps(
+  [() => props.documentId],
+  async (db, [id]) => (id ? db.Document.findByPk(id) : null),
+  { models: ['Document'], initial: null },
+)
 
+// Collaborator candidates = active users, minus the people who aren't
+// collaborators: yourself, and the document owner + author.
+const allUsers = useLiveQueryWithDeps(
+  [() => document.value?.userId, () => document.value?.authorId],
+  async (db, [ownerId, authorId]) => {
+    const excluded = new Set(
+      [currentSession.value?.userId, ownerId, authorId].filter(Boolean),
+    )
+    return (await db.User.where().exec()).filter(
+      (u) => u.userStatusId === 'ACTIVE' && !excluded.has(u.id),
+    )
+  },
   { models: ['User'], initial: [] },
 )
 
