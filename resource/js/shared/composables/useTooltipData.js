@@ -1,11 +1,10 @@
 import { computed } from 'vue'
+import { TOOLTIPS } from '../data/tooltips.js'
 
-const data = {}
-
-export function useTooltipData(props) {
+export function useTooltipData(props = {}) {
   const getFromTooltipData = (key, field) => {
     if (!key) return ''
-    const tooltipItem = data.find((item) => item.key === key)
+    const tooltipItem = TOOLTIPS.find((item) => item.key === key)
     return tooltipItem ? tooltipItem[field] || '' : ''
   }
 

@@ -1,9 +1,12 @@
 <script setup>
-import { IconChevronDown } from '@tabler/icons-vue'
+import { IconChevronDown, IconHelpCircle } from '@tabler/icons-vue'
 
 const props = defineProps({
   title: { type: String, required: true },
   icon: { type: [Object, Function], default: null },
+  // Optional purpose tooltip shown as a help icon next to the title (hover /
+  // focus). Reuses the shared BaseTooltip — set on any rail card that needs it.
+  titleHelp: { type: String, default: '' },
   collapsible: { type: Boolean, default: true },
   defaultOpen: { type: Boolean, default: true },
   // Lay the body fields out in an auto-fit 2-column grid (matches the "General"
@@ -33,6 +36,14 @@ function toggle() {
       <span class="tw:flex tw:items-center tw:gap-2">
         <component :is="icon" v-if="icon" :size="14" aria-hidden="true" />
         {{ title }}
+        <BaseTooltip v-if="titleHelp" :content="titleHelp">
+          <span
+            class="tw:inline-flex tw:cursor-help tw:text-secondary tw:hover:text-on-main"
+            @click.stop.prevent
+          >
+            <IconHelpCircle :size="14" aria-hidden="true" />
+          </span>
+        </BaseTooltip>
       </span>
       <IconChevronDown
         :size="16"
@@ -47,6 +58,11 @@ function toggle() {
     >
       <component :is="icon" v-if="icon" :size="14" aria-hidden="true" />
       {{ title }}
+      <BaseTooltip v-if="titleHelp" :content="titleHelp">
+        <span class="tw:inline-flex tw:cursor-help tw:text-secondary tw:hover:text-on-main">
+          <IconHelpCircle :size="14" aria-hidden="true" />
+        </span>
+      </BaseTooltip>
     </h3>
     <div
       v-if="open"

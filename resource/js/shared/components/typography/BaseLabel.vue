@@ -11,6 +11,7 @@
  */
 import { IconHelpCircle } from '@tabler/icons-vue'
 import { LABEL_SIZE, FONT_WEIGHT, TEXT_COLOR, TEXT_ALIGN } from './typography.js'
+import { useTooltipData } from '../../composables/useTooltipData.js'
 
 const props = defineProps({
   // Native label-for association (htmlFor).
@@ -26,11 +27,19 @@ const props = defineProps({
   // Help text shown via an info icon (BaseTooltip on hover/focus). A #help slot
   // can supply richer content.
   help: { type: String, default: '' },
+  // Resolve `help` (and, when the label slot is empty, the label text) from the
+  // central tooltip registry by key — e.g. dataKey="document.collaboration".
+  // An explicit `help` prop always wins.
+  dataKey: { type: String, default: '' },
   // Subtitle rendered below the label text.
   description: { type: String, default: '' },
   align: { type: String, default: 'left', validator: (v) => v in TEXT_ALIGN },
   truncate: { type: Boolean, default: false },
 })
+
+const { getFromTooltipData } = useTooltipData(props)
+// Explicit prop wins; otherwise fall back to the registry entry for dataKey.
+const resolvedHelp = computed(() => props.help || getFromTooltipData(props.dataKey, 'tooltip'))
 
 const colorClass = computed(() => {
   if (props.disabled) return TEXT_COLOR.disabled
@@ -65,11 +74,11 @@ const colorClass = computed(() => {
       <!-- Help icon → BaseTooltip (hover + keyboard focus). The trigger is a
            real <button> so keyboard users can reach it; @click.stop.prevent
            keeps clicking it from activating the label's associated control. -->
-      <BaseTooltip v-if="help || $slots.help" :content="help" class="tw:align-middle">
+      <BaseTooltip v-if="resolvedHelp || $slots.help" :content="resolvedHelp" class="tw:align-middle">
         <button
           type="button"
           class="tw:inline-flex tw:cursor-help tw:rounded-full tw:text-secondary tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/40"
-          :aria-label="help || 'More information'"
+          :aria-label="resolvedHelp || 'More information'"
           @click.stop.prevent
         >
           <IconHelpCircle class="tw:size-3.5" />

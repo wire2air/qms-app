@@ -20,14 +20,18 @@ import {
   IconTrash,
   IconSend,
   IconLoader2,
-  IconHelpCircle,
 } from '@tabler/icons-vue'
 import UserAvatarById from '../avatars/UserAvatarById.vue'
+import { useTooltipData } from '@shared/composables/useTooltipData.js'
 
 const props = defineProps({
   documentId: { type: String, required: true },
   canEdit: { type: Boolean, default: false },
 })
+
+// Purpose tooltip copy from the central registry.
+const { getFromTooltipData } = useTooltipData()
+const collaborationHelp = getFromTooltipData('document.collaboration', 'tooltip')
 
 // ── Collaborators ──────────────────────────────────────────────────────────
 const isUpdating = ref(false)
@@ -131,22 +135,14 @@ async function handleDelete(msg) {
 </script>
 
 <template>
-  <BaseRailCard v-if="canEdit || hasCollaborators" title="Collaboration" :icon="IconUsersGroup">
+  <BaseRailCard
+    v-if="canEdit || hasCollaborators"
+    title="Collaboration"
+    :icon="IconUsersGroup"
+    :titleHelp="collaborationHelp"
+  >
     <!-- Collaborator management -->
     <div class="tw:flex tw:items-center tw:gap-2">
-      <BaseTooltip
-        content="Invite co-authors to contribute to this draft. Each collaborator gets a task and email notification, and you can discuss changes in the chat below before submitting for review."
-        placement="bottom"
-      >
-        <button
-          type="button"
-          class="tw:inline-flex tw:cursor-help tw:rounded-full tw:text-secondary tw:hover:text-on-main tw:shrink-0 tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/40"
-          aria-label="About collaboration"
-          @click.stop.prevent
-        >
-          <IconHelpCircle class="tw:size-4" />
-        </button>
-      </BaseTooltip>
       <div v-if="hasCollaborators" class="tw:flex tw:-space-x-2">
         <UserAvatar
           v-for="collab in collaborators"
