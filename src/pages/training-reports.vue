@@ -6,5 +6,5 @@ pageInfo.value = {
 </script>
 
 <template>
-  <TrainingMatrixHome />
+  <TrainingReportsHome />
 </template>

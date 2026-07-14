@@ -102,7 +102,17 @@ export const ROUTE_META = {
     parent: '/trainings',
   },
   '/training-instances': {
-    title: 'Training Instances',
+    title: 'Training Matrix',
+    icon: IconSchool,
+    permission: 'training_instances:read',
+  },
+  '/training-curriculum': {
+    title: 'Training Curriculum',
+    icon: IconSchool,
+    permission: 'training:read',
+  },
+  '/training-reports': {
+    title: 'Matrix Report',
     icon: IconSchool,
     permission: 'training_instances:read',
   },

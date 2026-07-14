@@ -2,7 +2,10 @@
  * Form Builder Composable
  * State management for the visual form builder
  */
-import { FIELD_TYPES_CONFIG, FIELD_TYPES } from '@/constants/formBuilderConfig'
+import { FIELD_TYPES_CONFIG, FIELD_TYPES, FIELD_WIDTHS } from '@/constants/formBuilderConfig'
+import { hydrateChecklistColumns, hydrateChecklistRows } from '@/utils/aiFormHydrate'
+
+const VALID_WIDTHS = new Set(FIELD_WIDTHS.map((w) => w.value))
 
 // Get default field configuration based on type
 function getDefaultFieldConfig(type) {
@@ -345,6 +348,72 @@ export function useFormBuilder(initialSchema = []) {
     })
   }
 
+  // Build one real builder field from an AI descriptor. Everything starts from
+  // the type's real factory default (getDefaultFieldConfig) so the result is
+  // always structurally valid; the AI only supplies label + a few hints.
+  // `existingRoot` is the schema being assembled, used for globally-unique names.
+  function hydrateAiField(node, existingRoot) {
+    const type = node && FIELD_TYPES[node.type] ? node.type : 'input'
+    const config = getDefaultFieldConfig(type)
+    config.name = generateFieldName(type, existingRoot)
+    if (typeof node.label === 'string' && node.label.trim()) config.label = node.label.trim()
+    if (typeof node.required === 'boolean') config.required = node.required
+    if (typeof node.placeholder === 'string') config.placeholder = node.placeholder
+    if (typeof node.hint === 'string') config.hint = node.hint
+    if (typeof node.width === 'string' && VALID_WIDTHS.has(node.width)) config.width = node.width
+
+    // Type-specific payloads.
+    if (['select', 'optionGroup', 'checkbox'].includes(type) && Array.isArray(node.options)) {
+      const opts = node.options.filter((o) => typeof o === 'string' && o.trim()).map((o) => o.trim())
+      if (opts.length) config.options = opts
+    }
+    if (type === 'checklist') {
+      const rows = hydrateChecklistRows(node.rows)
+      const columns = hydrateChecklistColumns(node.columns)
+      if (rows.length) config.rows = rows
+      if (columns.length) config.columns = columns
+    }
+    if (type === 'header' && config.label) config.text = config.label
+    if (type === 'instructions' && typeof node.content === 'string' && node.content.trim()) {
+      const c = node.content.trim()
+      config.html = /^\s*</.test(c) ? c : `<p>${c}</p>`
+    }
+    return config
+  }
+
+  // Replace the whole schema with an AI-generated form. Fields carrying a
+  // shared `section` label are grouped into real `section` containers (in first-
+  // appearance order); ungrouped fields sit at the top level. Overwrites the
+  // current schema (undoable via history).
+  function applyAiSchema(aiResult) {
+    const fields = Array.isArray(aiResult?.fields) ? aiResult.fields : []
+    const newSchema = []
+    const sectionContainers = new Map()
+
+    for (const node of fields) {
+      if (!node || typeof node !== 'object') continue
+      const sectionLabel =
+        typeof node.section === 'string' && node.section.trim() ? node.section.trim() : null
+
+      if (sectionLabel) {
+        let container = sectionContainers.get(sectionLabel)
+        if (!container) {
+          container = getDefaultFieldConfig('section')
+          container.name = generateFieldName('section', newSchema)
+          container.label = sectionLabel
+          container.children = []
+          sectionContainers.set(sectionLabel, container)
+          newSchema.push(container)
+        }
+        container.children.push(hydrateAiField(node, newSchema))
+      } else {
+        newSchema.push(hydrateAiField(node, newSchema))
+      }
+    }
+
+    importSchema(newSchema)
+  }
+
   // Clear all fields
   function clearSchema() {
     saveToHistory()
@@ -377,6 +446,7 @@ export function useFormBuilder(initialSchema = []) {
     // Import/Export
     exportSchema,
     importSchema,
+    applyAiSchema,
     clearSchema,
 
     // Utilities

@@ -387,6 +387,7 @@ export default {
     "useToast": true,
     "useToggle": true,
     "useTooltipData": true,
+    "useTrainingMatrixReport": true,
     "useTransition": true,
     "useUnsavedChangesGuard": true,
     "useUrlSearchParams": true,

@@ -54,8 +54,6 @@ import { Module } from './module'
 import { Notification } from './notification'
 import { NotificationType } from './notificationType'
 import { OptionSet } from './optionSet'
-import { Permission } from './permission'
-import { PermissionOnRole } from './permissionOnRole'
 import { Product } from './product'
 import { ProductFamily } from './productFamily'
 import { ProductStatus } from './productStatus'
@@ -164,7 +162,9 @@ import { TrainingRole } from './trainingRole'
 import { TrainingUser } from './trainingUser'
 import { TrainingExternalLink } from './trainingExternalLink'
 import { TrainingDocumentLink } from './trainingDocumentLink'
-import { TrainingMatrix } from './trainingMatrix'
+import { Curriculum } from './curriculum'
+import { CurriculumTraining } from './curriculumTraining'
+import { RoleCurriculum } from './roleCurriculum'
 import { TrainingVerification } from './trainingVerification'
 import { InformationRequest } from './informationRequest'
 import { ChangeRequest } from './changeRequest'
@@ -263,8 +263,6 @@ export const db = {
   Notification,
   NotificationType,
   OptionSet,
-  Permission,
-  PermissionOnRole,
   Product,
   ProductFamily,
   ProductStatus,
@@ -365,13 +363,15 @@ export const db = {
   AuditDocumentRequest,
   AuditCounter,
   Training,
+  Curriculum,
+  CurriculumTraining,
+  RoleCurriculum,
   TrainingInstance,
   TrainingAssignee,
   TrainingRole,
   TrainingUser,
   TrainingExternalLink,
   TrainingDocumentLink,
-  TrainingMatrix,
   TrainingVerification,
   InformationRequest,
   ChangeRequest,

@@ -70,6 +70,11 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // Applied to each body <tr> — used for striped-row styling.
+  rowClass: {
+    type: String,
+    default: '',
+  },
 })
 
 const modelValue = defineModel({ type: Array, default: () => [] })
@@ -128,7 +133,11 @@ defineExpose({ getRowValue, getCellValue, isCellSelected })
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(row, rowIndex) in tableRows" :key="rowIndex" class="tw:hover:bg-gray-50">
+          <tr
+            v-for="(row, rowIndex) in tableRows"
+            :key="rowIndex"
+            :class="['tw:hover:bg-gray-50', rowClass]"
+          >
             <!-- Row label -->
             <td
               :class="[

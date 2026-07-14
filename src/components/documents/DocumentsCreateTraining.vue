@@ -1,5 +1,6 @@
 <script setup>
 import { IconCirclePlus, IconTrash, IconAlertCircle } from '@tabler/icons-vue'
+import { commonSupervisorId } from '@/utils/trainingManager'
 
 const config = defineModel({
   type: Object,
@@ -11,10 +12,47 @@ const config = defineModel({
     completionDueDays: 7,
     passingScore: 80,
     maxAttempts: 1,
-    roleIds: [],
+    curriculumIds: [],
     userIds: [],
     assessment: [],
   }),
+})
+
+// The training audience: users mapped to the selected curricula (via roles) plus
+// any directly-added users.
+const audienceUsers = useLiveQueryWithDeps(
+  [() => config.value.curriculumIds, () => config.value.userIds],
+  async (db, [curriculumIds, userIds]) => {
+    const set = new Set(userIds || [])
+    if (curriculumIds?.length) {
+      const rcs = await db.RoleCurriculum.where().exec()
+      const roleIds = [
+        ...new Set(
+          rcs.filter((rc) => curriculumIds.includes(rc.curriculumId)).map((rc) => rc.roleId),
+        ),
+      ]
+      if (roleIds.length) {
+        const assignments = await db.RoleOnUser.where().exec()
+        assignments.filter((a) => roleIds.includes(a.roleId)).forEach((a) => set.add(a.userId))
+      }
+    }
+    const ids = [...set]
+    if (!ids.length) return []
+    return (await Promise.all(ids.map((id) => db.User.findByPk(id)))).filter(Boolean)
+  },
+  { models: ['RoleCurriculum', 'RoleOnUser', 'User'], initial: [] },
+)
+
+// Default the Training Manager to the audience's common supervisor (they verify).
+// Only fills when the manager is unset or still holds a prior auto-default, so a
+// manual choice is never overwritten. No default when supervisors differ.
+const autoManagerId = ref(null)
+watch(audienceUsers, (users) => {
+  const sup = commonSupervisorId(users)
+  if (!config.value.managerId || config.value.managerId === autoManagerId.value) {
+    config.value.managerId = sup
+    autoManagerId.value = sup
+  }
 })
 
 function addQuestion() {
@@ -103,8 +141,11 @@ const hasAssessment = computed({
             <BaseText as="h4" weight="bold" class="tw:mb-3">Who needs this training</BaseText>
             <div class="tw:space-y-4">
               <div>
-                <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Roles</p>
-                <RoleSelectMenu v-model="config.roleIds" :multiple="true" />
+                <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Curriculum</p>
+                <CurriculumSelectMenu v-model="config.curriculumIds" :multiple="true" />
+                <p class="tw:text-caption tw:text-secondary tw:mt-1">
+                  Everyone whose role is mapped to the selected curriculum(s) gets this training.
+                </p>
               </div>
               <div>
                 <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Specific Users</p>

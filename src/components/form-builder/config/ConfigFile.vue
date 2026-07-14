@@ -6,14 +6,6 @@ const field = defineModel('field', {
   required: true,
 })
 
-const fileTypeOptions = [
-  { id: 'ASSET', name: 'Asset' },
-  { id: 'COMPANYLOGO', name: 'Company Logo' },
-  { id: 'USERAVATAR', name: 'User Avatar' },
-  { id: 'EDITORIMAGE', name: 'Editor Image' },
-  { id: 'OPEN', name: 'Open' },
-]
-
 const formattedMaxSize = computed(() => {
   const size = field.value.maxSize
   if (!size || size === 0) {
@@ -39,21 +31,11 @@ const formattedMaxSize = computed(() => {
 <template>
   <div class="tw:mb-4 tw:last:mb-0">
     <div class="tw:flex tw:flex-col tw:gap-3">
-      <BaseField label="File Type" hint="Category for uploaded files">
-        <BaseSelect
-          v-model="field.fileType"
-          :options="fileTypeOptions"
-          optionLabel="name"
-          optionValue="id"
-          :required="true"
-          placeholder="Select File Type"
-        />
-      </BaseField>
       <BaseTextInput
         v-model="field.accept"
-        label="Accept (MIME types)"
-        placeholder="image/*,video/*,application/pdf,.docx,.doc"
-        instructions="Comma-separated list of allowed file types"
+        label="Restrict file types"
+        placeholder="e.g. application/pdf,.docx,image/*"
+        instructions="Leave blank to accept any file type. To restrict, enter a comma-separated list of MIME types or extensions."
       />
       <div>
         <BaseTextInput

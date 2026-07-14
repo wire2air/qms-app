@@ -72,6 +72,18 @@ const formattedMaxSize = computed(() => {
   }
 })
 
+// A blank `accept` means no restriction — show a friendly label instead of an
+// empty string (and avoid splitting an empty value into a stray token).
+const acceptLabel = computed(() => {
+  const a = (props.accept || '').trim()
+  if (!a) return 'All file types'
+  return a
+    .split(',')
+    .map((ext) => ext.trim().toUpperCase())
+    .filter(Boolean)
+    .join(', ')
+})
+
 function handleClick() {
   if (props.disabled) return
   fileInputRef.value?.click()
@@ -340,12 +352,7 @@ defineExpose({
             <span class="tw:text-primary tw:hover:underline">browse</span>
           </p>
           <p class="tw:text-caption tw:text-secondary">
-            {{
-              accept
-                .split(',')
-                .map((ext) => ext.trim().toUpperCase())
-                .join(', ')
-            }}
+            {{ acceptLabel }}
             (Max. {{ formattedMaxSize }})
           </p>
         </div>

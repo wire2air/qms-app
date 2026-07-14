@@ -1,6 +1,7 @@
 <script setup>
-import { IconSchool, IconCircleCheck, IconClock } from '@tabler/icons-vue'
+import { IconSchool, IconCircleCheck, IconClock, IconChartBar } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
+import { getCompanyPath } from '@/utils/routeHelpers'
 
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `instances`.
@@ -51,7 +52,7 @@ const STATUS_PILLS = [
 
 <template>
   <BaseListLayout
-    title="Training Instances"
+    title="Training Matrix"
     :icon="IconSchool"
     subtitle="Track launched trainings and assignee progress."
     :state="list.state.value"
@@ -62,6 +63,14 @@ const STATUS_PILLS = [
         : 'No instances found'
     "
   >
+    <template #actions>
+      <RouterLink :to="getCompanyPath('/training-reports')">
+        <BaseButton variant="outline" size="sm">
+          <IconChartBar :size="16" class="tw:mr-1" /> Matrix Report
+        </BaseButton>
+      </RouterLink>
+    </template>
+
     <template #stats>
       <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
         <div

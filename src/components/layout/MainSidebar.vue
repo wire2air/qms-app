@@ -357,10 +357,10 @@ const navItems = computed(() => {
           to: getCompanyPath('/training-verifications'),
         },
         {
-          label: 'Training Matrix',
-          permissions: ['training_matrix:read'],
+          label: 'Training Curriculum',
+          permissions: ['training:read'],
           icon: IconSchool,
-          to: getCompanyPath('/training-matrix'),
+          to: getCompanyPath('/training-curriculum'),
         },
       ],
     },

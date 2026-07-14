@@ -7,7 +7,7 @@ import { DateTime } from 'luxon'
   loadStrategy: 'instant',
   syncField: 'updatedAt',
   customIndex: '[trainingId+status], companyId, trainingId',
-  schemaVersion: 3,
+  schemaVersion: 5,
 })
 export class TrainingInstance extends BaseModel {
   static paranoid = true
@@ -31,6 +31,12 @@ export class TrainingInstance extends BaseModel {
   @Property({ type: String }) createdBy = null
   @Property({ type: DateTime }) cancelledAt = null
   @Property({ type: String }) cancelReason = null
+  @Property({ type: Boolean }) isAdHoc = false
+  @Property({ type: Boolean }) isRetraining = false
+  @Property({ type: String }) adHocReason = null
+  @Property({ type: String }) sourceType = null
+  @Property({ type: String }) sourceId = null
+  @Property({ type: String }) managerId = null
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)
