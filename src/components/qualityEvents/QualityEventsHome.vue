@@ -15,8 +15,8 @@ const route = useRoute()
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const canCreate = computed(() => isAllowed(['qualityEvents:create']))
-const canDelete = computed(() => isAllowed(['qualityEvents:delete']))
+const canCreate = computed(() => isAllowed(['quality_events:create']))
+const canDelete = computed(() => isAllowed(['quality_events:delete']))
 
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `events`. `activeFilter`

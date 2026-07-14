@@ -12,8 +12,8 @@ import { DateTime } from 'luxon'
 
 const router = useRouter()
 
-const canCreate = computed(() => isAllowed(['changeRequests:create']))
-const canUpdate = computed(() => isAllowed(['changeRequests:update']))
+const canCreate = computed(() => isAllowed(['change_control:create']))
+const canUpdate = computed(() => isAllowed(['change_control:update']))
 
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `changeRequests`.

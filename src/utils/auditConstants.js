@@ -279,13 +279,16 @@ export const ENTITY_LABEL_RESOLVERS = {
     return this.AllowedOutcomeOnStep(id, db)
   },
 
-  async PermissionOnRole(id, db) {
-    const e = await db.PermissionOnRole.findByPk(id, { force: true })
-    return e ? this.Role(e.roleId, db) : null
+  // Legacy permissions_on_roles was replaced by the native authz plane; the
+  // client model no longer exists, so these audit entity types resolve to null
+  // (no live record to link to). Native permission changes are audited via the
+  // authz permission_audit_log surfaced through the Role audit drawer.
+  async PermissionOnRole() {
+    return null
   },
 
-  async PermissionsOnRole(id, db) {
-    return this.PermissionOnRole(id, db)
+  async PermissionsOnRole() {
+    return null
   },
 
   async FormTemplate(id, db) {

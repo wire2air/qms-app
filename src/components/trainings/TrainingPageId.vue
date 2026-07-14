@@ -23,8 +23,8 @@ const training = useLiveQueryWithDeps(
 
 const loading = computed(() => training.value === undefined)
 
-const canUpdate = computed(() => isAllowed(['trainings:update']))
-const canManage = computed(() => isAllowed(['trainings:manage']))
+const canUpdate = computed(() => isAllowed(['training:update']))
+const canManage = computed(() => isAllowed(['training:manage']))
 
 const isEditable = computed(() => training.value?.status === 'DRAFT')
 

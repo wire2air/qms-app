@@ -15,8 +15,8 @@ import { isAllowed } from '@/utils/currentSession.js'
 const showCreateDialog = ref(false)
 const selectedOptionSetId = ref(null)
 
-const canCreateOptionSet = computed(() => isAllowed(['optionSets:create']))
-const canDeleteOptionSet = computed(() => isAllowed(['optionSets:delete']))
+const canCreateOptionSet = computed(() => isAllowed(['option_sets:create']))
+const canDeleteOptionSet = computed(() => isAllowed(['option_sets:delete']))
 
 const filters = ref({ search: '' })
 

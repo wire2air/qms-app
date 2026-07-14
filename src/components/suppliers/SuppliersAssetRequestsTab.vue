@@ -25,7 +25,7 @@ const props = defineProps({
   },
 })
 
-const canUpdate = computed(() => isAllowed(['suppliers:update']))
+const canUpdate = computed(() => isAllowed(['supplier_management:update']))
 const { confirm } = useConfirm()
 
 // ─── Live queries ─────────────────────────────────────────────────────────────

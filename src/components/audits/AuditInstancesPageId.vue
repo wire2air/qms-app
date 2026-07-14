@@ -76,8 +76,8 @@ function openReport() {
 }
 const loading = computed(() => auditInstance.value === undefined)
 
-const canUpdate = computed(() => isAllowed(['audits:update']))
-const canDelete = computed(() => isAllowed(['audits:delete']))
+const canUpdate = computed(() => isAllowed(['audit_management:update']))
+const canDelete = computed(() => isAllowed(['audit_management:delete']))
 const isOwner = computed(() => !!currentSession.value?.isOwner)
 const isEditable = computed(
   () =>

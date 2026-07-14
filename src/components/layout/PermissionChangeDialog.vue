@@ -1,6 +1,7 @@
 <script setup>
 import { IconShieldLock } from '@tabler/icons-vue'
 import { permissionsChanged } from '@/utils/permissionSync'
+import { deleteAllSyncDatabases } from '@/utils/initSyncEngine.js'
 
 // Bound to the dialog's v-model. Reflects the shared `permissionsChanged` flag,
 // which flips true when an admin changes this user's permissions while they're
@@ -10,12 +11,19 @@ const open = computed({
   set: (v) => (permissionsChanged.value = v),
 })
 
-function reloadNow() {
-  window.location.reload()
-}
+const resetting = ref(false)
 
-function dismiss() {
-  permissionsChanged.value = false
+// Hard reload: wipe the local sync databases so the syncEngine re-bootstraps
+// from scratch with the new permissions (rows the user can now / no longer see),
+// then reload. A plain reload would keep stale IndexedDB data.
+async function reloadNow() {
+  resetting.value = true
+  try {
+    await deleteAllSyncDatabases()
+  } finally {
+    resetting.value = false
+    window.location.reload()
+  }
 }
 </script>
 
@@ -37,8 +45,7 @@ function dismiss() {
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" @click="dismiss">Later</BaseButton>
-      <BaseButton variant="primary" @click="reloadNow">Reload now</BaseButton>
+      <BaseButton variant="primary" :isLoading="resetting" @click="reloadNow">Reload now</BaseButton>
     </template>
   </BaseDialog>
 </template>

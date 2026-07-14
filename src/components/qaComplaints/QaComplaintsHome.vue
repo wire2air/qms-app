@@ -21,7 +21,7 @@ const router = useRouter()
 const canCreate = computed(() => isAllowed(['complaints:create']))
 const canUpdate = computed(() => isAllowed(['complaints:update']))
 const canConvert = computed(
-  () => isAllowed(['complaints:update']) && isAllowed(['nonconformances:create']),
+  () => isAllowed(['complaints:update']) && isAllowed(['ncr:create']),
 )
 
 const list = useListLayout({

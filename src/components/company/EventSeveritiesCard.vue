@@ -12,7 +12,7 @@ import { required } from '@shared/components/form/validators.js'
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const canConfigure = computed(() => isAllowed(['qualityEvents:configure']))
+const canConfigure = computed(() => isAllowed(['quality_events:configure']))
 
 // Active-list table config (DataTable). Name renders a color swatch + optional
 // description subline and Code renders as a chip via slots; Rank is the ordinal

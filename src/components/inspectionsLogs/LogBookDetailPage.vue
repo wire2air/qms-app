@@ -47,7 +47,7 @@ const router = useRouter()
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const canUpdate = computed(() => isAllowed(['logBooks:update']))
+const canUpdate = computed(() => isAllowed(['log_books:update']))
 
 const logBook = useLiveQueryWithDeps(
   [() => props.id],

@@ -22,7 +22,7 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
  */
 const router = useRouter()
 
-const canCreate = computed(() => isAllowed(['formTemplates:create']))
+const canCreate = computed(() => isAllowed(['forms_templates:create']))
 
 const showCreateDialog = ref(false)
 const pendingClassification = ref('OPERATIONAL_LOG')

@@ -12,8 +12,8 @@ import { IconPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
-const canRead = computed(() => isAllowed(['auditPrograms:read']))
-const canCreate = computed(() => isAllowed(['auditPrograms:create']))
+const canRead = computed(() => isAllowed(['audit_programs:read']))
+const canCreate = computed(() => isAllowed(['audit_programs:create']))
 
 const showCreateDialog = ref(false)
 

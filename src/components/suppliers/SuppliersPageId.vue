@@ -16,7 +16,7 @@ const props = defineProps({
 
 const route = useRoute()
 const router = useRouter()
-const canUpdate = computed(() => isAllowed(['suppliers:update']))
+const canUpdate = computed(() => isAllowed(['supplier_management:update']))
 
 const supplier = useLiveQueryWithDeps(
   [() => props.id],

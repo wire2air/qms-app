@@ -20,7 +20,7 @@ const showEsign = ref(false)
 const approvingId = ref(null)
 const deletingId = ref(null)
 
-const canApprove = computed(() => isAllowed(['qcInspection:spec:write']))
+const canApprove = computed(() => isAllowed(['inspection_spec:write']))
 
 function startApprove(spec) {
   approvingId.value = spec.id

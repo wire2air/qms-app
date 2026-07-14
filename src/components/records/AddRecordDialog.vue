@@ -55,7 +55,7 @@ const userId = computed(() => currentSession.value?.userId ?? currentSession.val
 // Admins / planners can bypass the assignment gate so they can submit
 // any inspection template (e.g. for testing or a one-off entry).
 const canBypassAssignmentGate = computed(() =>
-  isAllowed(['inspections:assign', 'fieldRecords:read_all']),
+  isAllowed(['inspections:assign', 'field_records:read_all']),
 )
 const viewAll = ref(false)
 

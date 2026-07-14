@@ -38,8 +38,8 @@ const formData = ref({})
 
 const formattedCreatedAt = computed(() => template.value?.createdAt?.formatDate('date'))
 const relativeUpdatedAt = computed(() => template.value?.updatedAt?.formatDate('date'))
-const canUpdate = computed(() => isAllowed(['formTemplates:update']))
-const canDelete = computed(() => isAllowed(['formTemplates:delete']))
+const canUpdate = computed(() => isAllowed(['forms_templates:update']))
+const canDelete = computed(() => isAllowed(['forms_templates:delete']))
 const loading = computed(() => template.value === undefined)
 const showPromote = ref(false)
 

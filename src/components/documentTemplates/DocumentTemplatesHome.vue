@@ -20,7 +20,7 @@ const documentTemplates = useLiveQuery(async (db) => db.DocumentTemplate.where()
 })
 const loading = computed(() => documentTemplates.value === undefined)
 
-const canCreate = computed(() => isAllowed(['document-templates:create']))
+const canCreate = computed(() => isAllowed(['document_templates:create']))
 
 const totalTemplates = computed(() => (documentTemplates.value || []).length)
 const activeTemplates = computed(

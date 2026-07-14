@@ -19,11 +19,11 @@ const router = useRouter()
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const canCreate = computed(() => isAllowed(['customerComplaints:create']))
-const canUpdate = computed(() => isAllowed(['customerComplaints:update']))
-const canDelete = computed(() => isAllowed(['customerComplaints:delete']))
+const canCreate = computed(() => isAllowed(['complaint_management:create']))
+const canUpdate = computed(() => isAllowed(['complaint_management:update']))
+const canDelete = computed(() => isAllowed(['complaint_management:delete']))
 const canConvert = computed(
-  () => isAllowed(['customerComplaints:update']) && isAllowed(['nonconformances:create']),
+  () => isAllowed(['complaint_management:update']) && isAllowed(['ncr:create']),
 )
 
 // Filters + resolved content state. Declared before the live query because

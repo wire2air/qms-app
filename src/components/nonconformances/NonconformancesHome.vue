@@ -14,9 +14,9 @@ import { matchesDateFilter } from '@/utils/dateRanges.js'
 const router = useRouter()
 const route = useRoute()
 
-const canCreate = computed(() => isAllowed(['nonconformances:create']))
-const canUpdate = computed(() => isAllowed(['nonconformances:update']))
-const canDelete = computed(() => isAllowed(['nonconformances:delete']))
+const canCreate = computed(() => isAllowed(['ncr:create']))
+const canUpdate = computed(() => isAllowed(['ncr:update']))
+const canDelete = computed(() => isAllowed(['ncr:delete']))
 
 const { confirm } = useConfirm()
 const toast = useToast()

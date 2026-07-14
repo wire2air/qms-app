@@ -315,13 +315,13 @@ const canCreate = computed(() => {
     ['DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED'].includes(v.statusId),
   )
   return (
-    isAllowed(['documents:create']) && document.value?.statusId !== 'ARCHIVED' && !hasActiveDraft
+    isAllowed(['document_control:create']) && document.value?.statusId !== 'ARCHIVED' && !hasActiveDraft
   )
 })
 const canEdit = computed(
-  () => isAllowed(['documents:update']) && document.value?.statusId !== 'ARCHIVED',
+  () => isAllowed(['document_control:update']) && document.value?.statusId !== 'ARCHIVED',
 )
-const canDelete = computed(() => isAllowed(['documents:delete']) && isOwnerOrAuthor.value)
+const canDelete = computed(() => isAllowed(['document_control:delete']) && isOwnerOrAuthor.value)
 const canSubmitForReview = computed(
   () =>
     canEdit.value &&

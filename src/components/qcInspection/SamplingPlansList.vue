@@ -20,9 +20,9 @@ const revisingId = ref(null)
 const deletingId = ref(null)
 const editingPlan = ref(null)
 
-const canApprove = computed(() => isAllowed(['qcInspection:plan:approve']))
+const canApprove = computed(() => isAllowed(['inspection_plan:approve']))
 const canCreate = computed(
-  () => isAllowed(['qcInspection:standards:write']) || isAllowed(['qcInspection:plan:create']),
+  () => isAllowed(['inspection_standards:write']) || isAllowed(['inspection_plan:create']),
 )
 
 const POINT_LABELS = {

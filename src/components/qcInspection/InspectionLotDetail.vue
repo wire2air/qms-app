@@ -32,10 +32,10 @@ const acting = ref(false)
 const showSubmit = ref(false)
 const showEdit = ref(false)
 
-const canExecute = computed(() => isAllowed(['qcInspection:lot:execute']))
-const canDispose = computed(() => isAllowed(['qcInspection:lot:dispose']))
-const canCreateNc = computed(() => isAllowed(['nonconformances:create']))
-const canCreateEvent = computed(() => isAllowed(['qualityEvents:create']))
+const canExecute = computed(() => isAllowed(['inspection_qc:execute']))
+const canDispose = computed(() => isAllowed(['inspection_qc:dispose']))
+const canCreateNc = computed(() => isAllowed(['ncr:create']))
+const canCreateEvent = computed(() => isAllowed(['quality_events:create']))
 
 const lot = useLiveQueryWithDeps(
   [() => props.id],

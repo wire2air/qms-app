@@ -36,8 +36,8 @@ const program = useLiveQueryWithDeps(
 )
 const loading = computed(() => program.value === undefined)
 
-const canUpdate = computed(() => isAllowed(['auditPrograms:update']))
-const canDelete = computed(() => isAllowed(['auditPrograms:delete']))
+const canUpdate = computed(() => isAllowed(['audit_programs:update']))
+const canDelete = computed(() => isAllowed(['audit_programs:delete']))
 const isOwner = computed(() => !!currentSession.value?.isOwner)
 const isEditable = computed(() => canUpdate.value || isOwner.value)
 

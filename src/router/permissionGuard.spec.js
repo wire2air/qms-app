@@ -29,32 +29,35 @@ const setSession = (session) => {
 
 describe('requiredPermissionFor', () => {
   it('gates admin modules on their read permission (list AND detail)', () => {
-    expect(requiredPermissionFor(route('/users'))).toBe('users:read')
-    expect(requiredPermissionFor(route('/users/abc-123'))).toBe('users:read')
-    expect(requiredPermissionFor(route('/roles'))).toBe('roles:read')
-    expect(requiredPermissionFor(route('/roles/abc-123'))).toBe('roles:read')
-    expect(requiredPermissionFor(route('/suppliers'))).toBe('suppliers:read')
+    expect(requiredPermissionFor(route('/users'))).toBe('user_management:read')
+    expect(requiredPermissionFor(route('/users/abc-123'))).toBe('user_management:read')
+    expect(requiredPermissionFor(route('/roles'))).toBe('role_permission_management:read')
+    expect(requiredPermissionFor(route('/roles/abc-123'))).toBe('role_permission_management:read')
+    expect(requiredPermissionFor(route('/suppliers'))).toBe('supplier_management:read')
   })
 
   it('gates record-module LIST routes only, leaving detail to RLS', () => {
-    expect(requiredPermissionFor(route('/documents'))).toBe('documents:read')
+    expect(requiredPermissionFor(route('/documents'))).toBe('document_control:read')
     expect(requiredPermissionFor(route('/documents/abc-123'))).toBeNull()
-    expect(requiredPermissionFor(route('/capas'))).toBe('capas:read')
+    expect(requiredPermissionFor(route('/capas'))).toBe('capa:read')
     expect(requiredPermissionFor(route('/capas/abc-123'))).toBeNull()
   })
 
   it('gates create/new pages on the module create permission', () => {
-    expect(requiredPermissionFor(route('/documents/create'))).toBe('documents:create')
-    expect(requiredPermissionFor(route('/documents/new'))).toBe('documents:create')
-    expect(requiredPermissionFor(route('/suppliers/create'))).toBe('suppliers:create')
-    expect(requiredPermissionFor(route('/users/create'))).toBe('users:create')
+    expect(requiredPermissionFor(route('/documents/create'))).toBe('document_control:create')
+    expect(requiredPermissionFor(route('/documents/new'))).toBe('document_control:create')
+    expect(requiredPermissionFor(route('/suppliers/create'))).toBe('supplier_management:create')
+    expect(requiredPermissionFor(route('/users/create'))).toBe('user_management:create')
     // :manage / :create gates already cover creation — used as-is.
-    expect(requiredPermissionFor(route('/inspections-logs/create'))).toBe('fieldRecords:create')
-    expect(requiredPermissionFor(route('/m/inspections/create'))).toBe('inspections:create')
+    expect(requiredPermissionFor(route('/inspections-logs/create'))).toBe('field_records:create')
+    // /m/:internalName is an admin-defined custom module — internalName is a
+    // dynamic slug, NOT a native authz module. Use a fictional name so this
+    // stays distinct from any real module in the catalog.
+    expect(requiredPermissionFor(route('/m/gemba_walks/create'))).toBe('gemba_walks:create')
   })
 
   it('resolves admin-defined module routes to <internalName>:read', () => {
-    expect(requiredPermissionFor(route('/m/inspections'))).toBe('inspections:read')
+    expect(requiredPermissionFor(route('/m/gemba_walks'))).toBe('gemba_walks:read')
     expect(requiredPermissionFor(route('/m'))).toBeNull()
   })
 
@@ -80,7 +83,7 @@ describe('evaluateRoute — internal users', () => {
   })
 
   it('allows a user who holds the required permission', () => {
-    setSession({ isOwner: false, permissions: ['users:read'] })
+    setSession({ isOwner: false, permissions: ['user_management:read'] })
     expect(evaluateRoute(route('/users'))).toBe(true)
   })
 
@@ -98,12 +101,12 @@ describe('evaluateRoute — internal users', () => {
   })
 
   it('blocks the create page without the module create permission', () => {
-    setSession({ isOwner: false, permissions: ['documents:read'] })
+    setSession({ isOwner: false, permissions: ['document_control:read'] })
     expect(evaluateRoute(route('/documents/create'))).toMatchObject({ path: '/no-access' })
   })
 
   it('allows the create page when the user holds the create permission', () => {
-    setSession({ isOwner: false, permissions: ['documents:read', 'documents:create'] })
+    setSession({ isOwner: false, permissions: ['document_control:read', 'document_control:create'] })
     expect(evaluateRoute(route('/documents/create'))).toBe(true)
   })
 

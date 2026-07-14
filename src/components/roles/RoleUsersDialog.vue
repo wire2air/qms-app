@@ -1,7 +1,10 @@
 <script setup>
 import { IconSearch, IconUserOff } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
-import { get, put } from '@/api'
+// Roster read is a plain list (action RPC). The assignment WRITE goes through
+// the syncEngine RoleOnUser model — the same path the user page uses — so there
+// is one source of truth for the user↔role relationship (see CLAUDE.md rule #4).
+import { get } from '@/api'
 
 const props = defineProps({
   roleId: {
@@ -29,7 +32,22 @@ const toast = useToast()
 const allUsers = ref([])
 const selectedUserIds = ref([])
 const loading = ref(false)
+const saving = ref(false)
 const searchTerm = ref('')
+
+// Authoritative current assignments for this role (live). Used to compute the
+// add/remove diff on save and to delete the right RoleOnUser rows.
+const roleAssignments = useLiveQueryWithDeps(
+  [() => props.roleId],
+  async (db, [roleId]) => (roleId ? db.RoleOnUser.where('roleId', roleId).exec() : []),
+  { initial: [] },
+)
+
+const addRoleOnUser = useLiveMutation(async (db, { userId, roleId }) => {
+  const assignment = db.RoleOnUser.create({ userId, roleId })
+  await assignment.save()
+  return assignment
+})
 
 const filteredUsers = computed(() => {
   if (!searchTerm.value.trim()) {
@@ -44,7 +62,7 @@ const filteredUsers = computed(() => {
   })
 })
 
-const canUpdateRole = computed(() => isAllowed(['roles:update']))
+const canUpdateRole = computed(() => isAllowed(['role_permission_management:update']))
 
 // Fetch all company users
 async function fetchAllUsers() {
@@ -71,26 +89,29 @@ function toggleUserSelection(userId) {
   }
 }
 
-// Save user assignments
+// Save user assignments — diff the selection against the live RoleOnUser rows
+// and apply via the syncEngine (create adds, soft-delete removes), matching the
+// user page. One write path for the relationship.
 async function saveUserAssignments() {
-  if (!props.roleId) {
-    return
+  if (!props.roleId) return
+  saving.value = true
+  try {
+    const desired = new Set(selectedUserIds.value)
+    const current = roleAssignments.value
+    const currentIds = new Set(current.map((ra) => ra.userId))
+
+    const toAdd = [...desired].filter((id) => !currentIds.has(id))
+    const toRemove = current.filter((ra) => !desired.has(ra.userId))
+
+    for (const userId of toAdd) await addRoleOnUser({ userId, roleId: props.roleId })
+    for (const ra of toRemove) await ra.delete()
+
+    toast.success('User assignments updated successfully')
+    open.value = false
+    emit('saved')
+  } finally {
+    saving.value = false
   }
-
-  await put(
-    `/v1/services/roles/${props.roleId}/users`,
-    {
-      userIds: selectedUserIds.value,
-    },
-    {
-      loader: loading,
-    },
-  )
-
-  toast.success('User assignments updated successfully')
-
-  open.value = false
-  emit('saved')
 }
 
 // Initialize when dialog opens
@@ -197,10 +218,10 @@ watch(
       <button
         v-if="canUpdateRole"
         class="tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:disabled:opacity-50 tw:disabled:cursor-not-allowed"
-        :disabled="loading"
+        :disabled="saving"
         @click="saveUserAssignments"
       >
-        <BaseSpinner v-if="loading" size="sm" color="white" class="tw:mr-2" />
+        <BaseSpinner v-if="saving" size="sm" color="white" class="tw:mr-2" />
         Save Assignments
       </button>
     </template>

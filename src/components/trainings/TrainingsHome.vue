@@ -5,9 +5,9 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const router = useRouter()
 
-const canCreate = computed(() => isAllowed(['trainings:create']))
-const canUpdate = computed(() => isAllowed(['trainings:update']))
-const canDelete = computed(() => isAllowed(['trainings:delete']))
+const canCreate = computed(() => isAllowed(['training:create']))
+const canUpdate = computed(() => isAllowed(['training:update']))
+const canDelete = computed(() => isAllowed(['training:delete']))
 
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `trainings`.

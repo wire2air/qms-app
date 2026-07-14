@@ -22,7 +22,7 @@ const optionSet = useLiveQueryWithDeps(
 )
 
 const loading = computed(() => optionSet.value === undefined)
-const canUpdate = computed(() => isAllowed(['optionSets:update']))
+const canUpdate = computed(() => isAllowed(['option_sets:update']))
 
 const editingOptionIndex = ref(-1)
 const editingName = ref(false)

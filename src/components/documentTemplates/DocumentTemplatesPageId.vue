@@ -27,8 +27,8 @@ const template = useLiveQueryWithDeps(
 )
 
 const loading = computed(() => template.value === undefined)
-const canUpdate = computed(() => isAllowed(['document-templates:update']))
-const canArchive = computed(() => isAllowed(['document-templates:delete']))
+const canUpdate = computed(() => isAllowed(['document_templates:update']))
+const canArchive = computed(() => isAllowed(['document_templates:delete']))
 
 // canEdit gates inline-edit behavior: only DRAFT templates can be edited.
 // PUBLISHED templates are immutable (they may be referenced by documents);

@@ -1,36 +1,84 @@
 <script setup>
 import { IconShield, IconPlus } from '@tabler/icons-vue'
-import { useRoles } from '@/composables/useRoles.js'
 import { isAllowed } from '@/utils/currentSession.js'
 
 /**
- * Roles — admin list page.
+ * Roles — admin list page (C3: syncEngine-backed).
  *
- * Built on the Enterprise Page Framework list template: `useListLayout`
- * (resolved content state) + `BaseListLayout` (header / state region). Data
- * lives in the `useRoles()` provide/inject composable (axios-backed), which
- * owns `roles`/`loading` and provides `userCount` per role. The list itself is
- * a `DataTable` (RolesTable) with built-in search / sort / filter / export —
- * matching SitesTable and the other admin lists.
+ * The whole roles surface is now syncEngine-backed (C3): the list reads live
+ * from `db.Role` (+ `db.RoleOnUser` for the per-role user count) and status
+ * changes persist through the model's `.save()` (the DB lock trigger blocks a
+ * locked role). Detail (RolePageId) and create (RoleCreateDialog) also use
+ * db.Role, so every change reflects live across the surface.
  */
-// useRoles fetches on mount (its currentCompany watch is immediate) and provides
-// userCount per role. Search / sort / filter now happen client-side in the DataTable.
-const { roles, loading, activateRole, deactivateRole } = useRoles()
 const showCreateDialog = ref(false)
+const cloneSource = ref(null)
+
+function openCreate() {
+  cloneSource.value = null
+  showCreateDialog.value = true
+}
+
+function onClone(role) {
+  cloneSource.value = role
+  showCreateDialog.value = true
+}
 
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const canCreateRole = computed(() => isAllowed(['roles:create']))
-const canUpdateRole = computed(() => isAllowed(['roles:update']))
+const canCreateRole = computed(() => isAllowed(['role_permission_management:create']))
+const canUpdateRole = computed(() => isAllowed(['role_permission_management:update']))
+
+// Live data.
+const roleList = useLiveQuery((db) => db.Role.where().exec(), { models: ['Role'] })
+const roleUsers = useLiveQuery((db) => db.RoleOnUser.where().exec(), {
+  models: ['RoleOnUser'],
+  initial: [],
+})
+const loading = computed(() => roleList.value === undefined)
+
+const countByRole = computed(() => {
+  const m = {}
+  for (const ru of roleUsers.value || []) m[ru.roleId] = (m[ru.roleId] || 0) + 1
+  return m
+})
+
+// Plain display rows (with userCount) for the table.
+const rows = computed(() =>
+  (roleList.value || []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    statusId: r.statusId,
+    updatedAt: r.updatedAt,
+    locked: r.locked,
+    userCount: countByRole.value[r.id] || 0,
+  })),
+)
 
 const list = useListLayout({
   filters: {},
-  total: () => roles.value.length,
+  total: () => rows.value.length,
   loading: () => loading.value,
-  empty: () => !loading.value && roles.value.length === 0,
+  empty: () => !loading.value && rows.value.length === 0,
   syncUrl: true,
 })
+
+// Status change persists via the live model instance; the DB lock trigger
+// rejects a locked role (surfaced as an error toast).
+async function setStatus(roleRow, statusId) {
+  const inst = (roleList.value || []).find((r) => r.id === roleRow.id)
+  if (!inst) return false
+  inst.statusId = statusId
+  try {
+    await inst.save()
+    return true
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update role')
+    return false
+  }
+}
 
 async function onActivate(role) {
   const ok = await confirm({
@@ -39,10 +87,7 @@ async function onActivate(role) {
     okLabel: 'Activate',
   })
   if (!ok) return
-  const success = await activateRole(role.id)
-  toast[success ? 'success' : 'error'](
-    success ? 'Role activated successfully' : 'Failed to activate role',
-  )
+  if (await setStatus(role, 'ACTIVE')) toast.success('Role activated successfully')
 }
 
 async function onDeactivate(role) {
@@ -53,10 +98,7 @@ async function onDeactivate(role) {
     danger: true,
   })
   if (!ok) return
-  const success = await deactivateRole(role.id)
-  toast[success ? 'success' : 'error'](
-    success ? 'Role deactivated successfully' : 'Failed to deactivate role',
-  )
+  if (await setStatus(role, 'INACTIVE')) toast.success('Role deactivated successfully')
 }
 </script>
 
@@ -74,7 +116,7 @@ async function onDeactivate(role) {
       <button
         v-if="canCreateRole"
         class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:bg-primary tw:text-white tw:font-bold tw:rounded-lg tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:cursor-pointer"
-        @click="showCreateDialog = true"
+        @click="openCreate"
       >
         <IconPlus :size="18" />
         Create New Role
@@ -82,11 +124,13 @@ async function onDeactivate(role) {
     </template>
 
     <RolesTable
-      :rows="roles"
+      :rows="rows"
       :loading="loading"
       :canUpdate="canUpdateRole"
+      :canCreate="canCreateRole"
       @activate="onActivate"
       @deactivate="onDeactivate"
+      @clone="onClone"
     />
   </BaseListLayout>
 
@@ -94,5 +138,5 @@ async function onDeactivate(role) {
        state, so leaving the dialog inside would unmount it whenever creating a
        role flips the shared `loading` ref (the list shows its skeleton),
        remounting a fresh dialog and re-opening it. -->
-  <RoleCreateDialog v-model="showCreateDialog" />
+  <RoleCreateDialog v-model="showCreateDialog" :cloneSource="cloneSource" />
 </template>

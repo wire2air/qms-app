@@ -23,7 +23,7 @@ const toast = useToast()
 const { confirm } = useConfirm()
 
 const canManage = computed(
-  () => !!currentSession.value?.isOwner || isAllowed(['auditFindingCategories:manage']),
+  () => !!currentSession.value?.isOwner || isAllowed(['audit_finding_categories:manage']),
 )
 
 const categories = useLiveQuery(

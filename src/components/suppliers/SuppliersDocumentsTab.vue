@@ -32,7 +32,7 @@ const props = defineProps({
 
 const toast = useToast()
 const { confirm } = useConfirm()
-const canUpdate = computed(() => isAllowed(['suppliers:update']))
+const canUpdate = computed(() => isAllowed(['supplier_management:update']))
 
 const supplierAssets = useLiveQueryWithDeps(
   [() => props.supplier?.id],

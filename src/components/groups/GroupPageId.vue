@@ -1,5 +1,5 @@
 <script setup>
-import { IconCamera, IconBuilding, IconUserPlus, IconCopy } from '@tabler/icons-vue'
+import { IconCamera, IconBuilding, IconUserPlus, IconCopy, IconShieldPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { uploadFile } from '@/utils/uploadService.js'
@@ -13,6 +13,11 @@ const props = defineProps({
 })
 
 const canUpdate = computed(() => isAllowed(['teams:update']))
+// Granting a role to a team confers authority to every member — a
+// privilege-escalation surface, so it is gated on role_permission_management
+// (the same permission that governs the roles matrix), not teams:update. The
+// RLS on roles_on_teams enforces this server-side regardless of the UI gate.
+const canManageTeamRoles = computed(() => isAllowed(['role_permission_management:update']))
 
 // ─── Live queries ─────────────────────────────────────────────────────────────
 
@@ -121,6 +126,43 @@ async function onAddMembers(userIds) {
 
 async function onRemoveMember(entry) {
   await entry.m.delete()
+}
+
+// ─── Roles granted via this team ────────────────────────────────────────────
+
+const teamRoles = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.RoleOnTeam.where('teamId', id).exec(),
+  { models: ['RoleOnTeam'], initial: [] },
+)
+const roleIdsOnTeam = computed(() => teamRoles.value.map((rt) => rt.roleId))
+const teamRoleMapByRoleId = computed(() => {
+  const map = new Map()
+  teamRoles.value.forEach((rt) => map.set(rt.roleId, rt))
+  return map
+})
+
+const addRoleToTeam = useLiveMutation(async (db, roleId) => {
+  const existing = await db.RoleOnTeam.where('teamId', props.id, { force: true })
+    .where('roleId', roleId)
+    .first()
+  if (existing) {
+    await existing.restore()
+  } else {
+    const rt = db.RoleOnTeam.create({ teamId: props.id, roleId })
+    await rt.save()
+  }
+})
+
+async function onRolesChange(roleIds) {
+  const toAdd = roleIds.filter((id) => !roleIdsOnTeam.value.includes(id))
+  const toRemove = roleIdsOnTeam.value.filter((id) => !roleIds.includes(id))
+  await Promise.all(toAdd.map((roleId) => addRoleToTeam(roleId)))
+  await Promise.all(toRemove.map((roleId) => teamRoleMapByRoleId.value.get(roleId)?.delete()))
+}
+
+async function onRemoveRole(roleId) {
+  await teamRoleMapByRoleId.value.get(roleId)?.delete()
 }
 
 // ─── Misc ─────────────────────────────────────────────────────────────────────
@@ -317,6 +359,60 @@ const groupDetailConfig = computed(() =>
               class="tw:p-8 tw:text-center tw:text-secondary tw:text-sm tw:border-dashed tw:border-2 tw:border-divider tw:rounded-b-xl"
             >
               No members assigned yet.
+            </div>
+          </div>
+
+          <!-- Roles granted via this team: every member inherits these roles. -->
+          <div class="tw:mt-6 tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm">
+            <div
+              class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
+            >
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <h3 class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+                  Roles
+                </h3>
+                <span
+                  class="tw:text-micro tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
+                >
+                  {{ roleIdsOnTeam.length }}
+                </span>
+              </div>
+              <RoleSelectMenu
+                v-if="canManageTeamRoles"
+                :modelValue="roleIdsOnTeam"
+                :multiple="true"
+                @update:modelValue="onRolesChange"
+              >
+                <template #button>
+                  <button
+                    class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
+                  >
+                    <IconShieldPlus :size="14" />
+                    Assign Roles
+                  </button>
+                </template>
+              </RoleSelectMenu>
+            </div>
+
+            <p class="tw:px-6 tw:pt-3 tw:text-xs tw:text-secondary">
+              Every member of this team inherits these roles in addition to their own.
+            </p>
+
+            <div v-if="roleIdsOnTeam.length > 0" class="tw:flex tw:flex-wrap tw:gap-2 tw:p-4">
+              <RoleBadgeById
+                v-for="roleId in roleIdsOnTeam"
+                :key="roleId"
+                :roleId="roleId"
+                :clearable="canManageTeamRoles"
+                @clear="onRemoveRole(roleId)"
+              />
+            </div>
+
+            <div
+              v-else
+              class="tw:m-4 tw:mt-2 tw:p-8 tw:text-center tw:text-secondary tw:text-sm tw:border-dashed tw:border-2 tw:border-divider tw:rounded-xl"
+            >
+              No roles granted via this team.
             </div>
           </div>
     </template>
