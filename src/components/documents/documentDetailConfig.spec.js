@@ -48,7 +48,7 @@ describe('buildDocumentActions', () => {
   it('always exposes the standard secondary actions', () => {
     const ids = visibleIds({})
     expect(ids).toEqual(
-      expect.arrayContaining(['print', 'reports', 'revisionHistory', 'auditLog', 'export', 'discussion']),
+      expect.arrayContaining(['print', 'reports', 'revisionHistory', 'auditLog', 'export']),
     )
   })
 
@@ -114,7 +114,6 @@ describe('buildDocumentActions', () => {
       revisionHistory: vi.fn(),
       auditLog: vi.fn(),
       export: vi.fn(),
-      discussion: vi.fn(),
       deleteVersion: vi.fn(),
       archive: vi.fn(),
     }

@@ -30,8 +30,11 @@
 | Filter/search toolbar       | `BaseFilterBar` · tabs → `BaseTabs`                              |
 | Record detail page          | `BaseDetailLayout` + `defineDetailConfig` + `DetailRail`         |
 | An icon                     | `import { IconX } from '@tabler/icons-vue'`                      |
+| Tooltip / help text         | Add copy to `resource/js/shared/data/tooltips.js`, then `<BaseLabel dataKey="your.key">` for form fields · `<BaseRailCard :titleHelp="…">` for section headers |
 
 Before adding anything new, `ls resource/js/shared/components/` (primitives) and `src/components/<feature>/` (feature components) — the thing you're about to build is probably already there.
+
+**Tooltips / help text.** Author reusable copy once in the central registry `resource/js/shared/data/tooltips.js` (`{ key, label?, tooltip? }`, dot-namespaced keys), then reference it — `<BaseLabel dataKey="document.collaboration">` for form-field help, or `<BaseRailCard :titleHelp="…">` for a section-header purpose tooltip (resolve via `useTooltipData().getFromTooltipData(key, 'tooltip')`). Both render the standard `IconHelpCircle` + `BaseTooltip`. An explicit `help="…"` on `BaseLabel` overrides the registry.
 
 ## Rules
 

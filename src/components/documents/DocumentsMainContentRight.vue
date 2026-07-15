@@ -243,14 +243,12 @@ watch(
           </div>
         </BaseDetailField>
 
-        <!-- Collaborators (renders its own sub-header) -->
-        <DocumentsCollaborators
-          :documentId="document.id"
-          :canEdit="canEdit"
-          class="tw:col-span-full"
-        />
       </div>
     </BaseRailCard>
+
+    <!-- Collaborators + Chat — one section right below Properties. The chat only
+         appears once collaborators exist. -->
+    <DocumentsCollaborationCard :documentId="document.id" :canEdit="canEdit" />
 
     <!-- Admin-defined custom fields, right after Properties. Self-hides when
          none configured. -->

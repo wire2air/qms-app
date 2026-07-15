@@ -55,7 +55,6 @@ const latestVersion = useLiveQueryWithDeps(
 )
 
 const selectedVersion = ref(null)
-const showMessages = ref(false)
 const showAuditLog = ref(false)
 const showRevisionHistory = ref(false)
 
@@ -195,6 +194,24 @@ watch(isRevisionVersion, (isRev) => {
 // effective, so we block submit until the author sets an audience or disables
 // training. Assessment stays optional (read-and-acknowledge is allowed).
 const showTrainingReminder = ref(false)
+
+// Collaborators get a REVIEW task when added. Before submitting for review we
+// remind the owner to confirm their collaborators have finished (they can still
+// proceed — it's an attestation, not a hard block).
+const showCollaboratorReminder = ref(false)
+const openCollaboratorTasks = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    const tasks = await db.TaskInstance.where('[entityType+entityId]', ['Document', id]).exec()
+    return tasks.filter(
+      (t) =>
+        t.sourceType === 'DocumentCollaborator' &&
+        ['ASSIGNED', 'IN_PROGRESS'].includes(t.statusId),
+    )
+  },
+  { models: ['TaskInstance'], initial: [] },
+)
+
 const trainingAudienceMissing = computed(() => {
   const tc = selectedVersion.value?.trainingConfig
   if (!tc?.enabled) return false
@@ -302,20 +319,19 @@ const isOwnerOrAuthor = computed(() => {
 // effective is a company-owner action, not a document-owner one).
 const isCompanyOwner = computed(() => currentSession.value?.isOwner === true)
 
-// Create New Draft is allowed when there's no version currently in flight.
-// "In flight" = a draft anyone is actively iterating on or has open for
-// review. Terminal / finalized statuses (APPROVED, EFFECTIVE, REJECTED,
-// SUPERSEDED, ARCHIVED) don't block a new draft.
-//
-// Previously this used `versions.every(v => APPROVED || EFFECTIVE)` —
-// which broke after the second approval, because the prior version
-// auto-transitions to SUPERSEDED and `every` then returned false forever.
+// A new version may only be started once the current (latest) version has
+// finished its lifecycle — i.e. it is APPROVED or EFFECTIVE. This blocks a new
+// version while the latest is still DRAFT, IN_REVIEW, CHANGES_REQUESTED, or
+// REJECTED (a rejected version is fixed and resubmitted in place, not
+// superseded by a fresh version). Checking the LATEST version — not `every`
+// version — avoids the trap where prior versions auto-transition to SUPERSEDED
+// and would otherwise block new versions forever.
 const canCreate = computed(() => {
-  const hasActiveDraft = versions.value.some((v) =>
-    ['DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED'].includes(v.statusId),
-  )
+  const latestApproved = ['APPROVED', 'EFFECTIVE'].includes(latestVersion.value?.statusId)
   return (
-    isAllowed(['document_control:create']) && document.value?.statusId !== 'ARCHIVED' && !hasActiveDraft
+    isAllowed(['document_control:create']) &&
+    document.value?.statusId !== 'ARCHIVED' &&
+    latestApproved
   )
 })
 const canEdit = computed(
@@ -426,7 +442,18 @@ function handleSubmitForReview() {
     showTrainingReminder.value = true
     return
   }
+  // Gate: collaborator(s) still have an open task → confirm they're done.
+  if (openCollaboratorTasks.value.length) {
+    showCollaboratorReminder.value = true
+    return
+  }
   // open preview dialog instead of immediate confirmation
+  showPreviewDialog.value = true
+}
+
+// Reminder action: owner confirms collaborators are done → proceed to submit.
+function confirmCollaboratorAndSubmit() {
+  showCollaboratorReminder.value = false
   showPreviewDialog.value = true
 }
 
@@ -502,6 +529,12 @@ function openNewVersionDialog() {
 }
 
 async function handleNewVersionConfirm(changeControl) {
+  // Defensive guard (the action is already gated by `canCreate`): never start a
+  // new version unless the latest one is Approved/Effective.
+  if (!['APPROVED', 'EFFECTIVE'].includes(latestVersion.value?.statusId)) {
+    toast.error('The current version must be approved before creating a new version.')
+    return
+  }
   const create = useLiveMutation(async (db) => {
     const latestVersionSections = latestVersion.value?.id
       ? await db.DocumentSection.where('documentVersionId', latestVersion.value.id).exec()
@@ -595,9 +628,6 @@ const documentActions = computed(() =>
         showAuditLog.value = true
       },
       export: handleExport,
-      discussion() {
-        showMessages.value = true
-      },
       deleteVersion: handleDeleteVersion,
       archive: handleDeleteDocument,
     },
@@ -771,13 +801,12 @@ const documentDetailConfig = computed(() =>
       <!-- Read-only external-access panel — populated by workflow-step
            assignment via autoShareSupplierUsers. See SharedWithPanel.vue. -->
       <SharedWithPanel entityType="Document" :entityId="props.id" />
+      <!-- Collaborator's own task — self-hides unless the viewer has one open. -->
+      <DocumentCollaboratorTaskCard :documentId="props.id" />
     </template>
   </BaseDetailLayout>
 
   <!-- Dialogs (siblings after </BaseDetailLayout>) -->
-
-      <!-- Messages Drawer -->
-      <DocumentsMessages v-model="showMessages" :documentId="props.id" />
 
       <DocumentWorkflowPreviewDialog
         v-model="showPreviewDialog"
@@ -852,6 +881,40 @@ const documentDetailConfig = computed(() =>
             Disable training &amp; submit
           </BaseButton>
           <BaseButton variant="primary" @click="goToTrainingSetup">Set up training</BaseButton>
+        </template>
+      </BaseDialog>
+
+      <!-- Collaborator completion reminder (attestation; owner can proceed) -->
+      <BaseDialog v-model="showCollaboratorReminder" title="Has the collaborator finished?" maxWidth="md">
+        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+          <div
+            class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+          >
+            <IconAlertTriangle :size="20" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
+            <div class="tw:text-sm tw:text-amber-900">
+              {{ openCollaboratorTasks.length }} collaborator{{
+                openCollaboratorTasks.length === 1 ? '' : 's'
+              }}
+              still {{ openCollaboratorTasks.length === 1 ? 'has' : 'have' }} an open task on this
+              document. Have they completed their contributions?
+            </div>
+          </div>
+          <div class="tw:flex tw:flex-wrap tw:gap-1.5">
+            <UserBadgeById
+              v-for="t in openCollaboratorTasks"
+              :key="t.id"
+              :userId="t.assignedTo"
+            />
+          </div>
+          <p class="tw:text-sm tw:text-secondary">
+            You can submit anyway — their task will stay assigned in their inbox.
+          </p>
+        </div>
+        <template #footer="{ close }">
+          <BaseButton variant="outline" @click="close">Not yet</BaseButton>
+          <BaseButton variant="primary" @click="confirmCollaboratorAndSubmit">
+            Submit for review
+          </BaseButton>
         </template>
       </BaseDialog>
 
