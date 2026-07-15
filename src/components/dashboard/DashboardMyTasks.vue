@@ -46,6 +46,8 @@ async function resolveRoute(db, t) {
       const v = await db.DocumentVersion.findByPk(t.entityId)
       return v?.documentId ? `/documents/${v.documentId}` : '/task-instances'
     }
+    case 'Document':
+      return `/documents/${t.entityId}`
     case 'LogBookVersion': {
       const v = await db.LogBookVersion.findByPk(t.entityId)
       return v?.logBookId ? `/inspections-logs/log-books/${v.logBookId}` : '/task-instances'

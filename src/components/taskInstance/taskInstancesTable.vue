@@ -61,6 +61,19 @@ const documentMap = useLiveQueryWithDeps(
   { models: ['DocumentVersion', 'Document'], initial: {} },
 )
 
+// Collaborator tasks target the Document directly (entityType='Document',
+// entityId=documentId) rather than a DocumentVersion, so resolve them by id.
+const documentDirectMap = useLiveQueryWithDeps(
+  [() => taskInstances.value.filter((i) => i.entityType === 'Document').map((i) => i.entityId)],
+  async (db, [entityIds]) => {
+    const ids = [...new Set(entityIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const docs = await Promise.all(ids.map((id) => db.Document.findByPk(id)))
+    return Object.fromEntries(docs.filter(Boolean).map((d) => [d.id, d]))
+  },
+  { models: ['Document'], initial: {} },
+)
+
 const ncMap = useLiveQueryWithDeps(
   [
     () =>
@@ -372,6 +385,7 @@ const fieldRecordMap = useLiveQueryWithDeps(
 // Record + template below.
 const BUILTIN_ENTITY_TYPES = new Set([
   'DocumentVersion',
+  'Document',
   'Nonconformance',
   'Capa',
   'CustomerComplaint',
@@ -504,7 +518,7 @@ const filteredInstances = computed(() => {
         entry.template?.title?.toLowerCase().includes(q)
       )
     }
-    const doc = documentMap.value[instance.entityId]?.doc
+    const doc = getDocument(instance)
     if (!doc) return false
     return doc.title?.toLowerCase().includes(q) || doc.docNumber?.toLowerCase().includes(q)
   })
@@ -528,6 +542,7 @@ function auditProgramLabel(id) {
 
 const EntityType = {
   DocumentVersion: 'Document',
+  Document: 'Document',
   Nonconformance: 'Nonconformance',
   ChangeRequest: 'Change Request',
   QualityEvent: 'Quality Event',
@@ -642,6 +657,7 @@ function getTrainingAssigneeEntry(instance) {
 }
 
 function getDocument(instance) {
+  if (instance.entityType === 'Document') return documentDirectMap.value[instance.entityId] || null
   return documentMap.value[instance.entityId]?.doc || null
 }
 
@@ -747,6 +763,9 @@ function entityRoute(row) {
   if (row.entityType === 'DocumentVersion') {
     const doc = documentMap.value[row.entityId]?.doc
     return doc ? getCompanyPath(`documents/${doc.id}`) : null
+  }
+  if (row.entityType === 'Document') {
+    return getCompanyPath(`documents/${row.entityId}`)
   }
   if (row.entityType === 'LogBookVersion') {
     const logBookId = logBookVersionMap.value[row.entityId]?.logBook?.id
