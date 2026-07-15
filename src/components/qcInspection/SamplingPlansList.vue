@@ -20,10 +20,13 @@ const revisingId = ref(null)
 const deletingId = ref(null)
 const editingPlan = ref(null)
 
+// One gate per backend check, same action string — see samplingPlans.js:
+// createPlan/revisePlan/deletePlan → :create, updatePlan → :edit_draft,
+// approvePlan → :approve. `inspection_standards:write` used to widen :create
+// here, which only ever surfaced buttons that the API then 403'd.
 const canApprove = computed(() => isAllowed(['inspection_plan:approve']))
-const canCreate = computed(
-  () => isAllowed(['inspection_standards:write']) || isAllowed(['inspection_plan:create']),
-)
+const canCreate = computed(() => isAllowed(['inspection_plan:create']))
+const canEditDraft = computed(() => isAllowed(['inspection_plan:edit_draft']))
 
 const POINT_LABELS = {
   INCOMING: 'Incoming',
@@ -213,7 +216,7 @@ async function createNewVersion(plan) {
       <template #body-cell-actions="{ row }">
         <div class="tw:flex tw:items-center tw:justify-end tw:gap-2">
           <BaseButton
-            v-if="canCreate && row.statusId === 'DRAFT'"
+            v-if="canEditDraft && row.statusId === 'DRAFT'"
             variant="outline"
             size="sm"
             @click="startEdit(row)"

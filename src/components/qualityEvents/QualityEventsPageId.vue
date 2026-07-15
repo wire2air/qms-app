@@ -1,7 +1,7 @@
 <script setup>
 import { IconArrowUpRight } from '@tabler/icons-vue'
 import { post } from '@/api'
-import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { isAllowed, isVerbAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentCompany } from '@/utils/currentCompany.js'
 import { useDebounceFn } from '@vueuse/core'
@@ -27,6 +27,12 @@ const event = useLiveQueryWithDeps(
 const loading = computed(() => event.value === undefined)
 const isAssignedReviewer = computed(() => !!event.value?.assignedToUserId && event.value.assignedToUserId === currentUserId.value)
 const canOwnerActions = computed(() => canUpdate.value && isAssignedReviewer.value)
+// Close: the assigned reviewer, OR a role explicitly granted quality_events:close.
+// Escalate: POST /escalate enforces quality_events:update, so gate on the same.
+const canClose = computed(
+  () => canOwnerActions.value || isVerbAllowed('quality_events', 'close'),
+)
+const canEscalate = computed(() => canUpdate.value)
 const reviewSlaDays = computed(() => {
   const n = Number(currentCompany.value?.settings?.defaultQualityEventReviewSlaDays)
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 7
@@ -301,8 +307,8 @@ async function handleNotify() {
 
 async function handleClose() {
   if (!event.value) return
-  if (!canOwnerActions.value) {
-    toast.warning('Only the assigned reviewer can close this event.')
+  if (!canClose.value) {
+    toast.warning('You need the Close permission, or to be the assigned reviewer, to close this event.')
     return
   }
   closing.value = true
@@ -363,7 +369,12 @@ const breadcrumbs = computed(() => [
 const qualityEventBanners = computed(() => buildQualityEventBanners(event.value))
 const qualityEventActions = computed(() =>
   buildQualityEventActions(
-    { canOwnerActions: canOwnerActions.value, statusId: event.value?.statusId, closing: closing.value },
+    {
+      canClose: canClose.value,
+      canEscalate: canEscalate.value,
+      statusId: event.value?.statusId,
+      closing: closing.value,
+    },
     {
       close() {
         handleClose()

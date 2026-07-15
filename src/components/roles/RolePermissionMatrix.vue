@@ -10,6 +10,7 @@ import {
   isModuleModified,
   clampScope,
   writeScopeOptionsFor,
+  supportsRead,
 } from '@/utils/permissionMatrixModel.js'
 
 const props = defineProps({
@@ -61,6 +62,15 @@ function moduleCaps(m) {
 function moduleGranted(id) {
   return !!state[id]?.readScope
 }
+// Modules with no `read` action have no read-only grant to store — access there
+// comes only from holding one of their own verbs. An access level with no
+// capability selected would save nothing, so surface it instead of discarding it.
+function needsCapability(m) {
+  if (supportsRead(m, readActionId.value)) return false
+  if (!state[m.id]?.readScope) return false
+  return !moduleCaps(m).some((a) => state[m.id]?.caps[a.id])
+}
+const modulesNeedingCapability = computed(() => catalog.value.modules.filter(needsCapability))
 function moduleModified(id) {
   return isModuleModified(state[id], original.value[id])
 }
@@ -207,6 +217,13 @@ async function load() {
 }
 
 async function save() {
+  const unstorable = modulesNeedingCapability.value
+  if (unstorable.length) {
+    throw new Error(
+      `${unstorable.map((m) => m.name).join(', ')}: no read-only access is available on ` +
+        `${unstorable.length > 1 ? 'these modules' : 'this module'} — select at least one capability, or set Access to “${NO_ACCESS_LABEL}”.`,
+    )
+  }
   saving.value = true
   try {
     const permissions = buildDesiredPermissions(
@@ -397,6 +414,9 @@ defineExpose({ save, hasUnsavedChanges: () => modifiedCount.value > 0 })
                 <span v-else class="tw:text-secondary tw:opacity-30">—</span>
               </td>
               <td class="tw:p-2">
+                <p v-if="needsCapability(m)" class="tw:mb-1 tw:text-xs tw:text-warning-700">
+                  No read-only access — select a capability.
+                </p>
                 <div v-if="moduleCaps(m).length" class="tw:flex tw:flex-wrap tw:gap-1.5">
                   <button
                     v-for="a in moduleCaps(m)"
