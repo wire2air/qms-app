@@ -24,7 +24,10 @@ export class SupplierContact extends BaseModel {
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) supplierId = ''
   // Optional link to one of the supplier's locations (shared list + tag).
-  @Property({ type: String }) supplierLocationId = ''
+  // null, not '': the column is a nullable uuid, and serializeModel sends every
+  // property verbatim — an unset '' reaches PostGraphile's UUID scalar and is
+  // rejected at variable coercion (HTTP 400) before the mutation even runs.
+  @Property({ type: String }) supplierLocationId = null
   @Property({ type: String }) name = ''
   @Property({ type: String }) jobTitle = ''
   // email / phone no longer required — a contact may be name-only.

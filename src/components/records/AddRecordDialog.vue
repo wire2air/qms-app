@@ -374,6 +374,12 @@ async function handleSubmit(data) {
         templateId: selectedTemplate.value.id,
         payload: frozen,
       })
+      // useLiveMutation reports the failure itself and resolves to undefined
+      // rather than throwing, so the catch below never sees it. Without this
+      // guard a failed create still advanced to the success step and emitted
+      // 'created' — surfacing "Record created successfully" alongside the error
+      // toast for a record that was never written.
+      if (!record) return
       createdRecord.value = record
       step.value = 'success'
       emit('created', record)
