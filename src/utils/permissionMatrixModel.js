@@ -54,9 +54,19 @@ export function projectGrantsToState(modules, grants, scopeRank, readActionId) {
   return state
 }
 
+// Does this module carry a real read action? 17 of 62 don't — they gate reads on
+// their own verb (`manage`, `write`, `upload`, …), so `<module>:read` is not
+// grantable and the engine rejects it. Read is still IMPLIED there by holding
+// any of the module's actions.
+export function supportsRead(m, readActionId) {
+  return (m.actions || []).includes(readActionId)
+}
+
 // UI state → desired-state grants for PUT. Each granted capability is written at
 // writeScope; read is written explicitly only when strictly wider than the
 // writes (else implied), or as a read-only grant when no capability is set.
+// Never emits an action the module doesn't subscribe to — the engine RAISEs on
+// those, which surfaces as a bare 500.
 export function buildDesiredPermissions(modules, state, readActionId, scopeRank) {
   const out = []
   for (const m of modules) {
@@ -68,13 +78,13 @@ export function buildDesiredPermissions(modules, state, readActionId, scopeRank)
     if (rank(scopeRank, writeScope) > rank(scopeRank, s.readScope)) writeScope = s.readScope
 
     const caps = (m.actions || []).filter((a) => a !== readActionId && s.caps[a])
-    if (caps.length) {
-      for (const a of caps) out.push({ module: m.id, action: a, scope: writeScope })
-      // Store read explicitly only when it reaches wider than the writes.
-      if (rank(scopeRank, s.readScope) > rank(scopeRank, writeScope)) {
-        out.push({ module: m.id, action: readActionId, scope: s.readScope })
-      }
-    } else {
+    for (const a of caps) out.push({ module: m.id, action: a, scope: writeScope })
+
+    if (!supportsRead(m, readActionId)) continue // read isn't grantable here
+
+    // Store read explicitly only when it reaches wider than the writes; with no
+    // capability at all, the read row IS the grant.
+    if (!caps.length || rank(scopeRank, s.readScope) > rank(scopeRank, writeScope)) {
       out.push({ module: m.id, action: readActionId, scope: s.readScope })
     }
   }

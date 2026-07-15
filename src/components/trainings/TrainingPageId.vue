@@ -25,6 +25,8 @@ const loading = computed(() => training.value === undefined)
 
 const canUpdate = computed(() => isAllowed(['training:update']))
 const canManage = computed(() => isAllowed(['training:manage']))
+// Matches the server's DELETE policy (training:delete) and TrainingsHome's list gate.
+const canDelete = computed(() => isAllowed(['training:delete']))
 
 const isEditable = computed(() => training.value?.status === 'DRAFT')
 
@@ -141,6 +143,7 @@ const trainingActions = computed(() =>
   buildTrainingActions(
     {
       canManage: canManage.value,
+      canDelete: canDelete.value,
       status: training.value?.status,
       hasManager: !!training.value?.managerId,
       canUnpublish: canUnpublish.value,

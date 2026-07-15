@@ -152,6 +152,15 @@ describe('BaseSelect', () => {
       expect(wrapper.emitted().clear).toBeTruthy()
     })
 
+    // Regression: the null row is a clear-to-EMPTY control. On a multiple select
+    // it read as "All roles" but wiped every selection when picked — on the user
+    // detail page that unassigned every role the user had.
+    it('does not render the null option on a multiple select', async () => {
+      await open({ nullLabel: '— All fruit —', multiple: true })
+      expect(options()).toHaveLength(3)
+      expect(options()[0].textContent).toContain('Apple')
+    })
+
     it('shows the null label in the trigger when nothing is selected', () => {
       wrapper = mount(BaseSelect, {
         props: {

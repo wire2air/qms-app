@@ -38,10 +38,17 @@ const props = defineProps({
   // --- chrome ---
   label: { type: String, default: '' },
   placeholder: { type: String, default: 'Select…' },
-  // Optional in-list "All" option for non-required (filter) selects. When set and
-  // !required, a synthetic row is prepended to the list; picking it clears the
-  // selection (null / []), and the trigger shows this label instead of the
-  // placeholder. Mirrors BaseSelectMenu's nullLabel so filter wrappers migrate 1:1.
+  // Optional in-list "All" option for non-required, SINGLE-select (filter)
+  // selects. When set and !required, a synthetic row is prepended to the list;
+  // picking it clears the selection (null), and the trigger shows this label
+  // instead of the placeholder. Mirrors BaseSelectMenu's nullLabel so filter
+  // wrappers migrate 1:1.
+  //
+  // Never rendered on a multiple select: there the row is a clear-to-EMPTY
+  // control wearing an "All …" label, so picking it wipes every selection
+  // (`multiple` already has its own Clear-all control below the search box, and
+  // each chip has its own clear). On an assignment multi-select that read as
+  // "assign all roles" and silently unassigned them instead.
   nullLabel: { type: String, default: null },
   instructions: { type: String, default: '' },
   errorMsg: { type: String, default: '' },
@@ -125,7 +132,7 @@ const visibleOptions = computed(() => {
 const displayNullLabel = computed(() =>
   (props.nullLabel || '').replace(/^—\s*/, '').replace(/\s*—$/, '').trim(),
 )
-const showNull = computed(() => !!props.nullLabel && !props.required)
+const showNull = computed(() => !!props.nullLabel && !props.required && !props.multiple)
 
 const displayRows = computed(() => {
   const rows = []

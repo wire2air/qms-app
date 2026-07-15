@@ -30,10 +30,16 @@ export function buildQualityEventSections(_event) {
 }
 
 /** Header action descriptors. gates = resolved booleans/strings; handlers = callbacks.
- *  Owner-only actions (Close / Escalate) are available to the assigned reviewer.
+ *
+ *  One gate per action, each mirroring its own backend check — a single
+ *  `canOwnerActions` for both hid Close AND Escalate from anyone who wasn't the
+ *  assigned reviewer, no matter what the role granted.
+ *    close    → assigned reviewer, OR an explicit quality_events:close grant
+ *    escalate → quality_events:update (what POST /escalate enforces)
  */
 export function buildQualityEventActions(gates = {}, handlers = {}) {
-  const { canOwnerActions, statusId, closing } = gates
+  const { canClose, canEscalate, statusId, closing } = gates
+  const isOpen = !['CLOSED', 'CANCELLED'].includes(statusId)
   return [
     {
       id: 'close',
@@ -41,7 +47,7 @@ export function buildQualityEventActions(gates = {}, handlers = {}) {
       icon: IconCircleCheck,
       variant: 'primary',
       priority: 110,
-      visible: !!canOwnerActions && !['CLOSED', 'CANCELLED'].includes(statusId),
+      visible: !!canClose && isOpen,
       disabled: !!closing,
       loading: !!closing,
       onSelect: handlers.close,
@@ -52,7 +58,7 @@ export function buildQualityEventActions(gates = {}, handlers = {}) {
       icon: IconArrowUpRight,
       variant: 'primary',
       priority: 100,
-      visible: !!canOwnerActions && !['CLOSED', 'CANCELLED'].includes(statusId),
+      visible: !!canEscalate && isOpen,
       onSelect: handlers.escalate,
     },
     {

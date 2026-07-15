@@ -27,23 +27,27 @@ export class Record extends BaseModel {
   @Property({ type: String, uuid: true, required: true }) id = ''
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) templateId = ''
-  @Property({ type: String }) documentTypeId = ''
+  // Optional FKs default to null, never ''. serializeModel sends every property
+  // verbatim and serializeValue only short-circuits null/undefined, so an unset
+  // '' lands in the column: PostGraphile's UUID scalar rejects it at variable
+  // coercion (HTTP 400), and documentTypeId (a varchar FK) violates its FK.
+  @Property({ type: String }) documentTypeId = null
   @Property({ type: String, required: true }) recordNumber = ''
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: Object }) payload = null
   @Property({ type: String }) submissionIp = ''
   @Property({ type: String, required: true }) userId = ''
   // --- generic-module envelope ---
-  @Property({ type: String }) ownerUserId = ''
-  @Property({ type: String }) workflowInstanceId = ''
+  @Property({ type: String }) ownerUserId = null
+  @Property({ type: String }) workflowInstanceId = null
   @Property({ type: Array }) notifyUserIds = []
   @Property({ type: Array }) notifyGroupIds = []
   @Property({ type: String }) moduleKey = ''
-  @Property({ type: String }) siteId = ''
-  @Property({ type: String }) departmentId = ''
+  @Property({ type: String }) siteId = null
+  @Property({ type: String }) departmentId = null
   @Property({ type: DateTime }) dueDate = null
   @Property({ type: DateTime }) completedAt = null
-  @Property({ type: String }) supplierId = ''
+  @Property({ type: String }) supplierId = null
   @Property({ type: DateTime }) nextReviewDate = null
   // Computed weighted score + rating band, sealed on workflow complete.
   @Property({ type: Object }) scoringResult = null

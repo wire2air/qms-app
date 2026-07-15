@@ -3,11 +3,15 @@ import {
   projectGrantsToState,
   buildDesiredPermissions,
   writeScopeOptionsFor,
+  supportsRead,
 } from './permissionMatrixModel.js'
 
 const SCOPE_RANK = { own: 1, department: 2, site: 3, tenant: 4 }
 const READ = 'read'
 const MODULES = [{ id: 'capa', actions: ['read', 'create', 'update', 'approve'], scopes: ['own', 'department', 'site', 'tenant'] }]
+// 17 of 62 real modules carry no 'read' action — they gate reads on their own
+// verb. '<module>:read' is not grantable there and the engine RAISEs on it.
+const READLESS = [{ id: 'nc_issue_types', actions: ['manage'], scopes: ['tenant'] }]
 
 describe('projectGrantsToState', () => {
   it('implies read reach from the widest capability scope', () => {
@@ -69,6 +73,33 @@ describe('buildDesiredPermissions', () => {
   it('sends nothing for no access', () => {
     const state = { capa: { readScope: null, writeScope: null, caps: {} } }
     expect(buildDesiredPermissions(MODULES, state, READ, SCOPE_RANK)).toEqual([])
+  })
+
+  // Regression: emitting '<module>:read' for a module that has no read action
+  // made authz.set_permission RAISE → a bare 500 on save.
+  it('never emits read for a module without a read action', () => {
+    const state = { nc_issue_types: { readScope: 'tenant', writeScope: 'tenant', caps: {} } }
+    expect(buildDesiredPermissions(READLESS, state, READ, SCOPE_RANK)).toEqual([])
+  })
+
+  it('emits only the real capability for a module without a read action', () => {
+    const state = { nc_issue_types: { readScope: 'tenant', writeScope: 'tenant', caps: { manage: true } } }
+    expect(buildDesiredPermissions(READLESS, state, READ, SCOPE_RANK)).toEqual([
+      { module: 'nc_issue_types', action: 'manage', scope: 'tenant' },
+    ])
+  })
+
+  it('never emits an action the module does not subscribe to', () => {
+    const state = { capa: { readScope: 'tenant', writeScope: 'tenant', caps: { manage: true, delete: true } } }
+    const out = buildDesiredPermissions(MODULES, state, READ, SCOPE_RANK)
+    expect(out.every((p) => MODULES[0].actions.includes(p.action))).toBe(true)
+  })
+})
+
+describe('supportsRead', () => {
+  it('is true only where the module subscribes to the read action', () => {
+    expect(supportsRead(MODULES[0], READ)).toBe(true)
+    expect(supportsRead(READLESS[0], READ)).toBe(false)
   })
 })
 

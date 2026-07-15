@@ -7,7 +7,7 @@ import {
   IconChevronDown,
   IconChartBar,
 } from '@tabler/icons-vue'
-import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { isAllowed, isVerbAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post, get } from '@/api'
@@ -22,6 +22,13 @@ const { confirm } = useConfirm()
 const canCreate = computed(() => isAllowed(['complaint_management:create']))
 const canUpdate = computed(() => isAllowed(['complaint_management:update']))
 const canDelete = computed(() => isAllowed(['complaint_management:delete']))
+// Bulk Close / Assign are workflow verbs, not plain edits — gating them on
+// :update let a role close and assign complaints it was never granted those
+// capabilities for. isVerbAllowed tracks what the API actually enforces (see
+// BULK_ACTION_VERBS in customerComplaints.js), so these stay equivalent to
+// :update until AUTHZ_VERBS_ENABLED is switched on.
+const canClose = computed(() => isVerbAllowed('complaint_management', 'close'))
+const canAssign = computed(() => isVerbAllowed('complaint_management', 'assign'))
 const canConvert = computed(
   () => isAllowed(['complaint_management:update']) && isAllowed(['ncr:create']),
 )
@@ -412,7 +419,7 @@ function onNewComplaint() {
         Create NC
       </BaseButton>
       <BaseButton
-        v-if="canUpdate"
+        v-if="canAssign"
         variant="outline"
         size="sm"
         :disabled="bulkBusy"
@@ -428,7 +435,7 @@ function onNewComplaint() {
         </template>
       </BaseMenu>
       <BaseButton
-        v-if="canUpdate"
+        v-if="canClose"
         variant="outline"
         size="sm"
         :disabled="bulkBusy"

@@ -7,7 +7,7 @@
  * OK, false on cancel/dismiss — so call sites keep their imperative shape:
  *
  * @example
- *   const confirm = useConfirm()
+ *   const { confirm } = useConfirm()
  *   if (!(await confirm({
  *     title: 'Delete rule',
  *     message: `Delete "${rule.name}"? This cannot be undone.`,

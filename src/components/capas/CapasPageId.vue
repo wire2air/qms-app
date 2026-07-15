@@ -27,11 +27,24 @@ watch(
 
 const loading = computed(() => capa.value === undefined)
 
+// Page-level fields (title, owner, site, department, due date, custom fields)
+// are owner-controlled. Anyone else with CAPA module access can READ the record
+// (default module behavior) but must not edit it — workflow-step forms have
+// their own editability gate inside WorkflowStepForm. Mirrors NCR.
+// Status alone is not authorization: without this, a role scoped to capa
+// write=Own could type into another user's CAPA and the RLS UPDATE policy would
+// silently match 0 rows (edit looked accepted, never persisted).
+const canUpdate = computed(() => isAllowed(['capa:update']))
 const isEditable = computed(
-  () => capa.value && capa.value.statusId !== 'CLOSED' && capa.value.statusId !== 'CANCELLED',
+  () =>
+    capa.value &&
+    capa.value.statusId !== 'CLOSED' &&
+    capa.value.statusId !== 'CANCELLED' &&
+    canUpdate.value &&
+    isOwner.value,
 )
 
-useAutoSave(capa)
+useAutoSave(capa, { enabled: isEditable })
 
 const saving = ref(false)
 const saveError = ref(null)

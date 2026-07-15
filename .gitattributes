@@ -1,0 +1,10 @@
+# Force textual diffs for source files.
+#
+# src/utils/currentSession.js used to embed two literal NUL bytes as a join()
+# separator (now written as the equivalent backslash-u-0000 escape). A NUL makes
+# git, grep and `file` classify the blob as binary, so changes to it rendered as
+# "Bin 10020 -> 11095 bytes" instead of a reviewable diff -- on the very file
+# that defines the frontend permission gates. `diff` only affects diff
+# rendering; it does not touch line endings, so nothing gets renormalized.
+*.js diff
+*.vue diff
