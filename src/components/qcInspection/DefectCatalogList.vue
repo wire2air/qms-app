@@ -9,6 +9,7 @@ import { IconPlus, IconPencil, IconTrash } from '@tabler/icons-vue'
 
 defineProps({ canManage: { type: Boolean, default: false } })
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const showDialog = ref(false)
 const editDefect = ref(null)
@@ -68,7 +69,15 @@ function openEdit(d) {
   showDialog.value = true
 }
 async function removeDefect(d) {
-  if (!window.confirm(`Delete test "${d.name}"? Specs already built keep their copy.`)) return
+  if (
+    !(await confirm({
+      title: 'Delete test',
+      message: `Delete test "${d.name}"? Specs already built keep their copy.`,
+      okLabel: 'Delete',
+      danger: true,
+    }))
+  )
+    return
   try {
     await d.delete()
     toast.success('Test deleted')

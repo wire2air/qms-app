@@ -40,7 +40,14 @@ export function buildTrainingSections(_training) {
  *  Matrix + Unpublish (when allowed) + Archive.
  */
 export function buildTrainingActions(gates = {}, handlers = {}) {
-  const { canManage, status, hasManager, canUnpublish, actionLoading } = gates
+  // `training` is the only module that defines a real `delete` action AND a
+  // `manage` one, so Delete must gate on `training:delete` — the server's DELETE
+  // policy does. Gating it on `manage` broke both ways: delete-without-manage
+  // saw no button despite being authorized, manage-without-delete saw a button
+  // the server then rejected. The other actions here are status flips that
+  // `manage` correctly covers. Falls back to canManage so a caller that hasn't
+  // been updated keeps its old behavior rather than losing the button.
+  const { canManage, canDelete = canManage, status, hasManager, canUnpublish, actionLoading } = gates
   const isDraft = status === 'DRAFT'
   const isActive = status === 'ACTIVE'
   return [
@@ -99,7 +106,7 @@ export function buildTrainingActions(gates = {}, handlers = {}) {
       icon: IconTrash,
       variant: 'danger',
       priority: 10,
-      visible: !!canManage && isDraft,
+      visible: !!canDelete && isDraft,
       loading: !!actionLoading,
       onSelect: handlers.openDelete,
     },
