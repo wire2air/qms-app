@@ -457,6 +457,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/platform/seed': RouteRecordInfo<
+      '/platform/seed',
+      '/platform/seed',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/print': RouteRecordInfo<
       '/print',
       '/print',
@@ -1091,6 +1098,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/platform/plans.vue': {
       routes:
         | '/platform/plans'
+      views:
+        | never
+    }
+    'src/pages/platform/seed.vue': {
+      routes:
+        | '/platform/seed'
       views:
         | never
     }

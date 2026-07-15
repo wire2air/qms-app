@@ -80,6 +80,26 @@ export function setCompanyModule(id, moduleId, enabled) {
   )
 }
 
+// ── QMS defaults seeding (built-in ISO baseline) ─────────────────────────────
+// Seed a tenant's built-in defaults (Main Site, roles, workflow/document/form
+// templates, lookups, audit library, onboarding training). Additive +
+// idempotent server-side: only missing rows are inserted. View = support;
+// seeding = admin. Audited (COMPANY_SEED_DEFAULTS).
+export function listSeedModules() {
+  return get('/v1/platform/seed-modules', { loader: false })
+}
+
+// modules: array of module keys (deps auto-included) or null/empty for the full
+// baseline. source: 'defaults' (built-in ISO baseline) or a source companyId to
+// clone that company's config for the selected modules. Returns
+// { seeded, company, source, appliedModules }.
+export function seedCompanyDefaults(id, modules, source = 'defaults') {
+  return post(`/v1/platform/companies/${id}/seed-defaults`, {
+    modules: modules?.length ? modules : null,
+    source: source || 'defaults',
+  })
+}
+
 // ── Plan catalog (global) ────────────────────────────────────────────────────
 export function listPlans() {
   return get('/v1/platform/plans', { loader: false })
