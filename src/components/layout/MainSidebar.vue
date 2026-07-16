@@ -45,6 +45,7 @@ import {
   IconLicense,
   IconGavel,
   IconMessageReport,
+  IconSeeding,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { isDark } from '@/utils/theme.js'
@@ -573,6 +574,7 @@ const navItems = computed(() => {
             children: [
               { label: 'Overview', icon: IconLayoutGrid, to: '/platform' },
               { label: 'Tenants', icon: IconBuildingCommunity, to: '/platform/companies' },
+              { label: 'Seed Defaults', icon: IconSeeding, to: '/platform/seed' },
               { label: 'Plans', icon: IconLicense, to: '/platform/plans' },
               {
                 label: 'Impersonate',
