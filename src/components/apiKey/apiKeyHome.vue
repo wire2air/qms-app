@@ -47,6 +47,8 @@ function openDialog() {
       <ApiKeyListItem v-for="key in apiKeys || []" :key="key.id" :apiKey="key" />
     </div>
 
-    <ApiKeyCreateDialog v-model="showCreateDialog" />
   </BaseListLayout>
+
+  <!-- Outside BaseListLayout so it stays mounted in the empty state. -->
+  <ApiKeyCreateDialog v-model="showCreateDialog" />
 </template>

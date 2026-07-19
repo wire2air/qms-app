@@ -320,9 +320,12 @@ async function recordCalibration(e) {
       </template>
     </DataTable>
 
-    <CreateEquipmentDialog v-model="showCreateDialog" @created="onCreated" />
-    <!-- Same component, edit mode. The dialog seeds its draft from
-         the `equipment` prop when set. -->
-    <CreateEquipmentDialog v-model="showEditDialog" :equipment="editingEquipment" @updated="onUpdated" />
   </BaseListLayout>
+
+  <!-- Outside BaseListLayout so they stay mounted in the empty state (else you
+       can't create the first equipment). -->
+  <CreateEquipmentDialog v-model="showCreateDialog" @created="onCreated" />
+  <!-- Same component, edit mode. The dialog seeds its draft from
+       the `equipment` prop when set. -->
+  <CreateEquipmentDialog v-model="showEditDialog" :equipment="editingEquipment" @updated="onUpdated" />
 </template>

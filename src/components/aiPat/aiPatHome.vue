@@ -54,6 +54,8 @@ function openDialog() {
 
     <AiPatList :tokens="tokens" />
 
-    <AiPatCreateDialog v-model="showCreateDialog" />
   </BaseListLayout>
+
+  <!-- Outside BaseListLayout so it stays mounted in the empty state. -->
+  <AiPatCreateDialog v-model="showCreateDialog" />
 </template>

@@ -53,7 +53,10 @@ const columns = computed(() => [
 ])
 
 const pagination = ref({ page: 1, pageSize: 50 })
-const sort = ref([{ id: 'firstName', desc: false }])
+// Sort id must match the column id ('name'), not the underlying field
+// ('firstName') — otherwise TanStack warns "Column with id 'firstName' does not
+// exist". The 'name' column sorts by firstName via its field accessor.
+const sort = ref([{ id: 'name', desc: false }])
 
 function openUser(row) {
   router.push(getCompanyPath(`/users/${row.id}`))
