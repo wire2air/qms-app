@@ -289,10 +289,13 @@ const columns = [
          the generic form-template create, but the UX speaks the I&L
          vocabulary and skips fields that don't apply (Document Type,
          Training Configuration, preset gallery). -->
-    <CreateLogBookDialog
-      v-model="showCreateDialog"
-      :initialClassification="pendingClassification"
-      @created="onTemplateCreated"
-    />
   </BaseListLayout>
+
+  <!-- Outside BaseListLayout so it stays mounted in the empty state (else you
+       can't create the first template). -->
+  <CreateLogBookDialog
+    v-model="showCreateDialog"
+    :initialClassification="pendingClassification"
+    @created="onTemplateCreated"
+  />
 </template>

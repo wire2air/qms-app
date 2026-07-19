@@ -258,21 +258,23 @@ async function updateRoles(cid, newIds) {
       </div>
     </div>
 
-    <!-- Create curriculum -->
-    <BaseDialog v-model="showCreate" title="New curriculum" size="sm">
-      <div class="tw:flex tw:flex-col tw:gap-3">
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <BaseText as="div" variant="overline">Name</BaseText>
-          <BaseTextInput v-model="draft.name" placeholder="e.g. Production Onboarding" @keyup.enter="saveCurriculum" />
-        </div>
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <BaseText as="div" variant="overline">Description</BaseText>
-          <BaseTextarea v-model="draft.description" :rows="2" placeholder="Optional" />
-        </div>
-      </div>
-      <template #footer="{ close }">
-        <BaseDialogFooter submitLabel="Create" :disabled="!draft.name.trim()" @cancel="close" @submit="saveCurriculum" />
-      </template>
-    </BaseDialog>
   </BaseListLayout>
+
+  <!-- Create curriculum — outside BaseListLayout so it stays mounted in the
+       empty state (else you can't create the first curriculum). -->
+  <BaseDialog v-model="showCreate" title="New curriculum" size="sm">
+    <div class="tw:flex tw:flex-col tw:gap-3">
+      <div class="tw:flex tw:flex-col tw:gap-1">
+        <BaseText as="div" variant="overline">Name</BaseText>
+        <BaseTextInput v-model="draft.name" placeholder="e.g. Production Onboarding" @keyup.enter="saveCurriculum" />
+      </div>
+      <div class="tw:flex tw:flex-col tw:gap-1">
+        <BaseText as="div" variant="overline">Description</BaseText>
+        <BaseTextarea v-model="draft.description" :rows="2" placeholder="Optional" />
+      </div>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter submitLabel="Create" :disabled="!draft.name.trim()" @cancel="close" @submit="saveCurriculum" />
+    </template>
+  </BaseDialog>
 </template>

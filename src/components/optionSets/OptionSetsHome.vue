@@ -63,11 +63,9 @@ function openDialog(id = null) {
 
     <OptionSetsTable :rows="optionSets" :canDelete="canDeleteOptionSet" />
 
-    <!-- Create/Edit Option Set Dialog -->
-    <OptionSetCreateDialog
-      v-if="showCreateDialog"
-      :id="selectedOptionSetId"
-      v-model="showCreateDialog"
-    />
   </BaseListLayout>
+
+  <!-- Create/Edit Option Set Dialog — outside BaseListLayout so it stays mounted
+       in the empty state (else you can't create the first option set). -->
+  <OptionSetCreateDialog v-if="showCreateDialog" :id="selectedOptionSetId" v-model="showCreateDialog" />
 </template>

@@ -73,7 +73,9 @@ async function onDeleteSite(row) {
       @edit="onEditSite"
     />
 
-    <!-- Create/Edit Site Dialog -->
-    <SitesCreateUpdateDialog v-if="showDialog" :id="selectedSiteId" v-model="showDialog" />
   </BaseListLayout>
+
+  <!-- Create/Edit Site Dialog — outside BaseListLayout so it stays mounted in
+       the empty state (else you can't create the first site). -->
+  <SitesCreateUpdateDialog v-if="showDialog" :id="selectedSiteId" v-model="showDialog" />
 </template>

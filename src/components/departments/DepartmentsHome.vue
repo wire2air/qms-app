@@ -80,11 +80,9 @@ async function onDeleteDepartment(row) {
       @edit="onEditDepartment"
     />
 
-    <!-- Create/Edit Department Dialog -->
-    <DepartmentsCreateUpdateDialog
-      v-if="showDialog"
-      :id="selectedDepartmentId"
-      v-model="showDialog"
-    />
   </BaseListLayout>
+
+  <!-- Create/Edit Department Dialog — outside BaseListLayout so it stays mounted
+       in the empty state (else you can't create the first department). -->
+  <DepartmentsCreateUpdateDialog v-if="showDialog" :id="selectedDepartmentId" v-model="showDialog" />
 </template>

@@ -71,6 +71,9 @@ const loading = computed(() => groups.value === undefined)
       @delete="onDelete"
     />
 
-    <GroupsCreateDialog v-model="showCreateDialog" />
   </BaseListLayout>
+
+  <!-- Outside BaseListLayout so it stays mounted in the empty state (its
+       default slot only renders when 'ready') — else you can't create the first. -->
+  <GroupsCreateDialog v-model="showCreateDialog" />
 </template>

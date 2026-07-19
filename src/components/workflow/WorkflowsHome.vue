@@ -80,8 +80,10 @@ function handleWorkflowCreated(workflow) {
         :allWorkflows="workflows ?? []"
       />
     </div>
-
-    <!-- Create Dialog -->
-    <WorkflowCreateDialog v-model="showCreateDialog" @created="handleWorkflowCreated" />
   </BaseListLayout>
+
+  <!-- Create Dialog — kept OUTSIDE BaseListLayout so it stays mounted in the
+       empty/loading state too (BaseListLayout renders its default slot only when
+       'ready'). Otherwise you can't create your first workflow. -->
+  <WorkflowCreateDialog v-model="showCreateDialog" @created="handleWorkflowCreated" />
 </template>

@@ -90,6 +90,8 @@ const users = useLiveQueryWithDeps(
 
     <UsersTable :rows="users || []" :loading="users === undefined" />
 
-    <UsersCreateUserDialog v-model="showCreateDialog" />
   </BaseListLayout>
+
+  <!-- Outside BaseListLayout so it stays mounted in the empty state. -->
+  <UsersCreateUserDialog v-model="showCreateDialog" />
 </template>
