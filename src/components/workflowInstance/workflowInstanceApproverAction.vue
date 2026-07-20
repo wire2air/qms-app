@@ -83,8 +83,12 @@ async function submitWorkflowAction(actionKey, { method, provider, token } = {})
     pendingAction.value = null
     comment.value = ''
     emit('done')
-  } catch {
-    // Keep dialogs open so user doesn't lose their input
+  } catch (err) {
+    // Keep the dialogs open so the user doesn't lose their input, but surface
+    // the failure — an approve/reject that threw changed nothing (e-sign
+    // mismatch, already-actioned task, permission race, network). Silently
+    // swallowing it was indistinguishable from success.
+    toast.error(err?.response?.data?.message || err?.message || 'Action failed. Please try again.')
   } finally {
     actionLoading.value = false
   }

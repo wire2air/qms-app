@@ -582,7 +582,10 @@ async function handleNewVersionConfirm(changeControl) {
     return version
   })
 
-  selectedVersion.value = await create()
+  const version = await create()
+  // useLiveMutation toasts its own error and returns undefined on failure —
+  // don't blank the version panel by assigning undefined.
+  if (version) selectedVersion.value = version
 }
 
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
