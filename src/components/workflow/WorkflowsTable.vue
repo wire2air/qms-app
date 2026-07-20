@@ -103,12 +103,16 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     exportFilename="workflows.csv"
   >
     <template #body-cell-name="{ row }">
+      <!-- Cap the cell width and truncate: a long name/description otherwise
+           stretches the column and pushes the actions three-dots off-screen,
+           forcing a horizontal scroll to reach it. min-w-0 lets the flex
+           children shrink so `truncate`/`line-clamp` actually apply. -->
       <BaseClickableRow
-        class="tw:flex tw:flex-col"
+        class="tw:flex tw:flex-col tw:min-w-0 tw:max-w-xs"
         :aria-label="`Edit workflow ${row.name}`"
         @click="navigateToWorkflow(row)"
       >
-        <span class="tw:font-bold tw:text-on-main">{{ row.name }}</span>
+        <span class="tw:truncate tw:font-bold tw:text-on-main">{{ row.name }}</span>
         <span v-if="row.description" class="tw:text-xs tw:text-secondary tw:line-clamp-1">
           {{ row.description }}
         </span>

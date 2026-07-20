@@ -319,7 +319,12 @@ const groupDetailConfig = computed(() =>
                   {{ memberCount }}
                 </span>
               </div>
+              <!-- Adding a member INSERTs users_on_teams, whose RLS requires
+                   `teams:update`. Only show Add Members when the user holds it —
+                   otherwise the picker appeared but every add hit "Something went
+                   wrong". Mirrors the roles-add control gated on canManageTeamRoles. -->
               <BaseSelect
+                v-if="canUpdate"
                 :modelValue="userIdsOnTeam"
                 :options="filteredUsers"
                 optionLabel="name"

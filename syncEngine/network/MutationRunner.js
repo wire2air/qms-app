@@ -21,9 +21,28 @@ function capitalize(str) {
  * @param {object} [patch] - precomputed UPDATE patch (required for UPDATE)
  * @returns {{ query: string, variables: object }}
  */
-function buildQueryAndVariables(meta, instance, action, patch) {
-  const id = instance[meta.pk]
+/**
+ * Build the key portion of an UPDATE / DELETE mutation input.
+ *
+ * Most models key on their single primary key. A model whose DB table has a
+ * COMPOSITE primary key (e.g. RecordCounter → (companyId, templateId)) declares
+ * a `static keyFields = [...]`; PostGraphile's update/delete input for such a
+ * table requires EVERY key column, so we must send them all — sending only the
+ * `primaryKey` field left the other key column missing ("Field 'companyId' of
+ * required type 'UUID!' was not provided"). Defaults to the single primary key,
+ * which is byte-identical to the previous `{ [meta.pk]: id }` behaviour.
+ */
+export function buildKeyInput(meta, instance) {
+  const keyFields =
+    Array.isArray(instance.constructor?.keyFields) && instance.constructor.keyFields.length
+      ? instance.constructor.keyFields
+      : [meta.pk]
+  const input = {}
+  for (const field of keyFields) input[field] = instance[field]
+  return input
+}
 
+function buildQueryAndVariables(meta, instance, action, patch) {
   switch (action) {
     case OPERATION.CREATE: {
       const serialized = serializeModel(instance.constructor.name, instance, 'create')
@@ -38,13 +57,13 @@ function buildQueryAndVariables(meta, instance, action, patch) {
       }
       return {
         query: meta.update,
-        variables: { input: { [meta.pk]: id, patch } },
+        variables: { input: { ...buildKeyInput(meta, instance), patch } },
       }
     }
     case OPERATION.DELETE:
       return {
         query: meta.delete,
-        variables: { input: { [meta.pk]: id } },
+        variables: { input: buildKeyInput(meta, instance) },
       }
     default:
       throw new Error(`[MutationRunner] Unknown action: ${action}`)

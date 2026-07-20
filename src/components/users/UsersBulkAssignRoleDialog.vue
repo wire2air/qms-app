@@ -41,6 +41,11 @@ async function confirm() {
   saving.value = true
   try {
     const added = await bulkAssign({ userIds: props.userIds, roleId: roleId.value })
+    // useLiveMutation swallows write failures (it shows its own error toast) and
+    // returns undefined. Guard on that: a genuine batch returns a number (0 when
+    // everyone already had the role). Without this guard a failed save still
+    // printed "Role assigned to undefined users" on top of the error toast.
+    if (added == null) return
     const skipped = props.userIds.length - added
     toast.success(
       `Role assigned to ${added} user${added === 1 ? '' : 's'}` +
