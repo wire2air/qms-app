@@ -62,8 +62,9 @@ function seedFromPlan(plan) {
     customRows: Array.isArray(plan.customPlanTable?.rows)
       ? plan.customPlanTable.rows.map((r) => ({ ...r }))
       : [{ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 }],
-    scope: plan.productId ? 'product' : 'productType',
+    scope: plan.productId ? 'product' : plan.productFamilyId ? 'family' : 'productType',
     productId: plan.productId ?? null,
+    productFamilyId: plan.productFamilyId ?? null,
     productTypeId: plan.productTypeId ?? null,
     inspectionPoint: plan.inspectionPoint ?? 'INCOMING',
     standardCode: plan.standardCode ?? null,
@@ -90,6 +91,7 @@ function reset() {
         customRows: [{ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 }],
         scope: 'product',
         productId: null,
+        productFamilyId: null,
         productTypeId: null,
         inspectionPoint: 'INCOMING',
         standardCode: null,
@@ -156,6 +158,7 @@ async function onSubmit() {
     const body = {
       name: f.name.trim(),
       productId: f.scope === 'product' ? f.productId : null,
+      productFamilyId: f.scope === 'family' ? f.productFamilyId : null,
       productTypeId: f.scope === 'productType' ? f.productTypeId : null,
       inspectionPoint: f.inspectionPoint,
       planType: f.planType,
@@ -212,54 +215,65 @@ async function onSubmit() {
               />
             </template>
           </BaseField>
-          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
-            <BaseField label="Inspection point">
-              <BaseInlineSelect
-                v-model="form.inspectionPoint"
-                :items="POINTS"
-                :required="true"
-                class="tw:w-full"
-              />
-            </BaseField>
+          <BaseField label="Inspection point">
+            <SegmentedControl
+              v-model="form.inspectionPoint"
+              :options="POINTS"
+              optionLabel="name"
+              optionValue="id"
+            />
+          </BaseField>
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
             <BaseField label="Scope">
-              <BaseInlineSelect
+              <SegmentedControl
                 v-model="form.scope"
-                :items="[
-                  { id: 'product', name: 'Specific product' },
-                  { id: 'productType', name: 'Product type' },
+                :options="[
+                  { label: 'Specific item', value: 'product' },
+                  { label: 'Item group', value: 'family' },
+                  { label: 'Item type', value: 'productType' },
                 ]"
-                :required="true"
-                class="tw:w-full"
               />
             </BaseField>
             <BaseField label="Plan type">
-              <BaseInlineSelect
+              <SegmentedControl
                 v-model="form.planType"
-                :items="[
-                  { id: 'STANDARD', name: 'AQL standard' },
-                  { id: 'CUSTOM', name: 'Custom table' },
+                :options="[
+                  { label: 'AQL standard', value: 'STANDARD' },
+                  { label: 'Custom table', value: 'CUSTOM' },
                 ]"
-                :required="true"
-                class="tw:w-full"
               />
             </BaseField>
           </div>
           <BaseField
             required
-            :value="form.scope === 'product' ? form.productId : form.productTypeId"
+            :value="
+              form.scope === 'product'
+                ? form.productId
+                : form.scope === 'family'
+                  ? form.productFamilyId
+                  : form.productTypeId
+            "
             :rules="[
               requiredWhen(() => form.scope === 'product'),
+              requiredWhen(() => form.scope === 'family'),
               requiredWhen(() => form.scope === 'productType'),
             ]"
           >
             <template #label>
-              {{ form.scope === 'product' ? 'Product' : 'Product type' }}
+              {{ form.scope === 'product' ? 'Item' : form.scope === 'family' ? 'Item group' : 'Item type' }}
             </template>
             <template #default="field">
               <ProductSelectMenu
                 v-if="form.scope === 'product'"
                 v-bind="field"
                 v-model="form.productId"
+                class="tw:w-full"
+              />
+              <ProductFamilySelectMenu
+                v-else-if="form.scope === 'family'"
+                v-bind="field"
+                v-model="form.productFamilyId"
+                :required="true"
                 class="tw:w-full"
               />
               <ProductTypeSelectMenu

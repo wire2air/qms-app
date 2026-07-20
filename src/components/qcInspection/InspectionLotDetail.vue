@@ -81,11 +81,19 @@ const equipment = useLiveQueryWithDeps(
   { models: ['Equipment'] },
 )
 
-// Mirrors the backend calibration gate (inspectionResultService.assertCalibrationOk):
-// capture is blocked when the assigned instrument's calibration has lapsed.
-const calibrationOverdue = computed(() => {
+// Mirrors the backend calibration gate (inspectionResultService): capture is
+// blocked when a calibration-tracked instrument is out of calibration OR has no
+// recorded calibration at all.
+const calibrationBlocked = computed(() => {
+  const eq = equipment.value
+  if (!eq?.requiresCalibration) return false
+  const due = eq.nextCalibrationDue
+  return !due || due.toMillis() < Date.now()
+})
+const calibrationReason = computed(() => {
   const due = equipment.value?.nextCalibrationDue
-  return Boolean(due && due.toMillis() < Date.now())
+  if (!due) return 'has no recorded calibration'
+  return `is out of calibration (due ${due.formatDate('date')})`
 })
 
 const POINT_LABELS = {
@@ -534,15 +542,14 @@ const inspectionLotDetailConfig = computed(() =>
          lot default will be blocked by the backend's per-row gate. Visual /
          sensory rows are unaffected. -->
     <div
-      v-if="calibrationOverdue && anyRequiresInstrument"
+      v-if="calibrationBlocked && anyRequiresInstrument"
       class="tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded-lg tw:px-4 tw:py-2.5 tw:text-sm tw:flex tw:items-center tw:gap-2 tw:flex-wrap"
     >
       <IconAlertTriangle :size="16" class="tw:text-amber-600 tw:shrink-0" />
       <span class="tw:text-amber-900">
         <span class="tw:font-semibold">{{ equipment?.name || 'The default instrument' }}</span>
-        is out of calibration (due {{ equipment?.nextCalibrationDue?.formatDate('date') }}) —
-        instrument-based tests using it will be blocked. Pick a different instrument on those rows,
-        or recalibrate.
+        {{ calibrationReason }} — instrument-based tests using it will be blocked. Pick a different
+        instrument on those rows, or record a calibration.
       </span>
       <RouterLink
         :to="getCompanyPath('/equipment')"

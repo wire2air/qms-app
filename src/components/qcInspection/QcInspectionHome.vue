@@ -41,7 +41,14 @@ const canManageDefects = computed(() => isAllowed(['inspection_catalog:write']))
       :icon="IconTestPipe"
       title="QC Inspection"
       subtitle="Incoming, in-process, final and outgoing inspection — specifications, lots, results and disposition."
-    />
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          QC Inspection
+          <HelpButton slug="KB/quality/qc-inspection" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
 
     <div class="tw:flex tw:flex-col tw:gap-5 tw:max-w-7xl">
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="QC Inspection sections">

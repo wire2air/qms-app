@@ -11,6 +11,10 @@ const props = defineProps({
   // When set, the spec is pre-scoped to this product: the scope/target
   // pickers are hidden and the spec is created against this product.
   lockProductId: { type: String, default: null },
+  // Opened from the Item page: pre-fill the item (and its Item Group) but keep
+  // the scope chips visible so the user can create against the item OR its group.
+  defaultProductId: { type: String, default: null },
+  defaultProductFamilyId: { type: String, default: null },
 })
 
 const emit = defineEmits(['created'])
@@ -21,12 +25,6 @@ const formRef = ref(null)
 const isSubmitting = ref(false)
 const saveError = ref(null)
 
-const MATERIAL_KINDS = [
-  { id: 'RAW', name: 'Raw material' },
-  { id: 'PACKAGING', name: 'Packaging' },
-  { id: 'BULK', name: 'Bulk' },
-  { id: 'FINISHED', name: 'Finished good' },
-]
 const TEST_TYPES = [
   { id: 'NUMERIC', name: 'Numeric' },
   { id: 'PASS_FAIL', name: 'Pass / Fail' },
@@ -39,10 +37,9 @@ function reset() {
   form.value = {
     name: '',
     code: '',
-    materialKind: 'RAW',
     scope: 'product', // product | family | productType
-    productId: props.lockProductId ?? null,
-    productFamilyId: null,
+    productId: props.lockProductId ?? props.defaultProductId ?? null,
+    productFamilyId: props.defaultProductFamilyId ?? null,
     productTypeId: null,
     characteristics: [],
   }
@@ -102,7 +99,6 @@ async function onSubmit() {
     const { specification } = await post('/v1/services/qcInspection/specifications', {
       name: f.name.trim(),
       code: f.code?.trim() || null,
-      materialKind: f.materialKind,
       productId: f.scope === 'product' ? f.productId : null,
       productFamilyId: f.scope === 'family' ? f.productFamilyId : null,
       productTypeId: f.scope === 'productType' ? f.productTypeId : null,
@@ -151,23 +147,14 @@ async function onSubmit() {
               <BaseTextInput v-bind="field" v-model="form.code" placeholder="optional" />
             </template>
           </BaseField>
-          <BaseField label="Material kind">
-            <BaseInlineSelect
-              v-model="form.materialKind"
-              :items="MATERIAL_KINDS"
-              :required="true"
-            />
-          </BaseField>
           <BaseField v-if="!lockProductId" label="Scope">
-            <BaseInlineSelect
+            <SegmentedControl
               v-model="form.scope"
-              :items="[
-                { id: 'product', name: 'Specific item' },
-                { id: 'family', name: 'Item group' },
-                { id: 'productType', name: 'Item type' },
+              :options="[
+                { label: 'Specific item', value: 'product' },
+                { label: 'Item group', value: 'family' },
+                { label: 'Item type', value: 'productType' },
               ]"
-              :required="true"
-              class="tw:w-full"
             />
           </BaseField>
         </div>

@@ -56,24 +56,8 @@ async function onEsignVerified({ method, token }) {
   }
 }
 
-const MATERIAL_LABELS = {
-  RAW: 'Raw material',
-  PACKAGING: 'Packaging',
-  BULK: 'Bulk',
-  FINISHED: 'Finished good',
-}
-const MATERIAL_OPTIONS = Object.entries(MATERIAL_LABELS).map(([value, label]) => ({ value, label }))
-
 const columns = [
   { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
-  {
-    name: 'material',
-    label: 'MATERIAL',
-    field: 'materialKind',
-    align: 'left',
-    filterType: 'select',
-    filterOptions: MATERIAL_OPTIONS,
-  },
   { name: 'version', label: 'VERSION', field: 'version', align: 'left', sortable: true },
   { name: 'status', label: 'STATUS', field: 'statusId', align: 'left' },
   {
@@ -134,10 +118,6 @@ function openSpec(id) {
           · {{ row.code }}</span
         >
       </RouterLink>
-    </template>
-
-    <template #body-cell-material="{ row }">
-      <span class="tw:text-secondary">{{ MATERIAL_LABELS[row.materialKind] || row.materialKind }}</span>
     </template>
 
     <template #body-cell-version="{ row }">

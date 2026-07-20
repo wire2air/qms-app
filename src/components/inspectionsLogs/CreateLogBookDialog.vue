@@ -54,6 +54,17 @@ const equipmentId = ref(null)
 const departmentId = ref(null)
 const location = ref('')
 
+// Prefill location from the selected instrument (equipment carries its own
+// location) — only when the field is still empty, so a manual entry is kept.
+const selectedEquipment = useLiveQueryWithDeps(
+  [() => equipmentId.value],
+  async (db, [id]) => (id ? db.Equipment.findByPk(id) : null),
+  { models: ['Equipment'] },
+)
+watch(selectedEquipment, (eq) => {
+  if (eq?.locationText && !location.value?.trim()) location.value = eq.locationText
+})
+
 // Compliance references
 const relatedStandardId = ref(null)
 const regulatoryCitation = ref('')

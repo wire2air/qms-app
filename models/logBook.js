@@ -41,6 +41,9 @@ export class LogBook extends BaseModel {
 
   // Equipment / department / free-text location references
   @Property({ type: String }) equipmentId = ''
+  // Auto-roll the linked instrument's calibration when an entry is finalized
+  // (calibration date = submit timestamp; next-due = + the instrument interval).
+  @Property({ type: Boolean }) syncsEquipmentCalibration = false
   @Property({ type: String }) departmentId = ''
   @Property({ type: String }) location = ''
 

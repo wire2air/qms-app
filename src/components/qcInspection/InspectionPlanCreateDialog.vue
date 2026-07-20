@@ -137,33 +137,31 @@ async function onSubmit() {
               />
             </template>
           </BaseField>
+          <BaseField
+            label="Inspection point"
+            required
+            :value="form.inspectionPoint"
+            :rules="[required()]"
+          >
+            <template #default="field">
+              <SegmentedControl
+                v-bind="field"
+                v-model="form.inspectionPoint"
+                :options="POINTS"
+                optionLabel="name"
+                optionValue="id"
+              />
+            </template>
+          </BaseField>
           <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-            <BaseField
-              label="Inspection point"
-              required
-              :value="form.inspectionPoint"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <BaseInlineSelect
-                  v-bind="field"
-                  v-model="form.inspectionPoint"
-                  :items="POINTS"
-                  :required="true"
-                  class="tw:w-full"
-                />
-              </template>
-            </BaseField>
             <BaseField label="Scope">
-              <BaseInlineSelect
+              <SegmentedControl
                 v-model="form.scope"
-                :items="[
-                  { id: 'product', name: 'Specific item' },
-                  { id: 'family', name: 'Item group' },
-                  { id: 'productType', name: 'Item type' },
+                :options="[
+                  { label: 'Specific item', value: 'product' },
+                  { label: 'Item group', value: 'family' },
+                  { label: 'Item type', value: 'productType' },
                 ]"
-                :required="true"
-                class="tw:w-full"
               />
             </BaseField>
           </div>

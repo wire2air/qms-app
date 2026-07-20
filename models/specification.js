@@ -14,7 +14,6 @@ export class Specification extends BaseModel {
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) name = ''
   @Property({ type: String }) code = /** @type {String} */ (null)
-  @Property({ type: String, required: true }) materialKind = 'RAW'
   @Property({ type: String }) productId = /** @type {String} */ (null)
   @Property({ type: String }) productTypeId = /** @type {String} */ (null)
   @Property({ type: String }) statusId = 'DRAFT'

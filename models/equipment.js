@@ -56,7 +56,8 @@ export class Equipment extends BaseModel {
   // Calibration program: explicit "tracked" flag + interval drives the
   // next-due date and the daily calibration-due reminder.
   @Property({ type: Boolean }) requiresCalibration = false
-  @Property({ type: Number }) calibrationIntervalMonths = /** @type {Number} */ (null)
+  @Property({ type: Number }) calibrationInterval = /** @type {Number} */ (null)
+  @Property({ type: String }) calibrationIntervalUnit = 'MONTH'
   @Property({ type: DateTime }) lastCalibratedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) nextCalibrationDue = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) nextPmDue = /** @type {DateTime} */ (null)

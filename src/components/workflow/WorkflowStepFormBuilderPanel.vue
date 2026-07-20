@@ -93,7 +93,9 @@ const showBackButton = computed(() => {
       leaveFromClass="tw:translate-y-0"
       leaveToClass="tw:translate-y-full"
     >
-      <div v-if="modelValue" class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-max">
+      <!-- z-overlay (below z-modal) so the FormBuilder's own dialogs (Generate
+           with AI, JSON, Clear, Preview) render above this panel, not behind. -->
+      <div v-if="modelValue" class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-overlay">
         <div class="tw:flex tw:flex-col tw:h-full tw:flex-nowrap">
           <!-- Header -->
           <div

@@ -1,120 +1,70 @@
 <script setup>
 /**
- * Specifications for a single product, embedded on the product detail page.
- * Lists every (non-superseded) specification scoped to this product; clicking
- * one opens the full SpecificationDetail INLINE (embedded, same tab) rather
- * than navigating off to the QC Inspection module. New draft (pre-scoped to the
- * product), approve via e-sign, and delete are all available from the list.
- *
- * Reads live from the SyncEngine; create/approve/delete go through the
- * qcInspection REST service (aggregate writes, not plain entity CRUD).
+ * Specifications linked to an item — shown on the Item detail page. Specs bind
+ * to a product OR its Item Group (product family), so this lists both the
+ * item-specific specs and the ones that cover the item's group. Rows LINK to the
+ * standalone Specification page (/qc-inspection/specifications/:id) — the full
+ * editor is no longer embedded here. "New Specification" lets the user create
+ * one scoped to this item or its Item Group.
  */
-import { IconPlus } from '@tabler/icons-vue'
-import { post, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { IconPlus, IconExternalLink } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const props = defineProps({
   productId: { type: String, required: true },
   productName: { type: String, default: '' },
 })
 
-const toast = useToast()
-
-const selectedSpecId = ref(null)
+const router = useRouter()
 const showCreate = ref(false)
-const showEsign = ref(false)
-const approvingId = ref(null)
-const deletingId = ref(null)
 
 const canManage = computed(() => isAllowed(['inspection_spec:write']))
 
-const backLabel = computed(() =>
-  props.productName ? `Back to ${props.productName} specifications` : 'Back to specifications',
+const product = useLiveQueryWithDeps(
+  [() => props.productId],
+  async (db, [id]) => (id ? db.Product.findByPk(id) : null),
+  { models: ['Product'] },
 )
 
-const MATERIAL_LABELS = {
-  RAW: 'Raw material',
-  PACKAGING: 'Packaging',
-  BULK: 'Bulk',
-  FINISHED: 'Finished good',
-}
-
-const columns = [
-  { name: 'name', label: 'NAME', field: 'name', align: 'left' },
-  { name: 'material', label: 'MATERIAL', field: 'materialKind', align: 'left' },
-  { name: 'version', label: 'VERSION', field: 'version', align: 'left' },
-  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left' },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
-
+// Item-specific specs + specs covering the item's Item Group (non-superseded).
 const specs = useLiveQueryWithDeps(
-  [() => props.productId],
-  async (db, [productId]) => {
+  [() => props.productId, () => product.value?.productFamilyId],
+  async (db, [productId, familyId]) => {
     if (!productId) return []
-    const rows = await db.Specification.where('productId', productId).exec()
-    return rows
+    const all = await db.Specification.where().exec()
+    return all
       .filter((s) => s.statusId !== 'SUPERSEDED')
+      .filter((s) => s.productId === productId || (familyId && s.productFamilyId === familyId))
       .sort((a, b) => (a.name || '').localeCompare(b.name || '') || b.version - a.version)
   },
   { models: ['Specification'], initial: [] },
 )
 
+const columns = [
+  { name: 'name', label: 'NAME', field: 'name', align: 'left' },
+  { name: 'scope', label: 'SCOPE', field: 'scope', align: 'left' },
+  { name: 'version', label: 'VERSION', field: 'version', align: 'left' },
+  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left' },
+  { name: 'open', label: '', field: 'open', align: 'right' },
+]
+
+function scopeLabel(row) {
+  if (row.productId === props.productId) return 'This item'
+  if (row.productFamilyId) return 'Item group'
+  return 'Item type'
+}
+
 function openSpec(id) {
-  selectedSpecId.value = id
-}
-
-function startApprove(spec) {
-  approvingId.value = spec.id
-  showEsign.value = true
-}
-
-async function onEsignVerified({ method, token }) {
-  if (!approvingId.value) return
-  try {
-    await post(`/v1/services/qcInspection/specifications/${approvingId.value}/approve`, {
-      esign: { method, token },
-    })
-    toast.success('Specification approved — now effective')
-  } catch (err) {
-    toast.error(err?.message || 'Approval failed')
-  } finally {
-    approvingId.value = null
-  }
-}
-
-async function deleteSpec(id) {
-  if (deletingId.value !== id) {
-    deletingId.value = id
-    return
-  }
-  try {
-    await del(`/v1/services/qcInspection/specifications/${id}`)
-    toast.success('Specification deleted')
-  } catch (err) {
-    toast.error(err?.message || 'Delete failed')
-  } finally {
-    deletingId.value = null
-  }
+  router.push(getCompanyPath(`/qc-inspection/specifications/${id}`))
 }
 </script>
 
 <template>
-  <!-- Inline spec detail (embedded — back returns to this list) -->
-  <SpecificationDetail
-    v-if="selectedSpecId"
-    :id="selectedSpecId"
-    :key="selectedSpecId"
-    embedded
-    :backLabel="backLabel"
-    @back="selectedSpecId = null"
-    @openSpec="(id) => (selectedSpecId = id)"
-  />
-
-  <!-- Spec list -->
-  <div v-else class="tw:flex tw:flex-col tw:gap-3">
+  <div class="tw:flex tw:flex-col tw:gap-3">
     <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:flex-wrap">
       <div class="tw:text-sm tw:text-secondary">
-        {{ specs.length }} specification(s) for this item
+        {{ specs.length }} specification(s) linked to this item or its group
       </div>
       <BaseButton v-if="canManage" variant="primary" size="sm" @click="showCreate = true">
         <template #icon><IconPlus :size="16" /></template>
@@ -128,7 +78,7 @@ async function deleteSpec(id) {
       rowKey="id"
       :mobileCards="false"
       hidePagination
-      noDataLabel="No specifications for this item yet."
+      noDataLabel="No specification linked to this item or its Item Group yet."
     >
       <template #body-cell-name="{ row }">
         <button
@@ -138,14 +88,12 @@ async function deleteSpec(id) {
           @click="openSpec(row.id)"
         >
           {{ row.name }}
-          <span v-if="row.code" class="tw:text-xs tw:text-secondary"
-            >· {{ row.code }}</span
-          >
+          <span v-if="row.code" class="tw:text-xs tw:text-secondary">· {{ row.code }}</span>
         </button>
       </template>
 
-      <template #body-cell-material="{ row }">
-        <span class="tw:text-secondary">{{ MATERIAL_LABELS[row.materialKind] || row.materialKind }}</span>
+      <template #body-cell-scope="{ row }">
+        <BaseChip size="sm">{{ scopeLabel(row) }}</BaseChip>
       </template>
 
       <template #body-cell-version="{ row }">
@@ -156,28 +104,23 @@ async function deleteSpec(id) {
         <SpecificationStatusBadgeById :statusId="row.statusId" />
       </template>
 
-      <template #body-cell-actions="{ row }">
-        <div
-          v-if="canManage && row.statusId === 'DRAFT'"
-          class="tw:flex tw:items-center tw:justify-end tw:gap-2"
+      <template #body-cell-open="{ row }">
+        <button
+          type="button"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+          :aria-label="`Open specification ${row.name}`"
+          @click="openSpec(row.id)"
         >
-          <BaseButton variant="outline" size="sm" @click="startApprove(row)">Approve</BaseButton>
-          <BaseButton
-            :variant="deletingId === row.id ? 'danger' : 'outline'"
-            size="sm"
-            @click="deleteSpec(row.id)"
-          >
-            {{ deletingId === row.id ? 'Confirm Delete?' : 'Delete' }}
-          </BaseButton>
-        </div>
+          Open <IconExternalLink :size="14" />
+        </button>
       </template>
     </DataTable>
   </div>
 
   <SpecificationCreateDialog
     v-model="showCreate"
-    :lockProductId="productId"
+    :defaultProductId="productId"
+    :defaultProductFamilyId="product?.productFamilyId || null"
     @created="openSpec"
   />
-  <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
 </template>

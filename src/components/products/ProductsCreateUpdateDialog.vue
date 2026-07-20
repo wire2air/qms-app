@@ -221,7 +221,7 @@ watch(open, (val) => {
 </script>
 
 <template>
-  <BaseDialog v-model="open" maxWidth="md">
+  <BaseDialog v-model="open" size="2xl">
     <template #title>
       <div class="tw:flex tw:items-center tw:gap-3">
         <div

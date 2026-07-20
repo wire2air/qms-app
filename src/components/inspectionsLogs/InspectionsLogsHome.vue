@@ -88,7 +88,12 @@ function go(path) {
     <PageHeader
       subtitle="Field records for routine inspections, environmental logs, gemba rounds and shift handovers. Records are immutable after the edit window closes."
     >
-      <template #title>Inspections &amp; Logs</template>
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Inspections &amp; Logs
+          <HelpButton slug="KB/operations/inspections-and-logs" :size="16" />
+        </span>
+      </template>
       <template #actions>
         <BaseButton
           v-if="canCreateTemplate"
