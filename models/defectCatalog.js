@@ -35,12 +35,11 @@ export class DefectCatalog extends BaseModel {
   @Property({ type: Boolean }) requiresInstrument = false
   // Preferred instrument for this test — copied onto the characteristic on pick.
   @Property({ type: String }) preferredEquipmentId = /** @type {String} */ (null)
-  @Property({ type: Number }) targetValue = /** @type {Number} */ (null)
-  @Property({ type: Number }) lsl = /** @type {Number} */ (null)
-  @Property({ type: Number }) usl = /** @type {Number} */ (null)
-  @Property({ type: String }) uom = /** @type {String} */ (null)
-  // null/empty = applies to all product types; else only these.
-  @Property({ type: Array }) applicableProductTypeIds = /** @type {Array} */ (null)
+  // Acceptance criteria (target/LSL/USL/UOM) intentionally live ONLY on the
+  // specification characteristic — they vary per item/spec. The library defines
+  // WHAT to test; the spec defines the ACCEPTANCE.
+  // null/empty = applies to all Item Groups; else only these product-family ids.
+  @Property({ type: Array }) applicableProductFamilyIds = /** @type {Array} */ (null)
   @Property({ type: Boolean }) active = true
   @Property({ type: String }) createdBy = /** @type {String} */ (null)
   @Property({ type: DateTime }) deletedAt = null

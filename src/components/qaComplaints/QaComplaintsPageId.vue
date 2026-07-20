@@ -92,6 +92,27 @@ const isOwner = computed(
   () => complaint.value?.ownerId && complaint.value.ownerId === currentUserId.value,
 )
 
+// QA-review workflow instance — declared BEFORE myApprovalTask because that
+// query's deps read workflowInstanceId; a later `const` would hit the temporal
+// dead zone and crash the whole page on setup.
+const workflowInstance = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    const rows = await db.WorkflowInstance.where('[resourceType+resourceId]', [
+      'Complaint',
+      id,
+    ]).exec()
+    return (
+      rows.find((w) => w.statusId === 'IN_PROGRESS') ||
+      rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))[0] ||
+      null
+    )
+  },
+  { models: ['WorkflowInstance'], initial: null },
+)
+const workflowInstanceId = computed(() => workflowInstance.value?.id ?? null)
+
 // The current user's actionable task on the active APPROVAL step — drives the
 // top "Approve & Close" action. Approving it completes the workflow, which
 // auto-closes the complaint (see complaintHandler.onComplete).
@@ -232,25 +253,8 @@ async function removeSimilarLink(targetId) {
   await runAction('unlinkSimilar', { targetComplaintId: targetId })
 }
 
-// ─── QA-review workflow instance + close gating ──────────────────────────────
-const workflowInstance = useLiveQueryWithDeps(
-  [() => props.id],
-  async (db, [id]) => {
-    if (!id) return null
-    const rows = await db.WorkflowInstance.where('[resourceType+resourceId]', [
-      'Complaint',
-      id,
-    ]).exec()
-    return (
-      rows.find((w) => w.statusId === 'IN_PROGRESS') ||
-      rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))[0] ||
-      null
-    )
-  },
-  { models: ['WorkflowInstance'], initial: null },
-)
-const workflowInstanceId = computed(() => workflowInstance.value?.id ?? null)
-
+// ─── QA-review workflow close gating (workflowInstance/workflowInstanceId are
+// declared earlier, above myApprovalTask) ────────────────────────────────────
 async function handleSubmitForReview() {
   await runAction('submitForReview', {})
 }

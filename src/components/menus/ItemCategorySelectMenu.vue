@@ -1,10 +1,9 @@
 <script setup>
 /**
- * Disposition-type select (shared nc_disposition_types lookup — QC lots + NCs).
- * Inline "Add New" (footer button → quick create) so a reviewer can add a
- * missing disposition without leaving the record — same pattern as
- * EventCategorySelectMenu / ComplaintLookupSelectMenu. Full management (adverse
- * flag, cost tracking, order) lives in Lookups → NC Dispositions.
+ * Item Category select (per-tenant item_categories lookup) — the market /
+ * product-line taxonomy (Skin Care, Hair Care …). Inline "Add New" so a user can
+ * add a missing category without leaving the form; full management lives in
+ * Settings → Lookups → Item Categories. Gated by company_settings:manage.
  */
 import { IconPlus } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
@@ -14,20 +13,20 @@ const props = defineProps({
   required: { type: Boolean, default: false },
   multiple: { type: Boolean, default: false },
   allowCreate: { type: Boolean, default: true },
+  nullLabel: { type: String, default: '— No category —' },
 })
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 const toast = useToast()
 
-const dispositionTypes = useLiveQuery(
-  (db) => db.NcDispositionType.where().orderBy('displayOrder').exec(),
+const categories = useLiveQuery((db) => db.ItemCategory.where().orderBy('displayOrder').exec(), {
+  models: ['ItemCategory'],
+  initial: [],
+})
 
-  { models: ['NcDispositionType'], initial: [] },
+const canCreate = computed(
+  () => props.allowCreate && isAllowed(['company_settings:manage', 'owner']),
 )
-
-// ── Inline add ────────────────────────────────────────────────────────────────
-// Gated by the same permission Lookups → NC Dispositions uses.
-const canCreate = computed(() => props.allowCreate && isAllowed(['nc_disposition_types:manage']))
 const showCreate = ref(false)
 const newName = ref('')
 const saving = ref(false)
@@ -56,14 +55,13 @@ async function submitCreate() {
   }
   saving.value = true
   try {
-    const res = await post('/v1/services/ncDispositionTypes', {
+    const res = await post('/v1/services/itemCategories', {
       code: slugify(name),
       name,
       description: null,
-      displayOrder: (dispositionTypes.value?.length ?? 0) * 100 + 100,
-      tracksCost: false,
+      displayOrder: (categories.value?.length ?? 0) * 100 + 100,
     })
-    const row = res?.dispositionType ?? res
+    const row = res?.itemCategory ?? res
     if (row?.id) {
       if (props.multiple) {
         const arr = Array.isArray(modelValue.value) ? modelValue.value : []
@@ -72,11 +70,11 @@ async function submitCreate() {
         modelValue.value = row.id
       }
     }
-    toast.success('Disposition created')
+    toast.success('Category created')
     showCreate.value = false
     newName.value = ''
   } catch (e) {
-    toast.error(e?.message || 'Failed to create disposition')
+    toast.error(e?.message || 'Failed to create category')
   } finally {
     saving.value = false
   }
@@ -86,26 +84,15 @@ async function submitCreate() {
 <template>
   <BaseSelect
     v-model="modelValue"
-    :options="dispositionTypes"
+    :options="categories"
     optionLabel="name"
     optionValue="id"
     :required="required"
     :multiple="multiple"
     :clearable="!required"
-    nullLabel="— All dispositions —"
+    :nullLabel="nullLabel"
+    placeholder="Select category…"
   >
-    <template #selected="{ options, remove }">
-      <div class="tw:flex tw:flex-wrap tw:gap-1">
-        <NcDispositionTypeBadgeById
-          v-for="o in options"
-          :key="o.value"
-          :dispositionTypeId="o.value"
-          :clearable="multiple && (!required || options.length > 1)"
-          @clear="() => remove(o)"
-        />
-      </div>
-    </template>
-
     <template v-if="canCreate" #footer="{ close }">
       <button
         type="button"
@@ -113,18 +100,17 @@ async function submitCreate() {
         @click="openCreate(close)"
       >
         <IconPlus :size="16" />
-        Add New Disposition
+        Add New Category
       </button>
     </template>
   </BaseSelect>
 
-  <BaseDialog v-model="showCreate" title="New disposition" maxWidth="sm">
+  <BaseDialog v-model="showCreate" title="New item category" maxWidth="sm">
     <div class="tw:flex tw:flex-col tw:gap-1">
       <BaseText as="div" variant="overline">Name</BaseText>
-      <BaseTextInput v-model="newName" placeholder="e.g. Use As Is" autofocus @keyup.enter="submitCreate" />
+      <BaseTextInput v-model="newName" placeholder="e.g. Skin Care" autofocus @keyup.enter="submitCreate" />
       <p class="tw:mt-1 tw:text-xs tw:text-secondary">
-        New dispositions are treated as adverse by default. Adjust the adverse / cost flags in
-        Lookups → NC Dispositions.
+        Market / product line (Skin Care, Hair Care). Manage full list in Lookups → Item Categories.
       </p>
     </div>
     <template #footer="{ close }">

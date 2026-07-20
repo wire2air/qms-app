@@ -1,10 +1,10 @@
 <script setup>
 /**
- * Disposition-type select (shared nc_disposition_types lookup — QC lots + NCs).
- * Inline "Add New" (footer button → quick create) so a reviewer can add a
- * missing disposition without leaving the record — same pattern as
- * EventCategorySelectMenu / ComplaintLookupSelectMenu. Full management (adverse
- * flag, cost tracking, order) lives in Lookups → NC Dispositions.
+ * Unit of Measure select (per-tenant uoms lookup) for the Item Master. Optional
+ * / clearable — leaving it blank means "N/A". Inline "Add New" (footer button →
+ * quick create) so a user can add a missing unit without leaving the form; full
+ * management lives in Settings → Lookups → Units of Measure. Gated by
+ * company_settings:manage (same gate as the REST endpoint).
  */
 import { IconPlus } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
@@ -14,22 +14,24 @@ const props = defineProps({
   required: { type: Boolean, default: false },
   multiple: { type: Boolean, default: false },
   allowCreate: { type: Boolean, default: true },
+  nullLabel: { type: String, default: '— N/A —' },
 })
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 const toast = useToast()
 
-const dispositionTypes = useLiveQuery(
-  (db) => db.NcDispositionType.where().orderBy('displayOrder').exec(),
-
-  { models: ['NcDispositionType'], initial: [] },
-)
+const uoms = useLiveQuery((db) => db.Uom.where().orderBy('displayOrder').exec(), {
+  models: ['Uom'],
+  initial: [],
+})
 
 // ── Inline add ────────────────────────────────────────────────────────────────
-// Gated by the same permission Lookups → NC Dispositions uses.
-const canCreate = computed(() => props.allowCreate && isAllowed(['nc_disposition_types:manage']))
+const canCreate = computed(
+  () => props.allowCreate && isAllowed(['company_settings:manage', 'owner']),
+)
 const showCreate = ref(false)
 const newName = ref('')
+const newCode = ref('')
 const saving = ref(false)
 
 function slugify(text) {
@@ -45,25 +47,26 @@ function slugify(text) {
 function openCreate(closePopover) {
   closePopover?.()
   newName.value = ''
+  newCode.value = ''
   showCreate.value = true
 }
 
 async function submitCreate() {
   const name = newName.value.trim()
+  const code = (newCode.value.trim() || slugify(name)).toUpperCase()
   if (!name) {
     toast.warning('Name is required')
     return
   }
   saving.value = true
   try {
-    const res = await post('/v1/services/ncDispositionTypes', {
-      code: slugify(name),
+    const res = await post('/v1/services/uoms', {
+      code,
       name,
       description: null,
-      displayOrder: (dispositionTypes.value?.length ?? 0) * 100 + 100,
-      tracksCost: false,
+      displayOrder: (uoms.value?.length ?? 0) * 100 + 100,
     })
-    const row = res?.dispositionType ?? res
+    const row = res?.uom ?? res
     if (row?.id) {
       if (props.multiple) {
         const arr = Array.isArray(modelValue.value) ? modelValue.value : []
@@ -72,11 +75,12 @@ async function submitCreate() {
         modelValue.value = row.id
       }
     }
-    toast.success('Disposition created')
+    toast.success('Unit created')
     showCreate.value = false
     newName.value = ''
+    newCode.value = ''
   } catch (e) {
-    toast.error(e?.message || 'Failed to create disposition')
+    toast.error(e?.message || 'Failed to create unit')
   } finally {
     saving.value = false
   }
@@ -86,26 +90,15 @@ async function submitCreate() {
 <template>
   <BaseSelect
     v-model="modelValue"
-    :options="dispositionTypes"
+    :options="uoms"
     optionLabel="name"
     optionValue="id"
     :required="required"
     :multiple="multiple"
     :clearable="!required"
-    nullLabel="— All dispositions —"
+    :nullLabel="nullLabel"
+    placeholder="Select unit…"
   >
-    <template #selected="{ options, remove }">
-      <div class="tw:flex tw:flex-wrap tw:gap-1">
-        <NcDispositionTypeBadgeById
-          v-for="o in options"
-          :key="o.value"
-          :dispositionTypeId="o.value"
-          :clearable="multiple && (!required || options.length > 1)"
-          @clear="() => remove(o)"
-        />
-      </div>
-    </template>
-
     <template v-if="canCreate" #footer="{ close }">
       <button
         type="button"
@@ -113,19 +106,21 @@ async function submitCreate() {
         @click="openCreate(close)"
       >
         <IconPlus :size="16" />
-        Add New Disposition
+        Add New Unit
       </button>
     </template>
   </BaseSelect>
 
-  <BaseDialog v-model="showCreate" title="New disposition" maxWidth="sm">
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <BaseText as="div" variant="overline">Name</BaseText>
-      <BaseTextInput v-model="newName" placeholder="e.g. Use As Is" autofocus @keyup.enter="submitCreate" />
-      <p class="tw:mt-1 tw:text-xs tw:text-secondary">
-        New dispositions are treated as adverse by default. Adjust the adverse / cost flags in
-        Lookups → NC Dispositions.
-      </p>
+  <BaseDialog v-model="showCreate" title="New unit of measure" maxWidth="sm">
+    <div class="tw:flex tw:flex-col tw:gap-3">
+      <div class="tw:flex tw:flex-col tw:gap-1">
+        <BaseText as="div" variant="overline">Name</BaseText>
+        <BaseTextInput v-model="newName" placeholder="e.g. Each (ea)" autofocus @keyup.enter="submitCreate" />
+      </div>
+      <div class="tw:flex tw:flex-col tw:gap-1">
+        <BaseText as="div" variant="overline">Code (optional)</BaseText>
+        <BaseTextInput v-model="newCode" placeholder="Auto-derived from name (e.g. EA)" @keyup.enter="submitCreate" />
+      </div>
     </div>
     <template #footer="{ close }">
       <BaseDialogFooter

@@ -40,8 +40,9 @@ function reset() {
     name: '',
     code: '',
     materialKind: 'RAW',
-    scope: 'product', // product | productType
+    scope: 'product', // product | family | productType
     productId: props.lockProductId ?? null,
+    productFamilyId: null,
     productTypeId: null,
     characteristics: [],
   }
@@ -76,10 +77,11 @@ function addFromLibrary(entries) {
     _key: crypto.randomUUID(),
     name: t.name ?? '',
     testType: t.testType || 'PASS_FAIL',
-    targetValue: t.targetValue ?? null,
-    lsl: t.lsl ?? null,
-    usl: t.usl ?? null,
-    uom: t.uom ?? '',
+    // Acceptance criteria are spec-specific — start blank; the user sets them here.
+    targetValue: null,
+    lsl: null,
+    usl: null,
+    uom: '',
     defectClass: t.defaultSeverity || 'MAJOR',
     requiresInstrument: !!t.requiresInstrument,
     preferredEquipmentId: t.preferredEquipmentId ?? null,
@@ -102,6 +104,7 @@ async function onSubmit() {
       code: f.code?.trim() || null,
       materialKind: f.materialKind,
       productId: f.scope === 'product' ? f.productId : null,
+      productFamilyId: f.scope === 'family' ? f.productFamilyId : null,
       productTypeId: f.scope === 'productType' ? f.productTypeId : null,
       characteristics: f.characteristics.map((c, i) => ({
         name: c.name.trim(),
@@ -159,8 +162,9 @@ async function onSubmit() {
             <BaseInlineSelect
               v-model="form.scope"
               :items="[
-                { id: 'product', name: 'Specific product' },
-                { id: 'productType', name: 'Product type' },
+                { id: 'product', name: 'Specific item' },
+                { id: 'family', name: 'Item group' },
+                { id: 'productType', name: 'Item type' },
               ]"
               :required="true"
               class="tw:w-full"
@@ -173,23 +177,40 @@ async function onSubmit() {
         <BaseField
           v-if="!lockProductId"
           required
-          :value="form.scope === 'product' ? form.productId : form.productTypeId"
+          :value="
+            form.scope === 'product'
+              ? form.productId
+              : form.scope === 'family'
+                ? form.productFamilyId
+                : form.productTypeId
+          "
           :rules="[
-            requiredWhen(() => form.scope === 'product' && !lockProductId, 'Product is required.'),
+            requiredWhen(() => form.scope === 'product' && !lockProductId, 'Item is required.'),
+            requiredWhen(
+              () => form.scope === 'family' && !lockProductId,
+              'Item group is required.',
+            ),
             requiredWhen(
               () => form.scope === 'productType' && !lockProductId,
-              'Product type is required.',
+              'Item type is required.',
             ),
           ]"
         >
           <template #label>
-            {{ form.scope === 'product' ? 'Product' : 'Product type' }}
+            {{ form.scope === 'product' ? 'Item' : form.scope === 'family' ? 'Item group' : 'Item type' }}
           </template>
           <template #default="field">
             <ProductSelectMenu
               v-if="form.scope === 'product'"
               v-bind="field"
               v-model="form.productId"
+              class="tw:w-full"
+            />
+            <ProductFamilySelectMenu
+              v-else-if="form.scope === 'family'"
+              v-bind="field"
+              v-model="form.productFamilyId"
+              :required="true"
               class="tw:w-full"
             />
             <ProductTypeSelectMenu
@@ -208,7 +229,7 @@ async function onSubmit() {
             >
             <div class="tw:flex tw:items-center tw:gap-3">
               <TestLibraryAddMenu
-                :productTypeId="form.scope === 'productType' ? form.productTypeId : null"
+                :productFamilyId="form.scope === 'family' ? form.productFamilyId : null"
                 @pick="addFromLibrary"
               />
               <BaseButton variant="secondary" size="sm" @click="addCharacteristic">

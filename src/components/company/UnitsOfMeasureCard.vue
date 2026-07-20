@@ -9,22 +9,19 @@ const { confirm } = useConfirm()
 
 const isOwner = computed(() => !!currentSession.value?.isOwner)
 
-const families = useLiveQuery(
-  async (db) => db.ProductFamily.where().orderBy('displayOrder', 'asc').exec(),
-  { models: ['ProductFamily'], initial: [] },
-)
+const uoms = useLiveQuery(async (db) => db.Uom.where().orderBy('displayOrder', 'asc').exec(), {
+  models: ['Uom'],
+  initial: [],
+})
 
 const deactivated = useLiveQuery(
   async (db) => {
-    const all = await db.ProductFamily.where('id', undefined, { force: true }).exec()
-    return all.filter((f) => f.deletedAt)
+    const all = await db.Uom.where('id', undefined, { force: true }).exec()
+    return all.filter((u) => u.deletedAt)
   },
-  { models: ['ProductFamily'], initial: [] },
+  { models: ['Uom'], initial: [] },
 )
 
-// Active-list table config (DataTable). Name carries a description subline and
-// Code renders as a chip via slots; per-row Edit/Deactivate come from rowActions
-// (owner-only — null hides the actions column entirely for non-owners).
 const columns = [
   { name: 'name', label: 'NAME', field: 'name', align: 'left' },
   { name: 'code', label: 'CODE', field: 'code', align: 'left' },
@@ -45,16 +42,12 @@ const rowActions = computed(() =>
     : null,
 )
 
-// ─── Dialog state ────────────────────────────────────────────────────────────
 const showEditDialog = ref(false)
 const editing = ref(null)
 const formRef = ref(null)
 const saveError = ref('')
 const form = ref({ code: '', name: '', description: '', displayOrder: 1000 })
 const saving = ref(false)
-// Has the user manually edited the code? While false, we keep the code
-// auto-derived from the name as they type. First manual keystroke locks
-// it so subsequent name edits don't blow away their override.
 const codeDirty = ref(false)
 const codeEditable = ref(false)
 
@@ -68,8 +61,6 @@ function slugify(text) {
     .toUpperCase()
 }
 
-// Auto-derive code from name as the user types — but only on new rows
-// (editing existing rows preserves the saved code, which is immutable).
 watch(
   () => form.value.name,
   (newName) => {
@@ -79,12 +70,8 @@ watch(
   },
 )
 
-// Reset dialog state on open so a previous error or dirty state never bleeds
-// into the next invocation.
 watch(showEditDialog, (val) => {
-  if (val) {
-    saveError.value = ''
-  }
+  if (val) saveError.value = ''
 })
 
 function openAdd() {
@@ -95,7 +82,7 @@ function openAdd() {
     code: '',
     name: '',
     description: '',
-    displayOrder: (families.value?.length ?? 0) * 100 + 100,
+    displayOrder: (uoms.value?.length ?? 0) * 100 + 100,
   }
   showEditDialog.value = true
 }
@@ -118,20 +105,20 @@ async function onValidSubmit() {
   saveError.value = ''
   try {
     if (editing.value) {
-      await patch(`/v1/services/productFamilies/${editing.value.id}`, {
+      await patch(`/v1/services/uoms/${editing.value.id}`, {
         name: form.value.name.trim(),
         description: form.value.description?.trim() || null,
         displayOrder: form.value.displayOrder,
       })
-      toast.success('Product family updated')
+      toast.success('Unit of measure updated')
     } else {
-      await post('/v1/services/productFamilies', {
+      await post('/v1/services/uoms', {
         code: form.value.code.trim().toUpperCase(),
         name: form.value.name.trim(),
         description: form.value.description?.trim() || null,
         displayOrder: form.value.displayOrder,
       })
-      toast.success('Product family created')
+      toast.success('Unit of measure created')
     }
     showEditDialog.value = false
   } catch (e) {
@@ -144,8 +131,8 @@ async function onValidSubmit() {
 async function handleDeactivate(row) {
   if (
     !(await confirm({
-      title: 'Deactivate family',
-      message: `Deactivate "${row.name}"? Existing products referencing this family keep their reference; new products won't see it in the picker.`,
+      title: 'Deactivate unit',
+      message: `Deactivate "${row.name}"? Existing items keep their reference; new items won't see it in the picker.`,
       okLabel: 'Deactivate',
       danger: true,
     }))
@@ -153,8 +140,8 @@ async function handleDeactivate(row) {
     return
   }
   try {
-    await del(`/v1/services/productFamilies/${row.id}`)
-    toast.success('Product family deactivated')
+    await del(`/v1/services/uoms/${row.id}`)
+    toast.success('Unit deactivated')
   } catch (e) {
     toast.error(e.message || 'Failed to deactivate')
   }
@@ -162,8 +149,8 @@ async function handleDeactivate(row) {
 
 async function handleRestore(row) {
   try {
-    await post(`/v1/services/productFamilies/${row.id}/restore`, {})
-    toast.success('Product family restored')
+    await post(`/v1/services/uoms/${row.id}/restore`, {})
+    toast.success('Unit restored')
   } catch (e) {
     toast.error(e.message || 'Failed to restore')
   }
@@ -173,23 +160,20 @@ const showDeactivated = ref(false)
 </script>
 
 <template>
-  <div
-    class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
-  >
+  <div class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar">
     <div
       class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
     >
       <div>
-        <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Item Groups</h2>
+        <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Units of Measure</h2>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          Groups of related items — a product line (Skincare, Body Lotions) or a component family
-          (Caps, Bottles). A QC inspection plan or spec can target a whole group. Scoped to this
-          company.
+          Units (each, kg, L, box…) selectable on Item Master records. A blank unit on an item means
+          N/A. Scoped to this company.
         </p>
       </div>
       <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
         <template #icon><IconPlus :size="16" /></template>
-        Add Group
+        Add Unit
       </BaseButton>
     </div>
 
@@ -202,7 +186,7 @@ const showDeactivated = ref(false)
 
     <div class="tw:p-4">
       <DataTable
-        :rows="families"
+        :rows="uoms"
         :columns="columns"
         :rowActions="rowActions"
         rowKey="id"
@@ -213,9 +197,9 @@ const showDeactivated = ref(false)
         densitySelector
         columnManager
         exportManager
-        exportFilename="product-families.csv"
-        persistKey="lookups:productFamilies"
-        noDataLabel="No active product families. Add one above."
+        exportFilename="units-of-measure.csv"
+        persistKey="lookups:uoms"
+        noDataLabel="No active units. Add one above."
       >
         <template #body-cell-name="{ row }">
           <div class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</div>
@@ -265,24 +249,14 @@ const showDeactivated = ref(false)
 
     <BaseDialog
       v-model="showEditDialog"
-      :title="editing ? 'Edit Product Family' : 'Add Product Family'"
+      :title="editing ? 'Edit Unit of Measure' : 'Add Unit of Measure'"
       maxWidth="md"
     >
       <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
         <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-          <BaseField
-            label="Name"
-            required
-            :value="form.name"
-            :rules="[required()]"
-            hint="A product line (Skincare, Body Lotions) or a component family (Caps, Bottles)."
-          >
+          <BaseField label="Name" required :value="form.name" :rules="[required()]">
             <template #default="field">
-              <BaseTextInput
-                v-bind="field"
-                v-model="form.name"
-                placeholder="e.g. Skincare (product line) or Caps (component family)"
-              />
+              <BaseTextInput v-bind="field" v-model="form.name" placeholder="e.g. Each (ea)" />
             </template>
           </BaseField>
 
@@ -307,7 +281,7 @@ const showDeactivated = ref(false)
                 <BaseTextInput
                   v-bind="field"
                   v-model="form.code"
-                  placeholder="SKINCARE"
+                  placeholder="EA"
                   :disabled="!codeEditable"
                   @input="codeDirty = true"
                 />
@@ -331,12 +305,7 @@ const showDeactivated = ref(false)
 
           <BaseField label="Display Order" :value="form.displayOrder">
             <template #default="field">
-              <BaseTextInput
-                v-bind="field"
-                v-model.number="form.displayOrder"
-                type="number"
-                :min="0"
-              />
+              <BaseTextInput v-bind="field" v-model.number="form.displayOrder" type="number" :min="0" />
             </template>
           </BaseField>
         </div>

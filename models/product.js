@@ -29,7 +29,24 @@ export class Product extends BaseModel {
   @Property({ type: String, required: true }) sku = ''
   @Property({ type: String }) description = ''
   @Property({ type: String }) productFamilyId = null
+  @Property({ type: String }) itemCategoryId = null
+  @Property({ type: String }) erpItemCode = null
+  @Property({ type: String }) uomId = null
   @Property({ type: String, required: true }) productTypeId = ''
+  // Traceability
+  @Property({ type: Boolean }) lotControlled = false
+  @Property({ type: Boolean }) serialControlled = false
+  @Property({ type: Number }) shelfLifeDays = null
+  // Quality controls
+  @Property({ type: String }) criticality = null
+  @Property({ type: Boolean }) inspectionRequired = false
+  @Property({ type: String }) defaultAql = null
+  // Change control
+  @Property({ type: String }) revision = null
+  // Compliance / logistics
+  @Property({ type: String }) countryOfOrigin = null
+  @Property({ type: String }) storageConditions = null
+  @Property({ type: Boolean }) isHazardous = false
   @Property({ type: String, required: true }) statusId = 'ACTIVE'
   @Property({
     type: String,

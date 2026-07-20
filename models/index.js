@@ -57,7 +57,10 @@ import { OptionSet } from './optionSet'
 import { Product } from './product'
 import { ProductFamily } from './productFamily'
 import { ProductStatus } from './productStatus'
+import { ItemCategory } from './itemCategory'
+import { ProductSupplier } from './productSupplier'
 import { ProductType } from './productType'
+import { Uom } from './uom'
 import { Record } from './record'
 import { RecordCounter } from './recordCounter'
 import { RecordStatus } from './recordStatus'
@@ -267,7 +270,10 @@ export const db = {
   Product,
   ProductFamily,
   ProductStatus,
+  ProductSupplier,
   ProductType,
+  Uom,
+  ItemCategory,
   Record,
   RecordCounter,
   RecordStatus,

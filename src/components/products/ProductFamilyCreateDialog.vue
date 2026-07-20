@@ -66,12 +66,22 @@ async function onValidSubmit() {
 </script>
 
 <template>
-  <BaseDialog v-model="open" title="Add Product Family" maxWidth="sm">
+  <BaseDialog v-model="open" title="Add Item Group" maxWidth="sm">
     <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
       <div class="tw:flex tw:flex-col tw:gap-4">
-        <BaseField label="Name" required :value="form.name" :rules="[required()]">
+        <BaseField
+          label="Name"
+          required
+          :value="form.name"
+          :rules="[required()]"
+          hint="A group of related items — a product line (Skincare, Body Lotions) or a component family (Caps, Bottles). Lets one inspection plan cover the whole group."
+        >
           <template #default="field">
-            <BaseTextInput v-bind="field" v-model="form.name" placeholder="e.g. Skincare" />
+            <BaseTextInput
+              v-bind="field"
+              v-model="form.name"
+              placeholder="e.g. Skincare (product line) or Caps (component family)"
+            />
           </template>
         </BaseField>
 
@@ -118,7 +128,7 @@ async function onValidSubmit() {
 
     <template #footer="{ close }">
       <BaseDialogFooter
-        submitLabel="Add Family"
+        submitLabel="Add Group"
         :loading="saving"
         :error="saveError"
         @cancel="close"
