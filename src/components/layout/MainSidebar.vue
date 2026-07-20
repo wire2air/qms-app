@@ -588,15 +588,34 @@ const navItems = computed(() => {
           },
         ]
       : []),
-  ].filter((item) => {
-    // Drop a group whose children were all permission-filtered away, so a user
-    // with none of the child permissions never sees an empty expandable header.
-    if (item.children && item.children.length === 0) return false
-    // If no permissions specified, always show
-    if (!item.permissions || item.permissions.length === 0) return true
+  ]
+    .map((item) => {
+      // Permission-filter a group's children so a link the user can't reach never
+      // renders under an expandable header (e.g. Training Library / Instances /
+      // Verification / Curriculum without their `:read` permission). Children with
+      // no `permissions` (My Trainings, dividers) always pass. This centralizes
+      // what some groups previously hand-rolled inline, so a new group can never
+      // forget to gate its children.
+      if (item.children && item.children.length) {
+        return {
+          ...item,
+          children: item.children.filter((child) => {
+            if (!child.permissions || child.permissions.length === 0) return true
+            return isAllowed(child.permissions) && isNavItemEntitled(child)
+          }),
+        }
+      }
+      return item
+    })
+    .filter((item) => {
+      // Drop a group whose children were all permission-filtered away, so a user
+      // with none of the child permissions never sees an empty expandable header.
+      if (item.children && item.children.length === 0) return false
+      // If no permissions specified, always show
+      if (!item.permissions || item.permissions.length === 0) return true
 
-    return isAllowed(item.permissions) && isNavItemEntitled(item)
-  })
+      return isAllowed(item.permissions) && isNavItemEntitled(item)
+    })
 })
 </script>
 

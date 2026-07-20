@@ -58,6 +58,10 @@ const RECORD_LIST_PERMISSIONS = {
   nonconformances: 'ncr:read',
   qualityEvents: 'quality_events:read',
   'customer-complaints': 'complaint_management:read',
+  // Standalone QMS quality complaints (the `complaints` table) — a separate
+  // module from Customer Complaints above; mirrors the sidebar's `complaints:read`
+  // gate so direct-URL access to /complaints is blocked without the permission.
+  complaints: 'complaints:read',
   capas: 'capa:read',
   'change-requests': 'change_control:read',
   audits: 'audit_management:read',

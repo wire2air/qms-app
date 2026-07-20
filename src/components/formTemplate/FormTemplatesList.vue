@@ -4,6 +4,10 @@ defineProps({
     type: Array,
     default: () => [],
   },
+  canUpdate: {
+    type: Boolean,
+    default: false,
+  },
   canDelete: {
     type: Boolean,
     default: false,
@@ -41,6 +45,7 @@ const previewTitle = computed(() => {
       v-for="template in templates"
       :key="template.id"
       :template="template"
+      :canUpdate="canUpdate"
       :canDelete="canDelete"
       @preview="handlePreview"
       @delete="(t) => emit('delete', t)"

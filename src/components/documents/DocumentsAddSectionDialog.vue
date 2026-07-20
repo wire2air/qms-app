@@ -62,6 +62,9 @@ async function onSubmit() {
   saveError.value = ''
   try {
     const section = await createSection()
+    // useLiveMutation surfaces its own error toast and returns undefined on
+    // failure — don't claim success (or close the dialog) unless it was created.
+    if (!section) return
     toast.success('Section added successfully')
     emit('sectionAdded', section)
     open.value = false

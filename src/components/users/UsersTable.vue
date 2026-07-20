@@ -16,8 +16,13 @@ defineProps({
 
 const router = useRouter()
 
-// Bulk role assignment (M2) — only for users who can manage user roles.
-const canAssignRoles = computed(() => isAllowed(['user_management:update']))
+// Bulk role assignment (M2). Assigning a role INSERTs a roles_on_users row,
+// whose RLS WITH CHECK requires `user_management:create` (same convention as
+// roles_on_teams). Gate on `create` — NOT `update` — so the button/selection
+// only appear when the write will actually succeed; gating on `update` let a
+// role with update-but-not-create see the button and then hit "Something went
+// wrong" on save.
+const canAssignRoles = computed(() => isAllowed(['user_management:create']))
 const selected = ref([])
 const assignDialog = ref(false)
 const assignTargetIds = ref([])

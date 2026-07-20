@@ -1,5 +1,5 @@
 <script setup>
-import { IconDotsVertical, IconEye, IconArchive, IconArchiveOff } from '@tabler/icons-vue'
+import { IconDotsVertical, IconEye, IconArchive } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
@@ -18,8 +18,6 @@ const emit = defineEmits(['view'])
 const toast = useToast()
 
 const canArchive = computed(() => isAllowed(['document_control:delete']))
-
-const { confirm } = useConfirm()
 
 // current EFFECTIVE version for each document
 const currentVersionMapById = useLiveQueryWithDeps(
@@ -133,22 +131,24 @@ function getVersionLabel(version) {
   return version.versionLabel || `${version.versionMajor}.${version.versionMinor}`
 }
 
-async function onArchiveDocument(row) {
-  const ok = await confirm({
-    title: 'Confirm Archive',
-    message: `Are you sure you want to archive "${row.title}" (${row.docNumber})? This action will change the document status to Archived.`,
-    okLabel: 'Archive',
-  })
-  if (!ok) return
-  row.statusId = 'ARCHIVED'
-  await row.save()
-  toast.success('Document archived successfully')
+// Archiving a controlled document is a regulated event (H7) — route the
+// list-view Archive through the SAME obsoletion dialog the detail page uses, so
+// a reason is captured + audited (soft-delete stamping obsoletedAt/By/reason),
+// instead of a bare, reason-less, reversible status flip. List-view unarchive is
+// removed with this — obsoletion is a deliberate, audited retirement.
+const obsoletionTarget = ref(null)
+const showObsoletionDialog = ref(false)
+
+function onArchiveDocument(row) {
+  obsoletionTarget.value = row
+  showObsoletionDialog.value = true
 }
 
-async function onUnarchiveDocument(row) {
-  row.statusId = 'ACTIVE'
-  await row.save()
-  toast.success('Document unarchived successfully')
+function onObsoleted() {
+  // The dialog performs the mutation + soft-delete; the list refreshes itself
+  // via syncBus. Acknowledge and clear the target.
+  toast.success('Document archived successfully')
+  obsoletionTarget.value = null
 }
 </script>
 
@@ -260,18 +260,18 @@ async function onUnarchiveDocument(row) {
                 <IconArchive :size="16" />
                 Archive
               </button>
-              <button
-                v-if="canArchive && row.statusId === 'ARCHIVED'"
-                class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:hover:bg-sidebar-hover tw:transition-colors"
-                @click="(onUnarchiveDocument(row), close())"
-              >
-                <IconArchiveOff :size="16" class="tw:text-primary" />
-                Unarchive
-              </button>
             </div>
           </template>
         </BasePopover>
       </div>
     </template>
   </DataTable>
+
+  <DocumentObsoletionDialog
+    v-model="showObsoletionDialog"
+    :document="obsoletionTarget"
+    :documentTitle="obsoletionTarget?.title"
+    :documentNumber="obsoletionTarget?.docNumber"
+    @archived="onObsoleted"
+  />
 </template>

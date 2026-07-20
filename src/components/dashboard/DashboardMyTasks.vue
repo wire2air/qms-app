@@ -5,6 +5,7 @@
  */
 import { currentSession } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { resolveTaskInstanceRoute } from '@/utils/taskRoute.js'
 import { DateTime } from 'luxon'
 import { IconCircleCheck } from '@tabler/icons-vue'
 
@@ -23,58 +24,9 @@ const ENTITY_LABEL = {
   InspectionLot: 'QC Lot',
 }
 
-// Resolve the deep link for a task's host entity. Mirrors entityRoute in
-// taskInstancesTable, in lightweight form: direct-id types map straight to
-// their page; versioned types resolve the parent id; RFI tasks and types
-// needing richer context fall back to the task inbox.
-async function resolveRoute(db, t) {
-  if (t.sourceType === 'InformationRequest') return '/task-instances'
-  switch (t.entityType) {
-    case 'Nonconformance':
-      return `/nonconformances/${t.entityId}`
-    case 'Capa':
-      return `/capas/${t.entityId}`
-    case 'ChangeRequest':
-      return `/change-requests/${t.entityId}`
-    case 'AuditInstance':
-      return `/audits/instances/${t.entityId}`
-    case 'InspectionLot':
-      return `/qc-inspection/lots/${t.entityId}`
-    case 'TrainingInstance':
-      return `/training-verifications/${t.entityId}`
-    case 'DocumentVersion': {
-      const v = await db.DocumentVersion.findByPk(t.entityId)
-      return v?.documentId ? `/documents/${v.documentId}` : '/task-instances'
-    }
-    case 'Document':
-      return `/documents/${t.entityId}`
-    case 'LogBookVersion': {
-      const v = await db.LogBookVersion.findByPk(t.entityId)
-      return v?.logBookId ? `/inspections-logs/log-books/${v.logBookId}` : '/task-instances'
-    }
-    case 'AuditStandardVersion': {
-      const v = await db.AuditStandardVersion.findByPk(t.entityId)
-      return v?.auditStandardId ? `/audits/standards/${v.auditStandardId}` : '/task-instances'
-    }
-    case 'TrainingAssignee': {
-      const a = await db.TrainingAssignee.findByPk(t.entityId)
-      return a?.trainingInstanceId ? `/my-training/${a.trainingInstanceId}` : '/task-instances'
-    }
-    case 'AssignmentInstance': {
-      const inst = await db.AssignmentInstance.findByPk(t.entityId)
-      const plan = inst?.formAssignmentId
-        ? await db.FormAssignment.findByPk(inst.formAssignmentId)
-        : null
-      return plan?.logBookId
-        ? `/inspections-logs/fill?logBookId=${plan.logBookId}&assignmentInstanceId=${t.entityId}`
-        : '/task-instances'
-    }
-    case 'FieldRecord':
-      return `/inspections-logs/records?recordId=${t.entityId}`
-    default:
-      return '/task-instances'
-  }
-}
+// Resolve the deep link for a task's host entity — shared with the task inbox
+// and the "task assigned" notification (see @/utils/taskRoute).
+const resolveRoute = resolveTaskInstanceRoute
 
 const tasks = useLiveQueryWithDeps(
   [() => currentSession.value?.userId],
