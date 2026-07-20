@@ -3,7 +3,7 @@
  * KPI stat row — live counts from IDB. Each card links to its module page.
  */
 import { IconAlertCircle, IconTargetArrow, IconChecklist, IconTestPipe } from '@tabler/icons-vue'
-import { currentSession } from '@/utils/currentSession'
+import { currentSession, isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 
@@ -50,40 +50,50 @@ function overdueCount(rows, dateField = 'dueDate') {
   return rows.filter((r) => r[dateField] && r[dateField] < now).length
 }
 
-const cards = computed(() => [
-  {
-    title: 'Open NCs',
-    value: openNcs.value.length,
-    sub: overdueCount(openNcs.value) ? `${overdueCount(openNcs.value)} overdue` : null,
-    icon: IconAlertCircle,
-    colorClass: 'tw:bg-warn/10 tw:text-warn',
-    to: '/nonconformances',
-  },
-  {
-    title: 'Open CAPAs',
-    value: openCapas.value.length,
-    sub: overdueCount(openCapas.value) ? `${overdueCount(openCapas.value)} overdue` : null,
-    icon: IconTargetArrow,
-    colorClass: 'tw:bg-primary/10 tw:text-primary',
-    to: '/capas',
-  },
-  {
-    title: 'My Open Tasks',
-    value: myTasks.value.length,
-    sub: overdueCount(myTasks.value) ? `${overdueCount(myTasks.value)} overdue` : null,
-    icon: IconChecklist,
-    colorClass: 'tw:bg-blue-100 tw:text-blue-600',
-    to: '/task-instances',
-  },
-  {
-    title: 'QC Lots Awaiting Disposition',
-    value: lotsAwaiting.value.length,
-    sub: null,
-    icon: IconTestPipe,
-    colorClass: 'tw:bg-violet-100 tw:text-violet-600',
-    to: '/qc-inspection',
-  },
-])
+// Each KPI tile links into its module — gate it on the same `:read` permission
+// the sidebar/route guard use, so a user without access never sees the count or
+// a clickable card into a module they can't open. `permission: null` = always
+// shown (My Open Tasks is the user's own work).
+const cards = computed(() =>
+  [
+    {
+      title: 'Open NCs',
+      value: openNcs.value.length,
+      sub: overdueCount(openNcs.value) ? `${overdueCount(openNcs.value)} overdue` : null,
+      icon: IconAlertCircle,
+      colorClass: 'tw:bg-warn/10 tw:text-warn',
+      to: '/nonconformances',
+      permission: 'ncr:read',
+    },
+    {
+      title: 'Open CAPAs',
+      value: openCapas.value.length,
+      sub: overdueCount(openCapas.value) ? `${overdueCount(openCapas.value)} overdue` : null,
+      icon: IconTargetArrow,
+      colorClass: 'tw:bg-primary/10 tw:text-primary',
+      to: '/capas',
+      permission: 'capa:read',
+    },
+    {
+      title: 'My Open Tasks',
+      value: myTasks.value.length,
+      sub: overdueCount(myTasks.value) ? `${overdueCount(myTasks.value)} overdue` : null,
+      icon: IconChecklist,
+      colorClass: 'tw:bg-blue-100 tw:text-blue-600',
+      to: '/task-instances',
+      permission: null,
+    },
+    {
+      title: 'QC Lots Awaiting Disposition',
+      value: lotsAwaiting.value.length,
+      sub: null,
+      icon: IconTestPipe,
+      colorClass: 'tw:bg-violet-100 tw:text-violet-600',
+      to: '/qc-inspection',
+      permission: 'inspection_qc:read',
+    },
+  ].filter((card) => !card.permission || isAllowed([card.permission])),
+)
 </script>
 
 <template>

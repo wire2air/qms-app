@@ -43,6 +43,17 @@ describe('requiredPermissionFor', () => {
     expect(requiredPermissionFor(route('/capas/abc-123'))).toBeNull()
   })
 
+  it('gates the standalone Complaints module list (QA #6 — was ungated by direct URL)', () => {
+    // /complaints (the `complaints` table) is a distinct module from the support
+    // Customer Complaints entry; the sidebar gated it on complaints:read but the
+    // route guard had no entry, so it was reachable by typing the URL.
+    expect(requiredPermissionFor(route('/complaints'))).toBe('complaints:read')
+    // Detail defers to RLS like every other record module.
+    expect(requiredPermissionFor(route('/complaints/abc-123'))).toBeNull()
+    // The separate Customer Complaints module keeps its own permission.
+    expect(requiredPermissionFor(route('/customer-complaints'))).toBe('complaint_management:read')
+  })
+
   it('gates create/new pages on the module create permission', () => {
     expect(requiredPermissionFor(route('/documents/create'))).toBe('document_control:create')
     expect(requiredPermissionFor(route('/documents/new'))).toBe('document_control:create')
@@ -113,6 +124,19 @@ describe('evaluateRoute — internal users', () => {
   it('blocks the record-module LIST route without permission', () => {
     setSession({ isOwner: false, permissions: [] })
     expect(evaluateRoute(route('/documents'))).toMatchObject({ path: '/no-access' })
+  })
+
+  it('blocks /complaints without complaints:read and allows it with (QA #6)', () => {
+    setSession({ isOwner: false, permissions: [] })
+    expect(evaluateRoute(route('/complaints'))).toMatchObject({
+      path: '/no-access',
+      query: { from: '/complaints' },
+    })
+    setSession({ isOwner: false, permissions: ['complaints:read'] })
+    expect(evaluateRoute(route('/complaints'))).toBe(true)
+    // Detail stays reachable (RLS decides row access).
+    setSession({ isOwner: false, permissions: [] })
+    expect(evaluateRoute(route('/complaints/abc-123'))).toBe(true)
   })
 
   it('never guards the no-access page itself', () => {

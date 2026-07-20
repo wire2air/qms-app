@@ -13,6 +13,13 @@ const pageInfo = ref({
 })
 providePageInfo(pageInfo)
 
+// Below `lg` the sidebar is an overlay whose ONLY trigger is the MainHeader
+// hamburger. Full-canvas pages set showHeader:false (they render their own title
+// bar), which on a small screen would leave no way to reopen the drawer / switch
+// modules — so keep the header mounted under 1024px regardless. Matches the
+// breakpoint in useSidebar().
+const isDesktopViewport = useMediaQuery('(min-width: 1024px)')
+
 // B7 — route-metadata: keep document.title in sync with the route (registry in
 // src/router/routeMeta.js). Unmatched routes fall back to the bare app name.
 useRouteMeta()
@@ -225,7 +232,7 @@ onMounted(async () => {
 
       <!-- Main Content -->
       <div class="tw:flex tw:flex-1 tw:flex-col tw:overflow-hidden">
-        <MainHeader v-if="pageInfo.showHeader" />
+        <MainHeader v-if="pageInfo.showHeader || !isDesktopViewport" />
         <div class="tw:flex-1 tw:overflow-auto">
           <RouterView />
         </div>

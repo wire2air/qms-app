@@ -7,6 +7,10 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  canUpdate: {
+    type: Boolean,
+    default: false,
+  },
   canDelete: {
     type: Boolean,
     default: false,
@@ -25,11 +29,19 @@ function navigateToTemplate(mode) {
 }
 
 function menuItems() {
-  const items = [
-    { name: 'Edit', icon: IconEdit, click: () => navigateToTemplate() },
-    { name: 'Design', icon: IconBrush, click: () => navigateToTemplate('schema') },
-    { name: 'Preview', icon: IconEye, click: () => emit('preview', props.template) },
-  ]
+  // Edit and Design both mutate the template, so they require the Update
+  // capability — a role with only read/write scope but no `forms_templates:update`
+  // must not see them (the detail page itself is already read-only for them).
+  const items = []
+  if (props.canUpdate) {
+    items.push(
+      { name: 'Edit', icon: IconEdit, click: () => navigateToTemplate() },
+      { name: 'Design', icon: IconBrush, click: () => navigateToTemplate('schema') },
+    )
+  } else {
+    items.push({ name: 'View', icon: IconEye, click: () => navigateToTemplate() })
+  }
+  items.push({ name: 'Preview', icon: IconEye, click: () => emit('preview', props.template) })
   if (props.canDelete) {
     items.push({ name: 'Delete', icon: IconTrash, click: () => emit('delete', props.template) })
   }

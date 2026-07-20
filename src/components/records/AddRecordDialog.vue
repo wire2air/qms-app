@@ -221,6 +221,28 @@ watch(
   { immediate: true },
 )
 
+// Reset to a clean picker every time the dialog opens. The parent keeps this
+// component mounted and only toggles the v-model, so refs persist across opens —
+// without this reset a prior successful create left `step` on 'success' and
+// reopening showed the "Record Created!" screen instead of the template picker
+// (only a full page reload cleared it). If opened against a fixed log book,
+// re-run the auto-select so that flow still skips straight to the fill form.
+watch(model, (open) => {
+  if (!open) return
+  step.value = 'select'
+  selectedTemplate.value = null
+  createdRecord.value = null
+  formData.value = {}
+  templateSearch.value = ''
+  flagOnSubmit.value = false
+  flagSeverity.value = 'WARN'
+  flagNotes.value = ''
+  if (props.logBookId) {
+    const match = inspectionTemplates.value.find((t) => t.id === props.logBookId)
+    if (match) selectTemplate(match)
+  }
+})
+
 const createRecord = useLiveMutation(async (db, { templateId, payload }) => {
   const template = await db.FormTemplate.findByPk(templateId)
   if (!template) throw new Error('Template not found')

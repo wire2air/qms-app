@@ -153,6 +153,7 @@ async function onDeleteTemplate(template) {
           <div v-else class="tw:flex-1 tw:overflow-y-auto">
             <FormTemplatesList
               :templates="templates"
+              :canUpdate="canUpdateTemplate"
               :canDelete="canDeleteTemplate"
               @delete="onDeleteTemplate"
             />

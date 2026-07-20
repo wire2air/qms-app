@@ -7,7 +7,7 @@
  */
 import { IconAdjustmentsHorizontal, IconLayoutDashboard } from '@tabler/icons-vue'
 import { useSortable, moveArrayElement } from '@vueuse/integrations/useSortable'
-import { currentSession } from '@/utils/currentSession'
+import { currentSession, isAllowed } from '@/utils/currentSession'
 import { useUserSettings } from '@/composables/useUserSettings'
 import DashboardMyTasks from './DashboardMyTasks.vue'
 import DashboardOpenNcs from './DashboardOpenNcs.vue'
@@ -22,17 +22,26 @@ const companyName = computed(() => currentSession.value?.name || currentSession.
 // ── Widget registry ───────────────────────────────────────────────────────
 // Order here = the default order. kpis is a full-width summary strip pinned
 // above the draggable grid; the rest reorder freely.
+// `permission` gates a module widget on the same `:read` the sidebar/route guard
+// use — a user without access never sees the widget (or its counts / links into
+// a module they can't open), and can't enable it from the Customize dialog.
+// Undefined = always available (kpis, my-tasks, quick-actions).
 const WIDGETS = [
   { id: 'kpis', label: 'KPI Summary', full: true },
   { id: 'my-tasks', label: 'My Tasks' },
-  { id: 'open-ncs', label: 'Open Nonconformances' },
-  { id: 'capas-due', label: 'CAPAs Due' },
+  { id: 'open-ncs', label: 'Open Nonconformances', permission: 'ncr:read' },
+  { id: 'capas-due', label: 'CAPAs Due', permission: 'capa:read' },
   { id: 'quick-actions', label: 'Quick Actions' },
-  { id: 'qc-lots', label: 'QC Inspection Lots' },
-  { id: 'docs-pending', label: 'Documents Pending Approval' },
-  { id: 'audits', label: 'Audits' },
+  { id: 'qc-lots', label: 'QC Inspection Lots', permission: 'inspection_qc:read' },
+  { id: 'docs-pending', label: 'Documents Pending Approval', permission: 'document_control:read' },
+  { id: 'audits', label: 'Audits', permission: 'audit_management:read' },
 ]
-const ALL_IDS = WIDGETS.map((w) => w.id)
+// Widgets the current user is permitted to see; drives both the rendered grid
+// and the Customize dialog so a gated widget can never be enabled or shown.
+const availableWidgets = computed(() =>
+  WIDGETS.filter((w) => !w.permission || isAllowed([w.permission])),
+)
+const availableIds = computed(() => availableWidgets.value.map((w) => w.id))
 // id → component for the reorderable grid (kpis excluded — rendered separately).
 const GRID_COMPONENTS = {
   'my-tasks': DashboardMyTasks,
@@ -49,8 +58,8 @@ const { getSetting, setSetting } = useUserSettings()
 
 const enabledIds = computed(() => {
   const ids = getSetting('dashboardWidgets', null)
-  if (!Array.isArray(ids)) return ALL_IDS
-  return ids.filter((id) => ALL_IDS.includes(id))
+  if (!Array.isArray(ids)) return availableIds.value
+  return ids.filter((id) => availableIds.value.includes(id))
 })
 const kpisOn = computed(() => enabledIds.value.includes('kpis'))
 
@@ -137,7 +146,7 @@ async function saveEnabled(ids) {
 
     <DashboardCustomizeDialog
       v-model="showCustomize"
-      :widgets="WIDGETS"
+      :widgets="availableWidgets"
       :enabledIds="enabledIds"
       @save="saveEnabled"
     />

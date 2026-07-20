@@ -14,6 +14,8 @@ import {
 } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers'
+import { resolveTaskInstanceRoute } from '@/utils/taskRoute.js'
+import { db } from '@models/index'
 
 const props = defineProps({
   notification: { type: Object, required: true },
@@ -58,18 +60,32 @@ const RESOURCE_ROUTES = {
   Document: (id) => getCompanyPath(`/documents/${id}`),
   Record: (id) => getCompanyPath(`/records/${id}`),
   WorkflowInstance: (id) => getCompanyPath(`/workflow-instances/${id}`),
-  TaskInstance: (id) => getCompanyPath(`/task-instances/${id}`),
+  // TaskInstance has NO standalone detail route (/task-instances/:id 404s) — it
+  // is resolved to its host entity in resolveTarget() below, matching the task
+  // inbox and the email deep link.
   // Equipment has no detail page yet — land on the list (calibration reminders).
   Equipment: () => getCompanyPath('/equipment'),
 }
 
-const resourcePath = computed(() => {
+// Whether this notification deep-links anywhere — drives the chevron affordance.
+const hasTarget = computed(() => {
+  const { resourceType, resourceId } = props.notification
+  if (!resourceType || !resourceId) return false
+  return resourceType === 'TaskInstance' || !!RESOURCE_ROUTES[resourceType]
+})
+
+// Resolve the (company-prefixed) destination at click time. A TaskInstance needs
+// an async IDB lookup to map to its host entity, so this can't be a plain computed.
+async function resolveTarget() {
   const { resourceType, resourceId } = props.notification
   if (!resourceType || !resourceId) return null
+  if (resourceType === 'TaskInstance') {
+    const task = await db.TaskInstance.findByPk(resourceId)
+    return getCompanyPath(await resolveTaskInstanceRoute(db, task))
+  }
   const builder = RESOURCE_ROUTES[resourceType]
-  if (!builder) return null
-  return builder(resourceId)
-})
+  return builder ? builder(resourceId) : null
+}
 
 async function handleClick() {
   if (!props.notification.isRead) {
@@ -77,9 +93,11 @@ async function handleClick() {
     props.notification.readAt = DateTime.now()
     await props.notification.save()
   }
+  // Resolve before closing so the async lookup isn't racing an unmount.
+  const target = await resolveTarget()
   emit('close')
-  if (resourcePath.value) {
-    router.push(resourcePath.value)
+  if (target) {
+    router.push(target)
   }
 }
 </script>
@@ -115,7 +133,7 @@ async function handleClick() {
       class="tw:w-2.5 tw:h-2.5 tw:rounded-full tw:bg-blue-500 tw:shrink-0 tw:mt-1.5"
     />
     <IconChevronRight
-      v-else-if="resourcePath"
+      v-else-if="hasTarget"
       :size="18"
       class="tw:text-gray-400 tw:shrink-0 tw:mt-0.5"
     />

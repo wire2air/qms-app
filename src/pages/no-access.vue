@@ -36,19 +36,15 @@ function goBack() {
       </div>
 
       <div class="tw:mt-2 tw:flex tw:items-center tw:gap-3">
-        <button
-          class="tw:inline-flex tw:h-10 tw:items-center tw:gap-2 tw:rounded-lg tw:border tw:border-gray-200 tw:px-4 tw:font-medium tw:hover:bg-gray-50 tw:dark:border-gray-700 tw:dark:hover:bg-gray-800"
-          @click="goBack"
-        >
-          <IconArrowLeft :size="18" />
+        <!-- Use BaseButton so text/border/hover colours come from the theme
+             tokens (text-on-sidebar + bg-main-hover) and stay legible in dark
+             mode — the raw gray-* classes here made the label match the hover
+             background in dark mode. -->
+        <BaseButton variant="outline" @click="goBack">
+          <template #icon><IconArrowLeft :size="18" /></template>
           Go back
-        </button>
-        <RouterLink
-          to="/dashboard"
-          class="tw:inline-flex tw:h-10 tw:items-center tw:rounded-lg tw:bg-primary tw:px-4 tw:font-semibold tw:text-on-primary tw:hover:opacity-90"
-        >
-          Go to Dashboard
-        </RouterLink>
+        </BaseButton>
+        <BaseButton variant="primary" to="/dashboard"> Go to Dashboard </BaseButton>
       </div>
     </div>
   </div>
