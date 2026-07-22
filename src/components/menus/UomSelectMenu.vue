@@ -15,6 +15,9 @@ const props = defineProps({
   multiple: { type: Boolean, default: false },
   allowCreate: { type: Boolean, default: true },
   nullLabel: { type: String, default: '— N/A —' },
+  // Which field to bind: 'id' (FK, Item Master) or 'code' / 'name' (store the
+  // value, e.g. inspection specs — our convention is to store the value).
+  bindValue: { type: String, default: 'id' },
 })
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
@@ -67,12 +70,13 @@ async function submitCreate() {
       displayOrder: (uoms.value?.length ?? 0) * 100 + 100,
     })
     const row = res?.uom ?? res
-    if (row?.id) {
+    const bound = row?.[props.bindValue]
+    if (bound != null) {
       if (props.multiple) {
         const arr = Array.isArray(modelValue.value) ? modelValue.value : []
-        if (!arr.includes(row.id)) modelValue.value = [...arr, row.id]
+        if (!arr.includes(bound)) modelValue.value = [...arr, bound]
       } else {
-        modelValue.value = row.id
+        modelValue.value = bound
       }
     }
     toast.success('Unit created')
@@ -92,7 +96,7 @@ async function submitCreate() {
     v-model="modelValue"
     :options="uoms"
     optionLabel="name"
-    optionValue="id"
+    :optionValue="bindValue"
     :required="required"
     :multiple="multiple"
     :clearable="!required"

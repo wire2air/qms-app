@@ -511,14 +511,8 @@ async function newVersion() {
                   @update:modelValue="markCharsDirty"
                 />
               </BaseField>
-              <BaseField v-slot="{ id: fieldId }" label="UOM" class="tw:w-24">
-                <BaseTextInput
-                  :id="fieldId"
-                  v-model="c.uom"
-                  size="sm"
-                  placeholder="e.g. pH, %"
-                  @update:modelValue="markCharsDirty"
-                />
+              <BaseField label="UOM" class="tw:w-36">
+                <UomSelectMenu v-model="c.uom" bindValue="code" @update:modelValue="markCharsDirty" />
               </BaseField>
             </div>
             <BaseField v-if="c.requiresInstrument" label="Preferred instrument" class="tw:mt-2 tw:w-full tw:sm:w-72">

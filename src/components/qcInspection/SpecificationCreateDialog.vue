@@ -294,15 +294,8 @@ async function onSubmit() {
                   <BaseTextInput v-bind="field" v-model.number="c.usl" type="number" size="sm" />
                 </template>
               </BaseField>
-              <BaseField label="UOM" class="tw:w-28">
-                <template #default="field">
-                  <BaseTextInput
-                    v-bind="field"
-                    v-model="c.uom"
-                    placeholder="e.g. pH, %"
-                    size="sm"
-                  />
-                </template>
+              <BaseField label="UOM" class="tw:w-36">
+                <UomSelectMenu v-model="c.uom" bindValue="code" />
               </BaseField>
             </div>
             <BaseField
