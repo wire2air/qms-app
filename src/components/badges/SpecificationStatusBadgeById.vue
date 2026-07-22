@@ -2,6 +2,7 @@
 const props = defineProps({ statusId: { type: String, default: null } })
 const MAP = {
   DRAFT: { id: 'DRAFT', name: 'Draft' },
+  PENDING_APPROVAL: { id: 'PENDING_APPROVAL', name: 'Pending approval' },
   EFFECTIVE: { id: 'EFFECTIVE', name: 'Effective' },
   SUPERSEDED: { id: 'SUPERSEDED', name: 'Superseded' },
 }

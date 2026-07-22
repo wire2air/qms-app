@@ -24,6 +24,7 @@ const { visit: visitTrail } = useRecordTrail()
 const acting = ref(false)
 const saving = ref(false)
 const showEsign = ref(false)
+const showSubmit = ref(false)
 
 function openSpec(id) {
   router.push(getCompanyPath(`/qc-inspection/specifications/${id}`))
@@ -391,9 +392,9 @@ async function newVersion() {
         >
           Save
         </BaseButton>
-        <BaseButton v-if="isDraft" variant="primary" :loading="acting" @click="showEsign = true">
+        <BaseButton v-if="isDraft" variant="primary" @click="showSubmit = true">
           <template #icon><IconCircleCheck :size="18" /></template>
-          Approve &amp; make effective
+          Submit for approval
         </BaseButton>
         <BaseButton
           v-if="spec?.statusId === 'EFFECTIVE'"
@@ -412,7 +413,14 @@ async function newVersion() {
         v-if="isDraft"
         class="tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded-lg tw:px-4 tw:py-2 tw:text-sm tw:text-amber-800"
       >
-        This specification is a draft — all fields below are editable. Approve when ready.
+        This specification is a draft — all fields below are editable. Submit for approval when ready.
+      </div>
+      <div
+        v-else-if="spec?.statusId === 'PENDING_APPROVAL'"
+        class="tw:bg-blue-50 tw:border tw:border-blue-200 tw:rounded-lg tw:px-4 tw:py-2 tw:text-sm tw:text-blue-800"
+      >
+        Pending approval — assigned to a reviewer. It becomes effective once approved; a
+        rejection / send-back returns it to draft.
       </div>
 
       <!-- Characteristics -->
@@ -612,6 +620,7 @@ async function newVersion() {
       </div>
 
       <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
+      <SpecificationSubmitDialog v-model="showSubmit" :specId="props.id" />
     </div>
 
     <!-- Rail: general / scope / lifecycle / notes. The slot is ALWAYS provided
