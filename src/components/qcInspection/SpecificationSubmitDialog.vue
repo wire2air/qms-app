@@ -21,11 +21,13 @@ const currentUserId = computed(() => currentSession.value?.userId || null)
 const reviewerId = ref(null)
 const workflowVersionId = ref(null) // escape-hatch override
 
-// Company QC workflow(s) — active, current version, default first.
-const qcWorkflows = useLiveQuery((db) => db.Workflow.where('moduleId', 'QC_INSPECTION').exec(), {
-  models: ['Workflow'],
-  initial: [],
-})
+// Both QC-specific AND generic Approval workflows — a spec sign-off can reuse a
+// shared "Standard Approval" flow or a QC-tailored one.
+const APPROVAL_MODULES = ['QC_INSPECTION', 'APPROVAL']
+const qcWorkflows = useLiveQuery(
+  async (db) => (await db.Workflow.where().exec()).filter((w) => APPROVAL_MODULES.includes(w.moduleId)),
+  { models: ['Workflow'], initial: [] },
+)
 const qcVersions = useLiveQuery((db) => db.WorkflowVersion.where().exec(), {
   models: ['WorkflowVersion'],
   initial: [],
@@ -43,11 +45,13 @@ const workflowResolution = computed(() => {
   const options = active
     .map((w) => {
       const v = currentByWorkflow.get(w.id)
+      const tag = w.moduleId === 'APPROVAL' ? 'Generic' : 'QC'
       return v
-        ? { id: v.id, name: `${w.name} (v${v.versionMajor}.${v.versionMinor})`, isDefault: !!w.isDefault }
+        ? { id: v.id, name: `${w.name} (v${v.versionMajor}.${v.versionMinor}) · ${tag}`, isDefault: !!w.isDefault }
         : null
     })
     .filter(Boolean)
+  // Prefer a QC default; a generic-only company still gets a fallback.
   const fallback = options.find((o) => o.isDefault) || options[0] || null
   return { options, defaultVersionId: fallback?.id || null }
 })
