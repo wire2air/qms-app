@@ -870,6 +870,7 @@ declare module 'vue' {
     QaComplaintsHome: typeof import('./src/components/qaComplaints/QaComplaintsHome.vue')['default']
     QaComplaintsIndex: typeof import('./src/components/qaComplaints/QaComplaintsIndex.vue')['default']
     QaComplaintsPageId: typeof import('./src/components/qaComplaints/QaComplaintsPageId.vue')['default']
+    QcApprovalSubmitDialog: typeof import('./src/components/qcInspection/QcApprovalSubmitDialog.vue')['default']
     QcInspectionHome: typeof import('./src/components/qcInspection/QcInspectionHome.vue')['default']
     QualityEventCreateDialog: typeof import('./src/components/qualityEvents/QualityEventCreateDialog.vue')['default']
     QualityEventDetailConfig: typeof import('./src/components/qualityEvents/qualityEventDetailConfig.js')['default']

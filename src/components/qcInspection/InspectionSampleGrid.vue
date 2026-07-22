@@ -323,6 +323,7 @@ defineExpose({ buildPayload })
               :modelValue="pfStr(grid[s][c.id].valueBool)"
               :items="PF_ITEMS"
               :required="false"
+              :disabled="readonly"
               placeholder="—"
               nullLabel="—"
               class="tw:w-24"

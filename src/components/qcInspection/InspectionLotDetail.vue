@@ -1092,6 +1092,7 @@ const inspectionLotDetailConfig = computed(() =>
                     :modelValue="pfStr(entries[c.id].valueBool)"
                     :items="PF_ITEMS"
                     :required="false"
+                    :disabled="!canEditResults"
                     placeholder="—"
                     nullLabel="—"
                     class="tw:w-28"
