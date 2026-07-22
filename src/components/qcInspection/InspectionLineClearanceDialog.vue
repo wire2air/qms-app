@@ -8,6 +8,7 @@
  */
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { IconCircleCheck, IconCircleX } from '@tabler/icons-vue'
+import { unansweredClearanceRows } from '@/utils/lineClearance.js'
 
 const props = defineProps({
   lotId: { type: String, required: true },
@@ -37,10 +38,11 @@ const lotLabel = computed(() => props.batch?.lotNumber || 'this lot')
 
 async function submit(decision) {
   if (saving.value || !props.batchId) return
-  if (decision === 'PASSED' && formRef.value) {
-    const ok = await formRef.value.validate()
-    if (!ok) {
-      toast.error('Complete the line clearance checklist before releasing the line.')
+  if (decision === 'PASSED') {
+    if (formRef.value) await formRef.value.validate()
+    const missing = unansweredClearanceRows(schema.value, payload.value)
+    if (missing.length) {
+      toast.error(`Answer all clearance items before releasing the line (${missing.length} remaining).`)
       return
     }
   }
@@ -62,7 +64,7 @@ async function submit(decision) {
 </script>
 
 <template>
-  <BaseDialog v-model="show" :title="`Line clearance — Lot ${lotLabel}`" maxWidth="lg">
+  <BaseDialog v-model="show" :title="`Line clearance — Lot ${lotLabel}`" maxWidth="3xl">
     <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
       <p class="tw:text-sm tw:text-secondary">
         Verify the line is clean, cleared of the previous run, and set up for this lot. You can't

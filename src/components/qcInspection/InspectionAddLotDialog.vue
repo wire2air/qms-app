@@ -8,6 +8,7 @@
  */
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { IconCircleCheck, IconCircleX } from '@tabler/icons-vue'
+import { unansweredClearanceRows } from '@/utils/lineClearance.js'
 
 const props = defineProps({
   lotId: { type: String, required: true },
@@ -42,11 +43,12 @@ const lotOk = computed(() => lotNumber.value.trim().length > 0)
 
 async function submit(decision) {
   if (saving.value || !lotOk.value) return
-  // Releasing (pass) requires the checklist to be completed.
-  if (decision === 'PASSED' && hasChecklist.value && checklistRef.value) {
-    const ok = await checklistRef.value.validate()
-    if (!ok) {
-      toast.error('Complete the line clearance checklist before releasing the line.')
+  // Releasing (pass) requires every checklist item to be answered.
+  if (decision === 'PASSED' && hasChecklist.value) {
+    if (checklistRef.value) await checklistRef.value.validate()
+    const missing = unansweredClearanceRows(schema.value, clearancePayload.value)
+    if (missing.length) {
+      toast.error(`Answer all clearance items before releasing the line (${missing.length} remaining).`)
       return
     }
   }
@@ -75,7 +77,7 @@ async function submit(decision) {
 </script>
 
 <template>
-  <BaseDialog v-model="show" title="Add production lot" :maxWidth="hasChecklist ? 'lg' : 'sm'">
+  <BaseDialog v-model="show" title="Add production lot" :maxWidth="hasChecklist ? '3xl' : 'sm'">
     <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
       <p class="tw:text-sm tw:text-secondary">
         The new production lot becomes the active one — samples you collect next are stamped with
