@@ -35,7 +35,11 @@ export class AuditInstance extends BaseModel {
   @Property({ type: Object }) requirementSchema = []
   @Property({ type: Object }) agenda = null
   @Property({ type: String, required: true }) programTypeId = ''
-  @Property({ type: String, required: true }) statusId = 'DRAFT'
+  // AUDIT-C1 (client half): status is server-enforced by the
+  // enforce_audit_instance_status_transition trigger; block the generated update
+  // mutation from ever carrying statusId (the detail page already changes status
+  // only through the REST start/cancel/submit actions).
+  @Property({ type: String, required: true, excludeFromGraphQL: ['update'] }) statusId = 'DRAFT'
   @Property({ type: DateTime }) scheduledDate = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) startedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) completedAt = /** @type {DateTime} */ (null)
