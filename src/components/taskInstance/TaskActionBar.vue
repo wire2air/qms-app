@@ -117,8 +117,8 @@ defineExpose({ taskInstance })
       />
     </template>
 
-    <!-- Specification approval — approve/reject the assigned review. -->
-    <template v-else-if="entityType === 'Specification' && instanceStep">
+    <!-- Specification / Line-clearance-checklist approval — approve/reject. -->
+    <template v-else-if="(entityType === 'Specification' || entityType === 'LineClearanceChecklist') && instanceStep">
       <WorkflowInstanceApproverAction
         action="APPROVE"
         :taskInstanceId="taskInstance.id"

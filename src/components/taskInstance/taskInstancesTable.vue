@@ -411,6 +411,7 @@ const BUILTIN_ENTITY_TYPES = new Set([
   'AuditStandardVersion',
   'InspectionLot',
   'Specification',
+  'LineClearanceChecklist',
   'TrainingAssignee',
   'TrainingInstance',
 ])
@@ -527,6 +528,9 @@ const filteredInstances = computed(() => {
       const s = specificationMap.value[instance.entityId]
       return !!s && (s.name?.toLowerCase().includes(q) || s.code?.toLowerCase().includes(q))
     }
+    if (instance.entityType === 'LineClearanceChecklist') {
+      return 'line clearance checklist'.includes(q)
+    }
     if (!BUILTIN_ENTITY_TYPES.has(instance.entityType)) {
       const entry = moduleRecordFor(instance)
       if (!entry) return false
@@ -575,6 +579,7 @@ const EntityType = {
   AuditStandardVersion: 'Audit Standard',
   InspectionLot: 'QC Inspection Lot',
   Specification: 'Specification',
+  LineClearanceChecklist: 'Line Clearance',
 }
 
 const columns = computed(() => {
@@ -650,6 +655,8 @@ function titleFor(row) {
       return inspectionLotMap.value[row.entityId]?.lotNumber || ''
     case 'Specification':
       return specificationMap.value[row.entityId]?.name || ''
+    case 'LineClearanceChecklist':
+      return 'Line Clearance Checklist'
     default: {
       const entry = moduleRecordFor(row)
       if (entry) return entry.record?.recordNumber || moduleLabelFor(row)
@@ -824,6 +831,9 @@ function entityRoute(row) {
   if (row.entityType === 'Specification') {
     return getCompanyPath(`qc-inspection/specifications/${row.entityId}`)
   }
+  if (row.entityType === 'LineClearanceChecklist') {
+    return getCompanyPath('qc-inspection?tab=line-clearance')
+  }
   const moduleEntry = moduleRecordFor(row)
   if (moduleEntry?.record?.moduleKey) {
     return getCompanyPath(`m/${moduleEntry.record.moduleKey}/${row.entityId}`)
@@ -867,6 +877,8 @@ function rowTitle(row) {
       return inspectionLotMap.value[row.entityId]?.lotNumber || 'Inspection Lot'
     case 'Specification':
       return specificationMap.value[row.entityId]?.name || 'Specification'
+    case 'LineClearanceChecklist':
+      return 'Line Clearance Checklist'
     default: {
       const entry = moduleRecordFor(row)
       if (entry) return moduleLabelFor(row)
@@ -1125,6 +1137,11 @@ defineExpose({ exportCsv })
                 {{ specificationMap[row.entityId].code }}
               </span>
             </template>
+            <template v-else-if="row.entityType === 'LineClearanceChecklist'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                Line Clearance Checklist
+              </span>
+            </template>
             <template v-else-if="moduleRecordFor(row)">
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ moduleLabelFor(row) }}
@@ -1226,6 +1243,9 @@ defineExpose({ exportCsv })
           </span>
           <span v-else-if="row.entityType === 'Specification'" class="tw:text-sm tw:text-on-main">
             Spec Approval
+          </span>
+          <span v-else-if="row.entityType === 'LineClearanceChecklist'" class="tw:text-sm tw:text-on-main">
+            Checklist Approval
           </span>
           <span
             v-else-if="row.entityType === 'CustomerComplaint' || row.entityType === 'Complaint'"
