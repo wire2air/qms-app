@@ -50,7 +50,15 @@ const isEditable = computed(
     isOwner.value,
 )
 
-useAutoSave(nc)
+const toast = useToast()
+
+// NCR-H3/H4/M3: pessimistic saves mean a failed autosave persisted nothing —
+// surface it as a toast instead of swallowing saveError, and only save when the
+// record is actually editable (owner + not closed).
+useAutoSave(nc, {
+  enabled: isEditable,
+  onError: (e) => toast.error(e?.message || 'Failed to save nonconformance changes'),
+})
 
 // qtyAffected is DECIMAL on the backend → PostGraphile serializes it as a
 // BigFloat *string*. Bind it as a string (not v-model.number, which would set a
@@ -282,8 +290,6 @@ const selectedDispositionType = useLiveQueryWithDeps(
   { models: ['NcDispositionType'] },
 )
 const dispositionTracksCost = computed(() => !!selectedDispositionType.value?.tracksCost)
-
-const toast = useToast()
 
 // ─── Supplier-facing toggle (DRAFT only) ─────────────────────────────────────
 // The flag decides which user pool non-approval workflow steps draw from,
