@@ -97,14 +97,21 @@ const EC_PRESETS = [
   { label: '365 days', days: 365 },
 ]
 const savingInterval = ref(false)
+const toast = useToast()
 
 async function setEcInterval(days) {
   if (!capa.value || isTerminal.value || !props.isOwner) return
   if (capa.value.ecIntervalDays === days) return
+  const previous = capa.value.ecIntervalDays
   savingInterval.value = true
   try {
     capa.value.ecIntervalDays = days
     await capa.value.save()
+  } catch (e) {
+    // CAPA-M3: pessimistic save failed → revert the optimistic change and surface
+    // it, instead of leaving the UI showing an interval the server never accepted.
+    capa.value.ecIntervalDays = previous
+    toast.error(e?.message || 'Failed to update effectiveness-check interval')
   } finally {
     savingInterval.value = false
   }

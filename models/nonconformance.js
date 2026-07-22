@@ -26,7 +26,11 @@ export class Nonconformance extends BaseModel {
   @Property({ type: String }) ncNumber = ''
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) description = ''
-  @Property({ type: String }) statusId = 'DRAFT'
+  // NCR-C1 (client half): status is server-enforced by the
+  // enforce_nc_status_transition trigger; block the generated
+  // updateNonconformance mutation from ever carrying statusId so an inline
+  // .save() can't attempt a lifecycle change (which the DB would reject anyway).
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) statusId = 'DRAFT'
   @Property({ type: String, required: true }) severityId = ''
   @Property({ type: String, required: true }) typeId = ''
   @Property({ type: String, required: true }) sourceId = ''

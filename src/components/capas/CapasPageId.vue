@@ -44,7 +44,14 @@ const isEditable = computed(
     isOwner.value,
 )
 
-useAutoSave(capa, { enabled: isEditable })
+const toast = useToast()
+// CAPA-H3: surface inline-autosave failures. Saves are pessimistic (API first),
+// so a failure means nothing persisted — discarding saveError told the user it
+// saved when it didn't. onError is the composable's hook for exactly this.
+useAutoSave(capa, {
+  enabled: isEditable,
+  onError: (e) => toast.error(e?.message || 'Failed to save CAPA changes'),
+})
 
 const saving = ref(false)
 const saveError = ref(null)

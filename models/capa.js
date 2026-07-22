@@ -26,7 +26,7 @@ export class Capa extends BaseModel {
   @Property({ type: String }) capaNumber = ''
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) description = ''
-  @Property({ type: String }) statusId = 'DRAFT'
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) statusId = 'DRAFT'
   @Property({ type: String, required: true }) priorityId = ''
   @Property({ type: String, required: true }) typeId = ''
   @Property({ type: String, required: true }) sourceType = ''
