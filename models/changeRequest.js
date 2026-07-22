@@ -26,7 +26,11 @@ export class ChangeRequest extends BaseModel {
   @Property({ type: String }) crNumber = ''
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) description = ''
-  @Property({ type: String }) statusId = 'DRAFT'
+  // CR-C1 (client half): status is server-enforced by the
+  // enforce_cr_status_transition trigger; block the generated updateChangeRequest
+  // mutation from ever carrying statusId so an inline .save() can't attempt a
+  // lifecycle change (which the DB would reject anyway).
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) statusId = 'DRAFT'
   @Property({ type: String, required: true }) priorityId = ''
   @Property({ type: String, required: true }) changeTypeId = ''
   @Property({ type: String }) classification = null

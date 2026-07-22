@@ -57,9 +57,16 @@ const isEditable = computed(
   () => cr.value && cr.value.statusId === 'DRAFT' && canUpdate.value && isOwner.value,
 )
 
+const toast = useToast()
+
 // Inline auto-save while DRAFT (mirrors NC + CAPA).
+// CR-H3: the captured saveError is only rendered inside the Open/Cancel/Close
+// dialogs, so a failed INLINE field save (title/description/rail) was silent to
+// the user. Surface it as a toast — pessimistic saves mean a failure persisted
+// nothing.
 const { saveError } = useAutoSave(cr, {
   enabled: () => cr.value?.statusId === 'DRAFT' && isOwner.value,
+  onError: (e) => toast.error(e?.message || 'Failed to save change request'),
 })
 
 const workflowInstance = useLiveQueryWithDeps(
