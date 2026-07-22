@@ -149,7 +149,11 @@ watch(
     autoDefaultDone.value = true
     if (changed) {
       capa.value.pendingReviewers = next
-      capa.value.save().catch(() => {})
+      // CAPA-H4: don't swallow — a failed default-assignment save must be visible,
+      // otherwise the workflow launches without the reviewers the user expects.
+      capa.value
+        .save()
+        .catch((e) => toast.error(e?.message || 'Failed to save default reviewer assignments'))
     }
   },
   { immediate: true },
