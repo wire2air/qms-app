@@ -129,15 +129,33 @@ function resultCell(sampleNo, charId) {
           : ''
   return { text: v === '' ? '—' : v, fail: r.outcome === 'FAIL' }
 }
-const perSampleRows = computed(() =>
-  samples.value.map((s) => ({
-    sampleNo: s.sampleNo,
-    collectedAt: s.collectedAt,
-    lotNo: batchLotById.value[s.batchId] || '—',
-    collectedBy: s.collectedBy,
-    cells: characteristics.value.map((c) => ({ id: c.id, ...resultCell(s.sampleNo, c.id) })),
-  })),
-)
+// Group collected samples into collections (a "Collect" action stamps its
+// samples with the same time). Columns = collections (time + lot#); rows = tests.
+const collections = computed(() => {
+  const map = new Map()
+  for (const s of samples.value) {
+    const key = s.collectedAt?.toMillis?.() ?? String(s.collectedAt)
+    if (!map.has(key)) {
+      map.set(key, { at: s.collectedAt, lotNo: batchLotById.value[s.batchId] || '', samples: [] })
+    }
+    map.get(key).samples.push(s)
+  }
+  return [...map.values()].sort((a, b) => (a.at?.toMillis?.() ?? 0) - (b.at?.toMillis?.() ?? 0))
+})
+// A cell = the result(s) of the collection's sample(s) for one test.
+function cellFor(charId, collection) {
+  const parts = []
+  let fail = false
+  for (const s of collection.samples) {
+    const r = resultCell(s.sampleNo, charId)
+    if (r.text !== '—') parts.push(r.text)
+    if (r.fail) fail = true
+  }
+  return { text: parts.length ? parts.join(', ') : '—', fail }
+}
+function fmtTime(d) {
+  return d?.formatDate ? d.formatDate('time') : '—'
+}
 
 const identifier = computed(() => lot.value?.lotNumber ?? '')
 const auditEntities = computed(() => (props.id ? [{ entityType: 'InspectionLot', entityId: props.id }] : []))
@@ -279,29 +297,33 @@ onMounted(() => {
       <p v-else class="qc-print-muted">No specification / results recorded.</p>
     </section>
 
-    <!-- In-process: per-collection sample detail (time + lot# + result per test). -->
-    <section v-if="isInProcess && perSampleRows.length" class="qc-print-section">
+    <!-- In-process: tests down the side, each collection (time + lot#) a column. -->
+    <section v-if="isInProcess && collections.length" class="qc-print-section">
       <h2>Sample Collections</h2>
       <table class="qc-print-table qc-print-table--grid qc-print-table--compact">
         <thead>
           <tr>
-            <th>#</th>
-            <th>Collected</th>
-            <th>Lot #</th>
-            <th>By</th>
-            <th v-for="c in characteristics" :key="c.id">
-              {{ c.name }}<span v-if="c.uom" class="qc-print-muted"> ({{ c.uom }})</span>
+            <th class="qc-print-rowhead">Test</th>
+            <th v-for="(col, i) in collections" :key="i">
+              {{ fmtTime(col.at) }}
+              <div class="qc-print-muted qc-print-colsub">
+                <span v-if="col.lotNo">Lot {{ col.lotNo }}</span>
+                <span> · {{ col.samples.length }} pc</span>
+              </div>
             </th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in perSampleRows" :key="row.sampleNo">
-            <td>#{{ row.sampleNo }}</td>
-            <td>{{ fmtDateTime(row.collectedAt) }}</td>
-            <td>{{ row.lotNo }}</td>
-            <td>{{ row.collectedBy ? userName(row.collectedBy) : '—' }}</td>
-            <td v-for="cell in row.cells" :key="cell.id" :class="cell.fail ? 'qc-print-bad' : ''">
-              {{ cell.text }}
+          <tr v-for="c in characteristics" :key="c.id">
+            <td class="qc-print-rowhead">
+              {{ c.name }}<span v-if="c.uom" class="qc-print-muted"> ({{ c.uom }})</span>
+            </td>
+            <td
+              v-for="(col, i) in collections"
+              :key="i"
+              :class="cellFor(c.id, col).fail ? 'qc-print-bad' : ''"
+            >
+              {{ cellFor(c.id, col).text }}
             </td>
           </tr>
         </tbody>
@@ -332,6 +354,8 @@ onMounted(() => {
 .qc-print-table--grid thead th { background: #f3f4f6; }
 .qc-print-table--compact { font-size: 8.5pt; }
 .qc-print-table--compact th, .qc-print-table--compact td { padding: 2px 5px; }
+.qc-print-rowhead { text-align: left; white-space: nowrap; background: #f9fafb; font-weight: 600; }
+.qc-print-colsub { font-weight: 400; font-size: 7.5pt; }
 .qc-print-muted { color: #888; }
 .qc-print-good { color: #067647; font-weight: 600; }
 .qc-print-bad { color: #b42318; font-weight: 600; }
