@@ -210,13 +210,13 @@ const activeBatch = computed(() => batches.value.find((b) => b.id === lot.value?
 // or "All lots". Selecting an OPEN lot also makes it the active collection
 // target; collecting is guarded when the current lot is closed or "All".
 const currentLotId = ref(null)
-const viewLotOptions = computed(() => [
-  { id: null, label: 'All lots' },
-  ...batches.value.map((b) => ({
+// "All lots" comes from the select's nullLabel (value null) — don't add it here too.
+const viewLotOptions = computed(() =>
+  batches.value.map((b) => ({
     id: b.id,
     label: (b.lotNumber || `Lot ${b.id.slice(0, 6)}`) + (b.closedAt ? ' (closed)' : ''),
   })),
-])
+)
 const currentBatch = computed(() =>
   currentLotId.value ? (batches.value.find((b) => b.id === currentLotId.value) ?? null) : null,
 )
