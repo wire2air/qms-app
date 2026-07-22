@@ -317,7 +317,9 @@ defineExpose({ buildPayload })
               v-else-if="c.testType === 'PASS_FAIL'"
               :modelValue="grid[s][c.id].valueBool"
               :items="PF_ITEMS"
-              :required="true"
+              :required="false"
+              placeholder="—"
+              nullLabel="—"
               class="tw:w-24"
               @update:modelValue="(v) => (grid[s][c.id].valueBool = v)"
             />

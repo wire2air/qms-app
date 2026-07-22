@@ -86,7 +86,7 @@ function reset() {
         lineId: null,
         shiftId: null,
         operatorUserId: currentSession.value?.userId ?? null,
-        samplingTime: DateTime.now(),
+        samplingTime: null,
         notes: '',
       }
 }
@@ -288,16 +288,6 @@ async function onSave() {
           fields remain editable.
         </div>
 
-        <!-- Product on its own row — the select shows SKU + name and needs the width. -->
-        <BaseField label="Product" required :value="form.productId" :rules="[required()]">
-          <ProductSelectMenu
-            v-model="form.productId"
-            class="tw:w-full"
-            :disabled="identityLocked"
-            nullLabel="— Select Product —"
-          />
-        </BaseField>
-
         <BaseField
           label="Inspection point"
           required
@@ -310,6 +300,16 @@ async function onSave() {
             optionLabel="name"
             optionValue="id"
             :disabled="identityLocked"
+          />
+        </BaseField>
+
+        <!-- Product on its own row — the select shows SKU + name and needs the width. -->
+        <BaseField label="Product" required :value="form.productId" :rules="[required()]">
+          <ProductSelectMenu
+            v-model="form.productId"
+            class="tw:w-full"
+            :disabled="identityLocked"
+            nullLabel="— Select Product —"
           />
         </BaseField>
 
@@ -439,9 +439,6 @@ async function onSave() {
             </BaseField>
             <BaseField label="Operator">
               <UserSelectMenu v-model="form.operatorUserId" />
-            </BaseField>
-            <BaseField label="Sampling time">
-              <BaseDateField v-model="form.samplingTime" mode="datetime" />
             </BaseField>
           </div>
         </div>

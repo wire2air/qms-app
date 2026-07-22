@@ -216,6 +216,21 @@ const activeBatchOptions = computed(() =>
   })),
 )
 const activeBatch = computed(() => batches.value.find((b) => b.id === lot.value?.activeBatchId) ?? null)
+// View filter for the results grid: All lots, or one specific lot (open OR
+// closed). Separate from the active-lot-for-collection selector above.
+const sampleFilterBatchId = ref(null)
+const viewLotOptions = computed(() => [
+  { id: null, label: 'All lots' },
+  ...batches.value.map((b) => ({
+    id: b.id,
+    label: (b.lotNumber || `Lot ${b.id.slice(0, 6)}`) + (b.closedAt ? ' (closed)' : ''),
+  })),
+])
+const filteredSamples = computed(() =>
+  sampleFilterBatchId.value
+    ? collectedSamples.value.filter((s) => s.batchId === sampleFilterBatchId.value)
+    : collectedSamples.value,
+)
 async function doCloseLot() {
   const b = activeBatch.value
   if (!b) return
@@ -892,6 +907,17 @@ const inspectionLotDetailConfig = computed(() =>
                 >
               </span>
             </span>
+            <!-- In-process: view filter — show samples for one lot (open or closed) or All. -->
+            <div v-if="isInProcess && batches.length > 1" class="tw:flex tw:items-center tw:gap-1.5">
+              <span class="tw:text-xs tw:text-secondary">View</span>
+              <BaseSelect
+                v-model="sampleFilterBatchId"
+                :options="viewLotOptions"
+                optionLabel="label"
+                optionValue="id"
+                class="tw:min-w-32"
+              />
+            </div>
             <!-- In-process: active production lot selector (prominent) + Add / Close. -->
             <div
               v-if="isInProcess && canCollect"
@@ -992,7 +1018,7 @@ const inspectionLotDetailConfig = computed(() =>
             ref="sampleGridRef"
             :characteristics="characteristics"
             :sampleSize="lot.sampleSize"
-            :samples="isInProcess ? collectedSamples : null"
+            :samples="isInProcess ? filteredSamples : null"
             :samplesByNo="samplesByNo"
             :batchLots="batchLots"
             :results="results"
@@ -1054,7 +1080,9 @@ const inspectionLotDetailConfig = computed(() =>
                     v-else-if="c.testType === 'PASS_FAIL'"
                     :modelValue="entries[c.id].valueBool"
                     :items="[{ id: true, name: 'Pass' }, { id: false, name: 'Fail' }]"
-                    :required="true"
+                    :required="false"
+                    placeholder="—"
+                    nullLabel="—"
                     class="tw:w-28"
                     @update:modelValue="(v) => (entries[c.id].valueBool = v)"
                   />
