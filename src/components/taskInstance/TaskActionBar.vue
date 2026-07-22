@@ -116,5 +116,21 @@ defineExpose({ taskInstance })
         :requireEsignature="workflowStep?.requireEsignature"
       />
     </template>
+
+    <!-- Specification approval — approve/reject the assigned review. -->
+    <template v-else-if="entityType === 'Specification' && instanceStep">
+      <WorkflowInstanceApproverAction
+        action="APPROVE"
+        :taskInstanceId="taskInstance.id"
+        :instanceStepId="instanceStep?.id"
+        :requireEsignature="workflowStep?.requireEsignature"
+      />
+      <WorkflowInstanceApproverAction
+        action="REJECT"
+        :taskInstanceId="taskInstance.id"
+        :instanceStepId="instanceStep?.id"
+        :requireEsignature="workflowStep?.requireEsignature"
+      />
+    </template>
   </div>
 </template>

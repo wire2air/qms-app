@@ -355,6 +355,18 @@ const inspectionLotMap = useLiveQueryWithDeps(
   { models: ['InspectionLot'], initial: {} },
 )
 
+// Specification approval tasks — entityId is the Specification id.
+const specificationMap = useLiveQueryWithDeps(
+  [() => taskInstances.value.filter((i) => i.entityType === 'Specification').map((i) => i.entityId)],
+  async (db, [specIds]) => {
+    const ids = [...new Set(specIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const specs = await Promise.all(ids.map((id) => db.Specification.findByPk(id)))
+    return Object.fromEntries(specs.filter(Boolean).map((s) => [s.id, s]))
+  },
+  { models: ['Specification'], initial: {} },
+)
+
 // Flagged log entries (entityType 'FieldRecord') — resolve the record →
 // log book for label / type / open-the-entry route.
 const fieldRecordMap = useLiveQueryWithDeps(
@@ -398,6 +410,7 @@ const BUILTIN_ENTITY_TYPES = new Set([
   'AuditInstance',
   'AuditStandardVersion',
   'InspectionLot',
+  'Specification',
   'TrainingAssignee',
   'TrainingInstance',
 ])
@@ -510,6 +523,10 @@ const filteredInstances = computed(() => {
       const lot = inspectionLotMap.value[instance.entityId]
       return !!lot && lot.lotNumber?.toLowerCase().includes(q)
     }
+    if (instance.entityType === 'Specification') {
+      const s = specificationMap.value[instance.entityId]
+      return !!s && (s.name?.toLowerCase().includes(q) || s.code?.toLowerCase().includes(q))
+    }
     if (!BUILTIN_ENTITY_TYPES.has(instance.entityType)) {
       const entry = moduleRecordFor(instance)
       if (!entry) return false
@@ -557,6 +574,7 @@ const EntityType = {
   AuditInstance: 'Audit',
   AuditStandardVersion: 'Audit Standard',
   InspectionLot: 'QC Inspection Lot',
+  Specification: 'Specification',
 }
 
 const columns = computed(() => {
@@ -630,6 +648,8 @@ function titleFor(row) {
       return auditStandardVersionMap.value[row.entityId]?.standard?.name || ''
     case 'InspectionLot':
       return inspectionLotMap.value[row.entityId]?.lotNumber || ''
+    case 'Specification':
+      return specificationMap.value[row.entityId]?.name || ''
     default: {
       const entry = moduleRecordFor(row)
       if (entry) return entry.record?.recordNumber || moduleLabelFor(row)
@@ -801,6 +821,9 @@ function entityRoute(row) {
   if (row.entityType === 'InspectionLot') {
     return getCompanyPath(`qc-inspection/lots/${row.entityId}`)
   }
+  if (row.entityType === 'Specification') {
+    return getCompanyPath(`qc-inspection/specifications/${row.entityId}`)
+  }
   const moduleEntry = moduleRecordFor(row)
   if (moduleEntry?.record?.moduleKey) {
     return getCompanyPath(`m/${moduleEntry.record.moduleKey}/${row.entityId}`)
@@ -842,6 +865,8 @@ function rowTitle(row) {
       return auditStandardVersionMap.value[row.entityId]?.standard?.name || 'Audit Standard'
     case 'InspectionLot':
       return inspectionLotMap.value[row.entityId]?.lotNumber || 'Inspection Lot'
+    case 'Specification':
+      return specificationMap.value[row.entityId]?.name || 'Specification'
     default: {
       const entry = moduleRecordFor(row)
       if (entry) return moduleLabelFor(row)
@@ -881,6 +906,8 @@ function rowSubtitle(row) {
       const lot = inspectionLotMap.value[row.entityId]
       return lot?.inspectionPoint || ''
     }
+    case 'Specification':
+      return specificationMap.value[row.entityId]?.code || ''
     default:
       return moduleRecordFor(row)?.record?.recordNumber || ''
   }
@@ -1090,6 +1117,14 @@ defineExpose({ exportCsv })
                 {{ inspectionLotMap[row.entityId]?.inspectionPoint || '—' }}
               </span>
             </template>
+            <template v-else-if="row.entityType === 'Specification'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ specificationMap[row.entityId]?.name || 'Specification' }}
+              </span>
+              <span v-if="specificationMap[row.entityId]?.code" class="tw:text-micro tw:text-secondary tw:tracking-tight">
+                {{ specificationMap[row.entityId].code }}
+              </span>
+            </template>
             <template v-else-if="moduleRecordFor(row)">
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ moduleLabelFor(row) }}
@@ -1188,6 +1223,9 @@ defineExpose({ exportCsv })
           </span>
           <span v-else-if="row.entityType === 'InspectionLot'" class="tw:text-sm tw:text-on-main">
             QA Disposition
+          </span>
+          <span v-else-if="row.entityType === 'Specification'" class="tw:text-sm tw:text-on-main">
+            Spec Approval
           </span>
           <span
             v-else-if="row.entityType === 'CustomerComplaint' || row.entityType === 'Complaint'"

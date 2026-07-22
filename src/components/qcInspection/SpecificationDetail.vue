@@ -417,10 +417,13 @@ async function newVersion() {
       </div>
       <div
         v-else-if="spec?.statusId === 'PENDING_APPROVAL'"
-        class="tw:bg-blue-50 tw:border tw:border-blue-200 tw:rounded-lg tw:px-4 tw:py-2 tw:text-sm tw:text-blue-800"
+        class="tw:bg-blue-50 tw:border tw:border-blue-200 tw:rounded-lg tw:px-4 tw:py-3 tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap"
       >
-        Pending approval — assigned to a reviewer. It becomes effective once approved; a
-        rejection / send-back returns it to draft.
+        <span class="tw:text-sm tw:text-blue-800">
+          Pending approval — assigned to a reviewer. It becomes effective once approved; a
+          rejection / send-back returns it to draft.
+        </span>
+        <TaskActionBar entityType="Specification" :entityId="props.id" />
       </div>
 
       <!-- Characteristics -->
