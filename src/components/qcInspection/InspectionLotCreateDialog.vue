@@ -358,8 +358,10 @@ async function onSave() {
           <BaseField v-slot="{ id: fieldId }" label="Receipt #">
             <BaseTextInput :id="fieldId" v-model="form.receiptNumber" placeholder="optional" />
           </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Work order">
-            <BaseTextInput :id="fieldId" v-model="form.workOrder" placeholder="optional" />
+          <BaseField label="Work order" required :value="form.workOrder" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput v-bind="field" v-model="form.workOrder" placeholder="required" />
+            </template>
           </BaseField>
           <BaseField label="Manufacturing date">
             <BaseDateField v-model="form.manufacturingDate" mode="date" />
