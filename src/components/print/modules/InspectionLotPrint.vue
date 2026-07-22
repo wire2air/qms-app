@@ -114,21 +114,6 @@ const batchLotById = computed(() => {
   for (const b of batches.value) m[b.id] = b.lotNumber || ''
   return m
 })
-function resultCell(sampleNo, charId) {
-  const r = results.value.find((x) => (x.sampleIndex ?? 1) === sampleNo && x.characteristicId === charId)
-  if (!r) return { text: '—', fail: false }
-  const v =
-    r.valueNumeric != null
-      ? r.valueNumeric
-      : r.valueText != null && r.valueText !== ''
-        ? r.valueText
-        : r.valueBool != null
-          ? r.valueBool
-            ? 'Pass'
-            : 'Fail'
-          : ''
-  return { text: v === '' ? '—' : v, fail: r.outcome === 'FAIL' }
-}
 // Group collected samples into collections (a "Collect" action stamps its
 // samples with the same time). Columns = collections (time + lot#); rows = tests.
 const collections = computed(() => {
@@ -142,16 +127,20 @@ const collections = computed(() => {
   }
   return [...map.values()].sort((a, b) => (a.at?.toMillis?.() ?? 0) - (b.at?.toMillis?.() ?? 0))
 })
-// A cell = the result(s) of the collection's sample(s) for one test.
+// A cell summarises the collection's sample outcomes for one test: all pass →
+// "Pass", all fail → "Fail", otherwise a grouped count ("2 Pass, 1 Fail").
 function cellFor(charId, collection) {
-  const parts = []
-  let fail = false
+  let pass = 0
+  let fail = 0
   for (const s of collection.samples) {
-    const r = resultCell(s.sampleNo, charId)
-    if (r.text !== '—') parts.push(r.text)
-    if (r.fail) fail = true
+    const r = results.value.find((x) => (x.sampleIndex ?? 1) === s.sampleNo && x.characteristicId === charId)
+    if (r?.outcome === 'PASS') pass += 1
+    else if (r?.outcome === 'FAIL') fail += 1
   }
-  return { text: parts.length ? parts.join(', ') : '—', fail }
+  if (pass + fail === 0) return { text: '—', fail: false }
+  if (fail === 0) return { text: 'Pass', fail: false }
+  if (pass === 0) return { text: 'Fail', fail: true }
+  return { text: `${pass} Pass, ${fail} Fail`, fail: true }
 }
 function fmtTime(d) {
   return d?.formatDate ? d.formatDate('time') : '—'
