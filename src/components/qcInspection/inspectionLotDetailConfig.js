@@ -103,5 +103,13 @@ export function buildInspectionLotActions(gates = {}, handlers = {}) {
       loading: !!creatingEvent,
       onSelect: handlers.createEvent,
     },
+    {
+      id: 'print',
+      label: 'Print report',
+      variant: 'outline',
+      priority: 45,
+      visible: true,
+      onSelect: handlers.print,
+    },
   ]
 }

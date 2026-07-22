@@ -626,6 +626,10 @@ const inspectionLotActions = computed(() =>
       createEvent() {
         openCreateEvent()
       },
+      print() {
+        const params = new URLSearchParams({ module: 'InspectionLot', id: props.id })
+        window.open(getCompanyPath(`/print?${params.toString()}`), '_blank', 'noopener,noreferrer')
+      },
     },
   ),
 )
