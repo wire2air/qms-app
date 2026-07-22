@@ -121,7 +121,7 @@ function onPaste(i, event) {
         :aria-invalid="errorMsg ? 'true' : undefined"
         :class="[
           'tw:size-11 tw:rounded-lg tw:border tw:bg-sidebar tw:text-center tw:text-lg tw:font-semibold tw:uppercase tw:text-main-text tw:transition-[border-color,box-shadow] tw:duration-200 tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/30 tw:disabled:cursor-not-allowed tw:disabled:opacity-60 tw:disabled:bg-main-unselected',
-          errorMsg ? 'tw:border-red-500 tw:focus:border-red-500' : 'tw:border-divider tw:focus:border-primary',
+          errorMsg ? 'tw:border-red-500 tw:focus:border-red-500' : 'tw:border-input-border tw:focus:border-primary',
         ]"
         @input="onInput(i, $event)"
         @keydown="onKeydown(i, $event)"

@@ -100,7 +100,9 @@ defineExpose({ taskInstance })
         :requireEsignature="workflowStep?.requireEsignature"
       />
     </template>
-    <template v-else-if="entityType === 'InspectionLot'">
+    <!-- Only workflow-driven disposition tasks (with a step) approve/reject; a
+         re-inspection ACTION task has no step — it's just a navigable pointer. -->
+    <template v-else-if="entityType === 'InspectionLot' && instanceStep">
       <WorkflowInstanceApproverAction
         action="APPROVE"
         :taskInstanceId="taskInstance.id"

@@ -24,7 +24,10 @@ import { EsignAgreementSigner } from './esignAgreementSigner'
 import { Specification } from './specification'
 import { SpecificationCharacteristic } from './specificationCharacteristic'
 import { InspectionLot } from './inspectionLot'
+import { InspectionLotEvent } from './inspectionLotEvent'
 import { InspectionResult } from './inspectionResult'
+import { InspectionSample } from './inspectionSample'
+import { InspectionBatch } from './inspectionBatch'
 import { InspectionDefect } from './inspectionDefect'
 import { DefectCatalog } from './defectCatalog'
 import { SamplingStandard } from './samplingStandard'
@@ -169,6 +172,8 @@ import { Curriculum } from './curriculum'
 import { CurriculumTraining } from './curriculumTraining'
 import { RoleCurriculum } from './roleCurriculum'
 import { EmployeeTitle } from './employeeTitle'
+import { Shift } from './shift'
+import { ProductionLine } from './productionLine'
 import { TrainingVerification } from './trainingVerification'
 import { InformationRequest } from './informationRequest'
 import { ChangeRequest } from './changeRequest'
@@ -237,7 +242,10 @@ export const db = {
   Specification,
   SpecificationCharacteristic,
   InspectionLot,
+  InspectionLotEvent,
   InspectionResult,
+  InspectionSample,
+  InspectionBatch,
   InspectionDefect,
   DefectCatalog,
   SamplingStandard,
@@ -374,6 +382,8 @@ export const db = {
   CurriculumTraining,
   RoleCurriculum,
   EmployeeTitle,
+  Shift,
+  ProductionLine,
   TrainingInstance,
   TrainingAssignee,
   TrainingRole,

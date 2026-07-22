@@ -21,27 +21,67 @@ function getDefaultFieldConfig(type) {
   )
 }
 
+// Does any field (recursively) already use this name?
+function fieldNameExists(fields, targetName) {
+  for (const field of fields) {
+    if (field.name === targetName) return true
+    if (field.children && fieldNameExists(field.children, targetName)) return true
+    if (field.template && fieldNameExists(field.template, targetName)) return true
+  }
+  return false
+}
+
 // Generate a unique field name
 function generateFieldName(type, existingFields) {
   const baseName = type.toLowerCase()
   let counter = 1
   let name = `${baseName}_${counter}`
-
-  function fieldNameExists(fields, targetName) {
-    for (const field of fields) {
-      if (field.name === targetName) return true
-      if (field.children && fieldNameExists(field.children, targetName)) return true
-      if (field.template && fieldNameExists(field.template, targetName)) return true
-    }
-    return false
-  }
-
   while (fieldNameExists(existingFields, name)) {
     counter++
     name = `${baseName}_${counter}`
   }
-
   return name
+}
+
+// The field types the AI generator can emit (mirror of FIELD_TYPE_IDS in the
+// backend form.generate_schema task). In EDIT mode, a field whose current type
+// is OUTSIDE this set (repeater, lookup, rca, file, photo, inputTable, …) can't
+// be rebuilt from an AI descriptor, so it is always preserved wholesale by name
+// rather than re-hydrated.
+const AI_CURATED_TYPES = new Set([
+  'input', 'textarea', 'number', 'email', 'phone', 'select', 'checkbox', 'optionGroup',
+  'checklist', 'datetime', 'rating', 'toggle', 'textEditor', 'signature', 'header', 'instructions',
+])
+
+// Flatten a schema tree into a name → field-clone map (walks section children),
+// so an AI edit can restore an untouched/heavy field verbatim by its name.
+function indexFieldsByName(fields, map) {
+  for (const field of fields) {
+    if (field?.name) map.set(field.name, JSON.parse(JSON.stringify(field)))
+    if (Array.isArray(field?.children)) indexFieldsByName(field.children, map)
+  }
+}
+
+// EDIT mode: keep an existing field object wholesale (its exact type + all heavy
+// internals: repeater templates, lookup config, options, checklist grid) and
+// overlay only the lightweight edits the AI expressed. Used when the AI echoed a
+// field's name without changing its type.
+function overlayExistingField(existing, node) {
+  const f = JSON.parse(JSON.stringify(existing))
+  if (typeof node.label === 'string' && node.label.trim()) {
+    f.label = node.label.trim()
+    if (f.type === 'header') f.text = f.label
+  }
+  if (typeof node.required === 'boolean') f.required = node.required
+  if (typeof node.placeholder === 'string') f.placeholder = node.placeholder
+  if (typeof node.hint === 'string') f.hint = node.hint
+  if (typeof node.width === 'string' && VALID_WIDTHS.has(node.width)) f.width = node.width
+  // Only overlay options for types that actually use them.
+  if (['select', 'optionGroup', 'checkbox'].includes(f.type) && Array.isArray(node.options)) {
+    const opts = node.options.filter((o) => typeof o === 'string' && o.trim()).map((o) => o.trim())
+    if (opts.length) f.options = opts
+  }
+  return f
 }
 
 export function useFormBuilder(initialSchema = []) {
@@ -355,7 +395,15 @@ export function useFormBuilder(initialSchema = []) {
   function hydrateAiField(node, existingRoot) {
     const type = node && FIELD_TYPES[node.type] ? node.type : 'input'
     const config = getDefaultFieldConfig(type)
-    config.name = generateFieldName(type, existingRoot)
+    // Preserve a stable name the AI echoed back (EDIT mode) when it's free;
+    // otherwise mint a fresh unique one. Keeping the name means answers bound to
+    // a retyped field don't orphan.
+    const desiredName =
+      typeof node.name === 'string' && node.name.trim() ? node.name.trim() : null
+    config.name =
+      desiredName && !fieldNameExists(existingRoot, desiredName)
+        ? desiredName
+        : generateFieldName(type, existingRoot)
     if (typeof node.label === 'string' && node.label.trim()) config.label = node.label.trim()
     if (typeof node.required === 'boolean') config.required = node.required
     if (typeof node.placeholder === 'string') config.placeholder = node.placeholder
@@ -381,12 +429,34 @@ export function useFormBuilder(initialSchema = []) {
     return config
   }
 
-  // Replace the whole schema with an AI-generated form. Fields carrying a
-  // shared `section` label are grouped into real `section` containers (in first-
-  // appearance order); ungrouped fields sit at the top level. Overwrites the
-  // current schema (undoable via history).
-  function applyAiSchema(aiResult) {
+  // Build one field from an AI descriptor. In EDIT mode (existingByName given)
+  // a name-matched field is preserved wholesale unless the AI genuinely retyped
+  // it to another curated type; heavy/non-curated fields are always preserved.
+  function buildFieldFromNode(node, root, existingByName) {
+    const name = typeof node.name === 'string' && node.name.trim() ? node.name.trim() : null
+    const existing = name ? existingByName.get(name) : null
+    if (existing && !fieldNameExists(root, name)) {
+      const existingCurated = FIELD_TYPES[existing.type] && AI_CURATED_TYPES.has(existing.type)
+      const nodeCurated = node.type && FIELD_TYPES[node.type] && AI_CURATED_TYPES.has(node.type)
+      const typeChanged = existingCurated && nodeCurated && node.type !== existing.type
+      // Preserve unless the user retyped a curated field to another curated type.
+      if (!typeChanged) return overlayExistingField(existing, node)
+      // Retype: rebuild fresh but keep the stable name (answers don't orphan).
+    }
+    return hydrateAiField(node, root)
+  }
+
+  // Replace the whole schema with an AI-generated / AI-edited form. Fields
+  // carrying a shared `section` label are grouped into real `section` containers
+  // (in first-appearance order); ungrouped fields sit at the top level.
+  // Overwrites the current schema (undoable via history). When `preserveFrom` is
+  // supplied (EDIT mode), fields the AI echoed by name are restored from it
+  // verbatim so existing (and heavy) fields — and answers bound to them — survive.
+  function applyAiSchema(aiResult, { preserveFrom = null } = {}) {
     const fields = Array.isArray(aiResult?.fields) ? aiResult.fields : []
+    const existingByName = new Map()
+    if (Array.isArray(preserveFrom)) indexFieldsByName(preserveFrom, existingByName)
+
     const newSchema = []
     const sectionContainers = new Map()
 
@@ -394,6 +464,8 @@ export function useFormBuilder(initialSchema = []) {
       if (!node || typeof node !== 'object') continue
       const sectionLabel =
         typeof node.section === 'string' && node.section.trim() ? node.section.trim() : null
+
+      const built = buildFieldFromNode(node, newSchema, existingByName)
 
       if (sectionLabel) {
         let container = sectionContainers.get(sectionLabel)
@@ -405,9 +477,9 @@ export function useFormBuilder(initialSchema = []) {
           sectionContainers.set(sectionLabel, container)
           newSchema.push(container)
         }
-        container.children.push(hydrateAiField(node, newSchema))
+        container.children.push(built)
       } else {
-        newSchema.push(hydrateAiField(node, newSchema))
+        newSchema.push(built)
       }
     }
 

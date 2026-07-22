@@ -39,7 +39,7 @@ const checked = defineModel({
         'tw:inline-flex tw:items-center tw:justify-center tw:h-4 tw:w-4 tw:shrink-0 tw:rounded tw:border tw:transition-colors tw:duration-150 tw:peer-focus-visible:ring-2 tw:peer-focus-visible:ring-primary/40 tw:peer-focus-visible:ring-offset-1',
         checked || indeterminate
           ? 'tw:bg-primary tw:border-primary'
-          : 'tw:bg-sidebar tw:border-divider',
+          : 'tw:bg-sidebar tw:border-input-border',
       ]"
     >
       <IconMinus v-if="indeterminate" :size="10" class="tw:text-white" :stroke-width="3" />

@@ -90,7 +90,7 @@ function openLot(id) {
       </BaseButton>
       <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreate = true">
         <template #icon><IconPlus :size="16" /></template>
-        New Lot
+        New Inspection
       </BaseButton>
     </template>
 

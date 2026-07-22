@@ -9,8 +9,12 @@
  * Disposition notifications live on the inspection plan only; the instrument is
  * chosen per test in the spec — neither is set here.
  */
+import { DateTime } from 'luxon'
+import { IconPaperclip, IconTrash, IconFile } from '@tabler/icons-vue'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { uploadFile } from '@/utils/uploadService.js'
 import { required } from '@shared/components/form/validators.js'
+import { currentSession } from '@/utils/currentSession.js'
 
 const props = defineProps({
   editLot: { type: Object, default: null },
@@ -50,6 +54,15 @@ function reset() {
         receiptNumber: lot.receiptNumber ?? '',
         workOrder: lot.workOrder ?? '',
         batchNumber: lot.batchNumber ?? '',
+        manufacturingDate: lot.manufacturingDate ?? null,
+        expiryDate: lot.expiryDate ?? null,
+        coaReceived: lot.coaReceived ?? null,
+        coaAttachments: Array.isArray(lot.coaAttachments) ? [...lot.coaAttachments] : [],
+        receivedDate: lot.receivedDate ?? null,
+        lineId: lot.lineId ?? null,
+        shiftId: lot.shiftId ?? null,
+        operatorUserId: lot.operatorUserId ?? null,
+        samplingTime: lot.samplingTime ?? null,
         notes: lot.notes ?? '',
       }
     : {
@@ -63,6 +76,17 @@ function reset() {
         receiptNumber: '',
         workOrder: '',
         batchNumber: '',
+        manufacturingDate: null,
+        expiryDate: null,
+        // Incoming: default goods-receipt date to today.
+        coaReceived: null,
+        coaAttachments: [],
+        receivedDate: DateTime.now(),
+        // In-process: default operator to the logged-in user + sampling time to now.
+        lineId: null,
+        shiftId: null,
+        operatorUserId: currentSession.value?.userId ?? null,
+        samplingTime: DateTime.now(),
         notes: '',
       }
 }
@@ -146,6 +170,39 @@ const canProceed = computed(
   () => identityLocked.value || (specResolved.value && samplingResolved.value),
 )
 
+// COA upload — files go to the generic asset store immediately (works at create
+// time too, before the lot exists); their refs ride in the create/patch payload.
+const uploadingCoa = ref(false)
+const coaInputRef = ref(null)
+function pickCoa() {
+  coaInputRef.value?.click()
+}
+async function onCoaSelected(e) {
+  const files = [...(e.target.files ?? [])]
+  e.target.value = ''
+  if (!files.length || !form.value) return
+  uploadingCoa.value = true
+  try {
+    for (const file of files) {
+      const asset = await uploadFile(file, 'ASSET')
+      form.value.coaAttachments.push({
+        assetId: asset.id,
+        name: asset.originalFilename || asset.filename,
+        mimeType: asset.mimeType,
+      })
+    }
+    form.value.coaReceived = true
+  } catch (err) {
+    toast.error(err?.message || 'Failed to upload COA')
+  } finally {
+    uploadingCoa.value = false
+  }
+}
+function removeCoa(assetId) {
+  if (!form.value) return
+  form.value.coaAttachments = form.value.coaAttachments.filter((a) => a.assetId !== assetId)
+}
+
 async function onSave() {
   if (saving.value) return
   if (!canProceed.value) {
@@ -161,6 +218,17 @@ async function onSave() {
       receiptNumber: f.receiptNumber?.trim() || null,
       workOrder: f.workOrder?.trim() || null,
       batchNumber: f.batchNumber?.trim() || null,
+      manufacturingDate: f.manufacturingDate || null,
+      expiryDate: f.expiryDate || null,
+      // Point-specific — sent for all points (nullable, benign); the form only
+      // surfaces the relevant ones per inspection point.
+      coaReceived: f.coaReceived ?? null,
+      coaAttachments: Array.isArray(f.coaAttachments) ? f.coaAttachments : [],
+      receivedDate: f.receivedDate || null,
+      lineId: f.lineId || null,
+      shiftId: f.shiftId || null,
+      operatorUserId: f.operatorUserId || null,
+      samplingTime: f.samplingTime || null,
       notes: f.notes?.trim() || null,
     }
     if (isEdit.value) {
@@ -206,7 +274,7 @@ async function onSave() {
 <template>
   <BaseDialog
     v-model="show"
-    :title="isEdit ? `Edit Lot ${props.editLot?.lotNumber ?? ''}` : 'New Inspection Lot'"
+    :title="isEdit ? `Edit Inspection ${props.editLot?.lotNumber ?? ''}` : 'New Inspection'"
     :persistent="true"
     size="3xl"
   >
@@ -258,8 +326,24 @@ async function onSave() {
               :disabled="identityLocked"
             />
           </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Batch / Lot ref">
-            <BaseTextInput :id="fieldId" v-model="form.batchNumber" placeholder="optional" />
+          <BaseField
+            :label="form.inspectionPoint === 'IN_PROCESS' ? 'Production lot (Lot#)' : 'Batch / Lot ref'"
+            :required="form.inspectionPoint !== 'IN_PROCESS'"
+            :value="form.batchNumber"
+            :rules="form.inspectionPoint !== 'IN_PROCESS' ? [required()] : []"
+            :hint="
+              form.inspectionPoint === 'IN_PROCESS'
+                ? 'Becomes the first production lot. Leave blank to add lots on check-in.'
+                : ''
+            "
+          >
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model="form.batchNumber"
+                :placeholder="form.inspectionPoint === 'IN_PROCESS' ? 'optional' : 'required'"
+              />
+            </template>
           </BaseField>
           <BaseField v-slot="{ id: fieldId }" label="PO #">
             <BaseTextInput :id="fieldId" v-model="form.poNumber" placeholder="optional" />
@@ -270,6 +354,89 @@ async function onSave() {
           <BaseField v-slot="{ id: fieldId }" label="Work order">
             <BaseTextInput :id="fieldId" v-model="form.workOrder" placeholder="optional" />
           </BaseField>
+          <BaseField label="Manufacturing date">
+            <BaseDateField v-model="form.manufacturingDate" mode="date" />
+          </BaseField>
+          <BaseField label="Expiry date">
+            <BaseDateField v-model="form.expiryDate" mode="date" />
+          </BaseField>
+        </div>
+
+        <!-- Incoming (IQC): supplier COA + goods-receipt date. -->
+        <div
+          v-if="form.inspectionPoint === 'INCOMING'"
+          class="tw:flex tw:flex-col tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:p-3"
+        >
+          <div class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+            Incoming (IQC)
+          </div>
+          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <BaseField label="Goods-receipt date" hint="Date the goods were actually received.">
+              <BaseDateField v-model="form.receivedDate" mode="date" />
+            </BaseField>
+            <BaseField label="Certificate of Analysis">
+              <BaseCheckbox v-model="form.coaReceived">COA received</BaseCheckbox>
+            </BaseField>
+          </div>
+
+          <!-- COA document(s) — uploaded to the asset store immediately; refs ride in the payload. -->
+          <div class="tw:flex tw:flex-col tw:gap-2">
+            <div class="tw:flex tw:items-center tw:justify-between">
+              <span class="tw:text-xs tw:font-medium tw:text-secondary">COA document(s)</span>
+              <BaseButton variant="outline" size="sm" :disabled="uploadingCoa" @click="pickCoa">
+                <IconPaperclip :size="14" class="tw:mr-1" />
+                {{ uploadingCoa ? 'Uploading…' : 'Attach COA' }}
+              </BaseButton>
+              <input
+                ref="coaInputRef"
+                type="file"
+                multiple
+                accept=".pdf,image/*"
+                class="tw:hidden"
+                @change="onCoaSelected"
+              />
+            </div>
+            <div
+              v-for="att in form.coaAttachments"
+              :key="att.assetId"
+              class="tw:flex tw:items-center tw:justify-between tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-1.5"
+            >
+              <span class="tw:flex tw:items-center tw:gap-2 tw:min-w-0 tw:text-sm tw:text-on-main">
+                <IconFile :size="16" class="tw:shrink-0 tw:text-secondary" />
+                <span class="tw:truncate">{{ att.name || 'COA document' }}</span>
+              </span>
+              <button
+                class="tw:text-secondary tw:hover:text-red-600 tw:shrink-0 tw:ml-2"
+                @click="removeCoa(att.assetId)"
+              >
+                <IconTrash :size="16" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- In-process (IPQC): line/stage, shift, operator, sampling clock time. -->
+        <div
+          v-if="form.inspectionPoint === 'IN_PROCESS'"
+          class="tw:flex tw:flex-col tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:p-3"
+        >
+          <div class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+            In-process (IPQC)
+          </div>
+          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <BaseField label="Production line" required :value="form.lineId" :rules="[required()]">
+              <ProductionLineSelectMenu v-model="form.lineId" :required="true" />
+            </BaseField>
+            <BaseField label="Shift">
+              <ShiftSelectMenu v-model="form.shiftId" />
+            </BaseField>
+            <BaseField label="Operator">
+              <UserSelectMenu v-model="form.operatorUserId" />
+            </BaseField>
+            <BaseField label="Sampling time">
+              <BaseDateField v-model="form.samplingTime" mode="datetime" />
+            </BaseField>
+          </div>
         </div>
 
         <BaseField v-slot="{ id: fieldId }" label="Notes">

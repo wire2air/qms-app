@@ -474,7 +474,7 @@ defineExpose({
             ? 'tw:border-red-500 tw:focus-within:ring-2 tw:focus-within:ring-red-500/30'
             : open
               ? 'tw:border-primary tw:ring-2 tw:ring-primary/30'
-              : 'tw:border-divider',
+              : 'tw:border-input-border',
         ]"
         @keydown="focusable ? onTriggerKeydown : undefined"
       >
@@ -557,7 +557,7 @@ defineExpose({
             aria-expanded="true"
             :aria-controls="listboxId"
             :aria-activedescendant="activeDescendant"
-            class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-white tw:py-2 tw:pl-9 tw:pr-3 tw:text-base tw:sm:text-sm tw:transition-all tw:focus:border-primary tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/20"
+            class="tw:w-full tw:rounded-lg tw:border tw:border-input-border tw:bg-white tw:py-2 tw:pl-9 tw:pr-3 tw:text-base tw:sm:text-sm tw:transition-all tw:focus:border-primary tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/20"
             @keydown="onKeydown"
           />
         </div>

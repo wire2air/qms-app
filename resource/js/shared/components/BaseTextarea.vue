@@ -191,7 +191,7 @@ defineExpose({
       v-else
       :id="inputId"
       ref="inputEl"
-      class="tw:w-full tw:resize-none tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-3 tw:py-2 tw:text-sm tw:text-main-text tw:placeholder-main-text-muted tw:transition-[border-color,box-shadow] tw:duration-200 tw:focus:outline-none tw:focus:border-primary tw:focus:ring-2 tw:focus:ring-primary/30 tw:disabled:cursor-not-allowed tw:disabled:opacity-60 tw:disabled:bg-main-unselected tw:disabled:text-grey-5"
+      class="tw:w-full tw:resize-none tw:rounded-lg tw:border tw:border-input-border tw:bg-sidebar tw:px-3 tw:py-2 tw:text-sm tw:text-main-text tw:placeholder-main-text-muted tw:transition-[border-color,box-shadow] tw:duration-200 tw:focus:outline-none tw:focus:border-primary tw:focus:ring-2 tw:focus:ring-primary/30 tw:disabled:cursor-not-allowed tw:disabled:opacity-60 tw:disabled:bg-main-unselected tw:disabled:text-grey-5"
       :class="inputClass"
       :name="name"
       :value="model"

@@ -8,6 +8,7 @@ import SupplierBadgeById from '@/components/badges/SupplierBadgeById.vue'
 import SiteBadgeById from '@/components/badges/SiteBadgeById.vue'
 import DepartmentBadgeById from '@/components/badges/DepartmentBadgeById.vue'
 import UserBadgeById from '@/components/badges/UserBadgeById.vue'
+import EquipmentBadgeById from '@/components/badges/EquipmentBadgeById.vue'
 
 const props = defineProps({
   fields: { type: Array, required: true },
@@ -21,6 +22,7 @@ const LOOKUP_BADGES = {
   site: SiteBadgeById,
   department: DepartmentBadgeById,
   user: UserBadgeById,
+  equipment: EquipmentBadgeById,
 }
 function isLookupField(field) {
   return field.type === 'lookup'

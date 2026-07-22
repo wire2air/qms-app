@@ -11,12 +11,13 @@ import { isAllowed } from '@/utils/currentSession.js'
 const route = useRoute()
 
 const tabs = [
-  { value: 'lots', label: 'Inspection Lots' },
+  { value: 'lots', label: 'Inspections' },
   { value: 'inspection-plans', label: 'Inspection Plans' },
   { value: 'specifications', label: 'Specifications' },
   { value: 'sampling-plans', label: 'Sampling Plans' },
   { value: 'aql-standards', label: 'AQL Standards' },
   { value: 'test-library', label: 'Test Library' },
+  { value: 'line-clearance', label: 'Line Clearance' },
 ]
 const validTabIds = new Set(tabs.map((t) => t.value))
 const activeTab = ref(validTabIds.has(route.query.tab) ? route.query.tab : 'lots')
@@ -70,6 +71,9 @@ const canManageDefects = computed(() => isAllowed(['inspection_catalog:write']))
           </BaseTabPanel>
           <BaseTabPanel value="test-library">
             <DefectCatalogList :canManage="canManageDefects" />
+          </BaseTabPanel>
+          <BaseTabPanel value="line-clearance">
+            <LineClearanceSettings />
           </BaseTabPanel>
         </div>
       </BaseTabs>

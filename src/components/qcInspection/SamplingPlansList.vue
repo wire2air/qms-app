@@ -89,6 +89,8 @@ const standards = useLiveQuery(async (db) => db.SamplingStandard.where().exec(),
   initial: [],
 })
 const standardName = (code) => standards.value.find((s) => s.id === code)?.name || code || '—'
+// Levels are stored canonically with underscores (S_1); show the standard S-n notation.
+const levelLabel = (lvl) => (lvl ? String(lvl).replace(/^S_/, 'S-') : lvl)
 
 // Walk parentPlanId chain upward from a given plan to find its superseded predecessors
 function getPredecessors(plan) {
@@ -196,7 +198,7 @@ async function createNewVersion(plan) {
       <template #body-cell-standard="{ row }">
         <span class="tw:text-secondary">
           <template v-if="row.planType === 'STANDARD'"
-            >{{ standardName(row.standardCode) }} · {{ row.inspectionLevel }}</template
+            >{{ standardName(row.standardCode) }} · {{ levelLabel(row.inspectionLevel) }}</template
           >
           <template v-else>Custom table</template>
         </span>
@@ -333,7 +335,7 @@ async function createNewVersion(plan) {
                 <span class="tw:font-medium tw:text-on-main">v{{ prev.version }}</span>
                 <span>{{ prev.name }}</span>
                 <span v-if="prev.planType === 'STANDARD'"
-                  >· {{ standardName(prev.standardCode) }} {{ prev.inspectionLevel }}</span
+                  >· {{ standardName(prev.standardCode) }} {{ levelLabel(prev.inspectionLevel) }}</span
                 >
                 <span class="tw:ml-auto tw:text-micro"
                   >superseded {{ prev.effectiveUntil?.formatDate('date') }}</span

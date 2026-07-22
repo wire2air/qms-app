@@ -28,6 +28,9 @@ export class SamplingPlan extends BaseModel {
   // [{ severity: CRITICAL|MAJOR|MINOR, aql }] — AQL per defect class.
   @Property({ type: Object }) severityAqls = /** @type {Object} */ (null)
   @Property({ type: Object }) customPlanTable = /** @type {Object} */ (null)
+  // In-process (IPQC) advisory guidance.
+  @Property({ type: Number }) perCollectionSize = /** @type {Number} */ (null)
+  @Property({ type: Number }) collectionIntervalMinutes = /** @type {Number} */ (null)
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: Number }) version = 1
   @Property({ type: String }) parentPlanId = /** @type {String} */ (null)

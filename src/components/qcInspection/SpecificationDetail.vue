@@ -357,6 +357,7 @@ async function newVersion() {
     :record="spec"
     :loading="loading"
     :notFound="!loading && !spec"
+    :rail="true"
     notFoundTitle="Specification not found"
     notFoundDescription="This specification could not be found."
   >
@@ -375,8 +376,8 @@ async function newVersion() {
       <SpecificationStatusBadgeById v-if="spec" :statusId="spec.statusId" />
     </template>
 
-    <template v-if="spec" #meta>
-      <span>v{{ spec.version }}<span v-if="spec.code"> · {{ spec.code }}</span></span>
+    <template #meta>
+      <span v-if="spec">v{{ spec.version }}<span v-if="spec.code"> · {{ spec.code }}</span></span>
     </template>
 
     <template v-if="canManage" #actions>
@@ -619,8 +620,11 @@ async function newVersion() {
       <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
     </div>
 
-    <!-- Rail: general / scope / lifecycle / notes -->
-    <template v-if="spec && header" #rail>
+    <!-- Rail: general / scope / lifecycle / notes. The slot is ALWAYS provided
+         (never v-if on the #rail template) so BaseDetailLayout detects it and
+         renders the rail; content is guarded inside instead. -->
+    <template #rail>
+      <template v-if="spec && header">
       <BaseRailCard title="General">
         <div class="tw:flex tw:flex-col tw:gap-3">
           <div>
@@ -727,6 +731,7 @@ async function newVersion() {
         <BaseText v-else-if="spec.notes" variant="body" class="tw:whitespace-pre-wrap">{{ spec.notes }}</BaseText>
         <BaseText v-else color="secondary">—</BaseText>
       </BaseRailCard>
+      </template>
     </template>
   </BaseDetailLayout>
 </template>

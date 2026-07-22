@@ -1,4 +1,5 @@
-import { defineComponent, ref, computed, h } from 'vue'
+import { defineComponent, ref, computed, h, onMounted } from 'vue'
+import { DateTime } from 'luxon'
 import { useVModels } from '@vueuse/core'
 import { getProp, injectMultipleProps, setProp } from '@shared/composables/object.js'
 import {
@@ -35,6 +36,7 @@ import SupplierSelectMenu from '@/components/menus/SupplierSelectMenu.vue'
 import SiteSelectMenu from '@/components/menus/SiteSelectMenu.vue'
 import DepartmentSelectMenu from '@/components/menus/DepartmentSelectMenu.vue'
 import UserSelectMenu from '@/components/menus/UserSelectMenu.vue'
+import EquipmentSelectMenu from '@/components/menus/EquipmentSelectMenu.vue'
 
 // Entity pickers a `lookup` field can render, keyed by field.lookupEntity.
 const LOOKUP_MENUS = {
@@ -43,6 +45,7 @@ const LOOKUP_MENUS = {
   site: SiteSelectMenu,
   department: DepartmentSelectMenu,
   user: UserSelectMenu,
+  equipment: EquipmentSelectMenu,
 }
 
 function safeRegExp(src) {
@@ -111,6 +114,43 @@ export default defineComponent({
     const { modelValue } = useVModels(props, emit)
     const innerLoading = ref(false)
     const collapsedSections = ref({})
+
+    // The value a `defaultToday` datetime field seeds into a NEW entry, in the
+    // same shape BaseDateField emits (valueFormat 'iso'): full ISO for datetime,
+    // date-only ISO for date, minutes-since-midnight for time.
+    function defaultDateValue(field) {
+      const now = DateTime.now()
+      if (field.mode === 'time') return now.hour * 60 + now.minute
+      if (field.mode === 'date') return now.toISODate()
+      return now.toISO()
+    }
+
+    // Seed defaults for brand-new entries once on mount. A field is seeded only
+    // when its stored value is `undefined` (never set) — an explicit `null`
+    // (user-cleared) is left alone, so this never clobbers an existing entry a
+    // user intentionally blanked. Skipped entirely for readonly/disabled views.
+    function seedFieldDefaults(fields, ancestors) {
+      for (const field of fields) {
+        if (!field || typeof field !== 'object') continue
+        const nextAncestors = field.name ? [...ancestors, field.name] : ancestors
+        if (['section', 'row', 'column'].includes(field.type)) {
+          if (Array.isArray(field.children)) seedFieldDefaults(field.children, nextAncestors)
+          continue
+        }
+        if (field.type === 'datetime' && field.defaultToday && field.name) {
+          const path = nextAncestors.join('.')
+          if (getProp(modelValue.value, path) === undefined) {
+            if (!modelValue.value) modelValue.value = {}
+            setProp(modelValue.value, path, defaultDateValue(field), true)
+          }
+        }
+      }
+    }
+
+    onMounted(() => {
+      if (props.readonly || props.disabled) return
+      seedFieldDefaults(props.fields || [], [])
+    })
 
     const computedLoading = computed({
       get: () => {
@@ -393,6 +433,9 @@ export default defineComponent({
               valueFormat: 'iso',
               modelValue: scope.value || null,
               disabled: isDisabled,
+              // Optional per-field bounds: no past / no future dates (author opt-in).
+              minDate: field.noPastDates ? DateTime.now().startOf('day') : null,
+              maxDate: field.noFutureDates ? DateTime.now().endOf('day') : null,
               'onUpdate:modelValue': (v) => {
                 scope.value = v || null
               },
