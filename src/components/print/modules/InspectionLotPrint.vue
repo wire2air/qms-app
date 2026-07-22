@@ -51,6 +51,11 @@ const batches = useLiveQueryWithDeps(
     id ? (await db.InspectionBatch.where('inspectionLotId', id).exec()).sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0)) : [],
   { models: ['InspectionBatch'], initial: [] },
 )
+const samples = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => (id ? db.InspectionSample.where('inspectionLotId', id).orderBy('sampleNo', 'asc').exec() : []),
+  { models: ['InspectionSample'], initial: [] },
+)
 const users = useLiveQuery(async (db) => db.User.where().exec(), { models: ['User'], initial: [] })
 const userName = (id) => {
   const u = users.value.find((x) => x.id === id)
@@ -102,6 +107,37 @@ function specText(c) {
   if (c.lsl != null || c.usl != null) parts.push(`${c.lsl ?? '−∞'} … ${c.usl ?? '+∞'}`)
   return [parts.join(', '), c.uom].filter(Boolean).join(' ') || '—'
 }
+
+// In-process: one row per collected sample (time + lot#), a cell per test.
+const batchLotById = computed(() => {
+  const m = {}
+  for (const b of batches.value) m[b.id] = b.lotNumber || ''
+  return m
+})
+function resultCell(sampleNo, charId) {
+  const r = results.value.find((x) => (x.sampleIndex ?? 1) === sampleNo && x.characteristicId === charId)
+  if (!r) return { text: '—', fail: false }
+  const v =
+    r.valueNumeric != null
+      ? r.valueNumeric
+      : r.valueText != null && r.valueText !== ''
+        ? r.valueText
+        : r.valueBool != null
+          ? r.valueBool
+            ? 'Pass'
+            : 'Fail'
+          : ''
+  return { text: v === '' ? '—' : v, fail: r.outcome === 'FAIL' }
+}
+const perSampleRows = computed(() =>
+  samples.value.map((s) => ({
+    sampleNo: s.sampleNo,
+    collectedAt: s.collectedAt,
+    lotNo: batchLotById.value[s.batchId] || '—',
+    collectedBy: s.collectedBy,
+    cells: characteristics.value.map((c) => ({ id: c.id, ...resultCell(s.sampleNo, c.id) })),
+  })),
+)
 
 const identifier = computed(() => lot.value?.lotNumber ?? '')
 const auditEntities = computed(() => (props.id ? [{ entityType: 'InspectionLot', entityId: props.id }] : []))
@@ -243,6 +279,35 @@ onMounted(() => {
       <p v-else class="qc-print-muted">No specification / results recorded.</p>
     </section>
 
+    <!-- In-process: per-collection sample detail (time + lot# + result per test). -->
+    <section v-if="isInProcess && perSampleRows.length" class="qc-print-section">
+      <h2>Sample Collections</h2>
+      <table class="qc-print-table qc-print-table--grid qc-print-table--compact">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Collected</th>
+            <th>Lot #</th>
+            <th>By</th>
+            <th v-for="c in characteristics" :key="c.id">
+              {{ c.name }}<span v-if="c.uom" class="qc-print-muted"> ({{ c.uom }})</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in perSampleRows" :key="row.sampleNo">
+            <td>#{{ row.sampleNo }}</td>
+            <td>{{ fmtDateTime(row.collectedAt) }}</td>
+            <td>{{ row.lotNo }}</td>
+            <td>{{ row.collectedBy ? userName(row.collectedBy) : '—' }}</td>
+            <td v-for="cell in row.cells" :key="cell.id" :class="cell.fail ? 'qc-print-bad' : ''">
+              {{ cell.text }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <!-- Disposition notes -->
     <section v-if="lot?.dispositionNotes || lot?.notes" class="qc-print-section">
       <h2>Notes</h2>
@@ -265,6 +330,8 @@ onMounted(() => {
 .qc-print-table td { padding: 3px 8px 3px 0; vertical-align: top; }
 .qc-print-table--grid th, .qc-print-table--grid td { border: 1px solid #ddd; padding: 4px 8px; }
 .qc-print-table--grid thead th { background: #f3f4f6; }
+.qc-print-table--compact { font-size: 8.5pt; }
+.qc-print-table--compact th, .qc-print-table--compact td { padding: 2px 5px; }
 .qc-print-muted { color: #888; }
 .qc-print-good { color: #067647; font-weight: 600; }
 .qc-print-bad { color: #b42318; font-weight: 600; }
