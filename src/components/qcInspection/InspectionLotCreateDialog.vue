@@ -317,14 +317,21 @@ async function onSave() {
           <BaseField label="Supplier">
             <SupplierSelectMenu v-model="form.supplierId" :disabled="identityLocked" />
           </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Lot quantity">
-            <BaseTextInput
-              :id="fieldId"
-              v-model.number="form.quantity"
-              type="number"
-              placeholder="for sample-size calc"
-              :disabled="identityLocked"
-            />
+          <BaseField
+            label="Lot quantity"
+            :required="form.inspectionPoint !== 'IN_PROCESS'"
+            :value="form.quantity"
+            :rules="form.inspectionPoint !== 'IN_PROCESS' ? [required()] : []"
+          >
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model.number="form.quantity"
+                type="number"
+                :placeholder="form.inspectionPoint === 'IN_PROCESS' ? 'optional' : 'for sample-size calc'"
+                :disabled="identityLocked"
+              />
+            </template>
           </BaseField>
           <BaseField
             :label="form.inspectionPoint === 'IN_PROCESS' ? 'Production lot (Lot#)' : 'Batch / Lot ref'"
