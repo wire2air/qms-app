@@ -215,10 +215,15 @@ function buildPayload() {
   return payload
 }
 
+// Pass/Fail is stored as valueBool (true/false, null = not answered). The select
+// uses string ids so an unset cell stays truly empty — a boolean `false` reads
+// as falsy in the select and gets confused with null/empty (auto-picks Pass).
 const PF_ITEMS = [
-  { id: true, name: 'Pass' },
-  { id: false, name: 'Fail' },
+  { id: 'PASS', name: 'Pass' },
+  { id: 'FAIL', name: 'Fail' },
 ]
+const pfStr = (b) => (b === true ? 'PASS' : b === false ? 'FAIL' : null)
+const pfBool = (v) => (v === 'PASS' ? true : v === 'FAIL' ? false : null)
 
 defineExpose({ buildPayload })
 </script>
@@ -315,13 +320,13 @@ defineExpose({ buildPayload })
             />
             <BaseInlineSelect
               v-else-if="c.testType === 'PASS_FAIL'"
-              :modelValue="grid[s][c.id].valueBool"
+              :modelValue="pfStr(grid[s][c.id].valueBool)"
               :items="PF_ITEMS"
               :required="false"
               placeholder="—"
               nullLabel="—"
               class="tw:w-24"
-              @update:modelValue="(v) => (grid[s][c.id].valueBool = v)"
+              @update:modelValue="(v) => (grid[s][c.id].valueBool = pfBool(v))"
             />
             <input
               v-else

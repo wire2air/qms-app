@@ -198,27 +198,18 @@ function openEvidence(sampleNo) {
   evidenceSampleNo.value = sampleNo
   showEvidence.value = true
 }
-async function selectActiveBatch(batchId) {
-  if (!batchId || batchId === lot.value?.activeBatchId) return
-  try {
-    await post(`/v1/services/qcInspection/lots/${props.id}/active-batch`, { batchId })
-  } catch (err) {
-    toast.error(err?.message || 'Failed to change production lot')
-  }
-}
-// All production lots stay visible; closed ones are shown disabled (greyed,
-// non-selectable) so you can still see them but can't collect against them.
+// Open production lots only — used by the Collect / evidence dialogs, which
+// can't target a closed lot.
 const activeBatchOptions = computed(() =>
-  batches.value.map((b) => ({
-    id: b.id,
-    label: (b.lotNumber || `Lot ${b.id.slice(0, 6)}`) + (b.closedAt ? ' (closed)' : ''),
-    disabled: !!b.closedAt,
-  })),
+  batches.value
+    .filter((b) => !b.closedAt)
+    .map((b) => ({ id: b.id, label: b.lotNumber || `Lot ${b.id.slice(0, 6)}` })),
 )
 const activeBatch = computed(() => batches.value.find((b) => b.id === lot.value?.activeBatchId) ?? null)
-// View filter for the results grid: All lots, or one specific lot (open OR
-// closed). Separate from the active-lot-for-collection selector above.
-const sampleFilterBatchId = ref(null)
+// Single lot control: pick a production lot (open OR closed) to view its samples,
+// or "All lots". Selecting an OPEN lot also makes it the active collection
+// target; collecting is guarded when the current lot is closed or "All".
+const currentLotId = ref(null)
 const viewLotOptions = computed(() => [
   { id: null, label: 'All lots' },
   ...batches.value.map((b) => ({
@@ -226,14 +217,34 @@ const viewLotOptions = computed(() => [
     label: (b.lotNumber || `Lot ${b.id.slice(0, 6)}`) + (b.closedAt ? ' (closed)' : ''),
   })),
 ])
+const currentBatch = computed(() =>
+  currentLotId.value ? (batches.value.find((b) => b.id === currentLotId.value) ?? null) : null,
+)
 const filteredSamples = computed(() =>
-  sampleFilterBatchId.value
-    ? collectedSamples.value.filter((s) => s.batchId === sampleFilterBatchId.value)
+  currentLotId.value
+    ? collectedSamples.value.filter((s) => s.batchId === currentLotId.value)
     : collectedSamples.value,
 )
+// Follow the active lot (set on add-lot / check-in / selecting an open lot).
+watch(() => lot.value?.activeBatchId, (id) => { currentLotId.value = id ?? null }, { immediate: true })
+async function onSelectLot(id) {
+  currentLotId.value = id ?? null
+  const b = id ? batches.value.find((x) => x.id === id) : null
+  // Selecting an open lot makes it the active collection target. Closed lots and
+  // "All" are view-only (collection is guarded).
+  if (b && !b.closedAt && id !== lot.value?.activeBatchId) {
+    try {
+      await post(`/v1/services/qcInspection/lots/${props.id}/active-batch`, { batchId: id })
+    } catch (err) {
+      toast.error(err?.message || 'Failed to select production lot')
+    }
+  }
+}
+// Collect is only allowed against a specific OPEN production lot.
+const collectBlockedByLot = computed(() => !currentBatch.value || !!currentBatch.value.closedAt)
 async function doCloseLot() {
-  const b = activeBatch.value
-  if (!b) return
+  const b = currentBatch.value
+  if (!b || b.closedAt) return
   const label = b.lotNumber || `Lot ${b.id.slice(0, 6)}`
   const ok = await confirm({
     title: 'Close production lot?',
@@ -279,6 +290,15 @@ const collectBlockedByClearance = computed(
   () => isInProcess.value && lineClearanceRequired.value && !lineClearancePassed.value,
 )
 const showLineClearance = ref(false)
+
+// Pass/Fail control: string items so an unset cell stays empty (a boolean false
+// reads as falsy in the select and gets confused with null → auto-picks Pass).
+const PF_ITEMS = [
+  { id: 'PASS', name: 'Pass' },
+  { id: 'FAIL', name: 'Fail' },
+]
+const pfStr = (b) => (b === true ? 'PASS' : b === false ? 'FAIL' : null)
+const pfBool = (v) => (v === 'PASS' ? true : v === 'FAIL' ? false : null)
 
 const canCollect = computed(
   () =>
@@ -831,12 +851,12 @@ const inspectionLotDetailConfig = computed(() =>
             :variant="collectionDue ? 'danger' : 'secondary'"
             size="sm"
             class="tw:ml-auto tw:shrink-0"
-            :disabled="collectTooEarly || !lot.activeBatchId || collectBlockedByClearance"
+            :disabled="collectTooEarly || collectBlockedByLot || collectBlockedByClearance"
             :title="
-              collectBlockedByClearance
-                ? 'Line clearance required for this lot before collecting'
-                : !lot.activeBatchId
-                  ? 'Select or add a production lot first'
+              collectBlockedByLot
+                ? 'Select an open production lot to collect samples'
+                : collectBlockedByClearance
+                  ? 'Line clearance required for this lot before collecting'
                   : ''
             "
             @click="showCollect = true"
@@ -907,38 +927,27 @@ const inspectionLotDetailConfig = computed(() =>
                 >
               </span>
             </span>
-            <!-- In-process: view filter — show samples for one lot (open or closed) or All. -->
-            <div v-if="isInProcess && batches.length > 1" class="tw:flex tw:items-center tw:gap-1.5">
-              <span class="tw:text-xs tw:text-secondary">View</span>
-              <BaseSelect
-                v-model="sampleFilterBatchId"
-                :options="viewLotOptions"
-                optionLabel="label"
-                optionValue="id"
-                class="tw:min-w-32"
-              />
-            </div>
-            <!-- In-process: active production lot selector (prominent) + Add / Close. -->
+            <!-- In-process: single production-lot control — pick a lot (open OR
+                 closed) to view its samples, or "All lots". Selecting an open lot
+                 also targets it for collection; Add / Close when collecting. -->
             <div
-              v-if="isInProcess && canCollect"
+              v-if="isInProcess && (batches.length || canCollect)"
               class="tw:flex tw:items-center tw:gap-2 tw:rounded-lg tw:border tw:border-primary/40 tw:bg-primary/5 tw:px-2.5 tw:py-1.5"
             >
               <span class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-primary">Lot#</span>
               <BaseSelect
-                :modelValue="lot.activeBatchId"
-                :options="activeBatchOptions"
+                :modelValue="currentLotId"
+                :options="viewLotOptions"
                 optionLabel="label"
                 optionValue="id"
-                optionDisabled="disabled"
-                :required="true"
-                nullLabel="Select a lot"
+                nullLabel="All lots"
                 size="md"
                 class="tw:min-w-40 tw:font-semibold"
-                @update:modelValue="selectActiveBatch"
+                @update:modelValue="onSelectLot"
               />
-              <BaseButton variant="ghost" size="sm" @click="showAddLot = true">+ Add Lot</BaseButton>
+              <BaseButton v-if="canCollect" variant="ghost" size="sm" @click="showAddLot = true">+ Add Lot</BaseButton>
               <BaseButton
-                v-if="activeBatch"
+                v-if="canCollect && currentBatch && !currentBatch.closedAt"
                 variant="ghost"
                 size="sm"
                 class="tw:text-bad"
@@ -955,13 +964,15 @@ const inspectionLotDetailConfig = computed(() =>
               :variant="collectionDue ? 'danger' : 'secondary'"
               size="sm"
               :class="collectionDue ? 'tw:animate-pulse' : ''"
-              :disabled="collectTooEarly || !lot.activeBatchId || collectBlockedByClearance"
+              :disabled="collectTooEarly || collectBlockedByLot || collectBlockedByClearance"
               :title="
-                collectBlockedByClearance
-                  ? 'Line clearance required for this lot before collecting'
-                  : collectTooEarly && nextDueAt
-                    ? `Next collection at ${nextDueAt.formatDate('time')}`
-                    : ''
+                collectBlockedByLot
+                  ? 'Select an open production lot to collect samples'
+                  : collectBlockedByClearance
+                    ? 'Line clearance required for this lot before collecting'
+                    : collectTooEarly && nextDueAt
+                      ? `Next collection at ${nextDueAt.formatDate('time')}`
+                      : ''
               "
               @click="showCollect = true"
             >
@@ -1078,13 +1089,13 @@ const inspectionLotDetailConfig = computed(() =>
                   />
                   <BaseInlineSelect
                     v-else-if="c.testType === 'PASS_FAIL'"
-                    :modelValue="entries[c.id].valueBool"
-                    :items="[{ id: true, name: 'Pass' }, { id: false, name: 'Fail' }]"
+                    :modelValue="pfStr(entries[c.id].valueBool)"
+                    :items="PF_ITEMS"
                     :required="false"
                     placeholder="—"
                     nullLabel="—"
                     class="tw:w-28"
-                    @update:modelValue="(v) => (entries[c.id].valueBool = v)"
+                    @update:modelValue="(v) => (entries[c.id].valueBool = pfBool(v))"
                   />
                   <BaseTextInput
                     v-else
