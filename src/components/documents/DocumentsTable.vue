@@ -66,12 +66,16 @@ const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], i
 function selectOpts(list) {
   return list.map((x) => ({ value: x.id, label: x.name }))
 }
-function userOpts(list) {
-  return list.map((u) => ({
-    value: u.id,
-    label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email,
-  }))
+function userLabel(u) {
+  return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
 }
+function userOpts(list) {
+  return list.map((u) => ({ value: u.id, label: userLabel(u) }))
+}
+// DC-L-03: id-column search must match the *name* the user sees, not the raw
+// UUID/field value. These maps back the department/owner `searchValue` accessors.
+const deptNameById = computed(() => Object.fromEntries(departments.value.map((d) => [d.id, d.name])))
+const userNameById = computed(() => Object.fromEntries(users.value.map((u) => [u.id, userLabel(u)])))
 
 const columns = computed(() => {
   const filterCfg = {
@@ -95,6 +99,8 @@ const columns = computed(() => {
       field: 'departmentId',
       align: 'left',
       sortable: true,
+      // DC-L-03: search matches the department name, not the departmentId UUID.
+      searchValue: (row) => deptNameById.value[row.departmentId] ?? '',
     },
     {
       name: 'current',
@@ -102,6 +108,9 @@ const columns = computed(() => {
       field: (row) => currentVersionMapById.value[row.id],
       align: 'left',
       sortable: false,
+      // DC-L-03: a version object is not meaningfully free-text searchable
+      // (status is covered by the Status filter) — keep it out of "Search in".
+      searchable: false,
     },
     {
       name: 'latest',
@@ -109,6 +118,7 @@ const columns = computed(() => {
       field: (row) => latestVersionMapById.value[row.id],
       align: 'left',
       sortable: false,
+      searchable: false,
     },
     {
       name: 'effectiveDate',
@@ -117,9 +127,18 @@ const columns = computed(() => {
       align: 'left',
       sortable: false,
     },
-    { name: 'owner', label: 'OWNER', field: 'owner', align: 'left', sortable: true },
+    {
+      name: 'owner',
+      label: 'OWNER',
+      // DC-L-03: the row's owner is `userId` (there is no `owner` field) — the
+      // wrong field silently broke both Owner search and the Owner filter.
+      field: 'userId',
+      align: 'left',
+      sortable: true,
+      searchValue: (row) => userNameById.value[row.userId] ?? '',
+    },
     { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-    { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right', hideable: false },
+    { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right', hideable: false, searchable: false },
   ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
 
