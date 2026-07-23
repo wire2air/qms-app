@@ -163,7 +163,11 @@ const searchableColumns = computed(() =>
   props.columns.filter((c) => c.label && c.name !== '__actions' && c.searchable !== false),
 )
 function searchText(row, col) {
-  const v = getCellValue(row, col)
+  // A column may supply an explicit search accessor (`searchValue(row)`) so
+  // free-text search matches what the user sees — e.g. an id column that renders
+  // a resolved name — instead of the raw stored value. Falls back to the cell
+  // value used for sorting/filtering/export.
+  const v = typeof col.searchValue === 'function' ? col.searchValue(row) : getCellValue(row, col)
   if (v == null) return ''
   if (typeof v === 'object') {
     return typeof v.formatDate === 'function' ? v.formatDate('date') : JSON.stringify(v)
