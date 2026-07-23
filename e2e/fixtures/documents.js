@@ -184,6 +184,33 @@ export async function expectStatusEventually(page, pattern, { timeout = 40_000 }
   }).toPass({ timeout })
 }
 
+/** Navigate to a document, bounded and without waiting on the live sync socket. */
+export async function gotoDoc(page, documentId) {
+  await page.goto(`/documents/${documentId}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+}
+
+/**
+ * Click a control that appears a few seconds after a fresh load once the SPA
+ * hydrates and the task syncs from IDB (e.g. a reviewer/approver Approve button).
+ * Gives each load a *patient* window (the control reliably renders within it —
+ * reloading sooner just resets the hydration clock and starves it), and only
+ * reloads as a fallback if it never shows. Bounded, so it fails fast rather than
+ * consuming the whole test budget.
+ */
+export async function clickWhenReady(page, locator, { perLoad = 20_000, reloads = 2 } = {}) {
+  const target = locator.first()
+  for (let attempt = 0; attempt <= reloads; attempt++) {
+    try {
+      await expect(target).toBeVisible({ timeout: perLoad })
+      await target.click()
+      return
+    } catch (err) {
+      if (attempt === reloads) throw err
+      await page.reload({ waitUntil: 'domcontentloaded' })
+    }
+  }
+}
+
 /**
  * Reject the current DocumentVersion task (Reject button → "Reject Step" dialog →
  * required comment → confirm). The ACTION step (reviewer, step 1) is not e-signed,
@@ -235,10 +262,10 @@ export async function driveToEffective(browser, docId, versionId) {
   )
   const reviewerCtx = await browser.newContext({ storageState: AUTH.reviewer })
   const reviewerPage = await reviewerCtx.newPage()
-  await reviewerPage.goto(`/documents/${docId}`)
-  const completeBtn = reviewerPage.getByRole('button', { name: /^approve$/i }).first()
-  await expect(completeBtn).toBeVisible({ timeout: 20_000 })
-  await completeBtn.click()
+  await gotoDoc(reviewerPage, docId)
+  // The reviewer's Approve action renders once the step-1 task syncs into this
+  // context; reload-tolerant so a missed socket push doesn't stall the run.
+  await clickWhenReady(reviewerPage, reviewerPage.getByRole('button', { name: /^approve$/i }))
   const reviewDialog = reviewerPage.getByRole('dialog').last()
   if (await reviewDialog.isVisible({ timeout: 4_000 }).catch(() => false)) {
     const box = reviewDialog.locator('textarea, [contenteditable="true"]').first()
@@ -257,10 +284,10 @@ export async function driveToEffective(browser, docId, versionId) {
 
   const approverCtx = await browser.newContext({ storageState: AUTH.approver })
   const approverPage = await approverCtx.newPage()
-  await approverPage.goto(`/documents/${docId}`)
-  const approveBtn = approverPage.getByRole('button', { name: /^approve$/i }).first()
-  await expect(approveBtn).toBeVisible({ timeout: 20_000 })
-  await approveBtn.click()
+  await gotoDoc(approverPage, docId)
+  // The approver's Approve action renders only after the step-2 assignment syncs
+  // into this context (the exact spot J5 stalled on before). Reload-tolerant.
+  await clickWhenReady(approverPage, approverPage.getByRole('button', { name: /^approve$/i }))
   const pin = approverPage.getByPlaceholder('Enter your e-signature PIN')
   await expect(pin).toBeVisible({ timeout: 10_000 })
   await pin.fill(ESIGN_PIN)
@@ -278,7 +305,7 @@ export async function driveToEffective(browser, docId, versionId) {
  * reason + change type. Returns after the dialog closes.
  */
 export async function createNewRevision(page, docId, { reason = 'E2E revision — updated per SOP-014 rev 4.', changeType = 'Minor' } = {}) {
-  await page.goto(`/documents/${docId}`)
+  await gotoDoc(page, docId)
   // "Create New Draft" only appears once the latest version is APPROVED/EFFECTIVE.
   // After driveToEffective ran in other contexts, this page's IndexedDB can lag,
   // so wait (reload-tolerant) for the effective state before looking for it.
@@ -293,7 +320,10 @@ export async function createNewRevision(page, docId, { reason = 'E2E revision �
     .click()
   await expect(page.getByText('Create New Revision')).toBeVisible({ timeout: 10_000 })
   await page.getByPlaceholder(/New calibration interval/i).fill(reason)
-  await page.getByRole('button', { name: new RegExp(`^${changeType}$`, 'i') }).click()
+  // The change-type control is a <button> whose accessible name is the label span
+  // ("Minor") followed by its description span, so anchor at the start of the name
+  // (a `^Minor$` match never resolves and the click would auto-wait to the cap).
+  await page.getByRole('button', { name: new RegExp(`^${changeType}\\b`, 'i') }).click()
   await page.getByRole('button', { name: 'Create Revision' }).click()
   await expect(page.getByText('Create New Revision')).toBeHidden({ timeout: 15_000 })
 }
