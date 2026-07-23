@@ -239,9 +239,12 @@ async function handleDeleteDraft() {
       router.push(getCompanyPath('/workflow-templates'))
       return
     }
-    // Published version(s) exist → discard just this draft version
-    // (soft-delete); the versions watcher reselects another version.
-    await selectedVersion.value.delete()
+    // Published version(s) exist → discard just this draft version. HARD-delete
+    // it (steps cascade) so its version number is freed for reuse — the unique
+    // (workflow, major, minor) index isn't partial, so a soft-deleted draft
+    // would otherwise block re-creating that version. The versions watcher
+    // reselects another version.
+    await selectedVersion.value.hardDelete()
     toast.success('Draft discarded')
     selectedVersionId.value = null
   } catch (err) {
@@ -276,9 +279,10 @@ const handlePublish = useLiveMutation(async () => {
 const creatingDraft = ref(false)
 
 const createDraftMutation = useLiveMutation(async (db, { workflowId, majorBump }) => {
-  const sourceVersions = await db.WorkflowVersion.where('workflowId', workflowId, {
-    force: true,
-  }).exec()
+  // Base the new draft on LIVE versions only (not soft-deleted/discarded ones),
+  // so the version number reuses a freed slot instead of ever-incrementing, and
+  // the clone source is the current published/draft version — not a discarded one.
+  const sourceVersions = await db.WorkflowVersion.where('workflowId', workflowId).exec()
   const sortedVersions = sourceVersions.sort((a, b) => {
     if (a.versionMajor !== b.versionMajor) {
       return b.versionMajor - a.versionMajor
