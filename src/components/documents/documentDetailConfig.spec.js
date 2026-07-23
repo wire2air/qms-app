@@ -88,9 +88,12 @@ describe('buildDocumentActions', () => {
     expect(visibleIds({ selectedStatus: 'DRAFT' })).not.toContain('deleteVersion')
   })
 
-  it('Archive needs canEdit and a non-archived document', () => {
-    expect(visibleIds({ canEdit: true, statusId: 'EFFECTIVE' })).toContain('archive')
-    expect(visibleIds({ canEdit: true, statusId: 'ARCHIVED' })).not.toContain('archive')
+  it('Archive needs canDelete and a non-archived document (DC-OB-01)', () => {
+    expect(visibleIds({ canDelete: true, statusId: 'EFFECTIVE' })).toContain('archive')
+    expect(visibleIds({ canDelete: true, statusId: 'ARCHIVED' })).not.toContain('archive')
+    // DC-OB-01: edit access alone (no delete perm / not owner-author) must NOT
+    // expose the destructive Archive action.
+    expect(visibleIds({ canEdit: true, statusId: 'EFFECTIVE' })).not.toContain('archive')
   })
 
   it('the status-driven actions all carry the top priority (one primary at a time)', () => {

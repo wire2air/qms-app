@@ -174,8 +174,14 @@ export function buildDocumentActions(gates = {}, handlers = {}) {
       label: 'Archive Document',
       icon: IconArchive,
       variant: 'danger',
-      priority: 10,
-      visible: !!canEdit && statusId !== 'ARCHIVED',
+      // DC-OB-01: archiving obsoletes + soft-deletes the whole document — a
+      // destructive records action, so it requires delete permission AND
+      // owner/author (canDelete), not merely edit access (canEdit). Mirrors the
+      // Delete Version gate above. NOTE: the archive write is a raw syncEngine
+      // updateDocument (obsoletedAt/By/Reason); documents-UPDATE RLS still only
+      // checks document_control:update, so a DB-level guard on obsoletion is a
+      // separate follow-up to fully close the raw-GraphQL bypass.
+      visible: !!canDelete && statusId !== 'ARCHIVED',
       onSelect: handlers.archive,
     },
   ]
