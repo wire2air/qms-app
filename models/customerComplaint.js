@@ -26,7 +26,11 @@ export class CustomerComplaint extends BaseModel {
   @Property({ type: String }) complaintNumber = ''
   @Property({ type: String, required: true }) subject = ''
   @Property({ type: String }) description = ''
-  @Property({ type: String }) statusId = 'NEW'
+  // COMPLAINT-C1 (client half): status is server-enforced by the
+  // enforce_customer_complaint_status_transition trigger; block the generated update
+  // mutation from ever carrying statusId (status changes go through the REST complaint
+  // actions: accept / assign / reply / resolve / hold / close / reopen).
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) statusId = 'NEW'
   @Property({ type: String }) priorityId = /** @type {String} */ (null)
   @Property({ type: String }) sourceId = 'WEB'
   @Property({ type: String }) customerName = /** @type {String} */ (null)
