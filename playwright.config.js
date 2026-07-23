@@ -1,27 +1,46 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// Route smoke tests — boot the production build and assert public routes render
-// without uncaught errors. Authenticated routes need a test session/backend and
-// are gated behind E2E_BASE_URL (see e2e/smoke.spec.js).
+// Two suites:
+//  - smoke: public-route rendering against any served build (backend mocked in-spec).
+//  - documents: real end-to-end journeys against the live dev stack
+//    (postgres/redis/minio + api :4000, worker :4002, sync :4003, vite :5173,
+//    tenant pharma.localhost — see e2e/README.md). Auth state is prepared once
+//    by the `setup` project (e2e/fixtures/auth.setup.js).
+//
+// Execution is fully observable: HTML report + video + trace on every
+// documents run (`npx playwright show-report` / `--ui` / `--headed`).
+const BASE_URL = process.env.E2E_BASE_URL || 'http://e2elab.localhost:5173'
+
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  fullyParallel: false, // documents journeys share seeded fixtures; keep ordered per file
+  workers: 1,
+  timeout: 120_000, // journeys drive multi-step UI + wait on worker jobs
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: 'line',
+  reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'http://localhost:4173',
-    headless: true,
-    trace: 'on-first-retry',
+    baseURL: BASE_URL,
+    headless: !process.env.E2E_HEADED,
+    trace: 'on',
+    video: 'on',
+    screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  // Build + serve the prod bundle, unless an external base URL is provided.
-  webServer: process.env.E2E_BASE_URL
-    ? undefined
-    : {
-        command: 'npm run build && npm run preview -- --port 4173 --strictPort',
-        url: 'http://localhost:4173',
-        reuseExistingServer: !process.env.CI,
-        timeout: 180_000,
-      },
+  projects: [
+    {
+      name: 'setup',
+      testMatch: /fixtures\/auth\.setup\.js/,
+    },
+    {
+      name: 'documents',
+      testMatch: /documents\/.*\.spec\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'smoke',
+      testMatch: /smoke\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
 })
