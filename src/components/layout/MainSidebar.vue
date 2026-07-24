@@ -245,10 +245,9 @@ const navItems = computed(() => {
 
   return [
     {
-      label: 'Records',
-      permissions: ['records:read'],
-      icon: IconTable,
-      to: getCompanyPath('/records'),
+      label: 'My Tasks',
+      icon: IconCheckbox,
+      to: getCompanyPath('/task-instances'),
     },
     // Admin-defined modules (data-driven).
     ...moduleNavItems.value,
@@ -257,11 +256,6 @@ const navItems = computed(() => {
       permissions: ['document_control:read'],
       icon: IconFileText,
       to: getCompanyPath('/documents'),
-    },
-    {
-      label: 'My Tasks',
-      icon: IconCheckbox,
-      to: getCompanyPath('/task-instances'),
     },
     {
       label: 'Nonconformances',
@@ -372,12 +366,18 @@ const navItems = computed(() => {
         },
       ],
     },
-    {}, // Divider
     {
-      label: 'Audit Logs',
-      icon: IconShieldCheck,
-      to: getCompanyPath('/audit-logs'),
+      // Formerly "Records" — the generic form-template records surface,
+      // being evolved into a Jotform-style dynamic form/record builder that
+      // promotes templates to full on-the-fly modules (which then appear as
+      // their own nav entries above). Not a core QMS record type, so it sits
+      // below the day-to-day modules.
+      label: 'App Builder',
+      permissions: ['records:read'],
+      icon: IconTable,
+      to: getCompanyPath('/records'),
     },
+    {}, // Divider
     {
       // Template-authoring surfaces — mirrors the "Templates" section of the
       // Roles & Permissions matrix (user decision 2026-07-24: nav groups and
@@ -581,6 +581,13 @@ const navItems = computed(() => {
           label: 'AI Usage',
           icon: IconChartBar,
           to: getCompanyPath('/ai-usage'),
+        },
+        {
+          // Company-wide activity ledger — reference surface, not day-to-day
+          // (moved from the top level 2026-07-24, user decision).
+          label: 'Audit Logs',
+          icon: IconShieldCheck,
+          to: getCompanyPath('/audit-logs'),
         },
       ].filter((item) => {
         // If no permissions specified, always show
