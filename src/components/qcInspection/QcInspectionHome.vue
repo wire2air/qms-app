@@ -10,23 +10,39 @@ import { isAllowed } from '@/utils/currentSession.js'
 
 const route = useRoute()
 
-const tabs = [
-  { value: 'lots', label: 'Inspections' },
-  { value: 'retain-samples', label: 'Retain Samples' },
-  { value: 'inspection-plans', label: 'Inspection Plans' },
-  { value: 'specifications', label: 'Specifications' },
-  { value: 'sampling-plans', label: 'Sampling Plans' },
-  { value: 'aql-standards', label: 'AQL Standards' },
-  { value: 'test-library', label: 'Test Library' },
-  { value: 'line-clearance', label: 'Line Clearance' },
+// Tabs are permission-gated like the left navigation: a tab is a module's
+// management surface, so it hides when the user holds no grant on that module
+// (any grant implies :read). Reference resolution doesn't need the tab — lots
+// snapshot their spec/sampling at create, and master/lookup reads are
+// tenant-public. See docs/backend/permissions.md.
+const ALL_TABS = [
+  { value: 'lots', label: 'Inspections', permission: 'inspection_qc:read' },
+  { value: 'retain-samples', label: 'Retain Samples', permission: 'retain_samples:read' },
+  { value: 'inspection-plans', label: 'Inspection Plans', permission: 'inspection_templates:read' },
+  { value: 'specifications', label: 'Specifications', permission: 'inspection_spec:read' },
+  { value: 'sampling-plans', label: 'Sampling Plans', permission: 'inspection_plan:read' },
+  { value: 'aql-standards', label: 'AQL Standards', permission: 'inspection_standards:read' },
+  { value: 'test-library', label: 'Test Library', permission: 'inspection_catalog:read' },
+  { value: 'line-clearance', label: 'Line Clearance', permission: 'inspection_settings:read' },
 ]
-const validTabIds = new Set(tabs.map((t) => t.value))
-const activeTab = ref(validTabIds.has(route.query.tab) ? route.query.tab : 'lots')
+const tabs = computed(() => ALL_TABS.filter((t) => isAllowed([t.permission])))
+const validTabIds = computed(() => new Set(tabs.value.map((t) => t.value)))
+const firstTab = computed(() => tabs.value[0]?.value ?? 'lots')
+const activeTab = ref(ALL_TABS.some((t) => t.value === route.query.tab) ? route.query.tab : 'lots')
 watch(
   () => route.query.tab,
   (v) => {
-    if (v && validTabIds.has(v)) activeTab.value = v
+    if (v && validTabIds.value.has(v)) activeTab.value = v
   },
+)
+// If the current tab isn't visible for this user (deep link / revoked grant),
+// fall back to their first visible tab.
+watch(
+  validTabIds,
+  (ids) => {
+    if (!ids.has(activeTab.value)) activeTab.value = firstTab.value
+  },
+  { immediate: true },
 )
 
 const canManageSpecs = computed(() => isAllowed(['inspection_spec:write']))
