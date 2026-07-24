@@ -27,15 +27,15 @@ const route = useRoute()
 // to its matrix module: Log Books → log_books, Assignments → Log Book
 // Assignments (`inspections`), Logs → field_records. Any grant implies :read.
 const ALL_TABS = [
+  { value: 'logs', label: 'Logs', permission: 'field_records:read' },
   { value: 'log-books', label: 'Log Books', permission: 'log_books:read' },
   { value: 'assignments', label: 'Assignments', permission: 'inspections:read' },
-  { value: 'logs', label: 'Logs', permission: 'field_records:read' },
 ]
 const tabs = computed(() => ALL_TABS.filter((t) => isAllowed([t.permission])))
 const validTabIds = computed(() => new Set(tabs.value.map((t) => t.value)))
-const firstTab = computed(() => tabs.value[0]?.value ?? 'log-books')
+const firstTab = computed(() => tabs.value[0]?.value ?? 'logs')
 const activeTab = ref(
-  ALL_TABS.some((t) => t.value === route.query.tab) ? route.query.tab : 'log-books',
+  ALL_TABS.some((t) => t.value === route.query.tab) ? route.query.tab : 'logs',
 )
 watch(
   () => route.query.tab,
