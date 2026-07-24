@@ -112,7 +112,7 @@ export const FIELD_TYPES = Object.freeze({
     icon: IconDatabaseSearch,
     label: 'Lookup (entity)',
     category: 'selection',
-    description: 'A dropdown whose options load live from a company table — Item, Supplier, Site, Department, User, or Equipment.',
+    description: 'A dropdown whose options load live from a company list — Item, Supplier, Site, Department, User, Equipment, or one of your Option Sets.',
   },
 
   // Special Types

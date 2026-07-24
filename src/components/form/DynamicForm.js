@@ -481,19 +481,39 @@ export default defineComponent({
           })
 
         case 'lookup': {
+          const commonProps = {
+            modelValue: scope.value,
+            'onUpdate:modelValue': (val) => {
+              scope.value = val
+            },
+            required: field.required,
+            disabled:
+              props.readonly || field.readonly || props.disabled || field.disabled
+                ? true
+                : undefined,
+          }
+          // Option-set-sourced lookup — same FK key select fields use, so
+          // freezing/readonly resolution reuse the option-set machinery.
+          if (field.lookupEntity === 'optionSet' && field.optionSetId) {
+            return h('div', { class: 'tw:flex tw:flex-col tw:gap-1' }, [
+              field.label
+                ? h(
+                    'div',
+                    { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
+                    field.label,
+                  )
+                : null,
+              h(OptionSetSelect, {
+                ...commonProps,
+                optionSetId: field.optionSetId,
+                optionSet: field.optionSet,
+              }),
+              field.hint ? h('div', { class: 'tw:text-xs tw:text-secondary' }, field.hint) : null,
+            ])
+          }
           const Menu = LOOKUP_MENUS[field.lookupEntity || 'product']
           const control = Menu
-            ? h(Menu, {
-                modelValue: scope.value,
-                'onUpdate:modelValue': (val) => {
-                  scope.value = val
-                },
-                required: field.required,
-                disabled:
-                  props.readonly || field.readonly || props.disabled || field.disabled
-                    ? true
-                    : undefined,
-              })
+            ? h(Menu, commonProps)
             : h(
                 'div',
                 { class: 'tw:text-sm tw:text-red-500' },
