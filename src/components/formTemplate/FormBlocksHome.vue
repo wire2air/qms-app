@@ -11,7 +11,11 @@ import FormBlocksTab from './FormBlocksTab.vue'
 
 <template>
   <BasePage width="standard">
-    <PageHeader :icon="IconLayoutGrid" title="Form Blocks" />
+    <PageHeader :icon="IconLayoutGrid" title="Form Blocks">
+      <template #actions>
+        <HelpButton slug="KB/automation/task-forms-and-form-blocks" label="Help" :size="16" />
+      </template>
+    </PageHeader>
     <FormBlocksTab standalone />
   </BasePage>
 </template>
