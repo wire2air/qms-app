@@ -134,6 +134,16 @@ const columns = [
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'updatedAt', desc: true }])
 
+// System blocks are LIVE-referenced by feature code — QC Line Clearance is
+// found by internalName in the inspection flow; the Task/Action block seeds
+// CAPA/CR child-step forms by code. Deleting them breaks those features, so
+// they can only be edited, never deleted. (Regular blocks are copy-on-use —
+// existing forms keep their fields — but the archive-not-delete rule keeps
+// the library honest: once designed, deactivate instead of deleting.)
+function isSystemBlock(row) {
+  return !!row.internalName || row.code === 'TASK'
+}
+
 function rowMenuItems(row) {
   const items = []
   if (canUpdate.value) {
@@ -141,23 +151,29 @@ function rowMenuItems(row) {
       { name: 'Design', icon: IconPencil, click: () => openDesign(row) },
       { name: 'Rename', icon: IconPencil, click: () => openRename(row) },
       {
-        name: row.statusId === 'ACTIVE' ? 'Deactivate' : 'Activate',
+        // ARCHIVED is the lifecycle end for a designed block (form_statuses
+        // has no INACTIVE): it disappears from pickers; everything already
+        // built from it keeps working (copy-on-use / status-blind lookups).
+        name: row.statusId === 'ACTIVE' ? 'Archive' : 'Restore',
         icon: IconPower,
         click: async () => {
-          row.statusId = row.statusId === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
+          row.statusId = row.statusId === 'ACTIVE' ? 'ARCHIVED' : 'ACTIVE'
           await row.save()
         },
       },
     )
   }
-  if (canDelete.value) {
+  // Delete only for a never-designed (empty) non-system block — a misclicked
+  // create. Once a block has fields, the lifecycle end is Deactivate: it
+  // disappears from pickers but everything already using it keeps working.
+  if (canDelete.value && !isSystemBlock(row) && (row.schema?.length ?? 0) === 0) {
     items.push({
       name: 'Delete',
       icon: IconTrash,
       click: async () => {
         const ok = await confirm({
           title: 'Delete Block',
-          message: `Delete '${row.title}'? Forms already built from it keep their fields — this cannot be undone.`,
+          message: `Delete the empty block '${row.title}'? This cannot be undone.`,
           okLabel: 'Delete',
           danger: true,
         })
@@ -197,6 +213,21 @@ function rowMenuItems(row) {
       :columns="columns"
       @rowClick="(row) => canUpdate && openDesign(row)"
     >
+      <template #body-cell-title="{ row }">
+        <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
+          <span class="tw:truncate">{{ row.title }}</span>
+          <BaseTooltip
+            v-if="isSystemBlock(row)"
+            content="Used by built-in features (QC line clearance / child-step forms) — can be edited and archived, never deleted."
+          >
+            <span
+              class="tw:shrink-0 tw:text-micro tw:uppercase tw:tracking-wide tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-indigo-100 tw:text-indigo-700"
+            >
+              System
+            </span>
+          </BaseTooltip>
+        </div>
+      </template>
       <template #body-cell-fields="{ row }">
         {{ row.schema?.length ?? 0 }}
       </template>

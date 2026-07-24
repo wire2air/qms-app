@@ -53,8 +53,15 @@ your library of standard sections:
 - **Sign-off** — a signature plus comments.
 
 Your company starts with this library; administrators can add custom blocks
-under **Form Templates → Form Blocks**. Creating a block takes a name and the
-form designer — nothing else.
+on the **Form Blocks** page. Creating a block takes a name and the form
+designer — nothing else.
+
+Blocks follow an **archive, don't delete** lifecycle: once a block has been
+designed it can be **archived** (it disappears from pickers but everything
+already built from it keeps working) — it can't be deleted. Only an empty,
+never-designed block can be removed. Blocks marked **System** are used by
+built-in features (the QC line-clearance checklist, the child-step Task form):
+edit them freely, but they can never be deleted.
 
 ### Blocks vs. Form Templates
 
