@@ -159,9 +159,16 @@ function cellClass(c, s) {
   return 'tw:border-divider'
 }
 
-// Fill the first row's value down the whole column.
+// Fill the first row's value down the whole column. Pass/Fail columns only —
+// numeric measurements (and text observations) are per-unit readings and must
+// be entered individually (user decision 2026-07-24). Shown whenever the grid
+// actually has multiple rows (fixed 1..sampleSize AND in-process progressive
+// samples — the old `sampleSize > 1` check hid it for IPQC lots).
+function canFillDown(c) {
+  return !props.readonly && sampleNos.value.length > 1 && c.testType === 'PASS_FAIL'
+}
 function fillDown(c) {
-  if (props.readonly) return
+  if (!canFillDown(c)) return
   const nos = sampleNos.value
   const first = grid.value[nos[0]]?.[c.id]
   if (!first) return
@@ -225,7 +232,18 @@ const PF_ITEMS = [
 const pfStr = (b) => (b === true ? 'PASS' : b === false ? 'FAIL' : null)
 const pfBool = (v) => (v === 'PASS' ? true : v === 'FAIL' ? false : null)
 
-defineExpose({ buildPayload })
+// Sample units with a FAILED outcome that have no per-sample comment (notes
+// via the evidence dialog). Failing units must carry the documented reason —
+// the parent blocks Save while any are missing.
+function failedSamplesMissingComment() {
+  return sampleNos.value.filter((s) => {
+    if (sampleOutcome(s) !== 'FAIL') return false
+    const rec = props.samplesByNo[s]
+    return !(rec && rec.notes && String(rec.notes).trim())
+  })
+}
+
+defineExpose({ buildPayload, failedSamplesMissingComment })
 </script>
 
 <template>
@@ -255,7 +273,7 @@ defineExpose({ buildPayload })
                 {{ limitText(c) || '—' }}
               </div>
               <button
-                v-if="!readonly && sampleSize > 1"
+                v-if="canFillDown(c)"
                 type="button"
                 class="tw:mt-0.5 tw:inline-flex tw:items-center tw:gap-1 tw:self-start tw:text-micro tw:font-medium tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
                 @click="fillDown(c)"

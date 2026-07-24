@@ -475,6 +475,17 @@ function limitText(c) {
 
 async function saveResults() {
   if (saving.value) return
+  // A failed sample unit needs its documented reason — per-sample comments
+  // via the row's evidence dialog (user rule 2026-07-24).
+  if (showSampleGrid.value) {
+    const missing = sampleGridRef.value?.failedSamplesMissingComment?.() ?? []
+    if (missing.length) {
+      toast.error(
+        `Add a comment for each failed sample (use the comment icon on the row): #${missing.join(', #')}`,
+      )
+      return
+    }
+  }
   saving.value = true
   try {
     // SAMPLE mode: one row per (characteristic, sample) from the grid. LOT
