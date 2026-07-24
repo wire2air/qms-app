@@ -8,7 +8,7 @@
  */
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { IconCircleCheck, IconCircleX } from '@tabler/icons-vue'
-import { unansweredClearanceRows } from '@/utils/lineClearance.js'
+import { unansweredClearanceRows, noRowsMissingComment } from '@/utils/lineClearance.js'
 
 const props = defineProps({
   lotId: { type: String, required: true },
@@ -49,6 +49,14 @@ async function submit(decision) {
     const missing = unansweredClearanceRows(schema.value, clearancePayload.value)
     if (missing.length) {
       toast.error(`Answer all clearance items before releasing the line (${missing.length} remaining).`)
+      return
+    }
+  }
+  // A "No" always needs its documented reason — on Release AND Hold.
+  if (decision && hasChecklist.value) {
+    const noComments = noRowsMissingComment(schema.value, clearancePayload.value)
+    if (noComments.length) {
+      toast.error(`Add a comment for each item answered "No" (${noComments.length} missing).`)
       return
     }
   }

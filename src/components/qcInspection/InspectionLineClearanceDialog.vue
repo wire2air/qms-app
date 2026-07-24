@@ -7,8 +7,8 @@
  * Release (pass) or Hold (fail). A passed clearance unlocks collection.
  */
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { IconCircleCheck, IconCircleX } from '@tabler/icons-vue'
-import { unansweredClearanceRows } from '@/utils/lineClearance.js'
+import { IconCircleCheck, IconCircleX, IconDeviceFloppy } from '@tabler/icons-vue'
+import { unansweredClearanceRows, noRowsMissingComment } from '@/utils/lineClearance.js'
 
 const props = defineProps({
   lotId: { type: String, required: true },
@@ -46,6 +46,12 @@ async function submit(decision) {
       return
     }
   }
+  // A "No" always needs its documented reason — on Release AND Hold.
+  const noComments = noRowsMissingComment(schema.value, payload.value)
+  if (noComments.length) {
+    toast.error(`Add a comment for each item answered "No" (${noComments.length} missing).`)
+    return
+  }
   saving.value = decision
   try {
     await post(`/v1/services/qcInspection/lots/${props.lotId}/batches/${props.batchId}/line-clearance`, {
@@ -57,6 +63,25 @@ async function submit(decision) {
     emit('done', decision)
   } catch (err) {
     toast.error(err?.message || 'Failed to record line clearance')
+  } finally {
+    saving.value = null
+  }
+}
+
+// Save progress without a decision — the inspector can come back later; the
+// dialog prefills from the batch's saved answers on reopen.
+async function saveForLater() {
+  if (saving.value || !props.batchId) return
+  saving.value = 'SAVE'
+  try {
+    await post(
+      `/v1/services/qcInspection/lots/${props.lotId}/batches/${props.batchId}/line-clearance/save`,
+      { payload: payload.value },
+    )
+    toast.success('Progress saved — finish the clearance anytime')
+    show.value = false
+  } catch (err) {
+    toast.error(err?.message || 'Failed to save progress')
   } finally {
     saving.value = null
   }
@@ -86,6 +111,14 @@ async function submit(decision) {
     <template #footer>
       <div class="tw:flex tw:items-center tw:justify-end tw:gap-2 tw:px-5 tw:py-3">
         <BaseButton variant="ghost" @click="show = false">Cancel</BaseButton>
+        <BaseButton
+          variant="outline"
+          :loading="saving === 'SAVE'"
+          :disabled="!template || !batchId || !!saving"
+          @click="saveForLater"
+        >
+          <IconDeviceFloppy :size="16" /> Save for later
+        </BaseButton>
         <BaseButton
           variant="danger"
           :loading="saving === 'FAILED'"
