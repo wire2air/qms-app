@@ -697,7 +697,9 @@ const navItems = computed(() => {
                   class="tw:flex tw:items-center tw:gap-3 tw:w-full tw:px-3 tw:py-2 tw:rounded-lg tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:bg-transparent tw:border-0 tw:cursor-pointer"
                   @click="toggleGroup(item.label)"
                 >
-                  <component :is="item.icon" :size="20" />
+                  <!-- Same icon size as single items so group headers (Training,
+                       Templates, Master Data, Settings) match their siblings. -->
+                  <component :is="item.icon" :size="24" />
                   <span class="tw:text-sm tw:font-medium tw:flex-1 tw:text-left">{{
                     item.label
                   }}</span>
