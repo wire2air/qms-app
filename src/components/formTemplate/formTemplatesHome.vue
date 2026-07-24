@@ -55,7 +55,8 @@ const templates = useLiveQueryWithDeps(
     () => filters.value.documentTypeId,
   ],
   async (db, [search, statusId, siteId, documentTypeId]) => {
-    let results = await db.FormTemplate.where().exec()
+    // Standalone forms only — Form Blocks live on their own tab.
+    let results = (await db.FormTemplate.where().exec()).filter((t) => t.kind !== 'BLOCK')
 
     if (statusId) {
       const statusIds = Array.isArray(statusId) ? statusId : [statusId]
@@ -161,7 +162,9 @@ async function onDeleteTemplate(template) {
         </BaseTabPanel>
 
         <!-- Tab: Option Sets — slim embedded surface (full /option-sets page
-             is still mounted at the standalone route for back-compat). -->
+             is still mounted at the standalone route for back-compat).
+             Form Blocks moved to their own /form-blocks page (first-class
+             sidebar item; this page stays a case-by-case surface). -->
         <BaseTabPanel value="optionsets">
           <OptionSetsTab />
         </BaseTabPanel>

@@ -160,7 +160,11 @@ const inspectionTemplates = useLiveQuery(
 )
 const utilityTemplates = useLiveQuery(
   async (db) => {
-    const rows = await db.FormTemplate.where('statusId', 'ACTIVE').exec()
+    // Standalone forms only — Form Blocks are embedded fragments and can't
+    // back a record of their own.
+    const rows = (await db.FormTemplate.where('statusId', 'ACTIVE').exec()).filter(
+      (t) => t.kind !== 'BLOCK',
+    )
     // form_templates may still hold OPERATIONAL_LOG / CONTROLLED_RECORD
     // rows if they were never migrated; defensive filter keeps only
     // unclassified (= UTILITY) rows for this side of the union.

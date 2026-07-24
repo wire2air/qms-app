@@ -1,6 +1,7 @@
 <script setup>
 import {
   IconForms,
+  IconStack2,
   IconTable,
   IconFileText,
   IconArrowsShuffle,
@@ -436,6 +437,15 @@ const navItems = computed(() => {
           permissions: ['complaint_management:update'],
           icon: IconHeadset,
           to: getCompanyPath('/complaint-settings'),
+        },
+        {
+          // Reusable form fragments (kind='BLOCK') — first-class nav item with
+          // its OWN authz module (form_blocks:*). Form Templates below stays a
+          // separate case-by-case surface (eventually an add-on module builder).
+          label: 'Form Blocks',
+          permissions: ['form_blocks:read'],
+          icon: IconStack2,
+          to: getCompanyPath('/form-blocks'),
         },
         {
           label: 'Form Templates',

@@ -302,3 +302,106 @@ export const QMS_TEMPLATES = [
     ],
   },
 ]
+
+/**
+ * QMS_BLOCKS — fragment-shaped presets for FORM BLOCKS: reusable sections
+ * embedded inside a host (workflow step task forms, child-step forms, QC
+ * checklists). Unlike QMS_TEMPLATES these are NOT whole standalone forms —
+ * each captures one step's evidence. Checklists follow the house pattern:
+ * ONE `select` verdict column (Yes/No/N/A) + a text Comments column (radio +
+ * text mixes break answer persistence).
+ */
+export const QMS_BLOCKS = [
+  {
+    title: 'Task / Action',
+    code: 'BLK-TASK',
+    schema: [
+      {
+        type: 'textEditor',
+        name: 'description',
+        label: 'Description',
+        required: true,
+        placeholder: 'Describe what was done…',
+      },
+      { type: 'file', name: 'attachments', label: 'Attachments', required: false, multiple: true },
+    ],
+  },
+  {
+    title: 'Yes / No / N.A. Checklist',
+    code: 'BLK-CHECKLIST',
+    schema: [
+      {
+        type: 'checklist',
+        name: 'checklist',
+        label: 'Checklist',
+        required: true,
+        rows: [
+          'Work area inspected',
+          'Documentation reviewed',
+          'Requirements verified',
+          'Records updated',
+          'Follow-up actions identified',
+        ],
+        columns: [
+          { label: 'Verdict', value: 'verdict', inputType: 'select', options: ['Yes', 'No', 'N/A'] },
+          { label: 'Comments', value: 'comments', inputType: 'text' },
+        ],
+      },
+    ],
+  },
+  {
+    title: 'Containment Actions',
+    code: 'BLK-CONTAINMENT',
+    schema: [
+      {
+        type: 'textEditor',
+        name: 'containmentActions',
+        label: 'Containment actions taken',
+        required: true,
+        placeholder: 'What was done to contain the issue…',
+      },
+      {
+        type: 'textEditor',
+        name: 'affectedScope',
+        label: 'Affected lots / scope',
+        required: false,
+      },
+      { type: 'datetime', name: 'containmentDate', label: 'Containment date', required: true },
+      { type: 'file', name: 'evidence', label: 'Evidence', required: false, multiple: true },
+    ],
+  },
+  {
+    title: 'Root Cause Narrative',
+    code: 'BLK-ROOTCAUSE',
+    schema: [
+      {
+        type: 'textEditor',
+        name: 'rootCause',
+        label: 'Root cause analysis',
+        required: true,
+        placeholder: 'What caused the issue and how was it determined…',
+      },
+      {
+        type: 'file',
+        name: 'supportingFiles',
+        label: 'Supporting files',
+        required: false,
+        multiple: true,
+      },
+    ],
+  },
+  {
+    title: 'Sign-off',
+    code: 'BLK-SIGNOFF',
+    schema: [
+      { type: 'signature', name: 'signature', label: 'Signature', required: true },
+      {
+        type: 'textarea',
+        name: 'signoffComments',
+        label: 'Comments',
+        required: false,
+        placeholder: 'Any notes for the record…',
+      },
+    ],
+  },
+]
