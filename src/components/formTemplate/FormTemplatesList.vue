@@ -8,13 +8,9 @@ defineProps({
     type: Boolean,
     default: false,
   },
-  canDelete: {
-    type: Boolean,
-    default: false,
-  },
 })
 
-const emit = defineEmits(['delete'])
+const emit = defineEmits(['archive'])
 
 const showPreviewDialog = ref(false)
 const previewTemplate = ref(null)
@@ -46,9 +42,8 @@ const previewTitle = computed(() => {
       :key="template.id"
       :template="template"
       :canUpdate="canUpdate"
-      :canDelete="canDelete"
       @preview="handlePreview"
-      @delete="(t) => emit('delete', t)"
+      @archive="(t) => emit('archive', t)"
     />
   </div>
 

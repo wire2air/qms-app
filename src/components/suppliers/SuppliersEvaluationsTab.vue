@@ -40,8 +40,12 @@ const moduleByKey = computed(() => {
   return map
 })
 // Modules that qualify a supplier — the ones offered by "New Qualification".
+// ACTIVE only: archived modules stop being offered for new qualifications,
+// while moduleByKey above stays status-blind so historical rows keep their label.
 const supplierModules = computed(() =>
-  modules.value.filter((t) => t.moduleConfig?.linkedEntity === 'supplier'),
+  modules.value.filter(
+    (t) => t.moduleConfig?.linkedEntity === 'supplier' && t.statusId === 'ACTIVE',
+  ),
 )
 
 const rows = computed(() =>

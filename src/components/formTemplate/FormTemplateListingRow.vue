@@ -1,5 +1,5 @@
 <script setup>
-import { IconHistory, IconClock, IconEdit, IconBrush, IconEye, IconTrash } from '@tabler/icons-vue'
+import { IconHistory, IconClock, IconEdit, IconBrush, IconEye, IconArchive } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
@@ -11,13 +11,9 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  canDelete: {
-    type: Boolean,
-    default: false,
-  },
 })
 
-const emit = defineEmits(['navigate', 'preview', 'delete'])
+const emit = defineEmits(['navigate', 'preview', 'archive'])
 
 const router = useRouter()
 
@@ -42,8 +38,14 @@ function menuItems() {
     items.push({ name: 'View', icon: IconEye, click: () => navigateToTemplate() })
   }
   items.push({ name: 'Preview', icon: IconEye, click: () => emit('preview', props.template) })
-  if (props.canDelete) {
-    items.push({ name: 'Delete', icon: IconTrash, click: () => emit('delete', props.template) })
+  // Archive-only lifecycle: templates are never deleted (archived rows are the
+  // version history; existing records keep referencing them by id).
+  if (props.canUpdate) {
+    items.push({
+      name: props.template.statusId === 'ARCHIVED' ? 'Restore' : 'Archive',
+      icon: IconArchive,
+      click: () => emit('archive', props.template),
+    })
   }
   return items
 }

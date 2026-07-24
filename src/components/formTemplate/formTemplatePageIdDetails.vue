@@ -1,5 +1,5 @@
 <script setup>
-import { IconTrash, IconEdit, IconCode, IconRocket, IconBolt, IconChartBar } from '@tabler/icons-vue'
+import { IconArchive, IconEdit, IconCode, IconRocket, IconBolt, IconChartBar } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
@@ -11,7 +11,6 @@ const props = defineProps({
 })
 
 const toast = useToast()
-const router = useRouter()
 
 const template = useLiveQueryWithDeps(
   [() => props.id],
@@ -39,7 +38,6 @@ const formData = ref({})
 const formattedCreatedAt = computed(() => template.value?.createdAt?.formatDate('date'))
 const relativeUpdatedAt = computed(() => template.value?.updatedAt?.formatDate('date'))
 const canUpdate = computed(() => isAllowed(['forms_templates:update']))
-const canDelete = computed(() => isAllowed(['forms_templates:delete']))
 const loading = computed(() => template.value === undefined)
 const showPromote = ref(false)
 
@@ -74,24 +72,31 @@ async function handleSitesChange(newSiteIds) {
   }
 }
 
-// Delete
+// Archive-only lifecycle: templates are never deleted — archived rows are the
+// version history, and existing records/workflows keep referencing them by id.
+// A DB trigger enforces the same rule server-side.
 const { confirm } = useConfirm()
 
-async function handleDelete() {
+async function handleArchiveToggle() {
   if (!template.value) return
-  const ok = await confirm({
-    title: 'Delete Template',
-    message: `Are you sure you want to delete form template "${template.value.title}" (${template.value.code})? This action cannot be undone.`,
-    okLabel: 'Delete',
-    danger: true,
-  })
-  if (!ok) return
   try {
-    await template.value.delete()
-    toast.success('Form template deleted successfully')
-    router.push(getCompanyPath('/templates'))
-  } catch {
-    toast.error('Failed to delete form template')
+    if (template.value.statusId === 'ARCHIVED') {
+      template.value.statusId = 'ACTIVE'
+      await template.value.save()
+      toast.success('Template restored')
+      return
+    }
+    const ok = await confirm({
+      title: 'Archive Template',
+      message: `Archive "${template.value.title}" (${template.value.code})? It disappears from pickers and new usage, but existing records built from it keep working. You can restore it anytime.`,
+      okLabel: 'Archive',
+    })
+    if (!ok) return
+    template.value.statusId = 'ARCHIVED'
+    await template.value.save()
+    toast.success('Template archived')
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update template status')
   }
 }
 </script>
@@ -102,13 +107,12 @@ async function handleDelete() {
     <SafeTeleport to="#main-header-actions">
       <div v-if="template" class="tw:flex tw:items-center tw:gap-3">
         <BaseButton
-          v-if="canDelete"
+          v-if="canUpdate"
           variant="outline"
-          class="tw:text-bad!"
-          @click="handleDelete"
+          @click="handleArchiveToggle"
         >
-          <IconTrash :size="16" class="tw:mr-1" />
-          Delete
+          <IconArchive :size="16" class="tw:mr-1" />
+          {{ template.statusId === 'ARCHIVED' ? 'Restore' : 'Archive' }}
         </BaseButton>
         <BaseButton
           v-if="canUpdate"

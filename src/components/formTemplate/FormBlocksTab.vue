@@ -7,7 +7,7 @@
  * of their own, so there is no detail page: Design opens the form builder
  * dialog directly.
  */
-import { IconLayoutGrid, IconPlus, IconPencil, IconTrash, IconPower } from '@tabler/icons-vue'
+import { IconLayoutGrid, IconPlus, IconPencil, IconArchive } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import WorkflowStepFormBuilderPanel from '@/components/workflow/WorkflowStepFormBuilderPanel.vue'
 
@@ -17,14 +17,12 @@ const props = defineProps({
   standalone: { type: Boolean, default: false },
 })
 
-const { confirm } = useConfirm()
 const toast = useToast()
 
 // Form Blocks has its own authz module; create needs read too (the create
 // mutation reads the new row back through the SELECT policy).
 const canCreate = computed(() => isAllowed(['form_blocks:create', 'form_blocks:read']))
 const canUpdate = computed(() => isAllowed(['form_blocks:update']))
-const canDelete = computed(() => isAllowed(['form_blocks:delete']))
 
 const search = ref('')
 
@@ -136,10 +134,7 @@ const sort = ref([{ id: 'updatedAt', desc: true }])
 
 // System blocks are LIVE-referenced by feature code — QC Line Clearance is
 // found by internalName in the inspection flow; the Task/Action block seeds
-// CAPA/CR child-step forms by code. Deleting them breaks those features, so
-// they can only be edited, never deleted. (Regular blocks are copy-on-use —
-// existing forms keep their fields — but the archive-not-delete rule keeps
-// the library honest: once designed, deactivate instead of deleting.)
+// CAPA/CR child-step forms by code. They can be edited, never deleted.
 function isSystemBlock(row) {
   return !!row.internalName || row.code === 'TASK'
 }
@@ -151,35 +146,22 @@ function rowMenuItems(row) {
       { name: 'Design', icon: IconPencil, click: () => openDesign(row) },
       { name: 'Rename', icon: IconPencil, click: () => openRename(row) },
       {
-        // ARCHIVED is the lifecycle end for a designed block (form_statuses
-        // has no INACTIVE): it disappears from pickers; everything already
-        // built from it keeps working (copy-on-use / status-blind lookups).
+        // Blocks are never deleted — ARCHIVED is the lifecycle end (a misclicked
+        // create included). Archived blocks disappear from pickers; everything
+        // already built from them keeps working (copy-on-use / status-blind
+        // lookups). A DB trigger enforces the no-delete rule server-side.
         name: row.statusId === 'ACTIVE' ? 'Archive' : 'Restore',
-        icon: IconPower,
+        icon: IconArchive,
         click: async () => {
-          row.statusId = row.statusId === 'ACTIVE' ? 'ARCHIVED' : 'ACTIVE'
-          await row.save()
+          try {
+            row.statusId = row.statusId === 'ACTIVE' ? 'ARCHIVED' : 'ACTIVE'
+            await row.save()
+          } catch (e) {
+            toast.error(e?.message || 'Failed to update block status')
+          }
         },
       },
     )
-  }
-  // Delete only for a never-designed (empty) non-system block — a misclicked
-  // create. Once a block has fields, the lifecycle end is Deactivate: it
-  // disappears from pickers but everything already using it keeps working.
-  if (canDelete.value && !isSystemBlock(row) && (row.schema?.length ?? 0) === 0) {
-    items.push({
-      name: 'Delete',
-      icon: IconTrash,
-      click: async () => {
-        const ok = await confirm({
-          title: 'Delete Block',
-          message: `Delete the empty block '${row.title}'? This cannot be undone.`,
-          okLabel: 'Delete',
-          danger: true,
-        })
-        if (ok) await row.delete()
-      },
-    })
   }
   return items
 }

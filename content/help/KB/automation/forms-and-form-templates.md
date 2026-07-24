@@ -24,6 +24,13 @@ A template moves through statuses that control whether it can be used. You set t
 | --- | --- |
 | Draft | The default for a new template. Still being designed; not yet ready for everyday use. |
 | Active | Published and ready to be assigned and filled in. |
+| Archived | Retired from new use. Hidden from pickers and new records, but every record already created from it keeps working. Restore it anytime. |
+
+Templates are **never deleted** — archiving is the end of a template's
+lifecycle. That keeps your history intact: archived templates act as the
+version trail behind existing records. To retire a template, use **Archive**
+in its row menu (or the Archive button on its detail page); the same action
+becomes **Restore** on an archived template.
 
 :::note
 Inspection and log forms created with the **New Inspection & Log Form** action skip Draft and start as Active, because they are meant for immediate floor use.

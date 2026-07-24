@@ -1,5 +1,5 @@
 <script setup>
-import { IconEye, IconEdit, IconBrush, IconTrash, IconShare } from '@tabler/icons-vue'
+import { IconEye, IconEdit, IconBrush, IconArchive, IconShare } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
@@ -11,13 +11,9 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  canDelete: {
-    type: Boolean,
-    default: false,
-  },
 })
 
-const emit = defineEmits(['delete'])
+const emit = defineEmits(['archive'])
 
 const router = useRouter()
 
@@ -87,8 +83,14 @@ function rowMenuItems(row) {
   // Every template is shareable: module → internal create link; plain form →
   // public anonymous fill link. The dialog picks the right one.
   items.push({ name: 'Share link', icon: IconShare, click: () => openShare(row) })
-  if (props.canDelete) {
-    items.push({ name: 'Delete', icon: IconTrash, click: () => emit('delete', row) })
+  // Archive-only lifecycle: templates are never deleted (archived rows are the
+  // version history; existing records keep referencing them by id).
+  if (props.canUpdate) {
+    items.push({
+      name: row.statusId === 'ARCHIVED' ? 'Restore' : 'Archive',
+      icon: IconArchive,
+      click: () => emit('archive', row),
+    })
   }
   return items
 }

@@ -56,12 +56,14 @@ Your company starts with this library; administrators can add custom blocks
 on the **Form Blocks** page. Creating a block takes a name and the form
 designer — nothing else.
 
-Blocks follow an **archive, don't delete** lifecycle: once a block has been
-designed it can be **archived** (it disappears from pickers but everything
-already built from it keeps working) — it can't be deleted. Only an empty,
-never-designed block can be removed. Blocks marked **System** are used by
-built-in features (the QC line-clearance checklist, the child-step Task form):
-edit them freely, but they can never be deleted.
+Blocks follow an **archive, don't delete** lifecycle: blocks are never
+deleted. Archive a block you no longer need (including one created by
+mistake) — it disappears from pickers, but everything already built from it
+keeps working, and you can restore it anytime. Archived blocks also act as
+your version history: to revise a block, archive the old one and create its
+replacement. Blocks marked **System** are used by built-in features (the QC
+line-clearance checklist, the child-step Task form): edit them freely, but
+they can never be deleted.
 
 ### Blocks vs. Form Templates
 

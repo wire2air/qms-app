@@ -152,9 +152,13 @@ const logoUrl = computed(() => {
 
 // Admin-defined modules (form templates promoted via the module factory) drive
 // their own nav entries — the first data-driven part of the menu. Gated by the
-// module's own `<internalName>:read` permission.
+// module's own `<internalName>:read` permission. Archived modules drop out of
+// the nav (existing records stay reachable by id/deep link).
 const moduleTemplates = useLiveQuery(
-  async (db) => (await db.FormTemplate.where().exec()).filter((t) => t.isModule && t.internalName),
+  async (db) =>
+    (await db.FormTemplate.where().exec()).filter(
+      (t) => t.isModule && t.internalName && t.statusId === 'ACTIVE',
+    ),
   { initial: [], models: ['FormTemplate'] },
 )
 const moduleNavItems = computed(() =>
