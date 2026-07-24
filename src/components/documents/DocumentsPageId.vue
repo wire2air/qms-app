@@ -338,6 +338,13 @@ const canEdit = computed(
   () => isAllowed(['document_control:update']) && document.value?.statusId !== 'ARCHIVED',
 )
 const canDelete = computed(() => isAllowed(['document_control:delete']) && isOwnerOrAuthor.value)
+// OB-01 reconcile: archiving (obsoletion) is gated on the delete permission only
+// — the SAME check the list view uses, and the one the documents UPDATE/DELETE
+// RLS actually enforces (permission + scope tier + owner bypass, NOT owner/author).
+// Previously the detail used canDelete (which adds an owner/author restriction the
+// backend never applies), so a delete-permitted Document Controller could archive
+// from the list but not the detail. isAllowed() folds in the company-owner bypass.
+const canArchive = computed(() => isAllowed(['document_control:delete']))
 const canSubmitForReview = computed(
   () =>
     canEdit.value &&
@@ -604,6 +611,7 @@ const documentActions = computed(() =>
       canSetEffective: canSetEffective.value,
       canEdit: canEdit.value,
       canDelete: canDelete.value,
+      canArchive: canArchive.value,
       statusId: document.value?.statusId,
       selectedStatus: selectedVersion.value?.statusId,
       inReview:
