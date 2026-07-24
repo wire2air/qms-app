@@ -91,9 +91,9 @@ watch(sample, (s) => {
       <div class="label__body">
         <div class="label__text">
           <div class="label__rs">{{ sample.rsNumber }}</div>
-          <div class="label__item">{{ product?.name || '—' }}</div>
           <table class="label__meta">
             <tbody>
+              <tr class="label__strong"><td>Product</td><td>{{ product?.name || '—' }}</td></tr>
               <tr><td>Lot #</td><td>{{ sample.lotNumber || '—' }}</td></tr>
               <tr v-if="sample.batchNumber"><td>Batch</td><td>{{ sample.batchNumber }}</td></tr>
               <tr><td>Mfg</td><td>{{ dateStr(sample.manufacturingDate) }}</td></tr>
@@ -146,14 +146,6 @@ watch(sample, (s) => {
 }
 .label__text { flex: 1; min-width: 0; }
 .label__rs { font-size: 16px; font-weight: 800; font-family: monospace; }
-.label__item {
-  font-size: 11px;
-  font-weight: 600;
-  margin: 1px 0 3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .label__meta { font-size: 9px; border-collapse: collapse; width: 100%; }
 .label__meta td { padding: 0.5px 0; vertical-align: top; }
 .label__meta td:first-child { color: #333; padding-right: 6px; white-space: nowrap; width: 1%; }
