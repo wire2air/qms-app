@@ -50,6 +50,7 @@ const EVENT_LABEL = {
   STARTED: 'Inspection started',
   COMPLETED: 'Inspection completed',
   SUBMITTED_FOR_REVIEW: 'Submitted for QA disposition',
+  RETAIN_SAMPLE_WAIVED: 'Submitted without retain sample',
   REOPENED: 'Reopened for re-inspection',
 }
 const EVENT_COLOR = {
@@ -66,6 +67,7 @@ const EVENT_COLOR = {
   STARTED: 'info',
   COMPLETED: 'success',
   SUBMITTED_FOR_REVIEW: 'primary',
+  RETAIN_SAMPLE_WAIVED: 'warning',
   REOPENED: 'warning',
 }
 

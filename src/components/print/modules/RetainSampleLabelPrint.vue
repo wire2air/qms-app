@@ -34,6 +34,14 @@ const uom = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.Uom.findByPk(id) : null),
   { models: ['Uom'] },
 )
+const retainedBy = useLiveQueryWithDeps(
+  [() => sample.value?.retainedById],
+  async (db, [id]) => (id ? db.User.findByPk(id) : null),
+  { models: ['User'] },
+)
+const retainedByName = computed(() =>
+  retainedBy.value ? [retainedBy.value.firstName, retainedBy.value.lastName].filter(Boolean).join(' ') : '—',
+)
 
 const isThermal = computed(() => String(props.size).toLowerCase() === '4x2')
 const copyCount = computed(() => {
@@ -95,6 +103,8 @@ watch(sample, (s) => {
               <tr v-if="sample.storageConditions"><td>Store</td><td>{{ sample.storageConditions }}</td></tr>
               <tr v-if="location"><td>Location</td><td>{{ [location.name, sample.position].filter(Boolean).join(' / ') }}</td></tr>
               <tr><td>Type</td><td>{{ sample.sampleType }}</td></tr>
+              <tr><td>Retained</td><td>{{ dateStr(sample.retainedAt) }}</td></tr>
+              <tr><td>Created by</td><td>{{ retainedByName }}</td></tr>
             </tbody>
           </table>
         </div>
