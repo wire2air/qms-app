@@ -694,7 +694,7 @@ const navItems = computed(() => {
               <template v-if="item.children">
                 <button
                   :key="`${item.label}-btn`"
-                  class="tw:flex tw:items-center tw:gap-3 tw:w-full tw:px-3 tw:py-2 tw:rounded-lg tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                  class="tw:flex tw:items-center tw:gap-3 tw:w-full tw:px-3 tw:py-2 tw:rounded-lg tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:bg-transparent tw:border-0 tw:cursor-pointer tw:appearance-none tw:[font:inherit]"
                   @click="toggleGroup(item.label)"
                 >
                   <!-- Same icon size as single items so group headers (Training,
