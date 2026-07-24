@@ -64,6 +64,9 @@ const createBlock = useLiveMutation(async (db, title) => {
     title,
     code: blockCode(title),
     schema: [],
+    // Explicit null — the model's '' default would be serialized into the
+    // CREATE mutation and violate the document_types FK.
+    documentTypeId: null,
     statusId: 'ACTIVE', // blocks skip the DRAFT ceremony — they hold no records
     kind: 'BLOCK',
     config: {},
