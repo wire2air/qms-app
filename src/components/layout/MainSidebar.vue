@@ -1,6 +1,7 @@
 <script setup>
 import {
   IconForms,
+  IconStack2,
   IconTable,
   IconFileText,
   IconArrowsShuffle,
@@ -151,9 +152,13 @@ const logoUrl = computed(() => {
 
 // Admin-defined modules (form templates promoted via the module factory) drive
 // their own nav entries — the first data-driven part of the menu. Gated by the
-// module's own `<internalName>:read` permission.
+// module's own `<internalName>:read` permission. Archived modules drop out of
+// the nav (existing records stay reachable by id/deep link).
 const moduleTemplates = useLiveQuery(
-  async (db) => (await db.FormTemplate.where().exec()).filter((t) => t.isModule && t.internalName),
+  async (db) =>
+    (await db.FormTemplate.where().exec()).filter(
+      (t) => t.isModule && t.internalName && t.statusId === 'ACTIVE',
+    ),
   { initial: [], models: ['FormTemplate'] },
 )
 const moduleNavItems = computed(() =>
@@ -436,6 +441,15 @@ const navItems = computed(() => {
           permissions: ['complaint_management:update'],
           icon: IconHeadset,
           to: getCompanyPath('/complaint-settings'),
+        },
+        {
+          // Reusable form fragments (kind='BLOCK') — first-class nav item with
+          // its OWN authz module (form_blocks:*). Form Templates below stays a
+          // separate case-by-case surface (eventually an add-on module builder).
+          label: 'Form Blocks',
+          permissions: ['form_blocks:read'],
+          icon: IconStack2,
+          to: getCompanyPath('/form-blocks'),
         },
         {
           label: 'Form Templates',

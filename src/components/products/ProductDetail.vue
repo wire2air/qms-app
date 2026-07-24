@@ -26,6 +26,25 @@ const product = useLiveQueryWithDeps(
 )
 const loading = computed(() => product.value === undefined)
 
+// UOM name (blank = N/A) + linked suppliers for the read-only overview.
+const uom = useLiveQueryWithDeps(
+  [() => product.value?.uomId],
+  async (db, [uomId]) => (uomId ? db.Uom.findByPk(uomId) : null),
+  { models: ['Uom'] },
+)
+const uomName = computed(() => uom.value?.name ?? '')
+const itemCategory = useLiveQueryWithDeps(
+  [() => product.value?.itemCategoryId],
+  async (db, [id]) => (id ? db.ItemCategory.findByPk(id) : null),
+  { models: ['ItemCategory'] },
+)
+const itemCategoryName = computed(() => itemCategory.value?.name ?? '')
+const supplierLinks = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => (id ? db.ProductSupplier.where('productId', id).exec() : []),
+  { models: ['ProductSupplier'], initial: [] },
+)
+
 const VALID_TABS = ['overview', 'specifications']
 const activeTab = ref(VALID_TABS.includes(route.query.tab) ? route.query.tab : 'overview')
 watch(activeTab, (tab) => {
@@ -97,15 +116,15 @@ const productDetailConfig = computed(() =>
           <p class="tw:text-on-sidebar">{{ product.sku }}</p>
         </div>
         <div>
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Product Family</p>
-          <ProductFamilyBadgeById
-            v-if="product.productFamilyId"
-            :productFamilyId="product.productFamilyId"
-          />
-          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">ERP Item Code</p>
+          <p class="tw:text-on-sidebar">{{ product.erpItemCode || '—' }}</p>
         </div>
         <div>
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Product Type</p>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Unit of Measure</p>
+          <p class="tw:text-on-sidebar">{{ uomName || 'N/A' }}</p>
+        </div>
+        <div>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Item Type</p>
           <ProductTypeBadgeById
             v-if="product.productTypeId"
             :productTypeId="product.productTypeId"
@@ -113,8 +132,64 @@ const productDetailConfig = computed(() =>
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </div>
         <div>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Item Category</p>
+          <p class="tw:text-on-sidebar">{{ itemCategoryName || '—' }}</p>
+        </div>
+        <div>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Item Group</p>
+          <ProductFamilyBadgeById
+            v-if="product.productFamilyId"
+            :productFamilyId="product.productFamilyId"
+          />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </div>
+        <div>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Revision</p>
+          <p class="tw:text-on-sidebar">{{ product.revision || '—' }}</p>
+        </div>
+        <div>
           <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Status</p>
           <ProductStatusBadgeById v-if="product.statusId" :statusId="product.statusId" />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </div>
+        <div>
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Criticality</p>
+          <p class="tw:text-on-sidebar">{{ product.criticality || '—' }}</p>
+        </div>
+        <div class="tw:md:col-span-2">
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Controls</p>
+          <div class="tw:flex tw:flex-wrap tw:gap-1.5">
+            <BaseChip v-if="product.lotControlled" size="sm">Lot controlled</BaseChip>
+            <BaseChip v-if="product.serialControlled" size="sm">Serial controlled</BaseChip>
+            <BaseChip v-if="product.inspectionRequired" size="sm">Inspection required</BaseChip>
+            <BaseChip v-if="product.isHazardous" size="sm" color="red">Hazardous</BaseChip>
+            <span
+              v-if="product.shelfLifeDays"
+              class="tw:text-sm tw:text-secondary"
+            >Shelf life: {{ product.shelfLifeDays }} days</span>
+            <span
+              v-if="!product.lotControlled && !product.serialControlled && !product.inspectionRequired && !product.isHazardous && !product.shelfLifeDays"
+              class="tw:text-sm tw:text-secondary"
+            >—</span>
+          </div>
+        </div>
+        <div v-if="product.defaultAql">
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Default AQL</p>
+          <p class="tw:text-on-sidebar">{{ product.defaultAql }}</p>
+        </div>
+        <div v-if="product.countryOfOrigin">
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Country of Origin</p>
+          <p class="tw:text-on-sidebar">{{ product.countryOfOrigin }}</p>
+        </div>
+        <div v-if="product.storageConditions" class="tw:md:col-span-2">
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Storage Conditions</p>
+          <p class="tw:text-on-sidebar tw:whitespace-pre-wrap">{{ product.storageConditions }}</p>
+        </div>
+        <div class="tw:md:col-span-2">
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Suppliers</p>
+          <div v-if="supplierLinks.length" class="tw:flex tw:flex-wrap tw:gap-1">
+            <SupplierBadgeById v-for="l in supplierLinks" :key="l.id" :supplierId="l.supplierId" />
+          </div>
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </div>
         <div class="tw:md:col-span-2">

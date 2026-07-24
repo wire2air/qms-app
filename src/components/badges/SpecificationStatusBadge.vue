@@ -2,6 +2,7 @@
 defineProps({ status: { type: Object, required: true } })
 const SCHEME_MAP = {
   DRAFT: { class: 'tw:bg-amber-100 tw:text-amber-700' },
+  PENDING_APPROVAL: { class: 'tw:bg-blue-100 tw:text-blue-700' },
   EFFECTIVE: { class: 'tw:bg-green-100 tw:text-green-700' },
   SUPERSEDED: { class: 'tw:bg-gray-200 tw:text-gray-600' },
 }

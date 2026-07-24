@@ -25,6 +25,9 @@ export class FormTemplate extends BaseModel {
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: Number }) version = 1
   @Property({ type: Object }) config = null
+  // FORM = standalone template (own records); BLOCK = reusable form fragment
+  // embedded in workflow step forms / checklists.
+  @Property({ type: String }) kind = 'FORM'
   // --- generic-module definition (set when promoted to a module) ---
   @Property({ type: String }) internalName = ''
   @Property({ type: Boolean }) isModule = false

@@ -26,6 +26,9 @@ export const printModules = {
   AuditInstance: () => import('./AuditInstancePrint.vue'),
   // Training Matrix report — employee × training with roles/status/type, filtered.
   TrainingMatrix: () => import('./TrainingMatrixPrint.vue'),
+  // QC inspection report — one inspection lot (meta, sampling, production lots +
+  // line clearance, per-characteristic results, disposition).
+  InspectionLot: () => import('./InspectionLotPrint.vue'),
   // Future:
   // Nonconformance: () => import('./NonconformancePrint.vue'),
 }

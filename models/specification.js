@@ -14,10 +14,11 @@ export class Specification extends BaseModel {
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) name = ''
   @Property({ type: String }) code = /** @type {String} */ (null)
-  @Property({ type: String, required: true }) materialKind = 'RAW'
   @Property({ type: String }) productId = /** @type {String} */ (null)
+  @Property({ type: String }) productFamilyId = /** @type {String} */ (null)
   @Property({ type: String }) productTypeId = /** @type {String} */ (null)
   @Property({ type: String }) statusId = 'DRAFT'
+  @Property({ type: String }) workflowInstanceId = /** @type {String} */ (null)
   @Property({ type: Number }) version = 1
   @Property({ type: String }) parentSpecificationId = /** @type {String} */ (null)
   @Property({ type: DateTime }) effectiveFrom = null

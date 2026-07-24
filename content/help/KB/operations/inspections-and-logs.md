@@ -33,6 +33,20 @@ edit windows, signatures, and review.
 | Operational | Routine field entries (temperature, gemba, walk-throughs) | Auto-locks ~15 min after submit | Not required | Not required |
 | Controlled | Regulated records (batch release, deviations, calibrations) | Stays open until reviewed | Required on submit | Second-person review before locking |
 
+### Two different approvals — don't confuse them
+
+A log book can involve **two separate approvals**, which do different things:
+
+| | **Log Book Approval** | **Entry review** |
+| --- | --- | --- |
+| Approves | The **log book itself** — its fields (schema) and policy | An **individual entry** (a filled-in log) |
+| Set by | The **Log Book Approval** workflow (bottom of the Details tab) | The **Require reviewer approval before locking** toggle |
+| Who approves | The reviewers/approvers defined in the chosen workflow (e.g. technical review → Quality Manager) | The log book's **Supervisor** |
+| When | When you **create or revise** the log book — the new version must be approved before it becomes **effective** and can take entries | **Every entry**, before it locks |
+| Steps | Multi-step workflow | Single reviewer sign-off |
+
+In short: **Log Book Approval controls the template; Entry review controls the daily records.** The reviewer for entries is the **Supervisor** you set on the log book — entries land in that person's review queue.
+
 ### Edit window options
 
 | Setting | What it means |
@@ -60,6 +74,23 @@ edit windows, signatures, and review.
 | Recurring | Repeats on a schedule you set (frequency plus timezone) |
 | Ad-hoc | No schedule; the log book is available to fill on demand |
 
+## Roles — who does what
+
+Inspections & Logs separates **setting up** log books from **filling them in**, so day-to-day staff can record entries without changing the controlled templates.
+
+| Role | Typical activities | Permissions |
+| --- | --- | --- |
+| **QA Manager / owner** (setup) | Create and edit log books, define the schema (fields), set the edit-window / signature / review policy, publish controlled **versions**, schedule assignments, and **review, amend, or void** entries. | `log_books:create`, `log_books:update`, `field_records:review`, `field_records:amend`, `field_records:void`, `field_records:read_all`, `inspections:assign` |
+| **Day-to-day user** (execution) | Fill in and submit logs from their task inbox, and edit their own entry **while its edit window is still open**. | `field_records:create` |
+
+A day-to-day user can only edit **their own** entry, and only **before** the edit window closes or a reviewer locks it. After that, corrections must go through a QA Manager as an **amendment** or **void** (both keep the original for the audit trail).
+
+## Log books and equipment
+
+A log book can be tied to a specific piece of **equipment** (for example a "pH Meter Daily Calibration" log). This links routine records to the instrument they belong to.
+
+For a **calibration** log, you can go one step further: on the log book's **Details** tab, after choosing the Equipment, turn on **"Update this instrument's calibration when an entry is logged."** From then on, completing (or approving) a calibration entry automatically rolls that instrument's calibration forward — the entry's submit time becomes the last-calibrated date and the next-due date advances by the instrument's interval. No separate "Record calibration" step, and the date can't be back-dated from the log. Corrections are made in the **Equipment** module (managers only), where the calibration interval, next-due date, and the QC-inspection gate all live.
+
 ## How to create a log book
 
 1. Open **Inspections & Logs** and select the **Log Books** card.
@@ -82,8 +113,9 @@ and the **Type** filter to separate operational from controlled log books.
 
 Controlled log books keep a controlled revision history on the **Versions** tab. A version
 moves through Draft, then Under review, then Effective; the new effective version supersedes
-the prior one. Submitting a draft routes it through your approval workflow, so attach a
-workflow on the Details tab before submitting.
+the prior one. Submitting a draft routes it through the **Log Book Approval** workflow (set at
+the bottom of the Details tab), so attach a workflow there before submitting. This approves the
+**log book's definition** — its fields and policy — not the entries filed against it.
 
 ## How to schedule who fills a log book
 
@@ -117,6 +149,8 @@ live in one inbox.
 :::
 
 ## How to review and find logs
+
+When a log book has **Require reviewer approval** on, each submitted entry is held **Under review** for the log book's **Supervisor** — that's the designated reviewer, and entries land in their queue. (Any user with the review permission can also action them, but the Supervisor is who it's routed to.)
 
 1. Open the **Logs** card to see every entry submitted across your log books. Filter by log
    book or by status to narrow the list.

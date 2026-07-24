@@ -1,9 +1,11 @@
 <script setup>
 /**
- * Submit an Inspection Lot for QA Disposition. The submitter picks the QA
- * reviewer — the workflow engine assigns them the APPROVAL task. Reviewer
- * defaults to the current user (they can change it). On approval the lot is
- * released; on rejection a Nonconformance is auto-created.
+ * Submit an Inspection Lot for QA Disposition. The disposition workflow is fixed
+ * when the lot is created (it comes from the lot's inspection plan, or the
+ * company default) — so there's normally no workflow to pick here; the picker
+ * only appears as an escape hatch when neither resolves. The reviewer is chosen
+ * with the standard role-aware WorkflowStepReviewerSelect, defaulting to the
+ * submitter when they hold the step's role, else their department supervisor.
  */
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { currentSession } from '@/utils/currentSession.js'
@@ -14,34 +16,99 @@ const show = defineModel({ type: Boolean, default: false })
 const toast = useToast()
 const saving = ref(false)
 
-// Load the lot's workflow to get the first APPROVAL step id.
-// Falls back to a simple single-reviewer flow.
-// Before submission the workflow instance doesn't exist yet — just present
-// a single reviewer picker; the backend maps the ids to the first step.
-const reviewerIds = ref([])
+const QC_MODULE = { displayName: 'lot', workflowVersionModuleId: 'QC_INSPECTION' }
+const currentUserId = computed(() => currentSession.value?.userId || null)
 
-// Default to current user as reviewer.
+// Single reviewer for the first approval step — the backend maps reviewerIds to
+// the first APPROVAL step of the resolved workflow.
+const reviewerId = ref(null)
+// Escape-hatch workflow override — only used when nothing auto-resolves.
+const workflowVersionId = ref(null)
+
+const lot = useLiveQueryWithDeps([() => props.lotId], async (db, [id]) =>
+  id ? db.InspectionLot.findByPk(id) : null,
+)
+const planTemplate = useLiveQueryWithDeps([() => lot.value?.templateId], async (db, [tid]) =>
+  tid ? db.QcInspectionTemplate.findByPk(tid) : null,
+)
+const planWorkflowVersionId = computed(() => planTemplate.value?.workflowVersionId ?? null)
+
+// QC-specific AND generic Approval workflows — a disposition can reuse a shared
+// "Standard Approval" flow or a QC-tailored one.
+const APPROVAL_MODULES = ['QC_INSPECTION', 'APPROVAL']
+const qcWorkflows = useLiveQuery(
+  async (db) => (await db.Workflow.where().exec()).filter((w) => APPROVAL_MODULES.includes(w.moduleId)),
+  { models: ['Workflow'], initial: [] },
+)
+const qcVersions = useLiveQuery((db) => db.WorkflowVersion.where().exec(), {
+  models: ['WorkflowVersion'],
+  initial: [],
+})
+const workflowResolution = computed(() => {
+  const active = (qcWorkflows.value || []).filter((w) => w.statusId === 'ACTIVE')
+  const currentByWorkflow = new Map()
+  for (const v of qcVersions.value || []) {
+    if (!active.some((w) => w.id === v.workflowId)) continue
+    const cur = currentByWorkflow.get(v.workflowId)
+    if (!cur || v.isCurrent || (!cur.isCurrent && v.versionMajor > cur.versionMajor)) {
+      currentByWorkflow.set(v.workflowId, v)
+    }
+  }
+  const options = active
+    .map((w) => {
+      const v = currentByWorkflow.get(w.id)
+      const tag = w.moduleId === 'APPROVAL' ? 'Generic' : 'QC'
+      return v
+        ? { id: v.id, name: `${w.name} (v${v.versionMajor}.${v.versionMinor}) · ${tag}`, isDefault: !!w.isDefault }
+        : null
+    })
+    .filter(Boolean)
+  const fallback = options.find((o) => o.isDefault) || options[0] || null
+  return { options, defaultVersionId: fallback?.id || null }
+})
+const workflowOptions = computed(() => workflowResolution.value.options)
+
+// A workflow auto-resolves (no picker needed) when the plan provides one OR a
+// company default exists — the picker only shows as an escape hatch otherwise.
+const autoResolves = computed(
+  () => !!planWorkflowVersionId.value || !!workflowResolution.value.defaultVersionId,
+)
+const resolvedVersionId = computed(
+  () =>
+    planWorkflowVersionId.value ||
+    workflowVersionId.value ||
+    workflowResolution.value.defaultVersionId ||
+    null,
+)
+
+// First APPROVAL step of the resolved workflow — the reviewer target.
+const firstApprovalStep = useLiveQueryWithDeps(
+  [() => resolvedVersionId.value],
+  async (db, [vid]) => {
+    if (!vid) return null
+    const steps = await db.WorkflowStep.where('workflowVersionId', vid).orderBy('stepOrder', 'asc').exec()
+    return steps.find((s) => s.stepType === 'APPROVAL') || steps[0] || null
+  },
+  { models: ['WorkflowStep'] },
+)
+
 watch(show, (v) => {
   if (v) {
-    const me = currentSession.value?.userId
-    reviewerIds.value = me ? [me] : []
+    reviewerId.value = null
+    workflowVersionId.value = null
   }
 })
 
-const canSubmit = computed(() => reviewerIds.value.length > 0)
+const canSubmit = computed(() => !!reviewerId.value && !!resolvedVersionId.value && !saving.value)
 
 async function onSubmit() {
-  if (!canSubmit.value || saving.value) return
+  if (!canSubmit.value) return
   saving.value = true
   try {
-    // We don't know the step id yet (workflow not yet created).
-    // POST to /submit — the controller will create the workflow instance.
-    // Pass pickedReviewers with key '__default__' (a signal to the backend
-    // to assign to the first step). The workflowInstanceService interprets
-    // a missing step key as "use the first active step".
-    // Simpler: just send the reviewer ids; backend resolves the step.
     await post(`/v1/services/qcInspection/lots/${props.lotId}/submit`, {
-      reviewerIds: reviewerIds.value,
+      reviewerIds: reviewerId.value ? [reviewerId.value] : [],
+      // Blank when the plan / default resolves it; only the escape-hatch override is sent.
+      workflowVersionId: autoResolves.value ? null : workflowVersionId.value || null,
     })
     toast.success('Lot submitted for QA disposition')
     show.value = false
@@ -59,12 +126,52 @@ async function onSubmit() {
     <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
       <div class="tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded-lg tw:p-3 tw:text-sm tw:text-amber-800">
         <p class="tw:font-medium">QA disposition creates a formal approval record.</p>
-        <p class="tw:text-xs tw:mt-1">The selected reviewer will receive a task. On <strong>Approval</strong> the lot is released. On <strong>Rejection</strong> a Nonconformance is automatically raised.</p>
+        <p class="tw:text-xs tw:mt-1">
+          The selected reviewer will receive a task. On <strong>Approval</strong> the lot is
+          released. On <strong>Rejection</strong> a Nonconformance is automatically raised.
+        </p>
       </div>
 
-      <BaseField label="QA Reviewer" required hint="Defaults to you — change to assign to a different QA person.">
-        <UserSelectMenu v-model="reviewerIds" :multiple="true" />
+      <!-- Escape hatch only: a lot's workflow comes from its inspection plan / the
+           company default. Shown only when neither resolves. -->
+      <BaseField
+        v-if="!autoResolves"
+        label="Disposition Workflow"
+        required
+        hint="This lot's inspection plan has no workflow and there's no company default — pick one."
+      >
+        <BaseSelect
+          v-model="workflowVersionId"
+          :options="workflowOptions"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Select a QC disposition workflow"
+        />
+        <p v-if="!workflowOptions.length" class="tw:mt-1 tw:text-xs tw:text-amber-700">
+          No QC disposition workflow exists yet. Create one under Workflows, or run db:reset to seed
+          the default.
+        </p>
       </BaseField>
+
+      <!-- Reviewer for the first approval step — role-filtered + smart default. -->
+      <div v-if="resolvedVersionId && firstApprovalStep">
+        <p class="tw:text-sm tw:font-medium tw:text-on-main tw:mb-1.5">QA Reviewer</p>
+        <WorkflowStepReviewerSelect
+          :key="resolvedVersionId"
+          v-model="reviewerId"
+          :module="QC_MODULE"
+          :step="firstApprovalStep"
+          :stepIndex="0"
+          :required="true"
+          :preferUserId="currentUserId"
+        />
+        <p class="tw:mt-1 tw:text-xs tw:text-secondary">
+          Defaults to you when you hold the reviewer role, otherwise your supervisor.
+        </p>
+      </div>
+      <p v-else-if="!autoResolves" class="tw:text-xs tw:text-secondary">
+        Pick a workflow above to choose the reviewer.
+      </p>
     </div>
 
     <template #footer>

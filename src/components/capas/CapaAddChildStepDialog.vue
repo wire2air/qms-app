@@ -166,7 +166,10 @@ async function onValidSubmit() {
               />
             </div>
           </BaseField>
-          <BaseField label="SLA: Due in (days)">
+          <BaseField
+            label="Due within"
+            help="SLA — how many business days the assignee has to complete this step once it activates."
+          >
             <div class="tw:flex tw:items-center tw:gap-2">
               <BaseTextInput
                 v-model.number="form.slaDays"
@@ -176,7 +179,7 @@ async function onValidSubmit() {
                 inputClass="tw:w-24"
               />
               <span class="tw:text-xs tw:font-medium tw:text-secondary">
-                Business days from activation
+                business days of activation
               </span>
             </div>
           </BaseField>

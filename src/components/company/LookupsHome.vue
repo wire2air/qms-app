@@ -11,8 +11,12 @@ import { IconList } from '@tabler/icons-vue'
 const tabs = [
   { value: 'nc-dispositions', label: 'NC Dispositions', group: 'Nonconformance' },
   { value: 'nc-issue-types', label: 'NC Issue Types', group: 'Nonconformance' },
-  { value: 'product-families', label: 'Product Families', group: 'Products & Suppliers' },
+  { value: 'item-categories', label: 'Item Categories', group: 'Products & Suppliers' },
+  { value: 'product-families', label: 'Item Groups', group: 'Products & Suppliers' },
+  { value: 'uoms', label: 'Units of Measure', group: 'Products & Suppliers' },
   { value: 'supplier-certificate-types', label: 'Supplier Certificates', group: 'Products & Suppliers' },
+  { value: 'production-lines', label: 'Production Lines', group: 'QC Inspection' },
+  { value: 'shifts', label: 'Shifts', group: 'QC Inspection' },
   { value: 'audit-standard-types', label: 'Audit Standard Types', group: 'Audit' },
   { value: 'audit-finding-categories', label: 'Audit Finding Categories', group: 'Audit' },
   { value: 'event-categories', label: 'Event Categories', group: 'Events' },
@@ -70,9 +74,13 @@ watch(activeTab, (v) => {
         />
       </div>
 
-      <NcDispositionTypesCard v-if="activeTab === 'nc-dispositions'" />
+      <ProductionLinesCard v-if="activeTab === 'production-lines'" />
+      <ShiftsCard v-else-if="activeTab === 'shifts'" />
+      <NcDispositionTypesCard v-else-if="activeTab === 'nc-dispositions'" />
       <NcIssueTypesCard v-else-if="activeTab === 'nc-issue-types'" />
+      <ItemCategoriesCard v-else-if="activeTab === 'item-categories'" />
       <ProductFamiliesCard v-else-if="activeTab === 'product-families'" />
+      <UnitsOfMeasureCard v-else-if="activeTab === 'uoms'" />
       <SupplierCertificateTypesCard v-else-if="activeTab === 'supplier-certificate-types'" />
       <AuditStandardTypesCard v-else-if="activeTab === 'audit-standard-types'" />
       <AuditFindingCategoriesCard v-else-if="activeTab === 'audit-finding-categories'" />

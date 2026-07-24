@@ -4,6 +4,7 @@ import { ObjectPool } from '../core/ObjectPool.js'
 import ModelRegistry from '../core/ModelRegistry.js'
 import { defaultSerializers } from './defaultSerializers.js'
 import { DateTime } from 'luxon'
+import { beginHydration, endHydration, isEdited } from '../core/editTracker.js'
 
 /**
  * Deep equality check for deserialized model values.
@@ -130,23 +131,39 @@ export async function hydrate(modelName, id, overrides = {}, rawRecord = null) {
   // Use pk value from record (not the lookup key, which may differ)
   const pkValue = raw[pk]
   const existingInstance = ObjectPool.get(modelName, pkValue)
-  const instance = existingInstance ?? new Ctor()
 
-  const propertyMetaMap = schema.properties
+  // The whole apply section is synchronous, so the module-level hydration flag
+  // can't interleave with user-land writes. Every assignment below is
+  // engine-driven and must NOT register as a user edit in the editTracker.
+  beginHydration()
+  let instance
+  try {
+    instance = existingInstance ?? new Ctor()
 
-  // Server is authoritative — always overwrite the local instance with the
-  // record from IDB. Only skip fields whose deserialized value already equals
-  // the current value, to avoid spurious reactive setter triggers.
-  for (const [key, value] of Object.entries(raw)) {
-    if (key in overrides) continue
-    const deserialized = deserializeValue(value, propertyMetaMap.get(key))
-    if (!existingInstance || !valuesEqual(deserialized, instance[key])) {
-      instance[key] = deserialized
+    const propertyMetaMap = schema.properties
+
+    // Server is authoritative — overwrite the local instance with the record
+    // from IDB, EXCEPT fields carrying an unflushed local edit (editTracker):
+    // clobbering those loses user input that hasn't reached the server yet
+    // (the in-flight-save / debounced-autosave race — e.g. a workflow step's
+    // type snapping back after a quick second change). Those fields keep the
+    // local value; their own save flushes them and clears the edit mark.
+    // Also skip fields whose deserialized value already equals the current
+    // value, to avoid spurious reactive setter triggers.
+    for (const [key, value] of Object.entries(raw)) {
+      if (key in overrides) continue
+      if (existingInstance && isEdited(instance, key)) continue
+      const deserialized = deserializeValue(value, propertyMetaMap.get(key))
+      if (!existingInstance || !valuesEqual(deserialized, instance[key])) {
+        instance[key] = deserialized
+      }
     }
-  }
 
-  for (const [key, value] of Object.entries(overrides)) {
-    instance[key] = value
+    for (const [key, value] of Object.entries(overrides)) {
+      instance[key] = value
+    }
+  } finally {
+    endHydration()
   }
 
   ObjectPool.register(modelName, pkValue, instance)

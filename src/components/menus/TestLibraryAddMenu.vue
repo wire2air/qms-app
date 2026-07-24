@@ -4,12 +4,12 @@
  * entries (DefectCatalog) with a tick state; the user can select several and
  * click "Add" to push them all at once. Emits `pick` with the array of chosen
  * entries, so the parent can prepend pre-filled characteristics in one go.
- * Optionally filtered by productTypeId.
+ * Optionally filtered by Item Group (productFamilyId).
  */
 import { IconCheck } from '@tabler/icons-vue'
 
 const props = defineProps({
-  productTypeId: { type: String, default: null },
+  productFamilyId: { type: String, default: null },
 })
 const emit = defineEmits(['pick'])
 
@@ -19,9 +19,9 @@ const tests = computed(() =>
   all.value
     .filter((t) => t.active)
     .filter((t) => {
-      const list = t.applicableProductTypeIds
-      if (!props.productTypeId || !Array.isArray(list) || list.length === 0) return true
-      return list.includes(props.productTypeId)
+      const list = t.applicableProductFamilyIds
+      if (!props.productFamilyId || !Array.isArray(list) || list.length === 0) return true
+      return list.includes(props.productFamilyId)
     })
     .sort((a, b) => (a.name || '').localeCompare(b.name || '')),
 )

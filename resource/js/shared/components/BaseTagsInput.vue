@@ -77,7 +77,7 @@ const sizeClass = computed(() =>
 
 <template>
   <div
-    class="tw:flex tw:flex-wrap tw:items-center tw:rounded-lg tw:border tw:border-divider tw:bg-card tw:transition-colors tw:focus-within:border-primary tw:focus-within:ring-2 tw:focus-within:ring-primary/30"
+    class="tw:flex tw:flex-wrap tw:items-center tw:rounded-lg tw:border tw:border-input-border tw:bg-card tw:transition-colors tw:focus-within:border-primary tw:focus-within:ring-2 tw:focus-within:ring-primary/30"
     :class="[sizeClass, disabled ? 'tw:cursor-not-allowed tw:opacity-60' : 'tw:cursor-text']"
     @click="focusInput"
   >

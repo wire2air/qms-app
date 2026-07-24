@@ -42,7 +42,8 @@ Always prefer the semantic token over a raw palette hue, so dark mode and future
 | `tw:bg-main` / `tw:bg-main-hover` / `tw:bg-main-selected` | `#f6f7f8` / `#f1f5f9` / `#e7f0fe` | `#101822` / `#1a222c` / `rgba(19,109,236,.15)` | Page surface + states |
 | `tw:bg-card` | `#fff` | `#1a222c` | Raised panel / card surface (flips with theme) |
 | `tw:bg-sidebar` / `tw:text-on-sidebar` | `#fff` / `#111418` | `#1a222c` / `#fff` | Sidebar + header surface |
-| `tw:border-divider` | `#e5e7eb` | `#2d3748` | Borders, hairlines |
+| `tw:border-divider` | `#e5e7eb` | `#2d3748` | Hairlines, card/section borders, table rules |
+| `tw:border-input-border` | `#cbd5e1` | `#4a5568` | Interactive form-control edges (text inputs, textareas, selects, checkboxes, radios) — a step stronger than the hairline so fields read clearly |
 
 **Scales** (`success` / `warning` / `danger` / `info` / `neutral` / `changes`) exist at `50/100/(200)/500/600/700` as `--color-<name>-<n>` → `tw:bg-success-50`, etc. The raw Tailwind palette (`tw:bg-amber-50`, …) is **remapped in dark mode** (see the `--tw-color-*` block in `tokens.css`), so even literal hues stay theme-aware — but a semantic token is still preferred.
 

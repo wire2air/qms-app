@@ -112,7 +112,7 @@ export const FIELD_TYPES = Object.freeze({
     icon: IconDatabaseSearch,
     label: 'Lookup (entity)',
     category: 'selection',
-    description: 'A dropdown whose options load live from a company table — Item, Supplier, Site, Department, or User.',
+    description: 'A dropdown whose options load live from a company list — Item, Supplier, Site, Department, User, Equipment, or one of your Option Sets.',
   },
 
   // Special Types
@@ -557,6 +557,15 @@ export const LOOKUP_ENTITIES = [
     idProp: 'userId',
     model: 'User',
     labelFields: ['firstName', 'lastName'],
+  },
+  {
+    value: 'equipment',
+    label: 'Equipment / Instrument',
+    selectMenu: 'EquipmentSelectMenu',
+    badgeById: 'EquipmentBadgeById',
+    idProp: 'equipmentId',
+    model: 'Equipment',
+    labelFields: ['name'],
   },
 ]
 export const LOOKUP_ENTITY_BY_VALUE = Object.fromEntries(LOOKUP_ENTITIES.map((e) => [e.value, e]))

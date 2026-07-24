@@ -32,12 +32,12 @@ watch(activeTab, (id) => {
 const showCreateDialog = ref(false)
 const viewMode = useCompanyLocalStorage('templates-view-mode', 'list')
 const { confirm } = useConfirm()
+const toast = useToast()
 
 // Create needs read too: the create mutation reads the new row back through the
 // `formTemplates:read` RLS SELECT policy, so create-without-read fails at the DB.
 const canCreateTemplate = computed(() => isAllowed(['forms_templates:create', 'forms_templates:read']))
 const canUpdateTemplate = computed(() => isAllowed(['forms_templates:update']))
-const canDeleteTemplate = computed(() => isAllowed(['forms_templates:delete']))
 
 // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
 const filters = ref({
@@ -55,7 +55,8 @@ const templates = useLiveQueryWithDeps(
     () => filters.value.documentTypeId,
   ],
   async (db, [search, statusId, siteId, documentTypeId]) => {
-    let results = await db.FormTemplate.where().exec()
+    // Standalone forms only — Form Blocks live on their own tab.
+    let results = (await db.FormTemplate.where().exec()).filter((t) => t.kind !== 'BLOCK')
 
     if (statusId) {
       const statusIds = Array.isArray(statusId) ? statusId : [statusId]
@@ -102,14 +103,27 @@ function handleTemplateCreated(template) {
   router.push({ path, query: { mode: 'schema' } })
 }
 
-async function onDeleteTemplate(template) {
-  const ok = await confirm({
-    title: 'Delete Template',
-    message: `Are you sure you want to delete '${template.title}' (${template.code})? This cannot be undone.`,
-    okLabel: 'Delete',
-    danger: true,
-  })
-  if (ok) await template.delete()
+// Templates are never deleted — archived rows are the version history, and
+// records/workflows built from a template keep referencing it by id. A DB
+// trigger enforces the same rule server-side.
+async function onArchiveTemplate(template) {
+  try {
+    if (template.statusId === 'ARCHIVED') {
+      template.statusId = 'ACTIVE'
+      await template.save()
+      return
+    }
+    const ok = await confirm({
+      title: 'Archive Template',
+      message: `Archive '${template.title}' (${template.code})? It disappears from pickers and new usage, but existing records and workflows built from it keep working. You can restore it anytime.`,
+      okLabel: 'Archive',
+    })
+    if (!ok) return
+    template.statusId = 'ARCHIVED'
+    await template.save()
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update template status')
+  }
 }
 </script>
 
@@ -147,21 +161,21 @@ async function onDeleteTemplate(template) {
             v-if="viewMode === 'table'"
             :rows="templates"
             :canUpdate="canUpdateTemplate"
-            :canDelete="canDeleteTemplate"
-            @delete="onDeleteTemplate"
+            @archive="onArchiveTemplate"
           />
           <div v-else class="tw:flex-1 tw:overflow-y-auto">
             <FormTemplatesList
               :templates="templates"
               :canUpdate="canUpdateTemplate"
-              :canDelete="canDeleteTemplate"
-              @delete="onDeleteTemplate"
+              @archive="onArchiveTemplate"
             />
           </div>
         </BaseTabPanel>
 
         <!-- Tab: Option Sets — slim embedded surface (full /option-sets page
-             is still mounted at the standalone route for back-compat). -->
+             is still mounted at the standalone route for back-compat).
+             Form Blocks moved to their own /form-blocks page (first-class
+             sidebar item; this page stays a case-by-case surface). -->
         <BaseTabPanel value="optionsets">
           <OptionSetsTab />
         </BaseTabPanel>

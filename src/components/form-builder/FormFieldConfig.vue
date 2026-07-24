@@ -380,6 +380,16 @@ function updateRowColClass(value) {
             placeholder="Select Mode"
           />
           <p class="tw:text-xs tw:text-secondary tw:mt-1">Format for date/time selection</p>
+
+          <div class="tw:mt-3 tw:flex tw:flex-col tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
+            <BaseCheckbox v-model="field.defaultToday">
+              Default new entries to {{ field.mode === 'time' ? 'the current time' : "today's date" }}
+            </BaseCheckbox>
+            <template v-if="field.mode !== 'time'">
+              <BaseCheckbox v-model="field.noPastDates">Don't allow past dates</BaseCheckbox>
+              <BaseCheckbox v-model="field.noFutureDates">Don't allow future dates</BaseCheckbox>
+            </template>
+          </div>
         </template>
 
         <!-- RCA Settings -->

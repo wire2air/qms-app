@@ -8,6 +8,7 @@ import SupplierBadgeById from '@/components/badges/SupplierBadgeById.vue'
 import SiteBadgeById from '@/components/badges/SiteBadgeById.vue'
 import DepartmentBadgeById from '@/components/badges/DepartmentBadgeById.vue'
 import UserBadgeById from '@/components/badges/UserBadgeById.vue'
+import EquipmentBadgeById from '@/components/badges/EquipmentBadgeById.vue'
 
 const props = defineProps({
   fields: { type: Array, required: true },
@@ -21,9 +22,29 @@ const LOOKUP_BADGES = {
   site: SiteBadgeById,
   department: DepartmentBadgeById,
   user: UserBadgeById,
+  equipment: EquipmentBadgeById,
 }
 function isLookupField(field) {
   return field.type === 'lookup'
+}
+// Option-set-sourced lookup — renders resolved text, not an entity badge.
+function isOptionSetLookup(field) {
+  return field.type === 'lookup' && field.lookupEntity === 'optionSet' && field.optionSetId
+}
+function optionSetLookupText(field) {
+  const rawVal = getFieldValue(field)
+  if (rawVal == null || rawVal === '') return '—'
+  // Frozen labels (written at submit by freezeOptionLabels) win so sealed
+  // records don't shift if the option set is later edited.
+  const frozen = props.values?._optionLabels?.[field.name]
+  if (Array.isArray(rawVal)) {
+    if (Array.isArray(frozen) && frozen.length === rawVal.length) {
+      return frozen.map((v) => String(v)).join(', ') || '—'
+    }
+    return rawVal.map((v) => resolveOptionLabel(field, v)).join(', ') || '—'
+  }
+  if (frozen != null && !Array.isArray(frozen)) return String(frozen)
+  return resolveOptionLabel(field, rawVal)
 }
 function lookupBadge(field) {
   return LOOKUP_BADGES[field.lookupEntity] || null
@@ -564,10 +585,15 @@ function getChecklistColumnLabel(col) {
         />
       </div>
 
-      <!-- Lookup (entity-backed) — resolve the stored id to a live badge. -->
+      <!-- Lookup — entity-backed resolves the stored id to a live badge;
+           option-set-backed renders text (frozen label wins, then the
+           fetched set, then the raw value — same rules as select fields). -->
       <div v-else-if="isLookupField(field)" class="tw:flex tw:flex-col tw:gap-0.5">
         <div class="tw:text-caption tw:text-secondary tw:font-medium">{{ field.label }}</div>
-        <template v-if="getFieldValue(field) && lookupBadge(field)">
+        <span v-if="isOptionSetLookup(field)" class="tw:text-sm tw:text-on-main">
+          {{ optionSetLookupText(field) }}
+        </span>
+        <template v-else-if="getFieldValue(field) && lookupBadge(field)">
           <component
             :is="lookupBadge(field)"
             v-for="v in Array.isArray(getFieldValue(field)) ? getFieldValue(field) : [getFieldValue(field)]"

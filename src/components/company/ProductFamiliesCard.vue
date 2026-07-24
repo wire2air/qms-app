@@ -180,15 +180,16 @@ const showDeactivated = ref(false)
       class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
     >
       <div>
-        <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Product Families</h2>
+        <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Item Groups</h2>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          Brand lines or product ranges used to group items in the Item Master. Scoped to this
+          Groups of related items — a product line (Skincare, Body Lotions) or a component family
+          (Caps, Bottles). A QC inspection plan or spec can target a whole group. Scoped to this
           company.
         </p>
       </div>
       <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
         <template #icon><IconPlus :size="16" /></template>
-        Add Family
+        Add Group
       </BaseButton>
     </div>
 
@@ -269,9 +270,19 @@ const showDeactivated = ref(false)
     >
       <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
         <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-          <BaseField label="Name" required :value="form.name" :rules="[required()]">
+          <BaseField
+            label="Name"
+            required
+            :value="form.name"
+            :rules="[required()]"
+            hint="A product line (Skincare, Body Lotions) or a component family (Caps, Bottles)."
+          >
             <template #default="field">
-              <BaseTextInput v-bind="field" v-model="form.name" placeholder="e.g. Skincare" />
+              <BaseTextInput
+                v-bind="field"
+                v-model="form.name"
+                placeholder="e.g. Skincare (product line) or Caps (component family)"
+              />
             </template>
           </BaseField>
 

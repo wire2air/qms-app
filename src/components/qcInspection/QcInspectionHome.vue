@@ -11,12 +11,13 @@ import { isAllowed } from '@/utils/currentSession.js'
 const route = useRoute()
 
 const tabs = [
-  { value: 'lots', label: 'Inspection Lots' },
+  { value: 'lots', label: 'Inspections' },
   { value: 'inspection-plans', label: 'Inspection Plans' },
   { value: 'specifications', label: 'Specifications' },
   { value: 'sampling-plans', label: 'Sampling Plans' },
   { value: 'aql-standards', label: 'AQL Standards' },
   { value: 'test-library', label: 'Test Library' },
+  { value: 'line-clearance', label: 'Line Clearance' },
 ]
 const validTabIds = new Set(tabs.map((t) => t.value))
 const activeTab = ref(validTabIds.has(route.query.tab) ? route.query.tab : 'lots')
@@ -41,7 +42,14 @@ const canManageDefects = computed(() => isAllowed(['inspection_catalog:write']))
       :icon="IconTestPipe"
       title="QC Inspection"
       subtitle="Incoming, in-process, final and outgoing inspection — specifications, lots, results and disposition."
-    />
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          QC Inspection
+          <HelpButton slug="KB/quality/qc-inspection" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
 
     <div class="tw:flex tw:flex-col tw:gap-5 tw:max-w-7xl">
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="QC Inspection sections">
@@ -63,6 +71,9 @@ const canManageDefects = computed(() => isAllowed(['inspection_catalog:write']))
           </BaseTabPanel>
           <BaseTabPanel value="test-library">
             <DefectCatalogList :canManage="canManageDefects" />
+          </BaseTabPanel>
+          <BaseTabPanel value="line-clearance">
+            <LineClearanceSettings />
           </BaseTabPanel>
         </div>
       </BaseTabs>

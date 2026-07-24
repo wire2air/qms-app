@@ -239,20 +239,24 @@ const showAiDialog = ref(false)
 async function handleAiApply(result) {
   const count = Array.isArray(result?.fields) ? result.fields.length : 0
   if (!count) return
-  // Applying replaces the schema — confirm when there's existing work.
-  if (schema.value?.length > 0) {
+  const hadFields = schema.value?.length > 0
+  // Snapshot the current schema so an EDIT preserves untouched (and heavy) fields
+  // by name; a fresh generate simply finds no name matches.
+  const preserveFrom = hadFields ? JSON.parse(JSON.stringify(schema.value)) : null
+  // Applying rewrites the schema — confirm when there's existing work.
+  if (hadFields) {
     const ok = await confirm({
-      title: 'Replace current form?',
-      message: `This replaces the current ${schema.value.length} field${
-        schema.value.length === 1 ? '' : 's'
-      } with the ${count} AI-generated field${count === 1 ? '' : 's'}. You can undo this.`,
-      okLabel: 'Replace',
+      title: 'Apply AI changes?',
+      message: `This rewrites the form to the ${count} previewed field${
+        count === 1 ? '' : 's'
+      }. Fields kept by the AI are preserved; the rest are replaced. You can undo this.`,
+      okLabel: 'Apply',
       danger: true,
     })
     if (!ok) return
   }
-  applyAiSchema(result)
-  toast.success(`Generated ${count} field${count === 1 ? '' : 's'}`)
+  applyAiSchema(result, { preserveFrom })
+  toast.success(`Applied ${count} field${count === 1 ? '' : 's'}`)
 }
 </script>
 
@@ -363,7 +367,7 @@ async function handleAiApply(result) {
 
             <BaseButton v-if="canUseAi" variant="outline" @click="showAiDialog = true">
               <IconSparkles :size="18" />
-              Generate with AI
+              {{ schema.length ? 'Edit with AI' : 'Generate with AI' }}
             </BaseButton>
 
             <BaseButton variant="primary" @click="onSave">
@@ -483,7 +487,12 @@ async function handleAiApply(result) {
     </BaseDialog>
 
     <!-- AI generate dialog (owns the AI call; we only react to @apply). -->
-    <FormAiGenerateDialog v-if="canUseAi" v-model="showAiDialog" @apply="handleAiApply" />
+    <FormAiGenerateDialog
+      v-if="canUseAi"
+      v-model="showAiDialog"
+      :currentSchema="schema"
+      @apply="handleAiApply"
+    />
 
     <!-- Clear Confirmation Dialog -->
   </div>

@@ -19,8 +19,44 @@ import { post } from '@/api'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
+  // The builder's current schema. When it has fields, the dialog runs in EDIT
+  // mode: the prompt asks for a change and the AI revises the form in place
+  // (preserving untouched fields by name) instead of drafting a fresh one.
+  currentSchema: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['update:modelValue', 'apply'])
+
+const isEdit = computed(() => Array.isArray(props.currentSchema) && props.currentSchema.length > 0)
+
+// Flatten the builder's schema tree into the lightweight descriptor list the
+// AI task edits — section containers become a `section` label on each child.
+function serializeField(field, section) {
+  const d = { name: field.name, type: field.type, label: field.label ?? field.text ?? '' }
+  if (section) d.section = section
+  if (typeof field.required === 'boolean') d.required = field.required
+  if (Array.isArray(field.options) && field.options.length) {
+    d.options = field.options
+      .map((o) => (typeof o === 'string' ? o : (o?.label ?? o?.value ?? '')))
+      .filter(Boolean)
+  }
+  return d
+}
+function serializeSchemaForAi(schema) {
+  const out = []
+  for (const field of schema ?? []) {
+    if (!field || typeof field !== 'object' || !field.name) continue
+    if (field.type === 'section' && Array.isArray(field.children)) {
+      for (const child of field.children) {
+        if (child && typeof child === 'object' && child.name) {
+          out.push(serializeField(child, field.label || null))
+        }
+      }
+    } else {
+      out.push(serializeField(field, null))
+    }
+  }
+  return out
+}
 
 const prompt = ref('')
 const context = ref('')
@@ -55,7 +91,11 @@ async function generate() {
   try {
     const res = await post(
       '/v1/services/ai/tasks/form.generate_schema/run',
-      { prompt: prompt.value.trim(), context: context.value.trim() || undefined },
+      {
+        prompt: prompt.value.trim(),
+        context: context.value.trim() || undefined,
+        currentForm: isEdit.value ? serializeSchemaForAi(props.currentSchema) : undefined,
+      },
       { timeout: AI_GENERATE_TIMEOUT_MS },
     )
     const out = res?.result
@@ -99,6 +139,20 @@ const previewGroups = computed(() => {
 
 const fieldCount = computed(() => preview.value?.fields?.length ?? 0)
 
+const dialogTitle = computed(() => (isEdit.value ? 'Edit form with AI' : 'Generate form with AI'))
+const promptLabel = computed(() =>
+  isEdit.value ? 'What change do you want?' : 'What should the form capture?',
+)
+const promptPlaceholder = computed(() =>
+  isEdit.value
+    ? 'e.g. Change the Severity field to a dropdown with Low / Medium / High, add a Photo field to the Investigation section, and make Reporter name required.'
+    : 'e.g. A supplier onboarding form with company details, quality certifications, a self-assessment checklist, and a QA sign-off section.',
+)
+const generateLabel = computed(() => {
+  if (preview.value) return 'Regenerate'
+  return isEdit.value ? 'Apply change' : 'Generate'
+})
+
 function typeLabel(type) {
   return type || 'input'
 }
@@ -107,7 +161,7 @@ function typeLabel(type) {
 <template>
   <BaseDialog
     :modelValue="modelValue"
-    title="Generate form with AI"
+    :title="dialogTitle"
     maxWidth="2xl"
     @update:modelValue="close"
   >
@@ -117,19 +171,25 @@ function typeLabel(type) {
         class="tw:rounded-lg tw:bg-purple-50 tw:border tw:border-purple-200 tw:p-3 tw:text-xs tw:text-purple-900 tw:leading-relaxed tw:flex tw:items-start tw:gap-2"
       >
         <IconSparkles :size="16" class="tw:shrink-0 tw:mt-0.5" />
-        <span>
+        <span v-if="isEdit">
+          Describe the change and the AI revises this form — retype, add, remove,
+          or tweak fields — keeping everything you don't mention. You can preview
+          it before applying. <strong>Fields you keep (and any answers bound to
+          them) are preserved by name.</strong>
+        </span>
+        <span v-else>
           Describe the form you need and the AI drafts the fields — grouped into
           sections, with the right field type per question. You can preview it
           before applying. <strong>Applying replaces the current fields.</strong>
         </span>
       </div>
 
-      <BaseField v-slot="{ id: fieldId }" label="What should the form capture?">
+      <BaseField v-slot="{ id: fieldId }" :label="promptLabel">
         <BaseTextarea
           :id="fieldId"
           v-model="prompt"
           :rows="4"
-          placeholder="e.g. A supplier onboarding form with company details, quality certifications, a self-assessment checklist, and a QA sign-off section."
+          :placeholder="promptPlaceholder"
           :required="true"
         />
       </BaseField>
@@ -151,10 +211,10 @@ function typeLabel(type) {
           @click="generate"
         >
           <template #icon><IconWand :size="16" /></template>
-          {{ preview ? 'Regenerate' : 'Generate' }}
+          {{ generateLabel }}
         </BaseButton>
         <span v-if="generating" class="tw:text-xs tw:text-secondary">
-          Drafting the form… this can take up to a minute.
+          {{ isEdit ? 'Revising the form…' : 'Drafting the form…' }} this can take up to a minute.
         </span>
       </div>
 
@@ -216,7 +276,8 @@ function typeLabel(type) {
       <BaseButton variant="outline" @click="close">Cancel</BaseButton>
       <BaseButton v-if="preview" variant="primary" @click="apply">
         <template #icon><IconSparkles :size="16" /></template>
-        Apply {{ fieldCount }} field{{ fieldCount === 1 ? '' : 's' }}
+        <template v-if="isEdit">Apply changes ({{ fieldCount }} field{{ fieldCount === 1 ? '' : 's' }})</template>
+        <template v-else>Apply {{ fieldCount }} field{{ fieldCount === 1 ? '' : 's' }}</template>
       </BaseButton>
     </template>
   </BaseDialog>

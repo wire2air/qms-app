@@ -4,9 +4,13 @@
  * tests). Synced model — creates via useLiveMutation, edits by mutating the live
  * record and saving (CLAUDE.md rule #4). Picking one in the spec builder
  * pre-fills a characteristic with these defaults.
+ *
+ * The library defines WHAT to test (name, type, method, severity, gauge). The
+ * ACCEPTANCE criteria (target / LSL / USL / UOM) live on the specification
+ * characteristic, because they vary per item / spec — not here. The library
+ * scopes by Item Group (product family), since QC automation ties to Item Group.
  */
 import { required } from '@shared/components/form/validators.js'
-import ProductTypeSelectMenu from '@/components/menus/ProductTypeSelectMenu.vue'
 
 const props = defineProps({
   editDefect: { type: Object, default: null },
@@ -33,11 +37,7 @@ function blank() {
     testMethod: '',
     requiresInstrument: false,
     preferredEquipmentId: null,
-    targetValue: null,
-    lsl: null,
-    usl: null,
-    uom: '',
-    applicableProductTypeIds: [],
+    applicableProductFamilyIds: [],
     active: true,
   }
 }
@@ -56,12 +56,8 @@ watch(open, (isOpen) => {
         testMethod: d.testMethod ?? '',
         requiresInstrument: d.requiresInstrument ?? false,
         preferredEquipmentId: d.preferredEquipmentId ?? null,
-        targetValue: d.targetValue ?? null,
-        lsl: d.lsl ?? null,
-        usl: d.usl ?? null,
-        uom: d.uom ?? '',
-        applicableProductTypeIds: Array.isArray(d.applicableProductTypeIds)
-          ? [...d.applicableProductTypeIds]
+        applicableProductFamilyIds: Array.isArray(d.applicableProductFamilyIds)
+          ? [...d.applicableProductFamilyIds]
           : [],
         active: d.active ?? true,
       }
@@ -104,12 +100,8 @@ async function onValidSubmit() {
       requiresInstrument: numeric ? form.value.requiresInstrument : false,
       preferredEquipmentId:
         numeric && form.value.requiresInstrument ? form.value.preferredEquipmentId || null : null,
-      targetValue: numeric ? form.value.targetValue : null,
-      lsl: numeric ? form.value.lsl : null,
-      usl: numeric ? form.value.usl : null,
-      uom: numeric ? form.value.uom.trim() || null : null,
-      applicableProductTypeIds: form.value.applicableProductTypeIds.length
-        ? form.value.applicableProductTypeIds
+      applicableProductFamilyIds: form.value.applicableProductFamilyIds.length
+        ? form.value.applicableProductFamilyIds
         : null,
       active: form.value.active,
     }
@@ -157,39 +149,21 @@ async function onValidSubmit() {
           </BaseField>
         </div>
 
-        <!-- NUMERIC defaults -->
-        <div v-if="form.testType === 'NUMERIC'" class="tw:flex tw:flex-wrap tw:gap-3 tw:items-end">
-          <BaseField label="Target" class="tw:w-24">
-            <template #default="field">
-              <BaseTextInput
-                v-bind="field"
-                v-model.number="form.targetValue"
-                type="number"
-                size="sm"
-              />
-            </template>
-          </BaseField>
-          <BaseField label="LSL (≥)" class="tw:w-24">
-            <template #default="field">
-              <BaseTextInput v-bind="field" v-model.number="form.lsl" type="number" size="sm" />
-            </template>
-          </BaseField>
-          <BaseField label="USL (≤)" class="tw:w-24">
-            <template #default="field">
-              <BaseTextInput v-bind="field" v-model.number="form.usl" type="number" size="sm" />
-            </template>
-          </BaseField>
-          <BaseField label="UOM" class="tw:w-24">
-            <template #default="field">
-              <BaseTextInput v-bind="field" v-model="form.uom" size="sm" placeholder="mm" />
-            </template>
-          </BaseField>
-          <label
-            class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap"
-          >
-            <BaseCheckbox v-model="form.requiresInstrument" /> Instrument
-          </label>
-        </div>
+        <p
+          v-if="form.testType === 'NUMERIC'"
+          class="tw:text-xs tw:text-secondary tw:bg-main-hover tw:rounded-lg tw:px-3 tw:py-2"
+        >
+          Target, limits (LSL/USL) and UOM are set per specification — each item / item group has its
+          own acceptance range — so they aren't captured here.
+        </p>
+
+        <!-- Instrument is a test-level default (a pH test needs a pH meter). -->
+        <label
+          v-if="form.testType === 'NUMERIC'"
+          class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:text-secondary tw:whitespace-nowrap"
+        >
+          <BaseCheckbox v-model="form.requiresInstrument" /> Requires an instrument
+        </label>
 
         <!-- Preferred instrument — the default gauge for this measured test -->
         <BaseField
@@ -218,12 +192,12 @@ async function onValidSubmit() {
             />
           </template>
         </BaseField>
-        <BaseField label="Applies to product types">
+        <BaseField label="Applies to item groups">
           <template #label>
-            Applies to product types
-            <span class="tw:font-normal tw:text-secondary">(optional — blank = all)</span>
+            Applies to item groups
+            <span class="tw:font-normal tw:text-secondary">(optional — blank = all groups)</span>
           </template>
-          <ProductTypeSelectMenu v-model="form.applicableProductTypeIds" multiple />
+          <ProductFamilySelectMenu v-model="form.applicableProductFamilyIds" :multiple="true" nullLabel="— All groups —" />
         </BaseField>
         <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:select-none">
           <BaseCheckbox v-model="form.active" />

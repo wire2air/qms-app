@@ -118,6 +118,7 @@ watch(
         supervisorUserId: lb.supervisorUserId || null,
         codePrefix: lb.codePrefix ?? 'FRM-{DEPTCODE}-{TYPECODE}',
         equipmentId: lb.equipmentId || null,
+        syncsEquipmentCalibration: !!lb.syncsEquipmentCalibration,
         departmentId: lb.departmentId || null,
         location: lb.location ?? '',
         relatedStandardId: lb.relatedStandardId || null,
@@ -136,6 +137,19 @@ watch(
   },
   { immediate: true },
 )
+
+// Prefill location from the selected instrument (equipment has its own
+// location) when the log book's location is still empty.
+const selectedEquipment = useLiveQueryWithDeps(
+  [() => draft.value?.equipmentId],
+  async (db, [id]) => (id ? db.Equipment.findByPk(id) : null),
+  { models: ['Equipment'] },
+)
+watch(selectedEquipment, (eq) => {
+  if (eq?.locationText && draft.value && !draft.value.location?.trim()) {
+    draft.value.location = eq.locationText
+  }
+})
 
 // Derived classification — keeps the dialog's logic in lockstep with
 // the create-flow's "policy implies classification" rule.
@@ -162,6 +176,9 @@ const debouncedSave = useDebounceFn(async () => {
       supervisorUserId: draft.value.supervisorUserId,
       codePrefix: draft.value.codePrefix?.trim() || undefined,
       equipmentId: draft.value.equipmentId,
+      syncsEquipmentCalibration: draft.value.equipmentId
+        ? !!draft.value.syncsEquipmentCalibration
+        : false,
       departmentId: draft.value.departmentId,
       location: draft.value.location?.trim() || null,
       relatedStandardId: draft.value.relatedStandardId,
@@ -800,7 +817,10 @@ const logBookDetailConfig = computed(() =>
                   >
                     <UserSelectMenu v-model="draft.ownerUserId" :disabled="!canEditDetails" />
                   </BaseField>
-                  <BaseField label="Supervisor">
+                  <BaseField
+                    label="Supervisor (reviewer)"
+                    hint="Reviews and approves submitted entries when 'Require reviewer approval' is on. Entries land in this person's review queue."
+                  >
                     <UserSelectMenu v-model="draft.supervisorUserId" :disabled="!canEditDetails" />
                   </BaseField>
                   <BaseField v-slot="{ id: fieldId }" label="Status">
@@ -851,6 +871,30 @@ const logBookDetailConfig = computed(() =>
                 <BaseField label="Equipment">
                   <EquipmentSelectMenu v-model="draft.equipmentId" :disabled="!canEditDetails" />
                 </BaseField>
+
+                <!-- Calibration sync: when this book is linked to an instrument,
+                     opt in to auto-rolling that instrument's calibration from
+                     each finalized entry — no manual "Record calibration". The
+                     calibration date is the entry's submit time (tamper-proof);
+                     next-due rolls forward by the instrument's interval. -->
+                <label
+                  v-if="draft.equipmentId"
+                  class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer tw:select-none"
+                >
+                  <BaseCheckbox
+                    v-model="draft.syncsEquipmentCalibration"
+                    :disabled="!canEditDetails"
+                    class="tw:mt-0.5"
+                  />
+                  <span class="tw:text-sm tw:text-on-main">
+                    Update this instrument's calibration when an entry is logged
+                    <span class="tw:block tw:text-caption tw:text-secondary">
+                      On approval (or submit, if no review), the instrument's last-calibrated date is
+                      set to the entry's submit time and next-due rolls forward by its interval.
+                      Overrides are done from Equipment.
+                    </span>
+                  </span>
+                </label>
                 <BaseField
                   v-slot="{ id: fieldId }"
                   label="Location"
@@ -930,14 +974,28 @@ const logBookDetailConfig = computed(() =>
                     />
                     <span>Require e-signature on submit</span>
                   </label>
-                  <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
+                  <label class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main">
                     <input
                       v-model="draft.reviewRequired"
                       type="checkbox"
                       :disabled="!canEditDetails"
+                      class="tw:mt-0.5"
                     />
-                    <span>Require reviewer approval before locking</span>
+                    <span>
+                      Require reviewer approval before locking
+                      <span class="tw:block tw:text-caption tw:text-secondary">
+                        Each entry is held for the <strong>Supervisor</strong> (above) to approve
+                        or reject before it locks.
+                      </span>
+                    </span>
                   </label>
+                </div>
+                <div
+                  v-if="draft.reviewRequired && !draft.supervisorUserId"
+                  class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
+                >
+                  Reviewer approval is on but no <strong>Supervisor</strong> is set — set one in
+                  Basics so entries have a designated reviewer.
                 </div>
                 <div class="tw:bg-main-hover tw:rounded tw:p-2 tw:text-xs">
                   Saves as a
@@ -945,37 +1003,6 @@ const logBookDetailConfig = computed(() =>
                     >{{ derivedClassification.replace('_', ' ').toLowerCase() }} log book</strong
                   >
                   based on the current settings.
-                </div>
-              </section>
-
-              <!-- Approval workflow — versions of this log book are approved
-             through this workflow before they become effective. Document
-             parity: the chosen PUBLISHED workflow drives reviewer
-             assignment + approve/reject via the generic engine. -->
-              <section
-                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
-              >
-                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
-                  Approval workflow
-                </BaseText>
-                <p class="tw:text-xs tw:text-secondary">
-                  New versions go through this workflow for approval before becoming effective.
-                  Design workflows under the <strong>Log Book</strong> module.
-                </p>
-                <WorkflowVersionSelect
-                  v-if="canUpdate"
-                  v-model="draft.workflowVersionId"
-                  moduleId="LOG_BOOK"
-                  dense
-                />
-                <div v-else-if="!draft.workflowVersionId" class="tw:text-sm tw:text-secondary">
-                  No approval workflow attached.
-                </div>
-                <div
-                  v-if="!draft.workflowVersionId"
-                  class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
-                >
-                  No workflow attached — versions can't be submitted for approval until one is set.
                 </div>
               </section>
 
@@ -1070,6 +1097,40 @@ const logBookDetailConfig = computed(() =>
                       Remove
                     </button>
                   </div>
+                </div>
+              </section>
+
+              <!-- Log Book Approval — approves the log book DEFINITION (schema +
+                   policy), NOT the daily entries. A new/revised version routes
+                   through this workflow before it becomes effective. -->
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+              >
+                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
+                  Log Book Approval
+                </BaseText>
+                <p class="tw:text-xs tw:text-secondary">
+                  Approves the <strong>log book itself</strong> — its fields and policy. When you
+                  create or revise this log book, the new version routes through this workflow
+                  (review → sign-off) before it becomes <strong>effective</strong> and can accept
+                  entries. This is <strong>not</strong> the approval for daily entries — those use
+                  the reviewer sign-off in <strong>Entry policy</strong> above. Design workflows
+                  under the <strong>Log Book</strong> module.
+                </p>
+                <WorkflowVersionSelect
+                  v-if="canUpdate"
+                  v-model="draft.workflowVersionId"
+                  moduleId="LOG_BOOK"
+                  dense
+                />
+                <div v-else-if="!draft.workflowVersionId" class="tw:text-sm tw:text-secondary">
+                  No approval workflow attached.
+                </div>
+                <div
+                  v-if="!draft.workflowVersionId"
+                  class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
+                >
+                  No workflow attached — versions can't be submitted for approval until one is set.
                 </div>
               </section>
             </div>
@@ -1360,9 +1421,12 @@ const logBookDetailConfig = computed(() =>
       leaveFromClass="tw:translate-y-0"
       leaveToClass="tw:translate-y-full"
     >
+      <!-- z-overlay (below z-modal) so dialogs opened from inside the builder —
+           Generate with AI, JSON, Clear, Preview — render ABOVE this panel
+           instead of behind it. -->
       <div
         v-if="showSchemaBuilder"
-        class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-max"
+        class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-overlay"
       >
         <div class="tw:flex tw:flex-col tw:h-full tw:flex-nowrap">
           <!-- Header -->

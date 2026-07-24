@@ -220,6 +220,13 @@ async function recordCalibration(e) {
     :emptyIcon="IconTool"
     :emptyTitle="list.hasActiveFilters.value ? 'No equipment matches your filters' : 'No equipment yet'"
   >
+    <template #title>
+      <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+        Equipment
+        <HelpButton slug="KB/operations/equipment" :size="16" />
+      </span>
+    </template>
+
     <template #actions>
       <BaseButton v-if="canCreate" variant="primary" @click="showCreateDialog = true">
         <IconPlus :size="16" />

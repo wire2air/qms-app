@@ -24,9 +24,18 @@
  *   #beforeForm — content between the header and the form (e.g. CR's
  *     description / comment area).
  */
-import { IconCheck, IconRefreshAlert, IconUserCheck, IconBan } from '@tabler/icons-vue'
+import {
+  IconCheck,
+  IconRefreshAlert,
+  IconUserCheck,
+  IconBan,
+  IconClock,
+  IconCalendarTime,
+  IconCalendarX,
+} from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
+import { DELAY_PRESETS } from '@/components/workflow/delayPresets.js'
 import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
 import WorkflowStepForm from '@/components/workflow/WorkflowStepForm.vue'
 
@@ -206,6 +215,150 @@ async function submitCompleteAndAdvance(esign = null) {
   }
 }
 
+// ─── Delay step (stepType DELAY) ─────────────────────────────────────────────
+// A DELAY step parks SCHEDULED when the workflow reaches it. Like a CAPA
+// effectiveness check, the record OWNER decides at runtime: schedule a wake-up
+// date (or accept the template default), or SKIP the step (advance). When
+// delayUntil is null the step is "awaiting scheduling" — no timer runs until
+// the owner sets a date. Once the date arrives the worker mints the tasks and
+// the step behaves like an ACTION step; from then it can be EXTENDED (capped
+// by maxDelayExtensions) by the assignee (their task) or the owner.
+const isDelayStep = computed(() => instanceStep.value?.stepType === 'DELAY')
+const isScheduled = computed(() => instanceStep.value?.statusId === 'SCHEDULED')
+const delayUntil = computed(() => instanceStep.value?.delayUntil ?? null)
+const awaitingScheduling = computed(() => isScheduled.value && !delayUntil.value)
+const delayCap = computed(() => instanceStep.value?.maxDelayExtensions ?? 1)
+const delayExtensionsUsed = computed(() => instanceStep.value?.delayExtensionCount ?? 0)
+
+// Pre-fire (SCHEDULED): owner sets/changes the wake date.
+const canRescheduleDelay = computed(
+  () => isDelayStep.value && isScheduled.value && props.isOwner && !resourceIsTerminal.value,
+)
+// Skip ("check isn't needed") is valid pre-fire (SCHEDULED) AND post-fire
+// (IN_PROGRESS) — the owner can drop the effectiveness step even after its
+// task has opened.
+const canSkipDelay = computed(
+  () =>
+    isDelayStep.value &&
+    ['SCHEDULED', 'IN_PROGRESS'].includes(instanceStep.value?.statusId) &&
+    props.isOwner &&
+    !resourceIsTerminal.value,
+)
+// Post-fire (IN_PROGRESS): owner or the assignee can extend, capped.
+const canExtendDelay = computed(
+  () =>
+    isDelayStep.value &&
+    instanceStep.value?.statusId === 'IN_PROGRESS' &&
+    delayExtensionsUsed.value < delayCap.value &&
+    !resourceIsTerminal.value &&
+    (props.isOwner || !!currentUserTask.value),
+)
+
+const delayApiPath = computed(
+  () => `/v1/services/${props.module.apiPath}/${props.resourceId}/delayStepAction`,
+)
+
+// Schedule / reschedule dialog (owner, pre-fire)
+const showScheduleDialog = ref(false)
+const scheduleDays = ref(null)
+const scheduleDate = ref(null)
+const scheduling = ref(false)
+
+function openScheduleDialog() {
+  scheduleDays.value = null
+  scheduleDate.value = null
+  showScheduleDialog.value = true
+}
+
+async function handleSchedule() {
+  if (scheduling.value || (!(scheduleDays.value >= 1) && !scheduleDate.value)) return
+  scheduling.value = true
+  try {
+    await post(delayApiPath.value, {
+      workflowInstanceStepId: props.instanceStepId,
+      intent: 'SCHEDULE',
+      delayDays: scheduleDate.value ? undefined : scheduleDays.value,
+      delayUntilDate: scheduleDate.value ? scheduleDate.value.toFormat('yyyy-LL-dd') : undefined,
+    })
+    toast.success('Delay scheduled')
+    showScheduleDialog.value = false
+  } catch (e) {
+    toast.error(e?.message || 'Failed to schedule delay')
+  } finally {
+    scheduling.value = false
+  }
+}
+
+// Skip dialog (owner, pre-fire)
+const showSkipDialog = ref(false)
+const skipping = ref(false)
+
+async function handleSkipDelay() {
+  if (skipping.value) return
+  skipping.value = true
+  try {
+    await post(delayApiPath.value, {
+      workflowInstanceStepId: props.instanceStepId,
+      intent: 'SKIP',
+    })
+    toast.success('Delay step skipped')
+    showSkipDialog.value = false
+  } catch (e) {
+    toast.error(e?.message || 'Failed to skip delay step')
+  } finally {
+    skipping.value = false
+  }
+}
+
+// Extend dialog (post-fire — owner step action or assignee task action)
+const showExtendDialog = ref(false)
+const extendDays = ref(null)
+const extendReason = ref('')
+const extending = ref(false)
+
+function openExtendDialog() {
+  extendDays.value = null
+  extendReason.value = ''
+  showExtendDialog.value = true
+}
+
+async function handleExtendDelay() {
+  if (extending.value || !(extendDays.value >= 1) || !extendReason.value.trim()) return
+  extending.value = true
+  try {
+    // Assignee path: extend through the fired task (only ASSIGNED /
+    // FORM_SUBMITTED tasks are actionable on the endpoint). Owner path:
+    // the module's step action.
+    const myTask = stepTasks.value.find(
+      (t) =>
+        t.assignedTo === currentUserId.value &&
+        t.taskKindId === 'APPROVAL' &&
+        ['ASSIGNED', 'FORM_SUBMITTED'].includes(t.statusId),
+    )
+    if (myTask) {
+      await post(`/v1/services/taskInstances/${myTask.id}/action`, {
+        action: 'EXTEND_DELAY',
+        outcomeId: 'EXTEND_DELAY',
+        extendByDays: extendDays.value,
+        comment: extendReason.value.trim(),
+      })
+    } else {
+      await post(delayApiPath.value, {
+        workflowInstanceStepId: props.instanceStepId,
+        intent: 'EXTEND',
+        extendByDays: extendDays.value,
+        reason: extendReason.value.trim(),
+      })
+    }
+    toast.success('Delay extended')
+    showExtendDialog.value = false
+  } catch (e) {
+    toast.error(e?.message || 'Failed to extend delay')
+  } finally {
+    extending.value = false
+  }
+}
+
 // ─── Reopen step (owner, post-approval) ──────────────────────────────────────
 const canReopen = computed(
   () => props.isOwner && instanceStep.value?.statusId === 'APPROVED' && !resourceIsTerminal.value,
@@ -247,8 +400,14 @@ const REASSIGNABLE_STATUSES = ['PENDING', 'IN_PROGRESS', 'SENT_BACK']
 const canReassign = computed(
   () => props.isOwner && REASSIGNABLE_STATUSES.includes(instanceStep.value?.statusId),
 )
+// Delay steps use Skip (advance the workflow) instead of Cancel (halt it) —
+// Cancel is a confusing near-duplicate for an effectiveness check, so it's
+// hidden on delay steps in both the SCHEDULED and IN_PROGRESS states.
 const canCancelStep = computed(
-  () => props.isOwner && REASSIGNABLE_STATUSES.includes(instanceStep.value?.statusId),
+  () =>
+    props.isOwner &&
+    !isDelayStep.value &&
+    REASSIGNABLE_STATUSES.includes(instanceStep.value?.statusId),
 )
 
 const showCancelDialog = ref(false)
@@ -282,15 +441,18 @@ function getStepStatusClass(statusId) {
   return {
     'tw:bg-blue-100 tw:text-blue-700': statusId === 'IN_PROGRESS',
     'tw:bg-gray-100 tw:text-gray-600': statusId === 'PENDING',
+    'tw:bg-indigo-100 tw:text-indigo-700': statusId === 'SCHEDULED',
     'tw:bg-green-100 tw:text-green-700': statusId === 'APPROVED',
     'tw:bg-red-100 tw:text-red-700': statusId === 'CANCELLED',
     'tw:bg-orange-100 tw:text-orange-700': statusId === 'SENT_BACK',
+    'tw:bg-gray-100 tw:text-gray-500': statusId === 'SKIPPED',
   }
 }
 
 function getStatusLabel(statusId) {
   if (!statusId) return '—'
   if (statusId === 'APPROVED') return 'Completed'
+  if (statusId === 'SKIPPED') return 'Skipped'
   return statusId.replace('_', ' ')
 }
 
@@ -412,6 +574,37 @@ function activityLabel(statusId) {
           }}
         </button>
         <button
+          v-if="canRescheduleDelay"
+          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-indigo-700 tw:hover:underline tw:cursor-pointer tw:font-medium"
+          :title="
+            awaitingScheduling
+              ? 'Set when this delay step should activate'
+              : 'Change the activation date of this delay step'
+          "
+          @click="openScheduleDialog"
+        >
+          <IconCalendarTime :size="14" />
+          {{ awaitingScheduling ? 'Schedule' : 'Reschedule' }}
+        </button>
+        <button
+          v-if="canSkipDelay"
+          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary tw:hover:underline tw:cursor-pointer tw:font-medium"
+          title="Skip this delay step — the check isn't needed; advance the workflow"
+          @click="showSkipDialog = true"
+        >
+          <IconCalendarX :size="14" />
+          Skip
+        </button>
+        <button
+          v-if="canExtendDelay"
+          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-indigo-700 tw:hover:underline tw:cursor-pointer tw:font-medium"
+          title="Push this delay step's activation out by a number of days"
+          @click="openExtendDialog"
+        >
+          <IconCalendarTime :size="14" />
+          Extend
+        </button>
+        <button
           v-if="canReopen"
           class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-amber-700 tw:hover:underline tw:cursor-pointer tw:font-medium"
           title="Reopen this step and send it back to the assignee with feedback"
@@ -447,6 +640,36 @@ function activityLabel(statusId) {
           :requireEsignature="requireEsignature"
           :hideOutcomes="['COMPLETE_AND_ADVANCE']"
         />
+      </div>
+    </div>
+
+    <!-- Delay banner — the step is parked. Either awaiting the owner's
+         scheduling decision (no timer yet) or scheduled with a wake date. -->
+    <div
+      v-if="isScheduled && awaitingScheduling"
+      class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:mb-4 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+    >
+      <IconClock :size="16" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
+      <div class="tw:text-sm tw:text-amber-900">
+        <strong>Awaiting scheduling.</strong>
+        This delay step won't activate until a date is set.
+        <span v-if="isOwner">Use <strong>Schedule</strong> to pick when its task is assigned, or
+          <strong>Skip</strong> if the check isn't needed.</span>
+        <span v-else>The record owner needs to schedule or skip it.</span>
+      </div>
+    </div>
+    <div
+      v-else-if="isScheduled"
+      class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:mb-4 tw:rounded-lg tw:bg-indigo-50 tw:border tw:border-indigo-200"
+    >
+      <IconClock :size="16" class="tw:text-indigo-600 tw:shrink-0 tw:mt-0.5" />
+      <div class="tw:text-sm tw:text-indigo-900">
+        Scheduled — this step activates
+        <strong>{{ delayUntil?.formatDate?.('date') ?? '…' }}</strong>
+        and assigns its task then.
+        <span class="tw:text-indigo-700">
+          Extension {{ delayExtensionsUsed }}/{{ delayCap }} used.
+        </span>
       </div>
     </div>
 
@@ -534,6 +757,158 @@ function activityLabel(statusId) {
           :disabled="cancelling"
           @cancel="close"
           @submit="handleCancelStep"
+        />
+      </template>
+    </BaseDialog>
+
+    <!-- Schedule / reschedule delay dialog (owner, pre-fire) -->
+    <BaseDialog
+      v-model="showScheduleDialog"
+      :title="awaitingScheduling ? 'Schedule Delay Step' : 'Reschedule Delay Step'"
+      maxWidth="md"
+    >
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+        <div
+          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-indigo-50 tw:border tw:border-indigo-200"
+        >
+          <IconCalendarTime :size="16" class="tw:text-indigo-600 tw:shrink-0 tw:mt-0.5" />
+          <div class="tw:text-sm tw:text-indigo-900">
+            Choose when this step activates and assigns its task — a window from today or a
+            specific date. Nothing is assigned until then.
+          </div>
+        </div>
+        <BaseField v-slot="{ id: fieldId }" label="Activate after">
+          <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+            <button
+              v-for="preset in DELAY_PRESETS"
+              :key="preset.days"
+              type="button"
+              class="tw:px-3 tw:py-1 tw:rounded-full tw:text-xs tw:font-medium tw:border tw:transition-colors"
+              :class="
+                scheduleDays === preset.days && !scheduleDate
+                  ? 'tw:bg-primary tw:text-white tw:border-primary'
+                  : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:bg-main-hover'
+              "
+              @click="((scheduleDays = preset.days), (scheduleDate = null))"
+            >
+              {{ preset.label }}
+            </button>
+            <BaseTextInput
+              :id="fieldId"
+              v-model.number="scheduleDays"
+              type="number"
+              placeholder="Custom"
+              inputClass="tw:w-24"
+              :min="1"
+              @input="scheduleDate = null"
+            />
+            <span class="tw:text-xs tw:font-medium tw:text-secondary">days from today</span>
+          </div>
+        </BaseField>
+        <BaseField label="…or on a specific date">
+          <BaseDateField
+            v-model="scheduleDate"
+            mode="date"
+            clearable
+            @update:modelValue="(v) => v && (scheduleDays = null)"
+          />
+        </BaseField>
+      </div>
+      <template #footer="{ close }">
+        <BaseDialogFooter
+          :submitLabel="awaitingScheduling ? 'Schedule' : 'Reschedule'"
+          :loading="scheduling"
+          :disabled="scheduling || (!(scheduleDays >= 1) && !scheduleDate)"
+          @cancel="close"
+          @submit="handleSchedule"
+        />
+      </template>
+    </BaseDialog>
+
+    <!-- Skip delay dialog (owner, pre-fire) -->
+    <BaseDialog v-model="showSkipDialog" title="Skip Delay Step" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+        <div
+          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+        >
+          <IconCalendarX :size="16" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
+          <div class="tw:text-sm tw:text-amber-900">
+            Skips this delay step and advances the workflow to the next step.
+            <template v-if="instanceStep?.statusId === 'IN_PROGRESS'">
+              The open effectiveness-check task will be cancelled.
+            </template>
+            Use this when the deferred check (e.g. an effectiveness check) isn't needed for this
+            record.
+          </div>
+        </div>
+      </div>
+      <template #footer="{ close }">
+        <BaseDialogFooter
+          submitLabel="Skip Step"
+          :loading="skipping"
+          :disabled="skipping"
+          @cancel="close"
+          @submit="handleSkipDelay"
+        />
+      </template>
+    </BaseDialog>
+
+    <!-- Extend delay dialog -->
+    <BaseDialog v-model="showExtendDialog" title="Extend Delay" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+        <div
+          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-indigo-50 tw:border tw:border-indigo-200"
+        >
+          <IconClock :size="16" class="tw:text-indigo-600 tw:shrink-0 tw:mt-0.5" />
+          <div class="tw:text-sm tw:text-indigo-900">
+            Pushes this step's activation out from today by the number of days you choose. Any open
+            task on the step is superseded and a fresh one is assigned when the new time arrives.
+            <strong>Extension {{ delayExtensionsUsed }}/{{ delayCap }} used.</strong>
+          </div>
+        </div>
+        <BaseField v-slot="{ id: fieldId }" label="Extend by">
+          <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+            <button
+              v-for="preset in DELAY_PRESETS"
+              :key="preset.days"
+              type="button"
+              class="tw:px-3 tw:py-1 tw:rounded-full tw:text-xs tw:font-medium tw:border tw:transition-colors"
+              :class="
+                extendDays === preset.days
+                  ? 'tw:bg-primary tw:text-white tw:border-primary'
+                  : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:bg-main-hover'
+              "
+              @click="extendDays = preset.days"
+            >
+              {{ preset.label }}
+            </button>
+            <BaseTextInput
+              :id="fieldId"
+              v-model.number="extendDays"
+              type="number"
+              placeholder="Custom"
+              inputClass="tw:w-24"
+              :min="1"
+            />
+            <span class="tw:text-xs tw:font-medium tw:text-secondary">days from today</span>
+          </div>
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Reason">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="extendReason"
+            :rows="3"
+            placeholder="Why is the delay being extended?"
+          />
+        </BaseField>
+      </div>
+      <template #footer="{ close }">
+        <BaseDialogFooter
+          submitLabel="Extend Delay"
+          :loading="extending"
+          :disabled="!(extendDays >= 1) || !extendReason.trim() || extending"
+          @cancel="close"
+          @submit="handleExtendDelay"
         />
       </template>
     </BaseDialog>

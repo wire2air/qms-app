@@ -1,12 +1,13 @@
 <script setup>
-import { IconSitemap, IconLayoutList, IconLayoutRows } from '@tabler/icons-vue'
+import { IconSitemap, IconLayoutList, IconLayoutRows, IconSparkles } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
-import { isAllowed } from '@/utils/currentSession.js'
+import { isAllowed, canUseAi } from '@/utils/currentSession.js'
 
 const router = useRouter()
 
 const showCreateDialog = ref(false)
+const showAiGenerateDialog = ref(false)
 const viewMode = useCompanyLocalStorage('workflow-templates-view-mode', 'table')
 
 // Filter state + URL sync + resolved content state. Declared BEFORE the live
@@ -56,6 +57,14 @@ function handleWorkflowCreated(workflow) {
     emptyDescription="Create your first workflow to get started."
   >
     <template #actions>
+      <BaseButton
+        v-if="canUseAi && canCreateWorkflow"
+        variant="outline"
+        @click="showAiGenerateDialog = true"
+      >
+        <template #icon><IconSparkles :size="16" /></template>
+        Generate with AI
+      </BaseButton>
       <BaseButton v-if="canCreateWorkflow" @click="showCreateDialog = true">
         Create Workflow
       </BaseButton>
@@ -82,8 +91,18 @@ function handleWorkflowCreated(workflow) {
     </div>
   </BaseListLayout>
 
-  <!-- Create Dialog — kept OUTSIDE BaseListLayout so it stays mounted in the
-       empty/loading state too (BaseListLayout renders its default slot only when
-       'ready'). Otherwise you can't create your first workflow. -->
-  <WorkflowCreateDialog v-model="showCreateDialog" @created="handleWorkflowCreated" />
+  <!-- Guided create wizard — kept OUTSIDE BaseListLayout so it stays mounted in
+       the empty/loading state too (BaseListLayout renders its default slot only
+       when 'ready'). Otherwise you can't create your first workflow. Replaces
+       the old bare name/module WorkflowCreateDialog with a step-by-step flow
+       (structure → approvals → effectiveness check → review). -->
+  <WorkflowGuidedCreateDialog v-model="showCreateDialog" @created="handleWorkflowCreated" />
+
+  <!-- AI generator — sidecar isolation: mounted only when AI is enabled; all
+       AI logic lives inside the dialog. Lands on the new DRAFT in the editor. -->
+  <WorkflowAiGenerateDialog
+    v-if="canUseAi && canCreateWorkflow"
+    v-model="showAiGenerateDialog"
+    @created="handleWorkflowCreated"
+  />
 </template>

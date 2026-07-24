@@ -28,8 +28,14 @@ export class WorkflowInstanceStep extends BaseModel {
   @Property({ type: String }) name = /** @type {string|null} */ (null)
   @Property({ type: String }) description = /** @type {string|null} */ (null)
   @Property({ type: Number }) slaDays = /** @type {number|null} */ (null)
+  // DELAY steps — snapshots from the template + runtime timer state.
+  @Property({ type: Number }) delayDays = /** @type {number|null} */ (null)
+  @Property({ type: DateTime }) delayUntilDate = /** @type {DateTime|null} */ (null)
+  @Property({ type: DateTime }) delayUntil = /** @type {DateTime|null} */ (null)
+  @Property({ type: Number }) delayExtensionCount = 0
+  @Property({ type: Number }) maxDelayExtensions = /** @type {number|null} */ (null)
   @Property({ type: Array }) formSchema = /** @type {Array} */ ([])
-  // 'ACTION' (default) or 'APPROVAL'. Denormalized from the template
+  // 'ACTION' (default), 'APPROVAL', or 'DELAY'. Denormalized from the template
   // step at activation time so runtime renderers don't need to join.
   @Property({ type: String, required: true }) stepType = 'ACTION'
   // Nullable per-instance overrides — populated for ad-hoc child steps

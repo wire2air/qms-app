@@ -42,7 +42,7 @@ const checked = computed(() => model.value === props.value)
     <span
       :class="[
         'tw:inline-flex tw:items-center tw:justify-center tw:size-4 tw:shrink-0 tw:rounded-full tw:border tw:transition-colors tw:duration-150 tw:peer-focus-visible:ring-2 tw:peer-focus-visible:ring-primary/40 tw:peer-focus-visible:ring-offset-1',
-        checked ? 'tw:border-primary' : 'tw:bg-sidebar tw:border-divider',
+        checked ? 'tw:border-primary' : 'tw:bg-sidebar tw:border-input-border',
       ]"
     >
       <span v-if="checked" class="tw:size-2 tw:rounded-full tw:bg-primary" />

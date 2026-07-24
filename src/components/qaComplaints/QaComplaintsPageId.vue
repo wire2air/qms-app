@@ -92,14 +92,9 @@ const isOwner = computed(
   () => complaint.value?.ownerId && complaint.value.ownerId === currentUserId.value,
 )
 
-// The current user's actionable task on the active APPROVAL step — drives the
-// top "Approve & Close" action. Approving it completes the workflow, which
-// auto-closes the complaint (see complaintHandler.onComplete).
-const showEsignDialog = ref(false)
-
-// ─── QA-review workflow instance + close gating ──────────────────────────────
-// Declared before myApprovalTask below: its deps getter reads workflowInstanceId
-// during setup, so this must initialize first (else a TDZ ReferenceError).
+// QA-review workflow instance — declared BEFORE myApprovalTask because that
+// query's deps read workflowInstanceId; a later `const` would hit the temporal
+// dead zone and crash the whole page on setup.
 const workflowInstance = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => {
@@ -117,6 +112,11 @@ const workflowInstance = useLiveQueryWithDeps(
   { models: ['WorkflowInstance'], initial: null },
 )
 const workflowInstanceId = computed(() => workflowInstance.value?.id ?? null)
+
+// The current user's actionable task on the active APPROVAL step — drives the
+// top "Approve & Close" action. Approving it completes the workflow, which
+// auto-closes the complaint (see complaintHandler.onComplete).
+const showEsignDialog = ref(false)
 
 const myApprovalTask = useLiveQueryWithDeps(
   [() => workflowInstanceId.value, () => currentUserId.value],
@@ -254,6 +254,8 @@ async function removeSimilarLink(targetId) {
   await runAction('unlinkSimilar', { targetComplaintId: targetId })
 }
 
+// ─── QA-review workflow close gating (workflowInstance/workflowInstanceId are
+// declared earlier, above myApprovalTask) ────────────────────────────────────
 async function handleSubmitForReview() {
   await runAction('submitForReview', {})
 }

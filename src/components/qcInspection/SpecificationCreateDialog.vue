@@ -11,6 +11,10 @@ const props = defineProps({
   // When set, the spec is pre-scoped to this product: the scope/target
   // pickers are hidden and the spec is created against this product.
   lockProductId: { type: String, default: null },
+  // Opened from the Item page: pre-fill the item (and its Item Group) but keep
+  // the scope chips visible so the user can create against the item OR its group.
+  defaultProductId: { type: String, default: null },
+  defaultProductFamilyId: { type: String, default: null },
 })
 
 const emit = defineEmits(['created'])
@@ -21,12 +25,6 @@ const formRef = ref(null)
 const isSubmitting = ref(false)
 const saveError = ref(null)
 
-const MATERIAL_KINDS = [
-  { id: 'RAW', name: 'Raw material' },
-  { id: 'PACKAGING', name: 'Packaging' },
-  { id: 'BULK', name: 'Bulk' },
-  { id: 'FINISHED', name: 'Finished good' },
-]
 const TEST_TYPES = [
   { id: 'NUMERIC', name: 'Numeric' },
   { id: 'PASS_FAIL', name: 'Pass / Fail' },
@@ -39,9 +37,9 @@ function reset() {
   form.value = {
     name: '',
     code: '',
-    materialKind: 'RAW',
-    scope: 'product', // product | productType
-    productId: props.lockProductId ?? null,
+    scope: 'product', // product | family | productType
+    productId: props.lockProductId ?? props.defaultProductId ?? null,
+    productFamilyId: props.defaultProductFamilyId ?? null,
     productTypeId: null,
     characteristics: [],
   }
@@ -76,10 +74,11 @@ function addFromLibrary(entries) {
     _key: crypto.randomUUID(),
     name: t.name ?? '',
     testType: t.testType || 'PASS_FAIL',
-    targetValue: t.targetValue ?? null,
-    lsl: t.lsl ?? null,
-    usl: t.usl ?? null,
-    uom: t.uom ?? '',
+    // Acceptance criteria are spec-specific — start blank; the user sets them here.
+    targetValue: null,
+    lsl: null,
+    usl: null,
+    uom: '',
     defectClass: t.defaultSeverity || 'MAJOR',
     requiresInstrument: !!t.requiresInstrument,
     preferredEquipmentId: t.preferredEquipmentId ?? null,
@@ -100,8 +99,8 @@ async function onSubmit() {
     const { specification } = await post('/v1/services/qcInspection/specifications', {
       name: f.name.trim(),
       code: f.code?.trim() || null,
-      materialKind: f.materialKind,
       productId: f.scope === 'product' ? f.productId : null,
+      productFamilyId: f.scope === 'family' ? f.productFamilyId : null,
       productTypeId: f.scope === 'productType' ? f.productTypeId : null,
       characteristics: f.characteristics.map((c, i) => ({
         name: c.name.trim(),
@@ -148,22 +147,14 @@ async function onSubmit() {
               <BaseTextInput v-bind="field" v-model="form.code" placeholder="optional" />
             </template>
           </BaseField>
-          <BaseField label="Material kind">
-            <BaseInlineSelect
-              v-model="form.materialKind"
-              :items="MATERIAL_KINDS"
-              :required="true"
-            />
-          </BaseField>
           <BaseField v-if="!lockProductId" label="Scope">
-            <BaseInlineSelect
+            <SegmentedControl
               v-model="form.scope"
-              :items="[
-                { id: 'product', name: 'Specific product' },
-                { id: 'productType', name: 'Product type' },
+              :options="[
+                { label: 'Specific item', value: 'product' },
+                { label: 'Item group', value: 'family' },
+                { label: 'Item type', value: 'productType' },
               ]"
-              :required="true"
-              class="tw:w-full"
             />
           </BaseField>
         </div>
@@ -173,23 +164,40 @@ async function onSubmit() {
         <BaseField
           v-if="!lockProductId"
           required
-          :value="form.scope === 'product' ? form.productId : form.productTypeId"
+          :value="
+            form.scope === 'product'
+              ? form.productId
+              : form.scope === 'family'
+                ? form.productFamilyId
+                : form.productTypeId
+          "
           :rules="[
-            requiredWhen(() => form.scope === 'product' && !lockProductId, 'Product is required.'),
+            requiredWhen(() => form.scope === 'product' && !lockProductId, 'Item is required.'),
+            requiredWhen(
+              () => form.scope === 'family' && !lockProductId,
+              'Item group is required.',
+            ),
             requiredWhen(
               () => form.scope === 'productType' && !lockProductId,
-              'Product type is required.',
+              'Item type is required.',
             ),
           ]"
         >
           <template #label>
-            {{ form.scope === 'product' ? 'Product' : 'Product type' }}
+            {{ form.scope === 'product' ? 'Item' : form.scope === 'family' ? 'Item group' : 'Item type' }}
           </template>
           <template #default="field">
             <ProductSelectMenu
               v-if="form.scope === 'product'"
               v-bind="field"
               v-model="form.productId"
+              class="tw:w-full"
+            />
+            <ProductFamilySelectMenu
+              v-else-if="form.scope === 'family'"
+              v-bind="field"
+              v-model="form.productFamilyId"
+              :required="true"
               class="tw:w-full"
             />
             <ProductTypeSelectMenu
@@ -208,7 +216,7 @@ async function onSubmit() {
             >
             <div class="tw:flex tw:items-center tw:gap-3">
               <TestLibraryAddMenu
-                :productTypeId="form.scope === 'productType' ? form.productTypeId : null"
+                :productFamilyId="form.scope === 'family' ? form.productFamilyId : null"
                 @pick="addFromLibrary"
               />
               <BaseButton variant="secondary" size="sm" @click="addCharacteristic">
@@ -286,15 +294,8 @@ async function onSubmit() {
                   <BaseTextInput v-bind="field" v-model.number="c.usl" type="number" size="sm" />
                 </template>
               </BaseField>
-              <BaseField label="UOM" class="tw:w-28">
-                <template #default="field">
-                  <BaseTextInput
-                    v-bind="field"
-                    v-model="c.uom"
-                    placeholder="e.g. pH, %"
-                    size="sm"
-                  />
-                </template>
+              <BaseField label="UOM" class="tw:w-36">
+                <UomSelectMenu v-model="c.uom" bindValue="code" />
               </BaseField>
             </div>
             <BaseField

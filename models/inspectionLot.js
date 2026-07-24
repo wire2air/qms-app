@@ -31,6 +31,18 @@ export class InspectionLot extends BaseModel {
   @Property({ type: String }) receiptNumber = /** @type {String} */ (null)
   @Property({ type: String }) workOrder = /** @type {String} */ (null)
   @Property({ type: String }) batchNumber = /** @type {String} */ (null)
+  @Property({ type: DateTime }) manufacturingDate = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) expiryDate = /** @type {DateTime} */ (null)
+  // Incoming (IQC): supplier COA + goods-receipt date.
+  @Property({ type: Boolean }) coaReceived = /** @type {Boolean} */ (null)
+  @Property({ type: Array }) coaAttachments = /** @type {Array} */ ([])
+  @Property({ type: DateTime }) receivedDate = /** @type {DateTime} */ (null)
+  // In-process (IPQC): line/stage, shift, operator, sampling clock time.
+  @Property({ type: String }) lineId = /** @type {String} */ (null)
+  @Property({ type: String }) shiftId = /** @type {String} */ (null)
+  @Property({ type: String }) operatorUserId = /** @type {String} */ (null)
+  @Property({ type: DateTime }) samplingTime = /** @type {DateTime} */ (null)
+  @Property({ type: String }) activeBatchId = /** @type {String} */ (null)
   @Property({ type: String }) workflowInstanceId = /** @type {String} */ (null)
   // FK → ncDispositionTypes (shared QC + NC disposition lookup).
   @Property({ type: String }) dispositionTypeId = /** @type {String} */ (null)

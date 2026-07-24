@@ -46,7 +46,7 @@ const canCreate = computed(() => props.allowCreate && isAllowed(['company_settin
     :multiple="multiple"
     :clearable="!required"
     :nullLabel="nullLabel ?? 'All'"
-    placeholder="Select Family"
+    placeholder="Select group"
   >
     <template v-if="$slots.button" #trigger="scope">
       <slot name="button" v-bind="scope" />
@@ -71,7 +71,7 @@ const canCreate = computed(() => props.allowCreate && isAllowed(['company_settin
         @click="openCreate(close)"
       >
         <IconPlus :size="16" />
-        Add New Family
+        Add New Group
       </button>
     </template>
   </BaseSelect>

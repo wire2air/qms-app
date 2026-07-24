@@ -1,6 +1,7 @@
 <script setup>
-import { IconForms, IconPlus, IconCopy, IconPencil } from '@tabler/icons-vue'
+import { IconForms, IconPlus, IconPencil } from '@tabler/icons-vue'
 import WorkflowStepFormBuilderPanel from './WorkflowStepFormBuilderPanel.vue'
+import WorkflowTaskFormTemplatePicker from './WorkflowTaskFormTemplatePicker.vue'
 
 const props = defineProps({
   stepId: { type: String, required: true },
@@ -32,20 +33,24 @@ const previewFieldNames = computed(() => {
 })
 
 const builderOpen = ref(false)
-const startAtSelect = ref(false)
+const pickerOpen = ref(false)
+// Schema chosen in the template picker — seeds the builder for a NEW form.
+// null = editing the step's existing form.
+const seedSchema = ref(null)
 
-function openBlank() {
-  startAtSelect.value = false
-  builderOpen.value = true
+function openCreate() {
+  pickerOpen.value = true
 }
 
-function openFromTemplate() {
-  startAtSelect.value = true
+// Picker choice (blank = [] / preset / saved template) → open the builder
+// seeded with it. Nothing persists until the builder's Save.
+function handleTemplatePicked(schema) {
+  seedSchema.value = schema
   builderOpen.value = true
 }
 
 function openEdit() {
-  startAtSelect.value = false
+  seedSchema.value = null
   builderOpen.value = true
 }
 
@@ -61,10 +66,11 @@ async function handleSave(schema) {
     <!-- Section Header -->
     <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
       <IconForms :size="22" />
-      <h2 class="tw:text-lg tw:font-semibold tw:text-on-main">Form Schema</h2>
+      <h2 class="tw:text-lg tw:font-semibold tw:text-on-main">Task Form</h2>
+      <HelpButton slug="KB/automation/task-forms-and-form-blocks" :size="16" />
     </div>
     <p class="tw:text-xs tw:text-secondary">
-      Define the data fields that assignees must fill in when completing this step.
+      The form the assignee fills in to complete this step — what they did, found, or decided.
     </p>
 
     <!-- Empty state -->
@@ -74,25 +80,17 @@ async function handleSave(schema) {
     >
       <IconForms :size="40" class="tw:text-secondary tw:opacity-40" />
       <div>
-        <p class="tw:font-semibold tw:text-on-main tw:text-sm">No form schema yet</p>
+        <p class="tw:font-semibold tw:text-on-main tw:text-sm">No task form yet</p>
         <p class="tw:text-xs tw:text-secondary tw:mt-1">
           Start from scratch or copy fields from an existing form template.
         </p>
       </div>
-      <div class="tw:flex tw:gap-2">
-        <BaseButton variant="secondary" size="sm" :disabled="!canUpdate" @click="openBlank">
-          <template #icon>
-            <IconPlus :size="14" />
-          </template>
-          Start Blank
-        </BaseButton>
-        <BaseButton variant="outline" size="sm" :disabled="!canUpdate" @click="openFromTemplate">
-          <template #icon>
-            <IconCopy :size="14" />
-          </template>
-          Use Template
-        </BaseButton>
-      </div>
+      <BaseButton variant="secondary" size="sm" :disabled="!canUpdate" @click="openCreate">
+        <template #icon>
+          <IconPlus :size="14" />
+        </template>
+        Create Task Form
+      </BaseButton>
     </div>
 
     <!-- Has schema -->
@@ -115,7 +113,7 @@ async function handleSave(schema) {
           <template #icon>
             <IconPencil :size="14" />
           </template>
-          Edit Schema
+          Edit Form
         </BaseButton>
       </div>
 
@@ -127,10 +125,13 @@ async function handleSave(schema) {
     </div>
   </div>
 
+  <!-- Card-style starting-point picker (Blank / QMS presets / saved templates) -->
+  <WorkflowTaskFormTemplatePicker v-model="pickerOpen" @select="handleTemplatePicked" />
+
   <WorkflowStepFormBuilderPanel
     v-model="builderOpen"
-    :initialSchema="step?.formSchema ?? []"
-    :startAtSelect="startAtSelect"
+    :initialSchema="seedSchema ?? step?.formSchema ?? []"
+    builderTitle="Task Form"
     @save="handleSave"
   />
 </template>

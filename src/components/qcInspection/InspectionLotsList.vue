@@ -35,10 +35,25 @@ const products = useLiveQuery(async (db) => db.Product.where().exec(), {
   models: ['Product'],
   initial: [],
 })
-const productName = (id) => products.value.find((p) => p.id === id)?.name || '—'
+const dispositions = useLiveQuery(async (db) => db.NcDispositionType.where().exec(), {
+  models: ['NcDispositionType'],
+  initial: [],
+})
+const ncs = useLiveQuery(async (db) => db.Nonconformance.where().exec(), {
+  models: ['Nonconformance'],
+  initial: [],
+})
+const productName = (id) => products.value.find((p) => p.id === id)?.name || ''
+const dispositionName = (id) => dispositions.value.find((d) => d.id === id)?.name || ''
+const ncNumber = (id) => ncs.value.find((n) => n.id === id)?.ncNumber || ''
+// Humanize an enum-style status id ("IN_PROGRESS" → "In progress") for the export.
+const humanize = (v) =>
+  v ? String(v).toLowerCase().replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : ''
 
+// `exportValue(row)` controls how each column serializes to CSV (the on-screen
+// cells use body slots to render badges/links). Resolves ids → readable values.
 const columns = [
-  { name: 'lotNumber', label: 'LOT #', field: 'lotNumber', align: 'left', sortable: true },
+  { name: 'lotNumber', label: 'QC #', field: 'lotNumber', align: 'left', sortable: true },
   {
     name: 'point',
     label: 'POINT',
@@ -46,12 +61,13 @@ const columns = [
     align: 'left',
     filterType: 'select',
     filterOptions: POINT_OPTIONS,
+    exportValue: (row) => POINT_LABELS[row.inspectionPoint] || row.inspectionPoint || '',
   },
-  { name: 'product', label: 'PRODUCT', field: 'productId', align: 'left' },
+  { name: 'product', label: 'PRODUCT', field: 'productId', align: 'left', exportValue: (row) => productName(row.productId) },
   { name: 'sample', label: 'SAMPLE', field: 'sampleSize', align: 'left' },
-  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left' },
-  { name: 'disposition', label: 'DISPOSITION', field: 'dispositionTypeId', align: 'left' },
-  { name: 'nc', label: 'NC', field: 'ncId', align: 'left' },
+  { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', exportValue: (row) => humanize(row.statusId) },
+  { name: 'disposition', label: 'DISPOSITION', field: 'dispositionTypeId', align: 'left', exportValue: (row) => dispositionName(row.dispositionTypeId) },
+  { name: 'nc', label: 'NC', field: 'ncId', align: 'left', exportValue: (row) => ncNumber(row.ncId) },
   {
     name: 'createdAt',
     label: 'CREATED',
@@ -59,7 +75,14 @@ const columns = [
     align: 'left',
     sortable: true,
     filterType: 'date',
+    exportValue: (row) => (row.createdAt ? row.createdAt.formatDate('date') : ''),
   },
+]
+// Export-only extra fields (superset of the visible columns).
+const exportColumns = [
+  ...columns,
+  { name: 'quantity', label: 'QUANTITY', exportValue: (row) => row.quantity ?? '' },
+  { name: 'batchNumber', label: 'BATCH / LOT REF', exportValue: (row) => row.batchNumber || '' },
 ]
 
 function openLot(id) {
@@ -78,7 +101,8 @@ function openLot(id) {
     densitySelector
     columnManager
     exportManager
-    exportFilename="inspection-lots.csv"
+    :exportColumns="exportColumns"
+    exportFilename="inspections.csv"
     persistKey="qcInspection:inspectionLots"
     noDataLabel="No inspection lots yet."
   >
@@ -90,7 +114,7 @@ function openLot(id) {
       </BaseButton>
       <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreate = true">
         <template #icon><IconPlus :size="16" /></template>
-        New Lot
+        New Inspection
       </BaseButton>
     </template>
 

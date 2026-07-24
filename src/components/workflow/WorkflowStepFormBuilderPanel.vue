@@ -33,10 +33,16 @@ watch(
 // Template picker
 const templateSearch = ref('')
 
-const templates = useLiveQuery(async (db) => db.FormTemplate.where('statusId', 'ACTIVE').exec(), {
-  models: ['FormTemplate'],
-  initial: [],
-})
+// Only FORM BLOCKS (reusable fragments) — an embedded step form copies from
+// blocks, not from standalone form templates.
+const templates = useLiveQuery(
+  async (db) =>
+    (await db.FormTemplate.where('statusId', 'ACTIVE').exec()).filter((t) => t.kind === 'BLOCK'),
+  {
+    models: ['FormTemplate'],
+    initial: [],
+  },
+)
 
 const filteredTemplates = computed(() => {
   if (!templateSearch.value) return templates.value
@@ -47,7 +53,11 @@ const filteredTemplates = computed(() => {
 })
 
 function selectTemplate(template) {
-  buildSchema.value = Array.isArray(template.schema) ? [...template.schema] : []
+  // True snapshot: deep-clone so builder edits can never mutate the pooled
+  // IDB block instance's field objects (a shallow [...schema] shares them).
+  buildSchema.value = Array.isArray(template.schema)
+    ? JSON.parse(JSON.stringify(template.schema))
+    : []
   currentStep.value = 'build'
 }
 
@@ -93,7 +103,9 @@ const showBackButton = computed(() => {
       leaveFromClass="tw:translate-y-0"
       leaveToClass="tw:translate-y-full"
     >
-      <div v-if="modelValue" class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-max">
+      <!-- z-overlay (below z-modal) so the FormBuilder's own dialogs (Generate
+           with AI, JSON, Clear, Preview) render above this panel, not behind. -->
+      <div v-if="modelValue" class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-overlay">
         <div class="tw:flex tw:flex-col tw:h-full tw:flex-nowrap">
           <!-- Header -->
           <div

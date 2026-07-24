@@ -29,7 +29,18 @@ const POINTS = [
   { id: 'FINAL', name: 'Final (FQC)' },
   { id: 'OUTGOING', name: 'Outgoing (OQC)' },
 ]
-const LEVELS = ['S-1', 'S-2', 'S-3', 'S-4', 'I', 'II', 'III'].map((id) => ({ id, name: id }))
+// Value is the canonical id (underscore) used by the backend + the
+// sample_size_code_letters reference table; the label shows the standard S-n
+// notation. Special levels are S_1..S_4, general levels I/II/III.
+const LEVELS = [
+  { id: 'S_1', name: 'S-1' },
+  { id: 'S_2', name: 'S-2' },
+  { id: 'S_3', name: 'S-3' },
+  { id: 'S_4', name: 'S-4' },
+  { id: 'I', name: 'I' },
+  { id: 'II', name: 'II' },
+  { id: 'III', name: 'III' },
+]
 // Defect classes — one AQL each (Z1.4 convention: Critical tight, Minor loose).
 const DEFECT_CLASSES = [
   { id: 'CRITICAL', name: 'Critical' },
@@ -62,8 +73,9 @@ function seedFromPlan(plan) {
     customRows: Array.isArray(plan.customPlanTable?.rows)
       ? plan.customPlanTable.rows.map((r) => ({ ...r }))
       : [{ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 }],
-    scope: plan.productId ? 'product' : 'productType',
+    scope: plan.productId ? 'product' : plan.productFamilyId ? 'family' : 'productType',
     productId: plan.productId ?? null,
+    productFamilyId: plan.productFamilyId ?? null,
     productTypeId: plan.productTypeId ?? null,
     inspectionPoint: plan.inspectionPoint ?? 'INCOMING',
     standardCode: plan.standardCode ?? null,
@@ -77,6 +89,8 @@ function seedFromPlan(plan) {
             { severity: 'MAJOR', aql: 1.0 },
             { severity: 'MINOR', aql: 2.5 },
           ],
+    perCollectionSize: plan.perCollectionSize ?? null,
+    collectionIntervalMinutes: plan.collectionIntervalMinutes ?? null,
     previewLotSize: 1000,
   }
 }
@@ -90,6 +104,7 @@ function reset() {
         customRows: [{ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 }],
         scope: 'product',
         productId: null,
+        productFamilyId: null,
         productTypeId: null,
         inspectionPoint: 'INCOMING',
         standardCode: null,
@@ -100,6 +115,8 @@ function reset() {
           { severity: 'MAJOR', aql: 1.0 },
           { severity: 'MINOR', aql: 2.5 },
         ],
+        perCollectionSize: null,
+        collectionIntervalMinutes: null,
         previewLotSize: 1000,
       }
   preview.value = null
@@ -156,9 +173,14 @@ async function onSubmit() {
     const body = {
       name: f.name.trim(),
       productId: f.scope === 'product' ? f.productId : null,
+      productFamilyId: f.scope === 'family' ? f.productFamilyId : null,
       productTypeId: f.scope === 'productType' ? f.productTypeId : null,
       inspectionPoint: f.inspectionPoint,
       planType: f.planType,
+      // In-process advisory guidance (only meaningful for IN_PROCESS plans).
+      perCollectionSize: f.inspectionPoint === 'IN_PROCESS' ? f.perCollectionSize || null : null,
+      collectionIntervalMinutes:
+        f.inspectionPoint === 'IN_PROCESS' ? f.collectionIntervalMinutes || null : null,
       ...(f.planType === 'CUSTOM'
         ? { customPlanTable: { rows: f.customRows } }
         : {
@@ -212,54 +234,82 @@ async function onSubmit() {
               />
             </template>
           </BaseField>
-          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
-            <BaseField label="Inspection point">
-              <BaseInlineSelect
-                v-model="form.inspectionPoint"
-                :items="POINTS"
-                :required="true"
-                class="tw:w-full"
-              />
+          <BaseField label="Inspection point">
+            <SegmentedControl
+              v-model="form.inspectionPoint"
+              :options="POINTS"
+              optionLabel="name"
+              optionValue="id"
+            />
+          </BaseField>
+
+          <!-- In-process (IPQC) collection guidance — advisory; samples are pulled
+               off the line across the shift. Pre-fills the lot's Collect action. -->
+          <div
+            v-if="form.inspectionPoint === 'IN_PROCESS'"
+            class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:p-3"
+          >
+            <div class="tw:sm:col-span-2 tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary">
+              In-process collection (guidance)
+            </div>
+            <BaseField label="Samples per collection" hint="Suggested units per window; pre-fills the inspector's Collect action.">
+              <BaseTextInput v-model.number="form.perCollectionSize" type="number" min="1" placeholder="e.g. 5" />
             </BaseField>
+            <BaseField label="Collection interval (min)" hint="Suggested frequency, e.g. 120 = every 2 hours. Advisory only.">
+              <BaseTextInput v-model.number="form.collectionIntervalMinutes" type="number" min="1" placeholder="e.g. 120" />
+            </BaseField>
+          </div>
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
             <BaseField label="Scope">
-              <BaseInlineSelect
+              <SegmentedControl
                 v-model="form.scope"
-                :items="[
-                  { id: 'product', name: 'Specific product' },
-                  { id: 'productType', name: 'Product type' },
+                :options="[
+                  { label: 'Specific item', value: 'product' },
+                  { label: 'Item group', value: 'family' },
+                  { label: 'Item type', value: 'productType' },
                 ]"
-                :required="true"
-                class="tw:w-full"
               />
             </BaseField>
             <BaseField label="Plan type">
-              <BaseInlineSelect
+              <SegmentedControl
                 v-model="form.planType"
-                :items="[
-                  { id: 'STANDARD', name: 'AQL standard' },
-                  { id: 'CUSTOM', name: 'Custom table' },
+                :options="[
+                  { label: 'AQL standard', value: 'STANDARD' },
+                  { label: 'Custom table', value: 'CUSTOM' },
                 ]"
-                :required="true"
-                class="tw:w-full"
               />
             </BaseField>
           </div>
           <BaseField
             required
-            :value="form.scope === 'product' ? form.productId : form.productTypeId"
+            :value="
+              form.scope === 'product'
+                ? form.productId
+                : form.scope === 'family'
+                  ? form.productFamilyId
+                  : form.productTypeId
+            "
             :rules="[
               requiredWhen(() => form.scope === 'product'),
+              requiredWhen(() => form.scope === 'family'),
               requiredWhen(() => form.scope === 'productType'),
             ]"
           >
             <template #label>
-              {{ form.scope === 'product' ? 'Product' : 'Product type' }}
+              {{ form.scope === 'product' ? 'Item' : form.scope === 'family' ? 'Item group' : 'Item type' }}
             </template>
             <template #default="field">
               <ProductSelectMenu
                 v-if="form.scope === 'product'"
                 v-bind="field"
                 v-model="form.productId"
+                class="tw:w-full"
+              />
+              <ProductFamilySelectMenu
+                v-else-if="form.scope === 'family'"
+                v-bind="field"
+                v-model="form.productFamilyId"
+                :required="true"
                 class="tw:w-full"
               />
               <ProductTypeSelectMenu

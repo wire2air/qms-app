@@ -7,7 +7,7 @@
  *   SUPERSEDED → read-only; reachable from the version history.
  * Right column = overview (scope, status, version, created/approved by, dates).
  */
-import { IconArrowLeft, IconPlus, IconTrash } from '@tabler/icons-vue'
+import { IconPlus, IconTrash, IconCircleCheck } from '@tabler/icons-vue'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -15,15 +15,7 @@ import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 const props = defineProps({
   id: { type: String, required: true },
-  // When embedded (e.g. inside the Item Master → Specifications tab) the
-  // component stays in place: back / version-history / new-version emit events
-  // instead of routing to the standalone QC Inspection page.
-  embedded: { type: Boolean, default: false },
-  // Label for the top back link — the embedding page sets it to reflect where
-  // the user came from (e.g. "Back to <Item> specifications").
-  backLabel: { type: String, default: 'Back to Specifications' },
 })
-const emit = defineEmits(['back', 'openSpec'])
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
@@ -32,14 +24,10 @@ const { visit: visitTrail } = useRecordTrail()
 const acting = ref(false)
 const saving = ref(false)
 const showEsign = ref(false)
+const showSubmit = ref(false)
 
-function goBack() {
-  if (props.embedded) emit('back')
-  else router.push(getCompanyPath('/qc-inspection?tab=specifications'))
-}
 function openSpec(id) {
-  if (props.embedded) emit('openSpec', id)
-  else router.push(getCompanyPath(`/qc-inspection/specifications/${id}`))
+  router.push(getCompanyPath(`/qc-inspection/specifications/${id}`))
 }
 
 const canManage = computed(() => isAllowed(['inspection_spec:write']))
@@ -49,23 +37,32 @@ const spec = useLiveQueryWithDeps(
   async (db, [id]) => db.Specification.findByPk(id),
   { models: ['Specification'] },
 )
+const loading = computed(() => spec.value === undefined)
 
-// Standalone (not embedded in the product page): join the record trail and show
-// a module breadcrumb instead of an ad-hoc back button.
+// Join the record trail for cross-record breadcrumbs.
 watch(
   spec,
   (s) => {
-    if (s?.id && !props.embedded) {
+    if (s?.id) {
       visitTrail({ type: 'Spec', id: s.id, label: s.name || s.code, path: route.path })
     }
   },
   { immediate: true },
 )
-const moduleCrumbs = computed(() => [
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
   { label: 'QC Inspection', to: getCompanyPath('/qc-inspection') },
   { label: 'Specifications', to: getCompanyPath('/qc-inspection?tab=specifications') },
   { label: spec.value?.name || spec.value?.code || 'Specification' },
 ])
+const detailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'wide',
+    breadcrumbs: breadcrumbs.value,
+  }),
+)
 
 const creator = useLiveQueryWithDeps(
   [() => spec.value?.createdBy],
@@ -92,6 +89,11 @@ const productType = useLiveQueryWithDeps(
 
   async (db, [typeId]) => (typeId ? db.ProductType.findByPk(typeId) : null),
   { models: ['ProductType'] },
+)
+const productFamily = useLiveQueryWithDeps(
+  [() => spec.value?.productFamilyId],
+  async (db, [famId]) => (famId ? db.ProductFamily.findByPk(famId) : null),
+  { models: ['ProductFamily'] },
 )
 
 // Walk parentSpecificationId chain to build version history
@@ -126,13 +128,6 @@ const characteristics = useLiveQueryWithDeps(
 const isDraft = computed(() => spec.value?.statusId === 'DRAFT')
 const canEditDraft = computed(() => isDraft.value && canManage.value)
 
-const MATERIAL_LABELS = {
-  RAW: 'Raw material',
-  PACKAGING: 'Packaging',
-  BULK: 'Bulk',
-  FINISHED: 'Finished good',
-}
-const MATERIAL_ITEMS = Object.entries(MATERIAL_LABELS).map(([id, name]) => ({ id, name }))
 const TEST_TYPES = ['NUMERIC', 'PASS_FAIL', 'TEXT']
 
 // Read-only characteristics table (EFFECTIVE/SUPERSEDED specs).
@@ -168,9 +163,9 @@ watch(
     header.value = {
       name: s.name ?? '',
       code: s.code ?? '',
-      materialKind: s.materialKind ?? 'RAW',
-      scope: s.productId ? 'product' : 'productType',
+      scope: s.productId ? 'product' : s.productFamilyId ? 'family' : 'productType',
       productId: s.productId ?? null,
+      productFamilyId: s.productFamilyId ?? null,
       productTypeId: s.productTypeId ?? null,
       notes: s.notes ?? '',
     }
@@ -284,8 +279,8 @@ async function saveDraft() {
     const body = {
       name: h.name?.trim(),
       code: h.code?.trim() || null,
-      materialKind: h.materialKind,
       productId: h.scope === 'product' ? h.productId : null,
+      productFamilyId: h.scope === 'family' ? h.productFamilyId : null,
       productTypeId: h.scope === 'productType' ? h.productTypeId : null,
       notes: h.notes?.trim() || null,
       characteristics: editedChars.value.map((c, i) => ({
@@ -358,46 +353,36 @@ async function newVersion() {
 </script>
 
 <template>
-  <div
-    v-if="spec && header"
-    class="tw:flex tw:flex-col tw:gap-5"
-    :class="embedded ? '' : 'tw:p-5'"
+  <BaseDetailLayout
+    :config="detailConfig"
+    :record="spec"
+    :loading="loading"
+    :notFound="!loading && !spec"
+    :rail="true"
+    notFoundTitle="Specification not found"
+    notFoundDescription="This specification could not be found."
   >
-    <!-- Embedded (in the product page): a back link to the item's spec list.
-         Standalone (QC module route): a module breadcrumb + record trail. -->
-    <button
-      v-if="embedded"
-      type="button"
-      class="tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary tw:hover:text-on-main tw:bg-transparent tw:border-0 tw:cursor-pointer tw:self-start"
-      @click="goBack"
-    >
-      <IconArrowLeft :size="16" /> {{ backLabel }}
-    </button>
-    <div v-else class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap tw:text-sm">
-      <BaseBreadcrumbs :items="moduleCrumbs" />
-      <RecordTrailBreadcrumb />
-    </div>
+    <template #title>
+      <BaseTextInput
+        v-if="canEditDraft && header"
+        v-model="header.name"
+        class="tw:max-w-md"
+        placeholder="Specification name"
+        @update:modelValue="markHeaderDirty"
+      />
+      <span v-else class="tw:text-base tw:font-semibold tw:text-on-main">{{ spec?.name }}</span>
+    </template>
 
-    <!-- Header -->
-    <div class="tw:flex tw:items-start tw:justify-between tw:gap-4">
-      <div class="tw:min-w-0 tw:flex-1">
-        <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
-          <BaseTextInput
-            v-if="canEditDraft"
-            v-model="header.name"
-            class="tw:max-w-md"
-            placeholder="Specification name"
-            @update:modelValue="markHeaderDirty"
-          />
-          <h1 v-else class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main">{{ spec.name }}</h1>
-          <SpecificationStatusBadgeById :statusId="spec.statusId" />
-        </div>
-        <div v-if="!canEditDraft" class="tw:text-sm tw:text-secondary tw:mt-1">
-          {{ MATERIAL_LABELS[spec.materialKind] || spec.materialKind }} · v{{ spec.version }}
-          <span v-if="spec.code"> · {{ spec.code }}</span>
-        </div>
-      </div>
-      <div v-if="canManage" class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
+    <template #status>
+      <SpecificationStatusBadgeById v-if="spec" :statusId="spec.statusId" />
+    </template>
+
+    <template #meta>
+      <span v-if="spec">v{{ spec.version }}<span v-if="spec.code"> · {{ spec.code }}</span></span>
+    </template>
+
+    <template v-if="canManage" #actions>
+      <div class="tw:flex tw:items-center tw:gap-2">
         <BaseButton
           v-if="canEditDraft && isDirty"
           variant="primary"
@@ -407,48 +392,49 @@ async function newVersion() {
         >
           Save
         </BaseButton>
-        <BaseButton
-          v-if="isDraft"
-          variant="outline"
-          size="sm"
-          :loading="acting"
-          @click="showEsign = true"
-        >
-          Approve
+        <BaseButton v-if="isDraft" variant="primary" @click="showSubmit = true">
+          <template #icon><IconCircleCheck :size="18" /></template>
+          Submit for approval
         </BaseButton>
         <BaseButton
-          v-if="spec.statusId === 'EFFECTIVE'"
+          v-if="spec?.statusId === 'EFFECTIVE'"
           variant="outline"
-          size="sm"
           :loading="acting"
           @click="newVersion"
         >
           New version
         </BaseButton>
       </div>
-    </div>
+    </template>
 
-    <!-- Draft edit notice -->
-    <div
-      v-if="isDraft"
-      class="tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded-lg tw:px-4 tw:py-2 tw:text-sm tw:text-amber-800"
-    >
-      This specification is a draft — all fields below are editable. Approve when ready.
-    </div>
-
-    <!-- Two-column: characteristics left, overview right -->
-    <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-5 tw:items-start">
-      <!-- Characteristics (2/3) -->
+    <!-- Main content: characteristics + version history -->
+    <div v-if="spec && header" class="tw:flex tw:flex-col tw:gap-5">
       <div
-        class="tw:lg:col-span-2 tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden"
+        v-if="isDraft"
+        class="tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded-lg tw:px-4 tw:py-2 tw:text-sm tw:text-amber-800"
       >
+        This specification is a draft — all fields below are editable. Submit for approval when ready.
+      </div>
+      <div
+        v-else-if="spec?.statusId === 'PENDING_APPROVAL'"
+        class="tw:bg-blue-50 tw:border tw:border-blue-200 tw:rounded-lg tw:px-4 tw:py-3 tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap"
+      >
+        <span class="tw:text-sm tw:text-blue-800">
+          Pending approval — assigned to a reviewer. It becomes effective once approved; a
+          rejection / send-back returns it to draft.
+        </span>
+        <TaskActionBar entityType="Specification" :entityId="props.id" />
+      </div>
+
+      <!-- Characteristics -->
+      <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
         <div
           class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
         >
           <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Characteristics</h3>
           <div v-if="canEditDraft" class="tw:flex tw:items-center tw:gap-3">
             <TestLibraryAddMenu
-              :productTypeId="header.scope === 'productType' ? header.productTypeId : null"
+              :productFamilyId="header.scope === 'family' ? header.productFamilyId : null"
               @pick="addFromLibrary"
             />
             <BaseButton variant="outline" size="sm" @click="addCharacteristic">
@@ -536,14 +522,8 @@ async function newVersion() {
                   @update:modelValue="markCharsDirty"
                 />
               </BaseField>
-              <BaseField v-slot="{ id: fieldId }" label="UOM" class="tw:w-24">
-                <BaseTextInput
-                  :id="fieldId"
-                  v-model="c.uom"
-                  size="sm"
-                  placeholder="e.g. pH, %"
-                  @update:modelValue="markCharsDirty"
-                />
+              <BaseField label="UOM" class="tw:w-36">
+                <UomSelectMenu v-model="c.uom" bindValue="code" @update:modelValue="markCharsDirty" />
               </BaseField>
             </div>
             <BaseField v-if="c.requiresInstrument" label="Preferred instrument" class="tw:mt-2 tw:w-full tw:sm:w-72">
@@ -603,16 +583,66 @@ async function newVersion() {
         </template>
       </div>
 
-      <!-- Overview (1/3) -->
-      <BaseOverviewPanel tone="sidebar">
-        <BaseDetailSection title="General">
-          <BaseDetailField label="Status">
+      <!-- Version history -->
+      <div
+        v-if="versionHistory.length"
+        class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden"
+      >
+        <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover">
+          <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Version History</h3>
+        </div>
+        <DataTable
+          :rows="versionHistory"
+          :columns="versionColumns"
+          rowKey="id"
+          :mobileCards="false"
+          :stickyHeader="false"
+          hidePagination
+          noDataLabel="No previous versions."
+        >
+          <template #body-cell-version="{ row }">
+            <button
+              type="button"
+              class="tw:font-medium tw:text-on-main tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+              :aria-label="`Open specification version ${row.version}`"
+              @click="openSpec(row.id)"
+            >
+              v{{ row.version }}
+            </button>
+          </template>
+          <template #body-cell-status="{ row }">
+            <SpecificationStatusBadgeById :statusId="row.statusId" />
+          </template>
+          <template #body-cell-effective="{ row }">
+            <span class="tw:text-secondary">{{ row.effectiveFrom?.formatDate('date') || '—' }}</span>
+          </template>
+          <template #body-cell-superseded="{ row }">
+            <span class="tw:text-secondary">{{ row.effectiveUntil?.formatDate('date') || '—' }}</span>
+          </template>
+        </DataTable>
+      </div>
+
+      <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
+      <SpecificationSubmitDialog v-model="showSubmit" :specId="props.id" />
+    </div>
+
+    <!-- Rail: general / scope / lifecycle / notes. The slot is ALWAYS provided
+         (never v-if on the #rail template) so BaseDetailLayout detects it and
+         renders the rail; content is guarded inside instead. -->
+    <template #rail>
+      <template v-if="spec && header">
+      <BaseRailCard title="General">
+        <div class="tw:flex tw:flex-col tw:gap-3">
+          <div>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Status</p>
             <SpecificationStatusBadgeById :statusId="spec.statusId" />
-          </BaseDetailField>
-          <BaseDetailField label="Version">
-            <BaseText variant="body" weight="medium" class="">v{{ spec.version }}</BaseText>
-          </BaseDetailField>
-          <BaseDetailField label="Code">
+          </div>
+          <div>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Version</p>
+            <BaseText variant="body" weight="medium">v{{ spec.version }}</BaseText>
+          </div>
+          <div>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Code</p>
             <BaseTextInput
               v-if="canEditDraft"
               v-model="header.code"
@@ -620,148 +650,94 @@ async function newVersion() {
               placeholder="e.g. SPEC-001"
               @update:modelValue="markHeaderDirty"
             />
-            <BaseText v-else variant="body" weight="medium" class="">
-              {{ spec.code || '—' }}
-            </BaseText>
-          </BaseDetailField>
-          <BaseDetailField label="Material">
-            <BaseInlineSelect
-              v-if="canEditDraft"
-              v-model="header.materialKind"
-              :items="MATERIAL_ITEMS"
-              :required="true"
-              class="tw:w-full"
-              @update:modelValue="markHeaderDirty"
-            />
-            <BaseText v-else variant="body" weight="medium">
-              {{ MATERIAL_LABELS[spec.materialKind] || spec.materialKind }}
-            </BaseText>
-          </BaseDetailField>
-        </BaseDetailSection>
+            <BaseText v-else variant="body" weight="medium">{{ spec.code || '—' }}</BaseText>
+          </div>
+        </div>
+      </BaseRailCard>
 
-        <BaseDetailSection title="Scope" divided>
-          <BaseDetailField label="Applies to">
-            <template v-if="canEditDraft">
-              <BaseInlineSelect
-                v-model="header.scope"
-                :items="[
-                  { id: 'product', name: 'Specific product' },
-                  { id: 'productType', name: 'Product type' },
-                ]"
-                :required="true"
-                class="tw:w-full tw:mb-2"
-                @update:modelValue="markHeaderDirty"
-              />
-              <ProductSelectMenu
-                v-if="header.scope === 'product'"
-                v-model="header.productId"
-                class="tw:w-full"
-                @update:modelValue="markHeaderDirty"
-              />
-              <ProductTypeSelectMenu
-                v-else
-                v-model="header.productTypeId"
-                class="tw:w-full"
-                @update:modelValue="markHeaderDirty"
-              />
-            </template>
-            <template v-else>
-              <BaseText v-if="product" variant="body">
-                {{ product.name }}
-                <span v-if="product.sku" class="tw:text-xs tw:text-secondary"
-                  >· {{ product.sku }}</span
-                >
-                <span v-if="product.deletedAt" class="tw:text-xs tw:text-bad tw:ml-1">(deleted)</span>
-              </BaseText>
-              <BaseText v-else-if="productType" variant="body">
-                {{ productType.name }}
-                <span class="tw:text-xs tw:text-secondary">(product type)</span>
-              </BaseText>
-              <BaseText v-else color="secondary">—</BaseText>
-            </template>
-          </BaseDetailField>
-        </BaseDetailSection>
-
-        <BaseDetailSection title="Lifecycle" divided>
-          <BaseDetailField label="Created">
-            <BaseText variant="body">
-              {{ spec.createdAt?.formatDate('date') || '—' }} · {{ userName(creator) }}
-            </BaseText>
-          </BaseDetailField>
-          <BaseDetailField v-if="spec.approvedAt" label="Approved">
-            <BaseText variant="body">
-              {{ spec.approvedAt?.formatDate('date') }} · {{ userName(approver) }}
-            </BaseText>
-          </BaseDetailField>
-          <BaseDetailField
-            v-if="spec.effectiveFrom"
-            label="Effective from"
-            :value="spec.effectiveFrom?.formatDate('date')"
-          />
-          <BaseDetailField
-            v-if="spec.effectiveUntil"
-            label="Effective until"
-            :value="spec.effectiveUntil?.formatDate('date')"
-          />
-        </BaseDetailSection>
-
-        <BaseDetailSection title="Notes" divided>
-          <BaseTextarea
-            v-if="canEditDraft"
-            v-model="header.notes"
-            :rows="3"
-            placeholder="Optional notes"
+      <BaseRailCard title="Scope">
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Applies to</p>
+        <template v-if="canEditDraft">
+          <SegmentedControl
+            v-model="header.scope"
+            :options="[
+              { label: 'Item', value: 'product' },
+              { label: 'Item group', value: 'family' },
+              { label: 'Item type', value: 'productType' },
+            ]"
+            class="tw:mb-2"
             @update:modelValue="markHeaderDirty"
           />
-          <BaseText v-else-if="spec.notes" variant="body" class="tw:whitespace-pre-wrap">
-            {{ spec.notes }}
+          <ProductSelectMenu
+            v-if="header.scope === 'product'"
+            v-model="header.productId"
+            class="tw:w-full"
+            @update:modelValue="markHeaderDirty"
+          />
+          <ProductFamilySelectMenu
+            v-else-if="header.scope === 'family'"
+            v-model="header.productFamilyId"
+            class="tw:w-full"
+            @update:modelValue="markHeaderDirty"
+          />
+          <ProductTypeSelectMenu
+            v-else
+            v-model="header.productTypeId"
+            class="tw:w-full"
+            @update:modelValue="markHeaderDirty"
+          />
+        </template>
+        <template v-else>
+          <BaseText v-if="product" variant="body">
+            {{ product.name }}
+            <span v-if="product.sku" class="tw:text-xs tw:text-secondary">· {{ product.sku }}</span>
+            <span v-if="product.deletedAt" class="tw:text-xs tw:text-bad tw:ml-1">(deleted)</span>
+          </BaseText>
+          <BaseText v-else-if="productFamily" variant="body">
+            {{ productFamily.name }}
+            <span class="tw:text-xs tw:text-secondary">(item group)</span>
+          </BaseText>
+          <BaseText v-else-if="productType" variant="body">
+            {{ productType.name }}
+            <span class="tw:text-xs tw:text-secondary">(item type)</span>
           </BaseText>
           <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailSection>
-      </BaseOverviewPanel>
-    </div>
+        </template>
+      </BaseRailCard>
 
-    <!-- Version history -->
-    <div
-      v-if="versionHistory.length"
-      class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden"
-    >
-      <div class="tw:px-5 tw:py-3 tw:border-b tw:border-divider tw:bg-main-hover">
-        <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Version History</h3>
-      </div>
-      <DataTable
-        :rows="versionHistory"
-        :columns="versionColumns"
-        rowKey="id"
-        :mobileCards="false"
-        :stickyHeader="false"
-        hidePagination
-        noDataLabel="No previous versions."
-      >
-        <template #body-cell-version="{ row }">
-          <button
-            type="button"
-            class="tw:font-medium tw:text-on-main tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
-            :aria-label="`Open specification version ${row.version}`"
-            @click="openSpec(row.id)"
-          >
-            v{{ row.version }}
-          </button>
-        </template>
-        <template #body-cell-status="{ row }">
-          <SpecificationStatusBadgeById :statusId="row.statusId" />
-        </template>
-        <template #body-cell-effective="{ row }">
-          <span class="tw:text-secondary">{{ row.effectiveFrom?.formatDate('date') || '—' }}</span>
-        </template>
-        <template #body-cell-superseded="{ row }">
-          <span class="tw:text-secondary">{{ row.effectiveUntil?.formatDate('date') || '—' }}</span>
-        </template>
-      </DataTable>
-    </div>
+      <BaseRailCard title="Lifecycle">
+        <div class="tw:flex tw:flex-col tw:gap-3">
+          <div>
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Created</p>
+            <BaseText variant="body">{{ spec.createdAt?.formatDate('date') || '—' }} · {{ userName(creator) }}</BaseText>
+          </div>
+          <div v-if="spec.approvedAt">
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Approved</p>
+            <BaseText variant="body">{{ spec.approvedAt?.formatDate('date') }} · {{ userName(approver) }}</BaseText>
+          </div>
+          <div v-if="spec.effectiveFrom">
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Effective from</p>
+            <BaseText variant="body">{{ spec.effectiveFrom?.formatDate('date') }}</BaseText>
+          </div>
+          <div v-if="spec.effectiveUntil">
+            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Effective until</p>
+            <BaseText variant="body">{{ spec.effectiveUntil?.formatDate('date') }}</BaseText>
+          </div>
+        </div>
+      </BaseRailCard>
 
-    <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
-  </div>
-
-  <div v-else class="tw:p-10 tw:text-center tw:text-secondary">Loading…</div>
+      <BaseRailCard title="Notes">
+        <BaseTextarea
+          v-if="canEditDraft"
+          v-model="header.notes"
+          :rows="3"
+          placeholder="Optional notes"
+          @update:modelValue="markHeaderDirty"
+        />
+        <BaseText v-else-if="spec.notes" variant="body" class="tw:whitespace-pre-wrap">{{ spec.notes }}</BaseText>
+        <BaseText v-else color="secondary">—</BaseText>
+      </BaseRailCard>
+      </template>
+    </template>
+  </BaseDetailLayout>
 </template>

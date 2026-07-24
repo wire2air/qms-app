@@ -1,5 +1,6 @@
 <script setup>
 import { useDebounceFn } from '@vueuse/core'
+import { DELAY_PRESETS } from '@/components/workflow/delayPresets.js'
 import {
   IconNote,
   IconUsers,
@@ -48,6 +49,14 @@ const debouncedStepSave = useDebounceFn(async () => {
   await step.value.save()
 }, 800)
 
+// DELAY config: a preset pill sets the relative window and clears any fixed
+// date (window and date are mutually exclusive — the date wins at runtime).
+function setDelayDays(days) {
+  if (!props.canUpdate || !step.value) return
+  step.value.delayDays = days
+  step.value.delayUntilDate = null
+}
+
 watch(
   step,
   (_, oldStep) => {
@@ -85,6 +94,54 @@ const assigneesDialogOpen = ref(false)
 
 const showRolesInline = computed(() => props.stepApproversTab !== 'users')
 const showUsersInline = computed(() => props.stepApproversTab !== 'roles')
+
+// ─── Editor tabs — progressive disclosure instead of one long scroll ─────────
+// Setup (type/name/behavior/compliance) · Task Form (the form the assignee
+// fills in — hidden for APPROVAL steps and modules without step forms) ·
+// Assignees. Badges surface field/assignee counts without opening the tab.
+const activeTab = ref('setup')
+
+const showTaskFormTab = computed(
+  () => props.showFormSchema && step.value?.stepType !== 'APPROVAL',
+)
+
+// An Action/Delay step without a task form only lets the assignee comment and
+// mark complete — almost always a configuration gap. Surfaced as an attention
+// dot on the tab, a callout inside it, and a publish-readiness warning.
+const missingTaskForm = computed(
+  () => showTaskFormTab.value && (step.value?.formSchema?.length ?? 0) === 0,
+)
+
+const editorTabs = computed(() => {
+  const tabs = [{ value: 'setup', label: 'Setup' }]
+  if (showTaskFormTab.value) {
+    const count = step.value?.formSchema?.length ?? 0
+    tabs.push({
+      value: 'form',
+      label: 'Task Form',
+      ...(count ? { badge: String(count) } : { indicator: true }),
+    })
+  }
+  const assigneeCount = roleIds.value.length + reviewerIds.value.length
+  tabs.push({
+    value: 'assignees',
+    label: 'Assignees',
+    ...(assigneeCount ? { badge: String(assigneeCount) } : {}),
+  })
+  return tabs
+})
+
+// Selecting a different step starts back at Setup; if the current tab
+// disappears (e.g. type flipped to APPROVAL while on Task Form), snap back.
+watch(
+  () => props.stepId,
+  () => {
+    activeTab.value = 'setup'
+  },
+)
+watch(showTaskFormTab, (show) => {
+  if (!show && activeTab.value === 'form') activeTab.value = 'setup'
+})
 
 // ─── Allowed Outcomes ─────────────────────────────────────────────────────────
 
@@ -127,42 +184,31 @@ watch(
 </script>
 
 <template>
-  <div v-if="step" class="tw:space-y-10">
-    <!-- Step Details -->
-    <div class="tw:space-y-6">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:mb-2">
-        <IconNote :size="22" />
-        <h2 class="tw:text-lg tw:font-semibold tw:text-on-main">Step Configuration: {{ step.name }}</h2>
-      </div>
+  <div v-if="step" class="tw:space-y-5">
+    <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
+      <IconNote :size="22" />
+      <h2 class="tw:text-lg tw:font-semibold tw:text-on-main">Step Configuration: {{ step.name }}</h2>
+    </div>
 
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6">
-        <!-- Left Column -->
-        <div class="tw:space-y-4">
-          <BaseField v-slot="{ id: fieldId }" label="Step Name">
-            <BaseTextInput
-              :id="fieldId"
-              v-model="step.name"
-              name="name"
-              placeholder="e.g. Peer Review"
-              :disabled="!canUpdate"
-            />
-          </BaseField>
-          <BaseField v-slot="{ id: fieldId }" label="Instructions">
-            <BaseTextarea
-              :id="fieldId"
-              v-model="step.description"
-              placeholder="What does the assignee need to do?"
-              :disabled="!canUpdate"
-              rows="3"
-            />
-          </BaseField>
-        </div>
+    <!-- Progressive disclosure: Setup / Task Form / Assignees. v-show (not
+         v-if) so the autosave watchers and form-builder state survive tab
+         switches. -->
+    <BaseTabs
+      v-model="activeTab"
+      :tabs="editorTabs"
+      variant="segmented"
+      ariaLabel="Step configuration sections"
+    />
 
-        <!-- Right Column -->
-        <div class="tw:space-y-6">
+    <!-- ── Tab: Setup ─────────────────────────────────────────────────── -->
+    <div v-show="activeTab === 'setup'" class="tw:space-y-6">
+      <!-- 1. Basics — what kind of step it is, its name, and instructions.
+           Sectioned cards replace the old two-column split: each concern gets
+           one clearly-labelled card so the page reads top-to-bottom. -->
+      <div class="tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:space-y-4">
           <!-- Step Type — gates which downstream controls render -->
           <BaseField label="Step Type">
-            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <div class="tw:grid tw:grid-cols-3 tw:gap-3">
               <label
                 class="tw:relative tw:flex tw:flex-col tw:p-4 tw:border tw:rounded-xl tw:cursor-pointer tw:transition-all"
                 :class="
@@ -210,18 +256,149 @@ watch(
                   APPROVAL
                 </span>
                 <span class="tw:text-micro tw:leading-tight tw:text-secondary">
-                  Gate step. ALL or ANY approvers must sign. Comment-only — no form.
+                  Gate step — approvers review and sign off. Comment-only, no form.
+                </span>
+              </label>
+              <label
+                class="tw:relative tw:flex tw:flex-col tw:p-4 tw:border tw:rounded-xl tw:cursor-pointer tw:transition-all"
+                :class="
+                  step.stepType === 'DELAY'
+                    ? 'tw:border-primary tw:bg-primary/5 tw:ring-1 tw:ring-primary/20'
+                    : 'tw:border-divider tw:hover:bg-main-hover'
+                "
+              >
+                <input
+                  v-model="step.stepType"
+                  type="radio"
+                  value="DELAY"
+                  class="tw:sr-only"
+                  :disabled="!canUpdate"
+                />
+                <span
+                  class="tw:text-xs tw:font-bold tw:mb-1"
+                  :class="step.stepType === 'DELAY' ? 'tw:text-primary' : 'tw:text-on-main'"
+                >
+                  DELAY ACTION
+                </span>
+                <span class="tw:text-micro tw:leading-tight tw:text-secondary">
+                  Waits a set number of days, then assigns the task (e.g. effectiveness check).
                 </span>
               </label>
             </div>
           </BaseField>
 
+          <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
+            <BaseField v-slot="{ id: fieldId }" label="Step Name">
+              <BaseTextInput
+                :id="fieldId"
+                v-model="step.name"
+                name="name"
+                placeholder="e.g. Peer Review"
+                :disabled="!canUpdate"
+              />
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="Instructions">
+              <BaseTextarea
+                :id="fieldId"
+                v-model="step.description"
+                placeholder="What does the assignee need to do?"
+                :disabled="!canUpdate"
+                rows="2"
+              />
+            </BaseField>
+          </div>
+      </div>
+
+      <!-- 2. Behavior — how the step advances (rule / delay default) + timing -->
+      <div class="tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:space-y-4">
+          <BaseText variant="overline">How this step advances</BaseText>
+
+          <!-- Delay config — only for DELAY steps. This is an OPTIONAL DEFAULT:
+               when the workflow reaches the step, the record owner chooses at
+               runtime whether to run the check and when (or skip it), like a
+               CAPA effectiveness check. A default here just pre-fills that. -->
+          <template v-if="step.stepType === 'DELAY'">
+            <div
+              class="tw:rounded-lg tw:bg-indigo-50 tw:border tw:border-indigo-200 tw:p-2.5 tw:text-micro tw:text-indigo-900 tw:leading-relaxed"
+            >
+              Optional. The record owner sets the actual activation date — or skips the step —
+              when the workflow reaches it. Leave blank to make the owner decide each time.
+            </div>
+            <BaseField
+              v-slot="{ id: fieldId }"
+              label="Default delay"
+              help="How long the step waits after the previous step completes before assigning its task. The record owner can change or skip this on each record."
+            >
+              <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+                <button
+                  v-for="preset in DELAY_PRESETS"
+                  :key="preset.days"
+                  type="button"
+                  class="tw:px-3 tw:py-1 tw:rounded-full tw:text-xs tw:font-medium tw:border tw:transition-colors tw:disabled:opacity-50 tw:disabled:cursor-not-allowed"
+                  :class="
+                    step.delayDays === preset.days && !step.delayUntilDate
+                      ? 'tw:bg-primary tw:text-white tw:border-primary'
+                      : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:bg-main-hover'
+                  "
+                  :disabled="!canUpdate"
+                  @click="setDelayDays(preset.days)"
+                >
+                  {{ preset.label }}
+                </button>
+                <BaseTextInput
+                  :id="fieldId"
+                  v-model.number="step.delayDays"
+                  type="number"
+                  placeholder="Custom"
+                  :disabled="!canUpdate"
+                  inputClass="tw:w-24"
+                  :min="1"
+                  @input="step.delayUntilDate = null"
+                />
+                <span class="tw:text-xs tw:font-medium tw:text-secondary">
+                  days after the previous step completes
+                </span>
+              </div>
+            </BaseField>
+            <BaseField label="…or default to a specific date">
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <BaseDateField
+                  v-model="step.delayUntilDate"
+                  mode="date"
+                  :disabled="!canUpdate"
+                  clearable
+                  @update:modelValue="(v) => v && (step.delayDays = null)"
+                />
+                <span class="tw:text-xs tw:font-medium tw:text-secondary">
+                  Fixed calendar date (overrides the window)
+                </span>
+              </div>
+            </BaseField>
+            <BaseField v-slot="{ id: fieldId }" label="Max delay extensions">
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <BaseTextInput
+                  :id="fieldId"
+                  v-model.number="step.maxDelayExtensions"
+                  type="number"
+                  placeholder="1"
+                  :disabled="!canUpdate"
+                  inputClass="tw:w-24"
+                  :min="0"
+                />
+                <span class="tw:text-xs tw:font-medium tw:text-secondary">
+                  How many times the owner/assignee can push the wake-up out (blank = 1)
+                </span>
+              </div>
+            </BaseField>
+          </template>
+
           <!-- Rule — only meaningful for APPROVAL steps. -->
           <BaseField
             v-if="step.stepType === 'APPROVAL' && selectedApprovalRule === null"
-            label="Rule"
+            label="Who must approve?"
+            help="When several people are assigned to this approval step, this decides whether the workflow waits for everyone or moves on after the first approval."
           >
-            <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+            <div class="tw:grid tw:grid-cols-2 tw:gap-3 tw:max-w-xl">
               <label
                 class="tw:relative tw:flex tw:flex-col tw:p-4 tw:border tw:rounded-xl tw:cursor-pointer tw:transition-all"
                 :class="
@@ -241,10 +418,10 @@ watch(
                   class="tw:text-xs tw:font-bold tw:mb-1"
                   :class="step.approvalRule === 'ALL' ? 'tw:text-primary' : 'tw:text-on-main'"
                 >
-                  ALL
+                  Everyone must approve
                 </span>
                 <span class="tw:text-micro tw:leading-tight tw:text-secondary">
-                  All assigned tasks must be completed to advance.
+                  Every assigned approver must sign off before the workflow advances.
                 </span>
               </label>
               <label
@@ -266,17 +443,21 @@ watch(
                   class="tw:text-xs tw:font-bold tw:mb-1"
                   :class="step.approvalRule === 'ANY' ? 'tw:text-primary' : 'tw:text-on-main'"
                 >
-                  ANY
+                  Any one can approve
                 </span>
                 <span class="tw:text-micro tw:leading-tight tw:text-secondary">
-                  Only one task needs to be completed to advance.
+                  The first approval advances the workflow — the others are no longer required.
                 </span>
               </label>
             </div>
           </BaseField>
 
-          <!-- SLA Days -->
-          <BaseField v-slot="{ id: fieldId }" label="SLA: Due in (days)">
+          <!-- SLA — reads as a sentence: "Due within [7] business days of activation" -->
+          <BaseField
+            v-slot="{ id: fieldId }"
+            label="Due within"
+            help="SLA — how many business days the assignee has to complete this step once it activates. Drives the task's due date and reminder emails."
+          >
             <div class="tw:flex tw:items-center tw:gap-2">
               <BaseTextInput
                 :id="fieldId"
@@ -288,13 +469,18 @@ watch(
                 :min="1"
               />
               <span class="tw:text-xs tw:font-medium tw:text-secondary">
-                Business days from activation
+                business days of activation
               </span>
             </div>
           </BaseField>
 
-          <!-- Compliance Controls -->
-          <div class="tw:flex tw:justify-between">
+      </div>
+
+      <!-- 3. Compliance & options -->
+      <div class="tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:space-y-4">
+          <BaseText variant="overline">Compliance &amp; options</BaseText>
+
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
             <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
               <BaseSwitch v-model="step.requireComments" :disabled="!canUpdate" />
               <span class="tw:text-xs tw:font-semibold tw:text-on-main">Require Comments</span>
@@ -313,7 +499,10 @@ watch(
                internal approvers for supplier users picked at submit.
                Disabled until the Adobe runtime (agreement creation + webhook +
                supplier submit) ships — flip ADOBE_ESIGN_READY then. -->
-          <div class="tw:flex tw:justify-between" :class="ADOBE_ESIGN_READY ? '' : 'tw:opacity-50'">
+          <div
+            class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3"
+            :class="ADOBE_ESIGN_READY ? '' : 'tw:opacity-50'"
+          >
             <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
               <BaseSwitch
                 v-model="step.adobeEsignRequired"
@@ -351,7 +540,6 @@ watch(
               Allow adding child steps at runtime
             </span>
           </label>
-        </div>
       </div>
     </div>
 
@@ -393,17 +581,27 @@ watch(
       </div>
     </div>
 
-    <!-- Form Schema — APPROVAL steps are comment-only, so the form
-         builder is hidden when the type is APPROVAL even if the
-         parent flagged showFormSchema. -->
-    <WorkflowStepFormSchema
-      v-if="showFormSchema && step.stepType === 'ACTION'"
-      :stepId="stepId"
-      :canUpdate="canUpdate"
-    />
+    <!-- ── Tab: Task Form — APPROVAL steps are comment-only, so this tab is
+         hidden when the type is APPROVAL even if the parent flagged
+         showFormSchema. ACTION and DELAY steps both capture data (a DELAY
+         step's form is its evidence, e.g. the effectiveness-check record). -->
+    <div v-show="activeTab === 'form'" class="tw:space-y-4">
+      <div
+        v-if="missingTaskForm"
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-warning/10 tw:border tw:border-warning/30"
+      >
+        <IconAlertCircle :size="16" class="tw:text-warning tw:shrink-0 tw:mt-0.5" />
+        <p class="tw:text-xs tw:text-warning">
+          <strong>This step has no task form.</strong> The assignee will only be able to add a
+          comment and mark the step complete — no data or evidence is captured. Most
+          {{ step.stepType === 'DELAY' ? 'Delay' : 'Action' }} steps should collect something.
+        </p>
+      </div>
+      <WorkflowStepFormSchema v-if="showTaskFormTab" :stepId="stepId" :canUpdate="canUpdate" />
+    </div>
 
-    <!-- Step Assignee -->
-    <div class="tw:space-y-4">
+    <!-- ── Tab: Assignees ─────────────────────────────────────────────── -->
+    <div v-show="activeTab === 'assignees'" class="tw:space-y-4">
       <BaseSectionHeader
         title="Step Assignees"
         :icon="IconUsers"

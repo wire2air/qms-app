@@ -16,6 +16,13 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  // By default only APPROVED suppliers are selectable. Set true to include every
+  // supplier (e.g. linking suppliers to an Item, where a link can predate
+  // approval and must not be silently dropped).
+  allStatuses: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const modelValue = defineModel({
@@ -23,10 +30,13 @@ const modelValue = defineModel({
   default: null,
 })
 
-const suppliers = useLiveQuery((db) => db.Supplier.where('statusId', 'APPROVED').exec(), {
-  models: ['Supplier'],
-  initial: [],
-})
+const suppliers = useLiveQuery(
+  (db) => (props.allStatuses ? db.Supplier.where().exec() : db.Supplier.where('statusId', 'APPROVED').exec()),
+  {
+    models: ['Supplier'],
+    initial: [],
+  },
+)
 
 const resolvedNullLabel = computed(
   () => props.nullLabel ?? (props.isFilter ? '— All suppliers —' : '— Select supplier —'),

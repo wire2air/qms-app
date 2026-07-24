@@ -7,6 +7,7 @@ import {
   IconRestore,
   IconTrash,
   IconChevronLeft,
+  IconAlertCircle,
 } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
@@ -239,9 +240,12 @@ async function handleDeleteDraft() {
       router.push(getCompanyPath('/workflow-templates'))
       return
     }
-    // Published version(s) exist → discard just this draft version
-    // (soft-delete); the versions watcher reselects another version.
-    await selectedVersion.value.delete()
+    // Published version(s) exist → discard just this draft version. HARD-delete
+    // it (steps cascade) so its version number is freed for reuse — the unique
+    // (workflow, major, minor) index isn't partial, so a soft-deleted draft
+    // would otherwise block re-creating that version. The versions watcher
+    // reselects another version.
+    await selectedVersion.value.hardDelete()
     toast.success('Draft discarded')
     selectedVersionId.value = null
   } catch (err) {
@@ -253,21 +257,61 @@ async function handleDeleteDraft() {
 
 // --- Handlers ---
 
-const handlePublish = useLiveMutation(async () => {
+// ─── Publish readiness ────────────────────────────────────────────────────────
+// Publishing opens a readiness checklist instead of firing blind: WARNINGS for
+// Action/Delay steps with no task form (assignee could only comment — almost
+// always a config gap) and INFO notes for role-less steps (allowed by design —
+// the submitter picks any active user). Nothing hard-blocks; the user confirms
+// with eyes open.
+const allStepRoles = useLiveQueryWithDeps(
+  [() => steps.value.map((s) => s.id).join(',')],
+  async (db, [idsStr]) => {
+    if (!idsStr) return []
+    const lists = await Promise.all(
+      idsStr.split(',').map((id) => db.WorkflowStepRole.where('stepId', id).exec()),
+    )
+    return lists.flat()
+  },
+
+  { models: ['WorkflowStepRole'], initial: [] },
+)
+
+const publishReadiness = computed(() => {
+  const warnings = []
+  const infos = []
+  const roleStepIds = new Set(allStepRoles.value.map((r) => r.stepId))
+  const ordered = [...steps.value].sort((a, b) => (a.stepOrder ?? 0) - (b.stepOrder ?? 0))
+  for (const s of ordered) {
+    const label = `Step ${s.stepOrder} — ${s.name || 'Untitled'}`
+    if (showFormSchema.value && s.stepType !== 'APPROVAL' && (s.formSchema?.length ?? 0) === 0) {
+      warnings.push(
+        `${label}: no task form. The assignee can only comment and mark complete — no data is captured.`,
+      )
+    }
+    if (!roleStepIds.has(s.id)) {
+      infos.push(`${label}: no roles assigned — the submitter will pick any active user.`)
+    }
+  }
+  return { warnings, infos }
+})
+
+const showPublishDialog = ref(false)
+
+function handlePublish() {
   if (!isDraftVersion.value) {
     toast.warning('Switch to a draft version to publish.')
     return
   }
+  showPublishDialog.value = true
+}
 
-  // Role assignment is OPTIONAL — a step without any role just means the
-  // submit-time picker will show all active users. So publishing a draft
-  // with role-less steps is allowed; no gate here.
-
+const executePublish = useLiveMutation(async () => {
   publishing.value = true
   try {
     selectedVersion.value.statusId = 'PUBLISHED'
     await selectedVersion.value.save()
     toast.success('Workflow published successfully')
+    showPublishDialog.value = false
   } finally {
     publishing.value = false
   }
@@ -276,9 +320,10 @@ const handlePublish = useLiveMutation(async () => {
 const creatingDraft = ref(false)
 
 const createDraftMutation = useLiveMutation(async (db, { workflowId, majorBump }) => {
-  const sourceVersions = await db.WorkflowVersion.where('workflowId', workflowId, {
-    force: true,
-  }).exec()
+  // Base the new draft on LIVE versions only (not soft-deleted/discarded ones),
+  // so the version number reuses a freed slot instead of ever-incrementing, and
+  // the clone source is the current published/draft version — not a discarded one.
+  const sourceVersions = await db.WorkflowVersion.where('workflowId', workflowId).exec()
   const sortedVersions = sourceVersions.sort((a, b) => {
     if (a.versionMajor !== b.versionMajor) {
       return b.versionMajor - a.versionMajor
@@ -312,8 +357,14 @@ const createDraftMutation = useLiveMutation(async (db, { workflowId, majorBump }
       name: step.name,
       description: step.description,
       stepOrder: step.stepOrder,
+      // stepType was silently dropped here before the DELAY feature —
+      // APPROVAL/DELAY steps reverted to ACTION on every version bump.
+      stepType: step.stepType ?? 'ACTION',
       approvalRule: step.approvalRule,
       slaDays: step.slaDays,
+      delayDays: step.delayDays ?? null,
+      delayUntilDate: step.delayUntilDate ?? null,
+      maxDelayExtensions: step.maxDelayExtensions ?? null,
       requireComments: step.requireComments,
       requireEsignature: step.requireEsignature,
       allowChildSteps: step.allowChildSteps ?? false,
@@ -534,8 +585,11 @@ watch(steps, () => {
         </span>
       </div>
 
-      <!-- Global Settings -->
-      <div class="tw:flex tw:flex-col tw:bg-main tw:border-b tw:border-divider tw:px-6 tw:py-4">
+      <!-- Global Settings — one compact row: name + description side by side
+           so the strip doesn't eat vertical space the designer needs. -->
+      <div
+        class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_2fr] tw:gap-4 tw:bg-main tw:border-b tw:border-divider tw:px-6 tw:py-3"
+      >
         <BaseField v-slot="{ id: fieldId }" label="Workflow Name">
           <BaseTextInput
             :id="fieldId"
@@ -552,9 +606,8 @@ watch(steps, () => {
           label="Description"
           placeholder="Describe the purpose of this workflow"
           :disabled="!canUpdate"
-          class="tw:mt-4"
           autosize
-          :maxRows="4"
+          :maxRows="2"
         />
       </div>
 
@@ -575,7 +628,9 @@ watch(steps, () => {
           class="tw:flex tw:flex-1 tw:flex-col tw:overflow-y-auto tw:bg-main tw:p-4 tw:md:p-8"
           :class="!selectedStepId && 'tw:max-lg:hidden'"
         >
-          <div v-if="selectedStepId" class="tw:w-full tw:max-w-4xl tw:mx-auto tw:space-y-10">
+          <!-- Left-aligned next to the step list (was mx-auto centered, which
+               left a dead gap between the list and the editor). -->
+          <div v-if="selectedStepId" class="tw:w-full tw:max-w-5xl tw:space-y-8">
             <!-- Mobile-only: return to the step list -->
             <button
               type="button"
@@ -607,5 +662,72 @@ watch(steps, () => {
         </div>
       </div>
     </template>
+
+    <!-- Publish readiness — checklist confirm instead of blind publish -->
+    <BaseDialog v-model="showPublishDialog" title="Publish Workflow" maxWidth="lg">
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+        <div
+          v-if="!publishReadiness.warnings.length && !publishReadiness.infos.length"
+          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-good/10 tw:border tw:border-good/30"
+        >
+          <IconCheck :size="16" class="tw:text-good tw:shrink-0 tw:mt-0.5" />
+          <p class="tw:text-sm tw:text-on-main">
+            All steps have task forms and assignees. Publishing makes
+            <strong>v{{ versionLabel }}</strong> the active version for new records.
+          </p>
+        </div>
+
+        <div
+          v-if="publishReadiness.warnings.length"
+          class="tw:rounded-lg tw:bg-warning/10 tw:border tw:border-warning/30 tw:p-3 tw:space-y-2"
+        >
+          <p class="tw:text-xs tw:font-bold tw:text-warning tw:flex tw:items-center tw:gap-1.5">
+            <IconAlertCircle :size="14" /> Review before publishing
+          </p>
+          <ul class="tw:space-y-1">
+            <li
+              v-for="(w, i) in publishReadiness.warnings"
+              :key="`w${i}`"
+              class="tw:text-xs tw:text-warning"
+            >
+              {{ w }}
+            </li>
+          </ul>
+        </div>
+
+        <div
+          v-if="publishReadiness.infos.length"
+          class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30 tw:p-3 tw:space-y-2"
+        >
+          <p class="tw:text-xs tw:font-semibold tw:text-secondary">Good to know</p>
+          <ul class="tw:space-y-1">
+            <li
+              v-for="(n, i) in publishReadiness.infos"
+              :key="`i${i}`"
+              class="tw:text-xs tw:text-secondary"
+            >
+              {{ n }}
+            </li>
+          </ul>
+        </div>
+
+        <p
+          v-if="publishReadiness.warnings.length"
+          class="tw:text-caption tw:text-secondary"
+        >
+          You can publish anyway, or go back and add task forms first (Task Form tab on each
+          step).
+        </p>
+      </div>
+      <template #footer="{ close }">
+        <BaseDialogFooter
+          :submitLabel="publishReadiness.warnings.length ? 'Publish Anyway' : 'Publish'"
+          :loading="publishing"
+          :disabled="publishing"
+          @cancel="close"
+          @submit="executePublish"
+        />
+      </template>
+    </BaseDialog>
   </div>
 </template>

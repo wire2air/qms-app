@@ -12,6 +12,7 @@ const templates = useLiveQuery(
   async (db) => {
     const rows = await db.FormTemplate.where('statusId', 'ACTIVE').exec()
     return rows
+      .filter((t) => t.kind !== 'BLOCK') // blocks are fragments, not public-form backers
       .map((t) => ({ id: t.id, name: t.title || t.code }))
       .sort((a, b) => a.name.localeCompare(b.name))
   },

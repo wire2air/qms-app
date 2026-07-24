@@ -240,6 +240,13 @@ declare module 'vue-router/auto-routes' {
       { templateId: ParamValue<false> },
       | never
     >,
+    '/form-blocks': RouteRecordInfo<
+      '/form-blocks',
+      '/form-blocks',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/form-templates': RouteRecordInfo<
       '/form-templates',
       '/form-templates',
@@ -912,6 +919,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/form/[templateId].vue': {
       routes:
         | '/form/[templateId]'
+      views:
+        | never
+    }
+    'src/pages/form-blocks.vue': {
+      routes:
+        | '/form-blocks'
       views:
         | never
     }

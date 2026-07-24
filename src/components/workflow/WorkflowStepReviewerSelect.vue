@@ -37,6 +37,11 @@ const props = defineProps({
   // Synthesized steps (admin-defined modules) have no WorkflowStepRole rows yet
   // — pass their role ids directly. When null, fall back to querying by step.id.
   roleIds: { type: Array, default: null },
+  // Opt-in smart default (internal steps only): prefer this user if they hold
+  // the step's role, else their department supervisor if they hold it, else the
+  // first candidate. Used by the QC disposition submit (prefer the submitter).
+  // Omit (null) to keep the plain first-candidate default (NC/CAPA behaviour).
+  preferUserId: { type: String, default: null },
 })
 
 const modelValue = defineModel({ type: String, default: null })
@@ -135,6 +140,24 @@ const candidateUsers = computed(() =>
   usesSupplierPicker.value ? supplierCandidates.value : internalCandidates.value,
 )
 
+// Smart-default support: the preferred user + their department supervisor.
+// (No `initial` on supervisorId so we can wait for it to resolve before
+// falling back to the first candidate.)
+const preferUser = useLiveQueryWithDeps(
+  [() => props.preferUserId],
+  async (db, [id]) => (id ? db.User.findByPk(id) : null),
+  { models: ['User'] },
+)
+const supervisorId = useLiveQueryWithDeps(
+  [() => preferUser.value?.departmentId],
+  async (db, [deptId]) => {
+    if (!deptId) return null
+    const dept = await db.Department.findByPk(deptId)
+    return dept?.supervisorUserId ?? null
+  },
+  { models: ['Department'] },
+)
+
 // Auto-select sensible default on the first required step:
 //  - Approval on a supplier-facing entity → prefer the owner (CFR-21
 //    attestation rule). Falls back to first role-eligible internal
@@ -142,8 +165,16 @@ const candidateUsers = computed(() =>
 //  - Anywhere else → first available candidate.
 let autoSelectDone = false
 watch(
-  [candidateUsers, modelValue, usesSupplierPicker, () => props.ownerId, internalCandidates],
-  ([users, currentId, supplierMode, ownerId, internals]) => {
+  [
+    candidateUsers,
+    modelValue,
+    usesSupplierPicker,
+    () => props.ownerId,
+    internalCandidates,
+    () => props.preferUserId,
+    supervisorId,
+  ],
+  ([users, currentId, supplierMode, ownerId, internals, preferId, supId]) => {
     if (!props.required || autoSelectDone) return
     if (currentId != null) {
       autoSelectDone = true
@@ -158,6 +189,23 @@ watch(
       }
     }
     if (!users.length) return
+    // Opt-in smart default (internal steps): prefer user → their supervisor → first.
+    if (preferId && !supplierMode) {
+      const self = users.find((u) => u.id === preferId)
+      if (self) {
+        autoSelectDone = true
+        modelValue.value = self.id
+        return
+      }
+      // Wait for the supervisor lookup before falling back to the first candidate.
+      if (supId === undefined) return
+      const supervisor = supId ? users.find((u) => u.id === supId) : null
+      if (supervisor) {
+        autoSelectDone = true
+        modelValue.value = supervisor.id
+        return
+      }
+    }
     autoSelectDone = true
     modelValue.value = users[0].id
   },

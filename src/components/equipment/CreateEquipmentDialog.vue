@@ -45,7 +45,14 @@ const supplierId = ref(null)
 const ownerUserId = ref(null)
 const statusId = ref('IN_SERVICE')
 const requiresCalibration = ref(false)
-const calibrationIntervalMonths = ref(null)
+const calibrationInterval = ref(null)
+const calibrationIntervalUnit = ref('MONTH')
+const CALIBRATION_UNITS = [
+  { label: 'Days', value: 'DAY' },
+  { label: 'Weeks', value: 'WEEK' },
+  { label: 'Months', value: 'MONTH' },
+  { label: 'Years', value: 'YEAR' },
+]
 const locationText = ref('')
 const notes = ref('')
 // Date fields — bound to <input type="date"> which speaks
@@ -110,7 +117,8 @@ watch(open, (isOpen) => {
   ownerUserId.value = e?.ownerUserId ?? null
   statusId.value = e?.statusId ?? 'IN_SERVICE'
   requiresCalibration.value = e?.requiresCalibration ?? false
-  calibrationIntervalMonths.value = e?.calibrationIntervalMonths ?? null
+  calibrationInterval.value = e?.calibrationInterval ?? null
+  calibrationIntervalUnit.value = e?.calibrationIntervalUnit ?? 'MONTH'
   locationText.value = e?.locationText ?? ''
   notes.value = e?.notes ?? ''
   installedAt.value = toDateInput(e?.installedAt)
@@ -154,9 +162,10 @@ function buildModelFields() {
     ownerUserId: ownerUserId.value || null,
     statusId: statusId.value,
     requiresCalibration: requiresCalibration.value,
-    calibrationIntervalMonths: requiresCalibration.value
-      ? Number(calibrationIntervalMonths.value) || null
+    calibrationInterval: requiresCalibration.value
+      ? Number(calibrationInterval.value) || null
       : null,
+    calibrationIntervalUnit: calibrationIntervalUnit.value,
     locationText: locationText.value?.trim() || null,
     notes: notes.value?.trim() || null,
     installedAt: toDateTime(installedAt.value),
@@ -186,9 +195,10 @@ function buildPayload() {
     ownerUserId: ownerUserId.value || null,
     statusId: statusId.value,
     requiresCalibration: requiresCalibration.value,
-    calibrationIntervalMonths: requiresCalibration.value
-      ? Number(calibrationIntervalMonths.value) || null
+    calibrationInterval: requiresCalibration.value
+      ? Number(calibrationInterval.value) || null
       : null,
+    calibrationIntervalUnit: calibrationIntervalUnit.value,
     locationText: locationText.value?.trim() || null,
     notes: notes.value?.trim() || null,
     // Dates: empty string from the date input → null; otherwise send
@@ -387,25 +397,32 @@ function close() {
             <BaseCheckbox v-model="requiresCalibration" />
             <span class="tw:text-sm tw:font-medium tw:text-on-main">Requires calibration</span>
           </label>
-          <div v-if="requiresCalibration" class="tw:w-48">
-            <BaseField
-              label="Calibration interval (months)"
-              required
-              :value="calibrationIntervalMonths"
-              :rules="[required(), minValue(1)]"
-            >
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model.number="calibrationIntervalMonths"
-                  type="number"
-                  min="1"
-                  placeholder="e.g. 12"
-                />
-              </template>
-            </BaseField>
+          <div v-if="requiresCalibration">
+            <div class="tw:flex tw:items-end tw:gap-3">
+              <BaseField
+                label="Calibration interval"
+                required
+                :value="calibrationInterval"
+                :rules="[required(), minValue(1)]"
+                class="tw:w-28"
+              >
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model.number="calibrationInterval"
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 1"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Unit" class="tw:flex-1 tw:min-w-56">
+                <SegmentedControl v-model="calibrationIntervalUnit" :options="CALIBRATION_UNITS" />
+              </BaseField>
+            </div>
             <div class="tw:text-caption tw:text-secondary tw:mt-1">
-              Used to roll the next-due date forward when a calibration is recorded.
+              Used to roll the next-due date forward when a calibration is recorded — e.g.
+              <strong>1 Day</strong> for a pH meter, or <strong>12 Months</strong> for a balance.
             </div>
           </div>
         </div>

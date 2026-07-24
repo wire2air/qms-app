@@ -36,8 +36,9 @@ function reset() {
         name: t.name ?? '',
         description: t.description ?? '',
         inspectionPoint: t.inspectionPoint ?? 'INCOMING',
-        scope: t.productId ? 'product' : 'productType',
+        scope: t.productId ? 'product' : t.productFamilyId ? 'family' : 'productType',
         productId: t.productId ?? null,
+        productFamilyId: t.productFamilyId ?? null,
         productTypeId: t.productTypeId ?? null,
         specificationId: t.specificationId ?? null,
         samplingPlanId: t.samplingPlanId ?? null,
@@ -56,6 +57,7 @@ function reset() {
         inspectionPoint: 'INCOMING',
         scope: 'product',
         productId: null,
+        productFamilyId: null,
         productTypeId: null,
         specificationId: null,
         samplingPlanId: null,
@@ -82,6 +84,7 @@ async function onSubmit() {
       description: f.description?.trim() || null,
       inspectionPoint: f.inspectionPoint,
       productId: f.scope === 'product' ? f.productId : null,
+      productFamilyId: f.scope === 'family' ? f.productFamilyId : null,
       productTypeId: f.scope === 'productType' ? f.productTypeId : null,
       specificationId: f.specificationId || null,
       samplingPlanId: f.samplingPlanId || null,
@@ -134,48 +137,60 @@ async function onSubmit() {
               />
             </template>
           </BaseField>
+          <BaseField
+            label="Inspection point"
+            required
+            :value="form.inspectionPoint"
+            :rules="[required()]"
+          >
+            <template #default="field">
+              <SegmentedControl
+                v-bind="field"
+                v-model="form.inspectionPoint"
+                :options="POINTS"
+                optionLabel="name"
+                optionValue="id"
+              />
+            </template>
+          </BaseField>
           <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-            <BaseField
-              label="Inspection point"
-              required
-              :value="form.inspectionPoint"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <BaseInlineSelect
-                  v-bind="field"
-                  v-model="form.inspectionPoint"
-                  :items="POINTS"
-                  :required="true"
-                  class="tw:w-full"
-                />
-              </template>
-            </BaseField>
             <BaseField label="Scope">
-              <BaseInlineSelect
+              <SegmentedControl
                 v-model="form.scope"
-                :items="[
-                  { id: 'product', name: 'Specific product' },
-                  { id: 'productType', name: 'Product type' },
+                :options="[
+                  { label: 'Specific item', value: 'product' },
+                  { label: 'Item group', value: 'family' },
+                  { label: 'Item type', value: 'productType' },
                 ]"
-                :required="true"
-                class="tw:w-full"
               />
             </BaseField>
           </div>
           <BaseField
             required
-            :value="form.scope === 'product' ? form.productId : form.productTypeId"
+            :value="
+              form.scope === 'product'
+                ? form.productId
+                : form.scope === 'family'
+                  ? form.productFamilyId
+                  : form.productTypeId
+            "
             :rules="[required()]"
           >
             <template #label>
-              {{ form.scope === 'product' ? 'Product' : 'Product type' }}
+              {{ form.scope === 'product' ? 'Item' : form.scope === 'family' ? 'Item group' : 'Item type' }}
             </template>
             <template #default="field">
               <ProductSelectMenu
                 v-if="form.scope === 'product'"
                 v-bind="field"
                 v-model="form.productId"
+                class="tw:w-full"
+              />
+              <ProductFamilySelectMenu
+                v-else-if="form.scope === 'family'"
+                v-bind="field"
+                v-model="form.productFamilyId"
+                :required="true"
                 class="tw:w-full"
               />
               <ProductTypeSelectMenu

@@ -49,6 +49,11 @@
   /* Divider / Border */
   --color-divider: var(--divider);
 
+  /* Input border — a step stronger than the hairline divider, for interactive
+   * form controls (text inputs, textareas, selects, checkboxes, radios) so their
+   * edges are clearly visible. Hairlines/card borders keep using --color-divider. */
+  --color-input-border: var(--input-border);
+
   --color-placeholder: var(--placeholder);
 
   /* Surface — card (= raised panel surface; flips white→dark via --sidebar) */
@@ -181,6 +186,8 @@
 
     /* Divider / Border */
     --divider: #e5e7eb;
+    /* Input control border — darker than the hairline so fields read clearly. */
+    --input-border: #cbd5e1;
 
     /* Placeholder/muted text. Darkened from #9ca3af (2.55:1 on white — fails
      * WCAG AA) to #6b7280 (4.9:1 — passes). Dark-mode placeholder stays #9ca3af
@@ -234,6 +241,9 @@
 
     /* Divider / Border */
     --divider: #2d3748;
+    /* Input control border — lighter than the hairline so fields read clearly
+     * against the dark surface. */
+    --input-border: #4a5568;
     --placeholder: #9ca3af;
 
     /* Card surface = dark panel (= sidebar) in dark mode */
@@ -351,5 +361,5 @@ button {
 }
 
 select {
-  @apply tw:text-sm tw:border tw:border-divider tw:rounded-lg tw:bg-sidebar tw:text-on-sidebar tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/30;
+  @apply tw:text-sm tw:border tw:border-input-border tw:rounded-lg tw:bg-sidebar tw:text-on-sidebar tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/30;
 }
