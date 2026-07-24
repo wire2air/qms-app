@@ -317,15 +317,9 @@ const navItems = computed(() => {
       permissions: ['inspection_qc:read'],
       to: getCompanyPath('/qc-inspection'),
     },
-    {
-      // Floor-user logging entry — mobile-first dashboard (pick a log
-      // book → fill) + My Tasks. The route wrapped in the iOS/Android
-      // WebView later. Distinct from the admin "Inspections & Logs".
-      label: 'Logging',
-      icon: IconClipboardCheck,
-      permissions: ['field_records:create'],
-      to: getCompanyPath('/logging'),
-    },
+    // The phone-first /logging portal left the desktop menu (user decision
+    // 2026-07-24) — it's shared from Inspections & Logs → "Mobile Portal"
+    // (QR + link for floor/warehouse phones) until the native app wraps it.
     {
       label: 'Training',
       icon: IconSchool,

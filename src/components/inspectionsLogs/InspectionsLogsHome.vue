@@ -7,6 +7,7 @@ import {
   IconHistory,
   IconStack2,
   IconPlus,
+  IconDeviceMobile,
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -81,6 +82,8 @@ const stats = computed(() => {
 function go(path) {
   router.push(getCompanyPath(path))
 }
+
+const showMobilePortal = ref(false)
 </script>
 
 <template>
@@ -95,6 +98,12 @@ function go(path) {
         </span>
       </template>
       <template #actions>
+        <!-- Phone-first floor portal — share via QR/link (replaced the old
+             "Logging" nav entry; a native app wraps the route later). -->
+        <BaseButton variant="outline" @click="showMobilePortal = true">
+          <IconDeviceMobile :size="16" />
+          Mobile Portal
+        </BaseButton>
         <BaseButton
           v-if="canCreateTemplate"
           variant="primary"
@@ -266,4 +275,6 @@ function go(path) {
       </div>
     </div>
   </BasePage>
+
+  <MobileLoggingPortalDialog v-model="showMobilePortal" />
 </template>
