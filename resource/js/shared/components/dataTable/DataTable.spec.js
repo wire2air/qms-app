@@ -215,6 +215,37 @@ describe('DataTable — toolbar features', () => {
     expect(w.find('tbody tr[data-index]').text()).toContain('Alice')
   })
 
+  it('matches a column by its searchValue accessor, not the raw field (DC-L-03)', () => {
+    const cols = [
+      { name: 'name', label: 'Name', field: 'name' },
+      // id column whose display value is a resolved name (like documents' department/owner)
+      { name: 'dept', label: 'Department', field: 'deptId', searchValue: (row) => ({ d1: 'Quality', d2: 'Engineering' })[row.deptId] },
+    ]
+    const data = [
+      { id: 1, name: 'Alice', deptId: 'd1' },
+      { id: 2, name: 'Bob', deptId: 'd2' },
+    ]
+    // Searching the resolved name matches; the raw id ('d1') would not.
+    const w = mount(DataTable, {
+      props: { columns: cols, rows: data, searchable: true, search: 'quality', hidePagination: true },
+    })
+    expect(w.findAll('tbody tr[data-index]')).toHaveLength(1)
+    expect(w.find('tbody tr[data-index]').text()).toContain('Alice')
+  })
+
+  it('omits searchable:false columns from matching (DC-L-03)', () => {
+    const cols = [
+      { name: 'name', label: 'Name', field: 'name' },
+      { name: 'actions', label: 'Actions', field: 'actions', searchable: false },
+    ]
+    const data = [{ id: 1, name: 'Alice', actions: 'edit-delete' }]
+    // A term present only in the non-searchable column matches nothing.
+    const w = mount(DataTable, {
+      props: { columns: cols, rows: data, searchable: true, search: 'edit-delete', hidePagination: true },
+    })
+    expect(w.findAll('tbody tr[data-index]')).toHaveLength(0)
+  })
+
   it('hides columns declared `hidden: true` by default (still toggleable)', () => {
     const cols = [
       { name: 'name', label: 'Name', field: 'name' },

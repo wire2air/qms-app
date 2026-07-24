@@ -117,6 +117,28 @@ const workflowInstanceId = computed(() => workflowInstance.value?.id ?? null)
 // top "Approve & Close" action. Approving it completes the workflow, which
 // auto-closes the complaint (see complaintHandler.onComplete).
 const showEsignDialog = ref(false)
+
+// ─── QA-review workflow instance + close gating ──────────────────────────────
+// Declared before myApprovalTask below: its deps getter reads workflowInstanceId
+// during setup, so this must initialize first (else a TDZ ReferenceError).
+const workflowInstance = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    const rows = await db.WorkflowInstance.where('[resourceType+resourceId]', [
+      'Complaint',
+      id,
+    ]).exec()
+    return (
+      rows.find((w) => w.statusId === 'IN_PROGRESS') ||
+      rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))[0] ||
+      null
+    )
+  },
+  { models: ['WorkflowInstance'], initial: null },
+)
+const workflowInstanceId = computed(() => workflowInstance.value?.id ?? null)
+
 const myApprovalTask = useLiveQueryWithDeps(
   [() => workflowInstanceId.value, () => currentUserId.value],
   async (db, [wiId, uid]) => {

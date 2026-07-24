@@ -22,10 +22,14 @@ async function fetchDocument() {
     version.value = data.version
     company.value = data.company
   } catch (err) {
-    if (err.response?.status === 410) {
+    // get() throws an ApiError — status/message live on the instance itself, not
+    // on a nested axios `response`. A revoked or expired share returns 410; the
+    // old `err.response?.status` check was always undefined, so revoked links
+    // fell through to the generic error instead of the "no longer available" view.
+    if (err.status === 410) {
       expired.value = true
     } else {
-      error.value = err.response?.data?.error || err.message || 'Failed to load document'
+      error.value = err.message || 'Failed to load document'
     }
   }
 }
