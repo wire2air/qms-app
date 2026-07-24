@@ -23,15 +23,30 @@
  * spurious live-query refires.
  */
 
+import { DateTime } from 'luxon'
 import { OPERATION, LOAD_STRATEGY } from '../shared/constants.js'
 import ModelRegistry from './ModelRegistry.js'
 import { MutationRunner } from '../network/MutationRunner.js'
 import { IndexedDB } from '../persistence/IndexedDB.js'
-import { computeUpdatePatch, dehydrate, hydrate } from '../persistence/hydration.js'
+import {
+  computeUpdatePatch,
+  dehydrate,
+  hydrate,
+  serializeValue,
+} from '../persistence/hydration.js'
 import { ObjectPool } from './ObjectPool.js'
 import { syncBus } from './syncBus.js'
 import { markAsRecentlyWritten } from '../sync/socketSubscriber.js'
 import { pendingRequests } from './pendingRequests.js'
+import { snapshotEdits, clearEditsUpTo, clearAllEdits } from './editTracker.js'
+
+/** Current-time value matching a @Property's declared type (mirrors BaseModel's timestamp fill). */
+function nowForType(type) {
+  if (type === Number) return Date.now()
+  if (type === String) return new Date().toISOString()
+  if (type === DateTime) return DateTime.now()
+  return new Date()
+}
 
 /**
  * Per-instance save state — keyed by "ModelName:pk".
@@ -60,6 +75,7 @@ export async function directSaveStrategy(instance) {
   // LOCAL strategy: just write to IDB (no network), no queueing needed.
   if (schema.loadStrategy === LOAD_STRATEGY.LOCAL) {
     await dehydrate(modelName, instance)
+    clearAllEdits(instance)
     syncBus.emit({ modelName, modelId: id, action: instance.action, type: 'transactionCommitted' })
     return
   }
@@ -124,10 +140,31 @@ async function _executeSave(instance, schema, pk, id, tableName) {
   // fired but the user reverted, or a previous save already committed all
   // pending edits), return without a network round trip.
   let patch = null
+  let editSnapshot = null
   if (action === OPERATION.UPDATE) {
     const previousRecord = await IndexedDB.get(tableName, id)
     patch = computeUpdatePatch(modelName, instance, previousRecord)
     if (Object.keys(patch).length === 0) return
+
+    // Stamp @Property({ autoUpdate: true }) fields (updatedAt) into a real,
+    // non-empty patch. Nothing server-side bumps updated_at on a PostGraphile
+    // UPDATE, and the diff alone never includes it (it always equals the IDB
+    // copy) — without this, updates keep their creation-time updated_at and
+    // the updatedAt-watermark delta-sync silently skips them on the next
+    // bootstrap. Only stamped when there IS a change, so no-op saves stay
+    // network-free.
+    for (const [key, propMeta] of schema.properties) {
+      if (!propMeta.options?.autoUpdate) continue
+      if (propMeta.options?.excludeFromGraphQL?.includes('update')) continue
+      instance[key] = nowForType(propMeta.options.type)
+      patch[key] = serializeValue(instance[key], propMeta)
+    }
+
+    // Snapshot the unflushed-edit set that this patch is flushing. Taken
+    // synchronously right after patch computation, so an edit made during the
+    // network flight gets a NEWER sequence and survives the post-ack clear —
+    // keeping it protected from the response hydrate until its own save runs.
+    editSnapshot = snapshotEdits(instance)
   }
 
   // Mark as pending BEFORE the network request so socket echo events arriving
@@ -145,13 +182,20 @@ async function _executeSave(instance, schema, pk, id, tableName) {
   if (action === OPERATION.DELETE) {
     await IndexedDB.delete(tableName, id)
     ObjectPool.unregister(modelName, id)
+    clearAllEdits(instance)
   } else if (serverRecord) {
     await IndexedDB.put(tableName, serverRecord)
     // Refresh the echo-suppression window now that we have the server ack.
     markAsRecentlyWritten(modelName, id)
+    // The server acked everything this save carried: clear exactly the edits
+    // the patch flushed (UPDATE) or all of them (CREATE sends every field).
+    // Edits made during the flight keep a newer sequence and stay protected.
+    if (action === OPERATION.CREATE) clearAllEdits(instance)
+    else if (editSnapshot) clearEditsUpTo(instance, editSnapshot)
     // Re-hydrate the pooled instance from the freshly-written server record so
     // the in-memory model reflects what the server actually persisted (which
     // may include server-set fields like updatedAt, server defaults, etc.).
+    // Fields still marked edited (changed mid-flight) are preserved by hydrate.
     await hydrate(modelName, id, {}, serverRecord)
   } else {
     // No server record returned for a non-DELETE — the mutation succeeded but
@@ -160,6 +204,7 @@ async function _executeSave(instance, schema, pk, id, tableName) {
       `[directSaveStrategy] ${action} for ${modelName}:${id} returned no record; persisting local state`,
     )
     await dehydrate(modelName, instance)
+    clearAllEdits(instance)
   }
 
   syncBus.emit({ modelName, modelId: id, action, type: 'transactionCommitted' })
