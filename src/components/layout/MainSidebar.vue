@@ -401,14 +401,10 @@ const navItems = computed(() => {
           icon: IconShieldCheck,
           to: getCompanyPath('/admin-security'),
         },
-        {
-          // Read-only ledger of platform-operator (vendor) actions on this
-          // workspace — the tenant-visible transparency surface.
-          label: 'Vendor Access',
-          permissions: ['security:manage'],
-          icon: IconShield,
-          to: getCompanyPath('/vendor-access-log'),
-        },
+        // Vendor Access (platform-operator transparency ledger at
+        // /vendor-access-log) was removed from the menu 2026-07-24 (user
+        // decision) — page + API remain reachable by direct URL for
+        // security:manage holders.
         {
           // Config-driven notification engine (entity create / status-change →
           // notify groups / people / owner / initiator over in-app + email).
