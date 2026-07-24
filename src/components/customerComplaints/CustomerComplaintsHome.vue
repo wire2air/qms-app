@@ -6,6 +6,7 @@ import {
   IconCircleCheck,
   IconChevronDown,
   IconChartBar,
+  IconSettings,
 } from '@tabler/icons-vue'
 import { isAllowed, isVerbAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -20,6 +21,7 @@ const toast = useToast()
 const { confirm } = useConfirm()
 
 const canCreate = computed(() => isAllowed(['complaint_management:create']))
+const canConfigure = computed(() => isAllowed(['complaint_management:update']))
 const canUpdate = computed(() => isAllowed(['complaint_management:update']))
 const canDelete = computed(() => isAllowed(['complaint_management:delete']))
 // Bulk Close / Assign are workflow verbs, not plain edits — gating them on
@@ -379,6 +381,16 @@ function onNewComplaint() {
     :selectedCount="selectedIds.length"
   >
     <template #actions>
+      <!-- Module settings (email channels, intake forms…) — lives here instead
+           of the global Settings menu (user decision 2026-07-24). -->
+      <BaseButton
+        v-if="canConfigure"
+        variant="ghost"
+        aria-label="Complaint settings"
+        @click="router.push(getCompanyPath('/complaint-settings'))"
+      >
+        <IconSettings :size="18" />
+      </BaseButton>
       <BaseButton
         variant="secondary"
         @click="router.push(getCompanyPath('/customer-complaints/reports'))"

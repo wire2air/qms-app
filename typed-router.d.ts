@@ -506,6 +506,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/qc-inspection/retain-samples/[id]': RouteRecordInfo<
+      '/qc-inspection/retain-samples/[id]',
+      '/qc-inspection/retain-samples/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
     '/qc-inspection/specifications/[id]': RouteRecordInfo<
       '/qc-inspection/specifications/[id]',
       '/qc-inspection/specifications/:id',
@@ -1147,6 +1154,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/qc-inspection/lots/[id].vue': {
       routes:
         | '/qc-inspection/lots/[id]'
+      views:
+        | never
+    }
+    'src/pages/qc-inspection/retain-samples/[id].vue': {
+      routes:
+        | '/qc-inspection/retain-samples/[id]'
       views:
         | never
     }

@@ -270,15 +270,10 @@ const navItems = computed(() => {
       to: getCompanyPath('/qualityEvents'),
     },
     {
-      label: 'Customer Complaints',
-      permissions: ['complaint_management:read'],
-      icon: IconHeadset,
-      to: getCompanyPath('/customer-complaints'),
-    },
-    {
       // Standalone QMS quality complaints (the `complaints` table) with the
       // QA-review workflow — an independent module from the support Customer
-      // Complaints entry above (which is backed by customer_complaints).
+      // Complaints entry (below, next to App Builder — it's the support-desk
+      // surface, not a core QMS record).
       label: 'Complaints',
       permissions: ['complaints:read'],
       icon: IconMessageReport,
@@ -377,6 +372,14 @@ const navItems = computed(() => {
       icon: IconTable,
       to: getCompanyPath('/records'),
     },
+    {
+      // Support-desk complaint tickets (web/forms/email intake). Its module
+      // settings live on the page itself (gear icon), not in Settings.
+      label: 'Customer Complaints',
+      permissions: ['complaint_management:read'],
+      icon: IconHeadset,
+      to: getCompanyPath('/customer-complaints'),
+    },
     {}, // Divider
     {
       // Template-authoring surfaces — mirrors the "Templates" section of the
@@ -393,18 +396,12 @@ const navItems = computed(() => {
         },
         {
           // Reusable form fragments (kind='BLOCK') — first-class nav item with
-          // its OWN authz module (form_blocks:*). Form Templates below stays a
-          // separate case-by-case surface (eventually an add-on module builder).
+          // its OWN authz module (form_blocks:*). Standalone Form Templates
+          // moved into the App Builder workspace (Forms tab).
           label: 'Form Blocks',
           permissions: ['form_blocks:read'],
           icon: IconStack2,
           to: getCompanyPath('/form-blocks'),
-        },
-        {
-          label: 'Form Templates',
-          permissions: ['forms_templates:read'],
-          icon: IconForms,
-          to: getCompanyPath('/templates'),
         },
         {
           label: 'Document Templates',
@@ -525,14 +522,8 @@ const navItems = computed(() => {
           icon: IconBolt,
           to: getCompanyPath('/automation-rules'),
         },
-        {
-          // The Customer Complaint module's own admin hub (email
-          // channels now; forms / custom fields / routing as they land).
-          label: 'Complaint Settings',
-          permissions: ['complaint_management:update'],
-          icon: IconHeadset,
-          to: getCompanyPath('/complaint-settings'),
-        },
+        // Complaint Settings moved onto the Customer Complaints page itself
+        // (gear icon in the header) — module settings live with the module.
         {
           label: 'Sites',
           permissions: ['sites:read'],

@@ -1,34 +1,16 @@
 <script setup>
-import { IconStack2, IconFileSettings, IconChecklist } from '@tabler/icons-vue'
-import { IconLayoutList, IconTable } from '@tabler/icons-vue'
+/**
+ * Form templates list panel — the "Forms" tab of the App Builder workspace
+ * (extracted from the old standalone formTemplatesHome page; /templates now
+ * redirects there). Standalone form templates only (kind !== 'BLOCK') —
+ * Form Blocks live on their own /form-blocks page.
+ */
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
 import { isAllowed } from '@/utils/currentSession.js'
+import { IconLayoutList, IconTable } from '@tabler/icons-vue'
 
 const router = useRouter()
-const route = useRoute()
-
-// Tabs — "Templates" (the existing form-template CRUD) and "Option Sets"
-// (moved here from a top-level sidebar entry so reusable picker options
-// live next to the templates that consume them). The standalone
-// /option-sets route still works for back-compat.
-const tabs = [
-  { value: 'templates', label: 'Templates', icon: IconFileSettings },
-  { value: 'optionsets', label: 'Option Sets', icon: IconChecklist },
-]
-const validTabIds = new Set(tabs.map((t) => t.value))
-const initialTab = validTabIds.has(route.query.tab) ? route.query.tab : 'templates'
-const activeTab = ref(initialTab)
-watch(
-  () => route.query.tab,
-  (v) => {
-    if (v && validTabIds.has(v)) activeTab.value = v
-  },
-)
-watch(activeTab, (id) => {
-  if (route.query.tab !== id) router.replace({ query: { ...route.query, tab: id } })
-})
-
 const showCreateDialog = ref(false)
 const viewMode = useCompanyLocalStorage('templates-view-mode', 'list')
 const { confirm } = useConfirm()
@@ -55,7 +37,7 @@ const templates = useLiveQueryWithDeps(
     () => filters.value.documentTypeId,
   ],
   async (db, [search, statusId, siteId, documentTypeId]) => {
-    // Standalone forms only — Form Blocks live on their own tab.
+    // Standalone forms only — Form Blocks live on their own page.
     let results = (await db.FormTemplate.where().exec()).filter((t) => t.kind !== 'BLOCK')
 
     if (statusId) {
@@ -128,62 +110,30 @@ async function onArchiveTemplate(template) {
 </script>
 
 <template>
-  <BasePage width="standard">
-    <PageHeader
-      :icon="IconStack2"
-      title="Form Templates"
-      subtitle="Manage QMS form structure + the reusable option sets that picker fields draw from."
-    >
-      <!-- "Create New Template" only on the Templates tab; Option Sets
-           tab has its own create affordance inside the embedded panel. -->
+  <div class="tw:flex tw:flex-col tw:gap-4">
+    <FormTemplatesFilterToolbar v-model:filters="filters">
       <template #actions>
-        <BaseButton
-          v-if="activeTab === 'templates' && canCreateTemplate"
-          @click="showCreateDialog = true"
-        >
-          Create New Template
+        <BaseSwitcher v-model="viewMode" :switches="viewSwitches" />
+        <BaseButton v-if="canCreateTemplate" size="sm" @click="showCreateDialog = true">
+          Create Form
         </BaseButton>
       </template>
-    </PageHeader>
+    </FormTemplatesFilterToolbar>
 
-    <!-- Tabs -->
-    <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Form template sections">
-      <div class="tw:mt-6">
-        <!-- Tab: Templates -->
-        <BaseTabPanel value="templates">
-          <FormTemplatesFilterToolbar v-model:filters="filters">
-            <template #actions>
-              <BaseSwitcher v-model="viewMode" :switches="viewSwitches" />
-            </template>
-          </FormTemplatesFilterToolbar>
+    <FormTemplatesTable
+      v-if="viewMode === 'table'"
+      :rows="templates"
+      :canUpdate="canUpdateTemplate"
+      @archive="onArchiveTemplate"
+    />
+    <div v-else class="tw:flex-1 tw:overflow-y-auto">
+      <FormTemplatesList
+        :templates="templates"
+        :canUpdate="canUpdateTemplate"
+        @archive="onArchiveTemplate"
+      />
+    </div>
 
-          <FormTemplatesTable
-            v-if="viewMode === 'table'"
-            :rows="templates"
-            :canUpdate="canUpdateTemplate"
-            @archive="onArchiveTemplate"
-          />
-          <div v-else class="tw:flex-1 tw:overflow-y-auto">
-            <FormTemplatesList
-              :templates="templates"
-              :canUpdate="canUpdateTemplate"
-              @archive="onArchiveTemplate"
-            />
-          </div>
-        </BaseTabPanel>
-
-        <!-- Tab: Option Sets — slim embedded surface (full /option-sets page
-             is still mounted at the standalone route for back-compat).
-             Form Blocks moved to their own /form-blocks page (first-class
-             sidebar item; this page stays a case-by-case surface). -->
-        <BaseTabPanel value="optionsets">
-          <OptionSetsTab />
-        </BaseTabPanel>
-      </div>
-    </BaseTabs>
-  </BasePage>
-
-  <!-- Create Template Dialog -->
-  <FormTemplateCreateTemplate v-model="showCreateDialog" @next="handleTemplateCreated" />
-
+    <FormTemplateCreateTemplate v-model="showCreateDialog" @next="handleTemplateCreated" />
+  </div>
 </template>

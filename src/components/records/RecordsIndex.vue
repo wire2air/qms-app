@@ -8,6 +8,6 @@ defineProps({
 </script>
 
 <template>
-  <RecordsHome v-if="!id" />
+  <AppBuilderHome v-if="!id" />
   <RouterView v-else :id="id" />
 </template>
