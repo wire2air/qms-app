@@ -81,6 +81,20 @@ const reviewRequired = ref(false)
 const showReferences = ref(false)
 const showCompliance = ref(false)
 
+// Optional starting point — a form block whose fields are DEEP-COPIED into
+// the new log book's schema at create. A true snapshot: editing or archiving
+// the block later never touches this book (same blocks-only + copy-on-pick
+// rule as the workflow Task Form picker; log book schemas never reference
+// form_templates).
+const formBlocks = useLiveQuery(
+  async (db) =>
+    (await db.FormTemplate.where('statusId', 'ACTIVE').exec())
+      .filter((t) => t.kind === 'BLOCK')
+      .sort((a, b) => a.title.localeCompare(b.title)),
+  { models: ['FormTemplate'], initial: [] },
+)
+const startingBlockId = ref(null)
+
 // Catalog for the Log Book Type dropdown — globals + tenant additions.
 // SyncEngine model includes both because the RLS SELECT policy allows
 // company_id NULL rows for everyone.
@@ -106,6 +120,7 @@ watch(open, (isOpen) => {
   codePrefix.value = 'FRM-{DEPTCODE}-{TYPECODE}'
   description.value = ''
   selectedSites.value = []
+  startingBlockId.value = null
   logBookTypeId.value = null
   supervisorUserId.value = null
   equipmentId.value = null
@@ -207,6 +222,9 @@ async function save() {
   isSubmitting.value = true
   saveError.value = ''
   try {
+    const startingBlock = startingBlockId.value
+      ? formBlocks.value.find((t) => t.id === startingBlockId.value)
+      : null
     const res = await post('/v1/services/logBooks', {
       title: title.value.trim(),
       codePrefix: codePrefix.value.trim(),
@@ -225,7 +243,10 @@ async function save() {
       signatureRequired: signatureRequired.value,
       reviewRequired: reviewRequired.value,
       notifyOnSubmit: 'DIGEST',
-      schema: [],
+      // Snapshot, not reference: the block's fields are copied by value.
+      schema: Array.isArray(startingBlock?.schema)
+        ? JSON.parse(JSON.stringify(startingBlock.schema))
+        : [],
       statusId: 'ACTIVE',
     })
     const logBook = res?.logBook ?? res
@@ -303,6 +324,25 @@ async function save() {
           :rows="2"
           placeholder="What this log book is for"
         />
+      </BaseField>
+
+      <!-- Starting point — copies a form block's fields into the new book. -->
+      <BaseField
+        v-slot="{ id: fieldId }"
+        label="Start from a form block"
+        optional
+        hint="Copies the block's fields in as a starting point — later changes to the block never affect this log book."
+      >
+        <select
+          :id="fieldId"
+          v-model="startingBlockId"
+          class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+        >
+          <option :value="null">Blank form — build from scratch</option>
+          <option v-for="b in formBlocks" :key="b.id" :value="b.id">
+            {{ b.title }} ({{ b.schema?.length ?? 0 }} fields)
+          </option>
+        </select>
       </BaseField>
 
       <!-- Type + Supervisor (always visible — these are the load-bearing
