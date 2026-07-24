@@ -3,7 +3,7 @@
  * Admin card for the per-tenant Storage Locations lookup (Settings → Lookups)
  * — where retain samples are stored (QA Retain Room, Cold Storage, Freezer …).
  * Reads + writes via syncEngine (RLS allows app_user writes with
- * inspection_qc:create). Conditions print on retain-sample labels.
+ * retain_samples:create). Conditions print on retain-sample labels.
  */
 import { IconPlus, IconPencil, IconTrash, IconRestore } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
@@ -11,7 +11,7 @@ import { required } from '@shared/components/form/validators.js'
 
 const toast = useToast()
 const { confirm } = useConfirm()
-const canConfigure = computed(() => isAllowed(['inspection_qc:create']))
+const canConfigure = computed(() => isAllowed(['retain_samples:create']))
 
 const rows = useLiveQuery(
   async (db) => (await db.StorageLocation.where().exec()).sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),

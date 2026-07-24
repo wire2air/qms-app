@@ -12,7 +12,7 @@ const props = defineProps({ lotId: { type: String, required: true } })
 
 const router = useRouter()
 const showCreate = ref(false)
-const canCreate = computed(() => isAllowed(['inspection_qc:create', 'inspection_qc:execute']))
+const canCreate = computed(() => isAllowed(['retain_samples:create']) || isAllowed(['retain_samples:update']))
 
 const samples = useLiveQueryWithDeps(
   [() => props.lotId],

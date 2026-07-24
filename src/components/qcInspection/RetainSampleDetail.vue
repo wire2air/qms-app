@@ -47,8 +47,8 @@ const uoms = useLiveQuery(async (db) => db.Uom.where().exec(), { models: ['Uom']
 const locationName = (id) => locations.value.find((l) => l.id === id)?.name || null
 const uomCode = (id) => uoms.value.find((u) => u.id === id)?.code || ''
 
-const canUpdate = computed(() => isAllowed(['inspection_qc:create', 'inspection_qc:execute']))
-const canDispose = computed(() => isAllowed(['inspection_qc:dispose']))
+const canUpdate = computed(() => isAllowed(['retain_samples:create']) || isAllowed(['retain_samples:update']))
+const canDispose = computed(() => isAllowed(['retain_samples:dispose']))
 const isDisposed = computed(() => sample.value?.statusId === 'DISPOSED')
 const editable = computed(() => canUpdate.value && !isDisposed.value)
 
