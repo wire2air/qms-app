@@ -25,6 +25,12 @@ export default defineConfig({
     trace: 'on',
     video: 'on',
     screenshot: 'only-on-failure',
+    // Safety nets: without these, navigation/action timeouts fall back to the
+    // (large) test timeout, so a stalled goto or a locator that never resolves
+    // silently consumes the whole budget instead of failing fast. Reload-tolerant
+    // helpers pass their own longer timeouts where sync-back lag is expected.
+    navigationTimeout: 30_000,
+    actionTimeout: 25_000,
   },
   projects: [
     {
