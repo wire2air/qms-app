@@ -1,6 +1,11 @@
 <!-- BaseDetailLayout.vue -->
 <script setup>
-import { IconFileOff, IconAlertTriangle } from '@tabler/icons-vue'
+import {
+  IconFileOff,
+  IconAlertTriangle,
+  IconLayoutSidebarRightCollapse,
+  IconLayoutSidebarRightExpand,
+} from '@tabler/icons-vue'
 import { normalizeDetailConfig } from '../composables/defineDetailConfig.js'
 import { morphHeaderVariant } from '../composables/detailVariantHelpers.js'
 // useDetailLayout is auto-imported (resource/js/shared/composables is in AutoImport.dirs).
@@ -78,6 +83,14 @@ const showRailFinal = computed(() => {
   return showRail.value || (aiEnabled.value && !!slots['ai-summary']) || versionEnabled.value
 })
 const twoCol = computed(() => vd.value.columns === 2 && showRailFinal.value)
+
+// Right-rail collapse — mirrors the left nav's hide affordance (user decision
+// 2026-07-24). Persisted globally across detail pages; ignored on mobile
+// (the rail stacks under the content there) and in linearized/print variants.
+const railCollapsed = useLocalStorage('qms:detail-rail-collapsed', false)
+const railCollapsedEff = computed(
+  () => railCollapsed.value && !isMobile.value && !vd.value.linearized,
+)
 const aiEnabled = computed(() => cfg.value?.ai?.enabled === true)
 const versionEnabled = computed(() => cfg.value?.version?.enabled === true)
 
@@ -178,7 +191,13 @@ const slotState = computed(() => ({
 
       <div
         class="tw:grid tw:gap-6 tw:py-4 tw:max-lg:grid-cols-1"
-        :class="twoCol ? 'tw:grid-cols-[minmax(0,1fr)_340px]' : 'tw:grid-cols-1'"
+        :class="
+          twoCol
+            ? railCollapsedEff
+              ? 'tw:grid-cols-[minmax(0,1fr)_2.25rem]'
+              : 'tw:grid-cols-[minmax(0,1fr)_340px]'
+            : 'tw:grid-cols-1'
+        "
       >
         <div class="tw:min-w-0">
           <template v-if="vd.showNav && visibleSections.length">
@@ -201,8 +220,40 @@ const slotState = computed(() => ({
           <div v-if="aiEnabled && $slots['ai-panel']" class="tw:mt-4"><slot name="ai-panel" v-bind="slotState" /></div>
         </div>
 
+        <!-- Collapsed rail: a slim strip with the re-open control -->
+        <div
+          v-if="showRailFinal && railCollapsedEff"
+          class="tw:max-lg:hidden tw:lg:sticky tw:lg:top-20 tw:lg:self-start"
+        >
+          <button
+            type="button"
+            class="tw:flex tw:items-center tw:justify-center tw:w-9 tw:h-9 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:text-secondary tw:hover:text-primary tw:hover:border-primary/40 tw:cursor-pointer tw:transition"
+            title="Show side panel"
+            aria-label="Show side panel"
+            @click="railCollapsed = false"
+          >
+            <IconLayoutSidebarRightExpand :size="18" />
+          </button>
+        </div>
+
         <!-- Finding 1: print variant is linearized; rail must not be sticky in that case -->
-        <DetailRail v-if="showRailFinal" :railCards="effRailCards" :class="vd.linearized ? '' : 'tw:lg:sticky tw:lg:top-20 tw:lg:self-start'">
+        <div
+          v-else-if="showRailFinal"
+          class="tw:min-w-0"
+          :class="vd.linearized ? '' : 'tw:lg:sticky tw:lg:top-20 tw:lg:self-start'"
+        >
+          <div v-if="!vd.linearized" class="tw:flex tw:justify-end tw:mb-1 tw:max-lg:hidden">
+            <button
+              type="button"
+              class="tw:flex tw:items-center tw:gap-1 tw:text-micro tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+              title="Hide side panel"
+              aria-label="Hide side panel"
+              @click="railCollapsed = true"
+            >
+              <IconLayoutSidebarRightCollapse :size="15" /> Hide
+            </button>
+          </div>
+          <DetailRail :railCards="effRailCards">
           <template v-if="$slots.rail || aiEnabled || versionEnabled" #default>
             <BaseRailCard v-if="aiEnabled && $slots['ai-summary']" title="AI Summary">
               <slot name="ai-summary" v-bind="slotState" />
@@ -213,6 +264,7 @@ const slotState = computed(() => ({
             <slot v-if="$slots.rail" name="rail" v-bind="slotState" />
           </template>
         </DetailRail>
+        </div>
       </div>
     </div>
   </BasePage>
