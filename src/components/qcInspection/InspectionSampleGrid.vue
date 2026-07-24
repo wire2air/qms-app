@@ -60,7 +60,17 @@ function blankCell() {
   return { valueNumeric: null, valueText: '', valueBool: null }
 }
 
+function cellHasValue(cell) {
+  return !!(
+    cell &&
+    ((cell.valueNumeric != null && cell.valueNumeric !== '') ||
+      (cell.valueText && String(cell.valueText).trim()) ||
+      cell.valueBool != null)
+  )
+}
+
 function seed() {
+  const prev = grid.value || {}
   const next = {}
   for (const s of sampleNos.value) {
     next[s] = {}
@@ -73,6 +83,18 @@ function seed() {
       valueNumeric: r.valueNumeric ?? null,
       valueText: r.valueText ?? '',
       valueBool: r.valueBool ?? null,
+    }
+  }
+  // Preserve unsaved local entries: anything typed into the grid beats the
+  // seeded (saved) value — local state is newer. Without this, any live-query
+  // refresh mid-entry (e.g. saving a per-sample comment updates the sample
+  // record → `samples` prop gets a new array) re-seeded the grid and wiped
+  // every unsaved cell (user-reported bug 2026-07-24).
+  for (const s of Object.keys(prev)) {
+    if (!next[s]) continue
+    for (const cid of Object.keys(prev[s])) {
+      if (!next[s][cid]) continue
+      if (cellHasValue(prev[s][cid])) next[s][cid] = { ...prev[s][cid] }
     }
   }
   grid.value = next
