@@ -66,6 +66,7 @@ export function buildDocumentActions(gates = {}, handlers = {}) {
     canSetEffective,
     canEdit,
     canDelete,
+    canArchive,
     statusId,
     selectedStatus,
     inReview,
@@ -174,14 +175,15 @@ export function buildDocumentActions(gates = {}, handlers = {}) {
       label: 'Archive Document',
       icon: IconArchive,
       variant: 'danger',
-      // DC-OB-01: archiving obsoletes + soft-deletes the whole document — a
-      // destructive records action, so it requires delete permission AND
-      // owner/author (canDelete), not merely edit access (canEdit). Mirrors the
-      // Delete Version gate above. NOTE: the archive write is a raw syncEngine
-      // updateDocument (obsoletedAt/By/Reason); documents-UPDATE RLS still only
-      // checks document_control:update, so a DB-level guard on obsoletion is a
-      // separate follow-up to fully close the raw-GraphQL bypass.
-      visible: !!canDelete && statusId !== 'ARCHIVED',
+      // DC-OB-01 (reconciled): archiving obsoletes + soft-deletes the whole
+      // document. It is gated on the delete permission only (canArchive) — the
+      // SAME check the list view uses and what the documents UPDATE/DELETE RLS
+      // enforces (permission + scope tier + company-owner bypass, NOT owner/
+      // author). Previously this used canDelete, which added an owner/author
+      // restriction the backend never applies, so a delete-permitted controller
+      // could archive from the list but not here. (Scope-tier precision in the UI
+      // + a DB-level obsoletion guard remain separate follow-ups.)
+      visible: !!canArchive && statusId !== 'ARCHIVED',
       onSelect: handlers.archive,
     },
   ]
