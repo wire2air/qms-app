@@ -9,6 +9,8 @@ import {
   IconCheckbox,
   IconTruck,
   IconPackage,
+  IconTemplate,
+  IconDatabase,
   IconShieldCheck,
   IconSettings,
   IconAdjustments,
@@ -377,6 +379,108 @@ const navItems = computed(() => {
       to: getCompanyPath('/audit-logs'),
     },
     {
+      // Template-authoring surfaces — mirrors the "Templates" section of the
+      // Roles & Permissions matrix (user decision 2026-07-24: nav groups and
+      // matrix sections map 1:1 for easy navigation).
+      label: 'Templates',
+      icon: IconTemplate,
+      children: [
+        {
+          label: 'Workflow Templates',
+          permissions: ['workflows_templates:read'],
+          icon: IconArrowsShuffle,
+          to: getCompanyPath('/workflow-templates'),
+        },
+        {
+          // Reusable form fragments (kind='BLOCK') — first-class nav item with
+          // its OWN authz module (form_blocks:*). Form Templates below stays a
+          // separate case-by-case surface (eventually an add-on module builder).
+          label: 'Form Blocks',
+          permissions: ['form_blocks:read'],
+          icon: IconStack2,
+          to: getCompanyPath('/form-blocks'),
+        },
+        {
+          label: 'Form Templates',
+          permissions: ['forms_templates:read'],
+          icon: IconForms,
+          to: getCompanyPath('/templates'),
+        },
+        {
+          label: 'Document Templates',
+          permissions: ['document_templates:read'],
+          icon: IconArticle,
+          to: getCompanyPath('/document-templates'),
+        },
+        {
+          // Admin-defined custom fields per entity (NC / CAPA / CR / Audit /
+          // Document / Training). Rendered as the "Additional information" card
+          // on each detail page; stored in entity_field_values (JSONB), sealed.
+          label: 'Custom Fields',
+          permissions: ['custom_fields:manage'],
+          icon: IconListDetails,
+          to: getCompanyPath('/custom-fields'),
+        },
+        {
+          label: 'RCA Templates',
+          permissions: ['rca_templates:read'],
+          icon: IconSitemap,
+          to: getCompanyPath('/rca-templates'),
+        },
+        {
+          label: 'Risk Assessment Templates',
+          permissions: ['risk_assessment_templates:read'],
+          icon: IconLayoutGrid,
+          to: getCompanyPath('/risk-assessment-templates'),
+        },
+      ],
+    },
+    {
+      // Company masters + lookup vocabularies — mirrors the "Master Data"
+      // section of the Roles & Permissions matrix.
+      label: 'Master Data',
+      icon: IconDatabase,
+      children: [
+        {
+          label: 'Suppliers',
+          permissions: ['supplier_management:read'],
+          icon: IconTruck,
+          to: getCompanyPath('/suppliers'),
+        },
+        {
+          label: 'Equipment',
+          // No `equipment:read` gate by design — RLS SELECT lets any
+          // in-tenant user see the catalog, since log book authors need
+          // to pick equipment without needing a separate permission.
+          // Visibility is via the menu link being available to all.
+          icon: IconTool,
+          to: getCompanyPath('/equipment'),
+        },
+        {
+          // Industry-aligned label: "Item Master" for the admin
+          // catalog page. Covers raw materials, components, WIP, and
+          // finished goods — matches ERP terminology. Underlying DB
+          // table stays `products` (UI-only relabel decision
+          // 2026-05-26); operational selectors use "Item".
+          label: 'Item Master',
+          permissions: ['products:read'],
+          icon: IconPackage,
+          to: getCompanyPath('/products'),
+        },
+        // Option Sets moved under Form Templates → Option Sets tab.
+        // Lookups (NC dispositions/issue types, supplier certificate
+        // types, audit standard types/finding categories) live on the
+        // standalone /lookups page; /settings?tab=lookups redirects
+        // there for old bookmarks.
+        {
+          label: 'Lookups',
+          permissions: ['company_settings:manage'],
+          icon: IconList,
+          to: getCompanyPath('/lookups'),
+        },
+      ],
+    },
+    {
       label: 'Settings',
       icon: IconSettings,
       children: [
@@ -422,97 +526,12 @@ const navItems = computed(() => {
           to: getCompanyPath('/automation-rules'),
         },
         {
-          // Admin-defined custom fields per entity (NC / CAPA / CR / Audit /
-          // Document / Training). Rendered as the "Additional information" card
-          // on each detail page; stored in entity_field_values (JSONB), sealed.
-          label: 'Custom Fields',
-          permissions: ['custom_fields:manage'],
-          icon: IconListDetails,
-          to: getCompanyPath('/custom-fields'),
-        },
-        {
           // The Customer Complaint module's own admin hub (email
           // channels now; forms / custom fields / routing as they land).
           label: 'Complaint Settings',
           permissions: ['complaint_management:update'],
           icon: IconHeadset,
           to: getCompanyPath('/complaint-settings'),
-        },
-        {
-          // Reusable form fragments (kind='BLOCK') — first-class nav item with
-          // its OWN authz module (form_blocks:*). Form Templates below stays a
-          // separate case-by-case surface (eventually an add-on module builder).
-          label: 'Form Blocks',
-          permissions: ['form_blocks:read'],
-          icon: IconStack2,
-          to: getCompanyPath('/form-blocks'),
-        },
-        {
-          label: 'Form Templates',
-          permissions: ['forms_templates:read'],
-          icon: IconForms,
-          to: getCompanyPath('/templates'),
-        },
-        {
-          label: 'Workflow Templates',
-          permissions: ['workflows_templates:read'],
-          icon: IconArrowsShuffle,
-          to: getCompanyPath('/workflow-templates'),
-        },
-        {
-          label: 'Document Templates',
-          permissions: ['document_templates:read'],
-          icon: IconArticle,
-          to: getCompanyPath('/document-templates'),
-        },
-        {
-          // Industry-aligned label: "Item Master" for the admin
-          // catalog page. Covers raw materials, components, WIP, and
-          // finished goods — matches ERP terminology. Underlying DB
-          // table stays `products` (UI-only relabel decision
-          // 2026-05-26); operational selectors use "Item".
-          label: 'Item Master',
-          permissions: ['products:read'],
-          icon: IconPackage,
-          to: getCompanyPath('/products'),
-        },
-        {
-          label: 'Equipment',
-          // No `equipment:read` gate by design — RLS SELECT lets any
-          // in-tenant user see the catalog, since log book authors need
-          // to pick equipment without needing a separate permission.
-          // Visibility is via the menu link being available to all.
-          icon: IconTool,
-          to: getCompanyPath('/equipment'),
-        },
-        {
-          label: 'Suppliers',
-          permissions: ['supplier_management:read'],
-          icon: IconTruck,
-          to: getCompanyPath('/suppliers'),
-        },
-        {
-          label: 'RCA Templates',
-          permissions: ['rca_templates:read'],
-          icon: IconSitemap,
-          to: getCompanyPath('/rca-templates'),
-        },
-        {
-          label: 'Risk Assessment Templates',
-          permissions: ['risk_assessment_templates:read'],
-          icon: IconLayoutGrid,
-          to: getCompanyPath('/risk-assessment-templates'),
-        },
-        // Option Sets moved under Form Templates → Option Sets tab.
-        // Lookups (NC dispositions/issue types, supplier certificate
-        // types, audit standard types/finding categories) live on the
-        // standalone /lookups page; /settings?tab=lookups redirects
-        // there for old bookmarks.
-        {
-          label: 'Lookups',
-          permissions: ['company_settings:manage'],
-          icon: IconList,
-          to: getCompanyPath('/lookups'),
         },
         {
           label: 'Sites',
