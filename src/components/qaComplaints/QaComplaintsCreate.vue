@@ -296,15 +296,18 @@ async function onSubmit() {
               <BaseField label="Complaint source">
                 <ComplaintLookupSelectMenu v-model="form.sourceId" model="ComplaintSourceType" />
               </BaseField>
+              <!-- Region/Country are GLOBAL lookups (no per-tenant list, no
+                   inline add) — countries filtered by the picked region. -->
               <BaseField label="Region">
-                <ComplaintLookupSelectMenu v-model="form.regionId" model="ComplaintRegion" />
+                <ComplaintLookupSelectMenu v-model="form.regionId" model="Region" :allowCreate="false" />
               </BaseField>
               <BaseField label="Country">
                 <ComplaintLookupSelectMenu
                   v-model="form.countryId"
-                  model="ComplaintCountry"
+                  model="Country"
                   parentField="regionId"
                   :parentId="form.regionId"
+                  :allowCreate="false"
                 />
               </BaseField>
               <BaseField label="State / Province">

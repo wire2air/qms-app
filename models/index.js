@@ -112,8 +112,8 @@ import { CustomerComplaintMessage } from './customerComplaintMessage'
 import { CustomerComplaintAttachment } from './customerComplaintAttachment'
 // Complaint QMS lookups (per-tenant).
 import { ComplaintSourceType } from './complaintSourceType'
-import { ComplaintRegion } from './complaintRegion'
-import { ComplaintCountry } from './complaintCountry'
+import { Region } from './region'
+import { Country } from './country'
 import { ComplaintCustomerType } from './complaintCustomerType'
 import { ComplaintCategory } from './complaintCategory'
 import { ComplaintSubCategory } from './complaintSubCategory'
@@ -331,8 +331,8 @@ export const db = {
   CustomerComplaintMessage,
   CustomerComplaintAttachment,
   ComplaintSourceType,
-  ComplaintRegion,
-  ComplaintCountry,
+  Region,
+  Country,
   ComplaintCustomerType,
   ComplaintCategory,
   ComplaintSubCategory,

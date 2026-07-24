@@ -37,6 +37,8 @@ import SiteSelectMenu from '@/components/menus/SiteSelectMenu.vue'
 import DepartmentSelectMenu from '@/components/menus/DepartmentSelectMenu.vue'
 import UserSelectMenu from '@/components/menus/UserSelectMenu.vue'
 import EquipmentSelectMenu from '@/components/menus/EquipmentSelectMenu.vue'
+import CountrySelectMenu from '@/components/menus/CountrySelectMenu.vue'
+import RegionSelectMenu from '@/components/menus/RegionSelectMenu.vue'
 
 // Entity pickers a `lookup` field can render, keyed by field.lookupEntity.
 const LOOKUP_MENUS = {
@@ -46,6 +48,8 @@ const LOOKUP_MENUS = {
   department: DepartmentSelectMenu,
   user: UserSelectMenu,
   equipment: EquipmentSelectMenu,
+  country: CountrySelectMenu,
+  region: RegionSelectMenu,
 }
 
 function safeRegExp(src) {

@@ -26,8 +26,7 @@ const tabs = [
   { value: 'employee-titles', label: 'Employee Titles', group: 'People & Standards' },
   // Complaint QMS lookups (per-tenant).
   { value: 'complaint-sources', label: 'Complaint Sources', group: 'Complaints' },
-  { value: 'complaint-regions', label: 'Complaint Regions', group: 'Complaints' },
-  { value: 'complaint-countries', label: 'Complaint Countries', group: 'Complaints' },
+  { value: 'countries-regions', label: 'Countries & Regions (Global)', group: 'General' },
   { value: 'complaint-customer-types', label: 'Complaint Customer Types', group: 'Complaints' },
   { value: 'complaint-categories', label: 'Complaint Categories', group: 'Complaints' },
   { value: 'complaint-sub-categories', label: 'Complaint Sub-categories', group: 'Complaints' },
@@ -102,21 +101,7 @@ watch(activeTab, (v) => {
         title="Complaint Source"
         subtitle="Who reported the complaint (Customer, Distributor, Sales Rep…). Scoped to this company."
       />
-      <ComplaintLookupCard
-        v-else-if="activeTab === 'complaint-regions'"
-        model="ComplaintRegion"
-        title="Region"
-        subtitle="Geographic regions a complaint can originate from."
-      />
-      <ComplaintLookupCard
-        v-else-if="activeTab === 'complaint-countries'"
-        model="ComplaintCountry"
-        title="Country"
-        parentModel="ComplaintRegion"
-        parentField="regionId"
-        parentLabel="Region"
-        subtitle="Countries of origin, grouped by region."
-      />
+      <CountriesRegionsCard v-else-if="activeTab === 'countries-regions'" />
       <ComplaintLookupCard
         v-else-if="activeTab === 'complaint-customer-types'"
         model="ComplaintCustomerType"

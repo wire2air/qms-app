@@ -460,18 +460,19 @@ const complaintDetailConfig = computed(() =>
                   <BaseText v-else color="secondary">{{ complaint.orderInvoiceNumber || '—' }}</BaseText>
                 </BaseDetailField>
                 <BaseDetailField label="Region">
-                  <ComplaintLookupSelectMenu v-if="isEditable" v-model="complaint.regionId" model="ComplaintRegion" />
-                  <ComplaintLookupBadge v-else :id="complaint.regionId" model="ComplaintRegion" />
+                  <ComplaintLookupSelectMenu v-if="isEditable" v-model="complaint.regionId" model="Region" :allowCreate="false" />
+                  <ComplaintLookupBadge v-else :id="complaint.regionId" model="Region" />
                 </BaseDetailField>
                 <BaseDetailField label="Country">
                   <ComplaintLookupSelectMenu
                     v-if="isEditable"
                     v-model="complaint.countryId"
-                    model="ComplaintCountry"
+                    model="Country"
                     parentField="regionId"
                     :parentId="complaint.regionId"
+                    :allowCreate="false"
                   />
-                  <ComplaintLookupBadge v-else :id="complaint.countryId" model="ComplaintCountry" />
+                  <ComplaintLookupBadge v-else :id="complaint.countryId" model="Country" />
                 </BaseDetailField>
                 <BaseDetailField label="State / Province">
                   <BaseTextInput v-if="isEditable" v-model="complaint.stateProvince" size="sm" />

@@ -13,7 +13,8 @@ import { IconPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
-  // syncEngine model class name, e.g. 'ComplaintRegion'.
+  // syncEngine model class name, e.g. 'ComplaintCategory' (or the global
+  // 'Region'/'Country' lookups — pass :allowCreate="false" for those).
   model: { type: String, required: true },
   required: { type: Boolean, default: false },
   multiple: { type: Boolean, default: false },
@@ -37,7 +38,13 @@ const rows = useLiveQueryWithDeps(
     if (!Model) return []
     let list = await Model.where().exec()
     if (parentField) list = list.filter((r) => r[parentField] === parentId)
-    return list.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+    // Name tiebreak so large equal-order lists (e.g. the 199 global
+    // countries at displayOrder 10000) come out alphabetical.
+    return list.sort(
+      (a, b) =>
+        (a.displayOrder ?? 0) - (b.displayOrder ?? 0) ||
+        (a.name || '').localeCompare(b.name || ''),
+    )
   },
   { models: [props.model], initial: [] },
 )
