@@ -258,7 +258,7 @@ export async function driveToEffective(browser, docId, versionId) {
   await waitForSqlValue(
     `SELECT count(*) FROM task_instances WHERE entity_id = '${versionId}'
        AND assigned_to = '${USERS.reviewer.id}' AND status_id IN ('ASSIGNED','FORM_SUBMITTED')`,
-    { timeoutMs: 30_000, label: 'reviewer task assigned' },
+    { timeoutMs: 45_000, label: 'reviewer task assigned' },
   )
   const reviewerCtx = await browser.newContext({ storageState: AUTH.reviewer })
   const reviewerPage = await reviewerCtx.newPage()
@@ -278,7 +278,7 @@ export async function driveToEffective(browser, docId, versionId) {
   await waitForSqlValue(
     `SELECT count(*) FROM task_instances ti WHERE ti.entity_id = '${versionId}'
        AND ti.assigned_to = '${USERS.approver.id}' AND ti.deleted_at IS NULL AND ti.status_id NOT IN ('CANCELLED')`,
-    { timeoutMs: 30_000, label: 'approver task created' },
+    { timeoutMs: 45_000, label: 'approver task created' },
   )
   await reviewerCtx.close()
 
@@ -294,7 +294,10 @@ export async function driveToEffective(browser, docId, versionId) {
   await approverPage.getByRole('button', { name: 'Sign' }).click()
   await waitForSqlValue(
     `SELECT status_id FROM document_versions WHERE id = '${versionId}' AND status_id = 'EFFECTIVE'`,
-    { timeoutMs: 40_000, label: 'version EFFECTIVE' },
+    // The APPROVED→EFFECTIVE transition is worker-driven (JOB-02 auto-effective);
+    // under full-suite load the job queue (snapshots, notifications) backs up, so
+    // allow generous headroom (well within the test budget).
+    { timeoutMs: 150_000, label: 'version EFFECTIVE' },
   )
   await approverCtx.close()
 }

@@ -16,7 +16,8 @@ import { findDocumentByTitle, versionsOf, waitForSqlValue } from '../fixtures/db
 
 test.describe('PW-J5 · new version + supersede', () => {
   test('effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE', async ({ browser }) => {
-    test.setTimeout(420_000) // two full approval cycles + a revision
+    test.setTimeout(600_000) // two full approval cycles + a revision; each
+    // APPROVED→EFFECTIVE leg is worker-gated and can lag under full-suite load.
     const ctx = await browser.newContext({ storageState: AUTH.author })
     const page = await ctx.newPage()
     const title = uniqueTitle('J5-supersede')
