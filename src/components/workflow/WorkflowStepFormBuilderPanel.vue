@@ -53,7 +53,11 @@ const filteredTemplates = computed(() => {
 })
 
 function selectTemplate(template) {
-  buildSchema.value = Array.isArray(template.schema) ? [...template.schema] : []
+  // True snapshot: deep-clone so builder edits can never mutate the pooled
+  // IDB block instance's field objects (a shallow [...schema] shares them).
+  buildSchema.value = Array.isArray(template.schema)
+    ? JSON.parse(JSON.stringify(template.schema))
+    : []
   currentStep.value = 'build'
 }
 
