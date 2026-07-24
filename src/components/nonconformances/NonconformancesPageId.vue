@@ -5,6 +5,7 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
 import { buildNcBanners, buildNcActions, buildNcSections } from './ncDetailConfig.js'
+import { countStepsBlockingClose } from '@/components/workflow/delayStepClose.js'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 const props = defineProps({
@@ -89,7 +90,8 @@ const showMarkCompleteEsign = ref(false)
 const completing = ref(false)
 const completeComments = ref('')
 
-// Count workflow steps still open (NOT in APPROVED/SKIPPED/CANCELLED).
+// Count workflow steps still open. Deferred delay steps (effectiveness checks
+// that fire after close) don't block — see stepBlocksClose.
 const incompleteStepCount = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [ncId]) => {
@@ -102,8 +104,7 @@ const incompleteStepCount = useLiveQueryWithDeps(
     const stepLists = await Promise.all(
       instances.map((i) => db.WorkflowInstanceStep.where('workflowInstanceId', i.id).exec()),
     )
-    const allSteps = stepLists.flat()
-    return allSteps.filter((s) => !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId)).length
+    return countStepsBlockingClose(stepLists.flat())
   },
 
   { models: ['WorkflowInstance', 'WorkflowInstanceStep'], initial: 0 },
@@ -133,7 +134,7 @@ const markCompleteBlockedReason = computed(() => {
   if (incompleteStepCount.value > 0) {
     return `${incompleteStepCount.value} workflow step${
       incompleteStepCount.value === 1 ? '' : 's'
-    } still open. Complete or skip them first.`
+    } still open. Complete, skip, or schedule them first.`
   }
   if (!nc.value.dispositionTypeId) return 'Pick a Disposition before marking complete.'
   if (!nc.value.dispositionNotes?.trim()) {
@@ -616,7 +617,7 @@ const ncDetailConfig = computed(() =>
       <FormSection title="Disposition">
         <template v-if="isEditable">
           <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-            <BaseField label="Disposition">
+            <BaseField label="Disposition" required>
               <NcDispositionTypeSelectMenu v-model="nc.dispositionTypeId" :required="false" />
             </BaseField>
             <BaseField label="CAPA required?">
@@ -700,7 +701,7 @@ const ncDetailConfig = computed(() =>
             </div>
           </div>
 
-          <BaseField v-slot="{ id: fieldId }" label="Disposition notes" class="tw:col-span-2">
+          <BaseField v-slot="{ id: fieldId }" label="Disposition notes" required class="tw:col-span-2">
             <BaseTextarea
               :id="fieldId"
               v-model="nc.dispositionNotes"
@@ -832,7 +833,7 @@ const ncDetailConfig = computed(() =>
               </BaseBadge>
             </div>
           </BaseDetailField>
-          <BaseDetailField label="Severity">
+          <BaseDetailField label="Severity" required>
             <NcSeveritySelectMenu
               v-if="editingSeverity && isEditable"
               v-model="nc.severityId"

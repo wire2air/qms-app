@@ -5,6 +5,7 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
+import { countStepsBlockingClose } from '@/components/workflow/delayStepClose.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -157,8 +158,9 @@ const incompleteStepCount = useLiveQueryWithDeps(
     if (!idsStr) return 0
     const ids = idsStr.split(',')
     const steps = await Promise.all(ids.map((id) => db.WorkflowInstanceStep.findByPk(id)))
-    return steps.filter((s) => s && !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId))
-      .length
+    // Deferred delay steps (effectiveness checks that fire after close) don't
+    // block — see stepBlocksClose.
+    return countStepsBlockingClose(steps.filter(Boolean))
   },
 
   { models: ['WorkflowInstanceStep'], initial: 0 },

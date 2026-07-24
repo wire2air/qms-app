@@ -33,10 +33,16 @@ watch(
 // Template picker
 const templateSearch = ref('')
 
-const templates = useLiveQuery(async (db) => db.FormTemplate.where('statusId', 'ACTIVE').exec(), {
-  models: ['FormTemplate'],
-  initial: [],
-})
+// Only FORM BLOCKS (reusable fragments) — an embedded step form copies from
+// blocks, not from standalone form templates.
+const templates = useLiveQuery(
+  async (db) =>
+    (await db.FormTemplate.where('statusId', 'ACTIVE').exec()).filter((t) => t.kind === 'BLOCK'),
+  {
+    models: ['FormTemplate'],
+    initial: [],
+  },
+)
 
 const filteredTemplates = computed(() => {
   if (!templateSearch.value) return templates.value

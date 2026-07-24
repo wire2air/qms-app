@@ -2,46 +2,18 @@
  * Form Builder Composable
  * State management for the visual form builder
  */
-import { FIELD_TYPES_CONFIG, FIELD_TYPES, FIELD_WIDTHS } from '@/constants/formBuilderConfig'
-import { hydrateChecklistColumns, hydrateChecklistRows } from '@/utils/aiFormHydrate'
+import { FIELD_TYPES, FIELD_WIDTHS } from '@/constants/formBuilderConfig'
+// Field factory + AI hydration live in aiFormHydrate so non-builder hosts
+// (e.g. the workflow AI generator building per-step formSchemas) share them.
+import {
+  getDefaultFieldConfig,
+  fieldNameExists,
+  generateFieldName,
+  hydrateAiField,
+  hydrateAiFields,
+} from '@/utils/aiFormHydrate'
 
 const VALID_WIDTHS = new Set(FIELD_WIDTHS.map((w) => w.value))
-
-// Get default field configuration based on type
-function getDefaultFieldConfig(type) {
-  const typeConfig = FIELD_TYPES_CONFIG[type]
-
-  // Deep clone to avoid shared references for arrays/objects (e.g. options, children)
-  return JSON.parse(
-    JSON.stringify({
-      type,
-      ...FIELD_TYPES_CONFIG.base,
-      ...typeConfig,
-    }),
-  )
-}
-
-// Does any field (recursively) already use this name?
-function fieldNameExists(fields, targetName) {
-  for (const field of fields) {
-    if (field.name === targetName) return true
-    if (field.children && fieldNameExists(field.children, targetName)) return true
-    if (field.template && fieldNameExists(field.template, targetName)) return true
-  }
-  return false
-}
-
-// Generate a unique field name
-function generateFieldName(type, existingFields) {
-  const baseName = type.toLowerCase()
-  let counter = 1
-  let name = `${baseName}_${counter}`
-  while (fieldNameExists(existingFields, name)) {
-    counter++
-    name = `${baseName}_${counter}`
-  }
-  return name
-}
 
 // The field types the AI generator can emit (mirror of FIELD_TYPE_IDS in the
 // backend form.generate_schema task). In EDIT mode, a field whose current type
@@ -388,47 +360,6 @@ export function useFormBuilder(initialSchema = []) {
     })
   }
 
-  // Build one real builder field from an AI descriptor. Everything starts from
-  // the type's real factory default (getDefaultFieldConfig) so the result is
-  // always structurally valid; the AI only supplies label + a few hints.
-  // `existingRoot` is the schema being assembled, used for globally-unique names.
-  function hydrateAiField(node, existingRoot) {
-    const type = node && FIELD_TYPES[node.type] ? node.type : 'input'
-    const config = getDefaultFieldConfig(type)
-    // Preserve a stable name the AI echoed back (EDIT mode) when it's free;
-    // otherwise mint a fresh unique one. Keeping the name means answers bound to
-    // a retyped field don't orphan.
-    const desiredName =
-      typeof node.name === 'string' && node.name.trim() ? node.name.trim() : null
-    config.name =
-      desiredName && !fieldNameExists(existingRoot, desiredName)
-        ? desiredName
-        : generateFieldName(type, existingRoot)
-    if (typeof node.label === 'string' && node.label.trim()) config.label = node.label.trim()
-    if (typeof node.required === 'boolean') config.required = node.required
-    if (typeof node.placeholder === 'string') config.placeholder = node.placeholder
-    if (typeof node.hint === 'string') config.hint = node.hint
-    if (typeof node.width === 'string' && VALID_WIDTHS.has(node.width)) config.width = node.width
-
-    // Type-specific payloads.
-    if (['select', 'optionGroup', 'checkbox'].includes(type) && Array.isArray(node.options)) {
-      const opts = node.options.filter((o) => typeof o === 'string' && o.trim()).map((o) => o.trim())
-      if (opts.length) config.options = opts
-    }
-    if (type === 'checklist') {
-      const rows = hydrateChecklistRows(node.rows)
-      const columns = hydrateChecklistColumns(node.columns)
-      if (rows.length) config.rows = rows
-      if (columns.length) config.columns = columns
-    }
-    if (type === 'header' && config.label) config.text = config.label
-    if (type === 'instructions' && typeof node.content === 'string' && node.content.trim()) {
-      const c = node.content.trim()
-      config.html = /^\s*</.test(c) ? c : `<p>${c}</p>`
-    }
-    return config
-  }
-
   // Build one field from an AI descriptor. In EDIT mode (existingByName given)
   // a name-matched field is preserved wholesale unless the AI genuinely retyped
   // it to another curated type; heavy/non-curated fields are always preserved.
@@ -457,31 +388,9 @@ export function useFormBuilder(initialSchema = []) {
     const existingByName = new Map()
     if (Array.isArray(preserveFrom)) indexFieldsByName(preserveFrom, existingByName)
 
-    const newSchema = []
-    const sectionContainers = new Map()
-
-    for (const node of fields) {
-      if (!node || typeof node !== 'object') continue
-      const sectionLabel =
-        typeof node.section === 'string' && node.section.trim() ? node.section.trim() : null
-
-      const built = buildFieldFromNode(node, newSchema, existingByName)
-
-      if (sectionLabel) {
-        let container = sectionContainers.get(sectionLabel)
-        if (!container) {
-          container = getDefaultFieldConfig('section')
-          container.name = generateFieldName('section', newSchema)
-          container.label = sectionLabel
-          container.children = []
-          sectionContainers.set(sectionLabel, container)
-          newSchema.push(container)
-        }
-        container.children.push(built)
-      } else {
-        newSchema.push(built)
-      }
-    }
+    const newSchema = hydrateAiFields(fields, {
+      buildField: (node, root) => buildFieldFromNode(node, root, existingByName),
+    })
 
     importSchema(newSchema)
   }

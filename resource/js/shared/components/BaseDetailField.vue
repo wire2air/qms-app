@@ -33,6 +33,10 @@ const props = defineProps({
   },
   // Fallback shown when the `value` prop is nullish/empty (slot path is exempt).
   empty: { type: String, default: '—' },
+  // Show a red required asterisk after the label. Decorative (aria-hidden) —
+  // the accessible required state comes from the editable control this pair
+  // wraps. See feedback: all required fields must be marked with *.
+  required: { type: Boolean, default: false },
 })
 
 const slots = useSlots()
@@ -59,6 +63,7 @@ const showEmpty = computed(() => !hasSlot.value && resolvedValue.value === null)
       :class="layout === 'stacked' ? 'tw:mb-1' : 'tw:shrink-0 tw:normal-case'"
     >
       <slot name="label">{{ label }}</slot>
+      <span v-if="required" class="tw:text-bad" aria-hidden="true">&nbsp;*</span>
     </p>
     <div :class="layout === 'inline' ? 'tw:min-w-0 tw:text-right' : ''">
       <slot v-if="hasSlot" />
