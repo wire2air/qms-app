@@ -12,6 +12,7 @@ const route = useRoute()
 
 const tabs = [
   { value: 'lots', label: 'Inspections' },
+  { value: 'retain-samples', label: 'Retain Samples' },
   { value: 'inspection-plans', label: 'Inspection Plans' },
   { value: 'specifications', label: 'Specifications' },
   { value: 'sampling-plans', label: 'Sampling Plans' },
@@ -56,6 +57,9 @@ const canManageDefects = computed(() => isAllowed(['inspection_catalog:write']))
         <div class="tw:mt-6">
           <BaseTabPanel value="lots">
             <InspectionLotsList :canCreate="canCreateLots" />
+          </BaseTabPanel>
+          <BaseTabPanel value="retain-samples">
+            <RetainSamplesList />
           </BaseTabPanel>
           <BaseTabPanel value="inspection-plans">
             <InspectionPlansList :canManage="canManageTemplates" />

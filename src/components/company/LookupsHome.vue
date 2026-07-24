@@ -16,6 +16,7 @@ const tabs = [
   { value: 'uoms', label: 'Units of Measure', group: 'Products & Suppliers' },
   { value: 'supplier-certificate-types', label: 'Supplier Certificates', group: 'Products & Suppliers' },
   { value: 'production-lines', label: 'Production Lines', group: 'QC Inspection' },
+  { value: 'storage-locations', label: 'Storage Locations', group: 'QC Inspection' },
   { value: 'shifts', label: 'Shifts', group: 'QC Inspection' },
   { value: 'audit-standard-types', label: 'Audit Standard Types', group: 'Audit' },
   { value: 'audit-finding-categories', label: 'Audit Finding Categories', group: 'Audit' },
@@ -75,6 +76,7 @@ watch(activeTab, (v) => {
       </div>
 
       <ProductionLinesCard v-if="activeTab === 'production-lines'" />
+      <StorageLocationsCard v-else-if="activeTab === 'storage-locations'" />
       <ShiftsCard v-else-if="activeTab === 'shifts'" />
       <NcDispositionTypesCard v-else-if="activeTab === 'nc-dispositions'" />
       <NcIssueTypesCard v-else-if="activeTab === 'nc-issue-types'" />

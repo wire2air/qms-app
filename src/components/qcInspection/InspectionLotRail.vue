@@ -279,6 +279,9 @@ const hasInProcess = computed(
     <!-- COA (incoming) — read-only -->
     <InspectionLotCoaCard v-if="isIncoming" :lotId="lotId" :canUpdate="false" />
 
+    <!-- Retain samples kept from this lot -->
+    <InspectionLotRetainSamplesCard :lotId="lotId" />
+
     <!-- Lifecycle / notes -->
     <BaseRailCard title="Lifecycle" :icon="IconInfoCircle">
       <dl class="tw:flex tw:flex-col tw:gap-2 tw:text-sm">

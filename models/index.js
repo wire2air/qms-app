@@ -174,6 +174,9 @@ import { RoleCurriculum } from './roleCurriculum'
 import { EmployeeTitle } from './employeeTitle'
 import { Shift } from './shift'
 import { ProductionLine } from './productionLine'
+import { StorageLocation } from './storageLocation'
+import { RetainSample } from './retainSample'
+import { RetainSampleEvent } from './retainSampleEvent'
 import { TrainingVerification } from './trainingVerification'
 import { InformationRequest } from './informationRequest'
 import { ChangeRequest } from './changeRequest'
@@ -384,6 +387,9 @@ export const db = {
   EmployeeTitle,
   Shift,
   ProductionLine,
+  StorageLocation,
+  RetainSample,
+  RetainSampleEvent,
   TrainingInstance,
   TrainingAssignee,
   TrainingRole,
