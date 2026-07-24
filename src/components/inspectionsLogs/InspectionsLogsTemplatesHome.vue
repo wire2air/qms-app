@@ -3,6 +3,10 @@ import { IconStack2, IconPlus, IconShieldCheck, IconClock } from '@tabler/icons-
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
+// Embedded = hosted as the "Log Books" tab of the Inspections & Logs
+// workspace (the host owns the page header).
+defineProps({ embedded: { type: Boolean, default: false } })
+
 /**
  * Inspections & Logs — Log Books list.
  *
@@ -126,6 +130,7 @@ const columns = [
   <BaseListLayout
     title="Log Books"
     :icon="IconStack2"
+    :embedded="embedded"
     subtitle="Each log book defines the structure for a class of log entries (daily temperature, gemba round, batch release). Operational log books auto-lock entries after a short edit window; controlled-record log books require an e-signature and reviewer approval."
     :state="list.state.value"
     :emptyIcon="IconStack2"

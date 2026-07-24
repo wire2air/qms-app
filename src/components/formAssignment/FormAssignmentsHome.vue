@@ -13,9 +13,20 @@ import { humanizeCron } from '@/utils/cronHumanize.js'
  * active state), density, column manager and export all live in the table
  * toolbar. The empty state is the table's own.
  */
+// Embedded = hosted as the "Assignments" tab of the Inspections & Logs
+// workspace (the host owns the page header).
+const props = defineProps({ embedded: { type: Boolean, default: false } })
+
 const router = useRouter()
 
 const canAssign = computed(() => isAllowed(['inspections:assign']))
+
+// Dynamic shell: BasePage normally, plain column when embedded in a tab.
+const BasePageComp = resolveComponent('BasePage')
+const rootIs = computed(() => (props.embedded ? 'div' : BasePageComp))
+const rootProps = computed(() =>
+  props.embedded ? { class: 'tw:flex tw:flex-col tw:gap-4' } : { width: 'standard' },
+)
 
 const logBooks = useLiveQuery((db) => db.LogBook.where().exec(), {
   models: ['LogBook'],
@@ -86,8 +97,9 @@ function goEdit(id) {
 </script>
 
 <template>
-  <BasePage width="standard">
+  <component :is="rootIs" v-bind="rootProps">
     <PageHeader
+      v-if="!embedded"
       :icon="IconClipboardList"
       title="Log Book Assignments"
       subtitle="Plan who fills which log book, when (cron + timezone), and where (site). The scheduler materialises occurrences in a 24h look-ahead."
@@ -99,6 +111,16 @@ function goEdit(id) {
         </BaseButton>
       </template>
     </PageHeader>
+    <div v-else class="tw:flex tw:items-start tw:justify-between tw:gap-3">
+      <span class="tw:text-xs tw:text-secondary tw:max-w-2xl">
+        Plan who fills which log book, when (cron + timezone), and where (site). The scheduler
+        materialises occurrences in a 24h look-ahead.
+      </span>
+      <BaseButton v-if="canAssign" variant="primary" size="sm" class="tw:shrink-0" @click="goCreate">
+        <IconPlus :size="16" />
+        New Assignment
+      </BaseButton>
+    </div>
 
     <DataTable
       :rows="assignments"
@@ -170,5 +192,5 @@ function goEdit(id) {
         </button>
       </template>
     </DataTable>
-  </BasePage>
+  </component>
 </template>

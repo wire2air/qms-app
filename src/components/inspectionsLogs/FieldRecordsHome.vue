@@ -18,6 +18,10 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
  * rather than opening an in-page modal — the same page is fired from a
  * task (with the log book pre-selected), so there's one fill surface.
  */
+// Embedded = hosted as the "Logs" tab of the Inspections & Logs workspace
+// (the host owns the page header).
+defineProps({ embedded: { type: Boolean, default: false } })
+
 const router = useRouter()
 
 const canSubmit = computed(() => isAllowed(['field_records:create']))
@@ -32,6 +36,7 @@ function goSubmit() {
   <BaseListLayout
     title="Logs"
     :icon="IconFileText"
+    :embedded="embedded"
     subtitle="Every log entry submitted across your log books. Use the Form filter to scope into a specific log book (e.g. daily temperature, gemba round). Entries are immutable after the edit window closes."
   >
     <template #actions>

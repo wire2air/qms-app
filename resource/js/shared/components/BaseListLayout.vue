@@ -37,6 +37,10 @@ const props = defineProps({
     validator: (v) => ['standard', 'wide', 'narrow', 'full'].includes(v),
   },
   fullHeight: { type: Boolean, default: false },
+  // Embedded mode: render inside a host surface (e.g. a tab panel) — plain div
+  // root instead of BasePage, and a slim subtitle+actions row instead of the
+  // teleporting PageHeader (the host page owns the real header).
+  embedded: { type: Boolean, default: false },
   // Preferred: pass the composable's resolved state. When null, resolved from the flags below.
   state: {
     type: String,
@@ -61,14 +65,28 @@ const resolvedState = computed(
     props.state ??
     resolveListState({ loading: props.loading, error: props.error, empty: props.empty }),
 )
+
+// Dynamic root: BasePage normally, a plain column when embedded in a host.
+const BasePageComp = resolveComponent('BasePage')
+const rootIs = computed(() => (props.embedded ? 'div' : BasePageComp))
+const rootProps = computed(() =>
+  props.embedded
+    ? { class: 'tw:flex tw:flex-col tw:gap-4' }
+    : { width: props.width, fullHeight: props.fullHeight },
+)
 </script>
 
 <template>
-  <BasePage :width="width" :fullHeight="fullHeight">
-    <PageHeader :icon="icon" :title="title" :subtitle="subtitle">
+  <component :is="rootIs" v-bind="rootProps">
+    <PageHeader v-if="!embedded" :icon="icon" :title="title" :subtitle="subtitle">
       <template v-if="$slots.title" #title><slot name="title" /></template>
       <template v-if="$slots.actions" #actions><slot name="actions" /></template>
     </PageHeader>
+    <div v-else class="tw:flex tw:items-start tw:justify-between tw:gap-3">
+      <span v-if="subtitle" class="tw:text-xs tw:text-secondary tw:max-w-2xl">{{ subtitle }}</span>
+      <span v-else />
+      <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0"><slot name="actions" /></div>
+    </div>
 
     <slot name="stats" />
     <slot name="filters" />
@@ -133,5 +151,5 @@ const resolvedState = computed(
     </div>
 
     <slot v-else :state="resolvedState" />
-  </BasePage>
+  </component>
 </template>

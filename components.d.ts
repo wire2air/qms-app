@@ -766,6 +766,7 @@ declare module 'vue' {
     MentionList: typeof import('./src/components/editor/extensions/MentionList.vue')['default']
     MfaSetupWizard: typeof import('./src/components/security/MfaSetupWizard.vue')['default']
     MfaVerifyForm: typeof import('./src/components/auth/MfaVerifyForm.vue')['default']
+    MobileLoggingPortalDialog: typeof import('./src/components/inspectionsLogs/MobileLoggingPortalDialog.vue')['default']
     ModuleAiEvaluationCard: typeof import('./src/components/modules/ModuleAiEvaluationCard.vue')['default']
     ModuleBadge: typeof import('./src/components/badges/ModuleBadge.vue')['default']
     ModuleBadgeById: typeof import('./src/components/badges/ModuleBadgeById.vue')['default']
