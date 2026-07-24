@@ -355,6 +355,22 @@ const inspectionLotMap = useLiveQueryWithDeps(
   { models: ['InspectionLot'], initial: {} },
 )
 
+// Retain-sample disposal-due tasks — entityId is the RetainSample id.
+const retainSampleMap = useLiveQueryWithDeps(
+  [
+    () =>
+      taskInstances.value.filter((i) => i.entityType === 'RetainSample').map((i) => i.entityId),
+  ],
+  async (db, [rsIds]) => {
+    const ids = [...new Set(rsIds.filter(Boolean))]
+    if (!ids.length) return {}
+    const rows = await Promise.all(ids.map((id) => db.RetainSample.findByPk(id)))
+    return Object.fromEntries(rows.filter(Boolean).map((r) => [r.id, r]))
+  },
+
+  { models: ['RetainSample'], initial: {} },
+)
+
 // Specification approval tasks — entityId is the Specification id.
 const specificationMap = useLiveQueryWithDeps(
   [() => taskInstances.value.filter((i) => i.entityType === 'Specification').map((i) => i.entityId)],
@@ -410,6 +426,7 @@ const BUILTIN_ENTITY_TYPES = new Set([
   'AuditInstance',
   'AuditStandardVersion',
   'InspectionLot',
+  'RetainSample',
   'Specification',
   'LineClearanceChecklist',
   'TrainingAssignee',
@@ -523,6 +540,10 @@ const filteredInstances = computed(() => {
     if (instance.entityType === 'InspectionLot') {
       const lot = inspectionLotMap.value[instance.entityId]
       return !!lot && lot.lotNumber?.toLowerCase().includes(q)
+    }
+    if (instance.entityType === 'RetainSample') {
+      const rs = retainSampleMap.value[instance.entityId]
+      return !!rs && (rs.rsNumber?.toLowerCase().includes(q) || rs.lotNumber?.toLowerCase().includes(q))
     }
     if (instance.entityType === 'Specification') {
       const s = specificationMap.value[instance.entityId]
@@ -653,6 +674,8 @@ function titleFor(row) {
       return auditStandardVersionMap.value[row.entityId]?.standard?.name || ''
     case 'InspectionLot':
       return inspectionLotMap.value[row.entityId]?.lotNumber || ''
+    case 'RetainSample':
+      return retainSampleMap.value[row.entityId]?.rsNumber || ''
     case 'Specification':
       return specificationMap.value[row.entityId]?.name || ''
     case 'LineClearanceChecklist':
@@ -828,6 +851,9 @@ function entityRoute(row) {
   if (row.entityType === 'InspectionLot') {
     return getCompanyPath(`qc-inspection/lots/${row.entityId}`)
   }
+  if (row.entityType === 'RetainSample') {
+    return getCompanyPath(`qc-inspection/retain-samples/${row.entityId}`)
+  }
   if (row.entityType === 'Specification') {
     return getCompanyPath(`qc-inspection/specifications/${row.entityId}`)
   }
@@ -875,6 +901,8 @@ function rowTitle(row) {
       return auditStandardVersionMap.value[row.entityId]?.standard?.name || 'Audit Standard'
     case 'InspectionLot':
       return inspectionLotMap.value[row.entityId]?.lotNumber || 'Inspection Lot'
+    case 'RetainSample':
+      return retainSampleMap.value[row.entityId]?.rsNumber || 'Retain Sample'
     case 'Specification':
       return specificationMap.value[row.entityId]?.name || 'Specification'
     case 'LineClearanceChecklist':
@@ -917,6 +945,10 @@ function rowSubtitle(row) {
     case 'InspectionLot': {
       const lot = inspectionLotMap.value[row.entityId]
       return lot?.inspectionPoint || ''
+    }
+    case 'RetainSample': {
+      const rs = retainSampleMap.value[row.entityId]
+      return rs?.lotNumber ? `Lot ${rs.lotNumber}` : ''
     }
     case 'Specification':
       return specificationMap.value[row.entityId]?.code || ''
@@ -1127,6 +1159,14 @@ defineExpose({ exportCsv })
               </span>
               <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                 {{ inspectionLotMap[row.entityId]?.inspectionPoint || '—' }}
+              </span>
+            </template>
+            <template v-else-if="row.entityType === 'RetainSample'">
+              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
+                {{ retainSampleMap[row.entityId]?.rsNumber || 'Retain Sample' }}
+              </span>
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
+                {{ retainSampleMap[row.entityId]?.lotNumber ? `Lot ${retainSampleMap[row.entityId].lotNumber}` : '—' }}
               </span>
             </template>
             <template v-else-if="row.entityType === 'Specification'">
