@@ -17,6 +17,8 @@
     "test:e2e": "playwright test",
     "test:e2e:docs": "playwright test --project=documents",
     "test:e2e:headed": "playwright test --project=documents --headed",
+    "test:e2e:ncr": "playwright test --project=nonconformances",
+    "test:e2e:ncr:headed": "playwright test --project=nonconformances --headed",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "build:help": "node scripts/build-help-content.mjs",

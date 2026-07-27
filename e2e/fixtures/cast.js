@@ -51,4 +51,23 @@ export const AUTH = {
 export const FIXTURES = {
   sopTemplateName: 'E2E SOP Template', // PUBLISHED, prefix ESOP, 3 sections, training OFF
   approvalWorkflowName: 'E2E Document Approval', // step1 ACTION → Reviewer, step2 APPROVAL+e-sign → Approver
+  // NCR — reuses the same cast: author=ncOwner (ncr:create/read/update, owns via
+  // nc.ownerId), reviewer=step-1 ACTION assignee (ncr:read), approver=step-2
+  // APPROVAL+e-sign assignee (ncr:read/approve), auditor=ncr:read, noAccess=no
+  // ncr grants (permission-denial persona).
+  ncrWorkflowName: 'E2E NCR Review & Approval', // step1 ACTION → Reviewer, step2 APPROVAL+e-sign → Approver
+  ncrDispositionNoCost: 'Use As Is', // tracks_cost=false
+  ncrDispositionCost: 'Rework', // tracks_cost=true
+  ncrSupplierWithPortal: 'E2E-PWJ5 Supplier Portal', // has an ACTIVE EXTERNAL_SUPPLIER user
+  ncrSupplierNoPortal: 'E2E-PWJ5 Supplier NoPortal', // no portal user — negative case
 }
+
+// Supplier ids (not in USERS/AUTH — this persona never logs into the app UI).
+export const SUPPLIER_IDS = {
+  withPortal: 'e2e70000-0000-4000-8000-000000000001',
+  noPortal: 'e2e70000-0000-4000-8000-000000000002',
+}
+
+// The ACTIVE EXTERNAL_SUPPLIER portal user behind SUPPLIER_IDS.withPortal —
+// the account NC assignments are re-pointed to on supplier-facing conversion.
+export const SUPPLIER_PORTAL_USER_ID = 'e2e10000-0000-4000-8000-000000000009'

@@ -20,10 +20,12 @@ const PUBLIC_ROUTES = ['/signin', '/signup', '/login', '/forgot-password', '/res
 const BENIGN = /401|unauthorized|favicon|Failed to load resource|net::ERR|socket|ECONNREFUSED/i
 
 async function mockBackend(page) {
-  await page.route('**/api/**', (r) =>
-    r.fulfill({ status: 401, contentType: 'application/json', body: '{}' }),
-  )
-  await page.route('**/auth/**', (r) =>
+  // Scoped to the real REST prefix (/api/v1/...) — a bare **/api/** or
+  // **/auth/** glob also matches Vite's own module URLs for source files
+  // that happen to live under those path segments (src/api/*.js,
+  // src/components/auth/*.vue, including LoginForm.vue itself), 401-ing the
+  // app's own JS/SFC modules and white-screening it before mount.
+  await page.route('**/api/v1/**', (r) =>
     r.fulfill({ status: 401, contentType: 'application/json', body: '{}' }),
   )
   await page.route('**/socket.io/**', (r) => r.abort())

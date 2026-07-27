@@ -210,10 +210,14 @@ function openCloseDialog() {
 
 // User confirms in the Close dialog → open the esign auth dialog. The
 // actual POST happens in the @verified handler below once credentials
-// come back.
+// come back. Close the confirm dialog first — leaving both open stacks two
+// BaseDialogs with competing focus traps, which silently swallows keyboard
+// input into the PIN field (verified in a real browser, not a test-only
+// artifact).
 function handleCloseCapa() {
   if (!canClose.value) return
   saveError.value = null
+  showCloseDialog.value = false
   pendingEsignAction.value = 'close'
   showEsignDialog.value = true
 }
@@ -227,6 +231,11 @@ function openCancelDialog() {
 function handleCancelCapa() {
   if (!capa.value || !cancelReason.value.trim()) return
   saveError.value = null
+  // Close the confirm dialog before opening the esign dialog — leaving both
+  // open stacks two BaseDialogs with competing focus traps, which silently
+  // swallows keyboard input into the PIN field (same bug as Close above;
+  // Cancel was missed when that fix landed).
+  showCancelDialog.value = false
   pendingEsignAction.value = 'cancel'
   showEsignDialog.value = true
 }
