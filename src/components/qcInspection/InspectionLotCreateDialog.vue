@@ -358,9 +358,20 @@ async function onSave() {
           <BaseField v-slot="{ id: fieldId }" label="Receipt #">
             <BaseTextInput :id="fieldId" v-model="form.receiptNumber" placeholder="optional" />
           </BaseField>
-          <BaseField label="Work order" required :value="form.workOrder" :rules="[required()]">
+          <!-- Work order is the production run identity — mandatory only for
+               in-process (IPQC) inspections; optional context elsewhere. -->
+          <BaseField
+            label="Work order"
+            :required="form.inspectionPoint === 'IN_PROCESS'"
+            :value="form.workOrder"
+            :rules="form.inspectionPoint === 'IN_PROCESS' ? [required()] : []"
+          >
             <template #default="field">
-              <BaseTextInput v-bind="field" v-model="form.workOrder" placeholder="required" />
+              <BaseTextInput
+                v-bind="field"
+                v-model="form.workOrder"
+                :placeholder="form.inspectionPoint === 'IN_PROCESS' ? 'required' : 'optional'"
+              />
             </template>
           </BaseField>
           <BaseField label="Manufacturing date">
