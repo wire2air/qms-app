@@ -346,14 +346,20 @@ const cadence = computed(() => {
 })
 // Per-sample data was actually captured (any result on a unit beyond #1).
 const hasPerSampleResults = computed(() => results.value.some((r) => (r.sampleIndex ?? 1) > 1))
-// Render the per-sample data sheet when in SAMPLE mode OR when per-sample
-// results exist — so a completed/dispositioned lot keeps showing its data sheet
-// (read-only) regardless of how captureMode reads back after the transition.
-const showSampleGrid = computed(
-  () => isInProcess.value || isSampleMode.value || hasPerSampleResults.value,
-)
 const canSampleCapture = computed(() => (lot.value?.sampleSize ?? 0) > 1)
 const isCapturing = computed(() => ['DRAFT', 'PENDING', 'IN_PROGRESS'].includes(lot.value?.statusId))
+// Render the per-sample data sheet when in SAMPLE mode; a FROZEN lot with
+// per-sample results also keeps its data sheet (read-only) regardless of how
+// captureMode reads back. While actively capturing, the toggle drives the view
+// strictly — the old `hasPerSampleResults` override kept the sheet on screen
+// after switching to Single result, so the toggle looked dead (user-reported;
+// the backend now clears unit rows on that transition, after a confirm).
+const showSampleGrid = computed(
+  () =>
+    isInProcess.value ||
+    isSampleMode.value ||
+    (hasPerSampleResults.value && !isCapturing.value),
+)
 // Results are editable/saveable only while the lot is actively being captured
 // (DRAFT/PENDING/IN_PROGRESS). Once COMPLETED — and through review/disposition —
 // they're frozen: no Save button, inputs read-only.
@@ -365,6 +371,19 @@ const savingMode = ref(false)
 async function setCaptureMode(mode) {
   if (savingMode.value || lot.value?.captureMode === mode) return
   if (mode === 'SAMPLE' && !canSampleCapture.value) return
+  // Dropping to Single result discards the per-unit data sheet — warn first
+  // (the backend deletes unit rows #2+ on this transition; #1 rows double as
+  // the single-result values and are kept).
+  if (mode === 'LOT' && hasPerSampleResults.value) {
+    const ok = await confirm({
+      title: 'Switch to Single result?',
+      message:
+        'Per-sample results have already been recorded. Switching to Single result deletes the entries for sample #2 and up (sample #1 becomes the single result). This cannot be undone.',
+      okLabel: 'Switch & delete',
+      danger: true,
+    })
+    if (!ok) return
+  }
   savingMode.value = true
   try {
     await patch(`/v1/services/qcInspection/lots/${props.id}`, { captureMode: mode })
