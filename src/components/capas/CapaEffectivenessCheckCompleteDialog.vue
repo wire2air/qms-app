@@ -63,6 +63,12 @@ async function doComplete() {
 async function onValidSubmit() {
   if (!props.checkId) return
   if (!esignData.value) {
+    // Close the confirm dialog before opening the esign dialog — leaving both
+    // open stacks two BaseDialogs with competing focus traps, which silently
+    // swallows keyboard input into the PIN field (same bug already fixed for
+    // NC/CAPA/CR close+cancel in NonconformancesPageId.vue / CapasPageId.vue /
+    // ChangeRequestsPageId.vue; this dialog was missed in that pass).
+    isOpen.value = false
     esignOpen.value = true
     return
   }

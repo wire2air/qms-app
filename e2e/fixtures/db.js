@@ -90,6 +90,15 @@ export function findNcByTitle(title) {
   return { id: row[0], ncNumber: row[1] || null, statusId: row[2], ownerId: row[3] }
 }
 
+/** CAPA row by exact title (E2E titles are unique per run). */
+export function findCapaByTitle(title) {
+  const row = sqlRow(
+    `SELECT id, capa_number, status_id, owner_id FROM capas WHERE title = ${quote(title)} ORDER BY created_at DESC LIMIT 1`,
+  )
+  if (!row) return null
+  return { id: row[0], capaNumber: row[1] || null, statusId: row[2], ownerId: row[3] }
+}
+
 export function versionsOf(documentId) {
   const out = sql(
     `SELECT id, version_label, status_id, is_latest, snapshot_sha256 FROM document_versions WHERE document_id = ${quote(documentId)} AND deleted_at IS NULL ORDER BY version_major, version_minor`,
