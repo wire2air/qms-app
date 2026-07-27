@@ -62,6 +62,15 @@ export function findDocumentByTitle(title) {
   return { id: row[0], docNumber: row[1] || null, statusId: row[2] }
 }
 
+/** Nonconformance row by exact title (E2E titles are unique per run). */
+export function findNcByTitle(title) {
+  const row = sqlRow(
+    `SELECT id, nc_number, status_id, owner_id FROM nonconformances WHERE title = ${quote(title)} ORDER BY created_at DESC LIMIT 1`,
+  )
+  if (!row) return null
+  return { id: row[0], ncNumber: row[1] || null, statusId: row[2], ownerId: row[3] }
+}
+
 export function versionsOf(documentId) {
   const out = sql(
     `SELECT id, version_label, status_id, is_latest, snapshot_sha256 FROM document_versions WHERE document_id = ${quote(documentId)} AND deleted_at IS NULL ORDER BY version_major, version_minor`,
