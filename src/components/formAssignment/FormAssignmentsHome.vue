@@ -1,5 +1,6 @@
 <script setup>
 import { IconPlus, IconClipboardList, IconPower, IconEdit } from '@tabler/icons-vue'
+import BasePage from '@shared/components/BasePage.vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { humanizeCron } from '@/utils/cronHumanize.js'
@@ -22,8 +23,8 @@ const router = useRouter()
 const canAssign = computed(() => isAllowed(['inspections:assign']))
 
 // Dynamic shell: BasePage normally, plain column when embedded in a tab.
-const BasePageComp = resolveComponent('BasePage')
-const rootIs = computed(() => (props.embedded ? 'div' : BasePageComp))
+// Explicit import: resolveComponent can't see compile-time auto-imports.
+const rootIs = computed(() => (props.embedded ? 'div' : BasePage))
 const rootProps = computed(() =>
   props.embedded ? { class: 'tw:flex tw:flex-col tw:gap-4' } : { width: 'standard' },
 )

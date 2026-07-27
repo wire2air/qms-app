@@ -26,6 +26,11 @@
  */
 import { IconSearchOff, IconAlertTriangle } from '@tabler/icons-vue'
 import { resolveListState } from '../composables/listLayoutHelpers.js'
+// Explicit import — the dynamic <component :is> root needs the real component
+// object; resolveComponent('BasePage') can't see compile-time auto-imports and
+// silently rendered a meaningless <basepage> element (every list page lost its
+// width constraint — user-reported 2026-07-27).
+import BasePage from './BasePage.vue'
 
 const props = defineProps({
   title: { type: String, default: '' },
@@ -67,8 +72,7 @@ const resolvedState = computed(
 )
 
 // Dynamic root: BasePage normally, a plain column when embedded in a host.
-const BasePageComp = resolveComponent('BasePage')
-const rootIs = computed(() => (props.embedded ? 'div' : BasePageComp))
+const rootIs = computed(() => (props.embedded ? 'div' : BasePage))
 const rootProps = computed(() =>
   props.embedded
     ? { class: 'tw:flex tw:flex-col tw:gap-4' }
