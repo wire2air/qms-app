@@ -231,6 +231,11 @@ function openCancelDialog() {
 function handleCancelCapa() {
   if (!capa.value || !cancelReason.value.trim()) return
   saveError.value = null
+  // Close the confirm dialog before opening the esign dialog — leaving both
+  // open stacks two BaseDialogs with competing focus traps, which silently
+  // swallows keyboard input into the PIN field (same bug as Close above;
+  // Cancel was missed when that fix landed).
+  showCancelDialog.value = false
   pendingEsignAction.value = 'cancel'
   showEsignDialog.value = true
 }
