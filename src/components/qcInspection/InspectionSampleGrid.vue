@@ -13,7 +13,15 @@
  * Ergonomics for 80-unit lots: "Fill ↓" copies the first row down a column, and
  * pasting a newline-separated column fills consecutive rows from the cell.
  */
-import { IconArrowBarToDown, IconMessagePlus, IconMessage } from '@tabler/icons-vue'
+import {
+  IconArrowBarToDown,
+  IconMessagePlus,
+  IconMessage,
+  IconMaximize,
+  IconMinimize,
+  IconChevronLeft,
+  IconChevronRight,
+} from '@tabler/icons-vue'
 
 const props = defineProps({
   characteristics: { type: Array, required: true },
@@ -244,6 +252,55 @@ function buildPayload() {
   return payload
 }
 
+// ── Sample focus mode ────────────────────────────────────────────────────────
+// Click a sample number → all its tests VERTICALLY in a dialog (matches how a
+// tester physically works a unit: run every test on it, record top-to-bottom).
+// Enter advances to the next test; Prev/Next walks the lot without closing.
+const focusSampleNo = ref(null)
+const focusIdx = computed(() => sampleNos.value.indexOf(focusSampleNo.value))
+function openFocus(s) {
+  if (props.readonly) return
+  focusSampleNo.value = s
+  nextTick(() => focusFirstInput())
+}
+const focusOpen = computed({
+  get: () => focusSampleNo.value != null,
+  set: (v) => {
+    if (!v) focusSampleNo.value = null
+  },
+})
+function focusStep(delta) {
+  const idx = focusIdx.value + delta
+  if (idx < 0 || idx >= sampleNos.value.length) return
+  focusSampleNo.value = sampleNos.value[idx]
+  nextTick(() => focusFirstInput())
+}
+
+// Enter-to-advance across the dialog's typeable inputs.
+const focusInputs = ref([])
+function setFocusInput(el, i) {
+  if (el) focusInputs.value[i] = el
+}
+function focusFirstInput() {
+  focusInputs.value = []
+  nextTick(() => focusInputs.value.find(Boolean)?.focus?.())
+}
+function focusNextInput(i) {
+  const next = focusInputs.value.slice(i + 1).find(Boolean)
+  if (next) next.focus?.()
+}
+
+// Apply the focused sample's answer to every sample — pass/fail only (numeric
+// and text are per-unit readings, never bulk; same rule as Fill ↓).
+function applyToAllSamples(c) {
+  const src = grid.value[focusSampleNo.value]?.[c.id]
+  if (!src || c.testType !== 'PASS_FAIL') return
+  for (const s of sampleNos.value) grid.value[s][c.id] = { ...src }
+}
+
+// ── Full-screen mode ─────────────────────────────────────────────────────────
+const expanded = ref(false)
+
 // Sample units with a FAILED outcome that have no per-sample comment (notes
 // via the evidence dialog). Failing units must carry the documented reason —
 // the parent blocks Save while any are missing.
@@ -259,7 +316,35 @@ defineExpose({ buildPayload, failedSamplesMissingComment })
 </script>
 
 <template>
-  <div class="tw:overflow-auto tw:max-h-[32rem] tw:border tw:border-divider tw:rounded-lg">
+  <div
+    :class="
+      expanded
+        ? 'tw:fixed tw:inset-4 tw:z-overlay tw:bg-main tw:rounded-xl tw:shadow-2xl tw:border tw:border-divider tw:flex tw:flex-col tw:gap-2 tw:p-3'
+        : 'tw:flex tw:flex-col tw:gap-1'
+    "
+  >
+    <div class="tw:flex tw:items-center tw:justify-between">
+      <span v-if="expanded" class="tw:text-sm tw:font-semibold tw:text-on-main">
+        Sample data sheet
+      </span>
+      <span v-else class="tw:text-caption tw:text-secondary">
+        Tip: click a sample # to enter all its tests top-to-bottom.
+      </span>
+      <button
+        type="button"
+        class="tw:flex tw:items-center tw:gap-1 tw:text-micro tw:font-medium tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+        :title="expanded ? 'Exit full screen' : 'Full screen'"
+        @click="expanded = !expanded"
+      >
+        <component :is="expanded ? IconMinimize : IconMaximize" :size="14" />
+        {{ expanded ? 'Exit full screen' : 'Full screen' }}
+      </button>
+    </div>
+
+    <div
+      class="tw:overflow-auto tw:border tw:border-divider tw:rounded-lg"
+      :class="expanded ? 'tw:flex-1 tw:min-h-0' : 'tw:max-h-[32rem]'"
+    >
     <table class="tw:text-sm tw:border-collapse tw:w-full">
       <thead class="tw:sticky tw:top-0 tw:z-raised tw:bg-main-hover">
         <tr>
@@ -309,7 +394,15 @@ defineExpose({ buildPayload, failedSamplesMissingComment })
           >
             <div class="tw:flex tw:items-center tw:justify-between tw:gap-1.5">
               <div class="tw:flex tw:items-center tw:gap-1.5">
-                <span class="tw:font-semibold tw:text-on-main tw:text-sm">#{{ s }}</span>
+                <button
+                  type="button"
+                  class="tw:font-semibold tw:text-sm tw:bg-transparent tw:border-0 tw:p-0"
+                  :class="readonly ? 'tw:text-on-main' : 'tw:text-primary tw:hover:underline tw:cursor-pointer'"
+                  :title="readonly ? undefined : 'Open this sample — enter all tests vertically'"
+                  @click="openFocus(s)"
+                >
+                  #{{ s }}
+                </button>
                 <span
                   v-if="sampleLotNo(s)"
                   class="tw:text-micro tw:rounded tw:bg-main-hover tw:px-1.5 tw:py-0.5 tw:text-on-main tw:font-medium"
@@ -402,5 +495,117 @@ defineExpose({ buildPayload, failedSamplesMissingComment })
         </tr>
       </tfoot>
     </table>
+    </div>
+
+    <!-- Sample focus mode: every test for ONE sample, vertically — the
+         high-throughput entry surface. Enter advances; Prev/Next walks the lot. -->
+    <BaseDialog v-model="focusOpen" :title="`Sample #${focusSampleNo ?? ''}`" maxWidth="2xl">
+      <div
+        v-if="focusSampleNo != null && grid[focusSampleNo]"
+        class="tw:p-5 tw:flex tw:flex-col tw:gap-2"
+      >
+        <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:mb-1">
+          <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary">
+            <span v-if="sampleLotNo(focusSampleNo)" class="tw:text-micro tw:rounded tw:bg-main-hover tw:px-1.5 tw:py-0.5 tw:text-on-main tw:font-medium">
+              {{ sampleLotNo(focusSampleNo) }}
+            </span>
+            <span
+              v-if="sampleOutcome(focusSampleNo) !== 'NA'"
+              class="tw:text-micro tw:font-bold tw:px-2 tw:py-0.5 tw:rounded-full"
+              :class="unitBadgeClass(sampleOutcome(focusSampleNo))"
+            >
+              {{ sampleOutcome(focusSampleNo) === 'FAIL' ? 'FAIL' : 'PASS' }}
+            </span>
+          </div>
+          <button
+            type="button"
+            class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            :class="sampleHasEvidence(focusSampleNo) ? 'tw:text-primary' : 'tw:text-secondary tw:hover:text-primary'"
+            @click="emit('evidence', focusSampleNo)"
+          >
+            <component :is="sampleHasEvidence(focusSampleNo) ? IconMessage : IconMessagePlus" :size="15" />
+            {{ sampleHasEvidence(focusSampleNo) ? 'Comments / evidence' : 'Add comment / evidence' }}
+          </button>
+        </div>
+
+        <div
+          v-for="(c, i) in characteristics"
+          :key="c.id"
+          class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:px-3 tw:py-2"
+          :class="cellClass(c, focusSampleNo)"
+        >
+          <div class="tw:flex-1 tw:min-w-0">
+            <div class="tw:text-sm tw:font-medium tw:text-on-main">
+              {{ c.name }}
+              <DefectSeverityBadgeById
+                :severityId="c.defectClass || (c.isCritical ? 'CRITICAL' : 'MAJOR')"
+                class="tw:ml-1 tw:text-micro"
+              />
+            </div>
+            <div class="tw:text-caption tw:text-secondary">{{ limitText(c) || '—' }}</div>
+          </div>
+          <input
+            v-if="c.testType === 'NUMERIC'"
+            :ref="(el) => setFocusInput(el, i)"
+            v-model.number="grid[focusSampleNo][c.id].valueNumeric"
+            type="number"
+            :disabled="readonly"
+            class="tw:w-28 tw:px-2 tw:py-1.5 tw:rounded tw:border tw:border-divider tw:bg-white tw:text-on-main tw:outline-none focus:tw:border-primary tw:shrink-0"
+            @keyup.enter="focusNextInput(i)"
+          />
+          <PassFailRadio
+            v-else-if="c.testType === 'PASS_FAIL'"
+            v-model="grid[focusSampleNo][c.id].valueBool"
+            :disabled="readonly"
+            class="tw:shrink-0"
+          />
+          <input
+            v-else
+            :ref="(el) => setFocusInput(el, i)"
+            v-model="grid[focusSampleNo][c.id].valueText"
+            type="text"
+            placeholder="observation"
+            :disabled="readonly"
+            class="tw:w-40 tw:px-2 tw:py-1.5 tw:rounded tw:border tw:border-divider tw:bg-white tw:text-on-main tw:outline-none focus:tw:border-primary tw:shrink-0"
+            @keyup.enter="focusNextInput(i)"
+          />
+          <BaseTooltip
+            v-if="!readonly && c.testType === 'PASS_FAIL' && sampleRows.length > 1"
+            content="Apply this answer to ALL samples"
+          >
+            <button
+              type="button"
+              class="tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:shrink-0"
+              aria-label="Apply this answer to all samples"
+              @click="applyToAllSamples(c)"
+            >
+              <IconArrowBarToDown :size="16" />
+            </button>
+          </BaseTooltip>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="tw:flex tw:items-center tw:justify-between tw:px-5 tw:py-3 tw:w-full">
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <BaseButton variant="outline" size="sm" :disabled="focusIdx <= 0" @click="focusStep(-1)">
+              <IconChevronLeft :size="16" /> Prev
+            </BaseButton>
+            <span class="tw:text-xs tw:text-secondary">
+              {{ focusIdx + 1 }} of {{ sampleRows.length }}
+            </span>
+            <BaseButton
+              variant="outline"
+              size="sm"
+              :disabled="focusIdx >= sampleRows.length - 1"
+              @click="focusStep(1)"
+            >
+              Next <IconChevronRight :size="16" />
+            </BaseButton>
+          </div>
+          <BaseButton variant="primary" size="sm" @click="focusOpen = false">Done</BaseButton>
+        </div>
+      </template>
+    </BaseDialog>
   </div>
 </template>
