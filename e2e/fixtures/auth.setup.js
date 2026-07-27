@@ -32,16 +32,23 @@ setup('apply the E2E seed (idempotent)', async () => {
 })
 
 setup('stack is up', async () => {
-  let res
+  // Playwright's request API, NOT global fetch: undici captures dns.lookup at
+  // process start, so the `*.localhost` DNS shim (e2e/fixtures/localhostDns.js)
+  // can't reach it — global fetch ENOTFOUNDs on machines without /etc/hosts
+  // entries while Playwright's own stack resolves fine.
+  const ctx = await request.newContext({ baseURL: BASE_URL })
+  let status
   try {
-    res = await fetch(BASE_URL)
+    status = (await ctx.get('/')).status()
   } catch {
     throw new Error(
       `E2E stack is not running at ${BASE_URL}.\n` +
         `Start it first: ./dev.sh (repo root) — api :4000, worker :4002, sync :4003, app :5173.`,
     )
+  } finally {
+    await ctx.dispose().catch(() => {})
   }
-  expect(res.status, `GET ${BASE_URL}`).toBe(200)
+  expect(status, `GET ${BASE_URL}`).toBe(200)
 })
 
 setup('login all roles and save storage state', async () => {
