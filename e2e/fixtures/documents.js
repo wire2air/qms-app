@@ -23,11 +23,19 @@ function comboboxAfterLabel(page, fieldLabel) {
 /**
  * Select the first option of a BaseSelect via keyboard — stable against the
  * listbox open/candidate-load animation (clicking an animating option flakes).
+ *
+ * Keys must go to the page (not `combo.press`, which refocuses the trigger
+ * div — desktop's trigger has no keydown handler, so that's a silent no-op,
+ * and refocusing away from the popover's autofocused search input can even
+ * dismiss it). Wait for the listbox to actually have an option before
+ * navigating, since options load async from IDB.
  */
 async function selectFirstByKeyboard(combo) {
   await combo.click()
-  await combo.press('ArrowDown')
-  await combo.press('Enter')
+  const page = combo.page()
+  await page.getByRole('listbox').getByRole('option').first().waitFor({ state: 'visible' })
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
 }
 
 /** Open a labelled select and choose an option by its visible text. */

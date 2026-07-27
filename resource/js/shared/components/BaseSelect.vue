@@ -352,7 +352,14 @@ function closeMenu() {
   isOpen.value = false
   emit('popup-hide')
   resetQuery()
-  validate()
+  // A required select with no options yet hasn't necessarily failed — its
+  // options may still be loading (e.g. an async IDB query) and the
+  // required-autofill watcher below will fill it in once they arrive. Flagging
+  // "required" now would go stale: that watcher sets the value directly and
+  // never re-validates, so the error would outlive the fix.
+  if (!props.required || hasValue.value || normalizedOptions.value.length > 0) {
+    validate()
+  }
   emit('blur')
 }
 
