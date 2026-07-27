@@ -32,11 +32,14 @@ test.describe('PW-J4 · Nonconformances list — KPIs, quick pills, filters', ()
       'aria-pressed',
       'true',
     )
+    // `deleted_at IS NULL` mirrors the syncEngine's paranoid filtering — the UI
+    // never shows soft-deleted rows, so omitting it here would over-count the
+    // moment any E2E NC is deleted (e.g. once TC-10 delete-a-draft lands).
     const mineExpected = Number(
       sqlValue(
         `SELECT count(*) FROM nonconformances
           WHERE company_id = '${COMPANY_ID}' AND owner_id = '${USERS.author.id}'
-            AND status_id IN ('DRAFT','UNDER_REVIEW')`,
+            AND status_id IN ('DRAFT','UNDER_REVIEW') AND deleted_at IS NULL`,
       ),
     )
     // DataTable paginates at 50 rows/page (this dev DB accumulates NC rows
@@ -63,7 +66,7 @@ test.describe('PW-J4 · Nonconformances list — KPIs, quick pills, filters', ()
       sqlValue(
         `SELECT count(*) FROM nonconformances
           WHERE company_id = '${COMPANY_ID}' AND severity_id = 'CRITICAL'
-            AND status_id IN ('DRAFT','UNDER_REVIEW')`,
+            AND status_id IN ('DRAFT','UNDER_REVIEW') AND deleted_at IS NULL`,
       ),
     )
     if (criticalExpected === 0) {

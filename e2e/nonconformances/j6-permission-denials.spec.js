@@ -1,10 +1,12 @@
 // PW-J6 · Permission denials + cross-tenant (TC-17 f/g) — multi-role.
 import { test, expect } from '@playwright/test'
-import { AUTH, ALT_BASE_URL } from '../fixtures/cast.js'
+import { AUTH, BASE_URL, ALT_BASE_URL } from '../fixtures/cast.js'
 import { raiseNc, uniqueTitle } from '../fixtures/nonconformances.js'
 import { findNcByTitle } from '../fixtures/db.js'
 
-const API_BASE = 'http://e2elab.localhost:4000'
+// Relative `/api/v1/...` through the configured baseURL (the Vite proxy strips
+// the `/api` prefix), so E2E_BASE_URL keeps working when the stack moves — a
+// hardcoded http://…:4000 origin silently ignores that override.
 
 test.describe('PW-J6 · permission denials + cross-tenant isolation', () => {
   test('a reviewer (ncr:read only) cannot submit-for-review an NC they do not own -> 403', async ({
@@ -20,7 +22,7 @@ test.describe('PW-J6 · permission denials + cross-tenant isolation', () => {
 
     const reviewerCtx = await browser.newContext({ storageState: AUTH.reviewer })
     const res = await reviewerCtx.request.post(
-      `${API_BASE}/v1/services/nonconformances/${nc.id}/submitForReview`,
+      `/api/v1/services/nonconformances/${nc.id}/submitForReview`,
       { data: {} },
     )
     expect(res.status()).toBe(403)
@@ -36,8 +38,8 @@ test.describe('PW-J6 · permission denials + cross-tenant isolation', () => {
   })
 
   test('an unauthenticated API request is rejected with 401', async ({ playwright }) => {
-    const request = await playwright.request.newContext()
-    const res = await request.post(`${API_BASE}/v1/services/nonconformances`, { data: {} })
+    const request = await playwright.request.newContext({ baseURL: BASE_URL })
+    const res = await request.post('/api/v1/services/nonconformances', { data: {} })
     expect(res.status()).toBe(401)
     await request.dispose()
   })

@@ -1,10 +1,14 @@
 // PW-J5 · Convert to supplier-facing (TC-13) — owner.
 import { test, expect } from '@playwright/test'
-import { AUTH, USERS, FIXTURES, SUPPLIER_IDS } from '../fixtures/cast.js'
+import {
+  AUTH,
+  USERS,
+  FIXTURES,
+  SUPPLIER_IDS,
+  SUPPLIER_PORTAL_USER_ID as SUPPLIER_USER_ID,
+} from '../fixtures/cast.js'
 import { raiseNc, openNc, convertToSupplierFacing, uniqueTitle } from '../fixtures/nonconformances.js'
 import { findNcByTitle, sqlValue, sqlRow, waitForSqlValue } from '../fixtures/db.js'
-
-const SUPPLIER_USER_ID = 'e2e10000-0000-4000-8000-000000000009'
 
 test.use({ storageState: AUTH.author })
 

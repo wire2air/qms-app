@@ -20,7 +20,9 @@ test.describe('PW-J1 · owner raises an NC, it opens for review', () => {
     const nc = findNcByTitle(title)
     expect(nc, 'NC row exists').toBeTruthy()
     expect(nc.statusId).toBe('DRAFT')
-    expect(nc.ncNumber).toMatch(/^NC-HQ-QA-\d{3}$/)
+    // \d{3,} — the sequence is zero-padded to 3 but this dev DB accumulates NCs
+    // across every run, so it legitimately grows past 999.
+    expect(nc.ncNumber).toMatch(/^NC-HQ-QA-\d{3,}$/)
     await expect(page.getByText(nc.ncNumber).first()).toBeVisible()
 
     const counterAfter = Number(

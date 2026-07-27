@@ -189,6 +189,31 @@ export async function markCompleteBlockedReason(page) {
   return btn.getAttribute('title')
 }
 
+/**
+ * Fire the real markComplete endpoint and assert the SERVER rejects it 409
+ * with the expected gate message.
+ *
+ * The tooltip above only reflects the frontend computed, which merely *disables*
+ * the button. The same 5 gates are enforced independently in the controller
+ * (backend/api/controllers/nonconformances.js markNcComplete) — that's the half
+ * that actually stops a direct API caller, and it has its own wording (e.g.
+ * "Disposition is required…" vs the UI's "Pick a Disposition…").
+ *
+ * Signed with the REAL PIN deliberately: if a gate were ever dropped, the call
+ * would 200 and CLOSE the NC, failing this assertion loudly — rather than being
+ * masked by an "Invalid PIN" 400 that still looks like a rejection. Safe because
+ * every gate runs before verifyAndSign, so a rejected call never reaches the PIN
+ * attempt counter (no lockout risk).
+ */
+export async function expectMarkCompleteRejected(page, ncId, expectedMessage) {
+  const res = await page.request.post(`/api/v1/services/nonconformances/${ncId}/markComplete`, {
+    data: { method: 'PIN', token: ESIGN_PIN, provider: null, comments: 'E2E gate probe' },
+  })
+  expect(res.status(), `server must reject with 409: ${expectedMessage}`).toBe(409)
+  const body = await res.json().catch(() => null)
+  expect(body?.error?.message ?? '', 'server gate message').toMatch(expectedMessage)
+}
+
 /** Owner converts an UNDER_REVIEW NC to supplier-facing. */
 export async function convertToSupplierFacing(page, supplierName) {
   // Priority 20 — below the DetailActionBar's inline top-2, so it lives in the
