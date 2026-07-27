@@ -72,6 +72,39 @@ export async function waitForSqlValue(query, { timeoutMs = 60_000, intervalMs = 
 
 const quote = (s) => `'${String(s).replace(/'/g, "''")}'`
 
+/**
+ * Run SQL as the untrusted `app_user` DB role — the role PostGraphile uses for
+ * every GraphQL request. This is the only way to exercise RLS policies and the
+ * status-transition triggers from a test: Sequelize/REST connects as the
+ * superuser DB_USER, which bypasses both.
+ *
+ * The session GUCs mirror what `requireCompanyAccess` sets, minus the
+ * per-module `*_transition_context = 'trusted'` marker — so a guard trigger
+ * sees exactly what a raw GraphQL mutation would.
+ *
+ * Returns `{ ok, output, error }` rather than throwing, since the interesting
+ * assertion is usually that the statement was REJECTED.
+ */
+export function sqlAsAppUser(query, { userId, companyId }) {
+  const script = [
+    'SET ROLE app_user;',
+    `SELECT set_config('app.current_user_id', ${quote(userId)}, false);`,
+    `SELECT set_config('app.current_company_id', ${quote(companyId)}, false);`,
+    "SELECT set_config('app.current_user_is_owner', 'false', false);",
+    query,
+  ].join('\n')
+  try {
+    const output = execFileSync(
+      'docker',
+      ['exec', '-i', CONTAINER, 'psql', '-U', PG_USER, '-d', PG_DB, '-v', 'ON_ERROR_STOP=1', '-tA'],
+      { encoding: 'utf8', timeout: 15_000, input: script },
+    )
+    return { ok: true, output: output.trim(), error: '' }
+  } catch (err) {
+    return { ok: false, output: err.stdout ?? '', error: `${err.stderr ?? ''}` }
+  }
+}
+
 /** Document row by exact title (E2E titles are unique per run). */
 export function findDocumentByTitle(title) {
   const row = sqlRow(
@@ -97,6 +130,15 @@ export function findCapaByTitle(title) {
   )
   if (!row) return null
   return { id: row[0], capaNumber: row[1] || null, statusId: row[2], ownerId: row[3] }
+}
+
+/** Change Request row by exact title (E2E titles are unique per run). */
+export function findCrByTitle(title) {
+  const row = sqlRow(
+    `SELECT id, cr_number, status_id, owner_id, created_by FROM change_requests WHERE title = ${quote(title)} ORDER BY created_at DESC LIMIT 1`,
+  )
+  if (!row) return null
+  return { id: row[0], crNumber: row[1] || null, statusId: row[2], ownerId: row[3], createdBy: row[4] }
 }
 
 export function versionsOf(documentId) {

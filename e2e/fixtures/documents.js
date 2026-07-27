@@ -31,9 +31,25 @@ function comboboxAfterLabel(page, fieldLabel) {
  * navigating, since options load async from IDB.
  */
 async function selectFirstByKeyboard(combo) {
-  await combo.click()
   const page = combo.page()
-  await page.getByRole('listbox').getByRole('option').first().waitFor({ state: 'visible' })
+  // Scope to THIS select's own panel via aria-controls. A page-wide
+  // getByRole('listbox') also matches the panel of the select filled a moment
+  // ago while it is still animating shut — that reads as "already open", so the
+  // click below gets skipped and the keystrokes land on nothing, silently
+  // leaving the field unset (which then fails validation at submit).
+  const listboxId = await combo.getAttribute('aria-controls')
+  const listbox = listboxId ? page.locator(`[id="${listboxId}"]`) : page.getByRole('listbox')
+  const firstOption = listbox.getByRole('option').first()
+  // Re-click only when the panel isn't open — a click while it IS open would
+  // toggle it shut. Under load the popover can miss the first click entirely,
+  // and separately its options arrive async from IDB, so the two conditions
+  // need distinct handling rather than one blind wait.
+  await expect(async () => {
+    if (!(await listbox.isVisible().catch(() => false))) {
+      await combo.click()
+    }
+    await expect(firstOption).toBeVisible({ timeout: 5_000 })
+  }).toPass({ timeout: 30_000 })
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
 }
