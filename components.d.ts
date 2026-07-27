@@ -835,6 +835,7 @@ declare module 'vue' {
     PageSection: typeof import('./resource/js/shared/components/PageSection.vue')['default']
     'PageSection.spec': typeof import('./resource/js/shared/components/PageSection.spec.js')['default']
     'PageSection.stories': typeof import('./resource/js/shared/components/PageSection.stories.js')['default']
+    PassFailRadio: typeof import('./src/components/qcInspection/PassFailRadio.vue')['default']
     PasswordStrengthMeter: typeof import('./src/components/auth/PasswordStrengthMeter.vue')['default']
     PermissionChangeDialog: typeof import('./src/components/layout/PermissionChangeDialog.vue')['default']
     PersonalProfile: typeof import('./src/components/profile/PersonalProfile.vue')['default']
