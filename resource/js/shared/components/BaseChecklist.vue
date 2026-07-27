@@ -93,12 +93,40 @@ const { getRowValue, getCellValue, getValue, isCellSelected, handleValueChange }
   { interactive: () => isInteractive.value },
 )
 
-// radioGroup column options may be strings ('Yes') or { label, value } objects.
+// optionGroup column: ONE column, options rendered inline as a mutually-
+// exclusive radio set (groupType 'radio', the default) or a multi-select
+// checkbox set (groupType 'checkbox' → the cell stores an array). `inline`
+// (default true) lays options horizontally; false stacks them vertically.
+// 'radioGroup' is a legacy alias for the radio flavor.
+function isOptionGroupCol(col) {
+  return col.inputType === 'optionGroup' || col.inputType === 'radioGroup'
+}
+// Options may be strings ('Yes') or { label, value } objects.
 function rgValue(opt) {
   return typeof opt === 'object' && opt !== null ? (opt.value ?? opt.label) : opt
 }
 function rgLabel(opt) {
   return typeof opt === 'object' && opt !== null ? (opt.label ?? opt.value) : opt
+}
+function ogIsChecked(rowIndex, col, opt) {
+  const current = getValue(rowIndex, col.value, null)
+  if (col.groupType === 'checkbox') {
+    return Array.isArray(current) && current.includes(rgValue(opt))
+  }
+  return current === rgValue(opt)
+}
+function ogToggle(rowIndex, col, opt) {
+  const v = rgValue(opt)
+  if (col.groupType === 'checkbox') {
+    const current = getValue(rowIndex, col.value, null)
+    const list = Array.isArray(current) ? [...current] : []
+    const i = list.indexOf(v)
+    if (i >= 0) list.splice(i, 1)
+    else list.push(v)
+    handleValueChange(rowIndex, col.value, list)
+    return
+  }
+  handleValueChange(rowIndex, col.value, v)
 }
 
 defineExpose({ getRowValue, getCellValue, isCellSelected })
@@ -246,11 +274,18 @@ defineExpose({ getRowValue, getCellValue, isCellSelected })
                 />
               </template>
 
-              <!-- radio group: ONE column, ONE stored value, mutually exclusive
-                   options rendered as inline radios (the safe alternative to
-                   separate radio columns, whose stale keys broke read-back) -->
-              <template v-else-if="col.inputType === 'radioGroup'">
-                <div class="tw:inline-flex tw:flex-wrap tw:items-center tw:justify-center tw:gap-x-3 tw:gap-y-1">
+              <!-- option group: ONE column, options inline as mutually-exclusive
+                   radios (or a checkbox set with groupType 'checkbox'); the safe
+                   alternative to separate radio columns, whose stale keys broke
+                   read-back. `inline: false` stacks options vertically. -->
+              <template v-else-if="isOptionGroupCol(col)">
+                <div
+                  :class="
+                    col.inline === false
+                      ? 'tw:inline-flex tw:flex-col tw:items-start tw:gap-1'
+                      : 'tw:inline-flex tw:flex-wrap tw:items-center tw:justify-center tw:gap-x-3 tw:gap-y-1'
+                  "
+                >
                   <label
                     v-for="opt in col.options || options"
                     :key="rgValue(opt)"
@@ -258,24 +293,31 @@ defineExpose({ getRowValue, getCellValue, isCellSelected })
                     :class="isInteractive ? 'tw:cursor-pointer' : 'tw:cursor-not-allowed'"
                   >
                     <input
-                      type="radio"
+                      :type="col.groupType === 'checkbox' ? 'checkbox' : 'radio'"
                       class="tw:sr-only"
                       :name="`${name}-row-${rowIndex}-${col.value}`"
                       :value="rgValue(opt)"
-                      :checked="getValue(rowIndex, col.value, null) === rgValue(opt)"
+                      :checked="ogIsChecked(rowIndex, col, opt)"
                       :disabled="disabled || readonly"
-                      @change="handleValueChange(rowIndex, col.value, rgValue(opt))"
+                      @change="ogToggle(rowIndex, col, opt)"
                     />
                     <span
                       :class="[
-                        'tw:size-4 tw:rounded-full tw:border-2 tw:flex tw:items-center tw:justify-center tw:transition-colors tw:shrink-0',
-                        getValue(rowIndex, col.value, null) === rgValue(opt)
+                        'tw:size-4 tw:border-2 tw:flex tw:items-center tw:justify-center tw:transition-colors tw:shrink-0',
+                        col.groupType === 'checkbox' ? 'tw:rounded' : 'tw:rounded-full',
+                        ogIsChecked(rowIndex, col, opt)
                           ? 'tw:border-primary tw:bg-primary'
                           : 'tw:border-gray-300 tw:bg-white',
                       ]"
                     >
+                      <IconCheck
+                        v-if="col.groupType === 'checkbox' && ogIsChecked(rowIndex, col, opt)"
+                        :size="12"
+                        class="tw:text-white"
+                        :stroke-width="3"
+                      />
                       <span
-                        v-if="getValue(rowIndex, col.value, null) === rgValue(opt)"
+                        v-else-if="ogIsChecked(rowIndex, col, opt)"
                         class="tw:size-1.5 tw:rounded-full tw:bg-white"
                       />
                     </span>

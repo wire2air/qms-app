@@ -32,6 +32,7 @@ const COLUMN_FIELD_TYPES = [
   { label: 'Email', type: 'email' },
   { label: 'Phone', type: 'phone' },
   { label: 'Dropdown', type: 'select' },
+  { label: 'Option Group', type: 'optionGroup' },
   { label: 'Date', type: 'datetime' },
   { label: 'Checkbox', type: 'checkbox' },
   { label: 'Yes / No', type: 'toggle' },

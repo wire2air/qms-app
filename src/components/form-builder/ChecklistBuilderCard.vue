@@ -65,6 +65,11 @@ function saveColumn() {
   while (existing.includes(value)) value = `${base}_${n++}`
   const col = { label, value, inputType: colDraft.value.inputType }
   if (['select', 'dropdown'].includes(colDraft.value.inputType)) col.options = []
+  if (colDraft.value.inputType === 'optionGroup') {
+    col.options = []
+    col.groupType = 'radio' // radio (mutually exclusive) | checkbox (multi)
+    col.inline = true // horizontal; false stacks options vertically
+  }
   props.field.columns.push(col)
   showColDialog.value = false
 }
@@ -177,6 +182,26 @@ function applyAiChecklist(result) {
               >
                 Select <span>⌄</span>
               </div>
+              <div
+                v-else-if="col.inputType === 'optionGroup'"
+                :class="
+                  col.inline === false
+                    ? 'tw:inline-flex tw:flex-col tw:items-start tw:gap-1'
+                    : 'tw:inline-flex tw:flex-wrap tw:items-center tw:justify-center tw:gap-x-2 tw:gap-y-1'
+                "
+              >
+                <span
+                  v-for="(opt, oi) in (col.options?.length ? col.options : ['Option 1', 'Option 2'])"
+                  :key="oi"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary"
+                >
+                  <span
+                    class="tw:size-3.5 tw:border-2 tw:border-gray-300 tw:bg-white tw:inline-block"
+                    :class="col.groupType === 'checkbox' ? 'tw:rounded' : 'tw:rounded-full'"
+                  />
+                  {{ typeof opt === 'object' ? opt.label || opt.value : opt }}
+                </span>
+              </div>
               <input
                 v-else-if="['text', 'number', 'date', 'time'].includes(col.inputType)"
                 disabled
@@ -258,7 +283,8 @@ function applyAiChecklist(result) {
           />
         </div>
         <p class="tw:text-xs tw:text-secondary">
-          Dropdown columns get their options in the field settings panel after adding.
+          Dropdown and Option Group columns get their options (and radio/checkbox +
+          orientation settings) in the field settings panel after adding.
         </p>
       </div>
       <template #footer="{ close }">

@@ -616,6 +616,10 @@ export const GROUP_TYPE_OPTIONS = [
 export const COLUMN_INPUT_TYPES = [
   { label: 'Radio', value: 'radio' },
   { label: 'Checkbox', value: 'checkbox' },
+  // ONE column holding a mutually-exclusive radio set (or checkbox set with
+  // groupType 'checkbox'), options inline, horizontal or vertical. The safe
+  // alternative to separate Radio columns (whose stale keys break read-back).
+  { label: 'Option Group', value: 'optionGroup' },
   { label: 'Text', value: 'text' },
   { label: 'Number', value: 'number' },
   { label: 'Dropdown', value: 'select' },
