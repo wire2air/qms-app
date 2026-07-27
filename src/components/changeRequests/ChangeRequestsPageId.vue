@@ -120,12 +120,16 @@ function openCancelDialog() {
   saveError.value = null
   showCancelDialog.value = true
 }
+// Close the confirm dialog first — see handleCloseClick below; leaving both
+// open stacks two BaseDialogs with competing focus traps, which silently
+// swallows keyboard input into the PIN field.
 function handleCancelClick() {
   if (!cancelReason.value.trim()) {
     cancelReasonError.value = 'A cancel reason is required'
     return
   }
   cancelReasonError.value = ''
+  showCancelDialog.value = false
   showCancelEsign.value = true
 }
 async function onCancelEsignVerified({ method, provider, token }) {

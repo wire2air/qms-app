@@ -105,6 +105,14 @@ export const FIXTURES = {
   ncrDispositionCost: 'Rework', // tracks_cost=true
   ncrSupplierWithPortal: 'E2E-PWJ5 Supplier Portal', // has an ACTIVE EXTERNAL_SUPPLIER user
   ncrSupplierNoPortal: 'E2E-PWJ5 Supplier NoPortal', // no portal user — negative case
+  // CR — same cast again: author=crOwner (change_control:create/read/update/delete,
+  // owns via cr.ownerId OR cr.createdBy — the co-author model), reviewer=step-1
+  // ACTION assignee, approver=step-2 APPROVAL+e-sign assignee, ownAuthor holds
+  // change_control at OWN scope (PW-J6), noAccess=no change_control grants.
+  // Unlike the NCR/CAPA workflows this one has a THIRD step, 'Implementation',
+  // with allowChildSteps=true so PW-J4 can add sub-tasks post-approval.
+  crWorkflowName: 'E2E CR Review & Approval',
+  crImplementationStepName: 'Implementation',
 }
 
 // Supplier ids (not in USERS/AUTH — this persona never logs into the app UI).
