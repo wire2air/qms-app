@@ -1,20 +1,24 @@
 <script setup>
 /**
- * QC Inspection landing — tabbed workspace for the operational quality layer:
- * Inspection Lots (execution), Specifications (test master), Inspection Plans
- * (the product+point → spec/sampling/workflow resolution table), Sampling
- * Plans and AQL Standards.
+ * QC Inspection landing — renders one section of the operational quality
+ * layer: Inspection Lots (execution), Retain Samples, Specifications (test
+ * master), Inspection Plans (the product+point → spec/sampling/workflow
+ * resolution table), Sampling Plans, AQL Standards, Test Library and Line
+ * Clearance. The SWITCHER is the sidebar's QC Inspection submenu (?tab=
+ * links, Training-style group — user decision 2026-07-27); the on-page tab
+ * strip was removed with it.
  */
 import { IconTestPipe } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 
 const route = useRoute()
+const router = useRouter()
 
-// Tabs are permission-gated like the left navigation: a tab is a module's
-// management surface, so it hides when the user holds no grant on that module
-// (any grant implies :read). Reference resolution doesn't need the tab — lots
-// snapshot their spec/sampling at create, and master/lookup reads are
-// tenant-public. See docs/backend/permissions.md.
+// Sections are permission-gated like the left navigation: a section is a
+// module's management surface, so it hides when the user holds no grant on
+// that module (any grant implies :read). Reference resolution doesn't need the
+// section — lots snapshot their spec/sampling at create, and master/lookup
+// reads are tenant-public. See docs/backend/permissions-model.md.
 const ALL_TABS = [
   { value: 'lots', label: 'Inspections', permission: 'inspection_qc:read' },
   { value: 'retain-samples', label: 'Retain Samples', permission: 'retain_samples:read' },
@@ -35,8 +39,17 @@ watch(
     if (v && validTabIds.value.has(v)) activeTab.value = v
   },
 )
-// If the current tab isn't visible for this user (deep link / revoked grant),
-// fall back to their first visible tab.
+// Keep ?tab= in the URL at all times — the sidebar submenu's links are
+// query-tab links, so this is what lights up the active entry.
+watch(
+  activeTab,
+  (id) => {
+    if (route.query.tab !== id) router.replace({ query: { ...route.query, tab: id } })
+  },
+  { immediate: true },
+)
+// If the current section isn't visible for this user (deep link / revoked
+// grant), fall back to their first visible one.
 watch(
   validTabIds,
   (ids) => {
@@ -44,6 +57,7 @@ watch(
   },
   { immediate: true },
 )
+const activeLabel = computed(() => ALL_TABS.find((t) => t.value === activeTab.value)?.label ?? '')
 
 const canManageSpecs = computed(() => isAllowed(['inspection_spec:write']))
 const canCreateLots = computed(() => isAllowed(['inspection_qc:create']))
@@ -63,40 +77,23 @@ const canManageDefects = computed(() => isAllowed(['inspection_catalog:write']))
       <template #title>
         <span class="tw:inline-flex tw:items-center tw:gap-1.5">
           QC Inspection
+          <span v-if="activeLabel" class="tw:text-secondary tw:font-normal">
+            · {{ activeLabel }}
+          </span>
           <HelpButton slug="KB/quality/qc-inspection" :size="16" />
         </span>
       </template>
     </PageHeader>
 
     <div class="tw:flex tw:flex-col tw:gap-5 tw:max-w-7xl">
-      <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="QC Inspection sections">
-        <div class="tw:mt-6">
-          <BaseTabPanel value="lots">
-            <InspectionLotsList :canCreate="canCreateLots" />
-          </BaseTabPanel>
-          <BaseTabPanel value="retain-samples">
-            <RetainSamplesList />
-          </BaseTabPanel>
-          <BaseTabPanel value="inspection-plans">
-            <InspectionPlansList :canManage="canManageTemplates" />
-          </BaseTabPanel>
-          <BaseTabPanel value="specifications">
-            <SpecificationsList :canManage="canManageSpecs" />
-          </BaseTabPanel>
-          <BaseTabPanel value="sampling-plans">
-            <SamplingPlansList :canManage="canManagePlans" />
-          </BaseTabPanel>
-          <BaseTabPanel value="aql-standards">
-            <AqlStandardsList :canManage="canManageStandards" />
-          </BaseTabPanel>
-          <BaseTabPanel value="test-library">
-            <DefectCatalogList :canManage="canManageDefects" />
-          </BaseTabPanel>
-          <BaseTabPanel value="line-clearance">
-            <LineClearanceSettings />
-          </BaseTabPanel>
-        </div>
-      </BaseTabs>
+      <InspectionLotsList v-if="activeTab === 'lots'" :canCreate="canCreateLots" />
+      <RetainSamplesList v-else-if="activeTab === 'retain-samples'" />
+      <InspectionPlansList v-else-if="activeTab === 'inspection-plans'" :canManage="canManageTemplates" />
+      <SpecificationsList v-else-if="activeTab === 'specifications'" :canManage="canManageSpecs" />
+      <SamplingPlansList v-else-if="activeTab === 'sampling-plans'" :canManage="canManagePlans" />
+      <AqlStandardsList v-else-if="activeTab === 'aql-standards'" :canManage="canManageStandards" />
+      <DefectCatalogList v-else-if="activeTab === 'test-library'" :canManage="canManageDefects" />
+      <LineClearanceSettings v-else-if="activeTab === 'line-clearance'" />
     </div>
   </BasePage>
 </template>

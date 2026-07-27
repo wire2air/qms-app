@@ -112,6 +112,16 @@ function isActive(targetPath) {
   if (!targetPath) return false
   const currentPath = route.path
 
+  // Query-tab links (e.g. /qc-inspection?tab=specifications): active only when
+  // BOTH the path and the tab match. A tab-less link to the same path is the
+  // group's default tab — active only when no (or the default) tab is set.
+  const qIdx = targetPath.indexOf('?')
+  if (qIdx >= 0) {
+    const [pathPart, queryPart] = [targetPath.slice(0, qIdx), targetPath.slice(qIdx + 1)]
+    const targetTab = new URLSearchParams(queryPart).get('tab')
+    return currentPath === pathPart && route.query.tab === targetTab
+  }
+
   // Exact match
   if (currentPath === targetPath) return true
 
@@ -312,10 +322,61 @@ const navItems = computed(() => {
       to: getCompanyPath('/inspections-logs'),
     },
     {
+      // Submenu mirrors the /qc-inspection sections (formerly on-page tabs —
+      // user decision 2026-07-27: navigate them like the Training group).
+      // Same permission gates the tabs used; children hide per grant.
       label: 'QC Inspection',
       icon: IconTestPipe,
-      permissions: ['inspection_qc:read'],
-      to: getCompanyPath('/qc-inspection'),
+      children: [
+        {
+          label: 'Inspections',
+          permissions: ['inspection_qc:read'],
+          icon: IconTestPipe,
+          to: getCompanyPath('/qc-inspection?tab=lots'),
+        },
+        {
+          label: 'Retain Samples',
+          permissions: ['retain_samples:read'],
+          icon: IconTestPipe,
+          to: getCompanyPath('/qc-inspection?tab=retain-samples'),
+        },
+        {
+          label: 'Inspection Plans',
+          permissions: ['inspection_templates:read'],
+          icon: IconTestPipe,
+          to: getCompanyPath('/qc-inspection?tab=inspection-plans'),
+        },
+        {
+          label: 'Specifications',
+          permissions: ['inspection_spec:read'],
+          icon: IconTestPipe,
+          to: getCompanyPath('/qc-inspection?tab=specifications'),
+        },
+        {
+          label: 'Sampling Plans',
+          permissions: ['inspection_plan:read'],
+          icon: IconTestPipe,
+          to: getCompanyPath('/qc-inspection?tab=sampling-plans'),
+        },
+        {
+          label: 'AQL Standards',
+          permissions: ['inspection_standards:read'],
+          icon: IconTestPipe,
+          to: getCompanyPath('/qc-inspection?tab=aql-standards'),
+        },
+        {
+          label: 'Test Library',
+          permissions: ['inspection_catalog:read'],
+          icon: IconTestPipe,
+          to: getCompanyPath('/qc-inspection?tab=test-library'),
+        },
+        {
+          label: 'Line Clearance',
+          permissions: ['inspection_settings:read'],
+          icon: IconTestPipe,
+          to: getCompanyPath('/qc-inspection?tab=line-clearance'),
+        },
+      ],
     },
     // The phone-first /logging portal left the desktop menu (user decision
     // 2026-07-24) — it's shared from Inspections & Logs → "Mobile Portal"
