@@ -32,18 +32,73 @@ data:
 - **Workflow** "E2E Document Approval": step 1 ACTION → Reviewer, step 2
   APPROVAL + e-signature → Approver.
 
+Later sections of the seed extend the same tenant for the other suites:
+
+- **NCR / CAPA** — extra permission grants on the existing roles, per-tenant
+  lookups, two suppliers (one with a portal user), and the NCR + CAPA workflows.
+- **Sites (§15)** — a second E2ELAB site (`Secondary Site`) and a department
+  under it, three extra personas (`siteAdmin`, `siteReader`, `siteRoamer`), and
+  a log book with a `sites_on_log_books` pivot row.
+- **Departments (§16)** — `deptAdmin` (departments CRUD + `quality_events:create`)
+  and `deptReader` (`departments:read` at DEPARTMENT scope), plus a supervisor on
+  the Quality department so event routing has a working control path.
+
 Roster and IDs live in [fixtures/cast.js](fixtures/cast.js).
 
 ## Running
 
+**You do not run the seed yourself.** The `setup` project pipes
+`qms/database/e2e-seed.sql` into the postgres container before any test in every
+run, and it is idempotent (`ON CONFLICT DO NOTHING`), so it is safe to re-run
+against a database that already has it. Adding a persona or fixture means adding
+it to that file — nothing else has to change.
+
 ```bash
 cd qms-app
 
-npm run test:e2e:docs      # headless — the documents journeys
-npm run test:e2e:headed    # watch it drive a real browser
-npm run test:e2e:ui        # Playwright UI mode (pick/replay/inspect)
-npm run test:e2e:report    # open the HTML report from the last run
+npm run test:e2e:docs         # the documents journeys
+npm run test:e2e:ncr          # nonconformances
+npm run test:e2e:capas        # CAPAs
+npm run test:e2e:sites        # sites
+npm run test:e2e:depts        # departments
+npm run test:e2e:sites:headed # watch it drive a real browser
+
+npm run test:e2e:ui           # Playwright UI mode (pick/replay/inspect)
+npm run test:e2e:report       # open the HTML report from the last run
 ```
+
+Every project declares `dependencies: ['setup']`, so seeding + login happen
+automatically whichever suite you run. To apply the seed by hand (e.g. to poke
+at the tenant without running tests):
+
+```bash
+docker exec -i qms-postgres-1 psql -U postgres -d app-db < qms/database/e2e-seed.sql
+```
+
+### Expected failures
+
+The `sites` and `departments` suites are **not all-green by design.** Following
+the pattern used for every module's confirmed defects, some journeys are written
+to fail against current code and flip to release gates once the findings are
+fixed. Each such test is titled `🔴 … (FAILS TODAY)` and sits alongside
+`CONTROL ·` tests that must stay green — a run where a CONTROL goes red is a
+real regression, a run where a 🔴 goes green means a fix landed.
+
+| Suite | Result | Failing by design |
+| --- | --- | --- |
+| `sites` | 42 pass / 15 fail | PW-J4, J7, J8, J9, J10, J11 |
+| `departments` | 19 pass / 11 fail | DEPT-J1, J2, J3, J4 |
+
+Findings are written up in
+[qms/docs/modules/sites/14-playwright-journeys.md](../../qms/docs/modules/sites/14-playwright-journeys.md)
+and in each spec's header comment.
+
+**Harness note worth knowing before you add expected-failure tests.** Playwright
+discards and restarts the worker process after a failed test, and a restart
+re-runs `beforeAll` for the rest of that file. In a suite where failures are
+expected, shared setup gets silently rewound mid-file and later assertions then
+fail with the wrong cause — convincingly enough to look like a product bug. Keep
+such tests self-contained (see `sites/j7`, `sites/j9`, `departments/j5`).
 
 The HTML report (`playwright-report/`) embeds a **video, trace, and screenshots**
 for every test — this is the "see all the execution" view. Open a trace with
