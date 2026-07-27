@@ -158,9 +158,13 @@ function openMarkCompleteDialog() {
   showMarkCompleteDialog.value = true
 }
 
-// Two-step click: dialog confirms reason+comments, then esign auth.
+// Two-step click: dialog confirms reason+comments, then esign auth. Close the
+// confirm dialog first — leaving both open stacks two BaseDialogs with
+// competing focus traps, which silently swallows keyboard input into the PIN
+// field (verified in a real browser, not a test-only artifact).
 function handleMarkCompleteClick() {
   if (!canMarkComplete.value) return
+  showMarkCompleteDialog.value = false
   showMarkCompleteEsign.value = true
 }
 

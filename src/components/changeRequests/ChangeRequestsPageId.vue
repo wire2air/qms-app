@@ -174,8 +174,12 @@ function openCloseDialog() {
   saveError.value = null
   showCloseDialog.value = true
 }
+// Close the confirm dialog first — leaving both open stacks two BaseDialogs
+// with competing focus traps, which silently swallows keyboard input into the
+// PIN field (verified in a real browser, not a test-only artifact).
 function handleCloseClick() {
   if (!canClose.value) return
+  showCloseDialog.value = false
   showCloseEsign.value = true
 }
 async function onCloseEsignVerified({ method, provider, token }) {
