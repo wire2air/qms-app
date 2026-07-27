@@ -81,11 +81,14 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
       { timeoutMs: 30_000, label: 'NC reverted to DRAFT' },
     )
 
+    // Assert the terminal value, not `!== 'IN_PROGRESS'` — sqlValue returns null
+    // when no row matches, and null would satisfy a negative assertion even if
+    // the workflow instance had vanished entirely.
     const wfStatus = sqlValue(`
       SELECT status_id FROM workflow_instances
       WHERE resource_type = 'Nonconformance' AND resource_id = '${nc.id}'
     `)
-    expect(wfStatus, 'workflow instance terminated').not.toBe('IN_PROGRESS')
+    expect(wfStatus, 'workflow instance terminated as REJECTED').toBe('REJECTED')
 
     // Explicit audit trail for the rejection. Verified live: the generic audit
     // trigger writes the table-derived plural ('Nonconformances', see CREATE/

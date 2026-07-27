@@ -2,6 +2,14 @@
 // Walks every gate the controller checks (nonconformances.js markNcComplete,
 // in the same order the computed markCompleteBlockedReason evaluates them):
 // open steps -> disposition -> disposition notes -> CAPA-required -> cost.
+//
+// Each gate is asserted at BOTH layers, because they are enforced twice and
+// independently:
+//   • UI    — markCompleteBlockedReason() disables the button + explains why.
+//   • API   — expectMarkCompleteRejected() POSTs the real endpoint and asserts
+//             the server's own 409. Without this half, deleting the entire
+//             controller gate block would leave this journey green while a
+//             direct API caller could close an NC with no disposition.
 import { test, expect } from '@playwright/test'
 import { AUTH, USERS, FIXTURES } from '../fixtures/cast.js'
 import {
@@ -12,6 +20,7 @@ import {
   fillDisposition,
   approveAndClose,
   markCompleteBlockedReason,
+  expectMarkCompleteRejected,
   uniqueTitle,
 } from '../fixtures/nonconformances.js'
 import { findNcByTitle, sqlValue, sqlRow, waitForSqlValue } from '../fixtures/db.js'
@@ -35,6 +44,7 @@ test.describe('PW-J3 · Approve & Close — all 5 gates, then e-signed close', (
     await expect
       .poll(() => markCompleteBlockedReason(page), { timeout: 15_000 })
       .toMatch(/workflow step.*still open/i)
+    await expectMarkCompleteRejected(page, nc.id, /workflow step.*still open/i)
 
     await completeReviewerStep(browser, nc.id)
     await waitForSqlValue(
@@ -54,6 +64,9 @@ test.describe('PW-J3 · Approve & Close — all 5 gates, then e-signed close', (
     await expect
       .poll(() => markCompleteBlockedReason(page), { timeout: 20_000 })
       .toMatch(/pick a disposition/i)
+    // Server wording differs from the UI's ("Pick a Disposition…") — proof these
+    // are two independent checks, not the same string surfaced twice.
+    await expectMarkCompleteRejected(page, nc.id, /disposition is required/i)
 
     // Rework tracks cost — picked deliberately so gate 5 is exercised below.
     await fillDisposition(page, nc.id, { disposition: FIXTURES.ncrDispositionCost })
@@ -62,6 +75,7 @@ test.describe('PW-J3 · Approve & Close — all 5 gates, then e-signed close', (
     await expect
       .poll(() => markCompleteBlockedReason(page), { timeout: 15_000 })
       .toMatch(/disposition notes are required/i)
+    await expectMarkCompleteRejected(page, nc.id, /disposition notes are required/i)
 
     await fillDisposition(page, nc.id, { notes: 'E2E disposition — reworked per SOP-9, retested OK.' })
 
@@ -75,6 +89,7 @@ test.describe('PW-J3 · Approve & Close — all 5 gates, then e-signed close', (
     await expect
       .poll(() => markCompleteBlockedReason(page), { timeout: 15_000 })
       .toMatch(/capa required is set to yes/i)
+    await expectMarkCompleteRejected(page, nc.id, /capa required is set to yes/i)
 
     // Turn it back off — no CAPA is actually being linked in this journey.
     await fillDisposition(page, nc.id, { capaRequired: false })
@@ -87,6 +102,7 @@ test.describe('PW-J3 · Approve & Close — all 5 gates, then e-signed close', (
     await expect
       .poll(() => markCompleteBlockedReason(page), { timeout: 15_000 })
       .toMatch(/cost of nc is required/i)
+    await expectMarkCompleteRejected(page, nc.id, /cost of nc is required/i)
 
     await fillDisposition(page, nc.id, { costOfNc: 275.5 })
 

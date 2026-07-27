@@ -67,3 +67,7 @@ export const SUPPLIER_IDS = {
   withPortal: 'e2e70000-0000-4000-8000-000000000001',
   noPortal: 'e2e70000-0000-4000-8000-000000000002',
 }
+
+// The ACTIVE EXTERNAL_SUPPLIER portal user behind SUPPLIER_IDS.withPortal —
+// the account NC assignments are re-pointed to on supplier-facing conversion.
+export const SUPPLIER_PORTAL_USER_ID = 'e2e10000-0000-4000-8000-000000000009'
