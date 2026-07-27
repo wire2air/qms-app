@@ -38,6 +38,13 @@ export const USERS = {
   // Site-scoped NCR user — ncr:read/update at SITE scope, starts at Primary
   // Site. Moved to Secondary Site mid-test by PW-J7.
   siteRoamer: { id: 'e2e10000-0000-4000-8000-000000000012', email: 'siteroamer@e2e.test', name: 'Rory SiteRoamer' },
+  // Department Admin — departments CRUD + quality_events:create. The second
+  // grant is what turns the supervisorUserId gap from a NULL column into an
+  // observable failure: event creation routes to the department's supervisor.
+  deptAdmin: { id: 'e2e10000-0000-4000-8000-000000000013', email: 'deptadmin@e2e.test', name: 'Dana DeptAdmin' },
+  // Department-scoped reader — departments:read at DEPARTMENT scope only.
+  // The `departments` twin of siteReader; both tables share the all-NULL binding.
+  deptReader: { id: 'e2e10000-0000-4000-8000-000000000014', email: 'deptreader@e2e.test', name: 'Derek DeptReader' },
 }
 
 // Second-tenant owner for cross-tenant isolation tests (logs in via ALT_BASE_URL).
@@ -58,6 +65,8 @@ export const AUTH = {
   siteAdmin: 'e2e/.auth/siteAdmin.json',
   siteReader: 'e2e/.auth/siteReader.json',
   siteRoamer: 'e2e/.auth/siteRoamer.json',
+  deptAdmin: 'e2e/.auth/deptAdmin.json',
+  deptReader: 'e2e/.auth/deptReader.json',
   altOwner: 'e2e/.auth/altOwner.json',
 }
 
@@ -67,6 +76,13 @@ export const SITES = {
   primary: { id: 'e2e51000-0000-4000-8000-000000000001', name: 'Primary Site', code: 'HQ' },
   secondary: { id: 'e2e51000-0000-4000-8000-000000000003', name: 'Secondary Site', code: 'SEC' },
   alt: { id: 'e2e52000-0000-4000-8000-000000000002', name: 'Alt Site', code: 'ALT' }, // E2EALT
+}
+
+// Departments seeded by e2e-seed.sql §3 and §15d — one per site, which is what
+// lets the site-scope probes separate the site tier from the department tier.
+export const DEPARTMENTS = {
+  quality: { id: 'e2e7d000-0000-4000-8000-000000000001', name: 'Quality', code: 'QA' },
+  operations: { id: 'e2e7d000-0000-4000-8000-000000000003', name: 'Operations', code: 'OPS' },
 }
 
 // The log book + pivot row PW-J8 mutates (e2e-seed.sql §15c).
