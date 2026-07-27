@@ -73,7 +73,7 @@ watch(samples, (list) => {
 <template>
   <PrintLayout identifier="Retain Sample Register" :showAudit="false">
     <template #title>
-      <h1 class="tw:text-xl tw:font-bold">Retain Sample Register</h1>
+      <BaseHeading :level="1" class="tw:text-xl tw:font-bold">Retain Sample Register</BaseHeading>
       <p class="tw:text-sm tw:text-secondary tw:mt-1">
         {{ rows.length }} sample{{ rows.length === 1 ? '' : 's' }}
         <template v-if="stateFilter && STATE_LABELS[stateFilter]">
@@ -99,7 +99,7 @@ watch(samples, (list) => {
       </thead>
       <tbody>
         <tr v-for="s in rows" :key="s.id">
-          <td class="tw:font-mono tw:font-semibold">{{ s.rsNumber }}</td>
+          <td class="tw:font-semibold">{{ s.rsNumber }}</td>
           <td>{{ productName(s.productId) }}</td>
           <td>{{ s.lotNumber || '—' }}</td>
           <td>{{ TYPE_LABELS[s.sampleType] || s.sampleType }}</td>
