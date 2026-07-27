@@ -25,7 +25,17 @@ const template = useLiveQuery(
   async (db) => (await db.FormTemplate.where().exec()).find((t) => t.internalName === 'QC_LINE_CLEARANCE') ?? null,
   { models: ['FormTemplate'], initial: undefined },
 )
-const schema = computed(() => template.value?.schema ?? [])
+// The batch's OWN snapshot (stamped at batch creation) is authoritative — a
+// used block is a copy, never a live reference, so edits to the Line
+// Clearance block don't change a batch already in use. The live template is
+// only the fallback for legacy batches created before creation-time
+// snapshots (the backend stamps those on first save/decision).
+const schema = computed(() => {
+  const snap = props.batch?.lineClearanceSchema
+  if (Array.isArray(snap) && snap.length) return snap
+  return template.value?.schema ?? []
+})
+const hasSchema = computed(() => schema.value.length > 0)
 const formRef = ref(null)
 
 const payload = ref({})
@@ -96,9 +106,14 @@ async function saveForLater() {
         collect samples against it until the line is released.
       </p>
 
-      <div v-if="template === undefined" class="tw:text-sm tw:text-secondary">Loading checklist…</div>
       <div
-        v-else-if="!template"
+        v-if="template === undefined && !hasSchema"
+        class="tw:text-sm tw:text-secondary"
+      >
+        Loading checklist…
+      </div>
+      <div
+        v-else-if="!hasSchema"
         class="tw:rounded-lg tw:border tw:border-amber-200 tw:bg-amber-50 tw:px-4 tw:py-3 tw:text-sm tw:text-amber-900"
       >
         No line clearance checklist is configured. Set one up under
@@ -114,7 +129,7 @@ async function saveForLater() {
         <BaseButton
           variant="outline"
           :loading="saving === 'SAVE'"
-          :disabled="!template || !batchId || !!saving"
+          :disabled="!hasSchema || !batchId || !!saving"
           @click="saveForLater"
         >
           <IconDeviceFloppy :size="16" /> Save for later
@@ -122,7 +137,7 @@ async function saveForLater() {
         <BaseButton
           variant="danger"
           :loading="saving === 'FAILED'"
-          :disabled="!template || !batchId || !!saving"
+          :disabled="!hasSchema || !batchId || !!saving"
           @click="submit('FAILED')"
         >
           <IconCircleX :size="16" /> Hold (fail)
@@ -130,7 +145,7 @@ async function saveForLater() {
         <BaseButton
           variant="primary"
           :loading="saving === 'PASSED'"
-          :disabled="!template || !batchId || !!saving"
+          :disabled="!hasSchema || !batchId || !!saving"
           @click="submit('PASSED')"
         >
           <IconCircleCheck :size="16" /> Release (pass)
