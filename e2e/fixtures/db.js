@@ -37,7 +37,26 @@ export function sqlValue(query) {
 }
 
 /**
- * Poll until `query` returns a truthy scalar (worker-produced state: snapshots,
+ * SQL truthiness, not JavaScript truthiness.
+ *
+ * `sqlValue` hands back psql stdout as a *string*, so the natural
+ * `if (value)` test is wrong for the two idioms these barriers actually use:
+ * `SELECT count(*)` yields "0" and a boolean column yields "f" — both truthy
+ * strings in JS. Reading them as ready made every count(*)-based
+ * `waitForSqlValue` return on its first poll without waiting for anything,
+ * silently turning ~25 barriers across the documents + nonconformances suites
+ * into no-ops (the specs still passed because the UI assertions around them
+ * retry on their own; single-shot API assertions do not).
+ */
+function isSqlReady(value) {
+  if (value === null || value === '') return false // no rows
+  if (value === '0') return false // count(*) with no matches
+  if (value === 'f') return false // boolean false
+  return true
+}
+
+/**
+ * Poll until `query` returns a ready scalar (worker-produced state: snapshots,
  * training, notifications). Throws with the last value on timeout.
  */
 export async function waitForSqlValue(query, { timeoutMs = 60_000, intervalMs = 1_500, label = query } = {}) {
@@ -45,7 +64,7 @@ export async function waitForSqlValue(query, { timeoutMs = 60_000, intervalMs = 
   let last = null
   while (Date.now() < deadline) {
     last = sqlValue(query)
-    if (last) return last
+    if (isSqlReady(last)) return last
     await new Promise((r) => setTimeout(r, intervalMs))
   }
   throw new Error(`waitForSqlValue timed out (${timeoutMs}ms): ${label} — last value: ${JSON.stringify(last)}`)
