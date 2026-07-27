@@ -291,15 +291,6 @@ const collectBlockedByClearance = computed(
 )
 const showLineClearance = ref(false)
 
-// Pass/Fail control: string items so an unset cell stays empty (a boolean false
-// reads as falsy in the select and gets confused with null → auto-picks Pass).
-const PF_ITEMS = [
-  { id: 'PASS', name: 'Pass' },
-  { id: 'FAIL', name: 'Fail' },
-]
-const pfStr = (b) => (b === true ? 'PASS' : b === false ? 'FAIL' : null)
-const pfBool = (v) => (v === 'PASS' ? true : v === 'FAIL' ? false : null)
-
 const canCollect = computed(
   () =>
     isInProcess.value &&
@@ -1098,16 +1089,10 @@ const inspectionLotDetailConfig = computed(() =>
                     class="tw:w-32"
                     :disabled="!canEditResults"
                   />
-                  <BaseInlineSelect
+                  <PassFailRadio
                     v-else-if="c.testType === 'PASS_FAIL'"
-                    :modelValue="pfStr(entries[c.id].valueBool)"
-                    :items="PF_ITEMS"
-                    :required="false"
+                    v-model="entries[c.id].valueBool"
                     :disabled="!canEditResults"
-                    placeholder="—"
-                    nullLabel="—"
-                    class="tw:w-28"
-                    @update:modelValue="(v) => (entries[c.id].valueBool = pfBool(v))"
                   />
                   <BaseTextInput
                     v-else

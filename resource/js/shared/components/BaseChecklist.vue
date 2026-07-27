@@ -93,6 +93,14 @@ const { getRowValue, getCellValue, getValue, isCellSelected, handleValueChange }
   { interactive: () => isInteractive.value },
 )
 
+// radioGroup column options may be strings ('Yes') or { label, value } objects.
+function rgValue(opt) {
+  return typeof opt === 'object' && opt !== null ? (opt.value ?? opt.label) : opt
+}
+function rgLabel(opt) {
+  return typeof opt === 'object' && opt !== null ? (opt.label ?? opt.value) : opt
+}
+
 defineExpose({ getRowValue, getCellValue, isCellSelected })
 </script>
 
@@ -236,6 +244,44 @@ defineExpose({ getRowValue, getCellValue, isCellSelected })
                   :readonly="readonly"
                   @input="handleValueChange(rowIndex, col.value, $event.target.value)"
                 />
+              </template>
+
+              <!-- radio group: ONE column, ONE stored value, mutually exclusive
+                   options rendered as inline radios (the safe alternative to
+                   separate radio columns, whose stale keys broke read-back) -->
+              <template v-else-if="col.inputType === 'radioGroup'">
+                <div class="tw:inline-flex tw:flex-wrap tw:items-center tw:justify-center tw:gap-x-3 tw:gap-y-1">
+                  <label
+                    v-for="opt in col.options || options"
+                    :key="rgValue(opt)"
+                    class="tw:inline-flex tw:items-center tw:gap-1.5"
+                    :class="isInteractive ? 'tw:cursor-pointer' : 'tw:cursor-not-allowed'"
+                  >
+                    <input
+                      type="radio"
+                      class="tw:sr-only"
+                      :name="`${name}-row-${rowIndex}-${col.value}`"
+                      :value="rgValue(opt)"
+                      :checked="getValue(rowIndex, col.value, null) === rgValue(opt)"
+                      :disabled="disabled || readonly"
+                      @change="handleValueChange(rowIndex, col.value, rgValue(opt))"
+                    />
+                    <span
+                      :class="[
+                        'tw:size-4 tw:rounded-full tw:border-2 tw:flex tw:items-center tw:justify-center tw:transition-colors tw:shrink-0',
+                        getValue(rowIndex, col.value, null) === rgValue(opt)
+                          ? 'tw:border-primary tw:bg-primary'
+                          : 'tw:border-gray-300 tw:bg-white',
+                      ]"
+                    >
+                      <span
+                        v-if="getValue(rowIndex, col.value, null) === rgValue(opt)"
+                        class="tw:size-1.5 tw:rounded-full tw:bg-white"
+                      />
+                    </span>
+                    <span class="tw:text-sm tw:text-on-main">{{ rgLabel(opt) }}</span>
+                  </label>
+                </div>
               </template>
 
               <!-- select / dropdown -->
