@@ -52,6 +52,19 @@ export const USERS = {
   // the one training surface with no permission guard (RLS self-scope only), so
   // the learner journey has to prove it works for a user who holds nothing.
   learner: { id: 'e2e10000-0000-4000-8000-000000000016', email: 'learner@e2e.test', name: 'Leo Learner' },
+  // Teams-grant-only — holds `teams:create` and nothing else. Exists to prove a
+  // grant that says nothing about people still admits the whole user roster
+  // (USER-J4): authz.has_permission matches ANY action on a module when
+  // p_action = 'read', and users_sel's extra_read branch asks for
+  // has_permission('teams','read'). Lives at the SECONDARY site.
+  teamsOnly: { id: 'e2e10000-0000-4000-8000-000000000020', email: 'teamsonly@e2e.test', name: 'Tessa TeamsOnly' },
+  // Site-scoped user reader — user_management:read at SITE scope. The `users`
+  // twin of siteReader/deptReader: the binding is owner/dept/site all-NULL, so
+  // the grant saves and matches nothing through the permission branch
+  // (USER-J5). Also at the SECONDARY site, so teamsOnly is a same-site row it
+  // *should* be able to see — without which J5's positive half would pass for
+  // the wrong reason (users_sel admits you to your own row regardless).
+  userSiteReader: { id: 'e2e10000-0000-4000-8000-000000000021', email: 'usersitereader@e2e.test', name: 'Ursula UserSiteReader' },
 }
 
 // Second-tenant owner for cross-tenant isolation tests (logs in via ALT_BASE_URL).
@@ -76,6 +89,8 @@ export const AUTH = {
   deptReader: 'e2e/.auth/deptReader.json',
   trainingAdmin: 'e2e/.auth/trainingAdmin.json',
   learner: 'e2e/.auth/learner.json',
+  teamsOnly: 'e2e/.auth/teamsOnly.json',
+  userSiteReader: 'e2e/.auth/userSiteReader.json',
   altOwner: 'e2e/.auth/altOwner.json',
 }
 
