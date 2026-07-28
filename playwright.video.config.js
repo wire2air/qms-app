@@ -18,6 +18,9 @@
 import fs from 'node:fs'
 import { defineConfig, devices } from '@playwright/test'
 import base from './playwright.config.js'
+// `setup` is a dependency, never filmed itself. The list is shared with
+// video/config.js so the recorder and the artifact cleaner agree on "all".
+import { MODULES } from './video/config.js'
 
 const SIZE = {
   width: Number(process.env.VIDEO_WIDTH || 1280),
@@ -97,15 +100,6 @@ for (const flavour of selected) {
     throw new Error(`[demo-video] browser "${flavour}" requires ${channel}, which is not installed.\n  ${hint}`)
   }
 }
-
-/** The suites worth filming. `setup` is a dependency, never filmed itself. */
-const MODULES = (
-  process.env.VIDEO_MODULES ||
-  'documents,nonconformances,capas,changeRequests,training,sites,departments,users'
-)
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean)
 
 const projects = [
   { name: 'setup', testMatch: /fixtures\/auth\.setup\.js/ },

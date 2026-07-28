@@ -40,6 +40,9 @@
     "test:video": "node video/run.js",
     "test:video:users": "node video/run.js --project=users",
     "test:video:headed": "VIDEO_HEADED=1 node video/run.js",
+    "test:video:hd": "VIDEO_WIDTH=1920 VIDEO_HEIGHT=1080 node video/run.js",
+    "test:video:steps": "VIDEO_STEP_MIN_MS=0 VIDEO_MAX_STEPS=200 node video/run.js",
+    "test:video:full": "VIDEO_WIDTH=1920 VIDEO_HEIGHT=1080 VIDEO_STEP_MIN_MS=0 VIDEO_MAX_STEPS=200 node video/run.js",
     "test:video:all-browsers": "VIDEO_BROWSER=all node video/run.js",
     "video:record": "VIDEO_MODE=1 playwright test -c playwright.video.config.js",
     "video:build": "node video/build-videos.js",
@@ -47,7 +50,8 @@
     "video:instrument": "node video/instrument.js",
     "video:uninstrument": "node video/instrument.js --undo",
     "video:check": "node video/instrument.js --check",
-    "video:clean": "rm -rf artifacts/final-videos artifacts/logs artifacts/videos artifacts/traces artifacts/screenshots artifacts/subtitles artifacts/reports artifacts/.work"
+    "video:clean": "rm -rf artifacts",
+    "video:clean:module": "node -e \"const m=process.argv[1];if(!m){console.error('usage: npm run video:clean:module -- <module>');process.exit(1)}require('fs').rmSync('artifacts/'+m,{recursive:true,force:true});console.log('removed artifacts/'+m)\""
   },
   "dependencies": {
     "@azure/msal-browser": "^5.4.0",

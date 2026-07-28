@@ -12,7 +12,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { DIRS, STATUS_ICON, VIDEO } from '../config.js'
+import { STATUS_ICON, VIDEO, moduleDirs, artifactName } from '../config.js'
 
 function srtTime(ms) {
   const t = Math.max(0, Math.round(ms))
@@ -69,7 +69,8 @@ export function buildCues(test, videoDurationMs, offsetMs) {
 }
 
 export function writeSubtitles(test, cues) {
-  fs.mkdirSync(DIRS.subtitles, { recursive: true })
+  const outDir = moduleDirs(test.project).subtitles
+  fs.mkdirSync(outDir, { recursive: true })
 
   const srt = cues
     .map((c, i) => `${i + 1}\n${srtTime(c.startMs)} --> ${srtTime(c.endMs)}\n${c.lines.join('\n')}\n`)
@@ -79,8 +80,8 @@ export function writeSubtitles(test, cues) {
     .map((c) => `${vttTime(c.startMs)} --> ${vttTime(c.endMs)}\n${c.lines.join('\n')}\n`)
     .join('\n')}`
 
-  const srtPath = path.join(DIRS.subtitles, `${test.id}.srt`)
-  const vttPath = path.join(DIRS.subtitles, `${test.id}.vtt`)
+  const srtPath = path.join(outDir, `${artifactName(test)}.srt`)
+  const vttPath = path.join(outDir, `${artifactName(test)}.vtt`)
   fs.writeFileSync(srtPath, srt, 'utf8')
   fs.writeFileSync(vttPath, vtt, 'utf8')
   return { srtPath, vttPath }

@@ -17,11 +17,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import sharp from 'sharp'
 import {
-  VIDEO, THEME, STATUS_COLOR, formatStamp, sesc, clamp,
+  VIDEO, DESIGN, STEPS, THEME, STATUS_COLOR, formatStamp, sesc, clamp,
 } from '../config.js'
 
-const W = () => VIDEO.width
-const H = () => VIDEO.height
+// Layout is authored in DESIGN units and scaled to the recording by the SVG
+// viewBox — see DESIGN in config.js.
+const W = () => DESIGN.width
+const H = () => DESIGN.height
+const VIEWBOX = () => `width="${VIDEO.width}" height="${VIDEO.height}" viewBox="0 0 ${W()} ${H()}"`
 
 /** Rounded status pill shown against the active step. */
 function pill(x, y, label, color) {
@@ -86,7 +89,7 @@ function frameSvg(test, step, index, atMs) {
           >${sesc(browser)}  ·  ${sesc(test.environment)}  ·  ${formatStamp(atMs)}</text>`
 
   if (!step) {
-    return `<svg width="${W()}" height="${H()}" xmlns="http://www.w3.org/2000/svg">${hud}${apiWatermark(test)}</svg>`
+    return `<svg ${VIEWBOX()} xmlns="http://www.w3.org/2000/svg">${hud}${apiWatermark(test)}</svg>`
   }
 
   // ---- lower third: the current step -------------------------------------
@@ -118,7 +121,7 @@ function frameSvg(test, step, index, atMs) {
           font-weight="600" fill="${THEME.text}">${sesc(clamp(step.title + merged, 76))}</text>
     ${errorLine}`
 
-  return `<svg width="${W()}" height="${H()}" xmlns="http://www.w3.org/2000/svg">${hud}${apiWatermark(test)}${lower}</svg>`
+  return `<svg ${VIEWBOX()} xmlns="http://www.w3.org/2000/svg">${hud}${apiWatermark(test)}${lower}</svg>`
 }
 
 /**
@@ -146,10 +149,34 @@ export async function renderOverlayTrack(test, workDir, videoDurationMs) {
     cues.push({ step, index: i + 1, startMs: step.startMs, endMs })
   })
 
+  // Hold each caption long enough to read. A cue shorter than STEPS.minShowMs is
+  // extended, which pushes the next one later — so the debt is carried forward
+  // and repaid as soon as a step is long enough to absorb it. STEPS.maxDriftMs
+  // bounds how far behind the footage the narration may fall before it stops
+  // being extended and re-syncs.
+  let drift = 0
+  let held = cues.map((c, i) => {
+    const startMs = c.startMs + drift
+    const nextRealStart = cues[i + 1]?.startMs ?? c.endMs
+    const endMs = Math.max(c.endMs + drift, startMs + STEPS.minShowMs)
+    drift = Math.min(Math.max(0, endMs - nextRealStart), STEPS.maxDriftMs)
+    return { ...c, startMs, endMs }
+  })
+
+  // Holding captions can need more time than the recording has — 27 steps at
+  // 650ms wants 17.5s of a 14.4s clip. Clamping instead of scaling would silently
+  // drop the tail (the last 7 captions simply never appear), so the whole track
+  // is compressed to fit and every step keeps its slot, just a shorter one.
+  const overrun = held[held.length - 1]?.endMs ?? 0
+  if (overrun > videoDurationMs) {
+    const scale = videoDurationMs / overrun
+    held = held.map((c) => ({ ...c, startMs: c.startMs * scale, endMs: c.endMs * scale }))
+  }
+
   // Clamp to the real container length; steps recorded after the last video
   // frame (teardown assertions) would otherwise stretch the track past the end.
-  const clamped = cues
-    .map((c) => ({ ...c, endMs: Math.min(c.endMs, videoDurationMs) }))
+  const clamped = held
+    .map((c) => ({ ...c, startMs: Math.min(c.startMs, videoDurationMs), endMs: Math.min(c.endMs, videoDurationMs) }))
     .filter((c) => c.endMs - c.startMs > 40)
 
   const frames = []

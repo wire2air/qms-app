@@ -8,16 +8,80 @@ import { fileURLToPath } from 'node:url'
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
+/**
+ * Run-level directories. Everything else is per-module — see `moduleDirs`.
+ *
+ * `logs` holds only the run manifest; per-test logs live under the module that
+ * produced them, so re-running one module cannot invalidate another's videos.
+ * `reports` holds the combined index that links out to the module reports.
+ */
 export const DIRS = {
   artifacts: path.join(ROOT, 'artifacts'),
-  videos: path.join(ROOT, 'artifacts/videos'),
-  screenshots: path.join(ROOT, 'artifacts/screenshots'),
-  traces: path.join(ROOT, 'artifacts/traces'),
   logs: path.join(ROOT, 'artifacts/logs'),
-  subtitles: path.join(ROOT, 'artifacts/subtitles'),
   reports: path.join(ROOT, 'artifacts/reports'),
-  final: path.join(ROOT, 'artifacts/final-videos'),
   work: path.join(ROOT, 'artifacts/.work'),
+}
+
+/**
+ * Subdirectories of `artifacts/` that are NOT a module. Anything else in there
+ * is a module root, which is what lets `run.js` wipe the right folders without
+ * being told which modules exist.
+ */
+export const RESERVED_DIRS = new Set(['logs', 'reports', '.work'])
+
+/**
+ * The suites worth filming. Shared with playwright.video.config.js so the
+ * recorder and the cleaner agree on what "all modules" means.
+ */
+export const MODULES = (
+  process.env.VIDEO_MODULES ||
+  'documents,nonconformances,capas,changeRequests,training,sites,departments,users'
+)
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
+/**
+ * Projects that exist to support the run rather than to be filmed. `setup` only
+ * logs in and writes storage state — it has no video, so giving it a module
+ * folder would add an empty report and a row of blank cards to the index.
+ */
+export const NON_FILMED_PROJECTS = new Set(['setup'])
+
+/** `artifacts/<module>/` — one self-contained folder per Playwright project. */
+export function moduleRoot(moduleName) {
+  return path.join(DIRS.artifacts, slugify(moduleName || 'unknown'))
+}
+
+/**
+ * Every output path for one module. Each module owns its whole tree, so
+ * `--project=training` rebuilds `artifacts/training/` and leaves the rest alone.
+ */
+export function moduleDirs(moduleName) {
+  const root = moduleRoot(moduleName)
+  return {
+    root,
+    videos: path.join(root, 'videos'),
+    screenshots: path.join(root, 'screenshots'),
+    traces: path.join(root, 'traces'),
+    logs: path.join(root, 'logs'),
+    subtitles: path.join(root, 'subtitles'),
+    reports: path.join(root, 'reports'),
+    final: path.join(root, 'final-videos'),
+  }
+}
+
+/**
+ * Leaf filename for a test's artifacts.
+ *
+ * `test.id` is prefixed with the project so it stays unique in a flat folder.
+ * Inside `artifacts/<module>/` that prefix is repeated in the path, so it is
+ * dropped from the filename — the id itself is untouched (it is the key the
+ * report, the subtitle writer and the reel builder all look up by).
+ */
+export function artifactName(test) {
+  const prefix = `${test.project}--`
+  return test.id.startsWith(prefix) ? test.id.slice(prefix.length) : test.id
 }
 
 /** Environment label burned into the title card + HUD. */
@@ -39,6 +103,27 @@ export const VIDEO = {
   preset: process.env.VIDEO_PRESET || 'veryfast',
 }
 
+/**
+ * The canvas overlays and cards are AUTHORED against, regardless of the real
+ * recording size.
+ *
+ * Every font size and offset in render/overlays.js and render/cards.js is a
+ * hand-tuned 720p number. Without a design space they are literal pixels on
+ * whatever canvas the recording happens to be, so raising VIDEO_WIDTH to 1920
+ * would leave a HUD tuned for 1280 sitting on a 1920 frame — 33% smaller and
+ * visibly wrong. Emitting them into a fixed viewBox and letting the SVG scale to
+ * VIDEO.width/height keeps the composition identical at any resolution.
+ *
+ * The height tracks the real aspect ratio so a non-16:9 recording scales rather
+ * than letterboxes.
+ */
+export const DESIGN = {
+  width: 1280,
+  get height() {
+    return Math.round((1280 * VIDEO.height) / VIDEO.width)
+  },
+}
+
 export const STEPS = {
   /**
    * Which Playwright step categories become on-screen steps.
@@ -58,6 +143,36 @@ export const STEPS = {
    * rather than narration.
    */
   minDurationMs: Number(process.env.VIDEO_STEP_MIN_MS || 220),
+  /**
+   * Minimum time a caption stays on screen, independent of how long its step
+   * actually took.
+   *
+   * With coalescing off (VIDEO_STEP_MIN_MS=0) every action gets its own caption,
+   * and a real run is full of 4–60ms steps — `Press "Enter"` would flash for two
+   * frames and be unreadable. Holding each caption for at least this long, and
+   * pushing the following ones back, turns a burst of keystrokes into something
+   * a viewer can follow.
+   */
+  minShowMs: Number(process.env.VIDEO_STEP_MIN_SHOW_MS || 650),
+  /**
+   * Ceiling on how far captions may lag the footage because of `minShowMs`.
+   *
+   * Every held caption pushes the next one later, so without a cap a test with
+   * many short steps would drift until the narration described something that
+   * left the screen ten seconds ago. At the cap, captions stop being extended
+   * and the track re-syncs with the video.
+   */
+  maxDriftMs: Number(process.env.VIDEO_STEP_MAX_DRIFT_MS || 2500),
+  /**
+   * Harness plumbing Playwright reports as `pw:api` steps. They are not actions
+   * anybody performed on the product — filming `Launch "browser"` as step 1 of a
+   * demo just spends a caption slot on the test runner.
+   */
+  ignore: new RegExp(
+    process.env.VIDEO_STEP_IGNORE ||
+      '^(Launch|Close)\\s|^Create\\s+["“]?(context|page|browser)|^Evaluate$',
+    'i',
+  ),
   /** Hard ceiling so a pathological test cannot generate 800 overlay frames. */
   maxSteps: Number(process.env.VIDEO_MAX_STEPS || 60),
   /** Nested steps deeper than this are ignored (keeps narration at one level). */

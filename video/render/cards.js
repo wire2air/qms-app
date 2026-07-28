@@ -11,13 +11,15 @@
  * exist in slim Linux containers; without them CI renders boxes.
  */
 import sharp from 'sharp'
-import { VIDEO, THEME, SVG_STATUS_GLYPH, STATUS_COLOR, formatDuration, sesc, clamp } from '../config.js'
+import { VIDEO, DESIGN, THEME, SVG_STATUS_GLYPH, STATUS_COLOR, formatDuration, sesc, clamp } from '../config.js'
 
-const W = () => VIDEO.width
-const H = () => VIDEO.height
+// Layout is authored in DESIGN units and scaled to the recording by the SVG
+// viewBox — see DESIGN in config.js.
+const W = () => DESIGN.width
+const H = () => DESIGN.height
 
 function shell(inner) {
-  return `<svg width="${W()}" height="${H()}" viewBox="0 0 ${W()} ${H()}" xmlns="http://www.w3.org/2000/svg">
+  return `<svg width="${VIDEO.width}" height="${VIDEO.height}" viewBox="0 0 ${W()} ${H()}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#0B1220"/>

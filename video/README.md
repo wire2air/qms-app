@@ -13,6 +13,12 @@ npm run test:video -- --project=users -g "roster"   # one test
 
 Outputs land in `artifacts/` and the report opens with `npm run video:report`.
 
+**Each module owns `artifacts/<module>/`.** Filming one module resets only that
+folder; the other modules' videos stay on disk and are reused as-is for the
+combined index, so `--project=users` costs one module of encoding rather than
+the whole suite. `npm run video:clean` drops everything;
+`npm run video:clean:module -- users` drops one.
+
 ---
 
 ## Two things that shaped the design
@@ -80,7 +86,7 @@ this work identically on a laptop and in a slim CI container.
 video/
   config.js            theme, paths, all tunables (env-overridable)
   ffmpeg-bin.js        resolves + validates ffmpeg/ffprobe
-  reporter.js          Playwright reporter → artifacts/logs/*.json
+  reporter.js          Playwright reporter → artifacts/<module>/logs/*.json
   instrument.js        the one-line spec codemod (+ --undo / --check)
   run.js               `npm run test:video` orchestrator
   build-videos.js      post-run builder (runs standalone too)
@@ -93,10 +99,18 @@ video/
     subtitles.js       .srt + .vtt
     pipeline.js        webm + overlays + cards → MP4
     merge.js           per-module reel
-    htmlReport.js      artifacts/reports/index.html
+    htmlReport.js      per-module + combined index.html
 
 artifacts/
-  videos/  screenshots/  traces/  logs/  subtitles/  reports/  final-videos/
+  training/                       one self-contained folder per module
+    videos/                       raw .webm harvested from test-results/
+    final-videos/                 built .mp4 + _module-training.mp4 reel
+    subtitles/  traces/  screenshots/  logs/
+    reports/index.html            just this module
+  users/
+    …
+  logs/run-manifest.json          run-level: what was filmed this time
+  reports/index.html              combined index, links out to the modules
 ```
 
 `artifacts/` is gitignored.

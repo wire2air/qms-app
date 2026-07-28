@@ -18,7 +18,15 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { DIRS, STEPS, ENVIRONMENT, slugify } from './config.js'
+import {
+  DIRS,
+  STEPS,
+  ENVIRONMENT,
+  slugify,
+  moduleDirs,
+  artifactName,
+  NON_FILMED_PROJECTS,
+} from './config.js'
 
 /**
  * Turn a Playwright step title into a caption a non-engineer can read.
@@ -170,9 +178,12 @@ export default class DemoVideoReporter {
     const t0 = meta?.videoStartMs ?? testStartMs
 
     const steps = this._collectSteps(result, t0)
-    const attachments = this._collectAttachments(result)
+    const attachments = this._collectAttachments(result, meta)
 
     const projectName = test.parent.project()?.name || 'unknown'
+    // `setup` has no recording to narrate; logging it would create an empty
+    // artifacts/setup/ folder and blank cards in the report.
+    if (NON_FILMED_PROJECTS.has(projectName)) return
     const titlePath = test.titlePath().filter(Boolean)
     // titlePath is [rootSuite, file, describe..., test]; drop the root + file.
     const describePath = titlePath.slice(2, -1)
@@ -208,11 +219,18 @@ export default class DemoVideoReporter {
         : null,
       steps,
       attachments,
+      // Kept so onEnd can re-scan: a context closed during fixture teardown may
+      // not have flushed its file yet when this record is first written.
+      videoDir: meta?.videoDir || null,
     }
 
     this.tests.push(record)
+    // Per-module, so re-running one project cannot orphan another's videos:
+    // build-videos.js rebuilds exactly the modules whose logs are present.
+    const logDir = moduleDirs(projectName).logs
+    fs.mkdirSync(logDir, { recursive: true })
     fs.writeFileSync(
-      path.join(DIRS.logs, `${record.id}.json`),
+      path.join(logDir, `${artifactName(record)}.json`),
       JSON.stringify(record, null, 2),
       'utf8',
     )
@@ -237,6 +255,7 @@ export default class DemoVideoReporter {
   _collectSteps(result, t0) {
     const flat = flatten(result.steps)
       .filter(({ step }) => STEPS.categories.includes(step.category))
+      .filter(({ step }) => !STEPS.ignore.test(step.title || ''))
       .map(({ step, depth }) => {
         const begin = step.startTime.getTime()
         return {
@@ -288,16 +307,45 @@ export default class DemoVideoReporter {
     return out
   }
 
-  _collectAttachments(result) {
+  _collectAttachments(result, meta) {
     const pick = (pred) => result.attachments.filter(pred).map((a) => a.path).filter(Boolean)
     return {
-      videos: pick((a) => a.contentType === 'video/webm' || a.name === 'video'),
+      // `videoDir` holds the recordings of every context the test built itself —
+      // the real footage for the ~106 `async ({ browser })` specs. Playwright's
+      // own `video` attachment only ever covers the context FIXTURE, which those
+      // specs never use, so on its own it yields a path that does not exist.
+      videos: [...this._videosIn(meta?.videoDir), ...pick((a) => a.contentType === 'video/webm' || a.name === 'video')]
+        .filter((p, i, all) => fs.existsSync(p) && all.indexOf(p) === i),
       traces: pick((a) => a.name === 'trace'),
       screenshots: pick((a) => a.contentType?.startsWith('image/') && a.name !== 'qa-demo-meta'),
     }
   }
 
+  /** Recordings written by the videoTest fixture, newest-largest first. */
+  _videosIn(dir) {
+    if (!dir || !fs.existsSync(dir)) return []
+    try {
+      return fs
+        .readdirSync(dir)
+        .filter((f) => f.endsWith('.webm'))
+        .map((f) => path.join(dir, f))
+    } catch {
+      return []
+    }
+  }
+
   async onEnd(result) {
+    // Second pass: every context is closed by now, so any recording that was
+    // still buffered when its test ended is on disk and can be picked up.
+    for (const record of this.tests) {
+      const found = this._videosIn(record.videoDir).filter((p) => !record.attachments.videos.includes(p))
+      if (!found.length) continue
+      record.attachments.videos.push(...found)
+      const dir = moduleDirs(record.project).logs
+      fs.mkdirSync(dir, { recursive: true })
+      fs.writeFileSync(path.join(dir, `${artifactName(record)}.json`), JSON.stringify(record, null, 2), 'utf8')
+    }
+
     const manifest = {
       ...this.runMeta,
       finishedAt: new Date().toISOString(),
@@ -322,9 +370,10 @@ export default class DemoVideoReporter {
       JSON.stringify(manifest, null, 2),
       'utf8',
     )
+    const mods = [...new Set(this.tests.map((t) => t.project))]
     // eslint-disable-next-line no-console
     console.log(
-      `\n[demo-video] captured ${this.tests.length} test log(s) → ${path.relative(process.cwd(), DIRS.logs)}`,
+      `\n[demo-video] captured ${this.tests.length} test log(s) across ${mods.length} module(s): ${mods.join(', ')}`,
     )
   }
 }

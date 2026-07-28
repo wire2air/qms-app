@@ -20,7 +20,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { run, probeDuration, probeSize } from '../ffmpeg-bin.js'
-import { VIDEO, DIRS } from '../config.js'
+import { VIDEO, DIRS, moduleDirs, artifactName } from '../config.js'
 import { renderTitleCard, renderSummaryCard } from './cards.js'
 import { renderOverlayTrack } from './overlays.js'
 import { buildCues, writeSubtitles } from './subtitles.js'
@@ -127,8 +127,9 @@ export async function buildTestVideo(test, { keepWork = false } = {}) {
     path.join(workDir, 'c-summary.mp4'),
   )
 
-  fs.mkdirSync(DIRS.final, { recursive: true })
-  const finalPath = path.join(DIRS.final, `${test.id}.mp4`)
+  const finalDir = moduleDirs(test.project).final
+  fs.mkdirSync(finalDir, { recursive: true })
+  const finalPath = path.join(finalDir, `${artifactName(test)}.mp4`)
   await concatSegments([titleClip, bodyClip, summaryClip], finalPath, workDir)
 
   // Subtitles are offset by the intro card — see subtitles.js.

@@ -9,7 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { run } from '../ffmpeg-bin.js'
-import { DIRS, VIDEO, slugify } from '../config.js'
+import { DIRS, VIDEO, slugify, moduleDirs } from '../config.js'
 import { renderModuleCard } from './cards.js'
 
 /** Reuse the still→clip settings from pipeline.js via the same flags. */
@@ -44,8 +44,9 @@ export async function buildModuleReel(moduleName, tests, videosById) {
     'utf8',
   )
 
-  fs.mkdirSync(DIRS.final, { recursive: true })
-  const out = path.join(DIRS.final, `_module-${slugify(moduleName)}.mp4`)
+  const finalDir = moduleDirs(moduleName).final
+  fs.mkdirSync(finalDir, { recursive: true })
+  const out = path.join(finalDir, `_module-${slugify(moduleName)}.mp4`)
   await run(['-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', out], {
     label: `module reel ${moduleName}`,
   })

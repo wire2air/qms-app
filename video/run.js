@@ -19,10 +19,39 @@
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { DIRS } from './config.js'
+import { DIRS, RESERVED_DIRS, moduleRoot } from './config.js'
 import { assertCapabilities, FFMPEG_PATH } from './ffmpeg-bin.js'
 
 const forwarded = process.argv.slice(2)
+
+/** `--project=users` / `--project users`, repeatable. Empty = the whole suite. */
+function selectedProjects(argv) {
+  const out = []
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i].startsWith('--project=')) out.push(argv[i].slice('--project='.length))
+    else if (argv[i] === '--project' && argv[i + 1]) out.push(argv[++i])
+  }
+  return out.filter((p) => p !== 'setup') // a dependency, never filmed
+}
+
+/**
+ * Clear the folders this run is about to rewrite — and only those.
+ *
+ * Every module owns `artifacts/<module>/`, so filming one module leaves the
+ * other seven's videos and reports untouched; build-videos.js reuses them for
+ * the combined index instead of re-encoding.
+ */
+function resetModuleFolders(projects) {
+  const targets = projects.length
+    ? projects.map(moduleRoot)
+    : fs
+        .readdirSync(DIRS.artifacts, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && !RESERVED_DIRS.has(d.name))
+        .map((d) => path.join(DIRS.artifacts, d.name))
+
+  for (const dir of targets) fs.rmSync(dir, { recursive: true, force: true })
+  return targets
+}
 
 function sh(cmd, args, env = {}) {
   return new Promise((resolve) => {
@@ -45,10 +74,19 @@ async function main() {
     process.exit(2)
   }
 
-  // Fresh logs each run, or the builder would rebuild videos for tests that are
-  // no longer in the selection.
+  // Fresh folders for the modules being filmed, or the builder would keep videos
+  // for tests that are no longer in the selection. The run manifest is rewritten
+  // every time, so its folder goes too.
+  fs.mkdirSync(DIRS.artifacts, { recursive: true })
+  const projects = selectedProjects(forwarded)
+  const cleared = resetModuleFolders(projects)
   fs.rmSync(DIRS.logs, { recursive: true, force: true })
   for (const dir of Object.values(DIRS)) fs.mkdirSync(dir, { recursive: true })
+  console.log(
+    projects.length
+      ? `[test:video] filming ${projects.join(', ')} — reset ${cleared.length} module folder(s), rest kept`
+      : `[test:video] filming everything — reset ${cleared.length} module folder(s)`,
+  )
 
   // 2 — instrument (idempotent; no-ops once done).
   const instrumented = await sh(process.execPath, [path.join('video', 'instrument.js')])
