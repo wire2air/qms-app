@@ -80,6 +80,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      name: 'users',
+      testMatch: /users\/.*\.spec\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'smoke',
       testMatch: /smoke\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },
