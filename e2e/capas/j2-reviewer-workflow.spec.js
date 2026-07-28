@@ -6,7 +6,7 @@
 // the lightweight Send-Back (does not terminate the workflow); the transition
 // that actually reverts PENDING -> DRAFT is /rejectStepTask on the APPROVAL
 // step (step 2, approver) — capaHandler.onRejection.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import { createCapa, openCapa, completeReviewerStep, uniqueTitle } from '../fixtures/capas.js'
 import { clickWhenReady } from '../fixtures/documents.js'

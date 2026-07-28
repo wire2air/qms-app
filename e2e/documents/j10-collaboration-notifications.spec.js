@@ -6,7 +6,7 @@
 //       rides the task-assigned notification;
 //     - chat message → comments row (sync) + a DOCUMENT_MESSAGE notification to
 //       the collaborator (worker side-effect).
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import { createSopDocument, uniqueTitle } from '../fixtures/documents.js'
 import { findDocumentByTitle, waitForSqlValue } from '../fixtures/db.js'

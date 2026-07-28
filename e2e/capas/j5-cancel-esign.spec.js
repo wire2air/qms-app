@@ -8,7 +8,7 @@
 // the PENDING path the UI actually offers; the DRAFT gap is a product
 // question (intentional — Delete already covers DRAFT removal — or a miss),
 // not something this suite can paper over with an API-only workaround.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import {
   createCapa,

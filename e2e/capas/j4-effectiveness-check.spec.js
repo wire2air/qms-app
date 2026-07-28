@@ -12,7 +12,7 @@
 // seconds in the future, satisfying the ">now" gate while letting the worker's
 // capa_effectiveness_check_remind job (2s poll interval — graphile.config.js)
 // fire almost immediately.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, ESIGN_PIN } from '../fixtures/cast.js'
 import {
   createCapa,

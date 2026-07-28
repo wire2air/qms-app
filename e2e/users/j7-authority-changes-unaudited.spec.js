@@ -28,7 +28,7 @@
 // in the SAME test, does produce an audit row. So the trigger fires, the
 // graphile job runs, the worker writes, and the pipeline is healthy — the
 // silence is the trackFields list, not a broken mechanism.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, SITES, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue, waitForSqlValue } from '../fixtures/db.js'
 

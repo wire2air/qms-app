@@ -1,5 +1,5 @@
 // PW-J1 · Owner: create → draft → open (submit) (TC-01/04/05)
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH } from '../fixtures/cast.js'
 import { createCapa, openCapa, uniqueTitle } from '../fixtures/capas.js'
 import { findCapaByTitle, sqlValue } from '../fixtures/db.js'

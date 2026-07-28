@@ -4,7 +4,7 @@
 //   change_request_links — owner-curated "affected records" (API-13/14).
 //   record_links         — automatic lineage written by linkRecords() when a
 //                          CR is spawned from an NC/CAPA (sourceType+sourceId).
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import { createCr, uniqueTitle } from '../fixtures/changeRequests.js'
 import { findCrByTitle, findNcByTitle, sqlValue, sqlRow } from '../fixtures/db.js'

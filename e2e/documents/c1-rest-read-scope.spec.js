@@ -13,7 +13,7 @@
 //
 // Verified through the live local stack (api :4000 ← the role's storageState
 // cookies) — no backend test DB involved.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH } from '../fixtures/cast.js'
 import { createSopDocument, uniqueTitle } from '../fixtures/documents.js'
 import { findDocumentByTitle } from '../fixtures/db.js'

@@ -12,7 +12,7 @@
 // gating it and the RLS policies would stop being load-bearing, silently
 // changing which layer is actually protecting this table. Assert the path, not
 // just the outcome.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, SITES } from '../fixtures/cast.js'
 import {
   gotoSites,

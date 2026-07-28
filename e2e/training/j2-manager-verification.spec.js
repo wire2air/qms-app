@@ -2,7 +2,7 @@
 //
 // Runs on top of a real completed training (PW-J1's flow), because the verify
 // endpoint only accepts an instance already in PENDING_VERIFICATION.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, TRAINING } from '../fixtures/cast.js'
 import { sqlRow, sqlValue } from '../fixtures/db.js'
 import {

@@ -5,7 +5,7 @@
 //       version back to DRAFT.
 // Authoritative facts are asserted against the DB; the UI status chip is checked
 // reload-tolerantly (status flips arrive via sync-back).
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import {
   createSopDocument,

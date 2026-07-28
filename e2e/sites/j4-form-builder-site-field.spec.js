@@ -26,7 +26,7 @@
 // equipment), so this is not a sites-specific bug; sites is just where it
 // surfaced. The controls below separate "this page cannot resolve entities"
 // from "this user cannot see sites", which are very different fixes.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, SITES } from '../fixtures/cast.js'
 import { sqlValue } from '../fixtures/db.js'
 

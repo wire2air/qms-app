@@ -10,7 +10,7 @@
 // Share *creation* is owned by the Supplier module; here we provision the
 // supplier + token row directly (the runtime equivalent of that flow) because
 // the Documents module owns the *viewer* under test, and no token is seeded.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import crypto from 'node:crypto'
 import { AUTH } from '../fixtures/cast.js'
 import { createSopDocument, fillAllSections, uniqueTitle } from '../fixtures/documents.js'

@@ -26,7 +26,7 @@
 // two controls PASS today and pin the shape: the write routes are correctly
 // gated and a real grant is admitted, so this is two missing mounts, not an
 // absent gating mechanism.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 
 const API = 'http://e2elab.localhost:4000'

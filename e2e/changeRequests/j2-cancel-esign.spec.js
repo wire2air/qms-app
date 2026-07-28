@@ -1,5 +1,5 @@
 // PW-J2 · cancel with e-signature (P0).
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH } from '../fixtures/cast.js'
 import {
   createCr,

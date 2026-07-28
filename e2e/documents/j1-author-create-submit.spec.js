@@ -2,7 +2,7 @@
 // Asserts UI state plus the DB facts the journey must produce: DRAFT insert
 // with no doc number, completeness gate, then IN_REVIEW + minted doc number +
 // workflow instance + approval task.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH } from '../fixtures/cast.js'
 import { createSopDocument, fillAllSections, submitForReview, uniqueTitle } from '../fixtures/documents.js'
 import { findDocumentByTitle, versionsOf, sqlValue } from '../fixtures/db.js'

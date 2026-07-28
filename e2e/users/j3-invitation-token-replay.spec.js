@@ -25,7 +25,7 @@
 // The subject is a throwaway user created and destroyed by this file. Nothing
 // here touches a shared cast member — a test that leaves a fixture user in an
 // unexpected state takes the whole suite down with it (see the afterAll).
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import crypto from 'node:crypto'
 import { COMPANY_ID, SITES, DEPARTMENTS } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'

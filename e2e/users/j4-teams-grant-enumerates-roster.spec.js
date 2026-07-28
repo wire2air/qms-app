@@ -30,7 +30,7 @@
 // The first assertion FAILS TODAY. The control PASSES and isolates the cause:
 // a member with no grants at all sees only themselves, so it is the extra_read
 // branch admitting teamsOnly, not company scope or an absent policy.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import { graphql } from '../fixtures/sites.js'
 

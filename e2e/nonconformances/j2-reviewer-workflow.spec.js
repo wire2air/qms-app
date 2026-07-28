@@ -8,7 +8,7 @@
 // actually reverts UNDER_REVIEW -> DRAFT is /rejectStepTask on the APPROVAL
 // step (step 2, approver) — nonconformanceHandler.onRejection. This spec tests
 // the real behavior for both.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import { raiseNc, openNc, completeReviewerStep, uniqueTitle } from '../fixtures/nonconformances.js'
 import { clickWhenReady } from '../fixtures/documents.js'

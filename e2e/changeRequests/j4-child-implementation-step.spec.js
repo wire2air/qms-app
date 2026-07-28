@@ -6,7 +6,7 @@
 // dialog wires a form builder + assignee picker whose coverage belongs to a
 // component test, whereas the contract worth pinning here is the controller's
 // parent/terminal gating and the instance-step + assignment rows it writes.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import {
   createCr,

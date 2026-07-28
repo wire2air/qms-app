@@ -10,7 +10,7 @@
 // It is a separate spec rather than a second case in the sites one because the
 // two must be fixable and verifiable independently: a binding fix applied to
 // `sites` alone leaves this red, which is the point.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, DEPARTMENTS, COMPANY_ID } from '../fixtures/cast.js'
 import { asAppUser } from '../fixtures/sites.js'
 import { sqlValue } from '../fixtures/db.js'

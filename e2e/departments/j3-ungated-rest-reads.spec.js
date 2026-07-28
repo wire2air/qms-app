@@ -18,7 +18,7 @@
 //
 // Departments leak slightly more than sites do: the payload carries
 // `supervisor_user_id`, so an ungated list is also a map of who supervises what.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, DEPARTMENTS, SITES } from '../fixtures/cast.js'
 
 const API = 'http://e2elab.localhost:4000'

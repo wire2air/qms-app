@@ -2,7 +2,7 @@
 // a new revision from an EFFECTIVE version auto-demotes the prior is_latest
 // (no more one_latest_uniq collision). Driving the new version to EFFECTIVE
 // supersedes the old one, preserving the "exactly one EFFECTIVE" invariant.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH } from '../fixtures/cast.js'
 import {
   createSopDocument,

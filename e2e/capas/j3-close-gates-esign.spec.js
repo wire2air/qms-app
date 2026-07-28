@@ -8,7 +8,7 @@
 // closeDisabledReason's "Pick an effectiveness check date" branch is
 // unreachable through the UI. Gate 2 is still real at the API layer, so it's
 // asserted directly against the endpoint below.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import {
   createCapa,

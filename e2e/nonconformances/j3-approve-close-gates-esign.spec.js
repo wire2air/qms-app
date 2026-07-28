@@ -10,7 +10,7 @@
 //             the server's own 409. Without this half, deleting the entire
 //             controller gate block would leave this journey green while a
 //             direct API caller could close an NC with no disposition.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, FIXTURES } from '../fixtures/cast.js'
 import {
   raiseNc,

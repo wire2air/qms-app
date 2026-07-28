@@ -1,5 +1,5 @@
 // PW-J1 · Owner: raise → draft → open (TC-01/04/05)
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH } from '../fixtures/cast.js'
 import { raiseNc, openNc, uniqueTitle } from '../fixtures/nonconformances.js'
 import { findNcByTitle, sqlValue } from '../fixtures/db.js'
