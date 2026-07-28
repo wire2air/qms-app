@@ -45,6 +45,13 @@ export const USERS = {
   // Department-scoped reader — departments:read at DEPARTMENT scope only.
   // The `departments` twin of siteReader; both tables share the all-NULL binding.
   deptReader: { id: 'e2e10000-0000-4000-8000-000000000014', email: 'deptreader@e2e.test', name: 'Derek DeptReader' },
+  // Training Admin — training:* + training_instances:*, AND the manager_id on
+  // the seeded training, so the same persona launches and later verifies.
+  trainingAdmin: { id: 'e2e10000-0000-4000-8000-000000000015', email: 'trainadmin@e2e.test', name: 'Tara TrainAdmin' },
+  // Learner — holds NO training grants at all, deliberately. /my-training/:id is
+  // the one training surface with no permission guard (RLS self-scope only), so
+  // the learner journey has to prove it works for a user who holds nothing.
+  learner: { id: 'e2e10000-0000-4000-8000-000000000016', email: 'learner@e2e.test', name: 'Leo Learner' },
 }
 
 // Second-tenant owner for cross-tenant isolation tests (logs in via ALT_BASE_URL).
@@ -67,6 +74,8 @@ export const AUTH = {
   siteRoamer: 'e2e/.auth/siteRoamer.json',
   deptAdmin: 'e2e/.auth/deptAdmin.json',
   deptReader: 'e2e/.auth/deptReader.json',
+  trainingAdmin: 'e2e/.auth/trainingAdmin.json',
+  learner: 'e2e/.auth/learner.json',
   altOwner: 'e2e/.auth/altOwner.json',
 }
 
@@ -113,6 +122,12 @@ export const FIXTURES = {
   // with allowChildSteps=true so PW-J4 can add sub-tasks post-approval.
   crWorkflowName: 'E2E CR Review & Approval',
   crImplementationStepName: 'Implementation',
+  // Training — seeded ACTIVE with trainingAdmin as manager_id, so launch and
+  // verify are both available without first exercising activate. The assessment
+  // is 2 single-choice questions with unambiguous correct answers, against
+  // passingScore 70: both right = 100 (pass), one right = 50 (fail). maxAttempts
+  // is 2, leaving room for one retry after a deliberate fail.
+  trainingTitle: 'E2E Read & Understood Training',
 }
 
 // Supplier ids (not in USERS/AUTH — this persona never logs into the app UI).
@@ -133,4 +148,20 @@ export const SUPPLIER_USER = {
   id: SUPPLIER_PORTAL_USER_ID,
   email: 'supplier@e2e.test',
   name: 'Sam Supplier',
+}
+
+// The seeded training catalog entry (e2e-seed.sql §20) and its assessment key.
+// Answer ids are part of the seed's JSONB, so the journeys can submit a
+// deterministic pass (both correct) or fail (one correct) without reading the
+// quiz out of the UI first.
+export const TRAINING = {
+  id: 'e2e8a000-0000-4000-8000-000000000001',
+  title: 'E2E Read & Understood Training',
+  passingScore: 70,
+  maxAttempts: 2,
+  // questionId -> optionId
+  correctAnswers: { q1: 'q1a', q2: 'q2b' },
+  wrongAnswers: { q1: 'q1b', q2: 'q2a' },
+  // one right, one wrong => 50, below passingScore
+  halfAnswers: { q1: 'q1a', q2: 'q2a' },
 }
