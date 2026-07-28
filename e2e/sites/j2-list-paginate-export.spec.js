@@ -47,12 +47,24 @@ test.describe('PW-J2 · the sites list, its page size and its export', () => {
       timeout: 20_000,
     })
 
-    // No REST/GraphQL traffic should be needed — the whole table is already in
-    // IndexedDB. Recording it makes an accidental move to server-side search
-    // visible rather than silent.
+    // No REST/GraphQL traffic should be needed to FILTER — the whole table is
+    // already in IndexedDB. Recording it makes an accidental move to
+    // server-side search visible rather than silent.
+    //
+    // `updateUser` is excluded deliberately, not to make the test pass:
+    // useDataTablePersist writes the table's density/sort/filter state to the
+    // synced `User.settings` bag over GraphQL, so typing in the search box
+    // legitimately produces one mutation that has nothing to do with fetching
+    // sites. Matching all of /api/graphql made this assertion depend on whether
+    // an earlier test in the same worker had already dirtied the persisted view
+    // state — green in isolation, red in a full-suite run.
     const calls = []
     page.on('request', (req) => {
-      if (/\/api\/(graphql|v1\/services\/sites)/.test(req.url())) calls.push(req.url())
+      const url = req.url()
+      if (url.includes('/v1/services/sites')) calls.push(url)
+      if (url.includes('/api/graphql') && !(req.postData() || '').includes('updateUser')) {
+        calls.push(url)
+      }
     })
 
     // The table's own search box, by its aria-label. A bare
