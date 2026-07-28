@@ -1,5 +1,5 @@
 // PW-J1 · create → submit → approve → close with e-sign (P0).
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH } from '../fixtures/cast.js'
 import {
   createCr,

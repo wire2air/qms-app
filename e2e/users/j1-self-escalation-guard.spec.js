@@ -27,7 +27,7 @@
 // (migration 20260728090000) is a field guard that splits the columns into two
 // tiers instead — and the CONTROL tests below are what prove it kept the
 // legitimate paths working, which is the half a security fix usually breaks.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, SITES, ALT_COMPANY_ID } from '../fixtures/cast.js'
 import { graphql } from '../fixtures/sites.js'
 import { sql, sqlValue } from '../fixtures/db.js'

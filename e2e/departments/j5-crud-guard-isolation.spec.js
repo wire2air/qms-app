@@ -6,7 +6,7 @@
 // GraphQL one — the same path DEPT-J1 shows *can* set supervisorUserId — so if
 // someone repairs the REST Zod schemas by rerouting the UI through REST, this
 // spec is what notices.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, SITES, DEPARTMENTS, COMPANY_ID, ALT_BASE_URL } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'
 

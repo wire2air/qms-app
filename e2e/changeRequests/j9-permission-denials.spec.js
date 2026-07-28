@@ -1,5 +1,5 @@
 // PW-J9 · permission denials + tenant isolation (P0).
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, ALT_BASE_URL } from '../fixtures/cast.js'
 import {
   createCr,

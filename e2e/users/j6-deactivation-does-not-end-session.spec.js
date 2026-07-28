@@ -38,7 +38,7 @@
 // earlier version of the users suite corrupted shared fixtures when it ran
 // against an unpatched database, and taking `auditor` INACTIVE mid-suite would
 // do the same to every other project.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { COMPANY_ID, SITES, DEPARTMENTS, PASSWORD, AUTH } from '../fixtures/cast.js'
 import { freshContext, graphql } from '../fixtures/sites.js'
 import { sql, sqlValue } from '../fixtures/db.js'

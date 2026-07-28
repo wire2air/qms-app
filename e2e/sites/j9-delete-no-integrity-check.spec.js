@@ -29,7 +29,7 @@
 // A reader then cannot distinguish a record whose site was deleted from one
 // that never had a site, and cannot recover which site it was without the
 // database.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, COMPANY_ID, USERS } from '../fixtures/cast.js'
 import { gotoSites, deleteSiteViaUi } from '../fixtures/sites.js'
 import { sql, sqlValue } from '../fixtures/db.js'

@@ -9,7 +9,7 @@
 // there is no service-layer company filter on the read path, because the app
 // reads sites through GraphQL/syncEngine, not REST. If the company clause were
 // ever dropped from that policy, this is the assertion that notices.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, SITES, COMPANY_ID, ALT_COMPANY_ID, ALT_BASE_URL } from '../fixtures/cast.js'
 import { gotoSites, liveSiteCount } from '../fixtures/sites.js'
 import { sqlValue } from '../fixtures/db.js'

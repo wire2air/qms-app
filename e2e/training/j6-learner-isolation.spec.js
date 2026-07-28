@@ -4,7 +4,7 @@
 // this proves they cannot see or reach anyone ELSE's, and that the RLS
 // widening added for /my-training (training_instances self-scope) did not
 // leak instances to users who are not assigned to them.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, COMPANY_ID, ALT_COMPANY_ID } from '../fixtures/cast.js'
 import { sqlAsAppUser } from '../fixtures/db.js'
 import { launchTraining, findAssignee } from '../fixtures/training.js'

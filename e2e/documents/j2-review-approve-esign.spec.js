@@ -3,7 +3,7 @@
 // required), the approver approves with an e-signature PIN, the version goes
 // EFFECTIVE, a signatures row is written and the worker generates the
 // hash-anchored snapshot.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, ESIGN_PIN, USERS } from '../fixtures/cast.js'
 import { createSopDocument, fillAllSections, submitForReview, uniqueTitle } from '../fixtures/documents.js'
 import { findDocumentByTitle, versionsOf, sqlValue, waitForSqlValue } from '../fixtures/db.js'

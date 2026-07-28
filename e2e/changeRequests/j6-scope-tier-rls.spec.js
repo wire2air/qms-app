@@ -6,7 +6,7 @@
 // through the real untrusted `app_user` role (the role every GraphQL request
 // runs as) and cross-checks the UI, since RLS is the ONLY gate on the read path
 // the app actually uses.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, COMPANY_ID } from '../fixtures/cast.js'
 import { createCr, uniqueTitle } from '../fixtures/changeRequests.js'
 import { findCrByTitle, sqlAsAppUser } from '../fixtures/db.js'

@@ -29,7 +29,7 @@
 // application where entity CRUD is majority-GraphQL. The narrower finding —
 // REST specifically cannot set it — is what survived verification, and it is
 // what this journey asserts.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, SITES, DEPARTMENTS, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'
 

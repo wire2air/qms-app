@@ -1,5 +1,5 @@
 // PW-J6 · List, filters, KPIs (TC-15).
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, COMPANY_ID } from '../fixtures/cast.js'
 import { createCapa, uniqueTitle } from '../fixtures/capas.js'
 import { sqlValue } from '../fixtures/db.js'

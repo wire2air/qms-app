@@ -4,7 +4,7 @@
 // UPDATE/DELETE RLS, which gate on permission + scope (not owner/author).
 // Previously the detail gated Archive on canDelete (delete && owner/author),
 // hiding the action from a delete-permitted controller who didn't own the doc.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import { createSopDocument, uniqueTitle } from '../fixtures/documents.js'
 import { findDocumentByTitle, sql, sqlRow, waitForSqlValue } from '../fixtures/db.js'

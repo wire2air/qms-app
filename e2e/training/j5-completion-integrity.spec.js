@@ -12,7 +12,7 @@
 // GUCs reproduces a raw mutation without depending on the client model's
 // generated mutation shape. The client-side excludeFromGraphQL lock is a second
 // layer; this asserts the layer that holds even if the schema is regenerated.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, COMPANY_ID } from '../fixtures/cast.js'
 import { sqlAsAppUser } from '../fixtures/db.js'
 import { launchTraining, findAssignee } from '../fixtures/training.js'

@@ -4,7 +4,7 @@
 // the one training surface with no route guard (RLS self-scope only), so this
 // journey doubles as proof that a permission-less user can still complete an
 // assignment routed to them.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, TRAINING } from '../fixtures/cast.js'
 import { sqlValue } from '../fixtures/db.js'
 import {

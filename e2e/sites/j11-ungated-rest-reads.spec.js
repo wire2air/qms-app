@@ -23,7 +23,7 @@
 // The two control assertions PASS today and pin the shape of the defect: the
 // write routes are correctly gated, so this is three missing mounts, not an
 // absent gating mechanism.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, SITES } from '../fixtures/cast.js'
 
 const API = 'http://e2elab.localhost:4000'

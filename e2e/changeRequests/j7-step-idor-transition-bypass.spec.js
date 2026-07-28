@@ -6,7 +6,7 @@
 // living only in the REST controller is bypassable by a raw mutation. CR-C1
 // closes that with the `enforce_cr_status_transition` trigger (ERRCODE QMSCR);
 // these tests drive the real untrusted role to prove it.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, COMPANY_ID } from '../fixtures/cast.js'
 import {
   createCr,

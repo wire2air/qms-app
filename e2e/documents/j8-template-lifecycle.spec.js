@@ -3,7 +3,7 @@
 //   the live prefix-uniqueness check blocks a duplicate, and the template is
 //   published (DRAFT → PUBLISHED). The Own-scope author (tenant read, no create)
 //   sees the list read-only. Facts asserted against the DB.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import { uniqueTitle } from '../fixtures/documents.js'
 import { sqlRow, sqlValue, waitForSqlValue } from '../fixtures/db.js'

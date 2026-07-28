@@ -50,3 +50,4 @@ storybook-static/
 
 # E2E auth storage states (contain session cookies)
 e2e/.auth/
+artifacts/

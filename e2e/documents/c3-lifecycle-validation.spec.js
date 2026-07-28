@@ -3,7 +3,7 @@
 // is rejected with 400 before the controller runs. Proven against the live api
 // with a real (author) session; a bogus versionId is fine because validation
 // fires ahead of the controller's lookup.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH } from '../fixtures/cast.js'
 
 const API = 'http://e2elab.localhost:4000'

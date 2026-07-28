@@ -1,5 +1,5 @@
 // PW-J6 · Permission denials + cross-tenant (TC-17 f/g) — multi-role.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, BASE_URL, ALT_BASE_URL } from '../fixtures/cast.js'
 import { raiseNc, uniqueTitle } from '../fixtures/nonconformances.js'
 import { findNcByTitle } from '../fixtures/db.js'

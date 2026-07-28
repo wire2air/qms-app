@@ -10,7 +10,7 @@
 // CONFIGURATION — required-single, optional-filter, multiple — plus the inline
 // create affordance, which is the only part of the component that is
 // permission-gated.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, SITES } from '../fixtures/cast.js'
 import { uniqueSiteName, findSiteByName, purgeSiteByName } from '../fixtures/sites.js'
 

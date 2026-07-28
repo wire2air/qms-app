@@ -7,7 +7,7 @@
 //     company-scoped only (inventory §C "Enforcement notes").
 //   - `training_verifications:read`, the guard on /training-verifications, has no
 //     backing authz module (inventory PERM-08, "SUSPECT — may resolve false").
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, TRAINING } from '../fixtures/cast.js'
 import { sqlValue } from '../fixtures/db.js'
 import { launchTraining } from '../fixtures/training.js'

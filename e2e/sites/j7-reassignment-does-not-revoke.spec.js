@@ -21,7 +21,7 @@
 // invalidates the session correctly turns the first half green WITHOUT changing
 // the second. A "fix" that made the second half fail too would be a different
 // bug, not a fix.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, SITES, COMPANY_ID } from '../fixtures/cast.js'
 import { freshContext, graphql } from '../fixtures/sites.js'
 import { sql, sqlValue } from '../fixtures/db.js'

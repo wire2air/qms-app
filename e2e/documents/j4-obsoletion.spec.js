@@ -4,7 +4,7 @@
 //   soft-deletes (deleted_at). Blank and too-short reasons are blocked.
 // Actor: the company OWNER — satisfies both the list gate (document_control:
 // delete) and the stricter detail gate (delete + owner/author via isOwner).
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import { createSopDocument, uniqueTitle } from '../fixtures/documents.js'
 import { findDocumentByTitle, sqlRow, waitForSqlValue } from '../fixtures/db.js'

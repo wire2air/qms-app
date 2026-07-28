@@ -4,7 +4,7 @@
 //     affordance (see the H2 scope-tier note on that test);
 //   - an unauthenticated API call is rejected 401;
 //   - an unauthenticated page visit is bounced to /signin.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH } from '../fixtures/cast.js'
 
 const API_BASE = 'http://e2elab.localhost:4000'

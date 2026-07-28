@@ -12,7 +12,7 @@
 // through the UI, despite still existing. Asserting that today is what makes it
 // visible the day someone builds restore and forgets the toggle, or ships the
 // toggle without restore.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, SITES, COMPANY_ID } from '../fixtures/cast.js'
 import { gotoSites, liveSiteCount } from '../fixtures/sites.js'
 import { sqlValue } from '../fixtures/db.js'

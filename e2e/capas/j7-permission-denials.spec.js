@@ -1,5 +1,5 @@
 // PW-J7 · Permission denials (TC-16 f/g/h) — multi-role.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, ALT_BASE_URL } from '../fixtures/cast.js'
 import { createCapa, uniqueTitle } from '../fixtures/capas.js'
 import { findCapaByTitle } from '../fixtures/db.js'

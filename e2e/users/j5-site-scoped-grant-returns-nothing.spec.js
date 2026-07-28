@@ -28,7 +28,7 @@
 // they were the only person at it. Hence userSiteReader and teamsOnly are BOTH
 // seeded at the Secondary site: the meaningful claim is "my site's OTHER people
 // are visible, and the other site's people are not".
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, SITES } from '../fixtures/cast.js'
 import { graphql } from '../fixtures/sites.js'
 import { sqlValue } from '../fixtures/db.js'

@@ -26,7 +26,7 @@
 // So moving a department to a different site, or changing who supervises it,
 // leaves no trace at all: hasRelevantChanges() is false, defaultHandler returns
 // null, and the event is dropped with a logger.warn at most.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, SITES, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'
 

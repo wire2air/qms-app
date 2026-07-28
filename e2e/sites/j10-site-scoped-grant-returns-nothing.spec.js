@@ -20,7 +20,7 @@
 // Ranks 1-3 are unreachable. Only a tenant-scoped grant matches anything, and
 // the three narrower tiers remain fully selectable in the permission UI.
 // `departments` has the identical all-NULL binding.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, SITES, COMPANY_ID } from '../fixtures/cast.js'
 import { gotoSites, asAppUser } from '../fixtures/sites.js'
 import { sqlValue } from '../fixtures/db.js'

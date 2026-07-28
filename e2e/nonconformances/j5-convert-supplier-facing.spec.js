@@ -1,5 +1,5 @@
 // PW-J5 · Convert to supplier-facing (TC-13) — owner.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import {
   AUTH,
   USERS,

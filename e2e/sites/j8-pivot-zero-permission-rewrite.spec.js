@@ -19,7 +19,7 @@
 // Both probes run at two layers on purpose: raw GraphQL (the path an attacker
 // actually has — the SPA's permission computeds are not in it) and the policy
 // itself (so a red result is unambiguous about which layer decided).
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, SITES, LOG_BOOK, COMPANY_ID } from '../fixtures/cast.js'
 import { graphql, expectMutationExists, asAppUser } from '../fixtures/sites.js'
 import { sql, sqlValue } from '../fixtures/db.js'

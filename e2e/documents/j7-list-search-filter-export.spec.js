@@ -9,7 +9,7 @@
 //     (2) search matches the OWNER's *name*, not the id (DC-L-03 regression);
 //     (3) the Status filter shows only the chosen lifecycle state;
 //     (4) Export downloads a CSV of the current (filtered) view.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import fs from 'node:fs'
 import { AUTH } from '../fixtures/cast.js'
 import { createSopDocument, fillAllSections, submitForReview, uniqueTitle } from '../fixtures/documents.js'

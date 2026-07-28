@@ -10,7 +10,7 @@
 // Nothing in the repository asserted that today. This spec pins it in both
 // directions so neither a tier reclassification nor a dropped supplier
 // allow-list entry can regress silently.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, SUPPLIER_USER } from '../fixtures/cast.js'
 import { freshContext } from '../fixtures/sites.js'
 

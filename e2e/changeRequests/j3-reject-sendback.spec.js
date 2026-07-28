@@ -5,7 +5,7 @@
 //                                 handler.onRejection reverts the CR to DRAFT.
 //   ACTION step   + "Send Back" → /sendBackStepTask → lightweight; the
 //                                 reviewer's task survives, no status change.
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import {
   createCr,
