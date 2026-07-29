@@ -161,6 +161,15 @@ export function evaluateRoute(to) {
     return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
   }
 
+  // Internal Docs Center (/docs) — the engineering documentation corpus
+  // (security reviews, readiness verdicts). Platform operators only, same
+  // standing as /platform; the backend re-checks every fetch
+  // (requirePlatformAdmin('readonly')). Never a tenant-facing surface.
+  if (seg === 'docs') {
+    if (isPlatformAdmin.value) return true
+    return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
+  }
+
   // EXTERNAL_SUPPLIER: allow their RLS-shared record modules, block admin routes.
   if (isSupplier.value) {
     if (SUPPLIER_EXEMPT_SEGMENTS.has(seg)) return true
