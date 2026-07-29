@@ -9,6 +9,8 @@ import {
   IconCheckbox,
   IconTruck,
   IconPackage,
+  IconTemplate,
+  IconDatabase,
   IconShieldCheck,
   IconSettings,
   IconAdjustments,
@@ -34,6 +36,17 @@ import {
   IconChecklist,
   IconClipboardList,
   IconClipboardCheck,
+  IconArchive,
+  IconRuler,
+  IconChartDots,
+  IconGauge,
+  IconFlask,
+  IconSpray,
+  IconUserCheck,
+  IconBooks,
+  IconCalendarEvent,
+  IconCertificate,
+  IconRoute,
   IconHeadset,
   IconTool,
   IconTestPipe,
@@ -109,6 +122,16 @@ function isGroupExpanded(label) {
 function isActive(targetPath) {
   if (!targetPath) return false
   const currentPath = route.path
+
+  // Query-tab links (e.g. /qc-inspection?tab=specifications): active only when
+  // BOTH the path and the tab match. A tab-less link to the same path is the
+  // group's default tab — active only when no (or the default) tab is set.
+  const qIdx = targetPath.indexOf('?')
+  if (qIdx >= 0) {
+    const [pathPart, queryPart] = [targetPath.slice(0, qIdx), targetPath.slice(qIdx + 1)]
+    const targetTab = new URLSearchParams(queryPart).get('tab')
+    return currentPath === pathPart && route.query.tab === targetTab
+  }
 
   // Exact match
   if (currentPath === targetPath) return true
@@ -243,10 +266,9 @@ const navItems = computed(() => {
 
   return [
     {
-      label: 'Records',
-      permissions: ['records:read'],
-      icon: IconTable,
-      to: getCompanyPath('/records'),
+      label: 'My Tasks',
+      icon: IconCheckbox,
+      to: getCompanyPath('/task-instances'),
     },
     // Admin-defined modules (data-driven).
     ...moduleNavItems.value,
@@ -255,11 +277,6 @@ const navItems = computed(() => {
       permissions: ['document_control:read'],
       icon: IconFileText,
       to: getCompanyPath('/documents'),
-    },
-    {
-      label: 'My Tasks',
-      icon: IconCheckbox,
-      to: getCompanyPath('/task-instances'),
     },
     {
       label: 'Nonconformances',
@@ -274,15 +291,10 @@ const navItems = computed(() => {
       to: getCompanyPath('/qualityEvents'),
     },
     {
-      label: 'Customer Complaints',
-      permissions: ['complaint_management:read'],
-      icon: IconHeadset,
-      to: getCompanyPath('/customer-complaints'),
-    },
-    {
       // Standalone QMS quality complaints (the `complaints` table) with the
       // QA-review workflow — an independent module from the support Customer
-      // Complaints entry above (which is backed by customer_complaints).
+      // Complaints entry (below, next to App Builder — it's the support-desk
+      // surface, not a core QMS record).
       label: 'Complaints',
       permissions: ['complaints:read'],
       icon: IconMessageReport,
@@ -321,60 +333,215 @@ const navItems = computed(() => {
       to: getCompanyPath('/inspections-logs'),
     },
     {
+      // Submenu mirrors the /qc-inspection sections (formerly on-page tabs —
+      // user decision 2026-07-27: navigate them like the Training group).
+      // Same permission gates the tabs used; children hide per grant.
       label: 'QC Inspection',
       icon: IconTestPipe,
-      permissions: ['inspection_qc:read'],
-      to: getCompanyPath('/qc-inspection'),
+      children: [
+        {
+          label: 'Inspections',
+          permissions: ['inspection_qc:read'],
+          icon: IconClipboardCheck,
+          to: getCompanyPath('/qc-inspection?tab=lots'),
+        },
+        {
+          label: 'Retain Samples',
+          permissions: ['retain_samples:read'],
+          icon: IconArchive,
+          to: getCompanyPath('/qc-inspection?tab=retain-samples'),
+        },
+        {
+          label: 'Inspection Plans',
+          permissions: ['inspection_templates:read'],
+          icon: IconClipboardList,
+          to: getCompanyPath('/qc-inspection?tab=inspection-plans'),
+        },
+        {
+          label: 'Specifications',
+          permissions: ['inspection_spec:read'],
+          icon: IconRuler,
+          to: getCompanyPath('/qc-inspection?tab=specifications'),
+        },
+        {
+          label: 'Sampling Plans',
+          permissions: ['inspection_plan:read'],
+          icon: IconChartDots,
+          to: getCompanyPath('/qc-inspection?tab=sampling-plans'),
+        },
+        {
+          label: 'AQL Standards',
+          permissions: ['inspection_standards:read'],
+          icon: IconGauge,
+          to: getCompanyPath('/qc-inspection?tab=aql-standards'),
+        },
+        {
+          label: 'Test Library',
+          permissions: ['inspection_catalog:read'],
+          icon: IconFlask,
+          to: getCompanyPath('/qc-inspection?tab=test-library'),
+        },
+        {
+          label: 'Line Clearance',
+          permissions: ['inspection_settings:read'],
+          icon: IconSpray,
+          to: getCompanyPath('/qc-inspection?tab=line-clearance'),
+        },
+      ],
     },
-    {
-      // Floor-user logging entry — mobile-first dashboard (pick a log
-      // book → fill) + My Tasks. The route wrapped in the iOS/Android
-      // WebView later. Distinct from the admin "Inspections & Logs".
-      label: 'Logging',
-      icon: IconClipboardCheck,
-      permissions: ['field_records:create'],
-      to: getCompanyPath('/logging'),
-    },
+    // The phone-first /logging portal left the desktop menu (user decision
+    // 2026-07-24) — it's shared from Inspections & Logs → "Mobile Portal"
+    // (QR + link for floor/warehouse phones) until the native app wraps it.
     {
       label: 'Training',
       icon: IconSchool,
       children: [
         {
           label: 'My Trainings',
-          icon: IconSchool,
+          icon: IconUserCheck,
           to: getCompanyPath('/task-instances?taskKindId=TRAINING'),
         },
         {
           label: 'Training Library',
           permissions: ['training:read'],
-          icon: IconSchool,
+          icon: IconBooks,
           to: getCompanyPath('/trainings'),
         },
         {
           label: 'Training Instances',
           permissions: ['training_instances:read'],
-          icon: IconSchool,
+          icon: IconCalendarEvent,
           to: getCompanyPath('/training-instances'),
         },
         {
           label: 'Training Verification',
           permissions: ['training_verifications:read'],
-          icon: IconSchool,
+          icon: IconCertificate,
           to: getCompanyPath('/training-verifications'),
         },
         {
           label: 'Training Curriculum',
           permissions: ['training:read'],
-          icon: IconSchool,
+          icon: IconRoute,
           to: getCompanyPath('/training-curriculum'),
         },
       ],
     },
+    {
+      // Formerly "Records" — the generic form-template records surface,
+      // being evolved into a Jotform-style dynamic form/record builder that
+      // promotes templates to full on-the-fly modules (which then appear as
+      // their own nav entries above). Not a core QMS record type, so it sits
+      // below the day-to-day modules.
+      label: 'App Builder',
+      permissions: ['records:read'],
+      icon: IconTable,
+      to: getCompanyPath('/records'),
+    },
+    {
+      // Support-desk complaint tickets (web/forms/email intake). Its module
+      // settings live on the page itself (gear icon), not in Settings.
+      label: 'Customer Complaints',
+      permissions: ['complaint_management:read'],
+      icon: IconHeadset,
+      to: getCompanyPath('/customer-complaints'),
+    },
     {}, // Divider
     {
-      label: 'Audit Logs',
-      icon: IconShieldCheck,
-      to: getCompanyPath('/audit-logs'),
+      // Template-authoring surfaces — mirrors the "Templates" section of the
+      // Roles & Permissions matrix (user decision 2026-07-24: nav groups and
+      // matrix sections map 1:1 for easy navigation).
+      label: 'Templates',
+      icon: IconTemplate,
+      children: [
+        {
+          label: 'Workflow Templates',
+          permissions: ['workflows_templates:read'],
+          icon: IconArrowsShuffle,
+          to: getCompanyPath('/workflow-templates'),
+        },
+        {
+          // Reusable form fragments (kind='BLOCK') — first-class nav item with
+          // its OWN authz module (form_blocks:*). Standalone Form Templates
+          // moved into the App Builder workspace (Forms tab).
+          label: 'Form Blocks',
+          permissions: ['form_blocks:read'],
+          icon: IconStack2,
+          to: getCompanyPath('/form-blocks'),
+        },
+        {
+          label: 'Document Templates',
+          permissions: ['document_templates:read'],
+          icon: IconArticle,
+          to: getCompanyPath('/document-templates'),
+        },
+        {
+          // Admin-defined custom fields per entity (NC / CAPA / CR / Audit /
+          // Document / Training). Rendered as the "Additional information" card
+          // on each detail page; stored in entity_field_values (JSONB), sealed.
+          label: 'Custom Fields',
+          permissions: ['custom_fields:manage'],
+          icon: IconListDetails,
+          to: getCompanyPath('/custom-fields'),
+        },
+        {
+          label: 'RCA Templates',
+          permissions: ['rca_templates:read'],
+          icon: IconSitemap,
+          to: getCompanyPath('/rca-templates'),
+        },
+        {
+          label: 'Risk Assessment Templates',
+          permissions: ['risk_assessment_templates:read'],
+          icon: IconLayoutGrid,
+          to: getCompanyPath('/risk-assessment-templates'),
+        },
+      ],
+    },
+    {
+      // Company masters + lookup vocabularies — mirrors the "Master Data"
+      // section of the Roles & Permissions matrix.
+      label: 'Master Data',
+      icon: IconDatabase,
+      children: [
+        {
+          label: 'Suppliers',
+          permissions: ['supplier_management:read'],
+          icon: IconTruck,
+          to: getCompanyPath('/suppliers'),
+        },
+        {
+          label: 'Equipment',
+          // No `equipment:read` gate by design — RLS SELECT lets any
+          // in-tenant user see the catalog, since log book authors need
+          // to pick equipment without needing a separate permission.
+          // Visibility is via the menu link being available to all.
+          icon: IconTool,
+          to: getCompanyPath('/equipment'),
+        },
+        {
+          // Industry-aligned label: "Item Master" for the admin
+          // catalog page. Covers raw materials, components, WIP, and
+          // finished goods — matches ERP terminology. Underlying DB
+          // table stays `products` (UI-only relabel decision
+          // 2026-05-26); operational selectors use "Item".
+          label: 'Item Master',
+          permissions: ['products:read'],
+          icon: IconPackage,
+          to: getCompanyPath('/products'),
+        },
+        // Option Sets moved under Form Templates → Option Sets tab.
+        // Lookups (NC dispositions/issue types, supplier certificate
+        // types, audit standard types/finding categories) live on the
+        // standalone /lookups page; /settings?tab=lookups redirects
+        // there for old bookmarks.
+        {
+          label: 'Lookups',
+          permissions: ['company_settings:manage'],
+          icon: IconList,
+          to: getCompanyPath('/lookups'),
+        },
+      ],
     },
     {
       label: 'Settings',
@@ -401,14 +568,10 @@ const navItems = computed(() => {
           icon: IconShieldCheck,
           to: getCompanyPath('/admin-security'),
         },
-        {
-          // Read-only ledger of platform-operator (vendor) actions on this
-          // workspace — the tenant-visible transparency surface.
-          label: 'Vendor Access',
-          permissions: ['security:manage'],
-          icon: IconShield,
-          to: getCompanyPath('/vendor-access-log'),
-        },
+        // Vendor Access (platform-operator transparency ledger at
+        // /vendor-access-log) was removed from the menu 2026-07-24 (user
+        // decision) — page + API remain reachable by direct URL for
+        // security:manage holders.
         {
           // Config-driven notification engine (entity create / status-change →
           // notify groups / people / owner / initiator over in-app + email).
@@ -425,99 +588,8 @@ const navItems = computed(() => {
           icon: IconBolt,
           to: getCompanyPath('/automation-rules'),
         },
-        {
-          // Admin-defined custom fields per entity (NC / CAPA / CR / Audit /
-          // Document / Training). Rendered as the "Additional information" card
-          // on each detail page; stored in entity_field_values (JSONB), sealed.
-          label: 'Custom Fields',
-          permissions: ['custom_fields:manage'],
-          icon: IconListDetails,
-          to: getCompanyPath('/custom-fields'),
-        },
-        {
-          // The Customer Complaint module's own admin hub (email
-          // channels now; forms / custom fields / routing as they land).
-          label: 'Complaint Settings',
-          permissions: ['complaint_management:update'],
-          icon: IconHeadset,
-          to: getCompanyPath('/complaint-settings'),
-        },
-        {
-          // Reusable form fragments (kind='BLOCK') — first-class nav item with
-          // its OWN authz module (form_blocks:*). Form Templates below stays a
-          // separate case-by-case surface (eventually an add-on module builder).
-          label: 'Form Blocks',
-          permissions: ['form_blocks:read'],
-          icon: IconStack2,
-          to: getCompanyPath('/form-blocks'),
-        },
-        {
-          label: 'Form Templates',
-          permissions: ['forms_templates:read'],
-          icon: IconForms,
-          to: getCompanyPath('/templates'),
-        },
-        {
-          label: 'Workflow Templates',
-          permissions: ['workflows_templates:read'],
-          icon: IconArrowsShuffle,
-          to: getCompanyPath('/workflow-templates'),
-        },
-        {
-          label: 'Document Templates',
-          permissions: ['document_templates:read'],
-          icon: IconArticle,
-          to: getCompanyPath('/document-templates'),
-        },
-        {
-          // Industry-aligned label: "Item Master" for the admin
-          // catalog page. Covers raw materials, components, WIP, and
-          // finished goods — matches ERP terminology. Underlying DB
-          // table stays `products` (UI-only relabel decision
-          // 2026-05-26); operational selectors use "Item".
-          label: 'Item Master',
-          permissions: ['products:read'],
-          icon: IconPackage,
-          to: getCompanyPath('/products'),
-        },
-        {
-          label: 'Equipment',
-          // No `equipment:read` gate by design — RLS SELECT lets any
-          // in-tenant user see the catalog, since log book authors need
-          // to pick equipment without needing a separate permission.
-          // Visibility is via the menu link being available to all.
-          icon: IconTool,
-          to: getCompanyPath('/equipment'),
-        },
-        {
-          label: 'Suppliers',
-          permissions: ['supplier_management:read'],
-          icon: IconTruck,
-          to: getCompanyPath('/suppliers'),
-        },
-        {
-          label: 'RCA Templates',
-          permissions: ['rca_templates:read'],
-          icon: IconSitemap,
-          to: getCompanyPath('/rca-templates'),
-        },
-        {
-          label: 'Risk Assessment Templates',
-          permissions: ['risk_assessment_templates:read'],
-          icon: IconLayoutGrid,
-          to: getCompanyPath('/risk-assessment-templates'),
-        },
-        // Option Sets moved under Form Templates → Option Sets tab.
-        // Lookups (NC dispositions/issue types, supplier certificate
-        // types, audit standard types/finding categories) live on the
-        // standalone /lookups page; /settings?tab=lookups redirects
-        // there for old bookmarks.
-        {
-          label: 'Lookups',
-          permissions: ['company_settings:manage'],
-          icon: IconList,
-          to: getCompanyPath('/lookups'),
-        },
+        // Complaint Settings moved onto the Customer Complaints page itself
+        // (gear icon in the header) — module settings live with the module.
         {
           label: 'Sites',
           permissions: ['sites:read'],
@@ -566,6 +638,13 @@ const navItems = computed(() => {
           label: 'AI Usage',
           icon: IconChartBar,
           to: getCompanyPath('/ai-usage'),
+        },
+        {
+          // Company-wide activity ledger — reference surface, not day-to-day
+          // (moved from the top level 2026-07-24, user decision).
+          label: 'Audit Logs',
+          icon: IconShieldCheck,
+          to: getCompanyPath('/audit-logs'),
         },
       ].filter((item) => {
         // If no permissions specified, always show
@@ -681,10 +760,12 @@ const navItems = computed(() => {
               <template v-if="item.children">
                 <button
                   :key="`${item.label}-btn`"
-                  class="tw:flex tw:items-center tw:gap-3 tw:w-full tw:px-3 tw:py-2 tw:rounded-lg tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                  class="tw:flex tw:items-center tw:gap-3 tw:w-full tw:px-3 tw:py-2 tw:rounded-lg tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:bg-transparent tw:border-0 tw:cursor-pointer tw:appearance-none tw:[font:inherit]"
                   @click="toggleGroup(item.label)"
                 >
-                  <component :is="item.icon" :size="20" />
+                  <!-- Same icon size as single items so group headers (Training,
+                       Templates, Master Data, Settings) match their siblings. -->
+                  <component :is="item.icon" :size="24" />
                   <span class="tw:text-sm tw:font-medium tw:flex-1 tw:text-left">{{
                     item.label
                   }}</span>

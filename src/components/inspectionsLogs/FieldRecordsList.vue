@@ -52,7 +52,6 @@ function closeRecord() {
 }
 
 const userId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
-const canReadAll = computed(() => isAllowed(['field_records:read_all']))
 const canReview = computed(() => isAllowed(['field_records:review']))
 const toast = useToast()
 
@@ -70,16 +69,20 @@ const supervisedLogBooks = useLiveQueryWithDeps(
 )
 const supervisedIds = computed(() => new Set(supervisedLogBooks.value.map((lb) => lb.id)))
 
-// Seed scope from ?scope= so deep links can open the supervisor inbox
-// directly (e.g. the "Awaiting your review" tile on the I&L Home page
-// links here with `?scope=needs_review`).
-const ALLOWED_SCOPES = ['mine', 'all', 'needs_review', 'needs_review_all']
+// Scope is just 'all' (everything RLS lets the user see) or 'needs_review'
+// (the supervisor inbox). The old "My entries only"/"All in tenant" split was
+// removed 2026-07-24 (user decision — per-site visibility is a later,
+// data-level concern, not a list filter). Legacy deep-link values map onto
+// the two that remain; the "Awaiting your review" tile still links here with
+// `?scope=needs_review`.
 const route = useRoute()
-const initialScope =
-  typeof route.query?.scope === 'string' && ALLOWED_SCOPES.includes(route.query.scope)
-    ? route.query.scope
-    : 'mine'
+const rawScope = typeof route.query?.scope === 'string' ? route.query.scope : ''
+const initialScope = rawScope === 'needs_review' || rawScope === 'needs_review_all' ? 'needs_review' : 'all'
 const scope = ref(initialScope)
+const needsReviewOnly = computed({
+  get: () => scope.value === 'needs_review',
+  set: (v) => (scope.value = v ? 'needs_review' : 'all'),
+})
 
 // Deep-link: ?recordId=… (e.g. from a flagged-log task) auto-opens that
 // entry's preview panel. FieldRecordPreview loads the record by id, so
@@ -128,7 +131,6 @@ const showColumnPicker = ref(false)
 
 const records = useLiveQueryWithDeps(
   [
-    () => userId.value,
     () => scope.value,
     () => statusFilter.value,
     () => formTemplateFilter.value,
@@ -138,16 +140,11 @@ const records = useLiveQueryWithDeps(
     () => flaggedOnly.value,
     () => openFlagsByRecordId.value,
   ],
-  async (db, [uid, scopeVal, status, logBookId, start, end, supIds, flaggedOnlyVal, flagMap]) => {
+  async (db, [scopeVal, status, logBookId, start, end, supIds, flaggedOnlyVal, flagMap]) => {
     let rows = await db.FieldRecord.where().exec()
-    if (scopeVal === 'mine' && uid) {
-      rows = rows.filter((r) => r.submittedByUserId === uid)
-    } else if (scopeVal === 'needs_review') {
+    if (scopeVal === 'needs_review') {
       // Supervisor's inbox — UNDER_REVIEW on log books they supervise.
       rows = rows.filter((r) => r.statusId === 'UNDER_REVIEW' && supIds.has(r.logBookId))
-    } else if (scopeVal === 'needs_review_all') {
-      // Admin view — every UNDER_REVIEW entry across the tenant.
-      rows = rows.filter((r) => r.statusId === 'UNDER_REVIEW')
     }
     if (status !== 'all') {
       rows = rows.filter((r) => r.statusId === status)
@@ -570,20 +567,13 @@ function printList() {
   <div class="tw:flex tw:flex-col tw:gap-3">
     <!-- Filters (hidden in compact mode) -->
     <div v-if="!compact" class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
-      <div v-if="canReadAll || canReview" class="tw:flex tw:items-center tw:gap-2">
-        <span class="tw:text-xs tw:text-secondary">Scope</span>
-        <select
-          v-model="scope"
-          class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
-        >
-          <option value="mine">My entries only</option>
-          <option v-if="canReadAll" value="all">All in tenant</option>
-          <option v-if="canReview" value="needs_review">Needs my review</option>
-          <option v-if="canReview && canReadAll" value="needs_review_all">
-            Needs review (all log books)
-          </option>
-        </select>
-      </div>
+      <label
+        v-if="canReview"
+        class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main tw:cursor-pointer"
+      >
+        <input v-model="needsReviewOnly" type="checkbox" />
+        Needs my review
+      </label>
       <div class="tw:flex tw:items-center tw:gap-2">
         <span class="tw:text-xs tw:text-secondary">Form</span>
         <select

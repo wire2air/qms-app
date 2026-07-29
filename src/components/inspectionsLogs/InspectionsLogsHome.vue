@@ -1,15 +1,12 @@
 <script setup>
 import {
-  IconClipboardList,
   IconListCheck,
   IconChecklist,
   IconAlertCircle,
   IconHistory,
-  IconStack2,
-  IconPlus,
+  IconDeviceMobile,
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
-import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 
 /**
@@ -23,10 +20,39 @@ import { DateTime } from 'luxon'
  * SyncEngine — the stats are live queries.
  */
 const router = useRouter()
+const route = useRoute()
 
-const canAssign = computed(() => isAllowed(['inspections:assign']))
-const canReview = computed(() => isAllowed(['field_records:review']))
-const canCreateTemplate = computed(() => isAllowed(['forms_templates:create']))
+// Tabs, permission-gated like the left nav / QC Inspection (a tab is a
+// module's management surface — docs/backend/permissions-model.md). Each maps
+// to its matrix module: Log Books → log_books, Assignments → Log Book
+// Assignments (`inspections`), Logs → field_records. Any grant implies :read.
+const ALL_TABS = [
+  { value: 'logs', label: 'Logs', permission: 'field_records:read' },
+  { value: 'log-books', label: 'Log Books', permission: 'log_books:read' },
+  { value: 'assignments', label: 'Assignments', permission: 'inspections:read' },
+]
+const tabs = computed(() => ALL_TABS.filter((t) => isAllowed([t.permission])))
+const validTabIds = computed(() => new Set(tabs.value.map((t) => t.value)))
+const firstTab = computed(() => tabs.value[0]?.value ?? 'logs')
+const activeTab = ref(
+  ALL_TABS.some((t) => t.value === route.query.tab) ? route.query.tab : 'logs',
+)
+watch(
+  () => route.query.tab,
+  (v) => {
+    if (v && validTabIds.value.has(v)) activeTab.value = v
+  },
+)
+watch(activeTab, (id) => {
+  if (route.query.tab !== id) router.replace({ query: { ...route.query, tab: id } })
+})
+watch(
+  validTabIds,
+  (ids) => {
+    if (!ids.has(activeTab.value)) activeTab.value = firstTab.value
+  },
+  { immediate: true },
+)
 
 // Round 1: scope the "Awaiting review" stat tile to the user's
 // supervised log books (the digest queue in #2 reads the same shape).
@@ -78,9 +104,7 @@ const stats = computed(() => {
   }
 })
 
-function go(path) {
-  router.push(getCompanyPath(path))
-}
+const showMobilePortal = ref(false)
 </script>
 
 <template>
@@ -95,13 +119,11 @@ function go(path) {
         </span>
       </template>
       <template #actions>
-        <BaseButton
-          v-if="canCreateTemplate"
-          variant="primary"
-          @click="go('/inspections-logs/templates')"
-        >
-          <IconPlus :size="16" />
-          New Inspection Form
+        <!-- Phone-first floor portal — share via QR/link (replaced the old
+             "Logging" nav entry; a native app wraps the route later). -->
+        <BaseButton variant="outline" @click="showMobilePortal = true">
+          <IconDeviceMobile :size="16" />
+          Mobile Portal
         </BaseButton>
       </template>
     </PageHeader>
@@ -126,7 +148,7 @@ function go(path) {
       <button
         type="button"
         class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4 tw:cursor-pointer tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-        @click="go('/inspections-logs/records?scope=needs_review')"
+        @click="router.replace({ query: { ...route.query, tab: 'logs', scope: 'needs_review' } })"
       >
         <div
           class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
@@ -179,91 +201,23 @@ function go(path) {
       </div>
     </div>
 
-    <!-- Navigation cards -->
-    <div>
-      <BaseText variant="overline" class="tw:block tw:mb-2">Module sections</BaseText>
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:lg:grid-cols-4 tw:gap-3">
-        <button
-          v-if="canCreateTemplate"
-          type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:px-5 tw:py-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-          @click="go('/inspections-logs/templates')"
-        >
-          <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
-            <div
-              class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center"
-            >
-              <IconStack2 :size="22" />
-            </div>
-            <div class="tw:font-semibold tw:text-on-main">Log Books</div>
-          </div>
-          <div class="tw:text-sm tw:text-secondary">
-            Build and manage your log book templates. Operational logs auto-lock after a short edit
-            window; controlled records require e-signature and reviewer approval.
-          </div>
-        </button>
-
-        <button
-          v-if="canAssign"
-          type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:px-5 tw:py-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-          @click="go('/inspections-logs/form-assignments')"
-        >
-          <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
-            <div
-              class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center"
-            >
-              <IconClipboardList :size="22" />
-            </div>
-            <div class="tw:font-semibold tw:text-on-main">Log Book Assignments</div>
-          </div>
-          <div class="tw:text-sm tw:text-secondary">
-            Plan who fills which log book, when (cron + timezone), and where (site). The scheduler
-            materialises assignment instances in a 24-hour look-ahead.
-          </div>
-        </button>
-
-        <button
-          type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:px-5 tw:py-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-          @click="go('/task-instances')"
-        >
-          <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
-            <div
-              class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-emerald-50 tw:text-emerald-600 tw:flex tw:items-center tw:justify-center"
-            >
-              <IconChecklist :size="22" />
-            </div>
-            <div class="tw:font-semibold tw:text-on-main">My Tasks</div>
-          </div>
-          <div class="tw:text-sm tw:text-secondary">
-            Scheduled inspections &amp; log collections due to you appear in your unified task inbox
-            alongside approvals and reviews. Click one to fill the form.
-          </div>
-        </button>
-
-        <button
-          type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:px-5 tw:py-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-          @click="go('/inspections-logs/records')"
-        >
-          <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
-            <div
-              class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-purple-50 tw:text-purple-600 tw:flex tw:items-center tw:justify-center"
-            >
-              <IconListCheck :size="22" />
-            </div>
-            <div class="tw:font-semibold tw:text-on-main">Logs</div>
-          </div>
-          <div class="tw:text-sm tw:text-secondary">
-            Every log entry submitted across your log books. Filter by form to scope into a specific
-            log book.
-            <span v-if="canReview" class="tw:text-xs tw:text-secondary tw:italic tw:block tw:mt-1">
-              Filter by status to find entries awaiting review.
-            </span>
-          </div>
-        </button>
+    <!-- Tabbed workspace (permission-gated, QC Inspection pattern). The old
+         nav cards (incl. My Tasks — that belongs to the mobile portal /
+         task inbox) were replaced by tabs 2026-07-24. -->
+    <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Inspections & Logs sections">
+      <div class="tw:mt-6">
+        <BaseTabPanel value="log-books">
+          <InspectionsLogsTemplatesHome embedded />
+        </BaseTabPanel>
+        <BaseTabPanel value="assignments">
+          <FormAssignmentsHome embedded />
+        </BaseTabPanel>
+        <BaseTabPanel value="logs">
+          <FieldRecordsHome embedded />
+        </BaseTabPanel>
       </div>
-    </div>
+    </BaseTabs>
   </BasePage>
+
+  <MobileLoggingPortalDialog v-model="showMobilePortal" />
 </template>

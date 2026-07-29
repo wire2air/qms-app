@@ -112,8 +112,8 @@ import { CustomerComplaintMessage } from './customerComplaintMessage'
 import { CustomerComplaintAttachment } from './customerComplaintAttachment'
 // Complaint QMS lookups (per-tenant).
 import { ComplaintSourceType } from './complaintSourceType'
-import { ComplaintRegion } from './complaintRegion'
-import { ComplaintCountry } from './complaintCountry'
+import { Region } from './region'
+import { Country } from './country'
 import { ComplaintCustomerType } from './complaintCustomerType'
 import { ComplaintCategory } from './complaintCategory'
 import { ComplaintSubCategory } from './complaintSubCategory'
@@ -174,6 +174,9 @@ import { RoleCurriculum } from './roleCurriculum'
 import { EmployeeTitle } from './employeeTitle'
 import { Shift } from './shift'
 import { ProductionLine } from './productionLine'
+import { StorageLocation } from './storageLocation'
+import { RetainSample } from './retainSample'
+import { RetainSampleEvent } from './retainSampleEvent'
 import { TrainingVerification } from './trainingVerification'
 import { InformationRequest } from './informationRequest'
 import { ChangeRequest } from './changeRequest'
@@ -328,8 +331,8 @@ export const db = {
   CustomerComplaintMessage,
   CustomerComplaintAttachment,
   ComplaintSourceType,
-  ComplaintRegion,
-  ComplaintCountry,
+  Region,
+  Country,
   ComplaintCustomerType,
   ComplaintCategory,
   ComplaintSubCategory,
@@ -384,6 +387,9 @@ export const db = {
   EmployeeTitle,
   Shift,
   ProductionLine,
+  StorageLocation,
+  RetainSample,
+  RetainSampleEvent,
   TrainingInstance,
   TrainingAssignee,
   TrainingRole,

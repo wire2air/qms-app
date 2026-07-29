@@ -69,13 +69,40 @@ function removeColumn(index) {
   field.value.columns.splice(index, 1)
 }
 
-// Get all columns with select/dropdown inputType (with their original index)
+// Columns that carry an options list (with their original index): dropdowns
+// AND option groups.
 const selectColumns = computed(() => {
   if (!field.value.columns) return []
   return field.value.columns
     .map((col, index) => ({ ...col, _originalIndex: index }))
-    .filter((col) => col.inputType === 'select' || col.inputType === 'dropdown')
+    .filter(
+      (col) =>
+        col.inputType === 'select' ||
+        col.inputType === 'dropdown' ||
+        col.inputType === 'optionGroup',
+    )
 })
+
+// Seed the extra config an Option Group column needs when the author switches
+// a column's type to it (options + radio/checkbox flavor + orientation).
+function onColumnTypeChange(index) {
+  const col = field.value.columns[index]
+  if (!col) return
+  if (col.inputType === 'optionGroup') {
+    if (!Array.isArray(col.options)) col.options = []
+    if (!col.groupType) col.groupType = 'radio'
+    if (col.inline === undefined) col.inline = true
+  }
+}
+
+const GROUP_TYPE_ITEMS = [
+  { id: 'radio', name: 'Radio buttons (single choice)' },
+  { id: 'checkbox', name: 'Checkboxes (multiple choice)' },
+]
+const ORIENTATION_ITEMS = [
+  { id: 'horizontal', name: 'Horizontal' },
+  { id: 'vertical', name: 'Vertical' },
+]
 
 function addColumnOption(selectColumnIndex) {
   const col = selectColumns.value[selectColumnIndex]
@@ -160,7 +187,26 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
             optionValue="id"
             :required="true"
             placeholder="Select Type"
+            @update:modelValue="onColumnTypeChange(index)"
           />
+          <template v-if="col.inputType === 'optionGroup'">
+            <BaseSelect
+              :modelValue="col.groupType || 'radio'"
+              :options="GROUP_TYPE_ITEMS"
+              optionLabel="name"
+              optionValue="id"
+              :required="true"
+              @update:modelValue="(v) => (col.groupType = v)"
+            />
+            <BaseSelect
+              :modelValue="col.inline === false ? 'vertical' : 'horizontal'"
+              :options="ORIENTATION_ITEMS"
+              optionLabel="name"
+              optionValue="id"
+              :required="true"
+              @update:modelValue="(v) => (col.inline = v !== 'vertical')"
+            />
+          </template>
         </div>
       </div>
       <button

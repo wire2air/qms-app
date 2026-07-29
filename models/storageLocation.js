@@ -2,13 +2,14 @@ import { currentSession } from '@/utils/currentSession'
 import { BaseModel, ClientModel, Property } from '@syncEngine/index'
 import { DateTime } from 'luxon'
 
-// Per-tenant Country lookup; belongs to a region. isDefault marks USA.
-@ClientModel('complaintCountries', {
+// Per-tenant Storage Location lookup for retain samples (QA Retain Room,
+// Cold Storage 2–8°C, Freezer −20°C …). production_lines pattern.
+@ClientModel('storageLocations', {
   primaryKey: 'id',
   syncField: 'updatedAt',
   customIndex: 'companyId, [companyId+code]',
 })
-export class ComplaintCountry extends BaseModel {
+export class StorageLocation extends BaseModel {
   static paranoid = true
 
   constructor(...args) {
@@ -19,11 +20,11 @@ export class ComplaintCountry extends BaseModel {
 
   @Property({ type: String, uuid: true, required: true }) id = ''
   @Property({ type: String, required: true }) companyId = ''
-  @Property({ type: String }) regionId = /** @type {String} */ (null)
-  @Property({ type: Boolean }) isDefault = false
   @Property({ type: String, required: true }) code = ''
   @Property({ type: String, required: true }) name = ''
   @Property({ type: String }) description = ''
+  @Property({ type: String }) siteId = /** @type {String} */ (null)
+  @Property({ type: String }) conditions = /** @type {String} */ (null)
   @Property({ type: Number }) displayOrder = 1000
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true }) createdAt = null

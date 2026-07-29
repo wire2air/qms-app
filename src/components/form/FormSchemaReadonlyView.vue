@@ -9,6 +9,8 @@ import SiteBadgeById from '@/components/badges/SiteBadgeById.vue'
 import DepartmentBadgeById from '@/components/badges/DepartmentBadgeById.vue'
 import UserBadgeById from '@/components/badges/UserBadgeById.vue'
 import EquipmentBadgeById from '@/components/badges/EquipmentBadgeById.vue'
+import CountryBadgeById from '@/components/badges/CountryBadgeById.vue'
+import RegionBadgeById from '@/components/badges/RegionBadgeById.vue'
 
 const props = defineProps({
   fields: { type: Array, required: true },
@@ -23,6 +25,8 @@ const LOOKUP_BADGES = {
   department: DepartmentBadgeById,
   user: UserBadgeById,
   equipment: EquipmentBadgeById,
+  country: CountryBadgeById,
+  region: RegionBadgeById,
 }
 function isLookupField(field) {
   return field.type === 'lookup'
@@ -326,6 +330,26 @@ function getChecklistRowValue(field, rowIndex) {
   return Array.isArray(entry) ? entry : [entry]
 }
 
+// Display text for one checklist cell. Handles both storage shapes:
+//  - legacy flat rows (array of picked column values → ✓ under that column)
+//  - nested-object rows ({ colValue: cellValue }) used by optionGroup /
+//    select / text / number columns — shows the stored value (arrays joined,
+//    booleans as ✓).
+function checklistCellDisplay(field, rowIndex, col) {
+  const raw = getFieldValue(field)
+  const entry = Array.isArray(raw) ? raw[rowIndex] : null
+  if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+    const v = entry[col.value]
+    if (v == null || v === '') return null
+    if (v === true) return '✓'
+    if (v === false) return null
+    if (Array.isArray(v)) return v.length ? v.join(', ') : null
+    return String(v)
+  }
+  const picked = getChecklistRowValue(field, rowIndex) || []
+  return picked.includes(col.value) ? '✓' : null
+}
+
 function getChecklistRowLabel(row) {
   if (typeof row === 'string') return row
   return row?.label || row?.value || ''
@@ -508,8 +532,8 @@ function getChecklistColumnLabel(col) {
                   :key="col.value || col.label"
                   class="tw:px-3 tw:py-2 tw:text-on-main"
                 >
-                  <span v-if="(getChecklistRowValue(field, rowIndex) || []).includes(col.value)">
-                    ✓
+                  <span v-if="checklistCellDisplay(field, rowIndex, col) != null">
+                    {{ checklistCellDisplay(field, rowIndex, col) }}
                   </span>
                   <span v-else class="tw:text-secondary">—</span>
                 </td>

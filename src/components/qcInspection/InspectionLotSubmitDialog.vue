@@ -28,6 +28,19 @@ const workflowVersionId = ref(null)
 const lot = useLiveQueryWithDeps([() => props.lotId], async (db, [id]) =>
   id ? db.InspectionLot.findByPk(id) : null,
 )
+
+// In-process lots are expected to carry retain sample(s) before disposition —
+// submitting without any needs an explicit waiver comment (recorded on the
+// lot's event trail; the backend enforces the same rule).
+const retainSamples = useLiveQueryWithDeps(
+  [() => props.lotId],
+  async (db, [id]) => (id ? db.RetainSample.where('inspectionLotId', id).exec() : []),
+  { models: ['RetainSample'], initial: [] },
+)
+const needsRetainWaiver = computed(
+  () => lot.value?.inspectionPoint === 'IN_PROCESS' && retainSamples.value.length === 0,
+)
+const retainWaiverComment = ref('')
 const planTemplate = useLiveQueryWithDeps([() => lot.value?.templateId], async (db, [tid]) =>
   tid ? db.QcInspectionTemplate.findByPk(tid) : null,
 )
@@ -96,10 +109,17 @@ watch(show, (v) => {
   if (v) {
     reviewerId.value = null
     workflowVersionId.value = null
+    retainWaiverComment.value = ''
   }
 })
 
-const canSubmit = computed(() => !!reviewerId.value && !!resolvedVersionId.value && !saving.value)
+const canSubmit = computed(
+  () =>
+    !!reviewerId.value &&
+    !!resolvedVersionId.value &&
+    !saving.value &&
+    (!needsRetainWaiver.value || retainWaiverComment.value.trim().length > 0),
+)
 
 async function onSubmit() {
   if (!canSubmit.value) return
@@ -109,6 +129,7 @@ async function onSubmit() {
       reviewerIds: reviewerId.value ? [reviewerId.value] : [],
       // Blank when the plan / default resolves it; only the escape-hatch override is sent.
       workflowVersionId: autoResolves.value ? null : workflowVersionId.value || null,
+      retainWaiverComment: needsRetainWaiver.value ? retainWaiverComment.value.trim() : null,
     })
     toast.success('Lot submitted for QA disposition')
     show.value = false
@@ -130,6 +151,27 @@ async function onSubmit() {
           The selected reviewer will receive a task. On <strong>Approval</strong> the lot is
           released. On <strong>Rejection</strong> a Nonconformance is automatically raised.
         </p>
+      </div>
+
+      <!-- IPQC retain-sample gate: warn when no retain sample exists; the user
+           may continue, but only with an explicit waiver comment. -->
+      <div
+        v-if="needsRetainWaiver"
+        class="tw:bg-red-50 tw:border tw:border-red-200 tw:rounded-lg tw:p-3 tw:text-sm tw:text-red-800"
+      >
+        <p class="tw:font-medium">No retain sample has been created for this in-process lot.</p>
+        <p class="tw:text-xs tw:mt-1 tw:mb-2">
+          In-process QC expects a retained sample before disposition. Close this dialog and use
+          <strong>Retain Sample</strong> on the lot, or explain below why you're submitting
+          without one (recorded on the lot's history).
+        </p>
+        <BaseField label="Reason for no retain sample" required>
+          <BaseTextarea
+            v-model="retainWaiverComment"
+            :rows="2"
+            placeholder="e.g. Insufficient material — full run consumed by production"
+          />
+        </BaseField>
       </div>
 
       <!-- Escape hatch only: a lot's workflow comes from its inspection plan / the

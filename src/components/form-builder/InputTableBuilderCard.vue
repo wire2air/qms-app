@@ -16,7 +16,7 @@
  * `class: 'tw:grow'` so the row lays them out evenly, exactly as the seeded
  * Product Name / Product Category columns do.
  */
-import { IconPlus, IconX } from '@tabler/icons-vue'
+import { IconPlus, IconX, IconTrash } from '@tabler/icons-vue'
 import { FIELD_TYPES_CONFIG } from '@/constants/formBuilderConfig'
 import DynamicForm from '@/components/form/DynamicForm.js'
 
@@ -32,6 +32,7 @@ const COLUMN_FIELD_TYPES = [
   { label: 'Email', type: 'email' },
   { label: 'Phone', type: 'phone' },
   { label: 'Dropdown', type: 'select' },
+  { label: 'Option Group', type: 'optionGroup' },
   { label: 'Date', type: 'datetime' },
   { label: 'Checkbox', type: 'checkbox' },
   { label: 'Yes / No', type: 'toggle' },
@@ -81,15 +82,40 @@ function buildColumn(title, type) {
 
 // ── Add / remove columns ────────────────────────────────────────────────────
 const showColDialog = ref(false)
-const colDraft = ref({ label: '', type: 'input' })
+const colDraft = ref({ label: '', type: 'input', options: [] })
 function openColDialog() {
-  colDraft.value = { label: '', type: 'input' }
+  colDraft.value = { label: '', type: 'input', options: [] }
   showColDialog.value = true
 }
+// Option-bearing column types get their options right in this dialog — an
+// Option Group is meaningless without them (user feedback 2026-07-27).
+const draftNeedsOptions = computed(() =>
+  ['optionGroup', 'select'].includes(colDraft.value.type),
+)
+const draftCleanOptions = computed(() =>
+  (colDraft.value.options || []).map((o) => String(o).trim()).filter(Boolean),
+)
+const canSaveColumn = computed(() => {
+  if (!colDraft.value.label.trim()) return false
+  // A mutually-exclusive group needs at least two choices.
+  if (colDraft.value.type === 'optionGroup') return draftCleanOptions.value.length >= 2
+  return true
+})
+function addDraftOption() {
+  colDraft.value.options.push('')
+}
+function removeDraftOption(i) {
+  colDraft.value.options.splice(i, 1)
+}
 function saveColumn() {
+  if (!canSaveColumn.value) return
   const label = colDraft.value.label.trim()
-  if (!label) return
-  columnsHost().children.push(buildColumn(label, colDraft.value.type))
+  const col = buildColumn(label, colDraft.value.type)
+  if (draftNeedsOptions.value) col.options = draftCleanOptions.value
+  // Table cells want the horizontal layout by default (the field default is
+  // vertical, which fits standalone forms but not a row).
+  if (colDraft.value.type === 'optionGroup') col.inline = true
+  columnsHost().children.push(col)
   showColDialog.value = false
 }
 function removeColumn(i) {
@@ -167,14 +193,48 @@ const addRowLabel = computed(() => props.field.addLabel || 'Add row')
             :required="true"
           />
         </div>
-        <p class="tw:text-xs tw:text-secondary">
-          Dropdown columns get their options in the field settings panel after adding.
-        </p>
+        <!-- Options editor for Dropdown / Option Group columns -->
+        <div v-if="draftNeedsOptions" class="tw:flex tw:flex-col tw:gap-2">
+          <BaseText as="div" variant="overline">Options</BaseText>
+          <div
+            v-for="(opt, oi) in colDraft.options"
+            :key="'draft-opt-' + oi"
+            class="tw:flex tw:items-center tw:gap-2"
+          >
+            <div class="tw:flex-1">
+              <BaseTextInput
+                v-model="colDraft.options[oi]"
+                :placeholder="`Option ${oi + 1} — e.g. ${['Yes', 'No', 'N/A'][oi] || 'Choice'}`"
+                size="sm"
+                @keyup.enter="addDraftOption"
+              />
+            </div>
+            <button
+              type="button"
+              class="tw:p-1.5 tw:rounded tw:text-red-500 tw:hover:bg-red-50 tw:transition-colors tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              @click="removeDraftOption(oi)"
+            >
+              <IconTrash :size="15" />
+            </button>
+          </div>
+          <button
+            type="button"
+            class="tw:self-start tw:flex tw:items-center tw:gap-1 tw:px-2 tw:py-1 tw:text-primary tw:rounded tw:hover:bg-primary/10 tw:transition-colors tw:text-xs tw:font-medium tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            @click="addDraftOption"
+          >
+            <IconPlus :size="13" /> Add option
+          </button>
+          <p v-if="colDraft.type === 'optionGroup'" class="tw:text-xs tw:text-secondary">
+            An Option Group needs at least two choices (mutually-exclusive radio buttons,
+            horizontal in the table). Flavor/orientation can be changed later in the
+            column's field settings.
+          </p>
+        </div>
       </div>
       <template #footer="{ close }">
         <BaseDialogFooter
           submitLabel="Add column"
-          :disabled="!colDraft.label.trim()"
+          :disabled="!canSaveColumn"
           @cancel="close"
           @submit="saveColumn"
         />

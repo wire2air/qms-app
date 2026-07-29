@@ -207,6 +207,38 @@ function markCharsDirty() {
 
 const isDirty = computed(() => headerDirty.value || charsDirty.value)
 
+// In-app navigation guard: confirm before abandoning unsaved test edits
+// (Cancel / back / sidebar). Browser-level exit is covered below.
+useUnsavedChangesGuard(isDirty)
+function onBeforeUnload(e) {
+  if (!isDirty.value) return
+  e.preventDefault()
+  e.returnValue = ''
+}
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
+
+// Auto-save: edits persist after a short typing pause — but only once every
+// test row is complete enough to save (has a name). Incomplete rows keep the
+// page dirty (and Submit blocked) instead of spamming failed saves; the Save
+// button stays as the manual fallback.
+const canAutoSave = computed(
+  () =>
+    canEditDraft.value &&
+    !!header.value?.name?.trim() &&
+    editedChars.value.every((c) => c.name?.trim()),
+)
+const debouncedAutoSave = useDebounceFn(() => {
+  if (isDirty.value && canAutoSave.value && !saving.value) saveDraft({ auto: true })
+}, 1200)
+watch(
+  [header, editedChars],
+  () => {
+    if (isDirty.value) debouncedAutoSave()
+  },
+  { deep: true },
+)
+
 function addCharacteristic() {
   // New rows go to the TOP so they're immediately visible (and flagged red
   // until saved). _key is a stable client key so unshifting doesn't shuffle
@@ -271,7 +303,7 @@ async function removeCharacteristic(index) {
   charsDirty.value = true
 }
 
-async function saveDraft() {
+async function saveDraft({ auto = false } = {}) {
   if (saving.value) return
   saving.value = true
   try {
@@ -300,7 +332,7 @@ async function saveDraft() {
       })),
     }
     await patch(`/v1/services/qcInspection/specifications/${props.id}`, body)
-    toast.success('Draft saved')
+    if (!auto) toast.success('Draft saved')
     headerDirty.value = false
     charsDirty.value = false
   } catch (err) {
@@ -388,11 +420,19 @@ async function newVersion() {
           variant="primary"
           size="sm"
           :loading="saving"
-          @click="saveDraft"
+          @click="saveDraft()"
         >
           Save
         </BaseButton>
-        <BaseButton v-if="isDraft" variant="primary" @click="showSubmit = true">
+        <!-- Submit is blocked while anything is unsaved — the spec that goes
+             for approval must be exactly what's on screen. -->
+        <BaseButton
+          v-if="isDraft"
+          variant="primary"
+          :disabled="isDirty || saving"
+          :title="isDirty ? 'Unsaved test changes — complete and save them first' : undefined"
+          @click="showSubmit = true"
+        >
           <template #icon><IconCircleCheck :size="18" /></template>
           Submit for approval
         </BaseButton>

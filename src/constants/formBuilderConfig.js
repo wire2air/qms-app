@@ -567,6 +567,26 @@ export const LOOKUP_ENTITIES = [
     model: 'Equipment',
     labelFields: ['name'],
   },
+  // Global reference lookups (companyId NULL rows synced to every tenant) —
+  // replaced the seeded Country/Region option sets 2026-07-24.
+  {
+    value: 'country',
+    label: 'Country',
+    selectMenu: 'CountrySelectMenu',
+    badgeById: 'CountryBadgeById',
+    idProp: 'countryId',
+    model: 'Country',
+    labelFields: ['name'],
+  },
+  {
+    value: 'region',
+    label: 'Region',
+    selectMenu: 'RegionSelectMenu',
+    badgeById: 'RegionBadgeById',
+    idProp: 'regionId',
+    model: 'Region',
+    labelFields: ['name'],
+  },
 ]
 export const LOOKUP_ENTITY_BY_VALUE = Object.fromEntries(LOOKUP_ENTITIES.map((e) => [e.value, e]))
 export const NO_LABEL_TYPES = new Set(['row', 'column', 'instructions', 'header'])
@@ -596,6 +616,10 @@ export const GROUP_TYPE_OPTIONS = [
 export const COLUMN_INPUT_TYPES = [
   { label: 'Radio', value: 'radio' },
   { label: 'Checkbox', value: 'checkbox' },
+  // ONE column holding a mutually-exclusive radio set (or checkbox set with
+  // groupType 'checkbox'), options inline, horizontal or vertical. The safe
+  // alternative to separate Radio columns (whose stale keys break read-back).
+  { label: 'Option Group', value: 'optionGroup' },
   { label: 'Text', value: 'text' },
   { label: 'Number', value: 'number' },
   { label: 'Dropdown', value: 'select' },

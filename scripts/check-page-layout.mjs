@@ -25,6 +25,10 @@ const SCAN_DIRS = ['src/components', 'src/pages']
 const ALLOWLIST = [
   'src/components/workflow/WorkflowEditor.vue',
   'src/components/formAssignment/FormAssignmentEditor.vue',
+  // Dual-mode page/tab component: renders BasePage via <component :is> in page
+  // mode, a plain column when `embedded` in the Inspections & Logs tabs — the
+  // guard can't see the dynamic BasePage.
+  'src/components/formAssignment/FormAssignmentsHome.vue',
   'src/components/form-builder/',
   'src/components/formTemplate/formTemplatePageId.vue',
   'src/components/formTemplate/formTemplatePageIdDetails.vue',

@@ -29,6 +29,11 @@ export const printModules = {
   // QC inspection report — one inspection lot (meta, sampling, production lots +
   // line clearance, per-characteristic results, disposition).
   InspectionLot: () => import('./InspectionLotPrint.vue'),
+  // Retain samples:
+  //   RetainSampleLabel    — box label(s) with QR (?size=a4 sheet | 4x2 thermal)
+  //   RetainSampleRegister — inventory report, ?state= filtered
+  RetainSampleLabel: () => import('./RetainSampleLabelPrint.vue'),
+  RetainSampleRegister: () => import('./RetainSampleRegisterPrint.vue'),
   // Future:
   // Nonconformance: () => import('./NonconformancePrint.vue'),
 }

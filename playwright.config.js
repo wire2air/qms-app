@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
+// Node-side `*.localhost` → 127.0.0.1 (browsers do this natively; Node fetch /
+// APIRequestContext don't). Loaded here so every worker process gets it.
+import './e2e/fixtures/localhostDns.js'
 
 // Two suites:
 //  - smoke: public-route rendering against any served build (backend mocked in-spec).
