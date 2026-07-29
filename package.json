@@ -26,6 +26,8 @@
     "test:e2e:depts:headed": "playwright test --project=departments --headed",
     "test:e2e:users": "playwright test --project=users",
     "test:e2e:users:headed": "playwright test --project=users --headed",
+    "test:e2e:qc": "playwright test --project=qcInspection",
+    "test:e2e:qc:headed": "playwright test --project=qcInspection --headed",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "build:help": "node scripts/build-help-content.mjs",

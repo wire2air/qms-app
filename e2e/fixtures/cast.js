@@ -65,6 +65,21 @@ export const USERS = {
   // *should* be able to see — without which J5's positive half would pass for
   // the wrong reason (users_sel admits you to your own row regardless).
   userSiteReader: { id: 'e2e10000-0000-4000-8000-000000000021', email: 'usersitereader@e2e.test', name: 'Ursula UserSiteReader' },
+  // ── QC Inspection (e2e-seed.sql §22a) ─────────────────────────────────────
+  // The split that matters in this module is execute-vs-dispose: the persona
+  // that runs an inspection must not be able to close it out.
+  // QC Inspector — inspection_qc:read/create/execute, deliberately NO dispose.
+  // Also the actor for the raw-GraphQL status probe (finding #1).
+  qcInspector: { id: 'e2e10000-0000-4000-8000-000000000030', email: 'qcinspector@e2e.test', name: 'Ivan Inspector' },
+  // QA Approver — inspection_qc:read/dispose + e-sign PIN. The disposition gate.
+  qcApprover: { id: 'e2e10000-0000-4000-8000-000000000031', email: 'qcapprover@e2e.test', name: 'Quinn QaApprover' },
+  // QC Author — inspection_spec:write + inspection_plan:* + inspection_templates:write.
+  // Note the module names: spec/plan authoring is NOT under inspection_qc.
+  qcAuthor: { id: 'e2e10000-0000-4000-8000-000000000032', email: 'qcauthor@e2e.test', name: 'Quincy QcAuthor' },
+  // Retain custodian — retain_samples:* and NOTHING else. Finding #18's persona:
+  // the sidebar shows them Retain Samples, permissionGuard.js bounces them off
+  // the /qc-inspection list route. Seeded to keep that reproducible.
+  retainCustodian: { id: 'e2e10000-0000-4000-8000-000000000033', email: 'retaincustodian@e2e.test', name: 'Rhea RetainCustodian' },
 }
 
 // Second-tenant owner for cross-tenant isolation tests (logs in via ALT_BASE_URL).
@@ -91,6 +106,10 @@ export const AUTH = {
   learner: 'e2e/.auth/learner.json',
   teamsOnly: 'e2e/.auth/teamsOnly.json',
   userSiteReader: 'e2e/.auth/userSiteReader.json',
+  qcInspector: 'e2e/.auth/qcInspector.json',
+  qcApprover: 'e2e/.auth/qcApprover.json',
+  qcAuthor: 'e2e/.auth/qcAuthor.json',
+  retainCustodian: 'e2e/.auth/retainCustodian.json',
   altOwner: 'e2e/.auth/altOwner.json',
 }
 
@@ -179,4 +198,43 @@ export const TRAINING = {
   wrongAnswers: { q1: 'q1b', q2: 'q2a' },
   // one right, one wrong => 50, below passingScore
   halfAnswers: { q1: 'q1a', q2: 'q2a' },
+}
+
+// QC Inspection fixtures (e2e-seed.sql §22b–§22f). The specification is seeded
+// EFFECTIVE and the sampling plan APPROVED so a lot journey can start without
+// first exercising the authoring paths (PW-J4/J5 cover those on their own,
+// against records they create).
+export const QC = {
+  product: { id: 'e2e91000-0000-4000-8000-000000000001', name: 'E2E Widget 10mm', sku: 'E2E-WIDGET-10' },
+  // Reserved for PW-J4/J5. Authoring a spec/plan against the shared product
+  // above would SUPERSEDE the seeded EFFECTIVE spec and silently change what
+  // every later lot is inspected against.
+  authoringProduct: { id: 'e2e91000-0000-4000-8000-000000000002', name: 'E2E Authoring Widget', sku: 'E2E-WIDGET-AUTH' },
+  supplier: { id: 'e2e70000-0000-4000-8000-000000000003', name: 'E2E QC Supplier', code: 'EQCS' },
+  uom: { id: 'e2e90000-0000-4000-8000-000000000001', code: 'EA' },
+  productionLine: { id: 'e2e92000-0000-4000-8000-000000000001', name: 'E2E Line 1', code: 'LINE-1' },
+  shift: { id: 'e2e93000-0000-4000-8000-000000000001', name: 'E2E Shift A', code: 'A' },
+  storageLocation: {
+    id: 'e2e94000-0000-4000-8000-000000000001',
+    name: 'E2E Retain Room A',
+    code: 'RETAIN-A',
+    conditions: '25 C / 60% RH',
+  },
+  specification: { id: 'e2e96000-0000-4000-8000-000000000001', name: 'E2E Widget 10mm Spec', code: 'E2E-SPEC-1' },
+  // LEN is NUMERIC 9.90–10.10 mm and CRITICAL — the deliberate out-of-spec
+  // target (record 12.5). VIS is PASS_FAIL, LBL is TEXT; leaving one unscored
+  // is what proves the completeness gate (PW-J3).
+  characteristics: {
+    length: { id: 'e2e97000-0000-4000-8000-000000000001', code: 'LEN', name: 'Length', lsl: 9.9, usl: 10.1 },
+    visual: { id: 'e2e97000-0000-4000-8000-000000000002', code: 'VIS', name: 'Visual Finish' },
+    label: { id: 'e2e97000-0000-4000-8000-000000000003', code: 'LBL', name: 'Label Text' },
+  },
+  samplingPlan: { id: 'e2e98000-0000-4000-8000-000000000001', name: 'E2E Widget Incoming Plan' },
+  defect: { id: 'e2e99000-0000-4000-8000-000000000001', code: 'SCRATCH', name: 'Surface Scratch' },
+  templateIncoming: { id: 'e2e9a000-0000-4000-8000-000000000001', name: 'E2E Widget Incoming Inspection' },
+  templateInProcess: { id: 'e2e9a000-0000-4000-8000-000000000002', name: 'E2E Widget In-Process Inspection' },
+  dispositionWorkflowName: 'E2E QC Disposition',
+  // Global AQL standards seeded by migration (company_id IS NULL), not by the
+  // E2E seed — PW-J6 clones one of these.
+  globalStandards: ['Z1.4-2008', 'ISO_2859-1'],
 }
