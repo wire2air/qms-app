@@ -42,7 +42,7 @@ Later sections of the seed extend the same tenant for the other suites:
 - **Departments (§16)** — `deptAdmin` (departments CRUD + `quality_events:create`)
   and `deptReader` (`departments:read` at DEPARTMENT scope), plus a supervisor on
   the Quality department so event routing has a working control path.
-- **Audits (§22–24)** — audit grants on the existing roles (`author` = lead
+- **Audits (§23–26)** — audit grants on the existing roles (`author` = lead
   auditor with every audit permission; `reviewer`/`approver` = close-out and
   standard-approval step assignees; `auditor` = `audit_management:read` and
   nothing else, the persona PW-J9 needs), two workflows (`E2E Audit Close-Out`

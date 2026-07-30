@@ -183,7 +183,7 @@ export const FIXTURES = {
   auditStandardStep2: 'Standard Approval',
 }
 
-// The seeded audit standard (e2e-seed.sql §24) every audit journey runs against.
+// The seeded audit standard (e2e-seed.sql §25) every audit journey runs against.
 // Clause 4 is a section header (a PARENT) and is therefore exempt from the
 // close-out "assess every clause" gate; 4.1 and 4.2 are the two leaves a
 // walkthrough has to score.
@@ -200,7 +200,7 @@ export const AUDIT_STANDARD = {
   leafCount: 2,
 }
 
-// Workflow versions the audit journeys submit against (e2e-seed.sql §23).
+// Workflow versions the audit journeys submit against (e2e-seed.sql §24).
 export const AUDIT_WORKFLOWS = {
   closeOutVersionId: 'e2eaf002-0000-4000-8000-000000000001',
   standardVersionId: 'e2eaf002-0000-4000-8000-000000000002',
