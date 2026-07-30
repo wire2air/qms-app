@@ -95,6 +95,26 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Purges the lots previous QC runs left behind. Without it the tenant
+      // grows ~10 lots per run and syncEngine bootstrap slows until UI steps
+      // time out — see e2e/fixtures/qc.setup.js.
+      name: 'qcSetup',
+      testMatch: /fixtures\/qc\.setup\.js/,
+      dependencies: ['setup'],
+    },
+    {
+      name: 'qcInspection',
+      testMatch: /qcInspection\/.*\.spec\.js/,
+      dependencies: ['qcSetup'],
+      // The in-process journeys drive the progressive sample-collection grid,
+      // whose readiness depends on a REST write reaching IndexedDB via the sync
+      // service. The helpers already reload-and-retry; one Playwright-level
+      // retry covers the residual lag without masking a real failure (a genuine
+      // break fails both attempts).
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'smoke',
       testMatch: /smoke\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },

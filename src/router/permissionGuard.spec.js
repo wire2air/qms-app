@@ -16,7 +16,12 @@ vi.mock('@/utils/currentSession', () => {
     const list = currentSession.value.permissions || []
     return perms.every((p) => list.includes(p))
   }
-  return { currentSession, isSupplier, isAllowed }
+  const isPlatformAdmin = {
+    get value() {
+      return !!currentSession.value?.platformAdmin?.role
+    },
+  }
+  return { currentSession, isSupplier, isAllowed, isPlatformAdmin }
 })
 
 const { requiredPermissionFor, evaluateRoute } = await import('./permissionGuard')
@@ -142,6 +147,22 @@ describe('evaluateRoute — internal users', () => {
   it('never guards the no-access page itself', () => {
     setSession({ isOwner: false, permissions: [] })
     expect(evaluateRoute(route('/no-access'))).toBe(true)
+  })
+
+  it('gates the Internal Docs Center (/docs) on platform-admin standing', () => {
+    // Tenant users — even owners — are blocked; docs are operator-only.
+    setSession({ isOwner: true, permissions: [] })
+    expect(evaluateRoute(route('/docs'))).toMatchObject({
+      path: '/no-access',
+      query: { from: '/docs' },
+    })
+    expect(evaluateRoute(route('/docs/capa/07-state-machine'))).toMatchObject({
+      path: '/no-access',
+    })
+    // Any platform-admin tier (readonly included) passes.
+    setSession({ isOwner: false, permissions: [], platformAdmin: { role: 'readonly' } })
+    expect(evaluateRoute(route('/docs'))).toBe(true)
+    expect(evaluateRoute(route('/docs/capa/07-state-machine'))).toBe(true)
   })
 })
 

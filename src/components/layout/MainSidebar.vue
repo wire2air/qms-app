@@ -60,6 +60,7 @@ import {
   IconGavel,
   IconMessageReport,
   IconSeeding,
+  IconBook,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { isDark } from '@/utils/theme.js'
@@ -677,6 +678,9 @@ const navItems = computed(() => {
               { label: 'Approvals', icon: IconGavel, to: '/platform/approvals' },
               { label: 'Operators', icon: IconShield, to: '/platform/admins' },
               { label: 'Audit', icon: IconListDetails, to: '/platform/audit' },
+              // Internal Docs Center — engineering doc corpus (qms/docs/modules),
+              // operator-only like the rest of this group (guard: /docs segment).
+              { label: 'Internal Docs', icon: IconBook, to: getCompanyPath('/docs') },
             ],
           },
         ]

@@ -198,6 +198,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/docs/': RouteRecordInfo<
+      '/docs/',
+      '/docs',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/docs/[...slug]': RouteRecordInfo<
+      '/docs/[...slug]',
+      '/docs/:slug(.*)',
+      { slug: ParamValue<true> },
+      { slug: ParamValue<false> },
+      | never
+    >,
     '/document-templates/[[id]]': RouteRecordInfo<
       '/document-templates/[[id]]',
       '/document-templates/:id?',
@@ -890,6 +904,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/departments.vue': {
       routes:
         | '/departments'
+      views:
+        | never
+    }
+    'src/pages/docs/index.vue': {
+      routes:
+        | '/docs/'
+      views:
+        | never
+    }
+    'src/pages/docs/[...slug].vue': {
+      routes:
+        | '/docs/[...slug]'
       views:
         | never
     }

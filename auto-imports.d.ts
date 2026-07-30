@@ -276,6 +276,7 @@ declare global {
   const useImage: typeof import('@vueuse/core').useImage
   const useImpersonate: typeof import('./src/composables/useImpersonate.js').useImpersonate
   const useInfiniteScroll: typeof import('@vueuse/core').useInfiniteScroll
+  const useInternalDocs: typeof import('./src/composables/useInternalDocs.js').useInternalDocs
   const useIntersectionObserver: typeof import('@vueuse/core').useIntersectionObserver
   const useInterval: typeof import('@vueuse/core').useInterval
   const useIntervalFn: typeof import('@vueuse/core').useIntervalFn

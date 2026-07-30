@@ -1207,7 +1207,7 @@ const inspectionLotDetailConfig = computed(() =>
     <InspectionLineClearanceDialog
       v-model="showLineClearance"
       :lotId="props.id"
-      :batchId="lot.activeBatchId"
+      :batchId="lot?.activeBatchId"
       :batch="activeBatch"
     />
     <InspectionAddLotDialog
@@ -1227,7 +1227,7 @@ const inspectionLotDetailConfig = computed(() =>
       v-model="showCollect"
       :lotId="props.id"
       :defaultCount="samplingPlan?.perCollectionSize || null"
-      :activeBatchId="lot.activeBatchId"
+      :activeBatchId="lot?.activeBatchId"
       :batchOptions="activeBatchOptions"
       @addLot="showCollect = false; showAddLot = true"
     />
