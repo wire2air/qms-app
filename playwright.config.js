@@ -65,6 +65,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      name: 'audits',
+      testMatch: /audits\/.*\.spec\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'training',
       testMatch: /training\/.*\.spec\.js/,
       dependencies: ['setup'],

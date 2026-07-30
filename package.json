@@ -24,6 +24,8 @@
     "test:e2e:sites:headed": "playwright test --project=sites --headed",
     "test:e2e:depts": "playwright test --project=departments",
     "test:e2e:depts:headed": "playwright test --project=departments --headed",
+    "test:e2e:audits": "playwright test --project=audits",
+    "test:e2e:audits:headed": "playwright test --project=audits --headed",
     "test:e2e:users": "playwright test --project=users",
     "test:e2e:users:headed": "playwright test --project=users --headed",
     "test:e2e:qc": "playwright test --project=qcInspection",

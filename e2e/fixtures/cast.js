@@ -65,6 +65,12 @@ export const USERS = {
   // *should* be able to see — without which J5's positive half would pass for
   // the wrong reason (users_sel admits you to your own row regardless).
   userSiteReader: { id: 'e2e10000-0000-4000-8000-000000000021', email: 'usersitereader@e2e.test', name: 'Ursula UserSiteReader' },
+  // Read-only auditor — *:read on every audit module, no write action anywhere.
+  // The persona PW-J10 needs: Postgres applies the SELECT policy when an UPDATE
+  // has to locate its rows, so only a user who can READ a finding can exploit
+  // its company-only UPDATE policy. Kept separate from `auditor`, whose zero
+  // audit_standards grants are PW-J9's premise.
+  auditReader: { id: 'e2e10000-0000-4000-8000-000000000022', email: 'auditreader@e2e.test', name: 'Rhea AuditReader' },
   // ── QC Inspection (e2e-seed.sql §22a) ─────────────────────────────────────
   // The split that matters in this module is execute-vs-dispose: the persona
   // that runs an inspection must not be able to close it out.
@@ -106,6 +112,7 @@ export const AUTH = {
   learner: 'e2e/.auth/learner.json',
   teamsOnly: 'e2e/.auth/teamsOnly.json',
   userSiteReader: 'e2e/.auth/userSiteReader.json',
+  auditReader: 'e2e/.auth/auditReader.json',
   qcInspector: 'e2e/.auth/qcInspector.json',
   qcApprover: 'e2e/.auth/qcApprover.json',
   qcAuthor: 'e2e/.auth/qcAuthor.json',
@@ -162,6 +169,41 @@ export const FIXTURES = {
   // passingScore 70: both right = 100 (pass), one right = 50 (fail). maxAttempts
   // is 2, leaving room for one retry after a deliberate fail.
   trainingTitle: 'E2E Read & Understood Training',
+  // Audits — the cast is reused once more: author=lead auditor (every audit
+  // grant), reviewer=close-out step 1 + standard-approval step 1,
+  // approver=step 2 on both (e-signed), auditor=audit_management:read and
+  // NOTHING else (the persona PW-J9's dead-permission probe needs),
+  // noAccess=no audit grants. Step names double as the Playwright anchors for
+  // the per-step reviewer pickers, so they are unique across both workflows.
+  auditCloseOutWorkflowName: 'E2E Audit Close-Out', // step1 ACTION → Reviewer, step2 APPROVAL+e-sign → Approver
+  auditStandardWorkflowName: 'E2E Audit Standard Approval',
+  auditCloseOutStep1: 'Audit Review',
+  auditCloseOutStep2: 'Audit Sign-Off',
+  auditStandardStep1: 'Standard Review',
+  auditStandardStep2: 'Standard Approval',
+}
+
+// The seeded audit standard (e2e-seed.sql §25) every audit journey runs against.
+// Clause 4 is a section header (a PARENT) and is therefore exempt from the
+// close-out "assess every clause" gate; 4.1 and 4.2 are the two leaves a
+// walkthrough has to score.
+export const AUDIT_STANDARD = {
+  id: 'e2ea1000-0000-4000-8000-000000000001',
+  code: 'E2E-STD-9001',
+  name: 'E2E Quality Standard',
+  effectiveVersionId: 'e2ea2000-0000-4000-8000-000000000001',
+  clauses: {
+    section: { id: 'e2ea3000-0000-4000-8000-000000000001', number: '4', title: 'Quality Management System' },
+    documentControl: { id: 'e2ea3000-0000-4000-8000-000000000002', number: '4.1', title: 'Document control' },
+    training: { id: 'e2ea3000-0000-4000-8000-000000000003', number: '4.2', title: 'Training records' },
+  },
+  leafCount: 2,
+}
+
+// Workflow versions the audit journeys submit against (e2e-seed.sql §24).
+export const AUDIT_WORKFLOWS = {
+  closeOutVersionId: 'e2eaf002-0000-4000-8000-000000000001',
+  standardVersionId: 'e2eaf002-0000-4000-8000-000000000002',
 }
 
 // Supplier ids (not in USERS/AUTH — this persona never logs into the app UI).

@@ -4,7 +4,7 @@
 import { expect } from '@playwright/test'
 import { AUTH, USERS, ESIGN_PIN } from './cast.js'
 import { waitForSqlValue } from './db.js'
-import { selectOption, selectFirstOption, expectStatusEventually, clickWhenReady } from './documents.js'
+import { selectFirstOption, expectStatusEventually, clickWhenReady } from './documents.js'
 
 const CAPA_WORKFLOW_NAME = 'E2E CAPA Review & Approval'
 
@@ -26,6 +26,17 @@ export function uniqueTitle(tag) {
  */
 export async function createCapa(page, title, { priority = null } = {}) {
   await page.goto('/capas/create')
+  return fillCapaCreateForm(page, title, { priority })
+}
+
+/**
+ * The create-CAPA form fill + submit, WITHOUT the navigation to /capas/create.
+ * Split out of `createCapa` so a caller that reached the create page another way
+ * can reuse it — the audits suite arrives via the finding deep link
+ * (`/capas/create?findingId=…`), and re-navigating would drop the query param
+ * that makes the new CAPA self-link back to the finding.
+ */
+export async function fillCapaCreateForm(page, title, { priority = null } = {}) {
   await page.getByPlaceholder('Describe the CAPA…').fill(title)
 
   await selectFirstOption(page, 'Site')
