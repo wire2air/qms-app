@@ -13,20 +13,61 @@ const canUpdate = computed(() => isAllowed(['supplier_management:update']))
 
 // ─── Live queries ─────────────────────────────────────────────────────────────
 
+// Shares are per-USER grants (`SharedWithUser`), not per-supplier token rows.
+// Group them by document so the tab still reads as "documents this supplier
+// has", with the recipients listed underneath.
 const sharedDocs = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db, [supplierId]) => {
-    const sds = await db.SupplierDocument.where('supplierId', supplierId).exec()
-    return Promise.all(
-      sds.map(async (sd) => {
-        const version = await db.DocumentVersion.findByPk(sd.documentVersionId)
-        const document = version ? await db.Document.findByPk(version.documentId) : null
-        return { sd, version, document }
-      }),
+    const users = (await db.User.where().exec()).filter(
+      (u) => u.supplierId === supplierId && u.kind === 'EXTERNAL_SUPPLIER',
     )
+    if (!users.length) return []
+    const nameById = new Map(
+      users.map((u) => [u.id, [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email]),
+    )
+
+    // Query per user on the [userId+entityType] compound index. `entityType`
+    // alone is NOT indexed — the model's indexes are [entityType+entityId],
+    // userId, [userId+entityType], companyId — so where('entityType', …)
+    // silently returns nothing.
+    const perUser = await Promise.all(
+      users.map((u) => db.SharedWithUser.where('[userId+entityType]', [u.id, 'Document']).exec()),
+    )
+    const rows = perUser.flat()
+
+    const byDocument = new Map()
+    for (const row of rows) {
+      if (!byDocument.has(row.entityId)) byDocument.set(row.entityId, [])
+      byDocument.get(row.entityId).push(row)
+    }
+
+    const entries = await Promise.all(
+      [...byDocument.entries()].map(async ([documentId, shares]) => ({
+        documentId,
+        document: await db.Document.findByPk(documentId),
+        shares,
+        recipients: [...new Set(shares.map((s) => nameById.get(s.userId)).filter(Boolean))],
+        // A cascade grant exists because a shared document cites this one.
+        // Showing it plainly is the point: the admin should be able to see the
+        // supplier's full reach, not just what was clicked.
+        viaReference: shares.every((s) => s.grantedVia === 'REFERENCE'),
+        sourceIds: [...new Set(shares.map((s) => s.sourceEntityId).filter(Boolean))],
+      })),
+    )
+
+    // Resolve the citing document's title so the label names it.
+    for (const entry of entries) {
+      if (!entry.viaReference || !entry.sourceIds.length) continue
+      const source = await db.Document.findByPk(entry.sourceIds[0])
+      entry.sourceLabel = source ? source.docNumber || source.title : null
+    }
+
+    // Directly-shared documents first; cascade grants read as their dependants.
+    return entries.sort((a, b) => Number(a.viaReference) - Number(b.viaReference))
   },
 
-  { models: ['SupplierDocument', 'DocumentVersion', 'Document'], initial: [] },
+  { models: ['SharedWithUser', 'User', 'Document'], initial: [] },
 )
 
 // ─── Share document ──────────────────────────────────────────────────────────
@@ -38,13 +79,24 @@ const showShareDialog = ref(false)
 const { confirm } = useConfirm()
 
 async function onRemoveDocument(entry) {
+  const base = `Revoke access for ${entry.recipients.length} portal user(s)? They will no longer see this document in the supplier portal.`
+  // Revoking a cascade grant while its citing document stays shared is a
+  // deliberate override — say so, because the result is a document the
+  // supplier can read that cites one they cannot.
+  const message = entry.viaReference
+    ? `${base}\n\nThis access was granted automatically because ${entry.sourceLabel || 'a shared document'} references it. Revoking leaves that document citing a procedure the supplier cannot open.`
+    : `${base}\n\nDocuments shared only because this one references them are revoked with it.`
+
   const ok = await confirm({
     title: 'Unshare Document',
-    message: 'Are you sure you want to unshare this document from the supplier?',
+    message,
     okLabel: 'Unshare',
     danger: true,
   })
-  if (ok) await entry.sd.delete()
+  if (!ok) return
+  // Soft-delete every grant for this document — revocation is per-row, and
+  // the audit trail keeps the withdrawal because deletedAt is tracked.
+  for (const share of entry.shares) await share.delete()
 }
 </script>
 
@@ -78,7 +130,7 @@ async function onRemoveDocument(entry) {
     <div v-if="sharedDocs.length" class="tw:divide-y tw:divide-divider">
       <div
         v-for="entry in sharedDocs"
-        :key="entry.sd.id"
+        :key="entry.documentId"
         class="tw:p-4 tw:flex tw:items-center tw:gap-4 tw:hover:bg-main-hover tw:transition-colors"
       >
         <div
@@ -93,13 +145,21 @@ async function onRemoveDocument(entry) {
             </template>
             <template v-else>Document</template>
           </p>
-          <div class="tw:flex tw:items-center tw:gap-2 tw:mt-0.5">
-            <SupplierStatusBadgeById
-              v-if="entry.document?.statusId"
-              :statusId="entry.document.statusId"
-            />
-          </div>
+          <p class="tw:mt-0.5 tw:truncate tw:text-caption tw:text-secondary">
+            Shared with {{ entry.recipients.join(', ') }}
+          </p>
         </div>
+        <span
+          v-if="entry.viaReference"
+          class="tw:shrink-0 tw:rounded-full tw:bg-main-hover tw:px-2 tw:py-0.5 tw:text-caption tw:text-secondary"
+          :title="
+            entry.sourceLabel
+              ? `Granted automatically because ${entry.sourceLabel} references it`
+              : 'Granted automatically because a shared document references it'
+          "
+        >
+          Referenced<template v-if="entry.sourceLabel"> by {{ entry.sourceLabel }}</template>
+        </span>
         <button
           v-if="canUpdate"
           class="tw:p-1.5 tw:rounded tw:text-red-400 tw:hover:text-red-600 tw:hover:bg-red-50 tw:transition-colors"
@@ -115,7 +175,7 @@ async function onRemoveDocument(entry) {
       v-else
       :icon="IconLinkOff"
       title="No documents shared with this supplier."
-      description="Share documents from your document management system."
+      description="Shared documents appear in the supplier portal for the users you grant access to."
     />
   </div>
 

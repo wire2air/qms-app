@@ -95,6 +95,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Supplier portal — the surface an external party reaches. Most
+      // assertions are RLS verdicts (asAppUser) rather than UI steps: what is
+      // under test is who can read what, and the portal SPA is only one of the
+      // clients that question has to hold for.
+      name: 'suppliers',
+      testMatch: /suppliers\/.*\.spec\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // Purges the lots previous QC runs left behind. Without it the tenant
       // grows ~10 lots per run and syncEngine bootstrap slows until UI steps
       // time out — see e2e/fixtures/qc.setup.js.

@@ -79,13 +79,6 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/asset-request/[token]': RouteRecordInfo<
-      '/asset-request/[token]',
-      '/asset-request/:token',
-      { token: ParamValue<true> },
-      { token: ParamValue<false> },
-      | never
-    >,
     '/audit-logs': RouteRecordInfo<
       '/audit-logs',
       '/audit-logs',
@@ -639,13 +632,6 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/supplier-document/[token]': RouteRecordInfo<
-      '/supplier-document/[token]',
-      '/supplier-document/:token',
-      { token: ParamValue<true> },
-      { token: ParamValue<false> },
-      | never
-    >,
     '/suppliers/[[id]]': RouteRecordInfo<
       '/suppliers/[[id]]',
       '/suppliers/:id?',
@@ -802,12 +788,6 @@ declare module 'vue-router/auto-routes' {
     'src/pages/api-tokens.vue': {
       routes:
         | '/api-tokens'
-      views:
-        | never
-    }
-    'src/pages/asset-request/[token].vue': {
-      routes:
-        | '/asset-request/[token]'
       views:
         | never
     }
@@ -1282,12 +1262,6 @@ declare module 'vue-router/auto-routes' {
     'src/pages/supplier/document-requests.vue': {
       routes:
         | '/supplier/document-requests'
-      views:
-        | never
-    }
-    'src/pages/supplier-document/[token].vue': {
-      routes:
-        | '/supplier-document/[token]'
       views:
         | never
     }
