@@ -59,7 +59,21 @@ export async function freshContext(browser, userKey, { baseURL = BASE_URL } = {}
   // storageState of its own because only this module needs it.
   const user = typeof userKey === 'string' ? USERS[userKey] : userKey
   if (!user?.email) throw new Error(`freshContext: unknown cast member '${JSON.stringify(userKey)}'`)
-  const api = await request.newContext({ baseURL })
+  // `storageState: { cookies: [], origins: [] }` is LOAD-BEARING, not defensive.
+  //
+  // `request.newContext()` called inside a test INHERITS that test's
+  // `use.storageState`, so without this the "fresh" context starts holding the
+  // CURRENT role's connect.sid. The login below then arrives carrying that
+  // cookie, and `GET /v1/auth/handoff` (which every login redirects through)
+  // calls `req.session.regenerate()` — destroying the incoming session, i.e.
+  // the very role whose storageState this test declared. The live page keeps
+  // working because its context receives the new cookie, so the damage is
+  // invisible here: it lands on every LATER spec, which builds its context from
+  // the now-stale e2e/.auth/<role>.json and gets 401 → /signin.
+  //
+  // That was the "sessions die mid-run after PW-J3" bug — it cost ~42 false
+  // failures across a full-suite run. Keep the empty state.
+  const api = await request.newContext({ baseURL, storageState: { cookies: [], origins: [] } })
   const login = await api.post('/api/v1/auth/login', {
     data: { email: user.email, password: PASSWORD },
   })

@@ -92,11 +92,17 @@ fixed. Each such test is titled `🔴 … (FAILS TODAY)` and sits alongside
 `CONTROL ·` tests that must stay green — a run where a CONTROL goes red is a
 real regression, a run where a 🔴 goes green means a fix landed.
 
+Counts below are the suite's **own** tests. A `--project=X` run reports `X + 3`,
+because every project depends on `setup` (3 tests: seed / stack-up / login) —
+`qcInspection` chains `setup → qcSetup` and is inflated by 4. Take sizes from
+`npx playwright test --project=X --list | grep -c '^  \[X\]'`, not the `--list`
+footer. (These three rows carried the inflated totals until 2026-07-30.)
+
 | Suite | Result | Failing by design |
 | --- | --- | --- |
-| `sites` | 42 pass / 15 fail | PW-J4, J7, J8, J9, J10, J11 |
-| `departments` | 19 pass / 11 fail | DEPT-J1, J2, J3, J4 |
-| `audits` | 24 pass / 12 fail | J1 ×2, J7 ×2, J9 ×3, J10 ×5 |
+| `sites` | 39 pass / 15 fail | PW-J4, J7, J8, J9, J10, J11 |
+| `departments` | 16 pass / 11 fail | DEPT-J1, J2, J3, J4 |
+| `audits` | 20 pass / 13 fail | J1 ×2, J7 ×2, J9 ×3, J10 ×5 — **plus J6, which is NOT by design** (open harness issue: `forceResync` does not get the REST-attached approval workflow into IndexedDB, though the DB row is correct) |
 
 Every audits failure is a confirmed defect, verified against the live stack on
 2026-07-29. Three map to the inventory's own findings — #1 (standards routes
@@ -119,12 +125,19 @@ J9 shows `auditPrograms`, which mounts the same middleware correctly, refusing
 the same request; J10 shows `audit_instances`, whose identical defect was fixed
 on 2026-07-22, still refusing the write.
 
-**Run `audits/j3` in its own invocation.** Every spec that runs after it in the
-same invocation is bounced to `/signin`: the storageState the setup project saved
-stops working and the session id disappears from Redis. It is not eviction, TTL,
-a revoke, or a sign-out (see the module doc for the evidence trail). `j3` is the
-only journey that performs a live login. Each invocation re-runs `setup`, so
-splitting the run is a complete workaround until the cause is found.
+**A login performed inside a test must pass an explicit empty `storageState`.**
+`request.newContext()` called inside a test **inherits that test's
+`use.storageState`**, so a context you believe is cookie-free actually carries the
+current role's `connect.sid`. Since every login redirects through
+`GET /v1/auth/handoff`, which calls `req.session.regenerate()`, the login
+**destroys the session of whatever cookie it carried** — i.e. the role the test
+declared. Nothing fails at the time (the live context gets the new cookie); it
+fails in every *later* spec, which loads the now-stale `e2e/.auth/<role>.json` and
+gets 401 → `/signin`. `freshContext()` therefore passes
+`storageState: { cookies: [], origins: [] }`; keep it that way, and copy it into
+any new helper that logs in mid-test. This was the "sessions die mid-run after
+`audits/j3`" bug — it produced ~42 false failures in a full-suite run and the
+old advice to run `j3` separately is obsolete.
 
 **Writes made outside the app need `forceResync`.** A `page.request` REST call
 changes the server but not the page's IndexedDB, and a plain reload will not
