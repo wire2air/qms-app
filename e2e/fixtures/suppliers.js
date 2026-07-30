@@ -8,6 +8,7 @@
 // Documents here are seeded by SQL rather than driven through the authoring UI:
 // what is under test is the *grant*, not document authoring, and the documents
 // suite already covers the lifecycle end-to-end.
+import { execFileSync } from 'node:child_process'
 import { request } from '@playwright/test'
 import { BASE_URL, COMPANY_ID, PASSWORD, SUPPLIER_IDS, SUPPLIER_USER } from './cast.js'
 import { sql, sqlValue } from './db.js'
@@ -158,4 +159,42 @@ export function portalSees(table, where, userId = SUPPLIER_USER.id) {
 /** The same question for the admin/owner side — proves a row exists at all. */
 export function existsInDb(table, where) {
   return Number(sqlValue(`SELECT count(*) FROM ${table} WHERE ${where}`))
+}
+
+// ── Object storage ──────────────────────────────────────────────────────────
+//
+// MinIO's filesystem backend keeps each object under
+// /data/<bucket>/<companyId>/<filename>, so a journey can prove a file really
+// reached storage rather than trusting the row the upload wrote. Uploads of
+// type ASSET land in the PRIVATE bucket (getBucketForType: everything except
+// COMPANYLOGO/USERAVATAR/OPEN).
+
+const MINIO_CONTAINER = process.env.E2E_MINIO_CONTAINER || 'qms-minio-1'
+const PRIVATE_BUCKET = process.env.STORAGE_PRIVATE_BUCKET_NAME || 'qms-app-private'
+
+function minio(shellCommand) {
+  try {
+    return execFileSync('docker', ['exec', MINIO_CONTAINER, 'sh', '-c', shellCommand], {
+      encoding: 'utf8',
+      timeout: 15_000,
+    }).trim()
+  } catch {
+    return ''
+  }
+}
+
+/** Does `storagePath` (companyId/filename) exist as an object in the bucket? */
+export function objectExists(storagePath) {
+  return minio(`test -e '/data/${PRIVATE_BUCKET}/${storagePath}' && echo yes`) === 'yes'
+}
+
+/** Byte size of a stored object, or -1 when it isn't there. */
+export function objectSize(storagePath) {
+  // MinIO writes each object as a directory containing its parts, so the
+  // meaningful number is the total of what's underneath, not a single stat.
+  const out = minio(
+    `du -sb '/data/${PRIVATE_BUCKET}/${storagePath}' 2>/dev/null | cut -f1 || echo -1`,
+  )
+  const n = Number(out)
+  return Number.isFinite(n) ? n : -1
 }
