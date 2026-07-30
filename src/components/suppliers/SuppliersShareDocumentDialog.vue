@@ -187,6 +187,10 @@ watch(open, (val) => {
         <p v-if="selectedDocumentId && !availableUsers.length" class="tw:text-sm tw:text-secondary">
           Every portal user of this supplier already has this document.
         </p>
+
+        <p class="tw:text-caption tw:text-secondary">
+          Documents this one references are shared automatically, and are revoked with it.
+        </p>
       </template>
     </div>
 

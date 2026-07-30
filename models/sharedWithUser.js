@@ -35,8 +35,12 @@ export class SharedWithUser extends BaseModel {
   @Property({ type: String, required: true }) userId = ''
   @Property({ type: String, required: true }) entityType = ''
   @Property({ type: String, required: true }) entityId = ''
+  // 'MANUAL' | 'WORKFLOW_ASSIGNMENT' | 'REFERENCE' — a REFERENCE grant was
+  // created automatically because a shared document cites this one.
   @Property({ type: String }) grantedVia = 'MANUAL'
   @Property({ type: String }) grantedBy = null
+  // Set only on REFERENCE grants: the document whose share created this one.
+  @Property({ type: String }) sourceEntityId = null
   @Property({ type: String }) notes = ''
 
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)

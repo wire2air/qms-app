@@ -37,14 +37,29 @@ const sharedDocs = useLiveQueryWithDeps(
       byDocument.get(row.entityId).push(row)
     }
 
-    return Promise.all(
+    const entries = await Promise.all(
       [...byDocument.entries()].map(async ([documentId, shares]) => ({
         documentId,
         document: await db.Document.findByPk(documentId),
         shares,
-        recipients: shares.map((s) => nameById.get(s.userId)).filter(Boolean),
+        recipients: [...new Set(shares.map((s) => nameById.get(s.userId)).filter(Boolean))],
+        // A cascade grant exists because a shared document cites this one.
+        // Showing it plainly is the point: the admin should be able to see the
+        // supplier's full reach, not just what was clicked.
+        viaReference: shares.every((s) => s.grantedVia === 'REFERENCE'),
+        sourceIds: [...new Set(shares.map((s) => s.sourceEntityId).filter(Boolean))],
       })),
     )
+
+    // Resolve the citing document's title so the label names it.
+    for (const entry of entries) {
+      if (!entry.viaReference || !entry.sourceIds.length) continue
+      const source = await db.Document.findByPk(entry.sourceIds[0])
+      entry.sourceLabel = source ? source.docNumber || source.title : null
+    }
+
+    // Directly-shared documents first; cascade grants read as their dependants.
+    return entries.sort((a, b) => Number(a.viaReference) - Number(b.viaReference))
   },
 
   { models: ['SharedWithUser', 'User', 'Document'], initial: [] },
@@ -59,9 +74,17 @@ const showShareDialog = ref(false)
 const { confirm } = useConfirm()
 
 async function onRemoveDocument(entry) {
+  const base = `Revoke access for ${entry.recipients.length} portal user(s)? They will no longer see this document in the supplier portal.`
+  // Revoking a cascade grant while its citing document stays shared is a
+  // deliberate override — say so, because the result is a document the
+  // supplier can read that cites one they cannot.
+  const message = entry.viaReference
+    ? `${base}\n\nThis access was granted automatically because ${entry.sourceLabel || 'a shared document'} references it. Revoking leaves that document citing a procedure the supplier cannot open.`
+    : `${base}\n\nDocuments shared only because this one references them are revoked with it.`
+
   const ok = await confirm({
     title: 'Unshare Document',
-    message: `Revoke access for ${entry.recipients.length} portal user(s)? They will no longer see this document in the supplier portal.`,
+    message,
     okLabel: 'Unshare',
     danger: true,
   })
@@ -121,6 +144,17 @@ async function onRemoveDocument(entry) {
             Shared with {{ entry.recipients.join(', ') }}
           </p>
         </div>
+        <span
+          v-if="entry.viaReference"
+          class="tw:shrink-0 tw:rounded-full tw:bg-main-hover tw:px-2 tw:py-0.5 tw:text-caption tw:text-secondary"
+          :title="
+            entry.sourceLabel
+              ? `Granted automatically because ${entry.sourceLabel} references it`
+              : 'Granted automatically because a shared document references it'
+          "
+        >
+          Referenced<template v-if="entry.sourceLabel"> by {{ entry.sourceLabel }}</template>
+        </span>
         <button
           v-if="canUpdate"
           class="tw:p-1.5 tw:rounded tw:text-red-400 tw:hover:text-red-600 tw:hover:bg-red-50 tw:transition-colors"
