@@ -69,9 +69,14 @@ const existingShares = useLiveQueryWithDeps(
   [() => portalUsers.value.map((u) => u.id).join(',')],
   async (db, [userIds]) => {
     if (!userIds) return []
-    const ids = new Set(userIds.split(','))
-    const rows = await db.SharedWithUser.where('entityType', 'Document').exec()
-    return rows.filter((r) => ids.has(r.userId))
+    // [userId+entityType] is the indexed path; `entityType` on its own is not
+    // an index on this model, so querying it returns nothing at all.
+    const perUser = await Promise.all(
+      userIds
+        .split(',')
+        .map((id) => db.SharedWithUser.where('[userId+entityType]', [id, 'Document']).exec()),
+    )
+    return perUser.flat()
   },
   { models: ['SharedWithUser'], initial: [] },
 )
@@ -163,12 +168,16 @@ watch(open, (val) => {
 
       <template v-else>
         <BaseField label="Select Document">
+          <!-- Deliberately NOT `required`: BaseSelect auto-fills the first
+               option when required is set, which on a share dialog means an
+               arbitrary controlled document sits pre-selected and one stray
+               click sends it to an external party. The Share button stays
+               disabled until something is chosen (see canShare). -->
           <BaseSelect
             v-model="selectedDocumentId"
             :options="shareableDocuments"
             optionLabel="name"
             optionValue="id"
-            :required="true"
             placeholder="Choose a document"
           />
         </BaseField>

@@ -27,9 +27,14 @@ const sharedDocs = useLiveQueryWithDeps(
       users.map((u) => [u.id, [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email]),
     )
 
-    const rows = (await db.SharedWithUser.where('entityType', 'Document').exec()).filter((r) =>
-      nameById.has(r.userId),
+    // Query per user on the [userId+entityType] compound index. `entityType`
+    // alone is NOT indexed — the model's indexes are [entityType+entityId],
+    // userId, [userId+entityType], companyId — so where('entityType', …)
+    // silently returns nothing.
+    const perUser = await Promise.all(
+      users.map((u) => db.SharedWithUser.where('[userId+entityType]', [u.id, 'Document']).exec()),
     )
+    const rows = perUser.flat()
 
     const byDocument = new Map()
     for (const row of rows) {
