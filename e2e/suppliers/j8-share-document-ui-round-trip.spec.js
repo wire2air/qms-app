@@ -88,7 +88,10 @@ test.describe('SUP-J8a · an admin shares a document from the supplier page', ()
     await expect(page.getByText(doc.title, { exact: false }).first()).toBeVisible({
       timeout: 20_000,
     })
-    await expect(page.getByText(`Shared with ${SUPPLIER_USER.name}`)).toBeVisible({
+    // .first(): the tab legitimately lists every document shared with this
+    // supplier — other journeys and any manual testing leave rows behind — so
+    // the assertion is "the recipient is named", not "this is the only share".
+    await expect(page.getByText(`Shared with ${SUPPLIER_USER.name}`).first()).toBeVisible({
       timeout: 20_000,
     })
 
