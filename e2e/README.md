@@ -103,6 +103,7 @@ footer. (These three rows carried the inflated totals until 2026-07-30.)
 | `sites` | 39 pass / 15 fail | PW-J4, J7, J8, J9, J10, J11 |
 | `departments` | 16 pass / 11 fail | DEPT-J1, J2, J3, J4 |
 | `audits` | 20 pass / 13 fail | J1 ×2, J7 ×2, J9 ×3, J10 ×5 — **plus J6, which is NOT by design** (open harness issue: `forceResync` does not get the REST-attached approval workflow into IndexedDB, though the DB row is correct) |
+| `authentication` | 18 pass / **0 fail** | none — the three 🔴 probes (lockout-as-DoS, `authLimiter` no-op, unbounded reset mail) became green release gates when C1–C3 were fixed on 2026-07-30 |
 
 Every audits failure is a confirmed defect, verified against the live stack on
 2026-07-29. Three map to the inventory's own findings — #1 (standards routes
