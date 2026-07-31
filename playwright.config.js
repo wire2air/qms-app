@@ -71,6 +71,17 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Credential-layer journeys. Unlike every other project these mostly issue
+      // raw pre-auth HTTP rather than driving the UI, and several deliberately
+      // lock accounts — which is why they use throwaway personas (e2e-seed.sql
+      // §27) and clear Redis lockout state in teardown. Never repoint them at a
+      // shared persona.
+      name: 'authentication',
+      testMatch: /authentication\/.*\.spec\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'training',
       testMatch: /training\/.*\.spec\.js/,
       dependencies: ['setup'],
