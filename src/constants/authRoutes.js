@@ -17,10 +17,12 @@ export const AUTH_ROUTES = [
 // Note: `/reset-esign-pin` is public but intentionally NOT an AUTH_ROUTE — the
 // signer is usually still logged in when they reset, and AUTH_ROUTEs bounce
 // logged-in users to the dashboard.
+// `/asset-request/:token` and `/supplier-document/:token` used to live here.
+// Both were retired: suppliers now read shared documents and upload requested
+// files as logged-in portal users, so nothing about a supplier interaction is
+// reachable without a session.
 export const PUBLIC_ROUTES = [
   ...AUTH_ROUTES,
-  '/asset-request',
-  '/supplier-document',
   '/reset-esign-pin',
   // Public complaint intake forms (/support/<slug>) — no session needed.
   '/support',
