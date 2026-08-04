@@ -25,6 +25,8 @@ const form = ref({
   code: '',
   address: '',
   timezone: null,
+  // Defaults true: a newly created site is one you intend to use.
+  isActive: true,
 })
 
 const isEdit = computed(() => !!props.id)
@@ -91,6 +93,9 @@ watch(
         code: s.code,
         address: s.address,
         timezone: s.timezone,
+        // Older rows predate the column; treat a missing value as active
+        // rather than silently presenting an existing site as deactivated.
+        isActive: s.isActive !== false,
       }
     }
   },
@@ -147,6 +152,7 @@ async function onSubmit() {
         code: form.value.code,
         address: form.value.address,
         timezone: form.value.timezone,
+        isActive: form.value.isActive,
         displayOrder: await getDisplayOrder(),
       })
       // createSite returns undefined when the save failed (useLiveMutation has
@@ -157,6 +163,7 @@ async function onSubmit() {
       site.value.name = form.value.name
       site.value.address = form.value.address
       site.value.timezone = form.value.timezone
+      site.value.isActive = form.value.isActive
       await site.value.save()
       emit('updated', site.value)
     }
@@ -171,7 +178,7 @@ async function onSubmit() {
 // Reset form when dialog closes
 watch(open, (val) => {
   if (!val) {
-    form.value = { name: '', code: '', address: '', timezone: null }
+    form.value = { name: '', code: '', address: '', timezone: null, isActive: true }
     saveError.value = ''
   }
 })
@@ -245,6 +252,28 @@ watch(open, (val) => {
       />
 
       <TimezoneDropdown v-model="form.timezone" />
+
+      <!--
+        `is_active` shipped as a column with no way to set it, which made the
+        rule it governs unreachable AND undiagnosable: sites quietly stopped
+        appearing in the user-assignment pickers with nothing in the UI to
+        explain why, and no way to undo it short of a direct DB write.
+
+        Deliberately NOT a delete. Deactivating retains every existing
+        assignment — a site being wound down must not silently revoke the
+        regional manager still closing it out — it only blocks NEW ones. That
+        distinction is the whole point of the flag, so the helper text states it.
+      -->
+      <div class="tw:flex tw:items-start tw:justify-between tw:gap-4">
+        <div class="tw:min-w-0">
+          <BaseLabel dataKey="site.isActive" label="Accepting new user assignments" />
+          <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
+            Turn this off while a site is winding down. People already assigned keep their
+            access; the site just stops being offered for new assignments.
+          </p>
+        </div>
+        <BaseSwitch v-model="form.isActive" label="Accepting new user assignments" />
+      </div>
     </BaseForm>
 
     <template #footer>

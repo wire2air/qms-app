@@ -54,22 +54,48 @@ const members = computed(() => {
     membership: 'PRIMARY',
     assignment: null,
   }))
-  const additional = assignments.value.map((a) => ({
-    key: `a-${a.id}`,
-    userId: a.userId,
-    membership: 'ADDITIONAL',
-    assignment: a,
-  }))
+  // A user can legitimately hold this site as BOTH primary and additional: the
+  // profile screen writes the primary through the syncEngine, so the server-side
+  // overlap cleanup in the users controller never runs for that path, and the
+  // client-side tidy-up only fires on a genuine change. The union is harmless
+  // for access — effective sites are a set — but listing someone twice and
+  // counting them twice makes this drawer answer "how many people can reach this
+  // site?" wrongly, which is the one question it exists to answer.
+  //
+  // Primary wins: it is the stronger statement about where the person works, and
+  // it is the row that cannot be removed from here.
+  const primaryUserIds = new Set(primary.map((m) => m.userId))
+  const additional = assignments.value
+    .filter((a) => !primaryUserIds.has(a.userId))
+    .map((a) => ({
+      key: `a-${a.id}`,
+      userId: a.userId,
+      membership: 'ADDITIONAL',
+      assignment: a,
+    }))
   return [...primary, ...additional]
 })
+
+const removeError = ref(null)
 
 const removing = ref(null)
 
 async function removeAssignment(row) {
   if (!row.assignment) return
   removing.value = row.key
+  removeError.value = null
   try {
     await row.assignment.delete()
+  } catch (err) {
+    // Deletes go straight to instance.delete(), which — unlike useLiveMutation —
+    // does not toast on failure. Saves here are pessimistic, so a rejected
+    // delete changes nothing anywhere and the row simply stays put; without
+    // this the × looks like it did not register and invites repeat clicks.
+    //
+    // The most likely rejection is RLS: user_sites forbids editing your OWN
+    // assignments (user_id <> current_user_id), so an admin removing themselves
+    // from a site lands here even though the button was enabled.
+    removeError.value = err?.message || 'Could not remove this assignment.'
   } finally {
     removing.value = null
   }
@@ -86,6 +112,10 @@ async function removeAssignment(row) {
           {{ members.length === 1 ? 'person has' : 'people have' }} access to this site
         </span>
       </div>
+
+      <p v-if="removeError" class="tw:text-sm tw:text-red-500" role="alert">
+        {{ removeError }}
+      </p>
 
       <p class="tw:text-xs tw:text-secondary">
         A role with <em>Site</em> access reaches this site's records for everyone listed here,

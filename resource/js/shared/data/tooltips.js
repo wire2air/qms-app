@@ -24,6 +24,12 @@ export const TOOLTIPS = [
     tooltip:
       'Sites this person is responsible for beyond their primary site. A role granted "Site" access reaches records at the primary site AND every additional site listed here — use this for regional or corporate roles that span locations without granting company-wide access. Only active sites in this company can be added.',
   },
+  {
+    key: 'site.isActive',
+    label: 'Accepting new user assignments',
+    tooltip:
+      'Controls whether this site can be chosen when assigning someone a primary or additional site. Turning it off does NOT remove anyone or hide the site: existing assignments are kept so a location being wound down does not silently revoke access mid-closeout, and the site still appears in filters and on existing records. It only stops appearing as an option for new assignments.',
+  },
 ]
 
 export default TOOLTIPS

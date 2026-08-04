@@ -105,13 +105,31 @@ async function handleSitesChange(newSiteIds) {
   const toAdd = desired.filter((id) => !currentIds.includes(id))
   const toRemove = currentIds.filter((id) => !desired.includes(id))
 
+  // Adds go through useLiveMutation, which toasts on failure. Removals call
+  // instance.delete() directly and do NOT — so they need explicit handling, or a
+  // rejected revocation looks exactly like a successful one: pessimistic saves
+  // mean nothing changed anywhere, and the chip is rendered from the live query,
+  // so it just stays put.
+  //
+  // Each removal is caught individually rather than wrapping the loop: one
+  // rejection must not abandon the remaining removals and leave a partially
+  // applied set with no message.
+  const failures = []
   for (const siteId of toAdd) {
     await addUserSite({ userId: props.id, siteId })
   }
   for (const siteId of toRemove) {
     const match = siteAssignments.value.find((sa) => sa.siteId === siteId)
-    if (match) await match.delete()
+    if (!match) continue
+    try {
+      await match.delete()
+    } catch (err) {
+      failures.push(err?.message || siteId)
+    }
   }
+  saveError.value = failures.length
+    ? `Could not remove ${failures.length} site assignment(s): ${failures[0]}`
+    : null
 }
 
 // Changing the primary to a site already held as "additional" leaves a
