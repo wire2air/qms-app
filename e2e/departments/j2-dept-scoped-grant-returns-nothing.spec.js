@@ -7,6 +7,13 @@
 // expression collapses to `rank >= 4` — tenant. Ranks 1-3 are dead code, while
 // the permission UI keeps offering all four tiers.
 //
+// 2026-08-04 UPDATE — migration 20260804120000 bound the SITE tier (site_col)
+// on both tables, so the paragraph above is now true only of the OWNER and
+// DEPARTMENT tiers, and the collapse is to `rank >= 3`, not `rank >= 4`. This
+// spec's finding is the dead DEPARTMENT tier, which that migration did not
+// address: `departments` has no department column to bind, so a rank-2 grant
+// still matches nothing. STILL OPEN — the reds below are correct.
+//
 // It is a separate spec rather than a second case in the sites one because the
 // two must be fixable and verifiable independently: a binding fix applied to
 // `sites` alone leaves this red, which is the point.
@@ -70,17 +77,24 @@ test.describe('DEPT-J2 · a saved department-scoped grant matches zero rows', ()
     expect(Number(tenantScoped)).toBeGreaterThanOrEqual(2)
   })
 
-  test('MECHANISM · the binding that causes it, on both tables', () => {
+  test('MECHANISM · the binding, on both tables', () => {
     // Recorded on both so a half-fix cannot go green. Whatever repairs the
     // generator or the binding has to cover `sites` and `departments` together.
+    //
+    // 2026-08-04 — migration 20260804120000 bound the SITE tier on both tables,
+    // so the expected value moved from all-∅ to the site columns below. The
+    // OWNER and DEPARTMENT tiers are still ∅, which is precisely why the two
+    // assertions above this one remain red: this spec's finding is the dead
+    // DEPARTMENT tier, and that is untouched. Kept as an exact-match assertion
+    // so a future rebinding of either table has to come through here.
     const bindings = sqlValue(
       `SELECT string_agg(table_name || '=' ||
                 coalesce(owner_col,'∅') || '/' || coalesce(dept_col,'∅') || '/' || coalesce(site_col,'∅'),
                 ' ' ORDER BY table_name)
          FROM authz.module_table_bindings WHERE table_name IN ('departments','sites')`,
     )
-    expect(bindings, 'both org-structure tables carry dead scope tiers').toBe(
-      'departments=∅/∅/∅ sites=∅/∅/∅',
+    expect(bindings, 'the department tier is still dead on both org-structure tables').toBe(
+      'departments=∅/∅/site_id sites=∅/∅/id',
     )
   })
 })

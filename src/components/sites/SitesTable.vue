@@ -1,5 +1,6 @@
 <script setup>
-import { IconEdit, IconTrash } from '@tabler/icons-vue'
+import { IconEdit, IconTrash, IconUsers } from '@tabler/icons-vue'
+import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
   rows: {
@@ -47,8 +48,23 @@ function confirmDelete(row) {
   emit('delete', row)
 }
 
+// "Who can see this site?" — the inverse of a user's site list, and the way
+// auditors actually ask. Read-only visibility is gated on user_management:read;
+// the drawer itself gates removal on :update.
+const canViewMembers = computed(() => isAllowed(['user_management:read']))
+const membersDrawer = ref(false)
+const membersSiteId = ref(null)
+
+function openMembers(row) {
+  membersSiteId.value = row.id
+  membersDrawer.value = true
+}
+
 function rowMenuItems(row) {
   const items = []
+  if (canViewMembers.value) {
+    items.push({ name: 'View members', icon: IconUsers, click: () => openMembers(row) })
+  }
   if (props.canUpdate) {
     items.push({ name: 'Edit', icon: IconEdit, click: () => onEdit(row) })
   }
@@ -97,9 +113,11 @@ function rowMenuItems(row) {
     </template>
 
     <template #body-cell-actions="{ row }">
-      <div v-if="canUpdate || canDelete" class="tw:flex tw:justify-end">
+      <div v-if="rowMenuItems(row).length" class="tw:flex tw:justify-end">
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
   </DataTable>
+
+  <SiteMembersDrawer v-model="membersDrawer" :siteId="membersSiteId" />
 </template>

@@ -1,4 +1,11 @@
-// USER-J5 — 🔴 A site-scoped `user_management:read` grant returns nothing.
+// USER-J5 — a site-scoped `user_management:read` grant is evaluated per site.
+//
+// ✅ RESOLVED 2026-08-04 by migration 20260804120000-bind-site-scope-org-modules,
+// which set user_management's site_col from NULL to 'site_id'. Everything below
+// describes what the defect WAS — read it as history. The assertions now pin the
+// fixed behaviour and stand as the regression guard.
+//
+// HISTORY: 🔴 A site-scoped `user_management:read` grant returns nothing.
 // WRITTEN TO FAIL. Fourth table with the same defect.
 //
 // `authz.scope_allowed(module, action, p_owner, p_dept, p_site)` decides by
@@ -62,9 +69,7 @@ test.describe('USER-J5 · a site-scoped user grant is not evaluated per site', (
     )
   })
 
-  test('🔴 the grantee sees the other people at their own site (FAILS TODAY)', async ({
-    browser,
-  }) => {
+  test('the grantee sees the other people at their own site', async ({ browser }) => {
     const roster = await rosterFor(browser, AUTH.userSiteReader)
     expect(
       roster.map((n) => n.email),
@@ -72,15 +77,12 @@ test.describe('USER-J5 · a site-scoped user grant is not evaluated per site', (
     ).toContain(USERS.teamsOnly.email)
   })
 
-  test('the grantee does not see the other site’s people (passes — but vacuously)', async ({
-    browser,
-  }) => {
-    // Deliberately recorded as a near-miss rather than a win. This assertion is
-    // green, but not because scoping works — it is green because the grantee
-    // sees almost nobody at all. Read together with the test above it says
-    // "under-returning", not "correctly filtered". Kept so that the day the
-    // binding is fixed, BOTH halves are already pinned and a regression to
-    // over-returning is caught.
+  test('the grantee does not see the other site’s people', async ({ browser }) => {
+    // HISTORY: while site_col was NULL this was green for the WRONG reason —
+    // the grantee saw almost nobody at all, so read with the test above it said
+    // "under-returning", not "correctly filtered". It was kept precisely so
+    // that when the binding was fixed (migration 20260804120000) both halves
+    // were already pinned. It now means what it says.
     const roster = await rosterFor(browser, AUTH.userSiteReader)
     expect(
       roster.map((n) => n.email),
@@ -88,18 +90,25 @@ test.describe('USER-J5 · a site-scoped user grant is not evaluated per site', (
     ).not.toContain(USERS.owner.email)
   })
 
-  test('🔴 and what they actually get is only themselves (FAILS the day it is fixed)', async ({
-    browser,
-  }) => {
-    // Pins the CURRENT behaviour precisely, so the defect has an exact
-    // description rather than "returns too little". This test is written to go
-    // RED when the binding is fixed — that is the signal to delete it and keep
-    // the two above.
+  test('the roster is EXACTLY their own site — no more, no less', async ({ browser }) => {
+    // HISTORY: until migration 20260804120000 this pinned the DEFECT — the
+    // roster was [userSiteReader] alone, because site_col = NULL meant the site
+    // grant contributed nothing and only users_sel's self branch admitted a
+    // row. It was written to go RED the day the binding was fixed; that day has
+    // come.
+    //
+    // Retargeted at the FIXED set rather than deleted, because an exact-set
+    // assertion is the only one here that catches a regression in BOTH
+    // directions — the two tests above catch under- and over-returning one at a
+    // time, and neither would notice a third site's user appearing.
+    //
+    // Sorted on both sides: `Query.users` promises no ordering, and the old
+    // one-element form never exercised that.
     const roster = await rosterFor(browser, AUTH.userSiteReader)
     expect(
-      roster.map((n) => n.email),
-      'today the site grant contributes nothing; only users_sel’s self branch does',
-    ).toEqual([USERS.userSiteReader.email])
+      roster.map((n) => n.email).sort(),
+      'a site-scoped user_management:read returns that site’s roster and nothing else',
+    ).toEqual([USERS.teamsOnly.email, USERS.userSiteReader.email].sort())
   })
 
   test('CONTROL · the same grant at TENANT scope does work (must pass today)', async ({

@@ -67,6 +67,89 @@ async function handleRolesChange(newRoleIds) {
   showRoleSelect.value = false
 }
 
+// ── Additional sites ────────────────────────────────────────────────────────
+// user.siteId stays THE primary site. These are the extra sites the user is
+// responsible for; a `site`-scoped role reaches the union of the two. Same
+// join-table shape as the role assignments above.
+const siteAssignments = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [userId]) => {
+    if (!userId) return []
+    return db.UserSite.where('userId', userId).exec()
+  },
+  { models: ['UserSite'], initial: [] },
+)
+
+const additionalSiteIds = computed(() => siteAssignments.value.map((sa) => sa.siteId))
+
+// Primary ∪ additional — what a site-scoped role actually reaches. Shown to the
+// admin explicitly, because three chips plus a separate primary field do not
+// make the answer to "what will this person see?" obvious.
+const effectiveSiteIds = computed(() => {
+  const ids = new Set(additionalSiteIds.value)
+  if (user.value?.siteId) ids.add(user.value.siteId)
+  return [...ids]
+})
+
+const addUserSite = useLiveMutation(async (db, { userId, siteId }) => {
+  const assignment = db.UserSite.create({ userId, siteId })
+  await assignment.save()
+  return assignment
+})
+
+async function handleSitesChange(newSiteIds) {
+  // The primary is always effective, so it is never stored here — storing it
+  // would render the same site as both the primary field and a removable chip.
+  const desired = (newSiteIds || []).filter((id) => id && id !== user.value?.siteId)
+  const currentIds = additionalSiteIds.value
+  const toAdd = desired.filter((id) => !currentIds.includes(id))
+  const toRemove = currentIds.filter((id) => !desired.includes(id))
+
+  for (const siteId of toAdd) {
+    await addUserSite({ userId: props.id, siteId })
+  }
+  for (const siteId of toRemove) {
+    const match = siteAssignments.value.find((sa) => sa.siteId === siteId)
+    if (match) await match.delete()
+  }
+}
+
+// Changing the primary to a site already held as "additional" leaves a
+// redundant row behind — drop it so the chip disappears with the change.
+//
+// Every guard below is load-bearing, because this watcher DELETES AN AUTHORITY
+// GRANT and a mistake here is silent:
+//
+//   `previous` — the getter fires when the live query first resolves
+//   (undefined → siteId), which is a page load, not an edit. Acting on that
+//   would delete a user_sites row merely because someone OPENED the profile,
+//   and whether it fired at all would depend on which of the two live queries
+//   resolved first — a race with nondeterministic data loss.
+//
+//   canUpdateUser — without it a read-only viewer issues the delete.
+//
+//   try/catch — RLS forbids editing your OWN assignments
+//   (user_id <> current_user_id), so an admin opening their own profile gets a
+//   rejected promise. Deletes do not route through useLiveMutation, so nothing
+//   else would surface it.
+//
+// The redundant row is harmless while it exists (effective access is a union),
+// so skipping the cleanup is always safer than a wrong delete.
+watch(
+  () => user.value?.siteId,
+  async (siteId, previous) => {
+    if (!siteId || previous === undefined || siteId === previous) return
+    if (!canUpdateUser.value) return
+    const dup = siteAssignments.value.find((sa) => sa.siteId === siteId)
+    if (!dup) return
+    try {
+      await dup.delete()
+    } catch (err) {
+      saveError.value = err?.message || 'Failed to tidy up the previous site assignment'
+    }
+  },
+)
+
 const breadcrumbItems = computed(() => [
   { label: 'Users', to: getCompanyPath('/users') },
   { label: user.value ? `${user.value.firstName} ${user.value.lastName}` : 'Loading...' },
@@ -265,10 +348,15 @@ const userDetailConfig = computed(() =>
               <UserStatusBadgeById v-else :statusId="user?.userStatusId" />
             </div>
 
-            <!-- Site -->
+            <!-- Primary Site -->
             <div>
-              <p class="tw:text-secondary tw:mb-1">Site</p>
-              <SiteSelectMenu v-if="canUpdateUser" v-model="user.siteId" :required="true" />
+              <p class="tw:text-secondary tw:mb-1">Primary Site</p>
+              <SiteSelectMenu
+                v-if="canUpdateUser"
+                v-model="user.siteId"
+                :required="true"
+                forAssignment
+              />
               <template v-else>
                 <SiteBadgeById v-if="user?.siteId" :siteId="user.siteId" />
                 <span v-else class="tw:text-sm tw:text-secondary">—</span>
@@ -328,6 +416,39 @@ const userDetailConfig = computed(() =>
                 <span v-else class="tw:text-sm tw:text-secondary">—</span>
               </template>
             </div>
+          </div>
+
+          <!-- Additional Sites — the multi-site assignment.
+               The primary site is always effective and is deliberately NOT
+               rendered here as a removable chip; the effective line below is
+               what answers "what will this person actually see?". -->
+          <div class="tw:pt-4 tw:border-t tw:border-divider">
+            <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
+              <BaseLabel dataKey="user.additionalSites" color="secondary" />
+              <span class="tw:text-xs tw:text-secondary">
+                {{ additionalSiteIds.length }} assigned
+              </span>
+            </div>
+
+            <SiteSelectMenu
+              v-if="canUpdateUser"
+              :modelValue="additionalSiteIds"
+              multiple
+              :allowCreate="false"
+              forAssignment
+              @update:modelValue="handleSitesChange"
+            />
+            <div v-else-if="additionalSiteIds.length" class="tw:flex tw:flex-wrap tw:gap-1">
+              <SiteBadgeById v-for="sid in additionalSiteIds" :key="sid" :siteId="sid" />
+            </div>
+            <span v-else class="tw:text-sm tw:text-secondary">—</span>
+
+            <p class="tw:text-xs tw:text-secondary tw:mt-2">
+              Effective access:
+              <strong>{{ effectiveSiteIds.length }}</strong>
+              {{ effectiveSiteIds.length === 1 ? 'site' : 'sites' }} — a role with
+              <em>Site</em> access reaches records at all of them.
+            </p>
           </div>
 
           <!-- Color -->

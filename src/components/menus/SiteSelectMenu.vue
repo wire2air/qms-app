@@ -1,6 +1,7 @@
 <script setup>
 import { IconPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { selectableSites } from '@/utils/siteOptions.js'
 
 const props = defineProps({
   required: {
@@ -19,6 +20,23 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Opt IN to the inactive-site gate. `is_active` governs who may be NEWLY
+  // ASSIGNED TO a site — it is a user-placement rule, not a global "this site is
+  // hidden" flag, and the backend scopes it exactly that way
+  // (api/utils/siteAssignment.js).
+  //
+  // This menu is mounted at ~20 sites — CAPA/NC/CR/audit/supplier/log-book
+  // record fields, the departments filter, the training report filter, the form
+  // builder. Gating them all would mean that deactivating a site removes it from
+  // the FILTERS you need to work through the records still open there, and blocks
+  // creating a department at a site mid-closeout. That is the opposite of the
+  // retain-what-exists behaviour the flag was designed for.
+  //
+  // So: default off, and turned on only where a site is being attached to a USER.
+  forAssignment: {
+    type: Boolean,
+    default: false,
+  },
   nullLabel: {
     type: String,
     default: null,
@@ -30,7 +48,13 @@ const modelValue = defineModel({
   default: null,
 })
 
-const sites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
+const allSites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
+
+// Inactive sites can't be NEWLY assigned, but one that is ALREADY selected must
+// keep being offered — see selectableSites for why.
+const sites = computed(() =>
+  props.forAssignment ? selectableSites(allSites.value, modelValue.value) : allSites.value,
+)
 
 const canCreateSite = computed(() => props.allowCreate && isAllowed(['sites:create']))
 

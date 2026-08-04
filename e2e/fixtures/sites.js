@@ -16,7 +16,7 @@
 //     context and a fresh one.
 import { expect, request } from '@playwright/test'
 import { BASE_URL, PASSWORD, USERS } from './cast.js'
-import { sql, sqlRow, sqlValue } from './db.js'
+import { sql, sqlRow, sqlValue, siteGucSql } from './db.js'
 
 /** Unique, greppable site name for one test run. */
 export function uniqueSiteName(tag) {
@@ -177,6 +177,7 @@ export async function deleteSiteViaUi(page, siteName) {
 export function asAppUser({ userId, companyId, isOwner = false }, statement) {
   const raw = sql(
     `BEGIN;
+     ${siteGucSql(userId, companyId, true)}
      SET LOCAL ROLE app_user;
      SET LOCAL app.current_user_id = '${userId}';
      SET LOCAL app.current_company_id = '${companyId}';
@@ -190,7 +191,8 @@ export function asAppUser({ userId, companyId, isOwner = false }, statement) {
     // "DELETE 0") that -tA still emits for non-SELECT statements. Leaving the
     // tags in makes every RETURNING-based assertion compare against a string
     // that contains the answer twice, in two different formats.
-    .filter((line) => !/^(BEGIN|SET|COMMIT|ROLLBACK)$/.test(line.trim()))
+    // "DO" is the tag from the site-GUC block above.
+    .filter((line) => !/^(BEGIN|SET|COMMIT|ROLLBACK|DO)$/.test(line.trim()))
     .filter((line) => !/^(INSERT \d+ \d+|UPDATE \d+|DELETE \d+|SELECT \d+)$/.test(line.trim()))
     .join('\n')
     .trim()

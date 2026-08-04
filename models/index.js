@@ -93,6 +93,7 @@ import { User } from './user'
 import { UserOnWorkflowInstanceStep } from './userOnWorkflowInstanceStep'
 import { UserOnDocument } from './userOnDocument'
 import { UserOnTeam } from './userOnTeam'
+import { UserSite } from './userSite'
 import { UserStatus } from './userStatus'
 import { Nonconformance } from './nonconformance'
 import { NcCounter } from './ncCounter'
@@ -314,6 +315,7 @@ export const db = {
   UserOnWorkflowInstanceStep,
   UserOnDocument,
   UserOnTeam,
+  UserSite,
   UserStatus,
   Nonconformance,
   NcCounter,

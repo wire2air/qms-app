@@ -106,6 +106,18 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Multi-site user assignment. Mostly RLS verdicts over raw GraphQL rather
+      // than UI steps: what is under test is which records a `site`-scoped grant
+      // reaches once a user holds several sites, and the UI is only one of the
+      // clients that answer has to hold for. ms2 is the security half — it
+      // proves a member cannot self-assign a site, which would widen their own
+      // reach across the tenant.
+      name: 'multiSite',
+      testMatch: /multiSite\/.*\.spec\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // Supplier portal — the surface an external party reaches. Most
       // assertions are RLS verdicts (asAppUser) rather than UI steps: what is
       // under test is who can read what, and the portal SPA is only one of the
