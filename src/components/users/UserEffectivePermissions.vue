@@ -6,6 +6,7 @@
 import { IconCrown, IconShieldCheck } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { get } from '@/api'
+import { SCOPE_LABELS } from '@/utils/permissionPresets.js'
 
 const props = defineProps({
   userId: { type: String, required: true },
@@ -13,13 +14,6 @@ const props = defineProps({
 
 const data = ref(null)
 const loading = ref(true)
-
-const SCOPE_LABEL = {
-  own: 'Own',
-  department: 'Department',
-  site: 'Site',
-  tenant: 'All',
-}
 
 function humanize(id) {
   return String(id || '')
@@ -99,7 +93,7 @@ watch(() => props.userId, load, { immediate: true })
           >
             <span class="tw:font-medium tw:text-on-main">
               {{ humanize(a.action) }}
-              <span class="tw:text-secondary">· {{ SCOPE_LABEL[a.scope] || a.scope }}</span>
+              <span class="tw:text-secondary">· {{ SCOPE_LABELS[a.scope] || a.scope }}</span>
             </span>
             <span
               class="tw:text-secondary tw:truncate"

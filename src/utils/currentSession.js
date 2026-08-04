@@ -272,6 +272,25 @@ export function isAllowed(neededPermissions) {
 }
 
 /**
+ * True when the session holds ANY write capability (non-read action) on the
+ * module. The session's permission strings materialize every granted verb
+ * ('module:action') plus the implied 'module:read' (backend
+ * authz.effective_permission_strings), so scanning for any non-read string is
+ * exact. Owner bypass mirrors isAllowed.
+ *
+ * Drives write-gated nav items (MainSidebar `writeGate`): a read-only grant
+ * exists so pickers and reference reads work — it is not an invitation to
+ * browse the module's authoring page. Declutter, not security — the routes
+ * stay reachable by direct link (qms docs/backend/permissions-model.md §3).
+ */
+export function hasWriteOn(moduleId) {
+  if (!currentSession.value) return false
+  if (currentSession.value.isOwner) return true
+  const prefix = `${moduleId}:`
+  return permissions.value.some((p) => p.startsWith(prefix) && p !== `${prefix}read`)
+}
+
+/**
  * Gate a WORKFLOW VERB (close / approve / reject / reopen / assign / export).
  *
  * These aren't SQL DML, so RLS can't enforce them — the app must. Their routes

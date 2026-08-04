@@ -9,7 +9,7 @@ export const SCOPE_LABELS = {
   own: 'Own',
   department: 'Department',
   site: 'Site',
-  tenant: 'All',
+  tenant: 'Company-wide',
 }
 
 export const SCOPE_HINTS = {
@@ -21,39 +21,57 @@ export const SCOPE_HINTS = {
 
 export const NO_ACCESS_LABEL = 'No access'
 
+// Level vocabulary for the simple-mode matrix rows (permissionMatrixModel's
+// LEVEL_IDS + the derived 'custom'). Manage-only modules reuse 'Full control'
+// — one vocabulary; the hint carries the nuance.
+export const LEVEL_LABELS = {
+  none: NO_ACCESS_LABEL,
+  viewer: 'Viewer',
+  editor: 'Editor',
+  approver: 'Approver',
+  full: 'Full control',
+  custom: 'Custom',
+}
+
+export const LEVEL_HINTS = {
+  viewer: 'Read only',
+  editor: 'Create, edit & export',
+  approver: 'Edit plus approve / reject',
+  full: 'Every capability the module offers',
+  custom: 'Hand-tuned via Customize',
+}
+
+// A preset is a whole-role starting point: one level at one scope, swept
+// across every module (each module clamps/degrades per what it supports —
+// stateForLevel handles manage-only and scope-limited modules).
 export const PERMISSION_PRESETS = [
-  { id: 'viewer', name: 'Viewer', description: 'Read-only', scope: 'department', caps: [] },
+  { id: 'viewer', name: 'Viewer', description: 'Read-only', level: 'viewer', scope: 'department' },
   {
     id: 'contributor',
     name: 'Contributor',
     description: 'Create & edit',
+    level: 'editor',
     scope: 'department',
-    caps: ['create', 'update', 'export'],
   },
   {
     id: 'approver',
     name: 'Approver',
-    description: 'Review & sign off',
+    description: 'Edit, review & sign off',
+    level: 'approver',
     scope: 'site',
-    caps: ['approve', 'reject', 'export'],
   },
   {
     id: 'supervisor',
     name: 'Supervisor',
-    description: 'Full workflow',
+    description: 'Full control at their site',
+    level: 'full',
     scope: 'site',
-    caps: ['create', 'update', 'approve', 'reject', 'close', 'reopen', 'assign', 'export'],
   },
   {
     id: 'administrator',
     name: 'Administrator',
     description: 'Full control, company-wide',
+    level: 'full',
     scope: 'tenant',
-    caps: ['create', 'update', 'delete', 'approve', 'reject', 'close', 'reopen', 'assign', 'export'],
-    // Full control means EVERY capability a module offers — including solo
-    // verbs (manage, upload, …) the shared caps list can't name. Without this,
-    // manage-only modules get an access level with no storable grant and the
-    // save is blocked.
-    allCaps: true,
   },
 ]

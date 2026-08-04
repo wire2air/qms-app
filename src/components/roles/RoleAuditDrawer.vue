@@ -5,6 +5,7 @@
 import { IconShieldCheck, IconUserPlus, IconUserMinus, IconHistory } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { get } from '@/api'
+import { SCOPE_LABELS } from '@/utils/permissionPresets.js'
 
 const props = defineProps({
   roleId: { type: String, default: null },
@@ -14,9 +15,8 @@ const open = defineModel({ type: Boolean, default: false })
 const events = ref([])
 const loading = ref(false)
 
-const SCOPE = { own: 'Own', department: 'Department', site: 'Site', tenant: 'All' }
 function scope(s) {
-  return SCOPE[s] || s || '—'
+  return SCOPE_LABELS[s] || s || '—'
 }
 function humanize(id) {
   return String(id || '').replace(/_/g, ' ')
