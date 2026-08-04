@@ -1,5 +1,12 @@
 // PW-J10 — 🔴 A site-scoped `sites:read` grant returns nothing. WRITTEN TO FAIL.
 //
+// ✅ RESOLVED 2026-08-04 by migration 20260804120000-bind-site-scope-org-modules,
+// which gives `sites`, `departments`, `user_management` and `audit_management` a
+// real `site_col`. The 🔴 assertions below now pass and are kept as the standing
+// regression guard — the finding is only closed for as long as they stay green.
+// The mechanism description that follows documents the ORIGINAL defect; read it
+// as history, not as current behaviour.
+//
 // This is the only journey in the pack whose entire value is that a UI shows
 // nothing. There is no error, no warning, and no log line: an administrator
 // grants sites:read at site scope, the grant saves, the grantee opens /sites,
@@ -108,14 +115,20 @@ test.describe('PW-J10 · a saved site-scoped grant matches zero rows', () => {
     expect(Number(tenantScoped)).toBeGreaterThanOrEqual(2)
   })
 
-  test('CONTROL · departments carries the identical all-NULL binding', () => {
+  test('CONTROL · departments moved in the same change as sites', () => {
     // Recorded as a control rather than a separate finding: whatever fixes
     // `sites` must fix `departments` in the same change, and a fix that
     // addresses only one of them will leave this assertion red.
+    //
+    // 2026-08-04 — both were bound by migration 20260804120000, so this now
+    // pins the fixed state. Kept (rather than deleted) because the coupling is
+    // the point: `departments` is the table a site-scoped org admin needs
+    // alongside `sites`, and a future rebinding that drops one of them should
+    // fail here rather than silently half-revert the fix.
     const cols = sqlValue(
       `SELECT coalesce(owner_col,'∅') || '/' || coalesce(dept_col,'∅') || '/' || coalesce(site_col,'∅')
          FROM authz.module_table_bindings WHERE table_name = 'departments'`,
     )
-    expect(cols, 'departments has the same dead-scope-tier binding as sites').toBe('∅/∅/∅')
+    expect(cols, 'departments must reach its site tier, exactly as sites does').toBe('∅/∅/site_id')
   })
 })

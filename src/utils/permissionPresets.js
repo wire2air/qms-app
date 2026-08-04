@@ -15,7 +15,7 @@ export const SCOPE_LABELS = {
 export const SCOPE_HINTS = {
   own: 'Only records the user owns',
   department: "Records in the user's department",
-  site: "Records at the user's site",
+  site: 'Records at every site assigned to the user',
   tenant: 'All records, company-wide',
 }
 

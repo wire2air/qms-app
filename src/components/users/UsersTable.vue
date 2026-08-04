@@ -1,5 +1,5 @@
 <script setup>
-import { IconUsersPlus } from '@tabler/icons-vue'
+import { IconUsersPlus, IconMapPinPlus } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { isAllowed } from '@/utils/currentSession.js'
 
@@ -23,25 +23,43 @@ const router = useRouter()
 // role with update-but-not-create see the button and then hit "Something went
 // wrong" on save.
 const canAssignRoles = computed(() => isAllowed(['user_management:create']))
+// Site assignment goes through PUT-shaped RLS on user_sites, which requires
+// `user_management:update` (not :create like roles_on_users). Gate on the verb
+// the write actually checks, so the action never appears for someone who would
+// then be denied.
+const canAssignSites = computed(() => isAllowed(['user_management:update']))
 const selected = ref([])
 const assignDialog = ref(false)
 const assignTargetIds = ref([])
+const sitesDialog = ref(false)
+const sitesTargetIds = ref([])
 
-const bulkActions = computed(() =>
-  canAssignRoles.value
-    ? [
-        {
-          key: 'assign-role',
-          label: 'Assign role',
-          icon: IconUsersPlus,
-          run: (ids) => {
-            assignTargetIds.value = [...ids]
-            assignDialog.value = true
-          },
-        },
-      ]
-    : [],
-)
+const bulkActions = computed(() => {
+  const actions = []
+  if (canAssignRoles.value) {
+    actions.push({
+      key: 'assign-role',
+      label: 'Assign role',
+      icon: IconUsersPlus,
+      run: (ids) => {
+        assignTargetIds.value = [...ids]
+        assignDialog.value = true
+      },
+    })
+  }
+  if (canAssignSites.value) {
+    actions.push({
+      key: 'assign-sites',
+      label: 'Assign sites',
+      icon: IconMapPinPlus,
+      run: (ids) => {
+        sitesTargetIds.value = [...ids]
+        sitesDialog.value = true
+      },
+    })
+  }
+  return actions
+})
 
 function onAssigned() {
   selected.value = []
@@ -80,7 +98,7 @@ function openUser(row) {
     :mobileCards="false"
     :searchable="false"
     :filterable="false"
-    :selectable="canAssignRoles"
+    :selectable="canAssignRoles || canAssignSites"
     :bulkActions="bulkActions"
     exportManager
     exportFilename="users.csv"
@@ -109,6 +127,12 @@ function openUser(row) {
   <UsersBulkAssignRoleDialog
     v-model="assignDialog"
     :userIds="assignTargetIds"
+    @assigned="onAssigned"
+  />
+
+  <UsersBulkAssignSitesDialog
+    v-model="sitesDialog"
+    :userIds="sitesTargetIds"
     @assigned="onAssigned"
   />
 </template>

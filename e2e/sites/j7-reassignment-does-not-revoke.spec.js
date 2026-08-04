@@ -162,8 +162,13 @@ test.describe('PW-J7 · site reassignment does not revoke a live session', () =>
     const page = await admin.newPage()
     await page.goto(`/users/${USERS.siteRoamer.id}`, { waitUntil: 'domcontentloaded' })
 
+    // "Primary Site" since multi-site landed (2026-08-04) — users now carry a
+    // primary site plus an "Additional Sites" multi-select, so the bare label
+    // "Site" no longer exists on this page. Anchored exactly so it cannot drift
+    // onto the Additional Sites control, which is a DIFFERENT authority grant
+    // and must not be what this reassignment test drives.
     const combo = page
-      .getByText('Site', { exact: true })
+      .getByText('Primary Site', { exact: true })
       .first()
       .locator('xpath=following::*[@role="combobox"][1]')
     await expect(combo).toBeVisible({ timeout: 20_000 })

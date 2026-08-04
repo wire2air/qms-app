@@ -73,6 +73,37 @@ export async function waitForSqlValue(query, { timeoutMs = 60_000, intervalMs = 
 const quote = (s) => `'${String(s).replace(/'/g, "''")}'`
 
 /**
+ * The two site GUCs the real request path sets (`api/config/authzPgSettings.js`).
+ *
+ * These are easy to leave out of a raw-SQL probe and expensive to leave out. With
+ * neither set, `authz.current_site_ids()` resolves to an empty array, so EVERY
+ * site-scoped policy correctly matches nothing — and the probe reads as "site
+ * scope returns no rows" when the truth is "this session never said what site the
+ * user is at." That is a fail-closed default we want in production and a false
+ * positive we do not want in a test.
+ *
+ * Derived from the database via `authz.effective_site_ids` — the same function the
+ * API calls — so the helper cannot drift away from the product it is probing.
+ *
+ * Emitted as a DO block because `PERFORM` prints nothing; a bare `SELECT
+ * set_config(...)` would add result rows to output the callers parse.
+ *
+ * @param {boolean} isLocal - true inside an explicit BEGIN/COMMIT, false for a
+ *   session-level script (`SET ROLE` without a transaction).
+ */
+export function siteGucSql(userId, companyId, isLocal) {
+  const local = isLocal ? 'true' : 'false'
+  return `DO $do$ BEGIN
+    PERFORM set_config('app.current_user_site_id',
+      coalesce((SELECT site_id::text FROM users WHERE id = ${quote(userId)}), ''), ${local});
+    PERFORM set_config('app.current_user_site_ids',
+      coalesce((SELECT '{' || string_agg(s::text, ',') || '}'
+                  FROM unnest(authz.effective_site_ids(${quote(userId)}::uuid, ${quote(companyId)}::uuid)) s),
+               ''), ${local});
+  END $do$;`
+}
+
+/**
  * Run SQL as the untrusted `app_user` DB role — the role PostGraphile uses for
  * every GraphQL request. This is the only way to exercise RLS policies and the
  * status-transition triggers from a test: Sequelize/REST connects as the
@@ -87,6 +118,9 @@ const quote = (s) => `'${String(s).replace(/'/g, "''")}'`
  */
 export function sqlAsAppUser(query, { userId, companyId }) {
   const script = [
+    // Derive the site GUCs BEFORE dropping to app_user — the lookup reads `users`,
+    // which is itself RLS-protected, and would come back empty afterwards.
+    siteGucSql(userId, companyId, false),
     'SET ROLE app_user;',
     `SELECT set_config('app.current_user_id', ${quote(userId)}, false);`,
     `SELECT set_config('app.current_company_id', ${quote(companyId)}, false);`,

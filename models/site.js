@@ -23,6 +23,10 @@ export class Site extends BaseModel {
   @Property({ type: String, required: true }) code = ''
   @Property({ type: String }) address = ''
   @Property({ type: String }) timezone = 'UTC'
+  // Gates NEW user assignments only — an inactive site keeps the assignments it
+  // already has, so winding a site down doesn't silently revoke access to the
+  // records still open there.
+  @Property({ type: Boolean }) isActive = true
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)
