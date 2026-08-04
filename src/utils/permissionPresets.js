@@ -50,5 +50,10 @@ export const PERMISSION_PRESETS = [
     description: 'Full control, company-wide',
     scope: 'tenant',
     caps: ['create', 'update', 'delete', 'approve', 'reject', 'close', 'reopen', 'assign', 'export'],
+    // Full control means EVERY capability a module offers — including solo
+    // verbs (manage, upload, …) the shared caps list can't name. Without this,
+    // manage-only modules get an access level with no storable grant and the
+    // save is blocked.
+    allCaps: true,
   },
 ]

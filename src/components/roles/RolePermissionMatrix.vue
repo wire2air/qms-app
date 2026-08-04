@@ -71,6 +71,19 @@ function needsCapability(m) {
   return !moduleCaps(m).some((a) => state[m.id]?.caps[a.id])
 }
 const modulesNeedingCapability = computed(() => catalog.value.modules.filter(needsCapability))
+// A Can-edit level narrower than read with every capability unchecked stores
+// nothing — the selection would silently vanish on save (the revert bug). The
+// equal-to-read case is indistinguishable from pristine read-only state, so
+// only the narrowed case is detectable; setWriteScope auto-enabling caps keeps
+// the equal case from arising through the UI.
+function needsWriteCapability(m) {
+  const s = state[m.id]
+  if (!s?.readScope || !s.writeScope || s.writeScope === s.readScope) return false
+  return !moduleCaps(m).some((a) => s.caps[a.id])
+}
+const modulesNeedingWriteCapability = computed(() =>
+  catalog.value.modules.filter(needsWriteCapability),
+)
 function moduleModified(id) {
   return isModuleModified(state[id], original.value[id])
 }
@@ -125,6 +138,16 @@ function setWriteScope(id, scope) {
   if (!s.readScope) return
   const cap = scopeRank.value[s.readScope] ?? 0
   s.writeScope = (scopeRank.value[scope] ?? 0) > cap ? s.readScope : scope
+  // A write reach only exists through capability grants — a Can-edit level with
+  // no capability selected would save NOTHING (the silent-revert bug). Picking
+  // a level is a write-grant gesture, so light up the module's basic CRUD verbs
+  // when none are on yet; fall back to all its verbs for solo-verb modules
+  // (manage, upload, …). Never touches rows that already carry capabilities.
+  const m = catalog.value.modules.find((x) => x.id === id)
+  if (!m) return
+  if (moduleCaps(m).some((a) => s.caps[a.id])) return
+  const dml = moduleCaps(m).filter((a) => ['create', 'update', 'delete'].includes(a.id))
+  for (const a of dml.length ? dml : moduleCaps(m)) s.caps[a.id] = true
 }
 function toggleCap(id, action, val) {
   ensure(id).caps[action] = val
@@ -138,7 +161,14 @@ function applyPreset(presetId) {
     setWriteScope(m.id, clampScope(p.writeScope || p.scope, m.scopes))
     const caps = {}
     for (const c of p.caps) if (m.actions.includes(c)) caps[c] = true
+    if (p.allCaps) for (const a of moduleCaps(m)) caps[a.id] = true
     state[m.id].caps = caps
+    // Modules without a read action can only be granted through their verbs. A
+    // preset that enables none of them (Viewer on a manage-only module) must
+    // fall to No access — leaving the access level set would wedge the save.
+    if (!supportsRead(m, readActionId.value) && !Object.values(caps).some(Boolean)) {
+      setReadScope(m.id, null)
+    }
   }
 }
 function onPreset(presetId) {
@@ -216,7 +246,9 @@ async function load() {
   }
 }
 
-async function save() {
+// Pre-save validation, exposed separately so the parent page can run it BEFORE
+// persisting the role's name/description — a blocked matrix must not half-save.
+function validate() {
   const unstorable = modulesNeedingCapability.value
   if (unstorable.length) {
     throw new Error(
@@ -224,6 +256,17 @@ async function save() {
         `${unstorable.length > 1 ? 'these modules' : 'this module'} — select at least one capability, or set Access to “${NO_ACCESS_LABEL}”.`,
     )
   }
+  const capless = modulesNeedingWriteCapability.value
+  if (capless.length) {
+    throw new Error(
+      `${capless.map((m) => m.name).join(', ')}: the Can-edit level has no capabilities selected, ` +
+        `so it wouldn't be stored — select at least one capability (Create, Update, …).`,
+    )
+  }
+}
+
+async function save() {
+  validate()
   saving.value = true
   try {
     const permissions = buildDesiredPermissions(
@@ -250,7 +293,7 @@ watch(
 )
 
 // hasUnsavedChanges() lets the parent page warn before navigating away.
-defineExpose({ save, hasUnsavedChanges: () => modifiedCount.value > 0 })
+defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 })
 </script>
 
 <template>
@@ -416,6 +459,9 @@ defineExpose({ save, hasUnsavedChanges: () => modifiedCount.value > 0 })
               <td class="tw:p-2">
                 <p v-if="needsCapability(m)" class="tw:mb-1 tw:text-xs tw:text-warning-700">
                   No read-only access — select a capability.
+                </p>
+                <p v-else-if="needsWriteCapability(m)" class="tw:mb-1 tw:text-xs tw:text-warning-700">
+                  Can-edit level needs at least one capability to take effect.
                 </p>
                 <div v-if="moduleCaps(m).length" class="tw:flex tw:flex-wrap tw:gap-1.5">
                   <button

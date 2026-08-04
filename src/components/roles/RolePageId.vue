@@ -190,6 +190,10 @@ async function saveChanges() {
 
   loading.value = true
   try {
+    // Validate the matrix FIRST — a blocked matrix must not half-save the
+    // name/description and then error.
+    matrixRef.value?.validate?.()
+
     inst.name = role.value.name
     inst.description = role.value.description ?? ''
     await inst.save()
