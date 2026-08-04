@@ -187,6 +187,17 @@ function levelOptionsFor(m) {
     value: id,
     description: LEVEL_HINTS[id],
   }))
+  // Public-read (reference-data) modules: viewing needs no grant — everyone in
+  // the company can read them by design (templates, form blocks, lookups the
+  // forms depend on). "No access" would be misleading, so the bottom level
+  // reads "View only" and the row carries a hint that grants control authoring.
+  if (m.publicRead) {
+    const none = options.find((o) => o.value === 'none')
+    if (none) {
+      none.label = 'View only'
+      none.description = 'Everyone can view — no authoring'
+    }
+  }
   // The select must be able to DISPLAY a custom row; picking a concrete level
   // normalizes it, so 'custom' is never offered as a choice.
   if (levelFor(m) === 'custom') {
@@ -485,6 +496,12 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
                     class="tw:inline-block tw:w-1.5 tw:h-1.5 tw:rounded-full tw:bg-warning-500 tw:ml-1.5 tw:align-middle"
                     title="Needs attention — open Customize"
                   />
+                  <span
+                    v-if="m.publicRead"
+                    class="tw:block tw:text-[11px] tw:font-normal tw:text-secondary"
+                  >
+                    Viewable by everyone — levels control authoring
+                  </span>
                 </td>
                 <td class="tw:p-2 tw:w-44">
                   <BaseSelect

@@ -373,7 +373,10 @@ const roleDetailConfig = computed(() =>
     <template v-if="role" #section-permissions>
       <!-- Permissions Section Header -->
       <div class="tw:flex tw:items-center tw:justify-between tw:mb-4">
-        <h3 class="tw:text-section-title tw:font-semibold tw:text-on-sidebar">Permissions</h3>
+        <h3 class="tw:text-section-title tw:font-semibold tw:text-on-sidebar tw:inline-flex tw:items-center tw:gap-2">
+          Permissions
+          <HelpButton slug="KB/administration/roles-and-permissions" :size="16" />
+        </h3>
         <div class="tw:flex tw:items-center tw:gap-4">
           <div class="tw:relative">
             <IconSearch
