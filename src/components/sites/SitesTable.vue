@@ -90,7 +90,22 @@ function rowMenuItems(row) {
     exportFilename="sites.csv"
   >
     <template #body-cell-name="{ row }">
-      <div class="tw:font-bold tw:text-on-main">{{ row.name }}</div>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <span class="tw:font-bold tw:text-on-main">{{ row.name }}</span>
+        <!--
+          A deactivated site is otherwise invisible here, while quietly
+          disappearing from every user-assignment picker. Surfacing it on the row
+          is what makes that behaviour diagnosable instead of mysterious.
+          `!== false` so rows predating the column don't all read as inactive.
+        -->
+        <BaseBadge
+          v-if="row.isActive === false"
+          class="tw:bg-amber-100 tw:text-amber-700"
+          title="Existing assignments are kept; this site is not offered for new ones."
+        >
+          Not accepting assignments
+        </BaseBadge>
+      </div>
     </template>
 
     <template #body-cell-code="{ row }">
