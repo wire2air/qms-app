@@ -30,7 +30,6 @@ const toast = useToast()
 const formRef = ref(null)
 const isSubmitting = ref(false)
 const originalOwnerUserId = ref(null)
-const { confirm } = useConfirm()
 const saveError = ref('')
 
 const isEditing = computed(() => Boolean(props.equipment?.id))
@@ -270,34 +269,21 @@ async function onSubmit() {
         id: props.equipment.id,
         fields: buildModelFields(),
       })
-      // Custodian changed → offer to realign linked log book supervisors
-      // (user-reviewed, never silent). Only books still pointing at the OLD
-      // custodian (or unset) are offered; intentional overrides stay put.
+      // Equipment is the SOURCE OF TRUTH for linked log book supervisors
+      // (user decision 2026-08-06): a custodian change mirrors to every
+      // linked book automatically — surfaced, not silent.
       const newOwner = ownerUserId.value || null
       const oldOwner = originalOwnerUserId.value || null
-      if (newOwner && newOwner !== oldOwner) {
-        const affected = linkedLogBooks.value.filter(
-          (lb) => !lb.supervisorUserId || lb.supervisorUserId === oldOwner,
-        )
-        if (affected.length) {
-          const ok = await confirm({
-            title: 'Update log book supervisors?',
-            message: `The custodian changed. ${affected.length} linked log book(s) still point at the previous custodian as supervisor (${affected
-              .map((lb) => `"${lb.title}"`)
-              .join(', ')}). Update them to the new custodian?`,
-            okLabel: 'Update supervisors',
+      if (newOwner && newOwner !== oldOwner && linkedLogBooks.value.length) {
+        try {
+          await post(`/v1/services/equipment/${props.equipment.id}/sync-logbook-supervisors`, {
+            toUserId: newOwner,
           })
-          if (ok) {
-            try {
-              await post(`/v1/services/equipment/${props.equipment.id}/sync-logbook-supervisors`, {
-                fromUserId: oldOwner,
-                toUserId: newOwner,
-              })
-              toast.success('Log book supervisors updated')
-            } catch (err2) {
-              toast.error(err2?.message || 'Failed to update log book supervisors')
-            }
-          }
+          toast.info(
+            `Supervisor updated on ${linkedLogBooks.value.length} linked log book(s) — it follows the custodian.`,
+          )
+        } catch (err2) {
+          toast.error(err2?.message || 'Failed to update log book supervisors')
         }
       }
       emit('updated', updated)

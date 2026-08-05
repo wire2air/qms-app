@@ -71,7 +71,12 @@ const selectedEquipment = useLiveQueryWithDeps(
 )
 watch(selectedEquipment, (eq) => {
   if (eq?.locationText && !location.value?.trim()) location.value = eq.locationText
+  // Equipment is the source of truth for the supervisor: mirror the
+  // custodian whenever the linked instrument has one (server enforces too).
+  if (eq?.ownerUserId) supervisorUserId.value = eq.ownerUserId
 })
+
+const supervisorLocked = computed(() => !!selectedEquipment.value?.ownerUserId)
 
 // Compliance references
 const relatedStandardId = ref(null)
@@ -415,7 +420,10 @@ async function save() {
           :value="supervisorUserId"
           :rules="[required()]"
         >
-          <UserSelectMenu v-model="supervisorUserId" />
+          <UserSelectMenu v-model="supervisorUserId" :disabled="supervisorLocked" />
+          <div v-if="supervisorLocked" class="tw:text-caption tw:text-secondary tw:mt-1">
+            Follows the equipment custodian (source of truth).
+          </div>
         </BaseField>
       </div>
 

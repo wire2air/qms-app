@@ -898,7 +898,17 @@ const logBookDetailConfig = computed(() =>
                     label="Supervisor (reviewer)"
                     hint="Reviews and approves submitted entries when 'Require reviewer approval' is on. Entries land in this person's review queue."
                   >
-                    <UserSelectMenu v-model="draft.supervisorUserId" :disabled="!canEditDetails" />
+                    <UserSelectMenu
+                      v-model="draft.supervisorUserId"
+                      :disabled="!canEditDetails || !!(draft.equipmentId && selectedEquipment?.ownerUserId)"
+                    />
+                    <div
+                      v-if="draft.equipmentId && selectedEquipment?.ownerUserId"
+                      class="tw:text-caption tw:text-secondary tw:mt-1"
+                    >
+                      Follows the equipment custodian (source of truth) — change it on the
+                      equipment.
+                    </div>
                   </BaseField>
                   <BaseField v-slot="{ id: fieldId }" label="Status">
                     <select
