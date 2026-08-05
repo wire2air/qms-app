@@ -3,10 +3,11 @@
 // Shows the user's resolved access WITH PROVENANCE (which role grants each
 // module/action and at what scope). Owners bypass roles entirely. Derived,
 // cross-cutting data (not a synced model) → action-RPC read, per CLAUDE.md #4.
-import { IconCrown, IconShieldCheck } from '@tabler/icons-vue'
+import { IconCrown } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { get } from '@/api'
 import { SCOPE_LABELS } from '@/utils/permissionPresets.js'
+import { moduleIcon } from '@/utils/moduleIcons.js'
 
 const props = defineProps({
   userId: { type: String, required: true },
@@ -82,7 +83,7 @@ watch(() => props.userId, load, { immediate: true })
         class="tw:rounded-lg tw:border tw:border-divider tw:p-3"
       >
         <div class="tw:flex tw:items-center tw:gap-2 tw:mb-2">
-          <IconShieldCheck :size="15" class="tw:text-primary" />
+          <component :is="moduleIcon(m.module)" :size="15" class="tw:text-primary tw:shrink-0" />
           <span class="tw:font-semibold tw:text-sm tw:text-on-main">{{ m.label }}</span>
         </div>
         <div class="tw:flex tw:flex-col tw:gap-1">
