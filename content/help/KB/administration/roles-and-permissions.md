@@ -65,6 +65,7 @@ Records depend on reference data: forms need lookup lists, submit flows need wor
 - **Templates and lookups** — workflow templates, form blocks and templates, document templates, RCA and risk assessment templates, equipment, and lookup lists (issue types, dispositions, categories, …) are **available to every user automatically**. In the matrix these rows say **"Reference data only"** at the bottom of the Level list — permission levels there control **authoring** (who can create, change, or retire them).
 - **Sites** — every user automatically sees **their assigned sites** in pickers. A Sites read grant is only for roles that must pick across **all** sites.
 - **Departments follow site visibility** — users see org-wide departments plus the departments of their assigned sites; no grant needed.
+- **People-pickers follow site visibility too** — every user sees themselves, colleagues at their assigned sites, and org-wide users with no site, so training-manager/reviewer/assignee pickers always work. A Users read grant widens to the whole company directory.
 - **Suppliers and Item Master** — reads are **implied by the record modules that reference them**: any grant on NC, CAPA, Complaints, QC Inspection, Audits, or Documents lets that role pick suppliers/items in those flows. Their "Viewer" level still means something real: browsing the supplier/item workspaces themselves.
 
 The left navigation follows the same logic:
