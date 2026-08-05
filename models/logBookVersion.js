@@ -49,6 +49,8 @@ export class LogBookVersion extends BaseModel {
   @Property({ type: Boolean }) reviewRequired = false
   @Property({ type: String }) notifyOnSubmit = 'DIGEST'
   @Property({ type: String }) changeSummary = ''
+  // The rejecting reviewer's reason (copied from their task); cleared on resubmit.
+  @Property({ type: String }) rejectionComment = ''
 
   // Approval engine linkage + effective lifecycle.
   @Property({ type: String }) workflowInstanceId = ''

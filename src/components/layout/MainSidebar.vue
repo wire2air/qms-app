@@ -35,6 +35,7 @@ import {
   IconReplace,
   IconChecklist,
   IconClipboardList,
+  IconClipboardText,
   IconClipboardCheck,
   IconArchive,
   IconRuler,
@@ -345,14 +346,31 @@ const navItems = computed(() => {
       to: getCompanyPath('/audits'),
     },
     {
+      // Submenu like QC Inspection (user request 2026-08-05): ?tab= children,
+      // each gated on its tab's module; the group header auto-hides when every
+      // child is filtered away, which subsumes the old anyPermissions gate.
       label: 'Inspections & Logs',
       icon: IconClipboardList,
-      // Multi-module workspace: show for anyone holding ANY of its tabs'
-      // modules (a Log Book editor without field-records access still needs
-      // the entry — user-reported). The page filters its tabs per module and
-      // falls back to the first visible one.
-      anyPermissions: ['log_books:read', 'inspections:read', 'field_records:read'],
-      to: getCompanyPath('/inspections-logs'),
+      children: [
+        {
+          label: 'Logs',
+          permissions: ['field_records:read'],
+          icon: IconClipboardText,
+          to: getCompanyPath('/inspections-logs?tab=logs'),
+        },
+        {
+          label: 'Log Books',
+          permissions: ['log_books:read'],
+          icon: IconBook,
+          to: getCompanyPath('/inspections-logs?tab=log-books'),
+        },
+        {
+          label: 'Assignments',
+          permissions: ['inspections:read'],
+          icon: IconChecklist,
+          to: getCompanyPath('/inspections-logs?tab=assignments'),
+        },
+      ],
     },
     {
       // Submenu mirrors the /qc-inspection sections (formerly on-page tabs —

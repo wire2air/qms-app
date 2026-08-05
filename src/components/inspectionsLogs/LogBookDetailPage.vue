@@ -734,6 +734,13 @@ const logBookDetailConfig = computed(() =>
                     <template v-if="openDraft.statusId === 'REJECTED'">
                       {{ versionLabel(openDraft) }} was rejected — edit it and resubmit, or discard
                       it.
+                      <div
+                        v-if="openDraft.rejectionComment"
+                        class="tw:mt-1 tw:rounded tw:bg-red-50 tw:px-2.5 tw:py-1.5 tw:text-xs tw:text-red-800"
+                      >
+                        <span class="tw:font-semibold">Reviewer's reason:</span>
+                        {{ openDraft.rejectionComment }}
+                      </div>
                     </template>
                     <template v-else>
                       Editing draft {{ versionLabel(openDraft) }}. Submit it for approval when
@@ -1382,6 +1389,13 @@ const logBookDetailConfig = computed(() =>
                         class="tw:text-xs tw:text-secondary tw:truncate tw:mt-0.5"
                       >
                         {{ v.changeSummary }}
+                      </div>
+                      <div
+                        v-if="v.rejectionComment"
+                        class="tw:text-xs tw:text-red-700 tw:mt-0.5"
+                        :title="v.rejectionComment"
+                      >
+                        Rejected: {{ v.rejectionComment }}
                       </div>
                     </div>
                     <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
