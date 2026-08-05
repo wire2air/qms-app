@@ -66,10 +66,22 @@ const linkedLogBooks = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.LogBook.where('equipmentId', id).exec() : []),
   { models: ['LogBook'], initial: [] },
 )
+const hasCalibrationBook = computed(() =>
+  linkedLogBooks.value.some(
+    (lb) => lb.triggerSource === 'CALIBRATION' || lb.syncsEquipmentCalibration,
+  ),
+)
+const hasPmBook = computed(() =>
+  linkedLogBooks.value.some((lb) => lb.triggerSource === 'PM' || lb.syncsEquipmentPm),
+)
+
 function requestLogBook(triggerSource) {
   emit('createLogBook', {
     equipmentId: props.equipment.id,
     siteId: props.equipment.siteId ?? null,
+    // The custodian supervises the book by default (user decision 2026-08-06);
+    // changing the custodian later re-syncs books still pointing at the old one.
+    supervisorUserId: props.equipment.ownerUserId ?? null,
     triggerSource,
     title:
       triggerSource === 'PM'
@@ -509,45 +521,55 @@ function close() {
           class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/40 tw:p-3 tw:flex tw:flex-col tw:gap-2"
         >
           <span class="tw:text-sm tw:font-medium tw:text-on-main">Log books</span>
-          <template v-if="linkedLogBooks.length">
-            <RouterLink
-              v-for="lb in linkedLogBooks"
-              :key="lb.id"
-              :to="getCompanyPath(`/inspections-logs/log-books/${lb.id}`)"
-              class="tw:text-sm tw:text-primary tw:hover:underline"
-            >
-              {{ lb.title }}
-              <span v-if="lb.scheduleMode === 'TRIGGER'" class="tw:text-caption tw:text-secondary">
-                — triggered by {{ lb.triggerSource === 'PM' ? 'PM' : 'calibration' }} due
-              </span>
-            </RouterLink>
-          </template>
-          <template v-else>
-            <span class="tw:text-caption tw:text-secondary">
-              No log book linked to this equipment yet.
+          <RouterLink
+            v-for="lb in linkedLogBooks"
+            :key="lb.id"
+            :to="getCompanyPath(`/inspections-logs/log-books/${lb.id}`)"
+            class="tw:text-sm tw:text-primary tw:hover:underline"
+          >
+            {{ lb.title }}
+            <span v-if="lb.scheduleMode === 'TRIGGER'" class="tw:text-caption tw:text-secondary">
+              — triggered by {{ lb.triggerSource === 'PM' ? 'PM' : 'calibration' }} due
             </span>
-            <div class="tw:flex tw:flex-wrap tw:gap-2">
-              <BaseButton
-                v-if="requiresCalibration"
-                size="sm"
-                variant="outline"
-                @click="requestLogBook('CALIBRATION')"
-              >
-                + Calibration log
-              </BaseButton>
-              <BaseButton
-                v-if="requiresPm"
-                size="sm"
-                variant="outline"
-                @click="requestLogBook('PM')"
-              >
-                + PM log
-              </BaseButton>
-              <BaseButton size="sm" variant="outline" @click="requestLogBook(null)">
-                + Log book
-              </BaseButton>
-            </div>
-          </template>
+          </RouterLink>
+          <span v-if="!linkedLogBooks.length" class="tw:text-caption tw:text-secondary">
+            No log book linked to this equipment yet.
+          </span>
+          <!-- Per-TYPE creation (user decision 2026-08-06: calibration and PM
+               each get their own book — different forms, different due dates). -->
+          <div
+            v-if="
+              (requiresCalibration && !hasCalibrationBook) ||
+              (requiresPm && !hasPmBook) ||
+              !linkedLogBooks.length
+            "
+            class="tw:flex tw:flex-wrap tw:gap-2"
+          >
+            <BaseButton
+              v-if="requiresCalibration && !hasCalibrationBook"
+              size="sm"
+              variant="outline"
+              @click="requestLogBook('CALIBRATION')"
+            >
+              + Calibration log
+            </BaseButton>
+            <BaseButton
+              v-if="requiresPm && !hasPmBook"
+              size="sm"
+              variant="outline"
+              @click="requestLogBook('PM')"
+            >
+              + PM log
+            </BaseButton>
+            <BaseButton
+              v-if="!linkedLogBooks.length"
+              size="sm"
+              variant="outline"
+              @click="requestLogBook(null)"
+            >
+              + Log book
+            </BaseButton>
+          </div>
         </div>
 
         <!-- Lifecycle + maintenance dates. All optional. The list page

@@ -146,6 +146,7 @@ watch(open, (isOpen) => {
     title.value = props.preset.title ?? ''
     equipmentId.value = props.preset.equipmentId ?? null
     selectedSiteId.value = props.preset.siteId ?? null
+    supervisorUserId.value = props.preset.supervisorUserId ?? null
     presetTrigger.value = props.preset.triggerSource ?? null
   }
   reviewRequired.value = false
@@ -259,7 +260,14 @@ async function save() {
       signatureRequired: signatureRequired.value,
       reviewRequired: reviewRequired.value,
       notifyOnSubmit: 'DIGEST',
-      ...(presetTrigger.value ? { scheduleMode: 'TRIGGER', triggerSource: presetTrigger.value } : {}),
+      ...(presetTrigger.value
+        ? {
+            scheduleMode: 'TRIGGER',
+            triggerSource: presetTrigger.value,
+            syncsEquipmentCalibration: presetTrigger.value === 'CALIBRATION',
+            syncsEquipmentPm: presetTrigger.value === 'PM',
+          }
+        : {}),
       // Snapshot, not reference: the block's fields are copied by value.
       schema: Array.isArray(startingBlock?.schema)
         ? JSON.parse(JSON.stringify(startingBlock.schema))
