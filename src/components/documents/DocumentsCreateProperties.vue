@@ -12,6 +12,19 @@ const selectedTemplate = defineModel('selectedTemplate', {
   default: null,
 })
 
+// Department options follow the selected site (site's own + org-wide). If the
+// site changes and the chosen department belongs to a DIFFERENT site, clear it
+// so a cross-site pairing can't be saved; org-wide (site-less) picks survive.
+const selectedDepartment = useLiveQueryWithDeps(
+  [() => form.value.departmentId],
+  async (db, [id]) => (id ? db.Department.findByPk(id) : null),
+  { models: ['Department'], initial: null },
+)
+watch([() => form.value.siteId, selectedDepartment], ([siteId, dept]) => {
+  if (!siteId || !dept) return
+  if (dept.siteId && dept.siteId !== siteId) form.value.departmentId = null
+})
+
 // Resolve template object from ID via SyncEngine
 const resolvedTemplate = useLiveQueryWithDeps(
   [() => form.value.documentTemplateId],
@@ -168,7 +181,12 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
     <!-- Department -->
     <BaseField label="Department" required :value="form.departmentId" :rules="[required()]">
       <template #default="field">
-        <DepartmentSelectMenu v-bind="field" v-model="form.departmentId" :required="true" />
+        <DepartmentSelectMenu
+          v-bind="field"
+          v-model="form.departmentId"
+          :siteId="form.siteId"
+          :required="true"
+        />
       </template>
     </BaseField>
 

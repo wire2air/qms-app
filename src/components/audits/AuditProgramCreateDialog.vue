@@ -205,7 +205,7 @@ async function onValidSubmit() {
             <UserSelectMenu v-model="form.managerUserId" />
           </BaseField>
           <BaseField label="Department">
-            <DepartmentSelectMenu v-model="form.departmentId" />
+            <DepartmentSelectMenu v-model="form.departmentId" :siteId="form.siteId" />
           </BaseField>
         </div>
 

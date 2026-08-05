@@ -544,7 +544,12 @@ const changeRequestDetailConfig = computed(() =>
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
         <BaseDetailField label="Department">
-          <DepartmentSelectMenu v-if="isEditable" v-model="cr.departmentId" :required="true" />
+          <DepartmentSelectMenu
+            v-if="isEditable"
+            v-model="cr.departmentId"
+            :siteId="cr.siteId"
+            :required="true"
+          />
           <DepartmentBadgeById v-else-if="cr.departmentId" :departmentId="cr.departmentId" />
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>

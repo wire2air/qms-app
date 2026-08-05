@@ -37,11 +37,12 @@ const modelValue = defineModel({
 const departments = useLiveQueryWithDeps(
   [() => props.siteId],
   async (db, [siteId]) => {
-    console.debug('Fetching departments for siteId:', siteId)
-    if (siteId) return await db.Department.where('siteId', siteId).exec()
-    return await db.Department.where().exec()
+    const all = await db.Department.where().exec()
+    // Site filter keeps org-wide departments (no site) — they belong to every
+    // site, mirroring the RLS baseline (site's departments + site-less ones).
+    if (siteId) return all.filter((d) => d.siteId === siteId || !d.siteId)
+    return all
   },
-
   { models: ['Department'], initial: [] },
 )
 
