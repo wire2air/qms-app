@@ -50,7 +50,15 @@ const columns = [
     filterType: 'select',
     filterOptions: POINT_OPTIONS,
   },
-  { name: 'standard', label: 'Standard / Level', field: 'standardCode', align: 'left' },
+  {
+    name: 'standard',
+    label: 'Standard / Level',
+    field: (row) =>
+      row.planType === 'STANDARD'
+        ? `${standardName(row.standardCode)} · ${levelLabel(row.inspectionLevel)}`
+        : 'Custom table',
+    align: 'left',
+  },
   {
     name: 'status',
     label: 'Status',
