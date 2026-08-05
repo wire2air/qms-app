@@ -76,7 +76,8 @@ const RECORD_LIST_PERMISSIONS = {
   'training-verifications': 'training_verifications:read',
   'training-curriculum': 'training:read',
   'training-reports': 'training_instances:read',
-  'inspections-logs': 'field_records:create',
+  // Multi-module workspace — any of its tabs' modules admits (array = any-of).
+  'inspections-logs': ['log_books:read', 'inspections:read', 'field_records:read'],
   'qc-inspection': 'inspection_qc:read',
   logging: 'field_records:create',
 }
@@ -186,6 +187,11 @@ export function evaluateRoute(to) {
 
   const permission = requiredPermissionFor(to)
   if (!permission) return true
+  // Array = any-of (multi-module workspaces like /inspections-logs).
+  if (Array.isArray(permission)) {
+    if (permission.some((p) => isAllowed([p]))) return true
+    return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
+  }
   if (isAllowed([permission])) return true
 
   return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }

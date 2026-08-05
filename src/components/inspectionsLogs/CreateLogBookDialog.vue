@@ -45,7 +45,9 @@ const title = ref('')
 // don't want the templating.
 const codePrefix = ref('FRM-{DEPTCODE}-{TYPECODE}')
 const description = ref('')
-const selectedSites = ref([])
+// UI decision 2026-08-05: a log book belongs to ONE site (the pivot table
+// stays — only the UI narrowed; existing multi-site rows are untouched).
+const selectedSiteId = ref(null)
 
 // Taxonomy + routing (Round 0 additions)
 const logBookTypeId = ref(null)
@@ -119,7 +121,7 @@ watch(open, (isOpen) => {
   title.value = ''
   codePrefix.value = 'FRM-{DEPTCODE}-{TYPECODE}'
   description.value = ''
-  selectedSites.value = []
+  selectedSiteId.value = null
   startingBlockId.value = null
   logBookTypeId.value = null
   supervisorUserId.value = null
@@ -204,7 +206,7 @@ const isFormValid = computed(
     // separate concern — see architecture_security_tiers memory.)
     !!logBookTypeId.value &&
     !!supervisorUserId.value &&
-    selectedSites.value.length > 0,
+    !!selectedSiteId.value,
 )
 
 // Save — goes through REST so the logBookService can validate cron-y
@@ -253,7 +255,7 @@ async function save() {
     // Site links are SyncEngine-native — no service validation needed,
     // and going through IDB keeps the live-query on the templates page
     // up-to-date immediately.
-    for (const siteId of selectedSites.value) {
+    for (const siteId of [selectedSiteId.value]) {
       await createSiteOnLogBook({ logBookId: logBook.id, siteId })
     }
     emit('created', logBook)
@@ -388,13 +390,13 @@ async function save() {
           label="Sites"
           required
           hint="Pick at least one site where this log book can be filled."
-          :value="selectedSites"
-          :rules="[required('Pick at least one site.')]"
+          :value="selectedSiteId"
+          :rules="[required('Pick a site.')]"
         >
-          <SiteSelectMenu v-model="selectedSites" multiple />
+          <SiteSelectMenu v-model="selectedSiteId" :required="true" />
         </BaseField>
         <BaseField label="Department">
-          <DepartmentSelectMenu v-model="departmentId" />
+          <DepartmentSelectMenu v-model="departmentId" :siteId="selectedSiteId" />
           <div class="tw:text-xs tw:text-secondary tw:mt-1">
             Feeds <span class="">{DEPTCODE}</span> in the Record ID prefix.
           </div>

@@ -1046,13 +1046,14 @@ const logBookDetailConfig = computed(() =>
                 class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
               >
                 <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
-                  >Sites</BaseText
+                  >Site</BaseText
                 >
+                <!-- UI decision 2026-08-05: one site per log book (pivot table
+                     unchanged — a single selection replaces the whole set). -->
                 <SiteSelectMenu
-                  :modelValue="assignedSiteIds"
-                  multiple
+                  :modelValue="assignedSiteIds[0] ?? null"
                   :disabled="!canEditDetails"
-                  @update:modelValue="handleSitesChange"
+                  @update:modelValue="(v) => handleSitesChange(v ? [v] : [])"
                 />
                 <div class="tw:text-xs tw:text-secondary">Leave empty to allow all sites.</div>
               </section>

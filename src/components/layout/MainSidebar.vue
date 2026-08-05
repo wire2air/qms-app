@@ -106,6 +106,11 @@ function isNavItemEntitled(item) {
 function isNavItemVisible(item) {
   const gated = item.permissions && item.permissions.length > 0
   if (gated && !(isAllowed(item.permissions) && isNavItemEntitled(item))) return false
+  // anyPermissions: show when ANY listed permission is held — for entries
+  // fronting a multi-module workspace (tabbed pages) where holding any one
+  // tab's module should surface the entry. `permissions` remains the
+  // every-of/entitlement gate.
+  if (item.anyPermissions && !item.anyPermissions.some((p) => isAllowed([p]))) return false
   if (item.writeGate && !hasWriteOn(item.writeGate)) return false
   return true
 }
@@ -342,11 +347,11 @@ const navItems = computed(() => {
     {
       label: 'Inspections & Logs',
       icon: IconClipboardList,
-      // Single broadly-granted gate. The landing page itself shows /
-      // hides individual cards based on finer-grained permissions
-      // (inspections:assign for plans, fieldRecords:review for the
-      // review queue, etc.).
-      permissions: ['field_records:create'],
+      // Multi-module workspace: show for anyone holding ANY of its tabs'
+      // modules (a Log Book editor without field-records access still needs
+      // the entry — user-reported). The page filters its tabs per module and
+      // falls back to the first visible one.
+      anyPermissions: ['log_books:read', 'inspections:read', 'field_records:read'],
       to: getCompanyPath('/inspections-logs'),
     },
     {
