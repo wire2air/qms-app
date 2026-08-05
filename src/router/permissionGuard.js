@@ -109,6 +109,9 @@ const CREATE_SEGMENTS = new Set(['create', 'new'])
 // (settings, automation-rules, inspections-logs…) already covers creation, so
 // use it as-is.
 function createPermissionFrom(basePerm) {
+  // Array (any-of workspace gate): bump each member — holding create on ANY
+  // of the workspace's modules admits its create pages.
+  if (Array.isArray(basePerm)) return basePerm.map((p) => createPermissionFrom(p))
   return basePerm.endsWith(':read') ? basePerm.replace(/:read$/, ':create') : basePerm
 }
 
