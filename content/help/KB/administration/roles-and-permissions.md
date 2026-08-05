@@ -27,13 +27,14 @@ Every module row in the permission matrix is set with two choices:
 | Level | What it allows |
 | --- | --- |
 | No access | The module doesn't appear for this role. |
+| Reference data only | *(reference modules)* Everyone can already use this data in forms and pickers; this role can't author it. |
 | Viewer | Read only — browse and open records, no changes. |
 | Editor | Create, edit, and export records. |
 | Approver | Everything Editor allows, plus approve and reject. |
 | Full control | Every capability the module offers, including delete. |
 | Custom | A hand-tuned combination set through **Customize** (see below). |
 
-Not every module offers every level — the list adapts to what each module actually supports. Administrative modules (like Custom Fields or Lookups) offer just **No access / Full control**, because they are managed as a whole.
+Not every module offers every level — the list adapts to what each module actually supports. Administrative modules (like Custom Fields or Lookups) offer just **No access / Full control**, because they are managed as a whole. Reference modules (templates, lookups, equipment) start at **Reference data only** instead of "No access" — see [Reference data just works](#reference-data-just-works--no-companion-grants).
 
 ### Scope — how far that reach extends
 
@@ -66,7 +67,15 @@ Records depend on reference data: forms need lookup lists, submit flows need wor
 - **Departments follow site visibility** — users see org-wide departments plus the departments of their assigned sites; no grant needed.
 - **Suppliers and Item Master** — reads are **implied by the record modules that reference them**: any grant on NC, CAPA, Complaints, QC Inspection, Audits, or Documents lets that role pick suppliers/items in those flows. Their "Viewer" level still means something real: browsing the supplier/item workspaces themselves.
 
-The left navigation follows the same logic — reference/admin pages appear in a user's menu only when their role can **author** that data, so implied read access never clutters anyone's navigation.
+The left navigation follows the same logic:
+
+- **Record modules** (NCs, CAPAs, Documents, …) appear in the menu at any level — Viewer and up.
+- **Reference and admin pages** (templates, master data, Sites, Departments, Equipment, Lookups) appear only when the role can **author** that data — implied read access never clutters anyone's navigation.
+- **Personal pages** (My Tasks, My Trainings) are always there.
+
+:::note
+If a module is missing from the matrix and the navigation entirely, it may not be part of your workspace's **plan** — module availability per workspace is managed at the platform level, above roles. Roles decide who can use what your plan includes.
+:::
 
 ## Access can also come from involvement, not just roles
 
