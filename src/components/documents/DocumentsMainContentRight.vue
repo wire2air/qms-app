@@ -107,12 +107,13 @@ const addDocumentSite = useLiveMutation(async (db, { documentId, siteId }) => {
 })
 
 async function handleApplicabilityChange(newSiteIds) {
+  const next = newSiteIds || []
+  // A document must apply SOMEWHERE — refuse to drop the last site unless
+  // company-wide is on.
+  if (!next.length && !document.value?.appliesAllSites) return
   const current = applicabilitySiteIds.value
-  const toAdd = (newSiteIds || []).filter((id) => !current.includes(id))
-  // The owning site can't be removed from applicability — it always applies.
-  const toRemove = current.filter(
-    (id) => !(newSiteIds || []).includes(id) && id !== document.value?.siteId,
-  )
+  const toAdd = next.filter((id) => !current.includes(id))
+  const toRemove = current.filter((id) => !next.includes(id))
   for (const siteId of toAdd) await addDocumentSite({ documentId: props.documentId, siteId })
   for (const siteId of toRemove) {
     const match = documentSites.value.find((ds) => ds.siteId === siteId)
@@ -196,7 +197,7 @@ watch(
           <DepartmentSelectMenu
             v-if="canEdit"
             v-model="document.departmentId"
-            :siteId="document.siteId"
+            :siteIds="document.appliesAllSites ? null : applicabilitySiteIds"
             required
           />
           <DepartmentBadgeById
@@ -206,20 +207,14 @@ watch(
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </BaseDetailField>
 
-        <BaseDetailField label="Site">
-          <SiteSelectMenu v-if="canEdit" v-model="document.siteId" :required="true" />
-          <SiteBadgeById v-else-if="document.siteId" :siteId="document.siteId" />
-          <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </BaseDetailField>
-
-        <BaseDetailField label="Applies At">
+        <BaseDetailField label="Sites">
           <div v-if="canEdit" class="tw:flex tw:flex-col tw:gap-1.5">
             <BaseCheckbox v-model="document.appliesAllSites" label="All sites (company-wide)" />
             <SiteSelectMenu
               v-if="!document.appliesAllSites"
               :modelValue="applicabilitySiteIds"
               :multiple="true"
-              nullLabel="Add sites…"
+              nullLabel="Select sites…"
               @update:modelValue="handleApplicabilityChange"
             />
           </div>

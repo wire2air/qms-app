@@ -15,6 +15,12 @@ const props = defineProps({
     type: [String, null],
     default: null,
   },
+  // Multi-site variant of siteId (document applicability etc.) — departments
+  // of ANY listed site, plus company-wide. Takes precedence over siteId.
+  siteIds: {
+    type: [Array, null],
+    default: null,
+  },
   allowCreate: {
     type: Boolean,
     default: true,
@@ -35,11 +41,12 @@ const modelValue = defineModel({
 })
 
 const departments = useLiveQueryWithDeps(
-  [() => props.siteId],
-  async (db, [siteId]) => {
+  [() => props.siteId, () => (props.siteIds ? [...props.siteIds] : null)],
+  async (db, [siteId, siteIds]) => {
     const all = await db.Department.where().exec()
-    // Site filter keeps org-wide departments (no site) — they belong to every
-    // site, mirroring the RLS baseline (site's departments + site-less ones).
+    // Site filters keep company-wide departments (no site) — they belong to
+    // every site, mirroring the RLS baseline (site's departments + site-less).
+    if (siteIds?.length) return all.filter((d) => !d.siteId || siteIds.includes(d.siteId))
     if (siteId) return all.filter((d) => d.siteId === siteId || !d.siteId)
     return all
   },

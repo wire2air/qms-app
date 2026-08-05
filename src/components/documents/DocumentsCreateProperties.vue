@@ -12,30 +12,21 @@ const selectedTemplate = defineModel('selectedTemplate', {
   default: null,
 })
 
-// Where the document APPLIES (visibility). The Site field above is the OWNING
-// site (always applies); company-wide skips per-site rows entirely.
-const APPLICABILITY_OPTIONS = [
-  { label: 'This site only', value: 'SITE', description: 'Visible per site-scoped document access' },
-  { label: 'Selected sites', value: 'SITES', description: 'Owning site plus the sites you add' },
-  {
-    label: 'All sites (company-wide)',
-    value: 'ALL',
-    description: 'Everyone with document access can see it',
-  },
-]
-
-// Department options follow the selected site (site's own + org-wide). If the
-// site changes and the chosen department belongs to a DIFFERENT site, clear it
-// so a cross-site pairing can't be saved; org-wide (site-less) picks survive.
+// Department options follow the selected sites (their own + company-wide). If
+// the site selection changes and the chosen department belongs to a site no
+// longer selected, clear it; company-wide (site-less) picks always survive.
 const selectedDepartment = useLiveQueryWithDeps(
   [() => form.value.departmentId],
   async (db, [id]) => (id ? db.Department.findByPk(id) : null),
   { models: ['Department'], initial: null },
 )
-watch([() => form.value.siteId, selectedDepartment], ([siteId, dept]) => {
-  if (!siteId || !dept) return
-  if (dept.siteId && dept.siteId !== siteId) form.value.departmentId = null
-})
+watch(
+  [() => [...(form.value.siteIds || [])], () => form.value.appliesAllSites, selectedDepartment],
+  ([siteIds, allSites, dept]) => {
+    if (!dept || !dept.siteId || allSites) return
+    if (siteIds.length && !siteIds.includes(dept.siteId)) form.value.departmentId = null
+  },
+)
 
 // Resolve template object from ID via SyncEngine
 const resolvedTemplate = useLiveQueryWithDeps(
@@ -183,38 +174,31 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
       <BaseDateField v-model="form.effectiveDate" mode="date" />
     </BaseField>
 
-    <!-- Site (owning — governs editing reach and the department pairing) -->
-    <BaseField label="Site" required :value="form.siteId" :rules="[required()]">
-      <template #default="field">
-        <SiteSelectMenu v-bind="field" v-model="form.siteId" :required="true" />
-      </template>
-    </BaseField>
-
-    <!-- Applicability — where the document applies (visibility) -->
-    <BaseField label="Applies to" :value="form.applicability">
-      <template #default="field">
-        <BaseSelect
-          v-bind="field"
-          v-model="form.applicability"
-          :options="APPLICABILITY_OPTIONS"
-          optionDescription="description"
-          :searchable="false"
-          :clearable="false"
-        />
-      </template>
-    </BaseField>
+    <!-- Sites — where the document applies. One control: pick sites or go
+         company-wide. The managing anchor (documents.siteId) is derived
+         silently at save; ownership governs who can revise. -->
     <BaseField
-      v-if="form.applicability === 'SITES'"
-      label="Applicable sites"
-      :value="form.applicabilitySiteIds"
+      label="Sites"
+      required
+      :value="form.appliesAllSites || form.siteIds?.length"
+      :rules="[
+        () =>
+          form.appliesAllSites ||
+          (form.siteIds?.length ?? 0) > 0 ||
+          'Select at least one site, or choose All sites',
+      ]"
     >
       <template #default="field">
-        <SiteSelectMenu
-          v-bind="field"
-          v-model="form.applicabilitySiteIds"
-          :multiple="true"
-          nullLabel="Add sites…"
-        />
+        <div class="tw:space-y-2">
+          <BaseCheckbox v-model="form.appliesAllSites" label="All sites (company-wide)" />
+          <SiteSelectMenu
+            v-if="!form.appliesAllSites"
+            v-bind="field"
+            v-model="form.siteIds"
+            :multiple="true"
+            nullLabel="Select sites…"
+          />
+        </div>
       </template>
     </BaseField>
 
@@ -224,7 +208,7 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
         <DepartmentSelectMenu
           v-bind="field"
           v-model="form.departmentId"
-          :siteId="form.siteId"
+          :siteIds="form.appliesAllSites ? null : form.siteIds"
           :required="true"
         />
       </template>
