@@ -6,7 +6,7 @@ import {
   IconHistory,
   IconDeviceMobile,
 } from '@tabler/icons-vue'
-import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { isAllowed, currentSession, isModuleEntitled } from '@/utils/currentSession.js'
 import { DateTime } from 'luxon'
 
 /**
@@ -120,8 +120,14 @@ const showMobilePortal = ref(false)
       </template>
       <template #actions>
         <!-- Phone-first floor portal — share via QR/link (replaced the old
-             "Logging" nav entry; a native app wraps the route later). -->
-        <BaseButton variant="outline" @click="showMobilePortal = true">
+             "Logging" nav entry; a native app wraps the route later).
+             Hidden when the platform admin switched the Portal Access
+             module off for this tenant (entitlement plane). -->
+        <BaseButton
+          v-if="isModuleEntitled('portal')"
+          variant="outline"
+          @click="showMobilePortal = true"
+        >
           <IconDeviceMobile :size="16" />
           Mobile Portal
         </BaseButton>
