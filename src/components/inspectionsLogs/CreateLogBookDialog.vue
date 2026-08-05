@@ -281,6 +281,20 @@ async function save() {
     for (const siteId of [selectedSiteId.value]) {
       await createSiteOnLogBook({ logBookId: logBook.id, siteId })
     }
+    // Equipment flow: auto-assign the custodian as the default logger so
+    // the trigger/schedule has an audience from day one (user decision
+    // 2026-08-06). Best-effort — the Assignments tab manages it after.
+    if (props.preset?.supervisorUserId && logBook?.id) {
+      try {
+        await post('/v1/services/formAssignments', {
+          logBookId: logBook.id,
+          assignedUserIds: [props.preset.supervisorUserId],
+          active: true,
+        })
+      } catch {
+        // Non-fatal — the submit-time reminder covers a missing audience.
+      }
+    }
     emit('created', logBook)
     open.value = false
   } catch (err) {

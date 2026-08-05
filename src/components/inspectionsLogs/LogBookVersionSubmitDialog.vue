@@ -17,6 +17,10 @@ import { LOG_BOOK_VERSION_MODULE } from '@/components/workflow/workflowModule.js
 const props = defineProps({
   versionId: { type: String, required: true },
   workflowVersionId: { type: String, default: null },
+  // For the no-audience reminder — approval doesn't REQUIRE assignees
+  // (the workflow approves the book's definition; who logs is operational),
+  // but an approved book nobody can log in is dead weight, so we nudge.
+  logBookId: { type: String, default: null },
 })
 const emit = defineEmits(['submitted'])
 const open = defineModel({ type: Boolean, default: false })
@@ -26,6 +30,12 @@ const submitting = ref(false)
 const changeSummary = ref('')
 // { [stepId]: userId } — single reviewer per step for now (array-wrapped on submit).
 const selections = reactive({})
+
+const activeAssignments = useLiveQueryWithDeps(
+  [() => props.logBookId],
+  async (db, [id]) => (id ? (await db.FormAssignment.where('logBookId', id).exec()).filter((a) => a.active) : []),
+  { models: ['FormAssignment'], initial: [] },
+)
 
 const steps = useLiveQueryWithDeps(
   [() => props.workflowVersionId],
@@ -82,6 +92,14 @@ async function handleConfirm() {
         <p class="tw:text-sm tw:text-secondary">
           Assign a reviewer for each workflow step before submitting.
         </p>
+        <div
+          v-if="logBookId && activeAssignments.length === 0"
+          class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
+        >
+          Heads up: no one is assigned to this log book yet — once approved, nobody can log
+          entries until you add assignees on the <strong>Assignments</strong> tab. You can still
+          submit now.
+        </div>
         <WorkflowStepReviewerSelect
           v-for="(step, index) in steps"
           :key="step.id"

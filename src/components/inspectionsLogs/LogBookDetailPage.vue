@@ -1642,6 +1642,7 @@ const logBookDetailConfig = computed(() =>
     v-model="submitDialog.open"
     :versionId="submitDialog.versionId"
     :workflowVersionId="draft?.workflowVersionId || null"
+    :logBookId="props.id"
   />
 
   <!-- Full-screen FormBuilder overlay. Mirrors the workflow-step
