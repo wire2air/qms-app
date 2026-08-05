@@ -943,17 +943,90 @@ const logBookDetailConfig = computed(() =>
                       Feeds <span class="">{DEPTCODE}</span> in the Record Id prefix.
                     </p>
                   </BaseField>
+                  <BaseField label="Site">
+                    <!-- One site per log book (2026-08-05); the pivot table is
+                         unchanged — a single selection replaces the set. -->
+                    <SiteSelectMenu
+                      :modelValue="assignedSiteIds[0] ?? null"
+                      :disabled="!canEditDetails"
+                      @update:modelValue="(v) => handleSitesChange(v ? [v] : [])"
+                    />
+                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
+                      Leave empty to allow all sites.
+                    </p>
+                  </BaseField>
+                </div>
+                <BaseField label="Record Id Prefix">
+                  <template v-if="canEditPrefix">
+                    <BaseTextInput
+                      v-model="draft.codePrefix"
+                      placeholder="FRM-{DEPTCODE}-{TYPECODE}"
+                    />
+                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
+                      Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /
+                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from
+                      Department + Log book type on save. Current:
+                      <span class="tw:text-on-main">{{ logBook.code }}</span>
+                    </p>
+                  </template>
+                  <template v-else>
+                    <div class="tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
+                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
+                      Locked — the log book has an effective version, so record IDs stay consistent.
+                    </p>
+                  </template>
+                </BaseField>
+                <!-- Document links — which SOPs / work instructions this book
+                     implements (audit crumb). Last field of Basics (user
+                     layout decision 2026-08-06). -->
+                <div class="tw:pt-3 tw:border-t tw:border-divider tw:space-y-2">
+                  <div class="tw:flex tw:items-center tw:justify-between">
+                    <span class="tw:text-sm tw:font-medium tw:text-on-main">
+                      Document links ({{ documentLinks.length }})
+                    </span>
+                    <BaseButton v-if="canUpdate" variant="ghost" @click="showAddDocDialog = true">
+                      Link a document
+                    </BaseButton>
+                  </div>
+                  <div v-if="documentLinks.length === 0" class="tw:text-xs tw:text-secondary">
+                    No documents linked. Use this to mark which SOPs / work instructions this log
+                    book implements — useful in audits.
+                  </div>
+                  <div v-else class="tw:flex tw:flex-col tw:gap-1.5">
+                    <div
+                      v-for="link in documentLinks"
+                      :key="link.id"
+                      class="tw:flex tw:items-center tw:gap-3 tw:p-2 tw:bg-main tw:rounded"
+                    >
+                      <IconFileText :size="14" class="tw:text-secondary tw:shrink-0" />
+                      <div class="tw:flex-1 tw:min-w-0">
+                        <div class="tw:text-sm tw:text-on-main tw:truncate">
+                          {{ documentById.get(link.documentId)?.title ?? link.documentId }}
+                        </div>
+                        <div class="tw:text-xs tw:text-secondary">
+                          {{ link.relationshipType }}
+                          <span v-if="link.notes"> · {{ link.notes }}</span>
+                        </div>
+                      </div>
+                      <button
+                        v-if="canUpdate"
+                        class="tw:text-xs tw:text-red-600 tw:hover:underline"
+                        @click="removeDocLink(link)"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </section>
 
-              <!-- References — equipment / location + the record-ID naming
-             convention. (Department lives in Basics — it feeds {DEPTCODE}
-             alongside Sites.) -->
+              <!-- Equipment — the linked instrument, its entry-driven
+                   calibration/PM syncs, and the physical location. -->
               <section
                 class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
               >
                 <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
-                  >References</BaseText
+                  >Equipment</BaseText
                 >
                 <BaseField label="Equipment">
                   <EquipmentSelectMenu v-model="draft.equipmentId" :disabled="!canEditDetails" />
@@ -1011,26 +1084,6 @@ const logBookDetailConfig = computed(() =>
                     placeholder="e.g. Room 201, Cold Store, Line 3"
                   />
                 </BaseField>
-                <BaseField label="Record Id Prefix">
-                  <template v-if="canEditPrefix">
-                    <BaseTextInput
-                      v-model="draft.codePrefix"
-                      placeholder="FRM-{DEPTCODE}-{TYPECODE}"
-                    />
-                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
-                      Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /
-                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from
-                      Department + Log book type on save. Current:
-                      <span class="tw:text-on-main">{{ logBook.code }}</span>
-                    </p>
-                  </template>
-                  <template v-else>
-                    <div class="tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
-                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
-                      Locked — the log book has an effective version, so record IDs stay consistent.
-                    </p>
-                  </template>
-                </BaseField>
               </section>
 
               <!-- Schedule — WHEN entries happen (moved off assignments,
@@ -1072,8 +1125,8 @@ const logBookDetailConfig = computed(() =>
                       Equipment trigger — the linked instrument's calibration / PM due date
                       creates the tasks
                       <span class="tw:block tw:text-caption tw:text-secondary">
-                        Tasks stay open until the entry is filed. Requires an instrument in
-                        Basics.
+                        Tasks stay open until the entry is filed. Requires a linked instrument
+                        (Equipment section).
                       </span>
                     </span>
                   </label>
@@ -1148,7 +1201,7 @@ const logBookDetailConfig = computed(() =>
                     v-if="!draft.equipmentId"
                     class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
                   >
-                    Link an instrument in <strong>Basics</strong> first — the trigger follows its
+                    Link an instrument in the <strong>Equipment</strong> section first — the trigger follows its
                     due dates.
                   </div>
                   <BaseField v-slot="{ id: srcId }" label="Trigger on">
@@ -1276,66 +1329,6 @@ const logBookDetailConfig = computed(() =>
                   />
                   <span class="tw:text-xs tw:text-secondary tw:ml-2">(blank = indefinite)</span>
                 </BaseField>
-              </section>
-
-              <!-- Sites -->
-              <section
-                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
-              >
-                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
-                  >Site</BaseText
-                >
-                <!-- UI decision 2026-08-05: one site per log book (pivot table
-                     unchanged — a single selection replaces the whole set). -->
-                <SiteSelectMenu
-                  :modelValue="assignedSiteIds[0] ?? null"
-                  :disabled="!canEditDetails"
-                  @update:modelValue="(v) => handleSitesChange(v ? [v] : [])"
-                />
-                <div class="tw:text-xs tw:text-secondary">Leave empty to allow all sites.</div>
-              </section>
-
-              <!-- Document links -->
-              <section
-                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
-              >
-                <div class="tw:flex tw:items-center tw:justify-between">
-                  <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
-                    Document links ({{ documentLinks.length }})
-                  </BaseText>
-                  <BaseButton v-if="canUpdate" variant="ghost" @click="showAddDocDialog = true">
-                    Link a document
-                  </BaseButton>
-                </div>
-                <div v-if="documentLinks.length === 0" class="tw:text-xs tw:text-secondary">
-                  No documents linked. Use this to mark which SOPs / work instructions this log book
-                  implements — useful in audits.
-                </div>
-                <div v-else class="tw:flex tw:flex-col tw:gap-1.5">
-                  <div
-                    v-for="link in documentLinks"
-                    :key="link.id"
-                    class="tw:flex tw:items-center tw:gap-3 tw:p-2 tw:bg-main tw:rounded"
-                  >
-                    <IconFileText :size="14" class="tw:text-secondary tw:shrink-0" />
-                    <div class="tw:flex-1 tw:min-w-0">
-                      <div class="tw:text-sm tw:text-on-main tw:truncate">
-                        {{ documentById.get(link.documentId)?.title ?? link.documentId }}
-                      </div>
-                      <div class="tw:text-xs tw:text-secondary">
-                        {{ link.relationshipType }}
-                        <span v-if="link.notes"> · {{ link.notes }}</span>
-                      </div>
-                    </div>
-                    <button
-                      v-if="canUpdate"
-                      class="tw:text-xs tw:text-red-600 tw:hover:underline"
-                      @click="removeDocLink(link)"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
               </section>
 
               <!-- Log Book Approval — approves the log book DEFINITION (schema +
