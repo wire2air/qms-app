@@ -535,10 +535,13 @@ const navItems = computed(() => {
         },
         {
           label: 'Equipment',
-          // No `equipment:read` gate by design — RLS SELECT lets any
-          // in-tenant user see the catalog, since log book authors need
-          // to pick equipment without needing a separate permission.
-          // Visibility is via the menu link being available to all.
+          // Reference data: RLS SELECT is tenant-public (public_read binding)
+          // so log book authors can pick equipment without any grant. The nav
+          // entry follows the Master Data write-gate rule — it shows only for
+          // roles that can AUTHOR the catalog; everyone else keeps the data in
+          // pickers and the page by direct link. (Predates writeGate: was
+          // "visible to all" because that was the only option then.)
+          writeGate: 'calibration_equipment',
           icon: IconTool,
           to: getCompanyPath('/equipment'),
         },
