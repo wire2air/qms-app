@@ -1,6 +1,6 @@
 <script setup>
 import { IconStack2, IconPlus, IconShieldCheck, IconClock } from '@tabler/icons-vue'
-import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 // Embedded = hosted as the "Log Books" tab of the Inspections & Logs
@@ -66,17 +66,9 @@ const templates = useLiveQueryWithDeps(
     () => list.filters.value.type,
   ],
   async (db, [q, cls, type]) => {
+    // Visibility is RLS-scoped (site permissions + involvement) — the list
+    // shows whatever synced. Editing is owner-gated on the detail page.
     let rows = await db.LogBook.where().exec()
-    // Management list shows OWNED books only (owner / supervisor / creator;
-    // company owners see all). Assignment-granted rows also reach IndexedDB —
-    // that's REFERENCE access so logging flows can resolve the schema — but
-    // they don't belong on the authoring surface (user decision 2026-08-05).
-    if (!currentSession.value?.isOwner) {
-      const me = currentSession.value?.userId ?? currentSession.value?.id
-      rows = rows.filter(
-        (t) => t.ownerUserId === me || t.supervisorUserId === me || t.createdBy === me,
-      )
-    }
     if (cls !== 'all') rows = rows.filter((t) => t.recordClassification === cls)
     if (type !== 'all') rows = rows.filter((t) => t.logBookTypeId === type)
     if (q) {

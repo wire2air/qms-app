@@ -47,7 +47,16 @@ const router = useRouter()
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const canUpdate = computed(() => isAllowed(['log_books:update']))
+// Editing a log book is OWNER-only (creator stands in while no owner is set;
+// company owners bypass) — module read access only VIEWS (user decision
+// 2026-08-05). RLS enforces the same rule server-side.
+const canUpdate = computed(() => {
+  if (currentSession.value?.isOwner) return true
+  const me = currentSession.value?.userId ?? currentSession.value?.id
+  const book = logBook.value
+  if (!book) return false
+  return book.ownerUserId === me || (!book.ownerUserId && book.createdBy === me)
+})
 
 const logBook = useLiveQueryWithDeps(
   [() => props.id],
