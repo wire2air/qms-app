@@ -190,12 +190,14 @@ function levelOptionsFor(m) {
   // Public-read (reference-data) modules: viewing needs no grant — everyone in
   // the company can read them by design (templates, form blocks, lookups the
   // forms depend on). "No access" would be misleading, so the bottom level
-  // reads "View only" and the row carries a hint that grants control authoring.
+  // reads "Reference data only" (user-chosen wording — distinct from the
+  // grantable "Viewer" level on record modules) and the row carries a hint
+  // that grants control authoring.
   if (m.publicRead) {
     const none = options.find((o) => o.value === 'none')
     if (none) {
-      none.label = 'View only'
-      none.description = 'Everyone can view — no authoring'
+      none.label = 'Reference data only'
+      none.description = 'Everyone can use it in forms and pickers — no authoring'
     }
   }
   // The select must be able to DISPLAY a custom row; picking a concrete level
@@ -500,7 +502,7 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
                     v-if="m.publicRead"
                     class="tw:block tw:text-[11px] tw:font-normal tw:text-secondary"
                   >
-                    Viewable by everyone — levels control authoring
+                    Reference data — available to everyone; levels control authoring
                   </span>
                 </td>
                 <td class="tw:p-2 tw:w-44">

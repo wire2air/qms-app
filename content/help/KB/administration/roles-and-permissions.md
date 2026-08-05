@@ -57,13 +57,16 @@ The small adjustments button on each row opens the advanced controls:
 
 Rows configured this way display the **Custom** level. You rarely need this — the standard levels cover most roles.
 
-## Templates and lookups are viewable by everyone
+## Reference data just works — no companion grants
 
-Reference data — **workflow templates, form blocks and templates, document templates, RCA and risk assessment templates, and lookup lists** (issue types, dispositions, categories, …) — can be **viewed by every user in your company automatically**. Permission levels on those modules control **authoring**: who can create, change, or retire them.
+Records depend on reference data: forms need lookup lists, submit flows need workflow pickers, NCs point at items and suppliers. You never need to grant "Viewer" on reference data to make a record module work — the system implies the right access:
 
-This is deliberate: forms and records depend on this data. Someone raising a nonconformance needs the issue-type list; someone submitting a document for approval needs to pick a workflow. If viewing reference data required its own permission, every role would need a wall of "Viewer" grants just to make everyday forms work.
+- **Templates and lookups** — workflow templates, form blocks and templates, document templates, RCA and risk assessment templates, equipment, and lookup lists (issue types, dispositions, categories, …) are **available to every user automatically**. In the matrix these rows say **"Reference data only"** at the bottom of the Level list — permission levels there control **authoring** (who can create, change, or retire them).
+- **Sites** — every user automatically sees **their assigned sites** in pickers. A Sites read grant is only for roles that must pick across **all** sites.
+- **Departments follow site visibility** — users see org-wide departments plus the departments of their assigned sites; no grant needed.
+- **Suppliers and Item Master** — reads are **implied by the record modules that reference them**: any grant on NC, CAPA, Complaints, QC Inspection, Audits, or Documents lets that role pick suppliers/items in those flows. Their "Viewer" level still means something real: browsing the supplier/item workspaces themselves.
 
-The left navigation follows the same logic — template and master-data pages appear in a user's menu only when their role can **author** them, so read-only reference access never clutters anyone's navigation.
+The left navigation follows the same logic — reference/admin pages appear in a user's menu only when their role can **author** that data, so implied read access never clutters anyone's navigation.
 
 ## Access can also come from involvement, not just roles
 

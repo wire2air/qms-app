@@ -619,14 +619,22 @@ const navItems = computed(() => {
         // Complaint Settings moved onto the Customer Complaints page itself
         // (gear icon in the header) — module settings live with the module.
         {
+          // Org reference data: every user reads their ASSIGNED sites with no
+          // grant (baseline scoped read, migration 20260805100000) — a read
+          // grant only widens picker reach and must not surface this admin
+          // page. Nav follows the Master Data write-gate rule.
           label: 'Sites',
           permissions: ['sites:read'],
+          writeGate: 'sites',
           icon: IconBuilding,
           to: getCompanyPath('/sites'),
         },
         {
+          // Same rule — departments follow the user's site visibility in
+          // pickers; this entry is for administering the org structure.
           label: 'Departments',
           permissions: ['departments:read'],
+          writeGate: 'departments',
           icon: IconBuildingCommunity,
           to: getCompanyPath('/departments'),
         },
