@@ -62,7 +62,7 @@ Rows configured this way display the **Custom** level. You rarely need this — 
 
 Records depend on reference data: forms need lookup lists, submit flows need workflow pickers, NCs point at items and suppliers. You never need to grant "Viewer" on reference data to make a record module work — the system implies the right access:
 
-- **Templates and lookups** — workflow templates, form blocks and templates, document templates, RCA and risk assessment templates, equipment, and lookup lists (issue types, dispositions, categories, …) are **available to every user automatically**. In the matrix these rows say **"Reference data only"** at the bottom of the Level list — permission levels there control **authoring** (who can create, change, or retire them).
+- **Templates and lookups** — workflow templates, form blocks and templates, document templates, RCA and risk assessment templates, training curricula, equipment, and lookup lists (issue types, dispositions, categories, …) are **available to every user automatically**. In the matrix these rows say **"Reference data only"** at the bottom of the Level list — permission levels there control **authoring** (who can create, change, or retire them).
 - **Sites** — every user automatically sees **their assigned sites** in pickers. A Sites read grant is only for roles that must pick across **all** sites.
 - **Departments follow site visibility** — users see org-wide departments plus the departments of their assigned sites; no grant needed.
 - **People-pickers follow site visibility too** — every user sees themselves, colleagues at their assigned sites, and org-wide users with no site, so training-manager/reviewer/assignee pickers always work. A Users read grant widens to the whole company directory.

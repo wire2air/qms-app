@@ -437,8 +437,11 @@ const navItems = computed(() => {
           to: getCompanyPath('/training-verifications'),
         },
         {
+          // Curricula are reference data (tenant-public read) — this page is
+          // the AUTHORING surface, so it follows the write-gate rule.
           label: 'Training Curriculum',
           permissions: ['training:read'],
+          writeGate: 'training',
           icon: IconRoute,
           to: getCompanyPath('/training-curriculum'),
         },
