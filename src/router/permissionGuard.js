@@ -53,6 +53,7 @@ const ADMIN_PERMISSIONS = {
   // ai:read is implied by ANY ai grant — run/manage/audit all pass.
   'api-tokens': 'ai:read',
   'ai-usage': 'ai:read',
+  'audit-logs': 'audit_trail:read',
 }
 
 // Record modules — guard the LIST route only; detail routes defer to RLS so

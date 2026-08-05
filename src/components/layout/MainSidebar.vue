@@ -671,8 +671,10 @@ const navItems = computed(() => {
         },
         {
           // Company-wide activity ledger — reference surface, not day-to-day
-          // (moved from the top level 2026-07-24, user decision).
+          // (moved from the top level 2026-07-24, user decision). Gated on the
+          // dedicated audit_trail module (read/export in the matrix).
           label: 'Audit Logs',
+          permissions: ['audit_trail:read'],
           icon: IconShieldCheck,
           to: getCompanyPath('/audit-logs'),
         },
