@@ -65,6 +65,17 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // The workflow ENGINE itself — the approval machinery Documents/CAPA/NCR/
+      // CR/Audits/Training all instantiate. Until this project existed, workflow
+      // behaviour was only ever exercised transitively through those six suites,
+      // none of which asserts anything at the RLS layer — which is exactly where
+      // the module's CRITICAL findings lived. See docs/modules/workflows/14.
+      name: 'workflow',
+      testMatch: /workflow\/.*\.spec\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'audits',
       testMatch: /audits\/.*\.spec\.js/,
       dependencies: ['setup'],

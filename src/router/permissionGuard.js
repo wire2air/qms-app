@@ -88,6 +88,29 @@ const SUPPLIER_EXEMPT_SEGMENTS = new Set([
   'm', // admin-defined modules (form-template driven) shared with the supplier
 ])
 
+// F-15 — segments an EXTERNAL_SUPPLIER must never reach, but which carry NO
+// permission requirement for internal users.
+//
+// `/workflow-instances` and `/workflow-instances/:id` had no guard of any kind:
+// no router entry, no sidebar link, and zero `isAllowed()` calls across all 22
+// components that render them. Because `requiredPermissionFor` returns null for
+// an unmapped segment, both the supplier branch above and the permission check
+// below fell through to `return true`, so any authenticated user — supplier
+// accounts included — could open the tenant's approval topology by typing the URL.
+//
+// This is NOT fixed by adding the segment to ADMIN_PERMISSIONS, which is what the
+// pack's PW-J14 originally specified. `/workflow-instances/:id` is legitimately
+// deep-linked from the Nonconformance detail page (NonconformancesPageId.vue),
+// the Document detail page (DocumentsPageId.vue) and every `WorkflowInstance`
+// notification (NotificationsItem.vue). Requiring `workflows_templates:read`
+// would break all three for ordinary reviewers, who hold no template permission
+// by design — a worse outcome than the finding.
+//
+// So the segment stays open to authenticated internal users, whose visibility is
+// scoped by RLS (and, since the F-04 fix, by the OWNING module's read permission
+// per resource type), and is closed to suppliers outright.
+const SUPPLIER_BLOCKED_SEGMENTS = new Set(['workflow-instances'])
+
 const NO_ACCESS_PATH = '/no-access'
 
 function firstSegment(path) {
@@ -173,6 +196,11 @@ export function evaluateRoute(to) {
   // EXTERNAL_SUPPLIER: allow their RLS-shared record modules, block admin routes.
   if (isSupplier.value) {
     if (SUPPLIER_EXEMPT_SEGMENTS.has(seg)) return true
+    // F-15 — checked BEFORE the map lookup: these segments carry no permission
+    // entry, so the map test below would let a supplier straight through.
+    if (SUPPLIER_BLOCKED_SEGMENTS.has(seg)) {
+      return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
+    }
     if (ADMIN_PERMISSIONS[seg] || RECORD_LIST_PERMISSIONS[seg]) {
       return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
     }
