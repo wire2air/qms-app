@@ -30,6 +30,12 @@ import { required } from '@shared/components/form/validators.js'
  * app uses.
  */
 
+const props = defineProps({
+  // Create-from-equipment flow: pre-links the instrument, preselects its
+  // site, suggests a title, and (when triggerSource is set) arms the
+  // TRIGGER schedule so the book follows the equipment's due dates.
+  preset: { type: Object, default: null },
+})
 const emit = defineEmits(['created'])
 const open = defineModel({ type: Boolean, default: false })
 
@@ -113,6 +119,7 @@ const logBookTypes = useLiveQuery(
 // Equipment module follow-up). Hides RETIRED equipment by default.
 
 const isSubmitting = ref(false)
+const presetTrigger = ref(null)
 
 // Reset state every time the dialog opens. Re-opening after a cancel
 // shouldn't carry stale draft values.
@@ -134,6 +141,13 @@ watch(open, (isOpen) => {
   editWindowMode.value = 'TIME_WINDOW'
   editWindowMinutes.value = 15
   signatureRequired.value = false
+  presetTrigger.value = null
+  if (props.preset) {
+    title.value = props.preset.title ?? ''
+    equipmentId.value = props.preset.equipmentId ?? null
+    selectedSiteId.value = props.preset.siteId ?? null
+    presetTrigger.value = props.preset.triggerSource ?? null
+  }
   reviewRequired.value = false
   showReferences.value = false
   showCompliance.value = false
@@ -245,6 +259,7 @@ async function save() {
       signatureRequired: signatureRequired.value,
       reviewRequired: reviewRequired.value,
       notifyOnSubmit: 'DIGEST',
+      ...(presetTrigger.value ? { scheduleMode: 'TRIGGER', triggerSource: presetTrigger.value } : {}),
       // Snapshot, not reference: the block's fields are copied by value.
       schema: Array.isArray(startingBlock?.schema)
         ? JSON.parse(JSON.stringify(startingBlock.schema))

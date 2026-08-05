@@ -44,6 +44,17 @@ export class LogBook extends BaseModel {
   // Auto-roll the linked instrument's calibration when an entry is finalized
   // (calibration date = submit timestamp; next-due = + the instrument interval).
   @Property({ type: Boolean }) syncsEquipmentCalibration = false
+  // PM twin — entry submit/approval rolls equipment.nextPmDue.
+  @Property({ type: Boolean }) syncsEquipmentPm = false
+  // Scheduling lives on the book (2026-08-06): AD_HOC | RECURRING | TRIGGER.
+  @Property({ type: String }) scheduleMode = 'AD_HOC'
+  // RECURRING: { cron, timezone, windowMinutes, startOffsetMinutes, onWindowExpire }
+  @Property({ type: Object }) schedule = {}
+  @Property({ type: Number }) graceMinutes = 60
+  // RECURRING only: false = notification-only occurrences (no tasks).
+  @Property({ type: Boolean }) generateTasks = true
+  // TRIGGER only: 'CALIBRATION' | 'PM'.
+  @Property({ type: String }) triggerSource = ''
   @Property({ type: String }) departmentId = ''
   @Property({ type: String }) location = ''
 
