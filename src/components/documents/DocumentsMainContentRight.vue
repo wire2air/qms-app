@@ -91,6 +91,35 @@ function scrollToSection(sectionId) {
   }
 }
 
+// Applicability — where the document APPLIES (visibility). document.siteId is
+// the OWNING site and always applies; appliesAllSites bypasses per-site rows.
+const documentSites = useLiveQueryWithDeps(
+  [() => props.documentId],
+  async (db, [id]) => db.DocumentSite.where('documentId', id).exec(),
+  { models: ['DocumentSite'], initial: [] },
+)
+const applicabilitySiteIds = computed(() => documentSites.value.map((ds) => ds.siteId))
+
+const addDocumentSite = useLiveMutation(async (db, { documentId, siteId }) => {
+  const link = db.DocumentSite.create({ documentId, siteId })
+  await link.save()
+  return link
+})
+
+async function handleApplicabilityChange(newSiteIds) {
+  const current = applicabilitySiteIds.value
+  const toAdd = (newSiteIds || []).filter((id) => !current.includes(id))
+  // The owning site can't be removed from applicability — it always applies.
+  const toRemove = current.filter(
+    (id) => !(newSiteIds || []).includes(id) && id !== document.value?.siteId,
+  )
+  for (const siteId of toAdd) await addDocumentSite({ documentId: props.documentId, siteId })
+  for (const siteId of toRemove) {
+    const match = documentSites.value.find((ds) => ds.siteId === siteId)
+    if (match) await match.delete()
+  }
+}
+
 const debounceSaveDocument = useDebounceFn(() => {
   if (!document.value || !canEdit.value) return
   try {
@@ -164,12 +193,45 @@ watch(
         </BaseDetailField>
 
         <BaseDetailField label="Department">
-          <DepartmentSelectMenu v-if="canEdit" v-model="document.departmentId" required />
+          <DepartmentSelectMenu
+            v-if="canEdit"
+            v-model="document.departmentId"
+            :siteId="document.siteId"
+            required
+          />
           <DepartmentBadgeById
             v-else-if="document.departmentId"
             :departmentId="document.departmentId"
           />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </BaseDetailField>
+
+        <BaseDetailField label="Site">
+          <SiteSelectMenu v-if="canEdit" v-model="document.siteId" :required="true" />
+          <SiteBadgeById v-else-if="document.siteId" :siteId="document.siteId" />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </BaseDetailField>
+
+        <BaseDetailField label="Applies At">
+          <div v-if="canEdit" class="tw:flex tw:flex-col tw:gap-1.5">
+            <BaseCheckbox v-model="document.appliesAllSites" label="All sites (company-wide)" />
+            <SiteSelectMenu
+              v-if="!document.appliesAllSites"
+              :modelValue="applicabilitySiteIds"
+              :multiple="true"
+              nullLabel="Add sites…"
+              @update:modelValue="handleApplicabilityChange"
+            />
+          </div>
+          <template v-else>
+            <span v-if="document.appliesAllSites" class="tw:text-sm tw:text-on-main">
+              All sites (company-wide)
+            </span>
+            <div v-else-if="applicabilitySiteIds.length" class="tw:flex tw:flex-wrap tw:gap-1">
+              <SiteBadgeById v-for="sid in applicabilitySiteIds" :key="sid" :siteId="sid" />
+            </div>
+            <span v-else class="tw:text-sm tw:text-secondary">—</span>
+          </template>
         </BaseDetailField>
 
         <BaseDetailField label="Related Standard">

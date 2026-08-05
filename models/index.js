@@ -194,6 +194,7 @@ import { LogBook } from './logBook'
 import { LogBookVersion } from './logBookVersion'
 import { LogBookType } from './logBookType'
 import { SiteOnLogBook } from './siteOnLogBook'
+import { DocumentSite } from './documentSite'
 import { LogBookDocumentLink } from './logBookDocumentLink'
 import { SharedWithUser } from './sharedWithUser'
 import { Equipment } from './equipment'
@@ -414,6 +415,7 @@ export const db = {
   LogBookVersion,
   LogBookType,
   SiteOnLogBook,
+  DocumentSite,
   LogBookDocumentLink,
   SharedWithUser,
   Equipment,

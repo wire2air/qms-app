@@ -59,6 +59,11 @@ const DEFAULT_FORM = {
   regulatoryImpact: false,
   regulatoryImpactNotes: '',
   siteId: null,
+  // Applicability — where the document APPLIES (visibility). siteId above is
+  // the OWNING site. 'SITE' = owning site only (default), 'SITES' = owning +
+  // selected sites, 'ALL' = company-wide (appliesAllSites flag, no rows).
+  applicability: 'SITE',
+  applicabilitySiteIds: [],
   tags: [],
   approverIds: [],
   periodicReviewMonths: 12,
@@ -107,8 +112,20 @@ const createDocument = useLiveMutation(async (db, formData) => {
     workflowVersionId: formData.workflowVersionId,
     statusId: 'ACTIVE',
     docNumber: null,
+    appliesAllSites: formData.applicability === 'ALL',
   })
   await doc.save()
+
+  // Applicability rows (skip for company-wide — the flag covers it). The
+  // owning site always applies; 'SITES' adds the extra selections.
+  if (formData.applicability !== 'ALL') {
+    const siteIds = new Set([formData.siteId, ...(formData.applicabilitySiteIds || [])])
+    for (const siteId of siteIds) {
+      if (!siteId) continue
+      const link = db.DocumentSite.create({ documentId: doc.id, siteId })
+      await link.save()
+    }
+  }
 
   const version = db.DocumentVersion.create({
     documentId: doc.id,

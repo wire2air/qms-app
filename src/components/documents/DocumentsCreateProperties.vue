@@ -12,6 +12,18 @@ const selectedTemplate = defineModel('selectedTemplate', {
   default: null,
 })
 
+// Where the document APPLIES (visibility). The Site field above is the OWNING
+// site (always applies); company-wide skips per-site rows entirely.
+const APPLICABILITY_OPTIONS = [
+  { label: 'This site only', value: 'SITE', description: 'Visible per site-scoped document access' },
+  { label: 'Selected sites', value: 'SITES', description: 'Owning site plus the sites you add' },
+  {
+    label: 'All sites (company-wide)',
+    value: 'ALL',
+    description: 'Everyone with document access can see it',
+  },
+]
+
 // Department options follow the selected site (site's own + org-wide). If the
 // site changes and the chosen department belongs to a DIFFERENT site, clear it
 // so a cross-site pairing can't be saved; org-wide (site-less) picks survive.
@@ -171,10 +183,38 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
       <BaseDateField v-model="form.effectiveDate" mode="date" />
     </BaseField>
 
-    <!-- Site -->
+    <!-- Site (owning — governs editing reach and the department pairing) -->
     <BaseField label="Site" required :value="form.siteId" :rules="[required()]">
       <template #default="field">
         <SiteSelectMenu v-bind="field" v-model="form.siteId" :required="true" />
+      </template>
+    </BaseField>
+
+    <!-- Applicability — where the document applies (visibility) -->
+    <BaseField label="Applies to" :value="form.applicability">
+      <template #default="field">
+        <BaseSelect
+          v-bind="field"
+          v-model="form.applicability"
+          :options="APPLICABILITY_OPTIONS"
+          optionDescription="description"
+          :searchable="false"
+          :clearable="false"
+        />
+      </template>
+    </BaseField>
+    <BaseField
+      v-if="form.applicability === 'SITES'"
+      label="Applicable sites"
+      :value="form.applicabilitySiteIds"
+    >
+      <template #default="field">
+        <SiteSelectMenu
+          v-bind="field"
+          v-model="form.applicabilitySiteIds"
+          :multiple="true"
+          nullLabel="Add sites…"
+        />
       </template>
     </BaseField>
 
