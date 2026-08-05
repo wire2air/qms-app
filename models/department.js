@@ -21,7 +21,8 @@ export class Department extends BaseModel {
   @Property({ type: String, required: true }) code = ''
   @Property({ type: String, required: true }) name = ''
   @Property({ type: String }) description = ''
-  @Property({ type: String, required: true }) siteId = ''
+  // null = company-wide (functional) department — belongs to every site.
+  @Property({ type: String }) siteId = null
   // Accountable person — escalation target for equipment calibration reminders.
   @Property({ type: String }) supervisorUserId = /** @type {String} */ (null)
   @Property({ type: DateTime }) deletedAt = null
