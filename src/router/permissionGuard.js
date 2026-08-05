@@ -34,12 +34,12 @@ const ADMIN_PERMISSIONS = {
   departments: 'departments:read',
   suppliers: 'supplier_management:read',
   products: 'products:read',
-  templates: 'forms_templates:read',
-  'form-templates': 'forms_templates:read',
-  'workflow-templates': 'workflows_templates:read',
-  'document-templates': 'document_templates:read',
-  'rca-templates': 'rca_templates:read',
-  'risk-assessment-templates': 'risk_assessment_templates:read',
+  // Template/reference routes deliberately carry NO guard: their reads are
+  // tenant-public (migration 20260804150000 — reference data every picker
+  // depends on) and their nav entries are write-gated instead. In-page
+  // authoring actions gate on the module's write verbs. Guarding on
+  // '<module>:read' would bounce no-grant users off pages RLS happily serves
+  // — the read strings no longer exist as grantable actions.
   'automation-rules': 'automation_rules:manage',
   'custom-fields': 'custom_fields:manage',
   'complaint-settings': 'complaint_management:update',
@@ -49,6 +49,10 @@ const ADMIN_PERMISSIONS = {
   'organization-security': 'security:manage',
   'admin-security': 'security:manage',
   'vendor-access-log': 'security:manage',
+  'api-keys': 'api_integrations:read',
+  // ai:read is implied by ANY ai grant — run/manage/audit all pass.
+  'api-tokens': 'ai:read',
+  'ai-usage': 'ai:read',
 }
 
 // Record modules — guard the LIST route only; detail routes defer to RLS so

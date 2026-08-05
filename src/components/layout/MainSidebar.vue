@@ -647,20 +647,25 @@ const navItems = computed(() => {
         },
         {
           label: 'API Keys',
+          permissions: ['api_integrations:read'],
           icon: IconKey,
           to: getCompanyPath('/api-keys'),
         },
         {
-          // AI sidecar — see backend/ai/README.md, AI_PLAN.md §6.5.
-          // Always visible; backend 404s if AI_MODULE_ENABLED is off.
+          // AI sidecar PATs — see backend/ai/README.md, AI_PLAN.md §6.5.
+          // ai:read is implied by ANY ai grant (run/manage/audit), so this
+          // shows for anyone with an AI capability; backend still 404s when
+          // AI_MODULE_ENABLED is off.
           label: 'API Tokens',
+          permissions: ['ai:read'],
           icon: IconRobot,
           to: getCompanyPath('/api-tokens'),
         },
         {
-          // AI usage dashboard. Visible to all users; admins/ai:audit see
-          // company-wide data, regular users see only their own calls.
+          // AI usage dashboard. ai:audit sees company-wide data, other AI
+          // grant holders see their own calls; no AI grant → no entry.
           label: 'AI Usage',
+          permissions: ['ai:read'],
           icon: IconChartBar,
           to: getCompanyPath('/ai-usage'),
         },
