@@ -100,7 +100,7 @@ const resolvedNullLabel = computed(
         :nullLabel="resolvedNullLabel"
         :required="props.required"
         :multiple="props.multiple"
-        :clearable="!props.required"
+        :clearable="!props.required && !props.multiple"
       >
         <!-- Consumer may fully replace the trigger with a compact "+ Add" button. -->
         <template v-if="$slots.button" #trigger="scope">

@@ -91,7 +91,7 @@ const resolvedNullLabel = computed(
         :nullLabel="resolvedNullLabel"
         :required="props.required"
         :multiple="props.multiple"
-        :clearable="!props.required"
+        :clearable="!props.required && !props.multiple"
       >
         <template v-if="$slots.button" #trigger="scope">
           <slot name="button" v-bind="scope" />
