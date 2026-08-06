@@ -17,7 +17,7 @@ import { canUseAi } from '@/utils/currentSession'
 import FormFieldPalette from './FormFieldPalette.vue'
 import FormCanvas from './FormCanvas.vue'
 import FormFieldConfig from './FormFieldConfig.vue'
-import FormAiGenerateDialog from '@/components/ai/FormAiGenerateDialog.vue'
+import FormAiChatPanel from '@/components/ai/FormAiChatPanel.vue'
 import DynamicForm from '@/components/form/DynamicForm.js'
 
 const props = defineProps({
@@ -234,11 +234,11 @@ function copyJson() {
   toast.success('JSON copied to clipboard')
 }
 
-// ── AI generate whole form ───────────────────────────────────────────────────
-const showAiDialog = ref(false)
+// ── AI form assistant (chat docked beside the canvas) ────────────────────────
+const showAiChat = ref(false)
 async function handleAiApply(result) {
   const count = Array.isArray(result?.fields) ? result.fields.length : 0
-  if (!count) return
+  if (!count) return false
   const hadFields = schema.value?.length > 0
   // Snapshot the current schema so an EDIT preserves untouched (and heavy) fields
   // by name; a fresh generate simply finds no name matches.
@@ -247,16 +247,22 @@ async function handleAiApply(result) {
   if (hadFields) {
     const ok = await confirm({
       title: 'Apply AI changes?',
-      message: `This rewrites the form to the ${count} previewed field${
+      message: `This rewrites the form to the ${count} proposed field${
         count === 1 ? '' : 's'
       }. Fields kept by the AI are preserved; the rest are replaced. You can undo this.`,
       okLabel: 'Apply',
       danger: true,
     })
-    if (!ok) return
+    if (!ok) return false
   }
   applyAiSchema(result, { preserveFrom })
   toast.success(`Applied ${count} field${count === 1 ? '' : 's'}`)
+  return true
+}
+
+async function handleAiChatApply({ proposal, onApplied }) {
+  const applied = await handleAiApply(proposal)
+  if (applied) onApplied?.()
 }
 </script>
 
@@ -365,9 +371,13 @@ async function handleAiApply(result) {
 
             <div class="tw:w-px tw:h-6 tw:bg-divider tw:mx-2" />
 
-            <BaseButton v-if="canUseAi" variant="outline" @click="showAiDialog = true">
+            <BaseButton
+              v-if="canUseAi"
+              :variant="showAiChat ? 'primary' : 'outline'"
+              @click="showAiChat = !showAiChat"
+            >
               <IconSparkles :size="18" />
-              {{ schema.length ? 'Edit with AI' : 'Generate with AI' }}
+              AI Assistant
             </BaseButton>
 
             <BaseButton variant="primary" @click="onSave">
@@ -456,6 +466,17 @@ async function handleAiApply(result) {
             </div>
           </aside>
         </Transition>
+
+        <!-- AI form assistant (owns all AI wiring; we only react to @apply). -->
+        <Transition name="slide-right">
+          <FormAiChatPanel
+            v-if="canUseAi && showAiChat"
+            :currentSchema="schema"
+            :builderTitle="title"
+            @apply="handleAiChatApply"
+            @close="showAiChat = false"
+          />
+        </Transition>
       </div>
     </div>
 
@@ -485,14 +506,6 @@ async function handleAiApply(result) {
         </div>
       </template>
     </BaseDialog>
-
-    <!-- AI generate dialog (owns the AI call; we only react to @apply). -->
-    <FormAiGenerateDialog
-      v-if="canUseAi"
-      v-model="showAiDialog"
-      :currentSchema="schema"
-      @apply="handleAiApply"
-    />
 
     <!-- Clear Confirmation Dialog -->
   </div>

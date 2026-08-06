@@ -95,12 +95,17 @@ export function fieldNameExists(fields, targetName) {
   return false
 }
 
-/** Generate a unique field name within a schema tree. */
-export function generateFieldName(type, existingFields) {
+/**
+ * Generate a unique field name within a schema tree. `reservedNames` (a Set)
+ * holds names the caller knows are coming later — e.g. names an AI edit
+ * proposal echoes further down the list — so a freshly-minted name can never
+ * steal one and break preservation-by-name.
+ */
+export function generateFieldName(type, existingFields, reservedNames = null) {
   const baseName = type.toLowerCase()
   let counter = 1
   let name = `${baseName}_${counter}`
-  while (fieldNameExists(existingFields, name)) {
+  while (fieldNameExists(existingFields, name) || reservedNames?.has(name)) {
     counter++
     name = `${baseName}_${counter}`
   }
@@ -113,7 +118,7 @@ export function generateFieldName(type, existingFields) {
  * always structurally valid; the AI only supplies label + a few hints.
  * `existingRoot` is the schema being assembled, used for globally-unique names.
  */
-export function hydrateAiField(node, existingRoot) {
+export function hydrateAiField(node, existingRoot, reservedNames = null) {
   const type = node && FIELD_TYPES[node.type] ? node.type : 'input'
   const config = getDefaultFieldConfig(type)
   // Preserve a stable name the AI echoed back (EDIT mode) when it's free;
@@ -123,7 +128,7 @@ export function hydrateAiField(node, existingRoot) {
   config.name =
     desiredName && !fieldNameExists(existingRoot, desiredName)
       ? desiredName
-      : generateFieldName(type, existingRoot)
+      : generateFieldName(type, existingRoot, reservedNames)
   if (typeof node.label === 'string' && node.label.trim()) config.label = node.label.trim()
   if (typeof node.required === 'boolean') config.required = node.required
   if (typeof node.placeholder === 'string') config.placeholder = node.placeholder
@@ -157,25 +162,33 @@ export function hydrateAiField(node, existingRoot) {
  * Hydrate a flat AI descriptor list into a full builder schema tree. Fields
  * carrying a shared `section` label are grouped into real `section` containers
  * (in first-appearance order); ungrouped fields sit at the top level.
- * `buildField(node, rootSoFar)` may be overridden (useFormBuilder passes an
- * edit-aware builder that preserves existing fields by name).
+ * `buildField(node, rootSoFar, reservedNames)` may be overridden
+ * (useFormBuilder passes an edit-aware builder that preserves existing fields
+ * by name). Every name the proposal echoes is pre-reserved so a nameless new
+ * field hydrated EARLIER in the list can't mint a name an echoed field needs
+ * later (which would silently defeat preservation).
  */
 export function hydrateAiFields(fields, { buildField = hydrateAiField } = {}) {
   const newSchema = []
   const sectionContainers = new Map()
+
+  const reservedNames = new Set()
+  for (const node of fields || []) {
+    if (node && typeof node.name === 'string' && node.name.trim()) reservedNames.add(node.name.trim())
+  }
 
   for (const node of fields || []) {
     if (!node || typeof node !== 'object') continue
     const sectionLabel =
       typeof node.section === 'string' && node.section.trim() ? node.section.trim() : null
 
-    const built = buildField(node, newSchema)
+    const built = buildField(node, newSchema, reservedNames)
 
     if (sectionLabel) {
       let container = sectionContainers.get(sectionLabel)
       if (!container) {
         container = getDefaultFieldConfig('section')
-        container.name = generateFieldName('section', newSchema)
+        container.name = generateFieldName('section', newSchema, reservedNames)
         container.label = sectionLabel
         container.children = []
         sectionContainers.set(sectionLabel, container)
