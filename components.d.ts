@@ -650,6 +650,7 @@ declare module 'vue' {
     FormFieldConfig: typeof import('./src/components/form-builder/FormFieldConfig.vue')['default']
     FormFieldPalette: typeof import('./src/components/form-builder/FormFieldPalette.vue')['default']
     FormFieldProposalCard: typeof import('./src/components/ai/FormFieldProposalCard.vue')['default']
+    'FormFieldProposalCard.spec': typeof import('./src/components/ai/FormFieldProposalCard.spec.js')['default']
     'FormPageExample.stories': typeof import('./resource/js/shared/components/form/FormPageExample.stories.js')['default']
     FormProgressNav: typeof import('./resource/js/shared/components/form/FormProgressNav.vue')['default']
     'FormProgressNav.stories': typeof import('./resource/js/shared/components/form/FormProgressNav.stories.js')['default']

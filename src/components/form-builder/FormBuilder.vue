@@ -467,16 +467,17 @@ async function handleAiChatApply({ proposal, onApplied }) {
           </aside>
         </Transition>
 
-        <!-- AI form assistant (owns all AI wiring; we only react to @apply). -->
-        <Transition name="slide-right">
-          <FormAiChatPanel
-            v-if="canUseAi && showAiChat"
-            :currentSchema="schema"
-            :builderTitle="title"
-            @apply="handleAiChatApply"
-            @close="showAiChat = false"
-          />
-        </Transition>
+        <!-- AI form assistant (owns all AI wiring; we only react to @apply).
+             NO slide-right Transition here: on a child COMPONENT the enter
+             classes (width: 0 !important) can stick and freeze the panel at
+             sliver width — reproduced headlessly. Plain v-if is reliable. -->
+        <FormAiChatPanel
+          v-if="canUseAi && showAiChat"
+          :currentSchema="schema"
+          :builderTitle="title"
+          @apply="handleAiChatApply"
+          @close="showAiChat = false"
+        />
       </div>
     </div>
 
