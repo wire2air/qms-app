@@ -29,7 +29,7 @@ export class LogBook extends BaseModel {
   @Property({ type: String, required: true }) companyId = ''
 
   @Property({ type: String, required: true }) code = ''
-  @Property({ type: String }) codePrefix = 'FRM-{DEPTCODE}-{TYPECODE}'
+  @Property({ type: String }) codePrefix = 'LOG-{DEPTCODE}-{TYPECODE}'
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) description = ''
 

@@ -125,7 +125,7 @@ watch(
         logBookTypeId: lb.logBookTypeId || null,
         ownerUserId: lb.ownerUserId || null,
         supervisorUserId: lb.supervisorUserId || null,
-        codePrefix: lb.codePrefix ?? 'FRM-{DEPTCODE}-{TYPECODE}',
+        codePrefix: lb.codePrefix ?? 'LOG-{DEPTCODE}-{TYPECODE}',
         equipmentId: lb.equipmentId || null,
         syncsEquipmentCalibration: !!lb.syncsEquipmentCalibration,
         syncsEquipmentPm: !!lb.syncsEquipmentPm,
@@ -960,7 +960,7 @@ const logBookDetailConfig = computed(() =>
                   <template v-if="canEditPrefix">
                     <BaseTextInput
                       v-model="draft.codePrefix"
-                      placeholder="FRM-{DEPTCODE}-{TYPECODE}"
+                      placeholder="LOG-{DEPTCODE}-{TYPECODE}"
                     />
                     <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
                       Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /

@@ -44,12 +44,12 @@ const saveError = ref('')
 
 // Form state -----------------------------------------------------------
 const title = ref('')
-// Code prefix template. The literal `FRM` is the convention default; the
+// Code prefix template. The literal `LOG` is the convention default; the
 // {DEPTCODE} / {TYPECODE} placeholders are resolved server-side from the
 // selected Department + LogBookType so the final code matches what the
 // FE preview shows. Users can flatten this to a literal string if they
 // don't want the templating.
-const codePrefix = ref('FRM-{DEPTCODE}-{TYPECODE}')
+const codePrefix = ref('LOG-{DEPTCODE}-{TYPECODE}')
 const description = ref('')
 // UI decision 2026-08-05: a log book belongs to ONE site (the pivot table
 // stays — only the UI narrowed; existing multi-site rows are untouched).
@@ -131,7 +131,7 @@ const presetTrigger = ref(null)
 watch(open, (isOpen) => {
   if (!isOpen) return
   title.value = ''
-  codePrefix.value = 'FRM-{DEPTCODE}-{TYPECODE}'
+  codePrefix.value = 'LOG-{DEPTCODE}-{TYPECODE}'
   description.value = ''
   selectedSiteId.value = null
   startingBlockId.value = null
@@ -333,13 +333,13 @@ async function save() {
 
       <!-- Code prefix template — supports {DEPTCODE} / {TYPECODE}
            placeholders, resolved server-side from the selected
-           Department + LogBookType. Defaults to FRM-{DEPTCODE}-{TYPECODE}. -->
+           Department + LogBookType. Defaults to LOG-{DEPTCODE}-{TYPECODE}. -->
       <BaseField label="Record Id Prefix" required :value="codePrefix" :rules="[required()]">
         <template #default="field">
           <BaseTextInput
             v-bind="field"
             v-model="codePrefix"
-            placeholder="FRM-{DEPTCODE}-{TYPECODE}"
+            placeholder="LOG-{DEPTCODE}-{TYPECODE}"
           />
           <div class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:flex-col tw:gap-0.5">
             <div>
