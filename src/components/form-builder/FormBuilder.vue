@@ -470,9 +470,13 @@ async function handleAiChatApply({ proposal, onApplied }) {
         <!-- AI form assistant (owns all AI wiring; we only react to @apply).
              NO slide-right Transition here: on a child COMPONENT the enter
              classes (width: 0 !important) can stick and freeze the panel at
-             sliver width — reproduced headlessly. Plain v-if is reliable. -->
+             sliver width — reproduced headlessly. Plain v-if is reliable.
+             Stays mounted while closed (`open` class-swap, not v-if/v-show —
+             the root's tw:flex! would beat v-show's inline display) so
+             accidentally closing the panel keeps the live conversation. -->
         <FormAiChatPanel
-          v-if="canUseAi && showAiChat"
+          v-if="canUseAi"
+          :open="showAiChat"
           :currentSchema="schema"
           :builderTitle="title"
           @apply="handleAiChatApply"
