@@ -35,6 +35,7 @@ import {
   IconReplace,
   IconChecklist,
   IconClipboardList,
+  IconClipboardText,
   IconClipboardCheck,
   IconArchive,
   IconRuler,
@@ -68,6 +69,7 @@ import {
   logoutCurrentSession,
   currentSession,
   isAllowed,
+  hasWriteOn,
   isModuleEntitled,
   isPlatformAdmin,
   isSupplier,
@@ -92,6 +94,26 @@ function isNavItemEntitled(item) {
   if (!item.permissions || item.permissions.length === 0) return true
   const moduleId = item.permissions[0].split(':')[0]
   return isModuleEntitled(moduleId)
+}
+
+// Single visibility predicate for every nav item — RBAC gate + commercial
+// entitlement gate + optional write gate. `writeGate: '<moduleId>'` hides the
+// item from read-only roles: template/admin modules are often granted `read`
+// only so pickers and reference lookups work (e.g. Quality Engineer reads
+// workflow templates for the CAPA/NC submit flow), and that grant is not an
+// invitation to browse the authoring page. The item renders only when the role
+// holds a write capability on the module. Declutter, not security — direct
+// links stay reachable (permissionGuard.js keeps its `:read` gates).
+function isNavItemVisible(item) {
+  const gated = item.permissions && item.permissions.length > 0
+  if (gated && !(isAllowed(item.permissions) && isNavItemEntitled(item))) return false
+  // anyPermissions: show when ANY listed permission is held — for entries
+  // fronting a multi-module workspace (tabbed pages) where holding any one
+  // tab's module should surface the entry. `permissions` remains the
+  // every-of/entitlement gate.
+  if (item.anyPermissions && !item.anyPermissions.some((p) => isAllowed([p]))) return false
+  if (item.writeGate && !hasWriteOn(item.writeGate)) return false
+  return true
 }
 
 // On a small screen the sidebar overlays the page; close it after the user
@@ -324,14 +346,31 @@ const navItems = computed(() => {
       to: getCompanyPath('/audits'),
     },
     {
+      // Submenu like QC Inspection (user request 2026-08-05): ?tab= children,
+      // each gated on its tab's module; the group header auto-hides when every
+      // child is filtered away, which subsumes the old anyPermissions gate.
       label: 'Inspections & Logs',
       icon: IconClipboardList,
-      // Single broadly-granted gate. The landing page itself shows /
-      // hides individual cards based on finer-grained permissions
-      // (inspections:assign for plans, fieldRecords:review for the
-      // review queue, etc.).
-      permissions: ['field_records:create'],
-      to: getCompanyPath('/inspections-logs'),
+      children: [
+        {
+          label: 'Logs',
+          permissions: ['field_records:read'],
+          icon: IconClipboardText,
+          to: getCompanyPath('/inspections-logs?tab=logs'),
+        },
+        {
+          label: 'Log Books',
+          permissions: ['log_books:read'],
+          icon: IconBook,
+          to: getCompanyPath('/inspections-logs?tab=log-books'),
+        },
+        {
+          label: 'Assignments',
+          permissions: ['inspections:read'],
+          icon: IconChecklist,
+          to: getCompanyPath('/inspections-logs?tab=assignments'),
+        },
+      ],
     },
     {
       // Submenu mirrors the /qc-inspection sections (formerly on-page tabs —
@@ -421,8 +460,11 @@ const navItems = computed(() => {
           to: getCompanyPath('/training-verifications'),
         },
         {
+          // Curricula are reference data (tenant-public read) — this page is
+          // the AUTHORING surface, so it follows the write-gate rule.
           label: 'Training Curriculum',
           permissions: ['training:read'],
+          writeGate: 'training',
           icon: IconRoute,
           to: getCompanyPath('/training-curriculum'),
         },
@@ -458,6 +500,7 @@ const navItems = computed(() => {
         {
           label: 'Workflow Templates',
           permissions: ['workflows_templates:read'],
+          writeGate: 'workflows_templates',
           icon: IconArrowsShuffle,
           to: getCompanyPath('/workflow-templates'),
         },
@@ -467,12 +510,14 @@ const navItems = computed(() => {
           // moved into the App Builder workspace (Forms tab).
           label: 'Form Blocks',
           permissions: ['form_blocks:read'],
+          writeGate: 'form_blocks',
           icon: IconStack2,
           to: getCompanyPath('/form-blocks'),
         },
         {
           label: 'Document Templates',
           permissions: ['document_templates:read'],
+          writeGate: 'document_templates',
           icon: IconArticle,
           to: getCompanyPath('/document-templates'),
         },
@@ -482,18 +527,21 @@ const navItems = computed(() => {
           // on each detail page; stored in entity_field_values (JSONB), sealed.
           label: 'Custom Fields',
           permissions: ['custom_fields:manage'],
+          writeGate: 'custom_fields',
           icon: IconListDetails,
           to: getCompanyPath('/custom-fields'),
         },
         {
           label: 'RCA Templates',
           permissions: ['rca_templates:read'],
+          writeGate: 'rca_templates',
           icon: IconSitemap,
           to: getCompanyPath('/rca-templates'),
         },
         {
           label: 'Risk Assessment Templates',
           permissions: ['risk_assessment_templates:read'],
+          writeGate: 'risk_assessment_templates',
           icon: IconLayoutGrid,
           to: getCompanyPath('/risk-assessment-templates'),
         },
@@ -513,10 +561,13 @@ const navItems = computed(() => {
         },
         {
           label: 'Equipment',
-          // No `equipment:read` gate by design — RLS SELECT lets any
-          // in-tenant user see the catalog, since log book authors need
-          // to pick equipment without needing a separate permission.
-          // Visibility is via the menu link being available to all.
+          // Reference data: RLS SELECT is tenant-public (public_read binding)
+          // so log book authors can pick equipment without any grant. The nav
+          // entry follows the Master Data write-gate rule — it shows only for
+          // roles that can AUTHOR the catalog; everyone else keeps the data in
+          // pickers and the page by direct link. (Predates writeGate: was
+          // "visible to all" because that was the only option then.)
+          writeGate: 'calibration_equipment',
           icon: IconTool,
           to: getCompanyPath('/equipment'),
         },
@@ -528,6 +579,7 @@ const navItems = computed(() => {
           // 2026-05-26); operational selectors use "Item".
           label: 'Item Master',
           permissions: ['products:read'],
+          writeGate: 'products',
           icon: IconPackage,
           to: getCompanyPath('/products'),
         },
@@ -539,6 +591,7 @@ const navItems = computed(() => {
         {
           label: 'Lookups',
           permissions: ['company_settings:manage'],
+          writeGate: 'company_settings',
           icon: IconList,
           to: getCompanyPath('/lookups'),
         },
@@ -592,14 +645,22 @@ const navItems = computed(() => {
         // Complaint Settings moved onto the Customer Complaints page itself
         // (gear icon in the header) — module settings live with the module.
         {
+          // Org reference data: every user reads their ASSIGNED sites with no
+          // grant (baseline scoped read, migration 20260805100000) — a read
+          // grant only widens picker reach and must not surface this admin
+          // page. Nav follows the Master Data write-gate rule.
           label: 'Sites',
           permissions: ['sites:read'],
+          writeGate: 'sites',
           icon: IconBuilding,
           to: getCompanyPath('/sites'),
         },
         {
+          // Same rule — departments follow the user's site visibility in
+          // pickers; this entry is for administering the org structure.
           label: 'Departments',
           permissions: ['departments:read'],
+          writeGate: 'departments',
           icon: IconBuildingCommunity,
           to: getCompanyPath('/departments'),
         },
@@ -623,36 +684,38 @@ const navItems = computed(() => {
         },
         {
           label: 'API Keys',
+          permissions: ['api_integrations:read'],
           icon: IconKey,
           to: getCompanyPath('/api-keys'),
         },
         {
-          // AI sidecar — see backend/ai/README.md, AI_PLAN.md §6.5.
-          // Always visible; backend 404s if AI_MODULE_ENABLED is off.
+          // AI sidecar PATs — see backend/ai/README.md, AI_PLAN.md §6.5.
+          // ai:read is implied by ANY ai grant (run/manage/audit), so this
+          // shows for anyone with an AI capability; backend still 404s when
+          // AI_MODULE_ENABLED is off.
           label: 'API Tokens',
+          permissions: ['ai:read'],
           icon: IconRobot,
           to: getCompanyPath('/api-tokens'),
         },
         {
-          // AI usage dashboard. Visible to all users; admins/ai:audit see
-          // company-wide data, regular users see only their own calls.
+          // AI usage dashboard. ai:audit sees company-wide data, other AI
+          // grant holders see their own calls; no AI grant → no entry.
           label: 'AI Usage',
+          permissions: ['ai:read'],
           icon: IconChartBar,
           to: getCompanyPath('/ai-usage'),
         },
         {
           // Company-wide activity ledger — reference surface, not day-to-day
-          // (moved from the top level 2026-07-24, user decision).
+          // (moved from the top level 2026-07-24, user decision). Gated on the
+          // dedicated audit_trail module (read/export in the matrix).
           label: 'Audit Logs',
+          permissions: ['audit_trail:read'],
           icon: IconShieldCheck,
           to: getCompanyPath('/audit-logs'),
         },
-      ].filter((item) => {
-        // If no permissions specified, always show
-        if (!item.permissions || item.permissions.length === 0) return true
-
-        return isAllowed(item.permissions) && isNavItemEntitled(item)
-      }),
+      ].filter(isNavItemVisible),
     },
     // Platform Console — cross-tenant control plane. Gated on the platform-admin
     // standing from the session (not company permissions); every /platform/*
@@ -696,10 +759,7 @@ const navItems = computed(() => {
       if (item.children && item.children.length) {
         return {
           ...item,
-          children: item.children.filter((child) => {
-            if (!child.permissions || child.permissions.length === 0) return true
-            return isAllowed(child.permissions) && isNavItemEntitled(child)
-          }),
+          children: item.children.filter(isNavItemVisible),
         }
       }
       return item
@@ -708,10 +768,7 @@ const navItems = computed(() => {
       // Drop a group whose children were all permission-filtered away, so a user
       // with none of the child permissions never sees an empty expandable header.
       if (item.children && item.children.length === 0) return false
-      // If no permissions specified, always show
-      if (!item.permissions || item.permissions.length === 0) return true
-
-      return isAllowed(item.permissions) && isNavItemEntitled(item)
+      return isNavItemVisible(item)
     })
 })
 </script>

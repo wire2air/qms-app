@@ -55,6 +55,9 @@ export class Document extends BaseModel {
   @Property({ type: String }) relatedStandardId = null
   @Property({ type: Number, required: true }) periodicReviewMonths = 12
   @Property({ type: Boolean }) autoEffectiveOnApproval = true
+  // Company-wide visibility (siteId stays the OWNING site; per-site
+  // applicability lives in DocumentSite rows).
+  @Property({ type: Boolean }) appliesAllSites = false
   // Periodic review (ISO 9001 / 13485 — confirm doc still valid every N months).
   // FK columns default to null, NOT empty string — GraphQL rejects '' for
   // nullable UUID inputs ("Invalid UUID, expected 32 hexadecimal characters").

@@ -99,7 +99,7 @@ function rowMenuItems(row) {
 
     <template #body-cell-site="{ row }">
       <SiteBadgeById v-if="row.siteId" :siteId="row.siteId" />
-      <span v-else class="tw:text-sm tw:text-secondary">—</span>
+      <BaseBadge v-else class="tw:bg-primary/10 tw:text-primary">Company-wide</BaseBadge>
     </template>
 
     <template #body-cell-description="{ row }">

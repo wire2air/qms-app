@@ -15,6 +15,12 @@ const props = defineProps({
     type: [String, null],
     default: null,
   },
+  // Multi-site variant of siteId (document applicability etc.) — departments
+  // of ANY listed site, plus company-wide. Takes precedence over siteId.
+  siteIds: {
+    type: [Array, null],
+    default: null,
+  },
   allowCreate: {
     type: Boolean,
     default: true,
@@ -35,13 +41,15 @@ const modelValue = defineModel({
 })
 
 const departments = useLiveQueryWithDeps(
-  [() => props.siteId],
-  async (db, [siteId]) => {
-    console.debug('Fetching departments for siteId:', siteId)
-    if (siteId) return await db.Department.where('siteId', siteId).exec()
-    return await db.Department.where().exec()
+  [() => props.siteId, () => (props.siteIds ? [...props.siteIds] : null)],
+  async (db, [siteId, siteIds]) => {
+    const all = await db.Department.where().exec()
+    // Site filters keep company-wide departments (no site) — they belong to
+    // every site, mirroring the RLS baseline (site's departments + site-less).
+    if (siteIds?.length) return all.filter((d) => !d.siteId || siteIds.includes(d.siteId))
+    if (siteId) return all.filter((d) => d.siteId === siteId || !d.siteId)
+    return all
   },
-
   { models: ['Department'], initial: [] },
 )
 
@@ -83,7 +91,7 @@ const resolvedNullLabel = computed(
         :nullLabel="resolvedNullLabel"
         :required="props.required"
         :multiple="props.multiple"
-        :clearable="!props.required"
+        :clearable="!props.required && !props.multiple"
       >
         <template v-if="$slots.button" #trigger="scope">
           <slot name="button" v-bind="scope" />

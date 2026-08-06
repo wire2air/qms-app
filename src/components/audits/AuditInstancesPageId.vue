@@ -510,7 +510,11 @@ const auditInstanceDetailConfig = computed(() =>
               class="tw:flex tw:flex-col tw:gap-1"
             >
               <div class="tw:text-xs tw:text-secondary">Department</div>
-              <DepartmentSelectMenu v-if="isEditable" v-model="auditInstance.departmentId" />
+              <DepartmentSelectMenu
+                v-if="isEditable"
+                v-model="auditInstance.departmentId"
+                :siteId="auditInstance.siteId"
+              />
               <DepartmentBadgeById
                 v-else-if="auditInstance.departmentId"
                 :departmentId="auditInstance.departmentId"

@@ -30,10 +30,16 @@ const modelValue = defineModel({
   default: null,
 })
 
+// Reads the SupplierOption projection (view `supplier_options`), not Supplier:
+// a picker only needs id + name, and every user in the tenant can resolve that
+// without holding supplier_management:read. The full record stays gated.
 const suppliers = useLiveQuery(
-  (db) => (props.allStatuses ? db.Supplier.where().exec() : db.Supplier.where('statusId', 'APPROVED').exec()),
+  (db) =>
+    props.allStatuses
+      ? db.SupplierOption.where().exec()
+      : db.SupplierOption.where('statusId', 'APPROVED').exec(),
   {
-    models: ['Supplier'],
+    models: ['SupplierOption'],
     initial: [],
   },
 )
@@ -51,7 +57,7 @@ const resolvedNullLabel = computed(
     optionValue="id"
     :required="props.required"
     :multiple="props.multiple"
-    :clearable="!props.required"
+    :clearable="!props.required && !props.multiple"
     :nullLabel="resolvedNullLabel"
   >
     <template #selected="{ options, remove }">

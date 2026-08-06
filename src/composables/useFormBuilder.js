@@ -11,6 +11,8 @@ import {
   generateFieldName,
   hydrateAiField,
   hydrateAiFields,
+  hydrateChecklistRows,
+  hydrateChecklistColumns,
 } from '@/utils/aiFormHydrate'
 
 const VALID_WIDTHS = new Set(FIELD_WIDTHS.map((w) => w.value))
@@ -48,10 +50,20 @@ function overlayExistingField(existing, node) {
   if (typeof node.placeholder === 'string') f.placeholder = node.placeholder
   if (typeof node.hint === 'string') f.hint = node.hint
   if (typeof node.width === 'string' && VALID_WIDTHS.has(node.width)) f.width = node.width
+  // Numeric bounds — "change the range to 2-8" on a kept number field.
+  if (Number.isFinite(node.min)) f.min = node.min
+  if (Number.isFinite(node.max)) f.max = node.max
   // Only overlay options for types that actually use them.
   if (['select', 'optionGroup', 'checkbox'].includes(f.type) && Array.isArray(node.options)) {
     const opts = node.options.filter((o) => typeof o === 'string' && o.trim()).map((o) => o.trim())
     if (opts.length) f.options = opts
+  }
+  // Checklist grid edits on a kept checklist field.
+  if (f.type === 'checklist') {
+    const rows = hydrateChecklistRows(node.rows)
+    const columns = hydrateChecklistColumns(node.columns)
+    if (rows.length) f.rows = rows
+    if (columns.length) f.columns = columns
   }
   return f
 }
@@ -363,7 +375,7 @@ export function useFormBuilder(initialSchema = []) {
   // Build one field from an AI descriptor. In EDIT mode (existingByName given)
   // a name-matched field is preserved wholesale unless the AI genuinely retyped
   // it to another curated type; heavy/non-curated fields are always preserved.
-  function buildFieldFromNode(node, root, existingByName) {
+  function buildFieldFromNode(node, root, existingByName, reservedNames) {
     const name = typeof node.name === 'string' && node.name.trim() ? node.name.trim() : null
     const existing = name ? existingByName.get(name) : null
     if (existing && !fieldNameExists(root, name)) {
@@ -374,7 +386,7 @@ export function useFormBuilder(initialSchema = []) {
       if (!typeChanged) return overlayExistingField(existing, node)
       // Retype: rebuild fresh but keep the stable name (answers don't orphan).
     }
-    return hydrateAiField(node, root)
+    return hydrateAiField(node, root, reservedNames)
   }
 
   // Replace the whole schema with an AI-generated / AI-edited form. Fields
@@ -389,7 +401,7 @@ export function useFormBuilder(initialSchema = []) {
     if (Array.isArray(preserveFrom)) indexFieldsByName(preserveFrom, existingByName)
 
     const newSchema = hydrateAiFields(fields, {
-      buildField: (node, root) => buildFieldFromNode(node, root, existingByName),
+      buildField: (node, root, reserved) => buildFieldFromNode(node, root, existingByName, reserved),
     })
 
     importSchema(newSchema)

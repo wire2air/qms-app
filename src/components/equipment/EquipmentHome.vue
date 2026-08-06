@@ -8,6 +8,7 @@ import {
   IconTrash,
 } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { getCompanyPath } from '@/utils/routeHelpers'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { DateTime } from 'luxon'
 
@@ -24,6 +25,7 @@ const canCreate = computed(() => isAllowed(['calibration_equipment:create']))
 const canUpdate = computed(() => isAllowed(['calibration_equipment:update']))
 const canDelete = computed(() => isAllowed(['calibration_equipment:delete']))
 const toast = useToast()
+const router = useRouter()
 const { confirm } = useConfirm()
 
 const showCreateDialog = ref(false)
@@ -209,6 +211,41 @@ async function recordCalibration(e) {
     recordingId.value = null
   }
 }
+
+// PM twin of the calibration quick action.
+const recordingPmId = ref(null)
+async function recordPm(e) {
+  if (recordingPmId.value) return
+  recordingPmId.value = e.id
+  try {
+    // Action RPC — the synced row refreshes via the sync socket.
+    await post(`/v1/services/equipment/${e.id}/record-pm`, {})
+    toast.success(`Preventive maintenance recorded for ${e.name}`)
+  } catch (err) {
+    toast.error(err?.message || 'Failed to record maintenance')
+  } finally {
+    recordingPmId.value = null
+  }
+}
+
+// Create-log-book-from-equipment: the edit dialog hands up a preset (nested
+// dialogs avoided); we host CreateLogBookDialog here and jump to the new
+// book's schema builder on success.
+const logBookPreset = ref(null)
+const showCreateLogBook = ref(false)
+function onCreateLogBook(preset) {
+  showEditDialog.value = false
+  logBookPreset.value = preset
+  showCreateLogBook.value = true
+}
+function onLogBookCreated(logBook) {
+  if (logBook?.id) {
+    router.push({
+      path: getCompanyPath(`/inspections-logs/log-books/${logBook.id}`),
+      query: { tab: 'schema' },
+    })
+  }
+}
 </script>
 
 <template>
@@ -314,6 +351,17 @@ async function recordCalibration(e) {
             {{ recordingId === row.id ? 'Recording…' : 'Record calibration' }}
           </button>
           <button
+            v-if="canUpdate && row.requiresPm"
+            type="button"
+            class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:disabled:opacity-50"
+            :disabled="recordingPmId === row.id"
+            title="Mark maintained today and roll the next-PM date forward"
+            @click.stop="recordPm(row)"
+          >
+            <IconTool :size="14" />
+            {{ recordingPmId === row.id ? 'Recording…' : 'Record PM' }}
+          </button>
+          <button
             v-if="canDelete"
             type="button"
             class="tw:inline-flex tw:items-center tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
@@ -334,5 +382,15 @@ async function recordCalibration(e) {
   <CreateEquipmentDialog v-model="showCreateDialog" @created="onCreated" />
   <!-- Same component, edit mode. The dialog seeds its draft from
        the `equipment` prop when set. -->
-  <CreateEquipmentDialog v-model="showEditDialog" :equipment="editingEquipment" @updated="onUpdated" />
+  <CreateEquipmentDialog
+    v-model="showEditDialog"
+    :equipment="editingEquipment"
+    @updated="onUpdated"
+    @createLogBook="onCreateLogBook"
+  />
+  <CreateLogBookDialog
+    v-model="showCreateLogBook"
+    :preset="logBookPreset"
+    @created="onLogBookCreated"
+  />
 </template>

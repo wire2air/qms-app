@@ -55,7 +55,7 @@ const resultJson = computed(() => {
 
 <template>
   <div
-    class="tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:overflow-hidden"
+    class="tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:overflow-hidden tw:shrink-0"
   >
     <button
       class="tw:w-full tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-left tw:text-xs tw:hover:bg-main-hover tw:transition-colors"

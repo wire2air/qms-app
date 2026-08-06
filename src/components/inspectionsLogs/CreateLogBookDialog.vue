@@ -30,6 +30,12 @@ import { required } from '@shared/components/form/validators.js'
  * app uses.
  */
 
+const props = defineProps({
+  // Create-from-equipment flow: pre-links the instrument, preselects its
+  // site, suggests a title, and (when triggerSource is set) arms the
+  // TRIGGER schedule so the book follows the equipment's due dates.
+  preset: { type: Object, default: null },
+})
 const emit = defineEmits(['created'])
 const open = defineModel({ type: Boolean, default: false })
 
@@ -38,14 +44,16 @@ const saveError = ref('')
 
 // Form state -----------------------------------------------------------
 const title = ref('')
-// Code prefix template. The literal `FRM` is the convention default; the
+// Code prefix template. The literal `LOG` is the convention default; the
 // {DEPTCODE} / {TYPECODE} placeholders are resolved server-side from the
 // selected Department + LogBookType so the final code matches what the
 // FE preview shows. Users can flatten this to a literal string if they
 // don't want the templating.
-const codePrefix = ref('FRM-{DEPTCODE}-{TYPECODE}')
+const codePrefix = ref('LOG-{DEPTCODE}-{TYPECODE}')
 const description = ref('')
-const selectedSites = ref([])
+// UI decision 2026-08-05: a log book belongs to ONE site (the pivot table
+// stays — only the UI narrowed; existing multi-site rows are untouched).
+const selectedSiteId = ref(null)
 
 // Taxonomy + routing (Round 0 additions)
 const logBookTypeId = ref(null)
@@ -63,7 +71,12 @@ const selectedEquipment = useLiveQueryWithDeps(
 )
 watch(selectedEquipment, (eq) => {
   if (eq?.locationText && !location.value?.trim()) location.value = eq.locationText
+  // Equipment is the source of truth for the supervisor: mirror the
+  // custodian whenever the linked instrument has one (server enforces too).
+  if (eq?.ownerUserId) supervisorUserId.value = eq.ownerUserId
 })
+
+const supervisorLocked = computed(() => !!selectedEquipment.value?.ownerUserId)
 
 // Compliance references
 const relatedStandardId = ref(null)
@@ -111,15 +124,16 @@ const logBookTypes = useLiveQuery(
 // Equipment module follow-up). Hides RETIRED equipment by default.
 
 const isSubmitting = ref(false)
+const presetTrigger = ref(null)
 
 // Reset state every time the dialog opens. Re-opening after a cancel
 // shouldn't carry stale draft values.
 watch(open, (isOpen) => {
   if (!isOpen) return
   title.value = ''
-  codePrefix.value = 'FRM-{DEPTCODE}-{TYPECODE}'
+  codePrefix.value = 'LOG-{DEPTCODE}-{TYPECODE}'
   description.value = ''
-  selectedSites.value = []
+  selectedSiteId.value = null
   startingBlockId.value = null
   logBookTypeId.value = null
   supervisorUserId.value = null
@@ -132,6 +146,14 @@ watch(open, (isOpen) => {
   editWindowMode.value = 'TIME_WINDOW'
   editWindowMinutes.value = 15
   signatureRequired.value = false
+  presetTrigger.value = null
+  if (props.preset) {
+    title.value = props.preset.title ?? ''
+    equipmentId.value = props.preset.equipmentId ?? null
+    selectedSiteId.value = props.preset.siteId ?? null
+    supervisorUserId.value = props.preset.supervisorUserId ?? null
+    presetTrigger.value = props.preset.triggerSource ?? null
+  }
   reviewRequired.value = false
   showReferences.value = false
   showCompliance.value = false
@@ -204,7 +226,7 @@ const isFormValid = computed(
     // separate concern — see architecture_security_tiers memory.)
     !!logBookTypeId.value &&
     !!supervisorUserId.value &&
-    selectedSites.value.length > 0,
+    !!selectedSiteId.value,
 )
 
 // Save — goes through REST so the logBookService can validate cron-y
@@ -243,6 +265,14 @@ async function save() {
       signatureRequired: signatureRequired.value,
       reviewRequired: reviewRequired.value,
       notifyOnSubmit: 'DIGEST',
+      ...(presetTrigger.value
+        ? {
+            scheduleMode: 'TRIGGER',
+            triggerSource: presetTrigger.value,
+            syncsEquipmentCalibration: presetTrigger.value === 'CALIBRATION',
+            syncsEquipmentPm: presetTrigger.value === 'PM',
+          }
+        : {}),
       // Snapshot, not reference: the block's fields are copied by value.
       schema: Array.isArray(startingBlock?.schema)
         ? JSON.parse(JSON.stringify(startingBlock.schema))
@@ -253,8 +283,22 @@ async function save() {
     // Site links are SyncEngine-native — no service validation needed,
     // and going through IDB keeps the live-query on the templates page
     // up-to-date immediately.
-    for (const siteId of selectedSites.value) {
+    for (const siteId of [selectedSiteId.value]) {
       await createSiteOnLogBook({ logBookId: logBook.id, siteId })
+    }
+    // Equipment flow: auto-assign the custodian as the default logger so
+    // the trigger/schedule has an audience from day one (user decision
+    // 2026-08-06). Best-effort — the Assignments tab manages it after.
+    if (props.preset?.supervisorUserId && logBook?.id) {
+      try {
+        await post('/v1/services/formAssignments', {
+          logBookId: logBook.id,
+          assignedUserIds: [props.preset.supervisorUserId],
+          active: true,
+        })
+      } catch {
+        // Non-fatal — the submit-time reminder covers a missing audience.
+      }
     }
     emit('created', logBook)
     open.value = false
@@ -289,13 +333,13 @@ async function save() {
 
       <!-- Code prefix template — supports {DEPTCODE} / {TYPECODE}
            placeholders, resolved server-side from the selected
-           Department + LogBookType. Defaults to FRM-{DEPTCODE}-{TYPECODE}. -->
+           Department + LogBookType. Defaults to LOG-{DEPTCODE}-{TYPECODE}. -->
       <BaseField label="Record Id Prefix" required :value="codePrefix" :rules="[required()]">
         <template #default="field">
           <BaseTextInput
             v-bind="field"
             v-model="codePrefix"
-            placeholder="FRM-{DEPTCODE}-{TYPECODE}"
+            placeholder="LOG-{DEPTCODE}-{TYPECODE}"
           />
           <div class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:flex-col tw:gap-0.5">
             <div>
@@ -376,7 +420,10 @@ async function save() {
           :value="supervisorUserId"
           :rules="[required()]"
         >
-          <UserSelectMenu v-model="supervisorUserId" />
+          <UserSelectMenu v-model="supervisorUserId" :disabled="supervisorLocked" />
+          <div v-if="supervisorLocked" class="tw:text-caption tw:text-secondary tw:mt-1">
+            Follows the equipment custodian (source of truth).
+          </div>
         </BaseField>
       </div>
 
@@ -388,13 +435,13 @@ async function save() {
           label="Sites"
           required
           hint="Pick at least one site where this log book can be filled."
-          :value="selectedSites"
-          :rules="[required('Pick at least one site.')]"
+          :value="selectedSiteId"
+          :rules="[required('Pick a site.')]"
         >
-          <SiteSelectMenu v-model="selectedSites" multiple />
+          <SiteSelectMenu v-model="selectedSiteId" :required="true" />
         </BaseField>
         <BaseField label="Department">
-          <DepartmentSelectMenu v-model="departmentId" />
+          <DepartmentSelectMenu v-model="departmentId" :siteId="selectedSiteId" />
           <div class="tw:text-xs tw:text-secondary tw:mt-1">
             Feeds <span class="">{DEPTCODE}</span> in the Record ID prefix.
           </div>

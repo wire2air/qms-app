@@ -66,6 +66,8 @@ const templates = useLiveQueryWithDeps(
     () => list.filters.value.type,
   ],
   async (db, [q, cls, type]) => {
+    // Visibility is RLS-scoped (site permissions + involvement) — the list
+    // shows whatever synced. Editing is owner-gated on the detail page.
     let rows = await db.LogBook.where().exec()
     if (cls !== 'all') rows = rows.filter((t) => t.recordClassification === cls)
     if (type !== 'all') rows = rows.filter((t) => t.logBookTypeId === type)

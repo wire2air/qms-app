@@ -1,4 +1,5 @@
 <script setup>
+import { getCompanyPath } from '@/utils/routeHelpers'
 import { IconX, IconCheck, IconCircleX } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { DateTime } from 'luxon'
@@ -22,12 +23,13 @@ const props = defineProps({
   equipment: { type: Object, default: null },
 })
 
-const emit = defineEmits(['created', 'updated'])
+const emit = defineEmits(['created', 'updated', 'createLogBook'])
 const open = defineModel({ type: Boolean, default: false })
 const toast = useToast()
 
 const formRef = ref(null)
 const isSubmitting = ref(false)
+const originalOwnerUserId = ref(null)
 const saveError = ref('')
 
 const isEditing = computed(() => Boolean(props.equipment?.id))
@@ -47,12 +49,49 @@ const statusId = ref('IN_SERVICE')
 const requiresCalibration = ref(false)
 const calibrationInterval = ref(null)
 const calibrationIntervalUnit = ref('MONTH')
+const requiresPm = ref(false)
+const pmInterval = ref(null)
+const pmIntervalUnit = ref('MONTH')
 const CALIBRATION_UNITS = [
   { label: 'Days', value: 'DAY' },
   { label: 'Weeks', value: 'WEEK' },
   { label: 'Months', value: 'MONTH' },
   { label: 'Years', value: 'YEAR' },
 ]
+
+// Linked log books (edit mode) — the equipment↔log-book bridge. Creating one
+// from here hands a preset up to the host page (nested dialogs are avoided);
+// the preset pre-links the equipment and arms the matching trigger schedule.
+const linkedLogBooks = useLiveQueryWithDeps(
+  [() => props.equipment?.id],
+  async (db, [id]) => (id ? db.LogBook.where('equipmentId', id).exec() : []),
+  { models: ['LogBook'], initial: [] },
+)
+const hasCalibrationBook = computed(() =>
+  linkedLogBooks.value.some(
+    (lb) => lb.triggerSource === 'CALIBRATION' || lb.syncsEquipmentCalibration,
+  ),
+)
+const hasPmBook = computed(() =>
+  linkedLogBooks.value.some((lb) => lb.triggerSource === 'PM' || lb.syncsEquipmentPm),
+)
+
+function requestLogBook(triggerSource) {
+  emit('createLogBook', {
+    equipmentId: props.equipment.id,
+    siteId: props.equipment.siteId ?? null,
+    // The custodian supervises the book by default (user decision 2026-08-06);
+    // changing the custodian later re-syncs books still pointing at the old one.
+    supervisorUserId: props.equipment.ownerUserId ?? null,
+    triggerSource,
+    title:
+      triggerSource === 'PM'
+        ? `${props.equipment.name} Preventive Maintenance Log`
+        : triggerSource === 'CALIBRATION'
+          ? `${props.equipment.name} Calibration Log`
+          : `${props.equipment.name} Log`,
+  })
+}
 const locationText = ref('')
 const notes = ref('')
 // Date fields — bound to <input type="date"> which speaks
@@ -119,6 +158,10 @@ watch(open, (isOpen) => {
   requiresCalibration.value = e?.requiresCalibration ?? false
   calibrationInterval.value = e?.calibrationInterval ?? null
   calibrationIntervalUnit.value = e?.calibrationIntervalUnit ?? 'MONTH'
+  originalOwnerUserId.value = e?.ownerUserId ?? null
+  requiresPm.value = e?.requiresPm ?? false
+  pmInterval.value = e?.pmInterval ?? null
+  pmIntervalUnit.value = e?.pmIntervalUnit ?? 'MONTH'
   locationText.value = e?.locationText ?? ''
   notes.value = e?.notes ?? ''
   installedAt.value = toDateInput(e?.installedAt)
@@ -166,6 +209,9 @@ function buildModelFields() {
       ? Number(calibrationInterval.value) || null
       : null,
     calibrationIntervalUnit: calibrationIntervalUnit.value,
+    requiresPm: requiresPm.value,
+    pmInterval: requiresPm.value ? Number(pmInterval.value) || null : null,
+    pmIntervalUnit: pmIntervalUnit.value,
     locationText: locationText.value?.trim() || null,
     notes: notes.value?.trim() || null,
     installedAt: toDateTime(installedAt.value),
@@ -199,6 +245,9 @@ function buildPayload() {
       ? Number(calibrationInterval.value) || null
       : null,
     calibrationIntervalUnit: calibrationIntervalUnit.value,
+    requiresPm: requiresPm.value,
+    pmInterval: requiresPm.value ? Number(pmInterval.value) || null : null,
+    pmIntervalUnit: pmIntervalUnit.value,
     locationText: locationText.value?.trim() || null,
     notes: notes.value?.trim() || null,
     // Dates: empty string from the date input → null; otherwise send
@@ -220,6 +269,23 @@ async function onSubmit() {
         id: props.equipment.id,
         fields: buildModelFields(),
       })
+      // Equipment is the SOURCE OF TRUTH for linked log book supervisors
+      // (user decision 2026-08-06): a custodian change mirrors to every
+      // linked book automatically — surfaced, not silent.
+      const newOwner = ownerUserId.value || null
+      const oldOwner = originalOwnerUserId.value || null
+      if (newOwner && newOwner !== oldOwner && linkedLogBooks.value.length) {
+        try {
+          await post(`/v1/services/equipment/${props.equipment.id}/sync-logbook-supervisors`, {
+            toUserId: newOwner,
+          })
+          toast.info(
+            `Supervisor updated on ${linkedLogBooks.value.length} linked log book(s) — it follows the custodian.`,
+          )
+        } catch (err2) {
+          toast.error(err2?.message || 'Failed to update log book supervisors')
+        }
+      }
       emit('updated', updated)
       open.value = false
       toast.success('Equipment updated')
@@ -424,6 +490,104 @@ function close() {
               Used to roll the next-due date forward when a calibration is recorded — e.g.
               <strong>1 Day</strong> for a pH meter, or <strong>12 Months</strong> for a balance.
             </div>
+          </div>
+        </div>
+
+        <!-- Preventive-maintenance program — calibration's twin. -->
+        <div
+          class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/40 tw:p-3 tw:flex tw:flex-col tw:gap-3"
+        >
+          <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:select-none">
+            <BaseCheckbox v-model="requiresPm" />
+            <span class="tw:text-sm tw:font-medium tw:text-on-main"
+              >Requires preventive maintenance</span
+            >
+          </label>
+          <div v-if="requiresPm">
+            <div class="tw:flex tw:items-end tw:gap-3">
+              <BaseField
+                label="PM interval"
+                required
+                :value="pmInterval"
+                :rules="[required(), minValue(1)]"
+                class="tw:w-28"
+              >
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model.number="pmInterval"
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 6"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Unit" class="tw:flex-1 tw:min-w-56">
+                <SegmentedControl v-model="pmIntervalUnit" :options="CALIBRATION_UNITS" />
+              </BaseField>
+            </div>
+            <div class="tw:text-caption tw:text-secondary tw:mt-1">
+              Rolls the next-PM date forward when maintenance is recorded — from the quick action
+              or a PM log book entry.
+            </div>
+          </div>
+        </div>
+
+        <!-- Linked log books — visible in edit mode. No book yet → offer to
+             create one pre-linked with the matching trigger schedule. -->
+        <div
+          v-if="props.equipment?.id"
+          class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/40 tw:p-3 tw:flex tw:flex-col tw:gap-2"
+        >
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">Log books</span>
+          <RouterLink
+            v-for="lb in linkedLogBooks"
+            :key="lb.id"
+            :to="getCompanyPath(`/inspections-logs/log-books/${lb.id}`)"
+            class="tw:text-sm tw:text-primary tw:hover:underline"
+          >
+            {{ lb.title }}
+            <span v-if="lb.scheduleMode === 'TRIGGER'" class="tw:text-caption tw:text-secondary">
+              — triggered by {{ lb.triggerSource === 'PM' ? 'PM' : 'calibration' }} due
+            </span>
+          </RouterLink>
+          <span v-if="!linkedLogBooks.length" class="tw:text-caption tw:text-secondary">
+            No log book linked to this equipment yet.
+          </span>
+          <!-- Per-TYPE creation (user decision 2026-08-06: calibration and PM
+               each get their own book — different forms, different due dates). -->
+          <div
+            v-if="
+              (requiresCalibration && !hasCalibrationBook) ||
+              (requiresPm && !hasPmBook) ||
+              !linkedLogBooks.length
+            "
+            class="tw:flex tw:flex-wrap tw:gap-2"
+          >
+            <BaseButton
+              v-if="requiresCalibration && !hasCalibrationBook"
+              size="sm"
+              variant="outline"
+              @click="requestLogBook('CALIBRATION')"
+            >
+              + Calibration log
+            </BaseButton>
+            <BaseButton
+              v-if="requiresPm && !hasPmBook"
+              size="sm"
+              variant="outline"
+              @click="requestLogBook('PM')"
+            >
+              + PM log
+            </BaseButton>
+            <BaseButton
+              v-if="!linkedLogBooks.length"
+              size="sm"
+              variant="outline"
+              @click="requestLogBook(null)"
+            >
+              + Log book
+            </BaseButton>
           </div>
         </div>
 

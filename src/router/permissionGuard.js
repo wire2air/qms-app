@@ -34,12 +34,12 @@ const ADMIN_PERMISSIONS = {
   departments: 'departments:read',
   suppliers: 'supplier_management:read',
   products: 'products:read',
-  templates: 'forms_templates:read',
-  'form-templates': 'forms_templates:read',
-  'workflow-templates': 'workflows_templates:read',
-  'document-templates': 'document_templates:read',
-  'rca-templates': 'rca_templates:read',
-  'risk-assessment-templates': 'risk_assessment_templates:read',
+  // Template/reference routes deliberately carry NO guard: their reads are
+  // tenant-public (migration 20260804150000 — reference data every picker
+  // depends on) and their nav entries are write-gated instead. In-page
+  // authoring actions gate on the module's write verbs. Guarding on
+  // '<module>:read' would bounce no-grant users off pages RLS happily serves
+  // — the read strings no longer exist as grantable actions.
   'automation-rules': 'automation_rules:manage',
   'custom-fields': 'custom_fields:manage',
   'complaint-settings': 'complaint_management:update',
@@ -49,6 +49,11 @@ const ADMIN_PERMISSIONS = {
   'organization-security': 'security:manage',
   'admin-security': 'security:manage',
   'vendor-access-log': 'security:manage',
+  'api-keys': 'api_integrations:read',
+  // ai:read is implied by ANY ai grant — run/manage/audit all pass.
+  'api-tokens': 'ai:read',
+  'ai-usage': 'ai:read',
+  'audit-logs': 'audit_trail:read',
 }
 
 // Record modules — guard the LIST route only; detail routes defer to RLS so
@@ -71,7 +76,8 @@ const RECORD_LIST_PERMISSIONS = {
   'training-verifications': 'training_verifications:read',
   'training-curriculum': 'training:read',
   'training-reports': 'training_instances:read',
-  'inspections-logs': 'field_records:create',
+  // Multi-module workspace — any of its tabs' modules admits (array = any-of).
+  'inspections-logs': ['log_books:read', 'inspections:read', 'field_records:read'],
   'qc-inspection': 'inspection_qc:read',
   logging: 'field_records:create',
 }
@@ -126,6 +132,9 @@ const CREATE_SEGMENTS = new Set(['create', 'new'])
 // (settings, automation-rules, inspections-logs…) already covers creation, so
 // use it as-is.
 function createPermissionFrom(basePerm) {
+  // Array (any-of workspace gate): bump each member — holding create on ANY
+  // of the workspace's modules admits its create pages.
+  if (Array.isArray(basePerm)) return basePerm.map((p) => createPermissionFrom(p))
   return basePerm.endsWith(':read') ? basePerm.replace(/:read$/, ':create') : basePerm
 }
 
@@ -209,6 +218,11 @@ export function evaluateRoute(to) {
 
   const permission = requiredPermissionFor(to)
   if (!permission) return true
+  // Array = any-of (multi-module workspaces like /inspections-logs).
+  if (Array.isArray(permission)) {
+    if (permission.some((p) => isAllowed([p]))) return true
+    return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
+  }
   if (isAllowed([permission])) return true
 
   return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }

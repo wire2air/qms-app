@@ -112,6 +112,12 @@ async function onDeactivate(role) {
     :emptyTitle="list.hasActiveFilters.value ? 'No roles match your filters' : 'No roles found'"
     emptyDescription="Create your first role to get started."
   >
+    <template #title>
+      <span class="tw:inline-flex tw:items-center tw:gap-2">
+        Roles Administration
+        <HelpButton slug="KB/administration/roles-and-permissions" :size="16" />
+      </span>
+    </template>
     <template #actions>
       <button
         v-if="canCreateRole"

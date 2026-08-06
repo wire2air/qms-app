@@ -1,16 +1,7 @@
 <script setup>
 import { onClickOutside } from '@vueuse/core'
-import {
-  IconX,
-  IconSparkles,
-  IconHistory,
-  IconPlus,
-  IconAlertTriangle,
-  IconFileText,
-} from '@tabler/icons-vue'
+import { IconX, IconSparkles, IconHistory, IconPlus, IconFileText } from '@tabler/icons-vue'
 import { useChatPanel } from '@/composables/useChatPanel'
-import { useChatStream } from '@/composables/useChatStream'
-import { buildRecordIndex } from '@/utils/recordRef.js'
 
 /**
  * AI chat slide-out (see AI_PLAN.md §6).
@@ -19,6 +10,10 @@ import { buildRecordIndex } from '@/utils/recordRef.js'
  * Cmd-J / Ctrl-J toggles open/close. The panel itself is conditionally
  * rendered via v-if so when it's closed we don't keep an active SSE stream
  * or watchers in memory.
+ *
+ * The conversation itself (messages, streaming, composer) lives in the
+ * shared ChatConversation surface — this component is just the global
+ * shell: header, thread history, entity-context handoff.
  */
 
 const panel = useChatPanel()
@@ -34,24 +29,20 @@ useHotkeys({
   handler: () => panel.toggle(),
 })
 
-// One chat-stream instance per panel mount. It reacts to `threadId` mutations
-// internally (loads history when set), so we keep it synced with the panel's
-// activeThreadId rather than recreating the composable.
-const chat = useChatStream({ threadId: panel.activeThreadId.value })
+const conversationRef = ref(null)
 
-// Record-number → detail-link index, built from the tool-call results in the
-// stream. ChatMessage uses it to linkify record identifiers (EV-…, NC-…, …) in
-// the assistant markdown so users can click through to the record.
-const recordIndex = computed(() => buildRecordIndex(chat.items.value))
+const DEFAULT_SUGGESTIONS = [
+  'Show me CAPAs closed last month',
+  'Any open NCs in the engineering department?',
+  'Find documents mentioning calibration',
+]
 
-// Panel → chat
-watch(panel.activeThreadId, (id) => {
-  if (id !== chat.threadId.value) chat.threadId.value = id
-})
-// Chat → panel (when a new thread is server-assigned on first send)
-watch(chat.threadId, (id) => {
-  if (id !== panel.activeThreadId.value) panel.selectThread(id)
-})
+// Entity context: attached to the FIRST send of a new thread only (the
+// backend stores it on the thread row; later turns reload it from there).
+function contextProvider(threadId) {
+  if (threadId) return null
+  return panel.consumePendingContext()
+}
 
 // Chat history lives in a header dropdown (not a persistent rail) so the
 // conversation gets the full panel width.
@@ -61,32 +52,21 @@ onClickOutside(historyRef, () => {
   showHistory.value = false
 })
 
-// Surface the entity context (either pending — about to be attached to next
-// new thread — or already saved on the active thread).
+// Surface the entity context (pending — about to be attached to next new
+// thread).
 const activeContext = computed(() => {
-  if (panel.pendingContext.value && !chat.threadId.value) return panel.pendingContext.value
-  return null // TODO: when chat exposes thread.context, surface that too
+  if (panel.pendingContext.value && !panel.activeThreadId.value) return panel.pendingContext.value
+  return null
 })
 
-async function handleSubmit(message) {
-  // If the panel was opened with a context (e.g. "Ask AI" on a CAPA page),
-  // attach it to the first send — backend stores it on the new thread row.
-  const context = chat.threadId.value ? null : panel.consumePendingContext()
-  await chat.send(message, { context })
-}
-
-function handleCancel() {
-  chat.cancel?.()
-}
-
 function handleSelectThread(id) {
-  if (chat.isStreaming.value) chat.cancel?.()
+  conversationRef.value?.cancel?.()
   panel.selectThread(id)
   showHistory.value = false
 }
 
 function handleNewChat() {
-  if (chat.isStreaming.value) chat.cancel?.()
+  conversationRef.value?.cancel?.()
   panel.startNew()
   showHistory.value = false
 }
@@ -104,17 +84,6 @@ async function handleDeleteThread(thread) {
   if (panel.activeThreadId.value === thread.id) panel.startNew()
   await thread.delete()
 }
-
-// Auto-scroll to bottom as messages grow.
-const scrollRef = ref(null)
-watch(
-  () => chat.items.value,
-  async () => {
-    await nextTick()
-    if (scrollRef.value) scrollRef.value.scrollTop = scrollRef.value.scrollHeight
-  },
-  { deep: true },
-)
 </script>
 
 <template>
@@ -149,7 +118,7 @@ watch(
           <IconSparkles :size="18" class="tw:text-primary" />
           <div class="tw:flex-1 tw:min-w-0">
             <div class="tw:text-sm tw:font-bold tw:text-on-main tw:truncate">
-              {{ chat.title.value || 'AI Assistant' }}
+              {{ conversationRef?.title || 'AI Assistant' }}
             </div>
             <div class="tw:text-xs tw:text-secondary">Ask anything about your QMS data</div>
           </div>
@@ -211,90 +180,13 @@ watch(
           </span>
         </div>
 
-        <!-- Body -->
-        <div class="tw:flex tw:flex-1 tw:min-h-0 tw:overflow-hidden">
-          <!-- Conversation (full width — history lives in the header dropdown) -->
-          <div class="tw:flex tw:flex-col tw:flex-1 tw:min-w-0 tw:overflow-hidden">
-            <!-- Messages -->
-            <div
-              ref="scrollRef"
-              class="tw:flex-1 tw:overflow-y-auto tw:p-4 tw:flex tw:flex-col tw:gap-3"
-            >
-              <template v-if="chat.items.value.length === 0 && !chat.isStreaming.value">
-                <div
-                  class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:h-full tw:text-center tw:gap-3 tw:text-secondary"
-                >
-                  <IconSparkles :size="32" class="tw:text-primary/60" />
-                  <div>
-                    <div class="tw:text-sm tw:font-semibold tw:text-on-main">How can I help?</div>
-                    <div class="tw:text-xs tw:mt-1">Try one of these:</div>
-                  </div>
-                  <div class="tw:flex tw:flex-col tw:gap-2 tw:max-w-md tw:w-full">
-                    <button
-                      v-for="example in [
-                        'Show me CAPAs closed last month',
-                        'Any open NCs in the engineering department?',
-                        'Find documents mentioning calibration',
-                      ]"
-                      :key="example"
-                      class="tw:text-left tw:text-sm tw:px-3 tw:py-2 tw:rounded-lg tw:border tw:border-divider tw:hover:bg-main-hover tw:transition-colors"
-                      @click="handleSubmit(example)"
-                    >
-                      {{ example }}
-                    </button>
-                  </div>
-                </div>
-              </template>
-
-              <template v-for="item in chat.items.value" :key="item.id">
-                <ChatToolCallCard v-if="item.kind === 'tool_call'" :card="item" />
-                <ChatMessage v-else :item="item" :recordIndex="recordIndex" />
-              </template>
-
-              <!-- "thinking" indicator while we wait on the first assistant text -->
-              <div
-                v-if="
-                  chat.isStreaming.value && !chat.items.value.some((i) => i.kind === 'assistant')
-                "
-                class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary tw:px-2"
-              >
-                <div class="tw:flex tw:gap-1">
-                  <span class="tw:size-1.5 tw:rounded-full tw:bg-primary tw:animate-pulse"></span>
-                  <span
-                    class="tw:size-1.5 tw:rounded-full tw:bg-primary tw:animate-pulse"
-                    style="animation-delay: 0.2s"
-                  ></span>
-                  <span
-                    class="tw:size-1.5 tw:rounded-full tw:bg-primary tw:animate-pulse"
-                    style="animation-delay: 0.4s"
-                  ></span>
-                </div>
-                <span>Thinking…</span>
-              </div>
-
-              <!-- Error banner -->
-              <div
-                v-if="chat.error.value"
-                class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-800 tw:text-sm"
-              >
-                <IconAlertTriangle :size="16" class="tw:mt-0.5 tw:flex-none" />
-                <div class="tw:flex-1 tw:min-w-0">
-                  <div class="tw:font-semibold">{{ chat.error.value.code || 'Error' }}</div>
-                  <div class="tw:text-xs tw:mt-0.5 tw:wrap-break-word">
-                    {{ chat.error.value.message }}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Composer -->
-            <ChatComposer
-              :isStreaming="chat.isStreaming.value"
-              @submit="handleSubmit"
-              @cancel="handleCancel"
-            />
-          </div>
-        </div>
+        <!-- Conversation (full width — history lives in the header dropdown) -->
+        <ChatConversation
+          ref="conversationRef"
+          v-model:threadId="panel.activeThreadId.value"
+          :contextProvider="contextProvider"
+          :suggestions="DEFAULT_SUGGESTIONS"
+        />
       </aside>
     </Transition>
   </Teleport>

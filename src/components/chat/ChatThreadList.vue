@@ -2,13 +2,15 @@
 import { IconMessage, IconTrash } from '@tabler/icons-vue'
 import { useChatThreads } from '@/composables/useChatThreads'
 
-defineProps({
+const props = defineProps({
   activeThreadId: { type: String, default: null },
+  // Filter to one context kind (e.g. 'form_builder' for the docked assistant).
+  kind: { type: String, default: null },
 })
 
 const emit = defineEmits(['select', 'delete'])
 
-const threads = useChatThreads()
+const threads = useChatThreads({ kind: props.kind })
 
 function formatRelative(dt) {
   if (!dt) return ''
@@ -45,8 +47,9 @@ function formatRelative(dt) {
         <IconMessage :size="14" class="tw:text-secondary tw:mt-1 tw:flex-none" />
         <div class="tw:flex-1 tw:min-w-0">
           <div class="tw:truncate tw:font-medium">{{ t.title || 'New conversation' }}</div>
-          <div class="tw:text-xs tw:text-secondary">
+          <div class="tw:text-xs tw:text-secondary tw:truncate">
             {{ formatRelative(t.lastMessageAt ?? t.createdAt) }}
+            <template v-if="t.context?.builderTitle"> · {{ t.context.builderTitle }}</template>
           </div>
         </div>
         <span

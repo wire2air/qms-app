@@ -50,7 +50,7 @@ function onCreated(created) {
     optionValue="id"
     :required="props.required"
     :multiple="props.multiple"
-    :clearable="!props.required"
+    :clearable="!props.required && !props.multiple"
     :nullLabel="resolvedNullLabel"
   >
     <template #selected="{ options, remove }">

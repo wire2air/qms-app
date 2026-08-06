@@ -37,6 +37,10 @@ const props = defineProps({
   // Synthesized steps (admin-defined modules) have no WorkflowStepRole rows yet
   // — pass their role ids directly. When null, fall back to querying by step.id.
   roleIds: { type: Array, default: null },
+  // Opt-in segregation-of-duties: user ids removed from the candidate pool
+  // (e.g. the submitter, so nobody reviews their own submission). Off by
+  // default — QC disposition deliberately PREFERS the submitter.
+  excludeUserIds: { type: Array, default: null },
   // Opt-in smart default (internal steps only): prefer this user if they hold
   // the step's role, else their department supervisor if they hold it, else the
   // first candidate. Used by the QC disposition submit (prefer the submitter).
@@ -136,9 +140,11 @@ const supplierCandidates = useLiveQueryWithDeps(
   { models: ['User'], initial: [] },
 )
 
-const candidateUsers = computed(() =>
-  usesSupplierPicker.value ? supplierCandidates.value : internalCandidates.value,
-)
+const candidateUsers = computed(() => {
+  const pool = usesSupplierPicker.value ? supplierCandidates.value : internalCandidates.value
+  if (!props.excludeUserIds?.length) return pool
+  return pool.filter((u) => !props.excludeUserIds.includes(u.id))
+})
 
 // Smart-default support: the preferred user + their department supervisor.
 // (No `initial` on supervisorId so we can wait for it to resolve before

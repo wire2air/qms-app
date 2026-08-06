@@ -237,8 +237,12 @@ async function onSubmit() {
         </template>
       </BaseField>
 
-      <BaseField label="Site" size="sm" required :value="form.siteId" :rules="[required()]">
-        <SiteSelectMenu v-model="form.siteId" :required="true" />
+      <BaseField label="Site" size="sm" :value="form.siteId">
+        <SiteSelectMenu v-model="form.siteId" nullLabel="Company-wide (all sites)" />
+        <div class="tw:text-caption tw:text-secondary tw:mt-1">
+          Leave as company-wide for functional departments (Quality, Regulatory, …) that belong to
+          every site; pick a site only for site-local units.
+        </div>
       </BaseField>
 
       <div>

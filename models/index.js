@@ -58,6 +58,7 @@ import { Notification } from './notification'
 import { NotificationType } from './notificationType'
 import { OptionSet } from './optionSet'
 import { Product } from './product'
+import { ProductOption } from './productOption'
 import { ProductFamily } from './productFamily'
 import { ProductStatus } from './productStatus'
 import { ItemCategory } from './itemCategory'
@@ -77,6 +78,7 @@ import { RoleStatus } from './roleStatus'
 import { Site } from './site'
 import { SiteOnTemplate } from './siteOnTemplate'
 import { Supplier } from './supplier'
+import { SupplierOption } from './supplierOption'
 import { SupplierAsset } from './supplierAsset'
 import { SupplierCertificateType } from './supplierCertificateType'
 import { SupplierContact } from './supplierContact'
@@ -194,6 +196,7 @@ import { LogBook } from './logBook'
 import { LogBookVersion } from './logBookVersion'
 import { LogBookType } from './logBookType'
 import { SiteOnLogBook } from './siteOnLogBook'
+import { DocumentSite } from './documentSite'
 import { LogBookDocumentLink } from './logBookDocumentLink'
 import { SharedWithUser } from './sharedWithUser'
 import { Equipment } from './equipment'
@@ -280,6 +283,7 @@ export const db = {
   NotificationType,
   OptionSet,
   Product,
+  ProductOption,
   ProductFamily,
   ProductStatus,
   ProductSupplier,
@@ -299,6 +303,7 @@ export const db = {
   Site,
   SiteOnTemplate,
   Supplier,
+  SupplierOption,
   SupplierAsset,
   SupplierCertificateType,
   SupplierContact,
@@ -414,6 +419,7 @@ export const db = {
   LogBookVersion,
   LogBookType,
   SiteOnLogBook,
+  DocumentSite,
   LogBookDocumentLink,
   SharedWithUser,
   Equipment,

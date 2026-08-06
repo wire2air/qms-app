@@ -42,21 +42,6 @@ const lockLogBook = computed(() => props.embedded || !!props.logBookId)
 
 const canAssign = computed(() => isAllowed(['inspections:assign']))
 
-const COMMON_TIMEZONES = [
-  'UTC',
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'Europe/London',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Asia/Kolkata',
-  'Australia/Sydney',
-]
-
 // Default a new assignment to the admin's own timezone (most schedules
 // are set for "my" timezone). Ensure it's in the dropdown options.
 const userTimezone = (() => {
@@ -66,9 +51,6 @@ const userTimezone = (() => {
     return 'UTC'
   }
 })()
-const timezoneOptions = computed(() => [
-  ...new Set([userTimezone, form.value.timezone, ...COMMON_TIMEZONES].filter(Boolean)),
-])
 
 const form = ref({
   logBookId: '',
@@ -123,40 +105,6 @@ const DEFAULTS_BY_FREQUENCY = {
   semi_annual: { windowMinutes: 14 * 24 * 60, graceMinutes: 7 * 24 * 60 },
   annual: { windowMinutes: 30 * 24 * 60, graceMinutes: 14 * 24 * 60 },
 }
-
-/**
- * Unit the window/grace inputs render in. Sub-day frequencies (Daily)
- * use hours; everything weekly+ uses days. Minutes are still possible
- * via the Advanced cron mode — we don't expose them here because every
- * real log-book schedule worth scheduling is at least daily-grain.
- */
-function unitForFrequency(freq) {
-  return freq === 'daily' ? 'hours' : 'days'
-}
-function unitMinutes(unit) {
-  return unit === 'days' ? 24 * 60 : unit === 'hours' ? 60 : 1
-}
-function fromMinutes(min, unit) {
-  if (!Number.isFinite(min)) return 0
-  return Math.round((min / unitMinutes(unit)) * 100) / 100
-}
-function toMinutes(val, unit) {
-  return Math.max(0, Math.round(Number(val) * unitMinutes(unit)))
-}
-
-const unit = computed(() => unitForFrequency(frequency.value))
-const windowDisplay = computed({
-  get: () => fromMinutes(form.value.windowMinutes, unit.value),
-  set: (v) => {
-    form.value.windowMinutes = toMinutes(v, unit.value)
-  },
-})
-const graceDisplay = computed({
-  get: () => fromMinutes(form.value.graceMinutes, unit.value),
-  set: (v) => {
-    form.value.graceMinutes = toMinutes(v, unit.value)
-  },
-})
 
 // When the user picks a different frequency, seed window + grace with
 // that frequency's industry-standard defaults. We only apply defaults
@@ -246,23 +194,11 @@ function validate() {
 }
 
 function buildPayload() {
-  const schedule =
-    form.value.scheduleType === 'AD_HOC'
-      ? { type: 'AD_HOC' }
-      : {
-          type: 'RECURRING',
-          cron: form.value.cron,
-          timezone: form.value.timezone || 'UTC',
-          windowMinutes: Number(form.value.windowMinutes) || 120,
-          startOffsetMinutes: Number(form.value.startOffsetMinutes) || 0,
-          onWindowExpire: form.value.onWindowExpire === 'KEEP_OPEN' ? 'KEEP_OPEN' : 'MISS',
-        }
+  // Audience only — scheduling lives on the log book (2026-08-06).
   return {
     logBookId: form.value.logBookId,
     assignedUserIds: form.value.assigneeMode === 'USERS' ? form.value.assignedUserIds : null,
     assignedRoleId: form.value.assigneeMode === 'ROLE' ? form.value.assignedRoleId : null,
-    schedule,
-    graceMinutes: Number(form.value.graceMinutes) || 60,
     active: form.value.active,
   }
 }
@@ -445,121 +381,15 @@ function back() {
         </div>
       </BaseCard>
 
-      <!-- Schedule -->
-      <BaseCard class="tw:space-y-3">
+      <!-- Schedule moved to the LOG BOOK (Details → Schedule, 2026-08-06):
+           an assignment is pure AUDIENCE now — who logs, not when. -->
+      <BaseCard class="tw:space-y-2">
         <BaseText as="h3" weight="semibold">Schedule</BaseText>
-        <div class="tw:flex tw:items-center tw:gap-4">
-          <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-            <input v-model="form.scheduleType" type="radio" value="RECURRING" name="scheduleType" />
-            <span class="tw:text-on-main">Recurring (cron-driven)</span>
-          </label>
-          <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-            <input v-model="form.scheduleType" type="radio" value="AD_HOC" name="scheduleType" />
-            <span class="tw:text-on-main">Ad-hoc (no schedule)</span>
-          </label>
-        </div>
-
-        <template v-if="form.scheduleType === 'RECURRING'">
-          <CronPicker v-model="form.cron" v-model:frequency="frequency" :timezone="form.timezone" />
-          <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-            <BaseField v-slot="{ id: fieldId }" label="Timezone (IANA)">
-              <select
-                :id="fieldId"
-                v-model="form.timezone"
-                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-              >
-                <option v-for="tz in timezoneOptions" :key="tz" :value="tz">{{ tz }}</option>
-              </select>
-            </BaseField>
-            <BaseField
-              v-slot="{ id: fieldId }"
-              :label="`Window length (${unit})`"
-              hint="How long the entry stays open after the scheduled time."
-            >
-              <input
-                :id="fieldId"
-                v-model.number="windowDisplay"
-                type="number"
-                min="0"
-                step="0.5"
-                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-              />
-            </BaseField>
-            <BaseField
-              v-slot="{ id: fieldId }"
-              :label="`Start offset (${unit})`"
-              hint="Delay between dueAt and when the window opens. 0 = opens at dueAt."
-            >
-              <input
-                :id="fieldId"
-                :value="fromMinutes(form.startOffsetMinutes, unit)"
-                type="number"
-                min="0"
-                step="0.5"
-                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-                @input="(e) => (form.startOffsetMinutes = toMinutes(e.target.value, unit))"
-              />
-            </BaseField>
-            <BaseField
-              v-slot="{ id: fieldId }"
-              :label="`Grace (${unit}, before MISSED)`"
-              hint="How long after the window closes before the instance flips to MISSED."
-            >
-              <input
-                :id="fieldId"
-                v-model.number="graceDisplay"
-                type="number"
-                min="0"
-                step="0.5"
-                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-              />
-            </BaseField>
-          </div>
-          <BaseField label="When the window closes unfilled">
-            <div
-              class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden"
-            >
-              <button
-                class="tw:px-3 tw:py-1.5 tw:text-sm tw:border-0 tw:cursor-pointer"
-                :class="
-                  form.onWindowExpire !== 'KEEP_OPEN'
-                    ? 'tw:bg-primary tw:text-white'
-                    : 'tw:bg-card tw:text-secondary'
-                "
-                @click="form.onWindowExpire = 'MISS'"
-              >
-                Mark as missed
-              </button>
-              <button
-                class="tw:px-3 tw:py-1.5 tw:text-sm tw:border-0 tw:border-l tw:border-divider tw:cursor-pointer"
-                :class="
-                  form.onWindowExpire === 'KEEP_OPEN'
-                    ? 'tw:bg-primary tw:text-white'
-                    : 'tw:bg-card tw:text-secondary'
-                "
-                @click="form.onWindowExpire = 'KEEP_OPEN'"
-              >
-                Keep open until done
-              </button>
-            </div>
-            <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
-              <template v-if="form.onWindowExpire === 'KEEP_OPEN'">
-                The task stays overdue in the assignee's inbox until completed — nothing
-                auto-misses. For work that must be done regardless of lateness.
-              </template>
-              <template v-else>
-                A missed occurrence is recorded as a gap, leaves the inbox, and notifies the
-                supervisor. For time-bound readings that can't be done late.
-              </template>
-            </p>
-          </BaseField>
-        </template>
-        <template v-else>
-          <p class="tw:text-sm tw:text-secondary">
-            Ad-hoc plans don't generate instances. Assigned users see the form in their available
-            list and can submit it whenever needed.
-          </p>
-        </template>
+        <p class="tw:text-sm tw:text-secondary">
+          When entries happen is configured on the log book itself (Details → Schedule): ad hoc,
+          a recurring cadence, or an equipment calibration/PM trigger. This assignment only
+          decides who is expected to log.
+        </p>
       </BaseCard>
 
       <!-- Location & Lifecycle removed for log book assignments: site

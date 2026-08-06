@@ -84,6 +84,8 @@ async function loadPdfJs() {
  *
  * @param {File} file
  * @param {(stage: { phase: string, current?: number, total?: number, message?: string }) => void} [onProgress]
+ * @param {{ uploadImages?: boolean }} [options]  uploadImages: false → text-only
+ *   extraction (no asset uploads, no image scanning) — used by chat attachments
  * @returns {Promise<{
  *   text: string,
  *   pageCount: number,
@@ -95,7 +97,11 @@ async function loadPdfJs() {
  * }>}
  * @throws {PdfImportLimitError} on FILE_TOO_LARGE or TOO_MANY_PAGES
  */
-export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
+export async function parsePdfAndExtractImages(
+  file,
+  onProgress = () => {},
+  { uploadImages = true } = {},
+) {
   if (!file) throw new Error('No file provided')
   if (!file.type?.includes('pdf') && !file.name?.toLowerCase().endsWith('.pdf')) {
     throw new Error('File does not appear to be a PDF')
@@ -142,7 +148,7 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
 
     const page = await doc.getPage(pageNum)
     const lines = await extractLines(page)
-    const imageCandidates = await collectImageCandidates(page, doc, pdfjs)
+    const imageCandidates = uploadImages ? await collectImageCandidates(page, doc, pdfjs) : []
 
     pagesRaw.push({ pageNum, lines, imageCandidates })
   }

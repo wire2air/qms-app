@@ -6,7 +6,7 @@ import {
   IconHistory,
   IconDeviceMobile,
 } from '@tabler/icons-vue'
-import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { isAllowed, currentSession, isModuleEntitled } from '@/utils/currentSession.js'
 import { DateTime } from 'luxon'
 
 /**
@@ -43,9 +43,16 @@ watch(
     if (v && validTabIds.value.has(v)) activeTab.value = v
   },
 )
-watch(activeTab, (id) => {
-  if (route.query.tab !== id) router.replace({ query: { ...route.query, tab: id } })
-})
+// Immediate: the URL always carries ?tab= so the sidebar submenu highlights
+// the active section (QC Inspection pattern — the tab strip moved to the nav).
+watch(
+  activeTab,
+  (id) => {
+    if (route.query.tab !== id) router.replace({ query: { ...route.query, tab: id } })
+  },
+  { immediate: true },
+)
+const activeLabel = computed(() => ALL_TABS.find((t) => t.value === activeTab.value)?.label ?? '')
 watch(
   validTabIds,
   (ids) => {
@@ -115,13 +122,22 @@ const showMobilePortal = ref(false)
       <template #title>
         <span class="tw:inline-flex tw:items-center tw:gap-1.5">
           Inspections &amp; Logs
+          <span v-if="activeLabel" class="tw:text-secondary tw:font-normal">
+            · {{ activeLabel }}
+          </span>
           <HelpButton slug="KB/operations/inspections-and-logs" :size="16" />
         </span>
       </template>
       <template #actions>
         <!-- Phone-first floor portal — share via QR/link (replaced the old
-             "Logging" nav entry; a native app wraps the route later). -->
-        <BaseButton variant="outline" @click="showMobilePortal = true">
+             "Logging" nav entry; a native app wraps the route later).
+             Hidden when the platform admin switched the Portal Access
+             module off for this tenant (entitlement plane). -->
+        <BaseButton
+          v-if="isModuleEntitled('portal')"
+          variant="outline"
+          @click="showMobilePortal = true"
+        >
           <IconDeviceMobile :size="16" />
           Mobile Portal
         </BaseButton>
@@ -201,22 +217,14 @@ const showMobilePortal = ref(false)
       </div>
     </div>
 
-    <!-- Tabbed workspace (permission-gated, QC Inspection pattern). The old
-         nav cards (incl. My Tasks — that belongs to the mobile portal /
-         task inbox) were replaced by tabs 2026-07-24. -->
-    <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Inspections & Logs sections">
-      <div class="tw:mt-6">
-        <BaseTabPanel value="log-books">
-          <InspectionsLogsTemplatesHome embedded />
-        </BaseTabPanel>
-        <BaseTabPanel value="assignments">
-          <FormAssignmentsHome embedded />
-        </BaseTabPanel>
-        <BaseTabPanel value="logs">
-          <FieldRecordsHome embedded />
-        </BaseTabPanel>
-      </div>
-    </BaseTabs>
+    <!-- Sections routed by the sidebar submenu (?tab= links — QC Inspection
+         pattern, user request 2026-08-05). The in-page tab strip is gone; the
+         v-if chain renders the active, permission-gated section. -->
+    <div class="tw:mt-2">
+      <InspectionsLogsTemplatesHome v-if="activeTab === 'log-books'" embedded />
+      <FormAssignmentsHome v-else-if="activeTab === 'assignments'" embedded />
+      <FieldRecordsHome v-else-if="activeTab === 'logs'" embedded />
+    </div>
   </BasePage>
 
   <MobileLoggingPortalDialog v-model="showMobilePortal" />

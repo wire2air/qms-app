@@ -12,6 +12,22 @@ const selectedTemplate = defineModel('selectedTemplate', {
   default: null,
 })
 
+// Department options follow the selected sites (their own + company-wide). If
+// the site selection changes and the chosen department belongs to a site no
+// longer selected, clear it; company-wide (site-less) picks always survive.
+const selectedDepartment = useLiveQueryWithDeps(
+  [() => form.value.departmentId],
+  async (db, [id]) => (id ? db.Department.findByPk(id) : null),
+  { models: ['Department'], initial: null },
+)
+watch(
+  [() => [...(form.value.siteIds || [])], () => form.value.appliesAllSites, selectedDepartment],
+  ([siteIds, allSites, dept]) => {
+    if (!dept || !dept.siteId || allSites) return
+    if (siteIds.length && !siteIds.includes(dept.siteId)) form.value.departmentId = null
+  },
+)
+
 // Resolve template object from ID via SyncEngine
 const resolvedTemplate = useLiveQueryWithDeps(
   [() => form.value.documentTemplateId],
@@ -158,17 +174,43 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
       <BaseDateField v-model="form.effectiveDate" mode="date" />
     </BaseField>
 
-    <!-- Site -->
-    <BaseField label="Site" required :value="form.siteId" :rules="[required()]">
+    <!-- Sites — where the document applies. One control: pick sites or go
+         company-wide. The managing anchor (documents.siteId) is derived
+         silently at save; ownership governs who can revise. -->
+    <BaseField
+      label="Sites"
+      required
+      :value="form.appliesAllSites || form.siteIds?.length"
+      :rules="[
+        () =>
+          form.appliesAllSites ||
+          (form.siteIds?.length ?? 0) > 0 ||
+          'Select at least one site, or choose All sites',
+      ]"
+    >
       <template #default="field">
-        <SiteSelectMenu v-bind="field" v-model="form.siteId" :required="true" />
+        <div class="tw:space-y-2">
+          <BaseCheckbox v-model="form.appliesAllSites" label="All sites (company-wide)" />
+          <SiteSelectMenu
+            v-if="!form.appliesAllSites"
+            v-bind="field"
+            v-model="form.siteIds"
+            :multiple="true"
+            nullLabel="Select sites…"
+          />
+        </div>
       </template>
     </BaseField>
 
     <!-- Department -->
     <BaseField label="Department" required :value="form.departmentId" :rules="[required()]">
       <template #default="field">
-        <DepartmentSelectMenu v-bind="field" v-model="form.departmentId" :required="true" />
+        <DepartmentSelectMenu
+          v-bind="field"
+          v-model="form.departmentId"
+          :siteIds="form.appliesAllSites ? null : form.siteIds"
+          :required="true"
+        />
       </template>
     </BaseField>
 

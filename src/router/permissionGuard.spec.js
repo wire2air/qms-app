@@ -64,8 +64,12 @@ describe('requiredPermissionFor', () => {
     expect(requiredPermissionFor(route('/documents/new'))).toBe('document_control:create')
     expect(requiredPermissionFor(route('/suppliers/create'))).toBe('supplier_management:create')
     expect(requiredPermissionFor(route('/users/create'))).toBe('user_management:create')
-    // :manage / :create gates already cover creation — used as-is.
-    expect(requiredPermissionFor(route('/inspections-logs/create'))).toBe('field_records:create')
+    // Multi-module workspace (any-of array): each member bumps to :create.
+    expect(requiredPermissionFor(route('/inspections-logs/create'))).toEqual([
+      'log_books:create',
+      'inspections:create',
+      'field_records:create',
+    ])
     // /m/:internalName is an admin-defined custom module — internalName is a
     // dynamic slug, NOT a native authz module. Use a fictional name so this
     // stays distinct from any real module in the catalog.

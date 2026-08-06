@@ -6,14 +6,16 @@ const props = defineProps({
   },
 })
 
+// ProductOption (view `product_options`) — the badge renders SKU + name, and
+// must resolve for users without products:read.
 const product = useLiveQueryWithDeps(
   [() => props.productId],
   async (db, [productId]) => {
     if (!productId) return null
-    return db.Product.findByPk(productId)
+    return db.ProductOption.findByPk(productId)
   },
 
-  { models: ['Product'], initial: null },
+  { models: ['ProductOption'], initial: null },
 )
 </script>
 

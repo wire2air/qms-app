@@ -4,6 +4,10 @@ import {
   buildDesiredPermissions,
   writeScopeOptionsFor,
   supportsRead,
+  levelBundle,
+  availableLevels,
+  levelForState,
+  stateForLevel,
 } from './permissionMatrixModel.js'
 
 const SCOPE_RANK = { own: 1, department: 2, site: 3, tenant: 4 }
@@ -113,6 +117,124 @@ describe('round-trip stability', () => {
     const rebuilt = buildDesiredPermissions(MODULES, s1, READ, SCOPE_RANK)
     const s2 = projectGrantsToState(MODULES, rebuilt, SCOPE_RANK, READ)
     expect(s2).toEqual(s1)
+  })
+})
+
+// ─── Level model ─────────────────────────────────────────────────────────────
+const ALL_SCOPES = ['own', 'department', 'site', 'tenant']
+const WORKFLOW = {
+  id: 'capa',
+  actions: ['read', 'create', 'update', 'delete', 'approve', 'reject', 'close', 'reopen', 'export', 'assign'],
+  scopes: ALL_SCOPES,
+}
+const MANAGE_ONLY = READLESS[0] // actions: ['manage'], scopes: ['tenant']
+const CRU_EXPORT = { id: 'lookups', actions: ['read', 'create', 'update', 'export'], scopes: ALL_SCOPES }
+const NO_REJECT = { id: 'reviews', actions: ['read', 'create', 'update', 'export', 'approve'], scopes: ALL_SCOPES }
+
+describe('availableLevels', () => {
+  it('offers the full ladder on a standard workflow module', () => {
+    expect(availableLevels(WORKFLOW, READ)).toEqual(['none', 'viewer', 'editor', 'approver', 'full'])
+  })
+
+  it('offers only none/full on a manage-only module', () => {
+    expect(availableLevels(MANAGE_ONLY, READ)).toEqual(['none', 'full'])
+  })
+
+  it('dedupes a level whose bundle equals a lower one (full ≡ editor)', () => {
+    expect(availableLevels(CRU_EXPORT, READ)).toEqual(['none', 'viewer', 'editor'])
+  })
+
+  it('skips approver on modules without an approve action', () => {
+    expect(availableLevels(CRU_EXPORT, READ)).not.toContain('approver')
+  })
+})
+
+describe('levelBundle', () => {
+  it('intersects the approver bundle with module actions (drops missing reject)', () => {
+    expect(levelBundle('approver', NO_REJECT, READ)).toEqual(['approve', 'create', 'export', 'update'])
+  })
+
+  it('full = every non-read action', () => {
+    expect(levelBundle('full', MANAGE_ONLY, READ)).toEqual(['manage'])
+    expect(levelBundle('full', WORKFLOW, READ)).toContain('delete')
+  })
+})
+
+describe('level round-trips (stateForLevel → build → project → levelForState)', () => {
+  function roundTrip(m, level, scope) {
+    const s1 = stateForLevel(m, level, scope, READ)
+    const grants = buildDesiredPermissions([m], { [m.id]: s1 }, READ, SCOPE_RANK)
+    const s2 = projectGrantsToState([m], grants, SCOPE_RANK, READ)[m.id]
+    return { grants, level: levelForState(m, s2, READ), scope: s2.readScope }
+  }
+
+  it.each(['viewer', 'editor', 'approver', 'full'])('%s @ site survives on a workflow module', (level) => {
+    const rt = roundTrip(WORKFLOW, level, 'site')
+    expect(rt.level).toBe(level)
+    expect(rt.scope).toBe('site')
+  })
+
+  it('full on a manage-only module emits exactly the manage row and survives', () => {
+    const rt = roundTrip(MANAGE_ONLY, 'full', 'tenant')
+    expect(rt.grants).toEqual([{ module: 'nc_issue_types', action: 'manage', scope: 'tenant' }])
+    expect(rt.level).toBe('full')
+  })
+})
+
+describe('levelForState', () => {
+  it('maps a full-caps state on a deduped module to the lower level (editor)', () => {
+    const s = stateForLevel(CRU_EXPORT, 'full', 'site', READ)
+    expect(levelForState(CRU_EXPORT, s, READ)).toBe('editor')
+  })
+
+  it("detects the old Approver preset shape (approve+reject+export, no create/update) as custom", () => {
+    const s = { readScope: 'site', writeScope: 'site', caps: { approve: true, reject: true, export: true } }
+    expect(levelForState(WORKFLOW, s, READ)).toBe('custom')
+  })
+
+  it('detects a split write scope as custom regardless of bundle match', () => {
+    const s = { readScope: 'tenant', writeScope: 'own', caps: { create: true, update: true, export: true } }
+    expect(levelForState(WORKFLOW, s, READ)).toBe('custom')
+  })
+
+  it('empty caps on a read-supporting module is viewer', () => {
+    expect(levelForState(WORKFLOW, { readScope: 'own', writeScope: 'own', caps: {} }, READ)).toBe('viewer')
+  })
+
+  it('manage-only with an access level but no caps (unstorable transient) is custom', () => {
+    expect(levelForState(MANAGE_ONLY, { readScope: 'tenant', writeScope: 'tenant', caps: {} }, READ)).toBe('custom')
+  })
+
+  it('missing or empty state is none', () => {
+    expect(levelForState(WORKFLOW, undefined, READ)).toBe('none')
+    expect(levelForState(WORKFLOW, { readScope: null, writeScope: null, caps: {} }, READ)).toBe('none')
+  })
+})
+
+describe('stateForLevel degradation & clamping', () => {
+  it('editor on a manage-only module degrades to none', () => {
+    expect(stateForLevel(MANAGE_ONLY, 'editor', 'tenant', READ)).toEqual({
+      readScope: null,
+      writeScope: null,
+      caps: {},
+    })
+  })
+
+  it('editor on a read-only module degrades to viewer', () => {
+    const READ_ONLY = { id: 'reports', actions: ['read'], scopes: ALL_SCOPES }
+    expect(stateForLevel(READ_ONLY, 'editor', 'site', READ)).toEqual({
+      readScope: 'site',
+      writeScope: 'site',
+      caps: {},
+    })
+  })
+
+  it('viewer on a manage-only module degrades to none', () => {
+    expect(stateForLevel(MANAGE_ONLY, 'viewer', 'tenant', READ).readScope).toBeNull()
+  })
+
+  it('clamps an unsupported scope to what the module offers', () => {
+    expect(stateForLevel(MANAGE_ONLY, 'full', 'own', READ).readScope).toBe('tenant')
   })
 })
 

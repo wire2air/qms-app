@@ -1,5 +1,6 @@
 <script setup>
 import { post } from '@/api'
+import { currentSession } from '@/utils/currentSession.js'
 import WorkflowStepReviewerSelect from '@/components/workflow/WorkflowStepReviewerSelect.vue'
 import { LOG_BOOK_VERSION_MODULE } from '@/components/workflow/workflowModule.js'
 
@@ -17,6 +18,10 @@ import { LOG_BOOK_VERSION_MODULE } from '@/components/workflow/workflowModule.js
 const props = defineProps({
   versionId: { type: String, required: true },
   workflowVersionId: { type: String, default: null },
+  // For the no-audience reminder — approval doesn't REQUIRE assignees
+  // (the workflow approves the book's definition; who logs is operational),
+  // but an approved book nobody can log in is dead weight, so we nudge.
+  logBookId: { type: String, default: null },
 })
 const emit = defineEmits(['submitted'])
 const open = defineModel({ type: Boolean, default: false })
@@ -27,6 +32,12 @@ const changeSummary = ref('')
 // { [stepId]: userId } — single reviewer per step for now (array-wrapped on submit).
 const selections = reactive({})
 
+const activeAssignments = useLiveQueryWithDeps(
+  [() => props.logBookId],
+  async (db, [id]) => (id ? (await db.FormAssignment.where('logBookId', id).exec()).filter((a) => a.active) : []),
+  { models: ['FormAssignment'], initial: [] },
+)
+
 const steps = useLiveQueryWithDeps(
   [() => props.workflowVersionId],
   async (db, [versionId]) => {
@@ -36,6 +47,15 @@ const steps = useLiveQueryWithDeps(
 
   { models: ['WorkflowStep'], initial: [] },
 )
+
+// Segregation of duties (user-reported gap): the submitter can't review
+// their own submission, and one person can't hold two steps of the same
+// review cycle.
+const submitterId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
+const duplicateReviewer = computed(() => {
+  const picked = Object.values(selections).filter(Boolean)
+  return picked.length !== new Set(picked).size
+})
 
 const firstStepHasUser = computed(() => {
   const firstStepId = steps.value[0]?.id
@@ -50,7 +70,7 @@ watch(open, (isOpen) => {
 })
 
 async function handleConfirm() {
-  if (!firstStepHasUser.value || submitting.value) return
+  if (!firstStepHasUser.value || submitting.value || duplicateReviewer.value) return
   const reviewers = {}
   Object.entries(selections).forEach(([stepId, userId]) => {
     if (userId) reviewers[stepId] = [userId]
@@ -82,6 +102,14 @@ async function handleConfirm() {
         <p class="tw:text-sm tw:text-secondary">
           Assign a reviewer for each workflow step before submitting.
         </p>
+        <div
+          v-if="logBookId && activeAssignments.length === 0"
+          class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
+        >
+          Heads up: no one is assigned to this log book yet — once approved, nobody can log
+          entries until you add assignees on the <strong>Assignments</strong> tab. You can still
+          submit now.
+        </div>
         <WorkflowStepReviewerSelect
           v-for="(step, index) in steps"
           :key="step.id"
@@ -90,7 +118,15 @@ async function handleConfirm() {
           :step="step"
           :stepIndex="index"
           :required="index === 0"
+          :excludeUserIds="submitterId ? [submitterId] : null"
         />
+        <div
+          v-if="duplicateReviewer"
+          class="tw:bg-red-50 tw:text-red-700 tw:border tw:border-red-200 tw:rounded tw:p-2 tw:text-xs"
+        >
+          The same person is selected for more than one step — each step needs a different
+          reviewer.
+        </div>
         <BaseField v-slot="{ id: fieldId }" label="Change summary" optional>
           <BaseTextarea
             :id="fieldId"
@@ -106,7 +142,7 @@ async function handleConfirm() {
       <BaseDialogFooter
         submitLabel="Submit"
         :loading="submitting"
-        :disabled="!workflowVersionId || !firstStepHasUser"
+        :disabled="!workflowVersionId || !firstStepHasUser || duplicateReviewer"
         @cancel="close"
         @submit="handleConfirm"
       />

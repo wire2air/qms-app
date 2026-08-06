@@ -1,16 +1,32 @@
 <script setup>
-import { IconShieldCheck, IconEraser, IconChevronRight, IconInfoCircle, IconCheck } from '@tabler/icons-vue'
+import {
+  IconShieldCheck,
+  IconEraser,
+  IconChevronRight,
+  IconInfoCircle,
+  IconCheck,
+  IconAdjustmentsHorizontal,
+} from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. The authz
 // permission matrix is a decision-plane outcome, not a synced model record.
 import { get, put } from '@/api'
-import { PERMISSION_PRESETS, SCOPE_LABELS, SCOPE_HINTS, NO_ACCESS_LABEL } from '@/utils/permissionPresets.js'
+import {
+  PERMISSION_PRESETS,
+  SCOPE_LABELS,
+  SCOPE_HINTS,
+  NO_ACCESS_LABEL,
+  LEVEL_LABELS,
+  LEVEL_HINTS,
+} from '@/utils/permissionPresets.js'
 import {
   projectGrantsToState,
   buildDesiredPermissions,
   isModuleModified,
-  clampScope,
   writeScopeOptionsFor,
   supportsRead,
+  availableLevels,
+  levelForState,
+  stateForLevel,
 } from '@/utils/permissionMatrixModel.js'
 
 const props = defineProps({
@@ -71,6 +87,19 @@ function needsCapability(m) {
   return !moduleCaps(m).some((a) => state[m.id]?.caps[a.id])
 }
 const modulesNeedingCapability = computed(() => catalog.value.modules.filter(needsCapability))
+// A Can-edit level narrower than read with every capability unchecked stores
+// nothing — the selection would silently vanish on save (the revert bug). The
+// equal-to-read case is indistinguishable from pristine read-only state, so
+// only the narrowed case is detectable; setWriteScope auto-enabling caps keeps
+// the equal case from arising through the UI.
+function needsWriteCapability(m) {
+  const s = state[m.id]
+  if (!s?.readScope || !s.writeScope || s.writeScope === s.readScope) return false
+  return !moduleCaps(m).some((a) => s.caps[a.id])
+}
+const modulesNeedingWriteCapability = computed(() =>
+  catalog.value.modules.filter(needsWriteCapability),
+)
 function moduleModified(id) {
   return isModuleModified(state[id], original.value[id])
 }
@@ -125,20 +154,84 @@ function setWriteScope(id, scope) {
   if (!s.readScope) return
   const cap = scopeRank.value[s.readScope] ?? 0
   s.writeScope = (scopeRank.value[scope] ?? 0) > cap ? s.readScope : scope
+  // A write reach only exists through capability grants — a Can-edit level with
+  // no capability selected would save NOTHING (the silent-revert bug). Picking
+  // a level is a write-grant gesture, so light up the module's basic CRUD verbs
+  // when none are on yet; fall back to all its verbs for solo-verb modules
+  // (manage, upload, …). Never touches rows that already carry capabilities.
+  const m = catalog.value.modules.find((x) => x.id === id)
+  if (!m) return
+  if (moduleCaps(m).some((a) => s.caps[a.id])) return
+  const dml = moduleCaps(m).filter((a) => ['create', 'update', 'delete'].includes(a.id))
+  for (const a of dml.length ? dml : moduleCaps(m)) s.caps[a.id] = true
 }
 function toggleCap(id, action, val) {
   ensure(id).caps[action] = val
 }
+
+// ── Level layer (simple mode) ───────────────────────────────────────────────
+// Each row is presented as Level (capability bundle) at Scope (read = write).
+// Rows the ladder can't express (split reach, off-bundle caps) read as
+// 'custom' and are edited via the per-row Customize expander, which reuses
+// the raw controls below.
+const expandedRows = reactive({}) // moduleId -> bool
+// Reach granted when a level is picked on a No-access row (clamped per module).
+const DEFAULT_LEVEL_SCOPE = 'site'
+
+function levelFor(m) {
+  return levelForState(m, state[m.id], readActionId.value)
+}
+function levelOptionsFor(m) {
+  const options = availableLevels(m, readActionId.value).map((id) => ({
+    label: LEVEL_LABELS[id],
+    value: id,
+    description: LEVEL_HINTS[id],
+  }))
+  // Public-read (reference-data) modules: viewing needs no grant — everyone in
+  // the company can read them by design (templates, form blocks, lookups the
+  // forms depend on). "No access" would be misleading, so the bottom level
+  // reads "Reference data only" (user-chosen wording — distinct from the
+  // grantable "Viewer" level on record modules) and the row carries a hint
+  // that grants control authoring.
+  if (m.publicRead) {
+    const none = options.find((o) => o.value === 'none')
+    if (none) {
+      none.label = 'Reference data only'
+      none.description = 'Everyone can use it in forms and pickers — no authoring'
+    }
+  }
+  // The select must be able to DISPLAY a custom row; picking a concrete level
+  // normalizes it, so 'custom' is never offered as a choice.
+  if (levelFor(m) === 'custom') {
+    options.push({ label: LEVEL_LABELS.custom, value: 'custom', description: LEVEL_HINTS.custom, disabled: true })
+  }
+  return options
+}
+function rowScopeOptions(m) {
+  return (m.scopes || []).map((sid) => ({
+    label: SCOPE_LABELS[sid] || sid,
+    value: sid,
+    description: SCOPE_HINTS[sid],
+  }))
+}
+function onLevelChange(m, levelId) {
+  if (!levelId || levelId === 'custom') return
+  const scope = state[m.id]?.readScope || DEFAULT_LEVEL_SCOPE
+  state[m.id] = stateForLevel(m, levelId, scope, readActionId.value)
+}
+function onScopeChange(m, scope) {
+  if (!scope) return
+  state[m.id] = stateForLevel(m, levelFor(m), scope, readActionId.value)
+}
+
 function applyPreset(presetId) {
   const p = PERMISSION_PRESETS.find((x) => x.id === presetId)
   if (!p) return
   for (const m of catalog.value.modules) {
-    setReadScope(m.id, clampScope(p.scope, m.scopes))
-    // Preset writeScope defaults to its read scope (uniform), clamped per module.
-    setWriteScope(m.id, clampScope(p.writeScope || p.scope, m.scopes))
-    const caps = {}
-    for (const c of p.caps) if (m.actions.includes(c)) caps[c] = true
-    state[m.id].caps = caps
+    // stateForLevel clamps the scope and degrades the level per module
+    // (manage-only → full-or-none, read-only → viewer), so a preset always
+    // lands on a clean, savable row.
+    state[m.id] = stateForLevel(m, p.level, p.scope, readActionId.value)
   }
 }
 function onPreset(presetId) {
@@ -216,14 +309,31 @@ async function load() {
   }
 }
 
-async function save() {
+// Pre-save validation, exposed separately so the parent page can run it BEFORE
+// persisting the role's name/description — a blocked matrix must not half-save.
+// Simple mode can't produce these states (stateForLevel always emits bundle
+// caps at read = write); they arise only via the Customize controls, so the
+// offending rows are auto-expanded to put the blocked controls on screen.
+function validate() {
   const unstorable = modulesNeedingCapability.value
+  const capless = modulesNeedingWriteCapability.value
+  for (const m of [...unstorable, ...capless]) expandedRows[m.id] = true
   if (unstorable.length) {
     throw new Error(
       `${unstorable.map((m) => m.name).join(', ')}: no read-only access is available on ` +
         `${unstorable.length > 1 ? 'these modules' : 'this module'} — select at least one capability, or set Access to “${NO_ACCESS_LABEL}”.`,
     )
   }
+  if (capless.length) {
+    throw new Error(
+      `${capless.map((m) => m.name).join(', ')}: the Can-edit level has no capabilities selected, ` +
+        `so it wouldn't be stored — select at least one capability (Create, Update, …).`,
+    )
+  }
+}
+
+async function save() {
+  validate()
   saving.value = true
   try {
     const permissions = buildDesiredPermissions(
@@ -250,7 +360,7 @@ watch(
 )
 
 // hasUnsavedChanges() lets the parent page warn before navigating away.
-defineExpose({ save, hasUnsavedChanges: () => modifiedCount.value > 0 })
+defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 })
 </script>
 
 <template>
@@ -259,9 +369,9 @@ defineExpose({ save, hasUnsavedChanges: () => modifiedCount.value > 0 })
     <div class="tw:flex tw:items-start tw:gap-2 tw:text-xs tw:text-secondary">
       <IconInfoCircle :size="15" class="tw:mt-0.5 tw:shrink-0" />
       <span>
-        <b>Access</b> sets how many records the role can read. <b>Can edit</b> sets how far its
-        capabilities reach — it can be narrower than read (e.g. read a whole Site but only approve
-        your Own), never wider. A capability needs an access level first.
+        <b>Level</b> is what the role can do in a module — view, edit, approve, or full control.
+        <b>Scope</b> is how far that reach extends — from a user's own records to company-wide.
+        Use <b>Customize</b> to hand-pick capabilities or give reading a wider reach than editing.
       </span>
     </div>
 
@@ -365,85 +475,156 @@ defineExpose({ save, hasUnsavedChanges: () => modifiedCount.value > 0 })
           <thead class="tw:sticky tw:top-0 tw:bg-card tw:z-10">
             <tr class="tw:text-left tw:text-xs tw:uppercase tw:tracking-wide tw:text-secondary tw:border-b tw:border-divider">
               <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Module</th>
-              <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Access <span class="tw:normal-case tw:opacity-60">(read)</span></th>
-              <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Can edit <span class="tw:normal-case tw:opacity-60">(write)</span></th>
-              <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Capabilities</th>
+              <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Level</th>
+              <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Scope</th>
+              <th class="tw:p-2 tw:font-medium tw:w-10"><span class="tw:sr-only">Customize</span></th>
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="m in group.modules"
-              :key="m.id"
-              class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-              :class="moduleModified(m.id) ? 'tw:bg-warning-50' : ''"
-            >
-              <td class="tw:p-2 tw:font-medium tw:text-on-sidebar tw:whitespace-nowrap">
-                <span
-                  v-if="moduleModified(m.id)"
-                  class="tw:inline-block tw:w-1.5 tw:h-1.5 tw:rounded-full tw:bg-warning-500 tw:mr-1.5 tw:align-middle"
-                  title="Unsaved change"
-                />
-                {{ m.name }}
-              </td>
-              <td class="tw:p-2 tw:w-40">
-                <BaseSelect
-                  :modelValue="state[m.id]?.readScope ?? null"
-                  :options="scopeOptionsFor(m)"
-                  optionDescription="description"
-                  size="sm"
-                  dense
-                  :searchable="false"
-                  :disabled="!canUpdate"
-                  :placeholder="NO_ACCESS_LABEL"
-                  @update:modelValue="(v) => setReadScope(m.id, v)"
-                />
-              </td>
-              <td class="tw:p-2 tw:w-40">
-                <BaseSelect
-                  v-if="state[m.id]?.readScope"
-                  :modelValue="state[m.id]?.writeScope ?? state[m.id]?.readScope"
-                  :options="writeScopeOptions(m)"
-                  optionDescription="description"
-                  size="sm"
-                  dense
-                  :searchable="false"
-                  :clearable="false"
-                  :disabled="!canUpdate"
-                  @update:modelValue="(v) => setWriteScope(m.id, v)"
-                />
-                <span v-else class="tw:text-secondary tw:opacity-30">—</span>
-              </td>
-              <td class="tw:p-2">
-                <p v-if="needsCapability(m)" class="tw:mb-1 tw:text-xs tw:text-warning-700">
-                  No read-only access — select a capability.
-                </p>
-                <div v-if="moduleCaps(m).length" class="tw:flex tw:flex-wrap tw:gap-1.5">
-                  <button
-                    v-for="a in moduleCaps(m)"
-                    :key="a.id"
-                    type="button"
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-full tw:border tw:px-2.5 tw:py-1 tw:text-xs tw:font-medium tw:transition-colors"
-                    :class="[
-                      state[m.id]?.caps[a.id]
-                        ? 'tw:bg-primary tw:text-white tw:border-primary'
-                        : 'tw:bg-transparent tw:text-secondary tw:border-divider',
-                      !canUpdate || !state[m.id]?.readScope
-                        ? 'tw:opacity-40 tw:cursor-not-allowed'
-                        : 'tw:cursor-pointer tw:hover:border-primary',
-                    ]"
-                    :disabled="!canUpdate || !state[m.id]?.readScope"
-                    :aria-pressed="!!state[m.id]?.caps[a.id]"
-                    :aria-label="`${a.name} — ${m.name}`"
-                    :title="!state[m.id]?.readScope ? 'Set an access level first' : `${a.name} ${m.name}`"
-                    @click="toggleCap(m.id, a.id, !state[m.id]?.caps[a.id])"
+            <template v-for="m in group.modules" :key="m.id">
+              <tr
+                class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
+                :class="moduleModified(m.id) ? 'tw:bg-warning-50' : ''"
+              >
+                <td class="tw:p-2 tw:font-medium tw:text-on-sidebar tw:whitespace-nowrap">
+                  <span
+                    v-if="moduleModified(m.id)"
+                    class="tw:inline-block tw:w-1.5 tw:h-1.5 tw:rounded-full tw:bg-warning-500 tw:mr-1.5 tw:align-middle"
+                    title="Unsaved change"
+                  />
+                  {{ m.name }}
+                  <span
+                    v-if="needsCapability(m) || needsWriteCapability(m)"
+                    class="tw:inline-block tw:w-1.5 tw:h-1.5 tw:rounded-full tw:bg-warning-500 tw:ml-1.5 tw:align-middle"
+                    title="Needs attention — open Customize"
+                  />
+                  <span
+                    v-if="m.publicRead"
+                    class="tw:block tw:text-[11px] tw:font-normal tw:text-secondary"
                   >
-                    <IconCheck v-if="state[m.id]?.caps[a.id]" :size="13" class="tw:shrink-0" />
-                    {{ a.name }}
+                    Reference data — available to everyone; levels control authoring
+                  </span>
+                </td>
+                <td class="tw:p-2 tw:w-44">
+                  <BaseSelect
+                    :modelValue="levelFor(m)"
+                    :options="levelOptionsFor(m)"
+                    optionDescription="description"
+                    size="sm"
+                    dense
+                    :searchable="false"
+                    :clearable="false"
+                    :disabled="!canUpdate"
+                    @update:modelValue="(v) => onLevelChange(m, v)"
+                  />
+                </td>
+                <td class="tw:p-2 tw:w-44">
+                  <BaseSelect
+                    v-if="levelFor(m) !== 'none'"
+                    :modelValue="state[m.id]?.readScope ?? null"
+                    :options="rowScopeOptions(m)"
+                    optionDescription="description"
+                    size="sm"
+                    dense
+                    :searchable="false"
+                    :clearable="false"
+                    :disabled="!canUpdate || levelFor(m) === 'custom'"
+                    :title="levelFor(m) === 'custom' ? 'Read reach — adjust via Customize' : undefined"
+                    @update:modelValue="(v) => onScopeChange(m, v)"
+                  />
+                  <span v-else class="tw:text-secondary tw:opacity-30">—</span>
+                </td>
+                <td class="tw:p-2 tw:w-10 tw:text-right">
+                  <button
+                    type="button"
+                    class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-md tw:border-0 tw:bg-transparent tw:p-1 tw:cursor-pointer"
+                    :class="expandedRows[m.id] ? 'tw:text-primary' : 'tw:text-secondary tw:hover:text-on-sidebar'"
+                    :aria-expanded="!!expandedRows[m.id]"
+                    :aria-label="`Customize ${m.name}`"
+                    :title="`Customize ${m.name}`"
+                    @click="expandedRows[m.id] = !expandedRows[m.id]"
+                  >
+                    <IconAdjustmentsHorizontal :size="16" />
                   </button>
-                </div>
-                <span v-else class="tw:text-secondary tw:opacity-30">—</span>
-              </td>
-            </tr>
+                </td>
+              </tr>
+              <tr v-if="expandedRows[m.id]" class="tw:border-t tw:border-divider tw:bg-main">
+                <td colspan="4" class="tw:p-3">
+                  <div class="tw:flex tw:flex-wrap tw:items-start tw:gap-6">
+                    <div class="tw:w-44">
+                      <p class="tw:mb-1 tw:text-xs tw:font-medium tw:uppercase tw:tracking-wide tw:text-secondary">
+                        Access <span class="tw:normal-case tw:opacity-60">(read)</span>
+                      </p>
+                      <BaseSelect
+                        :modelValue="state[m.id]?.readScope ?? null"
+                        :options="scopeOptionsFor(m)"
+                        optionDescription="description"
+                        size="sm"
+                        dense
+                        :searchable="false"
+                        :disabled="!canUpdate"
+                        :placeholder="NO_ACCESS_LABEL"
+                        @update:modelValue="(v) => setReadScope(m.id, v)"
+                      />
+                    </div>
+                    <div class="tw:w-44">
+                      <p class="tw:mb-1 tw:text-xs tw:font-medium tw:uppercase tw:tracking-wide tw:text-secondary">
+                        Can edit <span class="tw:normal-case tw:opacity-60">(write)</span>
+                      </p>
+                      <BaseSelect
+                        v-if="state[m.id]?.readScope"
+                        :modelValue="state[m.id]?.writeScope ?? state[m.id]?.readScope"
+                        :options="writeScopeOptions(m)"
+                        optionDescription="description"
+                        size="sm"
+                        dense
+                        :searchable="false"
+                        :clearable="false"
+                        :disabled="!canUpdate"
+                        @update:modelValue="(v) => setWriteScope(m.id, v)"
+                      />
+                      <span v-else class="tw:text-sm tw:text-secondary tw:opacity-40">—</span>
+                    </div>
+                    <div class="tw:min-w-56 tw:flex-1">
+                      <p class="tw:mb-1 tw:text-xs tw:font-medium tw:uppercase tw:tracking-wide tw:text-secondary">
+                        Capabilities
+                      </p>
+                      <p v-if="needsCapability(m)" class="tw:mb-1 tw:text-xs tw:text-warning-700">
+                        No read-only access — select a capability.
+                      </p>
+                      <p v-else-if="needsWriteCapability(m)" class="tw:mb-1 tw:text-xs tw:text-warning-700">
+                        Can-edit level needs at least one capability to take effect.
+                      </p>
+                      <div v-if="moduleCaps(m).length" class="tw:flex tw:flex-wrap tw:gap-1.5">
+                        <button
+                          v-for="a in moduleCaps(m)"
+                          :key="a.id"
+                          type="button"
+                          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-full tw:border tw:px-2.5 tw:py-1 tw:text-xs tw:font-medium tw:transition-colors"
+                          :class="[
+                            state[m.id]?.caps[a.id]
+                              ? 'tw:bg-primary tw:text-white tw:border-primary'
+                              : 'tw:bg-transparent tw:text-secondary tw:border-divider',
+                            !canUpdate || !state[m.id]?.readScope
+                              ? 'tw:opacity-40 tw:cursor-not-allowed'
+                              : 'tw:cursor-pointer tw:hover:border-primary',
+                          ]"
+                          :disabled="!canUpdate || !state[m.id]?.readScope"
+                          :aria-pressed="!!state[m.id]?.caps[a.id]"
+                          :aria-label="`${a.name} — ${m.name}`"
+                          :title="!state[m.id]?.readScope ? 'Set an access level first' : `${a.name} ${m.name}`"
+                          @click="toggleCap(m.id, a.id, !state[m.id]?.caps[a.id])"
+                        >
+                          <IconCheck v-if="state[m.id]?.caps[a.id]" :size="13" class="tw:shrink-0" />
+                          {{ a.name }}
+                        </button>
+                      </div>
+                      <span v-else class="tw:text-sm tw:text-secondary tw:opacity-40">—</span>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>

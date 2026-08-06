@@ -114,3 +114,101 @@ export function writeScopeOptionsFor(moduleScopes, readScope, scopeRank) {
   const cap = rank(scopeRank, readScope)
   return (moduleScopes || []).filter((s) => rank(scopeRank, s) <= cap)
 }
+
+// ─── Level model ─────────────────────────────────────────────────────────────
+// The simple-mode layer over the raw state: each module row is presented as a
+// LEVEL (what the role can do — a capability bundle) at a SCOPE (how far that
+// reach extends, read = write). 'custom' is a DERIVED display state for rows
+// the ladder can't express (split read/write reach, off-bundle capability
+// sets) — it is never picked into; editing those rows happens in the
+// Customize expander with the raw controls.
+
+// Ascending capability ladder. 'custom' is derived, not a member.
+export const LEVEL_IDS = ['none', 'viewer', 'editor', 'approver', 'full']
+
+// Editor deliberately excludes delete (mirrors the old Contributor preset);
+// delete arrives only at Full control.
+const EDITOR_CAPS = ['create', 'update', 'export']
+const APPROVER_CAPS = [...EDITOR_CAPS, 'approve', 'reject']
+
+// The exact capability set (sorted) a level grants on module `m`, intersected
+// with what the module actually subscribes to. 'full' = every non-read action.
+export function levelBundle(levelId, m, readActionId) {
+  const actions = m.actions || []
+  if (levelId === 'none' || levelId === 'viewer') return []
+  if (levelId === 'editor') return EDITOR_CAPS.filter((a) => actions.includes(a)).sort()
+  if (levelId === 'approver') return APPROVER_CAPS.filter((a) => actions.includes(a)).sort()
+  if (levelId === 'full') return actions.filter((a) => a !== readActionId).sort()
+  return []
+}
+
+// Levels the module can offer: 'none' plus every achievable ladder level,
+// deduped — a level whose bundle equals an already-offered LOWER level's
+// bundle adds nothing and is dropped (e.g. 'full' collapses into 'editor' on
+// a create/update/export module). 'viewer' needs a grantable read action;
+// 'approver' needs approve; 'editor'/'full' need a non-empty bundle. A
+// manage-only module therefore offers just ['none', 'full'].
+export function availableLevels(m, readActionId) {
+  const offered = ['none']
+  const seenBundles = []
+  for (const id of LEVEL_IDS) {
+    if (id === 'none') continue
+    if (id === 'viewer') {
+      if (supportsRead(m, readActionId)) offered.push('viewer')
+      continue
+    }
+    if (id === 'approver' && !(m.actions || []).includes('approve')) continue
+    const bundle = levelBundle(id, m, readActionId)
+    if (!bundle.length) continue
+    const key = bundle.join('|')
+    if (seenBundles.includes(key)) continue
+    seenBundles.push(key)
+    offered.push(id)
+  }
+  return offered
+}
+
+// UI row state → level id or 'custom'. 'none' when no access; 'custom' when
+// the write reach differs from read (split reach) or the enabled capabilities
+// match no offered bundle. Otherwise the first exact bundle match walking the
+// ladder ascending — consistent with the dedupe in availableLevels, so a
+// picked level always re-derives as itself.
+export function levelForState(m, state, readActionId) {
+  if (!state?.readScope) return 'none'
+  const write = state.writeScope || state.readScope
+  if (write !== state.readScope) return 'custom'
+  const caps = (m.actions || []).filter((a) => a !== readActionId && state.caps?.[a]).sort()
+  const key = caps.join('|')
+  for (const id of availableLevels(m, readActionId)) {
+    if (id === 'none') continue
+    if (levelBundle(id, m, readActionId).join('|') === key) {
+      // Empty caps match 'viewer' — but only a module with a grantable read
+      // action can store a read-only row; elsewhere the state is unstorable
+      // (the needsCapability transient) and reads as custom.
+      if (id === 'viewer' && !supportsRead(m, readActionId)) return 'custom'
+      return id
+    }
+  }
+  return 'custom'
+}
+
+// level + scope → full row state (read = write = scope, caps = the bundle).
+// Degrades gracefully so presets can sweep all modules: an empty-bundle
+// action level falls to 'viewer' where read is grantable and 'none' where it
+// isn't; 'viewer' without a read action falls to 'none'.
+export function stateForLevel(m, levelId, scope, readActionId) {
+  let level = levelId
+  if (level !== 'none') {
+    if (level === 'viewer') {
+      if (!supportsRead(m, readActionId)) level = 'none'
+    } else if (!levelBundle(level, m, readActionId).length) {
+      level = supportsRead(m, readActionId) ? 'viewer' : 'none'
+    }
+  }
+  if (level === 'none') return { readScope: null, writeScope: null, caps: {} }
+  const clamped = clampScope(scope, m.scopes)
+  if (!clamped) return { readScope: null, writeScope: null, caps: {} }
+  const caps = {}
+  for (const a of levelBundle(level, m, readActionId)) caps[a] = true
+  return { readScope: clamped, writeScope: clamped, caps }
+}

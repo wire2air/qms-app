@@ -58,7 +58,11 @@ const DEFAULT_FORM = {
   changeType: null, // ADMINISTRATIVE | MINOR | MAJOR
   regulatoryImpact: false,
   regulatoryImpactNotes: '',
-  siteId: null,
+  // Sites — one multi-select: where the document applies. appliesAllSites =
+  // company-wide. The managing anchor (documents.siteId) is derived silently
+  // at save (creator's site when selected, else the first selection).
+  siteIds: [],
+  appliesAllSites: false,
   tags: [],
   approverIds: [],
   periodicReviewMonths: 12,
@@ -86,7 +90,18 @@ watch(form, () => (isDirty.value = true), { deep: true })
 // browser-level exit.
 const { allowLeave } = useUnsavedChangesGuard(isDirty)
 
+// The managing anchor: the creator's own site when it's among the selection
+// (or when company-wide), else the first selected site. Invisible in the UI —
+// ownership governs who can revise; the anchor only feeds site-scoped RLS and
+// keeps a home for the document's numbering placeholders.
+function deriveAnchorSiteId(formData, mySite) {
+  if (formData.appliesAllSites) return mySite || formData.siteIds?.[0] || null
+  const ids = formData.siteIds || []
+  return mySite && ids.includes(mySite) ? mySite : ids[0] || null
+}
+
 const createDocument = useLiveMutation(async (db, formData) => {
+  const me = await db.User.findByPk(currentSession.value?.userId ?? currentSession.value?.id)
   // The document number is NOT minted here. It's assigned by the backend when
   // the draft is first submitted for review (submitForReview controller), so a
   // draft that's deleted before submission never burns a sequence number that
@@ -97,7 +112,7 @@ const createDocument = useLiveMutation(async (db, formData) => {
     documentTypeId: formData.documentTypeId,
     documentTemplateId: formData.documentTemplateId,
     departmentId: formData.departmentId,
-    siteId: formData.siteId,
+    siteId: deriveAnchorSiteId(formData, me?.siteId || null),
     // Owner (accountable). Author defaults to the creator in the Document model.
     userId: formData.ownerId || currentSession.value?.userId,
     prefix: formData.prefix,
@@ -107,8 +122,18 @@ const createDocument = useLiveMutation(async (db, formData) => {
     workflowVersionId: formData.workflowVersionId,
     statusId: 'ACTIVE',
     docNumber: null,
+    appliesAllSites: !!formData.appliesAllSites,
   })
   await doc.save()
+
+  // Applicability rows (skip for company-wide — the flag covers it).
+  if (!formData.appliesAllSites) {
+    for (const siteId of new Set(formData.siteIds || [])) {
+      if (!siteId) continue
+      const link = db.DocumentSite.create({ documentId: doc.id, siteId })
+      await link.save()
+    }
+  }
 
   const version = db.DocumentVersion.create({
     documentId: doc.id,

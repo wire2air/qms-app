@@ -61,6 +61,11 @@ export class Equipment extends BaseModel {
   @Property({ type: DateTime }) lastCalibratedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) nextCalibrationDue = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) nextPmDue = /** @type {DateTime} */ (null)
+  // PM program — calibration's twin (2026-08-06).
+  @Property({ type: Boolean }) requiresPm = false
+  @Property({ type: Number }) pmInterval = /** @type {number|null} */ (null)
+  @Property({ type: String }) pmIntervalUnit = 'MONTH'
+  @Property({ type: DateTime }) lastPmAt = /** @type {DateTime} */ (null)
 
   @Property({ type: String }) locationText = ''
   @Property({ type: String }) notes = ''

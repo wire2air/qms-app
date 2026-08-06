@@ -1,5 +1,5 @@
 <script setup>
-import { IconUser, IconSparkles } from '@tabler/icons-vue'
+import { IconUser, IconSparkles, IconPaperclip } from '@tabler/icons-vue'
 import { markdownToHtml } from '@/utils/markdown.js'
 
 const props = defineProps({
@@ -93,6 +93,16 @@ function onContentClick(e) {
       class="tw:max-w-[85%] tw:rounded-2xl tw:px-3.5 tw:py-2 tw:text-sm tw:whitespace-pre-wrap tw:leading-relaxed tw:bg-primary tw:text-white tw:rounded-tr-sm"
     >
       {{ item.text }}
+      <div v-if="item.attachments?.length" class="tw:flex tw:flex-wrap tw:gap-1 tw:mt-1.5">
+        <span
+          v-for="(att, i) in item.attachments"
+          :key="`${att.name}-${i}`"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-full tw:bg-white/20 tw:text-white tw:text-xs tw:px-2 tw:py-0.5"
+        >
+          <IconPaperclip :size="11" class="tw:flex-none" />
+          <span class="tw:max-w-44 tw:truncate">{{ att.name }}</span>
+        </span>
+      </div>
     </div>
 
     <div

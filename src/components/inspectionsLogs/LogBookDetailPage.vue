@@ -47,7 +47,16 @@ const router = useRouter()
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const canUpdate = computed(() => isAllowed(['log_books:update']))
+// Editing a log book is OWNER-only (creator stands in while no owner is set;
+// company owners bypass) — module read access only VIEWS (user decision
+// 2026-08-05). RLS enforces the same rule server-side.
+const canUpdate = computed(() => {
+  if (currentSession.value?.isOwner) return true
+  const me = currentSession.value?.userId ?? currentSession.value?.id
+  const book = logBook.value
+  if (!book) return false
+  return book.ownerUserId === me || (!book.ownerUserId && book.createdBy === me)
+})
 
 const logBook = useLiveQueryWithDeps(
   [() => props.id],
@@ -116,9 +125,15 @@ watch(
         logBookTypeId: lb.logBookTypeId || null,
         ownerUserId: lb.ownerUserId || null,
         supervisorUserId: lb.supervisorUserId || null,
-        codePrefix: lb.codePrefix ?? 'FRM-{DEPTCODE}-{TYPECODE}',
+        codePrefix: lb.codePrefix ?? 'LOG-{DEPTCODE}-{TYPECODE}',
         equipmentId: lb.equipmentId || null,
         syncsEquipmentCalibration: !!lb.syncsEquipmentCalibration,
+        syncsEquipmentPm: !!lb.syncsEquipmentPm,
+        scheduleMode: lb.scheduleMode ?? 'AD_HOC',
+        schedule: lb.schedule ? JSON.parse(JSON.stringify(lb.schedule)) : {},
+        graceMinutes: lb.graceMinutes ?? 60,
+        generateTasks: lb.generateTasks !== false,
+        triggerSource: lb.triggerSource || null,
         departmentId: lb.departmentId || null,
         location: lb.location ?? '',
         relatedStandardId: lb.relatedStandardId || null,
@@ -151,6 +166,55 @@ watch(selectedEquipment, (eq) => {
   }
 })
 
+// ── Schedule editing (2026-08-06: WHEN lives on the book) ───────────────────
+// Sub-field bridges write through draft.schedule as a NEW object each time so
+// the deep autosave watcher always fires.
+const SCHEDULE_TIMEZONES = [
+  ...new Set(
+    [
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+      'UTC',
+      'America/New_York',
+      'America/Chicago',
+      'America/Denver',
+      'America/Los_Angeles',
+      'Europe/London',
+      'Europe/Paris',
+      'Europe/Berlin',
+    ].filter(Boolean),
+  ),
+]
+const scheduleFrequency = ref('DAILY')
+function scheduleField(key, fallback) {
+  return computed({
+    get: () => draft.value?.schedule?.[key] ?? fallback,
+    set: (v) => {
+      if (!draft.value) return
+      draft.value.schedule = { ...draft.value.schedule, [key]: v }
+    },
+  })
+}
+const scheduleCron = scheduleField('cron', '0 8 * * *')
+const scheduleTimezone = scheduleField('timezone', SCHEDULE_TIMEZONES[0])
+const scheduleWindowMinutes = scheduleField('windowMinutes', 240)
+const scheduleOnWindowExpire = scheduleField('onWindowExpire', 'MISS')
+// Flipping into RECURRING with no cron yet seeds sensible defaults so the
+// very next autosave PATCH passes backend validation.
+watch(
+  () => draft.value?.scheduleMode,
+  (mode) => {
+    if (mode === 'RECURRING' && draft.value && !draft.value.schedule?.cron) {
+      draft.value.schedule = {
+        cron: '0 8 * * *',
+        timezone: SCHEDULE_TIMEZONES[0],
+        windowMinutes: 240,
+        startOffsetMinutes: 0,
+        onWindowExpire: 'MISS',
+      }
+    }
+  },
+)
+
 // Derived classification — keeps the dialog's logic in lockstep with
 // the create-flow's "policy implies classification" rule.
 const derivedClassification = computed(() =>
@@ -179,6 +243,12 @@ const debouncedSave = useDebounceFn(async () => {
       syncsEquipmentCalibration: draft.value.equipmentId
         ? !!draft.value.syncsEquipmentCalibration
         : false,
+      syncsEquipmentPm: draft.value.equipmentId ? !!draft.value.syncsEquipmentPm : false,
+      scheduleMode: draft.value.scheduleMode,
+      schedule: draft.value.scheduleMode === 'RECURRING' ? draft.value.schedule : {},
+      graceMinutes: draft.value.graceMinutes ?? 60,
+      generateTasks: !!draft.value.generateTasks,
+      triggerSource: draft.value.scheduleMode === 'TRIGGER' ? draft.value.triggerSource : null,
       departmentId: draft.value.departmentId,
       location: draft.value.location?.trim() || null,
       relatedStandardId: draft.value.relatedStandardId,
@@ -725,6 +795,13 @@ const logBookDetailConfig = computed(() =>
                     <template v-if="openDraft.statusId === 'REJECTED'">
                       {{ versionLabel(openDraft) }} was rejected — edit it and resubmit, or discard
                       it.
+                      <div
+                        v-if="openDraft.rejectionComment"
+                        class="tw:mt-1 tw:rounded tw:bg-red-50 tw:px-2.5 tw:py-1.5 tw:text-xs tw:text-red-800"
+                      >
+                        <span class="tw:font-semibold">Reviewer's reason:</span>
+                        {{ openDraft.rejectionComment }}
+                      </div>
                     </template>
                     <template v-else>
                       Editing draft {{ versionLabel(openDraft) }}. Submit it for approval when
@@ -821,7 +898,17 @@ const logBookDetailConfig = computed(() =>
                     label="Supervisor (reviewer)"
                     hint="Reviews and approves submitted entries when 'Require reviewer approval' is on. Entries land in this person's review queue."
                   >
-                    <UserSelectMenu v-model="draft.supervisorUserId" :disabled="!canEditDetails" />
+                    <UserSelectMenu
+                      v-model="draft.supervisorUserId"
+                      :disabled="!canEditDetails || !!(draft.equipmentId && selectedEquipment?.ownerUserId)"
+                    />
+                    <div
+                      v-if="draft.equipmentId && selectedEquipment?.ownerUserId"
+                      class="tw:text-caption tw:text-secondary tw:mt-1"
+                    >
+                      Follows the equipment custodian (source of truth) — change it on the
+                      equipment.
+                    </div>
                   </BaseField>
                   <BaseField v-slot="{ id: fieldId }" label="Status">
                     <select
@@ -856,17 +943,90 @@ const logBookDetailConfig = computed(() =>
                       Feeds <span class="">{DEPTCODE}</span> in the Record Id prefix.
                     </p>
                   </BaseField>
+                  <BaseField label="Site">
+                    <!-- One site per log book (2026-08-05); the pivot table is
+                         unchanged — a single selection replaces the set. -->
+                    <SiteSelectMenu
+                      :modelValue="assignedSiteIds[0] ?? null"
+                      :disabled="!canEditDetails"
+                      @update:modelValue="(v) => handleSitesChange(v ? [v] : [])"
+                    />
+                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
+                      Leave empty to allow all sites.
+                    </p>
+                  </BaseField>
+                </div>
+                <BaseField label="Record Id Prefix">
+                  <template v-if="canEditPrefix">
+                    <BaseTextInput
+                      v-model="draft.codePrefix"
+                      placeholder="LOG-{DEPTCODE}-{TYPECODE}"
+                    />
+                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
+                      Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /
+                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from
+                      Department + Log book type on save. Current:
+                      <span class="tw:text-on-main">{{ logBook.code }}</span>
+                    </p>
+                  </template>
+                  <template v-else>
+                    <div class="tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
+                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
+                      Locked — the log book has an effective version, so record IDs stay consistent.
+                    </p>
+                  </template>
+                </BaseField>
+                <!-- Document links — which SOPs / work instructions this book
+                     implements (audit crumb). Last field of Basics (user
+                     layout decision 2026-08-06). -->
+                <div class="tw:pt-3 tw:border-t tw:border-divider tw:space-y-2">
+                  <div class="tw:flex tw:items-center tw:justify-between">
+                    <span class="tw:text-sm tw:font-medium tw:text-on-main">
+                      Document links ({{ documentLinks.length }})
+                    </span>
+                    <BaseButton v-if="canUpdate" variant="ghost" @click="showAddDocDialog = true">
+                      Link a document
+                    </BaseButton>
+                  </div>
+                  <div v-if="documentLinks.length === 0" class="tw:text-xs tw:text-secondary">
+                    No documents linked. Use this to mark which SOPs / work instructions this log
+                    book implements — useful in audits.
+                  </div>
+                  <div v-else class="tw:flex tw:flex-col tw:gap-1.5">
+                    <div
+                      v-for="link in documentLinks"
+                      :key="link.id"
+                      class="tw:flex tw:items-center tw:gap-3 tw:p-2 tw:bg-main tw:rounded"
+                    >
+                      <IconFileText :size="14" class="tw:text-secondary tw:shrink-0" />
+                      <div class="tw:flex-1 tw:min-w-0">
+                        <div class="tw:text-sm tw:text-on-main tw:truncate">
+                          {{ documentById.get(link.documentId)?.title ?? link.documentId }}
+                        </div>
+                        <div class="tw:text-xs tw:text-secondary">
+                          {{ link.relationshipType }}
+                          <span v-if="link.notes"> · {{ link.notes }}</span>
+                        </div>
+                      </div>
+                      <button
+                        v-if="canUpdate"
+                        class="tw:text-xs tw:text-red-600 tw:hover:underline"
+                        @click="removeDocLink(link)"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </section>
 
-              <!-- References — equipment / location + the record-ID naming
-             convention. (Department lives in Basics — it feeds {DEPTCODE}
-             alongside Sites.) -->
+              <!-- Equipment — the linked instrument, its entry-driven
+                   calibration/PM syncs, and the physical location. -->
               <section
                 class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
               >
                 <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
-                  >References</BaseText
+                  >Equipment</BaseText
                 >
                 <BaseField label="Equipment">
                   <EquipmentSelectMenu v-model="draft.equipmentId" :disabled="!canEditDetails" />
@@ -895,6 +1055,23 @@ const logBookDetailConfig = computed(() =>
                     </span>
                   </span>
                 </label>
+                <label
+                  v-if="draft.equipmentId"
+                  class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer tw:select-none"
+                >
+                  <BaseCheckbox
+                    v-model="draft.syncsEquipmentPm"
+                    :disabled="!canEditDetails"
+                    class="tw:mt-0.5"
+                  />
+                  <span class="tw:text-sm tw:text-on-main">
+                    Update this instrument's preventive maintenance when an entry is logged
+                    <span class="tw:block tw:text-caption tw:text-secondary">
+                      The PM twin of the calibration sync — last-PM date stamps from the entry and
+                      next-PM-due rolls forward by the PM interval.
+                    </span>
+                  </span>
+                </label>
                 <BaseField
                   v-slot="{ id: fieldId }"
                   label="Location"
@@ -907,26 +1084,139 @@ const logBookDetailConfig = computed(() =>
                     placeholder="e.g. Room 201, Cold Store, Line 3"
                   />
                 </BaseField>
-                <BaseField label="Record Id Prefix">
-                  <template v-if="canEditPrefix">
-                    <BaseTextInput
-                      v-model="draft.codePrefix"
-                      placeholder="FRM-{DEPTCODE}-{TYPECODE}"
+              </section>
+
+              <!-- Schedule — WHEN entries happen (moved off assignments,
+                   2026-08-06). Assignments (tab) carry only WHO. -->
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+              >
+                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
+                  >Schedule</BaseText
+                >
+                <div class="tw:flex tw:flex-col tw:gap-1.5 tw:text-sm tw:text-on-main">
+                  <label class="tw:flex tw:items-center tw:gap-2">
+                    <input
+                      v-model="draft.scheduleMode"
+                      type="radio"
+                      value="AD_HOC"
+                      :disabled="!canEditDetails"
                     />
-                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
-                      Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /
-                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from
-                      Department + Log book type on save. Current:
-                      <span class="tw:text-on-main">{{ logBook.code }}</span>
-                    </p>
-                  </template>
-                  <template v-else>
-                    <div class="tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
-                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
-                      Locked — the log book has an effective version, so record IDs stay consistent.
-                    </p>
-                  </template>
-                </BaseField>
+                    <span>Ad hoc — assignees log whenever needed</span>
+                  </label>
+                  <label class="tw:flex tw:items-center tw:gap-2">
+                    <input
+                      v-model="draft.scheduleMode"
+                      type="radio"
+                      value="RECURRING"
+                      :disabled="!canEditDetails"
+                    />
+                    <span>Scheduled — recurring cadence (cron)</span>
+                  </label>
+                  <label class="tw:flex tw:items-start tw:gap-2">
+                    <input
+                      v-model="draft.scheduleMode"
+                      type="radio"
+                      value="TRIGGER"
+                      :disabled="!canEditDetails"
+                      class="tw:mt-0.5"
+                    />
+                    <span>
+                      Equipment trigger — the linked instrument's calibration / PM due date
+                      creates the tasks
+                      <span class="tw:block tw:text-caption tw:text-secondary">
+                        Tasks stay open until the entry is filed. Requires a linked instrument
+                        (Equipment section).
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
+                <template v-if="draft.scheduleMode === 'RECURRING'">
+                  <CronPicker v-model="scheduleCron" v-model:frequency="scheduleFrequency" />
+                  <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+                    <BaseField v-slot="{ id: tzId }" label="Timezone">
+                      <select
+                        :id="tzId"
+                        v-model="scheduleTimezone"
+                        :disabled="!canEditDetails"
+                        class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                      >
+                        <option v-for="tz in SCHEDULE_TIMEZONES" :key="tz" :value="tz">
+                          {{ tz }}
+                        </option>
+                      </select>
+                    </BaseField>
+                    <BaseField v-slot="{ id: winId }" label="Entry window (minutes)">
+                      <input
+                        :id="winId"
+                        v-model.number="scheduleWindowMinutes"
+                        type="number"
+                        min="5"
+                        :disabled="!canEditDetails"
+                        class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                      />
+                    </BaseField>
+                    <BaseField v-slot="{ id: graceId }" label="Grace (minutes)">
+                      <input
+                        :id="graceId"
+                        v-model.number="draft.graceMinutes"
+                        type="number"
+                        min="0"
+                        :disabled="!canEditDetails"
+                        class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                      />
+                    </BaseField>
+                    <BaseField v-slot="{ id: expId }" label="When the window expires">
+                      <select
+                        :id="expId"
+                        v-model="scheduleOnWindowExpire"
+                        :disabled="!canEditDetails"
+                        class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                      >
+                        <option value="MISS">Mark as missed</option>
+                        <option value="KEEP_OPEN">Keep open until done</option>
+                      </select>
+                    </BaseField>
+                  </div>
+                  <label class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main">
+                    <input
+                      v-model="draft.generateTasks"
+                      type="checkbox"
+                      :disabled="!canEditDetails"
+                      class="tw:mt-0.5"
+                    />
+                    <span>
+                      Create tasks for assignees
+                      <span class="tw:block tw:text-caption tw:text-secondary">
+                        Unchecked: assignees get a reminder notification per occurrence instead —
+                        no My Tasks entry, no missed-tracking.
+                      </span>
+                    </span>
+                  </label>
+                </template>
+
+                <template v-if="draft.scheduleMode === 'TRIGGER'">
+                  <div
+                    v-if="!draft.equipmentId"
+                    class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
+                  >
+                    Link an instrument in the <strong>Equipment</strong> section first — the trigger follows its
+                    due dates.
+                  </div>
+                  <BaseField v-slot="{ id: srcId }" label="Trigger on">
+                    <select
+                      :id="srcId"
+                      v-model="draft.triggerSource"
+                      :disabled="!canEditDetails || !draft.equipmentId"
+                      class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                    >
+                      <option :value="null" disabled>— Select —</option>
+                      <option value="CALIBRATION">Calibration due</option>
+                      <option value="PM">Preventive maintenance due</option>
+                    </select>
+                  </BaseField>
+                </template>
               </section>
 
               <!-- Entry policy -->
@@ -1039,65 +1329,6 @@ const logBookDetailConfig = computed(() =>
                   />
                   <span class="tw:text-xs tw:text-secondary tw:ml-2">(blank = indefinite)</span>
                 </BaseField>
-              </section>
-
-              <!-- Sites -->
-              <section
-                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
-              >
-                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
-                  >Sites</BaseText
-                >
-                <SiteSelectMenu
-                  :modelValue="assignedSiteIds"
-                  multiple
-                  :disabled="!canEditDetails"
-                  @update:modelValue="handleSitesChange"
-                />
-                <div class="tw:text-xs tw:text-secondary">Leave empty to allow all sites.</div>
-              </section>
-
-              <!-- Document links -->
-              <section
-                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
-              >
-                <div class="tw:flex tw:items-center tw:justify-between">
-                  <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
-                    Document links ({{ documentLinks.length }})
-                  </BaseText>
-                  <BaseButton v-if="canUpdate" variant="ghost" @click="showAddDocDialog = true">
-                    Link a document
-                  </BaseButton>
-                </div>
-                <div v-if="documentLinks.length === 0" class="tw:text-xs tw:text-secondary">
-                  No documents linked. Use this to mark which SOPs / work instructions this log book
-                  implements — useful in audits.
-                </div>
-                <div v-else class="tw:flex tw:flex-col tw:gap-1.5">
-                  <div
-                    v-for="link in documentLinks"
-                    :key="link.id"
-                    class="tw:flex tw:items-center tw:gap-3 tw:p-2 tw:bg-main tw:rounded"
-                  >
-                    <IconFileText :size="14" class="tw:text-secondary tw:shrink-0" />
-                    <div class="tw:flex-1 tw:min-w-0">
-                      <div class="tw:text-sm tw:text-on-main tw:truncate">
-                        {{ documentById.get(link.documentId)?.title ?? link.documentId }}
-                      </div>
-                      <div class="tw:text-xs tw:text-secondary">
-                        {{ link.relationshipType }}
-                        <span v-if="link.notes"> · {{ link.notes }}</span>
-                      </div>
-                    </div>
-                    <button
-                      v-if="canUpdate"
-                      class="tw:text-xs tw:text-red-600 tw:hover:underline"
-                      @click="removeDocLink(link)"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
               </section>
 
               <!-- Log Book Approval — approves the log book DEFINITION (schema +
@@ -1373,6 +1604,13 @@ const logBookDetailConfig = computed(() =>
                       >
                         {{ v.changeSummary }}
                       </div>
+                      <div
+                        v-if="v.rejectionComment"
+                        class="tw:text-xs tw:text-red-700 tw:mt-0.5"
+                        :title="v.rejectionComment"
+                      >
+                        Rejected: {{ v.rejectionComment }}
+                      </div>
                     </div>
                     <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
                       <BaseButton
@@ -1407,6 +1645,7 @@ const logBookDetailConfig = computed(() =>
     v-model="submitDialog.open"
     :versionId="submitDialog.versionId"
     :workflowVersionId="draft?.workflowVersionId || null"
+    :logBookId="props.id"
   />
 
   <!-- Full-screen FormBuilder overlay. Mirrors the workflow-step
