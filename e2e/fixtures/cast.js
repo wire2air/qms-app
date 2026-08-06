@@ -12,85 +12,190 @@ export const ALT_COMPANY_ID = 'e2e00002-0000-4000-8000-000000000002' // E2EALT
 
 export const USERS = {
   // Company Owner — set-effective override, sees everything (isOwner bypass).
-  owner: { id: 'e2e10000-0000-4000-8000-000000000001', email: 'owner@e2e.test', name: 'Olivia Owner' },
+  owner: {
+    id: 'e2e10000-0000-4000-8000-000000000001',
+    email: 'owner@e2e.test',
+    name: 'Olivia Owner',
+  },
   // Author — document_control:create/read/update.
-  author: { id: 'e2e10000-0000-4000-8000-000000000002', email: 'author@e2e.test', name: 'Aaron Author' },
+  author: {
+    id: 'e2e10000-0000-4000-8000-000000000002',
+    email: 'author@e2e.test',
+    name: 'Aaron Author',
+  },
   // Reviewer — step-1 (ACTION) assignee via the E2E Reviewer role.
-  reviewer: { id: 'e2e10000-0000-4000-8000-000000000003', email: 'reviewer@e2e.test', name: 'Rita Reviewer' },
+  reviewer: {
+    id: 'e2e10000-0000-4000-8000-000000000003',
+    email: 'reviewer@e2e.test',
+    name: 'Rita Reviewer',
+  },
   // Approver — step-2 (APPROVAL, e-sign) assignee via the E2E Approver role.
-  approver: { id: 'e2e10000-0000-4000-8000-000000000004', email: 'approver@e2e.test', name: 'Adam Approver' },
+  approver: {
+    id: 'e2e10000-0000-4000-8000-000000000004',
+    email: 'approver@e2e.test',
+    name: 'Adam Approver',
+  },
   // Document Controller — update/delete + templates CRUD.
-  controller: { id: 'e2e10000-0000-4000-8000-000000000005', email: 'controller@e2e.test', name: 'Carla Controller' },
+  controller: {
+    id: 'e2e10000-0000-4000-8000-000000000005',
+    email: 'controller@e2e.test',
+    name: 'Carla Controller',
+  },
   // Auditor — read-only.
-  auditor: { id: 'e2e10000-0000-4000-8000-000000000006', email: 'auditor@e2e.test', name: 'Ava Auditor' },
+  auditor: {
+    id: 'e2e10000-0000-4000-8000-000000000006',
+    email: 'auditor@e2e.test',
+    name: 'Ava Auditor',
+  },
   // Own-scope author — document_control:* at OWN scope.
-  ownAuthor: { id: 'e2e10000-0000-4000-8000-000000000007', email: 'ownauthor@e2e.test', name: 'Owen OwnScope' },
+  ownAuthor: {
+    id: 'e2e10000-0000-4000-8000-000000000007',
+    email: 'ownauthor@e2e.test',
+    name: 'Owen OwnScope',
+  },
   // No-access — no document permissions (denial tests).
-  noAccess: { id: 'e2e10000-0000-4000-8000-000000000008', email: 'noaccess@e2e.test', name: 'Noah NoAccess' },
+  noAccess: {
+    id: 'e2e10000-0000-4000-8000-000000000008',
+    email: 'noaccess@e2e.test',
+    name: 'Noah NoAccess',
+  },
   // Site Admin — sites:create/read/update/delete at tenant. The only cast
   // member who can create a site; also holds log_books:update, the gate on the
   // sites_on_log_books pivot's (correct) INSERT/DELETE policies.
-  siteAdmin: { id: 'e2e10000-0000-4000-8000-000000000010', email: 'siteadmin@e2e.test', name: 'Sam SiteAdmin' },
+  siteAdmin: {
+    id: 'e2e10000-0000-4000-8000-000000000010',
+    email: 'siteadmin@e2e.test',
+    name: 'Sam SiteAdmin',
+  },
   // Site-scoped sites reader — sites:read at SITE scope and nothing else.
   // Exists to expose the all-NULL `sites` binding: the grant saves, and returns
   // nothing (PW-J10).
-  siteReader: { id: 'e2e10000-0000-4000-8000-000000000011', email: 'sitereader@e2e.test', name: 'Sara SiteReader' },
+  siteReader: {
+    id: 'e2e10000-0000-4000-8000-000000000011',
+    email: 'sitereader@e2e.test',
+    name: 'Sara SiteReader',
+  },
   // Site-scoped NCR user — ncr:read/update at SITE scope, starts at Primary
   // Site. Moved to Secondary Site mid-test by PW-J7.
-  siteRoamer: { id: 'e2e10000-0000-4000-8000-000000000012', email: 'siteroamer@e2e.test', name: 'Rory SiteRoamer' },
+  siteRoamer: {
+    id: 'e2e10000-0000-4000-8000-000000000012',
+    email: 'siteroamer@e2e.test',
+    name: 'Rory SiteRoamer',
+  },
   // Department Admin — departments CRUD + quality_events:create. The second
   // grant is what turns the supervisorUserId gap from a NULL column into an
   // observable failure: event creation routes to the department's supervisor.
-  deptAdmin: { id: 'e2e10000-0000-4000-8000-000000000013', email: 'deptadmin@e2e.test', name: 'Dana DeptAdmin' },
+  deptAdmin: {
+    id: 'e2e10000-0000-4000-8000-000000000013',
+    email: 'deptadmin@e2e.test',
+    name: 'Dana DeptAdmin',
+  },
   // Department-scoped reader — departments:read at DEPARTMENT scope only.
   // The `departments` twin of siteReader; both tables share the all-NULL binding.
-  deptReader: { id: 'e2e10000-0000-4000-8000-000000000014', email: 'deptreader@e2e.test', name: 'Derek DeptReader' },
+  deptReader: {
+    id: 'e2e10000-0000-4000-8000-000000000014',
+    email: 'deptreader@e2e.test',
+    name: 'Derek DeptReader',
+  },
   // Training Admin — training:* + training_instances:*, AND the manager_id on
   // the seeded training, so the same persona launches and later verifies.
-  trainingAdmin: { id: 'e2e10000-0000-4000-8000-000000000015', email: 'trainadmin@e2e.test', name: 'Tara TrainAdmin' },
+  trainingAdmin: {
+    id: 'e2e10000-0000-4000-8000-000000000015',
+    email: 'trainadmin@e2e.test',
+    name: 'Tara TrainAdmin',
+  },
   // Learner — holds NO training grants at all, deliberately. /my-training/:id is
   // the one training surface with no permission guard (RLS self-scope only), so
   // the learner journey has to prove it works for a user who holds nothing.
-  learner: { id: 'e2e10000-0000-4000-8000-000000000016', email: 'learner@e2e.test', name: 'Leo Learner' },
+  learner: {
+    id: 'e2e10000-0000-4000-8000-000000000016',
+    email: 'learner@e2e.test',
+    name: 'Leo Learner',
+  },
   // Teams-grant-only — holds `teams:create` and nothing else. Exists to prove a
   // grant that says nothing about people still admits the whole user roster
   // (USER-J4): authz.has_permission matches ANY action on a module when
   // p_action = 'read', and users_sel's extra_read branch asks for
   // has_permission('teams','read'). Lives at the SECONDARY site.
-  teamsOnly: { id: 'e2e10000-0000-4000-8000-000000000020', email: 'teamsonly@e2e.test', name: 'Tessa TeamsOnly' },
+  teamsOnly: {
+    id: 'e2e10000-0000-4000-8000-000000000020',
+    email: 'teamsonly@e2e.test',
+    name: 'Tessa TeamsOnly',
+  },
   // Site-scoped user reader — user_management:read at SITE scope. The `users`
   // twin of siteReader/deptReader: the binding is owner/dept/site all-NULL, so
   // the grant saves and matches nothing through the permission branch
   // (USER-J5). Also at the SECONDARY site, so teamsOnly is a same-site row it
   // *should* be able to see — without which J5's positive half would pass for
   // the wrong reason (users_sel admits you to your own row regardless).
-  userSiteReader: { id: 'e2e10000-0000-4000-8000-000000000021', email: 'usersitereader@e2e.test', name: 'Ursula UserSiteReader' },
+  userSiteReader: {
+    id: 'e2e10000-0000-4000-8000-000000000021',
+    email: 'usersitereader@e2e.test',
+    name: 'Ursula UserSiteReader',
+  },
   // Read-only auditor — *:read on every audit module, no write action anywhere.
   // The persona PW-J10 needs: Postgres applies the SELECT policy when an UPDATE
   // has to locate its rows, so only a user who can READ a finding can exploit
   // its company-only UPDATE policy. Kept separate from `auditor`, whose zero
   // audit_standards grants are PW-J9's premise.
-  auditReader: { id: 'e2e10000-0000-4000-8000-000000000022', email: 'auditreader@e2e.test', name: 'Rhea AuditReader' },
+  auditReader: {
+    id: 'e2e10000-0000-4000-8000-000000000022',
+    email: 'auditreader@e2e.test',
+    name: 'Rhea AuditReader',
+  },
   // ── QC Inspection (e2e-seed.sql §22a) ─────────────────────────────────────
   // The split that matters in this module is execute-vs-dispose: the persona
   // that runs an inspection must not be able to close it out.
   // QC Inspector — inspection_qc:read/create/execute, deliberately NO dispose.
   // Also the actor for the raw-GraphQL status probe (finding #1).
-  qcInspector: { id: 'e2e10000-0000-4000-8000-000000000030', email: 'qcinspector@e2e.test', name: 'Ivan Inspector' },
+  qcInspector: {
+    id: 'e2e10000-0000-4000-8000-000000000030',
+    email: 'qcinspector@e2e.test',
+    name: 'Ivan Inspector',
+  },
   // QA Approver — inspection_qc:read/dispose + e-sign PIN. The disposition gate.
-  qcApprover: { id: 'e2e10000-0000-4000-8000-000000000031', email: 'qcapprover@e2e.test', name: 'Quinn QaApprover' },
+  qcApprover: {
+    id: 'e2e10000-0000-4000-8000-000000000031',
+    email: 'qcapprover@e2e.test',
+    name: 'Quinn QaApprover',
+  },
   // QC Author — inspection_spec:write + inspection_plan:* + inspection_templates:write.
   // Note the module names: spec/plan authoring is NOT under inspection_qc.
-  qcAuthor: { id: 'e2e10000-0000-4000-8000-000000000032', email: 'qcauthor@e2e.test', name: 'Quincy QcAuthor' },
+  qcAuthor: {
+    id: 'e2e10000-0000-4000-8000-000000000032',
+    email: 'qcauthor@e2e.test',
+    name: 'Quincy QcAuthor',
+  },
   // Retain custodian — retain_samples:* and NOTHING else. Finding #18's persona:
   // the sidebar shows them Retain Samples, permissionGuard.js bounces them off
   // the /qc-inspection list route. Seeded to keep that reproducible.
-  retainCustodian: { id: 'e2e10000-0000-4000-8000-000000000033', email: 'retaincustodian@e2e.test', name: 'Rhea RetainCustodian' },
+  retainCustodian: {
+    id: 'e2e10000-0000-4000-8000-000000000033',
+    email: 'retaincustodian@e2e.test',
+    name: 'Rhea RetainCustodian',
+  },
+  // Quality Events moderator — quality_events read/update/close/create at tenant
+  // scope (e2e-seed.sql §28b). Nothing in the cast held `quality_events:update`
+  // before this, which is why the module had no way to exercise its own
+  // moderation or close paths. `read` is granted explicitly alongside `update`:
+  // has_permission(module,'read') is satisfied by ANY grant on the module, but
+  // scope_allowed(module,'read', …) resolves the READ grant's own scope, so an
+  // update-only role cannot SELECT the parent event — and would then be locked
+  // out of its notes too, since those are correlated to the parent.
+  qeManager: {
+    id: 'e2e10000-0000-4000-8000-000000000040',
+    email: 'qemanager@e2e.test',
+    name: 'Quinn QeManager',
+  },
 }
 
 // Second-tenant owner for cross-tenant isolation tests (logs in via ALT_BASE_URL).
 export const ALT_USERS = {
-  owner: { id: 'e2e20000-0000-4000-8000-000000000001', email: 'owner@e2e-alt.test', name: 'Otto AltOwner' },
+  owner: {
+    id: 'e2e20000-0000-4000-8000-000000000001',
+    email: 'owner@e2e-alt.test',
+    name: 'Otto AltOwner',
+  },
 }
 
 // storageState files written by auth.setup.js, consumed via test.use().
@@ -117,7 +222,39 @@ export const AUTH = {
   qcApprover: 'e2e/.auth/qcApprover.json',
   qcAuthor: 'e2e/.auth/qcAuthor.json',
   retainCustodian: 'e2e/.auth/retainCustodian.json',
+  qeManager: 'e2e/.auth/qeManager.json',
   altOwner: 'e2e/.auth/altOwner.json',
+}
+
+// Quality Events fixtures seeded by e2e-seed.sql §28.
+//
+// The standing event is reported by `deptAdmin`, who holds quality_events
+// create+read but is NOT the assignee and holds no update — so they reach the
+// event through the SELECT policy's reachability OR (reported_by_user_id).
+// That is deliberately the persona the F-01 INSERT policy was left open for:
+// "you can see it, so you can comment on it, as yourself".
+//
+// The supplier is SHARED on the event, so the parent is reachable for them.
+// Without that share a supplier seeing no notes would prove nothing about
+// `visibility` — only that they could not reach the event.
+export const QUALITY_EVENTS = {
+  categories: {
+    deviation: { id: 'e2eec000-0000-4000-8000-000000000001', name: 'Deviation' },
+    nearMiss: { id: 'e2eec000-0000-4000-8000-000000000002', name: 'Near Miss' },
+  },
+  severities: {
+    minor: { id: 'e2eed000-0000-4000-8000-000000000001', name: 'Minor' },
+    major: { id: 'e2eed000-0000-4000-8000-000000000002', name: 'Major' },
+  },
+  standing: {
+    id: 'e2eef000-0000-4000-8000-000000000001',
+    number: 'EV-E2E-0001',
+    title: 'E2E Standing Quality Event',
+    reportedBy: 'e2e10000-0000-4000-8000-000000000013', // deptAdmin
+    internalNoteId: 'e2eeb000-0000-4000-8000-000000000001',
+    publicNoteId: 'e2eeb000-0000-4000-8000-000000000002',
+    attachmentId: 'e2eea000-0000-4000-8000-000000000001',
+  },
 }
 
 // Sites seeded by e2e-seed.sql §2 and §15a. Two tenants, three sites — the
@@ -193,9 +330,21 @@ export const AUDIT_STANDARD = {
   name: 'E2E Quality Standard',
   effectiveVersionId: 'e2ea2000-0000-4000-8000-000000000001',
   clauses: {
-    section: { id: 'e2ea3000-0000-4000-8000-000000000001', number: '4', title: 'Quality Management System' },
-    documentControl: { id: 'e2ea3000-0000-4000-8000-000000000002', number: '4.1', title: 'Document control' },
-    training: { id: 'e2ea3000-0000-4000-8000-000000000003', number: '4.2', title: 'Training records' },
+    section: {
+      id: 'e2ea3000-0000-4000-8000-000000000001',
+      number: '4',
+      title: 'Quality Management System',
+    },
+    documentControl: {
+      id: 'e2ea3000-0000-4000-8000-000000000002',
+      number: '4.1',
+      title: 'Document control',
+    },
+    training: {
+      id: 'e2ea3000-0000-4000-8000-000000000003',
+      number: '4.2',
+      title: 'Training records',
+    },
   },
   leafCount: 2,
 }
@@ -247,14 +396,26 @@ export const TRAINING = {
 // first exercising the authoring paths (PW-J4/J5 cover those on their own,
 // against records they create).
 export const QC = {
-  product: { id: 'e2e91000-0000-4000-8000-000000000001', name: 'E2E Widget 10mm', sku: 'E2E-WIDGET-10' },
+  product: {
+    id: 'e2e91000-0000-4000-8000-000000000001',
+    name: 'E2E Widget 10mm',
+    sku: 'E2E-WIDGET-10',
+  },
   // Reserved for PW-J4/J5. Authoring a spec/plan against the shared product
   // above would SUPERSEDE the seeded EFFECTIVE spec and silently change what
   // every later lot is inspected against.
-  authoringProduct: { id: 'e2e91000-0000-4000-8000-000000000002', name: 'E2E Authoring Widget', sku: 'E2E-WIDGET-AUTH' },
+  authoringProduct: {
+    id: 'e2e91000-0000-4000-8000-000000000002',
+    name: 'E2E Authoring Widget',
+    sku: 'E2E-WIDGET-AUTH',
+  },
   supplier: { id: 'e2e70000-0000-4000-8000-000000000003', name: 'E2E QC Supplier', code: 'EQCS' },
   uom: { id: 'e2e90000-0000-4000-8000-000000000001', code: 'EA' },
-  productionLine: { id: 'e2e92000-0000-4000-8000-000000000001', name: 'E2E Line 1', code: 'LINE-1' },
+  productionLine: {
+    id: 'e2e92000-0000-4000-8000-000000000001',
+    name: 'E2E Line 1',
+    code: 'LINE-1',
+  },
   shift: { id: 'e2e93000-0000-4000-8000-000000000001', name: 'E2E Shift A', code: 'A' },
   storageLocation: {
     id: 'e2e94000-0000-4000-8000-000000000001',
@@ -262,19 +423,35 @@ export const QC = {
     code: 'RETAIN-A',
     conditions: '25 C / 60% RH',
   },
-  specification: { id: 'e2e96000-0000-4000-8000-000000000001', name: 'E2E Widget 10mm Spec', code: 'E2E-SPEC-1' },
+  specification: {
+    id: 'e2e96000-0000-4000-8000-000000000001',
+    name: 'E2E Widget 10mm Spec',
+    code: 'E2E-SPEC-1',
+  },
   // LEN is NUMERIC 9.90–10.10 mm and CRITICAL — the deliberate out-of-spec
   // target (record 12.5). VIS is PASS_FAIL, LBL is TEXT; leaving one unscored
   // is what proves the completeness gate (PW-J3).
   characteristics: {
-    length: { id: 'e2e97000-0000-4000-8000-000000000001', code: 'LEN', name: 'Length', lsl: 9.9, usl: 10.1 },
+    length: {
+      id: 'e2e97000-0000-4000-8000-000000000001',
+      code: 'LEN',
+      name: 'Length',
+      lsl: 9.9,
+      usl: 10.1,
+    },
     visual: { id: 'e2e97000-0000-4000-8000-000000000002', code: 'VIS', name: 'Visual Finish' },
     label: { id: 'e2e97000-0000-4000-8000-000000000003', code: 'LBL', name: 'Label Text' },
   },
   samplingPlan: { id: 'e2e98000-0000-4000-8000-000000000001', name: 'E2E Widget Incoming Plan' },
   defect: { id: 'e2e99000-0000-4000-8000-000000000001', code: 'SCRATCH', name: 'Surface Scratch' },
-  templateIncoming: { id: 'e2e9a000-0000-4000-8000-000000000001', name: 'E2E Widget Incoming Inspection' },
-  templateInProcess: { id: 'e2e9a000-0000-4000-8000-000000000002', name: 'E2E Widget In-Process Inspection' },
+  templateIncoming: {
+    id: 'e2e9a000-0000-4000-8000-000000000001',
+    name: 'E2E Widget Incoming Inspection',
+  },
+  templateInProcess: {
+    id: 'e2e9a000-0000-4000-8000-000000000002',
+    name: 'E2E Widget In-Process Inspection',
+  },
   dispositionWorkflowName: 'E2E QC Disposition',
   // Global AQL standards seeded by migration (company_id IS NULL), not by the
   // E2E seed — PW-J6 clones one of these.

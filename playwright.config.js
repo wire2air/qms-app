@@ -82,6 +82,18 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Quality Events. The module had NO E2E surface at all until 2026-08-06 —
+      // no project, no fixture, and zero rows in e2e-seed.sql, which is itself
+      // part of why its two worst findings shipped. The DB-level fixes carry 39
+      // integration/worker tests; what only this project can reach is the UI
+      // control that F-02 was actually exploited through — a plain status
+      // dropdown behind a 600 ms autosave. See docs/modules/quality-events/14.
+      name: 'qualityEvents',
+      testMatch: /qualityEvents\/.*\.spec\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // Credential-layer journeys. Unlike every other project these mostly issue
       // raw pre-auth HTTP rather than driving the UI, and several deliberately
       // lock accounts — which is why they use throwaway personas (e2e-seed.sql
