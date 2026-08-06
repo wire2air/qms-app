@@ -27,8 +27,11 @@ const fields = computed(() => (Array.isArray(proposal.value?.fields) ? proposal.
 </script>
 
 <template>
+  <!-- shrink-0 is load-bearing: overflow-hidden zeroes min-height, and inside
+       the scrollable flex column a long conversation would otherwise crush
+       this card to a sliver while text bubbles keep their content height. -->
   <div
-    class="tw:rounded-xl tw:border tw:border-primary/30 tw:bg-primary/5 tw:overflow-hidden tw:max-w-[95%]"
+    class="tw:rounded-xl tw:border tw:border-primary/30 tw:bg-primary/5 tw:overflow-hidden tw:max-w-[95%] tw:shrink-0"
   >
     <div class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:border-b tw:border-primary/20">
       <IconSparkles :size="15" class="tw:text-primary tw:flex-none" />
