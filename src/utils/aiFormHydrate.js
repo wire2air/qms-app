@@ -129,6 +129,10 @@ export function hydrateAiField(node, existingRoot) {
   if (typeof node.placeholder === 'string') config.placeholder = node.placeholder
   if (typeof node.hint === 'string') config.hint = node.hint
   if (typeof node.width === 'string' && VALID_WIDTHS.has(node.width)) config.width = node.width
+  // Numeric bounds (number/slider) — the builder's config already carries
+  // min/max/step defaults; the AI contract can now express a range.
+  if (Number.isFinite(node.min)) config.min = node.min
+  if (Number.isFinite(node.max)) config.max = node.max
 
   // Type-specific payloads.
   if (['select', 'optionGroup', 'checkbox'].includes(type) && Array.isArray(node.options)) {
