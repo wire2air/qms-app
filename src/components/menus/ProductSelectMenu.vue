@@ -26,8 +26,11 @@ const modelValue = defineModel({
   default: null,
 })
 
-const products = useLiveQuery(async (db) => db.Product.where().exec(), {
-  models: ['Product'],
+// ProductOption projection (view `product_options`) — id / sku / name only, so
+// the picker resolves for users without products:read. Item CREATION below
+// still goes through Product and still requires products:create.
+const products = useLiveQuery(async (db) => db.ProductOption.where().exec(), {
+  models: ['ProductOption'],
   initial: [],
 })
 
