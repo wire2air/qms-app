@@ -1,6 +1,5 @@
 <script setup>
 import { post } from '@/api'
-import { currentSession } from '@/utils/currentSession.js'
 import WorkflowStepReviewerSelect from '@/components/workflow/WorkflowStepReviewerSelect.vue'
 import { LOG_BOOK_VERSION_MODULE } from '@/components/workflow/workflowModule.js'
 
@@ -48,15 +47,10 @@ const steps = useLiveQueryWithDeps(
   { models: ['WorkflowStep'], initial: [] },
 )
 
-// Segregation of duties (user-reported gap): the submitter can't review
-// their own submission, and one person can't hold two steps of the same
-// review cycle.
-const submitterId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
-const duplicateReviewer = computed(() => {
-  const picked = Object.values(selections).filter(Boolean)
-  return picked.length !== new Set(picked).size
-})
-
+// No segregation-of-duties constraints here (user decision 2026-08-07,
+// reversing the 08-06 experiment): the submitter may review their own
+// submission and one person may hold multiple steps. Eligibility is the
+// step's ROLE membership + site visibility — nothing else.
 const firstStepHasUser = computed(() => {
   const firstStepId = steps.value[0]?.id
   return !!firstStepId && !!selections[firstStepId]
@@ -70,7 +64,7 @@ watch(open, (isOpen) => {
 })
 
 async function handleConfirm() {
-  if (!firstStepHasUser.value || submitting.value || duplicateReviewer.value) return
+  if (!firstStepHasUser.value || submitting.value) return
   const reviewers = {}
   Object.entries(selections).forEach(([stepId, userId]) => {
     if (userId) reviewers[stepId] = [userId]
@@ -118,15 +112,7 @@ async function handleConfirm() {
           :step="step"
           :stepIndex="index"
           :required="index === 0"
-          :excludeUserIds="submitterId ? [submitterId] : null"
         />
-        <div
-          v-if="duplicateReviewer"
-          class="tw:bg-red-50 tw:text-red-700 tw:border tw:border-red-200 tw:rounded tw:p-2 tw:text-xs"
-        >
-          The same person is selected for more than one step — each step needs a different
-          reviewer.
-        </div>
         <BaseField v-slot="{ id: fieldId }" label="Change summary" optional>
           <BaseTextarea
             :id="fieldId"
@@ -142,7 +128,7 @@ async function handleConfirm() {
       <BaseDialogFooter
         submitLabel="Submit"
         :loading="submitting"
-        :disabled="!workflowVersionId || !firstStepHasUser || duplicateReviewer"
+        :disabled="!workflowVersionId || !firstStepHasUser"
         @cancel="close"
         @submit="handleConfirm"
       />
