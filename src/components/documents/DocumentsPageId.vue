@@ -684,14 +684,7 @@ const documentDetailConfig = computed(() =>
 
     <template #actions>
       <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2 tw:max-sm:justify-end">
-        <AskAiButton
-              v-if="canUseAi && document?.id"
-              entityType="Document"
-              :entityId="document.id"
-              :entityTitle="document.title"
-              :entityNumber="document.docNumber"
-            />
-            <button
+        <button
               v-if="canDraftWithAi && selectedVersion?.id"
               class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
               title="Use AI to draft or improve this document's sections"
