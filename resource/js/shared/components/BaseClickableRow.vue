@@ -38,6 +38,12 @@ function activate(e) {
 
 function onKeydown(e) {
   if (props.disabled) return
+  // Activate ONLY when the row itself is the focused target. Keys typed into
+  // nested interactive children (an in-place edit input, a select, …) must
+  // keep their native behavior — a Space there is a character, not a click.
+  // Without this guard the row eats every Space bubbling up from its
+  // children (found via the form builder's in-place label editor).
+  if (e.target !== e.currentTarget) return
   if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
     e.preventDefault()
     emit('click', e)
