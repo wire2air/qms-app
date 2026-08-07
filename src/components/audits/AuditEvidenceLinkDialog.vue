@@ -24,10 +24,15 @@ const toast = useToast()
 // Kind catalog mirrors the BE CHECK constraint. modelName is the
 // SyncEngine model; numberAccessor / titleAccessor are the row's
 // display fields.
+//
+// `name` (not just `label`) is required on every entry — BaseInlineSelect
+// hardcodes optionLabel="name" (it's built for the [{id,name}] enum shape),
+// so without it the Record Type dropdown renders every option blank.
 const KIND_CATALOG = [
   {
     id: 'Document',
     label: 'Document',
+    name: 'Document',
     modelName: 'Document',
     numberAccessor: (r) => r.docNumber,
     titleAccessor: (r) => r.title,
@@ -35,6 +40,7 @@ const KIND_CATALOG = [
   {
     id: 'FieldRecord',
     label: 'Log Book Entry',
+    name: 'Log Book Entry',
     modelName: 'FieldRecord',
     numberAccessor: (r) => r.recordNumber || r.id?.slice(0, 8),
     titleAccessor: (r) => r.title || r.recordNumber || r.id,
@@ -42,6 +48,7 @@ const KIND_CATALOG = [
   {
     id: 'Capa',
     label: 'CAPA',
+    name: 'CAPA',
     modelName: 'Capa',
     numberAccessor: (r) => r.capaNumber,
     titleAccessor: (r) => r.title,
@@ -49,6 +56,7 @@ const KIND_CATALOG = [
   {
     id: 'Nonconformance',
     label: 'NC',
+    name: 'NC',
     modelName: 'Nonconformance',
     numberAccessor: (r) => r.ncNumber,
     titleAccessor: (r) => r.title,
@@ -56,6 +64,7 @@ const KIND_CATALOG = [
   {
     id: 'ChangeRequest',
     label: 'Change Request',
+    name: 'Change Request',
     modelName: 'ChangeRequest',
     numberAccessor: (r) => r.crNumber,
     titleAccessor: (r) => r.title,
@@ -63,6 +72,7 @@ const KIND_CATALOG = [
   {
     id: 'TrainingInstance',
     label: 'Training Instance',
+    name: 'Training Instance',
     modelName: 'TrainingInstance',
     numberAccessor: (r) => r.id?.slice(0, 8),
     titleAccessor: (r) => r.name || r.title || r.id,
@@ -70,6 +80,7 @@ const KIND_CATALOG = [
   {
     id: 'SupplierAsset',
     label: 'Supplier Document',
+    name: 'Supplier Document',
     modelName: 'SupplierAsset',
     numberAccessor: (r) => r.documentType || '—',
     titleAccessor: (r) => r.title || r.id,
