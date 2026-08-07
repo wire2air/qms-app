@@ -25,6 +25,12 @@
 // The subject is a throwaway user created and destroyed by this file. Nothing
 // here touches a shared cast member — a test that leaves a fixture user in an
 // unexpected state takes the whole suite down with it (see the afterAll).
+//
+// The subject is seeded INACTIVE, which is what the real create path writes
+// (controllers/users.js) — acceptance is what flips them to ACTIVE. An earlier
+// version seeded 'INVITED', a status nothing has ever written; migration
+// 20260807141000 added the FK to `user_statuses` and the insert started failing
+// loudly, which is the FK doing exactly its job.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import crypto from 'node:crypto'
 import { COMPANY_ID, SITES, DEPARTMENTS } from '../fixtures/cast.js'
@@ -78,20 +84,37 @@ test.describe('USER-J3 · invitation tokens are single-use and time-boxed', () =
     // worker after a failed test and re-runs beforeAll, which silently rewinds
     // shared setup mid-file. A per-test subject cannot be rewound out from
     // under a later assertion.
+    //
+    // UPSERT, not delete-and-recreate. Since 2026-08-07 the activation is
+    // audited (F-09) and the invitee is the `performed_by` of their own
+    // ACTIVATE row — `audit_logs.performed_by` is FK'd with RESTRICT, so a
+    // user who has ever accepted an invitation can no longer be hard-deleted.
+    // That is correct on both counts: audit rows are immutable, and the
+    // application soft-deletes users anyway (controllers/users.js destroy()).
+    // Only this fixture ever tried to remove one outright.
     sql(`DELETE FROM invitation_tokens WHERE user_id = '${SUBJECT_ID}'`)
-    sql(`DELETE FROM users WHERE id = '${SUBJECT_ID}'`)
     sql(
       `INSERT INTO users (id, first_name, last_name, email, user_status_id, company_id,
          language_id, time_zone, site_id, department_id, kind, invite_sent, is_owner, created_at, updated_at)
-       VALUES ('${SUBJECT_ID}', 'Ivy', 'Invitee', '${SUBJECT_EMAIL}', 'INVITED', '${COMPANY_ID}',
+       VALUES ('${SUBJECT_ID}', 'Ivy', 'Invitee', '${SUBJECT_EMAIL}', 'INACTIVE', '${COMPANY_ID}',
          'en', 'America/New_York', '${SITES.primary.id}', '${DEPARTMENTS.quality.id}',
-         'INTERNAL', true, false, NOW(), NOW())`,
+         'INTERNAL', true, false, NOW(), NOW())
+       ON CONFLICT (id) DO UPDATE
+         SET user_status_id = 'INACTIVE', email = EXCLUDED.email,
+             password = NULL, deleted_at = NULL, updated_at = NOW()`,
     )
   })
 
   test.afterAll(() => {
+    // Soft delete + email tombstone, for the FK reason above.
+    // `users_company_email_unique` is partial on `deleted_at IS NULL`, so this
+    // frees the address without removing the audit subject.
     sql(`DELETE FROM invitation_tokens WHERE user_id = '${SUBJECT_ID}'`)
-    sql(`DELETE FROM users WHERE id = '${SUBJECT_ID}'`)
+    sql(
+      `UPDATE users SET deleted_at = NOW(), user_status_id = 'INACTIVE',
+          email = 'j3-purged-' || id || '@e2e.test'
+        WHERE id = '${SUBJECT_ID}'`,
+    )
   })
 
   test('🟢 CONTROL · a fresh token is accepted and activates the user', async ({ request }) => {
@@ -130,8 +153,8 @@ test.describe('USER-J3 · invitation tokens are single-use and time-boxed', () =
     const res = await accept(request, secret)
     expect(res.status(), 'an expired token must be refused').toBe(400)
 
-    // Still INVITED — an expired link must not activate anyone.
-    expect(sqlValue(`SELECT user_status_id FROM users WHERE id = '${SUBJECT_ID}'`)).toBe('INVITED')
+    // Still INACTIVE — an expired link must not activate anyone.
+    expect(sqlValue(`SELECT user_status_id FROM users WHERE id = '${SUBJECT_ID}'`)).toBe('INACTIVE')
     expect(usedAtSet(hash), 'a refused token is not consumed').toBe('f')
   })
 
@@ -141,6 +164,6 @@ test.describe('USER-J3 · invitation tokens are single-use and time-boxed', () =
     mintToken()
     const res = await accept(request, crypto.randomBytes(24).toString('hex'))
     expect(res.status(), 'an unrelated token must be refused').toBe(400)
-    expect(sqlValue(`SELECT user_status_id FROM users WHERE id = '${SUBJECT_ID}'`)).toBe('INVITED')
+    expect(sqlValue(`SELECT user_status_id FROM users WHERE id = '${SUBJECT_ID}'`)).toBe('INACTIVE')
   })
 })

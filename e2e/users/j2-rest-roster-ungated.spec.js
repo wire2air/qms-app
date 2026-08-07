@@ -1,7 +1,7 @@
-// USER-J2 — 🔴 REST roster reads are ungated. WRITTEN TO FAIL AGAINST CURRENT CODE.
+// USER-J2 — 🔴→✅ REST roster reads are gated. FIXED 2026-08-07.
 //
-// backend/api/routes/users.js mounts enforcePermission on the write routes and
-// on neither read route:
+// WHAT WAS WRONG. backend/api/routes/users.js mounted enforcePermission on the
+// write routes and on neither read route:
 //
 //   POST   /v1/services/users        enforcePermission('user_management','create')  ✅
 //   PUT    /v1/services/users/:id    enforcePermission('user_management','update')  ✅
@@ -9,30 +9,36 @@
 //   GET    /v1/services/users        requireCompanyAccess only                       ❌
 //   GET    /v1/services/users/:id    requireCompanyAccess only                       ❌
 //
-// RLS does not cover for the gap. REST_RLS_ENABLED defaults off, so Sequelize
+// RLS did not cover for the gap. REST_RLS_ENABLED defaults off, so Sequelize
 // connects as the DB superuser and `users_sel` never fires on this path at all —
-// the policy's careful read branches are simply not in the loop for REST.
+// the policy's careful read branches were simply not in the loop for REST.
 //
 // The payload is the staff directory: names, emails, job titles, site and
 // department placement, status. For a QMS that is the org chart of everyone who
 // signs records, one curl away from any authenticated member — including a
 // contractor or an external supplier-portal account with zero grants.
 //
-// This is the `users` instance of the same defect PW-J11 documents for `sites`.
-// Same shape, higher blast radius, because the roster is also the input to
-// social engineering against the credential-reset flows in the Security Center.
+// THE FIX is the two missing mounts, which is all it ever was: both GETs now
+// carry enforcePermission('user_management','read'). The controls in this file
+// were passing before the fix and still pass, which is what shows the gating
+// mechanism was never the problem.
 //
-// The two "must be rejected" assertions FAIL TODAY (the routes return 200). The
-// two controls PASS today and pin the shape: the write routes are correctly
-// gated and a real grant is admitted, so this is two missing mounts, not an
-// absent gating mechanism.
+// WHAT HAD TO MOVE WITH IT. One in-app screen read the roster over this
+// endpoint — the role-assignment dialog (src/components/roles/RoleUsersDialog),
+// reached by a role administrator who does not necessarily hold
+// user_management:read. It now reads db.User through the syncEngine like every
+// other entity list, so it degrades to "the people you can see" instead of a
+// 403. That is also what CLAUDE.md rule #4 asked for. The only other consumer,
+// src/composables/useUsers.js, had no importers at all and was deleted.
+//
+// A red test here means a read route lost its gate.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 
 const API = 'http://e2elab.localhost:4000'
 
-test.describe('USER-J2 · REST user reads are ungated', () => {
-  test('🔴 GET /v1/services/users rejects a zero-permission member (FAILS TODAY)', async ({
+test.describe('USER-J2 · REST user reads are gated', () => {
+  test('✅ GET /v1/services/users rejects a zero-permission member', async ({
     browser,
   }) => {
     const ctx = await browser.newContext({ storageState: AUTH.noAccess })
@@ -41,7 +47,7 @@ test.describe('USER-J2 · REST user reads are ungated', () => {
     await ctx.close()
   })
 
-  test('🔴 GET /v1/services/users/:id rejects a zero-permission member (FAILS TODAY)', async ({
+  test('✅ GET /v1/services/users/:id rejects a zero-permission member', async ({
     browser,
   }) => {
     // Reading one user is the worse half in practice: it is addressable. Given

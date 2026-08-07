@@ -1,33 +1,39 @@
-// USER-J7 — 🔴 Authority changes leave no audit trail. WRITTEN TO FAIL.
+// USER-J7 — 🔴→✅ Authority changes leave an audit trail. FIXED 2026-08-07.
 //
-// The audit pipeline is field-filtered, and the filter for `users` is
-// (backend/worker/services/audit/registry/modules/userAccess.js):
+// WHAT WAS WRONG. The audit pipeline is field-filtered, and the filter for
+// `users` was (backend/worker/services/audit/registry/modules/userAccess.js):
 //
 //   users: { mode: 'fields',
 //            trackFields: ['userStatusId', 'firstName', 'lastName', 'email'] }
 //
-// Four fields, all of them descriptive. Not one of them is an authority field.
-// So changing what a person IS ALLOWED TO DO is invisible:
+// Four fields, all of them descriptive. Not one of them an authority field. So
+// changing what a person IS ALLOWED TO DO was invisible:
 //
 //   site_id   — the input every site-scoped grant is evaluated against.
-//               Moving someone between sites silently re-points their access.
+//               Moving someone between sites silently re-pointed their access.
 //   is_owner  — total tenant control; the first short-circuit in every RLS
 //               policy in the schema.
 //
-// A rename is recorded. A promotion to company owner is not.
+// A rename was recorded. A promotion to company owner was not.
 //
 // ⚖️ For a QMS this is the finding with the longest tail. ISO 13485 §4.2.5 and
 // 21 CFR Part 11 §11.10(e) both expect the record of WHO WAS AUTHORISED TO DO
 // WHAT, and when it changed. "Who granted this person ownership, and when?" is
-// a question an inspector asks and this system cannot answer from its own data.
-// The escalation guard (USER-J1) now stops a member granting it to themselves,
-// but a legitimate admin doing it through a trusted path is still unrecorded.
+// a question an inspector asks and this system could not answer from its own
+// data. USER-J1's guard stops a member granting it to themselves; a legitimate
+// admin doing it through a trusted path was still unrecorded.
 //
-// The two 🔴 assertions FAIL TODAY. The control PASSES and is what makes the
-// finding specific: a first_name change on the SAME ROW, through the SAME path,
-// in the SAME test, does produce an audit row. So the trigger fires, the
-// graphile job runs, the worker writes, and the pipeline is healthy — the
-// silence is the trackFields list, not a broken mechanism.
+// THE FIX. trackFields now carries the authority columns alongside the
+// descriptive ones — isOwner, siteId, departmentId, supervisorId, kind,
+// supplierId and deletedAt (removal produced no row at all before, because
+// hasRelevantChanges saw nothing it cared about). Ownership and deletion also
+// get their own action codes rather than landing in the generic UPDATE bucket:
+// GRANT_OWNERSHIP / REVOKE_OWNERSHIP and DELETE, so "show me every ownership
+// change" is one audit query.
+//
+// The CONTROL runs first and is what keeps the two probes honest: a first_name
+// change on the SAME ROW, through the SAME path, proves trigger → graphile job
+// → worker → audit_logs is alive before anything below claims a row exists.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, SITES, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue, waitForSqlValue } from '../fixtures/db.js'
@@ -51,7 +57,7 @@ function dbNow() {
   return sqlValue(`SELECT now()::text`)
 }
 
-test.describe('USER-J7 · authority changes are not audited', () => {
+test.describe('USER-J7 · authority changes are audited', () => {
   test.afterAll(() => {
     sql(`UPDATE users SET site_id = '${SITES.primary.id}', is_owner = false,
            first_name = '${SUBJECT.name.split(' ')[0]}' WHERE id = '${SUBJECT.id}'`)
@@ -76,7 +82,7 @@ test.describe('USER-J7 · authority changes are not audited', () => {
     })
   })
 
-  test('🔴 moving a user between sites is audited (FAILS TODAY)', async ({ browser }) => {
+  test('✅ moving a user between sites is audited', async ({ browser }) => {
     const stamp = dbNow()
     const ctx = await browser.newContext({ storageState: AUTH.owner })
     const res = await ctx.request.put(`${API}/v1/services/users/${SUBJECT.id}`, {
@@ -92,12 +98,12 @@ test.describe('USER-J7 · authority changes are not audited', () => {
     )
 
     await waitForSqlValue(auditCountSince(stamp), {
-      label: 'audit row for a site_id change (site_id is not in trackFields)',
+      label: 'audit row for a site_id change',
       timeoutMs: 20_000,
     })
   })
 
-  test('🔴 granting company ownership is audited (FAILS TODAY)', async ({}) => {
+  test('✅ granting company ownership is audited', async ({}) => {
     // is_owner has no REST or GraphQL writer at all — USER-J1's Tier A refuses
     // it for everyone including the owner. So the only way to set it is the
     // trusted DB path, which is exactly how it would be set in production
@@ -114,7 +120,7 @@ test.describe('USER-J7 · authority changes are not audited', () => {
     expect(sqlValue(`SELECT is_owner FROM users WHERE id = '${SUBJECT.id}'`)).toBe('t')
 
     await waitForSqlValue(auditCountSince(stamp), {
-      label: 'audit row for an is_owner grant (is_owner is not in trackFields)',
+      label: 'audit row for an is_owner grant',
       timeoutMs: 20_000,
     })
   })

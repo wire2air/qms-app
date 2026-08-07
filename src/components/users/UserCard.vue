@@ -38,6 +38,15 @@ const department = useLiveQueryWithDeps(
 )
 
 const profileLink = computed(() => getCompanyPath(`/users/${props.user?.id}`))
+
+// Invited but not yet accepted. There is no INVITED row in `user_statuses` —
+// acceptance is what flips the record to ACTIVE — so this state is INACTIVE
+// plus a sent invitation, and badging it as plain "Inactive" makes an onboarding
+// user indistinguishable from a disabled one. Matches the "Invited" quick-filter
+// pill on the roster.
+const pendingInvite = computed(
+  () => props.user?.userStatusId !== 'ACTIVE' && !!props.user?.inviteSent,
+)
 </script>
 
 <template>
@@ -54,8 +63,14 @@ const profileLink = computed(() => getCompanyPath(`/users/${props.user?.id}`))
         <span v-if="user.jobTitle" class="tw:text-xs tw:text-secondary tw:truncate">
           {{ user.jobTitle }}
         </span>
+        <BaseBadge
+          v-if="pendingInvite"
+          class="tw:mt-1 tw:self-start tw:text-micro tw:bg-blue-100 tw:text-blue-700"
+        >
+          Invited
+        </BaseBadge>
         <UserStatusBadgeById
-          v-if="user.userStatusId"
+          v-else-if="user.userStatusId"
           :statusId="user.userStatusId"
           class="tw:mt-1 tw:self-start tw:text-micro"
         />

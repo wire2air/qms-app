@@ -1,15 +1,15 @@
-// USER-J4 — 🔴 A `teams` grant is a user-directory grant. WRITTEN TO FAIL.
+// USER-J4 — 🔴→✅ A `teams` grant is no longer a user-directory grant.
+// FIXED 2026-08-07. (Filename kept for traceability with the pack's journey id.)
 //
-// Two mechanisms compose into a leak neither one intends.
+// WHAT WAS WRONG. Two mechanisms composed into a leak neither one intended.
 //
-// 1. `users_sel`'s extra_read branch (migration 20260709122100) is:
+// 1. `users_sel`'s extra_read branch (migration 20260709122100) carried:
 //
-//      users.id = authz.current_user_id()
 //      OR authz.has_permission('role_permission_management','read')
 //      OR authz.has_permission('teams','read')
 //
-//    That is deliberate — it keeps user pickers and cross-feature name display
-//    working for anyone who can read roles or teams.
+//    Deliberate at the time — it kept user pickers and cross-feature name
+//    display working for anyone who could read roles or teams.
 //
 // 2. `authz.has_permission(p_module, p_action)` ends with:
 //
@@ -19,19 +19,27 @@
 //    compared at all. ANY grant on the module satisfies it.
 //
 // Composed: `teams:create` — a grant about creating teams, which says nothing
-// about seeing people — satisfies has_permission('teams','read'), which
-// satisfies users_sel, which returns the entire staff roster over GraphQL.
+// about seeing people — satisfied has_permission('teams','read'), which
+// satisfied users_sel, which returned the entire staff roster. The grantee
+// never asked for it and no admin ever ticked a user_management box.
 //
-// The grantee never asked for it and no admin ever ticked a user_management
-// box. This is the read-fallback documented in the authz gotchas meeting the
-// broad-read branch, and it is why `teams:create` is the persona here rather
-// than `teams:read` — with :read the leak would be arguable as intended.
+// THE FIX (migration 20260807140000) drops both branches. What they existed for
+// is already covered: migration 20260805130000 made the directory follow site
+// visibility, so every caller reads themselves, org-wide users, and anyone
+// sharing one of their sites — which is what a people-picker needs. The
+// branches only ever widened that from "my sites" to "the whole company".
 //
-// The first assertion FAILS TODAY. The control PASSES and isolates the cause:
-// a member with no grants at all sees only themselves, so it is the extra_read
-// branch admitting teamsOnly, not company scope or an absent policy.
+// NOT fixed here: has_permission's `OR p_action = 'read'` fallback itself. It
+// is a schema-wide predicate every module's policy calls, and changing it is an
+// authz-wide change with its own regression pass. Dropping the two branches
+// removes THIS module's exposure to it.
+//
+// WHAT THESE TESTS NOW PIN. The seed places teamsOnly and userSiteReader at the
+// SECONDARY site and everyone else at PRIMARY, with `supplier` org-wide
+// (site_id IS NULL) — so "site visibility" and "the whole company" are
+// different sets here, and a regression in either direction is visible.
 import { test, expect } from '../../video/fixtures/videoTest.js'
-import { AUTH, USERS } from '../fixtures/cast.js'
+import { AUTH, USERS, SUPPLIER_USER } from '../fixtures/cast.js'
 import { graphql } from '../fixtures/sites.js'
 
 // PostGraphile runs with simple inflection here, so the roster connection is
@@ -50,36 +58,47 @@ async function rosterFor(browser, storageState) {
   return body.data.users.nodes.map((n) => n.email)
 }
 
-test.describe('USER-J4 · a teams grant enumerates the user roster', () => {
-  test('🔴 teams:create does not admit the staff directory (FAILS TODAY)', async ({ browser }) => {
+test.describe('USER-J4 · a teams grant does not enumerate the user roster', () => {
+  test('✅ teams:create does not admit the staff directory', async ({ browser }) => {
     const roster = await rosterFor(browser, AUTH.teamsOnly)
 
-    // teamsOnly holds `teams:create` and nothing else. They should see
-    // themselves (users_sel's self branch) and no one else.
+    // teamsOnly holds `teams:create` and nothing else, and lives at the
+    // Secondary site. Exact set, because Secondary is a deliberately
+    // two-person site: themselves, their one site colleague, and the org-wide
+    // supplier account that every caller can see. Anything else appearing here
+    // means a branch has been widened back.
     expect(
-      roster.filter((e) => e !== USERS.teamsOnly.email),
-      'a teams grant must not return other people',
-    ).toEqual([])
+      roster.sort(),
+      'a teams grant contributes nothing beyond site visibility',
+    ).toEqual([SUPPLIER_USER.email, USERS.teamsOnly.email, USERS.userSiteReader.email].sort())
   })
 
-  test('🔴 and the leak includes addresses usable against credential reset (FAILS TODAY)', async ({
+  test('✅ and the addresses usable against credential reset stay out of reach', async ({
     browser,
   }) => {
-    // Naming the consequence rather than just the count: what comes back is
-    // every colleague's email address, which is the input the Security Center's
-    // password-reset and MFA-reset flows are keyed on.
+    // Naming the consequence rather than just the count: what used to come back
+    // was every colleague's email address, which is the input the Security
+    // Center's password-reset and MFA-reset flows are keyed on.
     const roster = await rosterFor(browser, AUTH.teamsOnly)
     expect(roster, 'the company owner must not be enumerable').not.toContain(USERS.owner.email)
   })
 
-  test('CONTROL · a member with no grants at all sees only themselves (must pass today)', async ({
-    browser,
-  }) => {
-    // This is what isolates the finding. noAccess differs from teamsOnly by
-    // exactly one row in role_module_permissions — a row about TEAMS. If
-    // noAccess is correctly limited to self, then that one teams row is what
-    // opened the roster, and neither company scope nor a missing policy is.
+  test('CONTROL · the site-visibility baseline is what is doing the work', async ({ browser }) => {
+    // noAccess holds NO grants at all and differs from teamsOnly by exactly one
+    // row in role_module_permissions — a row about TEAMS. If the two see rosters
+    // of the same SHAPE (own site + org-wide) and differing only by which site
+    // they stand in, then the teams row contributes nothing, which is the whole
+    // claim of this file.
+    //
+    // Asserted as properties rather than an exact set: noAccess is at Primary,
+    // where most of the cast lives and where any new persona lands, so an exact
+    // list here would go red every time an unrelated suite adds a fixture.
     const roster = await rosterFor(browser, AUTH.noAccess)
-    expect(roster, 'the self branch admits exactly one row').toEqual([USERS.noAccess.email])
+
+    expect(roster, 'their own row').toContain(USERS.noAccess.email)
+    expect(roster, 'a colleague at the same site').toContain(USERS.owner.email)
+    expect(roster, 'the org-wide account').toContain(SUPPLIER_USER.email)
+    expect(roster, 'nobody from the other site').not.toContain(USERS.teamsOnly.email)
+    expect(roster, 'nobody from the other site').not.toContain(USERS.userSiteReader.email)
   })
 })
