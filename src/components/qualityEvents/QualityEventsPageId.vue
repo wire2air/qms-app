@@ -657,7 +657,18 @@ const qualityEventDetailConfig = computed(() =>
 
       <BaseRailCard title="People" grid>
         <BaseDetailField label="Assigned To">
-          <UserSelectMenu v-if="canUpdate" v-model="event.assignedToUserId" :required="false" />
+          <!-- kind=null: quality events can be assigned to an internal
+               reviewer OR auto-assigned to a supplier's EXTERNAL_SUPPLIER
+               portal user (see resolveDefaultSupplierUser on create). The
+               default kind='INTERNAL' filter would silently drop a supplier
+               assignee out of the selected-options list, showing the field
+               as empty even though assignedToUserId is set. -->
+          <UserSelectMenu
+            v-if="canUpdate"
+            v-model="event.assignedToUserId"
+            :required="false"
+            :kind="null"
+          />
           <UserBadgeById
             v-else-if="event.assignedToUserId && visibleAssignee"
             :userId="event.assignedToUserId"
