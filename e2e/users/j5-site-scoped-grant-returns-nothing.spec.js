@@ -36,7 +36,7 @@
 // seeded at the Secondary site: the meaningful claim is "my site's OTHER people
 // are visible, and the other site's people are not".
 import { test, expect } from '../../video/fixtures/videoTest.js'
-import { AUTH, USERS, SITES } from '../fixtures/cast.js'
+import { AUTH, USERS, SITES, SUPPLIER_USER } from '../fixtures/cast.js'
 import { graphql } from '../fixtures/sites.js'
 import { sqlValue } from '../fixtures/db.js'
 
@@ -102,13 +102,23 @@ test.describe('USER-J5 · a site-scoped user grant is not evaluated per site', (
     // directions — the two tests above catch under- and over-returning one at a
     // time, and neither would notice a third site's user appearing.
     //
+    // "Their own site" INCLUDES the org-wide accounts. Migration 20260805130000
+    // admits `site_id IS NULL` rows to every caller, deliberately: an
+    // unplaced user belongs to no site and must not vanish from the pickers of
+    // every site. `supplier` is the seed's one such row, and it is the reason
+    // this assertion is three emails rather than two — an earlier version
+    // listed only the two Secondary-site people and went red the day that
+    // migration landed.
+    //
     // Sorted on both sides: `Query.users` promises no ordering, and the old
     // one-element form never exercised that.
     const roster = await rosterFor(browser, AUTH.userSiteReader)
     expect(
       roster.map((n) => n.email).sort(),
-      'a site-scoped user_management:read returns that site’s roster and nothing else',
-    ).toEqual([USERS.teamsOnly.email, USERS.userSiteReader.email].sort())
+      'a site-scoped user_management:read returns that site’s roster plus org-wide, and nothing else',
+    ).toEqual(
+      [SUPPLIER_USER.email, USERS.teamsOnly.email, USERS.userSiteReader.email].sort(),
+    )
   })
 
   test('CONTROL · the same grant at TENANT scope does work (must pass today)', async ({

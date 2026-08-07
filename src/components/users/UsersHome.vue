@@ -17,10 +17,22 @@ const list = useListLayout({
 })
 
 // Quick-filter status pills (single-select; null = "All").
+//
+// `INVITED` is NOT a user status — `user_statuses` holds ACTIVE and INACTIVE and
+// nothing has ever written a third value (the column is now FK-constrained to
+// those two). This pill used to pass 'INVITED' straight through as a
+// userStatusId and could therefore never match a row.
+//
+// The state it was reaching for is real, it is just spelled differently:
+// invited-but-not-yet-accepted is INACTIVE with inviteSent = true. So the pill
+// stays and is resolved below as a pseudo-status, and "Inactive" now means
+// deliberately disabled rather than "disabled OR never onboarded", which is the
+// distinction an administrator actually wants on this screen.
+const PENDING_INVITE = 'PENDING_INVITE'
 const STATUS_PILLS = [
   { value: null, label: 'All' },
   { value: 'ACTIVE', label: 'Active' },
-  { value: 'INVITED', label: 'Invited' },
+  { value: PENDING_INVITE, label: 'Invited' },
   { value: 'INACTIVE', label: 'Inactive' },
 ]
 
@@ -38,7 +50,17 @@ const users = useLiveQueryWithDeps(
     // are managed from the Suppliers → Users tab (a different entity
     // surface) so they shouldn't appear here.
     results = results.filter((u) => u.kind !== 'EXTERNAL_SUPPLIER')
-    if (userStatusId) results = results.filter((u) => u.userStatusId === userStatusId)
+    if (userStatusId === PENDING_INVITE) {
+      // Invited and not yet accepted. Acceptance is what flips the row to
+      // ACTIVE, so "not ACTIVE + we sent them a link" is exactly the set.
+      results = results.filter((u) => u.userStatusId !== 'ACTIVE' && u.inviteSent)
+    } else if (userStatusId === 'INACTIVE') {
+      // Disabled, as distinct from never-onboarded — the pending invites above
+      // are also INACTIVE and are listed under their own pill.
+      results = results.filter((u) => u.userStatusId === 'INACTIVE' && !u.inviteSent)
+    } else if (userStatusId) {
+      results = results.filter((u) => u.userStatusId === userStatusId)
+    }
     if (roleId) {
       const assignments = await db.RoleOnUser.where().exec()
       const idsForRole = new Set(
