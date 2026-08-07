@@ -29,18 +29,41 @@ function userLabel(u) {
   return `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email
 }
 
+const categoryNameById = computed(() => new Map(eventCategories.value.map((c) => [c.id, c.name])))
+const severityNameById = computed(() => new Map(eventSeverities.value.map((s) => [s.id, s.name])))
+const statusNameById = computed(() => new Map(QUALITY_EVENT_STATUSES.map((s) => [s.id, s.name])))
+const userLabelById = computed(() => new Map(users.value.map((u) => [u.id, userLabel(u)])))
+
 const columns = computed(() => {
   const filterCfg = {
-    category: { filterType: 'select', filterOptions: selectOpts(eventCategories.value) },
-    severity: { filterType: 'select', filterOptions: selectOpts(eventSeverities.value) },
-    status: { filterType: 'select', filterOptions: selectOpts(QUALITY_EVENT_STATUSES) },
+    // The Search box (and its "Search in" column scope) matches against the
+    // resolved display label, not the raw *Id the row stores — otherwise
+    // typing e.g. "High" or a person's name into a field-scoped search never
+    // matches anything (see QE-L-03 bug report).
+    category: {
+      filterType: 'select',
+      filterOptions: selectOpts(eventCategories.value),
+      searchValue: (row) => categoryNameById.value.get(row.categoryId) || '',
+    },
+    severity: {
+      filterType: 'select',
+      filterOptions: selectOpts(eventSeverities.value),
+      searchValue: (row) => severityNameById.value.get(row.severityId) || '',
+    },
+    status: {
+      filterType: 'select',
+      filterOptions: selectOpts(QUALITY_EVENT_STATUSES),
+      searchValue: (row) => statusNameById.value.get(row.statusId) || '',
+    },
     assignee: {
       filterType: 'select',
       filterOptions: users.value.map((u) => ({ value: u.id, label: userLabel(u) })),
+      searchValue: (row) => userLabelById.value.get(row.assignedToUserId) || '',
     },
     reporter: {
       filterType: 'select',
       filterOptions: users.value.map((u) => ({ value: u.id, label: userLabel(u) })),
+      searchValue: (row) => userLabelById.value.get(row.reportedByUserId) || '',
     },
     reportedDate: { filterType: 'date' },
     daysOpen: { filterType: 'number' },
