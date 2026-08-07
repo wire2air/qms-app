@@ -63,8 +63,10 @@ watch(open, (isOpen) => {
   }
 })
 
+const hasChangeSummary = computed(() => !!changeSummary.value?.trim())
+
 async function handleConfirm() {
-  if (!firstStepHasUser.value || submitting.value) return
+  if (!firstStepHasUser.value || !hasChangeSummary.value || submitting.value) return
   const reviewers = {}
   Object.entries(selections).forEach(([stepId, userId]) => {
     if (userId) reviewers[stepId] = [userId]
@@ -72,7 +74,7 @@ async function handleConfirm() {
   submitting.value = true
   try {
     await post(`/v1/services/logBookVersions/${props.versionId}/submit`, {
-      changeSummary: changeSummary.value?.trim() || null,
+      changeSummary: changeSummary.value.trim(),
       reviewers,
     })
     toast.success('Submitted for approval')
@@ -113,7 +115,7 @@ async function handleConfirm() {
           :stepIndex="index"
           :required="index === 0"
         />
-        <BaseField v-slot="{ id: fieldId }" label="Change summary" optional>
+        <BaseField v-slot="{ id: fieldId }" label="Change summary" required>
           <BaseTextarea
             :id="fieldId"
             v-model="changeSummary"
@@ -128,7 +130,7 @@ async function handleConfirm() {
       <BaseDialogFooter
         submitLabel="Submit"
         :loading="submitting"
-        :disabled="!workflowVersionId || !firstStepHasUser"
+        :disabled="!workflowVersionId || !firstStepHasUser || !hasChangeSummary"
         @cancel="close"
         @submit="handleConfirm"
       />

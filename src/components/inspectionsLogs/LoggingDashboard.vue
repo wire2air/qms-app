@@ -41,6 +41,22 @@ const logBookTypes = useLiveQuery((db) => db.LogBookType.where().exec(), {
   models: ['LogBookType'],
   initial: [],
 })
+
+// Effective version per book — the card shows which version of the log
+// template entries will file against, and since when.
+const effectiveVersions = useLiveQuery(
+  async (db) => (await db.LogBookVersion.where('statusId', 'EFFECTIVE').exec()) ?? [],
+  { models: ['LogBookVersion'], initial: [] },
+)
+const effectiveVersionById = computed(
+  () => new Map(effectiveVersions.value.map((v) => [v.id, v])),
+)
+function versionInfo(lb) {
+  const v = effectiveVersionById.value.get(lb.currentEffectiveVersionId)
+  if (!v) return ''
+  const label = `v${v.versionMajor}.${v.versionMinor}`
+  return v.effectiveAt ? `${label} · effective ${v.effectiveAt.formatDate('date')}` : label
+}
 const typeNameById = computed(() => new Map(logBookTypes.value.map((t) => [t.id, t.name])))
 function typeLabel(lb) {
   return (
@@ -157,6 +173,9 @@ function goLogs() {
             <div class="tw:text-xs tw:text-secondary tw:truncate">
               <span class="tw:uppercase">{{ lb.code }}</span>
               · {{ typeLabel(lb) }}
+            </div>
+            <div v-if="versionInfo(lb)" class="tw:text-xs tw:text-secondary tw:truncate">
+              {{ versionInfo(lb) }}
             </div>
           </div>
           <IconChevronRight :size="20" class="tw:text-secondary tw:shrink-0" />

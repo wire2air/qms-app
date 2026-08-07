@@ -77,6 +77,8 @@ export class LogBook extends BaseModel {
   @Property({ type: Number }) schemaVersion = 1
 
   @Property({ type: String }) statusId = 'ACTIVE'
+  // Why the book was obsoleted (required on that transition; audit-recorded).
+  @Property({ type: String }) statusReason = ''
   @Property({ type: String }) createdBy = ''
 
   // Controlled-version pointers (source of truth is LogBookVersion).

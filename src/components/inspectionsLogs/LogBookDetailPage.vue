@@ -10,6 +10,7 @@ import {
   IconGitBranch,
   IconSend,
   IconTrash,
+  IconChevronRight,
 } from '@tabler/icons-vue'
 import { useDebounceFn } from '@vueuse/core'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
@@ -145,6 +146,7 @@ watch(
         reviewRequired: !!lb.reviewRequired,
         notifyOnSubmit: lb.notifyOnSubmit ?? 'DIGEST',
         statusId: lb.statusId ?? 'ACTIVE',
+        statusReason: lb.statusReason ?? '',
         workflowVersionId: lb.workflowVersionId || null,
       }
       isFirstLoad.value = false
@@ -230,6 +232,15 @@ const debouncedSave = useDebounceFn(async () => {
   // canEditDetails (not just canUpdate) so an effective book never silently
   // persists edits — those must go through a new version.
   if (!draft.value || !canEditDetails.value) return
+  // Obsolete needs its reason before we persist — hold the autosave (the
+  // inline hint tells the user why) instead of round-tripping a 400.
+  if (
+    draft.value.statusId === 'OBSOLETE' &&
+    logBook.value?.statusId !== 'OBSOLETE' &&
+    !draft.value.statusReason?.trim()
+  ) {
+    return
+  }
   isSaving.value = true
   try {
     await patch(`/v1/services/logBooks/${draft.value.id}`, {
@@ -261,6 +272,8 @@ const debouncedSave = useDebounceFn(async () => {
       reviewRequired: !!draft.value.reviewRequired,
       notifyOnSubmit: draft.value.notifyOnSubmit,
       statusId: draft.value.statusId,
+      statusReason:
+        draft.value.statusId === 'OBSOLETE' ? draft.value.statusReason?.trim() || undefined : null,
       recordClassification: derivedClassification.value,
       workflowVersionId: draft.value.workflowVersionId || null,
     })
@@ -359,7 +372,10 @@ async function removeDocLink(link) {
 // drawers anchor against the FormBuilder's own bounding box; full-
 // screen gives them somewhere to land. The builder fires `save` from
 // its internal toolbar with the final schema; we PATCH and close.
-const activeTab = ref('details') // 'details' | 'schema' | 'versions' | 'assignments'
+// Versions FIRST (user decision 2026-08-07): opening a log book lands on
+// the version history — pick a version to view it; only the open draft is
+// editable, an effective version is immutable.
+const activeTab = ref('versions') // 'versions' | 'details' | 'schema' | 'assignments'
 
 // ─── Assignments tab data ────────────────────────────────────────────
 // Lists FormAssignment rows scoped to this log book. The full create /
@@ -426,10 +442,10 @@ async function onSchemaBuilderSave(nextSchema) {
     const res = await patch(`/v1/services/logBooks/${props.id}`, {
       schema: nextSchema,
     })
-    toast.success(`Schema saved (v${res?.logBook?.schemaVersion ?? '?'})`)
+    toast.success(`Log template saved (v${res?.logBook?.schemaVersion ?? '?'})`)
     showSchemaBuilder.value = false
   } catch (err) {
-    toast.error(err?.message || 'Failed to save schema')
+    toast.error(err?.message || 'Failed to save log template')
   } finally {
     isSavingSchema.value = false
   }
@@ -463,8 +479,6 @@ const hasEffectiveVersion = computed(() => !!effectiveVersionId.value)
 // dot are surfaced via BaseTabs' badge/indicator (declared here so the reactive
 // counts above are in scope).
 const tabs = computed(() => [
-  { value: 'details', label: 'Details' },
-  { value: 'schema', label: 'Schema' },
   {
     value: 'versions',
     label: 'Versions',
@@ -472,8 +486,28 @@ const tabs = computed(() => [
     badge: versions.value.length || null,
     indicator: !hasEffectiveVersion.value,
   },
+  { value: 'details', label: 'Details' },
+  { value: 'schema', label: 'Log Template' },
   { value: 'assignments', label: 'Assignments', badge: logBookAssignments.value.length || null },
 ])
+
+// Per-version viewer (drawer): read-only render of THAT version's log
+// template + policy snapshot. Editing routes through the existing builder
+// and only for the open editable draft — an effective version is immutable.
+const viewedVersion = ref(null)
+const showVersionViewer = ref(false)
+function openVersionViewer(v) {
+  viewedVersion.value = v
+  showVersionViewer.value = true
+}
+const viewedIsEditable = computed(
+  () => !!viewedVersion.value && ['DRAFT', 'REJECTED'].includes(viewedVersion.value.statusId),
+)
+function editViewedVersion() {
+  if (!viewedIsEditable.value || !canEditDetails.value) return
+  showVersionViewer.value = false
+  openSchemaBuilder()
+}
 const effectiveVersion = computed(
   () => versions.value.find((v) => v.id === effectiveVersionId.value) || null,
 )
@@ -553,7 +587,7 @@ async function createNewDraft() {
   creatingDraft.value = true
   try {
     await post(`/v1/services/logBooks/${props.id}/versions`, {})
-    toast.success('New draft created — edit its schema, then submit for approval')
+    toast.success('New draft created — edit its log template, then submit for approval')
     activeTab.value = 'versions'
   } catch (err) {
     toast.error(err?.message || 'Failed to create draft')
@@ -773,7 +807,7 @@ const logBookDetailConfig = computed(() =>
                     <summary
                       class="tw:cursor-pointer tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:text-on-main"
                     >
-                      Review form schema ({{ versionUnderReview.schema?.length ?? 0 }} fields)
+                      Review log template ({{ versionUnderReview.schema?.length ?? 0 }} fields)
                     </summary>
                     <div class="tw:p-4 tw:border-t tw:border-amber-200">
                       <DynamicForm
@@ -919,8 +953,24 @@ const logBookDetailConfig = computed(() =>
                     >
                       <option value="ACTIVE">Active</option>
                       <option value="INACTIVE">Inactive</option>
-                      <option value="ARCHIVED">Archived</option>
+                      <option value="OBSOLETE">Obsolete</option>
                     </select>
+                    <template v-if="draft.statusId === 'OBSOLETE'">
+                      <BaseTextarea
+                        v-model="draft.statusReason"
+                        class="tw:mt-2"
+                        :rows="2"
+                        placeholder="Why is this log book obsolete? (required)"
+                        :disabled="!canEditDetails"
+                      />
+                      <p
+                        v-if="!draft.statusReason?.trim()"
+                        class="tw:text-caption tw:text-red-600 tw:mt-1"
+                      >
+                        A reason is required to mark this log book Obsolete — it is recorded in
+                        the audit trail.
+                      </p>
+                    </template>
                   </BaseField>
                   <BaseField v-slot="{ id: fieldId }" label="Notification mode">
                     <select
@@ -1379,7 +1429,7 @@ const logBookDetailConfig = computed(() =>
                with the real submission view. -->
           <BaseTabPanel value="schema">
             <div class="tw:flex tw:flex-col tw:gap-3">
-              <FormSection title="Log book schema">
+              <FormSection title="Log template">
                 <template #actions>
                   <BaseButton
                     variant="primary"
@@ -1578,13 +1628,18 @@ const logBookDetailConfig = computed(() =>
                 </div>
 
                 <div v-else class="tw:flex tw:flex-col tw:gap-2">
-                  <div
+                  <!-- Click a version to view its log template — the open
+                       draft is editable from the viewer; everything else is
+                       immutable history. -->
+                  <BaseClickableRow
                     v-for="v in versions"
                     :key="v.id"
-                    class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:rounded tw:border tw:border-divider tw:p-3"
+                    :ariaLabel="`View ${versionLabel(v)}`"
+                    class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:rounded tw:border tw:border-divider tw:p-3 tw:cursor-pointer tw:hover:bg-main-hover/40"
                     :class="
                       v.id === effectiveVersionId ? 'tw:bg-green-50/40 tw:border-green-200' : ''
                    "
+                    @click="openVersionViewer(v)"
                   >
                     <div class="tw:min-w-0">
                       <div class="tw:flex tw:items-center tw:gap-2">
@@ -1598,6 +1653,14 @@ const logBookDetailConfig = computed(() =>
                         >
                           Current
                         </span>
+                      </div>
+                      <div class="tw:text-xs tw:text-secondary tw:mt-0.5">
+                        <template v-if="v.effectiveAt">
+                          Effective {{ v.effectiveAt.formatDate('date') }}
+                        </template>
+                        <template v-if="v.supersededAt">
+                          · superseded {{ v.supersededAt.formatDate('date') }}
+                        </template>
                       </div>
                       <div
                         v-if="v.changeSummary"
@@ -1618,7 +1681,7 @@ const logBookDetailConfig = computed(() =>
                         v-if="canUpdate && ['DRAFT', 'REJECTED'].includes(v.statusId)"
                         variant="primary"
                         size="sm"
-                        @click="openSubmit(v)"
+                        @click.stop="openSubmit(v)"
                       >
                         <IconSend :size="14" />
                         Submit for approval
@@ -1629,8 +1692,9 @@ const logBookDetailConfig = computed(() =>
                       >
                         Awaiting approval
                       </span>
+                      <IconChevronRight :size="16" class="tw:text-secondary" />
                     </div>
-                  </div>
+                  </BaseClickableRow>
                 </div>
               </section>
             </div>
@@ -1648,6 +1712,92 @@ const logBookDetailConfig = computed(() =>
     :workflowVersionId="draft?.workflowVersionId || null"
     :logBookId="props.id"
   />
+
+  <!-- Per-version viewer: read-only log template + policy snapshot for the
+       clicked version. Only the open editable draft offers Edit. -->
+  <BaseDrawer
+    v-model="showVersionViewer"
+    size="lg"
+    :title="viewedVersion ? `${versionLabel(viewedVersion)} — log template` : 'Log template'"
+  >
+    <div v-if="viewedVersion" class="tw:flex tw:flex-col tw:gap-4 tw:p-4">
+      <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+        <LogBookVersionStatusBadge :statusId="viewedVersion.statusId" />
+        <span
+          v-if="viewedVersion.id === effectiveVersionId"
+          class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-green-700"
+        >
+          Current
+        </span>
+        <span v-if="viewedVersion.effectiveAt" class="tw:text-xs tw:text-secondary">
+          Effective {{ viewedVersion.effectiveAt.formatDate('date') }}
+        </span>
+        <span v-if="viewedVersion.supersededAt" class="tw:text-xs tw:text-secondary">
+          · superseded {{ viewedVersion.supersededAt.formatDate('date') }}
+        </span>
+      </div>
+
+      <div
+        v-if="viewedVersion.changeSummary"
+        class="tw:text-sm tw:text-secondary tw:border-l-2 tw:border-divider tw:pl-3"
+      >
+        {{ viewedVersion.changeSummary }}
+      </div>
+
+      <div class="tw:text-xs tw:text-secondary tw:flex tw:flex-wrap tw:gap-x-4 tw:gap-y-1">
+        <span>
+          Classification:
+          <span class="tw:text-on-main">
+            {{ viewedVersion.recordClassification === 'CONTROLLED_RECORD' ? 'Controlled record' : 'Operational log' }}
+          </span>
+        </span>
+        <span>
+          Signature:
+          <span class="tw:text-on-main">{{ viewedVersion.signatureRequired ? 'Required' : 'Not required' }}</span>
+        </span>
+        <span>
+          Review:
+          <span class="tw:text-on-main">{{ viewedVersion.reviewRequired ? 'Required' : 'Not required' }}</span>
+        </span>
+      </div>
+
+      <div class="tw:border-t tw:border-divider tw:pt-3">
+        <FormSchemaReadonlyView
+          v-if="Array.isArray(viewedVersion.schema) && viewedVersion.schema.length"
+          :fields="viewedVersion.schema"
+        />
+        <div v-else class="tw:text-sm tw:text-secondary tw:italic">
+          No fields in this version's log template.
+        </div>
+      </div>
+    </div>
+
+    <template #footer="{ close }">
+      <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:w-full">
+        <span v-if="!viewedIsEditable" class="tw:text-xs tw:text-secondary tw:italic">
+          {{
+            viewedVersion?.statusId === 'UNDER_REVIEW'
+              ? 'Under review — awaiting approval.'
+              : 'This version is part of the controlled history and cannot be changed.'
+          }}
+        </span>
+        <span v-else class="tw:text-xs tw:text-secondary tw:italic">
+          Draft — editable until submitted.
+        </span>
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <BaseButton variant="outline" @click="close">Close</BaseButton>
+          <BaseButton
+            v-if="viewedIsEditable && canEditDetails"
+            variant="primary"
+            @click="editViewedVersion"
+          >
+            <template #icon><IconEdit :size="16" /></template>
+            Edit log template
+          </BaseButton>
+        </div>
+      </div>
+    </template>
+  </BaseDrawer>
 
   <!-- Full-screen FormBuilder overlay. Mirrors the workflow-step
          panel pattern: teleport to body, slide-up transition, internal
@@ -1675,7 +1825,7 @@ const logBookDetailConfig = computed(() =>
           >
             <div class="tw:flex tw:items-center tw:gap-2">
               <div class="tw:text-lg tw:font-medium tw:text-on-main">
-                {{ logBook?.title || 'Log book schema' }}
+                {{ logBook?.title || 'Log template' }}
               </div>
               <span class="tw:text-xs tw:text-secondary">
                 v{{ logBook?.schemaVersion ?? 1 }}
@@ -1696,7 +1846,7 @@ const logBookDetailConfig = computed(() =>
           <div class="tw:flex-1 tw:min-h-0 tw:overflow-hidden">
             <FormBuilder
               :initialSchema="logBook.schema || []"
-              title="Log book schema"
+              title="Log template"
               @save="onSchemaBuilderSave"
             />
           </div>
