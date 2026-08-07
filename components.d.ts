@@ -769,6 +769,7 @@ declare module 'vue' {
     'LogBookDetailConfig.spec': typeof import('./src/components/inspectionsLogs/logBookDetailConfig.spec.js')['default']
     LogBookDetailPage: typeof import('./src/components/inspectionsLogs/LogBookDetailPage.vue')['default']
     LogBookPrint: typeof import('./src/components/print/modules/LogBookPrint.vue')['default']
+    LogBookTypesCard: typeof import('./src/components/company/LogBookTypesCard.vue')['default']
     LogBookVersionStatusBadge: typeof import('./src/components/badges/LogBookVersionStatusBadge.vue')['default']
     LogBookVersionSubmitDialog: typeof import('./src/components/inspectionsLogs/LogBookVersionSubmitDialog.vue')['default']
     LoggingDashboard: typeof import('./src/components/inspectionsLogs/LoggingDashboard.vue')['default']

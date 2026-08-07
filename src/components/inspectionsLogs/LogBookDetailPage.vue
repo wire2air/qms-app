@@ -125,7 +125,7 @@ watch(
         logBookTypeId: lb.logBookTypeId || null,
         ownerUserId: lb.ownerUserId || null,
         supervisorUserId: lb.supervisorUserId || null,
-        codePrefix: lb.codePrefix ?? 'LOG-{DEPTCODE}-{TYPECODE}',
+        codePrefix: lb.codePrefix ?? '{TYPECODE}-LOG-{DEPTCODE}',
         equipmentId: lb.equipmentId || null,
         syncsEquipmentCalibration: !!lb.syncsEquipmentCalibration,
         syncsEquipmentPm: !!lb.syncsEquipmentPm,
@@ -875,7 +875,7 @@ const logBookDetailConfig = computed(() =>
                   />
                 </BaseField>
                 <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-                  <BaseField v-slot="{ id: fieldId }" label="Category">
+                  <BaseField v-slot="{ id: fieldId }" label="Log Book Type">
                     <select
                       :id="fieldId"
                       v-model="draft.logBookTypeId"
@@ -884,7 +884,7 @@ const logBookDetailConfig = computed(() =>
                     >
                       <option :value="null">— Uncategorised —</option>
                       <option v-for="t in logBookTypes" :key="t.id" :value="t.id">
-                        {{ t.name }}
+                        {{ t.name }}{{ t.prefix ? ` (${t.prefix})` : '' }}
                       </option>
                     </select>
                   </BaseField>
@@ -960,12 +960,13 @@ const logBookDetailConfig = computed(() =>
                   <template v-if="canEditPrefix">
                     <BaseTextInput
                       v-model="draft.codePrefix"
-                      placeholder="LOG-{DEPTCODE}-{TYPECODE}"
+                      placeholder="{TYPECODE}-LOG-{DEPTCODE}"
                     />
                     <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
                       Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /
-                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from
-                      Department + Log book type on save. Current:
+                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from the
+                      Department code + the Log book type's prefix (Lookups → Log Book Types)
+                      on save. Current:
                       <span class="tw:text-on-main">{{ logBook.code }}</span>
                     </p>
                   </template>
