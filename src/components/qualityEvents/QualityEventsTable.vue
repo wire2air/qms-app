@@ -36,34 +36,40 @@ const userLabelById = computed(() => new Map(users.value.map((u) => [u.id, userL
 
 const columns = computed(() => {
   const filterCfg = {
-    // The Search box (and its "Search in" column scope) matches against the
-    // resolved display label, not the raw *Id the row stores — otherwise
-    // typing e.g. "High" or a person's name into a field-scoped search never
-    // matches anything (see QE-L-03 bug report).
+    // The Search box (and its "Search in" column scope), and CSV export, must
+    // both match/show the resolved display label, not the raw *Id the row
+    // stores — otherwise a field-scoped search for e.g. "High" or a person's
+    // name never matches anything, and exported CSVs are full of UUIDs
+    // (see QE-L-03 / QE-EXP-02 bug reports).
     category: {
       filterType: 'select',
       filterOptions: selectOpts(eventCategories.value),
       searchValue: (row) => categoryNameById.value.get(row.categoryId) || '',
+      exportValue: (row) => categoryNameById.value.get(row.categoryId) || '',
     },
     severity: {
       filterType: 'select',
       filterOptions: selectOpts(eventSeverities.value),
       searchValue: (row) => severityNameById.value.get(row.severityId) || '',
+      exportValue: (row) => severityNameById.value.get(row.severityId) || '',
     },
     status: {
       filterType: 'select',
       filterOptions: selectOpts(QUALITY_EVENT_STATUSES),
       searchValue: (row) => statusNameById.value.get(row.statusId) || '',
+      exportValue: (row) => statusNameById.value.get(row.statusId) || '',
     },
     assignee: {
       filterType: 'select',
       filterOptions: users.value.map((u) => ({ value: u.id, label: userLabel(u) })),
       searchValue: (row) => userLabelById.value.get(row.assignedToUserId) || '',
+      exportValue: (row) => userLabelById.value.get(row.assignedToUserId) || '',
     },
     reporter: {
       filterType: 'select',
       filterOptions: users.value.map((u) => ({ value: u.id, label: userLabel(u) })),
       searchValue: (row) => userLabelById.value.get(row.reportedByUserId) || '',
+      exportValue: (row) => userLabelById.value.get(row.reportedByUserId) || '',
     },
     reportedDate: { filterType: 'date' },
     daysOpen: { filterType: 'number' },
