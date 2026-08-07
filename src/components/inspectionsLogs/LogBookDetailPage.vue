@@ -745,6 +745,34 @@ const logBookDetailConfig = computed(() =>
     </template>
 
     <template v-if="logBook" #section-details>
+      <!-- Version context bar — one selected version drives the version-scoped
+           content (Log Template). Details & Assignments are book-level. -->
+      <div
+        v-if="versions.length"
+        class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:px-4 tw:py-2.5 tw:mb-4"
+      >
+        <span class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">
+          Version
+        </span>
+        <BaseSelect
+          v-model="selectedVersionId"
+          :options="versionOptions"
+          optionLabel="label"
+          optionValue="value"
+          :clearable="false"
+          class="tw:min-w-56"
+          ariaLabel="Select version"
+        />
+        <LogBookVersionStatusBadge v-if="selectedVersion" :statusId="selectedVersion.statusId" />
+        <span v-if="selectedVersion?.effectiveAt" class="tw:text-xs tw:text-secondary">
+          effective {{ selectedVersion.effectiveAt.formatDate('date') }}
+        </span>
+        <span class="tw:text-xs tw:text-secondary tw:italic tw:ml-auto">
+          Log Template follows the selected version · Details &amp; Assignments apply to all
+          versions
+        </span>
+      </div>
+
       <!-- Tab strip -->
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Log book sections">
         <div class="tw:mt-6">
@@ -752,10 +780,10 @@ const logBookDetailConfig = computed(() =>
           <BaseTabPanel value="details">
             <div v-if="draft" class="tw:flex tw:flex-col tw:gap-4">
               <p class="tw:text-xs tw:text-secondary tw:px-1">
-                Book settings — ownership, schedule, equipment and sites apply to every version.
-                Record-policy fields (classification, signature, review, edit window) edit the
-                open draft and take effect when it's approved; approved versions keep the policy
-                they were approved with (see each version on the Log Template tab).
+                Book settings — ownership, schedule, equipment and sites apply to every
+                version and take effect immediately (each change is audit-logged). The versioned
+                entry policy (signature, review, edit window) lives with the template on the Log
+                Template tab.
               </p>
               <!-- Version & approval — the controlled-flow control centre.
              Approver sees Approve/Reject; owner sees Submit / Discard /
@@ -1319,83 +1347,6 @@ const logBookDetailConfig = computed(() =>
                 </template>
               </section>
 
-              <!-- Entry policy -->
-              <section
-                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
-              >
-                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
-                  >Entry policy</BaseText
-                >
-                <BaseField v-slot="{ id: fieldId }" label="Edit window">
-                  <select
-                    :id="fieldId"
-                    v-model="draft.editWindowMode"
-                    :disabled="!canEditDetails"
-                    class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-                  >
-                    <option value="NONE">None — lock immediately on submit</option>
-                    <option value="TIME_WINDOW">Time window — lock after N minutes</option>
-                    <option value="UNTIL_NEXT_ENTRY">Until next entry from the same user</option>
-                    <option value="UNTIL_REVIEW">Until reviewed</option>
-                  </select>
-                  <BaseField
-                    v-if="draft.editWindowMode === 'TIME_WINDOW'"
-                    v-slot="{ id: minutesId }"
-                    label="Lock after (minutes)"
-                    class="tw:mt-2"
-                  >
-                    <input
-                      :id="minutesId"
-                      v-model.number="draft.editWindowMinutes"
-                      type="number"
-                      min="1"
-                      max="2880"
-                      :disabled="!canEditDetails"
-                      class="tw:w-32 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-                    />
-                  </BaseField>
-                </BaseField>
-                <div class="tw:flex tw:flex-col tw:gap-2">
-                  <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
-                    <input
-                      v-model="draft.signatureRequired"
-                      type="checkbox"
-                      :disabled="!canEditDetails"
-                    />
-                    <span>Require e-signature on submit</span>
-                  </label>
-                  <label class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main">
-                    <input
-                      v-model="draft.reviewRequired"
-                      type="checkbox"
-                      :disabled="!canEditDetails"
-                      class="tw:mt-0.5"
-                    />
-                    <span>
-                      Require reviewer approval before locking
-                      <span class="tw:block tw:text-caption tw:text-secondary">
-                        Each entry is held for the <strong>Supervisor</strong> (above) to approve
-                        or reject before it locks.
-                      </span>
-                    </span>
-                  </label>
-                </div>
-                <div
-                  v-if="draft.reviewRequired && !draft.supervisorUserId"
-                  class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
-                >
-                  Reviewer approval is on but no <strong>Supervisor</strong> is set — set one in
-                  Basics so entries have a designated reviewer.
-                </div>
-                <div class="tw:bg-main-hover tw:rounded tw:p-2 tw:text-xs">
-                  Saves as a
-                  <strong
-                    >{{ derivedClassification.replace('_', ' ').toLowerCase() }} log book</strong
-                  >
-                  based on the current settings.
-                </div>
-              </section>
-
               <!-- Compliance -->
               <section
                 class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
@@ -1481,18 +1432,6 @@ const logBookDetailConfig = computed(() =>
               <FormSection title="Log template">
                 <template #actions>
                   <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-                    <!-- Which version you're looking at. Only the open draft
-                         is editable; approved history is read-only. -->
-                    <BaseSelect
-                      v-if="versionOptions.length > 1"
-                      v-model="selectedVersionId"
-                      :options="versionOptions"
-                      optionLabel="label"
-                      optionValue="value"
-                      :clearable="false"
-                      class="tw:min-w-52"
-                      ariaLabel="Select version to view"
-                    />
                     <BaseButton
                       v-if="selectedIsEditableDraft"
                       variant="primary"
@@ -1531,6 +1470,90 @@ const logBookDetailConfig = computed(() =>
                   {{ selectedVersion.changeSummary }}
                 </p>
               </FormSection>
+
+              <!-- Entry policy -->
+              <section
+                v-if="selectedIsEditableDraft"
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+              >
+                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
+                  >Entry policy</BaseText
+                >
+                <p class="tw:text-caption tw:text-secondary">
+                  Versions with the template — these rules are approved together with the fields
+                  and take effect when this draft becomes effective. Approved versions keep the
+                  policy they shipped with.
+                </p>
+                <BaseField v-slot="{ id: fieldId }" label="Edit window">
+                  <select
+                    :id="fieldId"
+                    v-model="draft.editWindowMode"
+                    :disabled="!canEditDetails"
+                    class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                  >
+                    <option value="NONE">None — lock immediately on submit</option>
+                    <option value="TIME_WINDOW">Time window — lock after N minutes</option>
+                    <option value="UNTIL_NEXT_ENTRY">Until next entry from the same user</option>
+                    <option value="UNTIL_REVIEW">Until reviewed</option>
+                  </select>
+                  <BaseField
+                    v-if="draft.editWindowMode === 'TIME_WINDOW'"
+                    v-slot="{ id: minutesId }"
+                    label="Lock after (minutes)"
+                    class="tw:mt-2"
+                  >
+                    <input
+                      :id="minutesId"
+                      v-model.number="draft.editWindowMinutes"
+                      type="number"
+                      min="1"
+                      max="2880"
+                      :disabled="!canEditDetails"
+                      class="tw:w-32 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                    />
+                  </BaseField>
+                </BaseField>
+                <div class="tw:flex tw:flex-col tw:gap-2">
+                  <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
+                    <input
+                      v-model="draft.signatureRequired"
+                      type="checkbox"
+                      :disabled="!canEditDetails"
+                    />
+                    <span>Require e-signature on submit</span>
+                  </label>
+                  <label class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main">
+                    <input
+                      v-model="draft.reviewRequired"
+                      type="checkbox"
+                      :disabled="!canEditDetails"
+                      class="tw:mt-0.5"
+                    />
+                    <span>
+                      Require reviewer approval before locking
+                      <span class="tw:block tw:text-caption tw:text-secondary">
+                        Each entry is held for the <strong>Supervisor</strong> (above) to approve
+                        or reject before it locks.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+                <div
+                  v-if="draft.reviewRequired && !draft.supervisorUserId"
+                  class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
+                >
+                  Reviewer approval is on but no <strong>Supervisor</strong> is set — set one in
+                  Basics so entries have a designated reviewer.
+                </div>
+                <div class="tw:bg-main-hover tw:rounded tw:p-2 tw:text-xs">
+                  Saves as a
+                  <strong
+                    >{{ derivedClassification.replace('_', ' ').toLowerCase() }} log book</strong
+                  >
+                  based on the current settings.
+                </div>
+              </section>
+
 
               <!-- EDITABLE DRAFT: interactive preview — the same DynamicForm a
                    floor user gets at submission time. Nothing posts; authors
