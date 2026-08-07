@@ -14,18 +14,20 @@ export function buildLogBookSections(_logBook) {
 
 /** Header action descriptors. gates = resolved booleans; handlers = callbacks.
  *  Version-management actions (create/submit/discard) live inside the tab
- *  content; the only header action is Archive (back nav is the breadcrumb).
+ *  content; the only header action is Mark Obsolete (back nav is the
+ *  breadcrumb). Obsoleting requires a reason and keeps the book visible as
+ *  controlled history — it does NOT delete.
  */
 export function buildLogBookActions(gates = {}, handlers = {}) {
-  const { canUpdate, hasLogBook } = gates
+  const { canUpdate, hasLogBook, isObsolete } = gates
   return [
     {
-      id: 'archive',
-      label: 'Archive',
+      id: 'obsolete',
+      label: 'Mark Obsolete',
       variant: 'danger',
       priority: 10,
-      visible: !!canUpdate && !!hasLogBook,
-      onSelect: handlers.archive,
+      visible: !!canUpdate && !!hasLogBook && !isObsolete,
+      onSelect: handlers.markObsolete,
     },
   ]
 }
