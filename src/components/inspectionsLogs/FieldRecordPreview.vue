@@ -188,15 +188,12 @@ const template = useLiveQueryWithDeps(
 )
 
 // Prefer the schema snapshot stored on the record (frozen at submit
-// time). Fall back to the live template schema in two cases:
+// time). Fall back to the live book schema in two cases:
 //   1. Record pre-dates the snapshot column (very old data).
-//   2. Snapshot is present but EMPTY — happens when the EFFECTIVE
-//      LogBookVersion was approved with no fields and the schema was
-//      added afterwards on the live LogBook only. EFFECTIVE versions
-//      are locked, so the mirror in logBookService.updateLogBook
-//      (DRAFT/REJECTED only) doesn't propagate, and the snapshot at
-//      submission time stays empty even though the live schema has
-//      the field the user filled out.
+//   2. Snapshot is present but EMPTY — legacy data from before the
+//      supersede model, where a book could be approved with no fields
+//      and the schema added afterwards. Books are frozen once ACTIVE
+//      now, so new records can't hit this.
 //
 // Bare `Array.isArray(snap)` was wrong because `[]` is truthy as
 // "is an array" but useless as a schema — the fallback to the live
@@ -623,7 +620,9 @@ function close() {
         <div class="tw:text-base tw:font-bold tw:text-on-main tw:truncate">
           {{ template?.title ?? 'Field Record' }}
         </div>
-        <div class="tw:text-xs tw:text-secondary tw:truncate">{{ record?.id }}</div>
+        <div class="tw:text-xs tw:text-secondary tw:truncate">
+          {{ record?.recordNumber || record?.id }}
+        </div>
       </div>
       <button
         v-if="record"

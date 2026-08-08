@@ -10,23 +10,63 @@ describe('buildLogBookSections', () => {
 })
 
 describe('buildLogBookActions', () => {
-  it('returns a single mark-obsolete descriptor', () => {
-    expect(buildLogBookActions({}, {}).map((a) => a.id)).toEqual(['obsolete'])
+  function visibleIds(gates) {
+    return buildLogBookActions(gates, {})
+      .filter((a) => a.visible)
+      .map((a) => a.id)
+  }
+
+  it('always describes the four lifecycle actions', () => {
+    expect(buildLogBookActions({}, {}).map((a) => a.id)).toEqual([
+      'submit',
+      'replace',
+      'discard',
+      'obsolete',
+    ])
   })
 
-  it('obsolete is a danger action visible only with canUpdate + a loaded, non-obsolete book', () => {
-    const a = (gates) => buildLogBookActions(gates, {})[0]
-    expect(a({ canUpdate: true, hasLogBook: true }).visible).toBe(true)
-    expect(a({ canUpdate: true, hasLogBook: true }).variant).toBe('danger')
-    expect(a({ canUpdate: false, hasLogBook: true }).visible).toBe(false)
-    expect(a({ canUpdate: true, hasLogBook: false }).visible).toBe(false)
-    // Already obsolete → no action (reactivation happens on the Details tab).
-    expect(a({ canUpdate: true, hasLogBook: true, isObsolete: true }).visible).toBe(false)
+  it('DRAFT / REJECTED books offer submit + discard only', () => {
+    for (const statusId of ['DRAFT', 'REJECTED']) {
+      expect(visibleIds({ canUpdate: true, hasLogBook: true, statusId })).toEqual([
+        'submit',
+        'discard',
+      ])
+    }
   })
 
-  it('wires the markObsolete handler to onSelect', () => {
-    const markObsolete = vi.fn()
-    buildLogBookActions({}, { markObsolete })[0].onSelect()
-    expect(markObsolete).toHaveBeenCalled()
+  it('ACTIVE books offer replace + obsolete only', () => {
+    expect(visibleIds({ canUpdate: true, hasLogBook: true, statusId: 'ACTIVE' })).toEqual([
+      'replace',
+      'obsolete',
+    ])
+  })
+
+  it('UNDER_REVIEW / INACTIVE / OBSOLETE books offer no header actions', () => {
+    for (const statusId of ['UNDER_REVIEW', 'INACTIVE', 'OBSOLETE']) {
+      expect(visibleIds({ canUpdate: true, hasLogBook: true, statusId })).toEqual([])
+    }
+  })
+
+  it('nothing is visible without canUpdate or a loaded book', () => {
+    expect(visibleIds({ canUpdate: false, hasLogBook: true, statusId: 'DRAFT' })).toEqual([])
+    expect(visibleIds({ canUpdate: true, hasLogBook: false, statusId: 'ACTIVE' })).toEqual([])
+  })
+
+  it('wires each handler to its action onSelect', () => {
+    const handlers = {
+      submitForApproval: vi.fn(),
+      createReplacement: vi.fn(),
+      discardDraft: vi.fn(),
+      markObsolete: vi.fn(),
+    }
+    const byId = Object.fromEntries(buildLogBookActions({}, handlers).map((a) => [a.id, a]))
+    byId.submit.onSelect()
+    byId.replace.onSelect()
+    byId.discard.onSelect()
+    byId.obsolete.onSelect()
+    expect(handlers.submitForApproval).toHaveBeenCalled()
+    expect(handlers.createReplacement).toHaveBeenCalled()
+    expect(handlers.discardDraft).toHaveBeenCalled()
+    expect(handlers.markObsolete).toHaveBeenCalled()
   })
 })

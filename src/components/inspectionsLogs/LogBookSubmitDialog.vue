@@ -1,26 +1,22 @@
 <script setup>
 import { post } from '@/api'
 import WorkflowStepReviewerSelect from '@/components/workflow/WorkflowStepReviewerSelect.vue'
-import { LOG_BOOK_VERSION_MODULE } from '@/components/workflow/workflowModule.js'
+import { LOG_BOOK_APPROVAL_MODULE } from '@/components/workflow/workflowModule.js'
 
 /**
- * Submit-a-log-book-version-for-approval dialog.
+ * Submit-a-log-book-for-approval dialog (supersede model — the BOOK is
+ * the approved resource).
  *
- * Given the log book's attached workflow version, lists its steps and
- * lets the submitter pick a reviewer per step (via the generic
- * WorkflowStepReviewerSelect — derives candidates from each step's
- * roles, or all active users when role-less). POSTs to
- * /logBookVersions/:versionId/submit with the { [stepId]: [userId] }
- * reviewers map. The backend hands the version to the workflow engine
- * and flips it to UNDER_REVIEW.
+ * Given the book's attached workflow version, lists its steps and lets
+ * the submitter pick a reviewer per step (via the generic
+ * WorkflowStepReviewerSelect). POSTs to /logBooks/:id/submit with the
+ * { [stepId]: [userId] } reviewers map + required change summary. The
+ * backend hands the book to the workflow engine and flips it to
+ * UNDER_REVIEW.
  */
 const props = defineProps({
-  versionId: { type: String, required: true },
+  logBookId: { type: String, required: true },
   workflowVersionId: { type: String, default: null },
-  // For the no-audience reminder — approval doesn't REQUIRE assignees
-  // (the workflow approves the book's definition; who logs is operational),
-  // but an approved book nobody can log in is dead weight, so we nudge.
-  logBookId: { type: String, default: null },
 })
 const emit = defineEmits(['submitted'])
 const open = defineModel({ type: Boolean, default: false })
@@ -73,7 +69,7 @@ async function handleConfirm() {
   })
   submitting.value = true
   try {
-    await post(`/v1/services/logBookVersions/${props.versionId}/submit`, {
+    await post(`/v1/services/logBooks/${props.logBookId}/submit`, {
       changeSummary: changeSummary.value.trim(),
       reviewers,
     })
@@ -110,7 +106,7 @@ async function handleConfirm() {
           v-for="(step, index) in steps"
           :key="step.id"
           v-model="selections[step.id]"
-          :module="LOG_BOOK_VERSION_MODULE"
+          :module="LOG_BOOK_APPROVAL_MODULE"
           :step="step"
           :stepIndex="index"
           :required="index === 0"

@@ -148,12 +148,11 @@ const createdRecord = ref(null)
 // downstream submit code knows which path to take.
 const inspectionTemplates = useLiveQuery(
   async (db) => {
+    // Supersede model: ACTIVE means approved — the book row is the frozen
+    // contract (schema + policy). The backend rejects non-active books
+    // with LOG_BOOK_NOT_ACTIVE as a backstop.
     const rows = await db.LogBook.where('statusId', 'ACTIVE').exec()
-    // Controlled entity: only a log book with an approved EFFECTIVE
-    // version can accept entries. Brand-new books awaiting approval (no
-    // current_effective_version_id) are filtered out of the picker; the
-    // backend also rejects them with LOG_BOOK_NOT_EFFECTIVE as a backstop.
-    return rows.filter((r) => r.currentEffectiveVersionId).map((r) => ({ ...r, _kind: 'LOG_BOOK' }))
+    return rows.map((r) => ({ ...r, _kind: 'LOG_BOOK' }))
   },
 
   { models: ['LogBook'], initial: [] },
@@ -278,36 +277,10 @@ const createRecord = useLiveMutation(async (db, { templateId, payload }) => {
  *   - Legacy FormTemplate rows store it (or don't) under config.
  * Defaults to UTILITY for unclassified form templates.
  */
-// The fill form must render the EFFECTIVE version's snapshot: the book
-// row's schema/policy columns mirror the OPEN DRAFT while one exists, so
-// reading them here would show unapproved structure to loggers (the server
-// files against the effective snapshot regardless — this keeps the UI
-// honest with what actually gets stored).
-const effectiveVersion = useLiveQueryWithDeps(
-  [
-    () =>
-      selectedTemplate.value?._kind === 'LOG_BOOK'
-        ? selectedTemplate.value.currentEffectiveVersionId
-        : null,
-  ],
-  async (db, [vid]) => (vid ? db.LogBookVersion.findByPk(vid) : null),
-  { models: ['LogBookVersion'] },
-)
-// undefined while the version row is still loading (form render is gated on
-// this so a stale/draft schema never flashes).
-const logBookSnapshot = computed(() =>
-  selectedTemplate.value?._kind === 'LOG_BOOK' ? effectiveVersion.value : null,
-)
-const snapshotLoading = computed(
-  () => selectedTemplate.value?._kind === 'LOG_BOOK' && effectiveVersion.value === undefined,
-)
-
 const classification = computed(() => {
   const t = selectedTemplate.value
   if (!t) return 'UTILITY'
-  if (t._kind === 'LOG_BOOK') {
-    return logBookSnapshot.value?.recordClassification ?? t.recordClassification ?? 'OPERATIONAL_LOG'
-  }
+  if (t._kind === 'LOG_BOOK') return t.recordClassification ?? 'OPERATIONAL_LOG'
   const cls = t.config?.recordClassification
   if (cls === 'OPERATIONAL_LOG' || cls === 'CONTROLLED_RECORD') return cls
   return 'UTILITY'
@@ -326,9 +299,7 @@ const requiresSignatureAtSubmit = computed(() => {
   if (!t) return false
   if (classification.value === 'CONTROLLED_RECORD') return true
   if (classification.value === 'OPERATIONAL_LOG') {
-    if (t._kind === 'LOG_BOOK') {
-      return Boolean(logBookSnapshot.value?.signatureRequired ?? t.signatureRequired)
-    }
+    if (t._kind === 'LOG_BOOK') return Boolean(t.signatureRequired)
     return Boolean(t.config?.signature?.requiredAtSubmission)
   }
   return false
@@ -338,10 +309,9 @@ const editWindow = computed(() => {
   const t = selectedTemplate.value
   if (!t) return null
   if (t._kind === 'LOG_BOOK') {
-    const src = logBookSnapshot.value ?? t
-    return src.editWindowMode === 'TIME_WINDOW'
-      ? { mode: 'TIME_WINDOW', durationMinutes: src.editWindowMinutes }
-      : { mode: src.editWindowMode }
+    return t.editWindowMode === 'TIME_WINDOW'
+      ? { mode: 'TIME_WINDOW', durationMinutes: t.editWindowMinutes }
+      : { mode: t.editWindowMode }
   }
   return t.config?.editWindow ?? null
 })
@@ -516,13 +486,7 @@ function handleBack() {
 }
 
 const templateSchema = computed(() => {
-  // Log books: ALWAYS the effective version's snapshot (never the book
-  // mirror, which tracks the open draft). Empty while the snapshot loads —
-  // the form step shows a spinner via snapshotLoading.
-  if (selectedTemplate.value?._kind === 'LOG_BOOK') {
-    const s = logBookSnapshot.value?.schema
-    return Array.isArray(s) ? s : []
-  }
+  // The book row IS the approved contract (frozen once ACTIVE).
   if (!selectedTemplate.value?.schema) return []
   return Array.isArray(selectedTemplate.value.schema) ? selectedTemplate.value.schema : []
 })
@@ -676,16 +640,7 @@ const templateSchema = computed(() => {
                   </div>
                 </div>
 
-                <!-- Wait for the effective version's snapshot — never render
-                     the book mirror (it tracks the open draft). -->
-                <div
-                  v-if="snapshotLoading"
-                  class="tw:flex tw:items-center tw:justify-center tw:gap-2 tw:py-16 tw:text-secondary"
-                >
-                  <BaseSpinner size="sm" />
-                  <span class="tw:text-sm">Loading log template…</span>
-                </div>
-                <div v-else class="tw:p-4 tw:flex tw:flex-col tw:gap-4">
+                <div class="tw:p-4 tw:flex tw:flex-col tw:gap-4">
                   <DynamicForm
                     v-model="formData"
                     :fields="templateSchema"

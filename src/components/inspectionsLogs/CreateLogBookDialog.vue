@@ -5,6 +5,7 @@ import { IconChevronDown, IconChevronUp } from '@tabler/icons-vue'
 // server-side before the row lands; SyncEngine catches up via the sync push.
 import { post } from '@/api'
 import { required } from '@shared/components/form/validators.js'
+import WorkflowVersionSelect from '@/components/documents/WorkflowVersionSelect.vue'
 
 /**
  * Dedicated wizard for creating a Log Book (an Inspections & Logs
@@ -107,6 +108,12 @@ const formBlocks = useLiveQuery(
   { models: ['FormTemplate'], initial: [] },
 )
 const startingBlockId = ref(null)
+
+// Approval workflow (supersede model: every book is born DRAFT and must be
+// approved before it accepts entries). WorkflowVersionSelect auto-picks the
+// module's default — the seeded "Default Log Book Approval" — so authors
+// only change this deliberately.
+const workflowVersionId = ref(null)
 
 // Catalog for the Log Book Type dropdown — globals + tenant additions.
 // SyncEngine model includes both because the RLS SELECT policy allows
@@ -293,7 +300,7 @@ async function save() {
       schema: Array.isArray(startingBlock?.schema)
         ? JSON.parse(JSON.stringify(startingBlock.schema))
         : [],
-      statusId: 'ACTIVE',
+      workflowVersionId: workflowVersionId.value || null,
     })
     const logBook = res?.logBook ?? res
     // Site links are SyncEngine-native — no service validation needed,
@@ -590,12 +597,23 @@ async function save() {
           </div>
         </div>
       </div>
+
+      <!-- Approval workflow — the book starts as a DRAFT and routes through
+           this workflow before it can accept entries. -->
+      <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:flex tw:flex-col tw:gap-2">
+        <BaseText variant="overline">Approval</BaseText>
+        <p class="tw:text-xs tw:text-secondary">
+          The log book is created as a <strong>Draft</strong>. Build the log template, then submit
+          it through this workflow — it starts accepting entries once approved.
+        </p>
+        <WorkflowVersionSelect v-model="workflowVersionId" moduleId="LOG_BOOK" dense />
+      </div>
     </BaseForm>
 
     <!-- Footer — pinned to the bottom by BaseDialog's #footer region -->
     <template #footer="{ close }">
       <BaseDialogFooter
-        submitLabel="Create & Build Form"
+        submitLabel="Create Draft & Build Form"
         :loading="isSubmitting"
         :error="saveError"
         @cancel="close"
