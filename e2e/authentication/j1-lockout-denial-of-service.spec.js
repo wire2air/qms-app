@@ -38,10 +38,39 @@ const ATTACKER = '203.0.113.9'
 const VICTIM_HOME = '198.51.100.4'
 const SPRAYER = '192.0.2.77'
 
-test.beforeAll(() => clearAllAuthLockouts())
-test.afterAll(() => clearAllAuthLockouts())
+// The horizontal-spray probe below invents its own identities rather than using
+// personas, and `clearAllAuthLockouts()` only walks `AUTH_PERSONAS` — so nothing
+// was clearing these. They must be cleared explicitly.
+//
+// ⚠️ THIS MADE THE C1 GATE FAIL ON EVERY SECOND RUN INSIDE 15 MINUTES, and the
+// failure pointed away from its cause. The spray leaves all eight of these
+// accounts LOCKED for the lockout TTL. On a re-run, `getLockState` short-circuits
+// each attempt to 423 BEFORE `registerFailedAttempt` is reached, so the per-source
+// counter never increments, never reaches 15, and no 429 is ever produced — the
+// test then reports "the sprayer is eventually refused" as broken while the
+// ceiling it is testing works perfectly. Verified by hand: 18 sprays against a
+// clean source give `401 ×15, 429 ×3` and `login_ipfail:<src> = 15`.
+//
+// Note also how tight the probe is: 16 attempts against a threshold of 15 expects
+// exactly ONE 429. Any single attempt that fails to increment the counter takes it
+// to zero, which is precisely what stale locks did.
+const SPRAY_EMAILS = Array.from({ length: 8 }, (_, i) => `spray-${i}@e2e.test`)
+
+function clearSprayIdentities() {
+  for (const email of SPRAY_EMAILS) clearLockout(email)
+}
+
+test.beforeAll(() => {
+  clearAllAuthLockouts()
+  clearSprayIdentities()
+})
+test.afterAll(() => {
+  clearAllAuthLockouts()
+  clearSprayIdentities()
+})
 test.beforeEach(() => {
   clearAllAuthLockouts()
+  clearSprayIdentities()
   clearSourceCounters()
 })
 

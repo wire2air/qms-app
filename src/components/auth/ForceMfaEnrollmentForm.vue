@@ -19,8 +19,11 @@ const props = defineProps({
   email: { type: String, default: '' },
 })
 
-// Emitted when the pending token is gone/expired — the parent returns to sign in.
-const emit = defineEmits(['expired'])
+// `expired` — the pending token is gone/expired; the parent returns to sign in.
+// `challenge` — the account turned out to be enrolled already, so there is
+//   nothing to set up and the person must instead PROVE the factor that exists.
+//   Carries a freshly-minted challenge token for MfaVerifyForm. See beginSetup.
+const emit = defineEmits(['expired', 'challenge'])
 
 const toast = useToast()
 
@@ -41,6 +44,10 @@ const verifying = ref(false)
 const verifyError = ref('')
 
 const recoveryCodes = ref([])
+// Set when the server enrolled the factor but the pending token died before it
+// could be stamped as proven — see verify(). Enrolment is durable; only this
+// sign-in attempt is lost.
+const sessionExpired = ref(false)
 const acknowledged = ref(false)
 const finishing = ref(false)
 
@@ -70,8 +77,18 @@ async function beginSetup() {
       toast.error(data?.error?.message || 'Unable to start MFA setup.')
       return
     }
-    // Already has an active factor (rare) — skip straight to finishing sign-in.
-    if (data?.alreadyEnrolled) return finish()
+    // Already has an active factor (rare — the account was enrolled by another
+    // route between login and here). This used to call finish() directly, which
+    // signed the person in having verified nothing beyond their password: a
+    // pocketed enrolment token became a free session the moment ANY route
+    // enrolled the account. Send them through the ordinary MFA challenge with
+    // the token the server just minted for exactly that.
+    if (data?.challengeRequired) {
+      return emit('challenge', {
+        pendingToken: data.pendingToken,
+        availableFactors: data.availableFactors || ['totp'],
+      })
+    }
     otpauthUri.value = data.otpauthUri
     qrDataUrl.value = data.qrDataUrl
     secret.value = data.secret
@@ -102,6 +119,12 @@ async function verify() {
     }
     recoveryCodes.value = data.recoveryCodes || []
     step.value = 2
+    // The enrolment token expired between the code check and the server
+    // stamping it as proven. The enrolment itself SUCCEEDED and is permanent —
+    // so we still show the recovery codes, which exist and must not be lost —
+    // but this token can no longer complete sign-in and Finish would 409
+    // forever. Say so now instead of letting them discover it on the button.
+    sessionExpired.value = !!data.sessionExpired
   } catch {
     verifyError.value = 'Network error. Please try again.'
   } finally {
@@ -263,8 +286,29 @@ async function finish() {
 
         <BaseCheckbox v-model="acknowledged" label="I've saved my recovery codes somewhere safe." />
 
+        <!-- Enrolment succeeded but this sign-in attempt cannot be completed:
+             the pending token expired before the server could stamp it. Send
+             them back to sign in rather than to a button that will 409. -->
+        <div
+          v-if="sessionExpired"
+          role="alert"
+          class="tw:rounded-md tw:bg-warning/10 tw:text-warning tw:text-sm tw:p-3"
+        >
+          Two-factor authentication is now set up on your account, but this sign-in
+          attempt timed out. Save your recovery codes, then sign in again.
+        </div>
+
         <div class="tw:flex tw:justify-end">
           <BaseButton
+            v-if="sessionExpired"
+            variant="primary"
+            :disabled="!acknowledged"
+            @click="emit('expired')"
+          >
+            <IconArrowLeft :size="16" /> Back to sign in
+          </BaseButton>
+          <BaseButton
+            v-else
             variant="primary"
             :isLoading="finishing"
             :disabled="!acknowledged"
