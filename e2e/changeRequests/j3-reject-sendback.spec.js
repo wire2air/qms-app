@@ -7,6 +7,7 @@
 //                                 reviewer's task survives, no status change.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
+import { signWithPin } from '../fixtures/esign.js'
 import {
   createCr,
   assignDraftReviewers,
@@ -48,6 +49,16 @@ test.describe('PW-J3 · reject + send-back', () => {
     await expect(reason).toBeVisible({ timeout: 10_000 })
     await reason.fill('E2E reject — impact assessment incomplete.')
     await approverPage.getByRole('button', { name: 'Confirm' }).click()
+    // F-16 (2026-08-08): rejecting an e-sign-required APPROVAL step now captures a
+    // signature. Before this the DB held 588 signatures — 361 APPROVED and ZERO
+    // REJECTED — while 92 rejections had already happened on e-sign-required steps,
+    // because this path never signed while API-15's identical action did.
+    //
+    // The prompt is gated on the STEP TYPE, not the outcome id: SEND_BACK is
+    // "Reject" here and routes to rejectStepTask (signed), while the same outcome
+    // on a non-approval step routes to sendBackStepTask and stays deliberately
+    // unsigned. Without this the reject 400s with ESIGNATURE_REQUIRED.
+    await signWithPin(approverPage)
     await approverCtx.close()
 
     await waitForSqlValue(
@@ -109,6 +120,9 @@ test.describe('PW-J3 · reject + send-back', () => {
     await expect(reason).toBeVisible({ timeout: 10_000 })
     await reason.fill('E2E reject — needs rework.')
     await approverPage.getByRole('button', { name: 'Confirm' }).click()
+    // Same F-16 signature gate as the first test — this reject is on an APPROVAL
+    // step too, so it must be signed before the CR reverts to DRAFT.
+    await signWithPin(approverPage)
     await approverCtx.close()
 
     await waitForSqlValue(
