@@ -711,10 +711,10 @@ const logBookDetailConfig = computed(() =>
           <BaseTabPanel value="details">
             <div v-if="draft" class="tw:flex tw:flex-col tw:gap-4">
               <p class="tw:text-xs tw:text-secondary tw:px-1">
-                Book settings — ownership, schedule, equipment and sites apply to every
-                version and take effect immediately (each change is audit-logged). The versioned
-                entry policy (signature, review, edit window) lives with the template on the Log
-                Template tab.
+                Book settings. Operational fields (ownership, schedule, sites) can change any time
+                and take effect immediately; the contract fields (entry policy, equipment, location,
+                type) are editable only while the book is a draft and freeze once it's approved —
+                changing them then means creating a replacement book. Every change is audit-logged.
               </p>
               <!-- Approval — approver sees Approve/Reject; the owner's
                    submit/replace/discard live in the header actions. -->
@@ -1213,6 +1213,88 @@ const logBookDetailConfig = computed(() =>
                 </BaseField>
               </section>
 
+              <!-- Entry policy — how each entry behaves (edit window, e-sig,
+                   reviewer approval). Part of the frozen contract: editable
+                   while the book is a draft, locked once approved (create a
+                   replacement to change it). -->
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+              >
+                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
+                  >Entry policy</BaseText
+                >
+                <p class="tw:text-caption tw:text-secondary">
+                  How each log entry behaves. Frozen once the book is approved — changing it later
+                  means creating a replacement book.
+                </p>
+                <BaseField v-slot="{ id: fieldId }" label="Edit window">
+                  <select
+                    :id="fieldId"
+                    v-model="draft.editWindowMode"
+                    :disabled="!canEditFrozen"
+                    class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                  >
+                    <option value="NONE">None — lock immediately on submit</option>
+                    <option value="TIME_WINDOW">Time window — lock after N minutes</option>
+                    <option value="UNTIL_NEXT_ENTRY">Until next entry from the same user</option>
+                    <option value="UNTIL_REVIEW">Until reviewed</option>
+                  </select>
+                  <BaseField
+                    v-if="draft.editWindowMode === 'TIME_WINDOW'"
+                    v-slot="{ id: minutesId }"
+                    label="Lock after (minutes)"
+                    class="tw:mt-2"
+                  >
+                    <input
+                      :id="minutesId"
+                      v-model.number="draft.editWindowMinutes"
+                      type="number"
+                      min="1"
+                      max="2880"
+                      :disabled="!canEditFrozen"
+                      class="tw:w-32 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                    />
+                  </BaseField>
+                </BaseField>
+                <div class="tw:flex tw:flex-col tw:gap-2">
+                  <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
+                    <input
+                      v-model="draft.signatureRequired"
+                      type="checkbox"
+                      :disabled="!canEditFrozen"
+                    />
+                    <span>Require e-signature on submit</span>
+                  </label>
+                  <label class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main">
+                    <input
+                      v-model="draft.reviewRequired"
+                      type="checkbox"
+                      :disabled="!canEditFrozen"
+                      class="tw:mt-0.5"
+                    />
+                    <span>
+                      Require reviewer approval before locking
+                      <span class="tw:block tw:text-caption tw:text-secondary">
+                        Each entry is held for the <strong>Supervisor</strong> (in Basics) to approve
+                        or reject before it locks.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+                <div
+                  v-if="draft.reviewRequired && !draft.supervisorUserId"
+                  class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
+                >
+                  Reviewer approval is on but no <strong>Supervisor</strong> is set — set one in
+                  Basics so entries have a designated reviewer.
+                </div>
+                <div class="tw:bg-main-hover tw:rounded tw:p-2 tw:text-xs">
+                  This is a
+                  <strong>{{ derivedClassification.replace('_', ' ').toLowerCase() }} log book</strong>
+                  based on the current settings.
+                </div>
+              </section>
+
               <!-- Log Book Approval — approves the log book DEFINITION (schema +
                    policy), NOT the daily entries. A new/revised version routes
                    through this workflow before it becomes effective. -->
@@ -1298,96 +1380,12 @@ const logBookDetailConfig = computed(() =>
                 </p>
               </FormSection>
 
-              <!-- Entry policy — approved together with the template; frozen
-                   once the book is ACTIVE. -->
-              <section
-                v-if="isEditableDraft"
-                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
-              >
-                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
-                  >Entry policy</BaseText
-                >
-                <p class="tw:text-caption tw:text-secondary">
-                  Approved together with the template and frozen once the book is active —
-                  changing these later means creating a replacement book.
-                </p>
-                <BaseField v-slot="{ id: fieldId }" label="Edit window">
-                  <select
-                    :id="fieldId"
-                    v-model="draft.editWindowMode"
-                    :disabled="!canEditDetails"
-                    class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-                  >
-                    <option value="NONE">None — lock immediately on submit</option>
-                    <option value="TIME_WINDOW">Time window — lock after N minutes</option>
-                    <option value="UNTIL_NEXT_ENTRY">Until next entry from the same user</option>
-                    <option value="UNTIL_REVIEW">Until reviewed</option>
-                  </select>
-                  <BaseField
-                    v-if="draft.editWindowMode === 'TIME_WINDOW'"
-                    v-slot="{ id: minutesId }"
-                    label="Lock after (minutes)"
-                    class="tw:mt-2"
-                  >
-                    <input
-                      :id="minutesId"
-                      v-model.number="draft.editWindowMinutes"
-                      type="number"
-                      min="1"
-                      max="2880"
-                      :disabled="!canEditDetails"
-                      class="tw:w-32 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-                    />
-                  </BaseField>
-                </BaseField>
-                <div class="tw:flex tw:flex-col tw:gap-2">
-                  <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
-                    <input
-                      v-model="draft.signatureRequired"
-                      type="checkbox"
-                      :disabled="!canEditDetails"
-                    />
-                    <span>Require e-signature on submit</span>
-                  </label>
-                  <label class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main">
-                    <input
-                      v-model="draft.reviewRequired"
-                      type="checkbox"
-                      :disabled="!canEditDetails"
-                      class="tw:mt-0.5"
-                    />
-                    <span>
-                      Require reviewer approval before locking
-                      <span class="tw:block tw:text-caption tw:text-secondary">
-                        Each entry is held for the <strong>Supervisor</strong> (above) to approve
-                        or reject before it locks.
-                      </span>
-                    </span>
-                  </label>
-                </div>
-                <div
-                  v-if="draft.reviewRequired && !draft.supervisorUserId"
-                  class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
-                >
-                  Reviewer approval is on but no <strong>Supervisor</strong> is set — set one in
-                  Basics so entries have a designated reviewer.
-                </div>
-                <div class="tw:bg-main-hover tw:rounded tw:p-2 tw:text-xs">
-                  Saves as a
-                  <strong
-                    >{{ derivedClassification.replace('_', ' ').toLowerCase() }} log book</strong
-                  >
-                  based on the current settings.
-                </div>
-              </section>
-
-
               <!-- EDITABLE DRAFT: interactive preview — the same DynamicForm a
                    floor user gets at submission time. Nothing posts; authors
                    can test conditional / required logic before opening the
-                   builder. (logBook.schema mirrors the open draft.) -->
+                   builder. (logBook.schema is the book's live schema.) -->
               <section
-                v-if="selectedIsEditableDraft && (logBook.schema?.length ?? 0) > 0"
+                v-if="isEditableDraft && (logBook.schema?.length ?? 0) > 0"
                 class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-2xl tw:shadow-xl tw:overflow-hidden"
               >
                 <div class="tw:bg-main tw:px-5 tw:py-3 tw:border-b tw:border-divider">
@@ -1401,42 +1399,23 @@ const logBookDetailConfig = computed(() =>
                 </div>
               </section>
               <div
-                v-else-if="selectedIsEditableDraft"
+                v-else-if="isEditableDraft"
                 class="tw:text-sm tw:text-secondary tw:italic tw:px-1"
               >
                 No fields yet. Open the builder to drag-and-drop the form structure.
               </div>
 
-              <!-- READ-ONLY VERSION: that version's exact snapshot — template
-                   fields + the policy that was in force. -->
+              <!-- READ-ONLY: an approved / in-review book's frozen template. -->
               <section
-                v-else-if="selectedVersion"
-                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:flex-col tw:gap-3"
+                v-else
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4"
               >
-                <div class="tw:text-xs tw:text-secondary tw:flex tw:flex-wrap tw:gap-x-4 tw:gap-y-1">
-                  <span>
-                    Classification:
-                    <span class="tw:text-on-main">
-                      {{ selectedVersion.recordClassification === 'CONTROLLED_RECORD' ? 'Controlled record' : 'Operational log' }}
-                    </span>
-                  </span>
-                  <span>
-                    Signature:
-                    <span class="tw:text-on-main">{{ selectedVersion.signatureRequired ? 'Required' : 'Not required' }}</span>
-                  </span>
-                  <span>
-                    Review:
-                    <span class="tw:text-on-main">{{ selectedVersion.reviewRequired ? 'Required' : 'Not required' }}</span>
-                  </span>
-                </div>
-                <div class="tw:border-t tw:border-divider tw:pt-3">
-                  <FormSchemaReadonlyView
-                    v-if="Array.isArray(selectedVersion.schema) && selectedVersion.schema.length"
-                    :fields="selectedVersion.schema"
-                  />
-                  <div v-else class="tw:text-sm tw:text-secondary tw:italic">
-                    No fields in this version's log template.
-                  </div>
+                <FormSchemaReadonlyView
+                  v-if="(logBook.schema?.length ?? 0) > 0"
+                  :fields="logBook.schema"
+                />
+                <div v-else class="tw:text-sm tw:text-secondary tw:italic">
+                  No fields in this log template.
                 </div>
               </section>
             </div>
