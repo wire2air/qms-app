@@ -8,10 +8,12 @@ import {
   IconCircleCheck,
   IconFileText,
   IconShieldLock,
+  IconLock,
 } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { freezeOptionLabels } from '@/utils/freezeFormPayloadLabels.js'
+import { useUntrainedLogBookBlocks } from '@/composables/useLogBookTraining.js'
 import { db } from '@models/index'
 
 const props = defineProps({
@@ -288,6 +290,19 @@ const classification = computed(() => {
 
 const isInspectionRecord = computed(() => classification.value !== 'UTILITY')
 
+// Document-training gate (2026-08-08): the current user can't file entries in
+// a log book whose linked controlling documents they aren't trained on. The
+// backend hard-rejects (USER_NOT_TRAINED); here we surface it clearly and
+// disable submit. `blocked` is a reactive Map<logBookId, missingDocs[]>.
+const { blocked: trainingBlocks, missingDocsFor } = useUntrainedLogBookBlocks()
+const trainingBlockDocs = computed(() => {
+  const t = selectedTemplate.value
+  if (!t || t._kind !== 'LOG_BOOK') return []
+  // touch the map so this recomputes when training data syncs in
+  return trainingBlocks.value ? missingDocsFor(t.id) : []
+})
+const isTrainingBlocked = computed(() => trainingBlockDocs.value.length > 0)
+
 /**
  * Signature requirement at submission:
  *  - CONTROLLED_RECORD: always
@@ -389,6 +404,12 @@ async function submitFieldRecord(payload, esign) {
 }
 
 async function handleSubmit(data) {
+  // Training gate backstop (the backend also hard-rejects with
+  // USER_NOT_TRAINED). Never let a blocked book reach submit.
+  if (isTrainingBlocked.value) {
+    toast.error('You must complete the required training before logging entries in this book.')
+    return
+  }
   // UTILITY templates keep the legacy SyncEngine path — they write to
   // the `records` table (numbered `<code>-NNNN`, one sequence per template).
   if (!isInspectionRecord.value) {
@@ -605,6 +626,13 @@ const templateSchema = computed(() => {
                       </div>
                     </div>
                     <div class="tw:flex-1" />
+                    <span
+                      v-if="template._kind === 'LOG_BOOK' && missingDocsFor(template.id).length"
+                      class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-red-50 tw:text-red-700 tw:border tw:border-red-200"
+                    >
+                      <IconLock :size="12" />
+                      Training required
+                    </span>
                     <IconChevronRight :size="24" class="tw:text-secondary" />
                   </div>
                 </BaseClickableRow>
@@ -640,7 +668,37 @@ const templateSchema = computed(() => {
                   </div>
                 </div>
 
-                <div class="tw:p-4 tw:flex tw:flex-col tw:gap-4">
+                <!-- Training block: linked controlling document(s) the current
+                     user isn't trained on. Hard-stop — the form is replaced by
+                     this notice and no submit is offered (backend enforces too). -->
+                <div v-if="isTrainingBlocked" class="tw:p-6 tw:flex tw:flex-col tw:items-center tw:gap-3 tw:text-center">
+                  <div
+                    class="tw:w-12 tw:h-12 tw:rounded-full tw:bg-red-50 tw:text-red-600 tw:flex tw:items-center tw:justify-center"
+                  >
+                    <IconLock :size="24" />
+                  </div>
+                  <div class="tw:font-bold tw:text-on-main">Training required</div>
+                  <div class="tw:text-sm tw:text-secondary tw:max-w-md">
+                    You can't record entries in this log book yet. It's tied to
+                    {{ trainingBlockDocs.length === 1 ? 'a controlling document' : 'controlling documents' }}
+                    you haven't completed and had verified:
+                  </div>
+                  <ul class="tw:text-sm tw:text-on-main tw:font-medium tw:flex tw:flex-col tw:gap-1">
+                    <li v-for="d in trainingBlockDocs" :key="d.id">{{ d.title }}</li>
+                  </ul>
+                  <div class="tw:text-xs tw:text-secondary tw:max-w-md">
+                    Complete the training (and manager verification, where required), then come back.
+                    Reach out to your supervisor if you believe this is a mistake.
+                  </div>
+                  <button
+                    class="tw:mt-2 tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:text-secondary tw:bg-transparent tw:border tw:border-divider tw:rounded-lg tw:cursor-pointer tw:hover:text-on-main"
+                    @click="handleBack"
+                  >
+                    {{ props.logBookId ? 'Close' : 'Back' }}
+                  </button>
+                </div>
+
+                <div v-else class="tw:p-4 tw:flex tw:flex-col tw:gap-4">
                   <DynamicForm
                     v-model="formData"
                     :fields="templateSchema"

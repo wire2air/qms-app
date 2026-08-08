@@ -51,6 +51,7 @@ declare global {
   const fillPattern: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').fillPattern
   const filterCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').filterCommands
   const filtersToQuery: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').filtersToQuery
+  const findUntrainedLinkedDocs: typeof import('./src/composables/useLogBookTraining.js').findUntrainedLinkedDocs
   const formatChordParts: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').formatChordParts
   const formatField: typeof import('./src/composables/useDateField.js').formatField
   const fromModel: typeof import('./src/composables/useDateField.js').fromModel
@@ -137,11 +138,13 @@ declare global {
   const refThrottled: typeof import('@vueuse/core').refThrottled
   const refWithControl: typeof import('@vueuse/core').refWithControl
   const registerCommands: typeof import('./resource/js/shared/composables/useCommandRegistry.js').registerCommands
+  const resolveAssignmentAudience: typeof import('./src/composables/useLogBookTraining.js').resolveAssignmentAudience
   const resolveChildren: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').resolveChildren
   const resolveComponent: typeof import('vue').resolveComponent
   const resolveDetailState: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').resolveDetailState
   const resolveFieldScore: typeof import('./src/composables/useModuleScoring.js').resolveFieldScore
   const resolveListState: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').resolveListState
+  const resolveLogBookTrainingGaps: typeof import('./src/composables/useLogBookTraining.js').resolveLogBookTrainingGaps
   const resolveNavModel: typeof import('./resource/js/shared/composables/detailNavHelpers.js').resolveNavModel
   const resolveRef: typeof import('@vueuse/core').resolveRef
   const resolveRouteMeta: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').resolveRouteMeta
@@ -383,6 +386,7 @@ declare global {
   const useTrainingMatrixReport: typeof import('./src/composables/useTrainingMatrixReport.js').useTrainingMatrixReport
   const useTransition: typeof import('@vueuse/core').useTransition
   const useUnsavedChangesGuard: typeof import('./resource/js/shared/composables/useUnsavedChangesGuard.js').useUnsavedChangesGuard
+  const useUntrainedLogBookBlocks: typeof import('./src/composables/useLogBookTraining.js').useUntrainedLogBookBlocks
   const useUrlSearchParams: typeof import('@vueuse/core').useUrlSearchParams
   const useUserMedia: typeof import('@vueuse/core').useUserMedia
   const useUserSettings: typeof import('./src/composables/useUserSettings.js').useUserSettings
