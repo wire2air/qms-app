@@ -8,6 +8,10 @@ import { DateTime } from 'luxon'
   customIndex: '[workflowInstanceId+statusId], workflowInstanceId, parentInstanceStepId',
 })
 export class WorkflowInstanceStep extends BaseModel {
+  // F-24 — see WorkflowInstance. `deletedAt` without `paranoid` makes
+  // `.delete()` a hard delete and leaks soft-deleted steps into every query.
+  static paranoid = true
+
   constructor(...args) {
     super(...args)
     // Auto-assign companyId from current session on creation

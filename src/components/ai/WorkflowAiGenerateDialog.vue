@@ -156,7 +156,7 @@ async function generate() {
 }
 
 // Create the workflow + first DRAFT version + steps/roles from the confirmed
-// preview. Mirrors WorkflowCreateDialog's create flow (incl. the per-step
+// preview. Mirrors WorkflowGuidedCreateDialog's create flow (incl. the per-step
 // AllowedOutcomeOnStep seeding); the DRAFT status is the human-approval gate.
 const createDraftWorkflow = useLiveMutation(async (db) => {
   const settings = currentCompany.value?.settings || {}
@@ -208,8 +208,8 @@ const createDraftWorkflow = useLiveMutation(async (db) => {
       await stepRole.save()
     }
 
-    // Seed every allowed outcome on the step (mirrors WorkflowCreateDialog /
-    // WorkflowStepList.createStep).
+    // Seed every allowed outcome on the step (mirrors
+    // WorkflowGuidedCreateDialog / WorkflowStepList.createStep).
     for (const o of outcomes) {
       const record = db.AllowedOutcomeOnStep.create({ stepId: step.id, outcomeId: o.id })
       await record.save()

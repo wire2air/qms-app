@@ -189,6 +189,20 @@ export const USERS = {
   },
 }
 
+// The E2ELAB roles (e2e-seed.sql §4 and later sections), by the name the UI
+// renders them under. Added for the workflow template-authoring journeys
+// (PW-J1/PW-J3), which pick ROLE POOLS out of a select menu by visible name and
+// then assert the resulting `workflow_step_roles` rows by id — without a
+// name→id map here the assertion would either hard-code uuids inline or be
+// reduced to a row count, neither of which proves the right role landed.
+export const ROLES = {
+  author: { id: 'e2e30000-0000-4000-8000-000000000001', name: 'E2E Author' },
+  reviewer: { id: 'e2e30000-0000-4000-8000-000000000002', name: 'E2E Reviewer' },
+  approver: { id: 'e2e30000-0000-4000-8000-000000000003', name: 'E2E Approver' },
+  controller: { id: 'e2e30000-0000-4000-8000-000000000004', name: 'E2E Doc Controller' },
+  auditor: { id: 'e2e30000-0000-4000-8000-000000000005', name: 'E2E Auditor' },
+}
+
 // Second-tenant owner for cross-tenant isolation tests (logs in via ALT_BASE_URL).
 export const ALT_USERS = {
   owner: {
