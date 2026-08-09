@@ -140,6 +140,7 @@ watch(
         editWindowMinutes: lb.editWindowMinutes ?? null,
         signatureRequired: !!lb.signatureRequired,
         reviewRequired: !!lb.reviewRequired,
+        overTheShoulderReview: !!lb.overTheShoulderReview,
         notifyOnSubmit: lb.notifyOnSubmit ?? 'DIGEST',
         statusId: lb.statusId ?? 'ACTIVE',
         statusReason: lb.statusReason ?? '',
@@ -256,6 +257,7 @@ const debouncedSave = useDebounceFn(async () => {
         draft.value.editWindowMode === 'TIME_WINDOW' ? draft.value.editWindowMinutes : null,
       signatureRequired: !!draft.value.signatureRequired,
       reviewRequired: !!draft.value.reviewRequired,
+      overTheShoulderReview: !!draft.value.overTheShoulderReview,
       notifyOnSubmit: draft.value.notifyOnSubmit,
       statusId: draft.value.statusId,
       statusReason:
@@ -1277,6 +1279,25 @@ const logBookDetailConfig = computed(() =>
                       <span class="tw:block tw:text-caption tw:text-secondary">
                         Each entry is held for the <strong>Supervisor</strong> (in Basics) to approve
                         or reject before it locks.
+                      </span>
+                    </span>
+                  </label>
+                  <label
+                    v-if="draft.reviewRequired"
+                    class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main tw:pl-6"
+                  >
+                    <input
+                      v-model="draft.overTheShoulderReview"
+                      type="checkbox"
+                      :disabled="!canEditFrozen"
+                      class="tw:mt-0.5"
+                    />
+                    <span>
+                      Allow over-the-shoulder review
+                      <span class="tw:block tw:text-caption tw:text-secondary">
+                        The <strong>Supervisor</strong> can approve or reject entries right at the
+                        operator's workstation by entering their PIN — no need to log the operator
+                        out. Every sign-off is signed and audited under the supervisor's identity.
                       </span>
                     </span>
                   </label>

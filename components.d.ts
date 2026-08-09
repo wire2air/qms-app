@@ -1018,6 +1018,7 @@ declare module 'vue' {
     StorageLocationsCard: typeof import('./src/components/qcInspection/StorageLocationsCard.vue')['default']
     StorageLocationSelectMenu: typeof import('./src/components/menus/StorageLocationSelectMenu.vue')['default']
     Suggestion: typeof import('./src/components/editor/extensions/documentMention/suggestion.js')['default']
+    SupervisorSignoffDialog: typeof import('./src/components/inspectionsLogs/SupervisorSignoffDialog.vue')['default']
     SupplierAssetRequestsList: typeof import('./src/components/suppliers/SupplierAssetRequestsList.vue')['default']
     SupplierBadge: typeof import('./src/components/badges/SupplierBadge.vue')['default']
     SupplierBadgeById: typeof import('./src/components/badges/SupplierBadgeById.vue')['default']

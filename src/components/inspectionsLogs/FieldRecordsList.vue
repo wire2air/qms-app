@@ -178,7 +178,20 @@ const records = useLiveQueryWithDeps(
 // action bar with Approve / Reject / Return-for-info.
 const selectedIds = ref(new Set())
 const selectableRecords = computed(() => records.value.filter((r) => r.statusId === 'UNDER_REVIEW'))
-const showBulkColumn = computed(() => canReview.value && selectableRecords.value.length > 0)
+
+// Over-the-shoulder: when the operator (no review permission) is logged in but
+// a single log book is in view that allows OTS + has a supervisor, the operator
+// can call the supervisor over to sign off with their PIN. Requires a single
+// log book selected (OTS is per book / per supervisor).
+const otsAvailable = computed(
+  () =>
+    !canReview.value &&
+    isLogBookMode.value &&
+    !!selectedTemplate.value?.overTheShoulderReview &&
+    !!selectedTemplate.value?.supervisorUserId,
+)
+const showReviewControls = computed(() => canReview.value || otsAvailable.value)
+const showBulkColumn = computed(() => showReviewControls.value && selectableRecords.value.length > 0)
 
 function toggleSelected(id) {
   const next = new Set(selectedIds.value)
@@ -220,6 +233,7 @@ const bulkOutcome = ref(null) // 'APPROVED' | 'REJECTED'
 const bulkComment = ref('')
 const showBulkCommentDialog = ref(false)
 const showBulkEsignDialog = ref(false)
+const showBulkOtsDialog = ref(false)
 const isSubmittingBulk = ref(false)
 
 function buildEsignFromVerified(v) {
@@ -245,8 +259,11 @@ function startBulk(outcome) {
 function confirmBulkComment() {
   if (!bulkOutcome.value) return
   showBulkCommentDialog.value = false
-  // APPROVED + REJECTED both require an e-signature.
-  showBulkEsignDialog.value = true
+  // APPROVED + REJECTED both require an e-signature. When the operator (not a
+  // reviewer) is signing off over-the-shoulder, collect the SUPERVISOR's PIN;
+  // otherwise the session user signs with their own credential.
+  if (otsAvailable.value) showBulkOtsDialog.value = true
+  else showBulkEsignDialog.value = true
 }
 
 async function onBulkEsignVerified(verified) {
@@ -254,7 +271,12 @@ async function onBulkEsignVerified(verified) {
   await submitBulk(buildEsignFromVerified(verified))
 }
 
-async function submitBulk(esign) {
+async function onBulkOtsVerified({ token }) {
+  await submitBulk({ strategy: 'pin', token }, { overTheShoulder: true })
+  showBulkOtsDialog.value = false
+}
+
+async function submitBulk(esign, { overTheShoulder = false } = {}) {
   if (!bulkOutcome.value) return
   isSubmittingBulk.value = true
   const ids = [...selectedIds.value]
@@ -264,6 +286,7 @@ async function submitBulk(esign) {
       outcome: bulkOutcome.value,
       comment: bulkComment.value?.trim() || null,
       esign,
+      overTheShoulder,
     })
     // REST bypass — refetch each record so live queries drop them
     // from the visible list immediately.
@@ -859,10 +882,15 @@ function printList() {
          → one POST fans out to /bulk/review. -->
     <Teleport to="body">
       <div
-        v-if="canReview && selectedIds.size > 0"
+        v-if="showReviewControls && selectedIds.size > 0"
         class="tw:fixed tw:bottom-0 tw:left-0 tw:right-0 tw:bg-white tw:border-t tw:border-divider tw:shadow-lg tw:px-5 tw:py-3 tw:flex tw:items-center tw:gap-3 tw:z-overlay"
       >
-        <div class="tw:text-sm tw:text-on-main tw:font-medium">{{ selectedIds.size }} selected</div>
+        <div class="tw:text-sm tw:text-on-main tw:font-medium">
+          {{ selectedIds.size }} selected
+          <span v-if="otsAvailable" class="tw:ml-1 tw:text-xs tw:text-primary tw:font-normal">
+            · supervisor sign-off
+          </span>
+        </div>
         <button
           type="button"
           class="tw:text-xs tw:text-secondary tw:underline tw:hover:text-on-main"
@@ -942,6 +970,17 @@ function printList() {
     <WorkflowInstanceEsignAuthDialog
       v-model="showBulkEsignDialog"
       @verified="onBulkEsignVerified"
+    />
+
+    <!-- Over-the-shoulder: operator calls the supervisor over to sign off with
+         their PIN. Attribution + audit handled server-side. -->
+    <SupervisorSignoffDialog
+      v-model="showBulkOtsDialog"
+      :supervisorUserId="selectedTemplate?.supervisorUserId"
+      :action="bulkOutcome === 'REJECTED' ? 'Reject' : 'Approve'"
+      :count="selectedIds.size"
+      :loading="isSubmittingBulk"
+      @verified="onBulkOtsVerified"
     />
   </div>
 </template>

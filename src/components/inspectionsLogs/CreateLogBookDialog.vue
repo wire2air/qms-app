@@ -90,6 +90,7 @@ const editWindowMode = ref('TIME_WINDOW')
 const editWindowMinutes = ref(15)
 const signatureRequired = ref(false)
 const reviewRequired = ref(false)
+const overTheShoulderReview = ref(false)
 
 // Collapse state for the two optional sections.
 const showReferences = ref(false)
@@ -163,6 +164,7 @@ watch(open, (isOpen) => {
     presetTrigger.value = props.preset.triggerSource ?? null
   }
   reviewRequired.value = false
+  overTheShoulderReview.value = false
   showReferences.value = false
   showCompliance.value = false
   isSubmitting.value = false
@@ -288,6 +290,7 @@ async function save() {
       editWindowMinutes: editWindowMode.value === 'TIME_WINDOW' ? editWindowMinutes.value : null,
       signatureRequired: signatureRequired.value,
       reviewRequired: reviewRequired.value,
+      overTheShoulderReview: reviewRequired.value && overTheShoulderReview.value,
       notifyOnSubmit: 'DIGEST',
       ...(presetTrigger.value
         ? {
@@ -590,6 +593,18 @@ async function save() {
           <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
             <input v-model="reviewRequired" type="checkbox" />
             <span>Require reviewer approval before locking</span>
+          </label>
+          <label
+            v-if="reviewRequired"
+            class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main tw:pl-6"
+          >
+            <input v-model="overTheShoulderReview" type="checkbox" class="tw:mt-0.5" />
+            <span>
+              Allow over-the-shoulder review
+              <span class="tw:block tw:text-caption tw:text-secondary">
+                The supervisor can sign off at the operator's workstation with their PIN — no logout.
+              </span>
+            </span>
           </label>
         </div>
 

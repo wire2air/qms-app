@@ -3,6 +3,7 @@ import {
   IconX,
   IconShieldCheck,
   IconLock,
+  IconUserShield,
   IconCircleCheck,
   IconCircleX,
   IconPencil,
@@ -43,6 +44,17 @@ const toast = useToast()
 
 const canReview = computed(() => isAllowed(['field_records:review']))
 const canAmend = computed(() => isAllowed(['field_records:amend']))
+// Over-the-shoulder: the operator isn't a reviewer, but this entry's log book
+// allows OTS + has a supervisor — so the supervisor can sign off here with
+// their PIN. `template` is the record's log book (loaded below).
+const otsAvailable = computed(
+  () =>
+    !canReview.value &&
+    record.value?.statusId === 'UNDER_REVIEW' &&
+    !!template.value?.overTheShoulderReview &&
+    !!template.value?.supervisorUserId,
+)
+const showOtsDialog = ref(false)
 const canVoid = computed(() => isAllowed(['field_records:void']))
 
 // `currentSession.id` is NOT reliably the user id — the session object spreads
@@ -395,8 +407,24 @@ function confirmComment() {
   if (!pendingOutcome.value) return
   showCommentDialog.value = false
   pendingReview.value = { outcome: pendingOutcome.value, comment: reviewComment.value || null }
+  // Over-the-shoulder: the operator (not a reviewer) collects the supervisor's
+  // PIN; otherwise the session user signs with their own credential.
+  if (otsAvailable.value) {
+    showOtsDialog.value = true
+    return
+  }
   pendingEsignAction.value = 'REVIEW'
   showEsignDialog.value = true
+}
+
+async function onOtsVerified({ token }) {
+  await submitReview({
+    comment: pendingReview.value?.comment ?? null,
+    esign: { strategy: 'pin', token },
+    overTheShoulder: true,
+  })
+  pendingReview.value = null
+  showOtsDialog.value = false
 }
 
 async function onEsignVerified(verified) {
@@ -423,7 +451,7 @@ async function onEsignVerified(verified) {
   }
 }
 
-async function submitReview({ comment, esign }) {
+async function submitReview({ comment, esign, overTheShoulder = false }) {
   if (!record.value?.id || !pendingOutcome.value) return
   isSubmittingReview.value = true
   try {
@@ -431,6 +459,7 @@ async function submitReview({ comment, esign }) {
       outcome: pendingOutcome.value,
       comment,
       esign,
+      overTheShoulder,
     })
     // REST endpoint doesn't go through SyncEngine, so the natural
     // socket.io push may not arrive before the user expects the UI to
@@ -769,7 +798,13 @@ function close() {
                 <IconTrash :size="14" />
                 Void
               </button>
-              <template v-if="record?.statusId === 'UNDER_REVIEW' && canReview">
+              <template v-if="record?.statusId === 'UNDER_REVIEW' && (canReview || otsAvailable)">
+                <span
+                  v-if="otsAvailable"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:font-medium"
+                >
+                  <IconUserShield :size="14" /> Supervisor sign-off
+                </span>
                 <button
                   type="button"
                   class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-white tw:bg-red-600 tw:border-0 tw:rounded tw:cursor-pointer tw:hover:bg-red-700 tw:flex tw:items-center tw:gap-1.5 tw:disabled:opacity-50"
@@ -1057,13 +1092,22 @@ function close() {
          it explains the absence of Approve / Reject without breaking
          the v-else chain. -->
     <div
-      v-if="!isEditing && record?.statusId === 'UNDER_REVIEW' && !canReview"
+      v-if="!isEditing && record?.statusId === 'UNDER_REVIEW' && !canReview && !otsAvailable"
       class="tw:flex tw:items-center tw:gap-2 tw:px-5 tw:py-2 tw:border-t tw:border-divider tw:bg-amber-50 tw:text-amber-900 tw:text-xs"
     >
       <IconShieldCheck :size="14" />
       This record is awaiting review. You need the
       <code>fieldRecords:review</code> permission to approve / reject.
     </div>
+
+    <!-- Over-the-shoulder sign-off (operator called the supervisor over). -->
+    <SupervisorSignoffDialog
+      v-model="showOtsDialog"
+      :supervisorUserId="template?.supervisorUserId"
+      :action="pendingOutcome === 'REJECTED' ? 'Reject' : 'Approve'"
+      :loading="isSubmittingReview"
+      @verified="onOtsVerified"
+    />
 
     <!-- Comment dialog -->
     <Teleport to="body">

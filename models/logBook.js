@@ -70,6 +70,9 @@ export class LogBook extends BaseModel {
   @Property({ type: Number }) editWindowMinutes = null
   @Property({ type: Boolean }) signatureRequired = false
   @Property({ type: Boolean }) reviewRequired = false
+  // Allow supervisor over-the-shoulder approval at the operator's workstation
+  // (PIN, no session switch). Only meaningful with reviewRequired.
+  @Property({ type: Boolean }) overTheShoulderReview = false
   @Property({ type: String }) notifyOnSubmit = 'DIGEST'
 
   // Form definition
