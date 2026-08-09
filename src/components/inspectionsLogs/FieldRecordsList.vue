@@ -279,19 +279,6 @@ async function onBulkOtsVerified({ reviewerUserId, token }) {
   showBulkOtsDialog.value = false
 }
 
-// Authorized reviewers (userIds) for the selected book — powers the OTS dialog.
-const otsReviewerUserIds = useLiveQueryWithDeps(
-  [() => selectedTemplate.value?.id, () => showBulkOtsDialog.value],
-  async (db, [, open]) => {
-    if (!open || !selectedTemplate.value) return []
-    return resolveAuthorizedReviewerUserIds(selectedTemplate.value)
-  },
-  {
-    models: ['LogBookReviewer', 'SiteOnLogBook', 'UserSite', 'User', 'RoleOnUser'],
-    initial: [],
-  },
-)
-
 async function submitBulk(esign, { overTheShoulder = false, reviewerUserId = null } = {}) {
   if (!bulkOutcome.value) return
   isSubmittingBulk.value = true
@@ -441,6 +428,21 @@ const selectedTemplate = computed(() => {
 })
 
 const isLogBookMode = computed(() => selectedTemplate.value != null)
+
+// Authorized reviewers (userIds) for the selected book — powers the OTS dialog.
+// Declared after selectedTemplate so its dep getters don't hit the temporal
+// dead zone when the live query initializes during setup.
+const otsReviewerUserIds = useLiveQueryWithDeps(
+  [() => selectedTemplate.value?.id, () => showBulkOtsDialog.value],
+  async (db, [, open]) => {
+    if (!open || !selectedTemplate.value) return []
+    return resolveAuthorizedReviewerUserIds(selectedTemplate.value)
+  },
+  {
+    models: ['LogBookReviewer', 'SiteOnLogBook', 'UserSite', 'User', 'RoleOnUser'],
+    initial: [],
+  },
+)
 
 const scalarFields = computed(() =>
   selectedTemplate.value ? flattenScalarFields(selectedTemplate.value.schema) : [],
