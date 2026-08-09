@@ -139,6 +139,7 @@ declare global {
   const refWithControl: typeof import('@vueuse/core').refWithControl
   const registerCommands: typeof import('./resource/js/shared/composables/useCommandRegistry.js').registerCommands
   const resolveAssignmentAudience: typeof import('./src/composables/useLogBookTraining.js').resolveAssignmentAudience
+  const resolveAuthorizedReviewerUserIds: typeof import('./src/composables/useLogBookReviewAuth.js').resolveAuthorizedReviewerUserIds
   const resolveChildren: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').resolveChildren
   const resolveComponent: typeof import('vue').resolveComponent
   const resolveDetailState: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').resolveDetailState
@@ -148,6 +149,7 @@ declare global {
   const resolveNavModel: typeof import('./resource/js/shared/composables/detailNavHelpers.js').resolveNavModel
   const resolveRef: typeof import('@vueuse/core').resolveRef
   const resolveRouteMeta: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').resolveRouteMeta
+  const resolveSiteEligibleUserIds: typeof import('./src/composables/useLogBookReviewAuth.js').resolveSiteEligibleUserIds
   const resolveVariant: typeof import('./resource/js/shared/composables/detailVariantHelpers.js').resolveVariant
   const searchNodes: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').searchNodes
   const selectAndUploadFile: typeof import('./src/composables/useFileUpload.js').selectAndUploadFile
@@ -291,6 +293,7 @@ declare global {
   const useLiveQuery: typeof import('./src/composables/useLiveQuery.js').useLiveQuery
   const useLiveQueryWithDeps: typeof import('./src/composables/useLiveQuery.js').useLiveQueryWithDeps
   const useLocalStorage: typeof import('@vueuse/core').useLocalStorage
+  const useLogBookReviewAuth: typeof import('./src/composables/useLogBookReviewAuth.js').useLogBookReviewAuth
   const useMagicKeys: typeof import('@vueuse/core').useMagicKeys
   const useManualRefHistory: typeof import('@vueuse/core').useManualRefHistory
   const useMediaControls: typeof import('@vueuse/core').useMediaControls
