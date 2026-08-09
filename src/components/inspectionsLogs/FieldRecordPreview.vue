@@ -17,6 +17,10 @@ import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue
 import DynamicForm from '@/components/form/DynamicForm.js'
 import { fieldRecordStatusLabel } from '@/utils/logBookSchemaUtils.js'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import {
+  useLogBookReviewAuth,
+  resolveAuthorizedReviewerUserIds,
+} from '@/composables/useLogBookReviewAuth.js'
 import { refetchSyncRecord } from '@/utils/syncEngineRefresh.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post, patch } from '@/api'
@@ -42,19 +46,22 @@ const props = defineProps({
 const emit = defineEmits(['close', 'changed'])
 const toast = useToast()
 
-const canReview = computed(() => isAllowed(['field_records:review']))
+// Log-entry review authorization (2026-08-09): per-book authorized-reviewer
+// set (owner OR supervisor OR additional reviewer, site-gated) — `template` is
+// the record's log book (loaded below).
+const { canReviewBook } = useLogBookReviewAuth()
+const canReview = computed(() => (template.value ? canReviewBook(template.value) : false))
 const canAmend = computed(() => isAllowed(['field_records:amend']))
 // Over-the-shoulder: the operator isn't a reviewer, but this entry's log book
-// allows OTS + has a supervisor — so the supervisor can sign off here with
-// their PIN. `template` is the record's log book (loaded below).
+// allows OTS — an authorized reviewer can sign off here with their PIN.
 const otsAvailable = computed(
   () =>
     !canReview.value &&
     record.value?.statusId === 'UNDER_REVIEW' &&
-    !!template.value?.overTheShoulderReview &&
-    !!template.value?.supervisorUserId,
+    !!template.value?.overTheShoulderReview,
 )
 const showOtsDialog = ref(false)
+const otsReviewerUserIds = ref([])
 const canVoid = computed(() => isAllowed(['field_records:void']))
 
 // `currentSession.id` is NOT reliably the user id — the session object spreads
@@ -403,13 +410,14 @@ function startReview(outcome) {
   showCommentDialog.value = true
 }
 
-function confirmComment() {
+async function confirmComment() {
   if (!pendingOutcome.value) return
   showCommentDialog.value = false
   pendingReview.value = { outcome: pendingOutcome.value, comment: reviewComment.value || null }
-  // Over-the-shoulder: the operator (not a reviewer) collects the supervisor's
-  // PIN; otherwise the session user signs with their own credential.
+  // Over-the-shoulder: the operator (not a reviewer) collects an authorized
+  // reviewer's PIN; otherwise the session user signs with their own credential.
   if (otsAvailable.value) {
+    otsReviewerUserIds.value = await resolveAuthorizedReviewerUserIds(template.value)
     showOtsDialog.value = true
     return
   }
@@ -417,11 +425,12 @@ function confirmComment() {
   showEsignDialog.value = true
 }
 
-async function onOtsVerified({ token }) {
+async function onOtsVerified({ reviewerUserId, token }) {
   await submitReview({
     comment: pendingReview.value?.comment ?? null,
     esign: { strategy: 'pin', token },
     overTheShoulder: true,
+    reviewerUserId,
   })
   pendingReview.value = null
   showOtsDialog.value = false
@@ -451,7 +460,7 @@ async function onEsignVerified(verified) {
   }
 }
 
-async function submitReview({ comment, esign, overTheShoulder = false }) {
+async function submitReview({ comment, esign, overTheShoulder = false, reviewerUserId = null }) {
   if (!record.value?.id || !pendingOutcome.value) return
   isSubmittingReview.value = true
   try {
@@ -460,6 +469,7 @@ async function submitReview({ comment, esign, overTheShoulder = false }) {
       comment,
       esign,
       overTheShoulder,
+      reviewerUserId,
     })
     // REST endpoint doesn't go through SyncEngine, so the natural
     // socket.io push may not arrive before the user expects the UI to
@@ -1096,14 +1106,14 @@ function close() {
       class="tw:flex tw:items-center tw:gap-2 tw:px-5 tw:py-2 tw:border-t tw:border-divider tw:bg-amber-50 tw:text-amber-900 tw:text-xs"
     >
       <IconShieldCheck :size="14" />
-      This record is awaiting review. You need the
-      <code>fieldRecords:review</code> permission to approve / reject.
+      This record is awaiting review. Only the log book's supervisor or an added
+      reviewer can approve or reject it.
     </div>
 
-    <!-- Over-the-shoulder sign-off (operator called the supervisor over). -->
+    <!-- Over-the-shoulder sign-off (operator called a reviewer over). -->
     <SupervisorSignoffDialog
       v-model="showOtsDialog"
-      :supervisorUserId="template?.supervisorUserId"
+      :reviewerUserIds="otsReviewerUserIds"
       :action="pendingOutcome === 'REJECTED' ? 'Reject' : 'Approve'"
       :loading="isSubmittingReview"
       @verified="onOtsVerified"

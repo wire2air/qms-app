@@ -1,23 +1,22 @@
 <script setup>
 /**
- * Over-the-shoulder supervisor sign-off (2026-08-09).
+ * Over-the-shoulder sign-off (2026-08-09).
  *
- * Shown when the logged-in OPERATOR isn't a reviewer but the log book allows
- * over-the-shoulder review: the designated Supervisor steps up to the operator's
- * workstation and enters their PIN to approve/reject on the spot — no session
- * switch. Emits `verified` with the PIN; the caller POSTs the review with
- * `overTheShoulder: true`, and the backend verifies the PIN against the book's
- * supervisor, attributes the signature to them, and records the operator's
- * session on signatures.proxy_session_user_id.
- *
- * We already KNOW who the supervisor is (the book's supervisorUserId), so this
- * only asks for their PIN — the operator can't sign off as anyone else.
+ * The logged-in OPERATOR isn't a reviewer, but the log book allows
+ * over-the-shoulder review: an AUTHORIZED REVIEWER (the supervisor OR an
+ * additional reviewer) steps up to the operator's workstation, picks their name
+ * and enters their PIN to approve/reject on the spot — no session switch.
+ * Emits { reviewerUserId, token }; the caller POSTs the review with
+ * `overTheShoulder: true`, and the backend verifies the PIN against that
+ * reviewer, confirms they're authorized for the book, attributes the signature
+ * to them, and records the operator on signatures.proxy_session_user_id.
  */
 import { IconLock, IconUserShield } from '@tabler/icons-vue'
 
 const props = defineProps({
-  supervisorUserId: { type: String, default: null },
-  // 'Approve' | 'Reject' — drives the confirm button + heading.
+  // Candidate authorized reviewers (userIds) for the book, resolved by caller.
+  reviewerUserIds: { type: Array, default: () => [] },
+  // 'Approve' | 'Reject'.
   action: { type: String, default: 'Approve' },
   // How many entries this sign-off covers (bulk); 1 for a single entry.
   count: { type: Number, default: 1 },
@@ -26,30 +25,41 @@ const props = defineProps({
 const emit = defineEmits(['verified'])
 const open = defineModel({ type: Boolean, default: false })
 
+const reviewerId = ref(null)
 const pin = ref('')
 
-const supervisor = useLiveQueryWithDeps(
-  [() => props.supervisorUserId],
-  async (db, [id]) => (id ? db.User.findByPk(id) : null),
-  { models: ['User'] },
+const reviewers = useLiveQueryWithDeps(
+  [() => props.reviewerUserIds.join(',')],
+  async (db, [ids]) => {
+    const list = ids ? ids.split(',').filter(Boolean) : []
+    const out = []
+    for (const id of list) {
+      const u = await db.User.findByPk(id)
+      if (u) out.push({ id: u.id, name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email })
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name))
+  },
+  { models: ['User'], initial: [] },
 )
-const supervisorName = computed(() => {
-  const u = supervisor.value
-  if (!u) return 'the supervisor'
-  return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || 'the supervisor'
-})
 
-const entriesLabel = computed(() =>
-  props.count === 1 ? 'this entry' : `${props.count} entries`,
-)
+const entriesLabel = computed(() => (props.count === 1 ? 'this entry' : `${props.count} entries`))
 
 watch(open, (isOpen) => {
-  if (isOpen) pin.value = ''
+  if (isOpen) {
+    pin.value = ''
+    reviewerId.value = props.reviewerUserIds.length === 1 ? props.reviewerUserIds[0] : null
+  }
+})
+// Default to the sole reviewer once resolved.
+watch(reviewers, (list) => {
+  if (!reviewerId.value && list.length === 1) reviewerId.value = list[0].id
 })
 
+const canConfirm = computed(() => !!reviewerId.value && !!pin.value && !props.loading)
+
 function confirm() {
-  if (!pin.value || props.loading) return
-  emit('verified', { token: pin.value })
+  if (!canConfirm.value) return
+  emit('verified', { reviewerUserId: reviewerId.value, token: pin.value })
 }
 </script>
 
@@ -63,35 +73,53 @@ function confirm() {
           <IconUserShield :size="20" />
         </div>
         <div class="tw:text-sm tw:text-on-main">
-          <span class="tw:font-semibold">{{ supervisorName }}</span>
-          is signing off {{ entriesLabel }} as
+          A reviewer is signing off {{ entriesLabel }} as
           <span :class="action === 'Reject' ? 'tw:text-red-600' : 'tw:text-emerald-600'" class="tw:font-semibold">
             {{ action === 'Reject' ? 'Rejected' : 'Approved' }}</span>
-          at this workstation. This is recorded under the supervisor's identity, with the
-          logged-in operator's session captured in the audit trail.
+          at this workstation. This is recorded under the reviewer's identity, with the logged-in
+          operator's session captured in the audit trail.
         </div>
       </div>
 
-      <BaseField v-slot="{ id: fieldId }" label="Supervisor e-signature PIN" required>
-        <BaseTextInput
-          :id="fieldId"
-          v-model="pin"
-          type="password"
-          noReveal
-          placeholder="Supervisor's PIN"
-          autocomplete="off"
-          @keyup.enter="confirm"
-        >
-          <template #icon><IconLock :size="18" class="tw:text-secondary" /></template>
-        </BaseTextInput>
-      </BaseField>
+      <div
+        v-if="reviewers.length === 0"
+        class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
+      >
+        No authorized reviewer is available for this log book. Set a Supervisor or add reviewers on
+        the log book's Details tab.
+      </div>
+      <template v-else>
+        <BaseField label="Reviewer" required>
+          <BaseSelect
+            v-model="reviewerId"
+            :options="reviewers"
+            optionLabel="name"
+            optionValue="id"
+            nullLabel="Select reviewer…"
+            :disabled="reviewers.length === 1"
+          />
+        </BaseField>
+        <BaseField v-slot="{ id: fieldId }" label="Reviewer e-signature PIN" required>
+          <BaseTextInput
+            :id="fieldId"
+            v-model="pin"
+            type="password"
+            noReveal
+            placeholder="Reviewer's PIN"
+            autocomplete="off"
+            @keyup.enter="confirm"
+          >
+            <template #icon><IconLock :size="18" class="tw:text-secondary" /></template>
+          </BaseTextInput>
+        </BaseField>
+      </template>
     </div>
 
     <template #footer="{ close }">
       <BaseDialogFooter
         :submitLabel="`Sign off — ${action}`"
         :loading="loading"
-        :disabled="!pin || loading"
+        :disabled="!canConfirm"
         @cancel="close"
         @submit="confirm"
       />

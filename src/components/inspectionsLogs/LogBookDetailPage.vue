@@ -1309,6 +1309,18 @@ const logBookDetailConfig = computed(() =>
                   Reviewer approval is on but no <strong>Supervisor</strong> is set — set one in
                   Basics so entries have a designated reviewer.
                 </div>
+                <!-- Additional reviewers (users/roles) — editable while ACTIVE.
+                     Only relevant when reviewer approval is on. -->
+                <div
+                  v-if="draft.reviewRequired"
+                  class="tw:border-t tw:border-divider tw:pt-3"
+                >
+                  <LogBookReviewersEditor
+                    :logBookId="props.id"
+                    :logBook="logBook"
+                    :canEdit="canEditDetails"
+                  />
+                </div>
                 <div class="tw:bg-main-hover tw:rounded tw:p-2 tw:text-xs">
                   This is a
                   <strong>{{ derivedClassification.replace('_', ' ').toLowerCase() }} log book</strong>

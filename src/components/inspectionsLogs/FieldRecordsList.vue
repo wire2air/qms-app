@@ -9,10 +9,13 @@ import {
   IconCircleX,
   IconFlag,
 } from '@tabler/icons-vue'
-import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { refetchSyncRecord } from '@/utils/syncEngineRefresh.js'
+import {
+  useLogBookReviewAuth,
+  resolveAuthorizedReviewerUserIds,
+} from '@/composables/useLogBookReviewAuth.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
 import {
@@ -51,23 +54,21 @@ function closeRecord() {
   selectedRecordId.value = null
 }
 
-const userId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
-const canReview = computed(() => isAllowed(['field_records:review']))
 const toast = useToast()
 
-// Log books the current user supervises — drives the "Needs my review"
-// scope filter (and constrains which rows expose the bulk-review
-// checkbox).
-const supervisedLogBooks = useLiveQueryWithDeps(
-  [() => userId.value],
-  async (db, [uid]) => {
-    if (!uid) return []
-    return db.LogBook.where('supervisorUserId', uid).exec()
-  },
-
-  { models: ['LogBook'], initial: [] },
+// Log-entry review authorization (2026-08-09): a per-book authorized-reviewer
+// set (supervisor + additional reviewers, site-gated) replaces the old
+// blanket field_records:review gate. `reviewableBookIds` = books the current
+// user can review; `canReviewBook` adds the owner-always case.
+const { canReviewBook, reviewableBookIds, isOwner: isOwnerReviewer } = useLogBookReviewAuth()
+// The user can review something → show the "Needs my review" scope toggle.
+const canReviewAny = computed(() => isOwnerReviewer.value || reviewableBookIds.value.size > 0)
+// The currently-selected book (bulk review works within one book).
+const canReviewSelected = computed(() =>
+  selectedTemplate.value ? canReviewBook(selectedTemplate.value) : false,
 )
-const supervisedIds = computed(() => new Set(supervisedLogBooks.value.map((lb) => lb.id)))
+// "Needs my review" scope = books I can review (owner sees all under-review).
+const supervisedIds = computed(() => reviewableBookIds.value)
 
 // Scope is just 'all' (everything RLS lets the user see) or 'needs_review'
 // (the supervisor inbox). The old "My entries only"/"All in tenant" split was
@@ -143,8 +144,11 @@ const records = useLiveQueryWithDeps(
   async (db, [scopeVal, status, logBookId, start, end, supIds, flaggedOnlyVal, flagMap]) => {
     let rows = await db.FieldRecord.where().exec()
     if (scopeVal === 'needs_review') {
-      // Supervisor's inbox — UNDER_REVIEW on log books they supervise.
-      rows = rows.filter((r) => r.statusId === 'UNDER_REVIEW' && supIds.has(r.logBookId))
+      // Reviewer inbox — UNDER_REVIEW on books I can review (owner sees all).
+      rows = rows.filter(
+        (r) =>
+          r.statusId === 'UNDER_REVIEW' && (isOwnerReviewer.value || supIds.has(r.logBookId)),
+      )
     }
     if (status !== 'all') {
       rows = rows.filter((r) => r.statusId === status)
@@ -185,12 +189,11 @@ const selectableRecords = computed(() => records.value.filter((r) => r.statusId 
 // log book selected (OTS is per book / per supervisor).
 const otsAvailable = computed(
   () =>
-    !canReview.value &&
+    !canReviewSelected.value &&
     isLogBookMode.value &&
-    !!selectedTemplate.value?.overTheShoulderReview &&
-    !!selectedTemplate.value?.supervisorUserId,
+    !!selectedTemplate.value?.overTheShoulderReview,
 )
-const showReviewControls = computed(() => canReview.value || otsAvailable.value)
+const showReviewControls = computed(() => canReviewSelected.value || otsAvailable.value)
 const showBulkColumn = computed(() => showReviewControls.value && selectableRecords.value.length > 0)
 
 function toggleSelected(id) {
@@ -271,12 +274,25 @@ async function onBulkEsignVerified(verified) {
   await submitBulk(buildEsignFromVerified(verified))
 }
 
-async function onBulkOtsVerified({ token }) {
-  await submitBulk({ strategy: 'pin', token }, { overTheShoulder: true })
+async function onBulkOtsVerified({ reviewerUserId, token }) {
+  await submitBulk({ strategy: 'pin', token }, { overTheShoulder: true, reviewerUserId })
   showBulkOtsDialog.value = false
 }
 
-async function submitBulk(esign, { overTheShoulder = false } = {}) {
+// Authorized reviewers (userIds) for the selected book — powers the OTS dialog.
+const otsReviewerUserIds = useLiveQueryWithDeps(
+  [() => selectedTemplate.value?.id, () => showBulkOtsDialog.value],
+  async (db, [, open]) => {
+    if (!open || !selectedTemplate.value) return []
+    return resolveAuthorizedReviewerUserIds(selectedTemplate.value)
+  },
+  {
+    models: ['LogBookReviewer', 'SiteOnLogBook', 'UserSite', 'User', 'RoleOnUser'],
+    initial: [],
+  },
+)
+
+async function submitBulk(esign, { overTheShoulder = false, reviewerUserId = null } = {}) {
   if (!bulkOutcome.value) return
   isSubmittingBulk.value = true
   const ids = [...selectedIds.value]
@@ -287,6 +303,7 @@ async function submitBulk(esign, { overTheShoulder = false } = {}) {
       comment: bulkComment.value?.trim() || null,
       esign,
       overTheShoulder,
+      reviewerUserId,
     })
     // REST bypass — refetch each record so live queries drop them
     // from the visible list immediately.
@@ -591,7 +608,7 @@ function printList() {
     <!-- Filters (hidden in compact mode) -->
     <div v-if="!compact" class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
       <label
-        v-if="canReview"
+        v-if="canReviewAny"
         class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main tw:cursor-pointer"
       >
         <input v-model="needsReviewOnly" type="checkbox" />
@@ -972,11 +989,11 @@ function printList() {
       @verified="onBulkEsignVerified"
     />
 
-    <!-- Over-the-shoulder: operator calls the supervisor over to sign off with
+    <!-- Over-the-shoulder: operator calls a reviewer over to sign off with
          their PIN. Attribution + audit handled server-side. -->
     <SupervisorSignoffDialog
       v-model="showBulkOtsDialog"
-      :supervisorUserId="selectedTemplate?.supervisorUserId"
+      :reviewerUserIds="otsReviewerUserIds"
       :action="bulkOutcome === 'REJECTED' ? 'Reject' : 'Approve'"
       :count="selectedIds.size"
       :loading="isSubmittingBulk"
