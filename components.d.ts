@@ -774,6 +774,7 @@ declare module 'vue' {
     LogBookTypesCard: typeof import('./src/components/company/LogBookTypesCard.vue')['default']
     LogBookVersionStatusBadge: typeof import('./src/components/badges/LogBookVersionStatusBadge.vue')['default']
     LogBookVersionSubmitDialog: typeof import('./src/components/inspectionsLogs/LogBookVersionSubmitDialog.vue')['default']
+    LogFormsHome: typeof import('./src/components/inspectionsLogs/LogFormsHome.vue')['default']
     LoggingDashboard: typeof import('./src/components/inspectionsLogs/LoggingDashboard.vue')['default']
     LoginForm: typeof import('./src/components/auth/LoginForm.vue')['default']
     LoginHistory: typeof import('./src/components/security/LoginHistory.vue')['default']

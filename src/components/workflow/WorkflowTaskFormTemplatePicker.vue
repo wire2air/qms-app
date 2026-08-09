@@ -34,7 +34,10 @@ watch(open, (isOpen) => {
 // form wants fragments (checklists, sign-offs), not whole Deviation Reports.
 const savedBlocks = useLiveQuery(
   async (db) =>
-    (await db.FormTemplate.where('statusId', 'ACTIVE').exec()).filter((t) => t.kind === 'BLOCK'),
+    (await db.FormTemplate.where('statusId', 'ACTIVE').exec()).filter(
+      // Exclude LOG_FORM blocks — those are exclusive to log books.
+      (t) => t.kind === 'BLOCK' && (t.blockCategory ?? 'GENERAL') !== 'LOG_FORM',
+    ),
   { models: ['FormTemplate'], initial: [] },
 )
 

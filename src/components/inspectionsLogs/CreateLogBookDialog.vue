@@ -95,15 +95,16 @@ const reviewRequired = ref(false)
 const showReferences = ref(false)
 const showCompliance = ref(false)
 
-// Optional starting point — a form block whose fields are DEEP-COPIED into
-// the new log book's schema at create. A true snapshot: editing or archiving
-// the block later never touches this book (same blocks-only + copy-on-pick
-// rule as the workflow Task Form picker; log book schemas never reference
-// form_templates).
+// Optional starting point — a LOG FORM (a form block categorised for log
+// books) whose fields are DEEP-COPIED into the new log book's schema at
+// create. A true snapshot: editing or archiving the log form later never
+// touches this book, and the copy is frozen when the book is published.
+// General form blocks (task forms / QC checklists) are excluded — log books
+// build only from Log Forms.
 const formBlocks = useLiveQuery(
   async (db) =>
     (await db.FormTemplate.where('statusId', 'ACTIVE').exec())
-      .filter((t) => t.kind === 'BLOCK')
+      .filter((t) => t.kind === 'BLOCK' && (t.blockCategory ?? 'GENERAL') === 'LOG_FORM')
       .sort((a, b) => a.title.localeCompare(b.title)),
   { models: ['FormTemplate'], initial: [] },
 )
@@ -418,23 +419,27 @@ async function save() {
         />
       </BaseField>
 
-      <!-- Starting point — copies a form block's fields into the new book. -->
+      <!-- Starting point — copies a Log Form's fields into the new book. -->
       <BaseField
         v-slot="{ id: fieldId }"
-        label="Start from a form block"
+        label="Start from a Log Form"
         optional
-        hint="Copies the block's fields in as a starting point — later changes to the block never affect this log book."
+        hint="Copies the Log Form's fields in as a starting point — later changes to the Log Form never affect this log book (its fields freeze when the book is published)."
       >
         <select
           :id="fieldId"
           v-model="startingBlockId"
           class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
         >
-          <option :value="null">Blank form — build from scratch</option>
+          <option :value="null">Blank — build the fields from scratch</option>
           <option v-for="b in formBlocks" :key="b.id" :value="b.id">
             {{ b.title }} ({{ b.schema?.length ?? 0 }} fields)
           </option>
         </select>
+        <p v-if="formBlocks.length === 0" class="tw:text-xs tw:text-secondary tw:mt-1">
+          No Log Forms yet — create reusable templates under
+          <strong>Inspections &amp; Logs → Log Forms</strong>.
+        </p>
       </BaseField>
 
       <!-- Supervisor (always visible — the load-bearing routing field for
