@@ -2,22 +2,39 @@
 /**
  * Global full-text search box — lives in the header's #main-header-search slot.
  *
- * Lexical search over Documents / Nonconformances / CAPA via the core
- * /v1/services/search endpoint (Postgres FTS — no AI). Distinct from the
- * "Ask AI" assistant on the right of the header: this finds records, the
- * assistant reasons over them.
+ * Lexical search over Documents / Nonconformances / CAPA / Log books / Log
+ * entries via the core /v1/services/search endpoint (Postgres FTS — no AI).
+ * Distinct from the "Ask AI" assistant on the right of the header: this finds
+ * records, the assistant reasons over them.
  */
-import { IconSearch, IconFileText, IconAlertTriangle, IconClipboardCheck, IconX } from '@tabler/icons-vue'
+import {
+  IconSearch,
+  IconFileText,
+  IconAlertTriangle,
+  IconClipboardCheck,
+  IconNotebook,
+  IconClipboardText,
+  IconX,
+} from '@tabler/icons-vue'
 import { get } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { companyCode } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
+// `path` builds the default `/${path}/${entityId}` deep link; a `to(row)`
+// override wins when the target isn't a plain `/segment/:id` route (log entries
+// open inside the records view via a `?recordId=` query param).
 const TYPE_META = {
   Document: { label: 'Documents', path: 'documents', icon: IconFileText },
   Nonconformance: { label: 'Nonconformances', path: 'nonconformances', icon: IconAlertTriangle },
   Capa: { label: 'CAPA', path: 'capas', icon: IconClipboardCheck },
+  LogBook: { label: 'Log books', path: 'inspections-logs/log-books', icon: IconNotebook },
+  FieldRecord: {
+    label: 'Log entries',
+    icon: IconClipboardText,
+    to: (row) => `/inspections-logs/records?recordId=${row.entityId}`,
+  },
 }
-const TYPE_ORDER = ['Document', 'Nonconformance', 'Capa']
+const TYPE_ORDER = ['Document', 'Nonconformance', 'Capa', 'LogBook', 'FieldRecord']
 
 const router = useRouter()
 const rootEl = ref(null)
@@ -100,12 +117,14 @@ function renderSnippet(snippet) {
 
 function goTo(row) {
   if (!row || !companyCode.value) return
-  const path = TYPE_META[row.entityType]?.path
-  if (!path) return
+  const meta = TYPE_META[row.entityType]
+  if (!meta) return
   // Routes are flat under subdomain tenancy — the company lives in the host,
   // NOT the URL path. Prefixing companyCode produced /ACME/documents/:id, which
   // matches no route and fell through to the 404 catch-all.
-  router.push(getCompanyPath(`/${path}/${row.entityId}`))
+  const relative = meta.to ? meta.to(row) : meta.path ? `/${meta.path}/${row.entityId}` : null
+  if (!relative) return
+  router.push(getCompanyPath(relative))
   close()
 }
 
@@ -161,7 +180,7 @@ onClickOutside(rootEl, () => close())
         ref="inputEl"
         v-model="query"
         type="text"
-        placeholder="Search documents, NCs, CAPA…  (press /)"
+        placeholder="Search documents, NCs, CAPA, logs…  (press /)"
         class="tw:w-full tw:rounded-full tw:border tw:border-divider tw:bg-main tw:py-2 tw:ps-10 tw:pe-9 tw:text-sm tw:text-primary tw:outline-none tw:focus:border-primary tw:transition-colors"
         @keydown="onKeydown"
         @focus="query.trim().length >= 2 && (open = true)"
