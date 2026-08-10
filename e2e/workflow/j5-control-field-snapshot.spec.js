@@ -98,13 +98,32 @@ test.describe('PW-J5 · F-05 control-field snapshot', () => {
     // Migration 20260805130000 backfilled only non-terminal rows. Re-freezing a
     // step whose outcome is already recorded would imply an assertion about the
     // rules in force at the time that the schema cannot actually support.
+    //
+    // ⚠️ The original form of this assertion was a time bomb and it went off.
+    // It counted EVERY terminal step older than an hour that carries a snapshot
+    // and required zero. That was only ever true in the hours right after the
+    // migration, because two entirely correct things keep adding to that count:
+    //   1. F-05's fix snapshots control fields at INSTANTIATION, so every
+    //      instance created since 2026-08-05 is born snapshotted and then, quite
+    //      normally, reaches APPROVED/REJECTED/CANCELLED/SKIPPED; and
+    //   2. rows the backfill legitimately DID snapshot (non-terminal at the
+    //      time) have since been decided.
+    // By 2026-08-08 it stood at 184 — 179 created after the migration, 5
+    // backfilled-then-decided. All 184 are correct; the assertion was not.
+    //
+    // The invariant the backfill actually promises is narrower: a step that was
+    // ALREADY terminal when the migration ran — and has not been touched since —
+    // must carry no snapshot. Bounding on updated_at is what makes it stable,
+    // because any later write is by definition not the backfill's doing.
+    const MIGRATION_RAN = '2026-08-05'
     const leaked = sqlValue(
       `SELECT count(*) FROM workflow_instance_steps
         WHERE status_id IN ('APPROVED','REJECTED','CANCELLED','SKIPPED')
           AND deleted_at IS NULL
           AND approval_rule IS NOT NULL
-          AND created_at < NOW() - INTERVAL '1 hour'`,
+          AND created_at < TIMESTAMP '${MIGRATION_RAN}'
+          AND updated_at < TIMESTAMP '${MIGRATION_RAN}'`,
     )
-    expect(Number(leaked), 'pre-existing terminal steps were not backfilled').toBe(0)
+    expect(Number(leaked), 'the backfill re-froze a step that was already decided').toBe(0)
   })
 })

@@ -237,6 +237,12 @@ async function submitForm() {
     v-else-if="enrollState"
     :pendingToken="enrollState.pendingToken"
     :email="enrollState.email"
+    @challenge="
+      (c) => {
+        mfaState = { ...c, email: enrollState.email }
+        enrollState = null
+      }
+    "
     @expired="enrollState = null"
   />
   <div v-else class="tw:w-full tw:max-w-105">

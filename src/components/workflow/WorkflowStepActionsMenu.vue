@@ -103,13 +103,26 @@ const pendingConfig = computed(() =>
 const isRejectAction = computed(() => pendingOutcomeId.value === 'SEND_BACK')
 const confirmTitle = computed(() => pendingConfig.value?.label ?? 'Confirm')
 
-// E-signature is gated by the step config (requireEsignature prop) and only
-// applies to state-changing outcomes — completion / approval. Send-back +
-// info-requests stay unsigned to match the parent-step inline buttons in
-// WorkflowStep.vue. If product later wants SEND_BACK signed too, add it
-// to this set.
+// E-signature is gated by the step config (requireEsignature prop) and applies
+// to the outcomes that actually resolve an approval gate.
+//
+// SEND_BACK is the subtle one: it is the SAME outcome id on both step types but
+// two different endpoints (see submitAction below). On an APPROVAL step it is
+// labelled "Reject" and routes to `rejectStepTask` — which the backend now
+// requires a signature for (F-16), because that path reaches the same core as
+// API-15's signed REJECTED action. On a non-approval step it routes to
+// `sendBackStepTask`, which is deliberately left unsigned: it resolves no
+// approval gate and cannot act on an APPROVAL step at all.
+//
+// So the gate is conditional on the step type, not on the outcome id alone.
+// Without this, rejecting an e-sign-required approval returns 400
+// ESIGNATURE_REQUIRED with no prompt shown.
 const ESIGN_GATED_OUTCOMES = new Set(['COMPLETE_AND_ADVANCE'])
-const needsEsignFor = (outcomeId) => props.requireEsignature && ESIGN_GATED_OUTCOMES.has(outcomeId)
+function needsEsignFor(outcomeId) {
+  if (!props.requireEsignature) return false
+  if (ESIGN_GATED_OUTCOMES.has(outcomeId)) return true
+  return outcomeId === 'SEND_BACK' && isApprovalStep.value
+}
 
 function onOutcomeClick(outcomeId) {
   if (!canActOnStep.value) return
@@ -160,10 +173,23 @@ async function submitAction(esign = null) {
       //     termination, no resource status change. Reviewer can still
       //     complete their original task once the owner responds.
       const endpoint = isApprovalStep.value ? 'rejectStepTask' : 'sendBackStepTask'
-      await post(`/v1/services/${props.module.apiPath}/${props.resourceId}/${endpoint}`, {
+      const sendBackBody = {
         workflowInstanceStepId: props.instanceStepId,
         comment: comment.value,
-      })
+      }
+      // F-16: /rejectStepTask now enforces the e-signature on an e-sign-required
+      // APPROVAL step and returns 400 ESIGNATURE_REQUIRED without credentials.
+      // needsEsignFor() has already collected them via the PIN dialog for exactly
+      // this branch — they must be forwarded here, not only on the API-15 path
+      // below. /sendBackStepTask is deliberately NOT signed, so the credentials
+      // are attached only when they were actually demanded.
+      if (esign?.method) sendBackBody.method = esign.method
+      if (esign?.token) sendBackBody.token = esign.token
+      if (esign?.provider) sendBackBody.provider = esign.provider
+      await post(
+        `/v1/services/${props.module.apiPath}/${props.resourceId}/${endpoint}`,
+        sendBackBody,
+      )
       toast.success(
         isApprovalStep.value
           ? 'Approval rejected — the owner has been notified'

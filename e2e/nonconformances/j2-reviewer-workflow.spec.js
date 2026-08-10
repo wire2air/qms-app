@@ -10,6 +10,7 @@
 // the real behavior for both.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
+import { signWithPin } from '../fixtures/esign.js'
 import { raiseNc, openNc, completeReviewerStep, uniqueTitle } from '../fixtures/nonconformances.js'
 import { clickWhenReady } from '../fixtures/documents.js'
 import { findNcByTitle, sqlValue, waitForSqlValue } from '../fixtures/db.js'
@@ -48,7 +49,9 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
     expect(ncStatus, 'NC stays UNDER_REVIEW mid-workflow').toBe('UNDER_REVIEW')
   })
 
-  test('approver rejects step 2 (APPROVAL) -> NC reverts UNDER_REVIEW to DRAFT', async ({ browser }) => {
+  test('approver rejects step 2 (APPROVAL) -> NC reverts UNDER_REVIEW to DRAFT', async ({
+    browser,
+  }) => {
     test.setTimeout(150_000)
     const ownerCtx = await browser.newContext({ storageState: AUTH.author })
     const ownerPage = await ownerCtx.newPage()
@@ -71,9 +74,23 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
     await approverPage.goto(`/nonconformances/${nc.id}`, { waitUntil: 'domcontentloaded' })
     await clickWhenReady(approverPage, approverPage.getByRole('button', { name: 'More actions' }))
     await approverPage.getByRole('menuitem', { name: 'Reject' }).click()
-    await expect(approverPage.getByPlaceholder('Why are you rejecting?')).toBeVisible({ timeout: 10_000 })
-    await approverPage.getByPlaceholder('Why are you rejecting?').fill('E2E reject — missing evidence.')
+    await expect(approverPage.getByPlaceholder('Why are you rejecting?')).toBeVisible({
+      timeout: 10_000,
+    })
+    await approverPage
+      .getByPlaceholder('Why are you rejecting?')
+      .fill('E2E reject — missing evidence.')
     await approverPage.getByRole('button', { name: 'Confirm' }).click()
+    // F-16 (2026-08-08): rejecting an e-sign-required APPROVAL step now captures a
+    // signature. Before this the DB held 588 signatures — 361 APPROVED and ZERO
+    // REJECTED — while 92 rejections had already happened on e-sign-required steps,
+    // because this path never signed while API-15's identical action did.
+    //
+    // The prompt is gated on the STEP TYPE, not the outcome id: SEND_BACK is
+    // "Reject" here and routes to rejectStepTask (signed), while the same outcome
+    // on a non-approval step routes to sendBackStepTask and stays deliberately
+    // unsigned. Without this the reject 400s with ESIGNATURE_REQUIRED.
+    await signWithPin(approverPage)
     await approverCtx.close()
 
     await waitForSqlValue(
