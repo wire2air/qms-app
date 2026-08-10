@@ -37,6 +37,18 @@ describe('BaseClickableRow', () => {
     expect(w.emitted('click')).toHaveLength(2)
   })
 
+  it('ignores keys typed into nested interactive children (Space stays a character)', async () => {
+    // Regression: the form builder's in-place label editor lives inside the
+    // row — Space bubbling up from the input must not preventDefault into a
+    // row activation (it was eating spaces from labels).
+    const w = mountRow({}, { default: '<input class="inner" />' })
+    const evt = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true })
+    w.get('input.inner').element.dispatchEvent(evt)
+    await w.vm.$nextTick()
+    expect(w.emitted('click')).toBeUndefined()
+    expect(evt.defaultPrevented).toBe(false)
+  })
+
   it('does not activate when disabled (no click, removed from tab order)', async () => {
     const w = mountRow({ disabled: true })
     const el = w.get('[role="button"]')

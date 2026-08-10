@@ -31,7 +31,32 @@ const props = defineProps({
   auditEntities: { type: Array, default: () => [] },
   // If false, hide the audit + signatures sections
   showAudit: { type: Boolean, default: true },
+  // Initial page orientation. Wide-table modules (e.g. a multi-column log
+  // book) pass 'landscape' so the printout opens ready to fit; the user can
+  // still flip it in the toolbar.
+  defaultOrientation: {
+    type: String,
+    default: 'portrait',
+    validator: (v) => ['portrait', 'landscape'].includes(v),
+  },
 })
+
+// ─── Page orientation ──────────────────────────────────────────────────────
+// Drives a reactive @page rule (below) + the on-screen preview width, so a
+// wide table can print on landscape A4 instead of being clipped by portrait.
+const orientation = ref(props.defaultOrientation)
+watch(
+  () => props.defaultOrientation,
+  (v) => {
+    orientation.value = v
+  },
+)
+// @page can't be scoped by class, so we render it into a live <style> whose
+// text updates with the toggle. This is the single source of the page size —
+// the static stylesheet no longer sets one.
+const pageCss = computed(
+  () => `@page { size: A4 ${orientation.value}; margin: 15mm 15mm 20mm 15mm; }`,
+)
 
 const company = useLiveQuery(
   async (db) => {
@@ -212,7 +237,14 @@ onBeforeUnmount(() => {
        Teleporting sidesteps the entire chain. #app already has
        `tw:print:hidden`, so it disappears during print. -->
   <Teleport to="#print-portal">
-    <div class="print-root" :style="accentStyle">
+    <!-- Live @page rule — its size follows the orientation toggle. Kept as a
+         rendered <style> because CSS @page can't be targeted by a class. -->
+    <component :is="'style'">{{ pageCss }}</component>
+    <div
+      class="print-root"
+      :class="{ 'print-landscape': orientation === 'landscape' }"
+      :style="accentStyle"
+    >
       <!-- Toolbar — hidden when printing -->
       <div class="print-toolbar tw:no-print">
         <div class="tw:flex tw:items-center tw:gap-2">
@@ -222,6 +254,25 @@ onBeforeUnmount(() => {
           >
             <IconPrinter :size="14" /> Print
           </button>
+          <!-- Orientation — flip to landscape when the content is wide. -->
+          <div class="print-orient" role="group" aria-label="Page orientation">
+            <button
+              type="button"
+              :class="{ 'print-orient-active': orientation === 'portrait' }"
+              :aria-pressed="orientation === 'portrait'"
+              @click="orientation = 'portrait'"
+            >
+              Portrait
+            </button>
+            <button
+              type="button"
+              :class="{ 'print-orient-active': orientation === 'landscape' }"
+              :aria-pressed="orientation === 'landscape'"
+              @click="orientation = 'landscape'"
+            >
+              Landscape
+            </button>
+          </div>
           <button
             class="tw:flex tw:items-center tw:gap-1.5 tw:rounded tw:border tw:border-divider tw:px-3 tw:py-1.5 tw:text-sm tw:text-secondary tw:hover:bg-main-hover"
             @click="close"
@@ -230,7 +281,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div class="tw:text-xs tw:text-secondary">
-          Use your browser's Print dialog → "Save as PDF" for a controlled PDF.
+          Wide table? Switch to Landscape. Then Print → "Save as PDF" for a controlled PDF.
         </div>
       </div>
 
@@ -370,6 +421,38 @@ onBeforeUnmount(() => {
   background: white;
   padding: 20mm 18mm;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Landscape: widen the on-screen preview page + toolbar to A4-landscape so
+   the user sees the true printable width before printing. The @page rule
+   (rendered above) sets the actual paper size. */
+.print-landscape .print-page,
+.print-landscape .print-toolbar {
+  max-width: 297mm;
+}
+
+/* Orientation segmented toggle */
+.print-orient {
+  display: inline-flex;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.print-orient button {
+  padding: 6px 12px;
+  font-size: 13px;
+  background: white;
+  color: #6b7280;
+  border: 0;
+  cursor: pointer;
+}
+.print-orient button + button {
+  border-left: 1px solid #e5e7eb;
+}
+.print-orient-active {
+  background: #eef2ff !important;
+  color: #1d4ed8 !important;
+  font-weight: 600;
 }
 
 .print-header {
@@ -546,13 +629,7 @@ onBeforeUnmount(() => {
   }
 }
 
-@page {
-  size: A4;
-  margin: 15mm 15mm 20mm 15mm;
-  @bottom-center {
-    content: 'Page ' counter(page) ' of ' counter(pages);
-    font-size: 9px;
-    color: #6b7280;
-  }
-}
+/* NOTE: the @page size is set by the reactive <style> rendered in the
+   template (pageCss) so the orientation toggle can change it — CSS @page
+   can't be scoped by a class. Keep page size OUT of this static block. */
 </style>

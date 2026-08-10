@@ -39,6 +39,12 @@ const supplier = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.Supplier.findByPk(id) : null),
   { models: ['Supplier'] },
 )
+const lotUom = useLiveQueryWithDeps(
+  [() => lot.value?.uomId],
+  async (db, [id]) => (id ? db.Uom.findByPk(id) : null),
+  { models: ['Uom'] },
+)
+const isFormulaLot = computed(() => lot.value?.samplingSnapshot?.planType === 'FORMULA')
 const equipment = useLiveQueryWithDeps(
   [() => lot.value?.equipmentId],
   async (db, [id]) => (id ? db.Equipment.findByPk(id) : null),
@@ -109,11 +115,15 @@ const hasInProcess = computed(
         </div>
         <div class="tw:flex tw:items-baseline tw:justify-between tw:gap-3">
           <dt class="tw:text-secondary tw:shrink-0">Quantity</dt>
-          <dd class="tw:text-right tw:text-on-main">{{ lot.quantity ?? '—' }}</dd>
+          <dd class="tw:text-right tw:text-on-main">{{ lot.quantity != null ? [lot.quantity, lotUom?.name].filter(Boolean).join(' ') : '—' }}</dd>
+        </div>
+        <div v-if="lot.containerCount != null" class="tw:flex tw:items-baseline tw:justify-between tw:gap-3">
+          <dt class="tw:text-secondary tw:shrink-0">Containers (N)</dt>
+          <dd class="tw:text-right tw:text-on-main">{{ lot.containerCount }}</dd>
         </div>
         <div class="tw:flex tw:items-baseline tw:justify-between tw:gap-3">
           <dt class="tw:text-secondary tw:shrink-0">Sample size</dt>
-          <dd class="tw:text-right tw:text-on-main">{{ lot.sampleSize ?? '—' }}</dd>
+          <dd class="tw:text-right tw:text-on-main">{{ lot.sampleSize ?? '—' }}<template v-if="isFormulaLot && lot.sampleSize != null"> containers</template></dd>
         </div>
         <div v-if="lot.qualityState" class="tw:flex tw:items-baseline tw:justify-between tw:gap-3">
           <dt class="tw:text-secondary tw:shrink-0">Quality state</dt>
@@ -260,7 +270,9 @@ const hasInProcess = computed(
         >
           <div v-for="p in sampling.perSeverity" :key="p.severity" class="tw:text-xs tw:text-secondary">
             <span class="tw:font-semibold tw:text-on-main">{{ p.severity }}</span>
-            — AQL {{ p.aql }}% → accept ≤ {{ p.accept }}, reject ≥ {{ p.reject }}
+            <!-- Custom-table rows have no AQL — fixed Ac/Re by definition. -->
+            — {{ p.aql != null ? `AQL ${p.aql}%` : 'fixed' }} → accept ≤ {{ p.accept }}, reject ≥
+            {{ p.reject }}
           </div>
         </div>
         <!-- Couldn't compute — explain why (commonly a special level not in the seeded tables). -->

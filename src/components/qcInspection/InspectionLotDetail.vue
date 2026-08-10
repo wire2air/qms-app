@@ -17,6 +17,8 @@ import { DateTime } from 'luxon'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { uploadFile } from '@/utils/uploadService.js'
+import { generateInspectionLotPdf } from '@/utils/inspectionLotPdf.js'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
 import { buildInspectionLotActions } from './inspectionLotDetailConfig.js'
 
@@ -31,18 +33,61 @@ const saving = ref(false)
 const acting = ref(false)
 const showSubmit = ref(false)
 const showReopen = ref(false)
+const showRetain = ref(false)
 const showEdit = ref(false)
 
 const canExecute = computed(() => isAllowed(['inspection_qc:execute']))
 const canDispose = computed(() => isAllowed(['inspection_qc:dispose']))
 const canCreateNc = computed(() => isAllowed(['ncr:create']))
 const canCreateEvent = computed(() => isAllowed(['quality_events:create']))
+// Retain-sample creation — same gate the rail card uses.
+const canRetain = computed(
+  () => isAllowed(['retain_samples:create']) || isAllowed(['retain_samples:update']),
+)
 
 const lot = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => db.InspectionLot.findByPk(id),
   { models: ['InspectionLot'] },
 )
+const lotUom = useLiveQueryWithDeps(
+  [() => lot.value?.uomId],
+  async (db, [id]) => (id ? db.Uom.findByPk(id) : null),
+  { models: ['Uom'] },
+)
+// Sampling basis, in the plan's own terms: formula lots sample CONTAINERS
+// (√N + 1), everything else samples units of the lot quantity. Built in JS so
+// spacing is explicit (template whitespace condensing ate the unit gap).
+const isFormulaLot = computed(() => lot.value?.samplingSnapshot?.planType === 'FORMULA')
+const uomShort = computed(() => (lotUom.value?.code ? lotUom.value.code.toLowerCase() : ''))
+const quantityDisplay = computed(() => {
+  const q = lot.value?.quantity
+  if (q == null) return null
+  return uomShort.value ? `${q} ${uomShort.value}` : `${q}`
+})
+// Formula (√N + 1) lots: no defect-class Ac/Re — the advisory verdict is the
+// lab results themselves. Roll failing results up as { sampleNo, charName }.
+const formulaOosRows = computed(() => {
+  if (!isFormulaLot.value) return []
+  const nameById = new Map(characteristics.value.map((c) => [c.id, c.name]))
+  return results.value
+    .filter((r) => r.outcome === 'FAIL')
+    .map((r) => ({
+      sampleNo: r.sampleIndex ?? 1,
+      charName: nameById.get(r.characteristicId) || 'Test',
+    }))
+    .sort((a, b) => a.sampleNo - b.sampleNo)
+})
+
+const sampleSummary = computed(() => {
+  const l = lot.value
+  if (!l) return ''
+  const n = l.sampleSize ?? '—'
+  if (isFormulaLot.value && l.containerCount) {
+    return `sample ${n} of ${l.containerCount} containers${quantityDisplay.value ? ` · ${quantityDisplay.value}` : ''}`
+  }
+  return `sample ${n}${quantityDisplay.value ? ` of ${quantityDisplay.value}` : ''}`
+})
 watch(
   lot,
   (l) => {
@@ -565,9 +610,32 @@ async function createNcFromLot() {
   if (creatingNc.value) return
   creatingNc.value = true
   try {
+    // Generate the inspection-report PDF and upload it first — the asset ref
+    // rides into create-nc so the NC's description carries the full report as
+    // an attachment (evidence stands alone; no cross-module links needed).
+    let reportAsset = null
+    try {
+      const pdf = await generateInspectionLotPdf({
+        lot: lot.value,
+        productName: product.value?.name ?? null,
+        supplierName: supplier.value?.name ?? null,
+        uomName: lotUom.value?.code?.toLowerCase() ?? null,
+        characteristics: characteristics.value,
+        results: results.value,
+      })
+      const asset = await uploadFile(pdf, 'ASSET')
+      reportAsset = {
+        assetId: asset.id,
+        name: asset.originalFilename || pdf.name,
+        mimeType: 'application/pdf',
+      }
+    } catch (pdfErr) {
+      // The NC is more important than its attachment — degrade gracefully.
+      console.warn('Inspection report PDF generation failed:', pdfErr)
+    }
     const { nonconformance } = await post(
       `/v1/services/qcInspection/lots/${props.id}/create-nc`,
-      {},
+      { reportAsset },
     )
     toast.success(`Draft ${nonconformance.ncNumber} created — complete it and pick a workflow`)
     router.push(getCompanyPath(`/nonconformances/${nonconformance.id}`))
@@ -645,6 +713,7 @@ const inspectionLotActions = computed(() =>
       canExecute: canExecute.value,
       canDispose: canDispose.value,
       canCreateEvent: canCreateEvent.value,
+      canRetain: canRetain.value,
       statusId: lot.value?.statusId,
       acting: acting.value,
       creatingEvent: creatingEvent.value,
@@ -679,6 +748,9 @@ const inspectionLotActions = computed(() =>
       reopen() {
         showReopen.value = true
       },
+      retainSample() {
+        showRetain.value = true
+      },
       createEvent() {
         openCreateEvent()
       },
@@ -698,6 +770,18 @@ const inspectionLotDetailConfig = computed(() =>
     sections: [{ id: 'details', label: 'Details' }],
   }),
 )
+
+// Negative results are only accepted when the characteristic's own spec range
+// goes below zero (e.g. freezer temperature, deviation measures); otherwise
+// min 0 — and the minus key is swallowed, since the HTML min attribute alone
+// only constrains the spinner, not typing.
+function numericMin(c) {
+  const neg = (c?.lsl != null && Number(c.lsl) < 0) || (c?.usl != null && Number(c.usl) < 0)
+  return neg ? null : 0
+}
+function blockNegative(e, c) {
+  if (numericMin(c) === 0 && e.key === '-') e.preventDefault()
+}
 </script>
 
 <template>
@@ -724,7 +808,7 @@ const inspectionLotDetailConfig = computed(() =>
     <template v-if="lot" #meta>
       <span>{{ POINT_LABELS[lot.inspectionPoint] || lot.inspectionPoint }}</span>
       <span>
-        · sample {{ lot.sampleSize ?? '—' }}<span v-if="lot.quantity"> of {{ lot.quantity }}</span>
+        · {{ sampleSummary }}
       </span>
       <span v-if="lot.qualityState"> · {{ lot.qualityState }}</span>
     </template>
@@ -1104,9 +1188,11 @@ const inspectionLotDetailConfig = computed(() =>
                     v-if="c.testType === 'NUMERIC'"
                     v-model.number="entries[c.id].valueNumeric"
                     type="number"
+                    :min="numericMin(c)"
                     size="sm"
                     class="tw:w-32"
                     :disabled="!canEditResults"
+                    @keydown="(e) => blockNegative(e, c)"
                   />
                   <PassFailRadio
                     v-else-if="c.testType === 'PASS_FAIL'"
@@ -1181,6 +1267,16 @@ const inspectionLotDetailConfig = computed(() =>
         :singleResult="!hasPerSampleResults"
       />
 
+      <!-- Formula (√N + 1) lots: results-based advisory instead — zero
+           tolerance, any OOS result advises against release. -->
+      <FormulaAcceptancePanel
+        v-else-if="isFormulaLot && results.length"
+        :totalResults="results.length"
+        :oosRows="formulaOosRows"
+        :sampleSize="lot.sampleSize"
+        :containerCount="lot.containerCount"
+      />
+
       <!-- Related records lineage (this lot → NC it caused). Self-hides when none. -->
       <RecordLineagePanel :id="props.id" type="InspectionLot" />
     </div>
@@ -1203,6 +1299,7 @@ const inspectionLotDetailConfig = computed(() =>
 
     <InspectionLotSubmitDialog v-model="showSubmit" :lotId="props.id" />
     <InspectionLotReopenDialog v-model="showReopen" :lotId="props.id" />
+    <RetainSampleCreateDialog v-model="showRetain" :lotId="props.id" />
     <InspectionCheckInDialog v-model="showCheckIn" :lotId="props.id" :lot="lot" />
     <InspectionLineClearanceDialog
       v-model="showLineClearance"

@@ -5,6 +5,7 @@ import { IconChevronDown, IconChevronUp } from '@tabler/icons-vue'
 // server-side before the row lands; SyncEngine catches up via the sync push.
 import { post } from '@/api'
 import { required } from '@shared/components/form/validators.js'
+import WorkflowVersionSelect from '@/components/documents/WorkflowVersionSelect.vue'
 
 /**
  * Dedicated wizard for creating a Log Book (an Inspections & Logs
@@ -49,7 +50,7 @@ const title = ref('')
 // selected Department + LogBookType so the final code matches what the
 // FE preview shows. Users can flatten this to a literal string if they
 // don't want the templating.
-const codePrefix = ref('LOG-{DEPTCODE}-{TYPECODE}')
+const codePrefix = ref('{TYPECODE}-LOG-{DEPTCODE}')
 const description = ref('')
 // UI decision 2026-08-05: a log book belongs to ONE site (the pivot table
 // stays — only the UI narrowed; existing multi-site rows are untouched).
@@ -89,24 +90,32 @@ const editWindowMode = ref('TIME_WINDOW')
 const editWindowMinutes = ref(15)
 const signatureRequired = ref(false)
 const reviewRequired = ref(false)
+const overTheShoulderReview = ref(false)
 
 // Collapse state for the two optional sections.
 const showReferences = ref(false)
 const showCompliance = ref(false)
 
-// Optional starting point — a form block whose fields are DEEP-COPIED into
-// the new log book's schema at create. A true snapshot: editing or archiving
-// the block later never touches this book (same blocks-only + copy-on-pick
-// rule as the workflow Task Form picker; log book schemas never reference
-// form_templates).
+// Optional starting point — a LOG FORM (a form block categorised for log
+// books) whose fields are DEEP-COPIED into the new log book's schema at
+// create. A true snapshot: editing or archiving the log form later never
+// touches this book, and the copy is frozen when the book is published.
+// General form blocks (task forms / QC checklists) are excluded — log books
+// build only from Log Forms.
 const formBlocks = useLiveQuery(
   async (db) =>
     (await db.FormTemplate.where('statusId', 'ACTIVE').exec())
-      .filter((t) => t.kind === 'BLOCK')
+      .filter((t) => t.kind === 'BLOCK' && (t.blockCategory ?? 'GENERAL') === 'LOG_FORM')
       .sort((a, b) => a.title.localeCompare(b.title)),
   { models: ['FormTemplate'], initial: [] },
 )
 const startingBlockId = ref(null)
+
+// Approval workflow (supersede model: every book is born DRAFT and must be
+// approved before it accepts entries). WorkflowVersionSelect auto-picks the
+// module's default — the seeded "Default Log Book Approval" — so authors
+// only change this deliberately.
+const workflowVersionId = ref(null)
 
 // Catalog for the Log Book Type dropdown — globals + tenant additions.
 // SyncEngine model includes both because the RLS SELECT policy allows
@@ -131,7 +140,7 @@ const presetTrigger = ref(null)
 watch(open, (isOpen) => {
   if (!isOpen) return
   title.value = ''
-  codePrefix.value = 'LOG-{DEPTCODE}-{TYPECODE}'
+  codePrefix.value = '{TYPECODE}-LOG-{DEPTCODE}'
   description.value = ''
   selectedSiteId.value = null
   startingBlockId.value = null
@@ -155,6 +164,7 @@ watch(open, (isOpen) => {
     presetTrigger.value = props.preset.triggerSource ?? null
   }
   reviewRequired.value = false
+  overTheShoulderReview.value = false
   showReferences.value = false
   showCompliance.value = false
   isSubmitting.value = false
@@ -209,11 +219,27 @@ const resolvedCodePreview = computed(() => {
   const template = (codePrefix.value || '').trim()
   if (!template) return ''
   const deptCode = departmentById.value.get(departmentId.value)?.code
-  const typeCode = logBookTypeById.value.get(logBookTypeId.value)?.id
+  // The type's admin-set prefix wins (Lookups → Log Book Types); empty
+  // falls back to the type code — mirrors the server's resolveCodePrefix.
+  // Placeholder aliases match the server EXACTLY ({DEPTCODE}/{DEPARTMENT_CODE},
+  // {TYPECODE}/{TYPE_CODE}) — anything else previews unresolved, as the
+  // server would reject it.
+  const type = logBookTypeById.value.get(logBookTypeId.value)
+  const typeCode = type ? type.prefix || type.code : null
   return template
-    .replace(/\{DEPT_?CODE\}/gi, deptCode ? deptCode.toUpperCase() : '{DEPTCODE}')
-    .replace(/\{TYPE_?CODE\}/gi, typeCode ? typeCode.toUpperCase() : '{TYPECODE}')
+    .replace(/\{(DEPTCODE|DEPARTMENT_CODE)\}/gi, () =>
+      deptCode ? deptCode.toUpperCase() : '{DEPTCODE}',
+    )
+    .replace(/\{(TYPECODE|TYPE_CODE)\}/gi, () =>
+      typeCode ? typeCode.toUpperCase() : '{TYPECODE}',
+    )
 })
+
+// Record numbers are stamped uppercased server-side (fieldRecordService) —
+// preview what entries will actually look like.
+const entryNumberPreview = computed(() =>
+  resolvedCodePreview.value ? `${resolvedCodePreview.value.toUpperCase()}-0001` : '',
+)
 
 const isFormValid = computed(
   () =>
@@ -264,6 +290,7 @@ async function save() {
       editWindowMinutes: editWindowMode.value === 'TIME_WINDOW' ? editWindowMinutes.value : null,
       signatureRequired: signatureRequired.value,
       reviewRequired: reviewRequired.value,
+      overTheShoulderReview: reviewRequired.value && overTheShoulderReview.value,
       notifyOnSubmit: 'DIGEST',
       ...(presetTrigger.value
         ? {
@@ -277,7 +304,7 @@ async function save() {
       schema: Array.isArray(startingBlock?.schema)
         ? JSON.parse(JSON.stringify(startingBlock.schema))
         : [],
-      statusId: 'ACTIVE',
+      workflowVersionId: workflowVersionId.value || null,
     })
     const logBook = res?.logBook ?? res
     // Site links are SyncEngine-native — no service validation needed,
@@ -320,6 +347,30 @@ async function save() {
     subtitle="Define what gets logged. You'll build the form fields next."
   >
     <BaseForm ref="formRef" hideFooter @submit="save">
+      <!-- Log Book Type FIRST: picking it drives the {TYPECODE} prefix the
+           Record Id Prefix preview shows right below. -->
+      <BaseField label="Log Book Type" required :value="logBookTypeId" :rules="[required()]">
+        <template #default="field">
+          <select
+            v-bind="field"
+            v-model="logBookTypeId"
+            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+          >
+            <option :value="null" disabled>— Pick a log book type —</option>
+            <option v-for="t in logBookTypes" :key="t.id" :value="t.id">
+              {{ t.name }}{{ t.prefix ? ` (${t.prefix})` : '' }}
+            </option>
+          </select>
+          <div
+            v-if="logBookTypes.length === 0"
+            class="tw:text-caption tw:text-amber-700 tw:italic tw:mt-1"
+          >
+            No log book types yet — they're seeded per company (Lookups → Log Book Types). If this
+            persists, hard-refresh the page to re-bootstrap IndexedDB.
+          </div>
+        </template>
+      </BaseField>
+
       <!-- Title -->
       <BaseField label="Log Book Name" required :value="title" :rules="[required()]">
         <template #default="field">
@@ -333,13 +384,14 @@ async function save() {
 
       <!-- Code prefix template — supports {DEPTCODE} / {TYPECODE}
            placeholders, resolved server-side from the selected
-           Department + LogBookType. Defaults to LOG-{DEPTCODE}-{TYPECODE}. -->
+           Department + LogBookType. Defaults to {TYPECODE}-LOG-{DEPTCODE}
+           so the type's prefix leads the record ID. -->
       <BaseField label="Record Id Prefix" required :value="codePrefix" :rules="[required()]">
         <template #default="field">
           <BaseTextInput
             v-bind="field"
             v-model="codePrefix"
-            placeholder="LOG-{DEPTCODE}-{TYPECODE}"
+            placeholder="{TYPECODE}-LOG-{DEPTCODE}"
           />
           <div class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:flex-col tw:gap-0.5">
             <div>
@@ -347,14 +399,14 @@ async function save() {
               <span class="tw:text-on-main">{DEPTCODE}</span>
               and
               <span class="tw:text-on-main">{TYPECODE}</span>
-              to insert the selected Department + Log Book Type. Leave plain text for a literal
-              code.
+              to insert the Department code + the Log Book Type's prefix (set under Lookups →
+              Log Book Types). Leave plain text for a literal code.
             </div>
             <div>
               Resolved:
               <span class="tw:text-on-main">{{ resolvedCodePreview }}</span>
               · entries numbered
-              <span class="tw:text-on-main">{{ resolvedCodePreview }}-0001</span>
+              <span class="tw:text-on-main">{{ entryNumberPreview }}</span>
             </div>
           </div>
         </template>
@@ -370,49 +422,32 @@ async function save() {
         />
       </BaseField>
 
-      <!-- Starting point — copies a form block's fields into the new book. -->
+      <!-- Starting point — copies a Log Form's fields into the new book. -->
       <BaseField
         v-slot="{ id: fieldId }"
-        label="Start from a form block"
+        label="Start from a Log Form"
         optional
-        hint="Copies the block's fields in as a starting point — later changes to the block never affect this log book."
+        hint="Copies the Log Form's fields in as a starting point — later changes to the Log Form never affect this log book (its fields freeze when the book is published)."
       >
         <select
           :id="fieldId"
           v-model="startingBlockId"
           class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
         >
-          <option :value="null">Blank form — build from scratch</option>
+          <option :value="null">Blank — build the fields from scratch</option>
           <option v-for="b in formBlocks" :key="b.id" :value="b.id">
             {{ b.title }} ({{ b.schema?.length ?? 0 }} fields)
           </option>
         </select>
+        <p v-if="formBlocks.length === 0" class="tw:text-xs tw:text-secondary tw:mt-1">
+          No Log Forms yet — create reusable templates under
+          <strong>Inspections &amp; Logs → Log Forms</strong>.
+        </p>
       </BaseField>
 
-      <!-- Type + Supervisor (always visible — these are the load-bearing
-           routing fields for the digest / approval flow). -->
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <BaseField label="Type" required :value="logBookTypeId" :rules="[required()]">
-          <template #default="field">
-            <select
-              v-bind="field"
-              v-model="logBookTypeId"
-              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-            >
-              <option :value="null" disabled>— Pick a type —</option>
-              <option v-for="t in logBookTypes" :key="t.id" :value="t.id">
-                {{ t.name }}
-              </option>
-            </select>
-            <div
-              v-if="logBookTypes.length === 0"
-              class="tw:text-caption tw:text-amber-700 tw:italic tw:mt-1"
-            >
-              No categories loaded yet — the seeded global types sync on the next bootstrap. If this
-              persists, hard-refresh the page to re-bootstrap IndexedDB.
-            </div>
-          </template>
-        </BaseField>
+      <!-- Supervisor (always visible — the load-bearing routing field for
+           the digest / approval flow; Log Book Type moved to the top). -->
+      <div class="tw:grid tw:grid-cols-1 tw:gap-3">
         <BaseField
           label="Supervisor"
           required
@@ -559,6 +594,18 @@ async function save() {
             <input v-model="reviewRequired" type="checkbox" />
             <span>Require reviewer approval before locking</span>
           </label>
+          <label
+            v-if="reviewRequired"
+            class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main tw:pl-6"
+          >
+            <input v-model="overTheShoulderReview" type="checkbox" class="tw:mt-0.5" />
+            <span>
+              Allow over-the-shoulder review
+              <span class="tw:block tw:text-caption tw:text-secondary">
+                The supervisor can sign off at the operator's workstation with their PIN — no logout.
+              </span>
+            </span>
+          </label>
         </div>
 
         <!-- Derived label preview -->
@@ -570,12 +617,23 @@ async function save() {
           </div>
         </div>
       </div>
+
+      <!-- Approval workflow — the book starts as a DRAFT and routes through
+           this workflow before it can accept entries. -->
+      <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:flex tw:flex-col tw:gap-2">
+        <BaseText variant="overline">Approval</BaseText>
+        <p class="tw:text-xs tw:text-secondary">
+          The log book is created as a <strong>Draft</strong>. Build the log template, then submit
+          it through this workflow — it starts accepting entries once approved.
+        </p>
+        <WorkflowVersionSelect v-model="workflowVersionId" moduleId="LOG_BOOK" dense />
+      </div>
     </BaseForm>
 
     <!-- Footer — pinned to the bottom by BaseDialog's #footer region -->
     <template #footer="{ close }">
       <BaseDialogFooter
-        submitLabel="Create & Build Form"
+        submitLabel="Create Draft & Build Form"
         :loading="isSubmitting"
         :error="saveError"
         @cancel="close"

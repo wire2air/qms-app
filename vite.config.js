@@ -79,10 +79,14 @@ export default defineConfig(({ mode }) => {
       },
     },
 
-    // Dev server configuration
+    // Dev server configuration. VITE_DEV_PORT (e.g. in gitignored .env.local)
+    // moves the dev server off 5173 when another app holds it; strictPort so a
+    // clash fails fast instead of silently drifting to a port the backend's
+    // APP_URL (login handoff, deep links) doesn't point at.
     server: {
       open: true, // opens browser window automatically
       proxy,
+      ...(env.VITE_DEV_PORT ? { port: Number(env.VITE_DEV_PORT), strictPort: true } : {}),
     },
 
     // Preview server (`pnpm preview`) — serves the built/minified bundle. Vite's

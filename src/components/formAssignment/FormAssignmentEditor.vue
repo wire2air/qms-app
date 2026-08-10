@@ -3,6 +3,10 @@ import { IconArrowLeft, IconDeviceFloppy, IconTrash } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post, patch, del } from '@/api'
+import {
+  resolveLogBookTrainingGaps,
+  resolveAssignmentAudience,
+} from '@/composables/useLogBookTraining.js'
 
 /**
  * Create / edit a Log Book Assignment.
@@ -203,12 +207,53 @@ function buildPayload() {
   }
 }
 
+/**
+ * Soft training gate (2026-08-08): if the book links controlling documents
+ * that the assignees aren't trained on, warn the manager — they may continue
+ * (the person will be blocked from actually logging until trained, and their
+ * task/notification will say so) or cancel. Best-effort: a check failure
+ * never blocks the save.
+ * @returns {Promise<boolean>} true = proceed, false = manager cancelled.
+ */
+async function confirmTrainingGaps() {
+  try {
+    const audience = await resolveAssignmentAudience({
+      assignedUserIds: form.value.assigneeMode === 'USERS' ? form.value.assignedUserIds : null,
+      assignedRoleId: form.value.assigneeMode === 'ROLE' ? form.value.assignedRoleId : null,
+    })
+    if (!audience.length) return true
+    const { byUser } = await resolveLogBookTrainingGaps(form.value.logBookId, audience)
+    const untrainedCount = [...byUser.values()].filter((docs) => docs.length).length
+    if (!untrainedCount) return true
+
+    const docTitles = [
+      ...new Set([...byUser.values()].flat().map((d) => d.title)),
+    ].join(', ')
+    const who =
+      untrainedCount === 1
+        ? '1 assignee has not'
+        : `${untrainedCount} assignees have not`
+    return await confirm({
+      title: 'Training not complete',
+      message:
+        `${who} completed the required training on the document(s) linked to this log book ` +
+        `(${docTitles}). They can be assigned, but won't be able to record entries until the ` +
+        `training is complete and verified. Assign anyway?`,
+      okLabel: 'Assign anyway',
+      cancelLabel: 'Cancel',
+    })
+  } catch {
+    return true // never block a save on a training-check failure
+  }
+}
+
 async function save() {
   const err = validate()
   if (err) {
     toast.error(err)
     return
   }
+  if (!(await confirmTrainingGaps())) return
   isSaving.value = true
   try {
     const payload = buildPayload()

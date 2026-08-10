@@ -15,6 +15,9 @@ const toast = useToast()
 const showCreate = ref(false)
 const showEsign = ref(false)
 const showEdit = ref(false)
+// Read-only plan preview — opened by clicking a plan name.
+const showView = ref(false)
+const viewPlanId = ref(null)
 const approvingId = ref(null)
 const revisingId = ref(null)
 const deletingId = ref(null)
@@ -115,6 +118,11 @@ function startEdit(plan) {
   showEdit.value = true
 }
 
+function openView(plan) {
+  viewPlanId.value = plan.id
+  showView.value = true
+}
+
 async function deletePlan(id) {
   if (deletingId.value !== id) { deletingId.value = id; return }
   try {
@@ -181,7 +189,15 @@ async function createNewVersion(plan) {
       </template>
 
       <template #body-cell-name="{ row }">
-        <span class="tw:font-medium tw:text-on-main">{{ row.name }}</span>
+        <!-- Real button (keyboard-operable) — opens the read-only plan preview. -->
+        <button
+          type="button"
+          class="tw:font-medium tw:text-on-main tw:hover:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:p-0 tw:cursor-pointer tw:text-left"
+          :aria-label="`View sampling plan ${row.name}`"
+          @click="openView(row)"
+        >
+          {{ row.name }}
+        </button>
         <span
           v-if="row.version > 1"
           class="tw:text-micro tw:text-secondary tw:font-normal tw:ml-1"
@@ -200,6 +216,7 @@ async function createNewVersion(plan) {
           <template v-if="row.planType === 'STANDARD'"
             >{{ standardName(row.standardCode) }} · {{ levelLabel(row.inspectionLevel) }}</template
           >
+          <template v-else-if="row.planType === 'FORMULA'">√N + 1 (containers)</template>
           <template v-else>Custom table</template>
         </span>
       </template>
@@ -272,15 +289,29 @@ async function createNewVersion(plan) {
             </div>
           </div>
 
-          <!-- Custom table rows -->
+          <!-- Formula plan: sample size from the container count -->
+          <div v-if="p.planType === 'FORMULA'">
+            <BaseText variant="overline" class="tw:block tw:mb-2"> Raw-material sampling </BaseText>
+            <p class="tw:text-sm tw:text-on-main">
+              √N + 1 — for N containers received, sample ⌈√N⌉ + 1 of them.
+              <span class="tw:text-xs tw:text-secondary">
+                AQL / defect-class Ac-Re do not apply; acceptance is the specification's lab tests.
+              </span>
+            </p>
+          </div>
+
+          <!-- Custom table: one sample size for the inspection + per-class Ac/Re -->
           <div v-if="p.planType === 'CUSTOM' && p.customPlanTable?.rows?.length">
             <BaseText variant="overline" class="tw:block tw:mb-2"> Custom Plan Table </BaseText>
+            <p class="tw:text-sm tw:text-on-main tw:mb-2">
+              Sample size <span class="tw:font-semibold">{{ p.customPlanTable.sampleSize ?? '—' }}</span>
+              <span class="tw:text-xs tw:text-secondary"> — one pull for the whole inspection</span>
+            </p>
             <div class="tw:overflow-x-auto">
             <table class="tw:text-xs tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
               <thead class="tw:bg-white tw:text-secondary tw:uppercase">
                 <tr>
-                  <th class="tw:text-left tw:px-3 tw:py-1.5">Severity</th>
-                  <th class="tw:text-left tw:px-3 tw:py-1.5">Sample Size</th>
+                  <th class="tw:text-left tw:px-3 tw:py-1.5">Defect class</th>
                   <th class="tw:text-left tw:px-3 tw:py-1.5">Accept</th>
                   <th class="tw:text-left tw:px-3 tw:py-1.5">Reject</th>
                 </tr>
@@ -294,7 +325,6 @@ async function createNewVersion(plan) {
                   <td class="tw:px-3 tw:py-1.5 tw:font-medium tw:text-on-main">
                     {{ cr.severityLabel }}
                   </td>
-                  <td class="tw:px-3 tw:py-1.5">{{ cr.sampleSize }}</td>
                   <td class="tw:px-3 tw:py-1.5 tw:text-green-700">≤ {{ cr.accept }}</td>
                   <td class="tw:px-3 tw:py-1.5 tw:text-red-700">≥ {{ cr.reject }}</td>
                 </tr>
@@ -349,6 +379,7 @@ async function createNewVersion(plan) {
 
     <SamplingPlanCreateDialog v-model="showCreate" />
     <SamplingPlanCreateDialog v-model="showEdit" :editPlan="editingPlan" />
+    <SamplingPlanViewDialog v-model="showView" :planId="viewPlanId" />
     <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
   </div>
 </template>

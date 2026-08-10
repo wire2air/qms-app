@@ -11,7 +11,6 @@ function fakeDb(overrides = {}) {
   const model = (rows) => ({ findByPk: async (id) => rows[id] })
   return {
     DocumentVersion: model(overrides.DocumentVersion || {}),
-    LogBookVersion: model(overrides.LogBookVersion || {}),
     AuditStandardVersion: model(overrides.AuditStandardVersion || {}),
     TrainingAssignee: model(overrides.TrainingAssignee || {}),
     AssignmentInstance: model(overrides.AssignmentInstance || {}),
@@ -53,14 +52,13 @@ describe('resolveTaskInstanceRoute', () => {
     ).toBe('/documents/doc9')
   })
 
-  it('resolves a LogBookVersion / AuditStandardVersion / TrainingAssignee to their parents', async () => {
+  it('resolves a LogBook / AuditStandardVersion / TrainingAssignee to their targets', async () => {
     const db = fakeDb({
-      LogBookVersion: { lv1: { logBookId: 'lb1' } },
       AuditStandardVersion: { av1: { auditStandardId: 'as1' } },
       TrainingAssignee: { ta1: { trainingInstanceId: 'ti1' } },
     })
     expect(
-      await resolveTaskInstanceRoute(db, { entityType: 'LogBookVersion', entityId: 'lv1' }),
+      await resolveTaskInstanceRoute(db, { entityType: 'LogBook', entityId: 'lb1' }),
     ).toBe('/inspections-logs/log-books/lb1')
     expect(
       await resolveTaskInstanceRoute(db, { entityType: 'AuditStandardVersion', entityId: 'av1' }),

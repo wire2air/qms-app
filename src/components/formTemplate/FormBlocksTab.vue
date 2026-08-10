@@ -15,9 +15,27 @@ const props = defineProps({
   // true when hosted by the standalone /form-blocks page — PageHeader owns the
   // title there, so the embedded mini-title is hidden (description + actions stay).
   standalone: { type: Boolean, default: false },
+  // BLOCK sub-category this surface manages:
+  //   'GENERAL'  — reusable task-form / QC fragments (the Form Blocks page)
+  //   'LOG_FORM' — log-book templates (the Log Forms page); exclusive to logs
+  category: {
+    type: String,
+    default: 'GENERAL',
+    validator: (v) => ['GENERAL', 'LOG_FORM'].includes(v),
+  },
 })
 
 const toast = useToast()
+
+// Category-aware copy so one component serves both Form Blocks and Log Forms.
+const isLogForm = computed(() => props.category === 'LOG_FORM')
+const noun = computed(() => (isLogForm.value ? 'Log Form' : 'Form Block'))
+const nounPlural = computed(() => (isLogForm.value ? 'Log Forms' : 'Form Blocks'))
+const blurb = computed(() =>
+  isLogForm.value
+    ? 'Reusable log templates — the fields a log book captures. Start a log book from one; its fields are copied in and frozen when the book is published.'
+    : 'Reusable sections you can drop into workflow step forms and checklists.',
+)
 
 // Form Blocks has its own authz module; create needs read too (the create
 // mutation reads the new row back through the SELECT policy).
@@ -27,9 +45,11 @@ const canUpdate = computed(() => isAllowed(['form_blocks:update']))
 const search = ref('')
 
 const blocks = useLiveQueryWithDeps(
-  [() => search.value],
-  async (db, [q]) => {
-    let rows = (await db.FormTemplate.where().exec()).filter((t) => t.kind === 'BLOCK')
+  [() => search.value, () => props.category],
+  async (db, [q, category]) => {
+    let rows = (await db.FormTemplate.where().exec()).filter(
+      (t) => t.kind === 'BLOCK' && (t.blockCategory ?? 'GENERAL') === category,
+    )
     if (q) {
       const needle = q.toLowerCase()
       rows = rows.filter((t) => t.title?.toLowerCase().includes(needle))
@@ -54,7 +74,8 @@ function blockCode(title) {
     .replace(/^-+|-+$/g, '')
     .slice(0, 24)
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
-  return `BLK-${slug || 'BLOCK'}-${rand}`
+  const prefix = isLogForm.value ? 'LOGF' : 'BLK'
+  return `${prefix}-${slug || 'BLOCK'}-${rand}`
 }
 
 const createBlock = useLiveMutation(async (db, title) => {
@@ -65,8 +86,13 @@ const createBlock = useLiveMutation(async (db, title) => {
     // Explicit null — the model's '' default would be serialized into the
     // CREATE mutation and violate the document_types FK.
     documentTypeId: null,
+    // Explicit null — '' would violate form_templates_internal_name_company_uidx
+    // (UNIQUE on (company_id, internal_name) WHERE NOT NULL) the moment a second
+    // block exists; only promoted modules carry an internalName.
+    internalName: null,
     statusId: 'ACTIVE', // blocks skip the DRAFT ceremony — they hold no records
     kind: 'BLOCK',
+    blockCategory: props.category,
     config: {},
   })
   await block.save()
@@ -122,13 +148,13 @@ async function handleRename() {
 }
 
 // ── Table ────────────────────────────────────────────────────────────────────
-const columns = [
-  { name: 'title', label: 'BLOCK', field: 'title', align: 'left', sortable: true },
+const columns = computed(() => [
+  { name: 'title', label: noun.value.toUpperCase(), field: 'title', align: 'left', sortable: true },
   { name: 'fields', label: 'FIELDS', field: 'fields', align: 'center', sortable: false },
   { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
   { name: 'updatedAt', label: 'UPDATED', field: 'updatedAt', align: 'left', sortable: true },
   { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
+])
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'updatedAt', desc: true }])
 
@@ -173,20 +199,20 @@ function rowMenuItems(row) {
       <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
         <template v-if="!props.standalone">
           <IconLayoutGrid :size="20" class="tw:text-primary" />
-          <span class="tw:text-base tw:font-bold">Form Blocks</span>
+          <span class="tw:text-base tw:font-bold">{{ nounPlural }}</span>
         </template>
         <HelpButton slug="KB/automation/task-forms-and-form-blocks" :size="15" />
         <span class="tw:text-xs tw:text-secondary tw:font-normal" :class="props.standalone ? '' : 'tw:ml-1'">
-          Reusable sections you can drop into workflow step forms and checklists.
+          {{ blurb }}
         </span>
       </div>
       <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreateDialog = true">
         <template #icon><IconPlus :size="16" /></template>
-        Create Block
+        Create {{ noun }}
       </BaseButton>
     </div>
 
-    <BaseFilterBar v-model:search="search" searchPlaceholder="Search blocks…" />
+    <BaseFilterBar v-model:search="search" :searchPlaceholder="`Search ${nounPlural.toLowerCase()}…`" />
 
     <DataTable
       v-model:pagination="pagination"
@@ -225,17 +251,24 @@ function rowMenuItems(row) {
     </DataTable>
 
     <!-- Create -->
-    <BaseDialog v-model="showCreateDialog" title="Create Form Block" maxWidth="md">
+    <BaseDialog v-model="showCreateDialog" :title="`Create ${noun}`" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
         <p class="tw:text-xs tw:text-secondary">
-          A block is a reusable section — e.g. a containment checklist or sign-off — you can drop
-          into any workflow step's task form. You'll design its fields next.
+          <template v-if="isLogForm">
+            A log form is the set of fields a log book captures — e.g. a daily temperature check or
+            a calibration entry. Create a log book from it and its fields are copied in. You'll
+            design its fields next.
+          </template>
+          <template v-else>
+            A block is a reusable section — e.g. a containment checklist or sign-off — you can drop
+            into any workflow step's task form. You'll design its fields next.
+          </template>
         </p>
-        <BaseField v-slot="{ id: fieldId }" label="Block name" required>
+        <BaseField v-slot="{ id: fieldId }" :label="`${noun} name`" required>
           <BaseTextInput
             :id="fieldId"
             v-model="newTitle"
-            placeholder="e.g. Containment Checklist"
+            :placeholder="isLogForm ? 'e.g. Daily Temperature Check' : 'e.g. Containment Checklist'"
             autofocus
             @keyup.enter="handleCreate"
           />
@@ -253,8 +286,8 @@ function rowMenuItems(row) {
     </BaseDialog>
 
     <!-- Rename -->
-    <BaseDialog v-model="showRenameDialog" title="Rename Block" maxWidth="md">
-      <BaseField v-slot="{ id: fieldId }" label="Block name" required class="tw:p-1">
+    <BaseDialog v-model="showRenameDialog" :title="`Rename ${noun}`" maxWidth="md">
+      <BaseField v-slot="{ id: fieldId }" :label="`${noun} name`" required class="tw:p-1">
         <BaseTextInput :id="fieldId" v-model="renameTitle" autofocus @keyup.enter="handleRename" />
       </BaseField>
       <template #footer="{ close }">
@@ -271,7 +304,7 @@ function rowMenuItems(row) {
     <WorkflowStepFormBuilderPanel
       v-model="builderOpen"
       :initialSchema="designBlock?.schema ?? []"
-      builderTitle="Form Block"
+      :builderTitle="noun"
       @save="handleSchemaSave"
     />
   </div>

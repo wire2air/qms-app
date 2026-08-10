@@ -37,7 +37,10 @@ const templateSearch = ref('')
 // blocks, not from standalone form templates.
 const templates = useLiveQuery(
   async (db) =>
-    (await db.FormTemplate.where('statusId', 'ACTIVE').exec()).filter((t) => t.kind === 'BLOCK'),
+    (await db.FormTemplate.where('statusId', 'ACTIVE').exec()).filter(
+      // Exclude LOG_FORM blocks — those are exclusive to log books.
+      (t) => t.kind === 'BLOCK' && (t.blockCategory ?? 'GENERAL') !== 'LOG_FORM',
+    ),
   {
     models: ['FormTemplate'],
     initial: [],

@@ -114,6 +114,13 @@ const visibleColumns = computed(() => {
   return scalarFields.value.filter((f) => keys.includes(f.name))
 })
 
+// The table has 4 fixed columns (Entry ID / Submitted / Submitter / Status)
+// plus one per chosen field. Once that runs past ~6 total it stops fitting
+// portrait A4, so open in landscape by default; the user can flip it back.
+const printOrientation = computed(() =>
+  4 + visibleColumns.value.length > 6 ? 'landscape' : 'portrait',
+)
+
 // Submitter name resolution — one map for everyone in the range.
 const submitterIds = computed(() => [
   ...new Set(records.value.map((r) => r.submittedByUserId).filter(Boolean)),
@@ -176,6 +183,7 @@ onMounted(() => {
     :identifier="identifier"
     :auditEntities="auditEntities"
     :showAudit="false"
+    :defaultOrientation="printOrientation"
   >
     <template #title>
       <div class="lb-print-code">{{ template?.code }}</div>

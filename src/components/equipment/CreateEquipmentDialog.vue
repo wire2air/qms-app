@@ -67,13 +67,21 @@ const linkedLogBooks = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.LogBook.where('equipmentId', id).exec() : []),
   { models: ['LogBook'], initial: [] },
 )
+// OBSOLETE / INACTIVE books shouldn't satisfy the "has a book" check — a
+// retired calibration log means the equipment needs a new one.
+const LIVE_BOOK_STATUSES = ['DRAFT', 'UNDER_REVIEW', 'REJECTED', 'ACTIVE']
 const hasCalibrationBook = computed(() =>
   linkedLogBooks.value.some(
-    (lb) => lb.triggerSource === 'CALIBRATION' || lb.syncsEquipmentCalibration,
+    (lb) =>
+      LIVE_BOOK_STATUSES.includes(lb.statusId) &&
+      (lb.triggerSource === 'CALIBRATION' || lb.syncsEquipmentCalibration),
   ),
 )
 const hasPmBook = computed(() =>
-  linkedLogBooks.value.some((lb) => lb.triggerSource === 'PM' || lb.syncsEquipmentPm),
+  linkedLogBooks.value.some(
+    (lb) =>
+      LIVE_BOOK_STATUSES.includes(lb.statusId) && (lb.triggerSource === 'PM' || lb.syncsEquipmentPm),
+  ),
 )
 
 function requestLogBook(triggerSource) {
@@ -547,6 +555,7 @@ function close() {
             class="tw:text-sm tw:text-primary tw:hover:underline"
           >
             {{ lb.title }}
+            <LogBookStatusBadge :statusId="lb.statusId" class="tw:ml-1 tw:align-middle" />
             <span v-if="lb.scheduleMode === 'TRIGGER'" class="tw:text-caption tw:text-secondary">
               — triggered by {{ lb.triggerSource === 'PM' ? 'PM' : 'calibration' }} due
             </span>

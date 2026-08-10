@@ -42,7 +42,7 @@ A log book can involve **two separate approvals**, which do different things:
 | Approves | The **log book itself** — its fields (schema) and policy | An **individual entry** (a filled-in log) |
 | Set by | The **Log Book Approval** workflow (bottom of the Details tab) | The **Require reviewer approval before locking** toggle |
 | Who approves | The reviewers/approvers defined in the chosen workflow (e.g. technical review → Quality Manager) | The log book's **Supervisor** |
-| When | When you **create or revise** the log book — the new version must be approved before it becomes **effective** and can take entries | **Every entry**, before it locks |
+| When | When you **create or replace** the log book — every book must be approved before it becomes **Active** and can take entries | **Every entry**, before it locks |
 | Steps | Multi-step workflow | Single reviewer sign-off |
 
 In short: **Log Book Approval controls the template; Entry review controls the daily records.** The reviewer for entries is the **Supervisor** you set on the log book — entries land in that person's review queue.
@@ -80,7 +80,7 @@ Inspections & Logs separates **setting up** log books from **filling them in**, 
 
 | Role | Typical activities | Permissions |
 | --- | --- | --- |
-| **QA Manager / owner** (setup) | Create and edit log books, define the schema (fields), set the edit-window / signature / review policy, publish controlled **versions**, schedule assignments, and **review, amend, or void** entries. | `log_books:create`, `log_books:update`, `field_records:review`, `field_records:amend`, `field_records:void`, `field_records:read_all`, `inspections:assign` |
+| **QA Manager / owner** (setup) | Create and edit log books, define the schema (fields), set the edit-window / signature / review policy, submit books for **approval**, schedule assignments, and **review, amend, or void** entries. | `log_books:create`, `log_books:update`, `field_records:review`, `field_records:amend`, `field_records:void`, `field_records:read_all`, `inspections:assign` |
 | **Day-to-day user** (execution) | Fill in and submit logs from their task inbox, and edit their own entry **while its edit window is still open**. | `field_records:create` |
 
 A day-to-day user can only edit **their own** entry, and only **before** the edit window closes or a reviewer locks it. After that, corrections must go through a QA Manager as an **amendment** or **void** (both keep the original for the audit trail).
@@ -97,25 +97,47 @@ For a **calibration** log, you can go one step further: on the log book's **Deta
 2. Click **New Log Book** (or pick the Operational or Controlled quick-create card).
 3. In the dialog, give it a title, code, and category (for example Daily, Calibration,
    Cleaning, Safety), then confirm the classification.
-4. After it's created you land on the new log book's detail page, opened to the **Schema**
-   tab. Add the fields people will fill in.
+4. The new log book starts as a **Draft**. You land on its detail page, opened to the
+   **Log Template** tab — add the fields people will fill in.
 5. On the **Details** tab, set the supervisor, edit-window behavior, whether a signature or
    review is required, and any compliance references (related standard, regulatory citation,
    retention). You can also link the log book to controlling documents (for example "this log
    book implements SOP-001") so auditors can trace from a procedure to its evidence.
+6. When the template is ready, click **Submit for Approval**, pick a reviewer for each
+   workflow step, and describe the change. Once approved the book becomes **Active** and
+   starts accepting entries.
 
 :::tip
 Use the **Category** filter on the Log Books list to quickly find a log book by its type,
 and the **Type** filter to separate operational from controlled log books.
 :::
 
-### Controlled log book versions
+### The log book lifecycle — like a physical bound book
 
-Controlled log books keep a controlled revision history on the **Versions** tab. A version
-moves through Draft, then Under review, then Effective; the new effective version supersedes
-the prior one. Submitting a draft routes it through the **Log Book Approval** workflow (set at
-the bottom of the Details tab), so attach a workflow there before submitting. This approves the
-**log book's definition** — its fields and policy — not the entries filed against it.
+A log book works like a physical bound book: once approved, the book itself — its fields,
+entry policy, equipment link, location, and code — is **frozen**, so every entry in it keeps
+full integrity forever. The lifecycle is:
+
+| Status | What it means |
+| --- | --- |
+| Draft | Being built or revised — fully editable, takes no entries |
+| Under review | Submitted for approval — locked while reviewers decide |
+| Rejected | Sent back with a reviewer comment — edit and resubmit |
+| Active | Approved and accepting entries; template and policy are frozen |
+| Inactive | Paused — takes no entries, can be resumed |
+| Obsolete | Retired with a recorded reason; kept for the audit trail |
+
+Submitting a draft routes it through the **Log Book Approval** workflow (set at the bottom
+of the Details tab), so attach a workflow there before submitting. This approves the **log
+book's definition** — its fields and policy — not the entries filed against it.
+
+To change a frozen setting on an Active book, click **Create Replacement**. That opens a new
+Draft book — a full copy including assignments — numbered from the same lineage: `CAL-LOG-QA`
+is replaced by `CAL-LOG-QA-V2`, whose entries number `CAL-LOG-QA-V2-0001` onward. When the
+replacement is approved, the old book is automatically marked **Obsolete** ("Replaced by …")
+and any of its open scheduled fills are closed out. The two books stay linked — the banner on
+each shows "Replaces" / "Replaced by" — and the old book's entries remain readable exactly as
+they were recorded.
 
 ## How to schedule who fills a log book
 

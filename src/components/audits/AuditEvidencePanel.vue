@@ -121,7 +121,7 @@ const LINK_ROUTE_MAP = {
   Nonconformance: (id) => `/nonconformances/${id}`,
   ChangeRequest: (id) => `/change-requests/${id}`,
   TrainingInstance: (id) => `/training-instances/${id}`,
-  LogBookVersion: (id) => `/inspections-logs/log-books/${id}`,
+  LogBook: (id) => `/inspections-logs/log-books/${id}`,
   SupplierAsset: () => `/suppliers`,
 }
 

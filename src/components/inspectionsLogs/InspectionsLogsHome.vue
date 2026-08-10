@@ -53,6 +53,12 @@ watch(
   { immediate: true },
 )
 const activeLabel = computed(() => ALL_TABS.find((t) => t.value === activeTab.value)?.label ?? '')
+
+// The Logs tab is a wide, many-columned records table (a log book can add a
+// column per captured field). Give it the full content width so more columns
+// fit before the table's own horizontal scroll kicks in; the other tabs are
+// ordinary lists that read better at the standard width.
+const pageWidth = computed(() => (activeTab.value === 'logs' ? 'full' : 'standard'))
 watch(
   validTabIds,
   (ids) => {
@@ -115,7 +121,7 @@ const showMobilePortal = ref(false)
 </script>
 
 <template>
-  <BasePage width="standard">
+  <BasePage :width="pageWidth">
     <PageHeader
       subtitle="Field records for routine inspections, environmental logs, gemba rounds and shift handovers. Records are immutable after the edit window closes."
     >

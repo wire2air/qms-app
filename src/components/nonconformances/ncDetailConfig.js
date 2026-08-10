@@ -1,18 +1,12 @@
 import { IconPrinter, IconTrash, IconHistory, IconArrowsExchange } from '@tabler/icons-vue'
 
 /** Contextual banners for an NC (SP-6). Pure — caller resolves nc + gate flags. */
-export function buildNcBanners(nc, { isEditable, sourceLot, companyPath } = {}) {
+export function buildNcBanners(nc, { isEditable } = {}) {
   if (!nc) return []
   const banners = []
-  if (sourceLot) {
-    const path = `/qc-inspection/lots/${sourceLot.id}`
-    banners.push({
-      id: 'qc-origin', tone: 'info',
-      title: 'Created from QC inspection',
-      message: sourceLot.lotNumber ? `Lot ${sourceLot.lotNumber}` : undefined,
-      actions: [{ id: 'view-lot', label: 'View inspection results', to: companyPath ? companyPath(path) : path }],
-    })
-  }
+  // (No qc-origin banner: the NC created from a lot carries the full
+  // inspection-report PDF as a description attachment instead — the evidence
+  // stands alone, no cross-module link needed.)
   if (nc.isSupplierFacing) {
     banners.push({ id: 'supplier-facing', tone: 'info', title: 'Supplier-facing', message: 'This NC is shared with the supplier.' })
   }

@@ -9,10 +9,13 @@ import {
   IconCircleX,
   IconFlag,
 } from '@tabler/icons-vue'
-import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { refetchSyncRecord } from '@/utils/syncEngineRefresh.js'
+import {
+  useLogBookReviewAuth,
+  resolveAuthorizedReviewerUserIds,
+} from '@/composables/useLogBookReviewAuth.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
 import {
@@ -51,23 +54,21 @@ function closeRecord() {
   selectedRecordId.value = null
 }
 
-const userId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
-const canReview = computed(() => isAllowed(['field_records:review']))
 const toast = useToast()
 
-// Log books the current user supervises — drives the "Needs my review"
-// scope filter (and constrains which rows expose the bulk-review
-// checkbox).
-const supervisedLogBooks = useLiveQueryWithDeps(
-  [() => userId.value],
-  async (db, [uid]) => {
-    if (!uid) return []
-    return db.LogBook.where('supervisorUserId', uid).exec()
-  },
-
-  { models: ['LogBook'], initial: [] },
+// Log-entry review authorization (2026-08-09): a per-book authorized-reviewer
+// set (supervisor + additional reviewers, site-gated) replaces the old
+// blanket field_records:review gate. `reviewableBookIds` = books the current
+// user can review; `canReviewBook` adds the owner-always case.
+const { canReviewBook, reviewableBookIds, isOwner: isOwnerReviewer } = useLogBookReviewAuth()
+// The user can review something → show the "Needs my review" scope toggle.
+const canReviewAny = computed(() => isOwnerReviewer.value || reviewableBookIds.value.size > 0)
+// The currently-selected book (bulk review works within one book).
+const canReviewSelected = computed(() =>
+  selectedTemplate.value ? canReviewBook(selectedTemplate.value) : false,
 )
-const supervisedIds = computed(() => new Set(supervisedLogBooks.value.map((lb) => lb.id)))
+// "Needs my review" scope = books I can review (owner sees all under-review).
+const supervisedIds = computed(() => reviewableBookIds.value)
 
 // Scope is just 'all' (everything RLS lets the user see) or 'needs_review'
 // (the supervisor inbox). The old "My entries only"/"All in tenant" split was
@@ -143,8 +144,11 @@ const records = useLiveQueryWithDeps(
   async (db, [scopeVal, status, logBookId, start, end, supIds, flaggedOnlyVal, flagMap]) => {
     let rows = await db.FieldRecord.where().exec()
     if (scopeVal === 'needs_review') {
-      // Supervisor's inbox — UNDER_REVIEW on log books they supervise.
-      rows = rows.filter((r) => r.statusId === 'UNDER_REVIEW' && supIds.has(r.logBookId))
+      // Reviewer inbox — UNDER_REVIEW on books I can review (owner sees all).
+      rows = rows.filter(
+        (r) =>
+          r.statusId === 'UNDER_REVIEW' && (isOwnerReviewer.value || supIds.has(r.logBookId)),
+      )
     }
     if (status !== 'all') {
       rows = rows.filter((r) => r.statusId === status)
@@ -178,7 +182,19 @@ const records = useLiveQueryWithDeps(
 // action bar with Approve / Reject / Return-for-info.
 const selectedIds = ref(new Set())
 const selectableRecords = computed(() => records.value.filter((r) => r.statusId === 'UNDER_REVIEW'))
-const showBulkColumn = computed(() => canReview.value && selectableRecords.value.length > 0)
+
+// Over-the-shoulder: when the operator (no review permission) is logged in but
+// a single log book is in view that allows OTS + has a supervisor, the operator
+// can call the supervisor over to sign off with their PIN. Requires a single
+// log book selected (OTS is per book / per supervisor).
+const otsAvailable = computed(
+  () =>
+    !canReviewSelected.value &&
+    isLogBookMode.value &&
+    !!selectedTemplate.value?.overTheShoulderReview,
+)
+const showReviewControls = computed(() => canReviewSelected.value || otsAvailable.value)
+const showBulkColumn = computed(() => showReviewControls.value && selectableRecords.value.length > 0)
 
 function toggleSelected(id) {
   const next = new Set(selectedIds.value)
@@ -220,6 +236,7 @@ const bulkOutcome = ref(null) // 'APPROVED' | 'REJECTED'
 const bulkComment = ref('')
 const showBulkCommentDialog = ref(false)
 const showBulkEsignDialog = ref(false)
+const showBulkOtsDialog = ref(false)
 const isSubmittingBulk = ref(false)
 
 function buildEsignFromVerified(v) {
@@ -245,8 +262,11 @@ function startBulk(outcome) {
 function confirmBulkComment() {
   if (!bulkOutcome.value) return
   showBulkCommentDialog.value = false
-  // APPROVED + REJECTED both require an e-signature.
-  showBulkEsignDialog.value = true
+  // APPROVED + REJECTED both require an e-signature. When the operator (not a
+  // reviewer) is signing off over-the-shoulder, collect the SUPERVISOR's PIN;
+  // otherwise the session user signs with their own credential.
+  if (otsAvailable.value) showBulkOtsDialog.value = true
+  else showBulkEsignDialog.value = true
 }
 
 async function onBulkEsignVerified(verified) {
@@ -254,7 +274,12 @@ async function onBulkEsignVerified(verified) {
   await submitBulk(buildEsignFromVerified(verified))
 }
 
-async function submitBulk(esign) {
+async function onBulkOtsVerified({ reviewerUserId, token }) {
+  await submitBulk({ strategy: 'pin', token }, { overTheShoulder: true, reviewerUserId })
+  showBulkOtsDialog.value = false
+}
+
+async function submitBulk(esign, { overTheShoulder = false, reviewerUserId = null } = {}) {
   if (!bulkOutcome.value) return
   isSubmittingBulk.value = true
   const ids = [...selectedIds.value]
@@ -264,6 +289,8 @@ async function submitBulk(esign) {
       outcome: bulkOutcome.value,
       comment: bulkComment.value?.trim() || null,
       esign,
+      overTheShoulder,
+      reviewerUserId,
     })
     // REST bypass — refetch each record so live queries drop them
     // from the visible list immediately.
@@ -401,6 +428,21 @@ const selectedTemplate = computed(() => {
 })
 
 const isLogBookMode = computed(() => selectedTemplate.value != null)
+
+// Authorized reviewers (userIds) for the selected book — powers the OTS dialog.
+// Declared after selectedTemplate so its dep getters don't hit the temporal
+// dead zone when the live query initializes during setup.
+const otsReviewerUserIds = useLiveQueryWithDeps(
+  [() => selectedTemplate.value?.id, () => showBulkOtsDialog.value],
+  async (db, [, open]) => {
+    if (!open || !selectedTemplate.value) return []
+    return resolveAuthorizedReviewerUserIds(selectedTemplate.value)
+  },
+  {
+    models: ['LogBookReviewer', 'SiteOnLogBook', 'UserSite', 'User', 'RoleOnUser'],
+    initial: [],
+  },
+)
 
 const scalarFields = computed(() =>
   selectedTemplate.value ? flattenScalarFields(selectedTemplate.value.schema) : [],
@@ -568,7 +610,7 @@ function printList() {
     <!-- Filters (hidden in compact mode) -->
     <div v-if="!compact" class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
       <label
-        v-if="canReview"
+        v-if="canReviewAny"
         class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main tw:cursor-pointer"
       >
         <input v-model="needsReviewOnly" type="checkbox" />
@@ -859,10 +901,15 @@ function printList() {
          → one POST fans out to /bulk/review. -->
     <Teleport to="body">
       <div
-        v-if="canReview && selectedIds.size > 0"
+        v-if="showReviewControls && selectedIds.size > 0"
         class="tw:fixed tw:bottom-0 tw:left-0 tw:right-0 tw:bg-white tw:border-t tw:border-divider tw:shadow-lg tw:px-5 tw:py-3 tw:flex tw:items-center tw:gap-3 tw:z-overlay"
       >
-        <div class="tw:text-sm tw:text-on-main tw:font-medium">{{ selectedIds.size }} selected</div>
+        <div class="tw:text-sm tw:text-on-main tw:font-medium">
+          {{ selectedIds.size }} selected
+          <span v-if="otsAvailable" class="tw:ml-1 tw:text-xs tw:text-primary tw:font-normal">
+            · supervisor sign-off
+          </span>
+        </div>
         <button
           type="button"
           class="tw:text-xs tw:text-secondary tw:underline tw:hover:text-on-main"
@@ -942,6 +989,17 @@ function printList() {
     <WorkflowInstanceEsignAuthDialog
       v-model="showBulkEsignDialog"
       @verified="onBulkEsignVerified"
+    />
+
+    <!-- Over-the-shoulder: operator calls a reviewer over to sign off with
+         their PIN. Attribution + audit handled server-side. -->
+    <SupervisorSignoffDialog
+      v-model="showBulkOtsDialog"
+      :reviewerUserIds="otsReviewerUserIds"
+      :action="bulkOutcome === 'REJECTED' ? 'Reject' : 'Approve'"
+      :count="selectedIds.size"
+      :loading="isSubmittingBulk"
+      @verified="onBulkOtsVerified"
     />
   </div>
 </template>

@@ -119,10 +119,10 @@ export const COMPLAINT_MODULE = {
 // so its submit-time picker can use the unified WorkflowStepReviewerSelect;
 // fields unrelated to the picker stay undefined.
 /** @type {WorkflowModule} */
-export const LOG_BOOK_VERSION_MODULE = {
-  key: 'LOG_BOOK_VERSION',
+export const LOG_BOOK_APPROVAL_MODULE = {
+  key: 'LOG_BOOK_APPROVAL',
   displayName: 'log book',
-  resourceType: 'LogBookVersion',
+  resourceType: 'LogBook',
   apiPath: 'logBooks',
   workflowVersionModuleId: 'LOG_BOOK',
 }
@@ -168,7 +168,7 @@ export const MODULES = {
   NC: NC_MODULE,
   CAPA: CAPA_MODULE,
   CR: CR_MODULE,
-  LOG_BOOK_VERSION: LOG_BOOK_VERSION_MODULE,
+  LOG_BOOK_APPROVAL: LOG_BOOK_APPROVAL_MODULE,
   AUDIT: AUDIT_INSTANCE_MODULE,
   AUDIT_STANDARD_VERSION: AUDIT_STANDARD_VERSION_MODULE,
 }

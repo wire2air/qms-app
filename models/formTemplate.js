@@ -28,8 +28,15 @@ export class FormTemplate extends BaseModel {
   // FORM = standalone template (own records); BLOCK = reusable form fragment
   // embedded in workflow step forms / checklists.
   @Property({ type: String }) kind = 'FORM'
+  // BLOCK sub-category: 'GENERAL' (task-form / QC fragment) | 'LOG_FORM'
+  // (log-book template, exclusive to the log-book flow). Ignored for FORM.
+  @Property({ type: String }) blockCategory = 'GENERAL'
   // --- generic-module definition (set when promoted to a module) ---
-  @Property({ type: String }) internalName = ''
+  // NULL unless this template is a promoted module. Must NOT default to ''
+  // — form_templates_internal_name_company_uidx is UNIQUE on
+  // (company_id, internal_name) WHERE internal_name IS NOT NULL, so a second
+  // row with '' collides. NULL is excluded from the index (only modules set it).
+  @Property({ type: String }) internalName = null
   @Property({ type: Boolean }) isModule = false
   @Property({ type: String }) icon = ''
   @Property({ type: Object }) moduleConfig = null

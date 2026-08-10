@@ -86,7 +86,7 @@ defineExpose({ taskInstance })
         :canActOnStep="canActOnStep"
       />
     </template>
-    <template v-else-if="entityType === 'LogBookVersion'">
+    <template v-else-if="entityType === 'LogBook'">
       <WorkflowInstanceApproverAction
         action="APPROVE"
         :taskInstanceId="taskInstance.id"

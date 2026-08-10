@@ -365,6 +365,16 @@ const navItems = computed(() => {
           to: getCompanyPath('/inspections-logs?tab=log-books'),
         },
         {
+          // Log Forms = form BLOCKs categorised for log books (blockCategory
+          // LOG_FORM). A log book is built from one. Same authz as Form Blocks
+          // (tenant-public reads, write-gated nav) — it IS a form-block surface.
+          label: 'Log Forms',
+          permissions: ['form_blocks:read'],
+          writeGate: 'form_blocks',
+          icon: IconForms,
+          to: getCompanyPath('/inspections-logs/log-forms'),
+        },
+        {
           label: 'Assignments',
           permissions: ['inspections:read'],
           icon: IconChecklist,

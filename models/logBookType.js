@@ -2,10 +2,10 @@ import { BaseModel, ClientModel, Property } from '@syncEngine/index'
 import { DateTime } from 'luxon'
 
 /**
- * LogBookType — catalog of log book categories. Globals (companyId = '')
- * ship as seeded rows (Daily / Calibration / PM / Cleaning / Equipment
- * / Production / Environmental / Safety / Quality); tenants can add
- * their own scoped to companyId.
+ * LogBookType — catalog of log book categories. A standard per-tenant
+ * lookup (UUID id + human `code`): every company gets the 9 defaults
+ * seeded at onboarding (Daily / Calibration / PM / …) and owns its rows —
+ * names and record-id prefixes are editable under Lookups → Log Book Types.
  */
 @ClientModel('logBookTypes', {
   primaryKey: 'id',
@@ -15,10 +15,15 @@ import { DateTime } from 'luxon'
 export class LogBookType extends BaseModel {
   static paranoid = true
 
-  @Property({ type: String, required: true }) id = ''
-  @Property({ type: String }) companyId = '' // empty = global seed row
+  @Property({ type: String, uuid: true, required: true }) id = ''
+  @Property({ type: String, required: true }) companyId = ''
+  // Stable human key, unique per company (DAILY, CALIBRATION, PM, …).
+  @Property({ type: String, required: true }) code = ''
   @Property({ type: String, required: true }) name = ''
   @Property({ type: String }) description = ''
+  // Record-id prefix {TYPECODE} resolves to when a log book's code is
+  // minted (empty → falls back to the code).
+  @Property({ type: String }) prefix = ''
   @Property({ type: Number }) sequence = 100
 
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
