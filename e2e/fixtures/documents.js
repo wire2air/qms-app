@@ -79,7 +79,24 @@ export async function createSopDocument(page, title) {
   await selectOption(page, 'Document Template', FIXTURES.sopTemplateName)
   await page.getByPlaceholder('e.g. Clean Room Sterilization Protocol').fill(title)
 
-  await selectFirstOption(page, 'Site')
+  // Applicability. This was a single "Site" combobox until the applicability
+  // rework (5fa9164 "Applies to (site / sites / company-wide)" + 756fdd1 "single
+  // Sites multi-select") relabelled it "Sites" and turned it into a checkbox +
+  // multi-select. comboboxAfterLabel matches labels with `exact: true`, so the
+  // stale "Site" stopped matching anything and every Documents journey died
+  // right here on a 25s locator timeout — 13 specs, one root cause.
+  //
+  // Tick "All sites (company-wide)" rather than driving the multi-select: it
+  // satisfies the field's required rule with one deterministic click, and a
+  // multi-select panel does not auto-close, so picking an option leaves it open
+  // over the Department field below. No Documents spec asserts on the resulting
+  // site, so company-wide is a safe choice here.
+  // BaseCheckbox renders the real <input> as `sr-only` behind a styled <span>,
+  // so a normal check() is intercepted by that span. force:true targets the
+  // input directly; the assertion below is what proves the click actually took.
+  const allSites = page.getByLabel('All sites (company-wide)')
+  await allSites.check({ force: true })
+  await expect(allSites).toBeChecked()
   await selectFirstOption(page, 'Department')
 
   // The workflow picker is a clickable-row list, not a combobox.

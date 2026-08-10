@@ -19,6 +19,13 @@ import { execFileSync } from 'node:child_process'
 import { createHmac } from 'node:crypto'
 import { expect, request } from '@playwright/test'
 import { sql, sqlValue } from './db.js'
+// Single source of truth for the `resend:<scope>:<email>` cooldown key — see
+// clearResetCooldown at the bottom of this file for why it is not duplicated here.
+import { clearResendCooldown } from './authPages.js'
+
+// Re-exported so a spec already importing from this module can reach the scoped
+// form (`clearResendCooldown('mfaotp', email)`) without a second import.
+export { clearResendCooldown }
 
 /**
  * Direct API origin. Pre-auth probes bypass Vite so the status codes are the
@@ -133,9 +140,19 @@ export function clearLockout(email) {
   // The AUTH-S1 fix scopes keys to (email, source) — `login_fail:<email>|<ip>` —
   // and adds `login_sources:<email>`, so deleting the two legacy email-only keys is
   // no longer enough. Match by prefix instead.
-  deleteRedisPattern(`login_fail:${email}*`)
-  deleteRedisPattern(`login_lock:${email}*`)
-  deleteRedisPattern(`login_sources:${email}*`)
+  //
+  // `.toLowerCase()` is not cosmetic: loginLockout.js builds every key through
+  // `String(email).toLowerCase()` (emailKey/scopedKey), so a mixed-case address here
+  // would produce a glob that matches nothing and a clear that silently clears
+  // nothing — the same failure shape as the pwreset_sent bug below. Inert while every
+  // persona is lowercase, which is exactly why it would go unnoticed. authGuards.js
+  // already normalises; these did not.
+  const key = String(email).toLowerCase()
+  deleteRedisPattern(`login_fail:${key}*`)
+  deleteRedisPattern(`login_lock:${key}*`)
+  deleteRedisPattern(`login_sources:${key}*`)
+  // NOTE the SQL below is deliberately NOT lowercased — it compares against the
+  // stored column, not against a Redis key.
   sql(`UPDATE users SET locked_until = NULL, failed_login_count = 0 WHERE email = '${email}'`)
 }
 
@@ -165,15 +182,23 @@ function deleteRedisPattern(pattern) {
  * Prefix match, because the enforced key is `login_lock:<email>|<source>`.
  */
 export function isLockedInRedis(email) {
+  // Lowercased for the reason clearLockout documents — loginLockout.js keys on the
+  // lowercased address, so an un-normalised probe reads "not locked" for a lock that
+  // very much exists, i.e. it fails OPEN. That is the worse direction for a probe
+  // whose whole job is to assert a lockout happened.
   const n = redis(
-    `EVAL "return #redis.call('keys',ARGV[1])" 0 "login_lock:${email}*"`,
+    `EVAL "return #redis.call('keys',ARGV[1])" 0 "login_lock:${String(email).toLowerCase()}*"`,
   ).trim()
   return Number(n) > 0
 }
 
 /** True when Redis holds a lock for this email from one SPECIFIC source. */
 export function isLockedForSource(email, source) {
-  return Number(redis(`EXISTS "login_lock:${email}|${source}"`).trim()) > 0
+  return (
+    Number(
+      redis(`EXISTS "login_lock:${String(email).toLowerCase()}|${source}"`).trim(),
+    ) > 0
+  )
 }
 
 /** The DB mirror of lock state. */
@@ -397,13 +422,28 @@ export function expectNoThrottle(statuses) {
 }
 
 /**
- * Drop the password-reset resend cooldown for an address (C3,
- * `pwreset_sent:<email>` in resetPassword.js).
+ * Drop the password-reset resend cooldown for an address (C3).
  *
- * Any test that wants to observe a FIRST send must clear this, or it may be
- * measuring a suppressed resend left over from an earlier test and conclude the
+ * Any test that wants to observe a FIRST send must clear this, or it is measuring
+ * a suppressed resend left over from an earlier test and will conclude the mail
  * pipeline is broken.
+ *
+ * ⚠️ THE KEY THIS USED TO DELETE — `pwreset_sent:<email>` — HAS NEVER EXISTED.
+ * Do not "restore" it. The guard is `utils/resendCooldown.js:43`, which claims
+ * `resend:<scope>:<email>` with `SET NX EX`; there is no earlier name in the API's
+ * history, so the old body was deleting a key nothing ever wrote. It cleared
+ * nothing, and the next `/v1/auth/password/forgot` inside the 60 s window was
+ * suppressed — with a byte-identical 200, because `requestPasswordReset` returns
+ * the same GENERIC_MESSAGE *before* it mints a token or enqueues mail. The only
+ * observable symptom is an email that never arrives, which surfaces ~45 s later as
+ * a Mailhog polling timeout that reads like "the worker is down".
+ *
+ * Delegates to `clearResendCooldown` rather than carrying a second copy of the key
+ * shape. That helper is already scope-parameterised — the same guard fronts
+ * `/workspaces/forgot` and `/mfa/email/send`, which need `resend:mfaotp:` etc. —
+ * and already applies the server's own `trim().toLowerCase()` normalisation. Two
+ * independent spellings of one Redis key is precisely how these drifted apart.
  */
 export function clearResetCooldown(email) {
-  deleteRedisPattern(`pwreset_sent:${String(email).toLowerCase()}`)
+  clearResendCooldown('pwreset', email)
 }

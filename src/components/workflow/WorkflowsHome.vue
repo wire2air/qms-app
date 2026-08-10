@@ -94,8 +94,8 @@ function handleWorkflowCreated(workflow) {
   <!-- Guided create wizard — kept OUTSIDE BaseListLayout so it stays mounted in
        the empty/loading state too (BaseListLayout renders its default slot only
        when 'ready'). Otherwise you can't create your first workflow. Replaces
-       the old bare name/module WorkflowCreateDialog with a step-by-step flow
-       (structure → approvals → effectiveness check → review). -->
+       the old bare name/module create dialog (deleted — F-21) with a
+       step-by-step flow (structure → approvals → effectiveness check → review). -->
   <WorkflowGuidedCreateDialog v-model="showCreateDialog" @created="handleWorkflowCreated" />
 
   <!-- AI generator — sidecar isolation: mounted only when AI is enabled; all

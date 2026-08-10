@@ -207,7 +207,17 @@ const canCreateDraft = computed(() => {
 const isArchived = computed(() => workflow.value?.statusId === 'ARCHIVED')
 const isOnlyVersion = computed(() => (versions.value?.length ?? 0) <= 1)
 const canArchiveWorkflow = computed(() => isAllowed(['workflows_templates:update']))
-const canDeleteWorkflow = computed(() => isAllowed(['workflows_templates:delete']))
+// F-20 — gate on `:update`, NOT `:delete`, because `:update` is what the delete
+// actually needs. `Workflow` is a paranoid client model, so `workflow.delete()`
+// is a GraphQL **UPDATE** that stamps `deleted_at`; at the DB it lands on the
+// `workflows_upd` RLS policy, which checks
+// `has_permission('workflows_templates','update')`. The `workflows_del` policy
+// (correctly gated on `:delete`) is dormant — no app path issues a real SQL
+// DELETE against `workflows`. Gating the button on `:delete` therefore showed a
+// functionally inert button to a `:delete`-only role and hid a working one from
+// a `:update`-only role. The only consumer of `:delete` is the UI-orphaned REST
+// route DELETE /v1/services/workflows/:id.
+const canDeleteWorkflow = computed(() => isAllowed(['workflows_templates:update']))
 const workflowStatusBusy = ref(false)
 
 async function setWorkflowStatus(statusId) {

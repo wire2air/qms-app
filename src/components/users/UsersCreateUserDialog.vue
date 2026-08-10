@@ -17,8 +17,11 @@ const saveError = ref('')
 // Create user mutation
 const createUser = useLiveMutation(async (db, data) => {
   const { roleIds, inviteSent, ...userData } = data
-  // userStatusId is finalised below — start as INACTIVE; the invite endpoint flips
-  // it to INVITED on the backend when we trigger the email.
+  // The user stays INACTIVE until they accept. The invite endpoint sends the
+  // email and sets inviteSent; it is ACCEPTANCE that flips the row to ACTIVE
+  // (backend/api/controllers/auth/invitation.js). There is no INVITED status —
+  // `user_statuses` holds ACTIVE and INACTIVE and the column is FK-constrained
+  // to them; "invited, not yet accepted" is INACTIVE + inviteSent.
   const u = db.User.create({ ...userData, userStatusId: 'INACTIVE', inviteSent: false })
   await u.save()
   for (const roleId of roleIds) {

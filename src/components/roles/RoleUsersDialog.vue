@@ -1,10 +1,6 @@
 <script setup>
 import { IconSearch, IconUserOff } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
-// Roster read is a plain list (action RPC). The assignment WRITE goes through
-// the syncEngine RoleOnUser model — the same path the user page uses — so there
-// is one source of truth for the user↔role relationship (see CLAUDE.md rule #4).
-import { get } from '@/api'
 
 const props = defineProps({
   roleId: {
@@ -29,11 +25,35 @@ const open = defineModel({
 })
 
 const toast = useToast()
-const allUsers = ref([])
 const selectedUserIds = ref([])
-const loading = ref(false)
 const saving = ref(false)
 const searchTerm = ref('')
+
+// The assignable roster, read through the syncEngine like every other entity
+// list (CLAUDE.md rule #4). This used to be `get('/v1/services/users')`, which
+// was the last consumer of that endpoint's ungated read — the route is now
+// behind `user_management:read`, and a roles administrator does not necessarily
+// hold it.
+//
+// Reading db.User instead is both the convention and the safer behaviour: the
+// syncEngine's copy is populated over GraphQL, where `users_sel` decides
+// visibility per caller (yourself, org-wide users, and anyone sharing one of
+// your sites — plus the whole company with a tenant-scoped
+// `user_management:read`). So an administrator sees exactly the people they are
+// allowed to see rather than a 403 and an empty dialog.
+//
+// Supplier accounts are excluded for the same reason UsersHome excludes them:
+// they are managed from Suppliers → Users, and they are not role subjects here.
+// No `initial` — the undefined phase is what distinguishes "still loading" from
+// "you can see nobody", and this dialog shows a different thing for each.
+const allUsers = useLiveQuery(
+  async (db) => {
+    const rows = await db.User.where().exec()
+    return rows.filter((u) => u.kind !== 'EXTERNAL_SUPPLIER')
+  },
+  { models: ['User'] },
+)
+const loading = computed(() => allUsers.value === undefined)
 
 // Authoritative current assignments for this role (live). Used to compute the
 // add/remove diff on save and to delete the right RoleOnUser rows.
@@ -50,27 +70,20 @@ const addRoleOnUser = useLiveMutation(async (db, { userId, roleId }) => {
 })
 
 const filteredUsers = computed(() => {
+  const rows = allUsers.value ?? []
   if (!searchTerm.value.trim()) {
-    return allUsers.value
+    return rows
   }
 
   const search = searchTerm.value.toLowerCase()
-  return allUsers.value.filter((user) => {
+  return rows.filter((user) => {
     const fullName = `${user.firstName} ${user.lastName}`.toLowerCase()
-    const email = user.email.toLowerCase()
+    const email = user.email?.toLowerCase() ?? ''
     return fullName.includes(search) || email.includes(search)
   })
 })
 
 const canUpdateRole = computed(() => isAllowed(['role_permission_management:update']))
-
-// Fetch all company users
-async function fetchAllUsers() {
-  const data = await get('/v1/services/users', {
-    loader: loading,
-  })
-  allUsers.value = data.users || []
-}
 
 // Check if user is selected
 function isUserSelected(userId) {
@@ -119,9 +132,9 @@ watch(
   open,
   (val) => {
     if (val) {
-      // Set currently assigned users as selected
+      // Set currently assigned users as selected. The roster itself is a live
+      // query — there is nothing to fetch on open.
       selectedUserIds.value = props.assignedUsers.map((u) => u.id)
-      fetchAllUsers()
     } else {
       // Reset when closed
       searchTerm.value = ''

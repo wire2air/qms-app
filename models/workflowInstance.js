@@ -8,6 +8,12 @@ import { DateTime } from 'luxon'
   customIndex: '[workflowVersionId+statusId], workflowVersionId, [resourceType+resourceId]',
 })
 export class WorkflowInstance extends BaseModel {
+  // F-24 — `deletedAt` is declared below and `workflow_instances.deleted_at`
+  // exists, but without this flag `BaseModel.paranoid` stays false: `.delete()`
+  // would emit a hard DELETE mutation instead of stamping `deletedAt`, and
+  // queries would keep returning soft-deleted rows.
+  static paranoid = true
+
   constructor(...args) {
     super(...args)
     // Auto-assign companyId from current session on creation

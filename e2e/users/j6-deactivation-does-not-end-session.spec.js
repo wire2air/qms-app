@@ -1,7 +1,5 @@
-// USER-J6 — ❓→🔴 Does deactivating a user end their session? NO. The question
-// this file was written to resolve now has an answer, and the answer is a
-// finding: a session opened before the deactivation keeps working, for READS
-// AND FOR WRITES.
+// USER-J6 — ❓→🔴→✅ Does deactivating a user end their session? It does NOW.
+// FIXED 2026-08-07.
 //
 // Deactivation is the control an admin reaches for when someone leaves, when an
 // account is suspected compromised, or when a contractor's engagement ends. Its
@@ -9,30 +7,45 @@
 // login, then "revoked" means "revoked eventually", and the gap is unbounded —
 // the absolute session lifetime in org_security_settings, at worst.
 //
-// The suspicion came from the sites suite: PW-J7 established that moving a user
-// between sites does NOT change what their live session can reach, because the
-// backend snapshots identity into the session at login. Status is snapshotted
-// the same way, so deactivation has the same lag — CONFIRMED here.
-//
-// WHAT IS AND IS NOT ENFORCED (both controls below pass, so the boundary is
-// exact):
-//   ✅ LOGIN is blocked immediately — an INACTIVE user cannot authenticate.
-//   ✅ The status change is itself audited (userStatusId is in trackFields).
-//   🔴 An ALREADY-OPEN session keeps reading.
-//   🔴 An ALREADY-OPEN session keeps WRITING.
-//
-// So deactivation is a front-door lock with no effect on whoever is already
-// inside. The exposure lasts until the session expires on its own —
-// org_security_settings.session_idle_minutes / session_absolute_hours — which
-// is hours, not the "now" an admin believes they got. There is no force-logout
-// on the deactivation path, although the Security Center does expose one as a
-// SEPARATE action (POST /v1/admin/security/users/:id/force-logout); nothing
-// calls it when a user is deactivated.
+// WHAT WAS WRONG. The suspicion came from the sites suite: PW-J7 established
+// that moving a user between sites does NOT change what their live session can
+// reach, because the backend snapshots identity into the session at login.
+// Status is snapshotted the same way, and this file confirmed the consequence —
+// a session opened BEFORE the deactivation kept both reading and writing, for
+// hours, while the database said the account was disabled. The Security Center
+// exposed a force-logout (POST /v1/admin/security/users/:id/force-logout) the
+// whole time; nothing called it when a user was deactivated.
 //
 // ⚖️ Why this matters more here than the equivalent question would elsewhere: a
 // deactivated user who can still act is a user who can still author, review and
 // e-sign quality records. Every one of those records carries their name, and
 // none of them should exist.
+//
+// THE FIX HAS TWO HALVES, and this file is written to hold if either one alone
+// regresses:
+//
+//   1. SYNCHRONOUS — `enforceUserStatus` (backend/api/utils/permissions.js),
+//      the per-user twin of the existing tenant-status gate, mounted on both
+//      requireCompanyAccess and the GraphQL chain. One indexed lookup per
+//      request; the very next request after the column changes gets a 401,
+//      whatever the session still believes. This is what the tests below see.
+//   2. DURABLE — `userDeactivationSideEffect` (worker), which destroys the
+//      user's Redis session keys and revokes their `user_sessions` rows so the
+//      session does not linger in the Security Center's list. It hangs off the
+//      audit trigger, so it fires whichever path made the change — the User
+//      screen writes status over GraphQL and never touches a controller.
+//
+// NOTE ON THE ASSERTIONS. A refusal here is an HTTP 401 with a plain JSON body,
+// NOT a GraphQL `errors` array — the request is stopped before grafserv sees it.
+// Both probes below therefore check status-or-errors. An assertion that looked
+// only at `errors` would read a 401 as success and go green on a broken gate;
+// that is exactly how the write probe first failed after the fix landed.
+//
+// WHAT IS AND IS NOT ENFORCED — all four now hold:
+//   ✅ LOGIN is blocked immediately — an INACTIVE user cannot authenticate.
+//   ✅ The status change is itself audited (userStatusId is in trackFields).
+//   ✅ An already-open session cannot read.
+//   ✅ An already-open session cannot write.
 //
 // THE SUBJECT is a throwaway owned by this file, never a cast member. An
 // earlier version of the users suite corrupted shared fixtures when it ran
@@ -109,7 +122,7 @@ test.describe('USER-J6 · deactivation and the live session', () => {
     await api.close()
   })
 
-  test('🔴 a session opened BEFORE the deactivation is cut off (FAILS TODAY)', async ({ browser }) => {
+  test('✅ a session opened BEFORE the deactivation is cut off', async ({ browser }) => {
     // THE QUESTION. Log in first, deactivate second, then act on the original
     // context WITHOUT reloading — exactly the shape of the real incident, where
     // the person whose access you just revoked still has the tab open.
@@ -129,7 +142,7 @@ test.describe('USER-J6 · deactivation and the live session', () => {
     ).not.toBeNull()
   })
 
-  test('🔴 a session opened BEFORE the deactivation cannot still WRITE (FAILS TODAY)', async ({ browser }) => {
+  test('✅ a session opened BEFORE the deactivation cannot still WRITE', async ({ browser }) => {
     // Reads are the milder half. This asks the question that actually decides
     // whether a revoked user can still put their name on a quality record:
     // does the open session retain write access? The subject edits their own
@@ -138,14 +151,19 @@ test.describe('USER-J6 · deactivation and the live session', () => {
     const ctx = await freshContext(browser, SUBJECT)
     sql(`UPDATE users SET user_status_id = 'INACTIVE' WHERE id = '${SUBJECT_ID}'`)
 
-    const { errors } = await graphql(
+    const res = await graphql(
       ctx,
       `mutation P($input: UpdateUserInput!) { updateUser(input: $input) { user { id } } }`,
       { input: { id: SUBJECT_ID, patch: { jobTitle: 'Written while deactivated' } } },
     )
     await ctx.close()
 
-    expect(errors, 'a deactivated user must not be able to write').not.toBeNull()
+    // Status-or-errors, for the reason in the header: the gate refuses with a
+    // 401 before grafserv runs, so there is no `errors` array to inspect.
+    expect(
+      res.errors ?? (res.status >= 400 ? [res.status] : null),
+      'a deactivated user must not be able to write',
+    ).not.toBeNull()
     expect(
       sqlValue(`SELECT COALESCE(job_title,'') FROM users WHERE id = '${SUBJECT_ID}'`),
       'and nothing landed',
