@@ -26,13 +26,16 @@ const assignedTo = ref(null)
 // Optional manual sample-size override (blank = use the computed value).
 const sampleSizeOverride = ref(null)
 
-// Sampling: pick an existing (approved) plan, or set an ad-hoc AQL directly.
+// Sampling: pick an existing (approved) plan, set an ad-hoc AQL, or declare a
+// fixed custom table — the same rows editor the sampling-plan dialog uses.
 const SAMPLING_MODES = [
   { label: 'Existing plan', value: 'plan' },
   { label: 'Custom AQL', value: 'custom' },
+  { label: 'Custom table', value: 'table' },
 ]
 const samplingMode = ref('plan')
 const aqlConfig = ref(defaultAqlConfig())
+const customRows = ref(defaultCustomRows())
 function defaultAqlConfig() {
   return {
     standardCode: null,
@@ -45,6 +48,9 @@ function defaultAqlConfig() {
     ],
   }
 }
+function defaultCustomRows() {
+  return [{ severityLabel: 'MAJOR', sampleSize: 8, accept: 0, reject: 1 }]
+}
 
 // Prefill from the lot each time the dialog opens.
 watch(show, (open) => {
@@ -54,10 +60,10 @@ watch(show, (open) => {
   samplingPlanId.value = lot.value?.samplingPlanId ?? null
   assignedTo.value = lot.value?.assignedTo ?? lot.value?.createdBy ?? null
   sampleSizeOverride.value = null
-  // Seed the custom-AQL form from the lot's current sampling snapshot so
-  // "switching the level" is a one-field change.
+  // Seed the custom-AQL / custom-table forms from the lot's current sampling
+  // snapshot so "switching the level" or tweaking a row is a one-field change.
   const snap = lot.value?.samplingSnapshot
-  samplingMode.value = snap?.adHoc ? 'custom' : 'plan'
+  samplingMode.value = snap?.adHoc ? (snap.planType === 'CUSTOM' ? 'table' : 'custom') : 'plan'
   aqlConfig.value =
     snap && snap.standardCode
       ? {
@@ -67,17 +73,45 @@ watch(show, (open) => {
           severityAqls: Array.isArray(snap.severityAqls) ? snap.severityAqls.map((r) => ({ ...r })) : defaultAqlConfig().severityAqls,
         }
       : defaultAqlConfig()
+  customRows.value = Array.isArray(snap?.customPlanTable?.rows)
+    ? snap.customPlanTable.rows.map((r) => ({ ...r }))
+    : defaultCustomRows()
 })
 
 const customAqlValid = computed(
   () => !!aqlConfig.value.standardCode && !!aqlConfig.value.inspectionLevel,
 )
+const customRowsValid = computed(
+  () =>
+    customRows.value.length > 0 &&
+    customRows.value.every(
+      (r) =>
+        r.severityLabel &&
+        Number.isInteger(r.sampleSize) &&
+        r.sampleSize >= 1 &&
+        Number.isInteger(r.accept) &&
+        r.accept >= 0 &&
+        Number.isInteger(r.reject) &&
+        r.reject > r.accept,
+    ),
+)
 const canSubmit = computed(
   () =>
     reason.value.trim().length > 0 &&
     !saving.value &&
-    (samplingMode.value !== 'custom' || customAqlValid.value),
+    (samplingMode.value !== 'custom' || customAqlValid.value) &&
+    (samplingMode.value !== 'table' || customRowsValid.value),
 )
+
+// Ad-hoc override payload: STANDARD-shaped AQL config, or a CUSTOM table —
+// same shapes resolveAdHocSampling accepts server-side.
+function buildOverride() {
+  if (samplingMode.value === 'custom') return { planType: 'STANDARD', ...aqlConfig.value }
+  if (samplingMode.value === 'table') {
+    return { planType: 'CUSTOM', customPlanTable: { rows: customRows.value } }
+  }
+  return null
+}
 
 async function onSubmit() {
   if (!canSubmit.value) return
@@ -86,9 +120,9 @@ async function onSubmit() {
     await post(`/v1/services/qcInspection/lots/${props.lotId}/reopen`, {
       reason: reason.value.trim(),
       specificationId: specificationId.value || null,
-      // Custom AQL wins server-side; send the plan id only in plan mode.
+      // An ad-hoc override wins server-side; send the plan id only in plan mode.
       samplingPlanId: samplingMode.value === 'plan' ? samplingPlanId.value || null : null,
-      samplingOverride: samplingMode.value === 'custom' ? aqlConfig.value : null,
+      samplingOverride: buildOverride(),
       sampleSizeOverride: sampleSizeOverride.value || null,
       assignedTo: assignedTo.value || null,
     })
@@ -133,7 +167,10 @@ async function onSubmit() {
         />
       </BaseField>
 
-      <BaseField label="Sampling" hint="Use an existing approved plan, or set an ad-hoc AQL for this re-inspection.">
+      <BaseField
+        label="Sampling"
+        hint="Use an existing approved plan, set an ad-hoc AQL, or declare a fixed custom table for this re-inspection."
+      >
         <SegmentedControl v-model="samplingMode" :options="SAMPLING_MODES" class="tw:mb-2" />
         <SamplingPlanSelectMenu
           v-if="samplingMode === 'plan'"
@@ -141,14 +178,18 @@ async function onSubmit() {
           :productId="lot?.productId || null"
           :inspectionPoint="lot?.inspectionPoint || null"
         />
-        <div
-          v-else
-          class="tw:rounded-lg tw:border tw:border-divider tw:p-3"
-        >
+        <div v-else-if="samplingMode === 'custom'" class="tw:rounded-lg tw:border tw:border-divider tw:p-3">
           <AqlConfigFields v-model="aqlConfig" />
           <p class="tw:mt-2 tw:text-xs tw:text-secondary">
             This AQL is applied to this lot only (not saved as a reusable plan). Sample size is
             recomputed on reopen.
+          </p>
+        </div>
+        <div v-else class="tw:rounded-lg tw:border tw:border-divider tw:p-3">
+          <!-- Same rows editor as the sampling-plan dialog's Custom table. -->
+          <CustomPlanTableFields v-model="customRows" />
+          <p class="tw:mt-2 tw:text-xs tw:text-secondary">
+            These fixed numbers are applied to this lot only (not saved as a reusable plan).
           </p>
         </div>
       </BaseField>
