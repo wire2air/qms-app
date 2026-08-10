@@ -14,6 +14,17 @@ const props = defineProps({
 })
 
 const canUpdateUser = computed(() => isAllowed(['user_management:update']))
+// Assigning or removing a role writes roles_on_users, whose RLS requires
+// `role_permission_management:update` — NOT `user_management:update`. Editing
+// someone's name and granting them authority are different acts with different
+// bars, so the role picker needs its own gate; `canUpdateUser` stays correct for
+// every other field on this page.
+//
+// This was the escalation the Roles review found: gating role assignment on a
+// user-administration verb is what let "can edit users" become "can grant
+// myself anything". The policy was raised; this gate was not. See F-18 in
+// docs/modules/roles.
+const canAssignRoles = computed(() => isAllowed(['role_permission_management:update']))
 
 const user = useLiveQueryWithDeps(
   [() => props.id],
@@ -525,7 +536,7 @@ const userDetailConfig = computed(() =>
       <!-- Role Assignments -->
       <BaseRailCard title="Role Assignments">
         <div class="tw:flex tw:flex-col tw:gap-3">
-          <div v-if="canUpdateUser" class="tw:flex tw:justify-end">
+          <div v-if="canAssignRoles" class="tw:flex tw:justify-end">
             <RoleSelectMenu
               :modelValue="assignedRoleIds"
               :required="false"

@@ -30,6 +30,8 @@
     "test:e2e:auth:headed": "playwright test --project=authentication --headed",
     "test:e2e:users": "playwright test --project=users",
     "test:e2e:users:headed": "playwright test --project=users --headed",
+    "test:e2e:roles": "playwright test --project=roles",
+    "test:e2e:roles:headed": "playwright test --project=roles --headed",
     "test:e2e:qc": "playwright test --project=qcInspection",
     "test:e2e:qc:headed": "playwright test --project=qcInspection --headed",
     "test:e2e:ui": "playwright test --ui",

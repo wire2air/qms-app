@@ -33,7 +33,7 @@
 //     session (authFlow.js:195-206).
 //   * All ids live in reserved `e2e19000-` / `e2e39000-` ranges so they cannot
 //     collide with e2e-seed.sql's allocations.
-import { COMPANY_ID, ALT_COMPANY_ID } from './cast.js'
+import { COMPANY_ID, ALT_COMPANY_ID, SITES } from './cast.js'
 import { sql, sqlValue } from './db.js'
 import { API_ORIGIN, PASSWORD, anonContext } from './authentication.js'
 
@@ -113,14 +113,28 @@ export function actionUrl(userId, action) {
  */
 export function seedSecurityCenterCast() {
   sql(`
-    INSERT INTO users (id, first_name, last_name, email, user_status_id, company_id, kind,
+    -- site_id is NOT optional here, even though nothing in the security-centre
+    -- journeys reads it.
+    --
+    -- \`users_sel\` admits any row with \`site_id IS NULL\` to EVERY caller in the
+    -- tenant — that is the org-wide tier, added with the site-visibility baseline
+    -- (migration 20260805130000). A persona seeded without a site is therefore
+    -- not invisible to other suites, it is visible to all of them. This cast has
+    -- no teardown, so the three COMPANY_ID personas below leaked into every
+    -- roster in the tenant and broke USER-J4 and USER-J5, whose assertions are
+    -- exact sets. Two suites, two owners, and each one green when run alone.
+    --
+    -- Primary Site is deliberate: no roster assertion in any suite pins an exact
+    -- membership for it. The ALT_COMPANY_ID pair stay NULL — they are filtered by
+    -- company_id long before site ever matters, and the alt tenant has no site.
+    INSERT INTO users (id, first_name, last_name, email, user_status_id, company_id, site_id, kind,
                        invite_sent, password, is_owner, created_at, updated_at) VALUES
-      ('${J13.admin.id}',  'J13','Admin','${J13.admin.email}',  'ACTIVE','${COMPANY_ID}',    'INTERNAL', true, '${PASSWORD_HASH}', false, NOW(), NOW()),
-      ('${J13.target.id}', 'J13','Target','${J13.target.email}','ACTIVE','${COMPANY_ID}',    'INTERNAL', true, '${PASSWORD_HASH}', false, NOW(), NOW()),
-      ('${J13.twinA.id}',  'J13','TwinA','${J13.twinA.email}',  'ACTIVE','${COMPANY_ID}',    'INTERNAL', true, '${PASSWORD_HASH}', false, NOW(), NOW()),
-      ('${J13.twinB.id}',  'J13','TwinB','${J13.twinB.email}',  'ACTIVE','${ALT_COMPANY_ID}','INTERNAL', true, '${PASSWORD_HASH}', false, NOW(), NOW()),
-      ('${J13.altOnly.id}','J13','AltOnly','${J13.altOnly.email}','ACTIVE','${ALT_COMPANY_ID}','INTERNAL', true, '${PASSWORD_HASH}', false, NOW(), NOW())
-    ON CONFLICT (id) DO NOTHING;
+      ('${J13.admin.id}',  'J13','Admin','${J13.admin.email}',  'ACTIVE','${COMPANY_ID}',    '${SITES.primary.id}', 'INTERNAL', true, '${PASSWORD_HASH}', false, NOW(), NOW()),
+      ('${J13.target.id}', 'J13','Target','${J13.target.email}','ACTIVE','${COMPANY_ID}',    '${SITES.primary.id}', 'INTERNAL', true, '${PASSWORD_HASH}', false, NOW(), NOW()),
+      ('${J13.twinA.id}',  'J13','TwinA','${J13.twinA.email}',  'ACTIVE','${COMPANY_ID}',    '${SITES.primary.id}', 'INTERNAL', true, '${PASSWORD_HASH}', false, NOW(), NOW()),
+      ('${J13.twinB.id}',  'J13','TwinB','${J13.twinB.email}',  'ACTIVE','${ALT_COMPANY_ID}', NULL, 'INTERNAL', true, '${PASSWORD_HASH}', false, NOW(), NOW()),
+      ('${J13.altOnly.id}','J13','AltOnly','${J13.altOnly.email}','ACTIVE','${ALT_COMPANY_ID}', NULL, 'INTERNAL', true, '${PASSWORD_HASH}', false, NOW(), NOW())
+    ON CONFLICT (id) DO UPDATE SET site_id = EXCLUDED.site_id;
 
     INSERT INTO roles (id, company_id, name, description, status_id, created_at, updated_at) VALUES
       ('${SEC_ROLE_ID}', '${COMPANY_ID}', 'J13 Security Admin',
