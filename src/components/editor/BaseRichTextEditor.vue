@@ -454,11 +454,18 @@ onMounted(() => {
   }
 })
 
-onBeforeUnmount(() => {
-  if (editor.value) {
-    editor.value.destroy()
-  }
-})
+// No manual editor.destroy() here — @tiptap/vue-3's useEditor() already
+// registers its own onBeforeUnmount that destroys the editor (via a
+// DOM-clone-swap that deliberately steals the live node out from under
+// Vue's own unmount/patch cycle before tearing ProseMirror down). Since
+// that internal hook is registered earlier (at the useEditor() call
+// above) than this one, it always ran first — so this was a double
+// destroy(). Editor.destroy() unconditionally re-emits 'destroy' on every
+// call, so the second call re-fired every extension's onDestroy handler
+// (including the Vue node views backing AdvancedImage/DocumentMention/
+// UserMention) against already-unmounted component instances, throwing
+// Vue-internal null-reference errors that aborted in-flight router
+// navigations (e.g. right after Audit close-out submit).
 
 /**
  * Append plain text to the end of the document (new paragraph) — used by
