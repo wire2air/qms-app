@@ -8,6 +8,7 @@
 import { IconPlus, IconTrash, IconHelpCircle } from '@tabler/icons-vue'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { required, requiredWhen, minValue } from '@shared/components/form/validators.js'
+import { aqlSelectOptions, AQL_PAIRING_SUMMARY } from '@/utils/aqlGuidance.js'
 
 const props = defineProps({
   editPlan: { type: Object, default: null },
@@ -24,6 +25,11 @@ const previewing = ref(false)
 const showCodeLetterTable = ref(false)
 
 const isEdit = computed(() => Boolean(props.editPlan))
+
+// Registry-authored help copy (resource/js/shared/data/tooltips.js).
+const { getFromTooltipData } = useTooltipData()
+const aqlHelp = getFromTooltipData('qc.aql', 'tooltip')
+const switchingHelp = getFromTooltipData('qc.switchingState', 'tooltip')
 
 const POINTS = [
   { id: 'INCOMING', name: 'Incoming (IQC)' },
@@ -52,11 +58,10 @@ const DEFECT_CLASSES = [
 // Z1.4 switching state — selects which accept/reject table is used.
 const SWITCHING_STATES = ['NORMAL', 'TIGHTENED', 'REDUCED'].map((id) => ({ id, name: id }))
 // AQL % columns that exist in the seeded Z1.4 tables — picking an unseeded
-// value (e.g. 0.065) fails to resolve a plan cell, so offer only these.
-const AQL_OPTIONS = [0.4, 0.65, 1.0, 1.5, 2.5, 4.0, 6.5, 10, 15, 25].map((v) => ({
-  id: v,
-  name: `${v}%`,
-}))
+// value (e.g. 0.065) fails to resolve a plan cell, so offer only these. Each
+// option carries the conventional defect-class pairing so pickers read like
+// the guidance ("tight AQL ↔ serious defects").
+const AQL_OPTIONS = aqlSelectOptions()
 
 const standards = useLiveQuery(async (db) => db.SamplingStandard.where().exec(), {
   models: ['SamplingStandard'],
@@ -465,7 +470,7 @@ async function onSubmit() {
                 class="tw:w-full"
               />
             </BaseField>
-            <BaseField label="Switching state">
+            <BaseField label="Switching state" :help="switchingHelp">
               <BaseInlineSelect
                 v-model="form.switchingState"
                 :items="SWITCHING_STATES"
@@ -484,7 +489,7 @@ async function onSubmit() {
             </div>
             <p class="tw:text-caption tw:text-secondary tw:mb-2">
               One AQL per defect class — the accept/reject limits attributes inspection checks the
-              defect tally against. (Critical is usually tightest.)
+              defect tally against. {{ AQL_PAIRING_SUMMARY }}
             </p>
             <BaseField
               :value="form.severityAqls"
@@ -506,7 +511,7 @@ async function onSubmit() {
                       class="tw:w-full"
                     />
                   </BaseField>
-                  <BaseField label="AQL %" class="tw:w-36">
+                  <BaseField label="AQL %" :help="aqlHelp" class="tw:w-36">
                     <BaseInlineSelect
                       v-model="row.aql"
                       :items="AQL_OPTIONS"

@@ -34,6 +34,7 @@ declare module 'vue' {
     ApiKeyListItem: typeof import('./src/components/apiKey/apiKeyListItem.vue')['default']
     AppBuilderHome: typeof import('./src/components/records/AppBuilderHome.vue')['default']
     AqlConfigFields: typeof import('./src/components/qcInspection/AqlConfigFields.vue')['default']
+    AqlGuidance: typeof import('./src/components/qcInspection/aqlGuidance.js')['default']
     AqlStandardsList: typeof import('./src/components/qcInspection/AqlStandardsList.vue')['default']
     AskAiButton: typeof import('./src/components/chat/AskAiButton.vue')['default']
     AssetRequestStatusBadge: typeof import('./src/components/badges/AssetRequestStatusBadge.vue')['default']

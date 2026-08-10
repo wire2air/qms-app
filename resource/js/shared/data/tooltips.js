@@ -25,6 +25,30 @@ export const TOOLTIPS = [
       'Sites this person is responsible for beyond their primary site. A role granted "Site" access reaches records at the primary site AND every additional site listed here — use this for regional or corporate roles that span locations without granting company-wide access. Only active sites in this company can be added.',
   },
   {
+    key: 'qc.aql',
+    label: 'AQL %',
+    tooltip:
+      'Acceptable Quality Limit — the worst percent-defective you are willing to treat as acceptable for that defect class. A smaller AQL tolerates fewer defects for the same sample size (stricter accept/reject numbers). Tighter AQLs are conventionally paired with more serious defect classes: Critical ≈ 0.40–0.65, Major ≈ 1.0–1.5, Minor ≈ 2.5–4.0.',
+  },
+  {
+    key: 'qc.acceptReject',
+    label: 'Ac / Re',
+    tooltip:
+      'Accept and Reject numbers. Inspect the sample and count defects of that class: accept the lot when the count is ≤ Ac; reject when it is ≥ Re. Reduced-inspection plans can have a gap between Ac and Re — per Z1.4 a count in the gap still accepts the lot, but is the signal to switch the plan back to Normal inspection (the switching state is set on the sampling plan).',
+  },
+  {
+    key: 'qc.switchingState',
+    label: 'Switching state',
+    tooltip:
+      'Z1.4 switching rules: start at Normal; switch to Tightened after 2 of 5 consecutive lots are rejected (stricter Ac/Re, same sample size); Reduced (smaller samples) may be used after a sustained run of accepted lots. The state selects which accept/reject table applies.',
+  },
+  {
+    key: 'qc.planArrowCell',
+    label: 'Arrow cell',
+    tooltip:
+      'In the Z1.4 master tables some code letter × AQL combinations have no plan of their own — an arrow points to the plan to use instead (a neighbouring code letter, adopting BOTH its sample size and its Ac/Re). The system follows these arrows automatically when computing a plan.',
+  },
+  {
     key: 'site.isActive',
     label: 'Accepting new user assignments',
     tooltip:

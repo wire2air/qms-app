@@ -5,10 +5,16 @@
  * (sample size / accept / reject) inline (saved live via the SyncEngine; RLS
  * allows writes only on the tenant's own clone rows).
  */
-import { IconCopy } from '@tabler/icons-vue'
+import { IconCopy, IconArrowDown, IconArrowUp } from '@tabler/icons-vue'
+import { aqlSeverityHint, AQL_PAIRING_SUMMARY } from '@/utils/aqlGuidance.js'
 
 defineProps({ canManage: { type: Boolean, default: false } })
 const toast = useToast()
+
+// Registry-authored help copy (resource/js/shared/data/tooltips.js).
+const acReHelp = useTooltipData().getFromTooltipData('qc.acceptReject', 'tooltip')
+const switchingHelp = useTooltipData().getFromTooltipData('qc.switchingState', 'tooltip')
+const arrowHelp = useTooltipData().getFromTooltipData('qc.planArrowCell', 'tooltip')
 
 const cloneSource = ref(null) // { id, name }
 const showClone = ref(false)
@@ -79,6 +85,16 @@ async function saveCell(cell) {
   if (!selectedEditable.value) return // globals are read-only
   try {
     await cell.save()
+    // An arrow cell only becomes an explicit plan when ALL THREE values are
+    // set — the resolver ignores a partial fill and keeps following the arrow.
+    if (cell.arrowDirection) {
+      const filled = [cell.sampleSize, cell.accept, cell.reject].filter((v) => v != null)
+      if (filled.length > 0 && filled.length < 3) {
+        toast.warning(
+          'Partial values on an arrow cell are ignored — fill Sample, Ac AND Re to override the arrow.',
+        )
+      }
+    }
   } catch (err) {
     toast.error(err?.message || 'Could not save cell (custom standards only)')
   }
@@ -154,35 +170,94 @@ async function saveCell(cell) {
           class="tw:w-44 tw:ml-auto"
         />
       </div>
+
+      <!-- How to read this table — AQL/severity pairing + Ac/Re + arrows. -->
+      <div class="tw:px-5 tw:py-2.5 tw:border-b tw:border-divider tw:text-xs tw:text-secondary tw:flex tw:flex-col tw:gap-1">
+        <p>
+          <strong class="tw:text-on-main">AQL %</strong> = worst tolerable percent defective for a
+          defect class. {{ AQL_PAIRING_SUMMARY }}
+          <strong class="tw:text-on-main">Ac</strong> = accept the lot at ≤ this many defects;
+          <strong class="tw:text-on-main">Re</strong> = reject at ≥ this many.
+        </p>
+        <p class="tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
+          Cells showing
+          <span class="tw:inline-flex tw:items-center tw:gap-0.5 tw:text-secondary"
+            ><IconArrowDown :size="12" /> larger sample</span
+          >
+          /
+          <span class="tw:inline-flex tw:items-center tw:gap-0.5 tw:text-secondary"
+            ><IconArrowUp :size="12" /> smaller sample</span
+          >
+          have no plan of their own — use the first plan in that direction (its sample size AND
+          Ac/Re), exactly as the printed Z1.4 arrows. The system follows them automatically.
+        </p>
+      </div>
       <div class="tw:max-h-[28rem] tw:overflow-y-auto">
         <table class="tw:w-full tw:text-sm">
           <thead class="tw:text-secondary tw:text-xs tw:uppercase tw:sticky tw:top-0 tw:bg-sidebar">
             <tr>
               <th class="tw:text-left tw:px-5 tw:py-2">Letter</th>
               <th class="tw:text-left tw:px-5 tw:py-2">AQL</th>
-              <th class="tw:text-left tw:px-5 tw:py-2">State</th>
+              <th class="tw:text-left tw:px-5 tw:py-2" :title="switchingHelp">State</th>
               <th class="tw:text-left tw:px-5 tw:py-2">Sample</th>
-              <th class="tw:text-left tw:px-5 tw:py-2">Ac</th>
-              <th class="tw:text-left tw:px-5 tw:py-2">Re</th>
+              <th class="tw:text-left tw:px-5 tw:py-2" :title="acReHelp">Ac</th>
+              <th class="tw:text-left tw:px-5 tw:py-2" :title="acReHelp">Re</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="c in visibleCells" :key="c.id" class="tw:border-t tw:border-divider">
               <td class="tw:px-5 tw:py-1.5">{{ c.codeLetter }}</td>
-              <td class="tw:px-5 tw:py-1.5">{{ c.aql }}</td>
+              <td class="tw:px-5 tw:py-1.5">
+                <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+                  {{ c.aql }}
+                  <span
+                    v-if="aqlSeverityHint(c.aql)"
+                    class="tw:text-micro tw:font-medium tw:px-1.5 tw:py-0.5 tw:rounded-full"
+                    :class="aqlSeverityHint(c.aql).class"
+                    >{{ aqlSeverityHint(c.aql).label }}</span
+                  >
+                </span>
+              </td>
               <td class="tw:px-5 tw:py-1.5 tw:text-secondary tw:text-xs">{{ c.severity }}</td>
               <td class="tw:px-5 tw:py-1.5">
-                <BaseTextInput
-                  v-model.number="c.sampleSize"
-                  type="number"
-                  size="sm"
-                  class="tw:w-20"
-                  :disabled="!selectedEditable"
-                  @blur="saveCell(c)"
-                />
+                <!-- Arrow cell: no plan of its own — points at the neighbouring
+                     letter's plan (Z1.4 arrow). DB 'UP' = next larger sample.
+                     The chip stays visible on editable clones so the editor can
+                     tell arrow cells from blanked-out ones; filling all three
+                     values overrides the arrow with an explicit plan. -->
+                <span class="tw:inline-flex tw:items-center tw:gap-2">
+                  <span
+                    v-if="c.arrowDirection && c.sampleSize == null"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary tw:shrink-0"
+                    :title="
+                      (c.arrowDirection === 'UP'
+                        ? 'Use the first plan at a larger code letter (bigger sample). '
+                        : 'Use the first plan at a smaller code letter (smaller sample). ') + arrowHelp
+                    "
+                  >
+                    <IconArrowDown v-if="c.arrowDirection === 'UP'" :size="14" />
+                    <IconArrowUp v-else :size="14" />
+                    {{ c.arrowDirection === 'UP' ? 'larger sample' : 'smaller sample' }}
+                  </span>
+                  <BaseTextInput
+                    v-if="selectedEditable || !c.arrowDirection || c.sampleSize != null"
+                    v-model.number="c.sampleSize"
+                    type="number"
+                    size="sm"
+                    class="tw:w-20"
+                    :disabled="!selectedEditable"
+                    @blur="saveCell(c)"
+                  />
+                </span>
               </td>
               <td class="tw:px-5 tw:py-1.5">
+                <span
+                  v-if="c.arrowDirection && c.accept == null && !selectedEditable"
+                  class="tw:text-secondary"
+                  >—</span
+                >
                 <BaseTextInput
+                  v-else
                   v-model.number="c.accept"
                   type="number"
                   size="sm"
@@ -192,7 +267,13 @@ async function saveCell(cell) {
                 />
               </td>
               <td class="tw:px-5 tw:py-1.5">
+                <span
+                  v-if="c.arrowDirection && c.reject == null && !selectedEditable"
+                  class="tw:text-secondary"
+                  >—</span
+                >
                 <BaseTextInput
+                  v-else
                   v-model.number="c.reject"
                   type="number"
                   size="sm"
@@ -206,8 +287,11 @@ async function saveCell(cell) {
         </table>
       </div>
       <p class="tw:text-caption tw:text-secondary tw:px-5 tw:py-2">
-        <template v-if="selectedEditable">Edits save automatically. </template>
-        Empty Sample/Ac/Re with an arrow cell means "use the arrowed code letter".
+        <template v-if="selectedEditable">
+          Edits save automatically. Arrow cells have empty Sample/Ac/Re — fill in all three to
+          replace the arrow with an explicit plan for this custom standard.
+        </template>
+        <template v-else>Clone this standard to customise plan cells for your company.</template>
       </p>
     </div>
 
