@@ -17,6 +17,8 @@ import { DateTime } from 'luxon'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { uploadFile } from '@/utils/uploadService.js'
+import { generateInspectionLotPdf } from '@/utils/inspectionLotPdf.js'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
 import { buildInspectionLotActions } from './inspectionLotDetailConfig.js'
 
@@ -608,9 +610,32 @@ async function createNcFromLot() {
   if (creatingNc.value) return
   creatingNc.value = true
   try {
+    // Generate the inspection-report PDF and upload it first — the asset ref
+    // rides into create-nc so the NC's description carries the full report as
+    // an attachment (evidence stands alone; no cross-module links needed).
+    let reportAsset = null
+    try {
+      const pdf = await generateInspectionLotPdf({
+        lot: lot.value,
+        productName: product.value?.name ?? null,
+        supplierName: supplier.value?.name ?? null,
+        uomName: lotUom.value?.code?.toLowerCase() ?? null,
+        characteristics: characteristics.value,
+        results: results.value,
+      })
+      const asset = await uploadFile(pdf, 'ASSET')
+      reportAsset = {
+        assetId: asset.id,
+        name: asset.originalFilename || pdf.name,
+        mimeType: 'application/pdf',
+      }
+    } catch (pdfErr) {
+      // The NC is more important than its attachment — degrade gracefully.
+      console.warn('Inspection report PDF generation failed:', pdfErr)
+    }
     const { nonconformance } = await post(
       `/v1/services/qcInspection/lots/${props.id}/create-nc`,
-      {},
+      { reportAsset },
     )
     toast.success(`Draft ${nonconformance.ncNumber} created — complete it and pick a workflow`)
     router.push(getCompanyPath(`/nonconformances/${nonconformance.id}`))
