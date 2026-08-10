@@ -260,7 +260,9 @@ const hasInProcess = computed(
         >
           <div v-for="p in sampling.perSeverity" :key="p.severity" class="tw:text-xs tw:text-secondary">
             <span class="tw:font-semibold tw:text-on-main">{{ p.severity }}</span>
-            — AQL {{ p.aql }}% → accept ≤ {{ p.accept }}, reject ≥ {{ p.reject }}
+            <!-- Custom-table rows have no AQL — fixed Ac/Re by definition. -->
+            — {{ p.aql != null ? `AQL ${p.aql}%` : 'fixed' }} → accept ≤ {{ p.accept }}, reject ≥
+            {{ p.reject }}
           </div>
         </div>
         <!-- Couldn't compute — explain why (commonly a special level not in the seeded tables). -->

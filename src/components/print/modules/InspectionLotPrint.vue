@@ -240,7 +240,8 @@ onMounted(() => {
         </thead>
         <tbody>
           <tr v-for="p in sampling.perSeverity" :key="p.severity">
-            <td>{{ p.severity }}</td><td>{{ p.aql }}</td><td>{{ p.accept }}</td><td>{{ p.reject }}</td>
+            <!-- Custom-table rows have no AQL (fixed Ac/Re). -->
+            <td>{{ p.severity }}</td><td>{{ p.aql ?? '—' }}</td><td>{{ p.accept }}</td><td>{{ p.reject }}</td>
           </tr>
         </tbody>
       </table>

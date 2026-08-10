@@ -79,7 +79,7 @@ function seedFromPlan(plan) {
     planType: plan.planType ?? 'STANDARD',
     customRows: Array.isArray(plan.customPlanTable?.rows)
       ? plan.customPlanTable.rows.map((r) => ({ ...r }))
-      : [{ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 }],
+      : [{ severityLabel: 'MAJOR', sampleSize: 8, accept: 0, reject: 1 }],
     scope: plan.productId ? 'product' : plan.productFamilyId ? 'family' : 'productType',
     productId: plan.productId ?? null,
     productFamilyId: plan.productFamilyId ?? null,
@@ -108,7 +108,7 @@ function reset() {
     : {
         name: '',
         planType: 'STANDARD',
-        customRows: [{ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 }],
+        customRows: [{ severityLabel: 'MAJOR', sampleSize: 8, accept: 0, reject: 1 }],
         scope: 'product',
         productId: null,
         productFamilyId: null,
@@ -144,7 +144,7 @@ function addAql() {
   form.value.severityAqls.push({ severity: 'MAJOR', aql: 1.0 })
 }
 function addCustomRow() {
-  form.value.customRows.push({ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 })
+  form.value.customRows.push({ severityLabel: 'MAJOR', sampleSize: 8, accept: 0, reject: 1 })
 }
 function removeCustomRow(i) {
   form.value.customRows.splice(i, 1)
@@ -342,8 +342,10 @@ async function onSubmit() {
             </BaseButton>
           </div>
           <p class="tw:text-xs tw:text-secondary tw:-mt-2">
-            Each row sets the fixed sample size and accept/reject numbers for a severity. Reject
-            must be greater than accept (e.g. accept 0 / reject 1 = any defect fails the lot).
+            Each row sets the fixed sample size and accept/reject numbers for a defect class. At
+            inspection, logged defects are tallied per class against the matching row (reject when
+            the tally ≥ Re); the lot's suggested sample size is the largest row's. Reject must be
+            greater than accept (e.g. accept 0 / reject 1 = any defect fails the lot).
           </p>
           <BaseField
             :value="form.customRows"
@@ -357,15 +359,17 @@ async function onSubmit() {
                 :key="i"
                 class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
               >
-                <BaseField label="Severity label" class="tw:flex-1">
-                  <template #default="field">
-                    <BaseTextInput
-                      v-bind="field"
-                      v-model="row.severityLabel"
-                      size="sm"
-                      placeholder="e.g. NORMAL, CRITICAL"
-                    />
-                  </template>
+                <!-- The label binds the row to a defect class: at inspection,
+                     defects of that class are tallied against this row's
+                     Ac/Re. A label that matches no class still contributes
+                     its sample size but never tallies — so offer the classes. -->
+                <BaseField label="Defect class" class="tw:flex-1">
+                  <BaseInlineSelect
+                    v-model="row.severityLabel"
+                    :items="DEFECT_CLASSES"
+                    :required="true"
+                    class="tw:w-full"
+                  />
                 </BaseField>
                 <BaseField
                   label="Sample size"
