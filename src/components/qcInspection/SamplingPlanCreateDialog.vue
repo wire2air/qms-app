@@ -5,7 +5,7 @@
  * sample size / accept-reject. Aggregate write through the qcInspection REST
  * service. Pass `editPlan` to pre-populate and PATCH instead of POST.
  */
-import { IconPlus, IconTrash } from '@tabler/icons-vue'
+import { IconPlus, IconTrash, IconHelpCircle } from '@tabler/icons-vue'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { required, requiredWhen, minValue } from '@shared/components/form/validators.js'
 
@@ -20,6 +20,8 @@ const saveError = ref(null)
 const formRef = ref(null)
 const preview = ref(null)
 const previewing = ref(false)
+// Table 1 (lot size × inspection level → code letter) explainer dialog.
+const showCodeLetterTable = ref(false)
 
 const isEdit = computed(() => Boolean(props.editPlan))
 
@@ -215,6 +217,7 @@ async function onSubmit() {
 </script>
 
 <template>
+  <div>
   <BaseDialog
     v-model="show"
     :title="isEdit ? 'Edit Sampling Plan' : 'New Sampling Plan'"
@@ -441,6 +444,20 @@ async function onSubmit() {
               </template>
             </BaseField>
             <BaseField label="Inspection level">
+              <template #label>
+                <span class="tw:inline-flex tw:items-center tw:gap-1">
+                  Inspection level
+                  <button
+                    type="button"
+                    class="tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:inline-flex"
+                    title="How inspection level picks a code letter (Table 1)"
+                    aria-label="How inspection level picks a code letter"
+                    @click="showCodeLetterTable = true"
+                  >
+                    <IconHelpCircle :size="14" />
+                  </button>
+                </span>
+              </template>
               <BaseInlineSelect
                 v-model="form.inspectionLevel"
                 :items="LEVELS"
@@ -567,4 +584,17 @@ async function onSubmit() {
       />
     </template>
   </BaseDialog>
+
+  <!-- Table 1 explainer — reads the seeded code-letter grid for the chosen
+       standard and highlights the current level + preview lot size. -->
+  <BaseDialog v-model="showCodeLetterTable" title="Sample-size code letters (Table 1)" size="3xl">
+    <div class="tw:p-5">
+      <SampleSizeCodeLetterTable
+        :standardCode="form.standardCode"
+        :highlightLevel="form.inspectionLevel"
+        :lotSize="Number(form.previewLotSize) || null"
+      />
+    </div>
+  </BaseDialog>
+  </div>
 </template>

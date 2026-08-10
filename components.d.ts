@@ -985,6 +985,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     RoutingRulesHome: typeof import('./src/components/customerComplaints/RoutingRulesHome.vue')['default']
     SafeTeleport: typeof import('./resource/js/shared/components/general/SafeTeleport.vue')['default']
+    SampleSizeCodeLetterTable: typeof import('./src/components/qcInspection/SampleSizeCodeLetterTable.vue')['default']
     SamplingPlanCreateDialog: typeof import('./src/components/qcInspection/SamplingPlanCreateDialog.vue')['default']
     SamplingPlanSelectMenu: typeof import('./src/components/menus/SamplingPlanSelectMenu.vue')['default']
     SamplingPlansList: typeof import('./src/components/qcInspection/SamplingPlansList.vue')['default']
