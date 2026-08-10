@@ -31,12 +31,17 @@ const saving = ref(false)
 const acting = ref(false)
 const showSubmit = ref(false)
 const showReopen = ref(false)
+const showRetain = ref(false)
 const showEdit = ref(false)
 
 const canExecute = computed(() => isAllowed(['inspection_qc:execute']))
 const canDispose = computed(() => isAllowed(['inspection_qc:dispose']))
 const canCreateNc = computed(() => isAllowed(['ncr:create']))
 const canCreateEvent = computed(() => isAllowed(['quality_events:create']))
+// Retain-sample creation — same gate the rail card uses.
+const canRetain = computed(
+  () => isAllowed(['retain_samples:create']) || isAllowed(['retain_samples:update']),
+)
 
 const lot = useLiveQueryWithDeps(
   [() => props.id],
@@ -683,6 +688,7 @@ const inspectionLotActions = computed(() =>
       canExecute: canExecute.value,
       canDispose: canDispose.value,
       canCreateEvent: canCreateEvent.value,
+      canRetain: canRetain.value,
       statusId: lot.value?.statusId,
       acting: acting.value,
       creatingEvent: creatingEvent.value,
@@ -716,6 +722,9 @@ const inspectionLotActions = computed(() =>
       },
       reopen() {
         showReopen.value = true
+      },
+      retainSample() {
+        showRetain.value = true
       },
       createEvent() {
         openCreateEvent()
@@ -1265,6 +1274,7 @@ function blockNegative(e, c) {
 
     <InspectionLotSubmitDialog v-model="showSubmit" :lotId="props.id" />
     <InspectionLotReopenDialog v-model="showReopen" :lotId="props.id" />
+    <RetainSampleCreateDialog v-model="showRetain" :lotId="props.id" />
     <InspectionCheckInDialog v-model="showCheckIn" :lotId="props.id" :lot="lot" />
     <InspectionLineClearanceDialog
       v-model="showLineClearance"

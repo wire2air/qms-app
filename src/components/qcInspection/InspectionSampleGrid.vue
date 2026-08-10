@@ -56,6 +56,25 @@ function sampleHasEvidence(s) {
   const r = props.samplesByNo[s]
   return !!(r && (r.notes || (Array.isArray(r.attachments) && r.attachments.length)))
 }
+// One-line plain-text preview of a sample's comment (rich-text markup and the
+// attachment payload stripped) — shown TRUNCATED on the row so the gist is
+// visible without opening the dialog; hover shows the full text.
+function notesPreview(s) {
+  const raw = props.samplesByNo[s]?.notes
+  if (!raw) return ''
+  return String(raw)
+    .split('[qms-attachments]::')[0]
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+// A FAILED sample still missing its required comment — the icon turns red
+// until the reason is documented (Save is blocked either way).
+function commentRequired(s) {
+  if (sampleOutcome(s) !== 'FAIL') return false
+  const r = props.samplesByNo[s]
+  return !(r && r.notes && String(r.notes).trim())
+}
 function sampleLotNo(s) {
   const r = props.samplesByNo[s]
   return r?.batchId ? props.batchLots[r.batchId] : null
@@ -426,8 +445,20 @@ defineExpose({ buildPayload, failedSamplesMissingComment })
               <button
                 type="button"
                 class="tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:shrink-0"
-                :class="sampleHasEvidence(s) ? 'tw:text-primary' : 'tw:text-secondary tw:hover:text-primary'"
-                :title="sampleHasEvidence(s) ? 'Comments / evidence added' : 'Add comments / evidence'"
+                :class="
+                  commentRequired(s)
+                    ? 'tw:text-red-600 tw:hover:text-red-700'
+                    : sampleHasEvidence(s)
+                      ? 'tw:text-primary'
+                      : 'tw:text-secondary tw:hover:text-primary'
+                "
+                :title="
+                  commentRequired(s)
+                    ? 'Comment required — document the reason for this failed sample'
+                    : sampleHasEvidence(s)
+                      ? 'Comments / evidence added'
+                      : 'Add comments / evidence'
+                "
                 @click="emit('evidence', s)"
               >
                 <IconMessage v-if="sampleHasEvidence(s)" :size="15" />
@@ -441,6 +472,14 @@ defineExpose({ buildPayload, failedSamplesMissingComment })
               <span v-if="sampleMeta[s]?.collectedAt">{{ sampleMeta[s].collectedAt.formatDate('time') }}</span>
               <UserBadgeById v-if="sampleMeta[s]?.collectedBy" :userId="sampleMeta[s].collectedBy" class="tw:text-micro" />
               <ShiftBadgeById v-if="samplesByNo[s]?.shiftId" :shiftId="samplesByNo[s].shiftId" />
+            </div>
+            <!-- Truncated comment preview — full text on hover / in the dialog. -->
+            <div
+              v-if="notesPreview(s)"
+              class="tw:mt-0.5 tw:text-micro tw:text-secondary tw:italic tw:truncate tw:max-w-36"
+              :title="notesPreview(s)"
+            >
+              {{ notesPreview(s) }}
             </div>
           </td>
           <td v-for="c in characteristics" :key="c.id" class="tw:px-2 tw:py-1 tw:border-r tw:border-divider/60">
@@ -534,11 +573,23 @@ defineExpose({ buildPayload, failedSamplesMissingComment })
           <button
             type="button"
             class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:bg-transparent tw:border-0 tw:cursor-pointer"
-            :class="sampleHasEvidence(focusSampleNo) ? 'tw:text-primary' : 'tw:text-secondary tw:hover:text-primary'"
+            :class="
+              commentRequired(focusSampleNo)
+                ? 'tw:text-red-600 tw:hover:text-red-700 tw:font-medium'
+                : sampleHasEvidence(focusSampleNo)
+                  ? 'tw:text-primary'
+                  : 'tw:text-secondary tw:hover:text-primary'
+            "
             @click="emit('evidence', focusSampleNo)"
           >
             <component :is="sampleHasEvidence(focusSampleNo) ? IconMessage : IconMessagePlus" :size="15" />
-            {{ sampleHasEvidence(focusSampleNo) ? 'Comments / evidence' : 'Add comment / evidence' }}
+            {{
+              commentRequired(focusSampleNo)
+                ? 'Comment required — failed sample'
+                : sampleHasEvidence(focusSampleNo)
+                  ? 'Comments / evidence'
+                  : 'Add comment / evidence'
+            }}
           </button>
         </div>
 
