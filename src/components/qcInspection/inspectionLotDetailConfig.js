@@ -31,7 +31,7 @@ const REOPENABLE_STATUSES = new Set([
 const INSPECTABLE_STATUSES = new Set(['PENDING', 'IN_PROGRESS'])
 
 export function buildInspectionLotActions(gates = {}, handlers = {}) {
-  const { canExecute, canDispose, canCreateEvent, statusId, acting, creatingEvent } = gates
+  const { canExecute, canDispose, canCreateEvent, canRetain, statusId, acting, creatingEvent } = gates
   const { isActiveInspector, hasInspector } = gates
   return [
     {
@@ -102,6 +102,15 @@ export function buildInspectionLotActions(gates = {}, handlers = {}) {
       visible: !!canCreateEvent,
       loading: !!creatingEvent,
       onSelect: handlers.createEvent,
+    },
+    {
+      // Retain a physical sample from this lot (also offered on the rail card).
+      id: 'retain-sample',
+      label: 'Retain Sample',
+      variant: 'outline',
+      priority: 48,
+      visible: !!canRetain,
+      onSelect: handlers.retainSample,
     },
     {
       id: 'print',

@@ -35,6 +35,12 @@ const supplier = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.Supplier.findByPk(id) : null),
   { models: ['Supplier'] },
 )
+const lotUom = useLiveQueryWithDeps(
+  [() => lot.value?.uomId],
+  async (db, [id]) => (id ? db.Uom.findByPk(id) : null),
+  { models: ['Uom'] },
+)
+const isFormulaLot = computed(() => lot.value?.samplingSnapshot?.planType === 'FORMULA')
 const disposition = useLiveQueryWithDeps(
   [() => lot.value?.dispositionTypeId],
   async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
@@ -189,9 +195,9 @@ onMounted(() => {
           </tr>
           <tr>
             <th>Quantity</th>
-            <td>{{ lot?.quantity ?? '—' }}</td>
+            <td>{{ lot?.quantity != null ? [lot.quantity, lotUom?.name].filter(Boolean).join(' ') : '—' }}</td>
             <th>Sample size</th>
-            <td>{{ lot?.sampleSize ?? '—' }}</td>
+            <td>{{ lot?.sampleSize ?? '—' }}<template v-if="isFormulaLot && lot?.containerCount"> of {{ lot.containerCount }} containers</template></td>
           </tr>
           <tr>
             <th>Batch / Lot ref</th>
@@ -240,7 +246,8 @@ onMounted(() => {
         </thead>
         <tbody>
           <tr v-for="p in sampling.perSeverity" :key="p.severity">
-            <td>{{ p.severity }}</td><td>{{ p.aql }}</td><td>{{ p.accept }}</td><td>{{ p.reject }}</td>
+            <!-- Custom-table rows have no AQL (fixed Ac/Re). -->
+            <td>{{ p.severity }}</td><td>{{ p.aql ?? '—' }}</td><td>{{ p.accept }}</td><td>{{ p.reject }}</td>
           </tr>
         </tbody>
       </table>

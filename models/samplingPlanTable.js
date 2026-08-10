@@ -4,7 +4,15 @@ import { DateTime } from 'luxon'
 // AQL plan cells (sample size + accept/reject) per standard / code-letter / AQL /
 // switching state. Global rows (companyId null) are read-only; tenant clones are
 // editable.
-@ClientModel('samplingPlanTables', { primaryKey: 'id', syncField: 'updatedAt', customIndex: 'standardId' })
+// schemaVersion 2: canonical Z1.4 reseed (2026-08-10) hard-deleted and replaced
+// every row — bump forces an IDB rebuild so stale pre-fix cells are purged
+// (hard deletes have no sync tombstone).
+@ClientModel('samplingPlanTables', {
+  primaryKey: 'id',
+  syncField: 'updatedAt',
+  customIndex: 'standardId',
+  schemaVersion: 2,
+})
 export class SamplingPlanTable extends BaseModel {
   @Property({ type: String, uuid: true, required: true }) id = ''
   @Property({ type: String, required: true }) standardId = ''

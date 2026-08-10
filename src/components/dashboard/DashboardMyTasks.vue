@@ -16,7 +16,7 @@ const ENTITY_LABEL = {
   ChangeRequest: 'Change Request',
   TrainingAssignee: 'Training',
   TrainingInstance: 'Training Verification',
-  LogBookVersion: 'Log Book',
+  LogBook: 'Log Book',
   AssignmentInstance: 'Inspection / Log',
   FieldRecord: 'Flagged Log',
   AuditInstance: 'Audit',

@@ -5,9 +5,11 @@ import {
   IconChevronRight,
   IconShieldCheck,
   IconList,
+  IconLock,
 } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { useUntrainedLogBookBlocks } from '@/composables/useLogBookTraining.js'
 
 /**
  * Mobile-first logging dashboard — the floor user's home for capturing
@@ -17,7 +19,7 @@ import { isAllowed, currentSession } from '@/utils/currentSession.js'
  *   - A tappable list of log books you can fill — tap one to open its
  *     fill form. On submit the fill page comes straight back here.
  *
- * Only EFFECTIVE log books appear (they can actually accept entries).
+ * Only ACTIVE (approved) log books appear — they accept entries.
  * Designed to be wrapped in a WebView later; everything is large-tap +
  * single-column.
  */
@@ -28,10 +30,9 @@ const userId = computed(() => currentSession.value?.userId ?? currentSession.val
 
 const logBooks = useLiveQuery(
   async (db) => {
+    // ACTIVE = approved + accepting entries (supersede model).
     const rows = await db.LogBook.where('statusId', 'ACTIVE').exec()
-    return rows
-      .filter((lb) => lb.currentEffectiveVersionId)
-      .sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
+    return rows.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
   },
 
   { models: ['LogBook'], initial: [] },
@@ -47,6 +48,13 @@ function typeLabel(lb) {
     typeNameById.value.get(lb.logBookTypeId) ||
     (lb.recordClassification === 'CONTROLLED_RECORD' ? 'Controlled Record' : 'Operational Log')
   )
+}
+
+// The card shows which revision of the book entries file against, and
+// since when — both live on the (frozen) book row now.
+function versionInfo(lb) {
+  const label = `V${lb.generation ?? 1}`
+  return lb.effectiveAt ? `${label} · effective ${lb.effectiveAt.formatDate('date')}` : label
 }
 
 // Open (DUE/OVERDUE) scheduled tasks for this user — the count drives the
@@ -66,7 +74,14 @@ const openTaskCount = useLiveQueryWithDeps(
   { models: ['TaskInstance'], initial: 0 },
 )
 
+// Document-training gate (2026-08-08): books whose linked controlling
+// documents the current user isn't trained on are marked and can't be filled.
+const { isBlocked: isTrainingBlocked } = useUntrainedLogBookBlocks()
+
 function fill(lb) {
+  // The fill page also blocks (and the backend hard-rejects), but stop the
+  // navigation early with a clear reason.
+  if (isTrainingBlocked(lb.id)) return
   router.push(getCompanyPath(`/inspections-logs/fill?logBookId=${lb.id}`))
 }
 function goTasks() {
@@ -142,7 +157,8 @@ function goLogs() {
           v-for="lb in logBooks"
           :key="lb.id"
           type="button"
-          :disabled="!canSubmit"
+          :disabled="!canSubmit || isTrainingBlocked(lb.id)"
+          :title="isTrainingBlocked(lb.id) ? 'Training required before you can log entries' : undefined"
           class="tw:flex tw:items-center tw:gap-3 tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:text-left tw:active:bg-main-hover tw:transition tw:disabled:opacity-50"
           @click="fill(lb)"
         >
@@ -158,7 +174,17 @@ function goLogs() {
               <span class="tw:uppercase">{{ lb.code }}</span>
               · {{ typeLabel(lb) }}
             </div>
+            <div v-if="versionInfo(lb)" class="tw:text-xs tw:text-secondary tw:truncate">
+              {{ versionInfo(lb) }}
+            </div>
           </div>
+          <span
+            v-if="isTrainingBlocked(lb.id)"
+            class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-red-50 tw:text-red-700 tw:border tw:border-red-200 tw:shrink-0"
+          >
+            <IconLock :size="12" />
+            Training
+          </span>
           <IconChevronRight :size="20" class="tw:text-secondary tw:shrink-0" />
         </button>
       </div>

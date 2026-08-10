@@ -7,8 +7,14 @@
  * Used for the QA-manager "Custom AQL" override on lot reopen.
  */
 import { IconPlus, IconTrash } from '@tabler/icons-vue'
+import { AQL_PAIRING_SUMMARY, aqlSelectOptions } from '@/utils/aqlGuidance.js'
 
 const config = defineModel({ type: Object, required: true })
+const aqlOptions = aqlSelectOptions()
+
+// Registry-authored help copy (resource/js/shared/data/tooltips.js).
+const { getFromTooltipData } = useTooltipData()
+const switchingHelp = getFromTooltipData('qc.switchingState', 'tooltip')
 
 // Values are the canonical underscore ids (S_1..); labels show the standard S-n
 // notation. General levels I/II/III. Mirrors SamplingPlanCreateDialog.
@@ -69,7 +75,7 @@ function removeRow(i) {
           :required="true"
         />
       </BaseField>
-      <BaseField label="Switching" class="tw:min-w-0">
+      <BaseField label="Switching" :help="switchingHelp" class="tw:min-w-0">
         <BaseSelect
           v-model="config.switchingState"
           :options="SWITCHING_STATES"
@@ -87,6 +93,7 @@ function removeRow(i) {
           <IconPlus :size="14" class="tw:mr-1" /> Add
         </BaseButton>
       </div>
+      <p class="tw:text-caption tw:text-secondary">{{ AQL_PAIRING_SUMMARY }}</p>
       <div
         v-for="(row, i) in config.severityAqls"
         :key="i"
@@ -99,12 +106,14 @@ function removeRow(i) {
           optionValue="id"
           class="tw:flex-1"
         />
-        <BaseTextInput
-          v-model.number="row.aql"
-          type="number"
-          step="0.01"
-          class="tw:w-28"
-          placeholder="AQL"
+        <!-- Only the seeded AQL columns resolve a plan cell — a free-typed
+             value (e.g. 0.7) would fail sample-size computation downstream. -->
+        <BaseSelect
+          v-model="row.aql"
+          :options="aqlOptions"
+          optionLabel="name"
+          optionValue="id"
+          class="tw:w-44"
         />
         <button class="tw:text-secondary tw:hover:text-red-600" @click="removeRow(i)">
           <IconTrash :size="16" />

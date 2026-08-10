@@ -84,13 +84,22 @@ A sampling plan decides how many units to inspect and how many defects are accep
 1. Go to **QC Inspection → Sampling Plans → New**.
 2. Choose the **Inspection point** and the **Scope** (Item / Item Group / Item Type).
 3. Pick a **Plan type**:
-   - **AQL standard** — reference an **AQL Standard** (Step 3a) and set the inspection level and the AQL per defect class (Critical / Major / Minor).
-   - **Custom table** — enter your own sample-size / accept / reject rows.
+   - **AQL standard** — reference an **AQL Standard** (Step 3a), pick an inspection level, and set one AQL per defect class (Critical / Major / Minor). At inspection time the lot size + level resolve a **code letter**, and the code letter + AQL give the sample size and accept/reject numbers. A **?** next to the Inspection level opens the code-letter table (Table 1) so you can see exactly how lot size × level picks the letter. AQL options carry a typical-pairing hint — **Critical ≈ 0.40–0.65 · Major ≈ 1.0–1.5 · Minor ≈ 2.5–4.0** (tighter AQL = fewer defects tolerated for the same sample).
+   - **Custom table** — your own fixed plan: **one sample size for the whole inspection** (the custom analogue of the code letter's n) plus an accept/reject row per defect class. At inspection, logged defects are tallied per class against the matching row; reject when the tally reaches Re.
+   - **√N + 1** — raw-material sampling. The sample size comes from the **container count**, not the unit quantity: for N containers received (drums, bags, boxes), open **⌈√N⌉ + 1** of them for identity/assay testing. AQL and defect-class accept/reject numbers do **not** apply — acceptance is the specification's lab tests. The dialog includes a live example calculator (25 containers → 6 samples).
 4. Save, then **Approve** the plan. Only **Active** sampling plans are used for inspection.
+5. **Preview any plan** from the Sampling Plans list by clicking its name — a read-only view shows the full configuration plus a live sample-size preview (enter a lot size, see the code letter, n and per-class Ac/Re).
 
 #### Step 3a — AQL Standards
 
-If you use AQL-based plans, the **AQL Standards** tab holds the published tables (e.g. ANSI/ASQ Z1.4) your plans reference. You normally set these up once; sampling plans then point at them.
+If you use AQL-based plans, the **AQL Standards** tab holds the published tables your plans reference. The global standards ship with the **complete canonical ANSI/ASQ Z1.4 / ISO 2859-1 master tables** — all 16 code letters (A–R), Normal / Tightened / Reduced, including the Ac=0 plans for tight AQLs and the arrow cells of the printed standard.
+
+Reading the table viewer:
+- Every AQL value carries its typical defect-class pairing chip (typ. Critical / Major / Minor).
+- **Arrow cells** have no plan of their own — they point at a neighbouring code letter's plan ("larger sample" / "smaller sample"), exactly like the arrows in the printed standard. The system follows them automatically when computing a plan.
+- **Ac / Re** — accept the lot at ≤ Ac defects of that class, reject at ≥ Re. Reduced-inspection plans can have a gap between Ac and Re: a count in the gap still accepts, but signals a return to Normal inspection.
+
+Global standards are read-only. **Clone** one into a custom standard to edit cells for your company (filling an arrow cell's sample/Ac/Re replaces the arrow with an explicit plan).
 
 ### Step 4 — Create an Inspection Plan
 
@@ -107,15 +116,21 @@ Disposition notifications live on the inspection plan only — the person enteri
 Day-to-day, the QA team works entirely in the **Inspection Lots** tab.
 
 1. Go to **QC Inspection → Inspection Lots → New Inspection Lot**.
-2. Select the **Item**, the **Inspection point**, and enter the **lot quantity** (plus any reference fields — supplier, PO, batch…).
-3. The system automatically **matches** the Specification and Sampling Plan for that item + point, narrow → broad:
-   - **One match** — shown read-only, with the level it matched by (e.g. "matched by Item Group").
-   - **Several matches** — pick the correct one from the list.
-   - **No match** — you'll see an error and **cannot proceed**. That means no *effective* specification or *active* sampling plan covers this item yet — ask a QA Manager to create/approve one.
-4. Create the lot. The system computes the **sample size** from the sampling plan and the quantity.
-5. **Capture results** for each characteristic (and log any defects). Instruments requiring calibration are checked at capture.
-6. When results are complete, **Submit for QA Disposition**. The lot routes through the disposition workflow from the matching inspection plan.
-7. The reviewer records a single **Disposition** (Release, Rework, Scrap, Use-as-is…). An adverse disposition can automatically raise a **Nonconformance**.
+2. Select the **Item**, the **Inspection point**, and enter the **lot quantity** with its **UOM** (kg, L, pieces… — defaulted from the item's unit of measure, adjustable per lot), plus any reference fields — supplier, PO, batch….
+3. Choose the **Sampling** source:
+   - **Sampling plan** (default) — the system **matches** the Specification and Sampling Plan for that item + point, narrow → broad: one match is shown read-only ("matched by Item Group"), several matches let you pick, and no match blocks that mode until a QA Manager approves one.
+   - **Custom table** — declare a fixed plan inline for **this lot only** (one sample size + accept/reject per defect class). No approved sampling plan is required — this is the escape hatch when nothing matches yet.
+4. If the matched plan is a **√N + 1** plan, enter the **Containers received (N)** — the field shows the computed sample live ("√N + 1 → sample 6 containers"). Formula lots express their sample basis in containers throughout: *sample 9 of 50 containers · 1,000 kg*.
+5. Create the lot. The system computes the **sample size** from the sampling configuration.
+6. **Capture results** for each characteristic (and log any defects). Instruments requiring calibration are checked at capture. Notes:
+   - Numeric fields don't accept **negative values** unless the characteristic's own spec range goes below zero (e.g. freezer temperatures).
+   - A **failed sample requires a comment** — the row's comment icon turns **red** until the reason is documented (Save is blocked without it), and entered comments show as a truncated preview on the row.
+   - Use **Retain Sample** (in the header actions or the rail card) to keep a physical sample from the lot.
+7. When results are complete, **Submit for QA Disposition**. The lot routes through the disposition workflow from the matching inspection plan. The reviewer sees a glanceable advisory:
+   - **AQL / custom lots** — the *AQL Acceptance* panel tallies defective units per class against the plan's Ac/Re and shows an advisory Accept / Reject.
+   - **√N + 1 lots** — the *Lab Acceptance* panel applies the raw-material rule: **all** captured results within specification → advisory Accept; **any** out-of-spec result → advisory Reject, with per-sample chips naming what failed. Advisory only — the disposition decision is the reviewer's.
+8. The reviewer records a single **Disposition** (Release, Rework, Scrap, Use-as-is…). For an **adverse** disposition you can raise a **Nonconformance** in one click — the NC arrives pre-filled with the failure summary **and the full inspection report attached as a PDF** on its description, so the NC evidence stands alone.
+9. A QA manager can **Reopen for re-inspection** (reason required, kept in the audit trail), re-picking the specification and sampling: an existing plan, an ad-hoc **Custom AQL**, or an ad-hoc **Custom table** — applied to that lot only.
 
 ## Roles — who does what
 

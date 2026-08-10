@@ -5,11 +5,9 @@ describe('buildNcBanners', () => {
   it('returns [] when nc is null', () => {
     expect(buildNcBanners(null, {})).toEqual([])
   })
-  it('adds a QC-origin info banner with a link when sourceLot present', () => {
+  it('no qc-origin banner — the attached inspection report carries the context', () => {
     const b = buildNcBanners({ statusId: 'DRAFT' }, { isEditable: true, sourceLot: { id: 'lot1', lotNumber: 'L-1' }, companyPath: (p) => `/c${p}` })
-    const qc = b.find((x) => x.id === 'qc-origin')
-    expect(qc.tone).toBe('info')
-    expect(qc.actions[0].to).toContain('lot1')
+    expect(b.some((x) => x.id === 'qc-origin')).toBe(false)
   })
   it('adds a supplier-facing banner when isSupplierFacing', () => {
     const b = buildNcBanners({ statusId: 'UNDER_REVIEW', isSupplierFacing: true }, { isEditable: true })

@@ -7,9 +7,6 @@ import {
   IconPlus,
   IconEdit,
   IconClipboardList,
-  IconGitBranch,
-  IconSend,
-  IconTrash,
 } from '@tabler/icons-vue'
 import { useDebounceFn } from '@vueuse/core'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
@@ -43,9 +40,9 @@ const props = defineProps({
   id: { type: String, required: true },
 })
 
-const router = useRouter()
 const toast = useToast()
 const { confirm } = useConfirm()
+const router = useRouter()
 
 // Editing a log book is OWNER-only (creator stands in while no owner is set;
 // company owners bypass) — module read access only VIEWS (user decision
@@ -125,7 +122,7 @@ watch(
         logBookTypeId: lb.logBookTypeId || null,
         ownerUserId: lb.ownerUserId || null,
         supervisorUserId: lb.supervisorUserId || null,
-        codePrefix: lb.codePrefix ?? 'LOG-{DEPTCODE}-{TYPECODE}',
+        codePrefix: lb.codePrefix ?? '{TYPECODE}-LOG-{DEPTCODE}',
         equipmentId: lb.equipmentId || null,
         syncsEquipmentCalibration: !!lb.syncsEquipmentCalibration,
         syncsEquipmentPm: !!lb.syncsEquipmentPm,
@@ -143,8 +140,10 @@ watch(
         editWindowMinutes: lb.editWindowMinutes ?? null,
         signatureRequired: !!lb.signatureRequired,
         reviewRequired: !!lb.reviewRequired,
+        overTheShoulderReview: !!lb.overTheShoulderReview,
         notifyOnSubmit: lb.notifyOnSubmit ?? 'DIGEST',
         statusId: lb.statusId ?? 'ACTIVE',
+        statusReason: lb.statusReason ?? '',
         workflowVersionId: lb.workflowVersionId || null,
       }
       isFirstLoad.value = false
@@ -224,11 +223,10 @@ const derivedClassification = computed(() =>
 // The record-ID naming convention (code prefix) is editable only while the
 // log book is still a draft (no effective version yet). Once effective the
 // code is frozen so live record numbers stay consistent.
-const canEditPrefix = computed(() => canUpdate.value && !logBook.value?.currentEffectiveVersionId)
-
 const debouncedSave = useDebounceFn(async () => {
-  // canEditDetails (not just canUpdate) so an effective book never silently
-  // persists edits — those must go through a new version.
+  // canEditDetails: UNDER_REVIEW/OBSOLETE books never autosave. On an
+  // ACTIVE book only the operational fields change (frozen inputs render
+  // disabled; the server refuses frozen-field changes as a backstop).
   if (!draft.value || !canEditDetails.value) return
   isSaving.value = true
   try {
@@ -259,8 +257,11 @@ const debouncedSave = useDebounceFn(async () => {
         draft.value.editWindowMode === 'TIME_WINDOW' ? draft.value.editWindowMinutes : null,
       signatureRequired: !!draft.value.signatureRequired,
       reviewRequired: !!draft.value.reviewRequired,
+      overTheShoulderReview: !!draft.value.overTheShoulderReview,
       notifyOnSubmit: draft.value.notifyOnSubmit,
       statusId: draft.value.statusId,
+      statusReason:
+        draft.value.statusId === 'OBSOLETE' ? draft.value.statusReason?.trim() || undefined : null,
       recordClassification: derivedClassification.value,
       workflowVersionId: draft.value.workflowVersionId || null,
     })
@@ -359,7 +360,10 @@ async function removeDocLink(link) {
 // drawers anchor against the FormBuilder's own bounding box; full-
 // screen gives them somewhere to land. The builder fires `save` from
 // its internal toolbar with the final schema; we PATCH and close.
-const activeTab = ref('details') // 'details' | 'schema' | 'versions' | 'assignments'
+// Versions FIRST (user decision 2026-08-07): opening a log book lands on
+// the version history — pick a version to view it; only the open draft is
+// editable, an effective version is immutable.
+const activeTab = ref('details') // 'details' | 'schema' | 'assignments'
 
 // ─── Assignments tab data ────────────────────────────────────────────
 // Lists FormAssignment rows scoped to this log book. The full create /
@@ -426,101 +430,67 @@ async function onSchemaBuilderSave(nextSchema) {
     const res = await patch(`/v1/services/logBooks/${props.id}`, {
       schema: nextSchema,
     })
-    toast.success(`Schema saved (v${res?.logBook?.schemaVersion ?? '?'})`)
+    toast.success(`Log template saved (v${res?.logBook?.schemaVersion ?? '?'})`)
     showSchemaBuilder.value = false
   } catch (err) {
-    toast.error(err?.message || 'Failed to save schema')
+    toast.error(err?.message || 'Failed to save log template')
   } finally {
     isSavingSchema.value = false
   }
 }
 
-// ─── Controlled versions + approval ────────────────────────────────
-// A log book is a controlled entity: its schema + policy are versioned,
-// and a version only becomes usable for new entries once approved
-// through the attached workflow. Approval rides the generic workflow
-// engine (resourceType 'LogBookVersion'), so the approve/reject UI is
-// the same TaskActionBar documents use.
-const versions = useLiveQueryWithDeps(
-  [() => props.id],
-  async (db, [id]) => {
-    if (!id) return []
-    const rows = await db.LogBookVersion.where('logBookId', id).exec()
-    return rows.sort(
-      (a, b) =>
-        (b.versionMajor ?? 0) - (a.versionMajor ?? 0) ||
-        (b.versionMinor ?? 0) - (a.versionMinor ?? 0),
-    )
-  },
+// ─── Approval lifecycle (supersede model, 2026-08-08) ───────────────
+// The BOOK carries the whole lifecycle: DRAFT → UNDER_REVIEW → (REJECTED)
+// → ACTIVE → INACTIVE/OBSOLETE. Approval rides the generic workflow
+// engine (resourceType 'LogBook') — same TaskActionBar documents use.
+// Once ACTIVE, the contract (template + entry policy + equipment +
+// location + code) is FROZEN; changes go through "Create replacement",
+// which clones this book into a lineage-linked draft (code root-V<gen>)
+// and obsoletes this one on approval.
+const bookStatus = computed(() => logBook.value?.statusId ?? 'DRAFT')
+const isEditableDraft = computed(() => ['DRAFT', 'REJECTED'].includes(bookStatus.value))
+const isUnderReview = computed(() => bookStatus.value === 'UNDER_REVIEW')
 
-  { models: ['LogBookVersion'], initial: [] },
-)
-
-const effectiveVersionId = computed(() => logBook.value?.currentEffectiveVersionId || null)
-const hasEffectiveVersion = computed(() => !!effectiveVersionId.value)
-
-// Tab strip — version/assignment counts and the "no effective version" warning
-// dot are surfaced via BaseTabs' badge/indicator (declared here so the reactive
-// counts above are in scope).
 const tabs = computed(() => [
   { value: 'details', label: 'Details' },
-  { value: 'schema', label: 'Schema' },
-  {
-    value: 'versions',
-    label: 'Versions',
-    icon: IconGitBranch,
-    badge: versions.value.length || null,
-    indicator: !hasEffectiveVersion.value,
-  },
+  { value: 'schema', label: 'Log Template' },
   { value: 'assignments', label: 'Assignments', badge: logBookAssignments.value.length || null },
 ])
-const effectiveVersion = computed(
-  () => versions.value.find((v) => v.id === effectiveVersionId.value) || null,
+
+// Lineage — the physical-logbook chain, both directions.
+const predecessor = useLiveQueryWithDeps(
+  [() => logBook.value?.supersedesLogBookId],
+  async (db, [pid]) => (pid ? db.LogBook.findByPk(pid) : null),
+  { models: ['LogBook'] },
 )
-const openDraft = computed(
-  () => versions.value.find((v) => ['DRAFT', 'REJECTED'].includes(v.statusId)) || null,
-)
-const versionUnderReview = computed(
-  () => versions.value.find((v) => v.statusId === 'UNDER_REVIEW') || null,
+const replacement = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    const rows = await db.LogBook.where().exec()
+    return rows.find((b) => b.supersedesLogBookId === id) ?? null
+  },
+  { models: ['LogBook'], initial: null },
 )
 
-// Document parity: an EFFECTIVE log book is locked. Its schema + settings
-// can only change through a new version (Create new version → edit the
-// draft → submit for approval). The Details form is editable only while
-// there's no effective version yet, or there's an open editable draft to
-// edit. Otherwise it's read-only.
-const lockedAsEffective = computed(() => hasEffectiveVersion.value && !openDraft.value)
-const canEditDetails = computed(() => canUpdate.value && !lockedAsEffective.value)
-
-// Owner of this log book (drives the approval flow). isOwner is for
-// display/accountability; the actual submit/discard/new-version actions
-// are gated on the manage permission (canManageVersion), matching the
-// rest of the controlled flow.
-const isOwner = computed(
-  () => !!logBook.value?.ownerUserId && logBook.value.ownerUserId === currentSession.value?.userId,
+// Edit gates:
+//  - UNDER_REVIEW / OBSOLETE: everything read-only.
+//  - Draft/Rejected: everything editable (incl. the frozen-set fields).
+//  - ACTIVE/INACTIVE: only the operational fields — the contract inputs
+//    render disabled (server enforces the same freeze).
+const canEditDetails = computed(
+  () => canUpdate.value && !isUnderReview.value && bookStatus.value !== 'OBSOLETE',
 )
-const canManageVersion = computed(() => canUpdate.value)
-// A draft can be discarded only when there's an effective version to fall
-// back to (the very first draft has none — delete the log book instead).
-const canDiscardDraft = computed(
-  () => canManageVersion.value && !!openDraft.value && hasEffectiveVersion.value,
-)
+const canEditFrozen = computed(() => canUpdate.value && isEditableDraft.value)
+const canEditPrefix = computed(() => canUpdate.value && isEditableDraft.value)
 
-function versionLabel(v) {
-  return `v${v.versionMajor ?? 1}.${v.versionMinor ?? 0}`
-}
-
-// The current user's active approval task on the version under review —
-// drives the read-only review banner. TaskActionBar re-queries the same
-// task independently to render the action buttons.
+// The current user's active approval task on this book — drives the
+// review banner. TaskActionBar re-queries the same task for its buttons.
 const myReviewTask = useLiveQueryWithDeps(
-  [() => versionUnderReview.value?.id, () => currentSession.value?.userId],
-  async (db, [versionId, userId]) => {
-    if (!versionId || !userId) return null
-    const tasks = await db.TaskInstance.where('[entityType+entityId]', [
-      'LogBookVersion',
-      versionId,
-    ]).exec()
+  [() => (isUnderReview.value ? props.id : null), () => currentSession.value?.userId],
+  async (db, [bookId, userId]) => {
+    if (!bookId || !userId) return null
+    const tasks = await db.TaskInstance.where('[entityType+entityId]', ['LogBook', bookId]).exec()
     return (
       tasks.find(
         (t) => t.assignedTo === userId && ['ASSIGNED', 'FORM_SUBMITTED'].includes(t.statusId),
@@ -529,47 +499,66 @@ const myReviewTask = useLiveQueryWithDeps(
   },
   { models: ['TaskInstance'] },
 )
-const isReviewing = computed(() => !!versionUnderReview.value && !!myReviewTask.value)
-// Scratch model for the read-only schema preview in the review banner.
+const isReviewing = computed(() => isUnderReview.value && !!myReviewTask.value)
+// Scratch model for the read-only template preview in the review banner.
 const reviewPreviewData = ref({})
 
-// ─── Submit-for-approval + new-draft actions ───────────────────────
-const submitDialog = reactive({ open: false, versionId: null })
+// The draft scratch object is seeded once per book id, but the book's
+// lifecycle can move underneath it (submit → UNDER_REVIEW, reviewer
+// rejects → REJECTED, approval → ACTIVE). Autosave echoes
+// draft.statusId in every PATCH, and the backend rejects any status
+// change outside pause/resume/obsolete — so a stale echo would 400
+// every subsequent edit. Track the server value.
+watch(
+  () => logBook.value?.statusId,
+  (statusId) => {
+    if (!statusId || !draft.value) return
+    draft.value.statusId = statusId
+    draft.value.statusReason = logBook.value?.statusReason ?? ''
+  },
+)
 
-function openSubmit(version) {
-  if (!canUpdate.value) return
+// ─── Submit / replace / discard actions ─────────────────────────────
+const submitDialog = reactive({ open: false })
+
+function openSubmit() {
+  if (!canUpdate.value || !isEditableDraft.value) return
   if (!draft.value?.workflowVersionId) {
     toast.error('Attach an approval workflow on the Details tab first')
     activeTab.value = 'details'
     return
   }
-  submitDialog.versionId = version.id
   submitDialog.open = true
 }
 
-const creatingDraft = ref(false)
-async function createNewDraft() {
-  if (!canManageVersion.value || creatingDraft.value) return
-  creatingDraft.value = true
+const creatingReplacement = ref(false)
+async function createReplacement() {
+  if (!canUpdate.value || creatingReplacement.value || bookStatus.value !== 'ACTIVE') return
+  creatingReplacement.value = true
   try {
-    await post(`/v1/services/logBooks/${props.id}/versions`, {})
-    toast.success('New draft created — edit its schema, then submit for approval')
-    activeTab.value = 'versions'
+    const res = await post(`/v1/services/logBooks/${props.id}/replace`, {})
+    toast.success(
+      `Replacement ${res?.logBook?.code ?? 'draft'} created — edit its log template, then submit for approval`,
+    )
+    if (res?.logBook?.id) {
+      router.push(getCompanyPath(`/inspections-logs/log-books/${res.logBook.id}`))
+    }
   } catch (err) {
-    toast.error(err?.message || 'Failed to create draft')
+    toast.error(err?.message || 'Failed to create replacement')
   } finally {
-    creatingDraft.value = false
+    creatingReplacement.value = false
   }
 }
 
 const discardingDraft = ref(false)
 async function discardDraft() {
-  const target = openDraft.value
-  if (!canDiscardDraft.value || !target || discardingDraft.value) return
+  if (!canUpdate.value || !isEditableDraft.value || discardingDraft.value) return
   if (
     !(await confirm({
-      title: 'Discard draft',
-      message: `Discard ${versionLabel(target)}? This permanently deletes the draft. The current effective version stays in use.`,
+      title: 'Discard draft log book',
+      message: `Discard "${logBook.value?.title}"? This deletes the draft${
+        predecessor.value ? ` — ${predecessor.value.code} stays in use` : ''
+      }.`,
       okLabel: 'Discard',
       danger: true,
     }))
@@ -578,8 +567,9 @@ async function discardDraft() {
   }
   discardingDraft.value = true
   try {
-    await del(`/v1/services/logBookVersions/${target.id}`)
+    await del(`/v1/services/logBooks/${props.id}`)
     toast.success('Draft discarded')
+    router.push(getCompanyPath('/inspections-logs/templates'))
   } catch (err) {
     toast.error(err?.message || 'Failed to discard draft')
   } finally {
@@ -587,24 +577,32 @@ async function discardDraft() {
   }
 }
 
-// ─── Archive / restore ─────────────────────────────────────────────
-async function archive() {
-  if (
-    !(await confirm({
-      title: 'Archive log book',
-      message: 'Archive this log book? It will stop appearing as an option for new entries.',
-      okLabel: 'Archive',
-      danger: true,
-    }))
-  ) {
-    return
-  }
+// ─── Mark Obsolete (was Archive) ────────────────────────────────────
+// Status transition with a REQUIRED reason — recorded in the audit trail
+// via the log_books row trigger. The book stays visible as controlled
+// history (this does NOT delete it); loggers stop seeing it because only
+// ACTIVE books appear on the logging surfaces.
+const showObsoleteDialog = ref(false)
+const obsoleteReason = ref('')
+const obsoleting = ref(false)
+function markObsolete() {
+  obsoleteReason.value = ''
+  showObsoleteDialog.value = true
+}
+async function confirmObsolete() {
+  if (!obsoleteReason.value.trim() || obsoleting.value) return
+  obsoleting.value = true
   try {
-    await del(`/v1/services/logBooks/${props.id}`)
-    toast.success('Log book archived')
-    router.push(getCompanyPath('/inspections-logs/templates'))
+    await patch(`/v1/services/logBooks/${props.id}`, {
+      statusId: 'OBSOLETE',
+      statusReason: obsoleteReason.value.trim(),
+    })
+    toast.success('Log book marked obsolete')
+    showObsoleteDialog.value = false
   } catch (err) {
-    toast.error(err?.message || 'Failed to archive')
+    toast.error(err?.message || 'Failed to mark obsolete')
+  } finally {
+    obsoleting.value = false
   }
 }
 
@@ -614,7 +612,14 @@ const breadcrumbs = computed(() => [
   { label: logBook.value?.title || 'Log Book' },
 ])
 const logBookActions = computed(() =>
-  buildLogBookActions({ canUpdate: canUpdate.value, hasLogBook: !!logBook.value }, { archive }),
+  buildLogBookActions(
+    {
+      canUpdate: canUpdate.value,
+      hasLogBook: !!logBook.value,
+      statusId: bookStatus.value,
+    },
+    { submitForApproval: openSubmit, createReplacement, discardDraft, markObsolete },
+  ),
 )
 const logBookDetailConfig = computed(() =>
   defineDetailConfig({
@@ -659,7 +664,7 @@ const logBookDetailConfig = computed(() =>
 
     <template v-if="logBook" #meta>
       <span class="tw:uppercase">{{ logBook.code }}</span>
-      <span> · schema v{{ logBook.schemaVersion }}</span>
+      <span> · V{{ logBook.generation ?? 1 }}</span>
       <span v-if="isSaving" class="tw:text-amber-600"> · saving…</span>
     </template>
 
@@ -668,61 +673,57 @@ const logBookDetailConfig = computed(() =>
     </template>
 
     <template v-if="logBook" #section-details>
+      <!-- Lifecycle banner — the BOOK carries the approval lifecycle
+           (supersede model). Lineage links tell the physical-logbook story. -->
+      <div
+        class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:px-4 tw:py-2.5 tw:mb-4"
+      >
+        <LogBookStatusBadge :statusId="bookStatus" />
+        <span class="tw:text-xs tw:font-semibold tw:text-secondary">V{{ logBook.generation ?? 1 }}</span>
+        <span v-if="logBook.effectiveAt" class="tw:text-xs tw:text-secondary">
+          effective {{ logBook.effectiveAt.formatDate('date') }}
+        </span>
+        <RouterLink
+          v-if="predecessor"
+          :to="getCompanyPath(`/inspections-logs/log-books/${predecessor.id}`)"
+          class="tw:text-xs tw:text-primary tw:hover:underline"
+        >
+          Replaces {{ predecessor.code }}
+        </RouterLink>
+        <RouterLink
+          v-if="replacement"
+          :to="getCompanyPath(`/inspections-logs/log-books/${replacement.id}`)"
+          class="tw:text-xs tw:text-primary tw:hover:underline"
+        >
+          Replaced by {{ replacement.code }} ({{ replacement.statusId?.toLowerCase() }})
+        </RouterLink>
+        <span class="tw:text-xs tw:text-secondary tw:italic tw:ml-auto">
+          <template v-if="isEditableDraft">Draft — editable; submit for approval when ready.</template>
+          <template v-else-if="isUnderReview">Under review — locked until the approval completes.</template>
+          <template v-else-if="bookStatus === 'ACTIVE'">Approved — template, policy, equipment &amp; location are locked. Create a replacement to change them.</template>
+          <template v-else-if="bookStatus === 'OBSOLETE'">Obsolete{{ logBook.statusReason ? ` — ${logBook.statusReason}` : '' }}</template>
+          <template v-else-if="bookStatus === 'INACTIVE'">Paused — not accepting entries.</template>
+        </span>
+      </div>
+
       <!-- Tab strip -->
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Log book sections">
         <div class="tw:mt-6">
           <!-- Details tab -->
           <BaseTabPanel value="details">
             <div v-if="draft" class="tw:flex tw:flex-col tw:gap-4">
-              <!-- Version & approval — the controlled-flow control centre.
-             Approver sees Approve/Reject; owner sees Submit / Discard /
-             Create new version depending on the version state. -->
+              <p class="tw:text-xs tw:text-secondary tw:px-1">
+                Book settings. Operational fields (ownership, schedule, sites) can change any time
+                and take effect immediately; the contract fields (entry policy, equipment, location,
+                type) are editable only while the book is a draft and freeze once it's approved —
+                changing them then means creating a replacement book. Every change is audit-logged.
+              </p>
+              <!-- Approval — approver sees Approve/Reject; the owner's
+                   submit/replace/discard live in the header actions. -->
               <section
+                v-if="isReviewing || isUnderReview || bookStatus === 'REJECTED'"
                 class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
               >
-                <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:flex-wrap">
-                  <div>
-                    <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main">
-                      Version &amp; approval
-                    </BaseText>
-                    <div class="tw:text-xs tw:text-secondary tw:mt-0.5">
-                      <template v-if="hasEffectiveVersion">
-                        Effective:
-                        <span class="tw:text-on-main">{{ logBook.code }}</span>
-                        <span v-if="effectiveVersion"> · {{ versionLabel(effectiveVersion) }}</span>
-                      </template>
-                      <template v-else
-                        >No effective version yet — entries can't be logged until one is
-                        approved.</template
-                      >
-                    </div>
-                  </div>
-                  <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-                    <span
-                      v-if="openDraft"
-                      class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary"
-                    >
-                      {{ versionLabel(openDraft) }}
-                      <LogBookVersionStatusBadge :statusId="openDraft.statusId" />
-                    </span>
-                    <span
-                      v-else-if="versionUnderReview"
-                      class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary"
-                    >
-                      {{ versionLabel(versionUnderReview) }}
-                      <LogBookVersionStatusBadge :statusId="versionUnderReview.statusId" />
-                    </span>
-                    <span class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary">
-                      Owner:
-                      <UserBadgeById v-if="logBook.ownerUserId" :userId="logBook.ownerUserId" />
-                      <span v-else>—</span>
-                      <span v-if="isOwner" class="tw:text-micro tw:font-semibold tw:text-primary"
-                        >(you)</span
-                      >
-                    </span>
-                  </div>
-                </div>
-
                 <!-- A) Approver — your approval is requested. -->
                 <div
                   v-if="isReviewing"
@@ -730,28 +731,28 @@ const logBookDetailConfig = computed(() =>
                 >
                   <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
                     <span class="tw:text-sm tw:font-semibold tw:text-amber-900">
-                      Your approval is requested — {{ versionLabel(versionUnderReview) }}
+                      Your approval is requested — {{ logBook.code }} (V{{ logBook.generation ?? 1 }})
                     </span>
-                    <TaskActionBar entityType="LogBookVersion" :entityId="versionUnderReview.id" />
+                    <TaskActionBar entityType="LogBook" :entityId="logBook.id" />
                   </div>
-                  <p v-if="versionUnderReview.changeSummary" class="tw:text-sm tw:text-amber-900">
+                  <p v-if="logBook.changeSummary" class="tw:text-sm tw:text-amber-900">
                     <span class="tw:font-semibold">Change summary:</span>
-                    {{ versionUnderReview.changeSummary }}
+                    {{ logBook.changeSummary }}
                   </p>
                   <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-2 tw:text-xs">
                     <div class="tw:bg-white tw:rounded tw:p-2 tw:border tw:border-amber-200">
                       <div class="tw:text-secondary">Classification</div>
                       <div class="tw:font-medium tw:text-on-main">
-                        {{ versionUnderReview.recordClassification?.replace('_', ' ') }}
+                        {{ logBook.recordClassification?.replace('_', ' ') }}
                       </div>
                     </div>
                     <div class="tw:bg-white tw:rounded tw:p-2 tw:border tw:border-amber-200">
                       <div class="tw:text-secondary">Edit window</div>
                       <div class="tw:font-medium tw:text-on-main">
-                        {{ versionUnderReview.editWindowMode?.replace(/_/g, ' ')
+                        {{ logBook.editWindowMode?.replace(/_/g, ' ')
                         }}{{
-                          versionUnderReview.editWindowMode === 'TIME_WINDOW'
-                            ? ` (${versionUnderReview.editWindowMinutes ?? '?'}m)`
+                          logBook.editWindowMode === 'TIME_WINDOW'
+                            ? ` (${logBook.editWindowMinutes ?? '?'}m)`
                             : ''
                         }}
                       </div>
@@ -759,13 +760,13 @@ const logBookDetailConfig = computed(() =>
                     <div class="tw:bg-white tw:rounded tw:p-2 tw:border tw:border-amber-200">
                       <div class="tw:text-secondary">E-signature</div>
                       <div class="tw:font-medium tw:text-on-main">
-                        {{ versionUnderReview.signatureRequired ? 'Required' : 'Not required' }}
+                        {{ logBook.signatureRequired ? 'Required' : 'Not required' }}
                       </div>
                     </div>
                     <div class="tw:bg-white tw:rounded tw:p-2 tw:border tw:border-amber-200">
                       <div class="tw:text-secondary">Reviewer approval</div>
                       <div class="tw:font-medium tw:text-on-main">
-                        {{ versionUnderReview.reviewRequired ? 'Required' : 'Not required' }}
+                        {{ logBook.reviewRequired ? 'Required' : 'Not required' }}
                       </div>
                     </div>
                   </div>
@@ -773,86 +774,41 @@ const logBookDetailConfig = computed(() =>
                     <summary
                       class="tw:cursor-pointer tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:text-on-main"
                     >
-                      Review form schema ({{ versionUnderReview.schema?.length ?? 0 }} fields)
+                      Review log template ({{ logBook.schema?.length ?? 0 }} fields)
                     </summary>
                     <div class="tw:p-4 tw:border-t tw:border-amber-200">
                       <DynamicForm
-                        v-if="(versionUnderReview.schema?.length ?? 0) > 0"
+                        v-if="(logBook.schema?.length ?? 0) > 0"
                         v-model="reviewPreviewData"
-                        :fields="versionUnderReview.schema"
+                        :fields="logBook.schema"
                       />
                       <div v-else class="tw:text-sm tw:text-secondary">No fields defined.</div>
                     </div>
                   </details>
-                </div>
-
-                <!-- B) Owner — an editable draft is open: submit or discard it. -->
-                <div
-                  v-else-if="openDraft && canManageVersion"
-                  class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap tw:bg-main-hover tw:rounded tw:p-3"
-                >
-                  <div class="tw:text-sm tw:text-on-main">
-                    <template v-if="openDraft.statusId === 'REJECTED'">
-                      {{ versionLabel(openDraft) }} was rejected — edit it and resubmit, or discard
-                      it.
-                      <div
-                        v-if="openDraft.rejectionComment"
-                        class="tw:mt-1 tw:rounded tw:bg-red-50 tw:px-2.5 tw:py-1.5 tw:text-xs tw:text-red-800"
-                      >
-                        <span class="tw:font-semibold">Reviewer's reason:</span>
-                        {{ openDraft.rejectionComment }}
-                      </div>
-                    </template>
-                    <template v-else>
-                      Editing draft {{ versionLabel(openDraft) }}. Submit it for approval when
-                      ready.
-                    </template>
-                  </div>
-                  <div class="tw:flex tw:items-center tw:gap-2">
-                    <BaseButton variant="primary" size="sm" @click="openSubmit(openDraft)">
-                      <IconSend :size="14" />
-                      Submit for approval
-                    </BaseButton>
-                    <BaseButton
-                      v-if="canDiscardDraft"
-                      variant="secondary"
-                      size="sm"
-                      :loading="discardingDraft"
-                      @click="discardDraft"
-                    >
-                      <IconTrash :size="14" />
-                      Discard draft
-                    </BaseButton>
+                  <div v-if="predecessor" class="tw:text-xs tw:text-amber-900">
+                    Approving retires <span class="tw:font-semibold">{{ predecessor.code }}</span>
+                    (marked Obsolete; its records remain readable) and activates this book.
                   </div>
                 </div>
 
-                <!-- C) A version is under review (current user isn't the approver). -->
+                <!-- B) Under review, not the approver. -->
                 <div
-                  v-else-if="versionUnderReview"
+                  v-else-if="isUnderReview"
                   class="tw:bg-main-hover tw:rounded tw:p-3 tw:text-sm tw:text-secondary"
                 >
-                  {{ versionLabel(versionUnderReview) }} is awaiting approval.
+                  Awaiting approval{{ logBook.changeSummary ? ` — "${logBook.changeSummary}"` : '' }}.
                 </div>
 
-                <!-- D) Effective with no open draft — create a new version to change anything. -->
+                <!-- C) Rejected — reviewer's reason + edit/resubmit hint. -->
                 <div
-                  v-else-if="lockedAsEffective"
-                  class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap tw:bg-main-hover tw:rounded tw:p-3"
+                  v-else
+                  class="tw:bg-red-50 tw:border tw:border-red-200 tw:rounded tw:p-3 tw:text-sm tw:text-red-800"
                 >
-                  <div class="tw:text-sm tw:text-secondary">
-                    This log book is effective and locked. Create a new version to change its schema
-                    or settings — the current version stays in use until the new one is approved.
+                  This log book was rejected — edit it and resubmit, or discard the draft.
+                  <div v-if="logBook.rejectionComment" class="tw:mt-1 tw:text-xs">
+                    <span class="tw:font-semibold">Reviewer's reason:</span>
+                    {{ logBook.rejectionComment }}
                   </div>
-                  <BaseButton
-                    v-if="canManageVersion"
-                    variant="primary"
-                    size="sm"
-                    :loading="creatingDraft"
-                    @click="createNewDraft"
-                  >
-                    <IconPlus :size="14" />
-                    Create new version
-                  </BaseButton>
                 </div>
               </section>
 
@@ -875,22 +831,22 @@ const logBookDetailConfig = computed(() =>
                   />
                 </BaseField>
                 <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-                  <BaseField v-slot="{ id: fieldId }" label="Category">
+                  <BaseField v-slot="{ id: fieldId }" label="Log Book Type">
                     <select
                       :id="fieldId"
                       v-model="draft.logBookTypeId"
-                      :disabled="!canEditDetails"
+                      :disabled="!canEditFrozen"
                       class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
                     >
                       <option :value="null">— Uncategorised —</option>
                       <option v-for="t in logBookTypes" :key="t.id" :value="t.id">
-                        {{ t.name }}
+                        {{ t.name }}{{ t.prefix ? ` (${t.prefix})` : '' }}
                       </option>
                     </select>
                   </BaseField>
                   <BaseField
                     label="Owner"
-                    hint="Owns the approval flow — submits versions for approval and manages drafts."
+                    hint="Owns the approval flow — submits the book for approval and manages replacements."
                   >
                     <UserSelectMenu v-model="draft.ownerUserId" :disabled="!canEditDetails" />
                   </BaseField>
@@ -911,16 +867,20 @@ const logBookDetailConfig = computed(() =>
                     </div>
                   </BaseField>
                   <BaseField v-slot="{ id: fieldId }" label="Status">
+                    <!-- Approved books: pause/resume here; Obsolete goes
+                         through the header action (requires a reason).
+                         Draft/review lifecycle is workflow-owned. -->
                     <select
+                      v-if="['ACTIVE', 'INACTIVE'].includes(bookStatus)"
                       :id="fieldId"
                       v-model="draft.statusId"
                       :disabled="!canEditDetails"
                       class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
                     >
                       <option value="ACTIVE">Active</option>
-                      <option value="INACTIVE">Inactive</option>
-                      <option value="ARCHIVED">Archived</option>
+                      <option value="INACTIVE">Inactive (paused)</option>
                     </select>
+                    <LogBookStatusBadge v-else :statusId="bookStatus" />
                   </BaseField>
                   <BaseField v-slot="{ id: fieldId }" label="Notification mode">
                     <select
@@ -937,7 +897,7 @@ const logBookDetailConfig = computed(() =>
                   <BaseField label="Department">
                     <DepartmentSelectMenu
                       v-model="draft.departmentId"
-                      :disabled="!canEditDetails"
+                      :disabled="!canEditFrozen"
                     />
                     <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
                       Feeds <span class="">{DEPTCODE}</span> in the Record Id prefix.
@@ -960,12 +920,13 @@ const logBookDetailConfig = computed(() =>
                   <template v-if="canEditPrefix">
                     <BaseTextInput
                       v-model="draft.codePrefix"
-                      placeholder="LOG-{DEPTCODE}-{TYPECODE}"
+                      placeholder="{TYPECODE}-LOG-{DEPTCODE}"
                     />
                     <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
                       Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /
-                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from
-                      Department + Log book type on save. Current:
+                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from the
+                      Department code + the Log book type's prefix (Lookups → Log Book Types)
+                      on save. Current:
                       <span class="tw:text-on-main">{{ logBook.code }}</span>
                     </p>
                   </template>
@@ -1029,7 +990,7 @@ const logBookDetailConfig = computed(() =>
                   >Equipment</BaseText
                 >
                 <BaseField label="Equipment">
-                  <EquipmentSelectMenu v-model="draft.equipmentId" :disabled="!canEditDetails" />
+                  <EquipmentSelectMenu v-model="draft.equipmentId" :disabled="!canEditFrozen" />
                 </BaseField>
 
                 <!-- Calibration sync: when this book is linked to an instrument,
@@ -1043,7 +1004,7 @@ const logBookDetailConfig = computed(() =>
                 >
                   <BaseCheckbox
                     v-model="draft.syncsEquipmentCalibration"
-                    :disabled="!canEditDetails"
+                    :disabled="!canEditFrozen"
                     class="tw:mt-0.5"
                   />
                   <span class="tw:text-sm tw:text-on-main">
@@ -1061,7 +1022,7 @@ const logBookDetailConfig = computed(() =>
                 >
                   <BaseCheckbox
                     v-model="draft.syncsEquipmentPm"
-                    :disabled="!canEditDetails"
+                    :disabled="!canEditFrozen"
                     class="tw:mt-0.5"
                   />
                   <span class="tw:text-sm tw:text-on-main">
@@ -1080,7 +1041,7 @@ const logBookDetailConfig = computed(() =>
                   <BaseTextInput
                     :id="fieldId"
                     v-model="draft.location"
-                    :disabled="!canEditDetails"
+                    :disabled="!canEditFrozen"
                     placeholder="e.g. Room 201, Cold Store, Line 3"
                   />
                 </BaseField>
@@ -1219,83 +1180,6 @@ const logBookDetailConfig = computed(() =>
                 </template>
               </section>
 
-              <!-- Entry policy -->
-              <section
-                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
-              >
-                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
-                  >Entry policy</BaseText
-                >
-                <BaseField v-slot="{ id: fieldId }" label="Edit window">
-                  <select
-                    :id="fieldId"
-                    v-model="draft.editWindowMode"
-                    :disabled="!canEditDetails"
-                    class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-                  >
-                    <option value="NONE">None — lock immediately on submit</option>
-                    <option value="TIME_WINDOW">Time window — lock after N minutes</option>
-                    <option value="UNTIL_NEXT_ENTRY">Until next entry from the same user</option>
-                    <option value="UNTIL_REVIEW">Until reviewed</option>
-                  </select>
-                  <BaseField
-                    v-if="draft.editWindowMode === 'TIME_WINDOW'"
-                    v-slot="{ id: minutesId }"
-                    label="Lock after (minutes)"
-                    class="tw:mt-2"
-                  >
-                    <input
-                      :id="minutesId"
-                      v-model.number="draft.editWindowMinutes"
-                      type="number"
-                      min="1"
-                      max="2880"
-                      :disabled="!canEditDetails"
-                      class="tw:w-32 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-                    />
-                  </BaseField>
-                </BaseField>
-                <div class="tw:flex tw:flex-col tw:gap-2">
-                  <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
-                    <input
-                      v-model="draft.signatureRequired"
-                      type="checkbox"
-                      :disabled="!canEditDetails"
-                    />
-                    <span>Require e-signature on submit</span>
-                  </label>
-                  <label class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main">
-                    <input
-                      v-model="draft.reviewRequired"
-                      type="checkbox"
-                      :disabled="!canEditDetails"
-                      class="tw:mt-0.5"
-                    />
-                    <span>
-                      Require reviewer approval before locking
-                      <span class="tw:block tw:text-caption tw:text-secondary">
-                        Each entry is held for the <strong>Supervisor</strong> (above) to approve
-                        or reject before it locks.
-                      </span>
-                    </span>
-                  </label>
-                </div>
-                <div
-                  v-if="draft.reviewRequired && !draft.supervisorUserId"
-                  class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
-                >
-                  Reviewer approval is on but no <strong>Supervisor</strong> is set — set one in
-                  Basics so entries have a designated reviewer.
-                </div>
-                <div class="tw:bg-main-hover tw:rounded tw:p-2 tw:text-xs">
-                  Saves as a
-                  <strong
-                    >{{ derivedClassification.replace('_', ' ').toLowerCase() }} log book</strong
-                  >
-                  based on the current settings.
-                </div>
-              </section>
-
               <!-- Compliance -->
               <section
                 class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
@@ -1331,6 +1215,119 @@ const logBookDetailConfig = computed(() =>
                 </BaseField>
               </section>
 
+              <!-- Entry policy — how each entry behaves (edit window, e-sig,
+                   reviewer approval). Part of the frozen contract: editable
+                   while the book is a draft, locked once approved (create a
+                   replacement to change it). -->
+              <section
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
+              >
+                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
+                  >Entry policy</BaseText
+                >
+                <p class="tw:text-caption tw:text-secondary">
+                  How each log entry behaves. Frozen once the book is approved — changing it later
+                  means creating a replacement book.
+                </p>
+                <BaseField v-slot="{ id: fieldId }" label="Edit window">
+                  <select
+                    :id="fieldId"
+                    v-model="draft.editWindowMode"
+                    :disabled="!canEditFrozen"
+                    class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                  >
+                    <option value="NONE">None — lock immediately on submit</option>
+                    <option value="TIME_WINDOW">Time window — lock after N minutes</option>
+                    <option value="UNTIL_NEXT_ENTRY">Until next entry from the same user</option>
+                    <option value="UNTIL_REVIEW">Until reviewed</option>
+                  </select>
+                  <BaseField
+                    v-if="draft.editWindowMode === 'TIME_WINDOW'"
+                    v-slot="{ id: minutesId }"
+                    label="Lock after (minutes)"
+                    class="tw:mt-2"
+                  >
+                    <input
+                      :id="minutesId"
+                      v-model.number="draft.editWindowMinutes"
+                      type="number"
+                      min="1"
+                      max="2880"
+                      :disabled="!canEditFrozen"
+                      class="tw:w-32 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+                    />
+                  </BaseField>
+                </BaseField>
+                <div class="tw:flex tw:flex-col tw:gap-2">
+                  <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
+                    <input
+                      v-model="draft.signatureRequired"
+                      type="checkbox"
+                      :disabled="!canEditFrozen"
+                    />
+                    <span>Require e-signature on submit</span>
+                  </label>
+                  <label class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main">
+                    <input
+                      v-model="draft.reviewRequired"
+                      type="checkbox"
+                      :disabled="!canEditFrozen"
+                      class="tw:mt-0.5"
+                    />
+                    <span>
+                      Require reviewer approval before locking
+                      <span class="tw:block tw:text-caption tw:text-secondary">
+                        Each entry is held for the <strong>Supervisor</strong> (in Basics) to approve
+                        or reject before it locks.
+                      </span>
+                    </span>
+                  </label>
+                  <label
+                    v-if="draft.reviewRequired"
+                    class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main tw:pl-6"
+                  >
+                    <input
+                      v-model="draft.overTheShoulderReview"
+                      type="checkbox"
+                      :disabled="!canEditFrozen"
+                      class="tw:mt-0.5"
+                    />
+                    <span>
+                      Allow over-the-shoulder review
+                      <span class="tw:block tw:text-caption tw:text-secondary">
+                        The <strong>Supervisor</strong> can approve or reject entries right at the
+                        operator's workstation by entering their PIN — no need to log the operator
+                        out. Every sign-off is signed and audited under the supervisor's identity.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+                <div
+                  v-if="draft.reviewRequired && !draft.supervisorUserId"
+                  class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
+                >
+                  Reviewer approval is on but no <strong>Supervisor</strong> is set — set one in
+                  Basics so entries have a designated reviewer.
+                </div>
+                <!-- Additional reviewers (users/roles) — editable while ACTIVE.
+                     Only relevant when reviewer approval is on. -->
+                <div
+                  v-if="draft.reviewRequired"
+                  class="tw:border-t tw:border-divider tw:pt-3"
+                >
+                  <LogBookReviewersEditor
+                    :logBookId="props.id"
+                    :logBook="logBook"
+                    :canEdit="canEditDetails"
+                  />
+                </div>
+                <div class="tw:bg-main-hover tw:rounded tw:p-2 tw:text-xs">
+                  This is a
+                  <strong>{{ derivedClassification.replace('_', ' ').toLowerCase() }} log book</strong>
+                  based on the current settings.
+                </div>
+              </section>
+
               <!-- Log Book Approval — approves the log book DEFINITION (schema +
                    policy), NOT the daily entries. A new/revised version routes
                    through this workflow before it becomes effective. -->
@@ -1341,12 +1338,12 @@ const logBookDetailConfig = computed(() =>
                   Log Book Approval
                 </BaseText>
                 <p class="tw:text-xs tw:text-secondary">
-                  Approves the <strong>log book itself</strong> — its fields and policy. When you
-                  create or revise this log book, the new version routes through this workflow
-                  (review → sign-off) before it becomes <strong>effective</strong> and can accept
-                  entries. This is <strong>not</strong> the approval for daily entries — those use
-                  the reviewer sign-off in <strong>Entry policy</strong> above. Design workflows
-                  under the <strong>Log Book</strong> module.
+                  Approves the <strong>log book itself</strong> — its fields and policy. The
+                  book routes through this workflow (review → sign-off) before it becomes
+                  <strong>Active</strong> and can accept entries; a replacement book goes through
+                  it again. This is <strong>not</strong> the approval for daily entries — those
+                  use the reviewer sign-off in <strong>Entry policy</strong> above. Design
+                  workflows under the <strong>Log Book</strong> module.
                 </p>
                 <WorkflowVersionSelect
                   v-if="canUpdate"
@@ -1361,7 +1358,7 @@ const logBookDetailConfig = computed(() =>
                   v-if="!draft.workflowVersionId"
                   class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
                 >
-                  No workflow attached — versions can't be submitted for approval until one is set.
+                  No workflow attached — the book can't be submitted for approval until one is set.
                 </div>
               </section>
             </div>
@@ -1378,44 +1375,80 @@ const logBookDetailConfig = computed(() =>
                with the real submission view. -->
           <BaseTabPanel value="schema">
             <div class="tw:flex tw:flex-col tw:gap-3">
-              <FormSection title="Log book schema">
+              <FormSection title="Log template">
                 <template #actions>
-                  <BaseButton
-                    variant="primary"
-                    :disabled="!canEditDetails || isSavingSchema"
-                    @click="openSchemaBuilder"
-                  >
-                    <IconDeviceFloppy :size="16" />
-                    {{ (logBook.schema?.length ?? 0) > 0 ? 'Edit schema' : 'Build schema' }}
-                  </BaseButton>
+                  <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+                    <BaseButton
+                      v-if="isEditableDraft"
+                      variant="primary"
+                      :disabled="!canEditFrozen || isSavingSchema"
+                      @click="openSchemaBuilder"
+                    >
+                      <IconDeviceFloppy :size="16" />
+                      {{ (logBook.schema?.length ?? 0) > 0 ? 'Edit log template' : 'Build log template' }}
+                    </BaseButton>
+                    <BaseButton
+                      v-else-if="canUpdate && bookStatus === 'ACTIVE'"
+                      variant="outline"
+                      :disabled="creatingReplacement"
+                      @click="createReplacement"
+                    >
+                      <IconPlus :size="16" />
+                      Create replacement
+                    </BaseButton>
+                  </div>
                 </template>
                 <p class="tw:text-sm tw:text-secondary">
-                  {{
-                    (logBook.schema?.length ?? 0) > 0
-                      ? `${logBook.schema.length} field${logBook.schema.length === 1 ? '' : 's'} defined. Saving in the builder bumps schemaVersion (currently v${logBook.schemaVersion}).`
-                      : 'No fields yet. Open the builder to drag-and-drop the form structure.'
-                  }}
+                  <LogBookStatusBadge :statusId="bookStatus" class="tw:mr-1" />
+                  <span v-if="logBook.effectiveAt">
+                    effective {{ logBook.effectiveAt.formatDate('date') }} ·
+                  </span>
+                  <span v-if="isEditableDraft" class="tw:italic">editable until submitted</span>
+                  <span v-else class="tw:italic">
+                    read-only ({{ isUnderReview ? 'awaiting approval' : 'the approved template is frozen — create a replacement to change it' }})
+                  </span>
+                </p>
+                <p v-if="logBook.changeSummary" class="tw:text-xs tw:text-secondary tw:mt-1">
+                  {{ logBook.changeSummary }}
                 </p>
               </FormSection>
 
-              <!-- Interactive preview pane — same DynamicForm a floor user
-             gets at submission time, wrapped in the FormBuilder's
-             "Form Preview" card styling. No submit button: this is
-             pure preview, nothing posts. Authors can fill fields to
-             test conditional / required logic visually before opening
-             the builder. -->
+              <!-- EDITABLE DRAFT: interactive preview — the same DynamicForm a
+                   floor user gets at submission time. Nothing posts; authors
+                   can test conditional / required logic before opening the
+                   builder. (logBook.schema is the book's live schema.) -->
               <section
-                v-if="(logBook.schema?.length ?? 0) > 0"
+                v-if="isEditableDraft && (logBook.schema?.length ?? 0) > 0"
                 class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-2xl tw:shadow-xl tw:overflow-hidden"
               >
                 <div class="tw:bg-main tw:px-5 tw:py-3 tw:border-b tw:border-divider">
                   <div class="tw:text-xl tw:font-bold tw:text-on-sidebar">Form Preview</div>
                   <div class="tw:text-xs tw:text-secondary tw:mt-0.5">
-                    Preview only — nothing is saved. Use the "Edit schema" button to make changes.
+                    Preview only — nothing is saved. Use "Edit log template" to make changes.
                   </div>
                 </div>
                 <div class="tw:p-5">
                   <DynamicForm v-model="schemaPreviewData" :fields="logBook.schema" />
+                </div>
+              </section>
+              <div
+                v-else-if="isEditableDraft"
+                class="tw:text-sm tw:text-secondary tw:italic tw:px-1"
+              >
+                No fields yet. Open the builder to drag-and-drop the form structure.
+              </div>
+
+              <!-- READ-ONLY: an approved / in-review book's frozen template. -->
+              <section
+                v-else
+                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4"
+              >
+                <FormSchemaReadonlyView
+                  v-if="(logBook.schema?.length ?? 0) > 0"
+                  :fields="logBook.schema"
+                />
+                <div v-else class="tw:text-sm tw:text-secondary tw:italic">
+                  No fields in this log template.
                 </div>
               </section>
             </div>
@@ -1427,6 +1460,11 @@ const logBookDetailConfig = computed(() =>
                route to it with the logBookId pre-filled). -->
           <BaseTabPanel value="assignments">
             <div class="tw:flex tw:flex-col tw:gap-3">
+              <p class="tw:text-xs tw:text-secondary tw:px-1">
+                Assignments are operational — they apply to the log book as a whole, not to a
+                specific version. Whoever is assigned always logs against the current effective
+                version.
+              </p>
               <!-- Inline create/edit — embedded editor scoped to this log book
              (no navigation to /form-assignments/*). -->
               <BaseCard v-if="showAssignmentEditor">
@@ -1533,120 +1571,47 @@ const logBookDetailConfig = computed(() =>
             </div>
           </BaseTabPanel>
 
-          <!-- Versions tab — the controlled-version history + approval
-               actions. Submit hands a DRAFT to the attached workflow; New
-               draft branches a fresh editable version off the effective one. -->
-          <BaseTabPanel value="versions">
-            <div class="tw:flex tw:flex-col tw:gap-3">
-              <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-                <div class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:mb-3">
-                  <div>
-                    <BaseText as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
-                      Versions
-                    </BaseText>
-                    <div class="tw:text-xs tw:text-secondary">
-                      A version becomes effective once approved. Only the effective version is used
-                      for new entries.
-                    </div>
-                  </div>
-                  <BaseButton
-                    v-if="canUpdate && hasEffectiveVersion && !openDraft"
-                    variant="primary"
-                    :disabled="creatingDraft"
-                    @click="createNewDraft"
-                  >
-                    <IconPlus :size="16" />
-                    New draft
-                  </BaseButton>
-                </div>
-
-                <div
-                  v-if="!hasEffectiveVersion"
-                  class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs tw:mb-3"
-                >
-                  No effective version yet — this log book can't accept entries until a version is
-                  approved.
-                </div>
-
-                <div
-                  v-if="versions.length === 0"
-                  class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:py-8 tw:text-secondary"
-                >
-                  <IconGitBranch :size="32" class="tw:opacity-60" />
-                  <div class="tw:text-sm">No versions yet.</div>
-                </div>
-
-                <div v-else class="tw:flex tw:flex-col tw:gap-2">
-                  <div
-                    v-for="v in versions"
-                    :key="v.id"
-                    class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:rounded tw:border tw:border-divider tw:p-3"
-                    :class="
-                      v.id === effectiveVersionId ? 'tw:bg-green-50/40 tw:border-green-200' : ''
-                   "
-                  >
-                    <div class="tw:min-w-0">
-                      <div class="tw:flex tw:items-center tw:gap-2">
-                        <span class="tw:text-sm tw:font-semibold tw:text-on-main">
-                          {{ versionLabel(v) }}
-                        </span>
-                        <LogBookVersionStatusBadge :statusId="v.statusId" />
-                        <span
-                          v-if="v.id === effectiveVersionId"
-                          class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-green-700"
-                        >
-                          Current
-                        </span>
-                      </div>
-                      <div
-                        v-if="v.changeSummary"
-                        class="tw:text-xs tw:text-secondary tw:truncate tw:mt-0.5"
-                      >
-                        {{ v.changeSummary }}
-                      </div>
-                      <div
-                        v-if="v.rejectionComment"
-                        class="tw:text-xs tw:text-red-700 tw:mt-0.5"
-                        :title="v.rejectionComment"
-                      >
-                        Rejected: {{ v.rejectionComment }}
-                      </div>
-                    </div>
-                    <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
-                      <BaseButton
-                        v-if="canUpdate && ['DRAFT', 'REJECTED'].includes(v.statusId)"
-                        variant="primary"
-                        size="sm"
-                        @click="openSubmit(v)"
-                      >
-                        <IconSend :size="14" />
-                        Submit for approval
-                      </BaseButton>
-                      <span
-                        v-else-if="v.statusId === 'UNDER_REVIEW'"
-                        class="tw:text-xs tw:text-secondary tw:italic"
-                      >
-                        Awaiting approval
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </div>
-          </BaseTabPanel>
         </div>
       </BaseTabs>
     </template>
   </BaseDetailLayout>
 
   <!-- Submit-for-approval dialog (reviewer-per-step picker). -->
-  <LogBookVersionSubmitDialog
-    v-if="submitDialog.versionId"
+  <LogBookSubmitDialog
     v-model="submitDialog.open"
-    :versionId="submitDialog.versionId"
-    :workflowVersionId="draft?.workflowVersionId || null"
     :logBookId="props.id"
+    :workflowVersionId="draft?.workflowVersionId || null"
   />
+
+  <!-- Mark Obsolete — status transition with a required, audit-recorded reason. -->
+  <BaseDialog v-model="showObsoleteDialog" title="Mark Log Book Obsolete" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <p class="tw:text-sm tw:text-secondary">
+        The log book stops accepting new entries and disappears from the logging surfaces, but
+        stays here as controlled history — existing records remain readable. The reason is
+        recorded in the audit trail.
+      </p>
+      <BaseField v-slot="{ id: fieldId }" label="Reason" required>
+        <BaseTextarea
+          :id="fieldId"
+          v-model="obsoleteReason"
+          :rows="3"
+          placeholder="Why is this log book obsolete? (e.g. replaced by CAL-LOG-QA v2, equipment retired…)"
+        />
+      </BaseField>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Mark Obsolete"
+        submitVariant="danger"
+        :loading="obsoleting"
+        :disabled="!obsoleteReason.trim()"
+        @cancel="close"
+        @submit="confirmObsolete"
+      />
+    </template>
+  </BaseDialog>
+
 
   <!-- Full-screen FormBuilder overlay. Mirrors the workflow-step
          panel pattern: teleport to body, slide-up transition, internal
@@ -1674,7 +1639,7 @@ const logBookDetailConfig = computed(() =>
           >
             <div class="tw:flex tw:items-center tw:gap-2">
               <div class="tw:text-lg tw:font-medium tw:text-on-main">
-                {{ logBook?.title || 'Log book schema' }}
+                {{ logBook?.title || 'Log template' }}
               </div>
               <span class="tw:text-xs tw:text-secondary">
                 v{{ logBook?.schemaVersion ?? 1 }}
@@ -1695,7 +1660,7 @@ const logBookDetailConfig = computed(() =>
           <div class="tw:flex-1 tw:min-h-0 tw:overflow-hidden">
             <FormBuilder
               :initialSchema="logBook.schema || []"
-              title="Log book schema"
+              title="Log template"
               @save="onSchemaBuilderSave"
             />
           </div>

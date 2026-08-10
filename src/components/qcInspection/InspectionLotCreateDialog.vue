@@ -13,8 +13,9 @@ import { DateTime } from 'luxon'
 import { IconPaperclip, IconTrash, IconFile } from '@tabler/icons-vue'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { uploadFile } from '@/utils/uploadService.js'
-import { required } from '@shared/components/form/validators.js'
+import { required, minValue } from '@shared/components/form/validators.js'
 import { currentSession } from '@/utils/currentSession.js'
+import { defaultCustomPlanTable } from '@/utils/aqlGuidance.js'
 
 const props = defineProps({
   editLot: { type: Object, default: null },
@@ -40,8 +41,19 @@ const POINTS = [
 ]
 
 const form = ref(null)
+// Sampling source (create only): a matched/approved plan, or a fixed custom
+// table declared inline (same rows editor as the sampling-plan dialog — the
+// lot only needs a sample size + per-class Ac/Re either way).
+const SAMPLING_MODES = [
+  { label: 'Sampling plan', value: 'plan' },
+  { label: 'Custom table', value: 'table' },
+]
+const samplingMode = ref('plan')
+const customTable = ref(defaultCustomPlanTable())
 function reset() {
   const lot = props.editLot
+  samplingMode.value = 'plan'
+  customTable.value = defaultCustomPlanTable()
   form.value = lot
     ? {
         inspectionPoint: lot.inspectionPoint ?? 'INCOMING',
@@ -50,6 +62,8 @@ function reset() {
         specificationId: lot.specificationId ?? null,
         samplingPlanId: lot.samplingPlanId ?? null,
         quantity: lot.quantity ?? null,
+        containerCount: lot.containerCount ?? null,
+        uomId: lot.uomId ?? null,
         poNumber: lot.poNumber ?? '',
         receiptNumber: lot.receiptNumber ?? '',
         workOrder: lot.workOrder ?? '',
@@ -72,6 +86,8 @@ function reset() {
         specificationId: null,
         samplingPlanId: null,
         quantity: null,
+        containerCount: null,
+        uomId: null,
         poNumber: '',
         receiptNumber: '',
         workOrder: '',
@@ -128,6 +144,13 @@ function narrowestTier(rows, product) {
   return { tier: null, candidates: [] }
 }
 
+// Default the quantity UOM from the selected item's UOM (Item Master) when
+// none is picked yet — the inspector can still override per lot.
+watch(selectedProduct, (p) => {
+  if (!form.value || identityLocked.value) return
+  if (!form.value.uomId && p?.uomId) form.value.uomId = p.uomId
+})
+
 const specMatch = computed(() => {
   if (!form.value?.productId) return { tier: null, candidates: [] }
   const usable = (allSpecs.value || []).filter((s) => s.statusId === 'EFFECTIVE')
@@ -164,10 +187,45 @@ watch(
 )
 
 const specResolved = computed(() => Boolean(form.value?.specificationId))
+// The resolved/selected plan — formula plans (√N + 1) need the container count.
+const resolvedSamplingPlan = computed(
+  () => samplingMatch.value.candidates.find((c) => c.id === form.value?.samplingPlanId) ?? null,
+)
+const isFormulaPlan = computed(
+  () => samplingMode.value === 'plan' && resolvedSamplingPlan.value?.planType === 'FORMULA',
+)
+const containerCountValid = computed(
+  () => Number.isInteger(form.value?.containerCount) && form.value.containerCount >= 1,
+)
+// Live √N + 1 preview so the inspector sees what the container count implies.
+const formulaSampleSize = computed(() =>
+  containerCountValid.value ? Math.ceil(Math.sqrt(form.value.containerCount)) + 1 : null,
+)
 const samplingResolved = computed(() => Boolean(form.value?.samplingPlanId))
-// Can't proceed unless both a spec and a sampling plan are resolved (or frozen on edit).
+const customTableValid = computed(
+  () =>
+    Number.isInteger(customTable.value.sampleSize) &&
+    customTable.value.sampleSize >= 1 &&
+    customTable.value.rows.length > 0 &&
+    customTable.value.rows.every(
+      (r) =>
+        r.severityLabel &&
+        Number.isInteger(r.accept) &&
+        r.accept >= 0 &&
+        Number.isInteger(r.reject) &&
+        r.reject > r.accept,
+    ),
+)
+// Sampling is ready via a resolved plan OR a valid inline custom table.
+const samplingReady = computed(() =>
+  samplingMode.value === 'table' && !isEdit.value ? customTableValid.value : samplingResolved.value,
+)
+// Can't proceed unless both a spec and sampling are resolved (or frozen on
+// edit); formula plans additionally need the container count (N).
 const canProceed = computed(
-  () => identityLocked.value || (specResolved.value && samplingResolved.value),
+  () =>
+    identityLocked.value ||
+    (specResolved.value && samplingReady.value && (!isFormulaPlan.value || containerCountValid.value)),
 )
 
 // COA upload — files go to the generic asset store immediately (works at create
@@ -206,7 +264,9 @@ function removeCoa(assetId) {
 async function onSave() {
   if (saving.value) return
   if (!canProceed.value) {
-    toast.error('A matching specification and sampling plan are required before the lot can proceed.')
+    toast.error(
+      'A matching specification and a sampling source (plan or custom table) are required before the lot can proceed.',
+    )
     return
   }
   saving.value = true
@@ -242,6 +302,8 @@ async function onSave() {
             specificationId: f.specificationId || null,
             samplingPlanId: f.samplingPlanId || null,
             quantity: f.quantity ?? null,
+            containerCount: f.containerCount ?? null,
+            uomId: f.uomId || null,
           }
       const { lot } = await patch(`/v1/services/qcInspection/lots/${props.editLot.id}`, body)
       toast.success(`Lot ${lot.lotNumber} updated`)
@@ -254,8 +316,16 @@ async function onSave() {
         productId: f.productId,
         supplierId: f.supplierId || null,
         specificationId: f.specificationId || null,
-        samplingPlanId: f.samplingPlanId || null,
+        // Custom-table mode: no persisted plan — the fixed rows ride as an
+        // ad-hoc override snapshotted onto the lot.
+        samplingPlanId: samplingMode.value === 'table' ? null : f.samplingPlanId || null,
+        samplingOverride:
+          samplingMode.value === 'table'
+            ? { planType: 'CUSTOM', customPlanTable: customTable.value }
+            : null,
         quantity: f.quantity ?? null,
+        containerCount: f.containerCount ?? null,
+        uomId: f.uomId || null,
       })
       toast.success(`Lot ${lot.lotNumber} created`)
       show.value = false
@@ -329,6 +399,28 @@ async function onSave() {
                 v-model.number="form.quantity"
                 type="number"
                 :placeholder="form.inspectionPoint === 'IN_PROCESS' ? 'optional' : 'for sample-size calc'"
+                :disabled="identityLocked"
+              />
+            </template>
+          </BaseField>
+          <BaseField label="Quantity UOM" hint="Unit for the lot quantity (kg, L, pieces…). Defaults from the item.">
+            <UomSelectMenu v-model="form.uomId" :disabled="identityLocked" />
+          </BaseField>
+          <BaseField
+            v-if="isFormulaPlan"
+            label="Containers received (N)"
+            required
+            :value="form.containerCount"
+            :rules="[required(), minValue(1)]"
+            :hint="formulaSampleSize ? `√N + 1 → sample ${formulaSampleSize} containers` : 'Drums / bags / boxes — drives the √N + 1 sample size.'"
+          >
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model.number="form.containerCount"
+                type="number"
+                min="1"
+                placeholder="e.g. 25"
                 :disabled="identityLocked"
               />
             </template>
@@ -475,7 +567,9 @@ async function onSave() {
               >— matched from the selected item &amp; inspection point</span
             >
           </div>
-          <div class="tw:p-3 tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+          <!-- Stacked rows (not side by side) — the Sampling section can grow
+               wide (custom-table rows editor) and needs the full dialog width. -->
+          <div class="tw:p-3 tw:flex tw:flex-col tw:gap-4">
             <!-- Specification -->
             <div>
               <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Specification</p>
@@ -508,10 +602,25 @@ async function onSave() {
               </template>
             </div>
 
-            <!-- Sampling Plan -->
+            <!-- Sampling: a matched/approved plan, or an inline custom table
+                 (fixed n + per-class Ac/Re — no plan required). -->
             <div>
-              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Sampling Plan</p>
-              <template v-if="!form.productId">
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Sampling</p>
+              <SegmentedControl
+                v-if="!isEdit"
+                v-model="samplingMode"
+                :options="SAMPLING_MODES"
+                class="tw:mb-2"
+              />
+              <template v-if="samplingMode === 'table' && !isEdit">
+                <div class="tw:rounded-lg tw:border tw:border-divider tw:p-3">
+                  <CustomPlanTableFields v-model="customTable" />
+                  <p class="tw:mt-2 tw:text-xs tw:text-secondary">
+                    Applied to this lot only — not saved as a reusable sampling plan.
+                  </p>
+                </div>
+              </template>
+              <template v-else-if="!form.productId">
                 <p class="tw:text-sm tw:text-secondary">Select a product &amp; point to match a sampling plan.</p>
               </template>
               <template v-else-if="samplingMatch.candidates.length === 1">
@@ -535,7 +644,8 @@ async function onSave() {
               </template>
               <template v-else>
                 <p class="tw:text-sm tw:text-bad tw:font-medium">
-                  No active sampling plan matches this item + inspection point — create &amp; approve one first.
+                  No active sampling plan matches this item + inspection point — create &amp;
+                  approve one first, or switch to a Custom table for this lot.
                 </p>
               </template>
             </div>

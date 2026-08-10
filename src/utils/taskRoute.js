@@ -37,10 +37,9 @@ export async function resolveTaskInstanceRoute(db, t) {
     }
     case 'Document':
       return `/documents/${t.entityId}`
-    case 'LogBookVersion': {
-      const v = await db.LogBookVersion.findByPk(t.entityId)
-      return v?.logBookId ? `/inspections-logs/log-books/${v.logBookId}` : '/task-instances'
-    }
+    // Supersede model: the approval task's entityId IS the book.
+    case 'LogBook':
+      return `/inspections-logs/log-books/${t.entityId}`
     case 'AuditStandardVersion': {
       const v = await db.AuditStandardVersion.findByPk(t.entityId)
       return v?.auditStandardId ? `/audits/standards/${v.auditStandardId}` : '/task-instances'

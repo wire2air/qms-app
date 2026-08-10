@@ -70,20 +70,31 @@ export class LogBook extends BaseModel {
   @Property({ type: Number }) editWindowMinutes = null
   @Property({ type: Boolean }) signatureRequired = false
   @Property({ type: Boolean }) reviewRequired = false
+  // Allow supervisor over-the-shoulder approval at the operator's workstation
+  // (PIN, no session switch). Only meaningful with reviewRequired.
+  @Property({ type: Boolean }) overTheShoulderReview = false
   @Property({ type: String }) notifyOnSubmit = 'DIGEST'
 
   // Form definition
   @Property({ type: Array }) schema = /** @type {Array} */ ([])
   @Property({ type: Number }) schemaVersion = 1
 
-  @Property({ type: String }) statusId = 'ACTIVE'
+  // Lifecycle (supersede model 2026-08-08): DRAFT → UNDER_REVIEW →
+  // (REJECTED) → ACTIVE → INACTIVE/OBSOLETE. Contract freezes on ACTIVE.
+  @Property({ type: String }) statusId = 'DRAFT'
+  // Why the book was obsoleted (required on that transition; audit-recorded).
+  @Property({ type: String }) statusReason = ''
   @Property({ type: String }) createdBy = ''
 
-  // Controlled-version pointers (source of truth is LogBookVersion).
-  @Property({ type: String }) currentEffectiveVersionId = ''
-  @Property({ type: String }) latestDraftVersionId = ''
   // Attached approval workflow (PUBLISHED workflow version).
   @Property({ type: String }) workflowVersionId = ''
+  // ── Supersede lineage + approval lifecycle ──
+  @Property({ type: String }) supersedesLogBookId = ''
+  @Property({ type: Number }) generation = 1
+  @Property({ type: String }) changeSummary = ''
+  @Property({ type: String }) rejectionComment = ''
+  @Property({ type: String }) workflowInstanceId = ''
+  @Property({ type: DateTime }) effectiveAt = /** @type {DateTime} */ (null)
 
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })

@@ -5,9 +5,10 @@
  * sample size / accept-reject. Aggregate write through the qcInspection REST
  * service. Pass `editPlan` to pre-populate and PATCH instead of POST.
  */
-import { IconPlus, IconTrash } from '@tabler/icons-vue'
+import { IconPlus, IconTrash, IconHelpCircle } from '@tabler/icons-vue'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { required, requiredWhen, minValue } from '@shared/components/form/validators.js'
+import { required, requiredWhen } from '@shared/components/form/validators.js'
+import { aqlSelectOptions, AQL_PAIRING_SUMMARY, defaultCustomPlanTable } from '@/utils/aqlGuidance.js'
 
 const props = defineProps({
   editPlan: { type: Object, default: null },
@@ -20,8 +21,21 @@ const saveError = ref(null)
 const formRef = ref(null)
 const preview = ref(null)
 const previewing = ref(false)
+// Table 1 (lot size × inspection level → code letter) explainer dialog.
+const showCodeLetterTable = ref(false)
+// √N + 1 example calculator (FORMULA plan type).
+const formulaExampleN = ref(25)
+const formulaExampleSize = computed(() => {
+  const n = Number(formulaExampleN.value)
+  return Number.isInteger(n) && n >= 1 ? Math.ceil(Math.sqrt(n)) + 1 : null
+})
 
 const isEdit = computed(() => Boolean(props.editPlan))
+
+// Registry-authored help copy (resource/js/shared/data/tooltips.js).
+const { getFromTooltipData } = useTooltipData()
+const aqlHelp = getFromTooltipData('qc.aql', 'tooltip')
+const switchingHelp = getFromTooltipData('qc.switchingState', 'tooltip')
 
 const POINTS = [
   { id: 'INCOMING', name: 'Incoming (IQC)' },
@@ -50,11 +64,10 @@ const DEFECT_CLASSES = [
 // Z1.4 switching state — selects which accept/reject table is used.
 const SWITCHING_STATES = ['NORMAL', 'TIGHTENED', 'REDUCED'].map((id) => ({ id, name: id }))
 // AQL % columns that exist in the seeded Z1.4 tables — picking an unseeded
-// value (e.g. 0.065) fails to resolve a plan cell, so offer only these.
-const AQL_OPTIONS = [0.4, 0.65, 1.0, 1.5, 2.5, 4.0, 6.5, 10, 15, 25].map((v) => ({
-  id: v,
-  name: `${v}%`,
-}))
+// value (e.g. 0.065) fails to resolve a plan cell, so offer only these. Each
+// option carries the conventional defect-class pairing so pickers read like
+// the guidance ("tight AQL ↔ serious defects").
+const AQL_OPTIONS = aqlSelectOptions()
 
 const standards = useLiveQuery(async (db) => db.SamplingStandard.where().exec(), {
   models: ['SamplingStandard'],
@@ -70,9 +83,13 @@ function seedFromPlan(plan) {
   return {
     name: plan.name ?? '',
     planType: plan.planType ?? 'STANDARD',
-    customRows: Array.isArray(plan.customPlanTable?.rows)
-      ? plan.customPlanTable.rows.map((r) => ({ ...r }))
-      : [{ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 }],
+    formula: plan.formula ?? 'SQRT_N_PLUS_1',
+    customTable: Array.isArray(plan.customPlanTable?.rows)
+      ? {
+          sampleSize: plan.customPlanTable.sampleSize ?? null,
+          rows: plan.customPlanTable.rows.map((r) => ({ ...r })),
+        }
+      : defaultCustomPlanTable(),
     scope: plan.productId ? 'product' : plan.productFamilyId ? 'family' : 'productType',
     productId: plan.productId ?? null,
     productFamilyId: plan.productFamilyId ?? null,
@@ -101,7 +118,8 @@ function reset() {
     : {
         name: '',
         planType: 'STANDARD',
-        customRows: [{ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 }],
+        customTable: defaultCustomPlanTable(),
+        formula: 'SQRT_N_PLUS_1',
         scope: 'product',
         productId: null,
         productFamilyId: null,
@@ -135,12 +153,6 @@ watch(
 
 function addAql() {
   form.value.severityAqls.push({ severity: 'MAJOR', aql: 1.0 })
-}
-function addCustomRow() {
-  form.value.customRows.push({ severityLabel: 'NORMAL', sampleSize: 8, accept: 0, reject: 1 })
-}
-function removeCustomRow(i) {
-  form.value.customRows.splice(i, 1)
 }
 function removeAql(i) {
   form.value.severityAqls.splice(i, 1)
@@ -182,13 +194,15 @@ async function onSubmit() {
       collectionIntervalMinutes:
         f.inspectionPoint === 'IN_PROCESS' ? f.collectionIntervalMinutes || null : null,
       ...(f.planType === 'CUSTOM'
-        ? { customPlanTable: { rows: f.customRows } }
-        : {
-            standardCode: f.standardCode,
-            inspectionLevel: f.inspectionLevel,
-            switchingState: f.switchingState,
-            severityAqls: f.severityAqls,
-          }),
+        ? { customPlanTable: f.customTable }
+        : f.planType === 'FORMULA'
+          ? { formula: f.formula || 'SQRT_N_PLUS_1' }
+          : {
+              standardCode: f.standardCode,
+              inspectionLevel: f.inspectionLevel,
+              switchingState: f.switchingState,
+              severityAqls: f.severityAqls,
+            }),
     }
     if (isEdit.value) {
       const { plan } = await patch(
@@ -215,6 +229,7 @@ async function onSubmit() {
 </script>
 
 <template>
+  <div>
   <BaseDialog
     v-model="show"
     :title="isEdit ? 'Edit Sampling Plan' : 'New Sampling Plan'"
@@ -276,6 +291,7 @@ async function onSubmit() {
                 :options="[
                   { label: 'AQL standard', value: 'STANDARD' },
                   { label: 'Custom table', value: 'CUSTOM' },
+                  { label: '√N + 1', value: 'FORMULA' },
                 ]"
               />
             </BaseField>
@@ -324,98 +340,48 @@ async function onSubmit() {
 
         <hr class="tw:border-divider" />
 
-        <!-- ── CUSTOM plan table — fixed (sampleSize, accept, reject) per
-             severity, no AQL standard lookup. ─────────────────────────────── -->
-        <div v-if="form.planType === 'CUSTOM'" class="tw:flex tw:flex-col tw:gap-3">
-          <div class="tw:flex tw:items-center tw:justify-between">
-            <BaseText variant="overline">Custom plan table</BaseText>
-            <BaseButton variant="text-link" size="sm" @click="addCustomRow">
-              <IconPlus :size="14" /> Add row
-            </BaseButton>
-          </div>
-          <p class="tw:text-xs tw:text-secondary tw:-mt-2">
-            Each row sets the fixed sample size and accept/reject numbers for a severity. Reject
-            must be greater than accept (e.g. accept 0 / reject 1 = any defect fails the lot).
+        <!-- ── FORMULA (√N + 1) — raw-material container sampling ────────── -->
+        <div v-if="form.planType === 'FORMULA'" class="tw:flex tw:flex-col tw:gap-3">
+          <BaseText variant="overline">Raw-material sampling — √N + 1</BaseText>
+          <p class="tw:text-xs tw:text-secondary">
+            The sample size comes from the <strong>container count</strong>, not the unit
+            quantity: for N containers received (drums, bags, boxes), open
+            <strong>⌈√N⌉ + 1</strong> of them for identity / assay testing. AQL and defect-class
+            accept/reject numbers do not apply — acceptance is the specification's lab tests,
+            captured per sample or as a composite depending on the spec's capture mode. The
+            container count (N) is entered on each inspection.
           </p>
+          <div class="tw:flex tw:items-end tw:gap-3">
+            <BaseField label="Example — containers (N)" class="tw:w-44">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model.number="formulaExampleN"
+                  type="number"
+                  min="1"
+                  size="sm"
+                  placeholder="e.g. 25"
+                />
+              </template>
+            </BaseField>
+            <p v-if="formulaExampleSize" class="tw:text-sm tw:text-on-main tw:pb-2">
+              → sample <span class="tw:font-semibold">{{ formulaExampleSize }}</span> containers
+            </p>
+          </div>
+        </div>
+
+        <!-- ── CUSTOM plan table — fixed (sampleSize, accept, reject) per
+             defect class, no AQL standard lookup. Shared rows editor
+             (also used by the lot-reopen custom-table override). ──────────── -->
+        <div v-if="form.planType === 'CUSTOM'" class="tw:flex tw:flex-col tw:gap-3">
+          <BaseText variant="overline">Custom plan table</BaseText>
           <BaseField
-            :value="form.customRows"
+            :value="form.customTable.rows"
             :rules="[
               requiredWhen(() => form.planType === 'CUSTOM', 'Add at least one sampling row.'),
             ]"
           >
-            <div class="tw:flex tw:flex-col tw:gap-2">
-              <div
-                v-for="(row, i) in form.customRows"
-                :key="i"
-                class="tw:flex tw:items-center tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
-              >
-                <BaseField label="Severity label" class="tw:flex-1">
-                  <template #default="field">
-                    <BaseTextInput
-                      v-bind="field"
-                      v-model="row.severityLabel"
-                      size="sm"
-                      placeholder="e.g. NORMAL, CRITICAL"
-                    />
-                  </template>
-                </BaseField>
-                <BaseField
-                  label="Sample size"
-                  :value="row.sampleSize"
-                  :rules="[required(), minValue(1)]"
-                  class="tw:w-28"
-                >
-                  <template #default="field">
-                    <BaseTextInput
-                      v-bind="field"
-                      v-model.number="row.sampleSize"
-                      type="number"
-                      size="sm"
-                    />
-                  </template>
-                </BaseField>
-                <BaseField
-                  label="Accept ≤"
-                  :value="row.accept"
-                  :rules="[required(), minValue(0)]"
-                  class="tw:w-24"
-                >
-                  <template #default="field">
-                    <BaseTextInput
-                      v-bind="field"
-                      v-model.number="row.accept"
-                      type="number"
-                      size="sm"
-                    />
-                  </template>
-                </BaseField>
-                <BaseField
-                  label="Reject ≥"
-                  :value="row.reject"
-                  :rules="[
-                    required(),
-                    (v) => Number(v) > Number(row.accept) || 'Reject must exceed accept',
-                  ]"
-                  class="tw:w-24"
-                >
-                  <template #default="field">
-                    <BaseTextInput
-                      v-bind="field"
-                      v-model.number="row.reject"
-                      type="number"
-                      size="sm"
-                    />
-                  </template>
-                </BaseField>
-                <button
-                  type="button"
-                  class="tw:p-1.5 tw:mt-4 tw:rounded tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
-                  @click="removeCustomRow(i)"
-                >
-                  <IconTrash :size="16" />
-                </button>
-              </div>
-            </div>
+            <CustomPlanTableFields v-model="form.customTable" />
           </BaseField>
         </div>
 
@@ -441,6 +407,20 @@ async function onSubmit() {
               </template>
             </BaseField>
             <BaseField label="Inspection level">
+              <template #label>
+                <span class="tw:inline-flex tw:items-center tw:gap-1">
+                  Inspection level
+                  <button
+                    type="button"
+                    class="tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:inline-flex"
+                    title="How inspection level picks a code letter (Table 1)"
+                    aria-label="How inspection level picks a code letter"
+                    @click="showCodeLetterTable = true"
+                  >
+                    <IconHelpCircle :size="14" />
+                  </button>
+                </span>
+              </template>
               <BaseInlineSelect
                 v-model="form.inspectionLevel"
                 :items="LEVELS"
@@ -448,7 +428,7 @@ async function onSubmit() {
                 class="tw:w-full"
               />
             </BaseField>
-            <BaseField label="Switching state">
+            <BaseField label="Switching state" :help="switchingHelp">
               <BaseInlineSelect
                 v-model="form.switchingState"
                 :items="SWITCHING_STATES"
@@ -467,7 +447,7 @@ async function onSubmit() {
             </div>
             <p class="tw:text-caption tw:text-secondary tw:mb-2">
               One AQL per defect class — the accept/reject limits attributes inspection checks the
-              defect tally against. (Critical is usually tightest.)
+              defect tally against. {{ AQL_PAIRING_SUMMARY }}
             </p>
             <BaseField
               :value="form.severityAqls"
@@ -489,7 +469,7 @@ async function onSubmit() {
                       class="tw:w-full"
                     />
                   </BaseField>
-                  <BaseField label="AQL %" class="tw:w-36">
+                  <BaseField label="AQL %" :help="aqlHelp" class="tw:w-36">
                     <BaseInlineSelect
                       v-model="row.aql"
                       :items="AQL_OPTIONS"
@@ -567,4 +547,17 @@ async function onSubmit() {
       />
     </template>
   </BaseDialog>
+
+  <!-- Table 1 explainer — reads the seeded code-letter grid for the chosen
+       standard and highlights the current level + preview lot size. -->
+  <BaseDialog v-model="showCodeLetterTable" title="Sample-size code letters (Table 1)" size="3xl">
+    <div class="tw:p-5">
+      <SampleSizeCodeLetterTable
+        :standardCode="form.standardCode"
+        :highlightLevel="form.inspectionLevel"
+        :lotSize="Number(form.previewLotSize) || null"
+      />
+    </div>
+  </BaseDialog>
+  </div>
 </template>

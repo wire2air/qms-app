@@ -193,11 +193,11 @@ import { FieldRecordRevision } from './fieldRecordRevision'
 import { FieldRecordStatus } from './fieldRecordStatus'
 import { FormAssignment } from './formAssignment'
 import { LogBook } from './logBook'
-import { LogBookVersion } from './logBookVersion'
 import { LogBookType } from './logBookType'
 import { SiteOnLogBook } from './siteOnLogBook'
 import { DocumentSite } from './documentSite'
 import { LogBookDocumentLink } from './logBookDocumentLink'
+import { LogBookReviewer } from './logBookReviewer'
 import { SharedWithUser } from './sharedWithUser'
 import { Equipment } from './equipment'
 import { FieldRecordFlag } from './fieldRecordFlag'
@@ -416,11 +416,11 @@ export const db = {
   FieldRecordStatus,
   FormAssignment,
   LogBook,
-  LogBookVersion,
   LogBookType,
   SiteOnLogBook,
   DocumentSite,
   LogBookDocumentLink,
+  LogBookReviewer,
   SharedWithUser,
   Equipment,
   FieldRecordFlag,

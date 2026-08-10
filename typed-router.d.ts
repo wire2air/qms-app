@@ -324,6 +324,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/inspections-logs/log-forms': RouteRecordInfo<
+      '/inspections-logs/log-forms',
+      '/inspections-logs/log-forms',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/inspections-logs/queue': RouteRecordInfo<
       '/inspections-logs/queue',
       '/inspections-logs/queue',
@@ -998,6 +1005,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/inspections-logs/log-books/[id].vue': {
       routes:
         | '/inspections-logs/log-books/[id]'
+      views:
+        | never
+    }
+    'src/pages/inspections-logs/log-forms.vue': {
+      routes:
+        | '/inspections-logs/log-forms'
       views:
         | never
     }

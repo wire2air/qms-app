@@ -86,11 +86,17 @@ const versionLabel = computed(() => {
             }}
           </span>
         </div>
+        <!-- Typography must go through inputClass — plain class lands on the
+             wrapper while the inner <input> keeps its own tw:text-sm, leaving
+             the document's H1 tiny. -->
         <BaseTextInput
           v-if="canEdit"
           v-model="document.title"
-          class="tw:font-bold"
-          :class="dense ? 'tw:text-xl' : 'tw:text-3xl'"
+          :inputClass="
+            dense
+              ? 'tw:text-xl! tw:font-bold tw:leading-tight tw:py-2'
+              : 'tw:text-3xl! tw:font-bold tw:leading-tight tw:py-2'
+          "
         />
         <h2
           v-else

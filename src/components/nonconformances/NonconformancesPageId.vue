@@ -405,20 +405,8 @@ const auditIncludeEntities = computed(() => [
   { entityType: 'WorkflowInstanceSteps', entityIds: allNcWorkflowInstanceStepIds.value },
 ])
 
-// ─── QC origin ────────────────────────────────────────────────────────────────
-// A rejected inspection lot auto-creates this NC and stamps its id on
-// inspection_lots.nc_id. Reverse-resolve the source lot so the NC owner can
-// jump back to the inspection evidence. Lots are few; a scan is fine.
-const sourceLot = useLiveQueryWithDeps(
-  [() => props.id],
-
-  async (db, [ncId]) => {
-    if (!ncId) return null
-    const lots = await db.InspectionLot.where().exec()
-    return lots.find((l) => l.ncId === ncId) ?? null
-  },
-  { models: ['InspectionLot'] },
-)
+// (QC origin banner removed — an NC spawned from an adverse lot carries the
+// full inspection-report PDF as a description attachment instead.)
 
 // ─── Linked CAPAs ─────────────────────────────────────────────────────────────
 const canCreateCapa = computed(() => isAllowed(['capa:create']))
@@ -449,11 +437,7 @@ function onCreateLinkedChangeRequest() {
 
 // ─── BaseDetailLayout config (SP-6 Task 2) ───────────────────────────────────
 const ncBanners = computed(() =>
-  buildNcBanners(nc.value, {
-    isEditable: isEditable.value,
-    sourceLot: sourceLot.value,
-    companyPath: getCompanyPath,
-  }),
+  buildNcBanners(nc.value, { isEditable: isEditable.value }),
 )
 const ncActions = computed(() =>
   buildNcActions(
@@ -577,11 +561,11 @@ const ncDetailConfig = computed(() =>
             Internal
           </span>
         </template>
-        <BaseRichTextField
+        <!-- Rich text + attachments (e.g. the inspection-report PDF attached
+             when the NC was spawned from an adverse QC lot). -->
+        <RichTextAttachments
           v-model="nc.description"
-          :editable="isEditable"
-          clickToEdit
-          clickToEditLabel="Add a description…"
+          :readonly="!isEditable"
           placeholder="Add a description…"
         />
 

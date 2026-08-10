@@ -34,7 +34,7 @@ const pendingClassification = ref('OPERATIONAL_LOG')
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `templates`.
 const list = useListLayout({
-  filters: { search: '', classification: 'all', type: 'all' },
+  filters: { search: '', classification: 'all', type: 'all', status: 'all' },
   total: () => templates.value.length,
   empty: () => templates.value.length === 0,
   syncUrl: true,
@@ -64,13 +64,15 @@ const templates = useLiveQueryWithDeps(
     () => list.filters.value.search,
     () => list.filters.value.classification,
     () => list.filters.value.type,
+    () => list.filters.value.status,
   ],
-  async (db, [q, cls, type]) => {
+  async (db, [q, cls, type, status]) => {
     // Visibility is RLS-scoped (site permissions + involvement) — the list
     // shows whatever synced. Editing is owner-gated on the detail page.
     let rows = await db.LogBook.where().exec()
     if (cls !== 'all') rows = rows.filter((t) => t.recordClassification === cls)
     if (type !== 'all') rows = rows.filter((t) => t.logBookTypeId === type)
+    if (status !== 'all') rows = rows.filter((t) => (t.statusId ?? 'DRAFT') === status)
     if (q) {
       const needle = q.toLowerCase()
       rows = rows.filter(
@@ -120,6 +122,7 @@ function editWindowSummary(t) {
 
 const columns = [
   { name: 'title', label: 'Log Book', field: 'title', align: 'left', sortable: true },
+  { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: true },
   { name: 'category', label: 'Category', field: 'logBookTypeId', align: 'left' },
   { name: 'type', label: 'Type', field: 'recordClassification', align: 'left', sortable: true },
   { name: 'supervisor', label: 'Supervisor', field: 'supervisorUserId', align: 'left' },
@@ -173,6 +176,21 @@ const columns = [
             >
               <option value="all">All categories</option>
               <option v-for="t in logBookTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+          </div>
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <span class="tw:text-xs tw:text-secondary">Status</span>
+            <select
+              v-model="list.filters.value.status"
+              class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
+            >
+              <option value="all">All</option>
+              <option value="DRAFT">Draft</option>
+              <option value="UNDER_REVIEW">Under review</option>
+              <option value="REJECTED">Rejected</option>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+              <option value="OBSOLETE">Obsolete</option>
             </select>
           </div>
         </template>
@@ -245,10 +263,14 @@ const columns = [
           class="tw:font-medium tw:text-on-main tw:hover:text-primary"
         >
           {{ row.title }}
-          <span class="tw:block tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">{{
-            row.code
-          }}</span>
+          <span class="tw:block tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">
+            {{ row.code }} · V{{ row.generation ?? 1 }}
+          </span>
         </RouterLink>
+      </template>
+
+      <template #body-cell-status="{ row }">
+        <LogBookStatusBadge :statusId="row.statusId" />
       </template>
 
       <template #body-cell-category="{ row }">

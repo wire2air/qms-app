@@ -273,38 +273,25 @@ const auditInstanceMap = useLiveQueryWithDeps(
   { models: ['AuditInstance', 'AuditStandard'], initial: {} },
 )
 
-const logBookVersionMap = useLiveQueryWithDeps(
-  [
-    () =>
-      taskInstances.value.filter((i) => i.entityType === 'LogBookVersion').map((i) => i.entityId),
-  ],
-  async (db, [versionIds]) => {
-    const ids = [...new Set(versionIds.filter(Boolean))]
-    if (!ids.length) return {}
-    const versions = await Promise.all(ids.map((id) => db.LogBookVersion.findByPk(id)))
+const logBookMap = useLiveQueryWithDeps(
+  [() => taskInstances.value],
+  async (db, [tasks]) => {
     const out = {}
-    for (const v of versions.filter(Boolean)) {
-      const logBook = v.logBookId ? await db.LogBook.findByPk(v.logBookId) : null
-      // "Type" = the log book's category (Daily / Calibration / …), or
-      // its classification as a fallback. Mirrors how the column shows a
-      // document/NC/CAPA type.
+    if (!tasks?.length) return out
+    const ids = [...new Set(tasks.filter((t) => t.entityType === 'LogBook').map((t) => t.entityId))]
+    for (const id of ids) {
+      const logBook = await db.LogBook.findByPk(id)
+      if (!logBook) continue
       let typeLabel = null
-      if (logBook?.logBookTypeId) {
+      if (logBook.logBookTypeId) {
         const lbType = await db.LogBookType.findByPk(logBook.logBookTypeId)
         typeLabel = lbType?.name ?? logBook.logBookTypeId
       }
-      if (!typeLabel && logBook) {
-        typeLabel =
-          logBook.recordClassification === 'CONTROLLED_RECORD'
-            ? 'Controlled Record'
-            : 'Operational Log'
-      }
-      out[v.id] = { version: v, logBook, typeLabel }
+      out[id] = { logBook, typeLabel }
     }
     return out
   },
-
-  { models: ['LogBookVersion', 'LogBook', 'LogBookType'], initial: {} },
+  { models: ['LogBook', 'LogBookType'], initial: {} },
 )
 
 // Scheduled inspections / log collections (My Queue → unified inbox).
@@ -420,7 +407,7 @@ const BUILTIN_ENTITY_TYPES = new Set([
   'Complaint',
   'ChangeRequest',
   'QualityEvent',
-  'LogBookVersion',
+  'LogBook',
   'AssignmentInstance',
   'FieldRecord',
   'AuditInstance',
@@ -506,8 +493,8 @@ const filteredInstances = computed(() => {
       if (!ev) return false
       return ev.title?.toLowerCase().includes(q) || ev.eventNumber?.toLowerCase().includes(q)
     }
-    if (instance.entityType === 'LogBookVersion') {
-      const lb = logBookVersionMap.value[instance.entityId]?.logBook
+    if (instance.entityType === 'LogBook') {
+      const lb = logBookMap.value[instance.entityId]?.logBook
       return !!lb && (lb.title?.toLowerCase().includes(q) || lb.code?.toLowerCase().includes(q))
     }
     if (instance.entityType === 'AssignmentInstance') {
@@ -593,7 +580,7 @@ const EntityType = {
   Capa: 'CAPA',
   CustomerComplaint: 'Support Complaint',
   Complaint: 'Complaint',
-  LogBookVersion: 'Log Book',
+  LogBook: 'Log Book',
   AssignmentInstance: 'Inspection / Log',
   FieldRecord: 'Flagged Log',
   AuditInstance: 'Audit',
@@ -658,8 +645,8 @@ function titleFor(row) {
       return getChangeRequest(row)?.title || ''
     case 'QualityEvent':
       return getQualityEvent(row)?.title || ''
-    case 'LogBookVersion':
-      return logBookVersionMap.value[row.entityId]?.logBook?.title || ''
+    case 'LogBook':
+      return logBookMap.value[row.entityId]?.logBook?.title || ''
     case 'AssignmentInstance':
       return assignmentInstanceMap.value[row.entityId]?.logBook?.title || ''
     case 'FieldRecord':
@@ -817,8 +804,8 @@ function entityRoute(row) {
   if (row.entityType === 'Document') {
     return getCompanyPath(`documents/${row.entityId}`)
   }
-  if (row.entityType === 'LogBookVersion') {
-    const logBookId = logBookVersionMap.value[row.entityId]?.logBook?.id
+  if (row.entityType === 'LogBook') {
+    const logBookId = logBookMap.value[row.entityId]?.logBook?.id
     return logBookId ? getCompanyPath(`inspections-logs/log-books/${logBookId}`) : null
   }
   if (row.entityType === 'AssignmentInstance') {
@@ -887,8 +874,8 @@ function rowTitle(row) {
       return getChangeRequest(row)?.title || '—'
     case 'QualityEvent':
       return getQualityEvent(row)?.title || '—'
-    case 'LogBookVersion':
-      return logBookVersionMap.value[row.entityId]?.logBook?.title || 'Log book'
+    case 'LogBook':
+      return logBookMap.value[row.entityId]?.logBook?.title || 'Log book'
     case 'AssignmentInstance':
       return assignmentInstanceMap.value[row.entityId]?.logBook?.title || 'Scheduled inspection'
     case 'FieldRecord':
@@ -928,8 +915,8 @@ function rowSubtitle(row) {
       return getChangeRequest(row)?.crNumber || ''
     case 'QualityEvent':
       return getQualityEvent(row)?.eventNumber || ''
-    case 'LogBookVersion':
-      return logBookVersionMap.value[row.entityId]?.logBook?.code || ''
+    case 'LogBook':
+      return logBookMap.value[row.entityId]?.logBook?.code || ''
     case 'AssignmentInstance':
       return assignmentInstanceMap.value[row.entityId]?.logBook?.code || ''
     case 'FieldRecord':
@@ -1105,14 +1092,14 @@ defineExpose({ exportCsv })
                 {{ getQualityEvent(row)?.eventNumber || '—' }}
               </span>
             </template>
-            <template v-else-if="row.entityType === 'LogBookVersion'">
+            <template v-else-if="row.entityType === 'LogBook'">
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
-                {{ logBookVersionMap[row.entityId]?.logBook?.title || 'Log book' }}
+                {{ logBookMap[row.entityId]?.logBook?.title || 'Log book' }}
               </span>
               <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
-                {{ logBookVersionMap[row.entityId]?.logBook?.code || '—' }} · v{{
-                  logBookVersionMap[row.entityId]?.version?.versionMajor ?? '?'
-                }}.{{ logBookVersionMap[row.entityId]?.version?.versionMinor ?? 0 }}
+                {{ logBookMap[row.entityId]?.logBook?.code || '—' }} · V{{
+                  logBookMap[row.entityId]?.logBook?.generation ?? 1
+                }}
               </span>
             </template>
             <template v-else-if="row.entityType === 'AssignmentInstance'">
@@ -1248,11 +1235,11 @@ defineExpose({ exportCsv })
           />
           <span
             v-else-if="
-              row.entityType === 'LogBookVersion' && logBookVersionMap[row.entityId]?.typeLabel
+              row.entityType === 'LogBook' && logBookMap[row.entityId]?.typeLabel
             "
             class="tw:text-sm tw:text-on-main"
           >
-            {{ logBookVersionMap[row.entityId].typeLabel }}
+            {{ logBookMap[row.entityId].typeLabel }}
           </span>
           <span
             v-else-if="
