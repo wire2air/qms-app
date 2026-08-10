@@ -681,6 +681,7 @@ declare module 'vue' {
     FormTemplateStatusBadge: typeof import('./src/components/badges/FormTemplateStatusBadge.vue')['default']
     FormTemplateStatusBadgeById: typeof import('./src/components/badges/FormTemplateStatusBadgeById.vue')['default']
     FormTemplateStatusSelectMenu: typeof import('./src/components/menus/FormTemplateStatusSelectMenu.vue')['default']
+    FormulaAcceptancePanel: typeof import('./src/components/qcInspection/FormulaAcceptancePanel.vue')['default']
     'Foundations.stories': typeof import('./resource/js/shared/components/Foundations.stories.js')['default']
     GenericModuleCreate: typeof import('./src/components/modules/GenericModuleCreate.vue')['default']
     GenericModuleHome: typeof import('./src/components/modules/GenericModuleHome.vue')['default']

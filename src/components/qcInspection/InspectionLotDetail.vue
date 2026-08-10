@@ -58,6 +58,20 @@ const quantityDisplay = computed(() => {
   if (q == null) return null
   return uomShort.value ? `${q} ${uomShort.value}` : `${q}`
 })
+// Formula (√N + 1) lots: no defect-class Ac/Re — the advisory verdict is the
+// lab results themselves. Roll failing results up as { sampleNo, charName }.
+const formulaOosRows = computed(() => {
+  if (!isFormulaLot.value) return []
+  const nameById = new Map(characteristics.value.map((c) => [c.id, c.name]))
+  return results.value
+    .filter((r) => r.outcome === 'FAIL')
+    .map((r) => ({
+      sampleNo: r.sampleIndex ?? 1,
+      charName: nameById.get(r.characteristicId) || 'Test',
+    }))
+    .sort((a, b) => a.sampleNo - b.sampleNo)
+})
+
 const sampleSummary = computed(() => {
   const l = lot.value
   if (!l) return ''
@@ -1217,6 +1231,16 @@ function blockNegative(e, c) {
         :defectiveUnits="defectiveUnitsByClass"
         :sampleSize="lot.sampleSize"
         :singleResult="!hasPerSampleResults"
+      />
+
+      <!-- Formula (√N + 1) lots: results-based advisory instead — zero
+           tolerance, any OOS result advises against release. -->
+      <FormulaAcceptancePanel
+        v-else-if="isFormulaLot && results.length"
+        :totalResults="results.length"
+        :oosRows="formulaOosRows"
+        :sampleSize="lot.sampleSize"
+        :containerCount="lot.containerCount"
       />
 
       <!-- Related records lineage (this lot → NC it caused). Self-hides when none. -->
