@@ -46,7 +46,7 @@ export const TOOLTIPS = [
     key: 'qc.customPlanTable',
     label: 'Custom plan table',
     tooltip:
-      'Each row sets a fixed sample size and accept/reject numbers for one defect class — no AQL lookup. At inspection, logged defects are tallied per class against the matching row: accept while the tally ≤ Ac, reject when it ≥ Re (accept 0 / reject 1 = any defect fails). The lot’s suggested sample size is the largest row’s. Remove a class’s row if you don’t want a limit for it.',
+      'A fixed plan instead of the AQL lookup. The sample size applies to the WHOLE inspection — the custom analogue of the code letter’s n in the Z1.4 table. Each row then sets the accept/reject numbers for one defect class, all evaluated on that same pulled sample: accept while the class’s defect tally ≤ Ac, reject when it ≥ Re (accept 0 / reject 1 = any defect fails). Remove a class’s row if you don’t want a limit for it.',
   },
   {
     key: 'qc.planArrowCell',

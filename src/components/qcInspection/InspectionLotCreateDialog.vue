@@ -15,7 +15,7 @@ import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAU
 import { uploadFile } from '@/utils/uploadService.js'
 import { required } from '@shared/components/form/validators.js'
 import { currentSession } from '@/utils/currentSession.js'
-import { defaultCustomPlanRows } from '@/utils/aqlGuidance.js'
+import { defaultCustomPlanTable } from '@/utils/aqlGuidance.js'
 
 const props = defineProps({
   editLot: { type: Object, default: null },
@@ -49,11 +49,11 @@ const SAMPLING_MODES = [
   { label: 'Custom table', value: 'table' },
 ]
 const samplingMode = ref('plan')
-const customRows = ref(defaultCustomPlanRows())
+const customTable = ref(defaultCustomPlanTable())
 function reset() {
   const lot = props.editLot
   samplingMode.value = 'plan'
-  customRows.value = defaultCustomPlanRows()
+  customTable.value = defaultCustomPlanTable()
   form.value = lot
     ? {
         inspectionPoint: lot.inspectionPoint ?? 'INCOMING',
@@ -177,14 +177,14 @@ watch(
 
 const specResolved = computed(() => Boolean(form.value?.specificationId))
 const samplingResolved = computed(() => Boolean(form.value?.samplingPlanId))
-const customRowsValid = computed(
+const customTableValid = computed(
   () =>
-    customRows.value.length > 0 &&
-    customRows.value.every(
+    Number.isInteger(customTable.value.sampleSize) &&
+    customTable.value.sampleSize >= 1 &&
+    customTable.value.rows.length > 0 &&
+    customTable.value.rows.every(
       (r) =>
         r.severityLabel &&
-        Number.isInteger(r.sampleSize) &&
-        r.sampleSize >= 1 &&
         Number.isInteger(r.accept) &&
         r.accept >= 0 &&
         Number.isInteger(r.reject) &&
@@ -193,7 +193,7 @@ const customRowsValid = computed(
 )
 // Sampling is ready via a resolved plan OR a valid inline custom table.
 const samplingReady = computed(() =>
-  samplingMode.value === 'table' && !isEdit.value ? customRowsValid.value : samplingResolved.value,
+  samplingMode.value === 'table' && !isEdit.value ? customTableValid.value : samplingResolved.value,
 )
 // Can't proceed unless both a spec and sampling are resolved (or frozen on edit).
 const canProceed = computed(
@@ -291,7 +291,7 @@ async function onSave() {
         samplingPlanId: samplingMode.value === 'table' ? null : f.samplingPlanId || null,
         samplingOverride:
           samplingMode.value === 'table'
-            ? { planType: 'CUSTOM', customPlanTable: { rows: customRows.value } }
+            ? { planType: 'CUSTOM', customPlanTable: customTable.value }
             : null,
         quantity: f.quantity ?? null,
       })
@@ -560,7 +560,7 @@ async function onSave() {
               />
               <template v-if="samplingMode === 'table' && !isEdit">
                 <div class="tw:rounded-lg tw:border tw:border-divider tw:p-3">
-                  <CustomPlanTableFields v-model="customRows" />
+                  <CustomPlanTableFields v-model="customTable" />
                   <p class="tw:mt-2 tw:text-xs tw:text-secondary">
                     Applied to this lot only — not saved as a reusable sampling plan.
                   </p>

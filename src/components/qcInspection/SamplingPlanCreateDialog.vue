@@ -8,7 +8,7 @@
 import { IconPlus, IconTrash, IconHelpCircle } from '@tabler/icons-vue'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { required, requiredWhen } from '@shared/components/form/validators.js'
-import { aqlSelectOptions, AQL_PAIRING_SUMMARY, defaultCustomPlanRows } from '@/utils/aqlGuidance.js'
+import { aqlSelectOptions, AQL_PAIRING_SUMMARY, defaultCustomPlanTable } from '@/utils/aqlGuidance.js'
 
 const props = defineProps({
   editPlan: { type: Object, default: null },
@@ -77,9 +77,12 @@ function seedFromPlan(plan) {
   return {
     name: plan.name ?? '',
     planType: plan.planType ?? 'STANDARD',
-    customRows: Array.isArray(plan.customPlanTable?.rows)
-      ? plan.customPlanTable.rows.map((r) => ({ ...r }))
-      : defaultCustomPlanRows(),
+    customTable: Array.isArray(plan.customPlanTable?.rows)
+      ? {
+          sampleSize: plan.customPlanTable.sampleSize ?? null,
+          rows: plan.customPlanTable.rows.map((r) => ({ ...r })),
+        }
+      : defaultCustomPlanTable(),
     scope: plan.productId ? 'product' : plan.productFamilyId ? 'family' : 'productType',
     productId: plan.productId ?? null,
     productFamilyId: plan.productFamilyId ?? null,
@@ -108,7 +111,7 @@ function reset() {
     : {
         name: '',
         planType: 'STANDARD',
-        customRows: defaultCustomPlanRows(),
+        customTable: defaultCustomPlanTable(),
         scope: 'product',
         productId: null,
         productFamilyId: null,
@@ -183,7 +186,7 @@ async function onSubmit() {
       collectionIntervalMinutes:
         f.inspectionPoint === 'IN_PROCESS' ? f.collectionIntervalMinutes || null : null,
       ...(f.planType === 'CUSTOM'
-        ? { customPlanTable: { rows: f.customRows } }
+        ? { customPlanTable: f.customTable }
         : {
             standardCode: f.standardCode,
             inspectionLevel: f.inspectionLevel,
@@ -332,12 +335,12 @@ async function onSubmit() {
         <div v-if="form.planType === 'CUSTOM'" class="tw:flex tw:flex-col tw:gap-3">
           <BaseText variant="overline">Custom plan table</BaseText>
           <BaseField
-            :value="form.customRows"
+            :value="form.customTable.rows"
             :rules="[
               requiredWhen(() => form.planType === 'CUSTOM', 'Add at least one sampling row.'),
             ]"
           >
-            <CustomPlanTableFields v-model="form.customRows" />
+            <CustomPlanTableFields v-model="form.customTable" />
           </BaseField>
         </div>
 

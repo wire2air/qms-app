@@ -8,7 +8,7 @@
  * (reassignable here).
  */
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { defaultCustomPlanRows } from '@/utils/aqlGuidance.js'
+import { defaultCustomPlanTable } from '@/utils/aqlGuidance.js'
 
 const props = defineProps({ lotId: { type: String, required: true } })
 const emit = defineEmits(['reopened'])
@@ -36,7 +36,7 @@ const SAMPLING_MODES = [
 ]
 const samplingMode = ref('plan')
 const aqlConfig = ref(defaultAqlConfig())
-const customRows = ref(defaultCustomRows())
+const customTable = ref(defaultCustomPlanTable())
 function defaultAqlConfig() {
   return {
     standardCode: null,
@@ -48,9 +48,6 @@ function defaultAqlConfig() {
       { severity: 'MINOR', aql: 2.5 },
     ],
   }
-}
-function defaultCustomRows() {
-  return defaultCustomPlanRows()
 }
 
 // Prefill from the lot each time the dialog opens.
@@ -74,22 +71,25 @@ watch(show, (open) => {
           severityAqls: Array.isArray(snap.severityAqls) ? snap.severityAqls.map((r) => ({ ...r })) : defaultAqlConfig().severityAqls,
         }
       : defaultAqlConfig()
-  customRows.value = Array.isArray(snap?.customPlanTable?.rows)
-    ? snap.customPlanTable.rows.map((r) => ({ ...r }))
-    : defaultCustomRows()
+  customTable.value = Array.isArray(snap?.customPlanTable?.rows)
+    ? {
+        sampleSize: snap.customPlanTable.sampleSize ?? lot.value?.sampleSize ?? null,
+        rows: snap.customPlanTable.rows.map((r) => ({ ...r })),
+      }
+    : defaultCustomPlanTable()
 })
 
 const customAqlValid = computed(
   () => !!aqlConfig.value.standardCode && !!aqlConfig.value.inspectionLevel,
 )
-const customRowsValid = computed(
+const customTableValid = computed(
   () =>
-    customRows.value.length > 0 &&
-    customRows.value.every(
+    Number.isInteger(customTable.value.sampleSize) &&
+    customTable.value.sampleSize >= 1 &&
+    customTable.value.rows.length > 0 &&
+    customTable.value.rows.every(
       (r) =>
         r.severityLabel &&
-        Number.isInteger(r.sampleSize) &&
-        r.sampleSize >= 1 &&
         Number.isInteger(r.accept) &&
         r.accept >= 0 &&
         Number.isInteger(r.reject) &&
@@ -101,7 +101,7 @@ const canSubmit = computed(
     reason.value.trim().length > 0 &&
     !saving.value &&
     (samplingMode.value !== 'custom' || customAqlValid.value) &&
-    (samplingMode.value !== 'table' || customRowsValid.value),
+    (samplingMode.value !== 'table' || customTableValid.value),
 )
 
 // Ad-hoc override payload: STANDARD-shaped AQL config, or a CUSTOM table —
@@ -109,7 +109,7 @@ const canSubmit = computed(
 function buildOverride() {
   if (samplingMode.value === 'custom') return { planType: 'STANDARD', ...aqlConfig.value }
   if (samplingMode.value === 'table') {
-    return { planType: 'CUSTOM', customPlanTable: { rows: customRows.value } }
+    return { planType: 'CUSTOM', customPlanTable: customTable.value }
   }
   return null
 }
@@ -188,7 +188,7 @@ async function onSubmit() {
         </div>
         <div v-else class="tw:rounded-lg tw:border tw:border-divider tw:p-3">
           <!-- Same rows editor as the sampling-plan dialog's Custom table. -->
-          <CustomPlanTableFields v-model="customRows" />
+          <CustomPlanTableFields v-model="customTable" />
           <p class="tw:mt-2 tw:text-xs tw:text-secondary">
             These fixed numbers are applied to this lot only (not saved as a reusable plan).
           </p>

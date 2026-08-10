@@ -202,15 +202,17 @@ async function runPreview() {
         <div v-if="plan.planType === 'CUSTOM' && plan.customPlanTable?.rows?.length">
           <BaseText variant="overline" class="tw:block tw:mb-2">Custom plan table</BaseText>
           <p class="tw:text-xs tw:text-secondary tw:mb-2">
-            Fixed numbers — no lot-size lookup. Logged defects are tallied per class against the
-            matching row; the lot's suggested sample size is the largest row's.
+            Fixed numbers — no lot-size lookup. One sample is pulled for the whole inspection;
+            logged defects are tallied per class against the matching row's Ac/Re.
+          </p>
+          <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:mb-2">
+            Sample size {{ plan.customPlanTable.sampleSize ?? '—' }}
           </p>
           <div class="tw:overflow-x-auto">
             <table class="tw:text-xs tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
               <thead class="tw:text-secondary tw:uppercase">
                 <tr>
                   <th class="tw:text-left tw:px-3 tw:py-1.5">Defect class</th>
-                  <th class="tw:text-left tw:px-3 tw:py-1.5">Sample size</th>
                   <th class="tw:text-left tw:px-3 tw:py-1.5">Accept</th>
                   <th class="tw:text-left tw:px-3 tw:py-1.5">Reject</th>
                 </tr>
@@ -222,7 +224,6 @@ async function runPreview() {
                   class="tw:border-t tw:border-divider"
                 >
                   <td class="tw:px-3 tw:py-1.5 tw:font-medium tw:text-on-main">{{ cr.severityLabel }}</td>
-                  <td class="tw:px-3 tw:py-1.5">{{ cr.sampleSize }}</td>
                   <td class="tw:px-3 tw:py-1.5 tw:text-green-700">≤ {{ cr.accept }}</td>
                   <td class="tw:px-3 tw:py-1.5 tw:text-red-700">≥ {{ cr.reject }}</td>
                 </tr>
