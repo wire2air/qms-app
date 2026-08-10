@@ -34,12 +34,10 @@ function removeRow(i) {
 <template>
   <div class="tw:flex tw:flex-col tw:gap-2">
     <div class="tw:flex tw:items-center tw:justify-between">
-      <p class="tw:text-xs tw:text-secondary">
-        Each row sets the fixed sample size and accept/reject numbers for a defect class. At
-        inspection, logged defects are tallied per class against the matching row (reject when the
-        tally ≥ Re); the suggested sample size is the largest row's. Reject must be greater than
-        accept (accept 0 / reject 1 = any defect fails).
-      </p>
+      <!-- Full how-it-works copy lives in the tooltip registry (qc.customPlanTable). -->
+      <BaseLabel dataKey="qc.customPlanTable" class="tw:text-xs tw:text-secondary">
+        Fixed sample &amp; accept/reject per defect class
+      </BaseLabel>
       <BaseButton variant="text-link" size="sm" class="tw:shrink-0" @click="addRow">
         <IconPlus :size="14" /> Add row
       </BaseButton>

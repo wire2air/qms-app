@@ -15,6 +15,7 @@ import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAU
 import { uploadFile } from '@/utils/uploadService.js'
 import { required } from '@shared/components/form/validators.js'
 import { currentSession } from '@/utils/currentSession.js'
+import { defaultCustomPlanRows } from '@/utils/aqlGuidance.js'
 
 const props = defineProps({
   editLot: { type: Object, default: null },
@@ -48,11 +49,11 @@ const SAMPLING_MODES = [
   { label: 'Custom table', value: 'table' },
 ]
 const samplingMode = ref('plan')
-const customRows = ref([{ severityLabel: 'MAJOR', sampleSize: 8, accept: 0, reject: 1 }])
+const customRows = ref(defaultCustomPlanRows())
 function reset() {
   const lot = props.editLot
   samplingMode.value = 'plan'
-  customRows.value = [{ severityLabel: 'MAJOR', sampleSize: 8, accept: 0, reject: 1 }]
+  customRows.value = defaultCustomPlanRows()
   form.value = lot
     ? {
         inspectionPoint: lot.inspectionPoint ?? 'INCOMING',

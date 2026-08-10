@@ -43,6 +43,12 @@ export const TOOLTIPS = [
       'Z1.4 switching rules: start at Normal; switch to Tightened after 2 of 5 consecutive lots are rejected (stricter Ac/Re, same sample size); Reduced (smaller samples) may be used after a sustained run of accepted lots. The state selects which accept/reject table applies.',
   },
   {
+    key: 'qc.customPlanTable',
+    label: 'Custom plan table',
+    tooltip:
+      'Each row sets a fixed sample size and accept/reject numbers for one defect class — no AQL lookup. At inspection, logged defects are tallied per class against the matching row: accept while the tally ≤ Ac, reject when it ≥ Re (accept 0 / reject 1 = any defect fails). The lot’s suggested sample size is the largest row’s. Remove a class’s row if you don’t want a limit for it.',
+  },
+  {
     key: 'qc.planArrowCell',
     label: 'Arrow cell',
     tooltip:

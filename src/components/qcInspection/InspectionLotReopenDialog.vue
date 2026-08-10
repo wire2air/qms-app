@@ -8,6 +8,7 @@
  * (reassignable here).
  */
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { defaultCustomPlanRows } from '@/utils/aqlGuidance.js'
 
 const props = defineProps({ lotId: { type: String, required: true } })
 const emit = defineEmits(['reopened'])
@@ -49,7 +50,7 @@ function defaultAqlConfig() {
   }
 }
 function defaultCustomRows() {
-  return [{ severityLabel: 'MAJOR', sampleSize: 8, accept: 0, reject: 1 }]
+  return defaultCustomPlanRows()
 }
 
 // Prefill from the lot each time the dialog opens.

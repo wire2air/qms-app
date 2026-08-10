@@ -35,6 +35,20 @@ export function aqlSelectOptions() {
   })
 }
 
+/**
+ * Default custom-plan-table rows — one per defect class (the catalog's full
+ * Z1.4 scale), tighter Ac/Re for more serious classes. Used to preload the
+ * rows editor on the sampling-plan dialog, New Inspection, and lot reopen;
+ * users edit the numbers or remove classes they don't want a limit for.
+ */
+export function defaultCustomPlanRows() {
+  return [
+    { severityLabel: 'CRITICAL', sampleSize: 8, accept: 0, reject: 1 },
+    { severityLabel: 'MAJOR', sampleSize: 8, accept: 1, reject: 2 },
+    { severityLabel: 'MINOR', sampleSize: 8, accept: 2, reject: 3 },
+  ]
+}
+
 /** One-line summary used as a legend across the QC surfaces. */
 export const AQL_PAIRING_SUMMARY =
   'Tighter (smaller) AQLs are conventionally used for more serious defect classes — ' +

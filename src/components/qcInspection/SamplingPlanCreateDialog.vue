@@ -8,7 +8,7 @@
 import { IconPlus, IconTrash, IconHelpCircle } from '@tabler/icons-vue'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { required, requiredWhen } from '@shared/components/form/validators.js'
-import { aqlSelectOptions, AQL_PAIRING_SUMMARY } from '@/utils/aqlGuidance.js'
+import { aqlSelectOptions, AQL_PAIRING_SUMMARY, defaultCustomPlanRows } from '@/utils/aqlGuidance.js'
 
 const props = defineProps({
   editPlan: { type: Object, default: null },
@@ -79,7 +79,7 @@ function seedFromPlan(plan) {
     planType: plan.planType ?? 'STANDARD',
     customRows: Array.isArray(plan.customPlanTable?.rows)
       ? plan.customPlanTable.rows.map((r) => ({ ...r }))
-      : [{ severityLabel: 'MAJOR', sampleSize: 8, accept: 0, reject: 1 }],
+      : defaultCustomPlanRows(),
     scope: plan.productId ? 'product' : plan.productFamilyId ? 'family' : 'productType',
     productId: plan.productId ?? null,
     productFamilyId: plan.productFamilyId ?? null,
@@ -108,7 +108,7 @@ function reset() {
     : {
         name: '',
         planType: 'STANDARD',
-        customRows: [{ severityLabel: 'MAJOR', sampleSize: 8, accept: 0, reject: 1 }],
+        customRows: defaultCustomPlanRows(),
         scope: 'product',
         productId: null,
         productFamilyId: null,
