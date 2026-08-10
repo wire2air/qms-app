@@ -512,7 +512,9 @@ async function onSave() {
               >— matched from the selected item &amp; inspection point</span
             >
           </div>
-          <div class="tw:p-3 tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+          <!-- Stacked rows (not side by side) — the Sampling section can grow
+               wide (custom-table rows editor) and needs the full dialog width. -->
+          <div class="tw:p-3 tw:flex tw:flex-col tw:gap-4">
             <!-- Specification -->
             <div>
               <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Specification</p>
