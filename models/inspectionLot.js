@@ -24,6 +24,8 @@ export class InspectionLot extends BaseModel {
   @Property({ type: Object }) specSnapshot = /** @type {Object} */ (null)
   @Property({ type: Object }) samplingSnapshot = /** @type {Object} */ (null)
   @Property({ type: Number }) quantity = /** @type {Number} */ (null)
+  // Containers received (drums/bags) — the N in formula sampling (sqrt(N)+1).
+  @Property({ type: Number }) containerCount = /** @type {Number} */ (null)
   @Property({ type: Number }) sampleSize = /** @type {Number} */ (null)
   // 'LOT' = one result per characteristic; 'SAMPLE' = a result per sampled unit.
   @Property({ type: String }) captureMode = 'LOT'

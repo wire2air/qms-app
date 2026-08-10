@@ -13,7 +13,7 @@ import { DateTime } from 'luxon'
 import { IconPaperclip, IconTrash, IconFile } from '@tabler/icons-vue'
 import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { uploadFile } from '@/utils/uploadService.js'
-import { required } from '@shared/components/form/validators.js'
+import { required, minValue } from '@shared/components/form/validators.js'
 import { currentSession } from '@/utils/currentSession.js'
 import { defaultCustomPlanTable } from '@/utils/aqlGuidance.js'
 
@@ -62,6 +62,7 @@ function reset() {
         specificationId: lot.specificationId ?? null,
         samplingPlanId: lot.samplingPlanId ?? null,
         quantity: lot.quantity ?? null,
+        containerCount: lot.containerCount ?? null,
         poNumber: lot.poNumber ?? '',
         receiptNumber: lot.receiptNumber ?? '',
         workOrder: lot.workOrder ?? '',
@@ -84,6 +85,7 @@ function reset() {
         specificationId: null,
         samplingPlanId: null,
         quantity: null,
+        containerCount: null,
         poNumber: '',
         receiptNumber: '',
         workOrder: '',
@@ -176,6 +178,20 @@ watch(
 )
 
 const specResolved = computed(() => Boolean(form.value?.specificationId))
+// The resolved/selected plan — formula plans (√N + 1) need the container count.
+const resolvedSamplingPlan = computed(
+  () => samplingMatch.value.candidates.find((c) => c.id === form.value?.samplingPlanId) ?? null,
+)
+const isFormulaPlan = computed(
+  () => samplingMode.value === 'plan' && resolvedSamplingPlan.value?.planType === 'FORMULA',
+)
+const containerCountValid = computed(
+  () => Number.isInteger(form.value?.containerCount) && form.value.containerCount >= 1,
+)
+// Live √N + 1 preview so the inspector sees what the container count implies.
+const formulaSampleSize = computed(() =>
+  containerCountValid.value ? Math.ceil(Math.sqrt(form.value.containerCount)) + 1 : null,
+)
 const samplingResolved = computed(() => Boolean(form.value?.samplingPlanId))
 const customTableValid = computed(
   () =>
@@ -195,9 +211,12 @@ const customTableValid = computed(
 const samplingReady = computed(() =>
   samplingMode.value === 'table' && !isEdit.value ? customTableValid.value : samplingResolved.value,
 )
-// Can't proceed unless both a spec and sampling are resolved (or frozen on edit).
+// Can't proceed unless both a spec and sampling are resolved (or frozen on
+// edit); formula plans additionally need the container count (N).
 const canProceed = computed(
-  () => identityLocked.value || (specResolved.value && samplingReady.value),
+  () =>
+    identityLocked.value ||
+    (specResolved.value && samplingReady.value && (!isFormulaPlan.value || containerCountValid.value)),
 )
 
 // COA upload — files go to the generic asset store immediately (works at create
@@ -274,6 +293,7 @@ async function onSave() {
             specificationId: f.specificationId || null,
             samplingPlanId: f.samplingPlanId || null,
             quantity: f.quantity ?? null,
+            containerCount: f.containerCount ?? null,
           }
       const { lot } = await patch(`/v1/services/qcInspection/lots/${props.editLot.id}`, body)
       toast.success(`Lot ${lot.lotNumber} updated`)
@@ -294,6 +314,7 @@ async function onSave() {
             ? { planType: 'CUSTOM', customPlanTable: customTable.value }
             : null,
         quantity: f.quantity ?? null,
+        containerCount: f.containerCount ?? null,
       })
       toast.success(`Lot ${lot.lotNumber} created`)
       show.value = false
@@ -367,6 +388,25 @@ async function onSave() {
                 v-model.number="form.quantity"
                 type="number"
                 :placeholder="form.inspectionPoint === 'IN_PROCESS' ? 'optional' : 'for sample-size calc'"
+                :disabled="identityLocked"
+              />
+            </template>
+          </BaseField>
+          <BaseField
+            v-if="isFormulaPlan"
+            label="Containers received (N)"
+            required
+            :value="form.containerCount"
+            :rules="[required(), minValue(1)]"
+            :hint="formulaSampleSize ? `√N + 1 → sample ${formulaSampleSize} containers` : 'Drums / bags / boxes — drives the √N + 1 sample size.'"
+          >
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model.number="form.containerCount"
+                type="number"
+                min="1"
+                placeholder="e.g. 25"
                 :disabled="identityLocked"
               />
             </template>

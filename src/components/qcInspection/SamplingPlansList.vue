@@ -216,6 +216,7 @@ async function createNewVersion(plan) {
           <template v-if="row.planType === 'STANDARD'"
             >{{ standardName(row.standardCode) }} · {{ levelLabel(row.inspectionLevel) }}</template
           >
+          <template v-else-if="row.planType === 'FORMULA'">√N + 1 (containers)</template>
           <template v-else>Custom table</template>
         </span>
       </template>
@@ -286,6 +287,17 @@ async function createNewVersion(plan) {
                 <div class="tw:font-semibold tw:text-on-main tw:text-sm">AQL {{ sa.aql }}%</div>
               </div>
             </div>
+          </div>
+
+          <!-- Formula plan: sample size from the container count -->
+          <div v-if="p.planType === 'FORMULA'">
+            <BaseText variant="overline" class="tw:block tw:mb-2"> Raw-material sampling </BaseText>
+            <p class="tw:text-sm tw:text-on-main">
+              √N + 1 — for N containers received, sample ⌈√N⌉ + 1 of them.
+              <span class="tw:text-xs tw:text-secondary">
+                AQL / defect-class Ac-Re do not apply; acceptance is the specification's lab tests.
+              </span>
+            </p>
           </div>
 
           <!-- Custom table: one sample size for the inspection + per-class Ac/Re -->

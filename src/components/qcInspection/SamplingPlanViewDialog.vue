@@ -92,7 +92,7 @@ async function runPreview() {
             {{ POINT_LABELS[plan.inspectionPoint] || plan.inspectionPoint }}
           </span>
           <span class="tw:text-caption tw:px-2 tw:py-0.5 tw:rounded-full tw:bg-main-hover tw:text-on-main">
-            {{ plan.planType === 'CUSTOM' ? 'Custom table' : 'AQL standard' }}
+            {{ plan.planType === 'CUSTOM' ? 'Custom table' : plan.planType === 'FORMULA' ? '√N + 1 (raw material)' : 'AQL standard' }}
           </span>
         </div>
 
@@ -196,6 +196,20 @@ async function runPreview() {
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- ── Formula (√N + 1) ────────────────────────────────────────── -->
+        <div v-if="plan.planType === 'FORMULA'" class="tw:flex tw:flex-col tw:gap-2">
+          <BaseText variant="overline">Raw-material sampling — √N + 1</BaseText>
+          <p class="tw:text-sm tw:text-on-main">
+            For N containers received, sample <strong>⌈√N⌉ + 1</strong> of them for identity /
+            assay testing (e.g. 25 containers → 6 samples; 100 → 11).
+          </p>
+          <p class="tw:text-xs tw:text-secondary">
+            AQL and defect-class accept/reject numbers do not apply — acceptance is the
+            specification's lab tests, per sample or composite per the spec's capture mode. The
+            container count (N) is entered on each inspection.
+          </p>
         </div>
 
         <!-- ── Custom plan table ───────────────────────────────────────── -->

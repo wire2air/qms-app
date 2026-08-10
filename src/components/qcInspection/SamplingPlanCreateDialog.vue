@@ -23,6 +23,12 @@ const preview = ref(null)
 const previewing = ref(false)
 // Table 1 (lot size × inspection level → code letter) explainer dialog.
 const showCodeLetterTable = ref(false)
+// √N + 1 example calculator (FORMULA plan type).
+const formulaExampleN = ref(25)
+const formulaExampleSize = computed(() => {
+  const n = Number(formulaExampleN.value)
+  return Number.isInteger(n) && n >= 1 ? Math.ceil(Math.sqrt(n)) + 1 : null
+})
 
 const isEdit = computed(() => Boolean(props.editPlan))
 
@@ -77,6 +83,7 @@ function seedFromPlan(plan) {
   return {
     name: plan.name ?? '',
     planType: plan.planType ?? 'STANDARD',
+    formula: plan.formula ?? 'SQRT_N_PLUS_1',
     customTable: Array.isArray(plan.customPlanTable?.rows)
       ? {
           sampleSize: plan.customPlanTable.sampleSize ?? null,
@@ -112,6 +119,7 @@ function reset() {
         name: '',
         planType: 'STANDARD',
         customTable: defaultCustomPlanTable(),
+        formula: 'SQRT_N_PLUS_1',
         scope: 'product',
         productId: null,
         productFamilyId: null,
@@ -187,12 +195,14 @@ async function onSubmit() {
         f.inspectionPoint === 'IN_PROCESS' ? f.collectionIntervalMinutes || null : null,
       ...(f.planType === 'CUSTOM'
         ? { customPlanTable: f.customTable }
-        : {
-            standardCode: f.standardCode,
-            inspectionLevel: f.inspectionLevel,
-            switchingState: f.switchingState,
-            severityAqls: f.severityAqls,
-          }),
+        : f.planType === 'FORMULA'
+          ? { formula: f.formula || 'SQRT_N_PLUS_1' }
+          : {
+              standardCode: f.standardCode,
+              inspectionLevel: f.inspectionLevel,
+              switchingState: f.switchingState,
+              severityAqls: f.severityAqls,
+            }),
     }
     if (isEdit.value) {
       const { plan } = await patch(
@@ -281,6 +291,7 @@ async function onSubmit() {
                 :options="[
                   { label: 'AQL standard', value: 'STANDARD' },
                   { label: 'Custom table', value: 'CUSTOM' },
+                  { label: '√N + 1', value: 'FORMULA' },
                 ]"
               />
             </BaseField>
@@ -328,6 +339,36 @@ async function onSubmit() {
         </div>
 
         <hr class="tw:border-divider" />
+
+        <!-- ── FORMULA (√N + 1) — raw-material container sampling ────────── -->
+        <div v-if="form.planType === 'FORMULA'" class="tw:flex tw:flex-col tw:gap-3">
+          <BaseText variant="overline">Raw-material sampling — √N + 1</BaseText>
+          <p class="tw:text-xs tw:text-secondary">
+            The sample size comes from the <strong>container count</strong>, not the unit
+            quantity: for N containers received (drums, bags, boxes), open
+            <strong>⌈√N⌉ + 1</strong> of them for identity / assay testing. AQL and defect-class
+            accept/reject numbers do not apply — acceptance is the specification's lab tests,
+            captured per sample or as a composite depending on the spec's capture mode. The
+            container count (N) is entered on each inspection.
+          </p>
+          <div class="tw:flex tw:items-end tw:gap-3">
+            <BaseField label="Example — containers (N)" class="tw:w-44">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model.number="formulaExampleN"
+                  type="number"
+                  min="1"
+                  size="sm"
+                  placeholder="e.g. 25"
+                />
+              </template>
+            </BaseField>
+            <p v-if="formulaExampleSize" class="tw:text-sm tw:text-on-main tw:pb-2">
+              → sample <span class="tw:font-semibold">{{ formulaExampleSize }}</span> containers
+            </p>
+          </div>
+        </div>
 
         <!-- ── CUSTOM plan table — fixed (sampleSize, accept, reject) per
              defect class, no AQL standard lookup. Shared rows editor
