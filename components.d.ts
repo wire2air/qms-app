@@ -990,6 +990,7 @@ declare module 'vue' {
     SamplingPlanCreateDialog: typeof import('./src/components/qcInspection/SamplingPlanCreateDialog.vue')['default']
     SamplingPlanSelectMenu: typeof import('./src/components/menus/SamplingPlanSelectMenu.vue')['default']
     SamplingPlansList: typeof import('./src/components/qcInspection/SamplingPlansList.vue')['default']
+    SamplingPlanViewDialog: typeof import('./src/components/qcInspection/SamplingPlanViewDialog.vue')['default']
     ScoringSummaryCard: typeof import('./src/components/modules/ScoringSummaryCard.vue')['default']
     SecurityDashboard: typeof import('./src/components/security/SecurityDashboard.vue')['default']
     SegmentedControl: typeof import('./resource/js/shared/components/SegmentedControl.vue')['default']

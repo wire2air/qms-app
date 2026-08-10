@@ -15,6 +15,9 @@ const toast = useToast()
 const showCreate = ref(false)
 const showEsign = ref(false)
 const showEdit = ref(false)
+// Read-only plan preview — opened by clicking a plan name.
+const showView = ref(false)
+const viewPlanId = ref(null)
 const approvingId = ref(null)
 const revisingId = ref(null)
 const deletingId = ref(null)
@@ -115,6 +118,11 @@ function startEdit(plan) {
   showEdit.value = true
 }
 
+function openView(plan) {
+  viewPlanId.value = plan.id
+  showView.value = true
+}
+
 async function deletePlan(id) {
   if (deletingId.value !== id) { deletingId.value = id; return }
   try {
@@ -181,7 +189,15 @@ async function createNewVersion(plan) {
       </template>
 
       <template #body-cell-name="{ row }">
-        <span class="tw:font-medium tw:text-on-main">{{ row.name }}</span>
+        <!-- Real button (keyboard-operable) — opens the read-only plan preview. -->
+        <button
+          type="button"
+          class="tw:font-medium tw:text-on-main tw:hover:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:p-0 tw:cursor-pointer tw:text-left"
+          :aria-label="`View sampling plan ${row.name}`"
+          @click="openView(row)"
+        >
+          {{ row.name }}
+        </button>
         <span
           v-if="row.version > 1"
           class="tw:text-micro tw:text-secondary tw:font-normal tw:ml-1"
@@ -349,6 +365,7 @@ async function createNewVersion(plan) {
 
     <SamplingPlanCreateDialog v-model="showCreate" />
     <SamplingPlanCreateDialog v-model="showEdit" :editPlan="editingPlan" />
+    <SamplingPlanViewDialog v-model="showView" :planId="viewPlanId" />
     <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
   </div>
 </template>
