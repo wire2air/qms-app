@@ -35,6 +35,11 @@ const supplier = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.Supplier.findByPk(id) : null),
   { models: ['Supplier'] },
 )
+const lotUom = useLiveQueryWithDeps(
+  [() => lot.value?.uomId],
+  async (db, [id]) => (id ? db.Uom.findByPk(id) : null),
+  { models: ['Uom'] },
+)
 const disposition = useLiveQueryWithDeps(
   [() => lot.value?.dispositionTypeId],
   async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
@@ -189,7 +194,7 @@ onMounted(() => {
           </tr>
           <tr>
             <th>Quantity</th>
-            <td>{{ lot?.quantity ?? '—' }}</td>
+            <td>{{ lot?.quantity ?? '—' }}<template v-if="lot?.quantity != null && lotUom"> {{ lotUom.name }}</template></td>
             <th>Sample size</th>
             <td>{{ lot?.sampleSize ?? '—' }}</td>
           </tr>

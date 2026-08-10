@@ -63,6 +63,7 @@ function reset() {
         samplingPlanId: lot.samplingPlanId ?? null,
         quantity: lot.quantity ?? null,
         containerCount: lot.containerCount ?? null,
+        uomId: lot.uomId ?? null,
         poNumber: lot.poNumber ?? '',
         receiptNumber: lot.receiptNumber ?? '',
         workOrder: lot.workOrder ?? '',
@@ -86,6 +87,7 @@ function reset() {
         samplingPlanId: null,
         quantity: null,
         containerCount: null,
+        uomId: null,
         poNumber: '',
         receiptNumber: '',
         workOrder: '',
@@ -141,6 +143,13 @@ function narrowestTier(rows, product) {
   if (byType.length) return { tier: 'Item Type', candidates: byType }
   return { tier: null, candidates: [] }
 }
+
+// Default the quantity UOM from the selected item's UOM (Item Master) when
+// none is picked yet — the inspector can still override per lot.
+watch(selectedProduct, (p) => {
+  if (!form.value || identityLocked.value) return
+  if (!form.value.uomId && p?.uomId) form.value.uomId = p.uomId
+})
 
 const specMatch = computed(() => {
   if (!form.value?.productId) return { tier: null, candidates: [] }
@@ -294,6 +303,7 @@ async function onSave() {
             samplingPlanId: f.samplingPlanId || null,
             quantity: f.quantity ?? null,
             containerCount: f.containerCount ?? null,
+            uomId: f.uomId || null,
           }
       const { lot } = await patch(`/v1/services/qcInspection/lots/${props.editLot.id}`, body)
       toast.success(`Lot ${lot.lotNumber} updated`)
@@ -315,6 +325,7 @@ async function onSave() {
             : null,
         quantity: f.quantity ?? null,
         containerCount: f.containerCount ?? null,
+        uomId: f.uomId || null,
       })
       toast.success(`Lot ${lot.lotNumber} created`)
       show.value = false
@@ -391,6 +402,9 @@ async function onSave() {
                 :disabled="identityLocked"
               />
             </template>
+          </BaseField>
+          <BaseField label="Quantity UOM" hint="Unit for the lot quantity (kg, L, pieces…). Defaults from the item.">
+            <UomSelectMenu v-model="form.uomId" :disabled="identityLocked" />
           </BaseField>
           <BaseField
             v-if="isFormulaPlan"

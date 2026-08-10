@@ -43,6 +43,11 @@ const lot = useLiveQueryWithDeps(
   async (db, [id]) => db.InspectionLot.findByPk(id),
   { models: ['InspectionLot'] },
 )
+const lotUom = useLiveQueryWithDeps(
+  [() => lot.value?.uomId],
+  async (db, [id]) => (id ? db.Uom.findByPk(id) : null),
+  { models: ['Uom'] },
+)
 watch(
   lot,
   (l) => {
@@ -724,7 +729,7 @@ const inspectionLotDetailConfig = computed(() =>
     <template v-if="lot" #meta>
       <span>{{ POINT_LABELS[lot.inspectionPoint] || lot.inspectionPoint }}</span>
       <span>
-        · sample {{ lot.sampleSize ?? '—' }}<span v-if="lot.quantity"> of {{ lot.quantity }}</span>
+        · sample {{ lot.sampleSize ?? '—' }}<span v-if="lot.quantity"> of {{ lot.quantity }}<template v-if="lotUom"> {{ lotUom.name }}</template></span>
       </span>
       <span v-if="lot.qualityState"> · {{ lot.qualityState }}</span>
     </template>
