@@ -1705,10 +1705,16 @@ const logBookDetailConfig = computed(() =>
   </Teleport>
 
   <!-- Add-document dialog -->
+  <!-- z-modal, not z-popover: this matches BaseDialog's convention (see
+       BaseDialog.vue). BasePopover's floating content (used by
+       DocumentSelectMenu below) is hardcoded to zIndex 50 (== --z-modal),
+       so a hand-rolled dialog above that level (z-popover == 60) would
+       render on top of the select's own dropdown options instead of
+       under them. -->
   <Teleport to="body">
     <div
       v-if="showAddDocDialog"
-      class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+      class="tw:fixed tw:inset-0 tw:z-modal tw:flex tw:items-center tw:justify-center tw:bg-black/40"
     >
       <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
         <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-3">Link a document</h3>
