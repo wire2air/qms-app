@@ -40,8 +40,19 @@ const POINTS = [
 ]
 
 const form = ref(null)
+// Sampling source (create only): a matched/approved plan, or a fixed custom
+// table declared inline (same rows editor as the sampling-plan dialog — the
+// lot only needs a sample size + per-class Ac/Re either way).
+const SAMPLING_MODES = [
+  { label: 'Sampling plan', value: 'plan' },
+  { label: 'Custom table', value: 'table' },
+]
+const samplingMode = ref('plan')
+const customRows = ref([{ severityLabel: 'MAJOR', sampleSize: 8, accept: 0, reject: 1 }])
 function reset() {
   const lot = props.editLot
+  samplingMode.value = 'plan'
+  customRows.value = [{ severityLabel: 'MAJOR', sampleSize: 8, accept: 0, reject: 1 }]
   form.value = lot
     ? {
         inspectionPoint: lot.inspectionPoint ?? 'INCOMING',
@@ -165,9 +176,27 @@ watch(
 
 const specResolved = computed(() => Boolean(form.value?.specificationId))
 const samplingResolved = computed(() => Boolean(form.value?.samplingPlanId))
-// Can't proceed unless both a spec and a sampling plan are resolved (or frozen on edit).
+const customRowsValid = computed(
+  () =>
+    customRows.value.length > 0 &&
+    customRows.value.every(
+      (r) =>
+        r.severityLabel &&
+        Number.isInteger(r.sampleSize) &&
+        r.sampleSize >= 1 &&
+        Number.isInteger(r.accept) &&
+        r.accept >= 0 &&
+        Number.isInteger(r.reject) &&
+        r.reject > r.accept,
+    ),
+)
+// Sampling is ready via a resolved plan OR a valid inline custom table.
+const samplingReady = computed(() =>
+  samplingMode.value === 'table' && !isEdit.value ? customRowsValid.value : samplingResolved.value,
+)
+// Can't proceed unless both a spec and sampling are resolved (or frozen on edit).
 const canProceed = computed(
-  () => identityLocked.value || (specResolved.value && samplingResolved.value),
+  () => identityLocked.value || (specResolved.value && samplingReady.value),
 )
 
 // COA upload — files go to the generic asset store immediately (works at create
@@ -206,7 +235,9 @@ function removeCoa(assetId) {
 async function onSave() {
   if (saving.value) return
   if (!canProceed.value) {
-    toast.error('A matching specification and sampling plan are required before the lot can proceed.')
+    toast.error(
+      'A matching specification and a sampling source (plan or custom table) are required before the lot can proceed.',
+    )
     return
   }
   saving.value = true
@@ -254,7 +285,13 @@ async function onSave() {
         productId: f.productId,
         supplierId: f.supplierId || null,
         specificationId: f.specificationId || null,
-        samplingPlanId: f.samplingPlanId || null,
+        // Custom-table mode: no persisted plan — the fixed rows ride as an
+        // ad-hoc override snapshotted onto the lot.
+        samplingPlanId: samplingMode.value === 'table' ? null : f.samplingPlanId || null,
+        samplingOverride:
+          samplingMode.value === 'table'
+            ? { planType: 'CUSTOM', customPlanTable: { rows: customRows.value } }
+            : null,
         quantity: f.quantity ?? null,
       })
       toast.success(`Lot ${lot.lotNumber} created`)
@@ -508,10 +545,25 @@ async function onSave() {
               </template>
             </div>
 
-            <!-- Sampling Plan -->
+            <!-- Sampling: a matched/approved plan, or an inline custom table
+                 (fixed n + per-class Ac/Re — no plan required). -->
             <div>
-              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Sampling Plan</p>
-              <template v-if="!form.productId">
+              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Sampling</p>
+              <SegmentedControl
+                v-if="!isEdit"
+                v-model="samplingMode"
+                :options="SAMPLING_MODES"
+                class="tw:mb-2"
+              />
+              <template v-if="samplingMode === 'table' && !isEdit">
+                <div class="tw:rounded-lg tw:border tw:border-divider tw:p-3">
+                  <CustomPlanTableFields v-model="customRows" />
+                  <p class="tw:mt-2 tw:text-xs tw:text-secondary">
+                    Applied to this lot only — not saved as a reusable sampling plan.
+                  </p>
+                </div>
+              </template>
+              <template v-else-if="!form.productId">
                 <p class="tw:text-sm tw:text-secondary">Select a product &amp; point to match a sampling plan.</p>
               </template>
               <template v-else-if="samplingMatch.candidates.length === 1">
@@ -535,7 +587,8 @@ async function onSave() {
               </template>
               <template v-else>
                 <p class="tw:text-sm tw:text-bad tw:font-medium">
-                  No active sampling plan matches this item + inspection point — create &amp; approve one first.
+                  No active sampling plan matches this item + inspection point — create &amp;
+                  approve one first, or switch to a Custom table for this lot.
                 </p>
               </template>
             </div>
