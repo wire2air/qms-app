@@ -44,6 +44,7 @@ const lotUom = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.Uom.findByPk(id) : null),
   { models: ['Uom'] },
 )
+const isFormulaLot = computed(() => lot.value?.samplingSnapshot?.planType === 'FORMULA')
 const equipment = useLiveQueryWithDeps(
   [() => lot.value?.equipmentId],
   async (db, [id]) => (id ? db.Equipment.findByPk(id) : null),
@@ -114,11 +115,15 @@ const hasInProcess = computed(
         </div>
         <div class="tw:flex tw:items-baseline tw:justify-between tw:gap-3">
           <dt class="tw:text-secondary tw:shrink-0">Quantity</dt>
-          <dd class="tw:text-right tw:text-on-main">{{ lot.quantity ?? '—' }}<template v-if="lot.quantity != null && lotUom"> {{ lotUom.name }}</template></dd>
+          <dd class="tw:text-right tw:text-on-main">{{ lot.quantity != null ? [lot.quantity, lotUom?.name].filter(Boolean).join(' ') : '—' }}</dd>
+        </div>
+        <div v-if="lot.containerCount != null" class="tw:flex tw:items-baseline tw:justify-between tw:gap-3">
+          <dt class="tw:text-secondary tw:shrink-0">Containers (N)</dt>
+          <dd class="tw:text-right tw:text-on-main">{{ lot.containerCount }}</dd>
         </div>
         <div class="tw:flex tw:items-baseline tw:justify-between tw:gap-3">
           <dt class="tw:text-secondary tw:shrink-0">Sample size</dt>
-          <dd class="tw:text-right tw:text-on-main">{{ lot.sampleSize ?? '—' }}</dd>
+          <dd class="tw:text-right tw:text-on-main">{{ lot.sampleSize ?? '—' }}<template v-if="isFormulaLot && lot.sampleSize != null"> containers</template></dd>
         </div>
         <div v-if="lot.qualityState" class="tw:flex tw:items-baseline tw:justify-between tw:gap-3">
           <dt class="tw:text-secondary tw:shrink-0">Quality state</dt>

@@ -48,6 +48,25 @@ const lotUom = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.Uom.findByPk(id) : null),
   { models: ['Uom'] },
 )
+// Sampling basis, in the plan's own terms: formula lots sample CONTAINERS
+// (√N + 1), everything else samples units of the lot quantity. Built in JS so
+// spacing is explicit (template whitespace condensing ate the unit gap).
+const isFormulaLot = computed(() => lot.value?.samplingSnapshot?.planType === 'FORMULA')
+const uomShort = computed(() => (lotUom.value?.code ? lotUom.value.code.toLowerCase() : ''))
+const quantityDisplay = computed(() => {
+  const q = lot.value?.quantity
+  if (q == null) return null
+  return uomShort.value ? `${q} ${uomShort.value}` : `${q}`
+})
+const sampleSummary = computed(() => {
+  const l = lot.value
+  if (!l) return ''
+  const n = l.sampleSize ?? '—'
+  if (isFormulaLot.value && l.containerCount) {
+    return `sample ${n} of ${l.containerCount} containers${quantityDisplay.value ? ` · ${quantityDisplay.value}` : ''}`
+  }
+  return `sample ${n}${quantityDisplay.value ? ` of ${quantityDisplay.value}` : ''}`
+})
 watch(
   lot,
   (l) => {
@@ -729,7 +748,7 @@ const inspectionLotDetailConfig = computed(() =>
     <template v-if="lot" #meta>
       <span>{{ POINT_LABELS[lot.inspectionPoint] || lot.inspectionPoint }}</span>
       <span>
-        · sample {{ lot.sampleSize ?? '—' }}<span v-if="lot.quantity"> of {{ lot.quantity }}<template v-if="lotUom"> {{ lotUom.name }}</template></span>
+        · {{ sampleSummary }}
       </span>
       <span v-if="lot.qualityState"> · {{ lot.qualityState }}</span>
     </template>

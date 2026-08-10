@@ -40,6 +40,7 @@ const lotUom = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.Uom.findByPk(id) : null),
   { models: ['Uom'] },
 )
+const isFormulaLot = computed(() => lot.value?.samplingSnapshot?.planType === 'FORMULA')
 const disposition = useLiveQueryWithDeps(
   [() => lot.value?.dispositionTypeId],
   async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
@@ -194,9 +195,9 @@ onMounted(() => {
           </tr>
           <tr>
             <th>Quantity</th>
-            <td>{{ lot?.quantity ?? '—' }}<template v-if="lot?.quantity != null && lotUom"> {{ lotUom.name }}</template></td>
+            <td>{{ lot?.quantity != null ? [lot.quantity, lotUom?.name].filter(Boolean).join(' ') : '—' }}</td>
             <th>Sample size</th>
-            <td>{{ lot?.sampleSize ?? '—' }}</td>
+            <td>{{ lot?.sampleSize ?? '—' }}<template v-if="isFormulaLot && lot?.containerCount"> of {{ lot.containerCount }} containers</template></td>
           </tr>
           <tr>
             <th>Batch / Lot ref</th>
