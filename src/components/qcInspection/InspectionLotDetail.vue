@@ -722,6 +722,18 @@ const inspectionLotDetailConfig = computed(() =>
     sections: [{ id: 'details', label: 'Details' }],
   }),
 )
+
+// Negative results are only accepted when the characteristic's own spec range
+// goes below zero (e.g. freezer temperature, deviation measures); otherwise
+// min 0 — and the minus key is swallowed, since the HTML min attribute alone
+// only constrains the spinner, not typing.
+function numericMin(c) {
+  const neg = (c?.lsl != null && Number(c.lsl) < 0) || (c?.usl != null && Number(c.usl) < 0)
+  return neg ? null : 0
+}
+function blockNegative(e, c) {
+  if (numericMin(c) === 0 && e.key === '-') e.preventDefault()
+}
 </script>
 
 <template>
@@ -1128,9 +1140,11 @@ const inspectionLotDetailConfig = computed(() =>
                     v-if="c.testType === 'NUMERIC'"
                     v-model.number="entries[c.id].valueNumeric"
                     type="number"
+                    :min="numericMin(c)"
                     size="sm"
                     class="tw:w-32"
                     :disabled="!canEditResults"
+                    @keydown="(e) => blockNegative(e, c)"
                   />
                   <PassFailRadio
                     v-else-if="c.testType === 'PASS_FAIL'"

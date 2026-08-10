@@ -312,6 +312,18 @@ function failedSamplesMissingComment() {
   })
 }
 
+// Negative results are only accepted when the characteristic's own spec range
+// goes below zero (e.g. freezer temperature, deviation measures); otherwise
+// min 0 — and the minus key is swallowed, since the HTML min attribute alone
+// only constrains the spinner, not typing.
+function numericMin(c) {
+  const neg = (c?.lsl != null && Number(c.lsl) < 0) || (c?.usl != null && Number(c.usl) < 0)
+  return neg ? null : 0
+}
+function blockNegative(e, c) {
+  if (numericMin(c) === 0 && e.key === '-') e.preventDefault()
+}
+
 defineExpose({ buildPayload, failedSamplesMissingComment })
 </script>
 
@@ -436,9 +448,11 @@ defineExpose({ buildPayload, failedSamplesMissingComment })
               v-if="c.testType === 'NUMERIC'"
               v-model.number="grid[s][c.id].valueNumeric"
               type="number"
+              :min="numericMin(c)"
               :disabled="readonly"
               class="tw:w-24 tw:px-2 tw:py-1 tw:rounded tw:border tw:bg-white tw:text-on-main tw:outline-none focus:tw:border-primary"
               :class="cellClass(c, s)"
+              @keydown="(e) => blockNegative(e, c)"
               @paste="(e) => onPaste(e, c, s)"
             />
             <PassFailRadio
@@ -549,8 +563,10 @@ defineExpose({ buildPayload, failedSamplesMissingComment })
             :ref="(el) => setFocusInput(el, i)"
             v-model.number="grid[focusSampleNo][c.id].valueNumeric"
             type="number"
+            :min="numericMin(c)"
             :disabled="readonly"
             class="tw:w-28 tw:px-2 tw:py-1.5 tw:rounded tw:border tw:border-divider tw:bg-white tw:text-on-main tw:outline-none focus:tw:border-primary tw:shrink-0"
+            @keydown="(e) => blockNegative(e, c)"
             @keyup.enter="focusNextInput(i)"
           />
           <PassFailRadio
