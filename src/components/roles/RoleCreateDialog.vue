@@ -25,6 +25,16 @@ const isSubmitting = ref(false)
 const saveError = ref('')
 const copyCount = ref(0)
 
+// Creating a role is TWO writes over TWO transports — a GraphQL mutation for the
+// row, then a REST action RPC for the grants — and a browser cannot wrap them in
+// one transaction. So step 2 can fail with step 1 already committed, leaving a
+// permission-less role behind. Rather than pretend that didn't happen, we hold
+// on to the created role: the dialog stays open, says exactly what state the
+// tenant is in, and the submit button becomes a retry of the grant copy alone
+// (never a second create — that's what `createdRole` being set prevents).
+const createdRole = ref(null)
+const grantCopyFailed = ref(false)
+
 const form = ref({
   name: '',
   description: '',
@@ -33,11 +43,23 @@ const form = ref({
 
 const isClone = computed(() => !!props.cloneSource)
 
-// Block duplicate role names (case-insensitive) before submit.
+// After a failed grant copy the role already exists, so the button is no longer
+// "Create" — it retries the one step that didn't land.
+const submitLabel = computed(() => {
+  if (grantCopyFailed.value) return 'Retry Copying Permissions'
+  return isClone.value ? 'Clone Role' : 'Create Role'
+})
+
+// Block duplicate role names (case-insensitive) before submit. The role created
+// by a first attempt whose grant copy failed is excluded — it is already in the
+// live query, so without this exclusion it would collide with the name in the
+// form and the retry could never get past validation.
 const nameAvailable = computed(() => {
   const n = form.value.name.trim().toLowerCase()
   if (!n) return true
-  return !roles.value.some((r) => (r.name || '').trim().toLowerCase() === n)
+  return !roles.value.some(
+    (r) => r.id !== createdRole.value?.id && (r.name || '').trim().toLowerCase() === n,
+  )
 })
 
 const nameInUseError = computed(() =>
@@ -78,14 +100,33 @@ async function onSubmit() {
   if (isSubmitting.value) return
   isSubmitting.value = true
   saveError.value = ''
+
+  // ── Step 1: the role row (GraphQL / syncEngine) ───────────────────────────
   try {
-    const created = await createRole({
-      name: form.value.name.trim(),
-      description: form.value.description.trim() || '',
-      statusId: 'ACTIVE',
-    })
-    // Copy the source role's scoped permissions into the new role.
-    if (form.value.copyFromRoleId !== 'custom') {
+    if (createdRole.value) {
+      // Retry after a failed grant copy — the row already exists. Push any edits
+      // the user made in the meantime rather than silently discarding them.
+      createdRole.value.name = form.value.name.trim()
+      createdRole.value.description = form.value.description.trim() || ''
+      await createdRole.value.save()
+    } else {
+      createdRole.value = await createRole({
+        name: form.value.name.trim(),
+        description: form.value.description.trim() || '',
+        statusId: 'ACTIVE',
+      })
+    }
+  } catch (err) {
+    isSubmitting.value = false
+    saveError.value = err?.message || 'Failed to create role'
+    return
+  }
+
+  // ── Step 2: the permission grants (REST action RPC) ───────────────────────
+  // Already committed above; a failure here CANNOT be rolled back from the
+  // browser, so it gets named instead of swallowed.
+  if (form.value.copyFromRoleId !== 'custom') {
+    try {
       const src = await get(`/v1/services/authz/roles/${form.value.copyFromRoleId}/permissions`)
       const permissions = (src.permissions || []).map((p) => ({
         module: p.module,
@@ -93,21 +134,35 @@ async function onSubmit() {
         scope: p.scope,
       }))
       if (permissions.length) {
-        await put(`/v1/services/authz/roles/${created.id}/permissions`, { permissions })
+        // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+        await put(`/v1/services/authz/roles/${createdRole.value.id}/permissions`, { permissions })
       }
+    } catch (err) {
+      grantCopyFailed.value = true
+      isSubmitting.value = false
+      saveError.value =
+        `The role “${createdRole.value.name}” was created, but copying its permissions failed` +
+        `${err?.message ? ` (${err.message})` : ''}. It currently has NO permissions and grants ` +
+        `nobody access. Retry the copy, or close this dialog and set its permissions from the ` +
+        `role's page.`
+      return
     }
-    emit('created', created)
-    show.value = false
-  } catch (err) {
-    saveError.value = err?.message || 'Failed to create role'
-  } finally {
-    isSubmitting.value = false
   }
+
+  grantCopyFailed.value = false
+  isSubmitting.value = false
+  emit('created', createdRole.value)
+  show.value = false
 }
 
 // Prefill on open: a fresh create, or a clone seeded from the source role.
+// Reopening always starts a NEW role — the half-finished one from a previous
+// attempt is left alone (it exists and is listed; abandoning it is the user's
+// call, not something a dialog reopen should quietly re-adopt).
 watch(show, (val) => {
   if (!val) return
+  createdRole.value = null
+  grantCopyFailed.value = false
   if (props.cloneSource) {
     form.value = {
       name: `Copy of ${props.cloneSource.name}`,
@@ -194,7 +249,8 @@ watch(show, (val) => {
 
     <template #footer>
       <BaseDialogFooter
-        :submitLabel="isClone ? 'Clone Role' : 'Create Role'"
+        :submitLabel="submitLabel"
+        :cancelLabel="grantCopyFailed ? 'Close' : 'Cancel'"
         :loading="isSubmitting"
         :error="saveError"
         @cancel="show = false"

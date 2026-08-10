@@ -638,7 +638,6 @@ declare module 'vue' {
     ForcePasswordChangeForm: typeof import('./src/components/auth/ForcePasswordChangeForm.vue')['default']
     ForgotPasswordForm: typeof import('./src/components/auth/ForgotPasswordForm.vue')['default']
     FormAiChatPanel: typeof import('./src/components/ai/FormAiChatPanel.vue')['default']
-    FormAiGenerateDialog: typeof import('./src/components/ai/FormAiGenerateDialog.vue')['default']
     FormAssignmentEditor: typeof import('./src/components/formAssignment/FormAssignmentEditor.vue')['default']
     FormAssignmentsHome: typeof import('./src/components/formAssignment/FormAssignmentsHome.vue')['default']
     FormBlocksHome: typeof import('./src/components/formTemplate/FormBlocksHome.vue')['default']

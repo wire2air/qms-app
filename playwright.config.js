@@ -129,6 +129,24 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Roles — the module that decides what everybody else may do. It had no
+      // E2E surface at all until 2026-08-08, and the reason was a fixture gap
+      // rather than a design one: the tenant seeded eleven roles and not one of
+      // them held a `role_permission_management` grant, so nothing in the module
+      // could be written from a browser. e2e-seed.sql §30 is that fixture.
+      //
+      // ROLE-J1 is the reason this project is worth more than its test count.
+      // Cycle 1's two CRITICAL escalations were not a missing check — every
+      // layer had one. Five surfaces answered "may you grant a role" and gave
+      // four different answers, and the weakest sat on the only path the SPA
+      // actually uses. J1 pins the agreement itself, which no other project in
+      // this repo does for any module.
+      name: 'roles',
+      testMatch: /roles\/.*\.spec\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // Multi-site user assignment. Mostly RLS verdicts over raw GraphQL rather
       // than UI steps: what is under test is which records a `site`-scoped grant
       // reaches once a user holds several sites, and the UI is only one of the
