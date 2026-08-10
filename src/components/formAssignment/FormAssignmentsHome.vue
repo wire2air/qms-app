@@ -51,10 +51,17 @@ function templateLabel(id) {
   return logBookById.value.get(id)?.title ?? id
 }
 
+// WHEN lives on the log book, not the assignment (moved 2026-08-06 — see
+// LogBookDetailPage.vue's Schedule section). FormAssignment.schedule is a
+// dead field the current editor never writes, so reading it here always
+// showed "—" for every assignment created post-move.
 function scheduleSummary(plan) {
-  if (!plan.schedule || typeof plan.schedule !== 'object') return '—'
-  if (plan.schedule.type === 'AD_HOC') return 'Ad-hoc (no schedule)'
-  return humanizeCron(plan.schedule.cron)
+  const logBook = logBookById.value.get(plan.logBookId)
+  if (!logBook) return '—'
+  if (logBook.scheduleMode === 'AD_HOC') return 'Ad-hoc (no schedule)'
+  if (logBook.scheduleMode === 'TRIGGER') return 'Equipment trigger'
+  if (logBook.scheduleMode === 'RECURRING') return humanizeCron(logBook.schedule?.cron)
+  return '—'
 }
 
 const logBookOptions = computed(() =>
@@ -76,7 +83,13 @@ const columns = computed(() => [
     filterOptions: logBookOptions.value,
   },
   { name: 'schedule', label: 'Schedule', field: scheduleSummary, align: 'left' },
-  { name: 'assignees', label: 'Assignees', field: 'assignedRoleId', align: 'left', filterType: false },
+  {
+    name: 'assignees',
+    label: 'Assignees',
+    field: 'assignedRoleId',
+    align: 'left',
+    filterType: false,
+  },
   { name: 'grace', label: 'Grace', field: 'graceMinutes', align: 'right', filterType: 'number' },
   {
     name: 'active',
@@ -117,7 +130,13 @@ function goEdit(id) {
         Plan who fills which log book, when (cron + timezone), and where (site). The scheduler
         materialises occurrences in a 24h look-ahead.
       </span>
-      <BaseButton v-if="canAssign" variant="primary" size="sm" class="tw:shrink-0" @click="goCreate">
+      <BaseButton
+        v-if="canAssign"
+        variant="primary"
+        size="sm"
+        class="tw:shrink-0"
+        @click="goCreate"
+      >
         <IconPlus :size="16" />
         New Assignment
       </BaseButton>
@@ -149,10 +168,13 @@ function goEdit(id) {
       <template #body-cell-schedule="{ row }">
         <div>{{ scheduleSummary(row) }}</div>
         <div
-          v-if="row.schedule?.type === 'RECURRING' && row.schedule?.timezone"
+          v-if="
+            logBookById.get(row.logBookId)?.scheduleMode === 'RECURRING' &&
+            logBookById.get(row.logBookId)?.schedule?.timezone
+          "
           class="tw:text-xs tw:text-secondary"
         >
-          {{ row.schedule.timezone }}
+          {{ logBookById.get(row.logBookId).schedule.timezone }}
         </div>
       </template>
 
@@ -172,9 +194,7 @@ function goEdit(id) {
         <span
           class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:rounded tw:px-2 tw:py-0.5"
           :class="
-            row.active
-              ? 'tw:bg-green-100 tw:text-green-700'
-              : 'tw:bg-gray-100 tw:text-gray-700'
+            row.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-100 tw:text-gray-700'
           "
         >
           <IconPower :size="12" />
