@@ -75,6 +75,45 @@ npm run test:e2e:ui           # Playwright UI mode (pick/replay/inspect)
 npm run test:e2e:report       # open the HTML report from the last run
 ```
 
+### Module screenshots
+
+`e2e/<module>/screens/*.spec.js` is a **screenshot suite**: it drives the same
+fixtures, personas and selectors the journeys do, but its product is a folder of
+full-page PNGs of every meaningful state of a module — for design review, docs
+and release notes.
+
+```bash
+npm run test:e2e:screens            # every module → tests/screenshots/<module>/
+npm run test:e2e:screens:headed     # watch it drive a real browser
+npm run test:e2e:screens:docs       # one module (…:capas, :ncr, :audits, …)
+```
+
+All of it lives in one `screens` project (`testMatch: /\/screens\/.*\.spec\.js$/`),
+which is why every module project above is narrowed to `[^/]+\.spec\.js$`:
+`--project=capas` stays the CAPA journey suite and its runtime, unaffected by
+~40 captures × 3s. Both depend on `setup`, so seeding and login still happen
+automatically. A single module is a path filter, not its own project:
+`npx playwright test --project=screens capas/screens`.
+
+- **[fixtures/screenshots.js](fixtures/screenshots.js)** is the whole harness:
+  `shooter('documents')` returns `shot(page, name)`, which pauses
+  `OBSERVE_MS` (3s) and writes `tests/screenshots/documents/<name>.png` full-page.
+- **The pause is deliberate — do not remove it.** In headed mode the app moves
+  faster than a human can follow; the pause is what makes each state observable.
+  It is not a substitute for waiting: every capture asserts the expected UI state
+  with a normal Playwright assertion first, *then* calls `shot()`.
+- Mid-flow dialogs that the shared fixtures click straight through are captured
+  through inert-by-default hooks on those fixtures —
+  `createSopDocument(page, title, { beforeSubmit })` and
+  `submitForReview(page, { onTrainingGate, onWorkflowDialog })`. Pass nothing and
+  the journeys behave exactly as before.
+
+**Don't re-run the suite back to back.** `authLimiter` allows 300 auth requests
+per 15 minutes per IP (in-memory in the api process, so Redis surgery won't clear
+it), and each `setup` run spends ~90 logging the cast in. Three consecutive runs
+exhaust it and the next `setup` fails with `login … → 429`; wait for the window
+rather than restarting the stack.
+
 Every project declares `dependencies: ['setup']`, so seeding + login happen
 automatically whichever suite you run. To apply the seed by hand (e.g. to poke
 at the tenant without running tests):

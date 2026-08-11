@@ -10,7 +10,16 @@
 // suite already covers the lifecycle end-to-end.
 import { execFileSync } from 'node:child_process'
 import { request } from '@playwright/test'
-import { BASE_URL, COMPANY_ID, PASSWORD, SUPPLIER_IDS, SUPPLIER_USER } from './cast.js'
+import {
+  BASE_URL,
+  COMPANY_ID,
+  DEPARTMENTS,
+  PASSWORD,
+  SITES,
+  SUPPLIER_IDS,
+  SUPPLIER_USER,
+  USERS,
+} from './cast.js'
 import { sql, sqlValue } from './db.js'
 // Reuse the RLS harness the sites suite established: it opens a transaction as
 // `app_user` with the session GUCs the app sets, which is the only honest way
@@ -35,6 +44,9 @@ export function anonContext() {
   return request.newContext({ baseURL: BASE_URL })
 }
 
+// E2EALT's owner — the only user guaranteed to exist in the second tenant.
+const ALT_TENANT_OWNER_ID = 'e2e20000-0000-4000-8000-000000000001'
+
 let seq = 0
 function uniqueSuffix() {
   // A counter, not a timestamp: two seeds inside the same millisecond are
@@ -48,32 +60,98 @@ function uniqueSuffix() {
  * `statusId` is the VERSION status — 'EFFECTIVE' is the only one a share
  * exposes, which is what SUP-J2 exercises.
  */
-export function seedDocument({ title, statusId = 'EFFECTIVE', docNumber } = {}) {
+export function seedDocument({ title, statusId = 'EFFECTIVE', docNumber, companyId = COMPANY_ID } = {}) {
   const suffix = uniqueSuffix()
   const finalTitle = title || `E2E Supplier Doc ${suffix}`
   const finalNumber = docNumber || `ESUP-${suffix}`
+  // created_by/updated_by on the section have to be a user of `companyId`; the
+  // portal user belongs to E2ELAB, so a second-tenant seed uses that tenant's
+  // owner instead. Nothing in the journeys reads the authorship — it exists
+  // only because the column is NOT NULL.
+  const author = companyId === COMPANY_ID ? SUPPLIER_USER.id : ALT_TENANT_OWNER_ID
   const out = sql(`
     WITH d AS (
       INSERT INTO documents (company_id, title, doc_number, created_at, updated_at)
-      VALUES ('${COMPANY_ID}', '${finalTitle}', '${finalNumber}', now(), now())
+      VALUES ('${companyId}', '${finalTitle}', '${finalNumber}', now(), now())
       RETURNING id
     ), v AS (
       INSERT INTO document_versions
         (company_id, document_id, version_major, version_minor, status_id, created_at, updated_at)
-      SELECT '${COMPANY_ID}', d.id, 1, 0, '${statusId}', now(), now() FROM d
+      SELECT '${companyId}', d.id, 1, 0, '${statusId}', now(), now() FROM d
       RETURNING id, document_id
     ), s AS (
       INSERT INTO document_sections
         (company_id, document_id, document_version_id, title, content, created_by, updated_by, created_at, updated_at)
-      SELECT '${COMPANY_ID}', v.document_id, v.id, 'Scope',
+      SELECT '${companyId}', v.document_id, v.id, 'Scope',
              'SUPPLIER VISIBLE BODY ${suffix}',
-             '${SUPPLIER_USER.id}', '${SUPPLIER_USER.id}', now(), now()
+             '${author}', '${author}', now(), now()
       FROM v RETURNING id
     )
     SELECT (SELECT id FROM d), (SELECT id FROM v), (SELECT id FROM s)
   `)
   const [documentId, versionId, sectionId] = out.split('|')
   return { id: documentId, versionId, sectionId, title: finalTitle, docNumber: finalNumber, bodyMarker: `SUPPLIER VISIBLE BODY ${suffix}` }
+}
+
+/**
+ * A minimal DRAFT CAPA in E2ELAB.
+ *
+ * SUP-J11 needs a share target of a DIFFERENT entity type from Document, to ask
+ * whether the REST sharing endpoint maps entity type → permission or accepts any
+ * one of the four `:update` grants the RLS policy ORs together. Nothing about the
+ * CAPA's own lifecycle matters here, so the row is seeded rather than authored.
+ */
+export function seedCapa({ title } = {}) {
+  const suffix = uniqueSuffix()
+  const finalTitle = title || `E2E Supplier CAPA ${suffix}`
+  const id = sqlValue(`
+    INSERT INTO capas
+      (company_id, capa_number, title, status_id, priority_id, type_id, source_type,
+       site_id, department_id, owner_id, initiated_at, created_by, updated_by,
+       created_at, updated_at)
+    VALUES ('${COMPANY_ID}', 'ECAP-${suffix}', '${finalTitle}', 'DRAFT', 'MEDIUM', 'BOTH',
+            'CUSTOMER_COMPLAINT', '${SITES.primary.id}', '${DEPARTMENTS.quality.id}',
+            '${USERS.owner.id}', current_date, '${USERS.owner.id}', '${USERS.owner.id}',
+            now(), now())
+    RETURNING id
+  `)
+  return { id, title: finalTitle }
+}
+
+export function deleteCapa(id) {
+  sql(`DELETE FROM shared_with_user WHERE entity_type = 'Capa' AND entity_id = '${id}'`)
+  sql(`DELETE FROM capas WHERE id = '${id}'`)
+}
+
+// ── Entitlement plane ───────────────────────────────────────────────────────
+//
+// `entitlement.module_entitled(company, module)` is the commercial gate: a live
+// per-tenant override in `entitlement.company_modules` wins over the plan, and a
+// tenant with no subscription (E2ELAB is one) fails OPEN. So switching a module
+// off for E2ELAB means writing an override row with enabled = false, and
+// switching it back on means deleting that row — not flipping it to true, which
+// would leave the tenant in a state the seed never had.
+
+/** Force `moduleId` off for E2ELAB via a live per-tenant override. */
+export function disableModule(moduleId) {
+  sql(`
+    INSERT INTO entitlement.company_modules (company_id, module_id, enabled, created_at, updated_at)
+    VALUES ('${COMPANY_ID}', '${moduleId}', false, now(), now())
+    ON CONFLICT (company_id, module_id) DO UPDATE
+      SET enabled = false, expires_at = NULL, updated_at = now()
+  `)
+}
+
+/** Remove the override, restoring whatever the plan (here: fail-open) decides. */
+export function restoreModule(moduleId) {
+  sql(
+    `DELETE FROM entitlement.company_modules WHERE company_id = '${COMPANY_ID}' AND module_id = '${moduleId}'`,
+  )
+}
+
+/** What the gate itself answers for E2ELAB right now. */
+export function moduleEntitled(moduleId) {
+  return sqlValue(`SELECT entitlement.module_entitled('${COMPANY_ID}', '${moduleId}')`) === 't'
 }
 
 /** Link `from` → `to` as a REFERENCES relationship (version-to-version). */

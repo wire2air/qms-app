@@ -132,8 +132,17 @@ export async function gotoQcTab(page, tab = 'lots') {
  * Card entry: InspectionLotRetainSamplesCard.vue "Add Retain Sample" (gated
  * retain_samples:create OR :update); dialog: RetainSampleCreateDialog.vue.
  * Returns the DB row once the REST create has landed.
+ *
+ * @param {object} [opts]
+ * @param {(page) => Promise<void>} [opts.onDialog] runs on the completed create
+ *   dialog, just before submit. Inert by default — only the screenshot specs
+ *   pass it, to capture that state without duplicating this flow.
  */
-export async function createRetainSample(page, lotId, { quantity = '6', position = 'Shelf B, Box 12' } = {}) {
+export async function createRetainSample(
+  page,
+  lotId,
+  { quantity = '6', position = 'Shelf B, Box 12', onDialog } = {},
+) {
   const before = sqlValue(
     `SELECT count(*) FROM retain_samples WHERE inspection_lot_id = ${quote(lotId)} AND deleted_at IS NULL`,
   )
@@ -148,6 +157,7 @@ export async function createRetainSample(page, lotId, { quantity = '6', position
   await page.getByPlaceholder('e.g. 6').fill(quantity)
   await selectOption(page, 'Storage location', QC.storageLocation.name)
   await page.getByPlaceholder('e.g. Shelf B, Box 12').fill(position)
+  if (onDialog) await onDialog(page)
   await page.getByRole('button', { name: 'Create Retain Sample' }).click()
 
   await waitForSqlValue(
@@ -167,8 +177,19 @@ export async function createRetainSample(page, lotId, { quantity = '6', position
  * the dispose call passes `step: null`, so verifyAndSign returns early. The
  * only durable evidence is the DISPOSE audit_logs row. That is security-review
  * finding #16, not a bug in this helper: assert audit, never `signatures`.
+ *
+ * @param {object} [opts]
+ * @param {(page) => Promise<void>} [opts.onDialog] runs on the completed
+ *   disposal dialog, just before "Sign & Record Disposal". Inert by default.
+ * @param {(page) => Promise<void>} [opts.onEsign] runs on the PIN e-signature
+ *   dialog, before it is filled. Inert by default. Both exist so the screenshot
+ *   specs can capture those states without duplicating this flow.
  */
-export async function disposeRetainSample(page, retainSampleId, { method = 'Incinerated', notes = '' } = {}) {
+export async function disposeRetainSample(
+  page,
+  retainSampleId,
+  { method = 'Incinerated', notes = '', onDialog, onEsign } = {},
+) {
   await page.goto(`/qc-inspection/retain-samples/${retainSampleId}`)
   // clickWhenReady, not a bare click: the detail page hydrates from IndexedDB
   // after the syncEngine bootstrap, so an early click lands on a button whose
@@ -189,10 +210,12 @@ export async function disposeRetainSample(page, retainSampleId, { method = 'Inci
   if (notes) {
     await page.getByPlaceholder('Witness, certificate reference, anything worth recording').fill(notes)
   }
+  if (onDialog) await onDialog(page)
   await page.getByRole('button', { name: 'Sign & Record Disposal' }).click()
 
   const pin = page.getByPlaceholder('Enter your e-signature PIN')
   await expect(pin).toBeVisible({ timeout: 15_000 })
+  if (onEsign) await onEsign(page)
   const signBtn = page.getByRole('button', { name: 'Sign', exact: true })
   await expect(async () => {
     await pin.fill(ESIGN_PIN)
@@ -258,7 +281,16 @@ export async function checkInLotViaRest(page, lotId) {
   throw new Error(`checkInLotViaRest: lot ${lotId} never became writable in the UI`)
 }
 
-export async function checkInLot(page, lotId) {
+/**
+ * @param {object} [opts]
+ * @param {(page) => Promise<void>} [opts.onDialog] runs on the OPEN check-in
+ *   dialog, before its submit is clicked — the seam an in-process lot needs
+ *   (its "Production lot" field must be filled before submit enables), and the
+ *   one the screenshot specs capture through. Inert by default. NOTE the retry
+ *   loop below can call it more than once; a caller that only wants one
+ *   screenshot should guard it.
+ */
+export async function checkInLot(page, lotId, { onDialog } = {}) {
   // Retry across reloads: check-in is exclusive per user, so when a previous
   // spec left this inspector checked in elsewhere the dialog becomes a
   // take-over confirm and the first click can land before it re-renders.
@@ -271,6 +303,7 @@ export async function checkInLot(page, lotId) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await page.goto(`/qc-inspection/lots/${lotId}`)
     await clickWhenReady(page, trigger)
+    if (onDialog) await onDialog(page)
     await confirmBtn.last().click()
     const saved = await page
       .getByRole('button', { name: 'Save results' })
@@ -353,8 +386,12 @@ export async function completeLotViaRest(
  * the run, so the results grid stays empty ("No samples collected yet") until
  * samples exist. Incoming lots skip this — their sample set is fixed at create
  * from the AQL table. Call this before recordResults on any IN_PROCESS lot.
+ *
+ * @param {object} [opts]
+ * @param {(page) => Promise<void>} [opts.onDialog] runs on the filled-in
+ *   collect dialog, just before Collect. Inert by default.
  */
-export async function collectSamples(page, { count = 1 } = {}) {
+export async function collectSamples(page, { count = 1, onDialog } = {}) {
   // Reload-tolerant like checkInLot: under full-suite load the results panel
   // can still be hydrating when the click lands, leaving the dialog unopened.
   const trigger = page.getByRole('button', { name: 'Collect sample(s)' }).first()
@@ -378,6 +415,7 @@ export async function collectSamples(page, { count = 1 } = {}) {
   const countField = page.getByRole('spinbutton').last()
   await expect(countField).toBeVisible({ timeout: 10_000 })
   await countField.fill(String(count))
+  if (onDialog) await onDialog(page)
   await page.getByRole('button', { name: 'Collect', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Collect samples' })).toHaveCount(0, { timeout: 20_000 })
 }
@@ -391,8 +429,16 @@ export async function collectSamples(page, { count = 1 } = {}) {
  * deliberate out-of-spec value (the seeded LEN spec is 9.90–10.10 mm).
  * Omit a field to leave that characteristic unscored — which is what PW-J3's
  * completeness gate needs.
+ *
+ * @param {object} [opts]
+ * @param {(page) => Promise<void>} [opts.beforeSave] runs on the filled-in
+ *   grid, just before "Save results". Inert by default — only the screenshot
+ *   specs pass it, to capture entry-in-progress without duplicating this flow.
  */
-export async function recordResults(page, { length = null, visualPass = null, label = null } = {}) {
+export async function recordResults(
+  page,
+  { length = null, visualPass = null, label = null, beforeSave } = {},
+) {
   if (length !== null) {
     await page.locator('main input[type="number"]').first().fill(String(length))
   }
@@ -410,6 +456,7 @@ export async function recordResults(page, { length = null, visualPass = null, la
   if (label !== null) {
     await page.getByPlaceholder('observation').first().fill(label)
   }
+  if (beforeSave) await beforeSave(page)
   await page.getByRole('button', { name: 'Save results' }).click()
 }
 
@@ -433,8 +480,12 @@ export async function completeLot(page) {
  * separation of duties. `waiverComment` covers the IN_PROCESS retain gate:
  * submitting an in-process lot with no retain sample is refused
  * (RETAIN_SAMPLE_REQUIRED) unless a reason is supplied.
+ *
+ * @param {object} [opts]
+ * @param {(page) => Promise<void>} [opts.onDialog] runs on the open submit
+ *   dialog, before it is submitted. Inert by default.
  */
-export async function submitForDisposition(page, lotId, { waiverComment = null } = {}) {
+export async function submitForDisposition(page, lotId, { waiverComment = null, onDialog } = {}) {
   await openLot(page, lotId)
   await clickWhenReady(page, page.getByRole('button', { name: 'Submit for QA Disposition' }))
   await expect(page.getByRole('button', { name: 'Submit for Disposition' })).toBeVisible({ timeout: 15_000 })
@@ -442,6 +493,7 @@ export async function submitForDisposition(page, lotId, { waiverComment = null }
     const waiver = page.getByPlaceholder(/without a retain|why|reason/i).first()
     if (await waiver.count()) await waiver.fill(waiverComment)
   }
+  if (onDialog) await onDialog(page)
   await page.getByRole('button', { name: 'Submit for Disposition' }).click()
   await waitForSqlValue(`SELECT status_id = 'UNDER_REVIEW' FROM inspection_lots WHERE id = ${quote(lotId)}`, {
     timeoutMs: 45_000,
