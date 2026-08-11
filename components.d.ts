@@ -838,6 +838,7 @@ declare module 'vue' {
     NotificationsPage: typeof import('./src/components/notifications/NotificationsPage.vue')['default']
     NotificationsPanel: typeof import('./src/components/notifications/NotificationsPanel.vue')['default']
     OnboardingDialog: typeof import('./src/components/onboarding/OnboardingDialog.vue')['default']
+    OptionGroupBuilderCard: typeof import('./src/components/form-builder/OptionGroupBuilderCard.vue')['default']
     OptionSetBadge: typeof import('./src/components/badges/OptionSetBadge.vue')['default']
     OptionSetBadgeById: typeof import('./src/components/badges/OptionSetBadgeById.vue')['default']
     OptionSetCreateDialog: typeof import('./src/components/optionSets/OptionSetCreateDialog.vue')['default']

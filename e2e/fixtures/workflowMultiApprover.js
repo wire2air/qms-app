@@ -33,7 +33,7 @@
 // ALL throughout the ANY journey, which is what makes the assertion honest:
 // the engine can only behave as ANY if it really is reading the instance copy.
 import { sql, sqlRow, sqlValue, waitForSqlValue, findNcByTitle } from './db.js'
-import { raiseNc, openNc, uniqueTitle as ncTitle } from './nonconformances.js'
+import { raiseNc, uniqueTitle as ncTitle } from './nonconformances.js'
 
 const q = (s) => `'${String(s).replace(/'/g, "''")}'`
 
@@ -136,7 +136,7 @@ export async function createLiveNcInstance(page, tag) {
   await raiseNc(page, title)
   const nc = findNcByTitle(title)
   if (!nc) throw new Error(`no NC created for "${title}"`)
-  await openNc(page, nc.id)
+  // raiseNc auto-opens (2026-08-10) — the workflow instance already exists.
 
   const instanceId = sqlValue(
     `SELECT id FROM workflow_instances

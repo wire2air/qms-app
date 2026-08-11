@@ -58,6 +58,20 @@ export const FIELD_TYPES = Object.freeze({
     category: 'input',
     description: 'A multi-line box for longer free text — descriptions, notes, comments.',
   },
+  // Rich text lives in Input Fields (user decision 2026-08-10) — it's a
+  // primary authoring control, not a "special" type.
+  textEditor: {
+    icon: IconBold,
+    label: 'Rich Text',
+    category: 'input',
+    description: 'A rich-text editor for formatted content the respondent writes.',
+  },
+  richTextAttachment: {
+    icon: IconFileText,
+    label: 'Rich Text + Attachments',
+    category: 'input',
+    description: 'A rich-text editor with inline images and file attachments in one field (replaces a Rich Text + File Upload pair).',
+  },
   number: {
     icon: IconHash,
     label: 'Number',
@@ -96,11 +110,12 @@ export const FIELD_TYPES = Object.freeze({
     category: 'selection',
     description: 'A single yes/no tick, or a multi-select set when you add options.',
   },
+  // UI label only (user decision 2026-08-10) — the type key stays optionGroup.
   optionGroup: {
     icon: IconListCheck,
-    label: 'Option Group',
+    label: 'Multiple Choice',
     category: 'selection',
-    description: 'A single choice shown as radio buttons (best for a few options).',
+    description: 'A set of choices shown as radio buttons or checkboxes.',
   },
   checklist: {
     icon: IconTable,
@@ -157,18 +172,6 @@ export const FIELD_TYPES = Object.freeze({
     label: 'Color Picker',
     category: 'special',
     description: 'Pick a colour value.',
-  },
-  textEditor: {
-    icon: IconBold,
-    label: 'Rich Text',
-    category: 'special',
-    description: 'A rich-text editor for formatted content the respondent writes.',
-  },
-  richTextAttachment: {
-    icon: IconFileText,
-    label: 'Rich Text + Attachments',
-    category: 'special',
-    description: 'A rich-text editor with inline images and file attachments in one field (replaces a Rich Text + File Upload pair).',
   },
   signature: {
     icon: IconSignature,
@@ -590,13 +593,16 @@ export const LOOKUP_ENTITIES = [
 ]
 export const LOOKUP_ENTITY_BY_VALUE = Object.fromEntries(LOOKUP_ENTITIES.map((e) => [e.value, e]))
 export const NO_LABEL_TYPES = new Set(['row', 'column', 'instructions', 'header'])
+// Layout/decor types only — they hold no value, so Required/Readonly/Disabled
+// are meaningless. rca/riskAssessment were WRONGLY in this set (2026-08-10):
+// they carry a payload, RcaField/RiskAssessmentField honor readonly/disabled,
+// and the step-form submit gate already deep-checks their emptiness — the
+// builder just never let authors mark them required.
 export const NO_STATE_TYPES = new Set([
   'row',
   'column',
   'separator',
   'section',
-  'rca',
-  'riskAssessment',
   'instructions',
   'header',
 ])

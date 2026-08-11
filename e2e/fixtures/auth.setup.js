@@ -64,10 +64,23 @@ setup('login all roles and save storage state', async () => {
 
 async function loginAndSave(baseURL, user, statePath, label) {
   const ctx = await request.newContext({ baseURL })
+  // Login answers with a 302 to APP_URL's handoff endpoint. APP_URL's port can
+  // differ from the server under test (VITE_DEV_PORT moves vite off 5173 while
+  // the backend env still says 5173, where another app may live). Don't follow
+  // the redirect — take the one-time token and complete the handoff against
+  // OUR baseURL; the session cookie is port-agnostic (domain-scoped).
   const login = await ctx.post('/api/v1/auth/login', {
     data: { email: user.email, password: PASSWORD },
+    maxRedirects: 0,
   })
-  expect(login.ok(), `login ${label} (${user.email}) → ${login.status()}`).toBeTruthy()
+  expect(login.status(), `login ${label} (${user.email}) → ${login.status()}`).toBe(302)
+  const token = new URL(login.headers()['location']).searchParams.get('token')
+  expect(token, `handoff token for ${label}`).toBeTruthy()
+  const handoff = await ctx.get(`/api/v1/auth/handoff?token=${token}`, { maxRedirects: 0 })
+  expect(
+    [200, 302].includes(handoff.status()),
+    `handoff ${label} → ${handoff.status()}`,
+  ).toBeTruthy()
 
   const session = await ctx.get('/api/v1/auth/session')
   expect(session.ok(), `session ${label} → ${session.status()}`).toBeTruthy()

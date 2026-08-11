@@ -6,6 +6,12 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Forwarded to BaseSelect: opt out of the required first-option auto-fill
+  // when the caller owns defaulting (reviewer pickers).
+  autoFill: {
+    type: Boolean,
+    default: true,
+  },
   multiple: {
     type: Boolean,
     default: false,
@@ -129,6 +135,7 @@ const filteredUsers = computed(() => {
     optionLabel="name"
     optionValue="id"
     :required="required"
+    :autoFill="autoFill"
     :multiple="multiple"
     :clearable="!required"
     :nullLabel="nullLabel"

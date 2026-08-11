@@ -11,7 +11,7 @@
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import { signWithPin } from '../fixtures/esign.js'
-import { raiseNc, openNc, completeReviewerStep, uniqueTitle } from '../fixtures/nonconformances.js'
+import { raiseNc, completeReviewerStep, uniqueTitle } from '../fixtures/nonconformances.js'
 import { clickWhenReady } from '../fixtures/documents.js'
 import { findNcByTitle, sqlValue, waitForSqlValue } from '../fixtures/db.js'
 
@@ -25,7 +25,6 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
     const title = uniqueTitle('J2-advance')
     await raiseNc(ownerPage, title)
     const nc = findNcByTitle(title)
-    await openNc(ownerPage, nc.id)
     await ownerCtx.close()
 
     await completeReviewerStep(browser, nc.id)
@@ -58,7 +57,6 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
     const title = uniqueTitle('J2-reject')
     await raiseNc(ownerPage, title)
     const nc = findNcByTitle(title)
-    await openNc(ownerPage, nc.id)
     await ownerCtx.close()
 
     await completeReviewerStep(browser, nc.id)

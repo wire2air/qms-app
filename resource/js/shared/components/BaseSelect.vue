@@ -32,6 +32,11 @@ const props = defineProps({
   disabled: { type: Boolean, default: false },
   readonly: { type: Boolean, default: false },
   required: { type: Boolean, default: false },
+  // Opt out of the required-select first-option auto-fill (below) when the
+  // PARENT owns defaulting — two writers racing to fill the same model pick
+  // a machine-dependent winner (see WorkflowStepReviewerSelect's initiator
+  // default, 2026-08-10). required still hides the null option either way.
+  autoFill: { type: Boolean, default: true },
   loading: { type: Boolean, default: false },
   autofocus: { type: Boolean, default: false },
 
@@ -292,7 +297,7 @@ function selectNull() {
 watch(
   normalizedOptions,
   (opts) => {
-    if (!props.required || !opts.length) return
+    if (!props.required || !props.autoFill || !opts.length) return
     const first = opts.find((o) => !o.disabled)
     if (!first) return
     if (props.multiple) {

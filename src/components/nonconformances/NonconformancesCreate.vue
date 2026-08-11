@@ -5,7 +5,6 @@ import {
   IconCategory,
   IconPackage,
   IconBell,
-  IconShieldCheck,
   IconSitemap,
 } from '@tabler/icons-vue'
 import { post } from '@/api'
@@ -22,6 +21,21 @@ const router = useRouter()
 const route = useRoute()
 const toast = useToast()
 const workflowPickerRef = ref(null)
+// The person raising the NC. Fed to the reviewer picker as the smart
+// default: any step whose candidate pool includes the initiator is
+// pre-assigned to them (user rule 2026-08-10) — changeable per step.
+const initiatorId = computed(() => currentSession.value?.userId ?? null)
+
+// Two-screen wizard (user decision 2026-08-10): screen 1 is ONLY the
+// workflow choice — clicking a card (or Continue on the pre-selected
+// default) advances to screen 2, the NC details form. A "Change" button
+// on the details screen returns to screen 1 with everything preserved.
+const screen = ref('workflow')
+
+function goToDetails() {
+  if (!form.value.workflowVersionId) return
+  screen.value = 'details'
+}
 const saving = ref(false)
 // Server-side save failure — surfaced persistently in the form footer.
 const submitError = ref('')
@@ -126,6 +140,28 @@ const form = ref({
   notifyUserIds: [],
 })
 
+// Resolve the chosen workflow's name + version for the details screen's
+// context strip (versions don't carry the name — the parent Workflow does).
+// NOTE: must sit BELOW the `form` declaration — useLiveQueryWithDeps
+// evaluates dep getters eagerly at setup (same TDZ crash class as the
+// FieldRecordsList incident).
+const selectedWorkflowVersion = useLiveQueryWithDeps(
+  [() => form.value.workflowVersionId],
+  async (db, [id]) => (id ? db.WorkflowVersion.findByPk(id) : null),
+  { models: ['WorkflowVersion'] },
+)
+const selectedWorkflow = useLiveQueryWithDeps(
+  [() => selectedWorkflowVersion.value?.workflowId],
+  async (db, [id]) => (id ? db.Workflow.findByPk(id) : null),
+  { models: ['Workflow'] },
+)
+const selectedWorkflowLabel = computed(() => {
+  const v = selectedWorkflowVersion.value
+  if (!v) return ''
+  const name = selectedWorkflow.value?.name || 'Workflow'
+  return `${name} · v${v.versionLabel || `${v.versionMajor ?? 1}.${v.versionMinor ?? 0}`}`
+})
+
 // Unsaved-changes marker for the footer + BaseForm's beforeunload guard.
 const isDirty = ref(false)
 watch(form, () => (isDirty.value = true), { deep: true })
@@ -155,6 +191,12 @@ watch(sourceFinding, (f) => {
   }
 })
 
+// Rich-text "has content": an empty editor still emits markup ('<p></p>'),
+// so required checks must strip tags before testing.
+function richTextFilled(v) {
+  return !!v && v.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().length > 0
+}
+
 // Sticky section nav (FormProgressNav). Section ids mirror the FormSection ids
 // below; status shows a check once a section's required fields are satisfied.
 const classificationComplete = computed(
@@ -167,12 +209,17 @@ const classificationComplete = computed(
     !!form.value.detectedAt &&
     !!form.value.ownerId,
 )
+// (No Workflow entry — the workflow is chosen on its own screen before
+// this form is reachable; the context strip above the form shows it.)
 const navSections = computed(() => [
   {
     id: 'nc-basic',
     label: 'Basic',
     icon: IconInfoCircle,
-    status: form.value.title ? 'complete' : null,
+    status:
+      form.value.title && richTextFilled(form.value.immediateContainmentAction)
+        ? 'complete'
+        : null,
   },
   {
     id: 'nc-classification',
@@ -180,25 +227,24 @@ const navSections = computed(() => [
     icon: IconCategory,
     status: classificationComplete.value ? 'complete' : null,
   },
-  { id: 'nc-product', label: 'Product', icon: IconPackage, status: null },
-  { id: 'nc-notify', label: 'Notify', icon: IconBell, status: null },
-  { id: 'nc-containment', label: 'Containment', icon: IconShieldCheck, status: null },
   {
-    id: 'nc-workflow',
-    label: 'Workflow',
-    icon: IconSitemap,
-    status: form.value.workflowVersionId ? 'complete' : null,
+    id: 'nc-product',
+    label: 'Product',
+    icon: IconPackage,
+    status: form.value.productId ? 'complete' : null,
   },
+  { id: 'nc-notify', label: 'Notify', icon: IconBell, status: null },
 ])
 
-// Per-field rules live on each <BaseField :rules> (see validators.js). The only
-// form-level check left is the workflow version: it's bound to a dialog launcher
-// inside the Workflow section, not a labeled BaseField, so it uses BaseForm's
-// validate() escape hatch and jumps to the section by id.
+// Per-field rules live on each <BaseField :rules> (see validators.js). The
+// workflow is picked on its own screen before this form is reachable, so this
+// check is a safety net only (e.g. the selection was somehow cleared) — it
+// bounces the user back to the workflow screen.
 function validate() {
   if (!form.value.workflowVersionId) {
+    screen.value = 'workflow'
     return [
-      { id: 'nc-workflow', label: 'Workflow version', message: 'Workflow version is required.' },
+      { id: 'nc-workflow', label: 'Workflow', message: 'Pick a workflow before submitting.' },
     ]
   }
   return []
@@ -246,7 +292,7 @@ async function confirmSupplierRaise() {
     } else {
       toast.notify({
         type: 'positive',
-        message: capa ? `NC raised + ${capa.capaNumber} (8D) opened` : 'NC raised',
+        message: capa ? `NC raised + ${capa.capaNumber} opened` : 'NC raised',
       })
     }
     // Persist custom fields against the new NC (best-effort — a values save
@@ -276,6 +322,21 @@ async function handleReviewersConfirmed(reviewers) {
   submitError.value = ''
   try {
     const response = await post('/v1/services/nonconformances', { ...form.value, reviewers })
+    // Create-and-open (client decision 2026-08-10): Create NC also starts the
+    // workflow — no separate Open NC step. Best-effort: an open failure (e.g.
+    // a step lost its assignee) leaves a recoverable DRAFT and the detail
+    // page's Open NC button still exists for it.
+    try {
+      await post(`/v1/services/nonconformances/${response.nonconformance.id}/submitForReview`, {})
+      toast.notify({ type: 'positive', message: 'NC created and opened — workflow started' })
+    } catch (openErr) {
+      toast.notify({
+        type: 'warning',
+        message: openErr?.message
+          ? `NC created as draft — could not open: ${openErr.message}`
+          : 'NC created as draft — open it from the NC page',
+      })
+    }
     // If this NC was spawned from an audit finding, link the new
     // NC back so the finding's chip lights up. Best-effort —
     // a link failure shouldn't drop the NC we just created.
@@ -317,7 +378,7 @@ async function handleReviewersConfirmed(reviewers) {
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
+  <BasePage :width="screen === 'workflow' ? 'narrow' : 'standard'" fullHeight>
     <PageHeader>
       <template #title>
         <BaseBreadcrumbs
@@ -330,16 +391,73 @@ async function handleReviewersConfirmed(reviewers) {
     </PageHeader>
 
     <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
+      <!-- Screen 1 — workflow choice only (user decision 2026-08-10).
+           Clicking a card advances; Continue covers the pre-selected
+           default-workflow case. -->
+      <div v-if="screen === 'workflow'" class="tw:py-6 tw:flex tw:flex-col tw:gap-5">
+        <div>
+          <BaseText as="h2" weight="bold" class="tw:text-lg">Select a workflow</BaseText>
+          <p class="tw:text-sm tw:text-secondary tw:mt-1">
+            Every nonconformance follows an approval workflow. Pick the process this NC will
+            follow — you'll describe the event on the next screen.
+          </p>
+        </div>
+        <WorkflowVersionSelect
+          v-model="form.workflowVersionId"
+          :moduleId="NC_MODULE.workflowVersionModuleId"
+          @pick="goToDetails"
+        />
+        <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-4 tw:border-t tw:border-divider">
+          <BaseButton variant="outline" @click="goBack">Cancel</BaseButton>
+          <BaseButton variant="primary" :disabled="!form.workflowVersionId" @click="goToDetails">
+            Continue
+          </BaseButton>
+        </div>
+      </div>
+
+      <!-- Screen 2 — the NC details form, with a context strip recalling
+           the chosen workflow (Change returns to screen 1, data intact). -->
+      <template v-else>
       <div class="tw:sticky tw:top-0 tw:z-10 tw:bg-main">
         <FormProgressNav :sections="navSections" />
       </div>
+
+      <div
+        class="tw:mt-4 tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-4 tw:py-3"
+      >
+        <IconSitemap :size="18" class="tw:text-primary tw:shrink-0" />
+        <div class="tw:min-w-0 tw:flex-1">
+          <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+            {{ selectedWorkflowLabel || 'Workflow selected' }}
+          </p>
+          <p v-if="form.isSupplierFacing" class="tw:text-xs tw:text-secondary">
+            Supplier-facing NCs are auto-assigned to the supplier's first portal user and opened
+            on Submit — you can reassign any step afterwards.
+          </p>
+        </div>
+        <BaseButton variant="outline" size="sm" @click="screen = 'workflow'">Change</BaseButton>
+        <!-- Submit-time per-step reviewer dialog — select suppressed, the
+             workflow was chosen on screen 1. -->
+        <WorkflowReviewerPickerDialog
+          ref="workflowPickerRef"
+          v-model="form.workflowVersionId"
+          hideSelect
+          :module="NC_MODULE"
+          :isSupplierFacing="form.isSupplierFacing"
+          :supplierId="form.supplierId"
+          :ownerId="form.ownerId"
+          :preferUserId="initiatorId"
+          @submit="handleReviewersConfirmed"
+        />
+      </div>
+
       <BaseForm
         class="tw:py-6"
         :validate="validate"
         :dirty="isDirty"
         :loading="saving"
         :submitError="submitError"
-        submitLabel="Submit"
+        submitLabel="Create NC"
         @submit="onSubmit"
         @cancel="goBack"
       >
@@ -366,6 +484,25 @@ async function handleReviewersConfirmed(reviewers) {
                 <BaseRichTextEditor
                   v-model="form.description"
                   placeholder="Provide details about the nonconformance…"
+                />
+              </div>
+            </BaseField>
+            <!-- Immediate containment — promoted into Basic information and
+                 made REQUIRED (client decision 2026-08-10). The rule strips
+                 markup: an empty editor still emits '<p></p>'. -->
+            <BaseField
+              id="nc-containment"
+              label="Immediate containment action"
+              required
+              :value="form.immediateContainmentAction"
+              :rules="[
+                (v) => richTextFilled(v) || 'Immediate containment action is required.',
+              ]"
+            >
+              <div class="create-nc-editor">
+                <BaseRichTextEditor
+                  v-model="form.immediateContainmentAction"
+                  placeholder="Describe actions taken at the time of detection…"
                 />
               </div>
             </BaseField>
@@ -494,18 +631,31 @@ async function handleReviewersConfirmed(reviewers) {
           </BaseFieldRow>
         </FormSection>
 
-        <!-- Product & material -->
-        <FormSection
-          id="nc-product"
-          title="Product & material"
-          :icon="IconPackage"
-          optional
-          collapsible
-          :defaultOpen="false"
-        >
+        <!-- Product & material — default EXPANDED with a required Item
+             (client decision 2026-08-10). The menu itself stays
+             required=false: the required convention would auto-fill the
+             FIRST item, and a silently-wrong item is worse than an empty
+             field — the BaseField rule enforces the pick instead. -->
+        <FormSection id="nc-product" title="Product & material" :icon="IconPackage" collapsible>
           <BaseFieldRow :columns="2">
-            <BaseField label="Product">
-              <ProductSelectMenu v-model="form.productId" :required="false" />
+            <!-- Labeled "Item" per the Item-Master UI convention (DB stays
+                 products) — also keeps the label distinct from the progress
+                 nav's "Product" chip. -->
+            <BaseField
+              id="nc-product-item"
+              label="Item"
+              required
+              :value="form.productId"
+              :rules="[required()]"
+            >
+              <template #default="field">
+                <ProductSelectMenu
+                  v-bind="field"
+                  v-model="form.productId"
+                  :required="false"
+                  nullLabel="— Select item —"
+                />
+              </template>
             </BaseField>
             <BaseField
               id="nc-supplier"
@@ -604,40 +754,8 @@ async function handleReviewersConfirmed(reviewers) {
           />
         </FormSection>
 
-        <!-- Immediate containment action -->
-        <FormSection
-          id="nc-containment"
-          title="Immediate containment action"
-          :icon="IconShieldCheck"
-          optional
-          collapsible
-          :defaultOpen="false"
-        >
-          <div class="create-nc-editor">
-            <BaseRichTextEditor
-              v-model="form.immediateContainmentAction"
-              placeholder="Describe actions taken at the time of detection…"
-            />
-          </div>
-        </FormSection>
-
-        <!-- Workflow -->
-        <FormSection id="nc-workflow" title="Workflow" :icon="IconSitemap">
-          <WorkflowReviewerPickerDialog
-            ref="workflowPickerRef"
-            v-model="form.workflowVersionId"
-            :module="NC_MODULE"
-            :isSupplierFacing="form.isSupplierFacing"
-            :supplierId="form.supplierId"
-            :ownerId="form.ownerId"
-            @submit="handleReviewersConfirmed"
-          />
-          <p v-if="form.isSupplierFacing" class="tw:text-xs tw:text-secondary tw:mt-2">
-            Supplier-facing NCs are auto-assigned to the supplier's first portal user and opened on
-            Submit — you can reassign any step afterwards.
-          </p>
-        </FormSection>
       </BaseForm>
+      </template>
     </div>
 
     <!-- Supplier shortcut: Create linked 8D CAPA? -->
@@ -663,10 +781,12 @@ async function handleReviewersConfirmed(reviewers) {
 
         <div v-if="createCapa" class="tw:flex tw:flex-col tw:gap-1.5">
           <span class="tw:text-sm tw:font-medium tw:text-on-main">CAPA workflow</span>
+          <!-- compact: a dropdown, not the card panels — this dialog is a
+               quick confirm, and the SCAR 8D default is already preselected. -->
           <WorkflowVersionSelect
             v-model="capaWorkflowVersionId"
             :moduleId="CAPA_MODULE.workflowVersionModuleId"
-            dense
+            compact
           />
         </div>
 
@@ -679,7 +799,7 @@ async function handleReviewersConfirmed(reviewers) {
 
       <template #footer="{ close }">
         <BaseDialogFooter
-          :submitLabel="`Raise NC${createCapa ? ' + 8D CAPA' : ''}`"
+          :submitLabel="`Raise NC${createCapa ? ' + CAPA' : ''}`"
           :loading="saving"
           :disabled="createCapa && !capaWorkflowVersionId"
           @cancel="close"

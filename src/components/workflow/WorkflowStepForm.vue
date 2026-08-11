@@ -333,14 +333,17 @@ defineExpose({ submit: submitForm, saving })
 <template>
   <template v-if="hasForm">
     <template v-if="isEditable">
+      <!-- Above the form, not below: Mark Complete lives in the step header,
+           so a bottom-of-form message sits under the fold and is never seen
+           (user report 2026-08-10). -->
+      <BaseErrorText v-if="missingFieldsError" class="tw:mb-3">{{
+        missingFieldsError
+      }}</BaseErrorText>
       <DynamicForm
         v-model="formData"
         :fields="formSchema"
         @update:modelValue="missingFieldsError = ''"
       />
-      <BaseErrorText v-if="missingFieldsError" class="tw:mt-2">{{
-        missingFieldsError
-      }}</BaseErrorText>
       <div class="tw:mt-4 tw:flex tw:justify-end tw:gap-2">
         <BaseButton variant="outline" :disabled="saving" @click="saveDraft">
           <template #icon><IconDeviceFloppy :size="16" /></template>

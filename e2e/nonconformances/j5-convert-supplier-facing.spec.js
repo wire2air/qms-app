@@ -7,8 +7,8 @@ import {
   SUPPLIER_IDS,
   SUPPLIER_PORTAL_USER_ID as SUPPLIER_USER_ID,
 } from '../fixtures/cast.js'
-import { raiseNc, openNc, convertToSupplierFacing, uniqueTitle } from '../fixtures/nonconformances.js'
-import { findNcByTitle, sqlValue, sqlRow, waitForSqlValue } from '../fixtures/db.js'
+import { raiseNc, convertToSupplierFacing, uniqueTitle } from '../fixtures/nonconformances.js'
+import { findNcByTitle, sql, sqlValue, sqlRow, waitForSqlValue } from '../fixtures/db.js'
 
 test.use({ storageState: AUTH.author })
 
@@ -18,7 +18,6 @@ test.describe('PW-J5 · convert an internal NC to supplier-facing', () => {
     const title = uniqueTitle('J5')
     await raiseNc(page, title)
     const nc = findNcByTitle(title)
-    await openNc(page, nc.id)
 
     await convertToSupplierFacing(page, FIXTURES.ncrSupplierWithPortal)
 
@@ -97,7 +96,10 @@ test.describe('PW-J5 · convert an internal NC to supplier-facing', () => {
     const title = uniqueTitle('J5-draft')
     await raiseNc(page, title)
     const nc = findNcByTitle(title)
-    expect(nc.statusId).toBe('DRAFT')
+    // raiseNc auto-opens (2026-08-10) — force the row back to DRAFT to probe
+    // the guard (the dangling instance is irrelevant to this negative test).
+    sql(`UPDATE nonconformances SET status_id = 'DRAFT' WHERE id = '${nc.id}'`)
+    expect(findNcByTitle(title).statusId).toBe('DRAFT')
 
     const res = await page.request.post(`/api/v1/services/nonconformances/${nc.id}/convertSupplierFacing`, {
       data: { supplierId: SUPPLIER_IDS.withPortal },
@@ -111,7 +113,6 @@ test.describe('PW-J5 · convert an internal NC to supplier-facing', () => {
     const title = uniqueTitle('J5-noportal')
     await raiseNc(page, title)
     const nc = findNcByTitle(title)
-    await openNc(page, nc.id)
 
     const res = await page.request.post(`/api/v1/services/nonconformances/${nc.id}/convertSupplierFacing`, {
       data: { supplierId: SUPPLIER_IDS.noPortal },

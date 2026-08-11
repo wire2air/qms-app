@@ -94,7 +94,12 @@ const assignments = useLiveQueryWithDeps(
 
 const activeAssigneeId = computed(() => {
   const active = assignments.value.find((a) => a.statusId === 'ASSIGNED')
-  return active?.userId || null
+  if (active) return active.userId
+  // A not-yet-activated step still knows its planned reviewer — the PENDING
+  // assignment row parked at submit. Without this fallback a "Final Approval ·
+  // PENDING" step reads as anonymous (user report 2026-08-10).
+  const pending = assignments.value.find((a) => a.statusId === 'PENDING')
+  return pending?.userId || null
 })
 
 // ─── Children (for CAPA-style nested stages) ─────────────────────────────────

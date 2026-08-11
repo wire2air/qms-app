@@ -7,8 +7,14 @@
  * on the row; `submitNcForReview` consumes that map to seed the
  * UserOnWorkflowInstanceStep rows when the workflow finally launches.
  *
+ * Each step also renders its form schema read-only (2026-08-10) so the
+ * whole process is visible BEFORE the NC is opened — same empty-preview
+ * mode WorkflowStepForm uses for not-yet-started steps. Workflow
+ * SELECTION lives in the page's rail card, not here.
+ *
  * Mirrors CapaWorkflowDraftPreview — same shape, just keyed on NC.
  */
+import DynamicForm from '@/components/form/DynamicForm.js'
 
 const props = defineProps({
   ncId: { type: String, required: true },
@@ -115,62 +121,107 @@ async function handleAssigneeChange(stepId, userId) {
 
 const hasWorkflow = computed(() => !!nc.value?.workflowVersionId)
 
-// Owner can pick / change the workflow while DRAFT (an NC spawned from a
-// rejected QC lot arrives with NO workflow at all). Changing it resets the
-// per-step assignee plan — the old picks are keyed by step ids that no
-// longer apply.
-const selectedWorkflowVersionId = computed({
-  get: () => nc.value?.workflowVersionId ?? null,
-  set: async (versionId) => {
-    if (!nc.value || versionId === nc.value.workflowVersionId) return
-    nc.value.workflowVersionId = versionId
-    nc.value.pendingReviewers = {}
-    autoDefaultDone.value = false
-    try {
-      await nc.value.save()
-    } catch (e) {
-      toast.error(e?.message || 'Failed to set workflow')
-    }
-  },
-})
+// Step form for the read-only preview. APPROVAL steps render no form
+// (pure approve/reject — same suppression as WorkflowStepForm).
+function stepFormSchema(step) {
+  if (isApprovalStep(step)) return []
+  return Array.isArray(step?.formSchema) ? step.formSchema : []
+}
 
-// Auto-pick a sensible default for each step on a supplier-facing NC so
-// the owner doesn't have to click N times when the obvious choice
-// applies. One-shot — once we've initialised the empty slots ONE TIME,
-// the watcher stops touching pendingReviewers. Otherwise it fights the
-// user: they remove an assignee, the syncBus refresh re-fires the
-// watcher, the empty slot gets refilled with the supplier user, the
-// picker flickers between cleared and the auto-default. After the
-// first fill the user owns the field; explicit clears stick.
-//   APPROVAL step → owner (final approval stays internal)
-//   other step    → first active supplier user (common case: one POC)
+// Initiator (createdBy) role membership — powers the internal auto-default
+// below. No `initial` on purpose: undefined = still loading (must wait),
+// [] = confirmed the initiator holds no roles.
+const initiatorRoleIds = useLiveQueryWithDeps(
+  [() => nc.value?.createdBy],
+  async (db, [uid]) => {
+    if (!uid) return []
+    const rows = await db.RoleOnUser.where('userId', uid).exec()
+    return rows.map((r) => r.roleId)
+  },
+
+  { models: ['RoleOnUser'] },
+)
+
+// Auto-pick a sensible default for each step so the owner doesn't have
+// to click N times when the obvious choice applies. One-shot — once
+// we've initialised the empty slots ONE TIME, the watcher stops touching
+// pendingReviewers. Otherwise it fights the user: they remove an
+// assignee, the syncBus refresh re-fires the watcher, the empty slot
+// gets refilled, the picker flickers between cleared and the
+// auto-default. After the first fill the user owns the field; explicit
+// clears stick.
+//
+// Supplier-facing NC:  APPROVAL step → owner (final approval stays
+//                      internal); other step → first active supplier user.
+// Internal NC (rule 2026-08-10): every step whose candidate pool includes
+//                      the INITIATOR (createdBy) defaults to them —
+//                      role-less steps qualify everyone, role-gated steps
+//                      require the initiator to hold one of the roles.
 const autoDefaultDone = ref(false)
+
+// Workflow selection happens in the page's rail card now — when the owner
+// switches workflows there, the step list is new and the one-shot default
+// must re-run for the new steps. Same when the audience flips (internal ↔
+// supplier-facing): the page resets pendingReviewers, so the defaults for
+// the OTHER pool must get their one shot.
+watch(
+  [() => nc.value?.workflowVersionId, () => nc.value?.isSupplierFacing],
+  () => {
+    autoDefaultDone.value = false
+  },
+)
+
 watch(
   [
     supplierUsers,
     templateSteps,
+    stepRoles,
+    initiatorRoleIds,
     () => nc.value?.isSupplierFacing,
     () => nc.value?.statusId,
     () => nc.value?.ownerId,
+    () => nc.value?.createdBy,
+    () => props.isOwner,
   ],
-  ([users, steps, isSupplierFacing, statusId, ownerId]) => {
+  ([users, steps, rolesMap, initiatorRoles, isSupplierFacing, statusId, ownerId, createdBy, isOwner]) => {
     if (autoDefaultDone.value) return
-    if (!nc.value || !isSupplierFacing || statusId !== 'DRAFT') return
+    // The plan belongs to the owner/initiator — never write defaults from a
+    // bystander's browser (the pickers are owner-only for the same reason).
+    if (!isOwner) return
+    if (!nc.value || statusId !== 'DRAFT') return
     if (!steps.length) return
-    // Wait for the supplier-users live query to resolve before we
-    // declare done — otherwise we'd flip the flag with an empty list
-    // and never get the auto-default.
-    if (isSupplierFacing && !users.length && nc.value.supplierId) return
-    const firstSupplierUserId = users.length ? users[0].id : null
     const next = { ...(nc.value.pendingReviewers || {}) }
     let changed = false
-    for (const step of steps) {
-      const existing = next[step.id]
-      if (Array.isArray(existing) && existing.length) continue
-      const defaultUserId = isApprovalStep(step) ? ownerId : firstSupplierUserId
-      if (!defaultUserId) continue
-      next[step.id] = [defaultUserId]
-      changed = true
+    if (isSupplierFacing) {
+      // Wait for the supplier-users live query to resolve before we
+      // declare done — otherwise we'd flip the flag with an empty list
+      // and never get the auto-default.
+      if (!users.length && nc.value.supplierId) return
+      const firstSupplierUserId = users.length ? users[0].id : null
+      for (const step of steps) {
+        const existing = next[step.id]
+        if (Array.isArray(existing) && existing.length) continue
+        const defaultUserId = isApprovalStep(step) ? ownerId : firstSupplierUserId
+        if (!defaultUserId) continue
+        next[step.id] = [defaultUserId]
+        changed = true
+      }
+    } else {
+      if (!createdBy) return
+      // Wait for BOTH role queries: the step-role map must cover every
+      // step (else a role-gated step transiently looks role-less) and the
+      // initiator's roles must be resolved (undefined = loading).
+      if (initiatorRoles === undefined) return
+      if (!steps.every((s) => Array.isArray(rolesMap[s.id]))) return
+      for (const step of steps) {
+        const existing = next[step.id]
+        if (Array.isArray(existing) && existing.length) continue
+        const roleIds = rolesMap[step.id]
+        const qualified = !roleIds.length || roleIds.some((rid) => initiatorRoles.includes(rid))
+        if (!qualified) continue
+        next[step.id] = [createdBy]
+        changed = true
+      }
     }
     autoDefaultDone.value = true
     if (changed) {
@@ -186,30 +237,14 @@ watch(
 
 <template>
   <div v-if="nc" class="tw:flex tw:flex-col tw:gap-4">
-    <!-- Workflow selection — same choice the Create page offers, kept
-       available through DRAFT. An NC spawned from a rejected QC lot
-       arrives with no workflow; without this card there'd be no way to
-       set one before Open NC. -->
-    <BaseCard class="tw:flex tw:flex-col tw:gap-3">
-      <div class="tw:pb-3 tw:border-b tw:border-divider">
-        <BaseText as="h3" weight="bold">Workflow</BaseText>
-        <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          {{
-            hasWorkflow
-              ? 'You can switch workflows while the NC is in draft — step assignments reset on change.'
-              : 'Pick the approval workflow this NC will follow when you click Open NC.'
-          }}
-        </p>
-      </div>
-      <WorkflowVersionSelect
-        v-if="isOwner"
-        v-model="selectedWorkflowVersionId"
-        moduleId="NON_CONFORMANCE"
-        dense
-      />
-      <p v-else-if="!hasWorkflow" class="tw:text-sm tw:text-secondary tw:italic">
-        No workflow selected yet — the NC owner picks one before opening.
-      </p>
+    <!-- No workflow yet (e.g. an NC spawned from a rejected QC lot) —
+       selection lives in the rail's Workflow card now. -->
+    <BaseCard v-if="!hasWorkflow" class="tw:text-sm tw:text-secondary tw:italic">
+      {{
+        isOwner
+          ? 'No workflow selected yet — pick one from the Workflow card in the right rail.'
+          : 'No workflow selected yet — the NC owner picks one before opening.'
+      }}
     </BaseCard>
 
     <BaseCard v-if="hasWorkflow" class="tw:flex tw:flex-col tw:gap-4">
@@ -247,8 +282,9 @@ watch(
         <div
           v-for="(step, idx) in templateSteps"
           :key="step.id"
-          class="tw:flex tw:flex-col tw:gap-3 tw:px-4 tw:py-3 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30 tw:@2xl:flex-row tw:@2xl:items-center"
+          class="tw:flex tw:flex-col tw:gap-3 tw:px-4 tw:py-3 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30"
         >
+          <div class="tw:flex tw:flex-col tw:gap-3 tw:@2xl:flex-row tw:@2xl:items-center">
           <div class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-3">
           <span
             class="tw:flex tw:items-center tw:justify-center tw:w-7 tw:h-7 tw:rounded-full tw:bg-primary/10 tw:text-primary tw:text-xs tw:font-bold tw:shrink-0"
@@ -334,6 +370,22 @@ watch(
               <UserBadgeById v-if="currentAssignee(step.id)" :userId="currentAssignee(step.id)" />
               <span v-else class="tw:text-xs tw:text-secondary tw:italic">Unassigned</span>
             </div>
+          </div>
+          </div>
+
+          <!-- Step form, read-only (2026-08-10): the whole form is visible
+             before the NC is opened. Same empty-preview mode
+             WorkflowStepForm uses for steps nobody has started yet;
+             filling happens once the workflow launches and the step's
+             assignee gets their task. -->
+          <div
+            v-if="stepFormSchema(step).length"
+            class="tw:border-t tw:border-divider tw:pt-3"
+          >
+            <p class="tw:text-micro tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-2">
+              Step form — preview (fillable once the NC is opened)
+            </p>
+            <DynamicForm :fields="stepFormSchema(step)" :readonly="true" disabled :values="{}" />
           </div>
         </div>
       </div>

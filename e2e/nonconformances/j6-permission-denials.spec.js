@@ -69,9 +69,10 @@ test.describe('PW-J6 · permission denials + cross-tenant isolation', () => {
     expect(res.status(), 'a different tenant company_id must 404, not leak the row').toBe(404)
     await altCtx.close()
 
-    // The NC is untouched (still DRAFT, still owned by E2ELAB's author).
-    const stillDraft = findNcByTitle(title)
-    expect(stillDraft.statusId).toBe('DRAFT')
-    expect(stillDraft.id).toBe(nc.id)
+    // The NC is untouched (still UNDER_REVIEW from its auto-open, still
+    // owned by E2ELAB's author).
+    const untouched = findNcByTitle(title)
+    expect(untouched.statusId).toBe('UNDER_REVIEW')
+    expect(untouched.id).toBe(nc.id)
   })
 })

@@ -1,13 +1,13 @@
 // PW-J1 · Owner: raise → draft → open (TC-01/04/05)
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH } from '../fixtures/cast.js'
-import { raiseNc, openNc, uniqueTitle } from '../fixtures/nonconformances.js'
+import { raiseNc, uniqueTitle } from '../fixtures/nonconformances.js'
 import { findNcByTitle, sqlValue } from '../fixtures/db.js'
 
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J1 · owner raises an NC, it opens for review', () => {
-  test('raise NC (DRAFT) → Open NC (UNDER_REVIEW), workflow instantiated', async ({ page }) => {
+  test('raise NC → auto-opened (UNDER_REVIEW), workflow instantiated', async ({ page }) => {
     const title = uniqueTitle('J1')
     const counterBefore = Number(
       sqlValue(
@@ -19,7 +19,9 @@ test.describe('PW-J1 · owner raises an NC, it opens for review', () => {
 
     const nc = findNcByTitle(title)
     expect(nc, 'NC row exists').toBeTruthy()
-    expect(nc.statusId).toBe('DRAFT')
+    // Create-and-open (2026-08-10): Create NC starts the workflow in the
+    // same action — no separate Open NC step.
+    expect(nc.statusId).toBe('UNDER_REVIEW')
     // \d{3,} — the sequence is zero-padded to 3 but this dev DB accumulates NCs
     // across every run, so it legitimately grows past 999.
     expect(nc.ncNumber).toMatch(/^NC-HQ-QA-\d{3,}$/)
@@ -31,8 +33,6 @@ test.describe('PW-J1 · owner raises an NC, it opens for review', () => {
       ) || 0,
     )
     expect(counterAfter, 'counter incremented').toBeGreaterThan(counterBefore)
-
-    await openNc(page, nc.id)
 
     const statusAfterOpen = sqlValue(`SELECT status_id FROM nonconformances WHERE id = '${nc.id}'`)
     expect(statusAfterOpen).toBe('UNDER_REVIEW')

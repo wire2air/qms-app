@@ -18,6 +18,9 @@ import BaseSwitch from '@shared/components/BaseSwitch.vue'
 import BaseColorPicker from '@shared/components/BaseColorPicker.vue'
 import BaseSignaturePad from '@shared/components/BaseSignaturePad.vue'
 import BaseRichTextEditor from '@/components/editor/BaseRichTextEditor.vue'
+import BaseVoiceButton from '@shared/components/BaseVoiceButton.vue'
+import AiTextAssistButton from '@/components/ai/AiTextAssistButton.vue'
+import { canUseAi } from '@/utils/currentSession.js'
 import RichTextAttachments from '@/components/shared/RichTextAttachments.vue'
 import { tableStyleClasses, cx } from '@/utils/tableStyle'
 import BaseDateField from '@shared/components/BaseDateField.vue'
@@ -262,6 +265,33 @@ export default defineComponent({
       }
     }
 
+    // AI writing assist — ON BY DEFAULT for every rich-text field (user
+    // decision 2026-08-10), mounted through the editor's #toolbar-extra seam
+    // (AI sidecar isolation) and gated by the org's AI add-on (canUseAi).
+    // The editor hides its built-in dictation mic whenever a toolbar-extra
+    // slot is supplied, so the slot re-mounts the mic alongside the assist.
+    function richTextToolbarSlots() {
+      if (!canUseAi.value) return undefined
+      return {
+        'toolbar-extra': ({ editor, append }) => [
+          editor ? h(AiTextAssistButton, { editor }) : null,
+          append ? h(BaseVoiceButton, { append }) : null,
+        ],
+      }
+    }
+
+    // Label row for controls that don't take a `label` prop (rich text,
+    // dates, lookups, sliders, ratings…). Appends the red asterisk on
+    // required fields — these hand-rolled rows never showed one, so a
+    // required rich-text field looked optional until submit failed.
+    function fieldLabelRow(field) {
+      if (!field.label) return null
+      return h('div', { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' }, [
+        field.label,
+        field.required ? h('span', { class: 'tw:text-red-500 tw:ml-0.5' }, '*') : null,
+      ])
+    }
+
     function createFieldComponent(field, scope) {
       const updateModelValueEvent = 'onUpdate:modelValue'
 
@@ -338,14 +368,12 @@ export default defineComponent({
           // BaseRichTextEditor doesn't accept a `label` prop, so wrap with an
           // explicit label row. Same reason datetime/colorPicker/slider do.
           return h('div', { class: 'tw:flex tw:flex-col' }, [
-            field.label
-              ? h(
-                  'div',
-                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                  field.label,
-                )
-              : null,
-            h(BaseRichTextEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly }),
+            fieldLabelRow(field),
+            h(
+              BaseRichTextEditor,
+              { ...inputFieldProps, editable: !inputFieldProps.readonly },
+              richTextToolbarSlots(),
+            ),
           ])
 
         case 'number':
@@ -359,36 +387,26 @@ export default defineComponent({
 
         case 'textEditor':
           return h('div', { class: 'tw:flex tw:flex-col' }, [
-            field.label
-              ? h(
-                  'div',
-                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                  field.label,
-                )
-              : null,
-            h(BaseRichTextEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly }),
+            fieldLabelRow(field),
+            h(
+              BaseRichTextEditor,
+              { ...inputFieldProps, editable: !inputFieldProps.readonly },
+              richTextToolbarSlots(),
+            ),
           ])
 
         // Rich text + inline file/image attachments packed into a single string
         // (RichTextAttachments). One field replaces the textEditor+file pair.
         case 'richTextAttachment':
           return h('div', { class: 'tw:flex tw:flex-col' }, [
-            field.label
-              ? h(
-                  'div',
-                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                  field.label,
-                )
-              : null,
-            h(RichTextAttachments, inputFieldProps),
+            fieldLabelRow(field),
+            h(RichTextAttachments, inputFieldProps, richTextToolbarSlots()),
           ])
 
         case 'date': {
           const isDisabled = props.disabled || field.disabled
           return h('div', { class: 'tw:flex tw:flex-col' }, [
-            field.label
-              ? h('div', { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' }, field.label)
-              : null,
+            fieldLabelRow(field),
             h(BaseDateField, {
               ...inputFieldProps,
               mode: 'date',
@@ -405,9 +423,7 @@ export default defineComponent({
         case 'datetime': {
           const isDisabled = props.disabled || field.disabled
           const mode = field.mode || 'datetime'
-          const labelEl = field.label
-            ? h('div', { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' }, field.label)
-            : null
+          const labelEl = fieldLabelRow(field)
 
           if (mode === 'time') {
             // Stored as minutes-since-midnight; bridge to a HH:mm string for the field.
@@ -500,13 +516,7 @@ export default defineComponent({
           // freezing/readonly resolution reuse the option-set machinery.
           if (field.lookupEntity === 'optionSet' && field.optionSetId) {
             return h('div', { class: 'tw:flex tw:flex-col tw:gap-1' }, [
-              field.label
-                ? h(
-                    'div',
-                    { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                    field.label,
-                  )
-                : null,
+              fieldLabelRow(field),
               h(OptionSetSelect, {
                 ...commonProps,
                 optionSetId: field.optionSetId,
@@ -524,13 +534,7 @@ export default defineComponent({
                 `Unknown lookup source: ${field.lookupEntity}`,
               )
           return h('div', { class: 'tw:flex tw:flex-col tw:gap-1' }, [
-            field.label
-              ? h(
-                  'div',
-                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                  field.label,
-                )
-              : null,
+            fieldLabelRow(field),
             control,
             field.hint ? h('div', { class: 'tw:text-xs tw:text-secondary' }, field.hint) : null,
           ])
@@ -538,13 +542,7 @@ export default defineComponent({
 
         case 'slider':
           return h('div', { class: 'tw:px-2' }, [
-            field.label
-              ? h(
-                  'div',
-                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                  field.label,
-                )
-              : null,
+            fieldLabelRow(field),
             h('div', { class: 'tw:flex tw:items-center tw:gap-3' }, [
               h('input', {
                 type: 'range',
@@ -600,13 +598,7 @@ export default defineComponent({
           const currentVal = scope.value || 0
           const isDisabled = props.readonly || field.readonly || props.disabled || field.disabled
           return h('div', { class: 'tw:py-1' }, [
-            field.label
-              ? h(
-                  'div',
-                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                  field.label,
-                )
-              : null,
+            fieldLabelRow(field),
             h(
               'div',
               { class: 'tw:flex tw:gap-1' },
@@ -663,16 +655,22 @@ export default defineComponent({
         default: {
           const custom = getFormComponent(field.type)
           if (custom) {
-            return h(custom.component, {
-              modelValue: scope.value ?? {},
-              field,
-              readonly: props.readonly || field.readonly,
-              disabled: props.disabled || field.disabled,
-              formValues: modelValue.value,
-              'onUpdate:modelValue': (val) => {
-                scope.value = val
-              },
-            })
+            // Registered tool widgets (RCA, Risk Assessment) render their own
+            // internal chrome but never the authored field label — give them
+            // the standard label row so a required widget shows its asterisk.
+            return h('div', { class: 'tw:flex tw:flex-col' }, [
+              fieldLabelRow(field),
+              h(custom.component, {
+                modelValue: scope.value ?? {},
+                field,
+                readonly: props.readonly || field.readonly,
+                disabled: props.disabled || field.disabled,
+                formValues: modelValue.value,
+                'onUpdate:modelValue': (val) => {
+                  scope.value = val
+                },
+              }),
+            ])
           }
           return h(
             'div',
