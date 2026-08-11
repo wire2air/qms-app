@@ -177,8 +177,18 @@ async function onSubmit() {
               <RoleSelectMenu v-model="form.roleIds" :required="true" multiple />
             </BaseField>
 
-            <BaseField label="Site" required :value="form.siteId" :rules="[required()]">
-              <SiteSelectMenu v-model="form.siteId" :required="true" />
+            <!-- `users.site_id` is the PRIMARY site since multi-site
+                 assignment landed; the extra sites live in `user_sites` and are
+                 added from the user's detail page. Labelling this plain "Site"
+                 read as "the one site this person has", which is no longer
+                 true. `forAssignment` applies the is_active gate — the same
+                 gate the detail page's two site controls use — so a site being
+                 wound down isn't offered to a brand-new user. -->
+            <BaseField label="Primary Site" required :value="form.siteId" :rules="[required()]">
+              <SiteSelectMenu v-model="form.siteId" :required="true" forAssignment />
+              <p class="tw:text-xs tw:text-secondary tw:mt-1">
+                Additional sites can be assigned from the user's profile after they are created.
+              </p>
             </BaseField>
 
             <BaseField label="Department" required :value="form.departmentId" :rules="[required()]">

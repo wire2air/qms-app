@@ -119,7 +119,6 @@ declare global {
   const provideLocal: typeof import('@vueuse/core').provideLocal
   const providePageInfo: typeof import('./src/composables/usePageInfo.js').providePageInfo
   const provideRoles: typeof import('./src/composables/useRoles.js').provideRoles
-  const provideSites: typeof import('./src/composables/useSites.js').provideSites
   const provideUsers: typeof import('./src/composables/useUsers.js').provideUsers
   const queryToFilters: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').queryToFilters
   const reactify: typeof import('@vueuse/core').reactify
@@ -353,7 +352,6 @@ declare global {
   const useShare: typeof import('@vueuse/core').useShare
   const useSidebar: typeof import('./src/composables/useSidebar.js').useSidebar
   const useSimilarRecords: typeof import('./src/composables/useSimilarRecords.js').useSimilarRecords
-  const useSites: typeof import('./src/composables/useSites.js').useSites
   const useSlots: typeof import('vue').useSlots
   const useSorted: typeof import('@vueuse/core').useSorted
   const useSpeechRecognition: typeof import('@vueuse/core').useSpeechRecognition

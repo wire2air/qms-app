@@ -51,7 +51,11 @@ function handleCancel() {
 
 <template>
   <BaseDialog v-model="isOpen" :title="title" :persistent="persistent" maxWidth="sm">
-    <p v-if="message" class="tw:text-sm tw:text-secondary">{{ message }}</p>
+    <!-- `whitespace-pre-line` so a multi-paragraph confirm (e.g. "here is what
+         depends on this record" + "here is what delete actually does") renders
+         as paragraphs instead of one run-on line. Single-line messages, which
+         is nearly every caller, look identical. -->
+    <p v-if="message" class="tw:text-sm tw:text-secondary tw:whitespace-pre-line">{{ message }}</p>
     <slot />
 
     <template #footer>

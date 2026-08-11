@@ -1004,6 +1004,7 @@ declare module 'vue' {
     SimilarRecordsPanel: typeof import('./src/components/ai/SimilarRecordsPanel.vue')['default']
     SiteBadge: typeof import('./src/components/badges/SiteBadge.vue')['default']
     SiteBadgeById: typeof import('./src/components/badges/SiteBadgeById.vue')['default']
+    'SiteBadgeById.spec': typeof import('./src/components/badges/SiteBadgeById.spec.js')['default']
     SiteMembersDrawer: typeof import('./src/components/sites/SiteMembersDrawer.vue')['default']
     SitesCreateUpdateDialog: typeof import('./src/components/sites/SitesCreateUpdateDialog.vue')['default']
     SiteSelectMenu: typeof import('./src/components/menus/SiteSelectMenu.vue')['default']

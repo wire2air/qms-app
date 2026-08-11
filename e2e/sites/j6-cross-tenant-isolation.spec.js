@@ -57,8 +57,13 @@ test.describe('PW-J6 · a tenant sees its own sites and no others', () => {
     const page = await ctx.newPage()
     await page.goto('/documents/create', { waitUntil: 'domcontentloaded' })
 
+    // Anchor on the "All sites" checkbox that guards the picker rather than the
+    // field's label: the label is "Sites" (plural) since multi-site document
+    // applicability shipped, and the sidebar carries a "Sites" entry of its own
+    // that comes first in document order. The picker is the next combobox after
+    // the checkbox.
     const combo = page
-      .getByText('Site', { exact: true })
+      .getByText('All sites (company-wide)', { exact: true })
       .first()
       .locator('xpath=following::*[@role="combobox"][1]')
     await combo.click()
