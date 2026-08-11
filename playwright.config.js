@@ -43,26 +43,44 @@ export default defineConfig({
       testMatch: /fixtures\/auth\.setup\.js/,
     },
     {
+      // The journeys themselves — direct children of e2e/documents only, so the
+      // screenshot suite below doesn't inflate this project's runtime.
       name: 'documents',
-      testMatch: /documents\/.*\.spec\.js/,
+      testMatch: /documents\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Screenshot coverage for every module (e2e/<module>/screens/*.spec.js).
+      // Drives the same fixtures, personas and selectors as the journeys; its
+      // product is tests/screenshots/<module>/*.png rather than assertions —
+      // see e2e/fixtures/screenshots.js, which owns the deliberate 3s pause
+      // before every capture.
+      //
+      // Deliberately its own project (and why every module project above is
+      // narrowed to `[^/]+\.spec\.js$`): a module's own --project stays the
+      // journey suite and its runtime, unaffected by ~40 captures × 3s.
+      // Run one module with a path filter: `--project=screens capas/screens`.
+      name: 'screens',
+      testMatch: /\/screens\/.*\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'nonconformances',
-      testMatch: /nonconformances\/.*\.spec\.js/,
+      testMatch: /nonconformances\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'capas',
-      testMatch: /capas\/.*\.spec\.js/,
+      testMatch: /capas\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'changeRequests',
-      testMatch: /changeRequests\/.*\.spec\.js/,
+      testMatch: /changeRequests\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -73,13 +91,13 @@ export default defineConfig({
       // none of which asserts anything at the RLS layer — which is exactly where
       // the module's CRITICAL findings lived. See docs/modules/workflows/14.
       name: 'workflow',
-      testMatch: /workflow\/.*\.spec\.js/,
+      testMatch: /workflow\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'audits',
-      testMatch: /audits\/.*\.spec\.js/,
+      testMatch: /audits\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -91,7 +109,7 @@ export default defineConfig({
       // control that F-02 was actually exploited through — a plain status
       // dropdown behind a 600 ms autosave. See docs/modules/quality-events/14.
       name: 'qualityEvents',
-      testMatch: /qualityEvents\/.*\.spec\.js/,
+      testMatch: /qualityEvents\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -102,31 +120,49 @@ export default defineConfig({
       // §27) and clear Redis lockout state in teardown. Never repoint them at a
       // shared persona.
       name: 'authentication',
-      testMatch: /authentication\/.*\.spec\.js/,
+      testMatch: /authentication\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'training',
-      testMatch: /training\/.*\.spec\.js/,
+      testMatch: /training\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'sites',
-      testMatch: /sites\/.*\.spec\.js/,
+      testMatch: /sites\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'departments',
-      testMatch: /departments\/.*\.spec\.js/,
+      testMatch: /departments\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'users',
-      testMatch: /users\/.*\.spec\.js/,
+      testMatch: /users\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Roles — the module that decides what everybody else may do. It had no
+      // E2E surface at all until 2026-08-08, and the reason was a fixture gap
+      // rather than a design one: the tenant seeded eleven roles and not one of
+      // them held a `role_permission_management` grant, so nothing in the module
+      // could be written from a browser. e2e-seed.sql §30 is that fixture.
+      //
+      // ROLE-J1 is the reason this project is worth more than its test count.
+      // Cycle 1's two CRITICAL escalations were not a missing check — every
+      // layer had one. Five surfaces answered "may you grant a role" and gave
+      // four different answers, and the weakest sat on the only path the SPA
+      // actually uses. J1 pins the agreement itself, which no other project in
+      // this repo does for any module.
+      name: 'roles',
+      testMatch: /roles\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -138,7 +174,7 @@ export default defineConfig({
       // proves a member cannot self-assign a site, which would widen their own
       // reach across the tenant.
       name: 'multiSite',
-      testMatch: /multiSite\/.*\.spec\.js/,
+      testMatch: /multiSite\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -148,7 +184,7 @@ export default defineConfig({
       // under test is who can read what, and the portal SPA is only one of the
       // clients that question has to hold for.
       name: 'suppliers',
-      testMatch: /suppliers\/.*\.spec\.js/,
+      testMatch: /suppliers\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -162,7 +198,7 @@ export default defineConfig({
     },
     {
       name: 'qcInspection',
-      testMatch: /qcInspection\/.*\.spec\.js/,
+      testMatch: /qcInspection\/[^/]+\.spec\.js$/,
       dependencies: ['qcSetup'],
       // The in-process journeys drive the progressive sample-collection grid,
       // whose readiness depends on a REST write reaching IndexedDB via the sync

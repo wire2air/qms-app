@@ -36,6 +36,38 @@ function resolveDocs(ids) {
 const recentDocs = computed(() => resolveDocs(recentIds.value))
 const favoriteDocs = computed(() => resolveDocs(favoriteIds.value))
 
+/**
+ * Readiness filter — "show me the packs scoring under N". Deliberately a
+ * below-threshold filter rather than a range: the question this grid gets asked
+ * is "what is weakest", never "what sits between 40 and 60".
+ *
+ * No `required` on the BaseSelect — it auto-selects the first option when set,
+ * which would silently apply a filter nobody chose.
+ */
+const SCORE_THRESHOLDS = [
+  { label: 'Under 80', value: 80 },
+  { label: 'Under 70', value: 70 },
+  { label: 'Under 60', value: 60 },
+  { label: 'Under 50', value: 50 },
+  { label: 'Under 40', value: 40 },
+]
+
+const scoreThreshold = ref(null)
+
+const visibleModules = computed(() => {
+  const all = manifest.value?.modules ?? []
+  if (scoreThreshold.value == null) return all
+  // A pack whose exec summary has no parseable score is not "under" anything —
+  // excluding it beats implying a readiness we never measured.
+  return all
+    .filter((m) => m.score != null && m.score < scoreThreshold.value)
+    .sort((a, b) => a.score - b.score)
+})
+
+const scoredCount = computed(
+  () => (manifest.value?.modules ?? []).filter((m) => m.score != null).length,
+)
+
 const flatByCategory = computed(() => {
   const groups = new Map()
   for (const d of manifest.value?.platformDocs ?? []) {
@@ -116,9 +148,32 @@ function docSubtitle(doc) {
 
     <!-- Module packs -->
     <PageSection title="Module Packs" :icon="IconBook">
-      <ContentGrid min="17rem">
-        <DocsModuleCard v-for="m in manifest.modules" :key="m.slug" :module="m" />
+      <template #actions>
+        <div
+          role="group"
+          aria-label="Filter module packs by readiness score"
+          class="tw:flex tw:items-center tw:gap-2"
+        >
+          <span v-if="scoreThreshold != null" class="tw:text-caption tw:text-secondary">
+            {{ visibleModules.length }} of {{ scoredCount }}
+          </span>
+          <BaseSelect
+            v-model="scoreThreshold"
+            :options="SCORE_THRESHOLDS"
+            optionLabel="label"
+            optionValue="value"
+            nullLabel="All scores"
+            :clearable="true"
+          />
+        </div>
+      </template>
+
+      <ContentGrid v-if="visibleModules.length" min="17rem">
+        <DocsModuleCard v-for="m in visibleModules" :key="m.slug" :module="m" />
       </ContentGrid>
+      <p v-else class="tw:py-6 tw:text-center tw:text-sm tw:text-secondary">
+        No module pack scores under {{ scoreThreshold }}.
+      </p>
     </PageSection>
 
     <!-- Platform docs -->

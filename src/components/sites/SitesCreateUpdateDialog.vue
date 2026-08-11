@@ -1,6 +1,16 @@
 <script setup>
 import { IconCheck, IconX as IconXCross, IconMapPin } from '@tabler/icons-vue'
-import { required } from '@shared/components/form/validators.js'
+import { required, maxLen } from '@shared/components/form/validators.js'
+import {
+  DEFAULT_TIMEZONE,
+  SITE_CODE_MAX_LENGTH,
+  isSiteCodeAvailable,
+  isSiteNameAvailable,
+  isValidTimezone,
+  siteSaveErrorMessage,
+  suggestSiteCode,
+  timezoneRule,
+} from '@/utils/siteValidation.js'
 
 const props = defineProps({
   id: {
@@ -20,14 +30,22 @@ const formRef = ref(null)
 const isSubmitting = ref(false)
 const saveError = ref('')
 
-const form = ref({
-  name: '',
-  code: '',
-  address: '',
-  timezone: null,
-  // Defaults true: a newly created site is one you intend to use.
-  isActive: true,
-})
+// `timezone` starts at DEFAULT_TIMEZONE, not null. Both models declare a 'UTC'
+// default and the REST controller coalesces to 'UTC'; a null-initialised form
+// bypassed all three and wrote an empty timezone into a column every date
+// rendering downstream trusts.
+function blankForm() {
+  return {
+    name: '',
+    code: '',
+    address: '',
+    timezone: DEFAULT_TIMEZONE,
+    // Defaults true: a newly created site is one you intend to use.
+    isActive: true,
+  }
+}
+
+const form = ref(blankForm())
 
 const isEdit = computed(() => !!props.id)
 
@@ -41,17 +59,19 @@ const site = useLiveQueryWithDeps(
   { models: ['Site'] },
 )
 
-// Code availability check using live query
-const codeAvailable = useLiveQueryWithDeps(
-  [() => props.id, () => form.value.code],
-  async (db, [id, code]) => {
-    if (!code || code.trim().length < 2) return true
-    const all = await db.Site.where().exec()
-    return !all.some((s) => s.code === code && s.id !== id)
-  },
+// ONE live query feeding every uniqueness answer.
+//
+// The code check and the name check each used to run their own
+// `db.Site.where().exec()` full scan, keyed on the field's value — so every
+// keystroke in either box triggered a fresh IndexedDB scan. They are answers
+// about the same list, so the list is fetched once (re-running only when a
+// Site actually syncs) and both checks are pure computeds over it.
+const allSites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
 
-  { models: ['Site'], initial: true },
-)
+// Case-insensitive: the server compares `code.trim().toUpperCase()`, so a
+// lowercase `ny-hq` typed against an existing `NY-HQ` used to pass the live
+// check and then be rejected on save.
+const codeAvailable = computed(() => isSiteCodeAvailable(allSites.value, form.value.code, props.id))
 
 // Live "in use" message for the Code field — shown the moment a taken code is
 // typed (create mode). The same condition is enforced on submit via codeUnique.
@@ -64,24 +84,20 @@ function codeUnique() {
   return codeAvailable.value || 'Code already in use'
 }
 
-// Name uniqueness (case-insensitive, per company) — backed by the DB
-// sites_company_name_unique partial index. Excludes the current row in edit mode.
-const nameAvailable = useLiveQueryWithDeps(
-  [() => props.id, () => form.value.name],
-  async (db, [id, name]) => {
-    const n = (name || '').trim().toLowerCase()
-    if (!n) return true
-    const all = await db.Site.where().exec()
-    return !all.some((s) => (s.name || '').trim().toLowerCase() === n && s.id !== id)
-  },
-  { models: ['Site'], initial: true },
-)
+// Name uniqueness (case-insensitive, whitespace-trimmed) — mirrors the DB
+// partial index `sites_company_name_unique` on `lower(btrim(name))`. Excludes
+// the current row in edit mode.
+const nameAvailable = computed(() => isSiteNameAvailable(allSites.value, form.value.name, props.id))
 const nameInUseError = computed(() =>
   form.value.name && !nameAvailable.value ? 'A site with this name already exists' : '',
 )
 function nameUnique() {
   return nameAvailable.value || 'A site with this name already exists'
 }
+
+// `timezone` had no validation at any layer — not the Zod schema, not the
+// model, not the form. Anything the dropdown didn't produce could be persisted.
+const timezoneValid = timezoneRule()
 
 // Populate form when site loads in edit mode
 watch(
@@ -92,7 +108,10 @@ watch(
         name: s.name,
         code: s.code,
         address: s.address,
-        timezone: s.timezone,
+        // Rows created before the form defaulted the field carry a null
+        // timezone; show the model default rather than an empty dropdown that
+        // silently writes null back on the next save.
+        timezone: s.timezone || DEFAULT_TIMEZONE,
         // Older rows predate the column; treat a missing value as active
         // rather than silently presenting an existing site as deactivated.
         isActive: s.isActive !== false,
@@ -102,47 +121,43 @@ watch(
   { immediate: true },
 )
 
-const getCodeSuggestion = useLiveMutation(async (db, suggested) => {
-  const all = await db.Site.where().exec()
-
-  // Ensure uniqueness
-  let code = suggested
-  let counter = 1
-  while (all.some((s) => s.code === code)) {
-    code = `${suggested}-${counter}`
-    counter++
-  }
-
-  return code
-})
-
-// Auto-suggest code when name changes (create mode only)
-async function onNameBlur() {
+// Auto-suggest code when name changes (create mode only). Derivation and
+// de-duplication both live in suggestSiteCode, which also keeps every
+// candidate inside the STRING(10) column — the old loop appended `-1`, `-2`
+// AFTER truncating, so a long name could suggest an 11-character code.
+function onNameBlur() {
   if (!form.value.name || form.value.code || isEdit.value) return
-
-  const suggested = form.value.name
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '-')
-    .replace(/-+/g, '-')
-    .substring(0, 10)
-
-  form.value.code = await getCodeSuggestion(suggested)
+  form.value.code = suggestSiteCode(form.value.name, allSites.value)
 }
 
 const createSite = useLiveMutation(async (db, newSite) => {
   const created = db.Site.create(newSite)
-  await created.save()
+  try {
+    await created.save()
+  } catch (err) {
+    // The pre-checks above read IndexedDB, which can lag another user's create.
+    // When it does, the DB's unique index fires and the raw message names a
+    // constraint, not a field. Say which box to change instead.
+    //
+    // Set inline AND re-throw: useLiveMutation swallows the error (returning
+    // undefined) after toasting, so onSubmit never sees it — without this
+    // assignment the dialog would reopen to an empty error line.
+    const message = siteSaveErrorMessage(err, newSite)
+    saveError.value = message
+    throw new Error(message)
+  }
   return created
-})
-
-const getDisplayOrder = useLiveMutation(async (db) => {
-  const lastItem = await db.Site.where().orderBy('displayOrder', 'desc').first()
-  return (lastItem?.displayOrder || 0) + 1000
 })
 
 async function onSubmit() {
   if (isSubmitting.value) return
+
+  // Guard the one field the dropdown isn't the only way to set.
+  if (!isValidTimezone(form.value.timezone)) {
+    saveError.value = 'Pick a valid timezone.'
+    return
+  }
+
   isSubmitting.value = true
   saveError.value = ''
   try {
@@ -153,7 +168,6 @@ async function onSubmit() {
         address: form.value.address,
         timezone: form.value.timezone,
         isActive: form.value.isActive,
-        displayOrder: await getDisplayOrder(),
       })
       // createSite returns undefined when the save failed (useLiveMutation has
       // already surfaced a toast). Keep the dialog open so the user can retry.
@@ -169,7 +183,7 @@ async function onSubmit() {
     }
     open.value = false
   } catch (err) {
-    saveError.value = err?.message || 'Failed to save site'
+    saveError.value = siteSaveErrorMessage(err, form.value)
   } finally {
     isSubmitting.value = false
   }
@@ -178,7 +192,7 @@ async function onSubmit() {
 // Reset form when dialog closes
 watch(open, (val) => {
   if (!val) {
-    form.value = { name: '', code: '', address: '', timezone: null, isActive: true }
+    form.value = blankForm()
     saveError.value = ''
   }
 })
@@ -215,11 +229,13 @@ watch(open, (val) => {
         </template>
       </BaseField>
 
+      <!-- maxLen mirrors the STRING(10) column: without it an 11th character
+           is a server-side failure the user cannot read. -->
       <BaseField
         label="Code"
         required
         :value="form.code"
-        :rules="[required(), codeUnique]"
+        :rules="[required(), maxLen(SITE_CODE_MAX_LENGTH), codeUnique]"
         :error="codeInUseError"
       >
         <template #default="field">
@@ -251,7 +267,7 @@ watch(open, (val) => {
         :rows="2"
       />
 
-      <TimezoneDropdown v-model="form.timezone" />
+      <TimezoneDropdown v-model="form.timezone" :rules="[required(), timezoneValid]" />
 
       <!--
         `is_active` shipped as a column with no way to set it, which made the
@@ -268,8 +284,8 @@ watch(open, (val) => {
         <div class="tw:min-w-0">
           <BaseLabel dataKey="site.isActive" label="Accepting new user assignments" />
           <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-            Turn this off while a site is winding down. People already assigned keep their
-            access; the site just stops being offered for new assignments.
+            Turn this off while a site is winding down. People already assigned keep their access;
+            the site just stops being offered for new assignments.
           </p>
         </div>
         <BaseSwitch v-model="form.isActive" label="Accepting new user assignments" />

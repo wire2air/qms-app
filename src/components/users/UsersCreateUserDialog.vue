@@ -2,11 +2,30 @@
 import { required, email } from '@shared/components/form/validators.js'
 // Action RPC (not entity CRUD — POST /v1/services/users/:id/invite) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
+import { isAllowed } from '@/utils/currentSession.js'
 
 const open = defineModel({
   type: Boolean,
   default: false,
 })
+
+// Creating the person and granting them authority are two acts with two bars.
+// This dialog does both: the User row needs `user_management:create`, and each
+// roles_on_users row needs `role_permission_management:update`.
+//
+// The Roles field was unconditionally `required`, so a holder of
+// `user_management:create` alone — an onboarder, exactly the persona the field
+// was for — could not complete the form at all. Worse, the failure came late:
+// `createUser` saves the User first and then loops the role rows, so the write
+// that was refused left a real user behind and threw. Onboarding half-worked
+// and reported an error.
+//
+// Hidden rather than disabled: a create-only holder onboards the person, and
+// someone with permission-management authority grants the roles afterwards.
+// A user with no roles holds no permissions, which is a safe resting state and
+// the same one an invitation sits in before it is accepted. See F-18 in
+// docs/modules/roles.
+const canAssignRoles = computed(() => isAllowed(['role_permission_management:update']))
 
 const toast = useToast()
 
@@ -148,12 +167,28 @@ async function onSubmit() {
               </template>
             </BaseField>
 
-            <BaseField label="Roles" required :value="form.roleIds" :rules="[required()]">
+            <BaseField
+              v-if="canAssignRoles"
+              label="Roles"
+              required
+              :value="form.roleIds"
+              :rules="[required()]"
+            >
               <RoleSelectMenu v-model="form.roleIds" :required="true" multiple />
             </BaseField>
 
-            <BaseField label="Site" required :value="form.siteId" :rules="[required()]">
-              <SiteSelectMenu v-model="form.siteId" :required="true" />
+            <!-- `users.site_id` is the PRIMARY site since multi-site
+                 assignment landed; the extra sites live in `user_sites` and are
+                 added from the user's detail page. Labelling this plain "Site"
+                 read as "the one site this person has", which is no longer
+                 true. `forAssignment` applies the is_active gate — the same
+                 gate the detail page's two site controls use — so a site being
+                 wound down isn't offered to a brand-new user. -->
+            <BaseField label="Primary Site" required :value="form.siteId" :rules="[required()]">
+              <SiteSelectMenu v-model="form.siteId" :required="true" forAssignment />
+              <p class="tw:text-xs tw:text-secondary tw:mt-1">
+                Additional sites can be assigned from the user's profile after they are created.
+              </p>
             </BaseField>
 
             <BaseField label="Department" required :value="form.departmentId" :rules="[required()]">

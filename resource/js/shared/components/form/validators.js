@@ -17,8 +17,8 @@
  *   :rules="[requiredWhen(() => form.isSupplierFacing, 'Pick a supplier.')]"
  *   :rules="[v => v > 0 || 'Must be positive']"   // raw inline rule
  *
- * Shipped: required, requiredWhen, email. Deferred until a form needs them
- * (one-liners to add): minLen, maxLen, min, max, pattern.
+ * Shipped: required, requiredWhen, email, minValue, maxLen. Deferred until a
+ * form needs them (one-liners to add): minLen, min, max, pattern.
  */
 
 // Empty for the purpose of `required`: blank/whitespace string, null/undefined,
@@ -82,6 +82,27 @@ export function minValue(min, msg) {
     if (isEmpty(value) || Number(value) >= min) return true
     return (
       msg || ((label) => (label ? `${label} must be at least ${min}.` : `Must be at least ${min}.`))
+    )
+  }
+}
+
+/**
+ * Fails when a non-empty string is longer than `max` characters. Passes on
+ * empty so `required()` owns emptiness — compose: `[required(), maxLen(10)]`.
+ *
+ * Exists because the DB column is the real bound and it is narrower than the
+ * form: `sites.code` is `STRING(10)`, so an 11th character is a server-side
+ * 500 the user cannot read. `msg` overrides the label-derived default.
+ */
+export function maxLen(max, msg) {
+  return (value) => {
+    if (isEmpty(value) || String(value).trim().length <= max) return true
+    return (
+      msg ||
+      ((label) =>
+        label
+          ? `${label} must be ${max} characters or fewer.`
+          : `Must be ${max} characters or fewer.`)
     )
   }
 }

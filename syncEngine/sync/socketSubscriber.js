@@ -25,6 +25,27 @@ const recentlyWritten = new Set()
 /** @type {((payload: object) => Promise<void>)|null} active listener reference for cleanup */
 let activeSyncHandler = null
 
+/**
+ * Tables that signal rather than sync: a change to them must wake the app, but
+ * there is no record to fetch and nothing to cache.
+ *
+ * `authz.role_module_permissions` holds every grant in the tenant. It has no
+ * `@ClientModel` and cannot have one — PostGraphile runs `schemas: ['public']`,
+ * so a table in the `authz` schema has no GraphQL type to fetch through. Without
+ * this map its event hits `if (!meta) return` below and is dropped, which is why
+ * a permission change never reached the browser it affected (F-03 in
+ * docs/modules/roles): the server enforced the new grants immediately while the
+ * SPA kept rendering buttons the holder had just lost.
+ *
+ * The value is the `syncBus` key subscribers listen on — see
+ * `src/utils/permissionSync.js`. Emit the fact, never the row.
+ *
+ * @type {Record<string, string>} postgres table name → syncBus key
+ */
+export const SIGNAL_ONLY_TABLES = {
+  role_module_permissions: 'RoleModulePermission',
+}
+
 function markWritten(key) {
   recentlyWritten.add(key)
   setTimeout(() => recentlyWritten.delete(key), ECHO_TTL_MS)
@@ -44,6 +65,14 @@ function attachSyncListener(socket) {
   activeSyncHandler = async function handleSync(payload) {
     const { table: tableNameInPostgres, action, pkValue } = payload
     if (!tableNameInPostgres || !action || !pkValue) return
+
+    // Signal-only tables carry no record — emit the fact and stop. Checked
+    // before the MetaCache lookup because these deliberately have no model.
+    const signalKey = SIGNAL_ONLY_TABLES[tableNameInPostgres]
+    if (signalKey) {
+      syncBus.emit({ modelName: signalKey, modelId: pkValue, action, type: 'sync' })
+      return
+    }
 
     const meta = MetaCache.getByTable(toCamelCase(tableNameInPostgres))
     if (!meta) return

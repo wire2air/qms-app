@@ -209,6 +209,48 @@ export const USERS = {
     email: 'qemanager@e2e.test',
     name: 'Quinn QeManager',
   },
+  // ── Roles module (e2e-seed.sql §30) ───────────────────────────────────────
+  // Before these four, the tenant seeded eleven roles and not one of them could
+  // WRITE to a role — no `role_permission_management` grant existed anywhere in
+  // the cast, so every browser-level requirement in the module was untestable.
+  //
+  // They are four and not one because the module's defect was never "nobody can
+  // administer roles". It was that five surfaces answered "may you grant a
+  // role" and gave four different answers. One persona per answer is what makes
+  // that disagreement observable in a browser (ROLE-J1).
+  //
+  // Role administrator — role_permission_management CRUD + user_management:read
+  // (the Users dialog lists the whole roster; users_sel would otherwise admit
+  // only same-site rows). Deliberately holds NO user_management create/update:
+  // that absence is what exposes the two role-assignment controls still gated on
+  // those verbs, which hide themselves from the one persona the DATABASE permits.
+  roleAdmin: {
+    id: 'e2e10000-0000-4000-8000-000000000050',
+    email: 'roleadmin@e2e.test',
+    name: 'Rosa RoleAdmin',
+  },
+  // user_management:create ONLY — escalation PATH A's exact persona, the one
+  // that could self-assign any role in the tenant before 2026-07-28. Also the
+  // persona the roster's bulk "Assign Role" control is still gated on.
+  umCreator: {
+    id: 'e2e10000-0000-4000-8000-000000000051',
+    email: 'umcreator@e2e.test',
+    name: 'Cara UmCreator',
+  },
+  // user_management:update ONLY — the verb the user DETAIL page's role picker
+  // gates on. Same question, third answer.
+  umUpdater: {
+    id: 'e2e10000-0000-4000-8000-000000000052',
+    email: 'umupdater@e2e.test',
+    name: 'Umar UmUpdater',
+  },
+  // teams create/read/update ONLY — escalation PATH B, the sideways route to the
+  // same outcome via users_on_teams |X| roles_on_teams.
+  teamJoiner: {
+    id: 'e2e10000-0000-4000-8000-000000000053',
+    email: 'teamjoiner@e2e.test',
+    name: 'Tom TeamJoiner',
+  },
 }
 
 // The E2ELAB roles (e2e-seed.sql §4 and later sections), by the name the UI
@@ -223,6 +265,29 @@ export const ROLES = {
   approver: { id: 'e2e30000-0000-4000-8000-000000000003', name: 'E2E Approver' },
   controller: { id: 'e2e30000-0000-4000-8000-000000000004', name: 'E2E Doc Controller' },
   auditor: { id: 'e2e30000-0000-4000-8000-000000000005', name: 'E2E Auditor' },
+  // Roles module (§30). `prize` is the capability worth stealing and is assigned
+  // to NOBODY — every escalation probe in the `roles` project tries to acquire
+  // it, and an unassigned role is the only way "did the attacker gain it?" has a
+  // clean answer. It carries sites:delete, the same capability the integration
+  // suite (role-assignment-escalation.test.js) uses, so the browser probe and
+  // the DB probe are asking the identical question.
+  prize: { id: 'e2e30000-0000-4000-8000-000000000059', name: 'E2E Prize Role' },
+  locked: { id: 'e2e30000-0000-4000-8000-000000000058', name: 'E2E Locked Role' },
+  roleAdmin: { id: 'e2e30000-0000-4000-8000-000000000050', name: 'E2E Role Admin' },
+}
+
+// The capability the prize role carries, as the pair every probe checks. Kept
+// here so a spec never hard-codes 'sites'/'delete' inline and drifts from §30.
+export const PRIZE_CAPABILITY = { module: 'sites', action: 'delete' }
+
+// Teams seeded by §30d. The difference between them IS escalation path B's test:
+// the users_on_teams INSERT policy needs teams:update alone for a team that
+// confers no roles, and additionally role_permission_management:update for one
+// that does. Without the plain team a refusal proves nothing — it could equally
+// mean team administration is broken for everyone.
+export const TEAMS = {
+  roleCarrying: { id: 'e2e3b000-0000-4000-8000-000000000001', name: 'E2E Role-Carrying Team' },
+  plain: { id: 'e2e3b000-0000-4000-8000-000000000002', name: 'E2E Plain Team' },
 }
 
 // Second-tenant owner for cross-tenant isolation tests (logs in via ALT_BASE_URL).
@@ -259,6 +324,10 @@ export const AUTH = {
   qcAuthor: 'e2e/.auth/qcAuthor.json',
   retainCustodian: 'e2e/.auth/retainCustodian.json',
   qeManager: 'e2e/.auth/qeManager.json',
+  roleAdmin: 'e2e/.auth/roleAdmin.json',
+  umCreator: 'e2e/.auth/umCreator.json',
+  umUpdater: 'e2e/.auth/umUpdater.json',
+  teamJoiner: 'e2e/.auth/teamJoiner.json',
   altOwner: 'e2e/.auth/altOwner.json',
 }
 

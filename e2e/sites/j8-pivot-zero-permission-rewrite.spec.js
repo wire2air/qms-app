@@ -1,4 +1,20 @@
-// PW-J8 — 🔴 Zero-permission rewrite of the site↔log-book pivot. WRITTEN TO FAIL.
+// PW-J8 — Zero-permission rewrite of the site↔log-book pivot.
+//
+// ✅ RESOLVED — `sites_on_log_books_update_rls` now carries the same
+// `log_books:update` check as its INSERT and DELETE siblings, in BOTH the USING
+// and the WITH CHECK halves. The 🔴 assertions below now pass and are kept as
+// the standing regression guard: the finding is closed only for as long as they
+// stay green. The mechanism description that follows documents the ORIGINAL
+// defect — read it as history, not as current behaviour.
+//
+// ONE THING CHANGED SHAPE WITH THE FIX, and it matters for how the guards are
+// written. The refusal is SILENT. Postgres enforces UPDATE's USING half by
+// filtering the row out of the statement's scope rather than raising, so the
+// mutation touches zero rows, PostGraphile reports no GraphQL error, and the
+// attacker gets a null payload back. Stronger protection than an error, but an
+// `expect(errors).not.toBeNull()` guard would go red on it. The two probes
+// therefore assert "the write did not apply" — durable row state first, then a
+// response that shows nothing landed — rather than "an error was raised".
 //
 // `sites_on_log_books` has four RLS policies. Two are right and two are not,
 // and the disagreement between siblings IS the finding — a reviewer who saw
@@ -40,6 +56,19 @@ function pivotState() {
   return { siteId, deletedAt: deletedAt || null }
 }
 
+/**
+ * The mutation's own answer to "did this write apply?", as a pair.
+ *
+ * Two ways a raw-GraphQL write can be refused, and the pivot uses the quieter
+ * one: either the request errors, or it comes back with no record (RLS filtered
+ * the row out of the UPDATE's scope, so zero rows matched and there is nothing
+ * to return). Anything else — a record echoed back carrying the attacker's
+ * value — means the write landed.
+ */
+function applied({ errors, body }) {
+  return { errored: errors !== null, record: body?.data?.updateSitesOnLogBook?.sitesOnLogBook ?? null }
+}
+
 /** Put the seeded pivot row back the way §15c left it. */
 function restorePivot() {
   sql(
@@ -47,7 +76,7 @@ function restorePivot() {
   )
 }
 
-test.describe('PW-J8 · the pivot UPDATE policy has no permission check', () => {
+test.describe('PW-J8 · the pivot UPDATE policy is gated on log_books:update', () => {
   test.beforeEach(() => restorePivot())
   test.afterAll(() => restorePivot())
 
@@ -62,38 +91,53 @@ test.describe('PW-J8 · the pivot UPDATE policy has no permission check', () => 
     ).toBe(0)
   })
 
-  test('🔴 a zero-permission member cannot soft-delete the link (FAILS TODAY)', async ({ browser }) => {
-    const ctx = await browser.newContext({ storageState: AUTH.noAccess })
-    await expectMutationExists(ctx, 'updateSitesOnLogBook')
-
-    const { errors } = await graphql(ctx, UPDATE_PIVOT, {
-      input: { id: PIVOT, patch: { deletedAt: new Date().toISOString() } },
-    })
-
-    // Assert on the durable state as well as the response. A mutation that
-    // "errors" after committing would satisfy an errors-only assertion while
-    // the row was already gone.
-    expect(errors, 'the mutation must be refused').not.toBeNull()
-    expect(pivotState().deletedAt, 'the link must survive the attempt').toBeNull()
-    await ctx.close()
-  })
-
-  test('🔴 a zero-permission member cannot repoint the link to another site (FAILS TODAY)', async ({
+  test('a zero-permission member cannot soft-delete the link (regression guard)', async ({
     browser,
   }) => {
     const ctx = await browser.newContext({ storageState: AUTH.noAccess })
     await expectMutationExists(ctx, 'updateSitesOnLogBook')
 
-    const { errors } = await graphql(ctx, UPDATE_PIVOT, {
-      input: { id: PIVOT, patch: { siteId: SITES.secondary.id } },
+    const response = await graphql(ctx, UPDATE_PIVOT, {
+      input: { id: PIVOT, patch: { deletedAt: new Date().toISOString() } },
     })
 
-    expect(errors, 'the mutation must be refused').not.toBeNull()
-    expect(pivotState().siteId, 'the link must still point at the primary site').toBe(SITES.primary.id)
+    // The durable state is the primary assertion and comes first. A mutation
+    // that "errors" after committing would satisfy a response-only assertion
+    // while the row was already gone.
+    expect(pivotState().deletedAt, 'the link must survive the attempt').toBeNull()
+
+    // And the response must show the write never applied. Not "must raise an
+    // error": the refusal is silent (see the header), so this asks the weaker,
+    // true question — no record came back carrying the attacker's deletedAt.
+    const { errored, record } = applied(response)
+    expect(
+      errored || record === null || record.deletedAt === null,
+      `the mutation must not have applied — got ${errored ? 'an error' : JSON.stringify(record)}`,
+    ).toBe(true)
     await ctx.close()
   })
 
-  test('MECHANISM · the UPDATE policy itself admits a zero-permission actor', () => {
+  test('a zero-permission member cannot repoint the link to another site (regression guard)', async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext({ storageState: AUTH.noAccess })
+    await expectMutationExists(ctx, 'updateSitesOnLogBook')
+
+    const response = await graphql(ctx, UPDATE_PIVOT, {
+      input: { id: PIVOT, patch: { siteId: SITES.secondary.id } },
+    })
+
+    expect(pivotState().siteId, 'the link must still point at the primary site').toBe(SITES.primary.id)
+
+    const { errored, record } = applied(response)
+    expect(
+      errored || record === null || record.siteId === SITES.primary.id,
+      `the mutation must not have applied — got ${errored ? 'an error' : JSON.stringify(record)}`,
+    ).toBe(true)
+    await ctx.close()
+  })
+
+  test('MECHANISM · the UPDATE policy itself matches nothing for a zero-permission actor', () => {
     const updated = asAppUser(
       { userId: USERS.noAccess.id, companyId: COMPANY_ID },
       `UPDATE sites_on_log_books SET site_id = '${SITES.secondary.id}' WHERE id = '${PIVOT}' RETURNING 1`,

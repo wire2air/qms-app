@@ -16,13 +16,25 @@ defineProps({
 
 const router = useRouter()
 
-// Bulk role assignment (M2). Assigning a role INSERTs a roles_on_users row,
-// whose RLS WITH CHECK requires `user_management:create` (same convention as
-// roles_on_teams). Gate on `create` — NOT `update` — so the button/selection
-// only appear when the write will actually succeed; gating on `update` let a
-// role with update-but-not-create see the button and then hit "Something went
-// wrong" on save.
-const canAssignRoles = computed(() => isAllowed(['user_management:create']))
+// Bulk role assignment (M2). Assigning a role INSERTs a roles_on_users row.
+//
+// Gate on the verb the write actually checks, so the action never appears for
+// someone who would then be denied. That verb is now
+// `role_permission_management:update`, not `user_management:create`.
+//
+// It changed underneath this gate. `role_on_user_insert_rls` originally required
+// `user_management:create` — which was the CRITICAL escalation the Roles review
+// found: "can onboard users" let a member self-assign any role in the tenant and
+// inherit its entire grant set. The policy was raised to `rpm:update`; this gate
+// and the comment justifying it were left behind, so a holder of
+// `user_management:create` alone kept seeing the selection checkboxes and the
+// "Assign role" action, and hit "Something went wrong" on save — the exact
+// failure the old comment existed to prevent, just pointing the other way.
+//
+// Recorded as F-18 in docs/modules/roles. Two lessons worth keeping: a UI gate
+// is a claim about a policy and goes stale when the policy moves, and this was
+// listed in the cycle-1 pack as already aligned when it was not.
+const canAssignRoles = computed(() => isAllowed(['role_permission_management:update']))
 // Site assignment goes through PUT-shaped RLS on user_sites, which requires
 // `user_management:update` (not :create like roles_on_users). Gate on the verb
 // the write actually checks, so the action never appears for someone who would

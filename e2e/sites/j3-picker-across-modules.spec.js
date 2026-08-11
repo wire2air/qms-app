@@ -14,7 +14,7 @@ import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, SITES } from '../fixtures/cast.js'
 import { uniqueSiteName, findSiteByName, purgeSiteByName } from '../fixtures/sites.js'
 
-/** The first combobox that follows a field label, in document order. */
+/** The first combobox that follows a piece of text, in document order. */
 function pickerAfter(page, label) {
   return page
     .getByText(label, { exact: true })
@@ -23,18 +23,46 @@ function pickerAfter(page, label) {
 }
 
 test.describe('PW-J3 · the shared site picker', () => {
-  test('required-single mount: lists the tenant’s sites and cannot be cleared', async ({
+  test('required-single mount: auto-fills, lists the tenant’s sites, and cannot be emptied', async ({
     browser,
   }) => {
-    // Document create — `:required="true"`, so the component auto-selects the
-    // first option and drops the clear affordance. A record that must have a
-    // site should not be able to lose one through the picker.
-    const ctx = await browser.newContext({ storageState: AUTH.author })
+    // Log book create — `:required="true"` on a SINGLE-select mount, which is
+    // the configuration `required` was designed for: BaseSelect auto-fills the
+    // first option once the list resolves, and SiteSelectMenu drops the clear
+    // affordance (`:clearable="!required && !multiple"`) and the null row
+    // (`showNull` is false when required). A record that must have a site
+    // should not be able to lose one through the picker.
+    //
+    // This used to be /documents/create. That mount is no longer required-single
+    // — multi-site document applicability turned it into a MULTI select behind
+    // an "All sites" checkbox, so it now stands in for the `multiple` case at
+    // the bottom of this file. The two mounts swapped configurations; the set of
+    // configurations under test is unchanged.
+    const ctx = await browser.newContext({ storageState: AUTH.owner })
     const page = await ctx.newPage()
-    await page.goto('/documents/create', { waitUntil: 'domcontentloaded' })
+    await page.goto('/inspections-logs/templates', { waitUntil: 'domcontentloaded' })
 
-    const picker = pickerAfter(page, 'Site')
+    const createBtn = page.getByRole('button', { name: /\+?\s*New Log Book/i }).first()
+    await expect(createBtn).toBeVisible({ timeout: 30_000 })
+    await createBtn.click()
+
+    // Scope to the Sites BaseField via its hint text, then take the control
+    // inside it. The dialog carries several pickers (supervisor, department,
+    // equipment) and a `following::*[@role="combobox"]` walk from the "Sites"
+    // label is not reliably the site one.
+    const sitesField = page
+      .getByText('Pick at least one site where this log book can be filled.')
+      .locator('xpath=ancestor::div[1]')
+    await expect(sitesField).toBeVisible({ timeout: 20_000 })
+    const picker = sitesField.getByRole('combobox').first()
     await expect(picker).toBeVisible({ timeout: 20_000 })
+
+    // The one control that could empty a required field is not rendered.
+    await expect(
+      picker.getByRole('button', { name: 'Clear selection' }),
+      'a required picker offers no clear control',
+    ).toHaveCount(0)
+
     await picker.click()
 
     const listbox = page.getByRole('listbox')
@@ -42,8 +70,16 @@ test.describe('PW-J3 · the shared site picker', () => {
     await expect(listbox.getByRole('option', { name: SITES.primary.name, exact: true })).toBeVisible()
     await expect(listbox.getByRole('option', { name: SITES.secondary.name, exact: true })).toBeVisible()
 
-    // A required picker offers no "— Select site —" null option to fall back to.
-    await expect(listbox.getByRole('option', { name: /^—\s*Select site\s*—$/ })).toHaveCount(0)
+    // It opened already holding a site: `required` auto-fills the first option,
+    // so the field is never in an empty state — the invariant that makes the
+    // missing clear control meaningful rather than merely absent.
+    await expect(
+      listbox.locator('[role="option"][aria-selected="true"]'),
+      'a required picker starts with exactly one site selected',
+    ).toHaveCount(1)
+
+    // And there is no "— Select site —" null row to fall back to.
+    await expect(listbox.getByRole('option', { name: /Select site/ })).toHaveCount(0)
 
     await ctx.close()
   })
@@ -136,38 +172,43 @@ test.describe('PW-J3 · the shared site picker', () => {
   })
 
   test('multiple mount: accepts more than one site', async ({ browser }) => {
-    // Log books assign to N sites via the `sites_on_log_books` pivot — the same
-    // pivot PW-J8 shows is rewritable by anyone. Here the concern is only that
-    // the multi-select configuration renders and holds several values.
-    const ctx = await browser.newContext({ storageState: AUTH.owner })
+    // Document create — `:multiple="true"`, the mount behind multi-site document
+    // applicability: a controlled document can apply at several sites at once.
+    // The concern is that the configuration actually HOLDS several values. A
+    // single-select mount would replace the first choice with the second, and
+    // the document would silently ship scoped to one site.
+    //
+    // (This case used to live on the log-book create dialog. That field is now
+    // required-SINGLE, and is the required-single case at the top of this file.)
+    const ctx = await browser.newContext({ storageState: AUTH.author })
     const page = await ctx.newPage()
-    // The create dialog lives on the log-book *templates* page, not the
-    // inspections-logs index.
-    await page.goto('/inspections-logs/templates', { waitUntil: 'domcontentloaded' })
+    await page.goto('/documents/create', { waitUntil: 'domcontentloaded' })
 
-    const createBtn = page.getByRole('button', { name: /\+?\s*New Log Book/i }).first()
-    await expect(createBtn).toBeVisible({ timeout: 30_000 })
-    await createBtn.click()
-
-    // Scope to the Sites BaseField via its hint text, then take the control
-    // inside it. A `following::*[@role="combobox"]` walk from the "Sites" label
-    // lands on the dialog's User picker instead — the multi-select's trigger is
-    // not the next combobox in document order.
-    const sitesField = page
-      .getByText('Pick at least one site where this log book can be filled.')
-      .locator('xpath=ancestor::div[1]')
-    await expect(sitesField).toBeVisible({ timeout: 20_000 })
-    await sitesField.getByRole('combobox').or(sitesField.getByRole('button')).first().click()
+    // Anchor on the "All sites" checkbox that guards the picker, not on the
+    // field's "Sites" label — the sidebar carries a "Sites" entry of its own
+    // (MainSidebar.vue), and it comes first in document order. The picker is the
+    // next combobox after the checkbox either way.
+    const picker = pickerAfter(page, 'All sites (company-wide)')
+    await expect(picker).toBeVisible({ timeout: 20_000 })
+    await picker.click()
 
     const listbox = page.getByRole('listbox')
     await expect(listbox.getByRole('option').first()).toBeVisible({ timeout: 20_000 })
-    await listbox.getByRole('option', { name: SITES.primary.name, exact: true }).click()
-    await listbox.getByRole('option', { name: SITES.secondary.name, exact: true }).click()
+    const primary = listbox.getByRole('option', { name: SITES.primary.name, exact: true })
+    const secondary = listbox.getByRole('option', { name: SITES.secondary.name, exact: true })
+    await primary.click()
+    await secondary.click()
 
-    // Both selections survive — a single-select mount would have replaced the
-    // first with the second.
-    await expect(page.getByText(SITES.primary.name).first()).toBeVisible()
-    await expect(page.getByText(SITES.secondary.name).first()).toBeVisible()
+    // Both selections survive — a single-select mount would have dropped the
+    // first, and would have closed the panel on the first click besides.
+    await expect(primary).toHaveAttribute('aria-selected', 'true')
+    await expect(secondary).toHaveAttribute('aria-selected', 'true')
+
+    // And the trigger carries both, so the operator can see the document is
+    // applied at two sites. `picker` is the trigger only: the panel is
+    // teleported to <body>, so this cannot match the listbox rows above.
+    await expect(picker.getByText(SITES.primary.name, { exact: true })).toBeVisible()
+    await expect(picker.getByText(SITES.secondary.name, { exact: true })).toBeVisible()
 
     await ctx.close()
   })

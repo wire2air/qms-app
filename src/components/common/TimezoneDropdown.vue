@@ -8,6 +8,13 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // Optional BaseField validation passthrough. Default-empty, so every existing
+  // mount is unchanged; the Sites dialog uses it to assert the value is a real
+  // IANA zone (the column had no validation at any layer).
+  rules: {
+    type: Array,
+    default: () => [],
+  },
 })
 
 const model = defineModel({ type: String, default: 'UTC' })
@@ -33,7 +40,7 @@ const timezoneItems = computed(() => {
 </script>
 
 <template>
-  <BaseField :label="props.label" :hint="props.hint">
+  <BaseField :label="props.label" :hint="props.hint" :rules="props.rules" :value="model">
     <BaseSelect
       v-model="model"
       :options="timezoneItems"

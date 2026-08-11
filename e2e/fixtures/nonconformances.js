@@ -19,7 +19,17 @@ export function uniqueTitle(tag) {
  * NC's detail page with the workflow already running (UNDER_REVIEW).
  * Returns the title.
  */
-export async function raiseNc(page, title, { severity = null } = {}) {
+/**
+ * @param {object} [opts]
+ * @param {string} [opts.severity]
+ * @param {(page) => Promise<void>} [opts.beforeSubmit] runs on the completed
+ *   create form, just before Submit. Inert by default.
+ * @param {(page) => Promise<void>} [opts.onReviewerDialog] runs on the
+ *   "Assign Step Reviewers" dialog, before Confirm. Inert by default. Both
+ *   exist so the screenshot specs can capture those states without duplicating
+ *   this flow.
+ */
+export async function raiseNc(page, title, { severity = null, beforeSubmit, onReviewerDialog } = {}) {
   await page.goto('/nonconformances/create')
 
   // Screen 1 of the workflow-first wizard (2026-08-10): only the workflow
@@ -62,6 +72,8 @@ export async function raiseNc(page, title, { severity = null } = {}) {
   await expect(page.getByRole('listbox')).toHaveCount(0)
   await selectOption(page, 'Item', 'E2E Widget 10mm')
 
+  if (beforeSubmit) await beforeSubmit(page)
+
   await page.getByRole('button', { name: 'Create NC' }).click()
 
   // "Assign Step Reviewers" dialog — the seeded steps each have exactly one
@@ -74,6 +86,7 @@ export async function raiseNc(page, title, { severity = null } = {}) {
   })
   const confirmBtn = page.getByRole('button', { name: 'Confirm' })
   await expect(confirmBtn).toBeEnabled({ timeout: 15_000 })
+  if (onReviewerDialog) await onReviewerDialog(page)
   await confirmBtn.click()
 
   // The create POST has been observed taking ~20s under repeated test load

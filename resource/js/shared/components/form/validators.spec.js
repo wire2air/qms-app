@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { required, requiredWhen, email, minValue, resolveRuleMessage } from './validators.js'
+import {
+  required,
+  requiredWhen,
+  email,
+  minValue,
+  maxLen,
+  resolveRuleMessage,
+} from './validators.js'
 
 // A rule is (value) => true | string | ((label) => string).
 // `true` = valid. A string = an explicit message. A function = a
@@ -142,6 +149,44 @@ describe('minValue', () => {
   it('uses an explicit message verbatim, ignoring the label', () => {
     const result = minValue(1, 'Too small')(0)
     expect(resolveRuleMessage(result, 'Months')).toBe('Too small')
+  })
+})
+
+describe('maxLen', () => {
+  it('passes at and below the limit', () => {
+    expect(maxLen(10)('NY-HQ')).toBe(true)
+    expect(maxLen(10)('1234567890')).toBe(true)
+  })
+
+  // The reason it exists: `sites.code` is STRING(10), so an 11th character is
+  // a server-side failure the user cannot read.
+  it('fails one character over the limit', () => {
+    expect(maxLen(10)('12345678901')).not.toBe(true)
+  })
+
+  it('measures the trimmed value, so surrounding whitespace is not counted', () => {
+    expect(maxLen(5)('  abc  ')).toBe(true)
+  })
+
+  it('passes for an empty value (let required() own emptiness)', () => {
+    expect(maxLen(3)('')).toBe(true)
+    expect(maxLen(3)(null)).toBe(true)
+    expect(maxLen(3)(undefined)).toBe(true)
+  })
+
+  it('returns a label-derived default message when none is given', () => {
+    const result = maxLen(10)('12345678901')
+    expect(resolveRuleMessage(result, 'Code')).toBe('Code must be 10 characters or fewer.')
+  })
+
+  it('falls back to a generic message when the field has no label', () => {
+    const result = maxLen(10)('12345678901')
+    expect(resolveRuleMessage(result, '')).toBe('Must be 10 characters or fewer.')
+  })
+
+  it('uses an explicit message verbatim, ignoring the label', () => {
+    const result = maxLen(10, 'Too long')('12345678901')
+    expect(resolveRuleMessage(result, 'Code')).toBe('Too long')
   })
 })
 
