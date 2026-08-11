@@ -24,9 +24,9 @@ export function uniqueTitle(tag) {
  * controller parks them in pendingReviewers until Open, but the picker
  * dialog itself fires before the POST /v1/services/capas call, not after.
  */
-export async function createCapa(page, title, { priority = null } = {}) {
+export async function createCapa(page, title, { priority = null, ...hooks } = {}) {
   await page.goto('/capas/create')
-  return fillCapaCreateForm(page, title, { priority })
+  return fillCapaCreateForm(page, title, { priority, ...hooks })
 }
 
 /**
@@ -36,7 +36,21 @@ export async function createCapa(page, title, { priority = null } = {}) {
  * (`/capas/create?findingId=…`), and re-navigating would drop the query param
  * that makes the new CAPA self-link back to the finding.
  */
-export async function fillCapaCreateForm(page, title, { priority = null } = {}) {
+/**
+ * @param {object} [opts]
+ * @param {string} [opts.priority]
+ * @param {(page) => Promise<void>} [opts.beforeSubmit] runs on the completed
+ *   create form, just before Submit. Inert by default.
+ * @param {(page) => Promise<void>} [opts.onReviewerDialog] runs on the
+ *   "Assign Step Reviewers" dialog, before Confirm. Inert by default.
+ *   Both exist so the screenshot specs can capture those states without
+ *   duplicating this flow.
+ */
+export async function fillCapaCreateForm(
+  page,
+  title,
+  { priority = null, beforeSubmit, onReviewerDialog } = {},
+) {
   await page.getByPlaceholder('Describe the CAPA…').fill(title)
 
   await selectFirstOption(page, 'Site')
@@ -57,6 +71,8 @@ export async function fillCapaCreateForm(page, title, { priority = null } = {}) 
     await workflowCard.click()
   }
 
+  if (beforeSubmit) await beforeSubmit(page)
+
   await page.getByRole('button', { name: 'Submit' }).click()
 
   // "Assign Step Reviewers" dialog — the seeded steps each have exactly one
@@ -71,6 +87,7 @@ export async function fillCapaCreateForm(page, title, { priority = null } = {}) 
   })
   const confirmBtn = page.getByRole('button', { name: 'Confirm' })
   await expect(confirmBtn).toBeEnabled({ timeout: 15_000 })
+  if (onReviewerDialog) await onReviewerDialog(page)
   await confirmBtn.click()
 
   await expect(page).toHaveURL(/\/capas\/(?!create)[0-9a-f-]{36}/, { timeout: 45_000 })

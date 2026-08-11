@@ -69,8 +69,13 @@ export async function selectFirstOption(page, fieldLabel) {
 /**
  * Create a document from the seeded SOP template with the seeded approval
  * workflow. Ends on the new document's detail page. Returns the title.
+ *
+ * @param {object} [opts]
+ * @param {(page) => Promise<void>} [opts.beforeSubmit] runs on the completed
+ *   create form, just before "Create Document" is clicked. Inert by default —
+ *   only the screenshot specs pass it (to capture the filled form / its tabs).
  */
-export async function createSopDocument(page, title) {
+export async function createSopDocument(page, title, opts = {}) {
   await page.goto('/documents')
   await page.getByRole('button', { name: 'Create Document' }).click()
   await expect(page).toHaveURL(/\/documents\/create/)
@@ -103,6 +108,8 @@ export async function createSopDocument(page, title) {
   await page
     .getByRole('button', { name: `Select workflow ${FIXTURES.approvalWorkflowName}` })
     .click()
+
+  if (opts.beforeSubmit) await opts.beforeSubmit(page)
 
   await page.getByRole('button', { name: 'Create Document' }).click()
   await expect(page).toHaveURL(/\/documents\/(?!create)[0-9a-f-]{36}/, { timeout: 20_000 })
@@ -158,17 +165,22 @@ export async function fillAllSections(page, documentId) {
  */
 /**
  * @param {import('@playwright/test').Page} page
- * @param {{ reviewersByStep?: string[] }} [opts] reviewer display name to pick
- *   per step (index 0 = step 1). Falls back to the first candidate.
+ * @param {{ reviewersByStep?: string[], onTrainingGate?: Function, onWorkflowDialog?: Function }} [opts]
+ *   `reviewersByStep`: reviewer display name to pick per step (index 0 = step 1);
+ *   falls back to the first candidate. `onTrainingGate(page)` runs while the
+ *   training reminder is open (before it is dismissed) and
+ *   `onWorkflowDialog(page, dialog)` runs on the filled workflow preview dialog
+ *   (before Submit). Both inert by default — only the screenshot specs pass them.
  */
 export async function submitForReview(page, opts = {}) {
-  const { reviewersByStep = [] } = opts
+  const { reviewersByStep = [], onTrainingGate, onWorkflowDialog } = opts
   await page.getByRole('button', { name: /submit for review/i }).click()
 
   // Pre-workflow gates may interpose. The seeded SOP template enables training,
   // so a "Finish training setup" reminder appears — disable training and submit.
   const trainingGate = page.getByRole('button', { name: /disable training.*submit/i })
   if (await trainingGate.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (onTrainingGate) await onTrainingGate(page)
     await trainingGate.click()
   }
   // A collaborator reminder may also interpose; proceed if present.
@@ -203,6 +215,7 @@ export async function submitForReview(page, opts = {}) {
 
   const submitBtn = dialog.getByRole('button', { name: 'Submit for Review' })
   await expect(submitBtn).toBeEnabled({ timeout: 5_000 })
+  if (onWorkflowDialog) await onWorkflowDialog(page, dialog)
   await submitBtn.click()
   // The status chip flips via sync-back (REST action → audit → sync socket →
   // syncEngine → IDB), and that socket push can be missed in a churning headless

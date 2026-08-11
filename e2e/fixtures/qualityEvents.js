@@ -160,14 +160,29 @@ export async function openEvent(page, eventId) {
   })
 }
 
-/** The status combobox in the detail header (rendered only when canUpdate). */
-function statusCombobox(page) {
+/**
+ * The status combobox in the detail header (rendered only when canUpdate).
+ *
+ * Exported so a spec can assert what the control currently reads without
+ * re-deriving the selector — the header select is the module's central control
+ * and every spec that touches it must agree on where it is.
+ */
+export function statusCombobox(page) {
   return page.locator('[role="combobox"]').first()
 }
 
-export async function statusMenuOptions(page) {
+/**
+ * Every status the header dropdown offers, leaving the menu closed again.
+ *
+ * @param {object} [opts]
+ * @param {(page) => Promise<void>} [opts.onOpen] runs while the listbox is
+ *   OPEN, just before it is dismissed. Inert by default — only the screenshot
+ *   spec passes it, to capture the open menu without duplicating this flow.
+ */
+export async function statusMenuOptions(page, { onOpen } = {}) {
   await statusCombobox(page).click()
   const options = await page.getByRole('listbox').getByRole('option').allTextContents()
+  if (onOpen) await onOpen(page)
   await page.keyboard.press('Escape')
   return options.map((s) => s.trim()).filter(Boolean)
 }
