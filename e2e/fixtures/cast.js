@@ -1,9 +1,31 @@
 // E2E cast — dedicated test tenant seeded by qms/database/e2e-seed.sql.
 // Applied automatically by e2e/fixtures/auth.setup.js. Every user shares the
 // same password; signers share the same e-sign PIN.
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-export const BASE_URL = process.env.E2E_BASE_URL || 'http://e2elab.localhost:5173'
-export const ALT_BASE_URL = process.env.E2E_ALT_BASE_URL || 'http://e2ealt.localhost:5173'
+// The dev server can move off 5173 via VITE_DEV_PORT in the app's gitignored
+// .env.local (e.g. when another app holds 5173). Mirror that here so the
+// suite targets the right port without every run needing E2E_BASE_URL.
+function devPort() {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  for (const f of ['.env.local', '.env']) {
+    try {
+      const m = fs
+        .readFileSync(path.resolve(here, '../..', f), 'utf8')
+        .match(/^VITE_DEV_PORT=(\d+)/m)
+      if (m) return m[1]
+    } catch {
+      // file may not exist — fall through
+    }
+  }
+  return '5173'
+}
+const DEV_PORT = devPort()
+
+export const BASE_URL = process.env.E2E_BASE_URL || `http://e2elab.localhost:${DEV_PORT}`
+export const ALT_BASE_URL = process.env.E2E_ALT_BASE_URL || `http://e2ealt.localhost:${DEV_PORT}`
 export const PASSWORD = '12345678'
 export const ESIGN_PIN = '12345678'
 

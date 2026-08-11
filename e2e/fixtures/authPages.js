@@ -29,7 +29,9 @@ import { expect, request } from '@playwright/test'
 import { sql, sqlValue } from './db.js'
 
 /** Tenant app origin (Vite). The sign-in form posts to `/api/...` on this host. */
-export const APP_ORIGIN = process.env.E2E_BASE_URL || 'http://e2elab.localhost:5173'
+import { BASE_URL } from './cast.js'
+
+export const APP_ORIGIN = BASE_URL
 /** Direct API origin. MUST be the tenant host — see fixtures/authentication.js. */
 export const API_ORIGIN = process.env.E2E_API_ORIGIN || 'http://e2elab.localhost:4000'
 export const MAILHOG = process.env.E2E_MAILHOG || 'http://localhost:8025'

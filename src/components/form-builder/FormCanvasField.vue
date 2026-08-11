@@ -376,6 +376,13 @@ function beginEdit(which) {
     <!-- Input Table — column-based builder (renders like the preview, add/remove
          columns via dialog, no add-row; respondents add rows at fill time). -->
     <InputTableBuilderCard v-else-if="isInputTable" :field="field" />
+    <!-- Multiple Choice with CUSTOM options — inline builder (rename/delete/add
+         options + choice-type toggle on the canvas). Option-Set-bound fields
+         keep the read-only preview: the set is shared tenant config. -->
+    <OptionGroupBuilderCard
+      v-else-if="field.type === 'optionGroup' && !field.optionSetId"
+      :field="field"
+    />
     <!-- Leaf field — a click-to-edit label above the real component preview.
          The label edits in place like the header/checklist/section labels;
          the preview renders label-less (previewFields blanks it) so there's no

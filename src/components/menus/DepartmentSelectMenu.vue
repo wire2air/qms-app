@@ -40,6 +40,9 @@ const modelValue = defineModel({
   default: null,
 })
 
+// No `initial: []` — undefined means "still loading", and the stale-selection
+// guard below must not treat a loading list as an empty one (it would wipe a
+// legitimate preset value before the first query resolves).
 const departments = useLiveQueryWithDeps(
   [() => props.siteId, () => (props.siteIds ? [...props.siteIds] : null)],
   async (db, [siteId, siteIds]) => {
@@ -50,8 +53,28 @@ const departments = useLiveQueryWithDeps(
     if (siteId) return all.filter((d) => d.siteId === siteId || !d.siteId)
     return all
   },
-  { models: ['Department'], initial: [] },
+  { models: ['Department'] },
 )
+const departmentOptions = computed(() => departments.value ?? [])
+
+// A site change can strand a selection that belongs to the OLD site: the
+// re-filtered list no longer contains it, so the trigger renders the
+// placeholder (looks unselected) while the model still holds the stale id —
+// `required()` then passes on the non-null value and the record saves a
+// cross-site department (bug report 2026-08-10: NC created "without" a
+// department that was actually another site's). Clear anything the loaded
+// list doesn't contain; on required selects BaseSelect's auto-fill then
+// picks the first valid department of the new site.
+watch([departments, modelValue], ([list, value]) => {
+  if (!Array.isArray(list) || value == null) return
+  if (props.multiple) {
+    if (!Array.isArray(value) || !value.length) return
+    const valid = value.filter((id) => list.some((d) => d.id === id))
+    if (valid.length !== value.length) modelValue.value = valid
+  } else if (!list.some((d) => d.id === value)) {
+    modelValue.value = null
+  }
+})
 
 const canCreateDepartment = computed(() => props.allowCreate && isAllowed(['departments:create']))
 
@@ -85,7 +108,7 @@ const resolvedNullLabel = computed(
     <div class="tw:flex-1 tw:min-w-0">
       <BaseSelect
         v-model="modelValue"
-        :options="departments"
+        :options="departmentOptions"
         optionLabel="name"
         optionValue="id"
         :nullLabel="resolvedNullLabel"

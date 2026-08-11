@@ -235,7 +235,13 @@ function isImage(att) {
       contentType="html"
       :editable="true"
       :placeholder="placeholder"
-    />
+    >
+      <!-- Forward the toolbar seam so callers (e.g. DynamicForm's default AI
+           assist) can extend the inner editor's toolbar. -->
+      <template v-if="$slots['toolbar-extra']" #toolbar-extra="scope">
+        <slot name="toolbar-extra" v-bind="scope" />
+      </template>
+    </BaseRichTextEditor>
 
     <!-- Non-image file attachment chips -->
     <div v-if="draftAtts.length || uploading" class="tw:flex tw:flex-wrap tw:gap-1.5">

@@ -425,9 +425,13 @@ const createDraftMutation = useLiveMutation(async (db, { workflowId, majorBump }
 async function handleCreateDraft(majorBump = false) {
   creatingDraft.value = true
   try {
-    await createDraftMutation({ workflowId: props.id, majorBump })
+    const newVersion = await createDraftMutation({ workflowId: props.id, majorBump })
     toast.success('New draft version created')
-    selectedVersionId.value = null
+    // Land ON the new draft (user report 2026-08-10). Clearing to null relied
+    // on the versions-watch fallback, but that watch prefers the
+    // ?version=<label> still in the URL — the published one — so the editor
+    // snapped straight back to the locked version.
+    selectedVersionId.value = newVersion?.id ?? null
   } catch {
     toast.error('Failed to create draft version')
   } finally {

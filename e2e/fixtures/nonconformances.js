@@ -4,7 +4,7 @@
 import { expect } from '@playwright/test'
 import { FIXTURES, USERS, AUTH, ESIGN_PIN } from './cast.js'
 import { waitForSqlValue } from './db.js'
-import { selectOption, selectFirstOption, expectStatusEventually, clickWhenReady } from './documents.js'
+import { selectOption, selectFirstOption, clickWhenReady } from './documents.js'
 
 /** Unique, greppable NC title for one test run. */
 export function uniqueTitle(tag) {
@@ -12,11 +12,12 @@ export function uniqueTitle(tag) {
 }
 
 /**
- * Raise an NC from the create page: fill required Classification fields,
- * leave Severity/Owner at their defaults (MINOR / current session user),
- * submit, and confirm the auto-populated "Assign Step Reviewers" dialog
- * (role-expansion auto-selects the sole candidate per seeded step role).
- * Ends on the new NC's detail page (DRAFT). Returns the title.
+ * Raise an NC from the create page: pick the workflow (screen 1), fill the
+ * required fields (title, containment, classification, item), submit, and
+ * confirm the auto-populated "Assign Step Reviewers" dialog. Create NC also
+ * OPENS the NC (create-and-open, 2026-08-10) — the function ends on the new
+ * NC's detail page with the workflow already running (UNDER_REVIEW).
+ * Returns the title.
  */
 /**
  * @param {object} [opts]
@@ -30,27 +31,50 @@ export function uniqueTitle(tag) {
  */
 export async function raiseNc(page, title, { severity = null, beforeSubmit, onReviewerDialog } = {}) {
   await page.goto('/nonconformances/create')
+
+  // Screen 1 of the workflow-first wizard (2026-08-10): only the workflow
+  // cards are visible — clicking one advances to the details form. A fresh
+  // profile's first IDB bootstrap can take well over 15s under test load, so
+  // wait generously for the card instead of falling back to Continue (which
+  // stays disabled until something is selected — E2ELAB has two NC workflows
+  // and no default, so nothing auto-selects).
+  const workflowCard = page.getByRole('button', { name: `Select workflow ${FIXTURES.ncrWorkflowName}` })
+  await expect(workflowCard).toBeVisible({ timeout: 45_000 })
+  await workflowCard.click()
+
+  // Screen 2 — the NC details form.
   await page.getByPlaceholder('Describe the nonconformance…').fill(title)
 
-  await selectFirstOption(page, 'Site')
-  await selectFirstOption(page, 'Department')
+  // Immediate containment action — REQUIRED, lives in Basic information
+  // (2026-08-10). Second rich-text editor in the section (first is
+  // Description); an empty editor emits '<p></p>' and fails validation.
+  await page.locator('.create-nc-editor [contenteditable="true"]').nth(1).fill('E2E containment: segregated affected units.')
+
+  // Pin Site/Department to the seeded pair the specs' counter assertions
+  // expect (NC number prefix NC-HQ-QA). first-option is no longer stable —
+  // other e2e projects accumulate sites (e.g. 'Main Site') in this tenant.
+  await selectOption(page, 'Site', 'Primary Site')
+  await selectOption(page, 'Department', 'Quality')
   await selectFirstOption(page, 'NC Type')
   await selectFirstOption(page, 'Detection source')
   if (severity) {
     await page.getByRole('radio', { name: severity }).click()
   }
 
-  // Workflow — auto-selected (single ACTIVE workflow for NON_CONFORMANCE in
-  // E2ELAB); click defensively so a slow IDB load doesn't leave it unset when
-  // Submit fires (mirrors the documents.js createSopDocument pattern).
-  const workflowCard = page.getByRole('button', { name: `Select workflow ${FIXTURES.ncrWorkflowName}` })
-  if (await workflowCard.isVisible({ timeout: 10_000 }).catch(() => false)) {
-    await workflowCard.click()
-  }
+  // Product & material — Item is REQUIRED (2026-08-10; no auto-fill by
+  // design). The field label is 'Item' — 'Product' would anchor on the
+  // progress-nav chip of the same name and drive the WRONG combobox.
+  // Dismiss Detection source's panel first: the keyboard Enter selects but
+  // can leave the popover OPEN (trace-verified), and the next click is then
+  // consumed as its outside-click — Item's own panel would never open. A
+  // neutral click (title input) closes it deterministically.
+  await page.getByPlaceholder('Describe the nonconformance…').click()
+  await expect(page.getByRole('listbox')).toHaveCount(0)
+  await selectOption(page, 'Item', 'E2E Widget 10mm')
 
   if (beforeSubmit) await beforeSubmit(page)
 
-  await page.getByRole('button', { name: 'Submit' }).click()
+  await page.getByRole('button', { name: 'Create NC' }).click()
 
   // "Assign Step Reviewers" dialog — the seeded steps each have exactly one
   // role member, so both pickers auto-select once IDB resolves; just wait for
@@ -73,15 +97,9 @@ export async function raiseNc(page, title, { severity = null, beforeSubmit, onRe
   return title
 }
 
-/** Owner opens a DRAFT NC (Open NC → confirm dialog → submitForReview). */
-export async function openNc(page, ncId) {
-  await page.goto(`/nonconformances/${ncId}`)
-  await page.getByRole('button', { name: 'Open NC' }).click()
-  // Anchor on the dialog title text (role=dialog reports hidden — see raiseNc).
-  await expect(page.getByText('Open Nonconformance', { exact: true })).toBeVisible({ timeout: 10_000 })
-  await page.getByRole('button', { name: 'Open NC' }).last().click()
-  await expectStatusEventually(page, /under review/i)
-}
+// (openNc removed 2026-08-10: Create NC now opens the workflow in the same
+// action — raiseNc already ends UNDER_REVIEW. The detail page's Open NC
+// button still exists for NCs that arrive as drafts, e.g. QC-lot spawns.)
 
 /**
  * Reviewer (step 1, ACTION, no e-sign) completes their task — a direct

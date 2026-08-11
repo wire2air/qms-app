@@ -6,11 +6,23 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Compact mode: a single dropdown row instead of the card panels — for
+  // tight dialogs (e.g. Raise supplier NC's CAPA workflow). Same option pool
+  // and default auto-select; the `pick` event stays cards-only.
+  compact: {
+    type: Boolean,
+    default: false,
+  },
   moduleId: {
     type: String,
     default: null,
   },
 })
+
+// Fired only on an explicit user click of a card — NOT by the auto-select
+// watch below. Lets wizard-style parents (NC create) advance on the user's
+// pick without misfiring when the default workflow is pre-selected.
+const emit = defineEmits(['pick'])
 
 const selectedVersionId = defineModel({
   type: [String, null],
@@ -86,15 +98,42 @@ watch(
 
 function pickWorkflow(entry) {
   selectedVersionId.value = entry.version.id
+  emit('pick', entry)
 }
 
 function versionLabel(version) {
   return `v${version.versionLabel || `${version.versionMajor}.${version.versionMinor}`}`
 }
+
+// Compact-mode option rows — default workflows sort first so the dropdown
+// reads default-first even before the auto-select lands.
+const compactOptions = computed(() =>
+  [...displayWorkflows.value]
+    .sort((a, b) => Number(b.workflow.isDefault ?? false) - Number(a.workflow.isDefault ?? false))
+    .map((e) => ({
+      id: e.version.id,
+      name: [
+        e.workflow.name + (e.workflow.isDefault ? ' (default)' : ''),
+        versionLabel(e.version),
+        `${stepCount(e.version.id)} steps`,
+      ].join(' · '),
+    })),
+)
 </script>
 
 <template>
-  <div class="tw:space-y-3">
+  <!-- Compact: one dropdown row. required=true hides the null option; the
+       module-default auto-select above pre-fills before the first paint. -->
+  <BaseSelect
+    v-if="compact"
+    v-model="selectedVersionId"
+    :options="compactOptions"
+    optionLabel="name"
+    optionValue="id"
+    :required="true"
+  />
+
+  <div v-else class="tw:space-y-3">
     <!-- Empty state -->
     <div
       v-if="displayWorkflows.length === 0"

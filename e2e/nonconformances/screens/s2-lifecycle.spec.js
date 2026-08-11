@@ -9,7 +9,6 @@ import { test, expect } from '../../../video/fixtures/videoTest.js'
 import { AUTH, ESIGN_PIN, FIXTURES, USERS } from '../../fixtures/cast.js'
 import {
   raiseNc,
-  openNc,
   completeReviewerStep,
   completeApproverStep,
   fillDisposition,
@@ -26,10 +25,12 @@ test.describe('NCR screenshots · raise → review → disposition → e-signed 
     const ctx = await browser.newContext({ storageState: AUTH.author })
     const page = await ctx.newPage()
 
-    // ── Blank create form ──────────────────────────────────────────────────
+    // ── Create wizard, screen 1 — the workflow choice (2026-08-10: the
+    //    create flow is workflow-first; the details form is screen 2 and is
+    //    captured by the beforeSubmit hook below). ─────────────────────────
     await page.goto('/nonconformances/create')
-    await expect(page.getByPlaceholder('Describe the nonconformance…')).toBeVisible({
-      timeout: 20_000,
+    await expect(page.getByText('Select a workflow', { exact: true })).toBeVisible({
+      timeout: 45_000,
     })
     await shot(page, 'create')
 
@@ -49,18 +50,9 @@ test.describe('NCR screenshots · raise → review → disposition → e-signed 
     })
     const nc = findNcByTitle(title)
 
-    await expect(page.getByText(nc.ncNumber ?? title).first()).toBeVisible({ timeout: 20_000 })
-    await shot(page, 'detail-draft')
-
-    // ── Open NC confirm dialog → UNDER_REVIEW ──────────────────────────────
-    await page.goto(`/nonconformances/${nc.id}`)
-    await page.getByRole('button', { name: 'Open NC' }).click()
-    await expect(page.getByText('Open Nonconformance', { exact: true })).toBeVisible({
-      timeout: 15_000,
-    })
-    await shot(page, 'open-nc-confirm')
-    await page.getByRole('button', { name: 'Open NC' }).last().click()
-
+    // Create-and-open (2026-08-10): raiseNc lands on the record already
+    // UNDER_REVIEW — the DRAFT detail and the Open-NC confirm no longer
+    // exist on this path (drafts remain only for QC-lot spawns).
     await waitForSqlValue(
       `SELECT status_id FROM nonconformances WHERE id = '${nc.id}' AND status_id = 'UNDER_REVIEW'`,
       { timeoutMs: 45_000, label: 'NC UNDER_REVIEW' },

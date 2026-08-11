@@ -37,10 +37,13 @@ const props = defineProps({
   // Synthesized steps (admin-defined modules) have no WorkflowStepRole rows yet
   // — pass their role ids directly. When null, fall back to querying by step.id.
   roleIds: { type: Array, default: null },
-  // Opt-in smart default (internal steps only): prefer this user if they hold
-  // the step's role, else their department supervisor if they hold it, else the
-  // first candidate. Used by the QC disposition submit (prefer the submitter).
-  // Omit (null) to keep the plain first-candidate default (NC/CAPA behaviour).
+  // Opt-in smart default (internal steps only): on EVERY step whose candidate
+  // pool contains this user, pre-assign them (rule 2026-08-10: the initiator
+  // is auto-assigned wherever they qualify — changeable per step). On the
+  // required first step it additionally falls back to their department
+  // supervisor, then the first candidate. Used by NC create (initiator) and
+  // the QC disposition submit (submitter). Omit (null) to keep the plain
+  // first-candidate default on the required step only (CAPA behaviour).
   preferUserId: { type: String, default: null },
 })
 
@@ -178,12 +181,14 @@ watch(
     supervisorId,
   ],
   ([users, currentId, supplierMode, ownerId, internals, preferId, supId]) => {
-    if (!props.required || autoSelectDone) return
+    if (autoSelectDone) return
     if (currentId != null) {
       autoSelectDone = true
       return
     }
-    if (!supplierMode && props.isSupplierFacing && isApprovalStep.value && ownerId) {
+    // Supplier-facing approval steps keep preferring the owner (CFR-21
+    // attestation) ahead of any preferUserId — required step only, as before.
+    if (props.required && !supplierMode && props.isSupplierFacing && isApprovalStep.value && ownerId) {
       const ownerCandidate = internals.find((u) => u.id === ownerId)
       if (ownerCandidate) {
         autoSelectDone = true
@@ -191,8 +196,10 @@ watch(
         return
       }
     }
-    if (!users.length) return
-    // Opt-in smart default (internal steps): prefer user → their supervisor → first.
+    // Preferred-user default — EVERY step, not just the required one: a step
+    // whose candidate pool contains the preferred user (NC initiator / QC
+    // submitter) is pre-assigned to them. `users` stays [] until the step's
+    // role query resolves, so this can't misfire on a transient pool.
     if (preferId && !supplierMode) {
       const self = users.find((u) => u.id === preferId)
       if (self) {
@@ -200,6 +207,11 @@ watch(
         modelValue.value = self.id
         return
       }
+    }
+    if (!users.length) return
+    // Required first step: prefer the preferred user's department supervisor
+    // before the generic first candidate (QC semantic).
+    if (props.required && preferId && !supplierMode) {
       // Wait for the supervisor lookup before falling back to the first candidate.
       if (supId === undefined) return
       const supervisor = supId ? users.find((u) => u.id === supId) : null
@@ -209,6 +221,10 @@ watch(
         return
       }
     }
+    // Every step defaults to SOMEONE (first candidate) — deterministic
+    // replacement for BaseSelect's disabled auto-fill. NC skips server-side
+    // role expansion, so a step left unpicked here would reach activation
+    // with zero reviewers and strand the workflow (F-12 guard).
     autoSelectDone = true
     modelValue.value = users[0].id
   },
@@ -258,12 +274,15 @@ watch(
     <!-- Picker — :required="true" always so the "All" null option
          never shows on a reviewer picker. The parent's `required`
          drives the "must pick before submit" rule on the first step. -->
+    <!-- :autoFill=false — BaseSelect's first-option fill would RACE the
+         initiator default below; this component is the only writer. -->
     <UserSelectMenu
       v-if="usesSupplierPicker"
       v-model="modelValue"
       kind="EXTERNAL_SUPPLIER"
       :supplierId="supplierId"
       :required="true"
+      :autoFill="false"
     />
     <UserSelectMenu
       v-else
@@ -271,6 +290,7 @@ watch(
       kind="INTERNAL"
       :roleIdsFilter="stepRoleIds.length ? stepRoleIds : null"
       :required="true"
+      :autoFill="false"
     />
 
     <div

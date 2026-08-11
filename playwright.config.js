@@ -12,7 +12,9 @@ import './e2e/fixtures/localhostDns.js'
 //
 // Execution is fully observable: HTML report + video + trace on every
 // documents run (`npx playwright show-report` / `--ui` / `--headed`).
-const BASE_URL = process.env.E2E_BASE_URL || 'http://e2elab.localhost:5173'
+// Single source of truth for the target origin — cast.js also derives the
+// port from VITE_DEV_PORT in .env.local when E2E_BASE_URL isn't set.
+import { BASE_URL } from './e2e/fixtures/cast.js'
 
 export default defineConfig({
   testDir: './e2e',

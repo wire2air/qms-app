@@ -14,7 +14,6 @@ import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, FIXTURES } from '../fixtures/cast.js'
 import {
   raiseNc,
-  openNc,
   completeReviewerStep,
   completeApproverStep,
   fillDisposition,
@@ -37,7 +36,6 @@ test.describe('PW-J3 · Approve & Close — all 5 gates, then e-signed close', (
     const title = uniqueTitle('J3')
     await raiseNc(page, title)
     const nc = findNcByTitle(title)
-    await openNc(page, nc.id)
 
     // Gate 1 — open steps (workflow just started, nothing complete yet).
     await expect(page.getByRole('button', { name: 'Approve & Close' })).toBeVisible({ timeout: 15_000 })
