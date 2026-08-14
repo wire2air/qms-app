@@ -10,6 +10,7 @@ import {
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
+import { useActiveWorkflowEntries } from '@/composables/useActiveWorkflowEntries.js'
 import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
 import { required } from '@shared/components/form/validators.js'
 import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
@@ -154,38 +155,42 @@ watch(
   },
 )
 
-// Only show workflows scoped to the Change Control module.
-const workflows = useLiveQuery(
-  async (db) => {
-    const all = await db.Workflow.where().exec()
-    return all.filter((w) => w.moduleId === 'CHANGE_CONTROL' && w.statusId === 'ACTIVE')
+// ── Workflow — two-screen wizard, same as NC/CAPA (user decision 2026-08-14) ─
+// Screen 1 is ONLY the workflow choice (cards, default pre-selected); screen 2
+// is the CR details form with a context strip + Change button. With exactly
+// ONE active workflow, screen 1 is skipped entirely. NOTE: the workflow
+// templates' moduleId is 'CHANGE_CONTROL' (matches the seeds + WorkflowEditor),
+// not CR_MODULE.workflowVersionModuleId.
+const screen = ref('workflow')
+
+function goToDetails() {
+  if (!form.value.workflowVersionId) return
+  screen.value = 'details'
+}
+
+const { entries: activeWorkflowEntries } = useActiveWorkflowEntries('CHANGE_CONTROL')
+const singleWorkflow = computed(() => activeWorkflowEntries.value.length === 1)
+const workflowAutoSkipped = ref(false)
+watch(
+  activeWorkflowEntries,
+  (entries) => {
+    if (workflowAutoSkipped.value || screen.value !== 'workflow') return
+    if (entries.length !== 1) return
+    workflowAutoSkipped.value = true
+    form.value.workflowVersionId = entries[0].version.id
+    screen.value = 'details'
   },
-  { models: ['Workflow'], initial: [] },
-)
-const activeWorkflowVersions = useLiveQueryWithDeps(
-  [() => workflows.value.map((w) => w.id).join(',')],
-  async (db, [idsStr]) => {
-    if (!idsStr) return []
-    const ids = idsStr.split(',')
-    const versions = await Promise.all(
-      ids.map((id) =>
-        db.WorkflowVersion.where('workflowId', id).orderBy('createdAt', 'desc').first(),
-      ),
-    )
-    return versions.filter((v) => v?.statusId === 'PUBLISHED')
-  },
-  { models: ['WorkflowVersion'], initial: [] },
+  { immediate: true },
 )
 
-const workflowVersionOptions = computed(() =>
-  activeWorkflowVersions.value.map((v) => {
-    const wf = workflows.value.find((w) => w.id === v.workflowId)
-    return {
-      id: v.id,
-      name: wf ? `${wf.name} v${v.versionMajor}.${v.versionMinor}` : `Version ${v.id.slice(0, 8)}`,
-    }
-  }),
-)
+// Name + version for the details screen's context strip.
+const selectedWorkflowLabel = computed(() => {
+  const e = activeWorkflowEntries.value.find((x) => x.version.id === form.value.workflowVersionId)
+  if (!e) return ''
+  return `${e.workflow.name} · v${
+    e.version.versionLabel || `${e.version.versionMajor ?? 1}.${e.version.versionMinor ?? 0}`
+  }`
+})
 
 // Sticky section nav (FormProgressNav). Section ids mirror the FormSection ids
 // below; status shows a check once a section's required fields are satisfied.
@@ -213,17 +218,18 @@ const navSections = computed(() => [
   },
   { id: 'cr-context', label: 'Context', icon: IconFileDescription, status: null },
   { id: 'cr-notify', label: 'Notify', icon: IconBell, status: null },
-  {
-    id: 'cr-workflow',
-    label: 'Workflow',
-    icon: IconSitemap,
-    status: form.value.workflowVersionId ? 'complete' : null,
-  },
 ])
 
-// No form-level escape-hatch validation needed — all required values have
-// labeled BaseField wrappers with per-field :rules.
+// Per-field rules cover the form; the workflow is picked on its own screen
+// before this form is reachable, so this check is a safety net only — it
+// bounces the user back to the workflow screen.
 function validate() {
+  if (!form.value.workflowVersionId) {
+    screen.value = 'workflow'
+    return [
+      { id: 'cr-workflow', label: 'Workflow', message: 'Pick a workflow before submitting.' },
+    ]
+  }
   return []
 }
 
@@ -285,7 +291,7 @@ function goBack() {
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
+  <BasePage :width="screen === 'workflow' ? 'narrow' : 'standard'" fullHeight>
     <PageHeader>
       <template #title>
         <BaseBreadcrumbs
@@ -298,9 +304,55 @@ function goBack() {
     </PageHeader>
 
     <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
+      <!-- Screen 1 — workflow choice only (same wizard as NC/CAPA, 2026-08-14).
+           Skipped entirely when exactly one active workflow exists. -->
+      <div v-if="screen === 'workflow'" class="tw:py-6 tw:flex tw:flex-col tw:gap-5">
+        <div>
+          <BaseText as="h2" weight="bold" class="tw:text-lg">Select a workflow</BaseText>
+          <p class="tw:text-sm tw:text-secondary tw:mt-1">
+            Every change request follows an approval workflow. Pick the process this change will
+            follow — you'll describe the change on the next screen.
+          </p>
+        </div>
+        <WorkflowVersionSelect
+          v-model="form.workflowVersionId"
+          moduleId="CHANGE_CONTROL"
+          @pick="goToDetails"
+        />
+        <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-4 tw:border-t tw:border-divider">
+          <BaseButton variant="outline" @click="goBack">Cancel</BaseButton>
+          <BaseButton variant="primary" :disabled="!form.workflowVersionId" @click="goToDetails">
+            Continue
+          </BaseButton>
+        </div>
+      </div>
+
+      <!-- Screen 2 — the CR details form, with a context strip recalling the
+           chosen workflow (Change returns to screen 1, data intact). -->
+      <template v-else>
       <div class="tw:sticky tw:top-0 tw:z-10 tw:bg-main">
         <FormProgressNav :sections="navSections" />
       </div>
+
+      <div
+        class="tw:mt-4 tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-4 tw:py-3"
+      >
+        <IconSitemap :size="18" class="tw:text-primary tw:shrink-0" />
+        <div class="tw:min-w-0 tw:flex-1">
+          <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+            {{ selectedWorkflowLabel || 'Workflow selected' }}
+          </p>
+          <p class="tw:text-xs tw:text-secondary">
+            The change request is created as a draft — assign step reviewers and submit it for
+            approval from the CR page.
+          </p>
+        </div>
+        <!-- Hidden when only one workflow exists — nothing to change to. -->
+        <BaseButton v-if="!singleWorkflow" variant="outline" size="sm" @click="screen = 'workflow'">
+          Change
+        </BaseButton>
+      </div>
+
       <BaseForm
         class="tw:py-6"
         :validate="validate"
@@ -536,29 +588,9 @@ function goBack() {
           />
         </FormSection>
 
-        <!-- Workflow -->
-        <FormSection id="cr-workflow" title="Workflow" :icon="IconSitemap">
-          <BaseField
-            id="cr-workflow-version"
-            label="Workflow"
-            required
-            :value="form.workflowVersionId"
-            :rules="[required()]"
-          >
-            <template #default="field">
-              <BaseSelect
-                v-bind="field"
-                v-model="form.workflowVersionId"
-                :options="workflowVersionOptions"
-                optionLabel="name"
-                optionValue="id"
-                :required="true"
-                nullLabel="— Select workflow —"
-              />
-            </template>
-          </BaseField>
-        </FormSection>
+        <!-- (Workflow lives on its own screen now — see screen 1 above.) -->
       </BaseForm>
+      </template>
     </div>
   </BasePage>
 </template>

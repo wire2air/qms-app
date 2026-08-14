@@ -28,21 +28,26 @@
 //      is inspectable before it runs; only the active step's rows are `ASSIGNED`
 //      and carry a task.
 //
-// The picker half matters as much as the shape: the dialog's candidate pool is
+// The picker half matters as much as the shape: the picker's candidate pool is
 // the step's ROLE POOL, and a pick outside it is rejected server-side. That
-// server check is asserted directly, because the dialog cannot offer an
+// server check is asserted directly, because the picker cannot offer an
 // out-of-pool user and therefore cannot prove the rule holds for anyone who
-// isn't using the dialog.
+// isn't using the picker.
+//
+// (2026-08-14: CAPA create no longer collects reviewers in a dialog — the CAPA
+// lands as a DRAFT and the owner picks per-step reviewers on the detail page's
+// Workflow Plan (CapaWorkflowDraftPreview), which parks them in
+// `pending_reviewers` exactly like the old dialog did. Same pool, same parked
+// map, same instantiation on Open CAPA — this spec drives the new surface.)
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import { sql, sqlValue, waitForSqlValue, findCapaByTitle } from '../fixtures/db.js'
-import { openCapa, uniqueTitle } from '../fixtures/capas.js'
-import { selectFirstOption } from '../fixtures/documents.js'
+import { createCapa, openCapa, uniqueTitle } from '../fixtures/capas.js'
 
-// The seeded CAPA workflow (qms/database/e2e-seed.sql §14): two steps, one role
-// each, one member per role. Referenced by id so the assertions below say "the
-// instance step points at THIS template step" rather than "some step exists".
-const CAPA_WORKFLOW_NAME = 'E2E CAPA Review & Approval'
+// The seeded CAPA workflow (qms/database/e2e-seed.sql §14, 'E2E CAPA Review &
+// Approval'): two steps, one role each, one member per role. Referenced by id
+// so the assertions below say "the instance step points at THIS template
+// step" rather than "some step exists".
 const TEMPLATE = {
   step1: { id: 'e2ef2003-0000-4000-8000-000000000001', name: 'Reviewer Check', type: 'ACTION' },
   step2: { id: 'e2ef2003-0000-4000-8000-000000000002', name: 'Final Approval', type: 'APPROVAL' },
@@ -52,38 +57,17 @@ const TEMPLATE = {
 // lands on them) — the record-owner persona the journey calls for.
 test.use({ storageState: AUTH.author })
 
-/** The open reviewer-picker dialog. HeadlessUI aria-hides everything else. */
-function dialogOf(page) {
-  return page.locator('[role="dialog"]')
-}
-
 /**
- * Fill the create-CAPA form and press Submit, stopping AT the reviewer dialog.
- *
- * `fixtures/capas.js` `createCapa` blows straight through this dialog by
- * clicking Confirm on whatever auto-selected — which is the right call for the
- * eleven journeys that only need a CAPA to exist, and exactly the thing this
- * journey has to not do.
+ * The draft Workflow Plan's reviewer picker for one step: the first combobox
+ * AFTER the step's name in document order. The plan's rows render name →
+ * picker → next row, and the rail's own selects come later in the DOM, so
+ * `following::*[@role="combobox"][1]` lands on that row's picker.
  */
-async function createCapaToReviewerDialog(page, title) {
-  await page.goto('/capas/create')
-  await page.getByPlaceholder('Describe the CAPA…').fill(title)
-  await selectFirstOption(page, 'Site')
-  await selectFirstOption(page, 'Department')
-  await selectFirstOption(page, 'CAPA Type')
-  await selectFirstOption(page, 'Source')
-
-  // Single ACTIVE CAPA workflow in E2ELAB, so the card auto-selects; click it
-  // defensively in case a slow IDB load leaves it unset.
-  const workflowCard = page.getByRole('button', { name: `Select workflow ${CAPA_WORKFLOW_NAME}` })
-  if (await workflowCard.isVisible({ timeout: 15_000 }).catch(() => false)) {
-    await workflowCard.click()
-  }
-
-  await page.getByRole('button', { name: 'Submit' }).click()
-  await expect(
-    page.getByText('Assign task to user for each workflow step before submitting.'),
-  ).toBeVisible({ timeout: 45_000 })
+function stepPicker(page, stepName) {
+  return page
+    .getByText(stepName, { exact: true })
+    .first()
+    .locator('xpath=following::*[@role="combobox"][1]')
 }
 
 /**
@@ -115,28 +99,37 @@ test.describe('PW-J4 · reviewer picker → workflow instantiation', () => {
     test.setTimeout(180_000)
 
     const title = uniqueTitle('J4-picker')
-    await createCapaToReviewerDialog(page, title)
+    await createCapa(page, title)
 
-    const dlg = dialogOf(page)
+    const capa = findCapaByTitle(title)
+    expect(capa, 'the CAPA was created').toBeTruthy()
+    expect(capa.statusId, 'created as a DRAFT — nothing has started').toBe('DRAFT')
+    expect(capa.ownerId).toBe(USERS.author.id)
 
-    // The dialog previews the CHAIN, in template order, before anything runs.
-    await expect(dlg.getByText(TEMPLATE.step1.name)).toBeVisible()
-    await expect(dlg.getByText(TEMPLATE.step2.name)).toBeVisible()
-
-    // One picker per step, in the same order the steps will execute.
-    const combos = dlg.getByRole('combobox')
-    await expect(combos).toHaveCount(2)
+    // The draft Workflow Plan previews the CHAIN, in template order, before
+    // anything runs — one picker per step.
+    await expect(page.getByText('Workflow Plan')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(TEMPLATE.step1.name).first()).toBeVisible()
+    await expect(page.getByText(TEMPLATE.step2.name).first()).toBeVisible()
 
     // Step 1's pool is the E2E Reviewer role; step 2's is E2E Approver. This is
-    // the assertion that makes the pick meaningful: the dialog is not offering
+    // the assertion that makes the pick meaningful: the picker is not offering
     // the whole roster and happening to land on the right person. `author` —
-    // the very user driving this dialog — is in neither pool and must not
+    // the very user driving these pickers — is in neither pool and must not
     // appear in either list.
-    const step1Candidates = await pickReviewer(page, combos.nth(0), USERS.reviewer.name)
+    const step1Candidates = await pickReviewer(
+      page,
+      stepPicker(page, TEMPLATE.step1.name),
+      USERS.reviewer.name,
+    )
     expect(step1Candidates, "step 1's candidates are exactly its role pool").toEqual([
       USERS.reviewer.name,
     ])
-    const step2Candidates = await pickReviewer(page, combos.nth(1), USERS.approver.name)
+    const step2Candidates = await pickReviewer(
+      page,
+      stepPicker(page, TEMPLATE.step2.name),
+      USERS.approver.name,
+    )
     expect(step2Candidates, "step 2's candidates are exactly its role pool").toEqual([
       USERS.approver.name,
     ])
@@ -145,18 +138,17 @@ test.describe('PW-J4 · reviewer picker → workflow instantiation', () => {
       'the submitter is not an eligible reviewer on either step',
     ).not.toContain(USERS.author.name)
 
-    await dlg.getByRole('button', { name: 'Confirm' }).click()
-    await expect(page).toHaveURL(/\/capas\/(?!create)[0-9a-f-]{36}/, { timeout: 45_000 })
-
-    const capa = findCapaByTitle(title)
-    expect(capa, 'the CAPA was created').toBeTruthy()
-    expect(capa.statusId, 'the picks alone do not start the workflow').toBe('DRAFT')
-    expect(capa.ownerId).toBe(USERS.author.id)
-
-    // The picks are PARKED on the record until it is opened. Asserting this is
-    // what separates "the dialog collected the picks" from "the dialog started
-    // an approval", and the CAPA controller wipes `pending_reviewers` on
-    // submit — so this is the only point at which it is readable at all.
+    // The picks are PARKED on the record until it is opened (the plan
+    // autosaves each pick). Asserting this is what separates "the plan
+    // collected the picks" from "the plan started an approval", and the CAPA
+    // controller wipes `pending_reviewers` on submit — so this is the only
+    // point at which it is readable at all.
+    await waitForSqlValue(
+      `SELECT count(*) FROM capas WHERE id = '${capa.id}'
+        AND pending_reviewers->'${TEMPLATE.step1.id}'->>0 = '${USERS.reviewer.id}'
+        AND pending_reviewers->'${TEMPLATE.step2.id}'->>0 = '${USERS.approver.id}'`,
+      { timeoutMs: 30_000, label: 'both picks parked in pending_reviewers' },
+    )
     expect(
       sqlValue(
         `SELECT pending_reviewers->'${TEMPLATE.step1.id}'->>0 FROM capas WHERE id = '${capa.id}'`,
@@ -289,23 +281,18 @@ test.describe('PW-J4 · reviewer picker → workflow instantiation', () => {
     ).toBe(1)
   })
 
-  test('the role pool is enforced on the server, not just drawn in the dialog', async ({ page }) => {
+  test('the role pool is enforced on the server, not just drawn in the picker', async ({ page }) => {
     test.setTimeout(180_000)
 
-    // The dialog can only ever offer the pool, so driving it can never prove the
+    // The picker can only ever offer the pool, so driving it can never prove the
     // rule holds. The submit endpoint accepts a `reviewers` map straight off the
     // wire — that is the surface an out-of-pool pick would actually arrive on,
     // and `createWorkflowInstance` re-derives the pool and rejects. Without this,
     // a UI-only journey would report the pool as enforced while the server let
-    // any tenant user be routed a controlled-record approval.
+    // any tenant user be routed a controlled-record approval. (No UI picks
+    // needed here — an explicit `reviewers` body overrides `pending_reviewers`.)
     const title = uniqueTitle('J4-pool')
-    await createCapaToReviewerDialog(page, title)
-    const dlg = dialogOf(page)
-    const combos = dlg.getByRole('combobox')
-    await pickReviewer(page, combos.nth(0), USERS.reviewer.name)
-    await pickReviewer(page, combos.nth(1), USERS.approver.name)
-    await dlg.getByRole('button', { name: 'Confirm' }).click()
-    await expect(page).toHaveURL(/\/capas\/(?!create)[0-9a-f-]{36}/, { timeout: 45_000 })
+    await createCapa(page, title)
 
     const capa = findCapaByTitle(title)
 

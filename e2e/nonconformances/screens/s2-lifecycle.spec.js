@@ -25,13 +25,17 @@ test.describe('NCR screenshots · raise → review → disposition → e-signed 
     const ctx = await browser.newContext({ storageState: AUTH.author })
     const page = await ctx.newPage()
 
-    // ── Create wizard, screen 1 — the workflow choice (2026-08-10: the
-    //    create flow is workflow-first; the details form is screen 2 and is
-    //    captured by the beforeSubmit hook below). ─────────────────────────
+    // ── Create wizard entry — screen 1 (workflow choice) when several
+    //    workflows exist, or the details form directly when the single
+    //    active workflow auto-skips screen 1 (2026-08-14). Shoot whichever
+    //    the tenant's workflow count produces. ──────────────────────────────
     await page.goto('/nonconformances/create')
-    await expect(page.getByText('Select a workflow', { exact: true })).toBeVisible({
-      timeout: 45_000,
-    })
+    await expect(
+      page
+        .getByText('Select a workflow', { exact: true })
+        .or(page.getByPlaceholder('Describe the nonconformance…'))
+        .first(),
+    ).toBeVisible({ timeout: 45_000 })
     await shot(page, 'create')
 
     // ── Filled form + the reviewer-assignment dialog ───────────────────────

@@ -13,6 +13,7 @@ import { currentSession } from '@/utils/currentSession.js'
 import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
 import WorkflowVersionSelect from '@/components/documents/WorkflowVersionSelect.vue'
 import { NC_MODULE, CAPA_MODULE } from '@/components/workflow/workflowModule.js'
+import { useActiveWorkflowEntries } from '@/composables/useActiveWorkflowEntries.js'
 import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
 import { required, requiredWhen } from '@shared/components/form/validators.js'
 import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
@@ -36,6 +37,29 @@ function goToDetails() {
   if (!form.value.workflowVersionId) return
   screen.value = 'details'
 }
+
+// Single-workflow fast path (user request 2026-08-14): with exactly one
+// active workflow there is nothing to choose — select it and land straight
+// on the details screen. One-shot so it can't fight the user; the Change
+// button is hidden in that case anyway (nothing to change to). NOTE: sits
+// below `form` — the watcher writes into it (declared further down; watch
+// runs post-setup so there's no TDZ, unlike eager dep getters).
+const { entries: activeWorkflowEntries } = useActiveWorkflowEntries(
+  NC_MODULE.workflowVersionModuleId,
+)
+const singleWorkflow = computed(() => activeWorkflowEntries.value.length === 1)
+const workflowAutoSkipped = ref(false)
+watch(
+  activeWorkflowEntries,
+  (entries) => {
+    if (workflowAutoSkipped.value || screen.value !== 'workflow') return
+    if (entries.length !== 1) return
+    workflowAutoSkipped.value = true
+    form.value.workflowVersionId = entries[0].version.id
+    screen.value = 'details'
+  },
+  { immediate: true },
+)
 const saving = ref(false)
 // Server-side save failure — surfaced persistently in the form footer.
 const submitError = ref('')
@@ -437,7 +461,10 @@ async function handleReviewersConfirmed(reviewers) {
             on Submit — you can reassign any step afterwards.
           </p>
         </div>
-        <BaseButton variant="outline" size="sm" @click="screen = 'workflow'">Change</BaseButton>
+        <!-- Hidden when only one workflow exists — nothing to change to. -->
+        <BaseButton v-if="!singleWorkflow" variant="outline" size="sm" @click="screen = 'workflow'">
+          Change
+        </BaseButton>
         <!-- Submit-time per-step reviewer dialog — select suppressed, the
              workflow was chosen on screen 1. -->
         <WorkflowReviewerPickerDialog
